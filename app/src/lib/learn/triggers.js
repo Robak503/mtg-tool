@@ -1277,6 +1277,17 @@ const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 // Returns null when the effect doesn't begin with the source's name (the common case — most effects use "it"
 // or have no self-subject), making this a pure promotion.
 const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals )/i;
+// TRAILING self-name (ARIXMETHES) — a counter REMOVAL whose SOURCE-permanent referent trails the verb:
+// "[you may ]remove a slumber counter from <Name>". The self-name sits at the END of the clause (unlike the
+// leading "<Name> gets +1/+1" shape above), so it's rewritten to "this creature" only when the whole clause
+// matches this exact remove-counter-on-self grammar — a "remove" verb + a single-word non-±1/+1 counter kind +
+// a "from <Name>" tail. Whole-clause anchored, so a coincidental name prefix elsewhere never mis-binds (CREED).
+// The captured group excludes the name; the caller substitutes "this creature" for it, yielding the parseable
+// self form. SCOPED TO "remove … from" ONLY (not "put … on <Name>"): the remove-named-counter-self atom rejects
+// the reserved fade/time/loyalty kinds, so the only cards this newly flips are genuinely-modeled ones; a
+// broader "put … on <Name>" rewrite would let a card whose OWN mana/other ability is mis-modeled (Famous Museum
+// — a "for each art counter" scaled mana source read as a flat amount) slip through the leaky mana gate — an FP.
+const SELF_NAME_TRAILING_COUNTER_RE = /^((?:you may )?remove (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? from )$/i;
 function rewriteSelfNameToThisCreature(effectClause, cardName) {
   const eff = String(effectClause || "");
   const fullName = String(cardName || "").trim();
@@ -1291,6 +1302,13 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // Only rewrite when what FOLLOWS the name is a modeled self-effect verb — otherwise the name might be a
     // coincidental prefix of unrelated text and rewriting could mis-bind (CREED). The parser re-gates anyway.
     if (m && SELF_NAME_EFFECT_VERB_RE.test(m[1])) return `this creature ${m[1]}`;
+    // TRAILING self-name (ARIXMETHES) — "[you may ]remove/put a <name> counter from/on <Name>". The name is at
+    // the clause END; rewrite it to "this creature" only when the leading text is the exact counter-on-self
+    // grammar (SELF_NAME_TRAILING_COUNTER_RE). Whole-clause anchored on the head + the bare name tail, so it
+    // can't consume a filtered/multi-target counter clause or a coincidental trailing name (CREED). The parser
+    // re-gates the rewritten form anyway (a non-modeled counter kind fails there → the card stays non-native).
+    const tm = eff.match(new RegExp(`^(.+?)\\s*${esc}$`, "i"));
+    if (tm && SELF_NAME_TRAILING_COUNTER_RE.test(tm[1].trim() + " ")) return `${tm[1].trim()} this creature`;
   }
   return effectClause;
 }

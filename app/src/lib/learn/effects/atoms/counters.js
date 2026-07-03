@@ -2,7 +2,7 @@
  * effects/atoms/counters.js — counter atoms (add-counter, proliferate, gain-experience, rad).
  */
 
-import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
@@ -445,6 +445,57 @@ export function addNamedCounterSelfClauseParser(clause) {
 }
 
 /**
+ * REMOVE-NAMED-COUNTER-SELF (CR 122.3) — remove one (or N) NAMED (non-±1/+1) counter from the SOURCE permanent
+ * itself ("remove a slumber counter from this creature" — Arixmethes' cast trigger; the mirror of
+ * applyAddNamedCounterSelf). The source is read from ctx.sourceId (threaded by the trigger flush, CR 113.7) and
+ * may be ANY permanent type. A named counter is never a P/T counter, so no lethal-SBA pass is needed. Absent
+ * source (already left the battlefield) OR no counters of that kind present → a clean no-op (never a negative
+ * count), matching the CR 122.3 "can't remove a counter that isn't there" reality. Goes through
+ * gameState.removeCounter, which floors the pile at 0 and drops it when it hits 0.
+ *
+ * OPTIONAL ("you may remove …") — the trigger flush already gates an optional trigger's whole effect on the
+ * controller's decision (the `optional` flag on the detected trigger), so this atom itself always removes when
+ * run; the "may" is honored one level up. For the self-play engine, the fewer slumber counters the better
+ * (Arixmethes becomes a creature sooner), so the optional trigger is taken whenever it fires.
+ */
+export function applyRemoveNamedCounterSelf(state, atom, ctx) {
+  const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!lk) return state;
+  const have = lk.permanent.counters?.[atom.counterType] || 0;
+  if (have <= 0) return state; // nothing to remove — a clean no-op (CR 122.3)
+  const amount = Math.min(atom.amount || 1, have);
+  const next = removeCounter(state, { permanentId: ctx.sourceId, type: atom.counterType, amount });
+  return logEvent(next, { kind: "spell-effect", effect: "remove-named-counter-self", counterType: atom.counterType, amount, targets: [ctx.sourceId] });
+}
+
+// REMOVE-NAMED-COUNTER-SELF parser — "remove a <name> counter from this (permanent|creature|artifact|
+// enchantment)" (a leading "you may " is stripped by the optional-trigger wrapper before this sees the clause,
+// but accept it here too so the bare effect clause parses HIGH for triggerRoutesNatively). The counter NAME
+// must be a single bare word that is NOT a ±1/+1 form. Numeric/spelled N supported. Whole-clause anchored;
+// a filter / rider / "for each" → no match → low → Arbiter (a SAFE false-negative). Pure; registered via
+// registerClauseParser. This is the piece that makes Arixmethes' "Whenever you cast a spell, you may remove a
+// slumber counter from Arixmethes" cast trigger resolve natively (the self-name is normalized to "this
+// creature" upstream, but the raw "from <cardname>" form is also matched via the trailing-word fallback).
+//
+// RESERVED-KIND GUARD (CREED): fade / time / loyalty are counters owned by OTHER, more-complete subsystems —
+// Vanishing/Fading's "remove a time counter from it" lives inside REMINDER text and is fully handled (with its
+// "when the last is removed, sacrifice it" rider) by fading.applyFadeVanishUpkeep, NOT by this bare remove.
+// Routing that reminder clause through this atom would let a Vanishing card flip native on the PHANTOM reminder
+// trigger while its REAL ability (Keldon Marauders' ETB/LTB damage) stays unmodeled — a forbidden FP. Reject
+// those kinds here so those cards stay non-native (safe FN); only genuinely card-specific counters (slumber)
+// resolve through this atom.
+const _REMOVE_SELF_RESERVED_KINDS = new Set(["time", "fade", "loyalty"]);
+export function removeNamedCounterSelfClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/^you may\s+/, "");
+  const m = t.match(/^remove (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? from (?:this (?:permanent|creature|artifact|enchantment)|it)$/);
+  if (!m) return null;
+  // ±1/+1 forms are spelled with digits + slash and never match [a-z]+; belt-and-suspenders guard.
+  if (/^[+-]?1\/[+-]?1$/.test(m[2])) return null;
+  if (_REMOVE_SELF_RESERVED_KINDS.has(m[2])) return null; // owned by fading/PW — see RESERVED-KIND GUARD above
+  return { op: "remove-named-counter-self", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10) };
+}
+
+/**
  * SHIELD-COUNTER (CR 122.1c) — "Put a shield counter on <a creature you control | target creature>". A shield
  * counter is a REAL protective counter: gameState's destruction sites (destroyLethalCreatures SBA +
  * applyDestroyEffect) and damage sites (applyDamageEffect + combatResolution) each check `hasShieldCounter` and
@@ -491,6 +542,7 @@ export const counterResolvers = {
   "add-counter": applyAddCounter,
   "shield-counter": applyShieldCounter, // SHIELD COUNTER (CR 122.1c) — a protective counter; consumed at the damage/destruction sites in gameState
   "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact
+  "remove-named-counter-self": applyRemoveNamedCounterSelf, // ARIXMETHES cast trigger: remove a slumber counter from the source permanent
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
   "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main
   "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks

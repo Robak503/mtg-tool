@@ -423,6 +423,33 @@ export function entersWithPlusCounters(card) {
   return 0;
 }
 
+// ENTERS-WITH-NAMED-COUNTERS (CR 614.1c + 122.6a) — the FIXED number of a NAMED (non-P/T) counter a permanent
+// "enters with N <name> counters on it", or null. The generic sibling of entersWithPlusCounters, for a
+// card-specific counter kind (slumber — Arixmethes; the fading/vanishing fade/time counters have their own
+// keyword-driven path in fading.js and are EXCLUDED here to avoid a double-add). ONLY the bare, unconditional,
+// literal-N form: a kicker / "for each" / "where X" / conditional variant → null (the variable/gated count
+// isn't modeled → left to the Arbiter, never a fabricated count). The counter NAME must be a single bare word
+// (not a ±1/+1 P/T form, not loyalty — loyalty enters via the PW starting-loyalty write). Returns
+// { type, n } | null. Leaf (no engine import). The resolver adds exactly this at ETB; the SINGLE source of truth.
+const _RESERVED_ENTER_COUNTER_KINDS = new Set(["fade", "time", "loyalty"]);
+export function entersWithNamedCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    // "enters [the battlefield ][tapped ]with N <name> counters on it" — Arixmethes' printed text combines the
+    // tapped clause and the counter clause in one sentence ("enters tapped with five slumber counters on it"),
+    // so tolerate an optional "tapped" between "enters" and "with" (the enters-tapped seam handles the tapped
+    // status separately; the coverage tapRe strip removes the tapped mention from the classifier residue).
+    const m = sentence.match(/enters (?:the battlefield )?(?:tapped )?with (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on it/i);
+    if (!m) continue;
+    const kind = m[2].toLowerCase();
+    if (_RESERVED_ENTER_COUNTER_KINDS.has(kind)) return null; // owned by another path (fading/PW) → not this seam
+    if (/\b(?:if|for each|where|kicked|unless|equal to|plus)\b/i.test(sentence)) return null; // conditional/variable → not modeled
+    const n = _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
+    return n > 0 ? { type: kind, n } : null;
+  }
+  return null;
+}
+
 /**
  * ENTERS-WITH-X (CR 122.1 + the {X} chosen at cast) — does this permanent "enter with X +1/+1 counters on
  * it", where X is the value paid for its {X} mana cost? True for the bare literal-"X" form (Hungering /
@@ -635,6 +662,67 @@ function parseSelfCounterGate(clause) {
 }
 
 /**
+ * SELF-NAMED-COUNTER-PRESENCE GATE (ARIXMETHES) — recognize an "as long as it has a <name> counter on it"
+ * PRESENCE gate (threshold 1, a NAMED non-P/T counter) in a (lowercased, self-name-normalized) clause; return
+ * { gate, counterType } | null. The card's own name was rewritten to "this creature"/"it" upstream. Distinct
+ * from parseSelfCounterGate (a "<N> or more +1/+1" THRESHOLD): this is the bare "has a <name> counter" presence
+ * used by a counter-gated type-change (Arixmethes: "As long as ~ has a slumber counter on it, it's a land").
+ * gateMet reads the permanent's own <name> pile and re-evaluates live (CR 613.7), so the effect turns off the
+ * instant the last counter is removed. Only a single bare non-±1/+1 counter word is admitted — a qualified /
+ * multi / P-T-counter form → null → the type-change stays unmodeled (safe FN). Pure; feeds a layer-4 gate.
+ */
+function parseSelfNamedCounterPresenceGate(clause) {
+  const m = String(clause).match(/as long as (?:this creature|it) has (?:a|an|one) ([a-z]+) counter on it/);
+  if (!m) return null;
+  const kind = m[1].toLowerCase();
+  if (/^[+-]?1$/.test(kind) || kind === "loyalty") return null; // ±1/+1 (P/T) or loyalty → not this presence gate
+  return { gate: { countSpec: { kind: "countersOnSelf", counterType: kind }, atLeast: 1, excludeSelf: false }, counterType: kind, match: m[0] };
+}
+
+/**
+ * COUNTER-GATED TYPE-CHANGE (ARIXMETHES, CR 613.4b layer 4 + 305.7) — recognize the "it's a land (not a
+ * creature)" (or "it's not a creature") TYPE-CHANGING effect body of a counter-gated static, and emit the
+ * gated layer-4 op(s). Called with the effect text AFTER the gate has been stripped (so `eff` is e.g. "it's a
+ * land" / "it's a land. it's not a creature" / "it's not a creature"). Two type deltas are modeled, each carried
+ * with the SAME gate object so they flip together under layers.gateMet:
+ *   • "it's a land"        → layer-4 addCardType "Land"        (gains the Land type — CR 305.7 a land that's also
+ *                            a creature, but here paired with the creature removal so it's a pure land)
+ *   • "it's not a creature"/"(not a creature)" → layer-4 removeCardType "Creature"
+ * Arixmethes' printed text is "it's a land. (It's not a creature.)" — the parenthetical is reminder-ish but
+ * FUNCTIONAL here (it's the actual rules text on the card: a land that would otherwise still be a Creature), so
+ * BOTH deltas are emitted. STRICT: the effect must reduce EXACTLY to these type deltas (any other leftover text
+ * → nothing emitted → LOW, CREED). Returns true iff at least one delta was emitted (caller returns after).
+ */
+function emitCounterGatedTypeChange(out, effRaw, gate, card) {
+  // Normalize: drop the leading "it's"/"it is", collapse the paren'd "(not a creature)" reminder to plain text.
+  let e = String(effRaw).toLowerCase().trim()
+    .replace(/[().]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Split on the two recognized deltas; anything else remaining means unmodeled text → emit nothing (CREED).
+  let wantsLand = false, wantsNonCreature = false;
+  // "it's a land" / "it is a land"
+  if (/\bit(?:'s| is) a land\b/.test(e)) { wantsLand = true; e = e.replace(/\bit(?:'s| is) a land\b/g, " "); }
+  // "it's not a creature" / "not a creature" (the parenthetical reminder, if it survived to here)
+  if (/\b(?:it(?:'s| is) )?not a creature\b/.test(e)) { wantsNonCreature = true; e = e.replace(/\b(?:it(?:'s| is) )?not a creature\b/g, " "); }
+  e = e.replace(/\s+/g, " ").trim();
+  if (e !== "" || (!wantsLand && !wantsNonCreature)) return false; // leftover text or nothing recognized → LOW
+  if (wantsLand) out.push({ layer: 4, op: { layerOp: "addCardType", types: ["Land"], gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+  // PAIRED CREATURE-REMOVAL (CR 305.7 + the card's own "(It's not a creature.)" clarification): when a PRINTED
+  // CREATURE gains the Land type via this gated static, it is a land and NOT a creature while gated (Arixmethes'
+  // definitive Oracle). The parenthetical reminder is stripped upstream (selfNormalizeOracle removes parens), so
+  // the removal is inferred from the printed Creature type + the land grant — NOT fabricated: it's the card's
+  // own printed reminder. Gated identically, so combat / the lethal-damage SBA / "creatures you control"
+  // selectors all treat gated-Arixmethes as the non-creature land it is, and it flips back to a creature the
+  // instant the last slumber counter is removed. Not emitted twice if the text already said "not a creature".
+  const printedCreature = /\bcreature\b/i.test(String(card?.type || card?.type_line || ""));
+  if (wantsNonCreature || (wantsLand && printedCreature)) {
+    out.push({ layer: 4, op: { layerOp: "removeCardType", removeType: "Creature", gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+  }
+  return true;
+}
+
+/**
  * Emit the descriptor(s) for a gated SELF effect — "[this creature] gets +X/+Y[ and has <kw>…]" or
  * "[this creature] has <kw>…" — gated on `gate`. Gate-SOURCE-AGNOSTIC: the same emitter serves the GATED-GY
  * graveyard-count gate (and could serve the control gate). STRICT (CREED): the effect must reduce EXACTLY to a
@@ -747,8 +835,11 @@ function parseFlashCastFilter(filter) {
  * first so a tribal/color anthem doesn't also match the generic anthem.
  * `selfName` (the card's name, optional) is threaded only so the EMINENCE
  * cost-reducer can stamp `sourceName` for its excludeSelf ("other ~ spells") guard.
+ * `selfType` (the card's type line, optional) is threaded only so the COUNTER-GATED
+ * TYPE-CHANGE (Arixmethes) knows whether the source is a printed Creature (→ pair the
+ * "it's a land" grant with the implied "not a creature" removal).
  */
-function parseClause(clause, out, selfName) {
+function parseClause(clause, out, selfName, selfType) {
   // Strip flavor ability-word labels (CR 207.2c — they carry no rules meaning).
   // Metalcraft/Threshold/Delirium appear on STATIC clauses; the GY path re-strips
   // Threshold/Delirium below (no-op after this) for clarity. "Unlock Ability" is the
@@ -1214,6 +1305,21 @@ function parseClause(clause, out, selfName) {
       const eff = c.replace(scg.match, "").replace(/^[\s,]+|[\s,]+$/g, "");
       emitGatedEffect(out, eff, scg.gate);
       return;
+    }
+    // ── COUNTER-GATED TYPE-CHANGE (ARIXMETHES): a layer-4 type swap gated on THIS permanent's own NAMED counter
+    // ("as long as it has a slumber counter on it, it's a land" — Arixmethes is a land, not a creature, until its
+    // five slumber counters are removed). The gate is a bare PRESENCE of a named counter (threshold 1);
+    // emitCounterGatedTypeChange models "it's a land" → gated addCardType Land + removeCardType Creature (the
+    // printed "(It's not a creature.)" reminder is the card's own clarification, stripped upstream but functional
+    // — a gated land is not a creature per the card). gateMet re-reads the slumber pile live, so the instant the
+    // last counter is removed the type effect turns off and Arixmethes is a creature again (CR 613.7). STRICT:
+    // any effect text other than the two modeled type deltas → nothing emitted → LOW (safe FN). The control /
+    // graveyard / +1-+1 gates above never fire here (this is a named-counter PRESENCE gate, not "you control" /
+    // "N or more +1/+1"), so the clause is handled here before the "as long as" catch-all bail below.
+    const sncg = parseSelfNamedCounterPresenceGate(c);
+    if (sncg) {
+      const eff = c.replace(sncg.match, "").replace(/^[\s,]+|[\s,]+$/g, "");
+      if (emitCounterGatedTypeChange(out, eff, sncg.gate, { type: selfType })) return;
     }
   }
 
@@ -1734,7 +1840,7 @@ export function parseStaticAbilities(card) {
   if (rawOracle && !isLevelGated(rawOracle)) {
     const oracle = selfNormalizeOracle(rawOracle, card?.name, card?.type || card?.type_line); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
     for (const clause of abilityClauses(oracle)) {
-      parseClause(clause, out, card?.name); // name → EMINENCE excludeSelf sourceName
+      parseClause(clause, out, card?.name, card?.type || card?.type_line); // name → EMINENCE excludeSelf sourceName; type → ARIXMETHES type-change
     }
   }
   if (slot) slot.statics = out;

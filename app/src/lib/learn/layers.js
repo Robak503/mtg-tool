@@ -444,8 +444,13 @@ function effectiveTypeIdentity(candidate, state) {
     // BESTOW (CR 702.103e): an unconditional self type-removal — while a bestow permanent is attached it's
     // an Aura, NOT a creature, so any "creatures you control …" selector must skip it (mirrors the God gate
     // above, but unconditional — being attached is the whole condition, enforced where this effect is emitted).
+    // COUNTER-GATED TYPE-CHANGE (ARIXMETHES): the self Creature-removal carries a countersOnSelf gate — while
+    // its slumber counters remain, Arixmethes is not a creature (so an anthem/lord selector skips it); the
+    // instant they're gone the gate opens and it's a creature again. gateMet is a plain counter/mana read on
+    // THIS permanent — recursion-safe, no deriveCharacteristics — so it's honored here like the God gate above.
     if (e.op?.layerOp === "removeCardType") {
-      if (e.affects?.mode === "self" && e.affects.permanentId === candidate.id) {
+      if (e.affects?.mode === "self" && e.affects.permanentId === candidate.id
+          && (!e.op.gate || gateMet(state, candidate, e.op.gate))) {
         types = types.filter(t => t !== e.op.removeType);
       }
       continue;
@@ -779,6 +784,11 @@ function applyTypeColorLayers(perm, l4, l5, state) {
       if (devotionToColors(state, perm.controller, e.op.colors) < (e.op.atLeast || 0)) types.delete(e.op.removeType);
       continue;
     }
+    // COUNTER-GATED TYPE-CHANGE (ARIXMETHES, CR 613.4b): a layer-4 type effect may carry a `gate` (a
+    // countersOnSelf presence gate) — while its own slumber counters remain, Arixmethes is a land and not a
+    // creature; the instant the last is removed the gate closes and both deltas turn off (CR 613.7). Skip the
+    // op entirely when its gate is not met. Mirrors the layer-6/7c gate handling (keywordSet / applyLayer7).
+    if (e.op?.gate && !gateMet(state, perm, e.op.gate)) continue;
     // BESTOW (CR 702.103e): while attached, a bestow permanent is an Aura and NOT a creature — strip the
     // Creature type (the effect is only EMITTED while attachedTo is set, so no condition is needed here).
     // This makes permanentIsCreature/combat/the lethal-damage SBA correctly treat it as a non-creature Aura;
