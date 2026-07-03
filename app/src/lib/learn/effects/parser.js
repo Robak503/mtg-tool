@@ -55,7 +55,7 @@ import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, con
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
-import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell)
+import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -3041,6 +3041,7 @@ registerClauseParser(dealDamageScaledClauseParser);
 registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE — "deals N damage to each creature with/without flying"
 registerClauseParser(cdmgMassToDamagedPlayerClauseParser); // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — combat-damage trigger: "deals that much damage to each creature that player controls"
 registerClauseParser(copySpellClauseParser); // STORM (CR 702.40) — the synthesized "copy this spell for each spell cast before it this turn" clause
+registerClauseParser(copyCreatureSpellClauseParser); // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — "copy target creature spell you control[, except it isn't legendary…]"
 // GRAVEYARD-RETURN (seam batch 16 / Wave C) — return-from-graveyard ⇄ reanimate co-extracted to
 // atoms/zones.graveyardReturnClauseParser (one parser, original first-match order: to-hand then to-battlefield).
 // The "return target … from your graveyard …" clauses match no earlier registered parser and (verified) no

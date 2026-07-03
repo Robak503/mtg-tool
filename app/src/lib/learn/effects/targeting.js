@@ -98,6 +98,11 @@ function atomTargetSpec(atom) {
     ...(atom.minMv != null && { minMv: atom.minMv }),
     ...(atom.maxMv != null && { maxMv: atom.maxMv }),
     ...(atom.colorFilter != null && { colorFilter: atom.colorFilter }),
+    // COPY-SPELL (Double Major) — "copy target creature spell YOU CONTROL". A copy is not a counter, so it
+    // enumerates own-controller spells (spellController) and ignores the uncounterability gates (copyNotCounter).
+    // Only the copy-creature-spell atom sets these; every counter atom leaves them undefined (byte-identical).
+    ...(atom.spellController != null && { spellController: atom.spellController }),
+    ...(atom.copyNotCounter && { copyNotCounter: true }),
   };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the matching graveyard cards. anyGraveyard (Reanimate / Hymn of

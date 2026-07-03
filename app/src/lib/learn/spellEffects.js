@@ -458,18 +458,29 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   const addStackSpells = () => {
     for (const obj of state.stack || []) {
       if (obj.kind !== "spell") continue;
-      if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
-      // CANT-BE-COUNTERED (Root Sliver): a board static "<Subtype> spells can't be countered" protects any
-      // stack spell whose type line carries that subtype (word-bounded, like the cost-reduction match — every
-      // card's type line starts with its type, and a subtype follows the em-dash). Off-type spells unaffected.
-      if (uncounterableSubs.size) {
-        const typeLine = String(obj.source?.type || obj.source?.type_line || "").toLowerCase();
-        let protectedSpell = false;
-        for (const sub of uncounterableSubs) {
-          if (new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(typeLine)) { protectedSpell = true; break; }
+      // COPY-SPELL (Double Major, CR 707.10) — "copy" is NOT "counter": copying a spell doesn't try to counter
+      // it, so the uncounterability exclusions (an on-card "can't be countered", or a Root-Sliver board static)
+      // do NOT restrict a copy's legal targets. effect.copyNotCounter (set only by the copy-creature-spell atom's
+      // target spec) skips those two gates. The counter path (copyNotCounter falsy) keeps them exactly as before.
+      if (!effect.copyNotCounter) {
+        if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
+        // CANT-BE-COUNTERED (Root Sliver): a board static "<Subtype> spells can't be countered" protects any
+        // stack spell whose type line carries that subtype (word-bounded, like the cost-reduction match — every
+        // card's type line starts with its type, and a subtype follows the em-dash). Off-type spells unaffected.
+        if (uncounterableSubs.size) {
+          const typeLine = String(obj.source?.type || obj.source?.type_line || "").toLowerCase();
+          let protectedSpell = false;
+          for (const sub of uncounterableSubs) {
+            if (new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(typeLine)) { protectedSpell = true; break; }
+          }
+          if (protectedSpell) continue;
         }
-        if (protectedSpell) continue;
       }
+      // COPY-TARGET-OWN (Double Major — "copy target creature spell YOU CONTROL"): only the controller's own
+      // stack spells are legal. effect.spellController:"you" (set by the copy atom's target spec) enforces it at
+      // enumeration so an opponent's spell is never offered (CR 601.2c + CREED FP-forbidden). The counter family
+      // never sets it (its "target spell" is any controller), so counters are byte-identical.
+      if (effect.spellController === "you" && obj.controller !== controllerId) continue;
       // `effect` rides in so CNT-MV-EXACT (Mental Misstep / Spell Snare) can require the target spell's mana
       // value EQUAL effect.exactMv at enumeration — an MV-mismatched spell is simply not offered as a target.
       if (!spellMatchesCounterFilter(obj, effect.spellFilter, effect)) continue;
