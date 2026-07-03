@@ -121,6 +121,39 @@ describe("HUNGERING HYDRA — ENRAGE self-scaled counters (engine-first)", () =>
   });
 });
 
+describe("NON-SELF 'that many' counter referent — the same lever, but 'it' is the TRIGGERING creature (CR 608.2c)", () => {
+  // Necropolis Regent: "Whenever a creature you control deals combat damage to a player, put that many +1/+1
+  // counters on it." Here "it" is the DEALING creature (the triggering permanent), NOT the Regent — a CREED
+  // guard: the self-scope rewrite must NOT mis-bind this to the source. detectTriggers rewrites the non-self
+  // referent → the "the triggering creature" sentinel (thatCreature lane), so each creature that connected gets
+  // counters equal to ITS OWN combat-damage amount.
+  const REGENT = {
+    name: "Necropolis Regent", type: "Creature — Vampire", mana: "{3}{B}{B}{B}", power: 5, toughness: 5,
+    oracle: "Flying\nWhenever a creature you control deals combat damage to a player, put that many +1/+1 counters on it.",
+  };
+  it("classifies native-trigger (Flying + combat-damage → counters on the DEALING creature)", () => {
+    expect(classifyCard(REGENT)).toBe("native-trigger");
+  });
+  it("runtime — counters land on the triggering creature (per-creature = its own damage), never the source", () => {
+    const regent = createPermanent({ id: "reg", card: { ...REGENT, id: "reg" }, controller: "user", summoningSick: false });
+    const grunt = createPermanent({ id: "gr", card: { id: "gr", name: "Grunt", type: "Creature — Soldier", power: 3, toughness: 3, oracle: "" }, controller: "user", summoningSick: false });
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = {
+      ...s, step: "combat-damage", phase: "combat",
+      combat: { attackers: [{ permanentId: "reg", attackingPlayer: "user", defender: "ai" }, { permanentId: "gr", attackingPlayer: "user", defender: "ai" }], blockers: [] },
+      players: { ...s.players, user: { ...s.players.user, battlefield: [regent, grunt], life: 40 }, ai: { ...s.players.ai, life: 40 } },
+    };
+    s = resolveCombatDamage(s);
+    let g = 0; while (((s.stack || []).length || (s.pendingTriggers || []).length) && g++ < 30) {
+      if ((s.pendingTriggers || []).length) { s = flushTriggers(s, { chooseTargets: chooseTriggerTargets }); continue; }
+      if ((s.stack || []).length) { s = resolveTopOfStack(s); continue; }
+      break;
+    }
+    expect(find(s, "user", "reg").counters["+1/+1"]).toBe(5); // Regent dealt 5 → +5 on ITSELF (it is a "creature you control" too)
+    expect(find(s, "user", "gr").counters["+1/+1"]).toBe(3);  // Grunt dealt 3 → +3 on the GRUNT, not on the Regent (correct referent)
+  });
+});
+
 describe("HUNGERING HYDRA — BLOCK-COUNT CAP (CR 509.1c, menace-inverse) enforced at block declaration", () => {
   // Set up an attacking Hungering (ai) and TWO would-be blockers (user). The defender may declare the FIRST
   // blocker, but once one block is on the attacker, no SECOND blocker action is offered.

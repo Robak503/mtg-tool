@@ -1271,7 +1271,10 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .
 // counter on it" (the firebreathing-counter family). Mirrors the parser's self-counter shape
 // (parser.js: "…counters? on this creature$", target:"self") with "it"; whole-clause anchored, so a
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
-const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
+// "that many" (ENRAGE / DAMAGE-RECEIVED self-scaled, Hungering Hydra) is admitted alongside the fixed-N count:
+// a self-scope dealt-damage trigger's "put that many +1/+1 counters on it" rewrites to "…on this creature" here,
+// then the add-counter self parser (counters.js, countContext:"combatDamageAmount") binds the count to the damage.
+const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on it$/i;
 
 // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — a SELF-scope trigger sacrifices its OWN
 // source with the pronoun "it": "When this creature becomes the target of a spell or ability, sacrifice it."
@@ -1317,7 +1320,12 @@ const SELF_RETURN_BF_ENCHANTMENT_RE = /^return it to the battlefield under its o
 // SPELL's anaphoric "it"/"that creature" (Big Play / Puncture Bolt / Miraculous Recovery) is NEVER
 // rewritten (it isn't a non-self trigger) and stays LOW → Arbiter (CREED — no fabricated/mis-bound counter).
 // ±1/±1 only (the enforced counter kinds); whole-clause anchored, so a rider/compound leaves it untouched.
-const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
+// "that many" (combat-damage-scaled, Necropolis Regent — "Whenever a creature you control deals combat damage to
+// a player, put that many +1/+1 counters on it") is admitted alongside the fixed-N count: the non-self referent
+// rewrites to "…on the triggering creature", which the WAVE-3b thatCreature parser binds with the same
+// countContext:"combatDamageAmount" (the count is the combat damage that creature dealt). CR 608.2c: "it" = the
+// triggering permanent, not the source — so this MUST route through the thatCreature lane, never the self path.
+const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
 // The NON-self scopes for which a bare "it"/"that creature" referent is the TRIGGERING permanent: the
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
 const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl", "creatureYouControlKeyword"]);

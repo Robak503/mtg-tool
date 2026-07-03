@@ -354,17 +354,21 @@ export function addCounterClauseParser(clause) {
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
   dm = t.match(/^put (?:x|a number of) ([+-]1\/[+-]1) counters? on (target creature you control|target creature|each creature you control) equal to the number of (.+)$/);
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
-  // ===== ENRAGE / DAMAGE-RECEIVED self-scaled (CR 603.2) ===== "put that many +1/+1 counters on it / on this
-  // creature" — the ENRAGE payoff (Hungering Hydra: "Whenever this creature is dealt damage, put that many +1/+1
-  // counters on it"). "that many" = the damage the creature just took, threaded by checkDealtDamageTriggers as
+  // ===== ENRAGE / DAMAGE-RECEIVED self-scaled (CR 603.2) ===== "put that many +1/+1 counters on THIS CREATURE" —
+  // the ENRAGE payoff (Hungering Hydra: "Whenever this creature is dealt damage, put that many +1/+1 counters on
+  // it"). "that many" = the damage the creature just took, threaded by checkDealtDamageTriggers as
   // ctx.combatDamageAmount (its alias of dealtDamageAmount). countContext reads that magnitude (applyAddCounter
   // resolveScaledAmount), floored at 0 → a clean no-op on 0 damage (CR 120.8). combatDamageReferentSatisfied gates
   // this countContext to the dealtDamage/combatDamageToPlayer events ONLY, so a non-combat "that many" (absent
-  // referent → 0) can never over-place. Recipient is the SOURCE (target:"self"): "it"/"this creature" in a
-  // self-scope enrage trigger IS the damaged creature (ctx.sourceId), and selfTargets honors the layer-aware
-  // creature. Only +1/+1 (the enforced positive form). Anchored ^…$ — any rider ("…, then …", "up to that many")
-  // leaves residue → low → Arbiter (CREED, never a dropped clause). No target enumeration (non-targeted self).
-  const enrageM = t.match(/^put that many \+1\/\+1 counters? on (?:it|this creature)$/);
+  // referent → 0) can never over-place. Recipient is the SOURCE (target:"self" → ctx.sourceId, selfTargets).
+  //
+  // SENTINEL GATE (CREED) — matches ONLY "on this creature", NEVER a raw "on it": detectTriggers rewrites a
+  // SELF-scope trigger's "put that many +1/+1 counters on it" → "…on this creature" (SELF_COUNTER_IT_RE), and a
+  // NON-self triggering-scope's "on it"/"on that creature" → "…on the triggering creature" (NONSELF_COUNTER_REF_RE
+  // → the thatCreature lane in counterClauses.js). So a raw "on it" that survives is a SPELL's anaphor / an
+  // unmodeled scope — it must stay LOW → Arbiter (never mis-bound to the source). Mirrors the fixed-N self-counter
+  // discipline ("…on this creature$", target:"self"). Only +1/+1; anchored ^…$ so a rider → low → Arbiter.
+  const enrageM = t.match(/^put that many \+1\/\+1 counters? on this creature$/);
   if (enrageM) return { op: "add-counter", counterType: "+1/+1", countContext: "combatDamageAmount", target: "self" };
   // ===== DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon) ===== "put X +1/+1
   // counters on each of up to two target creatures, where X is the result" — X is the just-rolled d20 value
