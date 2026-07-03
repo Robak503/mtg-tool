@@ -102,6 +102,25 @@ describe("SOURCE-STAT — countForSpec reads a referent's layer-aware stat at re
 });
 
 // ────────────────────────────────────────────────────────────────────────────
+// COUNTER-QUALIFIED count — "creatures you control with a +1/+1 counter on it" (Armorcraft Judge / Inspiring Call)
+// ────────────────────────────────────────────────────────────────────────────
+describe("COUNTER-QUALIFIED — countForSpec counts only creatures currently carrying a +1/+1 counter", () => {
+  const SPEC = { kind: "permanentsYouControl", cardType: "creature", requiresCounter: "+1/+1" };
+  it("counts only creatures with ≥1 +1/+1 counter, read at resolution off the live bag", () => {
+    const hasC = creature("hasC", { power: 1, toughness: 1 }); hasC.counters = { "+1/+1": 2 };
+    const hasC2 = creature("hasC2", { power: 3, toughness: 3 }); hasC2.counters = { "+1/+1": 1 };
+    const bare = creature("bare", { power: 4, toughness: 4 });                          // no counters
+    const wrongKind = creature("age", { power: 1, toughness: 1 }); wrongKind.counters = { age: 3 }; // not a +1/+1 counter
+    const s = stateWith({ user: [hasC, hasC2, bare, wrongKind] });
+    expect(countForSpec(s, { controller: "user" }, SPEC)).toBe(2); // only hasC + hasC2
+  });
+  it("0 when no creature carries a +1/+1 counter (clean no-op, never fabricated)", () => {
+    const s = stateWith({ user: [creature("a"), creature("b")] });
+    expect(countForSpec(s, { controller: "user" }, SPEC)).toBe(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 // DAMAGE = that creature's power (Terror of the Peaks)
 // ────────────────────────────────────────────────────────────────────────────
 describe("DAMAGE = the triggering creature's power (Terror of the Peaks)", () => {

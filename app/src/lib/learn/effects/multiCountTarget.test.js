@@ -1,0 +1,238 @@
+/**
+ * MULTI-COUNT CHOSEN TARGETS (CR 601.2c "up to N target …") — Slice A: return-from-graveyard.
+ *
+ * The single biggest corpus lever (~352 non-native cards carry an "up to N target" clause). The
+ * resolver pipeline already supports it: targetsForAtom filters targets by atomIndex (returns ALL
+ * of them), and applyReturnFromGraveyard already loops over ctx.targets. The only gaps were the
+ * PARSER (emit maxTargets) and targeting.expandAtoms (enumerate the 0..N target SUBSETS). Both are
+ * gated on maxTargets>1, so every single-target cast is byte-identical (flip-diff proved LOST=0).
+ *
+ * Slice A proves the mechanism on the safest atom family (own graveyard, no opponent interaction);
+ * later slices generalize to "up to two target creatures" (damage/destroy/bounce/pump, 111 cards).
+ */
+import { describe, it, expect, beforeEach } from "vitest";
+import { createGameState, createPermanent, creaturePower, creatureToughness, _resetIdsForTests } from "../gameState.js";
+import { parseEffectProgram } from "./parser.js";
+import { expandCastChoices } from "./targeting.js";
+import { runEffectProgram } from "./runProgram.js";
+
+beforeEach(() => _resetIdsForTests());
+
+const prog = (oracle, type = "Sorcery") => parseEffectProgram({ type, oracle });
+const withGraveyard = (gy) => {
+  const s = createGameState({ userDeck: [], aiDeck: [] });
+  return { ...s, players: { ...s.players, user: { ...s.players.user, graveyard: gy, hand: [] } } };
+};
+const comboSets = (combos) => combos.map((c) => (c.targets || []).map((t) => t.id).sort().join(",")).sort();
+
+const CREATURES = [
+  { id: "g1", name: "Bear", type: "Creature — Bear" },
+  { id: "g2", name: "Elf", type: "Creature — Elf" },
+  { id: "g3", name: "Ox", type: "Creature — Ox" },
+];
+
+describe("multi-count — parse shape", () => {
+  it("'return up to two target creature cards …' → maxTargets:2, minTargets:0", () => {
+    const p = prog("Return up to two target creature cards from your graveyard to your hand.");
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("'up to three' scales the count", () => {
+    expect(prog("Return up to three target creature cards from your graveyard to your hand.").atoms[0].maxTargets).toBe(3);
+  });
+
+  it("the SINGLE-target form is UNTOUCHED — no maxTargets (the gate)", () => {
+    const a = prog("Return target creature card from your graveyard to your hand.").atoms[0];
+    expect(a.op).toBe("return-from-graveyard");
+    expect(a.maxTargets).toBeUndefined();
+  });
+});
+
+describe("multi-count — cast expansion (targeting.expandAtoms)", () => {
+  it("offers every 0..2 subset of the legal graveyard creatures, filtering non-creatures", () => {
+    const s = withGraveyard([...CREATURES, { id: "n1", name: "Bolt", type: "Instant" }]);
+    const combos = expandCastChoices(s, "user", prog("Return up to two target creature cards from your graveyard to your hand."));
+    // C(3,0)+C(3,1)+C(3,2) = 1+3+3 = 7 ; n1 (Instant) never appears
+    expect(comboSets(combos)).toEqual(["", "g1", "g1,g2", "g1,g3", "g2", "g2,g3", "g3"]);
+    expect(combos.some((c) => (c.targets || []).some((t) => t.id === "n1"))).toBe(false);
+  });
+
+  it("an EMPTY graveyard still yields exactly one legal cast (choose zero — 'up to' permits it)", () => {
+    const combos = expandCastChoices(withGraveyard([]), "user", prog("Return up to two target creature cards from your graveyard to your hand."));
+    expect(comboSets(combos)).toEqual([""]);
+  });
+
+  it("the single-target form still enumerates one-target-per-card (no empty subset — the gate holds)", () => {
+    const combos = expandCastChoices(withGraveyard(CREATURES), "user", prog("Return target creature card from your graveyard to your hand."));
+    expect(comboSets(combos)).toEqual(["g1", "g2", "g3"]); // exactly one target each, never the empty cast
+  });
+});
+
+describe("multi-count — runtime (resolver already loops)", () => {
+  it("resolving a 2-card subset returns BOTH creatures to hand", () => {
+    const s = withGraveyard(CREATURES);
+    const p = prog("Return up to two target creature cards from your graveyard to your hand.");
+    const targets = [
+      { type: "graveyardCard", id: "g1", atomIndex: 0 },
+      { type: "graveyardCard", id: "g3", atomIndex: 0 },
+    ];
+    const out = runEffectProgram(s, { source: { name: "Morbid Plunder" }, payload: { params: { program: p, controller: "user", targets } } });
+    expect(out.players.user.hand.map((c) => c.id).sort()).toEqual(["g1", "g3"]);
+    expect(out.players.user.graveyard.map((c) => c.id)).toEqual(["g2"]); // only the un-chosen one remains
+  });
+
+  it("resolving the empty subset returns nothing (a legal no-op cast)", () => {
+    const s = withGraveyard(CREATURES);
+    const p = prog("Return up to two target creature cards from your graveyard to your hand.");
+    const out = runEffectProgram(s, { source: { name: "Morbid Plunder" }, payload: { params: { program: p, controller: "user", targets: [] } } });
+    expect(out.players.user.hand).toHaveLength(0);
+    expect(out.players.user.graveyard).toHaveLength(3);
+  });
+});
+
+// ─── Slice B: battlefield atoms (bounce / tap) — same infra, generic over `tagged` ───────────────
+const battlefield = (specs) => {
+  const s = createGameState({ userDeck: [], aiDeck: [] });
+  const mk = (pid) => (o) => createPermanent({ id: o.id, card: { id: `c-${o.id}`, name: o.id, type: o.type || "Creature — Bear", oracle: "" }, controller: pid, summoningSick: false });
+  const next = { ...s, players: { ...s.players } };
+  for (const [pid, list] of Object.entries(specs)) next.players[pid] = { ...next.players[pid], battlefield: list.map(mk(pid)), hand: [] };
+  return next;
+};
+
+describe("multi-count — bounce (return N to owners' hands)", () => {
+  it("parses 'return up to two target creatures to their owners' hands' → maxTargets:2", () => {
+    const a = prog("Return up to two target creatures to their owners' hands.").atoms[0];
+    expect(a).toMatchObject({ op: "bounce", targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("single-target bounce is untouched (no maxTargets)", () => {
+    expect(prog("Return target creature to its owner's hand.").atoms[0].maxTargets).toBeUndefined();
+  });
+
+  it("resolving two chosen targets bounces BOTH to hand", () => {
+    const s = battlefield({ user: [{ id: "a" }, { id: "b" }], ai: [{ id: "x" }] });
+    const p = prog("Return up to two target creatures to their owners' hands.");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "x", controller: "ai", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Into the Void" }, payload: { params: { program: p, controller: "user", targets } } });
+    expect(out.players.user.battlefield.map((pm) => pm.id)).toEqual(["b"]); // a bounced
+    expect(out.players.ai.battlefield).toHaveLength(0);                     // x bounced
+    expect(out.players.user.hand.map((c) => c.id)).toContain("c-a");        // to its OWN owner's hand
+    expect(out.players.ai.hand.map((c) => c.id)).toContain("c-x");
+  });
+});
+
+describe("multi-count — tap (tap up to N target creatures)", () => {
+  it("parses 'tap up to two target creatures' → maxTargets:2", () => {
+    expect(prog("Tap up to two target creatures.").atoms[0]).toMatchObject({ op: "tap", targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("a FILTERED multi-tap stays LOW → Arbiter (FN-safe, deferred)", () => {
+    const p = prog("Tap up to two target creatures you control.");
+    expect(p.atoms).toHaveLength(0);
+  });
+
+  it("resolving two chosen targets taps BOTH", () => {
+    const s = battlefield({ ai: [{ id: "x" }, { id: "y" }, { id: "z" }] });
+    const p = prog("Tap up to two target creatures.");
+    const targets = [{ type: "creature", id: "x", controller: "ai", atomIndex: 0 }, { type: "creature", id: "z", controller: "ai", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Feeling of Dread" }, payload: { params: { program: p, controller: "user", targets } } });
+    const tapped = new Set(out.players.ai.battlefield.filter((pm) => pm.tapped).map((pm) => pm.id));
+    expect(tapped).toEqual(new Set(["x", "z"])); // y untouched
+  });
+});
+
+describe("multi-count — counters (put a +1/+1 counter on each of up to N target creatures)", () => {
+  it("parses 'put a +1/+1 counter on each of up to two target creatures' → maxTargets:2", () => {
+    expect(prog("Put a +1/+1 counter on each of up to two target creatures.").atoms[0]).toMatchObject({ op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("'you control' narrows the targetType; single-target counter is untouched", () => {
+    expect(prog("Put a +1/+1 counter on each of up to three target creatures you control.").atoms[0].targetType).toBe("creatureYouControl");
+    expect(prog("Put a +1/+1 counter on target creature.").atoms[0].maxTargets).toBeUndefined();
+  });
+
+  it("resolving two chosen targets puts a +1/+1 counter on EACH", () => {
+    const s = battlefield({ user: [{ id: "a" }, { id: "b" }, { id: "c" }] });
+    const p = prog("Put a +1/+1 counter on each of up to two target creatures.");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "c", controller: "user", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Gird for Battle" }, payload: { params: { program: p, controller: "user", targets } } });
+    const counters = Object.fromEntries(out.players.user.battlefield.map((pm) => [pm.id, pm.counters?.["+1/+1"] || 0]));
+    expect(counters).toEqual({ a: 1, b: 0, c: 1 }); // a & c buffed, b untouched
+  });
+});
+
+describe("multi-count — deal-damage (N to each of up to K target creatures)", () => {
+  it("parses the self-referential named form 'Dual Shot deals 1 damage to each of up to two …' → maxTargets:2", () => {
+    const p = parseEffectProgram({ type: "Instant", name: "Dual Shot", oracle: "Dual Shot deals 1 damage to each of up to two target creatures." });
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "deal-damage", amount: 1, targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("single-target damage is untouched; a trailing rider stays LOW (whole-clause anchor)", () => {
+    expect(parseEffectProgram({ type: "Instant", name: "Shock", oracle: "Shock deals 2 damage to target creature." }).atoms[0].maxTargets).toBeUndefined();
+    const rider = parseEffectProgram({ type: "Sorcery", name: "Sparkmage's Gambit", oracle: "Sparkmage's Gambit deals 1 damage to each of up to two target creatures. Those creatures can't block this turn." });
+    expect(rider.atoms).toHaveLength(0); // "can't block" rider unmodeled → whole card LOW
+  });
+
+  it("resolving two chosen targets deals the FULL amount to EACH (not divided)", () => {
+    const s = battlefield({ ai: [{ id: "x", type: "Creature — Bear" }, { id: "y", type: "Creature — Bear" }, { id: "z", type: "Creature — Bear" }] });
+    const p = parseEffectProgram({ type: "Instant", name: "Dual Shot", oracle: "Dual Shot deals 2 damage to each of up to two target creatures." });
+    const targets = [{ type: "creature", id: "x", controller: "ai", atomIndex: 0 }, { type: "creature", id: "z", controller: "ai", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Dual Shot" }, payload: { params: { program: p, controller: "user", targets } } });
+    const dmg = Object.fromEntries(out.players.ai.battlefield.map((pm) => [pm.id, pm.damageMarked || pm.damage || 0]));
+    expect(dmg.x).toBe(2); // full 2 to x
+    expect(dmg.z).toBe(2); // full 2 to z (NOT divided)
+    expect(dmg.y || 0).toBe(0); // y untargeted
+  });
+});
+
+describe("multi-count — pump (up to N target creatures EACH GET +P/+T [and gain KW])", () => {
+  it("parses 'up to two target creatures each get +2/+2 until end of turn' → maxTargets:2", () => {
+    const a = prog("Up to two target creatures each get +2/+2 until end of turn.", "Instant").atoms[0];
+    expect(a).toMatchObject({ op: "pump", targetType: "creature", maxTargets: 2, minTargets: 0, ptDelta: { p: 2, t: 2 } });
+  });
+
+  it("carries the 'and gain KW' keyword grant + the 'you control' restriction", () => {
+    const kw = prog("Up to two target creatures each get +1/+1 and gain trample until end of turn.", "Instant").atoms[0];
+    expect(kw.maxTargets).toBe(2);
+    expect(kw.grantKeywords.map((k) => k.toLowerCase())).toContain("trample");
+    const yc = prog("Up to two target creatures you control each get +1/+1 until end of turn.", "Instant").atoms[0];
+    expect(yc.restrictions).toEqual([{ kind: "controller", who: "you" }]);
+  });
+
+  it("single-target pump is untouched; a non-'each' near-miss stays off multi", () => {
+    expect(prog("Target creature gets +3/+3 until end of turn.", "Instant").atoms[0].maxTargets).toBeUndefined();
+  });
+
+  // Creatures with EXPLICIT base P/T so creaturePower reads a real layer-stacked value.
+  const pumpBoard = (ids) => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const mk = (id) => createPermanent({ id, card: { id: `c-${id}`, name: id, type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: ids.map(mk), hand: [] } } };
+  };
+
+  it("resolving two chosen targets pumps BOTH (+2/+2), leaving the third untouched", () => {
+    const s = pumpBoard(["a", "b", "c"]);
+    const p = prog("Up to two target creatures each get +2/+2 until end of turn.", "Instant");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "c", controller: "user", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Dauntless Onslaught" }, payload: { params: { program: p, controller: "user", targets } } });
+    const byId = Object.fromEntries(out.players.user.battlefield.map((pm) => [pm.id, pm]));
+    expect([creaturePower(byId.a, out), creatureToughness(byId.a, out)]).toEqual([4, 4]); // 2/2 base + 2/2
+    expect([creaturePower(byId.c, out), creatureToughness(byId.c, out)]).toEqual([4, 4]);
+    expect([creaturePower(byId.b, out), creatureToughness(byId.b, out)]).toEqual([2, 2]); // untargeted — base
+  });
+
+  it("the keyword grant lands on EACH chosen target (not just the first)", () => {
+    const s = pumpBoard(["a", "b"]);
+    const p = prog("Up to two target creatures each get +1/+1 and gain trample until end of turn.", "Instant");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "b", controller: "user", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Press the Advantage" }, payload: { params: { program: p, controller: "user", targets } } });
+    // applyPumpEffect applies the ptDelta (layer 7c) and the grantKeywords (layer 6) in the SAME per-target loop,
+    // so a per-target power buff proves the keyword grant also lands per-target. Both go 2/2 → 3/3.
+    for (const id of ["a", "b"]) {
+      const pm = out.players.user.battlefield.find((x) => x.id === id);
+      expect(creaturePower(pm, out)).toBe(3); // 2 base + 1
+    }
+  });
+});

@@ -355,12 +355,18 @@ describe("parseEffectProgram — count-scaled draw / life (FOR-EACH)", () => {
       .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", cardType: "artifact", per: 1 } });
     expect(atom0("You gain life equal to the number of creatures you control."))
       .toMatchObject({ op: "gain-life", amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 1 } });
+    // COUNTER-QUALIFIED creature count (Armorcraft Judge / Inspiring Call): only creatures with a +1/+1 counter.
+    expect(atom0("Draw a card for each creature you control with a +1/+1 counter on it."))
+      .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", cardType: "creature", requiresCounter: "+1/+1", per: 1 } });
   });
   it("MUST_DROP_TO_LOW: opponent-scoped / subtype / 'don't control' / other-graveyard sources → Arbiter", () => {
     expect(conf("Draw a card for each creature target opponent controls.")).toBe("low");   // opponent-scoped
     expect(conf("Draw a card for each creature you don't control.")).toBe("low");           // negated control
     expect(conf("Draw a card for each creature card in their graveyard.")).toBe("low");     // not YOUR graveyard
     expect(conf("Draw a card for each Arcane card in your graveyard.")).toBe("low");         // spell subtype — deferred
+    // COUNTER-QUALIFIED near-misses: only the exact "a +1/+1 counter on it/them" form is admitted (CREED anchor).
+    expect(conf("Draw a card for each creature you control with a counter on it.")).toBe("low");          // generic counter — unmodeled
+    expect(conf("Draw a card for each creature you control with two +1/+1 counters on it.")).toBe("low"); // qualified count — unmodeled
   });
 });
 
@@ -900,7 +906,8 @@ const MUST_DROP_TO_LOW = [
   // (see gyRecursion.test.js for those HIGH pins). A NON-type filter (subtype / color / negation /
   // intersection), another graveyard, multi-card cardinality, or a battlefield (reanimation) destination
   // must stay LOW → Arbiter, so we never mis-target the graveyard or silently drop a rider. ──
-  "Return up to two target creature cards from your graveyard to your hand.",       // "up to two" cardinality
+  // NOTE: "Return up to two target creature cards …" is now NATIVE (MULTI-COUNT slice A — real runtime via
+  // targeting.expandAtoms subset enumeration + the multi-target-ready resolver). Pinned HIGH in multiCountTarget.test.js.
   "Return target goblin card from your graveyard to your hand.",                    // creature SUBTYPE — unmodeled (REG-1 models types, not subtypes)
   "Return target nonland permanent card from your graveyard to your hand.",         // negation — unmodeled
   "Return target artifact creature card from your graveyard to your hand.",         // INTERSECTION (both), not a union — unmodeled
@@ -942,7 +949,9 @@ const MUST_DROP_TO_LOW = [
   "Pyroclasm deals 3 damage to each creature an opponent controls.",            // qualified — only bare "each creature" is modeled
   "Target creature gets +1/+1 until end of turn. Another target creature gets -1/-1 until end of turn.", // "another" = distinct target, unmodeled
   "Target creature gets +2/+2 until end of turn. Up to one other target creature gets +1/+1 until end of turn.", // "up to" + "other"
-  "Dual Shot deals 1 damage to each of up to two target creatures.",            // "each of up to two" cardinality
+  // NOTE: "… deals N damage to each of up to two target creatures" is now NATIVE (MULTI-COUNT damage slice — real
+  // runtime: N to EACH chosen creature via applyDamageEffect's per-target loop + targeting.expandAtoms subsets).
+  // Pinned HIGH in multiCountTarget.test.js. A trailing rider ("Those creatures can't block") still stays LOW.
   "Tiered (Choose one additional cost.)\n• Thunder — {0} — Thunder Magic deals 2 damage to target creature.\n• Thundara — {3} — Thunder Magic deals 4 damage to target creature.", // bulleted NON-modal (tiers) → not a 2-damage sequence
   "Two target players each draw a card.",                                       // draw, but a DIFFERENT subject draws — not the controller
   "Target creature gets +2/+0 until end of turn. Draw a card at the beginning of the next turn's upkeep.", // DELAYED draw rider
@@ -982,7 +991,8 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on up to one target creature you control.",          // Essence Capture rider — "you control" filter
   "Put a +1/+1 counter on up to one target Dinosaur you control.",          // Huatli — creature-subtype filter
   "Put a +1/+1 counter on up to one target creature an opponent controls.", // opponent-controlled filter
-  "Put a +1/+1 counter on each of up to two target creatures.",             // Rishkar / Travel Preparations — multi-target subset (deferred CNT-2b)
+  // NOTE: "Put a +1/+1 counter on each of up to two target creatures" is now NATIVE (MULTI-COUNT slice C — real
+  // runtime via targeting.expandAtoms subset enumeration + applyAddCounter's per-target loop). Pinned in multiCountTarget.test.js.
   "Distribute three +1/+1 counters among one, two, or three target creatures.", // Biogenic Upgrade — distribute (deferred)
   "Distribute four +1/+1 counters among any number of target creatures.",   // Blessings of Nature — distribute (deferred)
   // ===== EDICTS ===== — sacrifice-as-effect variants OUTSIDE the exact "target player/opponent
@@ -1457,6 +1467,78 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
   });
 });
 
+// ===== ALT-COST (CR 601.2b / 118.9) — a printed ALTERNATIVE casting cost, wave 3a (FREE / controlCommander) =====
+// "[If <cond>, ]you may cast this spell without paying its mana cost." is stripped like the flashback /
+// jump-start / overload keyword lines: the body parses through the all-or-nothing pipeline and the card is
+// native because its EFFECT is modeled + it's castable at its PRINTED mana cost (Cyclonic Rift / Firebolt are
+// native today by exactly this logic). The alt-cost is recorded as `program.altCost` metadata (forward-
+// compatible) but not yet OFFERED — a safe FN on an optional discount. The gate (SUPPORTED_ALT_COST_KINDS)
+// keeps un-vetted kinds LOW; the all-or-nothing body parse keeps a card LOW when its remaining effect is
+// unmodeled (Deflecting Swat's redirect). These pins are the merge gate for this slice's false-positive class.
+describe("parseEffectProgram — printed alt-cost strip (free / pitch / exile / sac / payLife / return)", () => {
+  it("gates an un-vetted alt-cost kind to low (CREED — a kind flips only once its strip is corpus-swept clean)", () => {
+    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "free", condition: "controlCommander" } })).toBe("high");
+    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "convokePitch", condition: "always" } })).toBe("low"); // a hypothetical un-vetted kind
+  });
+  it("MUST STAY HIGH: each modeled alt-cost shape strips + attaches its descriptor + the body parses", () => {
+    const fg = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nCounter target noncreature spell."));
+    expect(programConfidence(fg)).toBe("high");
+    expect(fg.altCost).toEqual({ kind: "free", condition: "controlCommander" });
+    expect(fg.atoms.map((a) => a.op)).toEqual(["counter"]);
+    const fow = parseEffectProgram(I("You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell."));
+    expect(programConfidence(fow)).toBe("high");
+    expect(fow.altCost).toEqual({ kind: "payLifeExilePitch", amount: 1, color: "blue", condition: "always" });
+    const fon = parseEffectProgram(I("If it's not your turn, you may exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target noncreature spell."));
+    expect(programConfidence(fon)).toBe("high");
+    expect(fon.altCost).toEqual({ kind: "exileColorCard", color: "blue", condition: "notYourTurn" });
+    const flare = parseEffectProgram(I("You may sacrifice a nontoken blue creature rather than pay this spell's mana cost.\nCounter target spell."));
+    expect(programConfidence(flare)).toBe("high");
+    expect(flare.altCost).toEqual({ kind: "sacrificeCreature", nontoken: true, color: "blue", condition: "always" });
+    const snuff = parseEffectProgram(I("If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost.\nDestroy target nonblack creature. It can't be regenerated."));
+    expect(programConfidence(snuff)).toBe("high");
+    expect(snuff.altCost).toEqual({ kind: "payLife", amount: 4, condition: "controlLand:Swamp" });
+    const gush = parseEffectProgram(I("You may return two Islands you control to their owner's hand rather than pay this spell's mana cost.\nDraw two cards."));
+    expect(programConfidence(gush)).toBe("high");
+    expect(gush.altCost).toEqual({ kind: "returnLandsToHand", count: 2, subtype: "Island", condition: "always" });
+  });
+  it("MUST DROP TO LOW: the alt-cost strips but the REMAINING effect is unmodeled (all-or-nothing)", () => {
+    // Deflecting Swat — free-if-commander, but 'choose new targets' (redirect) is unmodeled.
+    expect(programConfidence(parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability.")))).toBe("low");
+    // Misdirection — exile-pitch, but 'change the target' (redirect) is unmodeled.
+    expect(programConfidence(parseEffectProgram(I("You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target.")))).toBe("low");
+  });
+  it("MUST DROP TO LOW: an un-modeled alt-cost SHAPE / CONDITION is NOT stripped (the sentence keeps the card LOW)", () => {
+    // Foil — a COMPOUND discard cost (discard an Island AND another card), not a modeled shape → not stripped.
+    expect(programConfidence(parseEffectProgram(I("You may discard an Island card and another card rather than pay this spell's mana cost.\nCounter target spell.")))).toBe("low");
+    // Commandeer — exile TWO blue cards (plural), not the singular shape → not stripped.
+    expect(programConfidence(parseEffectProgram(I("You may exile two blue cards from your hand rather than pay this spell's mana cost.\nGain control of target spell.")))).toBe("low");
+    // An unrecognized free-cast CONDITION → rejected → not stripped.
+    expect(programConfidence(parseEffectProgram(I("If you control three or more artifacts, you may cast this spell without paying its mana cost.\nCounter target spell.")))).toBe("low");
+  });
+});
+
+// ===== INSPIRING CALL — draw-for-each-counter-creature + "those creatures gain <kw>" (cross-clause template) =====
+// The "those creatures" anaphora binds a group grant to the SAME +1/+1-counter-filtered set the preceding draw
+// counted (both resolve atomically, so the set is stable). Matched up front as [draw(requiresCounter),
+// grant-keywords-group(requiresCounter)]; an un-grantable keyword / a rider / a bare "those creatures" → LOW.
+describe("parseEffectProgram — Inspiring Call (counter-draw then grant to those creatures)", () => {
+  it("MUST STAY HIGH: emits [draw(requiresCounter), grant-keywords-group(requiresCounter=+1/+1)]", () => {
+    const p = parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain indestructible until end of turn."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms.map((a) => a.op)).toEqual(["draw", "grant-keywords-group"]);
+    expect(p.atoms[0].amountCount).toMatchObject({ kind: "permanentsYouControl", cardType: "creature", requiresCounter: "+1/+1" });
+    expect(p.atoms[1]).toMatchObject({ op: "grant-keywords-group", scope: "creaturesYouControl", grantKeywords: ["Indestructible"], requiresCounter: "+1/+1" });
+  });
+  it("MUST DROP TO LOW: an un-grantable keyword / a trailing rider / a bare 'those creatures' → Arbiter", () => {
+    // 'shadow' is not in the group-grant allowlist → the grant clause returns null → the whole card stays LOW.
+    expect(programConfidence(parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain shadow until end of turn.")))).toBe("low");
+    // A trailing rider breaks the anchored two-sentence match → the split fragments don't recombine → LOW.
+    expect(programConfidence(parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain indestructible until end of turn. Draw a card.")))).toBe("low");
+    // 'those creatures' with no counter-draw lead has no referent → LOW (a bare group grant can't say 'those').
+    expect(programConfidence(parseEffectProgram(I("Those creatures gain indestructible until end of turn.")))).toBe("low");
+  });
+});
+
 // ===== ACT-KW-GRANT — self keyword-grant (activated/trigger effect, via parseEffectClause) =====
 // "This creature [gets +N/+N and ]gains <KW> until end of turn" grants the SOURCE (CR 113.7) the
 // keyword(s) for the turn, reusing the combat-trick GRANTABLE_COMBAT_KEYWORDS allowlist (the enforced,
@@ -1585,8 +1667,15 @@ describe("parseEffectProgram — SELF-SACRIFICE self-referential sacrifice atom"
     expect(a).toMatchObject({ op: "sacrifice", target: "self" });
     expect(a?.targetType).toBeUndefined();
   });
+  it("'sacrifice this creature unless you pay {N}' → HIGH (UPKEEP-SAC-UNLESS-PAY fold)", () => {
+    // Deliberate, reviewed widening: the upkeep-tax body (Whipstitched Zombie / Drifting Djinn, and the
+    // Kataki/Pendrell-Mists granted self-sac) folds to ONE pausing sac-unless-pay atom — pay keeps it,
+    // decline/can't-afford sacrifices the source. Pinned HIGH here so a future refactor can't silently drop it.
+    hi("sacrifice this creature unless you pay {2}");
+    expect(atomOf("sacrifice this creature unless you pay {2}")).toMatchObject({ op: "sac-unless-pay" });
+  });
   it("MUST STAY LOW: forms with riders or conditions (FP-GUARD)", () => {
-    lo("sacrifice this creature unless you pay {2}"); // conditional, complex
+    lo("sacrifice this creature unless you pay {X}"); // {X} cost — parseFixedManaPips → null → unmodeled
     lo("sacrifice this creature at the beginning of the next end step"); // deferred trigger
   });
 });

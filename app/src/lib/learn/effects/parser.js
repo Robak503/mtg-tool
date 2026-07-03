@@ -49,10 +49,11 @@ import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; SMALL_NUM left with the S2 cdmg-payoff drain (atoms/counters)
+import { parseTutorFilter, parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); SMALL_NUM for MULTI-COUNT damage count words
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
+import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
@@ -458,6 +459,8 @@ function splitClauses(oracle) {
     // The " and gain …" is INTERNAL to the one team-pump instruction (same as the unfiltered form above), NOT a
     // top-level boundary — keep the whole sentence so the clause parse binds the scoped pump + grant together.
     if (/^(?:other creatures|[a-z]+s) you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // MULTI-COUNT PUMP + KEYWORD GRANT (VERIFY PROTOTYPE) — keep "up to N target creatures each get ±P/±T and gain KW until end of turn" whole.
+    if (/^up to (?:two|three|four|five) target creatures(?: you control)? each get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // GROUP-KEYWORD-GRANT — "(Creatures|Permanents) you control gain <kw> and <kw> until end of turn"
     // (Heroic Intervention "hexproof and indestructible"): the " and " joins a KEYWORD LIST, INTERNAL to
     // one group-grant instruction, NOT a top-level effect boundary. Keep the whole sentence so
@@ -767,6 +770,18 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     const a = p(s, { cardType, hasX });
     if (a) return a;
   }
+
+  // MULTI-COUNT DAMAGE (CR 601.2c "up to N") — "deal N damage to each of up to K target creatures" → the full N to
+  // EACH chosen creature (applyDamageEffect's chosen-target loop deals the amount per target; targeting.expandAtoms
+  // offers each 0..K subset). Intercepted HERE, before the legacy single-target parse — which would DROP the "each of
+  // up to K" and mis-model it as ONE target. Bare "target creatures" only (a restriction/rider or the "and/or
+  // planeswalkers" widening stays LOW → Arbiter, FN-safe). The "divided among" form is a DISTINCT divide-damage atom
+  // and never matches this "to each of up to K target creatures" anchor.
+  // Optional leading self-reference — the printed card name (e.g. "Dual Shot deals …") or "~"/"this spell" — since
+  // Scryfall oracle text is self-referential; the clause splitter has isolated ONE clause, so the only text before
+  // "deals" is the subject. End-anchored ($) so a trailing rider ("… Those creatures can't block") still stays LOW.
+  const mcd = s.toLowerCase().match(/^(?:[a-z0-9'’,\- ]+? )?deals? (\d+) damage to each of up to (two|three|four|five) target creatures$/);
+  if (mcd) return { op: "deal-damage", amount: parseInt(mcd[1], 10), targetType: "creature", maxTargets: SMALL_NUM[mcd[2]], minTargets: 0 };
 
   const sub = { type: cardType, oracle: s };
   const atom = legacyToAtom(parseSpellEffect(sub));
@@ -1202,6 +1217,79 @@ function extractAdditionalCosts(oracle) {
   return { costs: [cost], rest };
 }
 
+// ===== ALT-COST (CR 601.2b / 118.9) — a PRINTED alternative casting cost ("… rather than pay this spell's
+// mana cost" / "you may cast this spell without paying its mana cost"). Treated EXACTLY like the
+// CAST_KEYWORD_LINE strips (flashback / jump-start / overload — see stripStormKeywordLine & friends): strip
+// the alternative-casting sentence, parse the REMAINING effect through the normal all-or-nothing pipeline,
+// and attach `altCost` metadata to the program. The card becomes native because its EFFECT is fully modeled
+// AND it is castable at its PRINTED mana cost (Cyclonic Rift / Firebolt / Chemister's Insight are all
+// native-spell today by exactly this logic). The alt-cost is an OPTIONAL alternative the engine RECORDS
+// (program.altCost, forward-compatible) but does not yet OFFER — a safe false-NEGATIVE on an optional
+// cost-reduction: the card never plays WRONG, it only forgoes a legal discount. Actually OFFERING the alt-cost
+// at the cast path (so the AI pays life/exiles/sacs to cast it) is separate play-quality work. CONSERVATIVE:
+// only a MODELED {kind,condition} strips; anything else leaves the sentence in place → the card stays LOW.
+// Wave 3a models the FREE kind, condition controlCommander only (Fierce Guardianship, Deadly Rollick, Flawless
+// Maneuver — the "free if you control a commander" cycle); pitch/sac/return kinds + other conditions land next.
+// Anchored to a whole sentence at oracle start or after a newline; the condition capture forbids commas /
+// periods / newlines so it can never span into the effect body.
+const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand"]);
+
+// Map a captured "if <cond>," phrase → a condition enum (a STRING — inert metadata today, since the alt-cost is
+// recorded but not yet OFFERED; the future cast-path offer will evaluate it). An UNRECOGNIZED condition → null,
+// which rejects the whole alt-cost so the card stays LOW (never credit a gate we can't name). Absent → "always".
+function parseAltCostCondition(phrase) {
+  if (phrase == null) return "always";
+  const p = phrase.trim().toLowerCase();
+  if (p === "you control a commander") return "controlCommander";
+  if (p === "it's not your turn") return "notYourTurn";
+  if (p === "an opponent controls a forest and you control an island") return "submergeGate"; // Submerge
+  const land = p.match(/^you control an? (\w+)$/);
+  if (land) {
+    const sub = land[1][0].toUpperCase() + land[1].slice(1);
+    if (["Swamp", "Island", "Forest", "Mountain", "Plains"].includes(sub)) return "controlLand:" + sub;
+  }
+  return null;                                            // unmodeled condition → reject → stays LOW
+}
+
+// The modeled printed-alt-cost sentence shapes. Each: an anchored regex (a whole sentence at oracle start or
+// after a newline; the captures can never span into the effect body) + a builder → an altCost descriptor, or
+// null to REJECT (leave the sentence in → the card stays LOW). Tried in order; the first that both matches AND
+// builds non-null wins. Only the FREE kind waives mana entirely (a future offer reuses action.freeCast); the
+// pitch/sac/return kinds pay their own printed cost. All are recorded as metadata only for now (§ extractAltCost).
+const ALT_COST_MATCHERS = [
+  // FREE — "[if <cond>, ]you may cast this spell without paying its mana cost." (Fierce Guardianship, Submerge).
+  { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may cast this spell without paying its mana cost\.\s*/i,
+    build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "free", condition: c }; } },
+  // PITCH-LIFE-EXILE — "you may pay N life and exile a <color> card from your hand rather than pay this spell's mana cost." (Force of Will).
+  { re: /(?:^|\n)\s*you may pay (\d+) life and exile an? (\w+) card from your hand rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "payLifeExilePitch", amount: Number(m[1]), color: m[2].toLowerCase(), condition: "always" }) },
+  // EXILE-COLOR — "[if it's not your turn, ]you may exile a <color> card from your hand rather than pay this spell's mana cost." (Force of Negation, Misdirection).
+  { re: /(?:^|\n)\s*(if it's not your turn, )?you may exile an? (\w+) card from your hand rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "exileColorCard", color: m[2].toLowerCase(), condition: m[1] ? "notYourTurn" : "always" }) },
+  // SAC-CREATURE — "you may sacrifice a [nontoken ]<color> creature rather than pay this spell's mana cost." (Flare of Denial / Cultivation).
+  { re: /(?:^|\n)\s*you may sacrifice a (nontoken )?(\w+) creature rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "sacrificeCreature", nontoken: !!m[1], color: m[2].toLowerCase(), condition: "always" }) },
+  // PAYLIFE — "[if <cond>, ]you may pay N life rather than pay this spell's mana cost." (Snuff Out — controlLand Swamp).
+  { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may pay (\d+) life rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "payLife", amount: Number(m[2]), condition: c }; } },
+  // RETURN-LANDS — "you may return two <Subtype>s you control to their owner's hand rather than pay this spell's mana cost." (Gush).
+  { re: /(?:^|\n)\s*you may return (two|three) (\w+)s you control to their owner's hand rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "returnLandsToHand", count: m[1] === "two" ? 2 : 3, subtype: m[2][0].toUpperCase() + m[2].slice(1), condition: "always" }) },
+];
+
+function extractAltCost(oracle) {
+  for (const { re, build } of ALT_COST_MATCHERS) {
+    const m = re.exec(oracle);
+    if (!m) continue;
+    const altCost = build(m);
+    if (!altCost) continue;                                          // matched shape but unmodeled detail (bad condition) → leave LOW
+    const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
+    if (!rest) continue;                                             // no effect body left → nothing to model
+    return { altCost, rest };
+  }
+  return { altCost: null, rest: oracle };
+}
+
 // SELF-COST-REDUCTION sentence (CR 601.2f) — "This spell costs {N} less to cast …" reduces the spell's CAST
 // cost only; it is NEVER a resolution effect (the mana value and the on-stack effect are untouched, CR 202.3).
 // So for the EFFECT program it is pure residue — strip it before parsing so an otherwise-modeled spell isn't
@@ -1341,14 +1429,17 @@ export function parseEffectProgram(card) {
     return makeProgram({ confidence: "high", atoms: kicked.atoms, xSpell: false, unparsedTail: null });
   }
   const { costs, rest } = extractAdditionalCosts(oracle);
-  // A spell that is BOTH an X-spell AND carries an additional cost is a compound we defer — the cast-path
-  // X-value expansion and the victim expansion don't yet compose — so parse the FULL oracle and let the
+  const { altCost, rest: altRest } = extractAltCost(costs ? rest : oracle);
+  // A spell that is BOTH an X-spell AND carries an additional/alt cost is a compound we defer — the cast-path
+  // X-value expansion and the cost expansion don't yet compose — so parse the FULL oracle and let the
   // un-stripped cost sentence keep it LOW. No clean printed card needs both today.
-  if (costs && hasXCost(card)) return parseEffectClause(oracle, typeOf(card), { hasX: true });
+  if ((costs || altCost) && hasXCost(card)) return parseEffectClause(oracle, typeOf(card), { hasX: true });
   // {X}-cost spell (no additional cost): the parser may stamp `amountX` on a damage/draw/pump atom whose
   // amount is the chosen X, bound at cast time (CR 601.2b) and read at resolution.
-  const program = parseEffectClause(costs ? rest : oracle, typeOf(card), { hasX: hasXCost(card) });
+  const bodyOracle = altCost ? altRest : (costs ? rest : oracle);
+  const program = parseEffectClause(bodyOracle, typeOf(card), { hasX: hasXCost(card) });
   if (costs && program) program.additionalCosts = costs;
+  if (altCost && program) program.altCost = altCost;
   return program;
 }
 
@@ -1521,6 +1612,52 @@ function parseFixedManaPips(pipStrings) {
   return cost;
 }
 
+// UPKEEP-SAC-UNLESS-PAY noun allowlist — the printed permanent-type nouns for which "sacrifice this <noun>" means
+// "sacrifice the source permanent" unambiguously. An unrecognized noun → no match (safe FN → Arbiter). The sac target
+// is always the source (ctx.sourceId) regardless of noun; the allowlist just gates out garbage.
+const SAC_UNLESS_PAY_NOUNS = new Set(["creature", "artifact", "enchantment", "land", "permanent", "token"]);
+
+/**
+ * ===== UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword, CR 603.7c) ===== "Sacrifice this <noun> unless you pay
+ * {cost}." — the upkeep-tax body of a cumulative/echo-style permanent (the effectClause of "At the beginning of your
+ * upkeep, …"): a mana-payment choice with INVERTED polarity vs optional-mana-payment (PAY+afford keeps the permanent;
+ * DECLINE or CAN'T-afford sacrifices the source). MUST be matched WHOLE, pre-splitter: a bare "sacrifice this creature"
+ * left over hits sacrificeEdictClauseParser → an UNCONDITIONAL self-sac that silently DROPS the pay-escape (a cardinal
+ * FP). CREED guards: FIXED mana cost (parseFixedManaPips → null on {X}), an allowlisted permanent noun; anchored ^…$
+ * (a rider leaves residue → LOW → Arbiter). Emit the { op:"sac-unless-pay", cost } pausing atom, or null.
+ */
+function matchUpkeepSacUnlessPay(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you pay\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  if (m[1] && !SAC_UNLESS_PAY_NOUNS.has(m[1].toLowerCase())) return null; // an unrecognized noun → unmodeled (safe FN)
+  const pips = (m[2].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null; // {X} / unknown symbol → unmodeled cost
+  return { atom: { op: "sac-unless-pay", cost: { kind: "mana", mana }, targetType: null } };
+}
+
+/**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-draw, CR 603.7c) ===== the effect clause of a "Whenever an opponent casts a
+ * spell, you may draw a card unless that player pays {N}." trigger (Rhystic Study; Mystic Remora's draw half). The
+ * PAYER is the opponent who cast (bound at resolution from ctx.castingPlayerId, threaded by checkCastTriggers); the
+ * BENEFICIARY is the trigger's controller (you). applyTaxedDraw suspends on the PAYER's pay-or-let-you-draw choice.
+ * A FIXED mana cost only — "{X}, where X is this creature's power" (Esper Sentinel) → parseFixedManaPips null →
+ * unmodeled (SAFE FN). The bare "draw a card unless …" (no "you may") maps to the same atom (the payer's choice IS
+ * the "may").
+ */
+function matchTaxedDraw(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^(?:you may )?draw a card unless that player pays (\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null; // {X} (Esper Sentinel) / unknown symbol → unmodeled cost
+  return { atom: { op: "taxed-draw", cost: { kind: "mana", mana }, targetType: null } };
+}
+
 /**
  * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." — an OPTIONAL mana
  * payment whose payoff resolves ONLY if the controller pays (Lifecrafter's Bestiary "you may pay {G}. If you
@@ -1636,6 +1773,58 @@ function matchOptionalSacBySubtype(oracle, cardType) {
 }
 
 /**
+ * ===== OPTIONAL DRAW-THEN-DISCARD (reverse Looter, CR 603.7c-shaped) ===== "You may draw a card. If you do,
+ * discard a card." (Riddlesmith, Murder of Crows, Skyswimmer Koi) — a net-neutral optional loot. Structurally an
+ * optional-payment with NO cost: pause on the "may draw" yes/no; on YES run the [draw, discard] sequence (the
+ * discard is the LAST atom, so its which-card pause chains cleanly onto the program continuation via the shared
+ * payoff loop); on NO / decline, nothing changes (the cardinal CREED guarantee — hand & library untouched).
+ * The mandatory "Draw a card, then discard a card" already composes (the ", then" splitter); only this OPTIONAL
+ * wrapper is added. Whole-string ^…$ anchored — a rider / once-per-turn qualifier / "each opponent discards" /
+ * "discard your hand" leaves residue → no match → LOW → Arbiter (SAFE FN).
+ */
+function matchOptionalDrawDiscard(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^you may draw (a card|\w+ cards?)\.\s*if you do,?\s+(discard (?:a|an|one|two|three|four|five|\w+) cards?)$/i);
+  if (!m) return null;
+  // LOAD-BEARING: compose + parse the payoff under LITERAL "Instant", NOT cardType — the draw atom's legacy gate
+  // returns HIGH only for Instant/Sorcery; passing the card's own type (creature/artifact) → LOW → zero flips.
+  const payoff = parseEffectClauseImpl(`draw ${m[1]}, then ${m[2].trim()}`, "Instant", { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = payoff.atoms || [];
+  if (inner.length !== 2 || inner[0].op !== "draw" || inner[1].op !== "discard") return null;   // exactly [draw, discard]
+  if (!(inner[1].who == null || inner[1].who === "controller")) return null;                     // "each opponent discards" → out
+  if (!inner.every((a) => KNOWN.has(a.op)) || programNeedsChosenTarget(payoff)) return null;
+  if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;                    // only the LAST (discard) may pause
+  return { atom: { op: "optional-draw-discard", effectAtoms: inner, targetType: null } };
+}
+
+/**
+ * ===== OPTIONAL-DISCARD-PAYMENT (CR 603.7c) ===== "you may discard a card. If you do, <effect>." — the discard is
+ * the pausing COST (a which-card choice), the payoff runs ONLY after a real discard settles. DISTINCT from draw-then-
+ * discard (there the discard is the coupled effect, LAST-position; here it's the leading cost). The cost owns the one
+ * pause slot, so the payoff MUST be non-pausing (else the two pauses would interleave and drop atoms — the 32-flip
+ * guard). CREED guards: HIGH + non-modal + not-xSpell + every atom KNOWN + targetless; reject a chained 2nd reflexive
+ * or an else-branch. Match → the single atom, else null (the clause stays LOW → Arbiter).
+ */
+function matchOptionalDiscardPayment(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^you may discard a card\.\s*if you do,?\s+(.+)$/i);
+  if (!m) return null;
+  const payoffText = m[1].trim();
+  if (/\bif you do\b/i.test(payoffText) || /\botherwise\b/i.test(payoffText)) return null; // 2nd reflexive / else-branch — not modeled
+  // LOAD-BEARING (mirrors matchOptionalDrawDiscard FIX A): parse the payoff under LITERAL "Instant", NOT the card's
+  // own type — the draw atom's legacy gate returns HIGH only for Instant/Sorcery, and 30 of the 32 flips are creatures
+  // whose payoff is "draw a card". Passing cardType (Creature/Artifact) → LOW → the draw flips vanish. The payoff
+  // atoms (draw/token/pump) resolve type-agnostically, so "Instant" is behavior-identical and correct.
+  const payoff = parseEffectClauseImpl(payoffText, "Instant", { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = payoff.atoms || [];
+  if (!inner.length || !inner.every((a) => KNOWN.has(a.op)) || programNeedsChosenTarget(payoff)) return null;
+  if (inner.some((a) => PAUSING_ATOM_OPS.has(a.op))) return null; // the cost-discard owns the only pause slot — a pausing payoff would interleave
+  return { atom: { op: "optional-discard-payment", effectAtoms: inner, targetType: null } };
+}
+
+/**
  * ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do[ this/so], <reflexive>." — a reflexive
  * triggered ability set up by the resolution of the primary effect, triggering off the event that resolution
  * causes ("when you do" = "when the immediately-preceding instruction's action happens"). Per CR 603.7 the
@@ -1687,6 +1876,23 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
   const atoms = [...(primary.atoms || []), ...(reflexive.atoms || [])];
   if (!atoms.every(a => KNOWN.has(a.op)) || !optionalsFormSuffix(atoms)) return null;
   return { atoms };
+}
+
+// INSPIRING CALL — "Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain
+// <grantable keyword[s]> until end of turn." The "those creatures" anaphora binds the group grant to the SAME
+// +1/+1-counter-filtered set the draw just counted; the two sentences span the clause splitter, so it's matched
+// up front as [draw (requiresCounter count-source), grant-keywords-group (requiresCounter filter)]. FP-safe: the
+// grant keyword runs through the grantable-keyword allowlist (an un-grantable keyword → the grant clause returns
+// null → the whole card stays LOW), the exact "for each creature you control with a +1/+1 counter" anchor can't
+// over-match, and BOTH atoms must be KNOWN (draw + grant-keywords-group) or it's LOW (no partial — CREED).
+function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^draw a card for each creature you control with a \+1\/\+1 counter on it\. those creatures gain (.+) until end of turn\.$/);
+  if (!m) return null;
+  const drawAtom = parseClauseToAtom(cardType, "draw a card for each creature you control with a +1/+1 counter on it", hasX);
+  const grantAtom = parseClauseToAtom(cardType, `creatures you control gain ${m[1]} until end of turn`, hasX);
+  if (!drawAtom || !grantAtom || grantAtom.op !== "grant-keywords-group") return null;
+  return { atoms: [drawAtom, { ...grantAtom, requiresCounter: "+1/+1" }] };
 }
 
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
@@ -1761,6 +1967,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (dgd && dgd.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dgd.atoms, xSpell: false, unparsedTail: null });
   }
+  // ===== INSPIRING CALL ===== draw-for-each-counter-creature + "those creatures gain <kw>" — see
+  // matchDrawCounterCreaturesThenGrant. Emits [draw, grant] directly; HIGH iff both KNOWN (they are).
+  const dcg = matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX);
+  if (dcg && dcg.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: dcg.atoms, xSpell: false, unparsedTail: null });
+  }
   // ===== DRAIN-X (Exsanguinate) ===== "Each opponent loses X life. You gain life equal to the life lost this
   // way." → ONE drain-each-opponent atom (the lifegain is the actual total drained, computed at resolution).
   // Gated to an {X}-cost spell (the matcher requires the literal "X"). xSpell:true so the cast path enumerates X.
@@ -1808,6 +2020,21 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (omp && KNOWN.has(omp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [omp.atom], xSpell: false, unparsedTail: null });
   }
+  // ===== UPKEEP-SAC-UNLESS-PAY ===== "Sacrifice this <noun> unless you pay {cost}." → ONE sac-unless-pay atom (pay
+  // keeps it, decline/can't-afford sacrifices the source). MUST be matched WHOLE here, PRE-SPLITTER — a leftover bare
+  // "sacrifice this creature" would hit sacrificeEdictClauseParser → an unconditional self-sac that drops the pay-
+  // escape (cardinal FP). Disjoint anchor from the other folds ("sacrifice this…" vs "you may…"), so order-free.
+  const sup = matchUpkeepSacUnlessPay(oracle);
+  if (sup && KNOWN.has(sup.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [sup.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPPONENT-PAYS-TO-DENY ===== "you may draw a card unless that player pays {N}" (Rhystic Study's trigger
+  // effect) → ONE taxed-draw atom (the payer = the opponent who cast, from ctx.castingPlayerId; the beneficiary =
+  // you). applyTaxedDraw suspends on the payer's pay/decline. Disjoint anchor from the folds above.
+  const txd = matchTaxedDraw(oracle);
+  if (txd && KNOWN.has(txd.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [txd.atom], xSpell: false, unparsedTail: null });
+  }
   // ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== "You may sacrifice a <subtype>. If you do, <effect>." → ONE
   // optional-sac-payment atom (the resolver suspends on a real sac/decline; sacrificeCreatureEffect pitches one
   // matching permanent + fires its dies/TRIG-SACRIFICE watchers, the payoff atoms run only on a real sac).
@@ -1818,6 +2045,21 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const osp = matchOptionalSacBySubtype(oracle, cardType);
   if (osp && KNOWN.has(osp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [osp.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL DRAW-THEN-DISCARD ===== "you may draw a card. If you do, discard a card." → ONE
+  // optional-draw-discard atom (resolver runs [draw, discard] only on yes; the discard's which-card pause chains
+  // onto the program continuation). Checked before the clause splitter (the two sentences would shatter).
+  const odd = matchOptionalDrawDiscard(oracle);
+  if (odd && KNOWN.has(odd.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [odd.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL-DISCARD-PAYMENT ===== "you may discard a card. If you do, <effect>." → ONE optional-discard-payment
+  // atom (the discard is the pausing COST; the payoff runs only after a real discard settles — resolveOptionalDiscard-
+  // PaymentChoice runs the [discard, ...payoff] program on yes). Checked before the clause splitter (the two sentences
+  // would shatter). Mirrors the sac/mana/draw-discard optional-payment folds.
+  const odp = matchOptionalDiscardPayment(oracle);
+  if (odp && KNOWN.has(odp.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [odp.atom], xSpell: false, unparsedTail: null });
   }
   // DESTROY-TOKEN-RIDER — "Destroy target creature. [It can't be regenerated.] (Its|That creature's) controller
   // creates a N/N <color> <subtype> creature token." (Pongify, Rapid Hybridization). A creature-destroy lead +
@@ -1980,6 +2222,11 @@ export function programConfidence(program) {
   // "sacrifice" cost, enforced in actionDispatcher.applyCastSpell; this gate future-proofs the invariant —
   // any unsupported cost kind forces LOW until its cast-path enforcement exists.
   if (Array.isArray(program.additionalCosts) && program.additionalCosts.some(c => !SUPPORTED_ADDITIONAL_COST_KINDS.has(c.kind))) return "low";
+  // Same LOW-until-vetted invariant for a printed alt-cost: a kind whose strip hasn't been corpus-swept
+  // FP-clean stays LOW (the sentence was stripped for parsing, so without this gate the body could falsely
+  // read HIGH). A kind enters SUPPORTED_ALT_COST_KINDS only once its strip is vetted. The all-or-nothing body
+  // parse still bites regardless — Deflecting Swat's free-cost strips but its redirect body is unmodeled → LOW.
+  if (program.altCost && !SUPPORTED_ALT_COST_KINDS.has(program.altCost.kind)) return "low";
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
@@ -2466,6 +2713,7 @@ registerClauseParser(discardClauseParser);
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.
 registerClauseParser(miscClauseParser);
+registerClauseParser(distributeCountersClauseParser);
 // EQUIP-ATTACH (seam batch 9 / Wave A4) — self-attach + attach-to-self migrated to atoms/stack.attachClauseParser
 // (whole-clause-anchored; attach-to-self returns null when its self-destination guard declines, preserving the
 // inline fall-through). program-diff = 0.

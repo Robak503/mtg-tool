@@ -388,7 +388,10 @@ export function countForSpec(state, ctx, spec) {
     return (player.battlefield || []).filter((perm) =>
       countMatches(perm.card, spec)
       && !isExcludedSelf(perm, spec, ctx)
-      && (spec.powerAtLeast == null || creaturePower(perm, state) >= spec.powerAtLeast),
+      && (spec.powerAtLeast == null || creaturePower(perm, state) >= spec.powerAtLeast)
+      // COUNTER-QUALIFIED ("…with a +1/+1 counter on it"): count only creatures currently carrying ≥1 +1/+1
+      // counter, read at resolution off the live counter bag (CR 608.2h). Absent → no filter (plain count).
+      && (spec.requiresCounter == null || (perm.counters?.[spec.requiresCounter] || 0) > 0),
     ).length;
   }
   // ===== CHOSEN-TYPE (Distant Melody) ===== "permanent you control of that type" where the type was chosen

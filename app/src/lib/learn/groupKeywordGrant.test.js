@@ -109,6 +109,17 @@ describe("group-keyword-grant — resolver grants over the fixed snapshot, enfor
     const after = resolveAtom(s, { op: "grant-keywords-group", scope: "permanentsYouControl", grantKeywords: ["Indestructible"] }, { controller: "user" });
     expect((after.continuousEffects || []).length).toBe(0);
   });
+
+  it("requiresCounter (Inspiring Call): only creatures WITH a +1/+1 counter gain the keyword", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const withC = createPermanent({ id: "u-c1", card: { id: "u-c1", name: "Countered", type: "Creature — Bear", power: 2, toughness: 2 }, controller: "user" });
+    withC.counters = { "+1/+1": 1 };
+    const bare = createPermanent({ id: "u-c0", card: { id: "u-c0", name: "Bare", type: "Creature — Ox", power: 2, toughness: 2 }, controller: "user" });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [withC, bare] } } };
+    const after = resolveAtom(s, { op: "grant-keywords-group", scope: "creaturesYouControl", grantKeywords: ["Indestructible"], requiresCounter: "+1/+1" }, { controller: "user", cardName: "Inspiring Call" });
+    expect(permanentHasKeyword(after, "u-c1", "Indestructible")).toBe(true);  // has a +1/+1 counter → granted
+    expect(permanentHasKeyword(after, "u-c0", "Indestructible")).toBe(false); // no counter → excluded
+  });
 });
 
 // ─── 3. Coverage flips ────────────────────────────────────────────────────────────

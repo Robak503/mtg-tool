@@ -1331,6 +1331,29 @@ export function registerTriggerDetector(fn) {
   _triggerDetectors.push(fn);
 }
 
+// COMPOUND TRIGGER (CR 603.1) — "When <A> and whenever <B>, <effect>." (Up the Beanstalk: "When this enchantment
+// enters and whenever you cast a spell with mana value 5 or greater, draw a card.") is TWO INDEPENDENT triggered
+// abilities that SHARE one effect — each fires on its OWN event. That is DISTINCT from a single multi-event condition
+// ("enters or dies" — still parked at classifyCondition's compound-event guard): there one ability fires on either
+// event; here there are two abilities. Rewriting the one sentence to two ("When A, E. Whenever B, E.") is FAITHFUL,
+// not a partial — the per-sentence detector then handles each independently. Only the "and when(ever)" second-TRIGGER
+// connective (a fresh When/Whenever) splits; an "and" joining a condition/effect has no trailing When and is untouched.
+// SAFETY: coverage.allTriggerSentencesModeled bumps its shaped count by compoundTriggerCount (mirroring the Storm/
+// Cascade keyword bumps), so if EITHER half's event is unmodeled the detected count under-runs shaped → the whole
+// card routes to the Arbiter (a SAFE false-negative) — an unmodeled half is NEVER silently dropped (the cardinal FP).
+const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)?\\s+(.+?),\\s+(.+?\\.)";
+function splitCompoundTriggerSentences(oracle) {
+  // Separate the two rewritten sentences with a NEWLINE (not ". ") — the trigger regex anchors each match on a
+  // preceding [\n.;] and consumes its own trailing period, so a same-line "…card. Whenever…" would leave the second
+  // sentence without a boundary. Abilities are newline-separated on real cards, so this matches the detector's grammar.
+  return String(oracle || "").replace(new RegExp(COMPOUND_TRIGGER_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nWhenever ${condB}, ${eff}`);
+}
+/** Number of compound "…and whenever…" second-trigger connectives — each adds ONE extra trigger sentence when split.
+ *  coverage.js adds this to its shaped-sentence count so `shaped === detected` holds for a successfully-split compound. */
+export function compoundTriggerCount(oracle) {
+  return (String(oracle || "").match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length;
+}
+
 /**
  * All triggered abilities printed on a card, as serializable TriggerDescriptors.
  * Cached by card identity (the regex pass runs once per distinct card object).
@@ -1341,8 +1364,9 @@ export function detectTriggers(card) {
   // Strip the leading "Landfall —" ability-word label (CR 207.2c — flavor, no rules meaning) so the trigger
   // regex below, which anchors "Whenever" at a line/sentence boundary, sees the bare "Whenever a land you
   // control enters …". Without this, "Landfall — Whenever …" puts "Whenever" mid-line and never matches.
-  // SHARED with coverage.js (the trigger-sentence count + residue strip must see the same normalized text).
-  const oracle = stripTriggerAbilityLabel(oracleOf(card));
+  // Then split compound "When A and whenever B, E" → two sentences (see COMPOUND TRIGGER above), so each half is
+  // detected independently. SHARED with coverage.js (the trigger-sentence count + residue strip see the same text).
+  const oracle = splitCompoundTriggerSentences(stripTriggerAbilityLabel(oracleOf(card)));
   const out = [];
   if (oracle) {
     // Anchored at start / after a sentence boundary, like keywords.js — so a
@@ -2851,7 +2875,11 @@ function prowessDescriptor() {
  */
 export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null }) {
   if (!spellCard) return state;
-  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
+  // `castingPlayerId` carries the CASTER's seat into every cast-trigger's context (spread into the resolver ctx by
+  // runEffectProgram). Load-bearing for OPPONENT-PAYS-TO-DENY (taxed-payment) — the pay-decision belongs to the
+  // player who cast, not the watcher's controller. Additive + inert for every existing cast trigger (no other
+  // consumer reads it). See docs/orchestration/corpus-levers-buildspec.md.
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {

@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, loseLife } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
@@ -431,6 +431,49 @@ export function resolveDivideChoice(state, distribution) {
 }
 
 /**
+ * ===== DISTRIBUTE ===== auto-pick a beneficial +1/+1-counter distribution for self-play (no human): spread
+ * `pc.amount` counters 1-at-a-time (round-robin) across the top `min(maxTargets, amount)` of the controller's
+ * OWN creatures by power — a simple, no-waste default (every counter lands on a real candidate, strictly
+ * beneficial, never fabricated). Not provably optimal (a later heuristic can refine). Mirrors autoPickDivideDistribution.
+ */
+export function autoPickDistributeCounters(state, pc) {
+  const amount = pc.amount || 0;
+  const pool = (pc.candidates || [])
+    .map((c) => ({ c, p: creaturePower(findPermanent(state, c.id)?.permanent, state) || 0 }))
+    .sort((a, b) => b.p - a.p || (a.c.id < b.c.id ? -1 : 1));
+  if (pool.length === 0 || amount <= 0) return [];
+  const n = Math.max(1, Math.min(pc.maxTargets || amount, pool.length, amount));
+  const dist = pool.slice(0, n).map(({ c }) => ({ id: c.id, type: "creature", amount: 0 }));
+  for (let i = 0; i < amount; i++) dist[i % n].amount += 1;    // 1 at a time — the total is exactly `amount`
+  return dist.filter((d) => d.amount > 0);
+}
+
+/**
+ * ===== DISTRIBUTE ===== settle a distribute-counters division: apply `distribution` ([{id,type,amount}], from
+ * the human picker or autoPickDistributeCounters) as add-counter events through the SAME registered add-counter
+ * atom — so the controller's +1/+1 doublers compose (CR 616) exactly like any counter placement. Guards mirror
+ * resolveDivideChoice: only candidate ids count, the running sum is capped at pc.amount (never fabricated), an
+ * eliminated controller skips the counters and just resumes.
+ */
+export function resolveDistributeChoice(state, distribution) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "distribute-counters") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next;             // controller eliminated mid-pause → no counters, no resume
+  const validIds = new Set((pc.candidates || []).map((c) => c.id));
+  let spent = 0;
+  for (const d of distribution || []) {
+    if (!validIds.has(d.id) || spent >= (pc.amount || 0)) continue;
+    const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+    if (amt <= 0) continue;
+    next = resolveAtom(next, { op: "add-counter", counterType: pc.counterType || "+1/+1", amount: amt }, { controller: pc.controller, targets: [{ type: "creature", id: d.id }] });
+    spent += amt;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "distribute-counters", controller: pc.controller, amount: pc.amount, spent });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
  * ===== EACH-PLAYER ===== discard (EP-2) — deterministically auto-pick the card an AI discards (CR 701.8,
  * no picker for the AI / Expert): its LEAST valuable card = lowest mana value, tie-break lowest power,
  * then codepoint name then id (serialize-stable, no Math.random). Returns the card id from the DISCARDER's
@@ -763,6 +806,170 @@ export function resolveOptionalSacChoice(state, doSac) {
         return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
       }
     }
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — auto-pick for self-play: DRAW (a net-neutral loot is card-selection
+ * upside — you trade your worst card for a fresh look). Returns false only when the controller is gone.
+ */
+export function autoPickOptionalDrawDiscard(state, pc) {
+  return !!state.players?.[pc?.controller];
+}
+
+/**
+ * ===== OPTIONAL-DISCARD-PAYMENT ===== — auto-pick for self-play: PAY (discard) iff a non-token card is available.
+ * Trading one card for a draw/token/pump payoff is card-neutral-or-better filtering; a board-aware "hold the card"
+ * refinement is a future enhancement, and discard-if-able is always a LEGAL choice (CR 601). Returns false when the
+ * controller is gone or has no non-token card to pitch (mirrors autoPickOptionalSac's available-gate).
+ */
+export function autoPickOptionalDiscard(state, pc) {
+  if (!state.players?.[pc?.controller]) return false;
+  return !!pc?.available;
+}
+
+/**
+ * ===== UPKEEP-SAC-UNLESS-PAY ===== — auto-pick for self-play: PAY iff the controller can afford the cost (keep the
+ * permanent — the sensible default; a board-aware "let it die" refinement is future). Returns false (→ sacrifice)
+ * when the controller is gone or can't afford. CRASH-FIX: canAfford's arity is (pool, sources, cost) — the design's
+ * two-arg call threw `sources.map is not a function` on every AI-resolved instance. Mirrors autoPickSoftCounterPay.
+ */
+export function autoPickSacUnlessPay(state, pc) {
+  const player = state.players?.[pc?.controller];
+  if (!player) return false; // controller gone → can't pay → sacrificed
+  return canAfford(player.manaPool, manaSources(state, pc.controller), pc.cost?.mana || {});
+}
+
+/**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — settle "you may draw a card. If you do, discard a card.": on `doDraw`
+ * run the [draw, discard] payoff in order (parser-validated HIGH + targetless); on decline do NOTHING (hand &
+ * library untouched — the cardinal CREED guarantee). The discard is the LAST atom, so its which-card pause chains
+ * onto the program continuation (mirrors resolveOptionalSacChoice's payoff loop; no cost to pay). Eliminated-
+ * controller guard (the pause can outlive the SBA that removes them, CR 800.4a).
+ */
+export function resolveOptionalDrawDiscardChoice(state, doDraw) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-draw-discard") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  next = logEvent(next, { kind: "spell-effect", effect: "optional-draw-discard", controller: pc.controller, drew: !!doDraw, sourceName: pc.sourceName || null });
+  if (doDraw) {
+    const r = pc.resume || {};
+    const atoms = pc.effectAtoms || [];
+    for (let i = 0; i < atoms.length; i++) {
+      const ctx = { ...(r.context || {}), controller: pc.controller, targets: [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const after = resolveAtom(next, atoms[i], ctx);
+      if (after == null) {
+        return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-draw-discard payoff atom "${atoms[i]?.op}" had no resolver`);
+      }
+      next = after;
+      // The discard (last atom) sets a which-card pendingChoice — chain its resume onto the program continuation.
+      // A NON-LAST pause is unreachable per the parser gate, but WI-3 belt-and-braces routes to the Arbiter
+      // rather than dropping the payoff tail if one ever occurs (CREED-safe FN).
+      if (next.pendingChoice && !next.pendingChoice.resume) {
+        if (i < atoms.length - 1) {
+          return markPendingArbiter(clearPendingChoice(next), { source: { name: pc.sourceName }, payload: { params: r } }, `optional-draw-discard payoff atom "${atoms[i]?.op}" paused mid-payoff — resuming would drop ${atoms.length - 1 - i} remaining atom(s)`);
+        }
+        return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
+      }
+    }
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== OPTIONAL-DISCARD-PAYMENT ===== — settle "you may discard a card. If you do, <effect>": on `doDiscard` AND a
+ * non-token card in hand (re-scanned NOW, CR 603.6e — the hand may have emptied during the pause), run the synthetic
+ * program [discard-a-card, ...payoff]. The cost-discard is a PAUSING atom, so runEffectProgram sets up its which-card
+ * choice and stores the resume; the payoff (parser-gated NON-pausing) runs as the program continuation once the
+ * discard settles (via resolveDiscardChoice's resumeAfterChoice), then finishSpellResolution closes the spell with
+ * the threaded spellToGraveyard. On decline / empty hand do NOTHING — the payoff NEVER runs without a paid cost (the
+ * cardinal CREED guarantee: no fabricated draw). Eliminated-controller guard (CR 800.4a). Logged either way.
+ */
+export function resolveOptionalDiscardPaymentChoice(state, doDiscard) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-discard-payment") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  const canPay = !!doDiscard && (next.players[pc.controller].hand || []).some((c) => !c.token);
+  next = logEvent(next, { kind: "spell-effect", effect: "optional-discard-payment", controller: pc.controller, discarded: canPay, sourceName: pc.sourceName || null });
+  if (canPay) {
+    const r = pc.resume || {};
+    // [cost-discard, ...payoff] as ONE program: the discard pauses (which-card), the payoff runs on resume. The
+    // discard atom is the canonical controller-discard shape (hand.js discardClauseParser). Availability was gated
+    // above, so the discard ALWAYS pitches exactly one card → the payoff runs iff (and only iff) the cost was paid.
+    const program = { atoms: [{ op: "discard", amount: 1, who: "controller", targetType: null }, ...(pc.effectAtoms || [])] };
+    const obj = {
+      source: { name: pc.sourceName ?? null },
+      payload: { params: {
+        program, controller: pc.controller, targets: [],
+        xValue: r.xValue ?? null, sourceId: r.sourceId ?? null, context: r.context || {},
+        kicked: r.kicked ?? false, chosenMode: null, spellToGraveyard: r.spellToGraveyard ?? null,
+      } },
+    };
+    return runEffectProgram(next, obj);
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== UPKEEP-SAC-UNLESS-PAY ===== — settle "sacrifice this <noun> unless you pay {cost}": INVERTED polarity vs
+ * optional-mana-payment. If `pay` AND the controller can afford it, charge the mana (payManaCost — taps their sources)
+ * and the permanent SURVIVES; otherwise (declined, OR an unaffordable pay — payManaCost never fabricates mana, CR 119,
+ * so `paid` is false) SACRIFICE the source permanent (sacrificeCreatureEffect via pc.sourceId — fires its dies +
+ * TRIG-SACRIFICE watchers). A stale/absent sourceId is a clean no-op inside sacrificeCreatureEffect (never a
+ * fabrication). Then RESUME the suspended program. Eliminated-controller guard (CR 800.4a). Logged either way.
+ */
+export function resolveSacUnlessPayChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "sac-unless-pay") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  let paid = false;
+  if (pay && pc.cost?.kind === "mana") {
+    const r = payManaCost(next, pc.controller, pc.cost.mana || {});
+    next = r.state;
+    paid = r.paid;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "sac-unless-pay", controller: pc.controller, paid, sourceName: pc.sourceName || null });
+  if (!paid) {
+    next = sacrificeCreatureEffect(next, pc.controller, pc.sourceId); // couldn't/wouldn't pay → the source sacrifices itself
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-payment) ===== — auto-pick for the PAYER (the opponent who cast): pay iff they
+ * can afford the tax (deny the beneficiary the draw — the self-interested default; always a LEGAL choice, CR 601).
+ * Returns false (→ the beneficiary draws) when the payer is gone or can't afford. pc.payer is the seat (== pc.controller).
+ */
+export function autoPickTaxedPayment(state, pc) {
+  const player = state.players?.[pc?.payer];
+  if (!player) return false; // payer gone → can't pay → beneficiary draws
+  return canAfford(player.manaPool, manaSources(state, pc.payer), pc.cost?.mana || {});
+}
+
+/**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-payment, CR 603.7c) ===== — settle "you may draw a card unless that player pays
+ * {N}" (Rhystic Study). If `pay` AND the PAYER (the opponent who cast — pc.payer, bound at fire time) can afford it,
+ * charge the payer's mana (payManaCost) and the beneficiary draws NOTHING; else (declined or unaffordable — payManaCost
+ * fabricates no mana, CR 119) the BENEFICIARY (the trigger's controller — pc.beneficiary) draws ONE card. Then RESUME
+ * the trigger's program. Eliminated-seat guards on BOTH payer and beneficiary (either can leave mid-pause, CR 800.4a).
+ */
+export function resolveTaxedPaymentChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "taxed-payment") return state;
+  let next = clearPendingChoice(state);
+  let paid = false;
+  if (pay && pc.cost?.kind === "mana" && next.players?.[pc.payer]) {
+    const r = payManaCost(next, pc.payer, pc.cost.mana || {});
+    next = r.state;
+    paid = r.paid;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "taxed-payment", payer: pc.payer, beneficiary: pc.beneficiary, paid, sourceName: pc.sourceName || null });
+  if (!paid && next.players?.[pc.beneficiary]) {
+    next = drawCards(next, { playerId: pc.beneficiary, count: 1 }); // payer declined / couldn't pay → beneficiary draws
   }
   return resumeAfterChoice(next, pc);
 }

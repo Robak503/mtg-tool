@@ -494,9 +494,14 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
   const ctrl = ctx.controller;
   if (!ctrl || !state.players?.[ctrl]) return state;
   const bf = state.players[ctrl].battlefield || [];
-  const ids = atom.scope === "permanentsYouControl"
-    ? bf.map((p) => p.id)                                            // ALL your permanents (Heroic Intervention)
-    : bf.filter((p) => permanentIsCreature(state, p.id)).map((p) => p.id); // creaturesYouControl
+  let sel = atom.scope === "permanentsYouControl"
+    ? bf                                                             // ALL your permanents (Heroic Intervention)
+    : bf.filter((p) => permanentIsCreature(state, p.id));           // creaturesYouControl
+  // COUNTER-FILTERED ("those creatures" — the +1/+1-counter creatures the preceding draw counted; Inspiring
+  // Call). Read at resolution off the live counter bag (CR 611.2c snapshot), so a creature that loses its
+  // counter before this resolves is excluded — faithful. Absent → no filter (the plain group grant).
+  if (atom.requiresCounter) sel = sel.filter((p) => (p.counters?.[atom.requiresCounter] || 0) > 0);
+  const ids = sel.map((p) => p.id);
   let next = state;
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = { kind: "endOfTurn", turn: next.turn };
@@ -548,6 +553,15 @@ export function combatKeywordClauseParser(clause) {
   // rider falls through → low → Arbiter (CREED: model the whole clause or nothing).
   // The bare form OR the lock rider (splitClauses folds Koma's ". Its activated abilities can't be activated
   // this turn." into "… and its activated abilities can't be activated this turn", so it arrives as one clause).
+  // MULTI-COUNT (CR 601.2c "up to N") — "tap up to <N> target creatures|permanents" (each tapped; applyTapEffect
+  // already loops ctx.targets). Same tap resolver + a maxTargets count → targeting.expandAtoms offers each 0..N
+  // subset. BARE forms only — a per-target restriction ("… you control") stays LOW → Arbiter (FN-safe; the
+  // restriction would need wiring the single-target path has but this slice keeps minimal). minTargets:0.
+  const multiTapM = t.match(/^tap up to (two|three|four|five) target (creatures|permanents)$/);
+  if (multiTapM) {
+    const n = SMALL_NUM[multiTapM[1]];
+    if (n >= 2) return { op: "tap", targetType: multiTapM[2] === "creatures" ? "creature" : "permanent", restrictions: [], maxTargets: n, minTargets: 0 };
+  }
   const tapPermM = t.match(/^tap target permanent( and its activated abilities can't be activated this turn)?\.?$/);
   if (tapPermM) {
     return { op: "tap", targetType: "permanent", restrictions: [], ...(tapPermM[1] ? { lockActivated: true } : {}) };
@@ -683,6 +697,13 @@ export function pumpClauseParser(clause) {
     const who = pctrl[1] === "you control" ? "you" : "opponent";
     const kws = parseGrantedKeywords(pctrl[2]);
     return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // ===== MULTI-COUNT PUMP (VERIFY PROTOTYPE) ===== "up to N target creatures[ you control] each get ±P/±T[ and gain KW] until end of turn"
+  let mc = t.match(/^up to (two|three|four|five) target creatures(?: (you control))? each get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  if (mc) {
+    const kws = mc[5] ? parseGrantedKeywords(mc[5]) : null;
+    if (mc[5] && !kws) return null;
+    return { op: "pump", targetType: "creature", maxTargets: SMALL_NUM[mc[1]], minTargets: 0, ptDelta: { p: parseInt(mc[3], 10), t: parseInt(mc[4], 10) }, ...(mc[2] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}), ...(kws ? { grantKeywords: kws } : {}) };
   }
   // ===== SUBTYPE-RESTRICTED TARGETING (CR 205.3 / 115) ===== a single chosen target restricted to a creature
   // SUBTYPE — "target <Subtype>[ creature] gets +X/+Y[ and gains KW] until end of turn" / "target <Subtype>[

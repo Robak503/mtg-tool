@@ -66,7 +66,8 @@ describe("parser — graveyard recursion is HIGH for modeled type filters; subty
     low("Return target nonland permanent card from your graveyard to your hand.");   // negation — unmodeled
     low("Return target artifact creature card from your graveyard to your hand.");   // INTERSECTION (both), not a union — unmodeled
     low("Return target creature card from a graveyard to your hand.");               // any graveyard, not "your"
-    low("Return up to two target creature cards from your graveyard to your hand."); // multi-card
+    // NOTE: "Return up to two target creature cards …" is now NATIVE (MULTI-COUNT slice A — real runtime via
+    // targeting.expandAtoms subset enumeration). Pinned HIGH in effects/multiCountTarget.test.js.
     low("Return target creature card from your graveyard to the battlefield tapped.");        // β-3b reanimation RIDER → Arbiter
     low("Return target artifact card from your graveyard to the battlefield.");               // non-creature reanimation → Arbiter
   });

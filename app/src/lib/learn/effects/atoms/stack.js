@@ -5,7 +5,7 @@
 
 import { applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject } from "../../gameState.js";
-import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
@@ -524,6 +524,64 @@ function applyOptionalSacPayment(state, atom, ctx) {
   });
 }
 
+// OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. If you do, discard a card." Suspend on the yes/no; the
+// [draw, discard] payoff rides on the pause for the settle (resolveOptionalDrawDiscardChoice runs it on yes).
+function applyOptionalDrawDiscard(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  return setPendingOptionalDrawDiscardChoice(state, {
+    controller: ctx.controller,
+    effectAtoms: atom.effectAtoms || [],
+    sourceName: ctx.cardName || null,
+  });
+}
+
+// OPTIONAL-DISCARD-PAYMENT — "you may discard a card. If you do, <effect>." The discard is the pausing COST; record
+// whether the controller holds a non-token card to pitch (a false-`available` pause still surfaces — the player/AI
+// must decline, and resolveOptionalDiscardPaymentChoice runs NO payoff). The payoff atoms ride on the pause for the
+// settle. Token filter mirrors hand.js discardControllerCandidates (a token in hand is not a real card, CR 111.7).
+function applyOptionalDiscardPayment(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const player = state.players?.[ctx.controller];
+  const available = !!(player?.hand || []).some((c) => !c.token);
+  return setPendingOptionalDiscardPaymentChoice(state, {
+    controller: ctx.controller,
+    available,
+    effectAtoms: atom.effectAtoms || [],
+    sourceName: ctx.cardName || null,
+  });
+}
+
+// OPPONENT-PAYS-TO-DENY (taxed-draw) — the effect of "Whenever an opponent casts a spell, you may draw a card unless
+// that player pays {N}." (Rhystic Study). The PAYER is the opponent who cast — ctx.castingPlayerId, threaded into the
+// trigger context by checkCastTriggers and spread into ctx by runEffectProgram. Suspend on the payer's pay-or-let-
+// you-draw choice (setPendingTaxedPaymentChoice sets controller=payer, so the driver routes it to the payer's seat).
+// A missing/self payer (reached outside an opponent-cast trigger) → no-op: never a fabricated draw (CREED-safe FN).
+function applyTaxedDraw(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const payer = ctx.castingPlayerId;
+  if (!payer || !state.players?.[payer] || payer === ctx.controller) return state;
+  return setPendingTaxedPaymentChoice(state, {
+    payer,
+    beneficiary: ctx.controller,
+    cost: atom.cost,
+    sourceName: ctx.cardName || null,
+  });
+}
+
+// UPKEEP-SAC-UNLESS-PAY — "Sacrifice this <noun> unless you pay {cost}." Suspend on the pay/decline choice, carrying
+// the mana cost AND `sourceId` (the source permanent, ctx.sourceId — the same binding the self-sac edict atom uses)
+// so resolveSacUnlessPayChoice can sacrifice THIS permanent on a decline / unaffordable pay. INVERTED polarity: pay
+// keeps it, don't-pay sacrifices it.
+function applyUpkeepSacUnlessPay(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  return setPendingSacUnlessPayChoice(state, {
+    controller: ctx.controller,
+    cost: atom.cost,
+    sourceId: ctx.sourceId ?? null,
+    sourceName: ctx.cardName || null,
+  });
+}
+
 // STORM-COPY-TARGET — the enemy/own SIDE of a chosen target, for the per-copy new-target chooser (CR 707.10c).
 // Mirrors gameEngine.chooseTriggerTargets' `sideOf` but is replicated inline so atoms/stack.js stays clear of the
 // stack→gameEngine→parser cycle (gameEngine + parser both transitively import this file). A target carries no
@@ -708,6 +766,10 @@ export const stackResolvers = {
   "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
+  "optional-draw-discard": applyOptionalDrawDiscard, // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. if you do, discard a card."
+  "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
+  "sac-unless-pay": applyUpkeepSacUnlessPay, // UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword) — "sacrifice this <noun> unless you pay {cost}"
+  "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an

@@ -45,17 +45,19 @@ const LASHWEED_LURKER = { name: "Lashweed Lurker", type: "Creature — Eldrazi H
 const DECIMATOR_OF_THE_PROVINCES = { name: "Decimator of the Provinces", type: "Creature — Eldrazi Boar", mana: "{10}", power: 7, toughness: 7,
   oracle: "Emerge {6}{G}{G}{G} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, creatures you control get +2/+2 and gain trample until end of turn.\nTrample, haste" };
 
-const NATIVE_EMERGE = [WRETCHED_GRYFF, IT_OF_THE_HORRID_SWARM, ABUNDANT_MAW, MOCKERY_OF_NATURE, VEXING_SCUTTLER, LASHWEED_LURKER, DECIMATOR_OF_THE_PROVINCES];
-
-// PARKED Emerge (the body carries an UNMODELED clause → stays body-only even with Emerge modeled):
+// Elder Deep-Fiend's "tap up to four target permanents" body is now MODELED (MULTI-COUNT slice B — tap up-to-N),
+// so it correctly classifies native-trigger like the other cast-trigger Emerge bodies.
 const ELDER_DEEP_FIEND = { name: "Elder Deep-Fiend", type: "Creature — Eldrazi Octopus", mana: "{8}", power: 5, toughness: 6,
   oracle: "Flash\nEmerge {5}{U}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, tap up to four target permanents." };
+const NATIVE_EMERGE = [WRETCHED_GRYFF, IT_OF_THE_HORRID_SWARM, ABUNDANT_MAW, MOCKERY_OF_NATURE, VEXING_SCUTTLER, LASHWEED_LURKER, DECIMATOR_OF_THE_PROVINCES, ELDER_DEEP_FIEND];
+
+// PARKED Emerge (the body carries an UNMODELED clause → stays body-only even with Emerge modeled):
 const ADIPOSE_OFFSPRING = { name: "Adipose Offspring", type: "Creature — Alien", mana: "{3}{W}", power: 0, toughness: 0,
   oracle: "Emerge {5}{W} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen this creature enters, create a 2/2 white Alien creature token. If this creature's emerge cost was paid, instead create X of those tokens, where X is the sacrificed creature's toughness." };
 const DISTENDED_MINDBENDER = { name: "Distended Mindbender", type: "Creature — Eldrazi Insect", mana: "{8}", power: 5, toughness: 5,
   oracle: "Emerge {5}{B}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. That player discards those cards." };
 
-const PARKED_EMERGE = [ELDER_DEEP_FIEND, ADIPOSE_OFFSPRING, DISTENDED_MINDBENDER];
+const PARKED_EMERGE = [ADIPOSE_OFFSPRING, DISTENDED_MINDBENDER];
 
 // ── Parser units ────────────────────────────────────────────────────────────────────────────────────
 describe("EMERGE parser — parseEmergeCost", () => {
@@ -97,8 +99,8 @@ describe("EMERGE parser — parseEmergeCard (whole-card gate)", () => {
   it("returns the spec (pips, sacType, native bodyTier) for a native-body Emerge creature", () => {
     expect(parseEmergeCard(WRETCHED_GRYFF, classifyCard, isNativeTier)).toEqual({ pips: "{5}{U}", sacType: "creature", bodyTier: "native-trigger" });
   });
-  it("returns null when the stripped body is UNMODELED (Elder Deep-Fiend's tap-up-to-four)", () => {
-    expect(parseEmergeCard(ELDER_DEEP_FIEND, classifyCard, isNativeTier)).toBeNull();
+  it("returns null when the stripped body is UNMODELED (Distended Mindbender's reveal-and-choose-discard)", () => {
+    expect(parseEmergeCard(DISTENDED_MINDBENDER, classifyCard, isNativeTier)).toBeNull();
   });
   it("returns null for a non-creature (Emerge cards are creatures, CR 702.97a)", () => {
     const fake = { name: "X", type: "Artifact", oracle: "Emerge {5}{U} (reminder)\nFlying" };

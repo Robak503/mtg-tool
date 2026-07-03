@@ -47,7 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -500,6 +500,12 @@ function settleDivideChoice(state, distribution) {
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
+// ===== DISTRIBUTE ===== settle a distribute-counters division then finalize the stack. Mirrors settleDivideChoice.
+function settleDistributeChoice(state, distribution) {
+  const next = resolveDistributeChoice(state, distribution);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
 // ===== SOFT-CNT ===== — settle a soft counter's pay-or-be-countered decision (Force Spike / Mana Leak /
 // Spell Pierce): the targeted spell's controller pays {N} (spell survives) or it's countered, then the
 // caster's program resumes. finalizeStackResolution then continues the stack (the now-uncountered spell
@@ -526,6 +532,34 @@ function settleOptionalManaPaymentChoice(state, pay) {
 // payoff enqueued (CR 603.3). Mirrors settleOptionalManaPaymentChoice.
 function settleOptionalSacChoice(state, doSac) {
   const next = resolveOptionalSacChoice(state, doSac);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// OPTIONAL DRAW-THEN-DISCARD — settle "you may draw a card. If you do, discard a card." On draw, the [draw,
+// discard] runs (the discard's which-card pause may still be pending, so guard before flushing). Mirrors settleOptionalSacChoice.
+function settleOptionalDrawDiscardChoice(state, doDraw) {
+  const next = resolveOptionalDrawDiscardChoice(state, doDraw);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// OPTIONAL-DISCARD-PAYMENT — settle "you may discard a card. If you do, <effect>." On pay, the [discard, ...payoff]
+// runs (the cost-discard's which-card pause may still be pending, so guard before flushing). Mirrors settleOptionalSacChoice.
+function settleOptionalDiscardChoice(state, doDiscard) {
+  const next = resolveOptionalDiscardPaymentChoice(state, doDiscard);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// UPKEEP-SAC-UNLESS-PAY — settle "sacrifice this <noun> unless you pay {cost}." Pay+afford keeps it; else the source
+// sacrifices itself. Neither branch pauses (payManaCost/sacrificeCreatureEffect resolve in one call), so flush.
+function settleSacUnlessPayChoice(state, pay) {
+  const next = resolveSacUnlessPayChoice(state, pay);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// OPPONENT-PAYS-TO-DENY (taxed-payment) — settle "you may draw a card unless that player pays {N}." Payer pays+affords
+// → beneficiary draws nothing; else beneficiary draws. Neither branch pauses further, so flush the stack.
+function settleTaxedPaymentChoice(state, pay) {
+  const next = resolveTaxedPaymentChoice(state, pay);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1126,6 +1160,13 @@ export function advanceUntilDecision(
         current = { ...current, state: settleDivideChoice(current.state, autoPickDivideDistribution(current.state, pc)) };
         continue;
       }
+      if (pc.kind === "distribute-counters") {
+        if (pause) {
+          return { session: current, decision: { kind: "distribute-counters", ...pc } };
+        }
+        current = { ...current, state: settleDistributeChoice(current.state, autoPickDistributeCounters(current.state, pc)) };
+        continue;
+      }
       // ===== SOFT-CNT ===== — soft counter "unless its controller pays {N}" (Force Spike / Mana Leak /
       // Spell Pierce). pc.controller is the TARGETED SPELL'S controller (who decides), so `pause` pauses a
       // human whose spell is under threat (pay/decline) and auto-decides for an AI (pays if it can afford
@@ -1184,6 +1225,55 @@ export function advanceUntilDecision(
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalSac(current.state, pc) },
         });
         current = { ...current, state: settleOptionalSacChoice(current.state, picked.value) };
+        continue;
+      }
+      if (pc.kind === "optional-draw-discard") {
+        if (pause) {
+          return { session: current, decision: { kind: "optional-draw-discard", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalDrawDiscard(current.state, pc) },
+        });
+        current = { ...current, state: settleOptionalDrawDiscardChoice(current.state, picked.value) };
+        continue;
+      }
+      if (pc.kind === "optional-discard-payment") {
+        if (pause) {
+          return { session: current, decision: { kind: "optional-discard-payment", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalDiscard(current.state, pc) },
+        });
+        current = { ...current, state: settleOptionalDiscardChoice(current.state, picked.value) };
+        continue;
+      }
+      if (pc.kind === "sac-unless-pay") {
+        if (pause) {
+          return { session: current, decision: { kind: "sac-unless-pay", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickSacUnlessPay(current.state, pc) },
+        });
+        current = { ...current, state: settleSacUnlessPayChoice(current.state, picked.value) };
+        continue;
+      }
+      if (pc.kind === "taxed-payment") {
+        // The DECISION is the PAYER's (choiceSeat = pc.controller = the opponent who cast). pause routes to that seat.
+        if (pause) {
+          return { session: current, decision: { kind: "taxed-payment", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickTaxedPayment(current.state, pc) },
+        });
+        current = { ...current, state: settleTaxedPaymentChoice(current.state, picked.value) };
         continue;
       }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
@@ -1666,6 +1756,50 @@ export function applyDivideChoice(session, choice) {
 }
 
 /**
+ * ===== DISTRIBUTE ===== — the player assigned a distribute-counters division (The Earth Crystal).
+ * `choice.distribution` is `[{ id, type, amount }]`; resolveDistributeChoice validates it against the
+ * candidates + caps the running sum at pc.amount. Same WI-5 full-assignment guard: a short distribution
+ * re-surfaces the picker (CR 601.2d — the whole amount must be assigned). Mirrors applyDivideChoice.
+ */
+export function applyDistributeChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "distribute-counters") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const distribution = Array.isArray(choice?.distribution) ? choice.distribution : [];
+  if ((pc.candidates || []).length > 0) {
+    const validIds = new Set(pc.candidates.map((c) => c.id));
+    const cappedSum = distribution.reduce((spent, d) => {
+      if (!validIds.has(d?.id)) return spent;
+      return spent + Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+    }, 0);
+    if (cappedSum < (pc.amount || 0)) {
+      return { session, decision: { kind: "distribute-counters", ...pc } }; // under-assigned — re-surface the picker
+    }
+  }
+  let newState;
+  try {
+    newState = settleDistributeChoice(session.state, distribution);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "distribute-choice", amount: pc.amount, targets: distribution.length },
+    auto: false,
+    reasoning: "user-assigned-distribute",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * ===== SOFT-CNT ===== — the player (whose spell is under a soft counter) chose to pay {N} or not.
  * `choice.pay` is the yes/no. resolveSoftCounterChoice charges the mana + saves the spell (or counters it
  * if declined / unaffordable — payGenericMana never fabricates mana), then resumes + re-derives. A
@@ -1765,6 +1899,139 @@ export function applyOptionalSacChoice(session, choice) {
     action: { kind: "optional-sac-payment-choice", sacrificed: sac },
     auto: false,
     reasoning: "user-chose-optional-sac-payment",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — the player chose to draw (and then discard) or not, for a "you may
+ * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
+ * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
+ */
+export function applyOptionalDrawDiscardChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-draw-discard") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const doDraw = choice?.draw === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalDrawDiscardChoice(session.state, doDraw);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-draw-discard-choice", drew: doDraw },
+    auto: false,
+    reasoning: "user-chose-optional-draw-discard",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
+ * ===== OPTIONAL-DISCARD-PAYMENT ===== — the player chose to pay (discard a card) or not, for a "you may discard a
+ * card. If you do, <effect>." `choice.discard` is the yes/no. resolveOptionalDiscardPaymentChoice runs the [discard,
+ * ...payoff] on yes (or nothing on decline / empty hand), then resumes + re-derives. Mirrors applyOptionalDrawDiscardChoice.
+ */
+export function applyOptionalDiscardPaymentChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-discard-payment") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const doDiscard = choice?.discard === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalDiscardChoice(session.state, doDiscard);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-discard-payment-choice", discarded: doDiscard },
+    auto: false,
+    reasoning: "user-chose-optional-discard-payment",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
+ * ===== UPKEEP-SAC-UNLESS-PAY ===== — the player chose to pay (keep the permanent) or not (sacrifice it), for a
+ * "sacrifice this <noun> unless you pay {cost}." `choice.pay` is the yes/no. resolveSacUnlessPayChoice charges the
+ * mana + keeps it on a pay-and-afford, else sacrifices the source, then resumes + re-derives. Mirrors applyOptionalSacChoice.
+ */
+export function applySacUnlessPayChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "sac-unless-pay") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const pay = choice?.pay === true || choice === true;
+  let newState;
+  try {
+    newState = settleSacUnlessPayChoice(session.state, pay);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "sac-unless-pay-choice", paid: pay },
+    auto: false,
+    reasoning: "user-chose-sac-unless-pay",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-payment) ===== — the PAYER (the opponent who cast) chose to pay the tax or let
+ * the beneficiary draw, for a "you may draw a card unless that player pays {N}." (Rhystic Study). `choice.pay` is the
+ * yes/no. resolveTaxedPaymentChoice charges the payer + suppresses the draw on pay, else the beneficiary draws, then
+ * resumes + re-derives. Mirrors applySacUnlessPayChoice (the actor is the PAYER, whose seat == pc.controller).
+ */
+export function applyTaxedPaymentChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "taxed-payment") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const pay = choice?.pay === true || choice === true;
+  let newState;
+  try {
+    newState = settleTaxedPaymentChoice(session.state, pay);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "taxed-payment-choice", paid: pay },
+    auto: false,
+    reasoning: "user-chose-taxed-payment",
   };
   return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
 }
@@ -2060,9 +2327,14 @@ export function applyPendingChoice(session, choice) {
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
   if (kind === "discard") return applyDiscardChoice(session, choice);
   if (kind === "divide-damage") return applyDivideChoice(session, choice);
+  if (kind === "distribute-counters") return applyDistributeChoice(session, choice);
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
   if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
+  if (kind === "optional-draw-discard") return applyOptionalDrawDiscardChoice(session, choice);
+  if (kind === "optional-discard-payment") return applyOptionalDiscardPaymentChoice(session, choice);
+  if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice);
+  if (kind === "taxed-payment") return applyTaxedPaymentChoice(session, choice);
   if (kind === "tutor-search") return applyTutorChoice(session, choice);
   // WI-4 FAILSAFE — no pendingChoice at all (nothing to answer) re-derives, byte-identical to every
   // apply* function's own "double-submit" guard. A REAL unhandled kind never reaches applyTutorChoice's

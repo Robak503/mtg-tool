@@ -36,9 +36,14 @@ export const PENDING_CHOICE_KINDS = [
   "sacrifice-choice",
   "discard",
   "divide-damage",
+  "distribute-counters",
   "soft-counter",
   "optional-mana-payment",
   "optional-sac-payment",
+  "optional-draw-discard",
+  "optional-discard-payment",
+  "sac-unless-pay",
+  "taxed-payment",
 ];
 
 /**
@@ -233,6 +238,21 @@ export function setPendingDivideChoice(state, { controller, amount, candidates, 
 }
 
 /**
+ * Flag a DISTRIBUTE-COUNTERS choice (The Earth Crystal): the controller allots `amount` +1/+1 counters among
+ * up to `maxTargets` of their own creatures (`candidates`), each chosen target getting ≥1 (CR 121.5-shaped,
+ * same full-assignment rule as divide-damage). resolveDistributeChoice applies each via the add-counter atom
+ * so the controller's counter doublers compose (CR 616). Mirrors setPendingDivideChoice exactly.
+ */
+export function setPendingDistributeChoice(state, { controller, amount, counterType = "+1/+1", maxTargets = null, candidates, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "distribute-counters-pending", controller, amount, counterType, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "distribute-counters", controller, amount, counterType, maxTargets, candidates, sourceName },
+  };
+}
+
+/**
  * ===== EACH-PLAYER ===== discard (EP-2) — flag a discard awaiting the DISCARDING player's pick of which
  * card to pitch (CR 701.8 — the discarding player chooses, NOT the caster; the opposite chooser to δ-1b
  * hand disruption). `controller` here is the DISCARDER (Mind Rot's target / each player), so the driver's
@@ -343,6 +363,68 @@ export function setPendingOptionalSacBySubtypeChoice(state, { controller, subtyp
       effectAtoms,
       sourceName,
     },
+  };
+}
+
+/**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — suspend on a "you may draw a card. If you do, discard a card."
+ * yes/no. The driver pauses a human and auto-decides an AI (draw — a net-neutral loot is card-selection upside).
+ * `effectAtoms` is the [draw, discard] program, run by resolveOptionalDrawDiscardChoice ONLY on yes (the discard's
+ * which-card pause chains onto the program continuation). No cost — the yes/no IS the whole gate. FIFO.
+ */
+export function setPendingOptionalDrawDiscardChoice(state, { controller, effectAtoms = [], sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-draw-discard-pending", controller, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "optional-draw-discard", controller, effectAtoms, sourceName },
+  };
+}
+
+/**
+ * OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. If you do, <effect>". The driver pauses a human
+ * and auto-decides an AI (pay iff `available`). Unlike draw-then-discard, the DISCARD is the COST (it pauses on a
+ * which-card choice); `effectAtoms` is the NON-pausing payoff, run by resolveOptionalDiscardPaymentChoice ONLY after
+ * a real discard settles. `available` = the controller holds ≥1 non-token card to pitch. FIFO.
+ */
+export function setPendingOptionalDiscardPaymentChoice(state, { controller, available, effectAtoms = [], sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-discard-payment-pending", controller, available, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName },
+  };
+}
+
+/**
+ * UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword, CR 603.7c) — "Sacrifice this <noun> unless you pay {cost}." The
+ * driver pauses a human and auto-decides an AI (pay iff affordable — keep the permanent). INVERTED polarity vs
+ * optional-mana-payment: resolveSacUnlessPayChoice charges the mana on a pay-and-afford and the permanent survives;
+ * a decline or an unaffordable pay SACRIFICES the source (via `sourceId` = ctx.sourceId, the permanent whose upkeep
+ * trigger this is). FIFO.
+ */
+export function setPendingSacUnlessPayChoice(state, { controller, cost, sourceId = null, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "sac-unless-pay-pending", controller, amount: wardCostHeadline(cost), sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "sac-unless-pay", controller, cost, sourceId, sourceName },
+  };
+}
+
+/**
+ * OPPONENT-PAYS-TO-DENY (taxed-payment, CR 603.7c) — "Whenever an opponent casts a spell, you may draw a card unless
+ * that player pays {N}." (Rhystic Study). The DECISION belongs to the `payer` (the opponent who cast), so
+ * `controller` IS the payer — the learnSession driver keys the choice SEAT off pc.controller, so this routes the
+ * pay/decline to the payer's seat with NO special driver logic. `beneficiary` (the trigger's controller) draws when
+ * the payer declines / can't afford. FIFO.
+ */
+export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "taxed-payment-pending", payer, beneficiary, amount: wardCostHeadline(cost), sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName },
   };
 }
 

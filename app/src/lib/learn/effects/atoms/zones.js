@@ -7,6 +7,7 @@ import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone } from
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
+import { SMALL_NUM } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards" (leaf, cycle-free)
 
 /** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
  * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
@@ -198,6 +199,16 @@ export function tuckClauseParser(clause) {
  */
 export function graveyardReturnClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // MULTI-COUNT (CR 601.2c "up to N") — "return up to <N> target <filter> cards from your graveyard to your hand"
+  // (Morbid Plunder, March of the Returned, Soul Salvage, Dutiful Return). The SAME return-from-graveyard resolver
+  // (applyReturnFromGraveyard already loops over every ctx.target); `maxTargets` tells targeting.expandAtoms to
+  // offer each subset of 0..N legal own-graveyard cards. `minTargets:0` — "up to" permits choosing zero (CR 601.2c).
+  const multiM = /^return up to (two|three|four|five) target (.*?)cards from your graveyard to your hand$/.exec(t);
+  if (multiM) {
+    const n = SMALL_NUM[multiM[1]];
+    const cardFilter = parseGraveyardFilter(multiM[2]);
+    if (n >= 2 && cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, maxTargets: n, minTargets: 0 };
+  }
   const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
   if (gm) {
     const cardFilter = parseGraveyardFilter(gm[1]);
@@ -245,6 +256,16 @@ export function graveyardReturnClauseParser(clause) {
  */
 export function bounceClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // MULTI-COUNT (CR 601.2c "up to N") — "return up to <N> target <creatures|permanents|…> to their owners' hands"
+  // (each card returns to its OWN owner's hand; applyZoneMove → atomTargets(ctx.targets) already loops). Same bounce
+  // resolver + a maxTargets count so targeting.expandAtoms offers each subset of 0..N legal targets. minTargets:0.
+  const multiB = t.match(/^return up to (two|three|four|five) target (creatures|nonland permanents|permanents|artifacts|enchantments|lands)(?: (an opponent controls|you don't control|you control))? to their owners' hands$/);
+  if (multiB) {
+    const TTm = { "creatures": "creature", "permanents": "permanent", "nonland permanents": "nonlandPermanent", "artifacts": "artifact", "enchantments": "enchantment", "lands": "land" };
+    const n = SMALL_NUM[multiB[1]];
+    const restrictions = multiB[3] ? [{ kind: "controller", who: /^you control$/.test(multiB[3]) ? "you" : "opponent" }] : [];
+    if (n >= 2) return { op: "bounce", targetType: TTm[multiB[2]], restrictions, maxTargets: n, minTargets: 0 };
+  }
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   const bp = t.match(/^return target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
   if (bp) {
