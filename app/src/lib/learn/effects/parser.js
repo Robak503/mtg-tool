@@ -1717,6 +1717,43 @@ function matchAnimistAwakening(oracle) {
 }
 
 /**
+ * ===== OPEN-THE-WAY (reveal-until-X-lands → lands onto the battlefield tapped, rest to the bottom) ===== the
+ * {X}-cost sorcery: "X can't be greater than the number of players in the game. Reveal cards from the top of your
+ * library until you reveal X land cards. Put those land cards onto the battlefield tapped and the rest on the
+ * bottom of your library in a random order." (Open the Way.)
+ *
+ * This spans THREE sentences and reads the SPELL'S X (both the reveal-until count AND the printed player-count
+ * cap), so the top-level sentence splitter would shatter it into unmatchable fragments (the "X can't be greater
+ * than …" cap sentence has no atom; "reveal cards … until you reveal X land cards" is a novel dig anchor; "put
+ * those land cards … and the rest …" is a back-reference to the reveal). It's therefore collapsed up front to ONE
+ * `reveal-until-n-lands` atom (applyRevealUntilNLands reveals from the top until X lands appear — capped at the
+ * player count — puts them all onto the battlefield TAPPED firing ETB/landfall, and bottoms every other revealed
+ * card in a random order).
+ *
+ * GATED to hasX (an {X}-cost spell) — the caller only calls this on an {X} spell, and the atom is stamped so the
+ * program derives xSpell:true (the cast path enumerates affordable X so ctx.xValue reaches the resolver). CREED:
+ * the player-count cap is the printed constraint on X and is enforced at resolution (capPlayerCount → min(X,
+ * players) — never a fabricated/uncapped count). The anchor REQUIRES the EXACT three-sentence shape: the leading
+ * "X can't be greater than the number of players in the game." cap, the "reveal … until you reveal X land cards"
+ * dig, and the EXACT "onto the battlefield tapped and the rest on the bottom of your library in a random order"
+ * disposition. Any variant — a "reveal until N nonland cards", an "into your hand" disposition, an untapped put,
+ * a different cap ("can't be greater than the number of Islands") — leaves residue → no match → low → Arbiter
+ * (CREED whole-card, no partial). The op is KNOWN (registered in libraryResolvers), so the caller emits a HIGH
+ * single-atom xSpell program. Returns { atom } or null.
+ */
+function matchOpenTheWay(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  // Whole-string anchored: the player-count cap sentence, then "reveal cards from the top of your library until
+  // you reveal X land cards", then "put those land cards onto the battlefield tapped and the rest on the bottom
+  // of your library in a random order". The cap is required (it's the printed X constraint this atom enforces).
+  const m = s.match(
+    /^x can't be greater than the number of players in the game\. reveal cards from the top of your library until you reveal x land cards\. put those land cards onto the battlefield tapped and the rest on the bottom of your library in a random order$/,
+  );
+  if (!m) return null;
+  return { atom: { op: "reveal-until-n-lands", capPlayerCount: true, entersTapped: true, targetType: null } };
+}
+
+/**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
  * This is a THREE-sentence effect whose branches (reveal → if-creature → otherwise-may) are shattered by the
@@ -2189,6 +2226,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const aa = matchAnimistAwakening(oracle);
     if (aa && KNOWN.has(aa.atom.op)) {
       return makeProgram({ confidence: "high", atoms: [aa.atom], xSpell: true, unparsedTail: null });
+    }
+    // ===== OPEN-THE-WAY ===== ({X}-cost, X≤players) — "X can't be greater than the number of players in the game.
+    // Reveal cards from the top of your library until you reveal X land cards. Put those land cards onto the
+    // battlefield tapped and the rest on the bottom of your library in a random order." → ONE `reveal-until-n-lands`
+    // atom (reveal-until-X-lands → all lands onto the battlefield tapped → rest to the bottom in random order). The
+    // three-sentence span (cap + dig + disposition, all reading the spell's X) would shatter under the clause
+    // splitter, so it's collapsed up front. Gated to hasX; the atom is KNOWN → HIGH, xSpell:true so the cast path
+    // enumerates affordable X into ctx.xValue (the resolver then caps at the player count). A non-matching cap /
+    // disposition / dig variant fails the exact anchor → falls through → low → Arbiter.
+    const otw = matchOpenTheWay(oracle);
+    if (otw && KNOWN.has(otw.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [otw.atom], xSpell: true, unparsedTail: null });
     }
   }
   // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card … If it's a creature card, put it

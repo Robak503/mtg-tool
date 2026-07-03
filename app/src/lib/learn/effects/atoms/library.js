@@ -728,6 +728,79 @@ export function applyGenesisWave(state, atom, ctx) {
 }
 
 /**
+ * ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X}-cost sorcery) — "X can't be greater than the number of
+ * players in the game. Reveal cards from the top of your library until you reveal X land cards. Put those land
+ * cards onto the battlefield tapped and the rest on the bottom of your library in a random order."
+ *
+ * A DISTINCT dig from genesis-wave / dig-land-to-battlefield: it reveals from the top ONE AT A TIME until it has
+ * seen `n` LAND cards (or the library runs out), puts ALL of those found lands onto the battlefield TAPPED, and
+ * bottoms EVERY OTHER revealed card (the interleaved nonlands) in a random order. There is NO choice — every land
+ * found goes to the battlefield, so this is deterministic (non-pausing) like genesis-wave / reveal-top-conditional.
+ *
+ * X is the SPELL'S chosen X (bound at cast per CR 601.2b, threaded via ctx.xValue), CAPPED at the number of
+ * players in the game — the printed "X can't be greater than the number of players in the game" constraint. The
+ * cap is enforced HERE at resolution (min(xValue, playerCount)) so the effect can NEVER reveal-until more lands
+ * than the card legally allows even if the cast path offered a larger X: the whole clause is honored, never
+ * partially (CREED). `?? 0` (never `|| 0`) so an explicit X=0 reveals nothing (a clean no-op) — the cap is never
+ * silently treated as "uncapped".
+ *
+ * Each found LAND enters via enterCardFromZone (tapped, firing its ETB / landfall / permanent-enters triggers —
+ * the exact shared entry the battlefield-tutor / reanimation / genesis-wave paths use), one at a time so each
+ * entry's triggers enqueue in order. THE REST — every revealed card that isn't one of the put lands — is still at
+ * the TOP of the library after the puts (enterCardFromZone removed only the lands, preserving relative order), so
+ * the leftover-revealed cards remain the top `revealed.length - landsPut` of the library; bottomTopNInRandomOrder
+ * moves exactly those to the bottom in a deterministic random order (CR "in a random order", threaded rngSeed —
+ * a serialized game restores byte-identical). An EMPTY library (or X capped to 0) reveals nothing → clean no-op.
+ * Pure data mutation (no closures). Non-pausing → no PAUSING_ATOM_OPS entry, no session-driver wiring.
+ */
+export function applyRevealUntilNLands(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  // X caps the number of LANDS to reveal-until. Open the Way caps X at the number of players in the game (the
+  // printed constraint) — enforced here so the effect never reveals-until more lands than legal, whatever X the
+  // cast path bound. min(xValue, playerCount); ?? 0 so an explicit X=0 is a no-op, never "uncapped".
+  const rawX = Math.max(0, ctx.xValue ?? 0);
+  const playerCount = Object.keys(state.players || {}).length;
+  const n = atom.capPlayerCount ? Math.min(rawX, playerCount) : rawX;
+  const lib = player.library || [];
+  if (n === 0 || lib.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "reveal-until-n-lands", controller, n, lands: 0, bottomed: 0 });
+  }
+  // Reveal from the top until we've seen `n` land cards (or the library is exhausted). The revealed set is the
+  // contiguous prefix ending at (and including) the Nth land — exactly what "reveal until you reveal X land
+  // cards" describes. Fewer than N lands in the whole library → the whole library is revealed (CR: you reveal
+  // until you can't; you put whatever lands you found).
+  let landsSeen = 0;
+  let revealEnd = 0; // exclusive index into lib
+  for (let i = 0; i < lib.length; i++) {
+    revealEnd = i + 1;
+    if (isLandCard(lib[i])) {
+      landsSeen += 1;
+      if (landsSeen >= n) break;
+    }
+  }
+  const revealed = lib.slice(0, revealEnd);
+  const landIds = new Set(revealed.filter((c) => isLandCard(c)).map((c) => c.id));
+  // Put every revealed LAND onto the battlefield TAPPED (enterCardFromZone removes it from the library and enters
+  // it under the controller's control, firing ETB / landfall / permanent-enters). One at a time so each entry's
+  // triggers enqueue in order — identical to the genesis-wave put loop.
+  let next = state;
+  let landsPut = 0;
+  for (const c of revealed) {
+    if (!landIds.has(c.id)) continue;
+    const r = enterCardFromZone(next, { playerId: controller, cardId: c.id, fromZone: "library", tapped: true });
+    if (r.entered) { next = r.state; landsPut += 1; }
+  }
+  // THE REST — every revealed card that wasn't a put land — is still the top `revealed.length - landsPut` of the
+  // library (enterCardFromZone removed only the lands, preserving relative order, exactly like genesis-wave's
+  // mill-the-rest). Bottom exactly that many in a deterministic random order (CR "in a random order").
+  const bottomCount = revealed.length - landsPut;
+  if (bottomCount > 0) next = bottomTopNInRandomOrder(next, controller, bottomCount);
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-until-n-lands", controller, n, lands: landsPut, bottomed: bottomCount });
+}
+
+/**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
  * (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
@@ -1130,6 +1203,7 @@ export const libraryResolvers = {
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
   "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
+  "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
 };
