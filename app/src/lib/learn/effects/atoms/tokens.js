@@ -3,7 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId } from "../../gameState.js";
-import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter
+import { tokenMultiplier, tokenAdditive, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -186,7 +186,16 @@ export function applyCreateNamedToken(state, atom, ctx) {
         : Math.max(1, atom.count || 1);
   // Wave-3 token doubler (CR 616): a "create one or more tokens" doubler (Doubling Season / Parallel Lives /
   // Anointed Procession) doubles named artifact tokens (Treasure/Clue/Food/Gold) too. Multiplied once here.
-  const count = baseCount * tokenMultiplier(next, ctx.controller);
+  // TOKEN-ADDITIVE (Xorn, CR 614): a kind-FILTERED "+1 additional Treasure" replacement adds a FIXED bonus of a
+  // specific token kind PER creation event (not per token). Xorn only ever mints Treasures via this named path,
+  // so the additive is keyed off the token kind (spec.name → "Treasure"). Greedy-max ordering (CR 616.1e — the
+  // controller orders their own replacements to maximize): ADD first, THEN multiply — (base + add) × mult beats
+  // base × mult + add (a Xorn + Doubling Season on 1 Treasure = (1+1)×2 = 4, not 1×2+1 = 3). A base of 0 stays 0
+  // (no creation event → no additive; CR 614 replaces an existing creation, it doesn't manufacture one). The
+  // additive is never itself multiplied by a further additive (a minted Treasure isn't a Xorn), so it's applied
+  // exactly once here.
+  const additive = baseCount > 0 ? tokenAdditive(next, ctx.controller, spec.name) : 0;
+  const count = (baseCount + additive) * tokenMultiplier(next, ctx.controller);
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
