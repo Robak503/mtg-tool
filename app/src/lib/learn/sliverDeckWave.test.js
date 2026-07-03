@@ -204,7 +204,10 @@ describe("Sliver Overlord — GAIN-CONTROL (CR 720 / 702.10c) → native-activat
 // ───────────────────────────────────────────────────────────────────────────────
 describe("Slivers PARK pins — these remain non-native until their blocker subsystem ships", () => {
   const cases = [
-    ["Bident of Thassa", "Legendary Enchantment Artifact", "{2}{U}{U}", "Whenever a creature you control deals combat damage to a player, you may draw a card.\n{1}{U}, {T}: Creatures your opponents control attack this turn if able.", "body-only"], // force-attack-opponents activated = goad-class, unmodeled
+    // NOTE: Bident of Thassa FLIPPED to native-mixed (FORCE-ATTACK-1, CR 508.1a) — its combat-damage may-draw
+    // trigger already routed native; modeling the "{1}{U},{T}: Creatures your opponents control attack this turn
+    // if able." activated ability (a turn-scoped attack requirement, enforced in opponentAI.pickAttackPlan) flips
+    // the WHOLE card. The positive pin lives in forceAttack.test.js.
     // NOTE: Damn FLIPPED to native-spell (OVERLOAD now in the parser's CAST_KEYWORD_LINE family) — its printed
     // single-target mode ("Destroy target creature. …") is the one the engine casts; the "each" overload rewrite
     // is vacuous for the normal cast. The positive pin lives in warpOverloadCoverage.test.js.

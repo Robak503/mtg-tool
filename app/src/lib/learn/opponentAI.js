@@ -1053,9 +1053,18 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
   // declared if it can. It's already in attackerActions (the eligible set, i.e. "able"), so force-include
   // it regardless of the profitability filter (the racer would otherwise illegally hold back an
   // unprofitable must-attacker). The chooseDefender/walker focus still picks ITS target below.
+  // FORCED-ATTACK (FORCE-ATTACK-1, CR 508.1a) — an EXTERNAL turn-scoped requirement (Bident of Thassa's
+  // "Creatures your opponents control attack this turn if able"): when this declaring seat is under an active
+  // force this turn (forcedToAttackTurn[aiPlayerId] === state.turn), EVERY one of its eligible attackers (the
+  // "able" set = attackerActions) must be declared. Force-include them all alongside the self-must-attackers,
+  // so the profitability filter can't illegally hold an able creature back. Self-expires by the turn-number
+  // compare (no stale carry-over). ONE action per creature is in attackerActions in Standard; in Commander the
+  // per-(creature,defender) fan-out means force-including every action for a forced permanent, which the
+  // byPermanent focus below collapses back to one attack per creature — correct either way.
+  const forcedSeat = (state.forcedToAttackTurn || {})[aiPlayerId] === state.turn;
   const forced = new Set(
     attackerActions
-      .filter(a => selfMustAttack(state.players?.[aiPlayerId]?.battlefield?.find(p => p.id === a.permanentId)?.card))
+      .filter(a => forcedSeat || selfMustAttack(state.players?.[aiPlayerId]?.battlefield?.find(p => p.id === a.permanentId)?.card))
       .map(a => a.permanentId),
   );
 
