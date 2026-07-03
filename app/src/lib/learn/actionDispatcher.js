@@ -609,6 +609,9 @@ function applyActivateAbility(state, action) {
     manaSources(state, action.playerId).filter(s =>
       !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
       !(action.tapCreatureId && s.permanentId === action.tapCreatureId) &&
+      // γ1g: a LAND returned to hand for a "Return a land you control" cost (Oboro) can't ALSO tap for mana —
+      // it's gone before the {mana} is paid. Exclude it from the mana sources (mirrors legalChoices exactly).
+      !(action.returnLandId && s.permanentId === action.returnLandId) &&
       !sacCountExcluded.has(s.permanentId)),
     action.sacCreatureId,
   );
@@ -634,6 +637,21 @@ function applyActivateAbility(state, action) {
     if (!tv) throw new DispatcherError(`Tap-cost creature ${action.tapCreatureId} not on battlefield`, "PERM_NOT_FOUND");
     if (tv.tapped) throw new DispatcherError("Tap-cost creature is already tapped", "ALREADY_TAPPED");
     working = tapPermanent(working, action.tapCreatureId);
+  }
+  // γ1g — pay a "Return a land you control to its owner's hand" cost by moving the chosen land battlefield →
+  // its OWNER's hand (CR 118 / 601.2b). The land is re-resolved against the LIVE battlefield; a missing victim
+  // is a hard error so we never silently under-pay the cost (CREED — never activate without paying the full
+  // cost). Returning a land is a battlefield EXIT, so — like the sacrifice-for-cost path — drain its leave
+  // event (checkLeavesTriggers) so any modeled "leaves the battlefield" watcher stacks above the ability
+  // (CR 603.3b). The offer-gate already excluded a land carrying an UNMODELED leaves/LTB trigger
+  // (sacrificeDropsTrigger), so nothing is silently dropped here. Done BEFORE the ability goes on the stack,
+  // like every other cost item. The engine uses controller as the owner proxy (consistent with the bounce
+  // resolver's "owner's hand"), and the cost returns a land YOU control, so the activating player is correct.
+  if (action.returnLandId) {
+    const land = working.players[action.playerId]?.battlefield.find((p) => p.id === action.returnLandId);
+    if (!land) throw new DispatcherError(`Return-cost land ${action.returnLandId} not on battlefield`, "PERM_NOT_FOUND");
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: action.returnLandId });
+    working = checkLeavesTriggers(working);
   }
   if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
   if (action.sacCreatureId) {

@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -101,6 +101,15 @@ export const COVERED_KEYWORDS = [
   // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
   // "fading N" / "vanishing N" match via the startsWith check.
   "fading", "vanishing",
+  // CUMULATIVE UPKEEP (CR 702.24) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers
+  // (a "your upkeep" descriptor whose sentinel effectClause parses to the `cumulative-upkeep` atom) and fired by
+  // checkStepTriggers — at each of the controller's upkeeps the atom adds an age counter, scales the printed
+  // per-counter cost by the age-counter total, and suspends on the shared pay-or-sacrifice choice. The clause
+  // "cumulative upkeep {cost}" matches via the startsWith check (the reminder text is stripped by isKeywordOnly
+  // before the keyword-only split), exactly like "fading N"/"bushido N"; allTriggerSentencesModeled bumps the
+  // shaped count. Only the EXACT modeled cost shape flips — a hybrid/{X} cost is rejected by the parser matcher
+  // (matchCumulativeUpkeep → the synthesized trigger routes LOW → the whole card stays body-only, a SAFE FN).
+  "cumulative upkeep",
   // KW-FABRICATE (CR 702.111a) — ENFORCED: the ETB choice (N +1/+1 counters OR N 1/1 Servo tokens) resolves in
   // enterPermanent (resolvers.js) via fabricate.js — the counters branch adds them AS the creature enters
   // (through applyCounterDoubling), the Servo branch mints the tokens + fires their ETB watchers. "fabricate N"
@@ -147,10 +156,10 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  */
 export function isKeywordOnly(oracle, name) {
   let t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
-  // DOUBLE CASCADE (CR 702.85) — "Cascade, cascade[, …]" digs MULTIPLE times and is NOT modeled (CREED — one
-  // dig would silently drop the rest). It splits into two covered "cascade" clauses on the comma, so guard it
-  // explicitly: a multi-instance cascade line is never keyword-only (Apex Devastator / Maelstrom Wanderer).
-  if (/\bcascade,\s*cascade\b/.test(t)) return false;
+  // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
+  // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered
+  // "cascade" clauses on the comma, each matching the "cascade" COVERED_KEYWORD, so a keyword-only body like Apex
+  // Devastator reads keyword-only here just as a single-cascade body does — no special-case guard needed.
   if (name) {
     const n = String(name).toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (n) t = t.replace(new RegExp(`\\b${n}\\b`, "g"), "this creature");
@@ -320,12 +329,13 @@ export function spellIsNative(card) {
   // HIGH + non-targeted) AND (b) its NON-cascade body is itself native. Strip the whole "Cascade (…reminder…)"
   // LINE before parsing the body (the bare "Cascade" residue would drag an otherwise-HIGH spell to LOW — the
   // keyword carries no parseable atom of its own). Anchored on the canonical self-cascade reminder signature so a
-  // card merely NAMED "…Cascade" without the keyword is untouched, and DOUBLE cascade ("Cascade, cascade" — Call
-  // Forth the Tempest, Throes of Chaos) is excluded (it digs twice; modeling one dig would silently drop the
-  // rest → CREED). Checked before the cost-only/Plot strips so the body gate is cascade-aware. CREED: an
-  // unmodeled body → not native (the whole card stays Arbiter, never a partial).
-  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(String(card.oracle || ""))
-    && !/\bcascade,\s*cascade\b/i.test(String(card.oracle || ""))) {
+  // card merely NAMED "…Cascade" without the keyword is untouched. MULTI-INSTANCE cascade ("Cascade, cascade" —
+  // Call Forth the Tempest, Throes of Chaos) is now MODELED: detectTriggers emits N independent cascade triggers
+  // (cascadeInstanceCount), each digging separately at the SAME spell-MV cap — so an N-cascade spell is native on
+  // the same terms as a 1-cascade spell (native cascade trigger(s) + native non-cascade body). Checked before the
+  // cost-only/Plot strips so the body gate is cascade-aware. CREED: an unmodeled body → not native (the whole card
+  // stays Arbiter, never a partial).
+  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(String(card.oracle || ""))) {
     const cascadeTrigs = detectTriggers(card).filter((d) => d.cascade);
     if (!cascadeTrigs.length || !cascadeTrigs.every(triggerRoutesNatively)) return false; // dig mechanism not modeled → Arbiter
     // Strip the Cascade keyword LINE (the line carrying the reminder), then parse the bare body. It must be HIGH
@@ -426,22 +436,27 @@ function allTriggerSentencesModeled(card, oracle) {
   // sentence lives in stripped reminder text, so it never counts as a shaped sentence). Bump the shaped count so
   // shaped === detected holds (the synthesized trigger is validated like any other). Keyed on the reminder
   // signature that survives in the RAW oracle (stripReminder removes it from the counting text, so test it before).
-  // CASCADE (CR 702.85): detectTriggers synthesizes a selfCast trigger from the "Cascade" KEYWORD when the card
-  // carries the canonical self-cascade reminder ("When you cast this spell, exile cards … a nonland card that
-  // costs less") AND is NOT a double-cascade ("Cascade, cascade" — those stay on the Arbiter). Its real trigger
-  // sentence lives in stripped reminder text, so it never counts as a shaped sentence — bump the shaped count by
-  // 1 so shaped === detected holds. Keyed on the RAW oracle (stripReminder removes the signature, so test before).
-  const cascadeKw = /\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(oracle)
-    && !/\bcascade,\s*cascade\b/i.test(oracle) ? 1 : 0;
+  // CASCADE (CR 702.85): detectTriggers synthesizes ONE selfCast trigger PER cascade keyword instance when the
+  // card carries the canonical self-cascade reminder ("When you cast this spell, exile cards … a nonland card that
+  // costs less"). A MULTI-INSTANCE cascade ("Cascade, cascade, cascade, cascade" — Apex Devastator) emits N
+  // triggers, each an independent dig. Its real trigger sentence lives in stripped reminder text, so it never
+  // counts as a shaped sentence — bump the shaped count by N (cascadeInstanceCount) so shaped === detected holds.
+  // Keyed on the RAW oracle (stripReminder removes the signature, so count before).
+  const cascadeKw = cascadeInstanceCount(oracle);
   // AFFLICT (CR 702.131) — like bushido/rampage, the printed "Afflict N" keyword's triggered ability lives in
   // stripped reminder text, so it never counts as a shaped sentence. detectTriggers synthesizes a
   // becomesBlocked descriptor from the keyword; bump the shaped count by 1 so shaped === detected holds. The
   // SAME "have/has afflict" guard detectTriggers uses excludes the GROUP-GRANT form ("Sliver creatures you
   // control have afflict N" — Lazotep Sliver): there the afflict is a static grant to OTHER creatures, not a
   // self-trigger, so it contributes 0 to this bump (and 0 to the detected count — no self becomesBlocked).
+  // CUMULATIVE UPKEEP (CR 702.24) — like bushido/afflict, the printed "Cumulative upkeep {cost}" keyword's
+  // triggered ability lives entirely in stripped reminder text, so it never counts as a shaped sentence.
+  // detectTriggers synthesizes a "your upkeep" descriptor from the keyword; bump the shaped count by 1 so
+  // shaped === detected holds. Keyed on the bare keyword surviving in the reminder-stripped text.
+  const cumUpkeepShaped = /\bcumulative upkeep\s+\{/i.test(stripReminder(oracle)) ? 1 : 0;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
@@ -737,7 +752,11 @@ export function permanentEquipmentCovered(card) {
   // self-keyword printed on the EQUIPMENT ("Indestructible"), an unmodeled equip variant
   // ("Equip Human {1}"), a non-Equip activated ability — leaves residue → body-only, so a
   // not-fully-modeled equipment is never over-claimed as native (CLAUDE.md "no silent gaps").
-  const modeledEquipLine = /^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
+  // A modeled Equip line: the plain "Equip {cost}" OR the restricted "Equip commander {cost}" variant
+  // (CR 702.6c — the sole modeled quality; parseActivatedAbilities tags it equipQuality:"commander", and
+  // legalChoices restricts its targets to a commander you control). Any OTHER "Equip <quality> …" stays
+  // residue → body-only (never over-claimed).
+  const modeledEquipLine = /^equip(?:\s+commander)?\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
   for (const clause of equipmentAbilityClauses(stripReminder(noTrig.oracle || ""))) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;

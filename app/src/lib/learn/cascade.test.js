@@ -74,10 +74,20 @@ describe("CASCADE — detectTriggers synthesizes a selfCast cascade trigger from
     expect(cascTrigs.length).toBe(1); // only its own cascade, not the grant
   });
 
-  it("DOUBLE cascade ('Cascade, cascade') emits NO cascade descriptor (the multi-dig is deferred)", () => {
+  it("DOUBLE cascade ('Cascade, cascade') emits TWO independent cascade descriptors (CR 702.85 — each triggers separately)", () => {
     const card = { name: "Maelstrom Wanderer", type: "Legendary Creature — Elemental", mana: "{5}{G}{U}{R}",
       oracle: `Creatures you control have haste.\nCascade, cascade ${CASC.replace("in a random order.", "in a random order. Then do it again.")}` };
-    expect(detectTriggers(card).some((d) => d.cascade)).toBe(false);
+    expect(detectTriggers(card).filter((d) => d.cascade).length).toBe(2);
+  });
+
+  it("QUADRUPLE cascade ('Cascade, cascade, cascade, cascade') emits FOUR independent cascade descriptors (Apex Devastator)", () => {
+    const card = { name: "Apex Devastator", type: "Creature — Hydra", mana: "{6}{G}{U}{R}{R}",
+      oracle: `Cascade, cascade, cascade, cascade ${CASC.replace("in a random order.", "in a random order. Multiple instances of cascade each trigger separately.")}` };
+    const cascTrigs = detectTriggers(card).filter((d) => d.cascade);
+    expect(cascTrigs.length).toBe(4);
+    // Every instance is the SAME native selfCast descriptor (each digs independently at the same spell-MV cap).
+    expect(cascTrigs.every(triggerRoutesNatively)).toBe(true);
+    for (const d of cascTrigs) expect(d).toMatchObject({ event: "selfCast", scope: "self", whose: "you", cascade: true });
   });
 
   it("a card merely NAMED with 'cascade' but without the keyword reminder is NOT a cascade trigger", () => {
@@ -257,6 +267,75 @@ describe("CASCADE — END-TO-END engine sim (cast → trigger above the spell �
   });
 });
 
+// ── MULTI-INSTANCE: cast Apex Devastator (Cascade x4) → FOUR independent digs (CR 702.85) ──────────────
+describe("CASCADE — MULTI-INSTANCE end-to-end (Apex Devastator, Cascade x4)", () => {
+  const APEX = { id: "apex", name: "Apex Devastator", type: "Creature — Hydra", mana: "{6}{G}{U}{R}{R}", power: 10, toughness: 8,
+    oracle: `Cascade, cascade, cascade, cascade ${CASC.replace("in a random order.", "in a random order. Multiple instances of cascade each trigger separately.")}` };
+  function setup(library) {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return {
+      ...s, rngSeed: 7, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...s.players, user: { ...s.players.user, hand: [{ ...APEX }], library, manaPool: { W: 0, U: 9, B: 0, R: 9, G: 9, C: 9 }, exile: [] } },
+    };
+  }
+
+  it("casting Apex puts FOUR cascade triggers ABOVE the spell (CR 603.3b — simultaneous, each triggers separately)", () => {
+    let s = setup([creature("h1", "Hit1", 2)]);
+    const cast = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "apex");
+    s = dispatchAction(s, cast);
+    expect(s.stack.map((o) => o.kind)).toEqual(["spell", "triggered-ability", "triggered-ability", "triggered-ability", "triggered-ability"]);
+  });
+
+  it("all FOUR cascades dig INDEPENDENTLY (each capped at Apex's MV=10) and free-cast four found creatures", () => {
+    // Four cheap creatures interleaved with lands; every one is a valid hit (MV < 10). Each dig resolves one at a
+    // time behind the pendingCascade gate — accept the free cast each time → four bodies + Apex on the battlefield.
+    let s = setup([creature("h1", "Hit1", 2), land("l1"), creature("h2", "Hit2", 3), creature("h3", "Hit3", 1), land("l2"), creature("h4", "Hit4", 4), creature("h5", "Deep", 5)]);
+    const cast = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "apex");
+    s = dispatchAction(s, cast);
+    const poolAfterApexCast = { ...s.players.user.manaPool }; // Apex's own {6}{G}{U}{R}{R} was paid here; the digs must add nothing
+    let digs = 0, freeCasts = 0;
+    for (let guard = 0; guard < 40; guard++) {
+      if (s.pendingCascade) {
+        digs++;
+        const free = filterActions(legalActionsForPlayer(s, "user"), "cast-spell")[0];
+        expect(free).toBeTruthy();
+        expect(free.freeCast).toBe(true); // never pays mana
+        s = dispatchAction(s, free);
+        freeCasts++;
+        continue;
+      }
+      if (s.stack.length) { s = resolveTopOfStack(s); continue; }
+      break;
+    }
+    expect(digs).toBe(4);       // FOUR independent digs — never fewer (no dropped instance), never more
+    expect(freeCasts).toBe(4);
+    expect(s.pendingCascade).toBeFalsy();
+    expect(s.players.user.battlefield.map((p) => p.card.name).sort()).toEqual(["Apex Devastator", "Hit1", "Hit2", "Hit3", "Hit4"]);
+    expect(s.players.user.manaPool).toEqual(poolAfterApexCast); // the four free casts paid ZERO mana
+  });
+
+  it("declining every cascade bottoms all four found cards; Apex still resolves (CR 702.85a — 'the rest')", () => {
+    let s = setup([creature("h1", "Hit1", 2), creature("h2", "Hit2", 3), creature("h3", "Hit3", 1), creature("h4", "Hit4", 4)]);
+    const cast = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "apex");
+    s = dispatchAction(s, cast);
+    let declines = 0;
+    for (let guard = 0; guard < 40; guard++) {
+      if (s.pendingCascade) {
+        const dec = legalActionsForPlayer(s, "user").find((a) => a.kind === "cascade-decline");
+        s = dispatchAction(s, dec);
+        declines++;
+        continue;
+      }
+      if (s.stack.length) { s = resolveTopOfStack(s); continue; }
+      break;
+    }
+    expect(declines).toBe(4);
+    expect(s.players.user.exile).toHaveLength(0);              // nothing left parked in exile
+    expect(s.players.user.hand).toHaveLength(0);               // declined cards bottomed, NOT to hand
+    expect(s.players.user.battlefield.some((p) => p.card.id === "apex")).toBe(true); // Apex itself resolves
+  });
+});
+
 // ── classification: BUILT cards flip native ──────────────────────────────────────────
 describe("CASCADE — built cards classify native (real oracle, verbatim)", () => {
   const NATIVE = {
@@ -266,6 +345,14 @@ describe("CASCADE — built cards classify native (real oracle, verbatim)", () =
     "Bituminous Blast (cascade + damage spell)": { card: { name: "Bituminous Blast", type: "Instant", mana: "{3}{B}{R}", oracle: `Cascade ${CASC}\nBituminous Blast deals 4 damage to target creature.` } },
     "Violent Outburst (cascade + team pump)": { card: { name: "Violent Outburst", type: "Instant", mana: "{1}{R}{G}", oracle: `Cascade ${CASC}\nCreatures you control get +1/+0 until end of turn.` } },
     "Demonic Dread (cascade + can't-block)": { card: { name: "Demonic Dread", type: "Sorcery", mana: "{1}{B}{R}", oracle: `Cascade ${CASC}\nTarget creature can't block this turn.` } },
+    // MULTI-INSTANCE cascade — N stacked keyword instances, each an INDEPENDENT dig (CR 702.85 "Multiple instances
+    // of cascade each trigger separately"). detectTriggers emits N cascade descriptors; the pendingCascade action
+    // gate resolves them one at a time (each dig → its own cast-free/decline decision). Apex = keyword-only body;
+    // Maelstrom Wanderer = a modeled "Creatures you control have haste" group-grant static + double cascade.
+    "Apex Devastator (Cascade x4, keyword-only body)": { card: { name: "Apex Devastator", type: "Creature — Hydra", mana: "{6}{G}{U}{R}{R}", power: 10, toughness: 8,
+      oracle: `Cascade, cascade, cascade, cascade ${CASC.replace("in a random order.", "in a random order. Multiple instances of cascade each trigger separately.")}` } },
+    "Maelstrom Wanderer (Cascade x2 + haste anthem)": { card: { name: "Maelstrom Wanderer", type: "Legendary Creature — Elemental", mana: "{5}{G}{U}{R}", power: 7, toughness: 5,
+      oracle: `Creatures you control have haste.\nCascade, cascade ${CASC.replace("in a random order.", "in a random order. Then do it again.")}` } },
   };
   for (const [label, { card }] of Object.entries(NATIVE)) {
     it(`${label} → native`, () => {
@@ -277,12 +364,10 @@ describe("CASCADE — built cards classify native (real oracle, verbatim)", () =
 // ── CREED anti-FP pins: parked cards stay body-only / Arbiter ─────────────────────────
 describe("CASCADE — PARKED: a card the cascade slice must NOT flip native", () => {
   const PARKED = {
-    // DOUBLE cascade — digs multiple times ("Then do it again" / "Multiple instances … trigger separately").
-    "Apex Devastator (Cascade x4)": { name: "Apex Devastator", type: "Creature — Hydra", mana: "{6}{G}{U}{R}{R}", power: 10, toughness: 8,
-      oracle: "Cascade, cascade, cascade, cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order. Multiple instances of cascade each trigger separately.)" },
-    "Maelstrom Wanderer (Cascade, cascade + haste anthem)": { name: "Maelstrom Wanderer", type: "Legendary Creature — Elemental", mana: "{5}{G}{U}{R}", power: 7, toughness: 5,
-      oracle: "Creatures you control have haste.\nCascade, cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order. Then do it again.)" },
-    // GRANT — gives cascade to OTHER spells (its own cascade is fine, but the grant is unmodeled residue).
+    // GRANT — gives cascade to OTHER spells (its own cascade is fine, but the grant is unmodeled residue). Its
+    // OWN single Cascade line detects (1 trigger), but the grant "Sliver spells you cast have cascade" leaves
+    // unmodeled body text → not native. cascadeInstanceCount counts ONLY the own line (the grant's "cascade" is
+    // not followed by the canonical reminder), so the multi-cascade path never mis-fires on a grant.
     "The First Sliver (cascade + grant)": { name: "The First Sliver", type: "Legendary Creature — Sliver", mana: "{W}{U}{B}{R}{G}", power: 7, toughness: 7,
       oracle: `Cascade ${CASC}\nSliver spells you cast have cascade.` },
     // UNMODELED sibling clause — cascade + an ETB damage trigger whose amount is a spells-cast count (deferred).

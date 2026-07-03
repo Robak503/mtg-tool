@@ -452,7 +452,7 @@ export function applyAdventureExile(state, { playerId, card }) {
 export function resolveCloneChoice(state, chosenPermId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") return state;
-  const { cloneCard, controller, riders = [], optional } = pc.resume || {};
+  const { cloneCard, controller, riders = [], optional, scope } = pc.resume || {};
   let next = clearPendingChoice(state);
   if (!cloneCard || !controller) return next;
 
@@ -460,8 +460,15 @@ export function resolveCloneChoice(state, chosenPermId) {
   // CR 712.4a). A copied planeswalker enters with its starting loyalty via enterPermanent's castsAsPlaneswalker
   // path, so it's a real, non-dying permanent (NOT a 0/0). Front-face only: a creature-front DFC copies as its
   // creature side. (creature-clones still copy creatures; this only WIDENS what a PW-scope clone accepts.)
-  const copiable = (c) =>
-    c && /Creature|Planeswalker/.test(String(c?.permanent?.card?.type || c?.permanent?.card?.type_line || "").split(" // ")[0]);
+  // A clone with the "artifact or creature" scope (Phyrexian Metamorph) may copy a NON-creature ARTIFACT too
+  // (front-face, CR 712.4a) — the resolution-time re-check (CR 707.9c) must accept an artifact source for that
+  // scope, else a valid artifact pick would be treated as illegal and the clone would wrongly enter as a 0/0
+  // (a forbidden FP). Scope-gated so a creature-only / PW clone still rejects an artifact source.
+  const allowArtifact = scope === "anyArtifactOrCreature";
+  const copiable = (c) => {
+    const tl = String(c?.permanent?.card?.type || c?.permanent?.card?.type_line || "").split(" // ")[0];
+    return !!c && (/Creature|Planeswalker/.test(tl) || (allowArtifact && /Artifact/.test(tl)));
+  };
   let chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
   // WI-2 (CREED — CR 707.9): a MANDATORY clone ("~ enters as a copy of …", no "you may") cannot
   // decline. A null/stale submit while at least one OFFERED candidate is still on the battlefield
@@ -562,7 +569,7 @@ export const RESOLVERS = Object.freeze({
           candidates,
           sourceName: card?.name || null,
           optional: spec.optional,
-          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional },
+          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope },
         });
       }
       // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).

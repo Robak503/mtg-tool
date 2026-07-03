@@ -887,8 +887,39 @@ export function permanentProtectionColors(state, permanentId) {
   for (const e of l6) {
     if (!effectAffects(e, perm, state)) continue;
     for (const c of e.op.colors || []) set.add(String(c).toUpperCase());
+    // EQUIP-PROTECTION-DYNAMIC (Commander's Plate, CR 702.16 + 702.16j): a granted "protection from each
+    // color that's not in your commander's color identity". The quality is computed HERE from live state,
+    // not baked into a static `colors` list. "Your commander" = the equipped creature's controller (ATTACH
+    // forbids equipping another player's creature — resolvers.ATTACH requires tgt.controller === controller —
+    // so perm.controller IS the equipment controller, whose command zone this reads). The protected set is
+    // WUBRG minus the union of that player's commander(s') color identities; a colorless commander (identity
+    // []) yields protection from all five colors. No commander in the zone ⇒ empty identity ⇒ all five, which
+    // is the CR-correct default (a card that's a commander with no identity confers nothing to subtract).
+    if (e.op.dynamicColors === "notCommanderIdentity") {
+      const identity = commanderColorIdentity(state, perm.controller);
+      for (const c of ALL_WUBRG) if (!identity.has(c)) set.add(c);
+    }
   }
   return set;
+}
+
+const ALL_WUBRG = ["W", "U", "B", "R", "G"];
+
+/**
+ * The union of the color identities of the commander card(s) in a player's command zone, as a Set of
+ * uppercase WUBRG letters (CR 903.4 — a permanent's commander color identity is the identity of its
+ * commander). Reads each command-zone card's `colorIdentity` (publicCard shape) OR `color_identity` (raw
+ * Scryfall) — both are present on real decks; a card lacking both contributes nothing. Empty when the seat
+ * has no commander (or a wholly colorless one). Pure.
+ */
+function commanderColorIdentity(state, playerId) {
+  const out = new Set();
+  const cmds = state?.players?.[playerId]?.command || [];
+  for (const c of cmds) {
+    const ci = c?.colorIdentity ?? c?.color_identity ?? [];
+    for (const letter of ci) out.add(String(letter).toUpperCase());
+  }
+  return out;
 }
 
 /** Effective colors (after layer 5). */

@@ -2146,6 +2146,31 @@ function matchUpkeepSacUnlessPay(oracle) {
 }
 
 /**
+ * ===== CUMULATIVE UPKEEP (CR 702.24) ===== the SENTINEL effect clause detectTriggers synthesizes off the
+ * "Cumulative upkeep {cost}" KEYWORD (whose real triggered ability — "At the beginning of your upkeep, put an
+ * age counter …, then sacrifice it unless you pay its upkeep cost for each age counter on it." — lives entirely
+ * in reminder parens, the Bushido/Afflict precedent). The synthesized effectClause is the bare "cumulative
+ * upkeep {cost}"; this maps it to the single `cumulative-upkeep` pausing atom that (at fire time) adds one age
+ * counter, scales the printed per-counter cost by the age-counter total, and suspends on the shared sac-unless-
+ * pay pay-or-sacrifice choice. CREED guards: a FIXED, PURE generic/colored mana cost only — parseFixedManaPips
+ * rejects {X}/snow, and we additionally reject a hybrid cost (mana.hybrid.length) because the per-counter
+ * scaling can't faithfully duplicate a hybrid pip's either/or option. An unmodeled cost → null → the synthesized
+ * trigger routes LOW → the whole card stays body-only/Arbiter (SAFE FN). NEVER fabricates — this only recognizes
+ * the sentinel string detectTriggers itself produces.
+ */
+function matchCumulativeUpkeep(oracle) {
+  const s = stripReminder(oracle).trim().replace(/\.$/, "");
+  const m = s.match(/^cumulative upkeep\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null; // {X} / snow / unknown symbol → unmodeled cost
+  if (Array.isArray(mana.hybrid) && mana.hybrid.length) return null; // a hybrid per-counter cost can't be faithfully scaled → SAFE FN
+  return { atom: { op: "cumulative-upkeep", cost: { kind: "mana", mana }, targetType: null } };
+}
+
+/**
  * ===== OPPONENT-PAYS-TO-DENY (taxed-draw, CR 603.7c) ===== the effect clause of a "Whenever an opponent casts a
  * spell, you may draw a card unless that player pays {N}." trigger (Rhystic Study; Mystic Remora's draw half). The
  * PAYER is the opponent who cast (bound at resolution from ctx.castingPlayerId, threaded by checkCastTriggers); the
@@ -2732,6 +2757,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const sup = matchUpkeepSacUnlessPay(oracle);
   if (sup && KNOWN.has(sup.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [sup.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== CUMULATIVE UPKEEP (CR 702.24) ===== the sentinel "cumulative upkeep {cost}" detectTriggers synthesizes
+  // off the keyword → ONE cumulative-upkeep atom (add an age counter, scale the per-counter cost by the age total,
+  // suspend on the shared pay-or-sacrifice choice). Disjoint anchor from every other fold, so order-free.
+  const cuk = matchCumulativeUpkeep(oracle);
+  if (cuk && KNOWN.has(cuk.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [cuk.atom], xSpell: false, unparsedTail: null });
   }
   // ===== OPPONENT-PAYS-TO-DENY ===== "you may draw a card unless that player pays {N}" (Rhystic Study's trigger
   // effect) → ONE taxed-draw atom (the payer = the opponent who cast, from ctx.castingPlayerId; the beneficiary =

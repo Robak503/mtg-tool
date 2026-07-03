@@ -2343,10 +2343,19 @@ function parseAttachedClause(c, subject) {
     if (!haveMatch) return null;                       // residue that isn't a keyword/protection grant
     // EQUIP-PROTECTION: a "protection from <color>…" grant occupies the WHOLE have-tail (protection lists
     // join with "and from", which the keyword splitter would mangle). Detect it first; a non-color/dynamic
-    // quality returns null → whole bonus drops (Commander's Plate, Sword of Wealth and Power stay body-only).
+    // quality returns null → whole bonus drops (Sword of Wealth and Power stays body-only).
     const protColors = parseAttachedProtectionColors(haveMatch[1].trim());
     if (protColors) {
       out.push({ layer: 6, op: { layerOp: "addProtection", colors: protColors }, duration: { kind: "permanent" } });
+      return out.length ? out : null;
+    }
+    // EQUIP-PROTECTION-DYNAMIC: the SOLE modeled non-color quality — "protection from each color that's not
+    // in your commander's color identity" (Commander's Plate, CR 702.16j). The color set is state-dependent
+    // (WUBRG minus the controller's commander color identity), so it's emitted as a DYNAMIC addProtection op
+    // that layers.permanentProtectionColors resolves at read time. All-or-nothing: it must occupy the WHOLE
+    // have-tail (no rider trails), matching every other quality here. Any OTHER non-color quality still → null.
+    if (/^protection from each color that's not in your commander's color identity$/i.test(haveMatch[1].trim())) {
+      out.push({ layer: 6, op: { layerOp: "addProtection", dynamicColors: "notCommanderIdentity" }, duration: { kind: "permanent" } });
       return out.length ? out : null;
     }
     const words = haveMatch[1].split(/,|\band\b/).map(w => w.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);

@@ -207,8 +207,15 @@ describe("rider parser (parseCloneRider) — exact modeled atoms only", () => {
     expect(parseCloneRider("it enters with an additional loyalty counter on it if it's a planeswalker"))
       .toEqual({ kind: "entersWithCounterIf", counterType: "loyalty", n: 1, ifType: "planeswalker" });
   });
+  it("parses the addable-card-type rider (Phyrexian Metamorph — 'it's an artifact in addition')", () => {
+    // CR 707.9a — an ADDABLE permanent card type (artifact/enchantment) is prepended to the copy's type line by
+    // snapshotCopiedCard's addCardType rider, so the copy genuinely IS that card type. Mirrors the token form.
+    expect(parseCloneRider("it's an artifact in addition to its other types")).toEqual({ kind: "addCardType", cardType: "Artifact" });
+    expect(parseCloneRider("it's an enchantment in addition to its other types")).toEqual({ kind: "addCardType", cardType: "Enchantment" });
+  });
   it("rejects unmodeled riders → null (whole card PARKs)", () => {
-    expect(parseCloneRider("it's an artifact in addition to its other types")).toBeNull(); // card-type change
+    expect(parseCloneRider("it's a land in addition to its other types")).toBeNull();       // un-addable card type
+    expect(parseCloneRider("it's a creature in addition to its other types")).toBeNull();   // un-addable card type (P/T implications)
     expect(parseCloneRider("it's legendary in addition to its other types")).toBeNull();   // supertype change
     expect(parseCloneRider("it has myriad")).toBeNull();                              // unmodeled keyword
     expect(parseCloneRider("it has changeling")).toBeNull();                          // unmodeled keyword
@@ -228,10 +235,9 @@ describe("classifier — riders flip ONLY when every clause is modeled", () => {
   });
   it("PARKs every clone carrying an unmodeled rider / scope (real Oracle text)", () => {
     // (Spark Double moved OUT of this list — it's now a modeled clone; see the Spark Double describe block.)
-    // Auton Soldier — myriad (unmodeled) + artifact scope rider.
+    // Auton Soldier — myriad (unmodeled) STILL parks even though the artifact card-type rider is now modeled: the
+    // "and has myriad" sub-clause is an unmodeled keyword, so the all-or-nothing rider gate fails the whole card.
     expect(isCloneCard({ name: "Auton Soldier", type: "Artifact Creature — Alien Soldier", mana: "{4}{U}{U}", oracle: "You may have this creature enter as a copy of any creature on the battlefield, except it isn't legendary, is an artifact in addition to its other types, and has myriad." })).toBe(false);
-    // Phyrexian Metamorph — copies an ARTIFACT or creature (artifact-copy scope unmodeled).
-    expect(isCloneCard({ name: "Phyrexian Metamorph", type: "Artifact Creature — Phyrexian Shapeshifter", mana: "{3}{U/P}", oracle: "You may have this creature enter as a copy of any artifact or creature on the battlefield, except it's an artifact in addition to its other types." })).toBe(false);
     // Phantasmal Image — granted becomes-target sacrifice trigger (unmodeled event).
     expect(isCloneCard({ name: "Phantasmal Image", type: "Creature — Illusion", mana: "{1}{U}", oracle: 'You may have this creature enter as a copy of any creature on the battlefield, except it\'s an Illusion in addition to its other types and it has "When this creature becomes the target of a spell or ability, sacrifice it."' })).toBe(false);
     // Sakashima's Student — Ninjutsu (an unmodeled pre-copy ability, not a modeled keyword).
@@ -590,6 +596,136 @@ describe("Sakashima of a Thousand Faces — classifier + short-name scope + reta
       // A retained-ability tail with a real, unmodeled ETB draw ability — the retained set would be a PARTIAL
       // if we flipped it, so the whole card must PARK (CREED: whole copy or nothing).
       oracle: "You may have Fakashima enter as a copy of another creature you control, except it has Fakashima's other abilities.\nWhen Fakashima enters, draw two cards.\nPartner",
+    };
+    expect(parseCloneSpec(FAKE)).toBeNull();
+    expect(isCloneCard(FAKE)).toBe(false);
+    expect(classifyCard(FAKE)).not.toBe("native-clone");
+  });
+});
+
+// ── PHYREXIAN METAMORPH (COPY-RIDER) — copies an ARTIFACT *or* creature + adds the artifact card type ─────────
+// CR 707.9a + 712.4a: "You may have this creature enter as a copy of any artifact or creature on the
+// battlefield, except it's an artifact in addition to its other types." Widens the copy scope to include a
+// NON-creature artifact (a copied non-creature artifact enters as an artifact — no lethal SBA, doesn't die like
+// a 0/0), and the addCardType rider prepends "Artifact" so the copy genuinely IS an artifact for every
+// type-line read. {U/P} Phyrexian mana in the cost is already handled by the caster.
+const METAMORPH = {
+  id: "c-meta",
+  name: "Phyrexian Metamorph",
+  type: "Artifact Creature — Phyrexian Shapeshifter",
+  mana: "{3}{U/P}",
+  power: 0,
+  toughness: 0,
+  oracle: "({U/P} can be paid with either {U} or 2 life.)\nYou may have this creature enter as a copy of any artifact or creature on the battlefield, except it's an artifact in addition to its other types.",
+};
+// A non-creature artifact with a mana ability (a real copiable-value source — its whole card copies, so the
+// ability resolves through the same runtime as the printed Sol Ring, CR 707.2).
+const solRing = () => ({ name: "Sol Ring", type: "Artifact", oracle: "{T}: Add {C}{C}.", keywords: [] });
+
+describe("Phyrexian Metamorph — classifier + artifact-or-creature scope + the addCardType rider", () => {
+  it("flips to native-clone: anyArtifactOrCreature scope + the single addCardType(Artifact) rider", () => {
+    expect(classifyCard(METAMORPH)).toBe("native-clone");
+    expect(isCloneCard(METAMORPH)).toBe(true);
+    expect(parseCloneSpec(METAMORPH)).toEqual({
+      optional: true,
+      scope: "anyArtifactOrCreature",
+      mvLimit: false,
+      riders: [{ kind: "addCardType", cardType: "Artifact" }],
+    });
+  });
+
+  it("candidates under anyArtifactOrCreature offer artifacts AND creatures on ANY battlefield; an artifact-creature is offered once", () => {
+    const s = boardState({
+      user: [createPermanent({ id: "u-sol", card: solRing(), controller: "user", summoningSick: false })],
+      ai: [
+        createPermanent({ id: "a-bear", card: creature("Bear", 2, 2), controller: "ai", summoningSick: false }),
+        createPermanent({ id: "a-golem", card: { name: "Golem", type: "Artifact Creature — Golem", power: 3, toughness: 3 }, controller: "ai", summoningSick: false }),
+        createPermanent({ id: "a-ench", card: { name: "Aura", type: "Enchantment" }, controller: "ai", summoningSick: false }),
+      ],
+    });
+    const spec = parseCloneSpec(METAMORPH);
+    // Sol Ring (artifact, yours), Bear (creature), Golem (artifact-creature, offered ONCE) — but NOT the enchantment.
+    expect(cloneCandidates(s, "user", spec.scope).map((c) => c.id).sort()).toEqual(["a-bear", "a-golem", "u-sol"]);
+  });
+
+  it("runtime: copies a NON-creature artifact (Sol Ring) — enters as an artifact, keeps its mana ability, and does NOT die", () => {
+    let s = boardState({
+      ai: [createPermanent({ id: "a-sol", card: solRing(), controller: "ai", summoningSick: false })],
+      hand: [METAMORPH], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-meta");
+    expect(s.pendingChoice).toMatchObject({ kind: "clone-search", controller: "user" });
+    expect(s.pendingChoice.candidates.map((c) => c.id)).toEqual(["a-sol"]); // the opponent's artifact is a legal copy target
+
+    s = finalizeStackResolution(resolveCloneChoice(s, "a-sol"));
+    const cl = s.players.user.battlefield.find((p) => p.printedCard);
+    expect(cl).toBeTruthy();                                          // it survived (a non-creature artifact is NOT a 0/0)
+    expect(cl.card.name).toBe("Sol Ring");                           // copied name
+    expect(cl.card.type).toMatch(/Artifact/);                        // it's an artifact
+    expect(cl.card.type).not.toMatch(/Creature/);                    // a copy of a NON-creature artifact is not a creature
+    expect(cl.card.oracle).toContain("{T}: Add {C}{C}.");            // copied mana ability (resolves via the same runtime)
+    expect(cl.printedCard.name).toBe("Phyrexian Metamorph");         // original stashed (CR 707.2)
+    expect(cl.card.token).toBeFalsy();                               // a real permanent, not a token
+  });
+
+  it("the addCardType rider PREPENDS Artifact to a copied CREATURE's type line (it's a creature AND an artifact)", () => {
+    let s = boardState({
+      ai: [createPermanent({ id: "a-bear", card: creature("Grizzly Bears", 2, 2, { type: "Creature — Bear" }), controller: "ai", summoningSick: false })],
+      hand: [METAMORPH], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-meta");
+    s = finalizeStackResolution(resolveCloneChoice(s, "a-bear"));
+    const cl = s.players.user.battlefield.find((p) => p.printedCard);
+    expect(cl.card.name).toBe("Grizzly Bears");
+    expect([permanentPower(s, cl.id), permanentToughness(s, cl.id)]).toEqual([2, 2]); // copied P/T
+    expect(cl.card.type).toMatch(/Artifact Creature — Bear/);        // Artifact prepended to the LEFT of the "—" (CR 707.9a)
+    expect(cl.summoningSick).toBe(true);                             // an artifact-creature copy is still summoning-sick
+  });
+
+  it("copies an ARTIFACT-CREATURE and keeps its own abilities (whole-card snapshot)", () => {
+    const goDown = createPermanent({
+      id: "a-servo",
+      card: { name: "Ornithopter", type: "Artifact Creature — Thopter", power: 0, toughness: 2, keywords: ["Flying"], oracle: "" },
+      controller: "ai", summoningSick: false,
+    });
+    let s = boardState({ ai: [goDown], hand: [METAMORPH], pool: { C: 9, U: 3 } });
+    s = castToChoice(s, "c-meta");
+    s = finalizeStackResolution(resolveCloneChoice(s, "a-servo"));
+    const cl = s.players.user.battlefield.find((p) => p.printedCard);
+    expect(cl.card.name).toBe("Ornithopter");
+    expect(permanentHasKeyword(s, cl.id, "Flying")).toBe(true);      // copied keyword
+    expect(cl.card.type).toMatch(/Artifact Creature — Thopter/);     // already an artifact; the rider is idempotent
+  });
+
+  it("round-trips through JSON (resume carries plain scope/riders; the copy is plain data)", () => {
+    let s = boardState({
+      ai: [createPermanent({ id: "a-sol", card: solRing(), controller: "ai", summoningSick: false })],
+      hand: [METAMORPH], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-meta");
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);               // resume.scope + resume.riders are plain data
+    expect(s.pendingChoice.resume.scope).toBe("anyArtifactOrCreature");
+    s = finalizeStackResolution(resolveCloneChoice(s, "a-sol"));
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);               // the rider-modified copy is plain data
+  });
+
+  // CREED near-miss #1 — a creature-only clone (Clone) must NEVER offer a non-creature artifact as a copy target.
+  it("CREED: a creature-only scope ('any') does NOT offer a non-creature artifact (scope isn't widened globally)", () => {
+    const s = boardState({
+      ai: [createPermanent({ id: "a-sol", card: solRing(), controller: "ai", summoningSick: false })],
+    });
+    expect(cloneCandidates(s, "user", "any").map((c) => c.id)).toEqual([]);            // Clone can't copy Sol Ring
+    expect(cloneCandidates(s, "user", "anyArtifactOrCreature").map((c) => c.id)).toEqual(["a-sol"]); // Metamorph can
+  });
+
+  // CREED near-miss #2 — an UNMODELED extra rider (myriad) still parks the whole card even though the artifact
+  // card-type rider is now modeled (all-or-nothing rider gate).
+  it("CREED: an artifact-copy clone carrying an unmodeled 'has myriad' rider still PARKs (false-positive guard)", () => {
+    const FAKE = {
+      name: "Faux Metamorph",
+      type: "Artifact Creature — Shapeshifter",
+      mana: "{3}{U}",
+      oracle: "You may have this creature enter as a copy of any artifact or creature on the battlefield, except it's an artifact in addition to its other types and it has myriad.",
     };
     expect(parseCloneSpec(FAKE)).toBeNull();
     expect(isCloneCard(FAKE)).toBe(false);
