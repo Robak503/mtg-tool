@@ -214,6 +214,17 @@ const CONTROL_SUBTYPE_ALLOW = new Set([
 // fail-open). This closes the kicker entry in the DEFERRED list (cast-decision flags) for the ETB-trigger shape.
 const KICKED_ETB_RE = /^it was kicked$/;
 
+// ===== X-VALUE THRESHOLD (CR 608.2h — the {X} locked at resolution) ===========================
+// "x is N or more" / "x is N or greater" — the intervening-if on a Ravenous creature's synthesized ETB
+// draw trigger ("Ravenous (… If X is 5 or more, draw a card when it enters.)"). X is the value paid for the
+// {X} cost, locked as the permanent resolves (CR 608.2h) and threaded into the entering permanent's OWN
+// ETB-trigger context as ctx.xValue (checkEnterTriggers stamps enteredPerm.xValue → the self-ETB context).
+// It's a fixed number for the life of the trigger, so it reads IDENTICALLY at the flush check AND the
+// resolution re-check (CR 603.4). A missing xValue (a non-X entry, or the amount unthreaded) → null (can't
+// confirm → FN-safe, never fail-open); a present xValue compares numerically. "or more"/"or greater" only —
+// the ONLY threshold direction Ravenous prints (X≥5).
+const X_THRESHOLD_RE = /^x is (\d+) or (?:more|greater)$/;
+
 // ===== TRIBUTE ETB (CR 702.96e + 603.4) ======================================================
 // "tribute wasn't paid" / "tribute was paid" — the intervening-if on a Tribute creature's ETB trigger
 // ("When this creature enters, if tribute wasn't paid, <effect>" — Pharagax Giant, Ornitharch, Nessian
@@ -328,6 +339,20 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const entering = board.find((p) => p.id === triggeringId);
     if (!entering) return null;      // entering permanent already gone → can't confirm (FN-safe)
     return entering.wasKicked === true; // a normal (un-kicked) cast leaves wasKicked unset → false (CR 603.4 drop)
+  }
+
+  // X-VALUE THRESHOLD (CR 608.2h) — "x is N or more": read the paid {X} threaded into THIS trigger's
+  // context (ctx.xValue, stamped by checkEnterTriggers from enteredPerm.xValue). A definite number for the
+  // life of the trigger, so it compares identically at flush AND resolution (CR 603.4 second check). An
+  // absent/non-numeric xValue (a non-X entry, or the amount unthreaded) → null (can't confirm → FN-safe,
+  // never fail-open — the trigger stays unrouted). This is what gates Ravenous's "draw a card" on X≥5.
+  {
+    const xm = c.match(X_THRESHOLD_RE);
+    if (xm) {
+      const x = context?.xValue;
+      if (typeof x !== "number") return null; // no X in context → can't confirm (FN-safe)
+      return x >= parseInt(xm[1], 10);
+    }
   }
 
   // TRIBUTE ETB (CR 702.96e) — "tribute wasn't paid" / "tribute was paid": read the entering permanent's
@@ -494,5 +519,8 @@ export function interveningIfParseable(condition) {
   // line); every other shape ignores the extra field.
   const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" }, tributePaid: false };
   const probe = { players: { __probe__: { battlefield: [entering], graveyard: [] } } };
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true }) !== null;
+  // The probe context ALSO carries a definite numeric `xValue` so the X-VALUE THRESHOLD shape ("x is N or
+  // more") returns a boolean here (the runtime stamps a real xValue on every {X}-cost entry via
+  // checkEnterTriggers); every other shape ignores the extra field.
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, xValue: 0 }) !== null;
 }

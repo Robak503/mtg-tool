@@ -369,7 +369,16 @@ export function destroyExileClauseParser(clause) {
   // an atom-level who:"defendingPlayer" so the combat-referent gate (triggerRouting.combatDamageReferentSatisfied
   // / coverage's spell guard) pins this destroy to the ATTACKS event — on any other event ctx.defenderId is unset
   // → the target pool is empty → the trigger is dropped no-target, never a mis-scoped destroy (SAFE, CREED).
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls))?$/);
+  // DAMAGED-PLAYER scope (CR 510.2 — the just-combat-damaged player) — "destroy target artifact or enchantment
+  // that player controls" (Aberrant's "Heavy Power Hammer" combat-damage trigger). "That player" back-references
+  // the player this creature just dealt combat damage to (CR 608.2c). It's a COMBAT-DAMAGE-only referent, the
+  // exact mirror of defendingPlayer: the eligible pool is the SPECIFIC damaged player's permanents
+  // (ctx.damagedPlayerId, threaded by triggers.checkCombatDamageTriggers), NOT "any opponent's". So it emits (a)
+  // a controller restriction who:"damagedPlayer" the enumerator resolves against ctx.damagedPlayerId, filtering
+  // to exactly that player's permanents, AND (b) an atom-level who:"damagedPlayer" so the combat-referent gate
+  // pins this destroy to combatDamageToPlayer — on any other event (a spell, a non-combat trigger) ctx.damaged-
+  // PlayerId is unset → empty pool → the ability drops no-target, never a mis-scoped destroy (SAFE, CREED).
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -383,11 +392,13 @@ export function destroyExileClauseParser(clause) {
     const controlScope = rm[3];
     const controllerWho = /^you control$/.test(controlScope || "") ? "you"
       : /^defending player controls$/.test(controlScope || "") ? "defendingPlayer"
+      : /^that player controls$/.test(controlScope || "") ? "damagedPlayer"
       : "opponent";
     const restrictions = controlScope ? [{ kind: "controller", who: controllerWho }] : [];
     const atom = { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
-    // Pin the ATTACKS-event referent onto the atom for the combat-referent gate (defendingPlayer scope only).
+    // Pin the combat-event referent onto the atom for the combat-referent gate (defending/damaged-player scopes).
     if (controllerWho === "defendingPlayer") atom.who = "defendingPlayer";
+    if (controllerWho === "damagedPlayer") atom.who = "damagedPlayer";
     return atom;
   }
   // MV-FILTERED removal (CR 202.3 / 700.6 — mana value as a number) — "(exile|destroy) target <typelist> with mana

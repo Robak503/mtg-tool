@@ -179,6 +179,12 @@ function isLandPerm(perm) {
 // gates nativeness). Lowercased (the strip runs case-insensitively).
 const FLAVOR_TRIGGER_LABELS = [
   "catch", "genius industrialist", "treasure hunter",
+  // "heavy power hammer" is Aberrant's (Warhammer 40k) flavor ability-word label on its combat-damage
+  // trigger ("Heavy Power Hammer — Whenever this creature deals combat damage to a player, destroy target
+  // artifact or enchantment that player controls."). Pure CR 207.2c flavor with no rules meaning; unique to
+  // Aberrant in the corpus (verified). Stripping it lets the boundary-anchored trigger regex see the bare
+  // "Whenever" so the combat-damage destroy is detected; the effect's coverage is judged separately.
+  "heavy power hammer",
 ];
 const FLAVOR_LABEL_RE = new RegExp(
   // optional leading "... " (Cap's "... Catch"), then a flavor label, then the dash before a trigger keyword.
@@ -952,6 +958,25 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (selfRef && /\bbecomes the target of a spell or ability\s*$/.test(c.trim())) {
     return { event: "becomesTarget", scope: "self", whose: "any" };
   }
+  // ===== GROUP BECOMES-TARGET (CR 603.2 — a creature YOU CONTROL becomes the target of a SPELL) ===== The
+  // controller-scoped sibling of the self form above (Gargos, Vicious Watcher — "Whenever a creature you
+  // control becomes the target of a spell, Gargos fights up to one target creature you don't control";
+  // Venerated Rotpriest). UNLIKE the self form the WATCHER is a DIFFERENT permanent (Gargos) than the
+  // targeted creature — so the effect subject is the SOURCE NAME (rewriteSelfNameToThisCreature normalizes
+  // "Gargos fights …" → "this creature fights …", scope-independently) and the runtime fans out to the
+  // targeted creature's controller's watchers (checkBecomesTargetTriggers, gated on stackObj.kind==="spell").
+  //
+  // CREED — anchored to the BARE "a creature you control" subject + a SPELL-ONLY event (ends on "of a spell"),
+  // no rider. This is a DISTINCT event ("becomesTargetGroup") from the self form because it fires ONLY on a
+  // SPELL (CR 115.1 — the target is chosen at cast; Gargos's text is "of a spell", not "of a spell or ability"),
+  // whereas the self form fires at all four target-choice sites incl. abilities. A RESTRICTED subject ("a Dragon
+  // you control", "a permanent you control", "another creature you control"), a WARD-TAX rider ("…of a spell or
+  // ability an opponent controls"), an "instant or sorcery"/"a spell or ability" variant, or ANY trailing effect
+  // rider leaves residue → does NOT match this exact anchor → UNDETECTED → Arbiter (a SAFE false-negative). The
+  // effect faithfulness is re-gated by triggerRoutesNatively (the fight parses HIGH only after the self-name rewrite).
+  if (/^a creature you control becomes the target of a spell$/.test(c.trim())) {
+    return { event: "becomesTargetGroup", scope: "creatureYouControl", whose: "any" };
+  }
 
   // Combat-damage-to-a-player (CR 510.2 — combat damage dealt). "Whenever <self> deals combat damage to a player" (self) /
   // "Whenever a creature you control deals combat damage to a player" (creatureYouControl). BARE form
@@ -1271,7 +1296,10 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .
 // counter on it" (the firebreathing-counter family). Mirrors the parser's self-counter shape
 // (parser.js: "…counters? on this creature$", target:"self") with "it"; whole-clause anchored, so a
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
-const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
+// "that many" (ENRAGE / DAMAGE-RECEIVED self-scaled, Hungering Hydra) is admitted alongside the fixed-N count:
+// a self-scope dealt-damage trigger's "put that many +1/+1 counters on it" rewrites to "…on this creature" here,
+// then the add-counter self parser (counters.js, countContext:"combatDamageAmount") binds the count to the damage.
+const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on it$/i;
 
 // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — a SELF-scope trigger sacrifices its OWN
 // source with the pronoun "it": "When this creature becomes the target of a spell or ability, sacrifice it."
@@ -1317,7 +1345,12 @@ const SELF_RETURN_BF_ENCHANTMENT_RE = /^return it to the battlefield under its o
 // SPELL's anaphoric "it"/"that creature" (Big Play / Puncture Bolt / Miraculous Recovery) is NEVER
 // rewritten (it isn't a non-self trigger) and stays LOW → Arbiter (CREED — no fabricated/mis-bound counter).
 // ±1/±1 only (the enforced counter kinds); whole-clause anchored, so a rider/compound leaves it untouched.
-const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
+// "that many" (combat-damage-scaled, Necropolis Regent — "Whenever a creature you control deals combat damage to
+// a player, put that many +1/+1 counters on it") is admitted alongside the fixed-N count: the non-self referent
+// rewrites to "…on the triggering creature", which the WAVE-3b thatCreature parser binds with the same
+// countContext:"combatDamageAmount" (the count is the combat damage that creature dealt). CR 608.2c: "it" = the
+// triggering permanent, not the source — so this MUST route through the thatCreature lane, never the self path.
+const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
 // The NON-self scopes for which a bare "it"/"that creature" referent is the TRIGGERING permanent: the
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
 const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl", "creatureYouControlKeyword"]);
@@ -1411,11 +1444,14 @@ const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 // portion before the first comma, CR 201.4) both refer to the source. detectTriggers rewrites a LEADING
 // self-name → "this creature" so the parser's self atom (target:"self") models it, exactly like the "it"
 // rewrite. SELF SCOPE ONLY — a non-self trigger never names the SOURCE in this slot. Anchored on a leading
-// name + a self-effect VERB (gets/gains/deals — the modeled self-effect shapes), so a name appearing mid-clause
-// or before an unmodeled verb is left untouched → the program stays LOW → Arbiter (CREED — no mis-bound effect).
+// name + a self-effect VERB (gets/gains/deals/fights — the modeled self-effect shapes), so a name appearing
+// mid-clause or before an unmodeled verb is left untouched → the program stays LOW → Arbiter (CREED — no
+// mis-bound effect). "fights" is the GROUP-BECOMES-TARGET payoff (Gargos, Vicious Watcher — "Gargos fights up
+// to one target creature you don't control"): the named subject IS the source (the watcher), so rewriting →
+// "this creature fights …" binds the fight's own-side to the source (the parser's fight atom re-gates the tail).
 // Returns null when the effect doesn't begin with the source's name (the common case — most effects use "it"
 // or have no self-subject), making this a pure promotion.
-const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals )/i;
+const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights )/i;
 // TRAILING self-name (ARIXMETHES) — a counter REMOVAL whose SOURCE-permanent referent trails the verb:
 // "[you may ]remove a slumber counter from <Name>". The self-name sits at the END of the clause (unlike the
 // leading "<Name> gets +1/+1" shape above), so it's rewritten to "this creature" only when the whole clause
@@ -2010,8 +2046,45 @@ export function detectTriggers(card) {
       });
     }
   }
+  // KW-RAVENOUS (Edge of Eternities / Warhammer 40k) — KEYWORD→TRIGGER synthesis, the CASCADE/CUMULATIVE-UPKEEP
+  // precedent. "Ravenous" is a keyword whose ability lives entirely in REMINDER parens ("Ravenous (This creature
+  // enters with X +1/+1 counters on it. If X is 5 or more, draw a card when it enters.)"). It has TWO halves:
+  //   (1) enters-with-X +1/+1 counters — a REPLACEMENT (not a trigger), modeled by staticAbilityParser
+  //       .entersWithXCounters (which now recognizes the reminder form) + resolvers.enterPermanent (opts.xValue
+  //       → the counters). NOT synthesized here — it's not a triggered ability.
+  //   (2) "If X is 5 or more, draw a card when it enters" — a genuine ETB triggered ability GATED on X≥5.
+  //       Synthesize a self ETB descriptor for it. The effectClause is the bare "draw a card" (parses HIGH to
+  //       the draw atom, non-targeted → triggerRoutesNatively HIGH); the intervening-if "x is 5 or more" is
+  //       evaluated by interveningIf.js against ctx.xValue (checkEnterTriggers threads enteredPerm.xValue into
+  //       the self-ETB context — CR 608.2h). effectHasX:true so the parse sites treat the {X} card as X-bearing.
+  // The boundary-anchored When/Whenever/At regex above can't reach either half (the "(" isn't a sentence
+  // boundary, and "draw a card when it enters" isn't a When-led sentence), so synthesizing here is required.
+  // allTriggerSentencesModeled bumps the shaped count by 1 for the keyword (ravenousTriggerCount) so
+  // shaped === detected holds. Anchored on the canonical Ravenous reminder signature so a card merely NAMED
+  // "Ravenous …" (Ravenous Rats, Ravenous Chupacabra) without the keyword+reminder is untouched.
+  if (/\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\. if x is (\d+) or more, draw a card when it enters\.?\)/i.test(oracleOf(card))) {
+    const thresh = oracleOf(card).match(/if x is (\d+) or more, draw a card when it enters/i);
+    out.push({
+      event: "etb", scope: "self", whose: "any",
+      effect: null, effectClause: "draw a card",
+      interveningIf: `x is ${thresh[1]} or more`,
+      effectHasX: true,
+      optional: false, sourceText: "Ravenous",
+    });
+  }
   _detectCache.set(card, out);
   return out;
+}
+
+/**
+ * RAVENOUS (Edge of Eternities / Warhammer 40k) — the count of synthesized Ravenous ETB draw triggers on a
+ * card (0 or 1). The keyword's "If X is 5 or more, draw a card when it enters" half is a triggered ability
+ * that lives in REMINDER parens (never a When/Whenever/At sentence), so it's absent from the shaped-sentence
+ * count in coverage.allTriggerSentencesModeled — this bumps that count so shaped === detected holds, exactly
+ * like cascadeInstanceCount does for the cascade keyword. Anchored on the canonical Ravenous reminder.
+ */
+export function ravenousTriggerCount(oracle) {
+  return /\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\. if x is \d+ or more, draw a card when it enters\.?\)/i.test(String(oracle || "")) ? 1 : 0;
 }
 
 /** Convenience: does this card have any trigger for the given event? */
@@ -2809,10 +2882,19 @@ const BECOMES_TARGET_PERM_TYPES = new Set(["creature", "permanent", "planeswalke
  *
  * Fires for the TARGETED permanent as the source (self-scope), so ctx.sourceId = the targeted permanent and the
  * self-sac atom sacrifices exactly it. Pure — appends to pendingTriggers.
+ *
+ * GROUP FORM (becomesTargetGroup, CR 603.2 — "a creature you control becomes the target of a SPELL", Gargos /
+ * Venerated Rotpriest): the watcher is a DIFFERENT permanent than the targeted creature, so for each targeted
+ * CREATURE we ALSO fan out to that creature's controller's watchers (triggerSourcesOf), threading the targeted
+ * creature as the triggeringPermanent — scopeMatches "creatureYouControl" gates it to same-controller watchers.
+ * SPELL-ONLY (CR 115.1): the group form fires ONLY when the targeting stack object is a SPELL (stackObj.kind ===
+ * "spell"), never an activated/loyalty/triggered ability (Gargos's printed event is "of a spell", not "…or
+ * ability"). The self form still fires at every target-choice site (its printed event is "a spell or ability").
  */
 export function checkBecomesTargetTriggers(state, stackObj) {
   const targets = stackObj?.targets || [];
   if (!targets.length) return state;
+  const isSpell = stackObj?.kind === "spell"; // GROUP form is spell-only (CR 115.1 — target chosen at cast)
   let fired = [];
   const seen = new Set();
   for (const t of targets) {
@@ -2827,6 +2909,21 @@ export function checkBecomesTargetTriggers(state, stackObj) {
       triggeringPermanent: lk.permanent,
       triggeringContext: {},
     }));
+    // GROUP fan-out (spell-only): a CREATURE the targeted creature's controller controls became a spell's
+    // target → fire every "a creature you control becomes the target of a spell" watcher that controller has.
+    // scopeMatches("creatureYouControl") requires the triggering creature and the watcher share a controller,
+    // so scanning only the targeted creature's controller's sources is exact (an opponent's watcher never
+    // matches). isCreaturePerm gate on the target: the group anchor's subject is "a creature you control".
+    if (isSpell && isCreaturePerm(lk.permanent)) {
+      for (const watcher of triggerSourcesOf(state, lk.permanent.controller)) {
+        fired = fired.concat(triggersForEvent(state, {
+          event: "becomesTargetGroup",
+          sourcePermanent: watcher,
+          triggeringPermanent: lk.permanent,
+          triggeringContext: {},
+        }));
+      }
+    }
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };

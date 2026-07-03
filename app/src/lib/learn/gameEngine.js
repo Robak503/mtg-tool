@@ -35,6 +35,7 @@ import {
   resetSpellsCastAllPlayers,
   resetCreatureDeathsAllPlayers,
   resetAttackedThisTurnAllPlayers,
+  resetBecameTargetThisTurnAllPlayers,
   untapAll,
   clearCombatDamage,
   clearRemovedFromCombatFlags,
@@ -55,6 +56,7 @@ import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyAnnihilatorTriggers } from "./annihilator.js";
 import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applySeedbornUntap } from "./seedbornUntap.js";
+import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { applyMurkfiendUntap } from "./murkfiendUntap.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
@@ -251,6 +253,7 @@ export function runStepActions(state) {
       next = resetSpellsCastAllPlayers(next); // TRIG-CAST2: ditto for "cast your second spell each turn"
       next = resetCreatureDeathsAllPlayers(next); // DEATHS-THIS-TURN: "for each / if a creature died this turn" counts every seat's deaths this turn
       next = resetAttackedThisTurnAllPlayers(next); // RAID: "you attacked this turn" — clear every seat's attack flag at untap
+      next = resetBecameTargetThisTurnAllPlayers(next); // KIRA: "for the first time each turn" — clear every permanent's became-target flag at untap
       next = { ...next, onceTriggersFiredThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.)
       next = untapAll(next, { playerId: state.activePlayer });
       // SEEDBORN-UNTAP (a targeted #319-style hook the trigger compiler can't reach): Seedborn Muse —
@@ -958,6 +961,12 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // when no new triggered ability targeted a becomes-target permanent — the common case, byte-identical to before.
   for (const so of newStackObjects) {
     out = checkBecomesTargetTriggers(out, so);
+    // KIRA (kiraTargetCounter.js): this 4th target-choice site also raises Kira's hard counter — a TRIGGERED
+    // ability targeting an eligible-and-fresh Kira-protected creature is countered outright (CR 603.2 — "a
+    // spell or ability" includes a triggered ability). No-op when no Kira source is in play. counterSpellById
+    // removes the just-created triggered-ability stack object (no zone change — it's not a card), so the
+    // recursion below never re-flushes a countered object.
+    out = applyKiraTargetCounter(out, so);
   }
   if ((out.pendingTriggers || []).length) {
     return flushTriggers(out, { chooseTargets });

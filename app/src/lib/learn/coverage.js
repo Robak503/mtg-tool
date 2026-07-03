@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -40,6 +40,7 @@ import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
 import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
 import { isNativeGroupWard } from "./groupWard.js";
+import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
@@ -122,6 +123,15 @@ export const COVERED_KEYWORDS = [
   // DYNAMIC amount computed at fire time). "bushido N" / "rampage N" match via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count for each.
   "bushido", "rampage",
+  // KW-RAVENOUS (Edge of Eternities / Warhammer 40k) — ENFORCED end-to-end: the keyword's ability lives in
+  // REMINDER parens (stripped by isKeywordOnly before the keyword-only split, leaving the bare "Ravenous"
+  // word, exactly like bushido/afflict). Its TWO halves are both modeled: (1) enters-with-X +1/+1 counters —
+  // staticAbilityParser.entersWithXCounters recognizes the reminder form + resolvers.enterPermanent adds the
+  // X counters (opts.xValue → applyCounterDoubling); (2) "If X is 5 or more, draw a card when it enters" — a
+  // synthesized self-ETB draw trigger (triggers.detectTriggers) gated by the interveningIf "x is 5 or more"
+  // (evaluated against ctx.xValue). allTriggerSentencesModeled bumps the shaped count (ravenousTriggerCount)
+  // so the synthesized draw trigger balances. The bare "ravenous" residue matches via the exact === check.
+  "ravenous",
   // AFFLICT (CR 702.131) — ENFORCED: the keyword's triggered ability ("Whenever this creature becomes
   // blocked, defending player loses N life") is synthesized in detectTriggers + fired by checkBlockTriggers
   // (which now threads the defending player into the context so the lose-life resolves). "afflict N" matches
@@ -454,9 +464,14 @@ function allTriggerSentencesModeled(card, oracle) {
   // detectTriggers synthesizes a "your upkeep" descriptor from the keyword; bump the shaped count by 1 so
   // shaped === detected holds. Keyed on the bare keyword surviving in the reminder-stripped text.
   const cumUpkeepShaped = /\bcumulative upkeep\s+\{/i.test(stripReminder(oracle)) ? 1 : 0;
+  // RAVENOUS (Edge of Eternities) — the synthesized "If X is 5 or more, draw a card when it enters" ETB draw
+  // trigger lives in REMINDER parens, so stripReminder removes it before the shaped-sentence count — it never
+  // appears as a When/Whenever/At sentence. Bump the count by 1 for the keyword so shaped === detected holds
+  // (mirrors cascadeKw). Keyed on the RAW oracle (the reminder signature is gone after stripReminder).
+  const ravenousShaped = ravenousTriggerCount(oracle);
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + ravenousShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
@@ -1104,9 +1119,17 @@ export function classifyCard(card) {
   const plotStrippedOracle = selfCostReductionMetric(card)
     ? costOnlyStrippedOracle.replace(SELF_COST_SENTENCE_RE, " ")
     : costOnlyStrippedOracle;
+  // KW-RAVENOUS — the enters-with-X counters live in REMINDER parens ("Ravenous (This creature enters with X
+  // +1/+1 counters on it. …)"), which the printed-form strip below would half-match: it eats up to the first
+  // "…on it." INSIDE the paren and leaves the mangled "If X is 5 or more, draw a card when it enters.)" tail as
+  // orphan residue — AND destroys the reminder signature detectTriggers keys on (dropping the synthesized draw
+  // trigger). Skip the strip for Ravenous: the WHOLE reminder is removed wholesale by stripReminder in every
+  // downstream residue gate (permanentTriggersCovered / isKeywordOnly), leaving the bare covered "ravenous"
+  // keyword — so no printed-form strip is needed or wanted here (CREED — never leave a partial fragment).
+  const isRavenous = /\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\b/i.test(oracle);
   const baseOracle = entersWithPlusCounters(card) > 0
     ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
-    : entersWithXCounters(card) && xPipCount >= 1
+    : entersWithXCounters(card) && xPipCount >= 1 && !isRavenous
       ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
       : entersWithMetricCounters(card)
         ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
@@ -1296,6 +1319,16 @@ registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
 // the runtime enforces it (actionDispatcher's groupWardTax at the cast/ability chokepoints reuses the ward
 // soft-counter). isNativeGroupWard is all-or-nothing (any rider → body-only), so the credit is honest.
 registerCoverageClassifier((card) => (isNativeGroupWard(card) ? "native-trigger" : null));
+
+// KIRA, GREAT GLASS-SPINNER (hard-counter group-ward analogue) — a card whose only non-keyword text is the
+// modeled group grant ("Creatures you control have \"Whenever this creature becomes the target of a spell or
+// ability for the first time each turn, counter that spell or ability.\"") classifies native-trigger. Like
+// Diffusion, detectTriggers has no "becomes the target" event so the composite path leaves it body-only; this
+// registry classifier credits it, mirroring the runtime (actionDispatcher/gameEngine's applyKiraTargetCounter
+// at the four target-choice chokepoints hard-counters the first targeting each turn). isNativeKira is
+// all-or-nothing — its residue (minus the grant) must be KEYWORD-ONLY (Kira's own Flying is honored; any
+// unmodeled rider → body-only), so the credit is honest. isKeywordOnly injected to keep kiraTargetCounter a leaf.
+registerCoverageClassifier((card) => (isNativeKira(card, isKeywordOnly) ? "native-trigger" : null));
 
 // ─── WAVE 5a — Wolverine, Best There Is (the damage-replacement keystone) ──────────────────────────────────
 // All THREE clauses modeled (CREED all-or-nothing): the source-scoped double-all-damage replacement

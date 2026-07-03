@@ -50,6 +50,16 @@ const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 // produces it; a spell's raw "it" / "that creature" never reaches this matcher (CREED — sentinel gate).
 const TRIGGERING_CREATURE_COUNTER = /^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on the triggering creature$/;
 
+// COMBAT-DAMAGE-SCALED on the triggering creature (Necropolis Regent — "Whenever a creature you control deals
+// combat damage to a player, put that many +1/+1 counters on it"). "that many" = the combat damage that creature
+// just dealt (ctx.combatDamageAmount, threaded by triggers.checkCombatDamageTriggers); combatDamageReferentSatisfied
+// gates this countContext to the combatDamageToPlayer/dealtDamage events, so a spell / non-combat trigger (absent
+// referent → 0) is a clean no-op. The recipient is the TRIGGERING permanent (target:"thatCreature" →
+// ctx.triggeringPermanentId), reached ONLY via detectTriggers' non-self rewrite to the sentinel "the triggering
+// creature" (a phrase in ZERO printed oracle text) — a raw "on it" in a spell never matches here (CREED). +1/+1
+// only (the enforced kind); anchored ^…$ so a rider leaves residue → null → LOW → Arbiter.
+const TRIGGERING_CREATURE_COUNTER_CDMG = /^put that many (\+1\/\+1) counters? on the triggering creature$/;
+
 // DOUBLE-COUNTERS (CR 121) — "double the number of +1/+1 counters on this creature" (Voracious Hydra's
 // modal ETB; Primordial/Kalonian/Mossborn upkeep/attack/landfall doublers). Doubling = adding THIS-MANY
 // more counters of the same kind, where the magnitude is read AT RESOLUTION off the SOURCE's live counter
@@ -86,6 +96,16 @@ export function counterClausesParser(clause) {
       op: "add-counter",
       counterType: m[2],
       amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10),
+      target: "thatCreature",
+    };
+  }
+  // COMBAT-DAMAGE-SCALED on the triggering creature (Necropolis Regent) — count = ctx.combatDamageAmount.
+  const cdm = t.match(TRIGGERING_CREATURE_COUNTER_CDMG);
+  if (cdm) {
+    return {
+      op: "add-counter",
+      counterType: cdm[1],
+      countContext: "combatDamageAmount",
       target: "thatCreature",
     };
   }

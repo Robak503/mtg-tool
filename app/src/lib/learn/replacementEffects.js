@@ -96,9 +96,16 @@ export function doublerProfile(card) {
         // ("Army, Goblin, or Orc you control") would over-fire onto every permanent you control.
         if (RECIPIENT_GENERIC.test(s) && (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s))) scope = "you";
         else if (/\b(?:put on|on) (?:a|an|each|any|that) (?:creature|permanent|planeswalker|player|spacecraft|planet)\b/.test(s)) scope = "global";
+        // SELF-EXCLUSION (CR 109.5) — "ANOTHER/OTHER creature you control" (Benevolent Hydra) means the
+        // replacement never applies to counters placed on the SOURCE permanent itself. Captured so
+        // applyCounterDoubling can skip this profile when the recipient IS its own source (a self-exclusion the
+        // recipient-controller scope alone can't express). "another"/"other" appears in the recipient phrase
+        // ("put on another creature you control"); anchored to the recipient noun so an unrelated "another"
+        // elsewhere never trips it. Only the you-scope form carries it (a global "another" is not a real card).
+        const excludeSource = scope === "you" && /\bon (?:an?other|other) (?:nontoken )?(?:creature|permanent)\b/.test(s);
         if (scope) {
-          if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope };
-          else if (/that many plus (one|1)/.test(s)) counter = { op: "additive", factor: 1, kind, scope };
+          if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope, ...(excludeSource && { excludeSource: true }) };
+          else if (/that many plus (one|1)/.test(s)) counter = { op: "additive", factor: 1, kind, scope, ...(excludeSource && { excludeSource: true }) };
         }
       }
     }
@@ -191,13 +198,14 @@ export function stripModeledDoublerClauses(oracle) {
   );
 }
 
-/** Every (ownerId, profile) doubler permanent across ALL battlefields. */
+/** Every (ownerId, permId, profile) doubler permanent across ALL battlefields. permId lets a self-excluding
+ *  "another creature you control" counter-replacement (CR 109.5) skip the recipient when it IS the source. */
 function allDoublers(state) {
   const out = [];
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid].battlefield || []) {
       const profile = doublerProfile(perm.card);
-      if (profile) out.push({ ownerId: pid, profile });
+      if (profile) out.push({ ownerId: pid, permId: perm.id, profile });
     }
   }
   return out;
@@ -215,16 +223,26 @@ function counterDoublerApplies(d, ownerId, recipientId) {
  * first, then multiplicatives; then a Vorinclex opponent-halve (floor) last (the affected player orders to
  * maximize, so doubling-then-halving beats halving-then-doubling). Floors at 0. A "+1/+1"-only doubler is
  * skipped for any non-"+1/+1" counter type.
+ *
+ * `recipientPermId` (optional) is the permanent RECEIVING the counters. A self-excluding "another creature you
+ * control" replacement (CR 109.5 — Benevolent Hydra) is skipped when that recipient IS the replacement's own
+ * source permanent. Absent (every legacy caller) → no self-exclusion is possible, so behavior is unchanged.
  */
-export function applyCounterDoubling(state, recipientControllerId, counterType, baseAmount) {
+export function applyCounterDoubling(state, recipientControllerId, counterType, baseAmount, recipientPermId = null) {
   const base = Math.max(0, Number(baseAmount) || 0);
   if (base === 0) return 0;
   let additive = 0;
   let multiplier = 1;
   let halve = false;
-  for (const { ownerId, profile } of allDoublers(state)) {
+  for (const { ownerId, permId, profile } of allDoublers(state)) {
     const c = profile.counter;
-    if (c && (c.kind !== "+1/+1" || counterType === "+1/+1") && counterDoublerApplies(c, ownerId, recipientControllerId)) {
+    // A "another creature you control" replacement (CR 109.5) never applies to its OWN source permanent — skip
+    // it when the recipient IS that source. Only when we KNOW the recipient permanent (recipientPermId set) and
+    // the doubler permanent (permId); an unknown recipient can't be proven to be the source, so we DON'T skip
+    // (an under-exclusion would be an over-fire — but the runtime add-counter path always threads the recipient
+    // permanent id, so this is exact in practice, and the classifier's honesty rests on that path).
+    const selfExcluded = c?.excludeSource && recipientPermId != null && permId != null && recipientPermId === permId;
+    if (c && !selfExcluded && (c.kind !== "+1/+1" || counterType === "+1/+1") && counterDoublerApplies(c, ownerId, recipientControllerId)) {
       if (c.op === "additive") additive += c.factor;
       else multiplier *= c.factor;
     }

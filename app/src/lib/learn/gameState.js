@@ -1059,7 +1059,9 @@ export function addCounter(state, { permanentId, type, amount = 1 }) {
   // doubler is skipped for other counter types; floors at 0. (The three enters-with-counter sites that bypass
   // addCounter — resolvers.js / tokens.js / amass.js mint — call applyCounterDoubling directly.)
   const lk = findPermanent(state, permanentId);
-  const placed = lk ? applyCounterDoubling(state, lk.controller, type, amount) : amount;
+  // Thread the recipient permanent id so a self-excluding "another creature you control" replacement (CR 109.5,
+  // Benevolent Hydra) is skipped when THIS permanent is the replacement's own source.
+  const placed = lk ? applyCounterDoubling(state, lk.controller, type, amount, permanentId) : amount;
   return updatePermanent(state, permanentId, p => ({
     ...p,
     counters: { ...p.counters, [type]: (p.counters[type] || 0) + placed },
@@ -1469,6 +1471,28 @@ export function resetAttackedThisTurnAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
     players[id] = { ...state.players[id], attackedThisTurn: false };
+  }
+  return { ...state, players };
+}
+
+/**
+ * KIRA "for the first time each turn" (CR 603.2) — clear every permanent's per-turn `becameTargetThisTurn` flag
+ * at untap, for EVERY seat's battlefield. ALL-seats (not active-only): a creature can become a target on ANY
+ * player's turn (an instant-speed spell/ability targets it off-turn), and the "first time each turn" gate resets
+ * once per turn cycle — so the flag every permanent carries must be cleared each turn regardless of whose turn it
+ * is. Only permanents that actually carry the flag are rewritten (the common untapped-fresh permanent is left
+ * byte-identical), so this is cheap. Pure.
+ */
+export function resetBecameTargetThisTurnAllPlayers(state) {
+  const players = {};
+  for (const id of Object.keys(state.players)) {
+    const player = state.players[id];
+    players[id] = {
+      ...player,
+      battlefield: player.battlefield.map((p) =>
+        p.becameTargetThisTurn ? { ...p, becameTargetThisTurn: false } : p,
+      ),
+    };
   }
   return { ...state, players };
 }

@@ -337,6 +337,13 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // — never a mis-scoped destroy). A non-defending opponent's permanent is excluded, so in multiplayer the
       // pool is exactly the defending player's, never "any opponent's".
       if (r.who === "defendingPlayer" && (!ctx?.defenderId || pid !== ctx.defenderId)) return false;
+      // DAMAGED-PLAYER scope (CR 510.2 — the just-combat-damaged player) — only the SPECIFIC player this
+      // creature dealt combat damage to is legal (ctx.damagedPlayerId, threaded from the combat-damage
+      // trigger's context by triggers.checkCombatDamageTriggers). Absent damagedPlayerId (a spell / a
+      // non-combat path) → no permanent qualifies → empty pool → the ability drops no-target (SAFE, CREED —
+      // never a mis-scoped destroy). A non-damaged opponent's permanent is excluded, so in multiplayer the
+      // pool is exactly the damaged player's, never "any opponent's" — the exact mirror of defendingPlayer.
+      if (r.who === "damagedPlayer" && (!ctx?.damagedPlayerId || pid !== ctx.damagedPlayerId)) return false;
     } else if (r.kind === "tapped") {
       if (!!perm.tapped !== r.value) return false;
     } else if (r.kind === "power") {
@@ -612,6 +619,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // trigger-flush chooser (correctness gate, not just an intent hint).
   else if (effect.targetType === "creatureYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
+      // ANOTHER (CR 109.5) — "another target creature you control" (Benevolent Hydra) excludes the source
+      // permanent itself. ctx.sourceId is threaded by the activated dispatcher; when effect.excludeSource is
+      // set and this permanent IS the source, skip it so the chooser never offers the source as a target. A
+      // missing ctx.sourceId simply doesn't exclude (the plain form is unaffected — excludeSource is unset).
+      if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
       if (isCreature(perm.card) && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }

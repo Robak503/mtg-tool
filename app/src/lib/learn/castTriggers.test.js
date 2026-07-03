@@ -148,3 +148,47 @@ describe("CAST-SUBTYPE — subtype filter matching + classification", () => {
     expect(classifyCard({ type: "Creature — Merfolk Wizard", name: "Falconer", oracle: "Flying\nWhenever you cast a kicked spell, scry 2." })).toBe("body-only");
   });
 });
+
+// ANYCAST-SELF-COUNTER — "Whenever a player casts a spell, put a +1/+1 counter on this creature." The
+// whose:any castWatcher (fires on EVERY player's cast) + the modeled self-counter atom. Managorger Hydra
+// is the archetype; this locks its whole-card flow (detect → classify → real counter placement) so a
+// future parser change can't silently regress the flip while the tier still reads native. The CREED guard
+// pins the near-misses that MUST stay parked: an optional "may" + unmodeled second ability (Forgotten
+// Ancient), and an unmodeled cast-trigger effect on the same watcher shape.
+describe("ANYCAST-SELF-COUNTER — Managorger Hydra whole-card flip + CREED near-miss", () => {
+  const managorger = "Trample\nWhenever a player casts a spell, put a +1/+1 counter on this creature.";
+
+  it("detects the whose:any castWatcher with the self-counter effect", () => {
+    const d = castDescriptors(managorger)[0];
+    expect(d).toMatchObject({ event: "cast", scope: "castWatcher", whose: "any", spellFilter: "any", optional: false });
+    expect(d.effectClause).toBe("put a +1/+1 counter on this creature");
+  });
+
+  it("classifies native-trigger (Trample is a modeled keyword; the whole card is faithful)", () => {
+    expect(classifyCard({ type: "Creature — Hydra", name: "Managorger Hydra", power: 1, toughness: 1, oracle: managorger })).toBe("native-trigger");
+  });
+
+  it("end-to-end: any player's cast fires the trigger and a +1/+1 counter lands on the Hydra", () => {
+    const hydra = createPermanent({ id: "perm-h", card: { id: "c-hydra", name: "Managorger Hydra", type: "Creature — Hydra", power: 2, toughness: 2, oracle: managorger }, controller: "user", summoningSick: false });
+    const bolt = { id: "c-bolt", name: "Zap", type: "Instant", mana: "{R}", oracle: "Zap deals 1 damage to any target." };
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = { ...s, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main",
+      players: { ...s.players, user: { ...s.players.user, battlefield: [hydra], hand: [bolt], manaPool: { W: 0, U: 0, B: 0, R: 1, G: 0, C: 0 } } } };
+
+    const afterCast = dispatchAction(s, { kind: "cast-spell", playerId: "user", cardId: "c-bolt", name: "Zap", cost: { generic: 0, W: 0, U: 0, B: 0, R: 1, G: 0, C: 0, hybrid: [], phyrexian: [] }, targets: [{ type: "player", id: "ai" }] });
+    const trig = afterCast.stack.find((o) => o.kind === "triggered-ability");
+    expect(trig).toBeTruthy();
+    expect(trig.payload.resolver).toBe("effect-program");
+
+    const after = resolveTopOfStack(afterCast);
+    const h = after.players.user.battlefield.find((p) => p.card.name === "Managorger Hydra");
+    expect(h.counters?.["+1/+1"]).toBe(1);
+  });
+
+  it("CREED — optional 'may' + an unmodeled second ability, and an unmodeled cast effect, both stay parked", () => {
+    // Forgotten Ancient: optional "you may" self-counter PLUS an unmodeled upkeep counter-move ability → whole card not faithful.
+    expect(classifyCard({ type: "Creature — Elemental", name: "Forgotten Ancient", power: 0, toughness: 3, oracle: "Whenever a player casts a spell, you may put a +1/+1 counter on this creature.\nAt the beginning of your upkeep, you may move any number of +1/+1 counters from this creature onto other creatures." })).toBe("body-only");
+    // Same whose:any watcher but an unmodeled effect (mill + scry) → must not falsely claim native.
+    expect(classifyCard({ type: "Creature — Hydra", name: "FakeGorger", power: 1, toughness: 1, oracle: "Trample\nWhenever a player casts a spell, that player mills three cards and you scry that many." })).toBe("body-only");
+  });
+});

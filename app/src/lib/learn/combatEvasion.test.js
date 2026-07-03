@@ -269,13 +269,18 @@ describe("EVADE — EVASION-QUALIFIER: parsed 'can't be blocked by [qualifier]' 
     expect(classifyCard({ type: "Creature — Cat", name: "X", oracle: "Trample\nThis creature can't be blocked by creatures with power 4 or greater." })).toBe("native-body");
   });
 
-  // ── CLASSIFIER: FP-GUARD — must NOT flip (still body-only) ──
-  it("FP-GUARD: 'more than one creature' restriction stays body-only (set-level, not modeled)", () => {
-    // Charging Rhino, Norwood Riders, etc.
-    expect(classifyCard({ type: "Creature — Rhino", name: "Charging Rhino", oracle: "This creature can't be blocked by more than one creature." })).toBe("body-only");
+  // BLOCK-COUNT CAP (CR 509.1c, the menace-inverse) — the SELF "can't be blocked by more than one creature" is now
+  // MODELED (isBlockedByAtMostOne + the legalBlockerActions ≤1 cap), so a body whose only text is that static flips.
+  it("BLOCK-COUNT CAP: self 'more than one creature' restriction flips native-body (enforced at block declaration)", () => {
+    // Charging Rhino, Norwood Riders, Bristling Boar, Stalking Tiger, Ironhoof Ox — vanilla + the cap.
+    expect(classifyCard({ type: "Creature — Rhino", name: "Charging Rhino", oracle: "This creature can't be blocked by more than one creature." })).toBe("native-body");
   });
 
-  it("FP-GUARD: team grants stay body-only", () => {
+  // ── CLASSIFIER: FP-GUARD — must NOT flip (still body-only) ──
+  it("FP-GUARD: team grants stay body-only (the cap is self-only, not a group static)", () => {
+    // "Each creature you control can't be blocked by more than one creature." — a TEAM grant (not "this creature");
+    // the block-count-cap matcher is anchored to the self subject, so these stay body-only (the group static isn't
+    // enforced by the per-attacker cap, which reads the attacker's OWN card).
     expect(classifyCard({ type: "Creature — Human", name: "Yuan Shao", oracle: "Each creature you control can't be blocked by more than one creature." })).toBe("body-only");
     expect(classifyCard({ type: "Enchantment", name: "Familiar Ground", oracle: "Each creature you control can't be blocked by more than one creature." })).toBe("body-only");
   });
