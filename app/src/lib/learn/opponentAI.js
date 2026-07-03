@@ -57,7 +57,7 @@ import { parseAuraBonus } from "./staticAbilityParser.js";
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -319,12 +319,86 @@ function pickCounterCast(state, aiPlayerId, actions) {
     const obj = spellById.get(t.id);
     if (!obj || !enemies.has(obj.controller)) continue; // unknown stack object or OUR OWN spell → never
     const cost = castCostTotal(obj.cost);
-    if (cost < COUNTER_THREAT_MIN_COST) continue;       // a cantrip isn't worth the counter
+    // ALT-COST: a PAID alternative cost (pitch a card / pay life / sac / bounce lands — never the free
+    // kind) is a built-in 2-for-1 — it only answers a genuinely scary threat (≥5 mana), so the AI never
+    // trades two cards for a mid-curve spell it could simply let resolve. Free alt-casts and normal casts
+    // keep the standard ≥3 threat bar.
+    const minCost = a.altCost && a.altCost.kind !== "free" ? 5 : COUNTER_THREAT_MIN_COST;
+    if (cost < minCost) continue;                       // below the threat bar → not worth the counter
     if (!best || cost > best.cost || (cost === best.cost && String(t.id) < String(best.targetId))) {
       best = { action: a, cost, targetId: t.id };
     }
   }
   return best?.action || null;
+}
+
+// ─── ALT-COST variant discipline (CR 601.2b/118.9 offers; ranking only — THE CREED gates nothing here) ──
+//
+// legalChoices' alt-cost dual offer twins each cast of an alt-carrier (Fierce Guardianship, Force of Will,
+// Snuff Out …) with `altCost` payment variants. Before the normal per-card cascade scores the group, apply
+// a CONSERVATIVE dominance filter so the AI pays an alternative cost only when it is clearly worth it:
+//   • FREE twin (same targets/mode) → strictly dominates its normal-cost twin: same effect, zero mana.
+//     Keep the free variant, drop the normal (the mana stays open for the rest of the turn).
+//   • PAID twin whose normal cast is ALSO offered (the printed cost is affordable) → pay mana, never the
+//     card/life/board resource. Drop the paid variant.
+//   • PAID variants with NO normal twin (the printed cost was unaffordable — the only reason to pitch):
+//     kept ONLY for interaction (a counter, or single-target removal — the spells worth a 2-for-1), only
+//     when a life payment leaves ≥10 life, and only the single CHEAPEST payment per target (lowest-MV
+//     pitch/sac candidate, id tiebreak — deterministic, never emission-order-dependent). Non-interaction
+//     paid alts (Gush draw / Unmask discard / Pyrokinesis burn / Snapback bounce / Flare of Cultivation
+//     tutor / Cave-In) are dropped — human-only offers, a safe false-negative.
+// pol.altCost === "v1" recovers the legacy never-pay-alt arm for the A/B probe.
+const ALT_REMOVAL_OPS = new Set(["destroy", "exile", "tuck"]);
+function altSingleTargetRemovalProgram(program) {
+  if (!program || program.structure === "modal") return false;
+  const atoms = program.atoms || [];
+  return atoms.length === 1 && ALT_REMOVAL_OPS.has(atoms[0].op) && !!atoms[0].targetType;
+}
+function altVariantKey(a) {
+  const t = (a.targets || []).map((x) => String(x?.id)).sort().join(",");
+  return `${t}|${a.chosenMode ?? ""}|${a.xValue ?? ""}`;
+}
+function altCardMv(c) { return typeof c?.cmc === "number" ? c.cmc : 0; }
+function altPaymentMv(state, aiPlayerId, alt) {
+  if (alt.exilePitchId) return altCardMv((state.players?.[aiPlayerId]?.hand || []).find((h) => h.id === alt.exilePitchId));
+  if (alt.sacId) return altCardMv((state.players?.[aiPlayerId]?.battlefield || []).find((p) => p.id === alt.sacId)?.card);
+  return 0;
+}
+function altResourceId(alt) { return String(alt.exilePitchId ?? alt.sacId ?? (alt.returnLandIds || []).join("+")); }
+function filterAltCastVariants(state, aiPlayerId, actions) {
+  if (!actions.some((a) => a.altCost)) return actions;
+  const normalKeys = new Set(actions.filter((a) => !a.altCost).map(altVariantKey));
+  const freeKeys = new Set(actions.filter((a) => a.altCost?.kind === "free").map(altVariantKey));
+  const program = actions[0].program;
+  const interaction = programContainsCounter(program) || altSingleTargetRemovalProgram(program);
+  const life = state.players?.[aiPlayerId]?.life ?? 0;
+  // Alt-only PAID variants: pick the single cheapest payment per (targets, mode) key.
+  const bestPaidByKey = new Map();
+  for (const a of actions) {
+    const alt = a.altCost;
+    if (!alt || alt.kind === "free") continue;
+    if (normalKeys.has(altVariantKey(a))) continue;            // the affordable normal cast wins
+    if (!interaction) continue;                                // non-interaction paid alt → human-only
+    if (alt.payLife && life - alt.payLife < 10) continue;      // life prudence floor
+    const mv = altPaymentMv(state, aiPlayerId, alt);
+    const k = altVariantKey(a);
+    const cur = bestPaidByKey.get(k);
+    if (!cur || mv < cur.mv || (mv === cur.mv && altResourceId(alt) < altResourceId(cur.a.altCost))) {
+      bestPaidByKey.set(k, { a, mv });
+    }
+  }
+  const keptPaid = new Set([...bestPaidByKey.values()].map((v) => v.a));
+  const out = [];
+  for (const a of actions) {
+    if (!a.altCost) {
+      if (!freeKeys.has(altVariantKey(a))) out.push(a);        // a free twin strictly dominates its normal
+    } else if (a.altCost.kind === "free") {
+      out.push(a);                                             // free alt-cast: always the preferred variant
+    } else if (keptPaid.has(a)) {
+      out.push(a);
+    }
+  }
+  return out;
 }
 
 /**
@@ -592,7 +666,13 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
   }
 
   const scored = [];
-  for (const [cardId, actions] of byCard) {
+  for (const [cardId, groupActions] of byCard) {
+    // ALT-COST variant discipline (see filterAltCastVariants): free twins replace their normal casts, paid
+    // alts survive only as interaction-of-last-resort. policy "v1" = the legacy never-pay arm (probe).
+    const actions = pol.altCost === "v1"
+      ? groupActions.filter((a) => !a.altCost)
+      : filterAltCastVariants(state, aiPlayerId, groupActions);
+    if (actions.length === 0) continue; // every variant filtered (e.g. an imprudent alt-only paid cast) → hold
     // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
     // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not
     // the combined card, so the pick reflects what will really resolve.

@@ -210,3 +210,41 @@ POLICY_KEYS. **A/B: NEW 60.0% / OLD 40.0**, dead turns 0.03. +40 tests.
 (games=3 rows=8281 ai/user/ai, ×2 reproducible; per-lane intermediates 847e2c57 (A4-only) /
 7fe774c5 (B2-only) recorded in the lane reports). Suite 7,623/521 · lint clean · fp 0-diff at
 pick · main tree clean · worktrees swept junction-safe.
+
+### ✅ LANE B3 — ALT-COST OFFER SUBSYSTEM (build/funny-chaum) — the deferred play-quality build
+The strip already shipped (16 HIGH carriers native at printed cost, `program.altCost` metadata); this lane
+builds the OFFER: players and the AI can actually PAY the printed alternative costs. Design = the parked
+alt-cost-design.md read through the verified corrections ALT-1..ALT-8 (p1-harness-findings.json):
+- **legalChoices**: `OFFERED_ALT_COST_KINDS` (the offer layer's OWN wave gate — parser untouched, ALT-5) ·
+  `altCostConditionHolds` with **battlefield-only controlCommander** (ALT-1: a command-zone commander is
+  controlled by no one, CR 109.4 — the turn-1-free-Guardianship FP is pinned both ways) · notYourTurn /
+  submergeGate / controlLand:<Subtype> · `enumerateAltPayments` — pitch color = the card's COLOR via
+  colorsOf, never identity (ALT-3, indicator + colorless-{U}-in-text canaries) · returnLandsToHand emits
+  ONE canonical land set, tapped-first id-ascending (ALT-8 — never C(N,k) combinatorial) · population =
+  HIGH programs only (ALT-6: the 15 LOW carriers are MUST-NOT-OFFER canaries, pinned) · the insertion is a
+  **TWIN POST-PASS** over the emitted actions (ALT-4 — the per-branch dual-offer is the duplicated-
+  exclusion-list drift trap; both affordability gates widened `!affordable && !emergeSpec && !altSpec` /
+  `!affordable && !altSpec`, unaffordable normal casts spliced out so non-carrier decks stay byte-identical).
+- **actionDispatcher**: `action.altCost` is a SEPARATE marker from `freeCast` (ALT-2 — the pendingFreeCast/
+  pendingCascade clears keep their single producer; the dual offer is suppressed inside every freeCast
+  enumeration and the invariant comment names it). Mana skipped; payment applied atomically before the card
+  leaves its zone: loseLife / hand→exile pitch / sacrificePermanentForCost / γ1g-style land bounce with
+  leave-drain. FAIL-FAST ALTCOST_UNPAID / ALTCOST_UNSUPPORTED / PERM_NOT_FOUND / CARD_NOT_IN_HAND.
+- **opponentAI** (ALT-7): POLICY_KEYS += "altCost" ('v1' = legacy never-pay arm) · `filterAltCastVariants`
+  conservative dominance — free twin replaces its normal (strict dominance), paid twin never taken when the
+  printed cost is affordable, alt-ONLY paid casts survive only for interaction (counter / single-target
+  removal) with life-prudence ≥10 and the single lowest-MV pitch/sac payment (deterministic id tiebreak,
+  never emission-order-dependent) · pickCounterCast threat bar 5 for paid-alt counters (a built-in 2-for-1
+  only answers a real threat), 3 unchanged otherwise.
+**Battery: suite 7,623→7,655 (+32 pins in altCostOffer.test.js: offer conditions ×2-sites, ALT-1/ALT-3
+CREED canaries, MUST-NOT-OFFER LOW-carrier pins (Misdirection/Deflecting Swat/Force of Vigor), atomic
+dispatch + fail-fast throws, AI dominance/threshold/prudence/v1-arm) · lint clean · tier/program/runtime
+fingerprints 0-diff vs the rolling tip (tier LOST=0 GAINED=0 — offering is runtime-only) · trajectory hash
+`a2a03ba8…` BYTE-IDENTICAL ×2 on the Tier-1 pod (it carries no alt-cost cards — the anchor did NOT
+re-anchor; non-carrier decks provably undisturbed) · census re-run: 31 carriers = 16 HIGH / 15 LOW, stable.**
+**A/B evidence: default grid (60 mirror standard games, all decisive) NEW 60.0% / OLD(all-legacy) 40.0%,
+dead turns 0.03 — the rolling tip's anchor holds with the layer on. Isolated --legacy=altCost grid: 50.0 /
+50.0 (neutral, no regression — standard 1v1 has no command zone so the free-commander kind can't fire
+there). Live usage, carrier pod (Rograkh-Thrasios/Kinnan/Yuriko/Cap, gamesPer=3, commander): 7 alt-cost
+casts — Fierce Guardianship free ×4, Flawless Maneuver free ×2, Snuff Out payLife ×1 — all 3 games
+decisive. alt-cost-design.md updated in place ([BUILD] corrections + SHIPPED status).**

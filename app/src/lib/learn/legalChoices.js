@@ -587,6 +587,134 @@ function counterSpellTargetFilter(card) {
 // Shared cast-action builder for a player's castable zone (hand or command). `taxFn(card)` returns the
 // extra GENERIC mana to add to the printed cost (CR 903.8 commander tax); null = untaxed. `fromZone`
 // rides on every emitted action so the dispatcher splices the card out of the correct zone at cast.
+// ===== ALT-COST OFFER (CR 601.2b / 118.9) ===== a printed ALTERNATIVE casting cost ("[if <cond>, ] you may
+// cast this spell without paying its mana cost" / "you may <pay X> rather than pay this spell's mana cost").
+// The parser strips the sentence and records `program.altCost` metadata (parser.js extractAltCost); COVERAGE
+// already credits these cards native at their PRINTED cost. This layer is the PLAY-QUALITY half: actually
+// OFFER the alternative payment so a player/AI can cast Fierce Guardianship free or pitch to Force of Will.
+//
+// OFFERED_ALT_COST_KINDS is the offer layer's OWN wave gate — deliberately separate from the parser's
+// SUPPORTED_ALT_COST_KINDS (that set gates which STRIPS are coverage-vetted; this set gates which payments
+// the cast path knows how to ENFORCE). Growing this set never moves any card's tier (offering is
+// runtime-only); the parser stays untouched so the program fingerprint can't drift.
+const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "returnLandsToHand"]);
+
+// Cheap oracle pre-screen so the offer layer never adds a parseEffectProgram call for a non-carrier
+// (castActionsFromZone otherwise parses programs only past the affordability gate). Curly apostrophes are
+// matched via the dot ("spell's"/"spell’s" — the parser normalizes, raw oracle may not).
+const ALT_COST_OFFER_HINT = /rather than pay this spell.s mana cost|without paying its mana cost/i;
+
+const ALT_COST_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+
+// The offer-side CONDITION gate. Unknown condition → false (never offer a gate we can't name — the parser's
+// condition enum guard already keeps such a card LOW, this is the belt-and-suspenders second site).
+function altCostConditionHolds(state, playerId, condition) {
+  if (condition === "always") return true;
+  if (condition === "controlCommander") {
+    // "You control a commander" — control means ON THE BATTLEFIELD (CR 109.4: only battlefield/stack objects
+    // have a controller). A commander sitting in the command zone is controlled by NO ONE — scanning the
+    // command zone here would let the AI cast Fierce Guardianship free on turn 1 (the cardinal FP). The
+    // isCommander FLAG rides the card onto the battlefield permanent (gameState designation + cmdCast).
+    return (state.players[playerId]?.battlefield || []).some((p) => p.card?.isCommander === true);
+  }
+  if (condition === "notYourTurn") return state.activePlayer !== playerId;
+  if (condition === "submergeGate") {
+    // Submerge: "an opponent controls a Forest and you control an Island" — type-line subtypes, live board.
+    const hasSubtype = (p, re) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t); };
+    if (!(state.players[playerId]?.battlefield || []).some((p) => hasSubtype(p, /\bIsland\b/i))) return false;
+    return Object.entries(state.players).some(([pid, pl]) =>
+      pid !== playerId && (pl?.battlefield || []).some((p) => hasSubtype(p, /\bForest\b/i)));
+  }
+  if (typeof condition === "string" && condition.startsWith("controlLand:")) {
+    const re = new RegExp(`\\b${condition.slice("controlLand:".length)}\\b`, "i");
+    return (state.players[playerId]?.battlefield || []).some((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t); });
+  }
+  return false;
+}
+
+// Pitch candidates ("exile a <color> card from your hand"): the card's COLOR (CR 105.2 — the Scryfall
+// `colors` array, indicators included, mana-cost pips fallback via layers.colorsOf), NEVER color identity
+// (CR 903.4 is deck-construction only — identity would illegally offer a colorless card with a rules-text
+// {U} pip). The spell being cast is on its way to the stack and is NOT a legal pitch (mirror the
+// additional-cost discard exclusion).
+function altPitchCandidates(player, card, color) {
+  const letter = ALT_COST_COLOR_LETTER[color];
+  if (!letter) return [];
+  return (player.hand || []).filter((h) => h.id !== card.id && colorsOf(h).includes(letter));
+}
+
+// Enumerate every legal way to pay the alt cost, as plain payment fields for the action's `altCost` marker.
+// Empty array → the alt cost is UNPAYABLE → no offer (illegal-if-unpayable; the dual offer only ever emits
+// payable variants, so the dispatcher's fail-fast throws are true upstream-bug detectors).
+function enumerateAltPayments(state, playerId, card, alt) {
+  const player = state.players[playerId];
+  switch (alt.kind) {
+    case "free":
+      return [{}];
+    case "payLife":
+      // CR 119.4 — you can't pay more life than you have (paying to exactly 0 is legal; the SBA follows).
+      return (player.life ?? 0) >= alt.amount ? [{ payLife: alt.amount }] : [];
+    case "payLifeExilePitch": {
+      if ((player.life ?? 0) < alt.amount) return [];
+      return altPitchCandidates(player, card, alt.color).map((h) => ({ payLife: alt.amount, exilePitchId: h.id, exilePitchName: h.name ?? null }));
+    }
+    case "exileColorCard":
+      return altPitchCandidates(player, card, alt.color).map((h) => ({ exilePitchId: h.id, exilePitchName: h.name ?? null }));
+    case "sacrificeCreature": {
+      const letter = ALT_COST_COLOR_LETTER[alt.color];
+      if (!letter) return [];
+      return (player.battlefield || [])
+        .filter((v) => sacTypeMatches(v.card, "creature")
+          && (!alt.nontoken || !v.card?.token)
+          && colorsOf(v.card).includes(letter)
+          // A victim whose OWN leave-trigger the dies path can't fire is excluded (mirror the
+          // additional-cost sacrifice filter) so we never partially apply a payment.
+          && !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""))
+        .map((v) => ({ sacId: v.id, sacName: v.card?.name ?? null }));
+    }
+    case "returnLandsToHand": {
+      // ONE canonical land set — never combinatorial (Gush over 10 Islands is C(10,2)=45 near-identical
+      // payments per priority window for zero decision value). Same-subtype lands are near-fungible and a
+      // TAPPED land is strictly cheaper to return, so: tapped first, then untapped, id-ascending tiebreak
+      // (deterministic). Lands carrying an unmodeled leaves/LTB trigger are excluded (leave-drain safety,
+      // mirroring the γ1g return-cost offer gate).
+      const re = new RegExp(`\\b${alt.subtype}\\b`, "i");
+      const lands = (player.battlefield || [])
+        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(p.card?.oracle || p.card?.oracle_text || ""); })
+        .sort((a, b) => (Number(!!b.tapped) - Number(!!a.tapped)) || String(a.id).localeCompare(String(b.id)));
+      if (lands.length < alt.count) return [];
+      const chosen = lands.slice(0, alt.count);
+      return [{ returnLandIds: chosen.map((l) => l.id), returnLandNames: chosen.map((l) => l.card?.name ?? null) }];
+    }
+    default:
+      return []; // un-offered kind — computeAltCastSpec already gated, defensive
+  }
+}
+
+function altCastName(alt, pay) {
+  if (alt.kind === "free") return "cast without paying its mana cost";
+  const bits = [];
+  if (pay.payLife) bits.push(`pay ${pay.payLife} life`);
+  if (pay.exilePitchId) bits.push(`exile ${pay.exilePitchName ?? "a card"} from hand`);
+  if (pay.sacId) bits.push(`sacrifice ${pay.sacName ?? "a creature"}`);
+  if (pay.returnLandIds) bits.push(`return ${pay.returnLandIds.length} ${alt.subtype ?? "land"}s to hand`);
+  return bits.join(", ");
+}
+
+// The per-card OFFER decision: a payable, condition-satisfied, wave-vetted alt cost on a HIGH program.
+// HIGH is the ALT-6 population gate — the 15 LOW altCost carriers (Misdirection, Deflecting Swat, Force of
+// Vigor, …) attach metadata but their BODIES are unmodeled (Arbiter-routed); offering would cast an
+// Arbiter-routed spell for an engine-paid cost. Returns { alt, payments } or null.
+function computeAltCastSpec(state, playerId, card) {
+  const program = parseEffectProgram(card);
+  const alt = program?.altCost;
+  if (!alt || !OFFERED_ALT_COST_KINDS.has(alt.kind)) return null;
+  if (!program || programConfidence(program) !== "high") return null;
+  if (!altCostConditionHolds(state, playerId, alt.condition)) return null;
+  const payments = enumerateAltPayments(state, playerId, card, alt);
+  return payments.length ? { alt, payments } : null;
+}
+
 // DISCOVER/free-cast: `freeCast` enumerates a "cast it without paying its mana cost" (CR 601.2b) — it
 // BYPASSES the sorcery-speed timing gate (the cast happens during resolution) + the mana affordability
 // gate (cost is waived), forces an X-spell's X to 0 (CR 601.2b), and stamps `freeCast` on every emitted
@@ -595,6 +723,10 @@ function counterSpellTargetFilter(card) {
 function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false) {
   const player = state.players[playerId];
   const actions = [];
+  // ALT-COST OFFER: cardId → { alt, payments, affordable } for every alt-carrier in this enumeration.
+  // Consumed by the twin post-pass below; empty on every non-carrier deck (the post-pass is then skipped
+  // entirely, so the emitted action array is byte-identical to the pre-alt-cost behavior).
+  const altSpecs = new Map();
 
   // STATIC-COST-REDUCTION: the subtype cost-reducers this player controls, gathered ONCE (each zone is
   // invariant across the loop). Skipped for a free-cast (it pays no mana). costReductionForSpell matches each
@@ -679,7 +811,16 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // cast NOR any emerge cast is possible. A free-cast pays nothing, so emerge (which needs a sacrifice +
     // reduced mana) isn't offered then.
     const emergeSpec = freeCast ? null : parseEmergeCard(card, classifyCard, isNativeTier);
-    if (!affordable && !emergeSpec) continue;
+    // ALT-COST OFFER: computed BEFORE the affordability gate — the whole point of a pitch/free cost is
+    // casting when the printed mana is out of reach (mirrors the emerge widening). Hand casts only (the
+    // carriers are instants/sorceries; command/exile/free-cast enumerations never dual-offer), and NEVER
+    // inside a freeCast (Discover/Cascade/pendingFreeCast) enumeration — those windows' clearing invariant
+    // must only ever see action.freeCast casts. The oracle pre-screen keeps non-carriers parse-free here.
+    const altSpec = (!freeCast && fromZone === "hand" && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? "")))
+      ? computeAltCastSpec(state, playerId, card)
+      : null;
+    if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable });
+    if (!affordable && !emergeSpec && !altSpec) continue;
 
     const effect = parseSpellEffect(card);
     const program = parseEffectProgram(card);
@@ -1073,7 +1214,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // EMERGE: when the normal printed cost is NOT affordable, only the emerge cast(s) emitted above are
     // offered — skip the normal-cast emission below (we got here past the affordability gate ONLY because an
     // emerge cast was viable). For every normal (affordable) cast this is a no-op (affordable === true).
-    if (!affordable) continue;
+    // ALT-COST: an unaffordable alt-carrier still emits its normal-shaped actions here — the twin post-pass
+    // below converts them to alt-payment casts and SPLICES OUT the unaffordable normal variant (it was
+    // never offered pre-change, preserving byte-identity on non-carrier decks).
+    if (!affordable && !altSpec) continue;
 
     if (effectNeedsTarget(effect)) {
       // Targeted spell: one cast action per legal target (the action-expansion
@@ -1111,6 +1255,32 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         actions.push({ ...base, targets: [], needsTargets: false });
       }
     }
+  }
+  // ===== ALT-COST TWIN POST-PASS ===== the dual offer, as a single pass over the EMITTED actions rather
+  // than a per-branch insertion: the emission sites are 5+ (additional-cost / X / multi-modal / legacy
+  // targeted / no-target) and a per-branch dual-offer is exactly the duplicated-exclusion-list drift trap
+  // this repo has been burned by. Every normal-cost cast action of an alt-carrier is twinned once per legal
+  // payment; the alt twin carries `altCost` (NEVER `freeCast` — the pendingFreeCast/pendingCascade clearing
+  // invariant in the dispatcher is keyed off freeCast and must keep its single producer) and pays no mana
+  // (`cost: {generic: 0}`; `cmc` stays the printed mana value, CR 202.3). Guards keep the twin to the plain
+  // hand-cast shape only — alt carriers are instants/sorceries, so the emerge/bestow/kicked/X/additional-cost
+  // shapes are naturally exclusive; the guards make that structural.
+  if (altSpecs.size) {
+    const out = [];
+    for (const a of actions) {
+      const spec = (a.kind === "cast-spell" && a.fromZone === "hand" && !a.freeCast && !a.faceCard
+        && !a.emerge && !a.bestow && a.kicked === undefined && a.xValue == null
+        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId) ? altSpecs.get(a.cardId) : undefined;
+      if (!spec) { out.push(a); continue; }
+      if (spec.affordable) out.push(a); // the normal hard-cast survives only when genuinely payable
+      for (const pay of spec.payments) {
+        // Never sacrifice the very permanent the spell targets — the cost is paid before resolution, so the
+        // target would fizzle (CR 608.2b). Mirrors the additional-cost sacrifice exclusion.
+        if (pay.sacId && (a.targets || []).some((t) => t.id === pay.sacId)) continue;
+        out.push({ ...a, cost: { generic: 0 }, altCost: { kind: spec.alt.kind, ...pay }, altName: altCastName(spec.alt, pay) });
+      }
+    }
+    return out;
   }
   return actions;
 }
