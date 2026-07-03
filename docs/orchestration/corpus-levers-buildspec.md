@@ -17,7 +17,19 @@ Two durable lessons: (1) the "parse payoff under literal Instant" trick is MANDA
 
 ---
 
-## 📋 VERIFIED BUILDSPEC — OPPONENT-PAYS-TO-DENY (rhystic-tax) · Rhystic Study +1, generalizes to Smothering Tithe · M · FP-RISKY
+## ✅ SHIPPED — OPPONENT-PAYS-TO-DENY (rhystic-tax), commit 19641a4, +2 (Rhystic Study + White Rhystic Study)
+The taxed-payment infrastructure + castingPlayerId cast-trigger threading + the payer-identity FP guard (3-opponent test) are ON the branch. The buildspec below is the AS-BUILT record.
+
+### Follow-on (NOT yet built) — SMOTHERING-TITHE variant (opponent-DRAW + pluggable payoff) · +2 (Smothering Tithe, Mind Whip) · M
+**Corrected from the original note: Smothering Tithe is NOT a cast trigger.** Real text: "Whenever an opponent DRAWS a card, that player may pay {2}. If the player doesn't, you create a Treasure token." So it needs:
+1. **A DRAW-trigger player-threading prerequisite** analogous to the cast one — find `checkDrawTriggers` (the draw-event firing fn) and add `drawingPlayerId` to its context (the same additive pattern as castingPlayerId @ checkCastTriggers:2854). The `taxed-draw`/`taxed-payment` resolver reads whichever seat field is present.
+2. **A new matcher** for the inverted phrasing "that player may pay {N}. If (the player|they) (doesn't|don't), you <payoff>." (vs Rhystic's "you may draw a card unless that player pays {N}"). Payer = ctx.drawingPlayerId; on non-pay the beneficiary runs the payoff.
+3. **Pluggable payoff** — make taxed-payment carry `effectAtoms` (the non-pay payoff) instead of hardcoding a draw. Rhystic's payoff = [draw a card]; Smothering Tithe's = [create-named-token treasure] (parses clean today: `{op:"create-named-token", token:"treasure", count:1}`). resolveTaxedPaymentChoice runs pc.effectAtoms for the beneficiary on non-pay (mirror the optional-payment payoff loop). Rhystic Study's shipped hardcoded-draw becomes `effectAtoms:[{op:"draw",amount:1}]`.
+Small family (+2) but Smothering Tithe is a top-tier staple. Reuses the entire shipped taxed-payment seat machinery.
+
+---
+
+## 📋 AS-BUILT — OPPONENT-PAYS-TO-DENY (rhystic-tax) · Rhystic Study +2 · M · FP-RISKY (shipped 19641a4)
 **Prerequisite + effect-gap both VERIFIED against live code (2026-07-02, Clyde). The novel part is the SEAT semantics — the pay-decision belongs to the OPPONENT who cast, not the effect's controller. Get that wrong and you charge the wrong player / draw the wrong player's card in 4-player Commander (a game-warping FP). Build fresh + careful; do NOT rush.**
 
 Rhystic Study is body-only today. The trigger EVENT ("whenever an opponent casts a spell") IS detected (triggers.js `parseTriggerCondition` → `{event:"cast", scope:"castWatcher", whose:"opponent"}`, fired by `checkCastTriggers`). Two gaps:
