@@ -871,15 +871,23 @@ export function groupGrantClauseParser(clause) {
  */
 export function animateClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  const anm = t.match(/^(until end of turn, )?target land becomes a (\d+)\/(\d+)(?: ([a-z]+))? creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
+  // The "you control" qualifier (Kamahl, Heart of Krosa "{1}{G}: Until end of turn, target land you
+  // control becomes a 1/1 Elemental creature with …") RESTRICTS the target to the controller's own lands
+  // (CR 601.2c). Captured as anm[2] and emitted as a controller:"you" restriction so the enumerator
+  // (enumerateTargets → creatureSatisfiesRestrictions) only offers your OWN lands — never an opponent's,
+  // which would be an illegal target (a forbidden FP). The unqualified "target land" (Animate Land) keeps
+  // its any-land targeting (no restriction).
+  const anm = t.match(/^(until end of turn, )?target land( you control)? becomes a (\d+)\/(\d+)(?: ([a-z]+))? creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anm) {
-    if (!anm[1] && !anm[6]) return null;  // a PERMANENT animate (no until-end-of-turn) is not modeled → Arbiter
+    if (!anm[1] && !anm[7]) return null;  // a PERMANENT animate (no until-end-of-turn) is not modeled → Arbiter
     const COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "multicolored"]);
-    if (anm[4] && COLOR_WORDS.has(anm[4])) return null;  // "becomes a black creature" SETS color (layer 5) — not modeled → Arbiter
-    const grantKeywords = anm[5] ? parseGrantedKeywords(anm[5]) : [];
-    if (anm[5] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
-    const subtypes = anm[4] ? [anm[4].charAt(0).toUpperCase() + anm[4].slice(1)] : [];
-    return { op: "animate", targetType: "land", power: parseInt(anm[2], 10), toughness: parseInt(anm[3], 10), subtypes, grantKeywords, duration: "endOfTurn" };
+    if (anm[5] && COLOR_WORDS.has(anm[5])) return null;  // "becomes a black creature" SETS color (layer 5) — not modeled → Arbiter
+    const grantKeywords = anm[6] ? parseGrantedKeywords(anm[6]) : [];
+    if (anm[6] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
+    const subtypes = anm[5] ? [anm[5].charAt(0).toUpperCase() + anm[5].slice(1)] : [];
+    const atom = { op: "animate", targetType: "land", power: parseInt(anm[3], 10), toughness: parseInt(anm[4], 10), subtypes, grantKeywords, duration: "endOfTurn" };
+    if (anm[2]) atom.restrictions = [{ kind: "controller", who: "you" }]; // "land you control" — enumerate own lands only
+    return atom;
   }
   const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anmSelf) {

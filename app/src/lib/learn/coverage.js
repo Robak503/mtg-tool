@@ -117,6 +117,9 @@ export const COVERED_KEYWORDS = [
   // `startsWith("cycling ")` rule would mis-credit any line opening with "cycling " (e.g. Fluctuator's
   // static "Cycling abilities you activate cost {2} less to activate"), so cycling is gated to the
   // exact "cycling {cost}" activated-ability shape the engine actually enforces (parseCyclingCost).
+  // KW-PARTNER is NOT a generic startsWith keyword either — see rePartnerBare in isKeywordOnly. The generic
+  // `startsWith("partner ")` rule would mis-credit "Partner with <name>" (CR 702.124f), which carries a real
+  // LINKED partner-tutor ETB the engine does NOT model, so partner is gated to the EXACT bare-word form.
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
@@ -148,6 +151,7 @@ export function isKeywordOnly(oracle, name) {
     isEnforcedEvasionClause(c) ||
     reCyclingCost.test(c) ||
     reNinjutsuCost.test(c) ||
+    rePartnerBare.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
     // name was already normalized to "this creature" above). ENFORCED in opponentAI.pickAttackPlan (the
     // creature is force-declared as an attacker when able), so it's a modeled static, not residue.
@@ -172,6 +176,15 @@ export function isKeywordOnly(oracle, name) {
 // ability" trigger, or Monet's "if Monet was ninjutsu'd" conditional (none end in a brace cost right after
 // "ninjutsu ").
 const reNinjutsuCost = /^(?:commander |library )?ninjutsu (?:\{[^}]+\})+$/;
+
+// KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
+// isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),
+// FULLY modeled at the command zone (cmdPartner — commandersOf seats BOTH partners; the per-commander cast tax
+// and per-commander damage track them independently). On the battlefield it is a no-op keyword with no clause
+// to drop, so a permanent whose only residue is the bare "partner" line is fully played. EXACT-anchored so it
+// can never match "partner with <name>" (CR 702.124f — a LINKED partner-tutor ETB the engine does NOT model,
+// which must stay body-only), "friends forever", or "choose a background" (all carry extra unmodeled text).
+const rePartnerBare = /^partner$/;
 
 // KW-CYCLING — credit a clause ONLY when it's "cycling {cost}" (the keyword + one or more brace mana
 // symbols), mirroring the engine's parseCyclingCost (effects/abilities.js) EXACTLY so the metric never
