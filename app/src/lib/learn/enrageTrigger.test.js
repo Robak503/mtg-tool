@@ -147,6 +147,22 @@ describe("ENRAGE — engine-first (combat damage)", () => {
     expect(s.players.user.life).toBe(42);
   });
 
+  it("Wall of Hope gains AMOUNT-SCALED life when dealt damage (the 'gain that much life' enrage sentinel)", () => {
+    // "Whenever this creature is dealt damage, you gain that much life." The amount scales with the damage
+    // dealt (ctx.dealtDamageAmount, aliased to combatDamageAmount) — NOT a fixed N. A 4-power blocker deals 4
+    // → gain exactly 4 life. (checkDealtDamageTriggers aliases the enrage amount to combatDamageAmount, which
+    // the "gain that much life" sentinel reads; combatDamageReferentSatisfied admits it on the dealtDamage event.)
+    const wall = perm("wall", "Defender\nWhenever this creature is dealt damage, you gain that much life.", { card: { power: 0, toughness: 8, name: "Wall of Hope" } });
+    const hitter = perm("hit", "", { controller: "ai", card: { power: 4, toughness: 2, type: "Creature — Bear" } });
+    let s = combat([wall], [hitter],
+      [{ permanentId: "hit", attackingPlayer: "ai", defender: "user" }],
+      [{ blockerId: "wall", blockingPlayer: "user", attackerId: "hit" }]);
+    s = resolveCombatDamage(s);
+    expect((s.pendingTriggers || []).filter((t) => t.event === "dealtDamage")).toHaveLength(1);
+    s = flush(s);
+    expect(s.players.user.life).toBe(44); // gained exactly the 4 damage the wall took (amount-scaled, not fixed)
+  });
+
   it("Snapping Sailback survives 1 damage → gets a +1/+1 counter", () => {
     const snap = perm("snap", "Enrage — Whenever this creature is dealt damage, put a +1/+1 counter on it.", { card: { power: 3, toughness: 3, name: "Snapping Sailback" } });
     const gob = perm("gob", "", { controller: "ai", card: { power: 1, toughness: 1, type: "Creature — Goblin" } });
