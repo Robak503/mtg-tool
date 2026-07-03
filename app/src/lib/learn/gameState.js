@@ -1059,7 +1059,9 @@ export function addCounter(state, { permanentId, type, amount = 1 }) {
   // doubler is skipped for other counter types; floors at 0. (The three enters-with-counter sites that bypass
   // addCounter — resolvers.js / tokens.js / amass.js mint — call applyCounterDoubling directly.)
   const lk = findPermanent(state, permanentId);
-  const placed = lk ? applyCounterDoubling(state, lk.controller, type, amount) : amount;
+  // Thread the recipient permanent id so a self-excluding "another creature you control" replacement (CR 109.5,
+  // Benevolent Hydra) is skipped when THIS permanent is the replacement's own source.
+  const placed = lk ? applyCounterDoubling(state, lk.controller, type, amount, permanentId) : amount;
   return updatePermanent(state, permanentId, p => ({
     ...p,
     counters: { ...p.counters, [type]: (p.counters[type] || 0) + placed },

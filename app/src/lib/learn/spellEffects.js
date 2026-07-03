@@ -612,6 +612,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // trigger-flush chooser (correctness gate, not just an intent hint).
   else if (effect.targetType === "creatureYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
+      // ANOTHER (CR 109.5) — "another target creature you control" (Benevolent Hydra) excludes the source
+      // permanent itself. ctx.sourceId is threaded by the activated dispatcher; when effect.excludeSource is
+      // set and this permanent IS the source, skip it so the chooser never offers the source as a target. A
+      // missing ctx.sourceId simply doesn't exclude (the plain form is unaffected — excludeSource is unset).
+      if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
       if (isCreature(perm.card) && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }

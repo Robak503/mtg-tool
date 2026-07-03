@@ -7,9 +7,11 @@
  *   1. the four CREED-clean flips classify native + actually enter at X/X via the real cast→resolve flow;
  *   2. DOUBLE-X (CR 107.3): {X}{X} (Walking Ballista) now pays 2X (parseManaCost.xCount → legalChoices.xResolvedCost)
  *      and flips native — the cast no longer underpays (the old MULTI-X guard is retired; see doubleXCost.test.js);
- *   3. the unmodeled-rider hydras (Hungering / Goose Mother / Benevolent / Primordial / Hydroid /
- *      Nyxborn) stay body-only — the strip never masks an unmodeled second clause. (Voracious / Mossborn /
- *      Kalonian have since flipped via the counter-doubler levers — see modalDeckModes / kalonianDouble.)
+ *   3. the unmodeled-rider hydras (Hungering / Goose Mother / Nyxborn) stay body-only — the strip never masks
+ *      an unmodeled second clause. (Voracious / Mossborn / Kalonian flipped via the counter-doubler levers —
+ *      see modalDeckModes / kalonianDouble; Primordial via the self-counter-gated keyword lever; Hydroid via
+ *      the self-cast trigger; Benevolent via the "another creature you control" self-exclusion lever — see
+ *      benevolentHydra.test.js.)
  * Real oracle text (deck_zaxara, verified vs the local index), verbatim.
  */
 import { describe, it, expect } from "vitest";
@@ -257,10 +259,12 @@ describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-onl
     // than one creature", the menace-inverse, is now enforced in legalChoices.legalBlockerActions) + the ENRAGE
     // self-scaled counter payoff ("put that many +1/+1 counters on it" = ctx.combatDamageAmount) — moved out of
     // PARKED to hungeringHydra.test.js.
-    "Benevolent Hydra ({T},remove-counter: move a counter)": {
-      type: "Creature — Hydra", mana: "{X}{G}{G}",
-      oracle: "This creature enters with X +1/+1 counters on it.\nIf one or more +1/+1 counters would be put on another creature you control, that many plus one +1/+1 counters are put on it instead.\n{T}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on another target creature you control.",
-    },
+    // Benevolent Hydra FLIPPED native-mixed via the "another creature you control" self-exclusion lever (CR
+    // 109.5): its counter-replacement's +1 now correctly skips its own source (applyCounterDoubling honors the
+    // profile's excludeSource), and its "{T}, remove a +1/+1 counter: put a +1/+1 counter on another target
+    // creature you control" activated ability is fully modeled (the effect parses HIGH + the source is excluded
+    // from enumeration) — moved out of PARKED to the BUILT section below (see benevolentHydra.test.js for the
+    // full end-to-end proof).
     // Primordial Hydra FLIPPED native-mixed via the SELF-COUNTER-GATED KEYWORD lever (its "has trample as long
     // as it has ten or more +1/+1 counters on it" conditional-keyword static is now modeled; the upkeep
     // counter-doubler already routed) — moved out of PARKED to the BUILT section below.

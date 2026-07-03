@@ -110,7 +110,9 @@ export function applyAddCounter(state, atom, ctx) {
     const addAmt = lk ? amountForTarget(lk.permanent) : 0;
     if (addAmt > 0 && t.type === "creature" && lk) {
       if (atom.counterType === "+1/+1") {
-        const placed = applyCounterDoubling(next, t.controller, "+1/+1", addAmt);
+        // Mirror the ACTUAL placed amount for the watcher — thread t.id so a self-excluding "another creature
+        // you control" replacement (CR 109.5) skips the recipient when it IS its own source (matches addCounter).
+        const placed = applyCounterDoubling(next, t.controller, "+1/+1", addAmt, t.id);
         placedOnAny += placed;
         if (t.controller === ctx.controller) placedOnYours += placed;
       }
@@ -395,6 +397,15 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: m[4] ? "creatureYouControl" : "creature", maxTargets: SMALL_NUM[m[3]], minTargets: 0 };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
+  // ANOTHER-TARGET-YOU-CONTROL (CR 109.5, "another target creature you control" — Benevolent Hydra's
+  // {T}, remove-a-counter activated ability). Same own-side chosen-target atom as the plain "target creature
+  // you control" above, PLUS a self-exclusion marker (excludeSource): the source permanent (ctx.sourceId) is
+  // never a legal target. enumerateTargets' creatureYouControl branch drops the source when the spec carries
+  // excludeSource (threaded through atomTargetSpec); the SELF form ("on this creature") is a distinct atom
+  // below. FN-safe: absent ctx.sourceId, the source can't be identified so it's simply not excluded — but the
+  // activated-dispatcher always threads sourceId, so this never mis-targets in practice.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on another target creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", excludeSource: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);

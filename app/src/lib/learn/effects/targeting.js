@@ -115,7 +115,11 @@ function atomTargetSpec(atom) {
   // hand/creature is chosen at RESOLUTION, not enumeration, so the spec carries no extra filter. The
   // `kind` is informational (enumerateTargets keys on targetType, not kind).
   if (tt === "opponent" || tt === "player") return { kind: atom.op, targetType: tt };
-  return { kind: atom.op === "destroy" ? "destroy" : "damage", targetType: tt, restrictions: atom.restrictions || [] };
+  // ANOTHER-TARGET-YOU-CONTROL (CR 109.5) — a chosen own-side target that may NOT be the source permanent
+  // ("another target creature you control" — Benevolent Hydra). Carry the atom's excludeSource flag into the
+  // spec so enumerateTargets' creatureYouControl branch drops ctx.sourceId. Only set when present (undefined
+  // keys are ignored downstream; every other targeted atom is byte-identical).
+  return { kind: atom.op === "destroy" ? "destroy" : "damage", targetType: tt, restrictions: atom.restrictions || [], ...(atom.excludeSource && { excludeSource: true }) };
 }
 
 /** Legal targets for one atom, each tagged with its `atomIndex`; null if non-targeted.
