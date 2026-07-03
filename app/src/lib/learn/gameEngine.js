@@ -737,8 +737,10 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // Targeted trigger: choose targets as it's put on the stack (CR 603.3c). The
       // restriction-aware enumerator (expandCastChoices → enumerateTargets) only
       // surfaces LEGAL targets, so a restricted clause ("…an opponent controls")
-      // never offers an illegal pick.
-      const candidates = expandCastChoices(state, trigger.controller, program);
+      // never offers an illegal pick. trigger.context is threaded so a who:"defendingPlayer"
+      // restriction ("… defending player controls" — Kogla's attacks trigger) enumerates
+      // ONLY the attacked player's permanents (ctx.defenderId, set by checkAttackTriggers).
+      const candidates = expandCastChoices(state, trigger.controller, program, [], trigger.context);
       if (candidates.length === 0) return null; // no legal target → removed from the stack (CR 603.3c)
       const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
       // NO_SAFE_TARGET: the enemy/own chooser found no correct-side target → route to the Arbiter

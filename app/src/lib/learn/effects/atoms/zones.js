@@ -275,6 +275,21 @@ export function bounceClauseParser(clause) {
   }
   if (/^return this (?:creature|permanent) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
+  // SUBTYPE-CREATURE-BOUNCE (CR 205.3m) — "return target <Subtype> you control to its owner's hand" (Kogla,
+  // the Titan Ape's activated ability "{1}{G}, …: Return target Human you control to its owner's hand"). The
+  // bare-"creature" bounce (matcher 1) has no controller/subtype filter and the `bp` matcher deliberately
+  // excludes creature-typed targets, so a subtype-scoped, you-control creature bounce needs its own anchor.
+  // Modeled as a bounce/creature atom carrying BOTH a subtype restriction (creatureSatisfiesRestrictions
+  // kind:"subtype", a word-bounded type-line match) AND a you-control controller restriction — the enumerator
+  // then offers ONLY the controller's own creatures of that subtype. The subtype must be in the CURATED,
+  // collision-free allowlist below (a word that appears verbatim ONLY in the subtype portion of a type line —
+  // no left-of-dash collision), so the `\b<subtype>\b` match selects exactly the subtyped creatures; a non-
+  // curated word fails → null → low → Arbiter (CREED: never a fabricated/mis-scoped bounce).
+  const sb = t.match(/^return target ([a-z][a-z-]*) you control to its owner's hand$/);
+  if (sb) {
+    const sub = BOUNCE_TARGET_SUBTYPES[sb[1]];
+    if (sub) return { op: "bounce", targetType: "creature", restrictions: [{ kind: "subtype", subtype: sub }, { kind: "controller", who: "you" }] };
+  }
   // MASS-BOUNCE — "return all creatures to their owners' hands" (Evacuation, CR 707-free; the bounce mirror of
   // the eachCreature mass DESTROY/EXILE in removal.js). Routes through the SAME bounce resolver (applyZoneMove
   // → atomTargets → massCreatureTargets returns every creature; each card moves to its OWN owner's hand). An
@@ -296,6 +311,17 @@ export function bounceClauseParser(clause) {
   }
   return null;
 }
+
+// SUBTYPE-CREATURE-BOUNCE — CURATED creature subtypes that appear after "return target <X> you control to its
+// owner's hand" in the corpus (Kogla "Human"; Riptide Laboratory "Wizard"; Walker of Secret Ways "Ninja"; Ally
+// Encampment "Ally"; Spectral Shepherd "Spirit"). Each is a word that occurs verbatim ONLY in the subtype
+// portion of a type line (verified zero left-of-dash collisions against the bundled corpus), so the word-bounded
+// \b match in creatureSatisfiesRestrictions (kind:"subtype") selects exactly the subtyped creatures (CR 205.3m).
+// CURATED (not generic) per the CREED — a color / card type / "creature" / "permanent" (those already route via
+// the bare + `bp` matchers) can never reach the restriction. Keys are LOWERCASE (the regex lowercases the clause).
+const BOUNCE_TARGET_SUBTYPES = {
+  human: "Human", wizard: "Wizard", ninja: "Ninja", ally: "Ally", spirit: "Spirit",
+};
 
 // Curated, collision-free creature subtypes that may appear in a mass-bounce "except for …" exclusion list.
 // Each is a word that appears verbatim ONLY in the subtype portion of a type line (never left-of-dash), so the

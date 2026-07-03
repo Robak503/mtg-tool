@@ -348,7 +348,16 @@ export function destroyExileClauseParser(clause) {
   // rider (Molten Rain) or a printed union with nonbasic ("artifact or nonbasic land" — Pillage) fails the `$`
   // → low → Arbiter (whole-card CREED, never a partial). The "can't be regenerated" rider is re-stamped onto
   // this destroy atom by the parseEffectClause wrapper, exactly like the other destroy filters.
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
+  // DEFENDING-PLAYER scope (CR 509.1a — the attacked player) — "destroy target artifact or enchantment defending
+  // player controls" (Kogla, the Titan Ape's attacks trigger). It's an ATTACKS-only referent: the eligible target
+  // pool is the SPECIFIC defending player's permanents (ctx.defenderId, threaded by triggers.checkAttackTriggers),
+  // NOT "any opponent's" — offering a NON-defending opponent's artifact in multiplayer would be a wrong target
+  // (a FORBIDDEN FP, CREED). So the scope emits (a) a controller restriction who:"defendingPlayer" that the
+  // enumerator resolves against ctx.defenderId, filtering the pool to exactly that player's permanents, AND (b)
+  // an atom-level who:"defendingPlayer" so the combat-referent gate (triggerRouting.combatDamageReferentSatisfied
+  // / coverage's spell guard) pins this destroy to the ATTACKS event — on any other event ctx.defenderId is unset
+  // → the target pool is empty → the trigger is dropped no-target, never a mis-scoped destroy (SAFE, CREED).
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -359,8 +368,15 @@ export function destroyExileClauseParser(clause) {
       "enchantment or land": "enchantmentOrLand",
       "creature or planeswalker": "creatureOrPlaneswalker", "planeswalker": "planeswalker", // PW-7
     };
-    const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
-    return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
+    const controlScope = rm[3];
+    const controllerWho = /^you control$/.test(controlScope || "") ? "you"
+      : /^defending player controls$/.test(controlScope || "") ? "defendingPlayer"
+      : "opponent";
+    const restrictions = controlScope ? [{ kind: "controller", who: controllerWho }] : [];
+    const atom = { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
+    // Pin the ATTACKS-event referent onto the atom for the combat-referent gate (defendingPlayer scope only).
+    if (controllerWho === "defendingPlayer") atom.who = "defendingPlayer";
+    return atom;
   }
   // MV-FILTERED removal (CR 202.3 / 700.6 — mana value as a number) — "(exile|destroy) target <typelist> with mana
   // value N or (greater|less)". The MV-gated single-target removal staples: Despark ("permanent … 4 or greater"),

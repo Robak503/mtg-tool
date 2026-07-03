@@ -314,11 +314,17 @@ export function parseCreatureTargetRestrictions(card) {
 }
 
 /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
-function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions) {
+function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
   for (const r of restrictions) {
     if (r.kind === "controller") {
       if (r.who === "you" && pid !== casterId) return false;
       if (r.who === "opponent" && pid === casterId) return false;
+      // DEFENDING-PLAYER scope (CR 509.1a) — only the SPECIFIC attacked player's permanents are legal
+      // (ctx.defenderId, threaded from an attacks trigger's context). Absent defenderId (a spell / a non-
+      // attack path) → no permanent qualifies → the pool is empty and the ability drops no-target (SAFE, CREED
+      // — never a mis-scoped destroy). A non-defending opponent's permanent is excluded, so in multiplayer the
+      // pool is exactly the defending player's, never "any opponent's".
+      if (r.who === "defendingPlayer" && (!ctx?.defenderId || pid !== ctx.defenderId)) return false;
     } else if (r.kind === "tapped") {
       if (!!perm.tapped !== r.value) return false;
     } else if (r.kind === "power") {
@@ -409,14 +415,14 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
  * an opponent controls" no longer surfaces the caster's own creatures. No
  * restrictions → every creature, as before.
  */
-export function enumerateTargets(state, controllerId, effect, sourceColors = []) {
+export function enumerateTargets(state, controllerId, effect, sourceColors = [], ctx = null) {
   if (!effectNeedsTarget(effect)) return [];
   const restrictions = Array.isArray(effect.restrictions) ? effect.restrictions : [];
   const out = [];
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (isCreature(perm.card) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions)) {
+        if (isCreature(perm.card) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
           out.push({ type: "creature", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
@@ -544,7 +550,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
         // before. The power/toughness/combat/colorNeg/subtype kinds never reach here (only creature-target parsers
         // emit them), so this can't mis-handle a permanent. Without this, an MV restriction on a permanent target
         // would be silently ignored → an illegal (wrong-MV) target offered → a forbidden FP (CREED).
-        if (pred(tl) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        if (pred(tl) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
@@ -560,7 +566,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
   const addPlaneswalkers = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (perm.counters?.loyalty != null && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        if (perm.counters?.loyalty != null && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
           out.push({ type: "planeswalker", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
