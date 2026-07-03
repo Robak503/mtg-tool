@@ -2254,6 +2254,51 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
   return { atoms };
 }
 
+/**
+ * ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== "You may <primary>. When you do, <reflexive>." — the
+ * primary is OPTIONAL and the reflexive fires ONLY IF the controller actually DID the primary (Generous
+ * Plunderer's upkeep: "you may create a Treasure token. When you do, target opponent creates a tapped Treasure
+ * token."). matchReflexiveTrigger REJECTS this (a naive sequential fold would fire the reflexive even on a
+ * DECLINE — the cardinal FP), so this is the distinct, faithful model: emit [optionalPrimaryAtom,
+ * {...reflexiveAtom, reflexiveGate:true}]. The `reflexiveGate` flag tells runEffectProgram / resolveOptionalChoice
+ * to run the atom ONLY when the immediately-preceding optional was TAKEN, and to SKIP it (never resolve — CR
+ * 603.7: the reflexive doesn't even trigger) when it was declined. This is the ONLY safe way an optional-then-
+ * dependent sequence can be modeled, so `optionalsFormSuffix` is deliberately NOT applied to the combined atoms
+ * (the gate replaces that invariant with a stronger one — the gated atom cannot run without the optional).
+ *
+ * CREED guards (mirroring matchReflexiveTrigger, but the MANDATORY gate is INVERTED to require optional):
+ *  - The PRIMARY must be a SINGLE optional atom (a plain "you may <one thing>"): a multi-atom optional primary
+ *    would make "did you do it?" ambiguous per-atom. Exactly one atom, and it must be `optional`.
+ *  - Both halves HIGH + non-modal + non-xSpell; the reflexive is self-contained (no leading referent, no chained
+ *    2nd reflexive) and carries NO optional atom of its own (the gate is the only conditionality).
+ *  - Every atom KNOWN. Anchored to a SINGLE "when you do". Returns { atoms } or null.
+ */
+function matchOptionalReflexiveTrigger(oracle, cardType, hasX) {
+  const s = stripReminder(oracle).trim();
+  const m = s.match(/^(.+?\S)\.\s+when you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
+  if (!m) return null;
+  const primaryText = m[1].trim();
+  const reflexiveText = m[2].trim();
+  if (/\bwhen you do\b/i.test(reflexiveText)) return null;          // a chained 2nd reflexive — not modeled
+  if (/^(?:it|they|that|those|this)\b/i.test(reflexiveText)) return null; // primary-object referent (e.g. "it fights")
+  const primary = parseEffectClauseImpl(primaryText, cardType, { hasX });
+  if (!primary || programConfidence(primary) !== "high" || primary.structure === "modal") return null;
+  // OPTIONAL-primary gate (INVERTED): the primary must be EXACTLY ONE optional atom.
+  const primaryAtoms = primary.atoms || [];
+  if (primaryAtoms.length !== 1 || !primaryAtoms[0].optional) return null;
+  const reflexive = parseEffectClauseImpl(reflexiveText, cardType, { hasX: false });
+  if (!reflexive || programConfidence(reflexive) !== "high" || reflexive.structure === "modal") return null;
+  if (primary.xSpell || reflexive.xSpell) return null;
+  const reflexiveAtoms = reflexive.atoms || [];
+  // The reflexive must be non-empty and carry NO optional atom of its own (the gate is the sole conditionality —
+  // an optional-inside-reflexive would need a second pause the simple gate can't express → LOW → Arbiter).
+  if (reflexiveAtoms.length === 0 || reflexiveAtoms.some(a => a.optional)) return null;
+  // Tag every reflexive atom with reflexiveGate so the runner runs them ONLY if the optional primary was taken.
+  const atoms = [primaryAtoms[0], ...reflexiveAtoms.map(a => ({ ...a, reflexiveGate: true }))];
+  if (!atoms.every(a => KNOWN.has(a.op))) return null;
+  return { atoms };
+}
+
 // INSPIRING CALL — "Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain
 // <grantable keyword[s]> until end of turn." The "those creatures" anaphora binds the group grant to the SAME
 // +1/+1-counter-filtered set the draw just counted; the two sentences span the clause splitter, so it's matched
@@ -2481,6 +2526,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rfx = matchReflexiveTrigger(oracle, cardType, hasX);
   if (rfx) {
     return makeProgram({ confidence: "high", atoms: rfx.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== "You may <primary>. When you do, <reflexive>." — the
+  // reflexive fires ONLY if the OPTIONAL primary was taken. matchReflexiveTrigger rejects the optional primary
+  // (a plain fold would over-fire on decline); this emits [optional-primary, reflexiveGate-payoff] where the
+  // gated atoms run at resolution ONLY when the optional was accepted (runProgram / resolveOptionalChoice honor
+  // reflexiveGate). Checked AFTER the mandatory matcher (shared anchor; this one requires the optional primary).
+  const orfx = matchOptionalReflexiveTrigger(oracle, cardType, hasX);
+  if (orfx) {
+    return makeProgram({ confidence: "high", atoms: orfx.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." → ONE
   // optional-mana-payment atom (the resolver suspends on a real pay/decline; payManaCost charges the cost, the
@@ -2964,6 +3018,14 @@ export function atomTargetIntent(atom) {
       // "Regenerate target creature" (Horizon Seed: cast Spirit/Arcane → regenerate target creature) —
       // protective, own-side: you regenerate your own creatures.
       return "own";
+    case "create-named-token":
+      // TARGET-OPPONENT-CREATES — "target opponent creates a tapped Treasure token" (Generous Plunderer's
+      // reflexive). The targetType is "opponent" (whoCreates:"target"), so the ONLY legal targets are the
+      // controller's opponents — the flush chooser picks any opponent (always a legal, provably-correct
+      // "enemy"-side pick; there is no self-target hazard because a controller can never be their own
+      // opponent). Every OTHER create-named-token form is non-targeted (targetType null → null above), so
+      // this case is reached ONLY for the opponent-creates shape.
+      return "enemy";
     default:
       return "ambiguous";
   }

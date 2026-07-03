@@ -741,6 +741,16 @@ export function resolveOptionalChoice(state, doIt) {
     }
   } else {
     next = logEvent(next, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: false });
+    // ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== the optional was DECLINED, so any immediately-following
+    // `reflexiveGate` atoms (the "When you do, <reflexive>" payoff) must NOT fire — per CR 603.7 the reflexive
+    // ability doesn't even trigger when the primary action didn't happen (Generous Plunderer: a declined "may
+    // create a Treasure" makes NO opponent Treasure). Skip the contiguous run of reflexiveGate atoms so the
+    // program resumes AFTER them. (On the TAKEN branch above we fall through to nextAtomIndex = i+1, so the
+    // gated atoms run normally.)
+    const progAtoms = programAtoms(r.program, r.chosenMode);
+    let skipTo = i + 1;
+    while (progAtoms[skipTo] && progAtoms[skipTo].reflexiveGate) skipTo += 1;
+    return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: skipTo } });
   }
   return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: i + 1 } });
 }

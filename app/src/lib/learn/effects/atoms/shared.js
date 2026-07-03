@@ -434,9 +434,16 @@ export function countForSpec(state, ctx, spec) {
   // is the player just dealt combat damage, carried as ctx.damagedPlayerId). The explicit spell target wins
   // when present (Sudden Impact path is byte-unchanged); else the damaged player. Everything else counts the
   // controller (the common case). A missing player → 0 (a safe no-op, never silently the controller's count).
+  // ===== DEFENDING-PLAYER-SCOPED ===== who:"defendingPlayer" counts the ATTACKED player's permanents
+  // ("the number of artifacts they control" on an attacks trigger — Generous Plunderer), read off
+  // ctx.defenderId (set ONLY by checkAttackTriggers). Absent (any non-attacks event) → no player → 0 (a
+  // safe no-op, never silently the controller's count). The parser pins the deal-damage atom's who to
+  // "defendingPlayer" too, so combatDamageReferentSatisfied keeps this native ONLY off an attacks trigger.
   const playerId = spec.who === "target"
     ? (ctx.targets?.find((t) => t.type === "player")?.id ?? ctx.damagedPlayerId)
-    : ctx.controller;
+    : spec.who === "defendingPlayer"
+      ? ctx.defenderId
+      : ctx.controller;
   const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;

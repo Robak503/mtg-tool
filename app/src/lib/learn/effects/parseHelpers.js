@@ -168,6 +168,18 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
   if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) that player controls$/))) {
     return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "target" });
   }
+  // ===== DEFENDING-PLAYER-CONTROLLED ===== "<creatures|lands|artifacts|enchantments> they control" — the
+  // DEFENDING PLAYER's permanents on an ATTACKS trigger ("Whenever this creature attacks, it deals damage to
+  // defending player equal to the number of artifacts they control" — Generous Plunderer). "they" is the
+  // defending player named by the SAME clause ("deals damage to defending player … they control"), so
+  // who:"defendingPlayer" → countForSpec reads ctx.defenderId (set ONLY by checkAttackTriggers). On any other
+  // event ctx.defenderId is unset → 0; but the caller (dealDamageScaledClauseParser) also pins who:"defendingPlayer"
+  // on the deal-damage atom, so combatDamageReferentSatisfied keeps the whole clause native ONLY off an attacks
+  // trigger (else → Arbiter — a SAFE FN). Curated card types, anchored — never over-matches. Only reachable via
+  // allowScopes (the dynamic damage/token matchers); every legacy count consumer leaves it false.
+  if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) they control$/))) {
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "defendingPlayer" });
+  }
   if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
     return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] });
   }
