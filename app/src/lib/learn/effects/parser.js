@@ -2014,6 +2014,27 @@ function matchTaxedDraw(oracle) {
 }
 
 /**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-treasure, CR 603.7c) ===== the effect clause of a "Whenever an opponent draws
+ * a card, that player may pay {N}. If the player doesn't, you create a Treasure token." trigger (Smothering Tithe).
+ * The PAYER is the opponent who drew (bound at resolution from ctx.drawingPlayerId, threaded by checkCardDrawnTriggers);
+ * the BENEFICIARY is the trigger's controller (you) — on decline/can't-afford YOU create a functional Treasure token
+ * (the minted Treasure carries "{T}, Sacrifice: Add one mana of any color", so the mana model can tap it). Mirrors
+ * matchTaxedDraw exactly but with a create-Treasure decline-payoff instead of a draw. A FIXED mana cost only ({X} /
+ * unknown symbol → parseFixedManaPips null → unmodeled, SAFE FN). Anchored to the WHOLE two-sentence effect; a scaled
+ * ("that many Treasure tokens") or filtered variant leaves residue → null → the clause stays LOW → Arbiter.
+ */
+function matchTaxedTreasure(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^that player may pay (\{[^}]+\}(?:\{[^}]+\})*)\. if the player doesn't, you create a treasure token$/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null; // {X} / unknown symbol → unmodeled cost
+  return { atom: { op: "taxed-treasure", cost: { kind: "mana", mana }, targetType: null } };
+}
+
+/**
  * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." — an OPTIONAL mana
  * payment whose payoff resolves ONLY if the controller pays (Lifecrafter's Bestiary "you may pay {G}. If you
  * do, draw a card."; Mind's Eye / Inheritance / Horizon-Origin-Panic Spellbomb / Urza's Miter / Symmetry
@@ -2485,6 +2506,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const txd = matchTaxedDraw(oracle);
   if (txd && KNOWN.has(txd.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [txd.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPPONENT-PAYS-TO-DENY (taxed-treasure) ===== "that player may pay {N}. If the player doesn't, you create
+  // a Treasure token" (Smothering Tithe's trigger effect) → ONE taxed-treasure atom (the payer = the opponent who
+  // drew, from ctx.drawingPlayerId; the beneficiary = you, who mints a Treasure on decline). applyTaxedTreasure
+  // suspends on the payer's pay/decline. Checked pre-splitter (the two sentences would shatter). Disjoint anchor
+  // ("that player may pay …" vs "you may draw a card unless …") from the taxed-draw fold above, so order-free.
+  const txt = matchTaxedTreasure(oracle);
+  if (txt && KNOWN.has(txt.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [txt.atom], xSpell: false, unparsedTail: null });
   }
   // ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== "You may sacrifice a <subtype>. If you do, <effect>." → ONE
   // optional-sac-payment atom (the resolver suspends on a real sac/decline; sacrificeCreatureEffect pitches one

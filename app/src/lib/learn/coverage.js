@@ -522,6 +522,15 @@ export function permanentTriggersCovered(card) {
     // Miter, Symmetry Matrix, Pedantic Learning). Anchored to the "if you do" lead so it can only consume a true
     // optional-payment tail — FN-safe (the HIGH gate above already vouched the whole trigger effect is modeled).
     .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ")
+    // OPPONENT-PAYS-TO-DENY (taxed-treasure, Smothering Tithe) — "that player may pay {N}. If the player doesn't,
+    // you create a Treasure token." is ONE trigger effect: detectTriggers appends the "If the player doesn't, …"
+    // sentence to the effectClause, and the whole thing parses HIGH in allTriggerSentencesModeled above (proven
+    // before this residue check runs — an unmodeled payoff / {X} cost fails that gate and never reaches here). The
+    // trigger regex stops at the period after "…may pay {N}.", leaving the "If the player doesn't, …" sentence as
+    // apparent residue. Strip the EXACT modeled wording so the card reads keyword-only (Smothering Tithe's only
+    // other body text is the stripped Treasure reminder). Anchored to the modeled decline shape, so it can only
+    // consume this modeled follow-up — FN-safe (the HIGH gate above already vouched the whole taxed-treasure effect).
+    .replace(/\bif the player doesn['’]t, you create a treasure token\b\.?\s*/gi, " ")
     // REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) — the drain sentence "Each opponent loses life
     // equal to that card's mana value." FOLLOWS the reveal sentence in the SAME trigger's effect (detectTriggers
     // appends it to the effectClause, which parses HIGH in allTriggerSentencesModeled above — proven before this

@@ -460,12 +460,15 @@ export function setPendingSacUnlessPayChoice(state, { controller, cost, sourceId
  * pay/decline to the payer's seat with NO special driver logic. `beneficiary` (the trigger's controller) draws when
  * the payer declines / can't afford. FIFO.
  */
-export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null }) {
+export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null, declinePayoff = "draw" }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "taxed-payment-pending", payer, beneficiary, amount: wardCostHeadline(cost), sourceName });
+  const next = logEvent(state, { kind: "taxed-payment-pending", payer, beneficiary, amount: wardCostHeadline(cost), sourceName, declinePayoff });
   return {
     ...next,
-    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName },
+    // declinePayoff — what the BENEFICIARY gets when the payer declines / can't afford: "draw" (Rhystic Study —
+    // draw a card) or "treasure" (Smothering Tithe — create a Treasure token). resolveTaxedPaymentChoice branches
+    // on it. Defaults to "draw" so every existing taxed-draw caller is byte-for-byte unchanged.
+    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName, declinePayoff },
   };
 }
 

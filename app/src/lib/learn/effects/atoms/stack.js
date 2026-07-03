@@ -598,6 +598,26 @@ function applyTaxedDraw(state, atom, ctx) {
   });
 }
 
+// OPPONENT-PAYS-TO-DENY (taxed-treasure) — the effect of "Whenever an opponent draws a card, that player may pay {N}.
+// If the player doesn't, you create a Treasure token." (Smothering Tithe). Mirrors applyTaxedDraw exactly, EXCEPT the
+// PAYER is the opponent who DREW (ctx.drawingPlayerId, threaded into the trigger context by checkCardDrawnTriggers and
+// spread into ctx by runEffectProgram) and the decline-payoff is a Treasure the BENEFICIARY (you) creates
+// (declinePayoff:"treasure" → resolveTaxedPaymentChoice mints a functional Treasure with its tap-for-mana ability).
+// Suspend on the payer's pay-or-let-you-make-a-Treasure choice (controller=payer → the driver routes it to the payer's
+// seat). A missing/self payer (reached outside an opponent-draw trigger) → no-op: never a fabricated Treasure (CREED FN).
+function applyTaxedTreasure(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const payer = ctx.drawingPlayerId;
+  if (!payer || !state.players?.[payer] || payer === ctx.controller) return state;
+  return setPendingTaxedPaymentChoice(state, {
+    payer,
+    beneficiary: ctx.controller,
+    cost: atom.cost,
+    sourceName: ctx.cardName || null,
+    declinePayoff: "treasure",
+  });
+}
+
 // UPKEEP-SAC-UNLESS-PAY — "Sacrifice this <noun> unless you pay {cost}." Suspend on the pay/decline choice, carrying
 // the mana cost AND `sourceId` (the source permanent, ctx.sourceId — the same binding the self-sac edict atom uses)
 // so resolveSacUnlessPayChoice can sacrifice THIS permanent on a decline / unaffordable pay. INVERTED polarity: pay
@@ -872,6 +892,7 @@ export const stackResolvers = {
   "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
   "sac-unless-pay": applyUpkeepSacUnlessPay, // UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword) — "sacrifice this <noun> unless you pay {cost}"
   "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
+  "taxed-treasure": applyTaxedTreasure, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "an opponent draws → that player may pay {N}, else you create a Treasure" (Smothering Tithe)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an

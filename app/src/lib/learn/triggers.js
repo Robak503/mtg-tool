@@ -756,6 +756,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   // UNDETECTED → Arbiter (a SAFE false-negative). Like lifegain, whose:"any" + checkCardDrawnTriggers scans
   // ONLY the drawing player's sources (drawing is turn-agnostic — an instant draws on any player's turn).
   if (/^you draw a card$/.test(c)) return { event: "cardDrawn", scope: "you", whose: "any" };
+  // TRIG-DRAW-OPPONENT (Smothering Tithe) — "Whenever an opponent draws a card, …". The DRAWING player is an
+  // opponent of the source's controller, and (for the taxed-treasure payoff) that opponent is the PAYER. Shares
+  // the "cardDrawn" event with the "you draw" form above, distinguished by scope:"opponentDraw" + whose:"opponent"
+  // (the milled/cast precedent). checkCardDrawnTriggers scans the drawer's OPPONENTS' sources for this descriptor
+  // and threads drawingPlayerId as the payer. BARE form ONLY ("an opponent draws a card"); a scaled/conditional/
+  // filtered variant leaves residue → null → Arbiter (SAFE false-negative). scope:"opponentDraw" matches in
+  // scopeMatches like "milled"/"you" (returns true — the whose:"opponent" gate lives in the dedicated checker).
+  if (/^an opponent draws a card$/.test(c)) return { event: "cardDrawn", scope: "opponentDraw", whose: "opponent" };
   // TRIG-DRAW2 — "draw your second card each turn" (the draw-doubler payoff). Anchored to the BARE
   // second-card form (each/this turn); a different ordinal ("first/third"), scaled, or rider variant stays
   // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
@@ -1808,6 +1816,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // scans ALL players' watchers directly. Always matches here (like "you"): the event already proved a
       // mill happened, and the filter (nonland) + whose gate are enforced at the checkMilledTriggers site.
       return true;
+    case "opponentDraw":
+      // TRIG-DRAW-OPPONENT (Smothering Tithe) — a card-draw event has NO triggering PERMANENT (the drawn card
+      // is a library/hand object). The whose:"opponent" gate (the drawer must be an opponent of the source's
+      // controller) is applied in checkCardDrawnTriggers, which scans the drawer's opponents' watchers directly.
+      // Always matches here (like "milled"/"you"): the event already proved a draw happened.
+      return true;
     case "eachCreature":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
     case "eachOtherCreature":
@@ -2700,10 +2714,22 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
   let fired = [];
   for (const perm of triggerSourcesOf(state, drawingPlayerId)) {
     for (let i = 0; i < count; i++) {
-      fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+      fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope !== "opponentDraw" }));
     }
     if (crossedSecond) {
       fired = fired.concat(triggersForEvent(state, { event: "drawSecond", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+    }
+  }
+  // TRIG-DRAW-OPPONENT (Smothering Tithe) — the drawer's OPPONENTS' watchers see "Whenever an opponent draws a
+  // card". Scan each opponent-of-the-drawer's sources for the scope:"opponentDraw" descriptor ONLY (scopeFilter),
+  // firing once per card drawn (each draw is a separate event, CR 121.2 — like the "you draw" path). The payer for
+  // the taxed-treasure payoff is drawingPlayerId (threaded into the context, spread into ctx by runEffectProgram).
+  // Mirrors checkMilledTriggers/checkCastTriggers: the whose gate is the opponents-of-drawer scan itself.
+  for (const oppId of opponentsOf(state, drawingPlayerId)) {
+    for (const perm of triggerSourcesOf(state, oppId)) {
+      for (let i = 0; i < count; i++) {
+        fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope === "opponentDraw" }));
+      }
     }
   }
   if (!fired.length) return state;
