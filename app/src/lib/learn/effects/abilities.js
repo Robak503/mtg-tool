@@ -101,6 +101,7 @@ export function parseAbilityCost(costStr) {
   let exileSelf = false;
   let removeCounter = null;
   let tapCreature = null;
+  let returnLand = null;
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
     // γ1f — TAP-CREATURE cost (Earthcraft "Tap an untapped creature you control: …"): a CHOICE cost
@@ -112,6 +113,16 @@ export function parseAbilityCost(costStr) {
     // COUNT ("tap two untapped creatures"), a subtype filter, or an "you control or a land" compound
     // doesn't match → null (deferred), keeping the all-or-nothing gate — a safe false-negative.
     if (/^tap an untapped creature you control$/i.test(item)) { tapCreature = { another: false }; continue; }
+    // γ1g — RETURN-A-LAND cost (Oboro Breezecaller "{2}, Return a land you control to its owner's hand:
+    // Untap target land."): a CHOICE cost — the player picks WHICH land they control to bounce to its owner's
+    // hand (CR 601.2b / 118 — returning a permanent you control to hand as an activation cost). The parser only
+    // records the shape; legalChoices expands one action per legal land you control (excluding any that would
+    // silently drop its OWN leaves-the-battlefield trigger — the shared bounce/leave fail-safe), and the
+    // dispatcher ACTUALLY moves the chosen land battlefield → its owner's hand (CREED — never activate without
+    // paying the cost). Whole-item anchored ($) so a COUNT ("return two lands"), a subtype filter ("return a
+    // Forest"), or a "to their owner's hand" plural variant doesn't match → deferred, keeping the all-or-nothing
+    // gate (a safe false-negative → Arbiter).
+    if (/^return a land you control to its owner's hand$/i.test(item)) { returnLand = { another: false }; continue; }
     // γ1 — two NO-CHOICE non-mana costs the engine pays without a player decision:
     //   "Pay N life"          → deduct N life (the caller checks affordability).
     //   "Sacrifice this[ …]"  → sacrifice the SOURCE permanent (no "which one?" choice).
@@ -202,7 +213,7 @@ export function parseAbilityCost(costStr) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, costX };
+  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, costX };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -464,6 +475,7 @@ export function parseActivatedAbilities(card) {
       exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       tapCreature: cost?.tapCreature ?? null,  // γ1f — "Tap an untapped creature you control": legalChoices picks the creature
+      returnLand: cost?.returnLand ?? null,    // γ1g — "Return a land you control to its owner's hand": legalChoices picks the land, dispatcher bounces it
       costModeled: !!cost,
       isManaEffect,
       doubleManaPool, // DOUBLE-MANA-POOL (Doubling Cube) — the runtime doubles the activator's pool (no stack)

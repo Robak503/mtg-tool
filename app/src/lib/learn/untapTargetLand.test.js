@@ -14,6 +14,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { parseEffectClause, atomTargetIntent } from "./effects/parser.js";
+import { parseAbilityCost } from "./effects/abilities.js";
 import { classifyCard } from "./coverage.js";
 import { enumerateTargets } from "./spellEffects.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
@@ -78,8 +79,10 @@ describe("UNTAP-TARGET-LAND — classifyCard", () => {
     // pays {X}, and untaps exactly X target lands. See activatedX.test.js for the end-to-end runtime proof.
     expect(classifyCard(CANDELABRA)).toBe("native-activated");
   });
-  it("Oboro's return-a-land untap stays non-native until its own commit lands (CREED safe FN)", () => {
-    expect(classifyCard(OBORO)).toBe("body-only");
+  it("Oboro Breezecaller ({2}, Return a land you control: Untap target land) classifies native-activated (γ1g)", () => {
+    // The {2} + return-a-land-you-control activation cost is now BOTH modeled: the player picks WHICH land they
+    // control to bounce, pays {2}, and untaps a target land. See the runtime section below for the end-to-end proof.
+    expect(classifyCard(OBORO)).toBe("native-activated");
   });
   it("Earthcraft classifies native-activated (γ1f tap-creature cost + basic-land untap now modeled)", () => {
     expect(classifyCard(EARTHCRAFT)).toBe("native-activated");
@@ -145,5 +148,95 @@ describe("UNTAP-TARGET-LAND — runtime (Voyaging Satyr)", () => {
     expect(acts.length).toBe(0);
     // The tapped creature stays tapped (never touched by an untap-LAND effect).
     expect(s.players.user.battlefield.find((p) => p.id === "perm-tc").tapped).toBe(true);
+  });
+});
+
+// ─── γ1g — RETURN-A-LAND cost: parse ─────────────────────────────────────────────
+describe("RETURN-A-LAND cost (γ1g) — parseAbilityCost", () => {
+  it("'{2}, Return a land you control to its owner's hand' → {2} + returnLand shape", () => {
+    const c = parseAbilityCost("{2}, Return a land you control to its owner's hand");
+    expect(c).toMatchObject({ manaPips: "{2}", returnLand: { another: false } });
+  });
+  it("a COUNT variant ('Return two lands') stays unmodeled → null (CREED safe FN)", () => {
+    expect(parseAbilityCost("{2}, Return two lands you control to their owners' hands")).toBeNull();
+  });
+  it("a SUBTYPE variant ('Return a Forest') stays unmodeled → null (CREED safe FN)", () => {
+    expect(parseAbilityCost("Return a Forest you control to its owner's hand")).toBeNull();
+  });
+});
+
+// ─── γ1g — RETURN-A-LAND cost: runtime (Oboro Breezecaller) ──────────────────────
+describe("RETURN-A-LAND cost (γ1g) — runtime (Oboro Breezecaller)", () => {
+  const TAPPED_LAND = (id, name) => ({ id, name, type: `Basic Land — ${name}`, oracle: "" });
+
+  function setup(pool = { ...EMPTY_POOL, C: 2 }, extraLands = []) {
+    const oboro = createPermanent({ id: "perm-obo", card: OBORO, controller: "user", summoningSick: false });
+    const tappedIsland = createPermanent({ id: "perm-ti", card: TAPPED_LAND("c-ti", "Island"), controller: "user", tapped: true });
+    const bounceLand = createPermanent({ id: "perm-bl", card: TAPPED_LAND("c-bl", "Mountain"), controller: "user", tapped: true });
+    let s = withBattlefield(mainState(), "user", [oboro, tappedIsland, bounceLand, ...extraLands]);
+    return { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { ...pool } } } };
+  }
+
+  it("surfaces the {2}+return-a-land untap ability, one action per (target land × returnable land)", () => {
+    const s = setup();
+    const acts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "activate-ability" && a.name === "Oboro Breezecaller");
+    // Untap Island bouncing Mountain, and untap Mountain bouncing Island — the self-target combo (untap X, bounce X)
+    // is excluded (it would fizzle), so exactly 2 actions.
+    expect(acts.length).toBe(2);
+    const untapIsland = acts.find((a) => a.targets?.[0]?.id === "perm-ti");
+    expect(untapIsland).toMatchObject({ returnLandId: "perm-bl", needsTargets: true });
+  });
+
+  it("dispatch ACTUALLY bounces the chosen land AND pays {2} (CREED — cost is really paid), then untaps the target", () => {
+    let s = setup();
+    const act = legalActionsForPlayer(s, "user")
+      .filter((a) => a.kind === "activate-ability" && a.name === "Oboro Breezecaller")
+      .find((a) => a.targets?.[0]?.id === "perm-ti" && a.returnLandId === "perm-bl");
+    expect(act).toBeTruthy();
+
+    s = dispatchAction(s, act);
+    // {2} was paid.
+    expect(s.players.user.manaPool.C).toBe(0);
+    // The Mountain was actually returned: off the battlefield, in hand.
+    expect(s.players.user.battlefield.some((p) => p.id === "perm-bl")).toBe(false);
+    expect(s.players.user.hand.some((c) => c.name === "Mountain")).toBe(true);
+    // The target Island is still tapped (the ability is on the stack, unresolved).
+    expect(s.players.user.battlefield.find((p) => p.id === "perm-ti").tapped).toBe(true);
+
+    s = resolveTopOfStack(s);
+    // The Island is now untapped — it makes mana again.
+    expect(s.players.user.battlefield.find((p) => p.id === "perm-ti").tapped).toBe(false);
+  });
+
+  it("CREED — a land with an unmodeled 'leaves the battlefield' trigger is NOT a legal return victim (safe FN)", () => {
+    const ltbLand = createPermanent({
+      id: "perm-ltb",
+      card: { id: "c-ltb", name: "Weird Land", type: "Land", oracle: "When Weird Land leaves the battlefield, draw a card." },
+      controller: "user", tapped: true,
+    });
+    const s = setup({ ...EMPTY_POOL, C: 2 }, [ltbLand]);
+    const acts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "activate-ability" && a.name === "Oboro Breezecaller");
+    // Never offered as the returned land — its LTB trigger can't be fired by the bounce, so returning it would
+    // silently drop the trigger (a forbidden partial application). The plain Island/Mountain are still legal victims.
+    expect(acts.every((a) => a.returnLandId !== "perm-ltb")).toBe(true);
+    expect(acts.length).toBeGreaterThan(0);
+  });
+
+  it("CREED — bouncing the ONLY mana-land that pays the {2} starves the cost → not offered (never unpayable)", () => {
+    // Oboro + a single UNTAPPED Island (the only mana source). Bouncing it leaves nothing to pay {2}, and there's
+    // no floating mana, so no legal action exists.
+    const oboro = createPermanent({ id: "perm-obo", card: OBORO, controller: "user", summoningSick: false });
+    const onlyIsland = createPermanent({ id: "perm-only", card: { id: "c-o", name: "Island", type: "Basic Land — Island", oracle: "" }, controller: "user", tapped: false });
+    const s = withBattlefield(mainState(), "user", [oboro, onlyIsland]);
+    const acts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "activate-ability" && a.name === "Oboro Breezecaller");
+    expect(acts.length).toBe(0);
+  });
+
+  it("CREED — no land to return → the cost can't be paid → not offered", () => {
+    const oboro = createPermanent({ id: "perm-obo", card: OBORO, controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [oboro]);
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { ...EMPTY_POOL, C: 2 } } } };
+    const acts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "activate-ability" && a.name === "Oboro Breezecaller");
+    expect(acts.length).toBe(0);
   });
 });

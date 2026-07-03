@@ -1426,6 +1426,28 @@ function actionsActivateAbility(state, playerId) {
         if (tapVictims.length === 0) continue; // no untapped creature to tap → the cost can't be paid
       }
 
+      // γ1g — a "Return a land you control to its owner's hand" cost (Oboro Breezecaller): the PLAYER picks
+      // which LAND they control to bounce. Expand one action per legal land you control; a land that would
+      // silently drop its OWN leaves-the-battlefield trigger (an LTB / "when you sacrifice" / compound trigger
+      // the bounce path can't fire) is excluded — the SAME fail-safe as sacOther (sacrificeDropsTrigger also
+      // matches "leaves the battlefield"), so returning it never partially applies (CREED). The chosen land is
+      // bounced by the dispatcher BEFORE the ability goes on the stack, and it can't ALSO tap for mana, so it's
+      // excluded from THIS action's mana sources below. returnLand never co-occurs with sacOther/tapCreature on
+      // a modeled ability, so the victim sets don't mix. Empty (no land you control) → the cost can't be paid →
+      // not offered. Because the cost bounces a LAND you control, a self-source-is-a-land case (the ability's own
+      // permanent being a land) never arises for the modeled shape (Oboro is a creature), but the "another"-style
+      // self-exclusion would be honored via ab.returnLand.another if a future card needs it.
+      let returnLandVictims = [null];
+      if (ab.returnLand) {
+        const selfExcluded = ab.returnLand.another;
+        returnLandVictims = player.battlefield.filter((v) =>
+          isLand(v.card) &&
+          !(selfExcluded && v.id === perm.id) &&
+          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+        );
+        if (returnLandVictims.length === 0) continue; // no returnable land → the cost can't be paid
+      }
+
       // Thread the SOURCE permanent id into target enumeration so an "another target …" restriction
       // (notSource — Formidable Speaker's "Untap another target permanent") excludes this very permanent
       // (CR 109.5). Non-"another" abilities ignore sourceId, so this is a no-op for every existing ability.
@@ -1442,6 +1464,12 @@ function actionsActivateAbility(state, playerId) {
         // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
         // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
         if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id), cost)) continue;
+       for (const returnLandVictim of returnLandVictims) {
+        // γ1g — a "Return a land you control to its owner's hand" cost: the land bounced for the cost can't ALSO
+        // tap for mana (it's gone before the {mana} is paid), so exclude it from THIS action's mana sources for
+        // the affordability check — mirrors the dispatcher's payment filter exactly. This is the real gate for
+        // Oboro: bouncing the land that would have paid the {2} must not be counted as still available.
+        if (ab.returnLand && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), cost)) continue;
         for (const ch of choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
@@ -1453,6 +1481,11 @@ function actionsActivateAbility(state, playerId) {
           // a creature would need it). The tapped creature stays on the battlefield, so this is only a "don't
           // waste the tap on your own target" nicety, not a correctness gate.
           if (ab.tapCreature && tapVictim && ch.targets.some((t) => t.id === tapVictim.id)) continue;
+          // γ1g — don't offer bouncing the very land the effect targets: the land is returned to hand as a COST
+          // (gone before the ability resolves), so an "untap target land" that targeted that same land would
+          // fizzle to a no-op (CR 608.2b — the target is no longer on the battlefield). Drop that self-defeating
+          // combo; a DIFFERENT land target (untap one land, bounce another) is still offered.
+          if (ab.returnLand && returnLandVictim && ch.targets.some((t) => t.id === returnLandVictim.id)) continue;
           // γ1d — pick the N fungible victims for a "Sacrifice N <subtype>" cost, EXCLUDING any that the
           // effect targets (same no-op guard). If the targets consume so many of the pool that fewer than N
           // remain, this choice can't pay the cost → skip it (a different target combo may still be legal).
@@ -1527,6 +1560,8 @@ function actionsActivateAbility(state, playerId) {
             sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)
             tapCreatureId: tapVictim?.id ?? null,        // γ1f — the chosen untapped creature to tap (cost)
             tapCreatureName: tapVictim?.card?.name ?? null,
+            returnLandId: returnLandVictim?.id ?? null,  // γ1g — the chosen land to return to owner's hand (cost)
+            returnLandName: returnLandVictim?.card?.name ?? null,
             program: ab.program,
             targets: ch.targets,
             chosenMode: ch.chosenMode ?? null,
@@ -1535,9 +1570,11 @@ function actionsActivateAbility(state, playerId) {
             abilityText: ab.sacCount
               ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
               : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
+              : ab.returnLand && returnLandVictim ? `Return ${returnLandVictim.card?.name}: ${ab.effectClause}`
               : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
           });
         }
+       }
        }
       }
     }
