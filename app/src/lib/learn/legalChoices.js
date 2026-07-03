@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -306,6 +306,26 @@ export function landDropAllowance(state, playerId) {
   // budget (no effect resolved) reads exactly 0, never a fabricated allowance.
   extra += player.extraLandsThisTurn ?? 0;
   return 1 + extra;
+}
+
+/**
+ * FLASH-CAST-PERMISSION (CR 601.3e) — the flash-cast-permission specs `playerId` currently has, from every
+ * static they control ("You may cast <FILTER> spells as though they had flash" — Yeva, Vedalken Orrery,
+ * Leyline of Anticipation, …). A static ability functions ONLY while its source is on the battlefield (CR
+ * 113.6), so only the battlefield is scanned — a creature-commander carrying this clause grants nothing while
+ * it sits in the command zone. Each spec is the serializable `{ any } | { qualifiers }` filter; the cast site
+ * tests each castable card against them (spellMatchesFlashFilter) to decide instant-speed timing. Gathered
+ * ONCE per castActionsFromZone (invariant across the loop), mirroring the cost-reducer hoist. Pure; [] when
+ * the player controls no such static.
+ */
+export function flashPermissionSpecsFor(state, playerId) {
+  const player = state.players?.[playerId];
+  if (!player) return [];
+  const specs = [];
+  for (const perm of player.battlefield || []) {
+    for (const spec of flashCastPermissionsOf(perm.card)) specs.push(spec);
+  }
+  return specs;
 }
 
 function actionsPlayLand(state, playerId) {
@@ -593,6 +613,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         ...collectCostReducers(player.command || [], { commandZone: true }),
       ];
 
+  // FLASH-CAST-PERMISSION (CR 601.3e): the flash-cast statics this player controls ("You may cast <FILTER>
+  // spells as though they had flash" — Yeva, Vedalken Orrery, …), gathered ONCE (invariant across the loop).
+  // A card that isn't instant-speed but matches one of these specs (spellMatchesFlashFilter) is offered at
+  // instant speed below (subject to the normal instant-speed priority window). A free-cast bypasses the timing
+  // gate entirely, so the specs are unused then.
+  const flashSpecs = freeCast ? [] : flashPermissionSpecsFor(state, playerId);
+
   for (const card of cards) {
     if (isLand(card)) continue;
 
@@ -606,7 +633,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // combined-card cast is a false positive.
     if (isAdventureCard(card)) continue;
 
-    const sorcerySpeed = isSorcerySpeed(card);
+    // FLASH-CAST-PERMISSION (CR 601.3e): a sorcery-speed card the player has flash permission for (Yeva → a
+    // green creature; Vedalken Orrery → any spell) may be cast whenever the player has priority (instant
+    // speed). Checked only when the card ISN'T already instant-speed (a real Instant / a Flash card reads
+    // instant-speed via isSorcerySpeed already) and only against this player's own statics — so it never
+    // widens an opponent's timing. A false match is impossible: the spec was validated to a modeled filter
+    // upstream (else it's null and never emitted), so this only offers a cast the rules genuinely permit.
+    const hasFlashPermission = flashSpecs.length > 0 && flashSpecs.some((spec) => spellMatchesFlashFilter(spec, card));
+    const sorcerySpeed = isSorcerySpeed(card) && !hasFlashPermission;
     const timingOk = sorcerySpeed
       ? canCastSorcerySpeed(state, playerId)
       : canCastInstantSpeed(state, playerId);

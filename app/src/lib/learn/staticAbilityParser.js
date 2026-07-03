@@ -660,6 +660,87 @@ function emitGatedEffect(out, effRaw, gate) {
   for (const kw of kws) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
 }
 
+// ─── FLASH-CAST-PERMISSION filter vocabulary (CR 601.3e — cast a class of your spells at instant speed) ───
+// The CLOSED set of card-TYPE words a flash-cast filter may name — each is a real type-line token, so a
+// word-bounded type-line test faithfully decides membership at the cast site. "noncreature"/"colorless" are
+// SPECIAL negations handled separately below (not type-line tokens). Nothing else (a supertype, "permanent",
+// "spell") is admitted here.
+const FLASH_FILTER_CARDTYPES = new Set(["creature", "sorcery", "instant", "artifact", "enchantment", "land", "planeswalker", "battle"]);
+
+/**
+ * Parse ONE qualifier phrase of a flash-cast filter (e.g. "green creature", "sorcery", "colorless", "artifact",
+ * "spirit", "aura", "historic") into a serializable predicate, or null if it names anything we can't faithfully
+ * evaluate against a spell's public characteristics (type line + colors). A qualifier is a space-joined run of
+ * words; every word must be one of:
+ *   • a color (white/blue/black/red/green) → adds a required color (WUBRG); OR
+ *   • a card TYPE in FLASH_FILTER_CARDTYPES → adds a required type-line token; OR
+ *   • the special "colorless" → requires the spell has NO colors; OR
+ *   • the special "noncreature" → requires the spell's type line has NO "Creature"; OR
+ *   • a lone SUBTYPE word (spirit/faerie/merfolk/hero/dragon/ally/aura/equipment/historic/…) → a word-bounded
+ *     type-line token. A single unrecognized word is admitted ONLY as a subtype (a proper-noun tribe / spell
+ *     type on the type line); combined with any OTHER constraint it would risk an unmodeled compound, so a
+ *     subtype may only appear ALONE in its qualifier.
+ * Returns { types?:[…], colors?:[…], subtype?, colorless?:true, nonCreature?:true } — ALL listed constraints
+ * must hold for the spell to match this qualifier (an AND within the qualifier: "green creature" = green AND
+ * Creature). A qualifier mixing a subtype with a type/color, or naming an unknown special, → null.
+ */
+function parseFlashQualifier(phrase) {
+  const words = String(phrase).trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return null;
+  const spec = {};
+  const subtypeCandidates = [];
+  for (const w of words) {
+    if (w === "colorless") { spec.colorless = true; continue; }
+    if (w === "noncreature") { spec.nonCreature = true; continue; }
+    if (COLOR_WORDS[w]) { (spec.colors ||= []).push(COLOR_WORDS[w]); continue; }
+    if (FLASH_FILTER_CARDTYPES.has(w)) { (spec.types ||= []).push(w[0].toUpperCase() + w.slice(1)); continue; }
+    // "historic" is a defined characteristic (CR 702.149a — artifact / legendary / Saga) that a plain type-line
+    // token test can NOT faithfully evaluate (legendary is a supertype; Saga is a subtype; a legendary NON-artifact
+    // spell qualifies) → treat as unmodeled so a "historic spells" card (Raff Capashen) stays body-only (safe FN).
+    if (w === "historic" || w === "permanent" || w === "legendary") return null;
+    // Anything else is a candidate SUBTYPE (a proper-noun tribe or spell type on the type line — Spirit, Faerie,
+    // Merfolk, Hero, Dragon, Ally, Aura, Equipment). Only admissible as a SOLE constraint (below).
+    subtypeCandidates.push(w);
+  }
+  if (subtypeCandidates.length > 0) {
+    // A subtype must stand ALONE (no color/type/special alongside it) — a mixed "dragon artifact" qualifier is an
+    // unmodeled compound → null. A multi-word subtype ("secret lair") is likewise not a single type-line token → null.
+    if (subtypeCandidates.length > 1 || spec.types || spec.colors || spec.colorless || spec.nonCreature) return null;
+    return { subtype: subtypeCandidates[0][0].toUpperCase() + subtypeCandidates[0].slice(1) };
+  }
+  // A "colorless"/"noncreature" special may pair with a type ("colorless artifact" is redundant but valid); but a
+  // lone unqualified special is fine too. Require at least one constraint.
+  if (!spec.types && !spec.colors && !spec.colorless && !spec.nonCreature) return null;
+  return spec;
+}
+
+/**
+ * FLASH-CAST-PERMISSION — parse the FILTER of "You may cast <FILTER> spells as though they had flash" into a
+ * serializable spec, or null when any part is not faithfully evaluable (→ the card stays body-only, a safe FN).
+ * The empty filter ("" — Vedalken Orrery / Leyline of Anticipation: "cast spells as though they had flash") is
+ * the ALL-SPELLS grant → { any: true }. Otherwise the filter is a "<qualifier> and <qualifier> …" list where a
+ * spell matches if it satisfies ANY qualifier (the corpus "X and Y spells" wording = an X-spell OR a Y-spell:
+ * Sigarda's Aid "Aura and Equipment", Gandalf "legendary spells and artifact" — legendary is unmodeled so that
+ * one nulls out). Returns { any:true } | { qualifiers:[{…},…] }. A single unmodeled qualifier → null (whole grant
+ * dropped, all-or-nothing per CREED). The subject before "spells" carries a trailing "spells " token when the
+ * filter is compound ("aura and equipment spells" → the inner "spells" from "aura spells and equipment"); strip
+ * any "spells" token so "legendary spells and artifact" → ["legendary", "artifact"].
+ */
+function parseFlashCastFilter(filter) {
+  const f = String(filter).trim();
+  if (f === "") return { any: true };
+  // Split the "<q> and <q> …" list; drop a stray "spells" token that rides inside a compound filter.
+  const parts = f.split(/,|\band\b/).map((p) => p.replace(/\bspells?\b/g, "").trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  const qualifiers = [];
+  for (const p of parts) {
+    const q = parseFlashQualifier(p);
+    if (!q) return null;                 // one unmodeled qualifier → the whole grant is unmodeled (safe FN)
+    qualifiers.push(q);
+  }
+  return { qualifiers };
+}
+
 /**
  * Try every supported pattern against one clause; push any descriptor(s) found
  * into `out`. The patterns are intentionally narrow and ordered most-specific
@@ -678,6 +759,30 @@ function parseClause(clause, out, selfName) {
   // an open-ended "<Word> —" strip) for the same reason the trigger-side strip is: a blanket
   // strip would mis-normalize the 337 real ability-word labels that carry conditions.
   const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|unlock ability)\s*[—–-]\s*/, "");
+
+  // ── FLASH-CAST-PERMISSION (Yeva; Vedalken Orrery; Leyline of Anticipation; Prophet of Kruphix; …) ──────
+  // "You may cast <FILTER> spells as though they had flash." A STATIC casting-permission (CR 601.3e / 702.8f
+  // — a static ability that lets the controller cast a class of THEIR OWN spells at instant speed). Emitted
+  // as a coverage MARKER ({ castFlashPermission } with NO `affects`/`op`, so the layer engine ignores it —
+  // effectAffects bails on a missing `affects`); legalChoices reads it at the cast timing gate
+  // (flashPermissionSpecsFor / spellMatchesFlashFilter) so a matching sorcery-speed spell is offered at
+  // instant speed while the source is on the battlefield. SELF-CONTROLLER ONLY ("You may cast …"): the
+  // symmetric "Any player may cast …" / "Players may cast …" (Tidal Barracuda, Vernal Equinox, Quick Sliver)
+  // grants the permission to OPPONENTS too, which the controller-only cast reader doesn't model → dropping
+  // that half would be a CREED false positive → those stay body-only (a safe FN). "this spell" (an Aura / a
+  // conditional self-cast — Necromancy, Harbinger of the Tides) is NOT a board static and never matches the
+  // "<FILTER> spells" shape. The FILTER must reduce to a FULLY-EVALUABLE spec (parseFlashCastFilter — a
+  // closed vocabulary of card types / colors / the noncreature+colorless specials / a single subtype, with
+  // "X and Y" unions); an unmodeled filter → NO descriptor → the card stays body-only (Arbiter, never a
+  // fabricated timing grant). Anchored ^…$ so any rider variant ("… if you pay {2} more", "… this turn")
+  // never matches. The STATIC-ONLY guard below never fires on this shape (no trigger/activated/for-each/
+  // as-long-as marker), but matching here first keeps it away from the cost-reduction / anthem matchers.
+  const flashM = c.match(/^you may cast (.*?)spells as though they had flash$/);
+  if (flashM) {
+    const spec = parseFlashCastFilter(flashM[1].trim());
+    if (spec) out.push({ castFlashPermission: spec });
+    return; // a flash-cast-permission clause — handled (or intentionally dropped to body-only on an unmodeled filter)
+  }
 
   // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
   // "<Subtype> spells you cast cost {N} less to cast" reduces the GENERIC portion of the matching spell's
@@ -1761,6 +1866,63 @@ export function extraLandDropsOf(card) {
     if (typeof d.extraLandDrops === "number") n += d.extraLandDrops;
   }
   return n;
+}
+
+/**
+ * FLASH-CAST-PERMISSION — the flash-cast-permission specs this ONE card grants its controller (a card has at
+ * most one such clause in the corpus, but returning all is harmless + future-proof). Each spec is the
+ * serializable `{ any } | { qualifiers }` filter from parseFlashCastFilter. Pure — the per-player gather (scan
+ * the battlefield) + the per-spell match live at the cast timing gate (legalChoices), this just exposes the
+ * parsed descriptor. Reads the card's `{ castFlashPermission }` static markers (via parseStaticAbilities).
+ */
+export function flashCastPermissionsOf(card) {
+  const specs = [];
+  for (const d of parseStaticAbilities(card)) {
+    if (d.castFlashPermission) specs.push(d.castFlashPermission);
+  }
+  return specs;
+}
+
+/**
+ * FLASH-CAST-PERMISSION — does a single flash-cast filter `spec` cover `spellCard`? A spell matches if the spec
+ * is the ALL grant ({ any }) or if it satisfies ANY of the spec's qualifiers (CR 105 colors; CR 205 type line).
+ * Each qualifier is an AND of its constraints:
+ *   • types      — EVERY listed card type appears (word-bounded) in the spell's type line ("green creature" needs
+ *                  Creature; a lone type needs just that type);
+ *   • colors     — EVERY listed color is a color of the spell (Yeva's "green" — CR 105.2, a spell may be several
+ *                  colors, so "is green" = green ∈ its colors);
+ *   • colorless  — the spell has NO colors;
+ *   • nonCreature — the spell's type line has NO "Creature";
+ *   • subtype    — the subtype appears (word-bounded, after the em dash) in the spell's type line.
+ * Pure; no engine import (reuses the leaf colorsOfSpell). CREED: a spec that ever failed to reduce to a modeled
+ * filter is null upstream (never reaches here), so this only ever tests a faithfully-evaluable predicate.
+ */
+export function spellMatchesFlashFilter(spec, spellCard) {
+  if (!spec || !spellCard) return false;
+  if (spec.any) return true;
+  const typeLine = String(spellCard?.type || spellCard?.type_line || "");
+  const typeLineLc = typeLine.toLowerCase();
+  const dash = typeLine.indexOf("—");
+  const subtypeStr = (dash >= 0 ? typeLine.slice(dash + 1) : "").toLowerCase();
+  let spellColors = null; // lazily derived only when a color / colorless qualifier is present
+  const colorsOf = () => (spellColors ??= colorsOfSpell(spellCard));
+  for (const q of spec.qualifiers || []) {
+    let ok = true;
+    if (q.types) {
+      for (const t of q.types) {
+        if (!new RegExp(`\\b${t.toLowerCase()}\\b`).test(typeLineLc)) { ok = false; break; }
+      }
+    }
+    if (ok && q.colors) {
+      const cols = colorsOf();
+      for (const col of q.colors) { if (!cols.includes(col)) { ok = false; break; } }
+    }
+    if (ok && q.colorless && colorsOf().length > 0) ok = false;
+    if (ok && q.nonCreature && /\bcreature\b/.test(typeLineLc)) ok = false;
+    if (ok && q.subtype && !new RegExp(`\\b${q.subtype.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(subtypeStr)) ok = false;
+    if (ok) return true; // matched a qualifier (the qualifiers are OR-joined)
+  }
+  return false;
 }
 
 /**
