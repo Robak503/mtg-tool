@@ -942,6 +942,27 @@ function parseClause(clause, out, selfName, selfType) {
     return; // a flash-cast-permission clause — handled (or intentionally dropped to body-only on an unmodeled filter)
   }
 
+  // ── DIES-TRIGGER MULTIPLIER (Teysa Karlov) ─────────────────────────────────────────────────────────
+  // "If a creature dying causes a triggered ability of a permanent you control to trigger, that ability
+  // triggers an additional time." A rule-modifying STATIC (CR 603.x — it changes HOW MANY TIMES a
+  // creature-death-caused triggered ability fires, like Panharmonicon does for ETB), NOT a layer-6/7 grant.
+  // Emitted as a self-affecting continuous effect carrying op.layerOp:"diesTriggerMultiplier" so
+  // collectContinuousEffects picks it up while the source is on the battlefield; layers.diesTriggerMultiplierCount
+  // counts these per controller, and checkDiesTriggers / checkSacrificeTriggers (triggers.js) enqueue each
+  // creature-death-caused trigger one ADDITIONAL time per multiplier the trigger's controller has. affects:self
+  // (no candidate is buffed — the effect scopes to its controller, resolved from the source permanent), so the
+  // P/T-and-keyword layer engine treats it as an inert board static (effectAffects.self matches only the source,
+  // and no layer-6/7 op reads it). Anchored to the exact printed clause — no variant of this sentence exists.
+  if (/^if a creature dying causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time$/.test(c)) {
+    out.push({
+      layer: 6,
+      op: { layerOp: "diesTriggerMultiplier" },
+      affects: { mode: "self" },
+      duration: { kind: "permanent" },
+    });
+    return; // handled — a modeled rule-modifying static (the coverage residue check credits it via `produced.length`)
+  }
+
   // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
   // "<Subtype> spells you cast cost {N} less to cast" reduces the GENERIC portion of the matching spell's
   // cost (CR 601.2f — effects may reduce the cost to pay), floored at {0} when the cost is applied at the
@@ -1934,6 +1955,22 @@ function parseCreatureSelector(c) {
         selector: { controllerScope, cardTypes: ["Creature"], chosenTypeOfSource: true },
       };
     }
+  }
+
+  // TOKEN anthem (Teysa Karlov — "Creature tokens you control have vigilance and lifelink"): a static
+  // keyword/P/T grant restricted to CREATURE TOKENS the controller owns. Anchored ^"creature tokens you
+  // control …" so it never overlaps the generic "creatures you control" anthem below (which the intervening
+  // "tokens" word prevents matching anyway). The `token: true` selector predicate is honored by
+  // matchesSelector (layers.js) — a candidate matches only when its card carries token:true (CR 111.1 —
+  // set at every token-mint chokepoint, incl. token COPIES). cardTypes:["Creature"] keeps it creature-only
+  // (a non-creature Treasure/Clue token is never buffed by a creature-keyword anthem). Only "you control" is
+  // modeled here (every corpus token anthem is controller-scoped); a symmetric "creature tokens have …" form
+  // (none in the corpus) falls through to null — a SAFE false-negative, never a fabricated symmetric grant.
+  if (/^creatures?\s+tokens?\s+you control\s+(?:gets?|gains?|has|have)\b/.test(c)) {
+    return {
+      mode: "dynamic",
+      selector: { controllerScope: "you", cardTypes: ["Creature"], token: true },
+    };
   }
 
   // Generic anthem: "creatures you control [get|have]"

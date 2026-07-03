@@ -22,7 +22,7 @@ import {
   recordCreatureDeaths,
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, diesTriggerMultiplierCount } from "./layers.js";
 import { applyMothmanRadOnEnter } from "./mothmanRad.js";
 
 function oracleOf(card) {
@@ -2462,6 +2462,38 @@ export function checkPermanentEntersTriggers(state, enteredPerm) {
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
+/**
+ * DIES-TRIGGER MULTIPLIER expansion (Teysa Karlov, CR 603.x). Given the list of triggered abilities that
+ * fired because a CREATURE died (each a pending-trigger whose `.controller` is the ability's controller —
+ * makePendingTrigger sets it to the source permanent's controller), return the list with each entry repeated
+ * one ADDITIONAL time per diesTriggerMultiplier static its controller controls (Teysa → +1 = fires twice; two
+ * Teysas → +2 = fires 3× — the official ruling). Each duplicate is a DISTINCT pending-trigger (a shallow copy)
+ * so flushTriggers/buildTriggerStack builds it into its own stack object with independently-chosen targets and
+ * ordering (CR 603.x — the extra instance is a separate ability, not a re-resolve of the first). Per-controller
+ * count is memoized within the call (a batch of simultaneous deaths shares one board scan per controller). A 0
+ * multiplier leaves the list unchanged — the no-Teysa fast path. Pure.
+ */
+function multiplyDiesTriggers(state, fired) {
+  if (!fired.length) return fired;
+  const countByController = new Map();
+  const multFor = (controller) => {
+    if (controller == null) return 0;
+    if (!countByController.has(controller)) countByController.set(controller, diesTriggerMultiplierCount(state, controller));
+    return countByController.get(controller);
+  };
+  // Fast path: no multiplier anywhere → return the original list untouched.
+  let anyExtra = false;
+  for (const t of fired) { if (multFor(t.controller) > 0) { anyExtra = true; break; } }
+  if (!anyExtra) return fired;
+  const out = [];
+  for (const t of fired) {
+    out.push(t);
+    const extra = multFor(t.controller);
+    for (let i = 0; i < extra; i++) out.push({ ...t }); // a distinct additional instance
+  }
+  return out;
+}
+
 export function checkDiesTriggers(state, dead) {
   // SELF-LTB (Wave 4): drain any "leaves the battlefield" events queued by gameState.detachPermanentFromAll
   // FIRST (every death path runs destroyLethalCreatures → moveCardToZone → detach, then checkDiesTriggers),
@@ -2503,6 +2535,12 @@ export function checkDiesTriggers(state, dead) {
     }
   }
   if (!fired.length) return state2;
+  // DIES-TRIGGER MULTIPLIER (Teysa Karlov): every fire here is caused by a CREATURE dying (event "dies",
+  // triggeringPermanent a dead creature) → each qualifying ability triggers an additional time per multiplier
+  // its controller controls. Applied AFTER the fired list is fully built so a batch of simultaneous deaths is
+  // multiplied uniformly. checkPlaneswalkerDiesTriggers deliberately does NOT call this — a planeswalker dying
+  // is not "a creature dying" (CR — Teysa's clause names creatures), so PW-death triggers are never doubled.
+  fired = multiplyDiesTriggers(state2, fired);
   return { ...state2, pendingTriggers: [...(state2.pendingTriggers || []), ...fired] };
 }
 
@@ -3090,6 +3128,16 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
     }
   }
   if (!fired.length) return state;
+  // DIES-TRIGGER MULTIPLIER (Teysa Karlov): sacrificing a CREATURE puts it into a graveyard — it "died" (CR
+  // 700.4) — so a "whenever you sacrifice a creature" ability that fired is ALSO caused by a creature dying
+  // and Teysa doubles it (the official ruling names sacrifice triggers explicitly). GATED on the sacrificed
+  // permanent being a CREATURE: a non-creature sacrifice (Treasure/Clue/Food, or the Mirkwood-Bats onSacrifice
+  // token drain off a NON-creature token) is NOT a creature dying, so it's never doubled (no over-fire — the
+  // CREED gate). Uses the same shared expansion as the dies dispatch (per-controller multiplier, distinct
+  // additional instances). A non-creature sac leaves the fired list unchanged (a clean skip).
+  if (/\bcreature\b/i.test(String(sacrificed.card?.type || sacrificed.card?.type_line || ""))) {
+    fired = multiplyDiesTriggers(state, fired);
+  }
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
