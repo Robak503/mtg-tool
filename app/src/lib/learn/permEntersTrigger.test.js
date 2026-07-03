@@ -60,9 +60,19 @@ describe("PERM-ENTERS — detection", () => {
     expect(ds[0]).toMatchObject({ event: "permanentEnters", permanentFilter: "enchantment", scope: "enchantmentYouControl" });
   });
 
-  it("does NOT detect Eerie compound event (two events — unmodeled)", () => {
+  it("SPLITS an Eerie compound — the enchantment-enters half detects; the unmodeled 'unlock a room' half keeps the card non-native", () => {
+    // COMPOUND TRIGGER (CR 603.1): two INDEPENDENT abilities sharing an effect line. The "enchantment you control
+    // enters → draw" half is modeled and now detected; the "fully unlock a room" half is unmodeled, so detectTriggers
+    // returns only the modeled half and coverage's count reconciliation keeps the whole card non-native (CREED — the
+    // unlock half is never silently claimed native).
     const ds = triggers("Eerie — Whenever an enchantment you control enters and whenever you fully unlock a room, draw a card.");
-    expect(ds).toHaveLength(0);
+    expect(ds.map((t) => t.event)).toEqual(["permanentEnters"]);
+  });
+
+  it("COMPOUND both-halves-modeled flips NATIVE (Up the Beanstalk) — splits 'When A and whenever B, draw' into two firing triggers", () => {
+    const beanstalk = { name: "Up the Beanstalk", type: "Enchantment", mana: "{1}{G}", oracle: "When this enchantment enters and whenever you cast a spell with mana value 5 or greater, draw a card." };
+    expect(detectTriggers(beanstalk).map((t) => t.event).sort()).toEqual(["cast", "etb"]); // both real abilities detected
+    expect(classifyCard(beanstalk)).toBe("native-trigger");
   });
 
   it("does NOT detect bare 'an artifact enters' (no controller gate)", () => {

@@ -124,8 +124,13 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
     expect(detectTriggers(creature("Hellrider", "Whenever this creature attacks, it gets +1/+0 until end of turn.")).map((t) => t.event)).toEqual(["attacks"]);
     expect(detectTriggers(creature("Wall", "Whenever this creature blocks, it gets +0/+2 until end of turn.")).map((t) => t.event)).toEqual(["blocks"]);
   });
-  it("does NOT detect a 'dies and when you discard this card' embedded second trigger (Bartered Cow)", () => {
-    expect(detectTriggers(creature("Bartered Cow", "When this creature dies and when you discard this card, create a Food token."))).toHaveLength(0);
+  it("SPLITS a 'dies and when you discard this card' compound (Bartered Cow) — the dies half detects; the unmodeled discard half keeps the card non-native", () => {
+    // COMPOUND TRIGGER (CR 603.1): "When A and when B, E" is TWO INDEPENDENT abilities sharing an effect line — NOT a
+    // single multi-event condition ("enters or dies" above). detectTriggers splits it: the dies half (create Food) is
+    // modeled and now detects + fires FAITHFULLY on its own event; the "you discard this card" half is unmodeled, so
+    // only the dies half returns and coverage's count reconciliation keeps the whole card non-native (the discard half
+    // is never silently claimed native — CREED). Contrast the "or" compounds above, which stay wholly undetected.
+    expect(detectTriggers(creature("Bartered Cow", "When this creature dies and when you discard this card, create a Food token.")).map((t) => t.event)).toEqual(["dies"]);
   });
   it("does NOT detect a 'leaves the battlefield' trigger (City Pigeon) — the engine never fires LTB", () => {
     expect(detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."))).toHaveLength(0);
