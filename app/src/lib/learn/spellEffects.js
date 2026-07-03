@@ -364,8 +364,15 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // TAP-TARGET-CREATURE: "with mana value N or greater" (Law-Rune Enforcer). Uses the slim-index
       // cmc field (mana value as a number); defaults to 0 when absent (safe false-negative for lands/tokens).
       const mv = perm.card?.cmc ?? 0;
-      if (r.op === "<=" && !(mv <= r.value)) return false;
-      if (r.op === ">=" && !(mv >= r.value)) return false;
+      // MV-CAP-BY-X (Here Comes a New Hero! — "with mana value X or less"): `valueX` resolves the cap from the
+      // chosen X (ctx.xValue, bound at cast per CR 202.3b). `?? 0` (not `|| 0`) so an explicit X=0 caps at MV 0
+      // (a legal, conservative choice — target only 0-drops), and a missing xValue is treated as 0, NEVER as
+      // "uncapped" — the CREED guarantee that the X-bound cap is never silently dropped into an illegal target.
+      // A cast-time enumeration threads ctx={xValue:x} per affordable X (legalChoices X-spell branch), so this
+      // fires with the concrete X for each candidate cast.
+      const cap = r.valueX ? Math.max(0, ctx?.xValue ?? 0) : r.value;
+      if (r.op === "<=" && !(mv <= cap)) return false;
+      if (r.op === ">=" && !(mv >= cap)) return false;
     } else if (r.kind === "hasKeyword") {
       // TAP-TARGET-CREATURE: "without flying" (Dromoka Dunecaster, Cephalid Retainer, Flood) or
       // "with flying" (Storm Front). Layer-aware read via permanentHasKeyword so granted/removed

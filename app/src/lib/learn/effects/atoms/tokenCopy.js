@@ -63,6 +63,19 @@ const ADDABLE_CARD_TYPES = new Set(["artifact", "enchantment"]);
 // + the you-control restriction so the cast path / enumerateTargets offers ONLY the controller's own
 // creatures (never an opponent's, which would be illegal).
 const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target creature you control(?:, except it isn't legendary)?$/;
+// TOKEN-COPY-UPTOONE-MVX — "create a token that's a copy of up to one target creature with mana value X or
+// less" (Here Comes a New Hero!, an {X} sorcery). CR 601.2c — the target is OPTIONAL (0-or-1: `optionalTarget`),
+// and its legality is bounded by the spell's chosen X (CR 202.3b — X is bound at cast). The copy is UNRESTRICTED
+// on controller (ANY player's creature is a legal target, so NO you-control restriction), scoped only by the
+// MV≤X cap, which the cast-time target enumerator enforces per-X via a `manaValue`/`valueX` restriction
+// (resolved from ctx.xValue, exactly like a tutor's mvCapX but at the TARGET-legality layer). `mvCapX:true` on
+// the atom (a) marks it so the program derives xSpell:true — the cast path must enumerate affordable X so
+// ctx.xValue reaches the target enumerator — and (b) documents the X-bound cap. NO copiable-value rider
+// (no keyword/type/legendary "except"): the anchor is EXACT + end-anchored, so any rider fails → null → low →
+// Arbiter (CREED whole-card). copySource:"target" reuses the proven resolver, which already treats an absent
+// target (declined "up to one") as a CR 111.12 clean no-op (no token). NO "you control" — the resolver copies
+// whatever creature was targeted, of any controller.
+const TOKEN_COPY_UPTOONE_MVX_RE = /^create a token that(?:'s| is) a copy of up to one target creature with mana value x or less$/;
 // TOKEN-COPY-TARGET-KEYWORD — the same target-copy with a MODELED-KEYWORD grant rider on the COPY
 // (Irenicus's Vile Duplication: "…except the token has flying and it isn't legendary."). CR 707.9a — the
 // copy GAINS the granted keyword(s); the resolver threads them through snapshotCopiedCard's addKeyword rider
@@ -114,6 +127,22 @@ export function tokenCopyParser(clause) {
   }
   if (TOKEN_COPY_TARGET_RE.test(t)) {
     return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  // TOKEN-COPY-UPTOONE-MVX (Here Comes a New Hero!) — an {X}-bound OPTIONAL (up-to-one) target copy capped at
+  // MV≤X. optionalTarget → the cast may take 0 or 1 target (expandAtoms offers a decline); the manaValue/valueX
+  // restriction is resolved from the chosen X at cast-time target enumeration (creatureSatisfiesRestrictions
+  // reads ctx.xValue). mvCapX marks the atom so parseEffectClause derives xSpell:true. No controller restriction
+  // (any player's creature is legal), no copiable-value rider.
+  if (TOKEN_COPY_UPTOONE_MVX_RE.test(t)) {
+    return {
+      op: "create-token-copy",
+      copySource: "target",
+      count: 1,
+      targetType: "creature",
+      optionalTarget: true,
+      mvCapX: true,
+      restrictions: [{ kind: "manaValue", op: "<=", valueX: true }],
+    };
   }
   // TOKEN-COPY-EACH (Second Harvest) — copy EACH token you control. No copySource / targetType (the resolver
   // iterates the controller's token battlefield, snapshotting up front). A separate op so it routes to its own
