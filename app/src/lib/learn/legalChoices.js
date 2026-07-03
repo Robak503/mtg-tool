@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -1208,6 +1208,11 @@ function actionsActivateAbility(state, playerId) {
   if (state.step !== "main") return [];
   const player = state.players[playerId];
   const actions = [];
+  // ACTIVATED-ABILITY COST-REDUCTION (Training Grounds, Biomancer's Familiar): the controller's battlefield may
+  // carry statics that shave the generic mana of "activated abilities of creatures you control". Collected once
+  // per player (invariant across the perm/ability loops); applied ONLY to abilities of a CREATURE the player
+  // controls (the modeled subject), floored at one mana by activatedCostReductionForCost.
+  const activatedReducers = collectActivatedCostReducers(player.battlefield || []);
   for (const perm of player.battlefield) {
     // GRANTED-ACTIVATED (subsystem 1 phase 1b): an Aura on this creature can confer an activated ability
     // ("Enchanted creature has \"{T}: …\""). The granted descriptors are enumerated HERE on the host, so
@@ -1239,7 +1244,15 @@ function actionsActivateAbility(state, playerId) {
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).
         if (isCreaturePerm && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
       }
-      const cost = parseManaCost(ab.manaPips || "");
+      let cost = parseManaCost(ab.manaPips || "");
+      // ACTIVATED-ABILITY COST-REDUCTION: shave the generic mana of an ability OF A CREATURE the player
+      // controls (Training Grounds "activated abilities of creatures you control cost {N} less to activate"),
+      // floored at one mana. Gated to isCreaturePerm so a non-creature's ability (an artifact/enchantment
+      // activated ability, an Equip cost) is never wrongly discounted — the modeled subject is creatures only.
+      // Applied BEFORE the affordability gate + the equip branch so the reduced cost is what canAfford judges
+      // and what the dispatcher is handed. Mana abilities never reach here (isManaEffect excludes them); an
+      // X-cost ability is deferred just below, so the reduced generic never mixes with an unresolved {X}.
+      if (isCreaturePerm && activatedReducers.length) cost = activatedCostReductionForCost(activatedReducers, cost);
       if (cost.hasX) continue; // X-cost activated abilities deferred (need the X-choice expansion)
       // γ1 — a "Pay N life" cost needs the life to spend (CR 119.4: you can't pay life you don't
       // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
