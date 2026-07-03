@@ -129,3 +129,25 @@ describe("AFFLICT — group grant FIRES on each recipient (engine-first)", () =>
     expect(s.players.user.life).toBe(40); // the you-control grant never reaches an opponent's Sliver
   });
 });
+
+// ─── DEFENDING_PLAYER on becomesBlocked — PRINTED (non-keyword) becomes-blocked triggers ─────────────
+// Adding "becomesBlocked" to triggerRouting.DEFENDING_PLAYER_EVENTS (so afflict resolves) ALSO unblocks
+// PRINTED becomes-blocked triggers whose effect reads "defending player" — those were fully modeled but
+// stayed on the Arbiter only because the referent gate rejected the event. They now route + fire correctly.
+describe("becomesBlocked + defendingPlayer — printed (non-afflict) triggers now route + fire", () => {
+  it("Vedalken Ghoul — 'defending player loses 4 life' fires when blocked (native-trigger)", () => {
+    const card = cr("Vedalken Ghoul", "Whenever this creature becomes blocked, defending player loses 4 life.");
+    expect(classifyCard(card)).toBe("native-trigger");
+    let s = combat([perm("vg", "Vedalken Ghoul", "Creature — Zombie", card.oracle)],
+      [wall()], [{ permanentId: "vg", attackingPlayer: "user", defender: "ai" }], [{ attackerId: "vg", blockerId: "w" }]);
+    s = resolveAll(flushTriggers(checkBlockTriggers(s), { chooseTargets: chooseTriggerTargets }));
+    expect(s.players.ai.life).toBe(36); // the defending player lost 4
+  });
+
+  it("a becomesBlocked lose-life still does NOT fire on an UNBLOCKED attacker (CREED — no fabricated loss)", () => {
+    let s = combat([perm("vg", "Vedalken Ghoul", "Creature — Zombie", "Whenever this creature becomes blocked, defending player loses 4 life.")],
+      [], [{ permanentId: "vg", attackingPlayer: "user", defender: "ai" }], []); // no blockers
+    s = resolveAll(flushTriggers(checkBlockTriggers(s), { chooseTargets: chooseTriggerTargets }));
+    expect(s.players.ai.life).toBe(40);
+  });
+});
