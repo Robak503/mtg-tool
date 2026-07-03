@@ -966,6 +966,40 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── ACTIVATED-ABILITY COST-REDUCTION (Training Grounds; Biomancer's Familiar) ───────────────────────────
+  // "Activated abilities of creatures you control cost {N} less to activate." A STATIC cost-reducer that
+  // trims the GENERIC portion of an ACTIVATED ABILITY's cost (CR 118.9 / 601.2f — an effect may reduce the
+  // cost to pay), NOT a cast cost — a DISTINCT lever from the "<subtype> spells you cast cost less" cast
+  // reducers above. Emitted as a coverage MARKER ({ activatedCostReduction } with NO `affects`/`op`, so the
+  // layer engine ignores it — effectAffects bails on a missing `affects`); legalChoices reads it at the
+  // activated-ability enumeration site via collectActivatedCostReducers / activatedCostReductionForCost,
+  // shaving the generic mana of a creature-you-control's activated ability (with the floor rider below).
+  //
+  // MODELED SCOPE — DELIBERATELY NARROW (a miss is a safe FN; over-claiming is a CREED FP):
+  //   • "creatures you control" ONLY — the self-scoped subject the reader supports (Training Grounds,
+  //     Biomancer's Familiar). The SYMMETRIC "Activated abilities of creatures cost {N} less" (Heartstone —
+  //     all players' creatures) grants the discount to OPPONENTS too, which the you-control-only reader does
+  //     NOT model → dropping that half is a CREED FP → Heartstone stays body-only (safe FN). Zirda's
+  //     "Abilities you activate that aren't mana abilities cost {2} less" is a different subject (all your
+  //     abilities, not creatures') and never matches this anchor → body-only (safe FN).
+  //   • The floor rider ("This effect can't reduce the mana in that cost to less than one mana") is the
+  //     STANDARD companion sentence on every printed card in this family; the runtime ALWAYS enforces the
+  //     one-mana floor (activatedCostReductionForCost), and the rider is recognized as a modeled no-op below
+  //     so it isn't seen as residue by staticAbilitiesCoverCard.
+  // Anchored ^…$ so any variant (a cost-cap other than "{N} less", a non-mana rider) stays body-only.
+  const aacrM = c.match(/^activated abilities of creatures you control cost \{(\d+)\} less to activate$/);
+  if (aacrM) {
+    out.push({ activatedCostReduction: { amount: parseInt(aacrM[1], 10) } });
+    return;
+  }
+  // The floor rider that accompanies every activated-ability cost-reducer in this family — a modeled no-op
+  // (the one-mana floor is inherent to activatedCostReductionForCost). Recognized so it doesn't read as
+  // unmodeled residue on Training Grounds / Biomancer's Familiar. Emits a benign marker; carries no runtime.
+  if (/^this effect can't reduce the mana in that cost to less than one mana$/.test(c)) {
+    out.push({ activatedCostReductionFloor: true });
+    return;
+  }
+
   // ── OPPONENTS-CANT-ACT (Grand Abolisher; Voice of Victory; Conqueror's Flail rider) ────────────────────
   // "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast
   // spells or activate abilities of artifacts, creatures, or enchantments." A STATIC restriction (CR 720,
@@ -1928,6 +1962,57 @@ export function costReductionForSpell(reducers, spellCard) {
     }
   }
   return total;
+}
+
+/**
+ * ACTIVATED-ABILITY COST-REDUCTION: collect the { amount } reducers a controller's battlefield grants to the
+ * ACTIVATED abilities of their creatures (Training Grounds, Biomancer's Familiar). Scans the permanents' parsed
+ * static descriptors for the `activatedCostReduction` marker; returns the raw { amount } list (stacked at the
+ * activation site by activatedCostReductionForCost). Mirrors collectCostReducers for the cast-cost family; only
+ * the CASTING/ACTIVATING player's own battlefield is ever passed (the modeled scope is "creatures you control").
+ * Pure.
+ */
+export function collectActivatedCostReducers(permanents) {
+  const reducers = [];
+  for (const entry of permanents || []) {
+    const card = entry?.card || entry;
+    for (const d of parseStaticAbilities(card)) {
+      if (d.activatedCostReduction) reducers.push(d.activatedCostReduction);
+    }
+  }
+  return reducers;
+}
+
+/**
+ * ACTIVATED-ABILITY COST-REDUCTION: apply the collected `reducers` to a parsed activated-ability `cost` (from
+ * legalChoices.parseManaCost), returning a NEW cost object with a reduced generic component — or the SAME cost
+ * unchanged when nothing applies. Only the GENERIC portion is reduced (CR 118.9 — colored/hybrid/phyrexian pips
+ * are never shaved), summed across every reducer. THE FLOOR (the printed rider, "can't reduce the mana in that
+ * cost to less than one mana"): the reduction can never bring the cost's TOTAL fixed mana below 1 — so a
+ * fully-colored ability ({U}: …) is untouched, and a {2}: … under a {2}-reducer floors to {1}, never {0}.
+ * `nonGenericMana` = every fixed mana pip that ISN'T generic (colored + C + hybrid + phyrexian); the max generic
+ * we may remove is `generic - max(0, 1 - nonGenericMana)` capped at the summed reduction. Never mutates the
+ * input (a fresh spread is returned only when a reduction actually applies). Pure — no state.
+ */
+export function activatedCostReductionForCost(reducers, cost) {
+  if (!reducers?.length || !cost) return cost;
+  const amount = reducers.reduce((s, r) => s + (r.amount || 0), 0);
+  if (amount <= 0) return cost;
+  const generic = cost.generic || 0;
+  if (generic <= 0) return cost; // nothing generic to shave
+  // Fixed non-generic mana already in the cost keeps the total ≥ that many; the floor only bites when the
+  // WHOLE cost is generic (or generic + colored summing below 1 after the shave). Colored/C count 1 each; a
+  // hybrid/phyrexian pip is payable with 1 mana, so it counts toward the ≥1 floor too (conservative: it can
+  // always be paid with a mana, satisfying "at least one mana remains").
+  const nonGenericMana =
+    (cost.W || 0) + (cost.U || 0) + (cost.B || 0) + (cost.R || 0) + (cost.G || 0) + (cost.C || 0) +
+    (cost.hybrid?.length || 0) + (cost.phyrexian?.length || 0);
+  // Minimum generic that must remain so the total fixed mana is ≥ 1 (the printed floor rider).
+  const minGeneric = Math.max(0, 1 - nonGenericMana);
+  const removable = Math.max(0, generic - minGeneric);
+  const applied = Math.min(amount, removable);
+  if (applied <= 0) return cost;
+  return { ...cost, generic: generic - applied };
 }
 
 // A spell's colors as WUBRG letters (Scryfall `colors` array, else derived from mana-cost pips). Local mirror

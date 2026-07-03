@@ -36,6 +36,8 @@
  * `putFromHandClauseParser` is a PURE function; the integrator wires registerClauseParser at parser.js-bottom.
  */
 
+import { TUTOR_COLOR_WORD } from "../parseHelpers.js"; // shared color-qualified-filter allowlist (cycle-free leaf)
+
 // Count words for "up to <N>" / a bare mandatory "<N>" (matches the tutor seam's UP_TO_N_WORD vocabulary).
 const COUNT_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 // "any number of" has no printed cap — the put is bounded only by the hand. A large remaining drives the
@@ -45,10 +47,8 @@ const ANY_NUMBER_CAP = 99;
 
 // The five mono-colors a "<color> creature card" filter may name, plus their "non<color>" negations
 // (Surprise Deployment's "nonwhite creature"). A union ("white or blue") / a guild word is NOT modeled.
-const COLOR_WORD = new Set([
-  "white", "blue", "black", "red", "green",
-  "nonwhite", "nonblue", "nonblack", "nonred", "nongreen",
-]);
+// Shared with the library X-tutor (Green Sun's Zenith); imported from parseHelpers as the single source.
+const COLOR_WORD = TUTOR_COLOR_WORD;
 
 // The permanent-card type filters this slice models for a hand→battlefield put. Each maps a phrase to the
 // structured tutor filter (`groups` = OR-of-AND type-word groups, matched against the card's front-face type

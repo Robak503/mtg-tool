@@ -65,7 +65,7 @@ function programAtoms(program, chosenMode) {
  * The card is ZONELESS here (it left its zone at cast), so this is a direct append like
  * placeCounteredCard — moveCardToZone can't move a card that is in no zone.
  */
-export function finishSpellResolution(state, disposition, { selfExile = false } = {}) {
+export function finishSpellResolution(state, disposition, { selfExile = false, selfShuffle = false } = {}) {
   const playerId = disposition?.playerId;
   const card = disposition?.card;
   if (!playerId || !card) return state;
@@ -83,6 +83,20 @@ export function finishSpellResolution(state, disposition, { selfExile = false } 
       players: { ...state.players, [playerId]: { ...player, exile: [...(player.exile || []), card] } },
     };
     return logEvent(next, { kind: "spell-to-exile", playerId, cardName: card.name || null });
+  }
+  // SELF-SHUFFLE (Green Sun's Zenith + the Sun's Zenith / Beacon family "Shuffle <this> into its owner's
+  // library.") — the resolving spell shuffles ITSELF into its OWNER's library instead of the graveyard (CR
+  // 608.2m replaced by the printed "Shuffle ~ into its owner's library"). The ZONELESS card is appended to the
+  // owner's library, then the library is shuffled deterministically (the same threaded-seed shuffle every other
+  // library shuffle uses — serialize-stable, CR 701.19e). A token/copy already returned above (ceases to exist,
+  // never shuffled in). Everything else about GY-1 (no disposition / eliminated owner → no-op) is identical.
+  if (selfShuffle) {
+    const withCard = {
+      ...state,
+      players: { ...state.players, [playerId]: { ...player, library: [...(player.library || []), card] } },
+    };
+    const shuffled = shuffleControllerLibrary(withCard, playerId);
+    return logEvent(shuffled, { kind: "spell-to-library-shuffled", playerId, cardName: card.name || null });
   }
   const next = {
     ...state,
@@ -152,7 +166,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   // GY-1: program complete — every atom ran; the spell card reaches its owner's graveyard NOW
   // (after the last atom, before finalizeStackResolution's trigger flush — CR 608.2m). A `selfExile` program
   // (Finale of Revelation "Exile <this>.") exiles the spell instead of the graveyard.
-  return finishSpellResolution(next, params.spellToGraveyard, { selfExile: !!program?.selfExile });
+  return finishSpellResolution(next, params.spellToGraveyard, { selfExile: !!program?.selfExile, selfShuffle: !!program?.selfShuffle });
 }
 
 /**
@@ -1167,5 +1181,11 @@ function resumeAfterChoice(state, pc) {
   }
   // GY-1 terminal: no atoms remain after the settle — the re-entered program can't finish the spell,
   // so finish it here (the two completion points are mutually exclusive per settle: exactly one fires).
-  return finishSpellResolution(state, pc?.resume?.spellToGraveyard);
+  // Honor the program's self-disposition flags (selfExile — Finale of Revelation; selfShuffle — Green Sun's
+  // Zenith, whose ONLY atom is the tutor, so this terminal path is the one that disposes it). Without this,
+  // a tutor-that-is-the-last-atom self-shuffle spell would fall to the graveyard instead of the library.
+  return finishSpellResolution(state, pc?.resume?.spellToGraveyard, {
+    selfExile: !!r?.program?.selfExile,
+    selfShuffle: !!r?.program?.selfShuffle,
+  });
 }

@@ -790,6 +790,17 @@ function classifyCondition(condRaw, cardName, cardType) {
   // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
   // crosses the 2nd card of the turn (checkCardDrawnTriggers reads cardsDrawnThisTurn, reset for all seats).
   if (/^you draw your second card (?:each|this) turn$/.test(c)) return { event: "drawSecond", scope: "you", whose: "any" };
+  // TRIG-DRAW2-OPP — "an opponent draws their second card each turn" (Faerie Mastermind). Same drawSecond event
+  // as the "you" form above, but whose:"opponent" — the DRAWING player must be an opponent of the watcher's
+  // controller. checkCardDrawnTriggers gates it exactly like checkMilledTriggers' opponent-milled path
+  // (opponentsOf(watcher.controller).includes(drawingPlayer)), scanning EVERY player's watchers (not just the
+  // drawer's) so a defender's Faerie Mastermind fires when an OPPONENT crosses their 2nd draw. The payoff
+  // resolves for the SOURCE's controller ("you draw a card" = the watcher's controller, makePendingTrigger's
+  // default controller — the drawer is the opponent, "you" is the Faerie's owner). BARE second-card form only;
+  // "their" is the only possessive (the drawer is the opponent). A rider/scaled/other-ordinal variant leaves
+  // residue and stays UNDETECTED → Arbiter (a SAFE false-negative). CREED: no partial — the whole card routes
+  // to the Arbiter if any clause is unmodeled.
+  if (/^an opponent draws (?:their|his or her) second card (?:each|this) turn$/.test(c)) return { event: "drawSecond", scope: "you", whose: "opponent" };
   // TRIG-SACRIFICE — "Whenever you sacrifice a <permanent|creature|artifact>" (the sac'd thing is always
   // YOURS, so the scope is an EXACT type-predicate on the sacrificed permanent, checked in
   // checkSacrificeTriggers — NOT a scopeMatches scope). The three type-checkable card-TYPE subjects classify
@@ -2750,12 +2761,35 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
   const drawnAfter = state.players[drawingPlayerId].cardsDrawnThisTurn;
   const crossedSecond = (drawnAfter - count) < 2 && drawnAfter >= 2; // the 2nd draw of the turn was in this batch
   let fired = [];
+  // OWN-draw watchers: cardDrawn (per card) + the whose:"any" drawSecond ("you draw your second card each
+  // turn"). Both scan ONLY the drawer's own sources — the drawing player IS the "you". The drawSecond scan is
+  // restricted to whose:"any" so an OPPONENT-scoped drawSecond descriptor (Faerie Mastermind, whose:"opponent")
+  // sitting on the DRAWER's own permanent never fires here — triggersForEvent does NOT gate whose:"opponent",
+  // so without this filter a self-owned Faerie would wrongly fire on the owner's own 2nd draw. The opponent
+  // path is handled in the all-players scan below.
+  const anyScopedDrawSecond = (d) => d.whose !== "opponent";
   for (const perm of triggerSourcesOf(state, drawingPlayerId)) {
     for (let i = 0; i < count; i++) {
       fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope !== "opponentDraw" }));
     }
     if (crossedSecond) {
-      fired = fired.concat(triggersForEvent(state, { event: "drawSecond", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+      fired = fired.concat(triggersForEvent(state, { event: "drawSecond", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, descriptorFilter: anyScopedDrawSecond }));
+    }
+  }
+  // OPPONENT-draw watchers (Faerie Mastermind): "Whenever an opponent draws their second card each turn, you
+  // draw a card." Scan EVERY player's watchers for a whose:"opponent" drawSecond descriptor and fire it once
+  // when the DRAWING player is an opponent of the watcher's controller (mirrors checkMilledTriggers' opponent
+  // gate). The drawer's own permanents are excluded by the opponent gate (a player is never their own
+  // opponent), so there's no overlap with the own-draw scan above. The payoff resolves for the SOURCE's
+  // controller (makePendingTrigger's default) — "you draw a card" = the Faerie's owner, not the drawer.
+  if (crossedSecond) {
+    for (const pid of Object.keys(state.players)) {
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        for (const d of detectTriggers(watcher.card).filter((x) => x.event === "drawSecond" && x.whose === "opponent")) {
+          if (!opponentsOf(state, watcher.controller).includes(drawingPlayerId)) continue;
+          fired.push(makePendingTrigger(d, watcher, null, { drawingPlayerId }));
+        }
+      }
     }
   }
   // TRIG-DRAW-OPPONENT (Smothering Tithe) — the drawer's OPPONENTS' watchers see "Whenever an opponent draws a

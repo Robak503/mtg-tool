@@ -260,11 +260,13 @@ function legacyToAtom(effect) {
   return null;
 }
 
-function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null, selfExile = false }) {
+function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null, selfExile = false, selfShuffle = false }) {
   // `selfExile` (Finale of Revelation "Exile <this>.") — the resolved spell exiles ITSELF instead of going to
-  // the graveyard (runEffectProgram honors it at GY-1). Omitted from the object when false so the vast majority
-  // of programs are byte-identical to before (no shape churn).
-  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null, ...(selfExile ? { selfExile: true } : {}) };
+  // the graveyard (runEffectProgram honors it at GY-1). `selfShuffle` (Green Sun's Zenith / the Sun's Zenith +
+  // Beacon family "Shuffle <this> into its owner's library.") — the resolved spell shuffles ITSELF into its
+  // owner's library instead of the graveyard (also honored at GY-1). Both are omitted from the object when false
+  // so the vast majority of programs are byte-identical to before (no shape churn).
+  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null, ...(selfExile ? { selfExile: true } : {}), ...(selfShuffle ? { selfShuffle: true } : {}) };
 }
 
 // α2 optional-scope invariant — an `optional` atom ("you may <effect>") scopes ONLY its own clause, so an
@@ -1504,29 +1506,74 @@ function matchKickedSpellEffect(card, cardType, oracle) {
   return { atoms: [...baseProgram.atoms, ...kickedAtoms] };
 }
 
+/**
+ * ===== SELF-SHUFFLE DISPOSITION ===== (Green Sun's Zenith + the whole Sun's Zenith / Beacon family) — a spell
+ * whose LAST sentence is "Shuffle <this> into its owner's library." shuffles ITSELF into its owner's library on
+ * resolution INSTEAD of going to the graveyard (a printed replacement of CR 608.2m — the exact mechanical mirror
+ * of Finale of Revelation's "Exile <this>." selfExile). The subject is the card's OWN name (the corpus prints
+ * this template ONLY as a self-tuck: exactly the five "Sun's Zenith" + five "Beacon" instants/sorceries — every
+ * "shuffle it/that card into its owner's library" that names something ELSE is a triggered/replacement/activated
+ * ability on a permanent, none of them an instant/sorcery resolution disposition), so this is name-anchored to
+ * the card itself and can never fire on another card's body clause.
+ *
+ * Strips the trailing self-shuffle sentence from the oracle and returns { body, selfShuffle:true }; the body then
+ * parses through the normal pipeline (Green Sun's color-creature X-tutor, Blue Sun's draw-X, Red Sun's damage,
+ * White Sun's tokens, Beacon of Destruction's damage — all already-modeled effects), and the program is stamped
+ * `selfShuffle` so runEffectProgram's GY-1 shuffles the spell into the library instead of the graveyard. If the
+ * self-shuffle sentence is absent, returns { body: oracle, selfShuffle:false } (byte-identical to no-op). The
+ * body still has to parse HIGH on its own merits — a family member whose body is unmodeled (Black Sun's "-1/-1
+ * on each creature", Beacon of Immortality's "double life") stays LOW → Arbiter (CREED: never a partial credit).
+ */
+function stripSelfShuffleIntoLibrary(card, oracle) {
+  const nm = String(card?.name || "").trim();
+  if (!nm) return { body: oracle, selfShuffle: false };
+  // Match the trailing "Shuffle <CardName> into its owner's library." sentence (case-insensitive, apostrophe-
+  // normalized). Anchored to the END so it only strips a genuine trailing disposition, and the subject MUST be
+  // this card's own name (escaped) — never a generic "it"/"that card" (those are the permanent-ability shapes).
+  const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`\\s*shuffle ${esc} into its owner['’]s library\\.?\\s*$`, "i");
+  if (!re.test(oracle)) return { body: oracle, selfShuffle: false };
+  return { body: oracle.replace(re, "").trim(), selfShuffle: true };
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-  const oracle = stripStormKeywordLine(stripSelfCostReduction(oracleOf(card)));
+  const rawOracle = stripStormKeywordLine(stripSelfCostReduction(oracleOf(card)));
+  // SELF-SHUFFLE DISPOSITION (Green Sun's Zenith + the Sun's Zenith / Beacon family) — peel a trailing "Shuffle
+  // <this> into its owner's library." sentence up front so the BODY parses through the normal pipeline, and stamp
+  // the resulting program `selfShuffle` (runEffectProgram's GY-1 then tucks the spell into the library instead of
+  // the graveyard). No family member carries a kicker/additional/alt cost, so stripping before those checks is
+  // safe; the body still must parse HIGH on its own (an unmodeled body stays LOW → Arbiter). A card without the
+  // sentence yields `oracle === rawOracle` and `selfShuffle === false` — byte-identical to the prior behavior.
+  const { body: oracle, selfShuffle } = stripSelfShuffleIntoLibrary(card, rawOracle);
+  // Stamp `selfShuffle` on the produced program WITHOUT reconstructing it (preserve every field —
+  // additionalCosts / altCost / xSpell / modal — that later lines may have attached). Only a HIGH program is
+  // flagged: a LOW body (unmodeled family member) routes to the Arbiter, which disposes the spell itself, so
+  // the flag would be inert there anyway. Mutating the returned object is safe (it's freshly built per call).
+  const stamp = (p) => {
+    if (selfShuffle && p && programConfidence(p) === "high") p.selfShuffle = true;
+    return p;
+  };
   // KICKED-SPELL-EFFECT (CR 702.33e) — "<base>. If this spell was kicked, <extra>." The kicked atom(s) are
   // appended stamped `kickedOnly` and run ONLY on a kicked cast (runEffectProgram skips them otherwise). The
   // kicker line + kicked sentence keep the NORMAL parse LOW, so this MUST run first. Whole-card-or-null (CREED).
   const kicked = matchKickedSpellEffect(card, typeOf(card), oracle);
   if (kicked && kicked.atoms.every((a) => KNOWN.has(a.op))) {
-    return makeProgram({ confidence: "high", atoms: kicked.atoms, xSpell: false, unparsedTail: null });
+    return stamp(makeProgram({ confidence: "high", atoms: kicked.atoms, xSpell: false, unparsedTail: null }));
   }
   const { costs, rest } = extractAdditionalCosts(oracle);
   const { altCost, rest: altRest } = extractAltCost(costs ? rest : oracle);
   // A spell that is BOTH an X-spell AND carries an additional/alt cost is a compound we defer — the cast-path
   // X-value expansion and the cost expansion don't yet compose — so parse the FULL oracle and let the
   // un-stripped cost sentence keep it LOW. No clean printed card needs both today.
-  if ((costs || altCost) && hasXCost(card)) return parseEffectClause(oracle, typeOf(card), { hasX: true });
+  if ((costs || altCost) && hasXCost(card)) return stamp(parseEffectClause(oracle, typeOf(card), { hasX: true }));
   // {X}-cost spell (no additional cost): the parser may stamp `amountX` on a damage/draw/pump atom whose
   // amount is the chosen X, bound at cast time (CR 601.2b) and read at resolution.
   const bodyOracle = altCost ? altRest : (costs ? rest : oracle);
   const program = parseEffectClause(bodyOracle, typeOf(card), { hasX: hasXCost(card) });
   if (costs && program) program.additionalCosts = costs;
   if (altCost && program) program.altCost = altCost;
-  return program;
+  return stamp(program);
 }
 
 /**
