@@ -476,6 +476,11 @@ function splitClauses(oracle) {
     // The " and gain …" is INTERNAL to the one team-pump instruction (same as the unfiltered form above), NOT a
     // top-level boundary — keep the whole sentence so the clause parse binds the scoped pump + grant together.
     if (/^(?:other creatures|[a-z]+s) you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TYPE-NEGATED TEAM PUMP + KEYWORD GRANT — the "non-<Subtype> creatures you control get +P/+T and gain KW …"
+    // variant (Return of the Wildspeaker's +3/+3 mode has no keyword, so it never reaches this " and " guard;
+    // this only protects the keyword-grant sibling form). The " and gain …" is INTERNAL to the one team-pump
+    // instruction — keep the whole sentence so pumpClauseParser binds the negated-scope pump + grant together.
+    if (/^non-[a-z]+ creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // MULTI-COUNT PUMP + KEYWORD GRANT (VERIFY PROTOTYPE) — keep "up to N target creatures each get ±P/±T and gain KW until end of turn" whole.
     if (/^up to (?:two|three|four|five) target creatures(?: you control)? each get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // GROUP-KEYWORD-GRANT — "(Creatures|Permanents) you control gain <kw> and <kw> until end of turn"

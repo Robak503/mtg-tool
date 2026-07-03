@@ -227,6 +227,18 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
   // phrasing routes to the Arbiter rather than silently dropping the flag — a safe FN.
   if (/^greatest power among creatures you control$/.test(p)) return withExclude({ kind: "greatestPowerYouControl" });
   if (/^greatest toughness among creatures you control$/.test(p)) return withExclude({ kind: "greatestToughnessYouControl" });
+  // ===== TYPE-NEGATED BOARD MAX (Return of the Wildspeaker) ===== "greatest power|toughness among non-<Subtype>
+  // creatures you control" — the same MAX-reduction, but the pool EXCLUDES creatures of one creature subtype
+  // ("non-Human"). The subtype must be in the curated TARGET_SUBTYPES allowlist (a real, collision-free creature
+  // subtype), so the notSubtype filter (applied at resolution by greatestPtAmong, changeling-aware) credits
+  // EXACTLY the non-<Subtype> creatures — never a silently mis-scoped max (THE CREED: an un-enforced type filter
+  // is a forbidden partial). A subtype outside the allowlist ("non-Wizard" would need it curated) fails the guard
+  // → null → low → Arbiter (safe FN). Canonicalized to Title-Case for the resolution-time \b type-line match.
+  let gm = p.match(/^greatest (power|toughness) among non-([a-z]+) creatures you control$/);
+  if (gm && TARGET_SUBTYPES.has(gm[2])) {
+    const kind = gm[1] === "power" ? "greatestPowerYouControl" : "greatestToughnessYouControl";
+    return withExclude({ kind, notSubtype: gm[2].charAt(0).toUpperCase() + gm[2].slice(1) });
+  }
   // ===== EXPERIENCE ===== the controller's experience counter total. "experience counters you have" is the
   // bare canonical form; "the controller has" is a rare alternate phrasing on non-Toph cards.
   if (/^experience counters? (?:you have|the controller has)$/.test(p)) return withExclude({ kind: "experienceCounters" });

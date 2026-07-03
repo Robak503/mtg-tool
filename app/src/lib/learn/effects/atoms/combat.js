@@ -739,6 +739,18 @@ export function pumpClauseParser(clause) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // TYPE-NEGATED TEAM PUMP (Return of the Wildspeaker mode 2) — "non-<Subtype> creatures you control get ±P/±T[ and
+  // gain KW] until end of turn". The negated subtype is credited via subtypeNegate → controllerCreatureTargets keeps
+  // only creatures NOT of that subtype (changeling-aware, CR 702.73a). CURATED subtype only (TARGET_SUBTYPES) — a
+  // non-allowlisted word fails the guard → null → low → Arbiter (FN-safe). Optional "and gain <KW>…" grant is
+  // all-or-nothing via parseGrantedKeywords. Whole-clause anchored ($); checked AFTER the plain youControl forms so
+  // "non-<X>" never collides with them. subtypeNegate is a Title-Cased word for the resolution \b type-line match.
+  let tn = t.match(/^non-([a-z]+) creatures you control get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  if (tn && TARGET_SUBTYPES.has(tn[1])) {
+    const kws = tn[4] ? parseGrantedKeywords(tn[4]) : null;
+    if (tn[4] && !kws) return null;
+    return { op: "pump", scope: "youControl", subtypeNegate: tn[1].charAt(0).toUpperCase() + tn[1].slice(1), ptDelta: { p: parseInt(tn[2], 10), t: parseInt(tn[3], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
   // TEAM-PUMP-SCOPE — the two scoped variants of the youControl team pump, sharing applyPumpEffect's
   // controllerCreatureTargets gatherer (set locked at resolution, CR 611.2c; endOfTurn → cleanup wear-off):
   //   • "OTHER creatures you control get …"  → excludeSource:true (CR 113.7 — every creature but the source)

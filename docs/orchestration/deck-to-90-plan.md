@@ -63,3 +63,17 @@ Runner-up: cost-reduction-{X} (The Great Henge — Omnath + Toph).
 - **Commander's Plate** → equipment + dynamic protection-from-commander-color-identity.
 
 **Sequencing:** integrate Batch 1 → launch Batch 2 (8 slices) → integrate → the subsystems become the Omnath tail (each a dedicated design+build). After all Batch-1/2 land, re-measure Omnath; the subsystems decide whether it clears 90%.
+
+---
+
+## NEXT DECK — near-deck triage (correct full-card classify, 2026-07-03, Clyde)
+
+**ZAXARA (80%, 20 non-native) — SCAFFOLDED, staged at scratchpad/zaxara-batch1.js.** X-spell deck = the most agent-buildable near deck. Batch 1 (10 agents): Animist's Awakening, Open the Way (reveal-X-lands→battlefield), Curse of the Swine (exile-X-target-creatures + boar rider — reuses multi-count target infra), Villainous Wealth (opp-mill-X + impulse-cast-free), Here Comes a New Hero! (X-draw-target-player + token-copy), Torment of Hailfire (repeat-X edict), Rampaging Yao Guai (enters-with-X + ETB destroy-any-number-artifacts), Nexos (granted-mana-to-basics), Freed from the Real (aura tap/untap grant), Finale of Revelation (borderline X-draw conditional). **Already helped by Omnath batch 2:** Finale of Devastation, Mana Drain (shared). SUBSYSTEM/park tail: Gargos (cost-reduction-X), Nyxborn Hydra (bestow), Unbound Flourishing (X-doubler), Hungering Hydra (can't-be-blocked-by->1, deliberately parked), Aberrant/Tervigon (ravenous — enters-with-X + conditional-draw + more text), Benevolent Hydra (counter-amp), Wan Shi Tong (X-counters + half-X-draw + trigger).
+
+**KOMA (82%, 18 non-native) — clone-heavy.** Buildable: Mana Drain / Arcane Denial (counter + deferred-C-mana), Scourge of Fleets (ETB mass-bounce toughness≤X), Murkfiend Liege (dual-anthem + untap), Enduring Curiosity (combat-dmg-draw + dies-flash-return), Serpent of Yawning Depths (can't-be-blocked-except-by-subtypes). Already-building (shared, Omnath b2): Return of the Wildspeaker, Defense of the Heart. SUBSYSTEM: Auton Soldier / Chameleon / Sakashima / Double Major / Ember Island / Quantum Misalignment (clone-copy — the clone-noncreature + copy-token subsystem, high cross-deck), Nezahal (multi-clause), Kira (aura-granted-ability), Junk Winder (affinity), Arixmethes (slumber-land).
+
+**VIHAAN (83%, 17 non-native) — Treasure/token-doubler-heavy.** Buildable: Smothering Tithe (the documented opponent-DRAW taxed-payment follow-on — reuses shipped taxed-payment infra), the combat-damage→create-Treasure triggers (Grim Hireling / Professional Face-Breaker / Kellogg / Goldspan — some multi-clause), Generous Plunderer / Lotho / Smuggler's Share / Land Tax (upkeep/trigger treasures). SUBSYSTEM: Mondrak + Xorn (TOKEN-DOUBLER replacement — high cross-deck), Teysa Karlov (trigger-doubler), Marionette (fabricate), Cyberman (afflict-grant), Agent of the Iron Throne (commander-granted-ability).
+
+**Cross-deck subsystems worth a dedicated build (recur across decks):** clone-copy (Koma×4, Rograkh/Kinnan), token-doubler (Vihaan, +others), aura-granted-ability (Omnath Bear Umbra/Super State + Kira + Toph + Kellan — the #1 cross-deck lever), cost-reduction-X (Gargos, Great Henge).
+
+**Sequencing:** integrate Omnath b2 → launch Zaxara b1 (staged) → integrate → Koma/Vihaan buildables → then the cross-deck subsystems (each a design pass, lifts multiple decks at once).
