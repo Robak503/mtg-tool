@@ -4,7 +4,7 @@
  */
 
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage, setDoesNotUntapNext } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
@@ -31,7 +31,11 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export function applyTapEffect(state, atom, ctx, tap) {
   let next = state;
   const wantsLand = atom?.targetType === "land";
-  const wantsPermanent = atom?.targetType === "permanent";
+  // TAP-PERMANENT ("Tap target permanent", Koma) AND TAP-NONLAND-PERMANENT ("Tap target nonland permanent an
+  // opponent controls", Junk Winder) both act on any live permanent that the restriction-aware enumerator
+  // already surfaced (the nonlandPermanent predicate + controller restriction were enforced at target time),
+  // so the resolver acts on whatever it's handed — enumerateTargets never offers a land / own permanent here.
+  const wantsPermanent = atom?.targetType === "permanent" || atom?.targetType === "nonlandPermanent";
   const wantsBasicSubtype = BASIC_SUBTYPE_TARGET.has(atom?.targetType);
   // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap/Untap enchanted creature.") — a FIXED referent, not a
   // chosen target: atomTargets resolves target:"enchanted" to the Aura's host (ctx.sourceId→attachedTo) at
@@ -59,6 +63,13 @@ export function applyTapEffect(state, atom, ctx, tap) {
         duration: { kind: "endOfTurn", turn: next.turn },
         source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null },
       }).state;
+    }
+    // NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): flag the
+    // tapped permanent so untapAll (gameState.js) SKIPS it exactly once (clearing the flag as it skips, so only
+    // the NEXT untap step is affected — CR 302.6 / a self-clearing one-shot restriction). Folded into the SAME
+    // tap atom ("It" = the just-tapped permanent), like lockActivated above — no cross-atom "it" to resolve.
+    if (tap && atom?.noUntapNext) {
+      next = setDoesNotUntapNext(next, t.id, true);
     }
   }
   return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: list.map(t => t.id) });
@@ -611,6 +622,18 @@ export function combatKeywordClauseParser(clause) {
   const tapPermM = t.match(/^tap target permanent( and its activated abilities can't be activated this turn)?\.?$/);
   if (tapPermM) {
     return { op: "tap", targetType: "permanent", restrictions: [], ...(tapPermM[1] ? { lockActivated: true } : {}) };
+  }
+  // TAP-NONLAND-PERMANENT-LOCKDOWN (Junk Winder — "Tap target nonland permanent an opponent controls. It
+  // doesn't untap during its controller's next untap step.") — a single chosen NONLAND permanent an opponent
+  // controls (the nonlandPermanent predicate + controller-opponent restriction enforced by enumerateTargets),
+  // tapped with a one-shot no-untap lockdown. The rider is FOLDED onto this SAME tap atom (splitClauses joins
+  // the two sentences with " and " — the same fold as Koma's lockActivated), so "It" = the just-tapped
+  // permanent with no cross-atom reference. The rider is REQUIRED ($ anchor): a bare "tap target nonland
+  // permanent an opponent controls" without the lockdown, or any other rider, stays LOW → Arbiter (a SAFE
+  // false-negative — model the WHOLE clause or nothing). noUntapNext → applyTapEffect flags the permanent so
+  // untapAll skips its NEXT untap step once (CR 302.6, self-clearing).
+  if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/.test(t)) {
+    return { op: "tap", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "opponent" }], noUntapNext: true };
   }
   const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
   if (tapM) {

@@ -682,6 +682,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^an enchantment you control enters(?: the battlefield)?$/.test(c)) {
     return { event: "permanentEnters", permanentFilter: "enchantment", scope: "enchantmentYouControl", whose: "any" };
   }
+  // TOKEN-ENTERS — "Whenever a token you control enters" (Junk Winder — the token-swarm tap payoff). Fires the
+  // permanentEnters event (checkPermanentEntersTriggers is called on every minted token from tokens.js's
+  // fireTokenEnterTriggers, and on ANY permanent entry). scopeMatches' tokenYouControl gates it to the entering
+  // permanent's `card.token` flag (the token-factory convention) AND the controller ("you control") — a
+  // NONTOKEN entry never fires (no over-fire). Controller-scoped ONLY: a bare "a token enters" (without "you
+  // control") would cover an opponent's token, a scope the engine can't enforce → UNDETECTED → Arbiter (SAFE
+  // false-negative), mirroring the artifact/enchantment perm-enters discipline above.
+  if (/^a token you control enters(?: the battlefield)?$/.test(c)) {
+    return { event: "permanentEnters", permanentFilter: "token", scope: "tokenYouControl", whose: "any" };
+  }
   // ===== LTB / PiG WATCHER (CR 700.4 / 603.6e) — "a <filter> you control is put into a graveyard from the
   // battlefield" / "a token you control leaves the battlefield" ===== The aristocrats LTB drains (Marionette
   // Apprentice / Master, Nadier's Nightblade). The leaving permanent is the TRIGGERING permanent; the WATCHER
@@ -1840,6 +1850,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "enchantmentYouControl":
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
       return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
+    case "tokenYouControl":
+      // TOKEN-ENTERS (Junk Winder — "a token you control enters") — the entering permanent must be a TOKEN
+      // (card.token, the token-factory convention, same gate as tokenYouControlLeaves) AND controlled by the
+      // source's controller. A nontoken entry never matches (no over-fire); an opponent's token never matches.
+      return !!triggeringPermanent && !!triggeringPermanent.card?.token
+        && triggeringPermanent.controller === sourcePermanent.controller;
     case "subtypeYouControl":
       // SUBTYPE scope — shared by FOUR events: SUBTYPE-ETB-SELF ("NAME or another SUBTYPE you control
       // enters", Pantlaza — #330), SUBTYPE combat-damage (#333), and SUBTYPE attacks / dies (#335). Fires

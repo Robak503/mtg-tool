@@ -392,6 +392,13 @@ function splitClauses(oracle) {
     // PUMP-UNTAP above). Anchored to the exact tap-permanent + rider pair, so it can only PROMOTE Koma's
     // already-low mode, never regress another card.
     .replace(/(tap target permanent)\.\s+its activated abilities can't be activated this turn\.?/gi, "$1 and its activated abilities can't be activated this turn")
+    // TAP-NONLAND-LOCKDOWN — fold Junk Winder's separate "It doesn't untap during its controller's next untap
+    // step." sentence that follows "Tap target nonland permanent an opponent controls." into the tap sentence
+    // as " and it doesn't untap …", so combatKeywordClauseParser binds the one-shot no-untap lockdown to the
+    // SAME single target ("It" = the tapped permanent) rather than orphaning it into a separate, unbindable
+    // clause (the same fold as TAP-PERMANENT-LOCK / PUMP-UNTAP above). Anchored to the exact tap-nonland +
+    // rider pair, so it can only PROMOTE this already-low shape, never regress another card.
+    .replace(/(tap target nonland permanent an opponent controls)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step")
     // DRAW-LOSE-SUBJECT — "Target player draws N cards and loses M life" (Sign in Blood, Blood Pact, Painful
     // Lesson, Harrowing Journey) shares ONE subject across the conjunction; the top-level " and " split would
     // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse
@@ -602,6 +609,13 @@ function splitClauses(oracle) {
     // SAME single target (else the top-level split below shatters it into "tap target permanent" + an
     // unbindable "its activated abilities …" → low). Anchored to the exact folded form.
     if (/^tap target permanent and its activated abilities can't be activated this turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TAP-NONLAND-LOCKDOWN (Junk Winder) — the normalize fold above joined "Tap target nonland permanent an
+    // opponent controls. It doesn't untap during its controller's next untap step." into one sentence with an
+    // internal " and "; that " and " is INTERNAL to the one tap+lockdown instruction ("It" = the tapped
+    // permanent), NOT a top-level effect boundary. Keep the whole sentence so combatKeywordClauseParser binds
+    // the tap + no-untap lockdown to the SAME single target (else the top-level split below shatters it into
+    // "tap target nonland permanent an opponent controls" + an unbindable "it doesn't untap …" → low).
+    if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TOKEN-COPY-KEYWORD (Irenicus's Vile Duplication) — "create a token that's a copy of target creature you
     // control, except the token has flying and it isn't legendary": the " and " joins the granted-keyword rider
     // to the "it isn't legendary" no-op, INTERNAL to the one copy instruction, NOT a top-level effect boundary.

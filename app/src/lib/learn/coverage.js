@@ -481,6 +481,16 @@ export function permanentTriggersCovered(card) {
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
     .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ")
+    // NO-UNTAP LOCKDOWN (Junk Winder) — the follow-up sentence "It doesn't untap during its controller's next
+    // untap step." is part of the SAME token-enters trigger's effect: detectTriggers keeps it in the effectClause,
+    // splitClauses folds it onto the tap atom (noUntapNext), and the WHOLE effect parses HIGH in
+    // allTriggerSentencesModeled above (proven before this residue check runs — an unmodeled tap variant fails
+    // that gate and never reaches here). The trigger-sentence strip (line ~480) stops at the first period after
+    // "…an opponent controls.", leaving the lockdown sentence as apparent residue. Strip the EXACT modeled
+    // wording so the card reads keyword-only (Junk Winder's only other text is the stripped Affinity line).
+    // Anchored to the exact untap-lockdown phrasing, so it can only consume this modeled follow-up (FN-safe).
+    // Curly apostrophe tolerated.
+    .replace(/\bit doesn['’]t untap during its controller['’]s next untap step\b\.?\s*/gi, " ")
     // DICE-ROLL (CR 726) — the result-scaled payoff sentences that FOLLOW a combat-damage trigger's "roll a
     // d20." are part of THAT trigger's effect (detectTriggers folds them into the effectClause, which parses
     // HIGH in allTriggerSentencesModeled above — proven before this residue check runs), but the trigger
