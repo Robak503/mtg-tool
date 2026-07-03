@@ -96,8 +96,9 @@ describe("LTB/PiG — detection + classification", () => {
     expect(classifyCard(card)).toMatch(/^native/);
   });
   it("the creature-or-artifact PiG watcher ('another creature or artifact you control is put into a graveyard') is DETECTED", () => {
-    // (Marionette Apprentice's full card also has Fabricate — an unmodeled keyword — so the FULL card stays
-    //  body-only; the LTB trigger itself is modeled, proven here on the isolated trigger.)
+    // (Marionette Apprentice's full card ALSO carries Fabricate 1 — now a modeled ETB keyword (fabricate.js), so
+    //  the FULL card flips native-trigger; see fabricate.test.js. This isolated-trigger card proves the LTB
+    //  trigger itself is modeled independent of the keyword.)
     const card = { type: "Creature — Human Artificer", name: "MarApprentice", mana: "{2}{B}", oracle: "Whenever another creature or artifact you control is put into a graveyard from the battlefield, each opponent loses 1 life." };
     expect(detectTriggers(card).map((t) => t.scope)).toEqual(["creatureOrArtifactYouControlPiG"]);
     expect(classifyCard(card)).toMatch(/^native/);

@@ -101,6 +101,12 @@ export const COVERED_KEYWORDS = [
   // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
   // "fading N" / "vanishing N" match via the startsWith check.
   "fading", "vanishing",
+  // KW-FABRICATE (CR 702.111a) — ENFORCED: the ETB choice (N +1/+1 counters OR N 1/1 Servo tokens) resolves in
+  // enterPermanent (resolvers.js) via fabricate.js — the counters branch adds them AS the creature enters
+  // (through applyCounterDoubling), the Servo branch mints the tokens + fires their ETB watchers. "fabricate N"
+  // matches via the startsWith check (the reminder-text "(When this creature enters …)" is parenthetical, stripped
+  // by stripReminder before the keyword-only split), exactly like "fading N" / "bushido N".
+  "fabricate",
   // BUSHIDO / RAMPAGE (subsystem 2) — ENFORCED: the keyword's triggered ability is synthesized in
   // detectTriggers + fired by checkBlockTriggers. Bushido (CR 702.46a — "blocks or becomes blocked → +N/+N
   // this turn") + Rampage (CR 702.23a — "becomes blocked → +N/+N for each blocker beyond the first", a

@@ -29,6 +29,7 @@ import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopie
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, isNativeManaAura, auraChoosesColorOnEnter } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl)
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
+import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
 import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) — "If this creature was kicked, it enters with N +1/+1 counters"; added only when opts.kicked
 import { parseTribute, decideTribute, tributeIfNotClause } from "./tribute.js"; // TRIBUTE (CR 702.96) — opponent ETB choice: pay N +1/+1 counters OR the "if tribute wasn't paid" effect fires (leaf, acyclic)
 import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 doubler (leaf): enters-with-counters bypasses addCounter, so double here
@@ -275,6 +276,14 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // remove-or-sacrifice runs in gameEngine (applyFadeVanishUpkeep).
   const fade = entersWithFadeCounters(card);
   if (fade && fade.n > 0) perm.counters = { ...perm.counters, [fade.type]: (perm.counters[fade.type] || 0) + applyCounterDoubling(state, controller, fade.type, fade.n) };
+  // KW-FABRICATE (CR 702.111a): "When this creature enters, put N +1/+1 counters on it OR create N 1/1 Servo
+  // tokens." A modal ETB choice (decideFabricate — deterministic, defaults to counters). The COUNTERS branch is
+  // applied here AS the creature enters (before the lethal SBA + before ETB watchers), so its P/T is right from
+  // turn 1 — exactly like the enters-with-+1/+1 replacement above — routed through applyCounterDoubling (CR 616).
+  // The SERVO branch mints its tokens AFTER the source is on the battlefield (below), so their ETB watchers fire.
+  const fabricate = parseFabricate(card);
+  const fabricateChoice = fabricate && fabricate.n > 0 ? decideFabricate(state, controller, card) : null;
+  if (fabricateChoice === "counters") perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", fabricate.n) };
   // ENTERS-WITH-NAMED-COUNTERS (CR 614.1c + 122.6a): "~ enters with N <name> counters on it" for a card-specific
   // NAMED counter (slumber — Arixmethes enters with five slumber counters and is a land until they're removed).
   // The bare literal-N form only (entersWithNamedCounters guards out fade/time/loyalty + conditional/variable),
@@ -357,6 +366,12 @@ export function enterPermanent(state, card, controller, opts = {}) {
     },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller });
+  // KW-FABRICATE (CR 702.111a) SERVO branch — when decideFabricate chose "servos", mint N 1/1 colorless Servo
+  // artifact creature tokens now that the source is on the battlefield, firing each Servo's ETB watchers (the
+  // shared fireTokenEnterTriggers seam) + applying the CR 616 token multiplier. Runs BEFORE the source's own ETB
+  // triggers below (consistent with how the Living Weapon token enters + fires just below); the counters branch
+  // was already applied above (on `perm`, pre-entry). A "counters" choice / non-Fabricate card is a no-op.
+  if (fabricateChoice === "servos") next = applyFabricateServos(next, card, controller);
   // Aura attach (CR 303.4f): an Aura attaches to the object it's enchanting AS it enters —
   // the freshly-minted permanent's `attachedTo` is wired bidirectionally to its host so the
   // layer engine applies the bonus from the same turn. Guarded: the host must still be on a
