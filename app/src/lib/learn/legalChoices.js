@@ -1265,10 +1265,28 @@ function actionsActivateAbility(state, playerId) {
         );
         if (sacCountPool.length < ab.sacCount.count) continue; // can't pay the sac → not offered
       }
+      // γ1e — "Sacrifice X <fungible subtype>": gather every legal victim of the subtype (same fungible-value-token
+      // pool + leave-trigger fail-safe as γ1d). The PLAYER chooses X (1..available), so at least ONE must exist to
+      // offer the ability; the per-X expansion inside the choice loop picks exactly X of these (target-overlap aware).
+      let sacXPool = null;
+      if (ab.sacX) {
+        sacXPool = player.battlefield.filter((v) =>
+          sacTypeMatches(v.card, ab.sacX.type, ab.sacX.subtype || null) &&
+          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+        );
+        if (sacXPool.length < 1) continue; // can't sacrifice even one → X≥1 impossible → not offered
+      }
       // The set of permanents consumed BY the sac is always exactly N members of the fungible pool, whichever
       // N — so for the offer-time affordability check, excluding the first N from the mana sources is correct
       // (a different per-choice pick, forced by target overlap below, removes an equally-non-mana member).
-      const sacCountManaExcluded = new Set(ab.sacCount ? sacCountPool.slice(0, ab.sacCount.count).map((v) => v.id) : []);
+      // For γ1e (variable X), exclude the WORST case for the {mana} part — the SINGLE Treasure needed for X=1
+      // (a larger X only sacrifices MORE Treasures, but the mana cost is X-independent; the per-X loop below
+      // re-checks affordability against that X's exact excluded victims, so this offer-gate stays conservative).
+      const sacCountManaExcluded = new Set(
+        ab.sacCount ? sacCountPool.slice(0, ab.sacCount.count).map((v) => v.id)
+          : ab.sacX ? sacXPool.slice(0, 1).map((v) => v.id)
+            : [],
+      );
       // A source paying part of its OWN cost by tapping ({T}), being sacrificed, or being exiled can't
       // ALSO tap for mana — drop it from the available mana sources for the affordability + payment. The
       // γ1d sac-N victims are dropped too (a sacrificed Treasure can't also be cracked for mana).
@@ -1337,6 +1355,52 @@ function actionsActivateAbility(state, playerId) {
             const pick = sacCountPool.filter((v) => !targetIds.has(v.id)).slice(0, ab.sacCount.count);
             if (pick.length < ab.sacCount.count) continue;
             sacCountIds = pick.map((v) => v.id);
+          }
+          // γ1e — "Sacrifice X <subtype>" (Grim Hireling): the PLAYER chooses X. Expand ONE action per legal X
+          // (1..available), each paying exactly X fungible victims and threading xValue:X into the effect (the
+          // "-X/-X" reads ctx.xValue). Victims exclude any the effect TARGETS (a sacrificed Treasure the ability
+          // also targeted would fizzle — no-op guard, same as γ1d) and any needed to tap for the {mana} part (a
+          // Treasure cracked for the sac can't ALSO pay {B}). The mana affordability is re-checked PER X against
+          // that X's exact excluded victims — a larger X removes more Treasures from the mana sources, so an X
+          // that starves the {mana} part is not offered (never an unpayable cost). One shared code path for the
+          // final action push below (sacXIds threads like sacCountIds); the non-sacX case leaves sacXIds null.
+          if (ab.sacX) {
+            const targetIds = new Set(ch.targets.map((t) => t.id));
+            const avail = sacXPool.filter((v) => !targetIds.has(v.id));
+            for (let x = 1; x <= avail.length; x++) {
+              const sacXIds = avail.slice(0, x).map((v) => v.id);
+              const sacXExcluded = new Set(sacXIds);
+              // A Treasure sacrificed for the X cost can't ALSO tap for the {mana} part — mirror the dispatcher.
+              const sourcesForX = manaSources(state, playerId).filter((s) =>
+                !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
+                !sacXExcluded.has(s.permanentId));
+              if (!canAfford(player.manaPool, sourcesForX, cost)) continue; // this X starves the {mana} part
+              actions.push({
+                kind: "activate-ability",
+                playerId,
+                permanentId: perm.id,
+                name: perm.card.name,
+                abilityIndex: ab.index,
+                cost,
+                cmc: totalCmc(cost),
+                tapSelf: ab.tapSelf,
+                payLife: ab.payLife || 0,
+                sacSelf: ab.sacSelf || false,
+                exileSelf: ab.exileSelf || false,
+                removeCounter: ab.removeCounter || null,
+                sacCreatureId: null,
+                sacCreatureName: null,
+                sacCountIds: sacXIds,                       // γ1e — the X fungible victims to sacrifice (cost)
+                xValue: x,                                  // γ1e — the chosen X threads into the effect (ctx.xValue)
+                program: ab.program,
+                targets: ch.targets,
+                chosenMode: ch.chosenMode ?? null,
+                needsTargets: ch.targets.length > 0,
+                targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+                abilityText: `Sacrifice ${x} ${ab.sacX.subtype}${x === 1 ? "" : "s"}: ${ab.effectClause}`,
+              });
+            }
+            continue; // sacX expanded its own per-X actions; skip the single-action push below
           }
           actions.push({
             kind: "activate-ability",

@@ -20,9 +20,10 @@
  *      Arbiter. Now recognized, gated tightly (legendary, ≥4 chars, not a leading article, word-bounded).
  *
  * CREED: each fix is a PROMOTION (it can only let an already-near-native card parse) and is whole-card —
- * an unmodeled residue (Grim Hireling's Sacrifice-X-Treasures activated, Kellogg's gain-control) keeps the
- * card body-only. Anti-FP pins below prove the boundaries hold. Full-corpus flip-diff: 6 cards flip to native
- * (the 2 Vihaan targets + 4 correct collateral), ZERO regressions in either direction.
+ * an unmodeled residue (Kellogg's gain-control) keeps the card body-only. (Grim Hireling's Sacrifice-X-Treasures
+ * activated is now modeled by the γ1e sac-X subsystem — see sacXActivated.test.js — so the former pin migrated to
+ * a native-mixed assertion below.) Anti-FP pins below prove the boundaries hold. Full-corpus flip-diff: 6 cards
+ * flip to native (the 2 Vihaan targets + 4 correct collateral), ZERO regressions in either direction.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -145,8 +146,8 @@ describe("VIHAAN-TREASURE — collateral native flips are correct (real oracle)"
 
 // ─── CREED — the Vihaan cards that must STAY body-only (real unmodeled subsystems) ───────────────────────
 describe("VIHAAN-TREASURE — CREED: unmodeled cards stay body-only (no over-claim)", () => {
-  it("Grim Hireling stays body-only — 'Sacrifice X Treasures: …-X/-X' is an unmodeled X-count sac + effect", () => {
-    expect(classifyCard({ name: "Grim Hireling", type: "Creature — Tiefling Rogue", mana: "{3}{B}", oracle: "Whenever one or more creatures you control deal combat damage to a player, create two Treasure tokens.\n{B}, Sacrifice X Treasures: Target creature gets -X/-X until end of turn. Activate only as a sorcery." })).toBe("body-only");
+  it("Grim Hireling is now native-mixed — the γ1e sac-X-Treasures cost + negative X-pump is modeled (see sacXActivated.test.js)", () => {
+    expect(classifyCard({ name: "Grim Hireling", type: "Creature — Tiefling Rogue", mana: "{3}{B}", oracle: "Whenever one or more creatures you control deal combat damage to a player, create two Treasure tokens.\n{B}, Sacrifice X Treasures: Target creature gets -X/-X until end of turn. Activate only as a sorcery." })).toBe("native-mixed");
   });
   it("Kellogg, Dangerous Mind stays body-only — 'Sacrifice five Treasures: Gain control …' is unmodeled", () => {
     expect(classifyCard({ name: "Kellogg, Dangerous Mind", type: "Legendary Creature — Human Mercenary", mana: "{1}{B}{R}", oracle: "First strike, haste\nWhenever Kellogg attacks, create a Treasure token.\nSacrifice five Treasures: Gain control of target creature for as long as you control Kellogg. Activate only as a sorcery." })).toBe("body-only");

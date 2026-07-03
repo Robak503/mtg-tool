@@ -96,6 +96,7 @@ export function parseAbilityCost(costStr) {
   let sacSelf = false;
   let sacOther = null;
   let sacCount = null;
+  let sacX = null;
   let exileSelf = false;
   let removeCounter = null;
   for (const item of items) {
@@ -159,13 +160,30 @@ export function parseAbilityCost(costStr) {
       }
       return null; // a fixed-count sac of a non-fungible/unknown subtype → unmodeled (deferred)
     }
+    // γ1e — SAC-X-SUBTYPE: "Sacrifice X <Subtype>" (a VARIABLE count the PLAYER chooses at activation — "Sacrifice
+    // X Treasures", Grim Hireling). Scoped to the SAME fungible value-token subtypes as γ1d (Treasure/Clue/Food/…):
+    // those tokens are interchangeable, so paying X of them is a NO-DECISION cost given a chosen X (any X satisfy it
+    // identically, CR 701.16); the runtime offers one action per affordable X (1..available) and auto-picks X victims.
+    // The X threads into the ability's EFFECT (Grim Hireling's "-X/-X" reads the SAME X the player paid), so the
+    // caller (parseActivatedAbilities) parses the effect with hasX:true and REQUIRES an X-scaled (amountX) atom —
+    // an effect that doesn't consume X would leave the sac-X choice with no payoff (a broken half-model). A sac-X of
+    // a DISTINGUISHABLE / non-fungible class ("Sacrifice X creatures/lands/artifacts", Eliminate the Competition /
+    // Krav / Champion of Stray Souls) is a REAL choice the auto-pick can't make faithfully → null (deferred, a safe
+    // false-negative). Singular/plural tolerated on the subtype noun; ONE capitalized subtype word only.
+    const sacXM = /^[Ss]acrifice X ([A-Z][a-z]+?)s?$/.exec(item);
+    if (sacXM) {
+      const FUNGIBLE = new Set(["treasure", "clue", "food", "gold", "blood", "map", "powerstone", "incubator"]);
+      const sub = sacXM[1].toLowerCase();
+      if (FUNGIBLE.has(sub)) { sacX = { type: "permanent", subtype: sub }; continue; }
+      return null; // a variable-count sac of a non-fungible/unknown subtype → unmodeled (deferred)
+    }
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, exileSelf, removeCounter };
+  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -368,12 +386,18 @@ export function parseActivatedAbilities(card) {
     // stack `activate-ability`.
     const doubleManaPool = effectIsDoubleManaPool(effectClause);
     const isManaEffect = effectIsManaAbility(effectClause) || doubleManaPool;
+    // γ1e — a "Sacrifice X <fungible subtype>" cost makes the ability's X a PLAYER CHOICE that threads into the
+    // EFFECT (Grim Hireling: "-X/-X" scales by the X Treasures paid). Parse the effect with hasX:true so an
+    // amount-X atom binds to ctx.xValue, and REQUIRE the effect to be an X-scaled program (see the effectHigh
+    // gate below) — a sac-X whose effect DOESN'T consume X would leave the paid X with no payoff (a half-model,
+    // CREED). Every other cost keeps hasX:false (the prior behavior — no {X} in an activated cost otherwise).
+    const sacX = cost?.sacX ?? null;
     let program = null;
     let effectHigh = false;
     if (cost && !isManaEffect) {
       // CR 201.4: rewrite the card's own name → "this creature" so a self-referential effect
       // ("Regenerate Wolverine.") matches the engine's self-anchored atoms.
-      program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant");
+      program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant", { hasX: !!sacX });
       // MODAL-ACTIVATED (CR 602.1 / 700.2 — Koma "Sacrifice another Serpent: Choose one — …"): a "Choose one"
       // modal effect IS playable here. The runtime offers ONE action per mode (legalChoices →
       // expandCastChoices expands mode × target combos, stamping chosenMode) and the dispatcher executes the
@@ -382,7 +406,12 @@ export function parseActivatedAbilities(card) {
       // X-choice expansion isn't wired); a "Choose two/one or more" modal also rides this (expandCastChoices
       // handles the mode-combinations). The all-or-nothing modal HIGH gate (every mode parses) already
       // guarantees no mode is silently un-modeled, so this can't half-resolve.
-      effectHigh = !!program && programConfidence(program) === "high" && !program.xSpell;
+      // sacX (γ1e): the effect MUST be an X-scaled program (xSpell — its amount reads the chosen X); a fixed /
+      // non-X effect under a sac-X cost is a mis-model (the player pays X but nothing consumes it) → not modeled.
+      // Every non-sacX ability keeps the original gate: HIGH, non-modal, non-X (a stray {X} effect stays parked).
+      effectHigh = sacX
+        ? (!!program && programConfidence(program) === "high" && !!program.xSpell && !program.modal)
+        : (!!program && programConfidence(program) === "high" && !program.xSpell);
     }
     out.push({
       index: index++,
@@ -395,6 +424,7 @@ export function parseActivatedAbilities(card) {
       sacSelf: cost?.sacSelf ?? false, // γ1 — "Sacrifice this" cost item (the runtime sacs the source)
       sacOther: cost?.sacOther ?? null, // γ1b — "Sacrifice a/another <type>": legalChoices picks the victim
       sacCount: cost?.sacCount ?? null, // γ1d — "Sacrifice N <fungible subtype>": legalChoices auto-picks N victims
+      sacX,                             // γ1e — "Sacrifice X <fungible subtype>": player chooses X, X threads to the effect
       exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       costModeled: !!cost,

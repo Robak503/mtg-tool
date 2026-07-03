@@ -141,12 +141,9 @@ describe("SAC-N-SUBTYPE — classification flips (real bundled oracle)", () => {
 });
 
 describe("SAC-N-SUBTYPE — CREED: unmodeled cards STAY body-only (no over-claim)", () => {
-  it("Grim Hireling — '{B}, Sacrifice X Treasures: …-X/-X' (X-count) stays body-only", () => {
-    expect(classifyCard({
-      name: "Grim Hireling", type: "Creature — Tiefling Rogue", mana: "{3}{B}",
-      oracle: "Whenever one or more creatures you control deal combat damage to a player, create two Treasure tokens.\n{B}, Sacrifice X Treasures: Target creature gets -X/-X until end of turn. Activate only as a sorcery.",
-    })).toBe("body-only");
-  });
+  // Grim Hireling's "{B}, Sacrifice X Treasures: …-X/-X" is now MODELED by the γ1e sac-X subtype cost + the
+  // negative symmetric X-pump (see sacXActivated.test.js) — it classifies native-mixed (combat-damage-team
+  // Treasure trigger + the sac-X debuff). This former CREED pin migrated there; the γ1d pins below stay.
   it("Kellogg, Dangerous Mind — 'Sacrifice five Treasures: Gain control …' (LOW effect) stays body-only", () => {
     expect(classifyCard({
       name: "Kellogg, Dangerous Mind", type: "Legendary Creature — Human Mercenary", mana: "{1}{B}{R}",

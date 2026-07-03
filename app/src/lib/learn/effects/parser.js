@@ -230,6 +230,11 @@ function rewriteAmountX(clause) {
   const damage = /(deals?\s+)X(\s+damage\b)/i;
   const draw = /(\bdraws?\s+)X(\s+cards?\b)/i; // "draws?" covers the each-player/target form ("target player draws X cards", "each player draws X cards") in addition to the controller "draw X cards"
   const pumpSym = /(\bgets\s+)\+X\/\+X\b/i;
+  // NEGATIVE symmetric X-pump (X-PUMP-NEG): "gets -X/-X" — a debuff scaled by the chosen X (Grim Hireling's
+  // "Target creature gets -X/-X until end of turn", paid with X sacrificed Treasures). Rewrites to the sentinel
+  // "-1/-1" so the numeric pump clause parses, and reports xSign:-1 so the caller stamps amountXNeg — the
+  // resolver then applies -X/-X (both pips = -ctx.xValue) and the lethal SBA drops a creature to <=0 toughness.
+  const pumpSymNeg = /(\bgets\s+)-X\/-X\b/i;
   // ASYMMETRIC X-pump (X-PUMP-ASYM): ONE pip is +X, the other a printed value — "+X/+0" / "+X/+2"
   // (slot "p") and "+0/+X" / "+2/+X" (slot "t"). The non-X pip MUST be a digit (so these can never
   // match the symmetric +X/+X handled above). The caller carries the printed ptDelta + amountXSlot so
@@ -239,6 +244,7 @@ function rewriteAmountX(clause) {
   if (damage.test(clause)) return { clause: clause.replace(damage, (_, a, b) => `${a}1${b}`), xSlot: null };
   if (draw.test(clause)) return { clause: clause.replace(draw, (_, a, b) => `${a}1${b}`), xSlot: null };
   if (pumpSym.test(clause)) return { clause: clause.replace(pumpSym, (_, a) => `${a}+1/+1`), xSlot: null };
+  if (pumpSymNeg.test(clause)) return { clause: clause.replace(pumpSymNeg, (_, a) => `${a}-1/-1`), xSlot: null, xSign: -1 };
   if (pumpXP.test(clause)) return { clause: clause.replace(pumpXP, (_, a, b) => `${a}1${b}`), xSlot: "p" };
   if (pumpXT.test(clause)) return { clause: clause.replace(pumpXT, (_, a) => `${a}1`), xSlot: "t" };
   return null;
@@ -799,6 +805,9 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       // applies ctx.xValue to the marked pip and the printed ptDelta to the other ("+X/+0" → +X power, +0
       // toughness). Symmetric +X/+X (xSlot null) keeps the original ptDelta-less shape (resolver = X both).
       if (rw.xSlot && base.op === "pump") { atom.ptDelta = base.ptDelta; atom.amountXSlot = rw.xSlot; }
+      // NEGATIVE symmetric X-pump ("-X/-X", Grim Hireling) — the sentinel parsed to a -1/-1 pump; mark the atom
+      // so applyPumpEffect subtracts ctx.xValue on BOTH pips (a debuff, lethal-SBA-checked) instead of adding it.
+      if (rw.xSign === -1 && base.op === "pump") atom.amountXNeg = true;
       return atom;
     }
   }

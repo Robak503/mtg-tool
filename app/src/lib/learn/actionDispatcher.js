@@ -669,6 +669,10 @@ function applyActivateAbility(state, action) {
     // activated ability ("{T}: This creature gets +1/+1 until end of turn") resolve to the source.
     const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id, sourceId: action.permanentId };
     if (action.chosenMode != null) params.chosenMode = action.chosenMode;
+    // γ1e — a "Sacrifice X <subtype>" ability threads the chosen X into resolution (ctx.xValue), so an X-scaled
+    // effect (Grim Hireling's "-X/-X") applies the SAME X the player paid in sacrificed Treasures. Only the sac-X
+    // path sets action.xValue on an activated ability, so every other ability keeps its prior X-free params shape.
+    if (action.xValue != null) params.xValue = action.xValue;
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   }
 
