@@ -346,6 +346,20 @@ export function countForSpec(state, ctx, spec) {
     }
     return total;
   }
+  // ===== SUBTYPE-ON-BATTLEFIELD (all seats) ===== "the number of <Subtype>s on the battlefield" (Magma
+  // Sliver's granted firebreathing X). Counts EVERY permanent of the curated subtype across ALL players'
+  // battlefields (not just the controller's), each read off the live front-face type line via countMatches;
+  // a CHANGELING (CR 702.73a — every creature type) counts too. Read off the board (not a single-player
+  // tally), so computed BEFORE the single-player lookup below. An empty board → 0 (a safe floor).
+  if (spec.kind === "subtypeOnBattlefield") {
+    let total = 0;
+    for (const pl of Object.values(state?.players || {})) {
+      for (const perm of pl.battlefield || []) {
+        if (countMatches(perm.card, spec) || cardIsChangeling(perm.card)) total += 1;
+      }
+    }
+    return total;
+  }
   // ===== DEATHS-THIS-TURN (CR 700.4), all-seats ===== "the number of creatures that died this turn" (Mahadi)
   // sums EVERY player's per-turn creature-death tally (creaturesDiedThisTurn, bumped at the death chokepoint),
   // because "a creature that died" is unscoped — any player's creature counts. The controller-scoped variant

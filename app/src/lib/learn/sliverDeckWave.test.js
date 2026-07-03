@@ -20,9 +20,10 @@
  * PARKED (pinned non-native here with the exact blocker, so a future flip is deliberate, never accidental):
  *   Bident of Thassa (force-attack-opponents activated = goad-class, unmodeled), Damn (Overload modal cast
  *   target→each, unmodeled), Lifecrafter's Bestiary (optional-mana-payment reflexive "you may pay {G}. If you
- *   do, draw" — unmodeled), Essence Sliver (source-keyed lifegain subsystem), Magma Sliver (granted dynamic-X
- *   pump), Lazotep Sliver (afflict keyword grant), Sliver Overlord (tutor + indefinite control), Ponder /
- *   Windfall / For the Ancestors (library/wheel/reveal-dig — Arbiter-domain).
+ *   do, draw" — unmodeled), Essence Sliver (source-keyed lifegain subsystem), Lazotep Sliver (afflict keyword
+ *   grant), Sliver Overlord (tutor + indefinite control), Ponder / Windfall / For the Ancestors
+ *   (library/wheel/reveal-dig — Arbiter-domain). (Magma Sliver FLIPPED — granted count-scaled subtype pump now
+ *   modeled; see magmaSliver.test.js.)
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -202,7 +203,9 @@ describe("Slivers PARK pins — these remain non-native until their blocker subs
     // NOTE: Essence Sliver FLIPPED to native-trigger (GLOBAL SUBTYPE damage → controller-lifegain). Its
     // positive pin moved to the dedicated block below. It reuses the subtypeGlobal + itsController machinery
     // (Synapse/Brood) with a new "gain that much life" combat-damage-scaled sentinel.
-    ["Magma Sliver", "Creature — Sliver", "{3}{R}", "All Slivers have \"{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield.\"", "body-only"], // granted dynamic-X pump
+    // NOTE: Magma Sliver FLIPPED to native-static — its granted "{T}: Target Sliver creature gets +X/+0 …
+    // where X is the number of Slivers on the battlefield" is now a modeled subtype-target count-scaled pump
+    // (subtypeOnBattlefield count kind + ptDeltaCountSlot asymmetric +X/+0). Positive pin: magmaSliver.test.js.
     ["Lazotep Sliver", "Creature — Zombie Sliver", "{3}{B}", "Sliver creatures you control have afflict 2. (Whenever a creature with afflict 2 becomes blocked, defending player loses 2 life.)\nWhenever a nontoken Sliver you control dies, amass Slivers 2. (Put two +1/+1 counters on an Army you control. It's also a Sliver. If you don't control an Army, create a 0/0 black Sliver Army creature token first.)", "body-only"], // afflict keyword grant
     ["Sliver Overlord", "Legendary Creature — Sliver Mutant", "{W}{U}{B}{R}{G}", "{3}: Search your library for a Sliver card, reveal that card, put it into your hand, then shuffle.\n{3}: Gain control of target Sliver. (This effect lasts indefinitely.)", "body-only"], // tutor + indefinite control
     ["Ponder", "Sorcery", "{U}", "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.", "arbiter-spell"], // library reorder

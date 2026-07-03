@@ -145,10 +145,21 @@ export function parseCountSource(phrase, opts = {}) {
   return { ...base, excludeSelf: true };
 }
 
-function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = {}) {
+function baseCountSource(phrase, { allowTarget = false, allowScopes = false, allowBattlefield = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
   const withExclude = (spec) => spec; // "other" exclusion is handled by the parseCountSource wrapper (excludeSelf)
+  // ===== SUBTYPE-ON-BATTLEFIELD (all seats) ===== "<Subtype>s on the battlefield" — the count of EVERY
+  // permanent of one curated creature subtype across ALL players' battlefields, NOT just the controller's
+  // (Magma Sliver's granted firebreathing "+X/+0 … where X is the number of Slivers on the battlefield").
+  // Distinct from the "<Subtype>s you control" branch below (who undefined → controller-only): this counts
+  // the global board. countForSpec sums it over every seat (kind:"subtypeOnBattlefield"). Only reachable via
+  // allowBattlefield (passed ONLY by the subtype-target count-pump matcher), so no legacy count consumer can
+  // widen to a global scope. CURATED subtype only (COUNT_SUBTYPE) — a non-subtype word ("creatures on the
+  // battlefield" would need its own kind) fails the guard → null → low → Arbiter (CREED, safe FN).
+  if (allowBattlefield && (m = p.match(/^([a-z]+) on the battlefield$/)) && COUNT_SUBTYPE[m[1]]) {
+    return withExclude({ kind: "subtypeOnBattlefield", subtype: COUNT_SUBTYPE[m[1]] });
+  }
   // ===== TREASURE-MAKER ===== OPPONENT-scoped union "artifacts and enchantments your opponents control"
   // (Dockside Extortionist's X). Curated exact phrase only; countForSpec sums it over every opponent. Checked
   // FIRST so "your opponents control" wins before the controller-scoped "you control" branches.
