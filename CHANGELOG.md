@@ -8,6 +8,45 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.86.0] - 2026-07-03
+
+### Improved
+- **Play-harness + AI overhaul (the second Fable 5 pass).** The headless self-play system and the
+  practice AI got a verified deep pass — 10 battery-gated waves, 62 scan findings dispositioned,
+  suite 7,503 → 7,661. Highlights:
+  - **The AI uses its whole deck now:** equipment gets equipped (activations 0→16 in the equipment
+    pod, which finishes ~15 turns faster), board wipes fire when clearly behind, fogs stop lethal
+    swings, auras cast on-intent, team pumps fire exactly when they flip a swing to lethal, and
+    alternative costs are actually PAID — Fierce Guardianship pitches free, Snuff Out pays life
+    (16 carriers offered; 15 risky ones pinned never-offered). Head-to-head vs the previous AI:
+    60/40 with dead turns 0.33 → 0.03.
+  - **No more wasted cards:** the AI stops casting spells the engine can't resolve (pod census
+    spell-unresolved entries 4 → 0) and never aims kicked spells at its own permanents.
+  - **A 100×-class perf fix:** a combinatorial explosion in X-target enumeration (Candelabra-style
+    'untap X lands') could allocate 7-8GB in one call and stall or OOM cEDH mirrors (~315s) — now
+    bounded at the cap with provably identical decisions (4-game mirror: 13.4s incl. richer games).
+  - **Training data you can trust:** losing pod seats are no longer labeled winners, mulligans are
+    ON for batches (unkeepable hands kept: 9 → 0), seeds are stamped on every banked row, seat/deck
+    rotation de-confounds attribution, and every batch reports win tables by seat position and deck
+    with confidence intervals.
+  - **The pilot seam is fully honest:** caller-driven games keep their instrumentation across act()
+    calls, the play-API contract now documents the real 20 pending-choice kinds with per-kind answer
+    shapes and a written versioning discipline (PLAY_API_VERSION 1.2.0), policy A/B is reachable from
+    the session layer, and an off-turn cascade/discover ask can no longer hard-wedge a game.
+  - **Tests can never pollute real data again:** a P0 test-isolation hole (env override defeating
+    tmp-dir isolation) was closed with a scrub + tripwire after it filled the dev tree with ~90
+    fixture profiles.
+- **Coverage riders (from the overnight grind, previously unreleased):** +250 native card flips
+  across 9 PRs — Slivers 99% / Omnath 95% / Vihaan 92% / Koma 92% / Zaxara ~90% / Rograkh ~78%
+  native, plus new subsystems (becomes-target events, activated-cost reduction, token-count
+  replacement, totem armor, proper Rebound, and more).
+
+### Method
+- The pass's replication guide ships at docs/orchestration/PLAY-HARNESS-OVERHAUL-PLAYBOOK.md
+  (verification recipes, proof levels, anchor-lineage discipline, incident log) with the full
+  wave-by-wave evidence in play-harness-overhaul-log.md.
+
+
 ## [0.85.0] - 2026-07-02
 
 ### Improved
