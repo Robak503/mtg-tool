@@ -58,6 +58,7 @@ import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, ch
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
+import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
 
@@ -477,6 +478,15 @@ function applyCastSpell(state, action) {
       sourceName: diffusionTax.wardName,
     });
   }
+  // KIRA, GREAT GLASS-SPINNER (a HARD-counter group-ward analogue, kiraTargetCounter.js): if this spell
+  // targets a creature whose controller controls a Kira source AND that creature has not become a target yet
+  // this turn (CR 603.2 — "for the first time each turn"), COUNTER the spell outright (no pay). Marks every
+  // targeted creature as having-become-a-target this turn. Placed LAST — after the ward/Diffusion soft-counter
+  // taxes — because Kira is unconditional: on the (astronomically rare) overlap where the SAME single-target
+  // spell also raised a soft-counter above, countering the spell here removes it; the soft-counter settle then
+  // fizzles harmlessly on the missing stack id (counterSpellById logs counter-fizzle). No-op when no Kira is in
+  // play / the spell targets no eligible-and-fresh creature.
+  next = applyKiraTargetCounter(next, stackObject);
   // Restart priority loop at active player after the spell goes on
   // the stack (per CR 117.1c).
   return {
@@ -775,6 +785,10 @@ function applyActivateAbility(state, action) {
       sourceName: abilityDiffusionTax.wardName,
     });
   }
+  // KIRA (kiraTargetCounter.js): an ABILITY targeting an eligible-and-fresh Kira-protected creature is countered
+  // outright too (CR 603.2 — "a spell or ability"; an ability off the stack has no zone change on counter). Same
+  // last-placement / rare-overlap reasoning as the cast path. No-op when no Kira source is in play.
+  next = applyKiraTargetCounter(next, stackObject);
   // Activating a (non-mana) ability uses the stack — restart the priority loop at the
   // active player (CR 117.1c), exactly like casting a spell.
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
@@ -885,6 +899,11 @@ function applyActivateLoyalty(state, action) {
   // zero-loyalty SBA sweep so the sac trigger sits atop the loyalty ability regardless of the walker's fate.
   next = checkBecomesTargetTriggers(next, stackObject);
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // KIRA (kiraTargetCounter.js): a loyalty ability IS an activated ability (CR 606.1), so "a spell or ability"
+  // covers it — a loyalty ability targeting an eligible-and-fresh Kira-protected creature is countered outright.
+  // Placed BEFORE the zero-loyalty SBA sweep (like the becomes-target flush above) so the counter lands while
+  // the loyalty ability is on the stack regardless of the walker's fate. No-op when no Kira source is in play.
+  next = applyKiraTargetCounter(next, stackObject);
   // SBA (CR 704.5i): paying a −N cost down to 0 puts the walker into the graveyard. The ability is
   // already on the stack (above) and still resolves — putting it there before the sweep is what
   // preserves that ordering.

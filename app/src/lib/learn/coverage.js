@@ -40,6 +40,7 @@ import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
 import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
 import { isNativeGroupWard } from "./groupWard.js";
+import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
@@ -1318,6 +1319,16 @@ registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
 // the runtime enforces it (actionDispatcher's groupWardTax at the cast/ability chokepoints reuses the ward
 // soft-counter). isNativeGroupWard is all-or-nothing (any rider → body-only), so the credit is honest.
 registerCoverageClassifier((card) => (isNativeGroupWard(card) ? "native-trigger" : null));
+
+// KIRA, GREAT GLASS-SPINNER (hard-counter group-ward analogue) — a card whose only non-keyword text is the
+// modeled group grant ("Creatures you control have \"Whenever this creature becomes the target of a spell or
+// ability for the first time each turn, counter that spell or ability.\"") classifies native-trigger. Like
+// Diffusion, detectTriggers has no "becomes the target" event so the composite path leaves it body-only; this
+// registry classifier credits it, mirroring the runtime (actionDispatcher/gameEngine's applyKiraTargetCounter
+// at the four target-choice chokepoints hard-counters the first targeting each turn). isNativeKira is
+// all-or-nothing — its residue (minus the grant) must be KEYWORD-ONLY (Kira's own Flying is honored; any
+// unmodeled rider → body-only), so the credit is honest. isKeywordOnly injected to keep kiraTargetCounter a leaf.
+registerCoverageClassifier((card) => (isNativeKira(card, isKeywordOnly) ? "native-trigger" : null));
 
 // ─── WAVE 5a — Wolverine, Best There Is (the damage-replacement keystone) ──────────────────────────────────
 // All THREE clauses modeled (CREED all-or-nothing): the source-scoped double-all-damage replacement
