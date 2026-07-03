@@ -94,3 +94,28 @@ Behavior-safety: trajectory hash == baseline `0c75d0de…` byte-for-byte (×2 ru
 runtime fingerprints 0-diff · suite 7,503→7,508 (5 new combination-parity + OOM-guard tests,
 verified against an independent successor-generator reference) · lint clean. Integration
 re-battery on the rolling branch: 7,508 green + lint. Build worktree removed junction-safe.
+
+## ⏸️ PASS PAUSED (session cap, Colton 2026-07-03) — RESUME PROTOCOL
+
+**State at pause:** rolling branch `claude/play-harness-overhaul` @ dc394d73 (P0 baselines + P1
+plan + D1 SHIPPED, suite 7,508 green). Build lanes stopped POST-COMMIT, pre-integration:
+- `build-a1` worktree @ **585f3730** (HB-1 env scrub + tripwire, HB-2 atomic migration) — clean.
+- `build-a2` worktree @ **9349f507** (SD-1/SD-2/PS-2/PS-3/ENG-FLAG-1 threading) — clean.
+- `a2-baseline` worktree (detached, A2's fingerprint baseline) — check junction before ANY removal.
+- Lane C (omnath-tools/pilots, W0+H1–H4): partial, but `pilots/test-all.mjs` ALL GREEN at pause;
+  unknown which H-fixes landed — VERIFY-THEN-COMPLETE against `p1-confirmed.json` ids
+  PILOT-W0/H1/H2/H3/H4 (durable copy: omnath-tools/overhaul-2026-07-02/… + session tasks dir).
+
+**Resume (any session):** boot /omnath → read this log top-to-bottom → then:
+1. Integrate A1+A2: from the rolling worktree `git cherry-pick 585f3730 9349f507` → full battery
+   (suite ≥7,508 + lint + tier/program/runtime 0-diff + trajectory hash — A2 default path MUST
+   equal `0c75d0de…`; A1's leak-repro + A2's threaded-path tests must exist — if the agents died
+   before adding tests, ADD them before integrating) → remove build worktrees junction-safe
+   (`cmd //c rmdir <wt>/app/node_modules` first if a junction exists).
+2. Lane C verify-then-complete (H-fix numbers vs R11 baselines: 0.00 untapped / 43 self-counters /
+   27 chumps / 23 suicides), then H5–H8 + vs-default + pod re-measure.
+3. Next waves per the P1 plan table: A3 (SD-3 wedge!, SD-4/5/6) → A4 (HB-3 label bug!, HB-4/5/6)
+   ∥ B1 (AI-F1/F2/F11/F12) → B2 (W-slices) → B3 (alt-cost OFFER) → E contract v1.1 → P5 docs →
+   P6 release (ships the 123 unreleased grind commits too).
+**Findings ledger:** session tasks dir `p1-confirmed.json` (62 findings, full designs). One-owner
+lock: COMMS "Omnath 4" — grind chat stays paused until this pass posts its handoff.
