@@ -333,6 +333,27 @@ function splitTriggerSentence(inner) {
       pos = next + 1;
     }
   }
+  // COMBAT-EVENT-LIST guard (CR 603.2) — a comma/or list of combat-and-target events ("attacks, blocks, or
+  // becomes the target of a spell, …" — Giggling Skitterspike) puts the first comma right after "attacks",
+  // so the loop above stops there and TRUNCATES the list — leaving condition "…attacks" and swallowing the
+  // remaining events ("blocks, or becomes the target of a spell") into the effect. classifyCondition would
+  // then read it as a bare "attacks" trigger and SILENTLY DROP the other event(s) — a confident WRONG partial
+  // (THE CREED). Advance splitIdx to the END of the event list so the WHOLE compound condition reaches
+  // classifyCondition, where the "attacks or blocks" / "attacks or becomes the target of a spell" compound
+  // guards leave it UNDETECTED → Arbiter (a SAFE false-negative). Gated to the case where the truncated
+  // prefix ends on a bare combat verb AND the text after the comma continues with another combat/target
+  // event token ("blocks" / "becomes the target"), optionally after "or"/"," — so a normal "…attacks, draw a
+  // card" (effect after the event) is untouched. Advances one list element at a time until the continuation
+  // stops. Placed before the cast-list guard so the two never contend (a combat list has no "cast"/"spell").
+  {
+    const CONT_RE = /^\s*(?:,?\s*(?:or\s+)?)(?:blocks|becomes\s+blocked|becomes\s+the\s+target\s+of\s+a\s+spell)\b/i;
+    while (splitIdx !== -1 && /\b(?:attacks|blocks|becomes\s+the\s+target\s+of\s+a\s+spell)\s*$/i.test(inner.slice(0, splitIdx).trim())
+           && CONT_RE.test(inner.slice(splitIdx + 1))) {
+      const next = inner.indexOf(",", splitIdx + 1);
+      if (next === -1) break;
+      splitIdx = next;
+    }
+  }
   // TYPED-CAST-LIST guard — a "cast a <A>, <B>, or <C> spell" condition (Sram: "cast an Aura, Equipment, or
   // Vehicle spell") puts a comma INSIDE the condition, before the word "spell". The prefix "you cast an
   // Aura" already has the "cast" event verb, so the loop above stops at that first comma and TRUNCATES the
@@ -835,6 +856,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
   // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
   if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
+  // ===== ATTACKS-OR-BECOMES-TARGET (compound-trigger guard, CR 603.2 / CR 115.1) ===== A condition that
+  // names BOTH "attacks" and "becomes the target of a spell" ("Whenever this creature attacks or becomes
+  // the target of a spell, …" — Goldspan Dragon, Tectonic Giant, Giggling Skitterspike) is a COMPOUND event.
+  // The bare "becomes the target of a spell" event has NO general runtime (only HEROIC is modeled, and it
+  // fires exclusively for a spell the TARGET's controller casts — CR 702.35 — not for ANY spell targeting
+  // the permanent, so it can't stand in for this broader condition). The \battacks\b branch below would
+  // detect this as JUST "attacks" and SILENTLY DROP the "becomes the target of a spell" half — the trigger
+  // would fire on attack only, a confident WRONG partial (CLAUDE.md §1.2 / THE CREED): the card would never
+  // fire when it's targeted. Mirrors the "attacks or blocks" guard directly above. Leave it UNDETECTED so the
+  // trigger-sentence count matches in allTriggerSentencesModeled and the whole card routes to the Arbiter (a
+  // SAFE false-negative) until a general becomes-target-of-a-spell event exists. Anchored on "becomes the
+  // target of a spell" (a Ward reminder's "…of a spell or ability an opponent controls" never reaches here —
+  // detectTriggers strips reminder text upstream and Ward is a separate keyword lane).
+  if (/\battacks\b/.test(c) && /\bbecomes the target of a spell\b/.test(c)) return null;
   // ===== ATTACKS-ALONE (sole-attacker restriction guard, CR 508.4a) ===== "attacks alone" fires ONLY when
   // exactly one creature is attacking. The engine has NO sole-attacker gate, so the non-anchored
   // "a creature you control" match below would silently DROP "alone" and fire on EVERY attacker (Black

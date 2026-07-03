@@ -135,6 +135,33 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
   it("does NOT detect a 'leaves the battlefield' trigger (City Pigeon) — the engine never fires LTB", () => {
     expect(detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."))).toHaveLength(0);
   });
+  // ATTACKS-OR-BECOMES-TARGET compound guard (CR 603.2) — "becomes the target of a spell" has no general
+  // runtime (HEROIC only fires for a spell the target's OWN controller casts, CR 702.35 — not for ANY spell
+  // targeting the permanent). Detecting the "attacks or becomes the target of a spell" compound as bare
+  // "attacks" would SILENTLY DROP the target half → a confident wrong play (THE CREED). Leave it UNDETECTED.
+  it("does NOT detect 'attacks or becomes the target of a spell' (Goldspan Dragon) — the target half would be dropped", () => {
+    expect(detectTriggers(creature("Goldspan Dragon", "Whenever this creature attacks or becomes the target of a spell, create a Treasure token."))).toHaveLength(0);
+  });
+  it("does NOT detect 'attacks or becomes the target of a spell' (Tectonic Giant) — the target half would be dropped", () => {
+    expect(detectTriggers(creature("Tectonic Giant", "Whenever this creature attacks or becomes the target of a spell, Tectonic Giant deals 3 damage to each opponent. Exile the top two cards of your library. Until the end of your next turn, you may play those cards."))).toHaveLength(0);
+  });
+  // COMBAT-EVENT-LIST guard — a comma-list "attacks, blocks, or becomes the target of a spell" truncates at
+  // the FIRST comma (after "attacks") so the split leaks "blocks, or becomes the target…" into the effect;
+  // the list guard now folds the whole list back into the condition, where the compound guards reject it.
+  it("does NOT detect 'attacks, blocks, or becomes the target of a spell' (Giggling Skitterspike) — the block+target halves would be dropped", () => {
+    expect(detectTriggers(creature("Giggling Skitterspike", "Whenever this creature attacks, blocks, or becomes the target of a spell, it deals damage equal to its power to each opponent."))).toHaveLength(0);
+  });
+  // CREED near-miss #1 — a BARE self "attacks, <effect>" (a single event; the comma is the real split, NOT a
+  // list continuation) must still detect normally. The list guard only advances when a combat-event token
+  // ("blocks"/"becomes the target") FOLLOWS the comma — an ordinary effect after the comma is untouched.
+  it("still detects a bare self 'attacks, <effect>' — the list guard does not swallow a plain effect", () => {
+    expect(detectTriggers(creature("Hellrider", "Whenever this creature attacks, it deals 1 damage to each opponent.")).map((t) => t.event)).toEqual(["attacks"]);
+  });
+  // CREED near-miss #2 — the bare "becomes the target of a spell" alone (no "attacks") was already undetected
+  // (no runtime); it must STAY undetected (the guard change never accidentally starts modeling it).
+  it("does NOT detect a bare 'becomes the target of a spell' trigger — no general runtime models it", () => {
+    expect(detectTriggers(creature("Hypothetical", "Whenever this creature becomes the target of a spell, create a Treasure token."))).toHaveLength(0);
+  });
 });
 
 // ===== TRIG-DMG-TO-OPPONENT — non-combat damage-to-player/opponent trigger =====
