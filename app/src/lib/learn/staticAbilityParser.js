@@ -1512,6 +1512,34 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
+  // ── GROUP-AFFLICT GRANT (CR 702.131) — "<selector> have afflict N" ──────────────────────
+  // Afflict is a TRIGGERED-ability keyword ("Whenever this creature becomes blocked, defending player loses
+  // N life"), NOT a static-characteristic keyword — so it is NOT in GRANTABLE_KEYWORDS (a plain layer-6
+  // addKeyword would make permanentHasKeyword report it but NEVER fire the trigger). Instead grant it exactly
+  // like a QUOTED triggered-ability group grant (the Tempered Sliver path below): emit a layer-6 addAbility
+  // whose grant.quoted is the CANONICAL afflict sentence. At runtime grantedTriggersForGroup re-runs
+  // detectTriggers on that quoted body → a becomesBlocked descriptor → checkBlockTriggers fires it on each
+  // matching creature that becomes blocked (with the defending player threaded). The bare "afflict N" tail is
+  // anchored WHOLE (no combo with other keywords exists in the corpus — Lazotep Sliver, Cyberman Patrol, Lost
+  // Monarch of Ifnir are all bare "have afflict N"); a combined tail would fall through to the all-or-nothing
+  // guard below and stay body-only (CREED-safe FN). parseCreatureSelector supplies the same subtype/card-type/
+  // color-scoped `affects` the quoted-triggered path uses, so the grant reaches exactly the selected creatures.
+  {
+    const afflictM = c.match(/^(.+?)\s+(?:have|has)\s+afflict (\d+)$/);
+    if (afflictM) {
+      const affects = parseCreatureSelector(c);
+      if (affects) {
+        out.push({
+          layer: 6,
+          op: { layerOp: "addAbility", grant: { kind: "triggered", quoted: `Whenever this creature becomes blocked, defending player loses ${afflictM[2]} life.` } },
+          affects,
+          duration: { kind: "permanent" },
+        });
+      }
+      return; // an afflict group grant — handled (or intentionally dropped to body-only on an unparsed selector)
+    }
+  }
+
   // ── STATIC-ANTHEM keyword/protection-grant ALL-OR-NOTHING GUARD (CLAUDE.md §1.2) ────────
   // The anthem grant pass below is NOT all-or-nothing on its own: a naive extractor silently DROPS any
   // segment that isn't a grantable keyword and still emits the grantable ones. So a clause like

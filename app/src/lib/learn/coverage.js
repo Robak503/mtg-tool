@@ -113,6 +113,13 @@ export const COVERED_KEYWORDS = [
   // DYNAMIC amount computed at fire time). "bushido N" / "rampage N" match via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count for each.
   "bushido", "rampage",
+  // AFFLICT (CR 702.131) — ENFORCED: the keyword's triggered ability ("Whenever this creature becomes
+  // blocked, defending player loses N life") is synthesized in detectTriggers + fired by checkBlockTriggers
+  // (which now threads the defending player into the context so the lose-life resolves). "afflict N" matches
+  // via the startsWith check; allTriggerSentencesModeled bumps the shaped count. This lets a pure printed-
+  // afflict creature (Khenra Eternal — "Afflict 1") read keyword-only after its synthesized trigger sentence
+  // is stripped, exactly like bushido.
+  "afflict",
   // CASCADE (CR 702.85) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers (a selfCast
   // `cascade` trigger) + fired by checkCastTriggers (dig the library to a cheaper nonland, park the free-cast/
   // decline decision at the action layer). A SINGLE "cascade" line matches via the `=== "cascade"` check; the
@@ -426,7 +433,14 @@ function allTriggerSentencesModeled(card, oracle) {
   // 1 so shaped === detected holds. Keyed on the RAW oracle (stripReminder removes the signature, so test before).
   const cascadeKw = /\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(oracle)
     && !/\bcascade,\s*cascade\b/i.test(oracle) ? 1 : 0;
+  // AFFLICT (CR 702.131) — like bushido/rampage, the printed "Afflict N" keyword's triggered ability lives in
+  // stripped reminder text, so it never counts as a shaped sentence. detectTriggers synthesizes a
+  // becomesBlocked descriptor from the keyword; bump the shaped count by 1 so shaped === detected holds. The
+  // SAME "have/has afflict" guard detectTriggers uses excludes the GROUP-GRANT form ("Sliver creatures you
+  // control have afflict N" — Lazotep Sliver): there the afflict is a static grant to OTHER creatures, not a
+  // self-trigger, so it contributes 0 to this bump (and 0 to the detected count — no self becomesBlocked).
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
+    + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped

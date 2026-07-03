@@ -1796,6 +1796,40 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Bushido ${n}`,
     });
   }
+  // AFFLICT (CR 702.131) — KEYWORD→TRIGGER synthesis, the BUSHIDO precedent exactly. "Afflict N" is a keyword
+  // whose triggered ability lives in REMINDER parens ("(Whenever this creature becomes blocked, defending
+  // player loses N life.)"), which the boundary-anchored When/Whenever/At regex above can't reach (the "("
+  // before "Whenever" isn't a sentence boundary). Synthesize the real "becomesBlocked" descriptor off the
+  // keyword so the runtime FIRES it (checkBlockTriggers fires the becomesBlocked event for each blocked
+  // attacker, threading the defending player) and coverage counts it (allTriggerSentencesModeled bumps the
+  // shaped count for the keyword to match). The effectClause is the CANONICAL afflict sentence's effect
+  // ("defending player loses N life"), which parseEffectClause maps HIGH to the lose-life atom (who:
+  // defendingPlayer) — so triggerRoutesNatively gates it HIGH. UNLIKE rampage the amount is FIXED (N), so this
+  // descriptor is the authoritative one (no separate dynamic fire in checkBlockTriggers). scope:"self"/
+  // whose:"any" matches the modeled becomes-blocked contract. This also drives the GROUP-GRANT case (Lazotep
+  // Sliver "Sliver creatures you control have afflict 2"): grantedTriggersForGroup re-runs detectTriggers on
+  // the granted quoted afflict sentence, which the NORMAL grammar detects (the quoted body has no reminder
+  // parens) — so the group path never reaches this keyword branch and there's no double-detection.
+  // GUARD (CREED — no false self-synthesis): match ONLY the printed KEYWORD form (a bare "Afflict N" line),
+  // never a GROUP GRANT ("Sliver creatures you control have afflict N" — Lazotep Sliver, Cyberman Patrol) where
+  // the afflict belongs to the GRANTED creatures, not this permanent. Two exclusions, both required:
+  //   (a) STRIP REMINDER first — afflict's reminder REPEATS the keyword ("(Whenever a creature with afflict N
+  //       becomes blocked, …)"), and that inner "afflict N" is NOT preceded by "have"/"has", so it would defeat
+  //       the lookbehind and cause a false self-synthesis on Lazotep/Cyberman. (bushido/rampage reminders don't
+  //       repeat their keyword, so they never needed this.)
+  //   (b) NEGATIVE-LOOKBEHIND on "have/has " — the grant signature; the printed keyword is always line-initial
+  //       or after another keyword (Khenra "Afflict 1", Spellweaver "Prowess\nAfflict 2"), never after "have".
+  // The grant form is handled by the static group-grant path (staticAbilityParser → grantedTriggersForGroup),
+  // which fires afflict on each RECIPIENT — so it must NOT also self-synthesize here.
+  const afflict = oracle.replace(/\([^)]*\)/g, " ").match(/(?<!\bhave\s)(?<!\bhas\s)\bafflict (\d+)\b/i);
+  if (afflict) {
+    const n = parseInt(afflict[1], 10);
+    out.push({
+      event: "becomesBlocked", scope: "self", whose: "any",
+      effect: null, effectClause: `defending player loses ${n} life`,
+      optional: false, sourceText: `Afflict ${n}`,
+    });
+  }
   // RAMPAGE (subsystem 2) — KEYWORD→TRIGGER synthesis (CR 702.23a — "Whenever this creature becomes blocked,
   // it gets +N/+N until end of turn for each creature blocking it beyond the first."). This descriptor is for
   // COVERAGE/recognition only — a REPRESENTATIVE +N/+N pump that routes natively; the RUNTIME amount is
@@ -2546,7 +2580,14 @@ export function checkBlockTriggers(state) {
     seenAttacker.add(b.attackerId);
     const lk = findPermanent(state, b.attackerId);
     if (!lk) continue;
-    fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
+    // DEFENDING-PLAYER (CR 509.1h) — thread the blocked attacker's declared defender into the context so a
+    // becomes-blocked effect that reads "defending player" (AFFLICT — "defending player loses N life") resolves
+    // to the right player. The attacker's `defender` was stamped at declare-attackers (checkAttackTriggers uses
+    // the same field). Absent (a synthetic combat with no attacker record) → applyLoseLife's defendingPlayer
+    // branch is a clean no-op, never a fabricated/wrong loss. Non-afflict becomes-blocked effects ignore it.
+    const attackerRec = (state.combat?.attackers || []).find((a) => a?.permanentId === b.attackerId);
+    const context = attackerRec?.defender ? { defenderId: attackerRec.defender } : {};
+    fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
   }
   // BUSHIDO (subsystem 2) — the combined "blocks OR becomes blocked" event fires for a creature in EITHER
   // role: each blocker AND each blocked attacker. Deduped across both roles so a creature that somehow

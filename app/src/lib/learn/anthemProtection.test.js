@@ -85,7 +85,10 @@ describe("parseStaticAbilities — anthem protection ALL-OR-NOTHING (CREED FNs)"
     ["'protection from everything'", "Creatures you control have protection from everything."],
     ["'protection from all colors' (unmodeled here)", "Creatures you control have protection from all colors."],
     ["protection + an UNMODELED keyword (ward)", "Creatures you control have ward {2} and protection from red."],
-    ["an UNMODELED keyword alone (afflict)", "Artifact creatures you control have afflict 3."],
+    // NOTE: afflict USED to be parkable here, but the afflict subsystem (afflict.test.js) now models the
+    // group-afflict grant — "Artifact creatures you control have afflict 3." emits a layer-6 quoted-triggered
+    // grant. It is asserted native in afflict.test.js; a COMBINED tail (afflict + an ungrantable keyword) would
+    // still park, but no such printed card exists, so the parkable list keeps only the ward case above.
   ];
   for (const [label, oracle] of parkable) {
     it(`PARKED: ${label} → no descriptors (body-only)`, () => {
@@ -216,8 +219,8 @@ describe("coverage — anthem protection flips vs pinned false-negatives", () =>
     // Balefire Liege — two color anthems, but the cast-trigger riders are unmodeled residue → non-native.
     // (Murkfiend Liege's untap-rider IS now modeled — see murkfiendUntap.test.js; it flips native-static.)
     expect(classifyCard({ name: "Balefire Liege", type: "Creature — Spirit Horror", oracle: "Other red creatures you control get +1/+1.\nOther white creatures you control get +1/+1.\nWhenever you cast a red spell, this creature deals 3 damage to target player or planeswalker.\nWhenever you cast a white spell, you gain 3 life." })).toBe("body-only");
-    // Cyberman Patrol — afflict is not a grantable keyword.
-    expect(classifyCard({ name: "Cyberman Patrol", type: "Artifact Creature — Cyberman", oracle: "Artifact creatures you control have afflict 3. (Whenever a creature with afflict 3 becomes blocked, defending player loses 3 life.)" })).toBe("body-only");
+    // Cyberman Patrol — afflict IS now modeled as a group-triggered grant (afflict.test.js) → native-static.
+    expect(classifyCard({ name: "Cyberman Patrol", type: "Artifact Creature — Cyberman", oracle: "Artifact creatures you control have afflict 3. (Whenever a creature with afflict 3 becomes blocked, defending player loses 3 life.)" })).toBe("native-static");
     // A non-color anthem protection quality stays body-only (model both colors or neither).
     expect(classifyCard({ name: "Hypothetical Ward", type: "Enchantment", oracle: "Creatures you control have protection from instants and from sorceries." })).toBe("body-only");
   });
