@@ -1306,6 +1306,15 @@ const ETB_ENTERING_CREATURE_SCOPES = new Set([
 // is left verbatim, so its raw "it" stays unmodeled → the parser fails the HIGH gate → body-only (never a
 // fabricated / mis-bound effect). Reuses the SAME ±1/±1 counter + pump-keyword cores as the non-self forms.
 const ETB_COUNTER_ON_IT_CLAUSE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
+// COMPOUND-LEADING counter (The Great Henge — "put a +1/+1 counter on it AND draw a card"). The counter is the
+// LEADING conjunct of an "and"-joined single sentence (no "." split), so the whole-clause anchor above can't
+// see it. Anchor the counter phrase at the START with the referent immediately FOLLOWED by " and " — the "it"
+// is still unambiguously the entering creature (CR 608.2c), and rewriting ONLY that leading referent leaves the
+// rest of the compound verbatim for the parser to model (all-or-nothing: an unmodeled follow-up keeps the whole
+// program LOW → body-only, CREED-safe). Referent-anchored (not whole-clause) so it can't consume a mid-clause
+// "on it" that refers to something else — the counter must be the sentence lead. Only matched inside the ETB
+// enters-watcher branch (the gate below), so a SPELL's anaphoric "counter on it and …" is never rewritten.
+const ETB_COUNTER_ON_IT_LEADING = /^(put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on )(?:it|that creature)( and )/i;
 const ETB_IT_PUMP_CLAUSE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+) until end of turn$/i;
 function rewriteEtbEnteringPronoun(effectClause) {
   return String(effectClause)
@@ -1313,13 +1322,17 @@ function rewriteEtbEnteringPronoun(effectClause) {
     .map((sentence) => {
       const s = sentence.replace(/\.\s*$/, "").trim();
       if (ETB_COUNTER_ON_IT_CLAUSE.test(s)) return s.replace(/ on (?:it|that creature)$/i, " on the triggering creature");
+      // COMPOUND-LEADING: rewrite ONLY the leading counter referent, keep the "and <follow-up>" tail verbatim.
+      if (ETB_COUNTER_ON_IT_LEADING.test(s)) return s.replace(ETB_COUNTER_ON_IT_LEADING, "$1the triggering creature$2");
       if (ETB_IT_PUMP_CLAUSE.test(s)) return s.replace(/^it /i, "the triggering creature ");
       return s; // a clause we don't model is left verbatim → its raw "it" keeps the program LOW (CREED)
     })
     .join(". ");
 }
 // True iff the ETB effect carries at least one entering-creature pronoun clause we can rewrite (so we only
-// take this branch when there's something to do — otherwise the chain falls through to SOURCE-STAT etc.).
+// take this branch when there's something to do — otherwise the chain falls through to SOURCE-STAT etc.). The
+// "counter on it" substring matches whether the counter is a standalone sentence or the leading conjunct of an
+// "and"-joined compound (The Great Henge), so this gate already admits the compound-leading form.
 const ETB_ENTERING_PRONOUN_RE = /(?:put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)|^it (?:gets|gains)\b|\.\s+it (?:gets|gains)\b)/i;
 
 // TRIG-PRONOUN-IT — the NON-SELF pronoun referent for the OTHER effect families (the non-self analogues of
