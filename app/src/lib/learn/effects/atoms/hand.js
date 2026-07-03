@@ -122,10 +122,30 @@ export function applyDiscard(state, atom, ctx) {
       .map((t) => t.id);
   }
   if (discarders.length === 0) {
-    return logEvent(state, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount, discarders: 0 });
+    // WINDFALL — no discarders → the greatest-discarded count is 0 (a clean no-op, never a fabricated draw).
+    const s0 = atom.recordMaxDiscarded ? { ...state, maxDiscardedThisWay: 0 } : state;
+    return logEvent(s0, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount, discarders: 0 });
+  }
+  // WINDFALL (record-max) — "then draws cards equal to the GREATEST number of cards a player discarded this way"
+  // (CR 118.10): a following draw atom reads state.maxDiscardedThisWay via amountCount:{kind:"maxDiscardedThisWay"}.
+  // This whole-hand discard (atom.all) pitches EVERY player's entire non-token hand with NO choice (advance-
+  // DiscardChain's forced-inline branch — remaining = Infinity — never pauses), so each discarder's discarded
+  // count IS its current non-token hand size, known deterministically HERE before the pitch. Stamp the greatest
+  // over the discarders (0 for an all-empty-hands board — never a fabricated count) BEFORE running the chain, so
+  // the value is present for the draw regardless of the chain's move-order. Mirrors Yuriko's revealedCardMV /
+  // the dice-roll diceResult inter-atom state channel (a plain number → serialize-safe). Only set on the
+  // recordMaxDiscarded form (Windfall); every other discard is byte-identical.
+  let next = state;
+  if (atom.recordMaxDiscarded) {
+    let max = 0;
+    for (const pid of discarders) {
+      const n = (state.players?.[pid]?.hand || []).filter((c) => !c.token).length;
+      if (n > max) max = n;
+    }
+    next = { ...state, maxDiscardedThisWay: max };
   }
   const queue = discarders.map((pid) => ({ playerId: pid, remaining: amount }));
-  return advanceDiscardChain(state, { queue, sourceName: ctx.cardName || null });
+  return advanceDiscardChain(next, { queue, sourceName: ctx.cardName || null });
 }
 
 /**

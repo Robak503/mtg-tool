@@ -442,6 +442,14 @@ export function countForSpec(state, ctx, spec) {
   // (a spell / no reveal ran) → 0 (a clean no-op, CR 107.3 — never a fabricated count). Read off STATE (the inter-
   // atom channel), not a player/board tally, so it's computed BEFORE the player lookup below.
   if (spec.kind === "revealedCardMV") return Math.max(0, state?.revealedCardMV || 0);
+  // ===== MAX-DISCARDED-THIS-WAY (Windfall) ===== the GREATEST number of cards any player discarded during the
+  // whole-hand discard the SAME spell just resolved (CR 118.10 "this way"). The discard atom (applyDiscard, on
+  // the recordMaxDiscarded form) stamps state.maxDiscardedThisWay IMMEDIATELY before this draw atom resolves,
+  // mirroring roll-d20 / reveal-top-to-hand. The parser emits the discard + draw atoms TOGETHER in fixed order
+  // (matchWindfallMaxDiscard), so the value is always freshly written before this read (never stale). An ABSENT
+  // stamp (a spell / no discard ran) → 0 (a clean no-op, CR 107.3 — never a fabricated count). Read off STATE
+  // (the inter-atom channel), not a player/board tally, so it's computed BEFORE the player lookup below.
+  if (spec.kind === "maxDiscardedThisWay") return Math.max(0, state?.maxDiscardedThisWay || 0);
   // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
   // cards in that player's hand" — Sudden Impact) OR, on a combat-damage trigger with no explicit target,
   // the DAMAGED player ("for each artifact that player controls" — Cavern-Hoard Dragon, where "that player"

@@ -1991,6 +1991,35 @@ function matchMassDestroyTreasurePerNontoken(oracle) {
   return { atom: { op: "mass-destroy-treasure-per-nontoken", targetType: "eachCreature" } };
 }
 
+/**
+ * ===== WINDFALL (max-discarded wheel) ===== "Each player discards their hand, then draws cards equal to the
+ * greatest number of cards a player discarded this way." (Windfall, Whispering Madness' base body). A ONE-
+ * sentence discard-then-draw where the draw count is the GREATEST number any player discarded — a back-
+ * reference to the discard step that just resolved (CR 118.10 "this way"). The plain WHEEL rewrite (§the
+ * splitClauses fold above) only handles a FIXED "draws N cards" tail; this variable "greatest discarded" count
+ * has no standalone count source, so the ", then" split would orphan it → low. Collapse the whole compound up
+ * front to TWO atoms in fixed order:
+ *   1. discard who:eachPlayer all:true recordMaxDiscarded — every player pitches their whole hand (no choice,
+ *      resolved inline — see applyDiscard), and the resolver stamps state.maxDiscardedThisWay = the greatest
+ *      whole-hand size it pitched (the exact "greatest number of cards a player discarded this way").
+ *   2. draw who:eachPlayer amountCount:{kind:"maxDiscardedThisWay"} — every player draws that stamped max
+ *      (countForSpec reads state.maxDiscardedThisWay, the inter-atom channel — mirrors Yuriko's revealedCardMV /
+ *      the dice-roll diceResult mid-resolution value capture).
+ * The two atoms are emitted TOGETHER (never independently parseable), so the record-then-read order is
+ * structurally guaranteed — the draw can never read a stale/absent max. Anchored ^…$ on the exact printed
+ * shape; a rider (Whispering Madness' Cipher line is a SEPARATE line, so the anchored single-sentence match
+ * fails on the multi-line oracle → the whole card stays Arbiter — a SAFE false-negative) leaves residue → no
+ * match → low → Arbiter (CREED). Not an X spell. Returns { atoms }.
+ */
+function matchWindfallMaxDiscard(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way$/.test(s)) return null;
+  return { atoms: [
+    { op: "discard", who: "eachPlayer", all: true, recordMaxDiscarded: true, targetType: null },
+    { op: "draw", who: "eachPlayer", amountCount: { kind: "maxDiscardedThisWay", per: 1 }, targetType: null },
+  ] };
+}
+
 // ===== OPTIONAL-MANA-PAYMENT (CR 603.7c — the "pay {cost}" reflexive) ===== the single-color/generic mana
 // pips of an optional-pay cost, parsed into the planPayment cost shape — or null if ANY pip isn't a known
 // FIXED mana symbol (digit / single color / {C} / hybrid). {X}/{Y}/{Z} → null (Shanna's "{X}" is unmodeled:
@@ -2564,6 +2593,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const bm = matchMassDestroyTreasurePerNontoken(oracle);
   if (bm && KNOWN.has(bm.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [bm.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== WINDFALL ===== "Each player discards their hand, then draws cards equal to the greatest number of cards
+  // a player discarded this way." → [discard eachPlayer all recordMaxDiscarded, draw eachPlayer amountCount
+  // maxDiscardedThisWay] (the draw count = the greatest whole-hand pitched, stamped at resolution). The variable
+  // "greatest discarded" back-reference defeats the plain WHEEL rewrite (fixed-N only) + the clause splitter, so
+  // it's collapsed up front. HIGH iff both atoms are KNOWN (they are — discard + draw). Not an X spell.
+  const wf = matchWindfallMaxDiscard(oracle);
+  if (wf && wf.atoms.every((a) => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: wf.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do, <reflexive>." — fold the reflexive as
   // the sequential tail of the (mandatory, always-firing) primary. matchReflexiveTrigger applies every CREED

@@ -218,7 +218,8 @@ describe("Slivers PARK pins — these remain non-native until their blocker subs
     // dedicated describe blocks above and the per-card test files (essenceSliver / magmaSliver / afflict /
     // sliverOverlord). None remain body-only, so their PARK entries are removed from this cases list.
     ["Ponder", "Sorcery", "{U}", "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.", "arbiter-spell"], // library reorder
-    ["Windfall", "Sorcery", "{2}{U}", "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.", "arbiter-spell"], // wheel / symmetric draw
+    // NOTE: Windfall FLIPPED to native-spell (WINDFALL max-discard matcher — the whole-hand discard stamps
+    // state.maxDiscardedThisWay and the each-player draw reads it). Its positive pin lives in wheelDiscardHand.test.js.
     ["For the Ancestors", "Instant", "{2}{G}", "Choose a creature type. Look at the top six cards of your library. You may reveal any number of cards of the chosen type from among them and put the revealed cards into your hand. Put the rest on the bottom of your library in a random order.\nFlashback {3}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)", "arbiter-spell"], // reveal-dig
   ];
   it.each(cases)("%s stays non-native (%s)", (name, type, mana, oracle, expectedTier) => {

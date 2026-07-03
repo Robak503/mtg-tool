@@ -295,7 +295,8 @@ describe("parseEffectProgram — each-player / target-player discard (EP-2)", ()
     low("Target opponent discards two cards, mills a card, and loses 1 life.");  // Mind Drain — unmodeled riders
     low("Each player discards a card, then loses 1 life.");                      // Strongarm-ish — life rider
     low("Target opponent discards two cards.");                                  // opponent form deferred this slice
-    low("Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way."); // Windfall — greatest-discarded count (bare wheel now native: WHEEL)
+    // NOTE: Windfall ("… draws cards equal to the greatest number of cards a player discarded this way") now parses
+    // HIGH via the WINDFALL max-discard matcher — its positive pin lives in wheelDiscardHand.test.js / windfall.test.js.
   });
 });
 
@@ -1045,7 +1046,8 @@ const MUST_DROP_TO_LOW = [
   "Target opponent discards two cards, mills a card, and loses 1 life.",        // Mind Drain — unmodeled riders
   "Each player discards a card, then loses 1 life.",                            // Strongarm Tactics-ish — life rider
   "Target opponent discards two cards.",                                        // opponent form deferred this slice
-  "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.", // Windfall — greatest-discarded count (bare wheel now native: WHEEL)
+  // NOTE: Windfall ("… draws cards equal to the greatest number of cards a player discarded this way") moved OUT
+  // of this drop-to-low gate — it now parses HIGH via the WINDFALL max-discard matcher (see windfall.test.js).
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -1259,6 +1261,10 @@ const MUST_STAY_HIGH = [
   "Each player discards three cards.",                                          // Delirium Skeins
   "Target player discards two cards. Scry 2.",                                  // Fill with Fright (discard + scry)
   "Target player discards a card. Draw a card.",                               // Unhinge (discard + draw)
+  // ── WINDFALL — "Each player discards their hand, then draws cards equal to the greatest number of cards a
+  // player discarded this way." → [discard eachPlayer all recordMaxDiscarded, draw eachPlayer amountCount
+  // maxDiscardedThisWay] (the whole-hand discard stamps state.maxDiscardedThisWay; the draw reads it). ──
+  "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.",
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {
