@@ -862,6 +862,41 @@ export function applyShuffle(state, atom, ctx) {
 }
 
 /**
+ * SHUFFLE-GRAVEYARD-INTO-LIBRARY (Finale of Revelation "shuffle your graveyard into your library", CR 701.19)
+ * — move EVERY card in the controller's graveyard into their library, then shuffle deterministically (the same
+ * threaded-seed shuffle as every other library shuffle, so it's serialize-stable). The graveyard is emptied
+ * (its cards are now in the library and randomized), matching the printed effect exactly. condX-gated: when
+ * atom.condX is set, this only happens once the chosen X reaches the threshold — a below-threshold cast leaves
+ * the graveyard untouched (the "If X is N or more, …instead…" branch simply isn't met, CR). `?? 0` treats a
+ * missing xValue as 0. Mirrors the applyPumpEffect / applyUntapLands condX gate. Hidden-info safe: the log
+ * records the controller + how many cards moved, never the card identities.
+ */
+export function applyShuffleGraveyardIntoLibrary(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (atom?.condX && (ctx.xValue ?? 0) < atom.condX.min) {
+    return logEvent(state, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
+  }
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const graveyard = player.graveyard || [];
+  if (graveyard.length === 0) {
+    // Empty graveyard — still shuffle the library (CR: you shuffle regardless), a logged near-no-op.
+    const shuffled = shuffleControllerLibrary(state, controller);
+    return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
+  }
+  // Move all graveyard cards into the library (order is irrelevant — the shuffle randomizes), empty the GY.
+  const merged = {
+    ...state,
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: [...(player.library || []), ...graveyard], graveyard: [] },
+    },
+  };
+  const shuffled = shuffleControllerLibrary(merged, controller);
+  return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: graveyard.length });
+}
+
+/**
  * ===== EXPLORE ===== (CR 701.44) — the exploring creature's controller reveals the top card of their
  * library: a LAND goes to their hand; otherwise a +1/+1 counter is put on the exploring creature and the
  * card stays on top (the controller's CR 701.44a "back or graveyard" choice — resolved deterministically to
@@ -1193,6 +1228,7 @@ export function tutorClauseParser(clause, ctx = {}) {
 export const libraryResolvers = {
   "tutor": applyTutor,
   "shuffle": applyShuffle,
+  "shuffle-graveyard-into-library": applyShuffleGraveyardIntoLibrary, // SHUFFLE-GY-INTO-LIBRARY (Finale of Revelation) — move controller's whole GY into library, then shuffle; condX-gated
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,

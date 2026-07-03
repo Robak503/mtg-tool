@@ -254,8 +254,11 @@ function legacyToAtom(effect) {
   return null;
 }
 
-function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null }) {
-  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null };
+function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null, selfExile = false }) {
+  // `selfExile` (Finale of Revelation "Exile <this>.") — the resolved spell exiles ITSELF instead of going to
+  // the graveyard (runEffectProgram honors it at GY-1). Omitted from the object when false so the vast majority
+  // of programs are byte-identical to before (no shape churn).
+  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null, ...(selfExile ? { selfExile: true } : {}) };
 }
 
 // α2 optional-scope invariant — an `optional` atom ("you may <effect>") scopes ONLY its own clause, so an
@@ -1676,6 +1679,58 @@ function matchRevealTopDrainByMv(oracle) {
  * Arbiter. A "put A nonland permanent" (singular) / a dynamic non-cost X ("where X is …") / a spell-mastery or
  * undergrowth rider all fail the exact anchor → low → Arbiter (CREED FN-safe). Returns { atom }.
  */
+/**
+ * ===== FINALE-OF-REVELATION ===== ({X}{U}{U} sorcery) — "Draw X cards. If X is 10 or more, instead shuffle
+ * your graveyard into your library, draw X cards, untap up to five lands, and you have no maximum hand size for
+ * the rest of the game. Exile <this>." A THRESHOLD-REPLACEMENT X-spell: the net draw is X either way, but at
+ * X ≥ 10 you ALSO shuffle your graveyard into your library (BEFORE the draw, so you draw from the refilled
+ * library) and untap up to five of your lands. The "you have no maximum hand size" static is VACUOUS in this
+ * engine (cleanup discard is unimplemented — see stripNoMaxHandSizeRider) and is stripped, and "Exile <this>"
+ * is the spell exiling ITSELF on resolution (instead of going to the graveyard) — modeled via the program's
+ * `selfExile` flag (runEffectProgram honors it at GY-1). The three-sentence, "instead"-replacement, self-
+ * referential shape would shatter under the generic clause splitter (the "instead" + the multi-effect comma
+ * list + the self-exile all unmodeled by the splitter), so it's collapsed up front to a fixed atom list:
+ *
+ *   [ shuffle-graveyard-into-library (condX 10),  ← runs first, only at X ≥ 10
+ *     draw (amountX),                             ← always runs, X cards (from the refilled library if shuffled)
+ *     untap-lands (condX 10, uptoN 5) ]           ← only at X ≥ 10
+ *
+ * This is FUNCTIONALLY IDENTICAL to the printed card: below 10, only the draw fires (both condX atoms no-op);
+ * at/above 10, shuffle→draw→untap all fire in printed order. The shuffle + untap resolvers each carry the same
+ * condX gate as applyPumpEffect (Finale of Devastation's precedent). GATED to hasX — the caller only calls this
+ * on an {X} spell, and the returned program is stamped xSpell:true so the cast path enumerates affordable X into
+ * ctx.xValue (both the draw magnitude AND the ≥10 threshold read it). ANCHORED to the exact whole-oracle shape
+ * (after stripping the vacuous hand-size rider): any rider / different threshold / different effect list leaves
+ * residue → no match → low → Arbiter (CREED FN-safe — never a partial/wrong model). Returns { atoms, selfExile }.
+ */
+function matchFinaleOfRevelation(oracle) {
+  // NOTE: parseEffectClauseImpl already ran stripNoMaxHandSizeRider on `oracle` before this matcher, replacing
+  // the VACUOUS "you have no maximum hand size for the rest of the game" rider with " " — which leaves a
+  // DANGLING ", and  " conjunction at the tail of the ≥10 comma-list ("…untap up to five lands, and  \nExile…").
+  // The cleanup-discard the rider governs is unimplemented (see stripNoMaxHandSizeRider), so the rider is a
+  // documented no-op and its removal is faithful. Here we just normalize the dangling ", and" so the sentence
+  // closes cleanly at "untap up to five lands." and the "Exile" self-exile sentence survives for the tail match.
+  const s = stripReminder(oracle)
+    .trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ")
+    .replace(/,\s*and\s+(?=\.?\s*exile\b)/g, ". ")   // dangling ", and " left by the upstream hand-size strip → sentence break
+    .replace(/\s+/g, " ").replace(/\.\s*\./g, ".").trim();
+  // Whole-string anchored: base draw-X, then the ≥10 "instead" replacement (shuffle-GY-into-library, draw X,
+  // untap up to five lands), then the self-exile sentence (the spell names ITSELF — matched generically as
+  // "exile <name>" at the tail, so it's robust to the printed card name).
+  const m = s.match(
+    /^draw x cards\. if x is 10 or more, instead shuffle your graveyard into your library, draw x cards, untap up to five lands\. exile [a-z][a-z ',-]*\.?$/,
+  );
+  if (!m) return null;
+  return {
+    atoms: [
+      { op: "shuffle-graveyard-into-library", condX: { min: 10 }, targetType: null }, // runs first, only at X ≥ 10
+      { op: "draw", amountX: true, targetType: null },                                 // always — X cards
+      { op: "untap-lands", uptoN: 5, condX: { min: 10 }, targetType: null },           // only at X ≥ 10
+    ],
+    selfExile: true, // "Exile <this>." — the spell exiles itself on resolution instead of going to the graveyard
+  };
+}
+
 function matchGenesisWave(oracle) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
   // Whole-string anchored: reveal top X → "you may put any number of <filter> cards with mana value X or less
@@ -2308,6 +2363,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const exr = matchExileXControllerRider(oracle);
     if (exr && KNOWN.has(exr.atom.op)) {
       return makeProgram({ confidence: "high", atoms: [exr.atom], xSpell: true, unparsedTail: null });
+    }
+  }
+  // ===== FINALE-OF-REVELATION ===== ({X} sorcery) — "Draw X. If X ≥ 10, instead shuffle GY→library, draw X,
+  // untap up to five lands. Exile <this>." → [shuffle-gy-into-library(condX 10), draw(amountX), untap-lands(condX
+  // 10, uptoN 5)] + selfExile. Collapsed up front (the "instead"-replacement + multi-effect comma list + self-
+  // exile would shatter under the clause splitter). HIGH iff every atom is KNOWN (they are); xSpell:true so the
+  // cast path enumerates X (both the draw magnitude AND the ≥10 gate read ctx.xValue). Gated to hasX.
+  if (hasX) {
+    const fr = matchFinaleOfRevelation(oracle);
+    if (fr && fr.atoms.every((a) => KNOWN.has(a.op))) {
+      return makeProgram({ confidence: "high", atoms: fr.atoms, xSpell: true, unparsedTail: null, selfExile: fr.selfExile });
     }
   }
   // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card … If it's a creature card, put it

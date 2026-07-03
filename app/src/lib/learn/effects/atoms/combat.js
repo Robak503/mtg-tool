@@ -64,6 +64,39 @@ export function applyTapEffect(state, atom, ctx, tap) {
   return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: list.map(t => t.id) });
 }
 
+/**
+ * UNTAP-UP-TO-N-LANDS (Finale of Revelation "untap up to five lands") — a NON-targeted, CONTROLLER-scoped
+ * untap of up to `atom.uptoN` of the controller's OWN tapped lands (CR 701.20). Untapping is never a downside
+ * and the controller would always untap the MAXIMUM available (up to the cap), so this is a deterministic
+ * greedy auto-untap (min(cap, tapped lands)) — no interactive choice needed and no CREED risk (over-untapping
+ * an opponent's land / a non-land is impossible; only the controller's tapped lands, in battlefield order, are
+ * touched). condX-gated: when atom.condX is set, the untap only happens once the chosen X reaches the threshold
+ * (a below-threshold cast is a logged no-op — the "If X is N or more, …instead…" branch simply isn't met, CR).
+ * `?? 0` treats a missing xValue as 0 (never "condition met"). Mirrors the applyPumpEffect condX gate exactly.
+ */
+export function applyUntapLands(state, atom, ctx) {
+  if (atom?.condX && (ctx.xValue ?? 0) < atom.condX.min) {
+    return logEvent(state, { kind: "spell-effect", effect: "untap", targets: [] });
+  }
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const cap = Number.isFinite(atom?.uptoN) ? atom.uptoN : 0;
+  // The controller's OWN tapped lands, in stable battlefield order (serialize-deterministic — no sort needed;
+  // battlefield order is already stable). Re-verify the LIVE type line is a land before untapping (CREED —
+  // never untap a non-land). Take the first `cap` of them.
+  const ids = [];
+  for (const perm of player.battlefield || []) {
+    if (ids.length >= cap) break;
+    if (!perm.tapped) continue;
+    if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
+    ids.push(perm.id);
+  }
+  let next = state;
+  for (const id of ids) next = untapPermanent(next, id);
+  return logEvent(next, { kind: "spell-effect", effect: "untap", targets: ids });
+}
+
 /** REGEN (CR 701.15) — give the SOURCE (self) or the chosen creature a regeneration shield. The shield is
  * consumed at the next would-destroy (the lethal-damage SBA / the destroy effect), which clears damage + taps
  * the creature so it survives. No magnitude (one clause → one shield per target); atomTargets resolves "self"
@@ -1147,6 +1180,7 @@ export const combatResolvers = {
   "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
+  "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "switch-pt": applySwitchPT, // SWITCH-PT — "switch ~ power and toughness until end of turn" → layer-7 sublayer-7d endOfTurn swap

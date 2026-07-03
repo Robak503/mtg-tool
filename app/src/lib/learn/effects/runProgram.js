@@ -65,13 +65,25 @@ function programAtoms(program, chosenMode) {
  * The card is ZONELESS here (it left its zone at cast), so this is a direct append like
  * placeCounteredCard — moveCardToZone can't move a card that is in no zone.
  */
-export function finishSpellResolution(state, disposition) {
+export function finishSpellResolution(state, disposition, { selfExile = false } = {}) {
   const playerId = disposition?.playerId;
   const card = disposition?.card;
   if (!playerId || !card) return state;
   if (card.token || card.isCopy) return state;
   const player = state.players?.[playerId];
   if (!player) return state;
+  // SELF-EXILE (Finale of Revelation "Exile <this>.") — the resolving spell exiles ITSELF instead of the default
+  // graveyard disposition (CR 608.2m is replaced by the printed "Exile ~"). The card is ZONELESS here (it left
+  // its zone at cast), so this is a direct append to the exile zone (a token/copy already returned above — it
+  // ceases to exist, never exiled). Everything else about GY-1 (no disposition → no-op; eliminated owner → no-op)
+  // is identical.
+  if (selfExile) {
+    const next = {
+      ...state,
+      players: { ...state.players, [playerId]: { ...player, exile: [...(player.exile || []), card] } },
+    };
+    return logEvent(next, { kind: "spell-to-exile", playerId, cardName: card.name || null });
+  }
   const next = {
     ...state,
     players: { ...state.players, [playerId]: { ...player, graveyard: [...(player.graveyard || []), card] } },
@@ -138,8 +150,9 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     }
   }
   // GY-1: program complete — every atom ran; the spell card reaches its owner's graveyard NOW
-  // (after the last atom, before finalizeStackResolution's trigger flush — CR 608.2m).
-  return finishSpellResolution(next, params.spellToGraveyard);
+  // (after the last atom, before finalizeStackResolution's trigger flush — CR 608.2m). A `selfExile` program
+  // (Finale of Revelation "Exile <this>.") exiles the spell instead of the graveyard.
+  return finishSpellResolution(next, params.spellToGraveyard, { selfExile: !!program?.selfExile });
 }
 
 /**
