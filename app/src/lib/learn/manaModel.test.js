@@ -237,8 +237,17 @@ describe("parseAddClause — variable amount (MANA-VARIABLE)", () => {
   it("returns null for an UNRECOGNIZED metric — NEVER a fabricated amount:1 (CREED)", () => {
     expect(parseAddClause("{T}: Add {G} for each zombie an opponent controls.")).toBeNull();
     expect(parseAddClause("{T}: Add X mana, where X is the number of zombies target opponent controls.")).toBeNull();
-    // Selvala's "in any combination of colors" is deliberately deferred (not the single-color model).
-    expect(parseAddClause("{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.")).toBeNull();
+  });
+
+  it("maps Selvala's 'Add X mana in any combination of colors, where X is …' (any-combination = all-5-colors + metric)", () => {
+    // "in any combination of colors" is the strict-superset of "of any one color" — the player distributes
+    // X freely across the 5 colors, which the payment planner's per-pip color choice models EXACTLY. So it
+    // shares the same all-five-colors amountSpec return. The metric (greatest power among creatures you
+    // control) is in parseManaMetric's vocabulary → a runtime-modeled variable-X source (was null before).
+    expect(parseAddClause("{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control."))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "greatestPowerYouControl" } });
+    // an UNMODELED metric under the same wording still → null (CREED — never a fabricated fallback)
+    expect(parseAddClause("{G}, {T}: Add X mana in any combination of colors, where X is the number of zombies target opponent controls.")).toBeNull();
   });
 
   it("leaves a fixed-amount clause untouched (no connector → no variable branch)", () => {

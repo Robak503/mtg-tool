@@ -181,9 +181,13 @@ function parseAddClause(oracle) {
     return null; // unmodeled metric (or no symbol) — non-native, never a fabricated fallback
   }
 
-  // Shape B — "Add X mana (of any one color | of any color)?, where X is <metric>". "in any
-  // combination of colors" (Selvala) is deliberately NOT matched here → falls through to null below.
-  v = oracle.match(/\bAdd X mana(?: of any(?: one)? color)?, (where X is [^.]+)/i);
+  // Shape B — "Add X mana (of any one color | of any color | in any combination of colors)?, where X
+  // is <metric>". All three color forms produce X mana the payment planner spends across the five
+  // colors freely, so they share the same all-five-colors amountSpec return. "in any combination of
+  // colors" (Selvala, Heart of the Wilds) is the strict-superset form — the player distributes the X
+  // among any colors — and the planner's per-pip color choice models it EXACTLY (colors:[all 5] +
+  // amountSpec resolved live from the metric). An unmodeled metric still → null (CREED).
+  v = oracle.match(/\bAdd X mana(?: of any(?: one)? color| in any combination of colors)?, (where X is [^.]+)/i);
   if (v) {
     const spec = parseManaMetric(v[1]);
     if (spec) return { colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: spec };
