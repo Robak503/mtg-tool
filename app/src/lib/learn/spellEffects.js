@@ -33,6 +33,8 @@ import {
   regeneratePermanent,
   hasShieldCounter,
   consumeShieldCounter,
+  totemArmorAuraFor,
+  applyTotemArmor,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
   isPlaneswalker,
@@ -806,6 +808,17 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     // indestructible (handled above, a separate replacement CR 702.12b), so the order here is correct.
     if (!cannotRegenerate && (lk.permanent.regenShields || 0) > 0) {
       next = regeneratePermanent(next, t.id);
+      prevented.push(t.id);
+      continue;
+    }
+    // CR 702.116 — TOTEM ARMOR (Umbra armor): if the permanent being destroyed carries a totem-armor Aura, the
+    // Aura is destroyed INSTEAD, all damage is cleared, and the permanent survives (fires no dies-trigger — it
+    // never left). Checked LAST among the replacements (after indestructible/shield/regen, which don't sacrifice
+    // the Aura). A "can't be regenerated" rider does NOT bypass totem armor — that rider is specific to the
+    // regeneration replacement (CR 701.15), not this one, exactly like the shield-counter carve-out above.
+    const totemAuraId = totemArmorAuraFor(next, lk.permanent);
+    if (totemAuraId) {
+      next = applyTotemArmor(next, t.id, totemAuraId);
       prevented.push(t.id);
       continue;
     }

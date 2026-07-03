@@ -89,6 +89,9 @@ export function applyTapEffect(state, atom, ctx, tap) {
  * touched). condX-gated: when atom.condX is set, the untap only happens once the chosen X reaches the threshold
  * (a below-threshold cast is a logged no-op — the "If X is N or more, …instead…" branch simply isn't met, CR).
  * `?? 0` treats a missing xValue as 0 (never "condition met"). Mirrors the applyPumpEffect condX gate exactly.
+ * UNTAP-ALL-LANDS (`atom.all`, Bear Umbra's granted attack trigger): the SAME resolver with NO cap — every one
+ * of the controller's tapped lands is untapped (cap = Infinity), still only the controller's own live-verified
+ * lands, so the CREED-safety is identical (never an opponent's land, never a non-land).
  */
 export function applyUntapLands(state, atom, ctx) {
   if (atom?.condX && (ctx.xValue ?? 0) < atom.condX.min) {
@@ -97,7 +100,9 @@ export function applyUntapLands(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players?.[controller];
   if (!player) return state;
-  const cap = Number.isFinite(atom?.uptoN) ? atom.uptoN : 0;
+  // `all:true` (untap ALL lands you control) has no cap; the up-to-N form caps at atom.uptoN. A missing count
+  // (neither) untaps nothing (cap 0) — the resolver never mis-fires without an explicit count.
+  const cap = atom?.all ? Infinity : (Number.isFinite(atom?.uptoN) ? atom.uptoN : 0);
   // The controller's OWN tapped lands, in stable battlefield order (serialize-deterministic — no sort needed;
   // battlefield order is already stable). Re-verify the LIVE type line is a land before untapping (CREED —
   // never untap a non-land). Take the first `cap` of them.
@@ -733,6 +738,14 @@ export function combatKeywordClauseParser(clause) {
     const n = SMALL_NUM[upN[1]];
     if (n >= 1) return { op: "untap-lands", uptoN: n, targetType: null };
   }
+  // UNTAP-ALL-LANDS (Bear Umbra's granted attack trigger "untap all lands you control"; Sword of Feast and
+  // Famine's rider; Nature's Will) — a NON-targeted, CONTROLLER-scoped untap of EVERY one of the controller's
+  // OWN tapped lands (CR 701.20 — no cap). The SAME applyUntapLands resolver plays it via `all:true` (an
+  // unbounded greedy auto-untap of the controller's own tapped lands, in battlefield order, live-verified as
+  // lands — never an opponent's land, never a non-land, no chosen target, no CREED risk). Whole-clause anchored
+  // ($): a qualified form ("untap all lands" without "you control" is accepted since the resolver already scopes
+  // to the controller; but "untap all Forests you control" / a target/subtype form stays LOW → Arbiter, FN-safe).
+  if (/^untap all lands(?: you control)?$/.test(t)) return { op: "untap-lands", all: true, targetType: null };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).

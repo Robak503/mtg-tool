@@ -2251,7 +2251,13 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
   };
 }
 
-const GRANTED_ABILITY_LINE = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+// A granted quoted ability line. Two shapes, both ending in the quoted ability:
+//   bare:     "Enchanted creature has \"<ability>\""                          (Sixth Sense)
+//   combined: "Enchanted creature gets +2/+2 and has \"<ability>\""          (Bear Umbra, Snake Umbra)
+// The optional "gets +X/+Y and " P/T prefix is applied by the LAYER engine (parseAttachedBonus), so here we
+// only reach past it to the quoted ability. Anchored whole-line ($) — a trailing rider after the quote
+// ("… and has \"…\" and gets +1/+1") leaves residue and does NOT match, keeping such a card Arbiter (CREED).
+const GRANTED_ABILITY_LINE = /^(?:enchanted|equipped) creature\s+(?:gets?\s+[+-]\d+\/[+-]\d+\s+and\s+)?(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
 
 /**
  * GRANTED triggered abilities (subsystem 1 phase 1c) — an Aura/Equipment that grants the enchanted/equipped

@@ -2431,6 +2431,25 @@ function parseAttachedClause(c, subject) {
       out.push({ layer: 6, op: { layerOp: "removeKeyword", keyword: canonicalKeyword(kw) }, duration: { kind: "permanent" } });
       rest = "";
     }
+    // COMBINED GRANT-TRIGGER (Bear Umbra "+2/+2 and has \"Whenever this creature attacks, untap all lands you
+    // control.\""; Snake Umbra "+1/+1 and has \"…draw a card.\"") — after the P/T bonus, a "has \"<quoted
+    // triggered ability>\"" tail is NOT a static keyword grant; it's a TRIGGERED ability the trigger system
+    // fires on the host (triggers.parseGrantedTriggeredAbilities → grantedTriggersForHost, the SAME line the
+    // combined GRANTED_ABILITY_LINE now matches). Emit ONLY the P/T bonus here (the trigger applies
+    // independently), exactly like the equipment path skips trigger sentences — no double-count, no dropped
+    // clause. CREED-gated: only when the quoted body is a FULLY-MODELED triggered ability (every trigger routes
+    // natively, via the injected group-triggered validator that owns triggerRoutesNatively). If it isn't
+    // modeled — or the validator isn't registered — fall through to the have-tail keyword check, which returns
+    // null on a quoted trigger → the whole bonus drops → the Aura stays Arbiter (safe FN). Anchored to the
+    // WHOLE quoted-ability tail ($) so any trailing rider leaves residue and keeps the card Arbiter.
+    const quotedTrigM = rest.match(/^(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/);
+    if (quotedTrigM) {
+      const quoted = quotedTrigM[1].trim();
+      if (/^(?:when|whenever|at)\b/i.test(quoted)
+        && _groupTriggeredBodyValidator && _groupTriggeredBodyValidator(quoted)) {
+        return out.length ? out : null;                // P/T bonus applies; the trigger fires via the trigger system
+      }
+    }
   }
   if (rest) {
     const haveMatch = rest.match(/^(?:has|have)\s+(.+)$/);
@@ -2576,6 +2595,7 @@ function auraResidueClauses(card) {
     if (/^enchant\b/.test(c)) continue;                       // the Enchant keyword line
     if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus clause
     if (isSelfPigReturnClause(c)) continue;                   // SELF-LTB: the modeled Aura self-PiG-return trigger
+    if (isTotemArmorClause(c)) continue;                      // TOTEM ARMOR: the modeled destruction-replacement (both sites)
     out.push(clause);
   }
   return out;
@@ -2593,6 +2613,32 @@ const SELF_PIG_RETURN_CLAUSE_RE =
   /^when this aura is put into a graveyard from the battlefield, return it to its owner's hand\.?$/i;
 function isSelfPigReturnClause(clause) {
   return SELF_PIG_RETURN_CLAUSE_RE.test(String(clause || "").trim());
+}
+
+// TOTEM ARMOR (CR 702.116 — "Umbra armor" is the older functional-reminder name; both are the SAME ability).
+// "If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura." A
+// destruction-REPLACEMENT effect on the Aura (CR 614): the NEXT time the enchanted permanent would be
+// destroyed, the Aura is destroyed instead and all damage is removed from the creature (it survives). Modeled
+// end-to-end by the runtime at BOTH destruction sites (gameState.destroyLethalCreatures — the lethal-damage
+// SBA — and spellEffects.applyDestroyEffect — the targeted-destroy effect), which walk the creature's
+// attachments for a totem-armor Aura and consume it instead of killing. abilityClauses already dropped the
+// parenthetical reminder text, so the whole clause reduces to the bare keyword name. Anchored exactly ($) —
+// only the printed keyword line ("Umbra armor" / "Totem armor") matches; any rider stays residue (CREED).
+const TOTEM_ARMOR_CLAUSE_RE = /^(?:umbra|totem) armor$/i;
+function isTotemArmorClause(clause) {
+  return TOTEM_ARMOR_CLAUSE_RE.test(String(clause || "").trim());
+}
+
+/**
+ * Does this Aura (or token-Aura) carry TOTEM ARMOR / Umbra armor (CR 702.116)? The single source of truth
+ * shared by the coverage classifier (crediting the keyword line as modeled) AND the two runtime destruction
+ * sites (which consume the Aura instead of destroying the creature). Detected from the Aura's own oracle text
+ * so no per-permanent flag needs stamping at attach time. Pure; card-based; false for a non-Aura.
+ */
+export function auraHasTotemArmor(card) {
+  if (!isAuraCard(card)) return false;
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  return abilityClauses(oracle).some((c) => isTotemArmorClause(c));
 }
 
 /**

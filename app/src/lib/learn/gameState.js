@@ -30,6 +30,7 @@ import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 counter-doubler replacement (leaf, no cycle)
+import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -947,6 +948,35 @@ export function regeneratePermanent(state, permanentId) {
   }));
 }
 
+// ── TOTEM ARMOR (CR 702.116 / "Umbra armor") — a destruction-replacement on an Aura ──────────────────────
+// "If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura." When
+// the enchanted permanent WOULD be destroyed (the lethal-damage SBA OR a targeted-destroy effect), the Aura is
+// destroyed INSTEAD, all damage is removed from the creature, and the creature survives (CR 614 replacement).
+// Modeled at BOTH destruction sites so no site silently drops the totem-armor save (CREED — all sites).
+
+/** The id of a TOTEM-ARMOR Aura attached to `perm` (its host), or null. Walks the host's attachments and
+ * returns the FIRST live totem-armor Aura found (CR 616 — with multiple, the creature's controller would
+ * order them; picking the first is a faithful deterministic choice since each replacement is identical). Pure. */
+export function totemArmorAuraFor(state, perm) {
+  for (const attId of perm?.attachments || []) {
+    const lk = findPermanent(state, attId);
+    if (lk && auraHasTotemArmor(lk.permanent.card)) return attId;
+  }
+  return null;
+}
+
+/** Apply the totem-armor replacement: remove ALL marked damage from the saved host creature (it survives) and
+ * DESTROY the Aura (move it to its controller's graveyard, CR 702.116a). The host never leaves the battlefield
+ * (fires no dies-trigger); the Aura's own LTB is handled by the normal move (detach + leave-event look-back, so
+ * a self-return Aura like a hypothetical totem-armor Rancor would still bounce). Returns the next state. */
+export function applyTotemArmor(state, hostId, auraId) {
+  let next = updatePermanentSafe(state, hostId, p => ({ ...p, damageMarked: 0 }));
+  const lk = findPermanent(next, auraId);
+  if (!lk) return next; // the Aura already gone (defensive) — the host was still saved above
+  next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: auraId });
+  return logEvent(next, { kind: "spell-effect", effect: "totem-armor", targets: [auraId] });
+}
+
 /** Clear the transient `removedFromCombat` flag on every permanent (CR 701.15a — removal from combat lasts
  * only for the combat it happened in). Called by the engine when it resets combat at end-of-combat (and
  * defensively at beginning-of-combat) and by actionDispatcher.clearCombat, so a creature regenerated
@@ -1214,6 +1244,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
   const dead = [];
   const regenerated = []; // REGEN (CR 701.15) — creatures whose destruction a regen shield replaces this SBA
   const shieldSaved = []; // SHIELD COUNTER (CR 122.1c) — creatures whose destruction a shield counter replaces
+  const totemSaved = []; // TOTEM ARMOR (CR 702.116) — {hostId, auraId} pairs whose destruction the Aura replaces
   // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
   // already in the graveyard, so its last-known characteristics travel with the `dead` entry.
   // SELF-LTB (Wave 4): the look-back also carries the dead creature's `attachments` ids (the
@@ -1271,8 +1302,13 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
         // normal flow damage to a shielded creature is PREVENTED at the damage site (never marked, so this rarely
         // fires), but this mirrors the regen safety net so any lethal-damage that reached the SBA still consumes
         // a shield rather than killing. Checked after indestructible (a creature can't be both).
+        // TOTEM ARMOR (CR 702.116) is a THIRD "would be destroyed" replacement — checked LAST so a shield/regen
+        // (which don't sacrifice the Aura) is preferred when the controller has both; if the only save is totem
+        // armor, the Aura is destroyed instead and damage is cleared (applied below).
+        const totemAuraId = totemArmorAuraFor(state, perm);
         if (hasShieldCounter(perm)) shieldSaved.push(perm.id);
         else if ((perm.regenShields || 0) > 0) regenerated.push(perm.id); // CR 701.15 — regen shield replaces
+        else if (totemAuraId) totemSaved.push({ hostId: perm.id, auraId: totemAuraId }); // CR 702.116 — totem armor replaces
         else markDead(pid, perm); // CR 704.5g — destruction; an indestructible creature survives
       }
     }
@@ -1291,6 +1327,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
   }
   for (const id of shieldSaved) next = consumeShieldCounter(next, id); // CR 122.1c — remove one shield, survive (no tap)
   for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.15a — clear damage + tap, survive
+  for (const t of totemSaved) next = applyTotemArmor(next, t.hostId, t.auraId); // CR 702.116 — destroy the Aura, clear damage, host survives
   return { state: next, dead };
 }
 
