@@ -274,14 +274,30 @@ export function dealDamageScaledClauseParser(clause) {
     "any target": "any", "target creature": "creature", "target player": "player",
     "target player or planeswalker": "playerOrPlaneswalker",
     "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
+    // DEFENDING-PLAYER (attacks trigger, CR 509.1a) — "it deals damage to DEFENDING PLAYER equal to the number
+    // of artifacts they control" (Generous Plunderer). NOT a chosen target: the defender is the player this
+    // attacker is attacking (ctx.defenderId, set by checkAttackTriggers). The deal-damage resolver synthesizes
+    // the player target from ctx.defenderId; the who:"defendingPlayer" pin (below) restricts this to an attacks
+    // event via combatDamageReferentSatisfied (on any other event ctx.defenderId is unset → the clause would
+    // silently drop, a FORBIDDEN FP — so it stays on the Arbiter, a SAFE FN).
+    "defending player": "defendingPlayer",
   };
   const build = (targetPhrase, countPhrase) => {
     const targetType = TT[String(targetPhrase).trim()];
-    const amountCount = parseCountSource(countPhrase, { allowTarget: true });
+    // allowScopes admits the "they control" (defending-player) count on top of allowTarget's "that player's hand".
+    const amountCount = parseCountSource(countPhrase, { allowTarget: true, allowScopes: true });
     if (!targetType || !amountCount) return null;
     // a "that player's hand" count is only meaningful against a targeted player (CR — "that player")
     if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker") return null;
-    return { op: "deal-damage", targetType, amountCount };
+    // "they control" (who:"defendingPlayer") is only meaningful when the damage is aimed at the defending player
+    // (the clause's own "deals damage to defending player … they control"), never at a chosen creature/player.
+    if (amountCount.who === "defendingPlayer" && targetType !== "defendingPlayer") return null;
+    // Pin who:"defendingPlayer" on the atom so combatDamageReferentSatisfied (triggerRouting.js + coverage's
+    // spell guard) keeps this native ONLY off an attacks trigger — the referent gate the DESTROY-defendingPlayer
+    // path already relies on. A defendingPlayer TARGET always also needs the pin (the target itself is ctx.defenderId).
+    const atom = { op: "deal-damage", targetType, amountCount };
+    if (targetType === "defendingPlayer" || amountCount.who === "defendingPlayer") atom.who = "defendingPlayer";
+    return atom;
   };
   // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== "<source> deals damage equal to the triggering creature's
   // power to <target>" — the AMOUNT is the TRIGGERING (entering) creature's layer-aware power at resolution
@@ -598,6 +614,26 @@ function applyTaxedDraw(state, atom, ctx) {
   });
 }
 
+// OPPONENT-PAYS-TO-DENY (taxed-treasure) — the effect of "Whenever an opponent draws a card, that player may pay {N}.
+// If the player doesn't, you create a Treasure token." (Smothering Tithe). Mirrors applyTaxedDraw exactly, EXCEPT the
+// PAYER is the opponent who DREW (ctx.drawingPlayerId, threaded into the trigger context by checkCardDrawnTriggers and
+// spread into ctx by runEffectProgram) and the decline-payoff is a Treasure the BENEFICIARY (you) creates
+// (declinePayoff:"treasure" → resolveTaxedPaymentChoice mints a functional Treasure with its tap-for-mana ability).
+// Suspend on the payer's pay-or-let-you-make-a-Treasure choice (controller=payer → the driver routes it to the payer's
+// seat). A missing/self payer (reached outside an opponent-draw trigger) → no-op: never a fabricated Treasure (CREED FN).
+function applyTaxedTreasure(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const payer = ctx.drawingPlayerId;
+  if (!payer || !state.players?.[payer] || payer === ctx.controller) return state;
+  return setPendingTaxedPaymentChoice(state, {
+    payer,
+    beneficiary: ctx.controller,
+    cost: atom.cost,
+    sourceName: ctx.cardName || null,
+    declinePayoff: "treasure",
+  });
+}
+
 // UPKEEP-SAC-UNLESS-PAY — "Sacrifice this <noun> unless you pay {cost}." Suspend on the pay/decline choice, carrying
 // the mana cost AND `sourceId` (the source permanent, ctx.sourceId — the same binding the self-sac edict atom uses)
 // so resolveSacUnlessPayChoice can sacrifice THIS permanent on a decline / unaffordable pay. INVERTED polarity: pay
@@ -872,14 +908,26 @@ export const stackResolvers = {
   "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
   "sac-unless-pay": applyUpkeepSacUnlessPay, // UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword) — "sacrifice this <noun> unless you pay {cost}"
   "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
+  "taxed-treasure": applyTaxedTreasure, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "an opponent draws → that player may pay {N}, else you create a Treasure" (Smothering Tithe)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
-  "deal-damage": (state, atom, ctx) =>
+  "deal-damage": (state, atom, ctx) => {
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
     // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.
     // MASS-FILTERED-DAMAGE: thread atom.restrictions so an eachCreature wipe can be flying-filtered.
     // EXILE-IF-DIES (subsystem 3): thread atom.exileIfWouldDie so the damaged creature is marked for the
     // dies→exile replacement (Lava Coil / Magma Spray).
-    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie }),
+    // DEFENDING-PLAYER (attacks trigger, CR 509.1a): the target is NOT chosen — it's the attacked player,
+    // ctx.defenderId (set by checkAttackTriggers). Synthesize the single player target here; an absent
+    // defenderId (any non-attacks event) yields NO target → 0 damage dealt (a clean no-op — the referent
+    // gate keeps this atom off non-attacks events anyway, so this is belt-and-braces).
+    const targets = atom.targetType === "defendingPlayer"
+      ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
+      : ctx.targets;
+    // defendingPlayer resolves via `targets`, not the special targetType switch in applyDamageEffect — pass a
+    // bare targetType so it takes the per-target hitPlayer path (the synthesized player target above).
+    const targetType = atom.targetType === "defendingPlayer" ? "player" : atom.targetType;
+    return applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
+  },
   "counter": applyCounter,
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature

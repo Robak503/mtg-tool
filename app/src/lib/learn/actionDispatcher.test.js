@@ -142,12 +142,17 @@ describe("play-land", () => {
     }
   });
 
-  it("throws CARD_NOT_IN_HAND when the cardId doesn't match a hand card", () => {
+  it("throws CARD_NOT_IN_ZONE when the cardId doesn't match a card in the source zone", () => {
+    // IMPULSE-EXILE: play-land is now zone-parameterized (default "hand"; a land impulse-exiled this turn plays
+    // fromZone "exile"), so the not-found error is the generic CARD_NOT_IN_ZONE (naming the zone) rather than the
+    // old hand-only CARD_NOT_IN_HAND. A default play-land still sources from hand — only the error label changed.
     const state = withHand(stateWith(), []);
+    expect(() => dispatchAction(state, { kind: "play-land", playerId: "user", cardId: "nonexistent" }))
+      .toThrow(/not in hand/);
     try {
       dispatchAction(state, { kind: "play-land", playerId: "user", cardId: "nonexistent" });
     } catch (error) {
-      expect(error.code).toBe("CARD_NOT_IN_HAND");
+      expect(error.code).toBe("CARD_NOT_IN_ZONE");
     }
   });
 });

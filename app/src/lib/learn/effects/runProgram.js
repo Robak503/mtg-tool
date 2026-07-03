@@ -741,6 +741,16 @@ export function resolveOptionalChoice(state, doIt) {
     }
   } else {
     next = logEvent(next, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: false });
+    // ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== the optional was DECLINED, so any immediately-following
+    // `reflexiveGate` atoms (the "When you do, <reflexive>" payoff) must NOT fire — per CR 603.7 the reflexive
+    // ability doesn't even trigger when the primary action didn't happen (Generous Plunderer: a declined "may
+    // create a Treasure" makes NO opponent Treasure). Skip the contiguous run of reflexiveGate atoms so the
+    // program resumes AFTER them. (On the TAKEN branch above we fall through to nextAtomIndex = i+1, so the
+    // gated atoms run normally.)
+    const progAtoms = programAtoms(r.program, r.chosenMode);
+    let skipTo = i + 1;
+    while (progAtoms[skipTo] && progAtoms[skipTo].reflexiveGate) skipTo += 1;
+    return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: skipTo } });
   }
   return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: i + 1 } });
 }
@@ -1109,11 +1119,14 @@ export function autoPickTaxedPayment(state, pc) {
 }
 
 /**
- * ===== OPPONENT-PAYS-TO-DENY (taxed-payment, CR 603.7c) ===== — settle "you may draw a card unless that player pays
- * {N}" (Rhystic Study). If `pay` AND the PAYER (the opponent who cast — pc.payer, bound at fire time) can afford it,
- * charge the payer's mana (payManaCost) and the beneficiary draws NOTHING; else (declined or unaffordable — payManaCost
- * fabricates no mana, CR 119) the BENEFICIARY (the trigger's controller — pc.beneficiary) draws ONE card. Then RESUME
- * the trigger's program. Eliminated-seat guards on BOTH payer and beneficiary (either can leave mid-pause, CR 800.4a).
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-payment, CR 603.7c) ===== — settle "that player may pay {N}, else <payoff>"
+ * (Rhystic Study: you draw a card; Smothering Tithe: you create a Treasure token). If `pay` AND the PAYER (the
+ * opponent who cast/drew — pc.payer, bound at fire time) can afford it, charge the payer's mana (payManaCost) and the
+ * beneficiary gets NOTHING; else (declined or unaffordable — payManaCost fabricates no mana, CR 119) the BENEFICIARY
+ * (the trigger's controller — pc.beneficiary) gets the decline-payoff: a card draw (declinePayoff "draw") or a
+ * functional Treasure token (declinePayoff "treasure" — the create-named-token atom mints one for the beneficiary,
+ * carrying its "{T}, Sacrifice: Add one mana of any color" so the mana model can tap it). Then RESUME the trigger's
+ * program. Eliminated-seat guards on BOTH payer and beneficiary (either can leave mid-pause, CR 800.4a).
  */
 export function resolveTaxedPaymentChoice(state, pay) {
   const pc = state.pendingChoice;
@@ -1125,9 +1138,15 @@ export function resolveTaxedPaymentChoice(state, pay) {
     next = r.state;
     paid = r.paid;
   }
-  next = logEvent(next, { kind: "spell-effect", effect: "taxed-payment", payer: pc.payer, beneficiary: pc.beneficiary, paid, sourceName: pc.sourceName || null });
+  next = logEvent(next, { kind: "spell-effect", effect: "taxed-payment", payer: pc.payer, beneficiary: pc.beneficiary, paid, declinePayoff: pc.declinePayoff || "draw", sourceName: pc.sourceName || null });
   if (!paid && next.players?.[pc.beneficiary]) {
-    next = drawCards(next, { playerId: pc.beneficiary, count: 1 }); // payer declined / couldn't pay → beneficiary draws
+    if (pc.declinePayoff === "treasure") {
+      // Smothering Tithe — the BENEFICIARY creates one functional Treasure token (create-named-token mints it under
+      // ctx.controller = the beneficiary, with the printed tap-for-mana ability; fireTokenEnterTriggers runs inside).
+      next = resolveAtom(next, { op: "create-named-token", token: "treasure", count: 1, targetType: null }, { controller: pc.beneficiary, cardName: pc.sourceName || null, targets: [] });
+    } else {
+      next = drawCards(next, { playerId: pc.beneficiary, count: 1 }); // payer declined / couldn't pay → beneficiary draws
+    }
   }
   return resumeAfterChoice(next, pc);
 }

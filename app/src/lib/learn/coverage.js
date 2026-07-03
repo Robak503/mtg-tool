@@ -101,6 +101,12 @@ export const COVERED_KEYWORDS = [
   // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
   // "fading N" / "vanishing N" match via the startsWith check.
   "fading", "vanishing",
+  // KW-FABRICATE (CR 702.111a) — ENFORCED: the ETB choice (N +1/+1 counters OR N 1/1 Servo tokens) resolves in
+  // enterPermanent (resolvers.js) via fabricate.js — the counters branch adds them AS the creature enters
+  // (through applyCounterDoubling), the Servo branch mints the tokens + fires their ETB watchers. "fabricate N"
+  // matches via the startsWith check (the reminder-text "(When this creature enters …)" is parenthetical, stripped
+  // by stripReminder before the keyword-only split), exactly like "fading N" / "bushido N".
+  "fabricate",
   // BUSHIDO / RAMPAGE (subsystem 2) — ENFORCED: the keyword's triggered ability is synthesized in
   // detectTriggers + fired by checkBlockTriggers. Bushido (CR 702.46a — "blocks or becomes blocked → +N/+N
   // this turn") + Rampage (CR 702.23a — "becomes blocked → +N/+N for each blocker beyond the first", a
@@ -522,6 +528,15 @@ export function permanentTriggersCovered(card) {
     // Miter, Symmetry Matrix, Pedantic Learning). Anchored to the "if you do" lead so it can only consume a true
     // optional-payment tail — FN-safe (the HIGH gate above already vouched the whole trigger effect is modeled).
     .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ")
+    // OPPONENT-PAYS-TO-DENY (taxed-treasure, Smothering Tithe) — "that player may pay {N}. If the player doesn't,
+    // you create a Treasure token." is ONE trigger effect: detectTriggers appends the "If the player doesn't, …"
+    // sentence to the effectClause, and the whole thing parses HIGH in allTriggerSentencesModeled above (proven
+    // before this residue check runs — an unmodeled payoff / {X} cost fails that gate and never reaches here). The
+    // trigger regex stops at the period after "…may pay {N}.", leaving the "If the player doesn't, …" sentence as
+    // apparent residue. Strip the EXACT modeled wording so the card reads keyword-only (Smothering Tithe's only
+    // other body text is the stripped Treasure reminder). Anchored to the modeled decline shape, so it can only
+    // consume this modeled follow-up — FN-safe (the HIGH gate above already vouched the whole taxed-treasure effect).
+    .replace(/\bif the player doesn['’]t, you create a treasure token\b\.?\s*/gi, " ")
     // REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) — the drain sentence "Each opponent loses life
     // equal to that card's mana value." FOLLOWS the reveal sentence in the SAME trigger's effect (detectTriggers
     // appends it to the effectClause, which parses HIGH in allTriggerSentencesModeled above — proven before this

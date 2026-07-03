@@ -48,14 +48,17 @@ describe("REFLEXIVE — classification (general 'When you do' fold)", () => {
   it("Dream Eater → native-trigger (surveil 4 → reflexive optional bounce an opponent's permanent)", () => {
     expect(classifyCard({ name: "Dream Eater", type: "Creature — Nightmare Sphinx", oracle: DREAM })).toBe("native-trigger");
   });
-  it("Generous Plunderer → body-only (OPTIONAL primary 'you may create' — NOT folded, CREED-safe FN)", () => {
-    // The "you may create a Treasure token" primary is optional → the reflexive must never fold (a declined
-    // create must not make the opponent's Treasure). Also blocked by the unmodeled attacks trigger; either way
-    // the card must NOT flip native.
+  it("Generous Plunderer → native-trigger (OPTIONAL-primary reflexive now MODELED via reflexiveGate + attacks-damage-by-artifact-count)", () => {
+    // NOW MODELED (OPTIONAL-PRIMARY REFLEXIVE slice): the "you may create a Treasure token. When you do, target
+    // opponent creates a tapped Treasure token." upkeep folds to [optional-create, reflexiveGate opponent-token]
+    // — the reflexive fires at resolution ONLY when the optional was TAKEN (a declined "may" makes NO opponent
+    // Treasure; enforced by the runtime reflexiveGate skip, NOT by parking). The attacks trigger "deals damage to
+    // defending player equal to the number of artifacts they control" is a defendingPlayer-scoped count-scaled
+    // combat damage. Both triggers route natively → native-trigger.
     expect(classifyCard({
       name: "Generous Plunderer", type: "Creature — Human Rogue",
       oracle: "Menace\nAt the beginning of your upkeep, you may create a Treasure token. When you do, target opponent creates a tapped Treasure token.\nWhenever this creature attacks, it deals damage to defending player equal to the number of artifacts they control.",
-    })).toBe("body-only");
+    })).toBe("native-trigger");
   });
   it("Back for More → NOT native (reflexive 'it fights …' leads with an unbound referent — CREED-safe FN)", () => {
     expect(classifyCard({
@@ -85,11 +88,17 @@ describe("REFLEXIVE — parser (the fold)", () => {
     expect(p.atoms[1]).toMatchObject({ op: "bounce", targetType: "nonlandPermanent", optional: true, restrictions: [{ kind: "controller", who: "opponent" }] });
   });
 
-  it("CREED: an OPTIONAL primary does NOT fold (a declined 'may' must not fire its reflexive)", () => {
-    // "you may create a Treasure token. When you do, draw a card." — both halves model individually, but the
-    // optional primary makes the sequential fold unsafe → the whole program stays LOW → Arbiter.
+  it("OPTIONAL-PRIMARY REFLEXIVE: 'you may X. When you do, Y' folds to [optional X, reflexiveGate Y] (HIGH)", () => {
+    // NOW MODELED (reflexiveGate): the optional-primary reflexive is no longer parked — it folds to an optional
+    // primary followed by a GATED payoff that fires at resolution ONLY when the 'may' was taken. The runtime
+    // (resolveOptionalChoice) skips reflexiveGate atoms on a DECLINE, so the CREED safety (a declined 'may' must
+    // not fire the payoff) is preserved by the gate, not by parking. See the runtime END-TO-END test below.
     const p = parseEffectProgram({ type: "Instant", oracle: "You may create a Treasure token. When you do, draw a card." });
-    expect(programConfidence(p)).toBe("low");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([
+      { op: "create-named-token", token: "treasure", count: 1, targetType: null, optional: true },
+      { op: "draw", amount: 1, targetType: null, reflexiveGate: true },
+    ]);
   });
 
   it("CREED: a reflexive leading with an unbound referent ('it …') does NOT fold", () => {
@@ -97,9 +106,21 @@ describe("REFLEXIVE — parser (the fold)", () => {
     expect(programConfidence(p)).toBe("low");
   });
 
-  it("a 'When you do' whose primary or reflexive is UNMODELED stays LOW (parser re-gate)", () => {
-    // Reflexive half unmodeled ("target opponent creates …" — the opponent-beneficiary token isn't modeled).
+  it("MANDATORY reflexive with a target-opponent-creates payoff folds HIGH (opponent-beneficiary token now modeled)", () => {
+    // Previously parked ("target opponent creates …" was unmodeled). Now the opponent-beneficiary token IS
+    // modeled (whoCreates:"target"), so a MANDATORY primary + this reflexive folds via matchReflexiveTrigger.
     const p = parseEffectProgram({ type: "Instant", oracle: "Create a Treasure token. When you do, target opponent creates a tapped Treasure token." });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([
+      { op: "create-named-token", token: "treasure", count: 1, targetType: null },
+      { op: "create-named-token", token: "treasure", count: 1, targetType: "opponent", whoCreates: "target", tapped: true },
+    ]);
+  });
+
+  it("CREED: an OPTIONAL-primary reflexive whose reflexive half is UNMODELED stays LOW (parser re-gate)", () => {
+    // "you may mill an opponent. When you do, <unmodeled>" — the reflexive half must model or the whole thing
+    // stays LOW → Arbiter (never a partial). Use an unmodeled reflexive payoff to prove the gate re-checks.
+    const p = parseEffectProgram({ type: "Instant", oracle: "You may create a Treasure token. When you do, each player dances the tango." });
     expect(programConfidence(p)).toBe("low");
   });
 });

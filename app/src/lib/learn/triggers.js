@@ -333,6 +333,27 @@ function splitTriggerSentence(inner) {
       pos = next + 1;
     }
   }
+  // COMBAT-EVENT-LIST guard (CR 603.2) — a comma/or list of combat-and-target events ("attacks, blocks, or
+  // becomes the target of a spell, …" — Giggling Skitterspike) puts the first comma right after "attacks",
+  // so the loop above stops there and TRUNCATES the list — leaving condition "…attacks" and swallowing the
+  // remaining events ("blocks, or becomes the target of a spell") into the effect. classifyCondition would
+  // then read it as a bare "attacks" trigger and SILENTLY DROP the other event(s) — a confident WRONG partial
+  // (THE CREED). Advance splitIdx to the END of the event list so the WHOLE compound condition reaches
+  // classifyCondition, where the "attacks or blocks" / "attacks or becomes the target of a spell" compound
+  // guards leave it UNDETECTED → Arbiter (a SAFE false-negative). Gated to the case where the truncated
+  // prefix ends on a bare combat verb AND the text after the comma continues with another combat/target
+  // event token ("blocks" / "becomes the target"), optionally after "or"/"," — so a normal "…attacks, draw a
+  // card" (effect after the event) is untouched. Advances one list element at a time until the continuation
+  // stops. Placed before the cast-list guard so the two never contend (a combat list has no "cast"/"spell").
+  {
+    const CONT_RE = /^\s*(?:,?\s*(?:or\s+)?)(?:blocks|becomes\s+blocked|becomes\s+the\s+target\s+of\s+a\s+spell)\b/i;
+    while (splitIdx !== -1 && /\b(?:attacks|blocks|becomes\s+the\s+target\s+of\s+a\s+spell)\s*$/i.test(inner.slice(0, splitIdx).trim())
+           && CONT_RE.test(inner.slice(splitIdx + 1))) {
+      const next = inner.indexOf(",", splitIdx + 1);
+      if (next === -1) break;
+      splitIdx = next;
+    }
+  }
   // TYPED-CAST-LIST guard — a "cast a <A>, <B>, or <C> spell" condition (Sram: "cast an Aura, Equipment, or
   // Vehicle spell") puts a comma INSIDE the condition, before the word "spell". The prefix "you cast an
   // Aura" already has the "cast" event verb, so the loop above stops at that first comma and TRUNCATES the
@@ -756,6 +777,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   // UNDETECTED → Arbiter (a SAFE false-negative). Like lifegain, whose:"any" + checkCardDrawnTriggers scans
   // ONLY the drawing player's sources (drawing is turn-agnostic — an instant draws on any player's turn).
   if (/^you draw a card$/.test(c)) return { event: "cardDrawn", scope: "you", whose: "any" };
+  // TRIG-DRAW-OPPONENT (Smothering Tithe) — "Whenever an opponent draws a card, …". The DRAWING player is an
+  // opponent of the source's controller, and (for the taxed-treasure payoff) that opponent is the PAYER. Shares
+  // the "cardDrawn" event with the "you draw" form above, distinguished by scope:"opponentDraw" + whose:"opponent"
+  // (the milled/cast precedent). checkCardDrawnTriggers scans the drawer's OPPONENTS' sources for this descriptor
+  // and threads drawingPlayerId as the payer. BARE form ONLY ("an opponent draws a card"); a scaled/conditional/
+  // filtered variant leaves residue → null → Arbiter (SAFE false-negative). scope:"opponentDraw" matches in
+  // scopeMatches like "milled"/"you" (returns true — the whose:"opponent" gate lives in the dedicated checker).
+  if (/^an opponent draws a card$/.test(c)) return { event: "cardDrawn", scope: "opponentDraw", whose: "opponent" };
   // TRIG-DRAW2 — "draw your second card each turn" (the draw-doubler payoff). Anchored to the BARE
   // second-card form (each/this turn); a different ordinal ("first/third"), scaled, or rider variant stays
   // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
@@ -827,6 +856,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
   // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
   if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
+  // ===== ATTACKS-OR-BECOMES-TARGET (compound-trigger guard, CR 603.2 / CR 115.1) ===== A condition that
+  // names BOTH "attacks" and "becomes the target of a spell" ("Whenever this creature attacks or becomes
+  // the target of a spell, …" — Goldspan Dragon, Tectonic Giant, Giggling Skitterspike) is a COMPOUND event.
+  // The bare "becomes the target of a spell" event has NO general runtime (only HEROIC is modeled, and it
+  // fires exclusively for a spell the TARGET's controller casts — CR 702.35 — not for ANY spell targeting
+  // the permanent, so it can't stand in for this broader condition). The \battacks\b branch below would
+  // detect this as JUST "attacks" and SILENTLY DROP the "becomes the target of a spell" half — the trigger
+  // would fire on attack only, a confident WRONG partial (CLAUDE.md §1.2 / THE CREED): the card would never
+  // fire when it's targeted. Mirrors the "attacks or blocks" guard directly above. Leave it UNDETECTED so the
+  // trigger-sentence count matches in allTriggerSentencesModeled and the whole card routes to the Arbiter (a
+  // SAFE false-negative) until a general becomes-target-of-a-spell event exists. Anchored on "becomes the
+  // target of a spell" (a Ward reminder's "…of a spell or ability an opponent controls" never reaches here —
+  // detectTriggers strips reminder text upstream and Ward is a separate keyword lane).
+  if (/\battacks\b/.test(c) && /\bbecomes the target of a spell\b/.test(c)) return null;
   // ===== ATTACKS-ALONE (sole-attacker restriction guard, CR 508.4a) ===== "attacks alone" fires ONLY when
   // exactly one creature is attacking. The engine has NO sole-attacker gate, so the non-anchored
   // "a creature you control" match below would silently DROP "alone" and fire on EVERY attacker (Black
@@ -989,16 +1032,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you cast your second spell (?:each|this) turn$/.test(c)) return { event: "castSecond", scope: "you", whose: "any" };
   // TRIG-CASTNTH — "cast your <ordinal> spell each turn" generalized to the off-by-one-safe Nth-per-turn
   // event (CR 601, spells cast one at a time → spellsCastThisTurn equals N exactly once per turn). Covers the
-  // controller form ("you cast your first/third spell each turn" — Rashmi) AND the opponent form ("an
-  // opponent casts their first spell each turn" — Mind's Dilation). BARE form ONLY — a spell-type rider
+  // controller form ("you cast your first/third spell each turn" — Rashmi), the opponent form ("an
+  // opponent casts their first spell each turn" — Mind's Dilation), AND the ANY-player form ("a player casts
+  // their second spell each turn" — Lotho, Corrupt Shirriff → whose:"any", which the checkCastTriggers castNth
+  // handler fires for every seat's watcher regardless of caster, so Lotho's controller's watcher fires on each
+  // player's Nth spell — CR-correct for the "a player" subject). BARE form ONLY — a spell-type rider
   // ("…first noncreature spell") fails the `$` anchor → UNDETECTED → Arbiter (never an over-fire). The
   // PAYOFF still has to parse HIGH to fire (Rashmi's reveal/free-cast does not → stays non-native; the
   // detection is correct but the whole card routes to the Arbiter, a SAFE false-negative). checkCastTriggers
-  // reads the CASTER's count. (The bare "second" form stays its own castSecond event for stable identity.)
-  const nthM = c.match(/^(you|an opponent) casts? (?:your|their) (first|second|third) spell (?:each|this) turn$/);
+  // reads the CASTER's count. (The bare "you … second" form stays its own castSecond event for stable identity.)
+  const nthM = c.match(/^(you|an opponent|a player) casts? (?:your|their) (first|second|third) spell (?:each|this) turn$/);
   if (nthM) {
     const nth = nthM[2] === "first" ? 1 : nthM[2] === "second" ? 2 : 3;
-    const whose = nthM[1] === "you" ? "you" : "opponent";
+    const whose = nthM[1] === "you" ? "you" : nthM[1] === "an opponent" ? "opponent" : "any";
     return { event: "castNth", scope: "castWatcher", whose, nth };
   }
   // X-SPELL cast trigger — "cast a spell with {X} in its mana cost" (CR 107.3 / 601.2b). The {X} and "mana
@@ -1807,6 +1853,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // objects, not permanents); the milling-player `whose` gate is applied in checkMilledTriggers, which
       // scans ALL players' watchers directly. Always matches here (like "you"): the event already proved a
       // mill happened, and the filter (nonland) + whose gate are enforced at the checkMilledTriggers site.
+      return true;
+    case "opponentDraw":
+      // TRIG-DRAW-OPPONENT (Smothering Tithe) — a card-draw event has NO triggering PERMANENT (the drawn card
+      // is a library/hand object). The whose:"opponent" gate (the drawer must be an opponent of the source's
+      // controller) is applied in checkCardDrawnTriggers, which scans the drawer's opponents' watchers directly.
+      // Always matches here (like "milled"/"you"): the event already proved a draw happened.
       return true;
     case "eachCreature":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
@@ -2700,10 +2752,22 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
   let fired = [];
   for (const perm of triggerSourcesOf(state, drawingPlayerId)) {
     for (let i = 0; i < count; i++) {
-      fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+      fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope !== "opponentDraw" }));
     }
     if (crossedSecond) {
       fired = fired.concat(triggersForEvent(state, { event: "drawSecond", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+    }
+  }
+  // TRIG-DRAW-OPPONENT (Smothering Tithe) — the drawer's OPPONENTS' watchers see "Whenever an opponent draws a
+  // card". Scan each opponent-of-the-drawer's sources for the scope:"opponentDraw" descriptor ONLY (scopeFilter),
+  // firing once per card drawn (each draw is a separate event, CR 121.2 — like the "you draw" path). The payer for
+  // the taxed-treasure payoff is drawingPlayerId (threaded into the context, spread into ctx by runEffectProgram).
+  // Mirrors checkMilledTriggers/checkCastTriggers: the whose gate is the opponents-of-drawer scan itself.
+  for (const oppId of opponentsOf(state, drawingPlayerId)) {
+    for (const perm of triggerSourcesOf(state, oppId)) {
+      for (let i = 0; i < count; i++) {
+        fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope === "opponentDraw" }));
+      }
     }
   }
   if (!fired.length) return state;
@@ -3030,13 +3094,15 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
       }
     }
   }
-  // TRIG-CASTNTH (CR 601): "Whenever (you|an opponent) casts (your|their) <Nth> spell each turn." The count
-  // just incremented in applyCastSpell is the CASTER's running total, so it equals descriptor.nth EXACTLY
+  // TRIG-CASTNTH (CR 601): "Whenever (you|an opponent|a player) casts (your|their) <Nth> spell each turn." The
+  // count just incremented in applyCastSpell is the CASTER's running total, so it equals descriptor.nth EXACTLY
   // ONCE this turn (the off-by-one trap: the count is already post-increment, so an Nth trigger compares ===
   // nth, NOT > nth-1 — a single fire on the Nth cast). A "you" watcher fires only when its controller IS the
   // caster; an "opponent" watcher fires only when the caster is one of the watcher's opponents (so each
-  // opponent's Mind's Dilation fires once on that opponent's Nth cast). Scanned across ALL seats so opponent
-  // watchers see the cast. The PAYOFF still must parse HIGH at flush to fire natively.
+  // opponent's Mind's Dilation fires once on that opponent's Nth cast); an "any" watcher ("a player casts their
+  // second spell" — Lotho, Corrupt Shirriff) passes BOTH guards → fires for its controller on EVERY player's Nth
+  // cast (its own and each opponent's). Scanned across ALL seats so opponent/any watchers see the cast. The
+  // PAYOFF still must parse HIGH at flush to fire natively.
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
       for (const d of detectTriggers(watcher.card).filter((x) => x.event === "castNth")) {

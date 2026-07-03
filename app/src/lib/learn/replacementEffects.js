@@ -42,9 +42,12 @@ const RECIPIENT_GENERIC = /\bon (?:a|an|each|any|that|another)\s+(?:(?:nontoken|
 /**
  * Classify a single permanent's card into its doubler profile, or null. Parses by sentence so a card with
  * BOTH a counter clause and a token clause (Doubling Season / Primal Vigor / Vorinclex) is captured fully.
- * Returns { counter: {op, factor, kind, scope}|null, halvesOpponents: bool, token: {factor, scope}|null }.
+ * Returns { counter: {op, factor, kind, scope}|null, halvesOpponents: bool, token: {factor, scope}|null,
+ *   tokenAdd: {filter, additive, scope}|null }.
  *   - counter.op: "multiply" (factor 2) | "additive" (factor is the +N, e.g. 1)
  *   - counter.kind: "+1/+1" (only +1/+1 counters) | "any" (any counter type)
+ *   - token: MULTIPLICATIVE doubler (×2^k over all token kinds — Doubling Season / Mondrak)
+ *   - tokenAdd: ADDITIVE, kind-FILTERED bonus (+N of a specific token — Xorn = +1 Treasure)
  *   - scope: "you" | "global"
  */
 export function doublerProfile(card) {
@@ -58,6 +61,7 @@ export function doublerProfile(card) {
   if (/\bclass\b/.test(type)) return null;
   let counter = null;
   let token = null;
+  let tokenAdd = null;
   let halvesOpponents = false;
   for (const raw of o.split(".")) {
     const s = raw.trim();
@@ -101,9 +105,22 @@ export function doublerProfile(card) {
     if (tokenCreate && /twice that many/.test(s)) {
       token = { factor: 2, scope: /under your control|you control/.test(s) ? "you" : "global" };
     }
+    // ── TOKEN-ADDITIVE (Xorn, CR 614) — a NARROWER token-count replacement: "If you would create one or more
+    // <Kind> tokens, instead create those tokens plus an additional <Kind> token." Not a ×2 multiply — a FIXED
+    // +1 of a SPECIFIC token kind (Xorn = Treasure). Distinct field from `token` (the multiplicative doubler) so
+    // tokenMultiplier stays byte-identical. Anchored to the exact "create one or more <Kind> … plus an additional
+    // <Kind>" template. Only Treasure is minted as a MODELED named token (NAMED_TOKENS), so we admit ONLY the
+    // Treasure filter — any other kind (a hypothetical "additional Clue") would still route through
+    // applyCreateNamedToken and could be added later, but is left unmodeled here (FN-safe: no over-mint). The
+    // "you" scope is intrinsic to the template ("If YOU would create …"); a minted Treasure is never itself a
+    // Xorn, so this cannot recurse. If the two <Kind>s in the clause disagree, no profile (defensive).
+    const addM = s.match(/if you would create one or more (treasure) tokens?,? instead create those tokens plus an additional (treasure) token/);
+    if (addM && addM[1] === addM[2]) {
+      tokenAdd = { filter: addM[1], additive: 1, scope: "you" };
+    }
   }
-  if (!counter && !token && !halvesOpponents) return null;
-  return { counter, token, halvesOpponents };
+  if (!counter && !token && !tokenAdd && !halvesOpponents) return null;
+  return { counter, token, tokenAdd, halvesOpponents };
 }
 
 /**
@@ -151,6 +168,10 @@ export function isModeledDoublerSentence(s) {
     }
   }
   if ((/(?:create|creates) one or more tokens?/.test(s) || /one or more tokens? would be created/.test(s)) && /twice that many/.test(s)) return true;
+  // TOKEN-ADDITIVE (Xorn) — the exact Treasure "+1 additional" replacement the runtime applies (tokenAdditive).
+  // Only the Treasure filter is modeled (Treasure is the only MODELED named token an additive can mint); a
+  // hypothetical "additional Clue" is NOT matched here → its clause survives as residue → card stays non-native.
+  if (/if you would create one or more treasure tokens?,? instead create those tokens plus an additional treasure token/.test(s)) return true;
   return false;
 }
 
@@ -226,6 +247,26 @@ export function tokenMultiplier(state, recipientControllerId) {
     if (t && (t.scope === "global" || ownerId === recipientControllerId)) mult *= t.factor;
   }
   return mult;
+}
+
+/**
+ * The ADDITIVE token bonus (Xorn, CR 614) for tokens of `tokenName` (e.g. "treasure") created under
+ * `recipientControllerId`'s control: the sum of every tokenAdd.additive over the applicable additive-token
+ * replacements (scope "you" → owned by the recipient; "global" reserved, none printed). The bonus is added ONCE
+ * PER CREATION EVENT (Xorn = "plus AN additional Treasure", one extra regardless of the base count), so the
+ * caller applies it to the whole batch, not per-token. `tokenName` is compared case-insensitively against the
+ * profile's `filter`; a non-matching token kind (a Clue when only a Treasure-additive is out) gets 0. Two Xorns
+ * stack additively (+2). Pure; a minted Treasure is never itself an additive source, so this cannot recurse.
+ */
+export function tokenAdditive(state, recipientControllerId, tokenName) {
+  const kind = String(tokenName || "").toLowerCase();
+  if (!kind) return 0;
+  let add = 0;
+  for (const { ownerId, profile } of allDoublers(state)) {
+    const ta = profile.tokenAdd;
+    if (ta && ta.filter === kind && (ta.scope === "global" || ownerId === recipientControllerId)) add += ta.additive;
+  }
+  return add;
 }
 
 // ─── MANA-MULTIPLIER — "If you tap a permanent for mana, it produces N times as much" (CR 605.1b/616) ──────

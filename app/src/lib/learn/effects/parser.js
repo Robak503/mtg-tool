@@ -230,6 +230,11 @@ function rewriteAmountX(clause) {
   const damage = /(deals?\s+)X(\s+damage\b)/i;
   const draw = /(\bdraws?\s+)X(\s+cards?\b)/i; // "draws?" covers the each-player/target form ("target player draws X cards", "each player draws X cards") in addition to the controller "draw X cards"
   const pumpSym = /(\bgets\s+)\+X\/\+X\b/i;
+  // NEGATIVE symmetric X-pump (X-PUMP-NEG): "gets -X/-X" — a debuff scaled by the chosen X (Grim Hireling's
+  // "Target creature gets -X/-X until end of turn", paid with X sacrificed Treasures). Rewrites to the sentinel
+  // "-1/-1" so the numeric pump clause parses, and reports xSign:-1 so the caller stamps amountXNeg — the
+  // resolver then applies -X/-X (both pips = -ctx.xValue) and the lethal SBA drops a creature to <=0 toughness.
+  const pumpSymNeg = /(\bgets\s+)-X\/-X\b/i;
   // ASYMMETRIC X-pump (X-PUMP-ASYM): ONE pip is +X, the other a printed value — "+X/+0" / "+X/+2"
   // (slot "p") and "+0/+X" / "+2/+X" (slot "t"). The non-X pip MUST be a digit (so these can never
   // match the symmetric +X/+X handled above). The caller carries the printed ptDelta + amountXSlot so
@@ -239,6 +244,7 @@ function rewriteAmountX(clause) {
   if (damage.test(clause)) return { clause: clause.replace(damage, (_, a, b) => `${a}1${b}`), xSlot: null };
   if (draw.test(clause)) return { clause: clause.replace(draw, (_, a, b) => `${a}1${b}`), xSlot: null };
   if (pumpSym.test(clause)) return { clause: clause.replace(pumpSym, (_, a) => `${a}+1/+1`), xSlot: null };
+  if (pumpSymNeg.test(clause)) return { clause: clause.replace(pumpSymNeg, (_, a) => `${a}-1/-1`), xSlot: null, xSign: -1 };
   if (pumpXP.test(clause)) return { clause: clause.replace(pumpXP, (_, a, b) => `${a}1${b}`), xSlot: "p" };
   if (pumpXT.test(clause)) return { clause: clause.replace(pumpXT, (_, a) => `${a}1`), xSlot: "t" };
   return null;
@@ -799,6 +805,9 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       // applies ctx.xValue to the marked pip and the printed ptDelta to the other ("+X/+0" → +X power, +0
       // toughness). Symmetric +X/+X (xSlot null) keeps the original ptDelta-less shape (resolver = X both).
       if (rw.xSlot && base.op === "pump") { atom.ptDelta = base.ptDelta; atom.amountXSlot = rw.xSlot; }
+      // NEGATIVE symmetric X-pump ("-X/-X", Grim Hireling) — the sentinel parsed to a -1/-1 pump; mark the atom
+      // so applyPumpEffect subtracts ctx.xValue on BOTH pips (a debuff, lethal-SBA-checked) instead of adding it.
+      if (rw.xSign === -1 && base.op === "pump") atom.amountXNeg = true;
       return atom;
     }
   }
@@ -1893,6 +1902,32 @@ function matchRevealTopConditional(oracle) {
 }
 
 /**
+ * ===== IMPULSE-EXILE-AND-PLAY ===== "Exile the top card of your library. You may play that card this turn."
+ * (Professional Face-Breaker's sac-Treasure activated ability; the Light Up the Stage / impulse-draw family).
+ * A TWO-sentence effect: the "exile the top card" half and the "you may play that card this turn" permission
+ * half are ONE modeled unit — the clause splitter would shatter them into individually-unmatchable fragments
+ * ("exile the top card of your library" alone is not a modeled atom; "you may play that card this turn" is a
+ * bare back-reference to the exiled card). So it's collapsed up front to ONE `impulse-exile` atom whose
+ * resolver (applyImpulseExileAtom) moves the top card to exile FACE-UP + stamps the this-turn play permission,
+ * which the ACTION layer (legalChoices.actionsPlayImpulseFromExile) then genuinely OFFERS + ENFORCES (a real
+ * full-cost cast / play-land from exile, this turn only, cleared at cleanup) — never a parse-only marker.
+ *
+ * ALLOWLIST (CREED whole-effect, anchored ^…$ on the exact two-sentence shape, apostrophe/whitespace normalized,
+ * trailing period stripped): the referent-pronoun variants "that card" / "it" and the duration phrasings
+ * "this turn" / "until end of turn". Any rider / variant — a COUNT ("the top TWO cards"), a mana-value cap, an
+ * IMPRINT / another-zone ("from your graveyard"), a cost rider ("you may play that card. If you do, …"), or a
+ * different owner's library — leaves residue → no match → low → Arbiter (never a partial). The op is KNOWN
+ * (registered in libraryResolvers), so the caller emits a HIGH single-atom program. Returns { atom }.
+ */
+function matchImpulseExilePlay(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^exile the top card of your library\. you may play (?:that card|it)(?: this turn| until end of turn)$/.test(s)) {
+    return null;
+  }
+  return { atom: { op: "impulse-exile", targetType: null } };
+}
+
+/**
  * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
  * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
  * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
@@ -1976,6 +2011,27 @@ function matchTaxedDraw(oracle) {
   const mana = parseFixedManaPips(pips);
   if (!mana) return null; // {X} (Esper Sentinel) / unknown symbol → unmodeled cost
   return { atom: { op: "taxed-draw", cost: { kind: "mana", mana }, targetType: null } };
+}
+
+/**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-treasure, CR 603.7c) ===== the effect clause of a "Whenever an opponent draws
+ * a card, that player may pay {N}. If the player doesn't, you create a Treasure token." trigger (Smothering Tithe).
+ * The PAYER is the opponent who drew (bound at resolution from ctx.drawingPlayerId, threaded by checkCardDrawnTriggers);
+ * the BENEFICIARY is the trigger's controller (you) — on decline/can't-afford YOU create a functional Treasure token
+ * (the minted Treasure carries "{T}, Sacrifice: Add one mana of any color", so the mana model can tap it). Mirrors
+ * matchTaxedDraw exactly but with a create-Treasure decline-payoff instead of a draw. A FIXED mana cost only ({X} /
+ * unknown symbol → parseFixedManaPips null → unmodeled, SAFE FN). Anchored to the WHOLE two-sentence effect; a scaled
+ * ("that many Treasure tokens") or filtered variant leaves residue → null → the clause stays LOW → Arbiter.
+ */
+function matchTaxedTreasure(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^that player may pay (\{[^}]+\}(?:\{[^}]+\})*)\. if the player doesn't, you create a treasure token$/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null; // {X} / unknown symbol → unmodeled cost
+  return { atom: { op: "taxed-treasure", cost: { kind: "mana", mana }, targetType: null } };
 }
 
 /**
@@ -2198,6 +2254,51 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
   return { atoms };
 }
 
+/**
+ * ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== "You may <primary>. When you do, <reflexive>." — the
+ * primary is OPTIONAL and the reflexive fires ONLY IF the controller actually DID the primary (Generous
+ * Plunderer's upkeep: "you may create a Treasure token. When you do, target opponent creates a tapped Treasure
+ * token."). matchReflexiveTrigger REJECTS this (a naive sequential fold would fire the reflexive even on a
+ * DECLINE — the cardinal FP), so this is the distinct, faithful model: emit [optionalPrimaryAtom,
+ * {...reflexiveAtom, reflexiveGate:true}]. The `reflexiveGate` flag tells runEffectProgram / resolveOptionalChoice
+ * to run the atom ONLY when the immediately-preceding optional was TAKEN, and to SKIP it (never resolve — CR
+ * 603.7: the reflexive doesn't even trigger) when it was declined. This is the ONLY safe way an optional-then-
+ * dependent sequence can be modeled, so `optionalsFormSuffix` is deliberately NOT applied to the combined atoms
+ * (the gate replaces that invariant with a stronger one — the gated atom cannot run without the optional).
+ *
+ * CREED guards (mirroring matchReflexiveTrigger, but the MANDATORY gate is INVERTED to require optional):
+ *  - The PRIMARY must be a SINGLE optional atom (a plain "you may <one thing>"): a multi-atom optional primary
+ *    would make "did you do it?" ambiguous per-atom. Exactly one atom, and it must be `optional`.
+ *  - Both halves HIGH + non-modal + non-xSpell; the reflexive is self-contained (no leading referent, no chained
+ *    2nd reflexive) and carries NO optional atom of its own (the gate is the only conditionality).
+ *  - Every atom KNOWN. Anchored to a SINGLE "when you do". Returns { atoms } or null.
+ */
+function matchOptionalReflexiveTrigger(oracle, cardType, hasX) {
+  const s = stripReminder(oracle).trim();
+  const m = s.match(/^(.+?\S)\.\s+when you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
+  if (!m) return null;
+  const primaryText = m[1].trim();
+  const reflexiveText = m[2].trim();
+  if (/\bwhen you do\b/i.test(reflexiveText)) return null;          // a chained 2nd reflexive — not modeled
+  if (/^(?:it|they|that|those|this)\b/i.test(reflexiveText)) return null; // primary-object referent (e.g. "it fights")
+  const primary = parseEffectClauseImpl(primaryText, cardType, { hasX });
+  if (!primary || programConfidence(primary) !== "high" || primary.structure === "modal") return null;
+  // OPTIONAL-primary gate (INVERTED): the primary must be EXACTLY ONE optional atom.
+  const primaryAtoms = primary.atoms || [];
+  if (primaryAtoms.length !== 1 || !primaryAtoms[0].optional) return null;
+  const reflexive = parseEffectClauseImpl(reflexiveText, cardType, { hasX: false });
+  if (!reflexive || programConfidence(reflexive) !== "high" || reflexive.structure === "modal") return null;
+  if (primary.xSpell || reflexive.xSpell) return null;
+  const reflexiveAtoms = reflexive.atoms || [];
+  // The reflexive must be non-empty and carry NO optional atom of its own (the gate is the sole conditionality —
+  // an optional-inside-reflexive would need a second pause the simple gate can't express → LOW → Arbiter).
+  if (reflexiveAtoms.length === 0 || reflexiveAtoms.some(a => a.optional)) return null;
+  // Tag every reflexive atom with reflexiveGate so the runner runs them ONLY if the optional primary was taken.
+  const atoms = [primaryAtoms[0], ...reflexiveAtoms.map(a => ({ ...a, reflexiveGate: true }))];
+  if (!atoms.every(a => KNOWN.has(a.op))) return null;
+  return { atoms };
+}
+
 // INSPIRING CALL — "Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain
 // <grantable keyword[s]> until end of turn." The "those creatures" anaphora binds the group grant to the SAME
 // +1/+1-counter-filtered set the draw just counted; the two sentences span the clause splitter, so it's matched
@@ -2399,6 +2500,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (rtc && KNOWN.has(rtc.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [rtc.atom], xSpell: false, unparsedTail: null });
   }
+  // ===== IMPULSE-EXILE-AND-PLAY ===== "Exile the top card of your library. You may play that card this turn."
+  // → ONE impulse-exile atom (exile the top card face-up + stamp the this-turn play permission; the action
+  // layer then offers a real full-cost cast / play-land from exile). The two-sentence effect would shatter
+  // under the clause splitter (each half is individually unmatchable), so it's collapsed up front. HIGH iff the
+  // op is KNOWN (it is — registered in libraryResolvers). Not an X spell.
+  const iep = matchImpulseExilePlay(oracle);
+  if (iep && KNOWN.has(iep.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [iep.atom], xSpell: false, unparsedTail: null });
+  }
   // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
   // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken
   // creatures actually destroyed, computed at resolution). The "can't be regenerated" rider (none on Blood
@@ -2416,6 +2526,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rfx = matchReflexiveTrigger(oracle, cardType, hasX);
   if (rfx) {
     return makeProgram({ confidence: "high", atoms: rfx.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL-PRIMARY REFLEXIVE (CR 603.7) ===== "You may <primary>. When you do, <reflexive>." — the
+  // reflexive fires ONLY if the OPTIONAL primary was taken. matchReflexiveTrigger rejects the optional primary
+  // (a plain fold would over-fire on decline); this emits [optional-primary, reflexiveGate-payoff] where the
+  // gated atoms run at resolution ONLY when the optional was accepted (runProgram / resolveOptionalChoice honor
+  // reflexiveGate). Checked AFTER the mandatory matcher (shared anchor; this one requires the optional primary).
+  const orfx = matchOptionalReflexiveTrigger(oracle, cardType, hasX);
+  if (orfx) {
+    return makeProgram({ confidence: "high", atoms: orfx.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." → ONE
   // optional-mana-payment atom (the resolver suspends on a real pay/decline; payManaCost charges the cost, the
@@ -2441,6 +2560,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const txd = matchTaxedDraw(oracle);
   if (txd && KNOWN.has(txd.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [txd.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPPONENT-PAYS-TO-DENY (taxed-treasure) ===== "that player may pay {N}. If the player doesn't, you create
+  // a Treasure token" (Smothering Tithe's trigger effect) → ONE taxed-treasure atom (the payer = the opponent who
+  // drew, from ctx.drawingPlayerId; the beneficiary = you, who mints a Treasure on decline). applyTaxedTreasure
+  // suspends on the payer's pay/decline. Checked pre-splitter (the two sentences would shatter). Disjoint anchor
+  // ("that player may pay …" vs "you may draw a card unless …") from the taxed-draw fold above, so order-free.
+  const txt = matchTaxedTreasure(oracle);
+  if (txt && KNOWN.has(txt.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [txt.atom], xSpell: false, unparsedTail: null });
   }
   // ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== "You may sacrifice a <subtype>. If you do, <effect>." → ONE
   // optional-sac-payment atom (the resolver suspends on a real sac/decline; sacrificeCreatureEffect pitches one
@@ -2890,6 +3018,14 @@ export function atomTargetIntent(atom) {
       // "Regenerate target creature" (Horizon Seed: cast Spirit/Arcane → regenerate target creature) —
       // protective, own-side: you regenerate your own creatures.
       return "own";
+    case "create-named-token":
+      // TARGET-OPPONENT-CREATES — "target opponent creates a tapped Treasure token" (Generous Plunderer's
+      // reflexive). The targetType is "opponent" (whoCreates:"target"), so the ONLY legal targets are the
+      // controller's opponents — the flush chooser picks any opponent (always a legal, provably-correct
+      // "enemy"-side pick; there is no self-target hazard because a controller can never be their own
+      // opponent). Every OTHER create-named-token form is non-targeted (targetType null → null above), so
+      // this case is reached ONLY for the opponent-creates shape.
+      return "enemy";
     default:
       return "ambiguous";
   }

@@ -3,7 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId } from "../../gameState.js";
-import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter
+import { tokenMultiplier, tokenAdditive, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -168,6 +168,16 @@ export function applyCreateNamedToken(state, atom, ctx) {
   const spec = NAMED_TOKENS[atom.token];
   if (!spec) return state;
   let next = state;
+  // ===== TARGET-OPPONENT-CREATES ===== whoCreates:"target" — the token's controller/owner is the CHOSEN
+  // opponent (ctx.targets player), not the effect's controller (Generous Plunderer's reflexive "target
+  // opponent creates a tapped Treasure token"). CR 111.2 — the effect's controller creates the token, but
+  // this effect explicitly names a different creator, so the token enters under that player's control (and
+  // they own it). An absent/gone target → the effect does nothing (no fabricated token). The token-count
+  // multiplier (doubler) below is read against the CREATOR (that opponent), per CR 616 — their doubler, not ours.
+  const creatorId = atom.whoCreates === "target"
+    ? (ctx.targets?.find((t) => t.type === "player")?.id ?? null)
+    : ctx.controller;
+  if (creatorId == null || !next.players?.[creatorId]) return next;
   // ===== TREASURE-MAKER ===== the count, mirroring applyCreateToken (the typed-token resolver). DYNAMIC
   // forms resolve AT RESOLUTION (CR 608.2h — a count-derived value is locked as the effect resolves, not at
   // cast/flush): `countFor` is a board count (countForSpec — Dockside "X = artifacts+enchantments your
@@ -186,7 +196,18 @@ export function applyCreateNamedToken(state, atom, ctx) {
         : Math.max(1, atom.count || 1);
   // Wave-3 token doubler (CR 616): a "create one or more tokens" doubler (Doubling Season / Parallel Lives /
   // Anointed Procession) doubles named artifact tokens (Treasure/Clue/Food/Gold) too. Multiplied once here.
-  const count = baseCount * tokenMultiplier(next, ctx.controller);
+  // TOKEN-ADDITIVE (Xorn, CR 614): a kind-FILTERED "+1 additional Treasure" replacement adds a FIXED bonus of a
+  // specific token kind PER creation event (not per token). Xorn only ever mints Treasures via this named path,
+  // so the additive is keyed off the token kind (spec.name → "Treasure"). Greedy-max ordering (CR 616.1e — the
+  // creator orders their own replacements to maximize): ADD first, THEN multiply — (base + add) × mult beats
+  // base × mult + add (a Xorn + Doubling Season on 1 Treasure = (1+1)×2 = 4, not 1×2+1 = 3). A base of 0 stays 0
+  // (no creation event → no additive; CR 614 replaces an existing creation, it doesn't manufacture one). The
+  // additive is never itself multiplied by a further additive (a minted Treasure isn't a Xorn), so it's applied
+  // exactly once here. BOTH replacements key off creatorId (the token's CREATOR, CR 614/616 — for Generous
+  // Plunderer's "target opponent creates a tapped Treasure" the creator is that OPPONENT, so their Xorn/doubler
+  // apply, not the controller's). In the ordinary case creatorId === ctx.controller (byte-identical).
+  const additive = baseCount > 0 ? tokenAdditive(next, creatorId, spec.name) : 0;
+  const count = (baseCount + additive) * tokenMultiplier(next, creatorId);
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
@@ -195,15 +216,16 @@ export function applyCreateNamedToken(state, atom, ctx) {
     // ===== TREASURE-MAKER ===== a "tapped" rider (Generous Plunderer's "a tapped Treasure token") enters
     // the token TAPPED, so it's NOT a mana source until it untaps (manaSources skips perm.tapped + the
     // Treasure ability requires {T}). It still ENTERS, so it fires artifact-ETB watchers exactly like an
-    // untapped one (fireTokenEnterTriggers below).
-    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.tapped });
-    const player = next.players[ctx.controller];
-    next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+    // untapped one (fireTokenEnterTriggers below). The token enters under `creatorId` (the controller for the
+    // ordinary case, or the CHOSEN opponent for whoCreates:"target" — Generous Plunderer's reflexive).
+    const perm = createPermanent({ id: minted.id, card, controller: creatorId, tapped: !!atom.tapped });
+    const player = next.players[creatorId];
+    next = { ...next, players: { ...next.players, [creatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
     mintedIds.push(minted.id);
   }
   // ETB (CR 603.6a) — each named artifact token fires artifact-ETB watchers (see fireTokenEnterTriggers).
   next = fireTokenEnterTriggers(next, mintedIds);
-  return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count, tapped: !!atom.tapped, controller: ctx.controller });
+  return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count, tapped: !!atom.tapped, controller: creatorId });
 }
 
 /**
@@ -369,6 +391,18 @@ export function createNamedTokenClauseParser(clause) {
   if (m) {
     const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
     if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged
+    return atom;
+  }
+  // ===== TARGET-OPPONENT-CREATES ===== "target opponent creates a[ tapped] <tok> token" — a CHOSEN opponent
+  // (NOT the controller) mints the token (Generous Plunderer's reflexive: "…When you do, target opponent
+  // creates a tapped Treasure token."). targetType:"opponent" enumerates the opponents (spellEffects.addOpponents),
+  // and whoCreates:"target" tells applyCreateNamedToken to put the token on the CHOSEN player's battlefield
+  // (ctx.targets), not the controller's. Single fixed token only (a/an/one); a dynamic/count form on this
+  // rarer shape isn't printed → stays unmatched → Arbiter (CREED — never a partial). "tapped" rider preserved.
+  m = t.match(/^target opponent creates? (?:a|an|one) (tapped )?(treasure|clue|food|gold) token$/);
+  if (m) {
+    const atom = { op: "create-named-token", token: m[2], count: 1, targetType: "opponent", whoCreates: "target" };
+    if (m[1]) atom.tapped = true;
     return atom;
   }
   m = t.match(/^investigate(?: (twice|(?:two|three|four|five|six|seven|eight|nine|ten) times))?$/);

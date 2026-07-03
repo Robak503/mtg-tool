@@ -1265,10 +1265,28 @@ function actionsActivateAbility(state, playerId) {
         );
         if (sacCountPool.length < ab.sacCount.count) continue; // can't pay the sac → not offered
       }
+      // γ1e — "Sacrifice X <fungible subtype>": gather every legal victim of the subtype (same fungible-value-token
+      // pool + leave-trigger fail-safe as γ1d). The PLAYER chooses X (1..available), so at least ONE must exist to
+      // offer the ability; the per-X expansion inside the choice loop picks exactly X of these (target-overlap aware).
+      let sacXPool = null;
+      if (ab.sacX) {
+        sacXPool = player.battlefield.filter((v) =>
+          sacTypeMatches(v.card, ab.sacX.type, ab.sacX.subtype || null) &&
+          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+        );
+        if (sacXPool.length < 1) continue; // can't sacrifice even one → X≥1 impossible → not offered
+      }
       // The set of permanents consumed BY the sac is always exactly N members of the fungible pool, whichever
       // N — so for the offer-time affordability check, excluding the first N from the mana sources is correct
       // (a different per-choice pick, forced by target overlap below, removes an equally-non-mana member).
-      const sacCountManaExcluded = new Set(ab.sacCount ? sacCountPool.slice(0, ab.sacCount.count).map((v) => v.id) : []);
+      // For γ1e (variable X), exclude the WORST case for the {mana} part — the SINGLE Treasure needed for X=1
+      // (a larger X only sacrifices MORE Treasures, but the mana cost is X-independent; the per-X loop below
+      // re-checks affordability against that X's exact excluded victims, so this offer-gate stays conservative).
+      const sacCountManaExcluded = new Set(
+        ab.sacCount ? sacCountPool.slice(0, ab.sacCount.count).map((v) => v.id)
+          : ab.sacX ? sacXPool.slice(0, 1).map((v) => v.id)
+            : [],
+      );
       // A source paying part of its OWN cost by tapping ({T}), being sacrificed, or being exiled can't
       // ALSO tap for mana — drop it from the available mana sources for the affordability + payment. The
       // γ1d sac-N victims are dropped too (a sacrificed Treasure can't also be cracked for mana).
@@ -1337,6 +1355,52 @@ function actionsActivateAbility(state, playerId) {
             const pick = sacCountPool.filter((v) => !targetIds.has(v.id)).slice(0, ab.sacCount.count);
             if (pick.length < ab.sacCount.count) continue;
             sacCountIds = pick.map((v) => v.id);
+          }
+          // γ1e — "Sacrifice X <subtype>" (Grim Hireling): the PLAYER chooses X. Expand ONE action per legal X
+          // (1..available), each paying exactly X fungible victims and threading xValue:X into the effect (the
+          // "-X/-X" reads ctx.xValue). Victims exclude any the effect TARGETS (a sacrificed Treasure the ability
+          // also targeted would fizzle — no-op guard, same as γ1d) and any needed to tap for the {mana} part (a
+          // Treasure cracked for the sac can't ALSO pay {B}). The mana affordability is re-checked PER X against
+          // that X's exact excluded victims — a larger X removes more Treasures from the mana sources, so an X
+          // that starves the {mana} part is not offered (never an unpayable cost). One shared code path for the
+          // final action push below (sacXIds threads like sacCountIds); the non-sacX case leaves sacXIds null.
+          if (ab.sacX) {
+            const targetIds = new Set(ch.targets.map((t) => t.id));
+            const avail = sacXPool.filter((v) => !targetIds.has(v.id));
+            for (let x = 1; x <= avail.length; x++) {
+              const sacXIds = avail.slice(0, x).map((v) => v.id);
+              const sacXExcluded = new Set(sacXIds);
+              // A Treasure sacrificed for the X cost can't ALSO tap for the {mana} part — mirror the dispatcher.
+              const sourcesForX = manaSources(state, playerId).filter((s) =>
+                !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
+                !sacXExcluded.has(s.permanentId));
+              if (!canAfford(player.manaPool, sourcesForX, cost)) continue; // this X starves the {mana} part
+              actions.push({
+                kind: "activate-ability",
+                playerId,
+                permanentId: perm.id,
+                name: perm.card.name,
+                abilityIndex: ab.index,
+                cost,
+                cmc: totalCmc(cost),
+                tapSelf: ab.tapSelf,
+                payLife: ab.payLife || 0,
+                sacSelf: ab.sacSelf || false,
+                exileSelf: ab.exileSelf || false,
+                removeCounter: ab.removeCounter || null,
+                sacCreatureId: null,
+                sacCreatureName: null,
+                sacCountIds: sacXIds,                       // γ1e — the X fungible victims to sacrifice (cost)
+                xValue: x,                                  // γ1e — the chosen X threads into the effect (ctx.xValue)
+                program: ab.program,
+                targets: ch.targets,
+                chosenMode: ch.chosenMode ?? null,
+                needsTargets: ch.targets.length > 0,
+                targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+                abilityText: `Sacrifice ${x} ${ab.sacX.subtype}${x === 1 ? "" : "s"}: ${ab.effectClause}`,
+              });
+            }
+            continue; // sacX expanded its own per-X actions; skip the single-action push below
           }
           actions.push({
             kind: "activate-ability",
@@ -1497,6 +1561,40 @@ function actionsCastPlottedFromExile(state, playerId) {
   const plotted = (player.exile || []).filter(c => c && c._plotted && c._plottedTurn !== state.turn);
   if (plotted.length === 0) return [];
   return castActionsFromZone(state, playerId, plotted, "exile", null, true);
+}
+
+/**
+ * IMPULSE-EXILE step 2 — PLAY a card impulse-exiled THIS TURN, at FULL COST (CR 118.10 permission — "you may
+ * play that card this turn"). The `impulse-exile` atom stamped `_impulse: true` + `_impulseTurn` when it exiled
+ * the top card; here we offer to play it FROM EXILE this turn only (the turn stamp gates it, exactly like PLOT's
+ * `_plottedTurn`, and gameEngine's cleanup clears the flags at end of turn). "Play" = cast a NONLAND normally
+ * (the shared castActionsFromZone builder with fromZone "exile", freeCast=FALSE — the cost is paid in full,
+ * respecting the card's own instant/sorcery timing), OR play a LAND from exile (a play-land action consuming a
+ * land drop). A NONLAND is enumerated through the exact cast machinery a hand-cast uses (cost / X / modal /
+ * targets / additional costs), so target selection / the stack / cast triggers / AI all behave identically; the
+ * card leaves exile onto the stack when cast, so it can't be played twice. A LAND rides the play-land path
+ * (sorcery-speed, own main, land-drop budget) — the same gates as a hand land — with fromZone "exile" so the
+ * dispatcher splices it from the right zone. GATE: `_impulse && _impulseTurn === state.turn` (this turn only —
+ * CR; a stale flag from a prior turn is already cleared at cleanup, so this is belt-and-suspenders). Once-per-
+ * card is enforced naturally (the card leaves exile when played).
+ */
+function actionsPlayImpulseFromExile(state, playerId) {
+  const player = state.players[playerId];
+  const impulsed = (player.exile || []).filter(c => c && c._impulse && c._impulseTurn === state.turn);
+  if (impulsed.length === 0) return [];
+  const nonlands = impulsed.filter(c => !isLand(c));
+  const lands = impulsed.filter(c => isLand(c));
+  const actions = [];
+  // NONLANDS — cast at full cost from exile (freeCast=false), same builder as a hand cast (timing/cost/X/targets).
+  actions.push(...castActionsFromZone(state, playerId, nonlands, "exile", null, false));
+  // LANDS — play from exile if a land drop is available at sorcery speed (the same gates the hand play-land uses).
+  if (lands.length && canCastSorcerySpeed(state, playerId)
+      && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
+    for (const card of lands) {
+      actions.push({ kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "exile" });
+    }
+  }
+  return actions;
 }
 
 /**
@@ -1884,6 +1982,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSpell(state, playerId));
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
+    actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile

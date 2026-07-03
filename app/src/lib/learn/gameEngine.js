@@ -107,6 +107,32 @@ function grantsPriority(step) {
 }
 
 /**
+ * IMPULSE-EXILE cleanup (CR 118.10 / 514.2) — the "you may play that card this turn" permission granted by an
+ * `impulse-exile` atom LAPSES at end of turn. Strip the `_impulse` / `_impulseTurn` markers off every exiled
+ * card whose stamp is from a turn that has now ended, so legalChoices.actionsPlayImpulseFromExile no longer
+ * offers it: the card stays inert in exile (CR-correct — the window closed; the card is NOT put anywhere else).
+ * Only touches cards that carry the marker (a plotted / adventure / discover-parked exile card is untouched),
+ * and only clears stamps from a PRIOR-or-current-ended turn — a card impulse-exiled during a still-live turn is
+ * never cleared early. Pure (a shallow rebuild of each affected player's exile array; no closures). A no-op for
+ * every player with no impulse-marked exile card, so the common path allocates nothing.
+ */
+function clearImpulsePlayPermissions(state) {
+  let players = null;
+  for (const [pid, player] of Object.entries(state.players)) {
+    const exile = player.exile || [];
+    if (!exile.some((c) => c && c._impulse && c._impulseTurn <= state.turn)) continue;
+    const cleaned = exile.map((c) => {
+      if (!(c && c._impulse && c._impulseTurn <= state.turn)) return c;
+      const { _impulse: _drop, _impulseTurn: _dropTurn, ...rest } = c;
+      return rest;
+    });
+    players = players || { ...state.players };
+    players[pid] = { ...player, exile: cleaned };
+  }
+  return players ? { ...state, players } : state;
+}
+
+/**
  * After a state change, restart the priority loop. Active player
  * receives priority first per CR 117.1.
  */
@@ -265,6 +291,7 @@ export function runStepActions(state) {
       next = emptyManaPools(next);
       next = clearCombatDamage(next); // combat damage wears off at end of turn
       next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
+      next = clearImpulsePlayPermissions(next); // IMPULSE-EXILE (CR 118.10): the "play that card this turn" permission lapses; strip the _impulse markers so the card stays inert in exile
       // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
       // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
       next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });

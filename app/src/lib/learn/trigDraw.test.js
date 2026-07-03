@@ -45,9 +45,15 @@ describe("TRIG-DRAW — detection (classifyCondition)", () => {
     expect(detectTriggers(c).some(t => t.event === "cardDrawn")).toBe(false);
   });
 
-  it("does NOT detect an opponent-draw trigger ('whenever an opponent draws a card')", () => {
+  it("detects an opponent-draw trigger scoped to the opponent ('whenever an opponent draws a card')", () => {
+    // Smothering Tithe's taxed-treasure lane models opponent-draw triggers, so detectTriggers now
+    // recognizes "whenever an opponent draws a card" as a cardDrawn event tagged whose:"opponent"
+    // (distinct from a controller-draw). Whether the card flips native still depends on its EFFECT
+    // being modeled (count reconciliation) — detection alone doesn't over-claim.
     const c = creature("Tax", 1, 1, "Whenever an opponent draws a card, they lose 1 life.");
-    expect(detectTriggers(c).some(t => t.event === "cardDrawn")).toBe(false);
+    const t = detectTriggers(c).find(x => x.event === "cardDrawn");
+    expect(t).toBeTruthy();
+    expect(t.whose).toBe("opponent");
   });
 });
 

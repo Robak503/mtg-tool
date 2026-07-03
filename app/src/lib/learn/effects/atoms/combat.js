@@ -150,10 +150,12 @@ export function applyPumpEffect(state, atom, ctx) {
   // amountX → the chosen X (ctx.xValue) scales the pump. amountXSlot ("p"/"t") marks WHICH stat is the
   // +X for an ASYMMETRIC X-pump ("+X/+0" → slot "p", "+0/+X" → slot "t"); the OTHER stat reads its
   // printed ptDelta. An absent slot = symmetric +X/+X (both stats = X) — the original behavior.
+  // amountXNeg → a NEGATIVE symmetric X-pump ("-X/-X", Grim Hireling's sac-X debuff): both pips subtract X.
+  const xSigned = atom.amountXNeg ? -x : x;
   const xP = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "p");
   const xT = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "t");
-  const power = scaled != null ? scaled : (xP ? x : atom.ptDelta?.p || 0);
-  const toughness = scaled != null ? scaled : (xT ? x : atom.ptDelta?.t || 0);
+  const power = scaled != null ? scaled : (xP ? xSigned : atom.ptDelta?.p || 0);
+  const toughness = scaled != null ? scaled : (xT ? xSigned : atom.ptDelta?.t || 0);
   // Chosen targets for a single-creature pump (Giant Growth), EVERY creature for a mass
   // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
   // Languish), or the controller's creatures for a TEAM pump (atom.scope "youControl" — Overrun

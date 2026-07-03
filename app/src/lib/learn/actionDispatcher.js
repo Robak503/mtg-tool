@@ -71,11 +71,6 @@ export class DispatcherError extends Error {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function findCardInHand(state, playerId, cardId) {
-  const player = state.players[playerId];
-  return player?.hand.find(c => c.id === cardId) || null;
-}
-
 function findCreatureOnBattlefield(state, playerId, permanentId) {
   const player = state.players[playerId];
   return player?.battlefield.find(p => p.id === permanentId) || null;
@@ -121,12 +116,16 @@ function applyPlayLand(state, action) {
   if (player.landsPlayedThisTurn >= landDropAllowance(state, action.playerId)) {
     throw new DispatcherError("Already played a land this turn", "LAND_PER_TURN");
   }
-  const card = findCardInHand(state, action.playerId, action.cardId);
-  if (!card) throw new DispatcherError(`Card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+  // IMPULSE-EXILE (CR 118.10): a land impulse-exiled this turn is played FROM EXILE (action.fromZone === "exile"),
+  // not from hand — the same land-drop rules apply, only the source zone differs. Default "hand" keeps every
+  // existing play-land call byte-identical. The card is found in whichever zone the action names.
+  const fromZone = action.fromZone === "exile" ? "exile" : "hand";
+  const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
+  if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
 
   let next = moveCardToZone(state, {
     playerId: action.playerId,
-    fromZone: "hand",
+    fromZone,
     toZone: "battlefield",
     cardId: action.cardId,
     becomePermanent: true,
@@ -669,6 +668,10 @@ function applyActivateAbility(state, action) {
     // activated ability ("{T}: This creature gets +1/+1 until end of turn") resolve to the source.
     const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id, sourceId: action.permanentId };
     if (action.chosenMode != null) params.chosenMode = action.chosenMode;
+    // γ1e — a "Sacrifice X <subtype>" ability threads the chosen X into resolution (ctx.xValue), so an X-scaled
+    // effect (Grim Hireling's "-X/-X") applies the SAME X the player paid in sacrificed Treasures. Only the sac-X
+    // path sets action.xValue on an activated ability, so every other ability keeps its prior X-free params shape.
+    if (action.xValue != null) params.xValue = action.xValue;
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   }
 
