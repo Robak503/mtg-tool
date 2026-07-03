@@ -439,6 +439,18 @@ export function cdmgMassToDamagedPlayerClauseParser(clause) {
   if (/^.+? deals? that much damage to each creature that player controls$/.test(t)) {
     return { op: "cdmg-mass-to-damaged-player", countContext: "combatDamageAmount", targetType: null };
   }
+  // CDMG-TO-EACH-OTHER-OPPONENT (Super State, CR 510 + 119) — the SYNTHETIC effect an Aura's combat-damage-to-
+  // an-opponent trigger carries: "it deals that much damage to each other opponent." "That much" is the combat-
+  // damage amount just dealt (ctx.combatDamageAmount); "other opponent" = every opponent of the source's
+  // controller EXCEPT the one just combat-damaged (ctx.damagedPlayerId) — both referents come from the trigger
+  // ctx (checkCombatDamageTriggers), NOT chosen targets, so the atom is NON-targeted (routes natively on the
+  // combat-damage flush) and a clean no-op outside a combat-damage trigger (no ctx referents → 0 / empty).
+  // Whole-clause anchored (^…$ off the "it deals / this creature deals" source prefix); a rider fails the $ →
+  // low → Arbiter (CREED FN-safe). In a 1v1 game there IS no other opponent → empty set → clean no-op (never a
+  // fabricated self-hit or double-hit on the damaged player). The damage is dealt by the source (source.id).
+  if (/^.+? deals? that much damage to each other opponent$/.test(t)) {
+    return { op: "cdmg-to-each-other-opponent", countContext: "combatDamageAmount", targetType: null };
+  }
   return null;
 }
 
@@ -864,6 +876,33 @@ function applyCdmgMassToDamagedPlayer(state, atom, ctx) {
 }
 
 /**
+ * ===== CDMG-TO-EACH-OTHER-OPPONENT (Super State, CR 510 + 119) ===== the SOURCE (the Aura, threaded as
+ * ctx.sourceId) deals `ctx.combatDamageAmount` damage to each OPPONENT of the controller EXCEPT the one just
+ * combat-damaged (ctx.damagedPlayerId). Both referents come from the combat-damage trigger ctx (checkCombat-
+ * DamageTriggers → {damagedPlayerId, combatDamageAmount}), NOT chosen targets, so the atom is non-targeted and
+ * routes natively on the combat-damage flush. Mirrors applySourcePowerFanout's player fan-out (player targets +
+ * ONE applyDamageEffect + source:{id} for the source-scoped damage-replacement/infect/wither hook) but scoped to
+ * the OTHER opponents and with the amount read from the combat-damage referent. A missing referent (a spell /
+ * non-combat trigger → no ctx.combatDamageAmount) is a clean no-op (0 amount). In a 1v1 game the only opponent
+ * IS the damaged player, so the "other opponent" set is empty → a clean no-op (never a fabricated self-hit or a
+ * double-hit on the already-damaged player). "each OTHER opponent" excludes ctx.damagedPlayerId (CR 113.7).
+ */
+function applyCdmgToEachOtherOpponent(state, atom, ctx) {
+  const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
+  if (amount <= 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "cdmg-to-each-other-opponent", controller: ctx.controller, amount: 0 });
+  }
+  const damaged = ctx.damagedPlayerId;
+  const targets = opponentsOf(state, ctx.controller)
+    .filter((opp) => opp !== damaged && state.players?.[opp])
+    .map((opp) => ({ type: "player", id: opp }));
+  if (targets.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "cdmg-to-each-other-opponent", controller: ctx.controller, amount });
+  }
+  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: { id: ctx.sourceId } });
+}
+
+/**
  * ===== COPY-A-CREATURE-SPELL (Double Major, CR 707.10 / 707.12) ===== resolve "Copy target creature spell you
  * control[, except it isn't legendary]." The chosen creature spell (ctx.targets[0], a stack object) is copied as a
  * NEW object put on top of the stack; a copy of a PERMANENT spell "becomes a token as it resolves" (CR 707.10a), so
@@ -938,6 +977,7 @@ export const stackResolvers = {
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell
   "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls
+  "cdmg-to-each-other-opponent": applyCdmgToEachOtherOpponent, // CDMG-TO-EACH-OTHER-OPPONENT (Super State) — deal the combat-damage amount to each opponent EXCEPT the one just combat-damaged
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "optional-draw-discard": applyOptionalDrawDiscard, // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. if you do, discard a card."

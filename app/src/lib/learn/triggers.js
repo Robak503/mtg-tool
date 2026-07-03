@@ -970,6 +970,14 @@ function classifyCondition(condRaw, cardName, cardType) {
     // UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire). whose:"any" like the per-attacker
     // self/creatureYouControl forms above.
     if (/^equipped creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+    // AURA-RIDER combat-damage (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage to a player,
+    // <effect>". An Aura's OWN triggered ability keyed off its host: the watcher is the AURA, the connecting
+    // attacker is the triggering permanent, so the SAME "equippedCreature" attached-linkage scope fires ONLY
+    // when the attacker IS this Aura's host (sourcePermanent.attachedTo). Auras and Equipment attach through
+    // the identical `attachedTo` field, and the per-host correctness relies on ATTACH permitting only an
+    // own-creature host (resolvers.js), exactly like the Equipment rider above. The "to an opponent" object is
+    // handled in the sibling block below (the outer guard here is END-anchored on "a player"). whose:"any".
+    if (/^enchanted creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
     // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
     // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
     // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
@@ -1021,6 +1029,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bdeals? damage to (?:a player|an opponent)$/.test(c) && selfRef) {
     return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
   }
+  // AURA-RIDER combat-damage TO AN OPPONENT (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage
+  // to an opponent, <effect>". The "to an opponent" object is equivalent to "to a player" for this event: the
+  // defender of a combat-damage-player event is ALWAYS an opponent of the attacking player (CR 509.1a), and
+  // the Aura's controller IS the attacking player (ATTACH forbids a non-own host), so the just-damaged player
+  // is always an opponent — the same equivalence the SUBTYPE-BATCH block above relies on. Reuses the
+  // "equippedCreature" attached-linkage scope; the per-host correctness is identical to the "to a player"
+  // sibling above. Anchored bare-object ("…to an opponent$"); a qualifier leaves residue → undetected → Arbiter.
+  if (/^enchanted creature deals combat damage to an opponent$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
 
   // ===== ENRAGE / DAMAGE-RECEIVED (CR 603.2 trigger condition, the ENRAGE family) ===== "Whenever this creature is dealt
   // damage, …" / "Whenever <name> is dealt damage, …". The SOURCE permanent IS the creature that took the

@@ -2389,14 +2389,21 @@ function parseAttachedClause(c, subject) {
   let rest = c.replace(new RegExp(`^${subject} creature\\s+`), "").trim();
   const out = [];
 
-  // EQUIP-BASE-PT-SET (layer 7b): "has base power and toughness N/N" (literal). A DYNAMIC form
-  // ("…N/N, where X is your life total") has trailing residue after the N/N and is NOT matched here, so
-  // the all-or-nothing tail check below rejects it (Aettir and Priwen stays body-only — safe FN, no
-  // fabricated CDA). Anchored to the whole clause (no other bonus composes with a base-P/T set in the
-  // modeled corpus). applyLayer7 already applies sublayer 7b.
-  const baseSet = rest.match(/^(?:has|have)\s+base power and toughness\s+(\d+)\/(\d+)$/);
+  // EQUIP-BASE-PT-SET (layer 7b): "has base power and toughness N/N" (literal), OPTIONALLY composed with a
+  // trailing "and has <grantable keyword>…" list (Super State "…9/9 and has flying, first strike, trample,
+  // and haste"; Almost Perfect "…9/10 and has indestructible"; Gigantiform "…8/8 and has trample"). The
+  // base-set is consumed, then `rest` advances past it (dropping the joining "and") so the SHARED
+  // have-keyword tail below models the keyword grant — no second keyword parser, so a base-set + keyword
+  // aura can't drift from a plain keyword aura. A DYNAMIC form ("…N/N, where X is your life total") has a
+  // trailing clause that is NOT a "has <keyword>" grant, so the have-tail's GRANTABLE_KEYWORDS check rejects
+  // it → null → whole bonus drops (Aettir and Priwen stays body-only — safe FN, no fabricated CDA). Without
+  // a keyword tail (the bare "…N/N" form) `rest` becomes "" and the function returns the lone 7b op below.
+  // applyLayer7 already applies sublayer 7b, layered after the layer-6 keyword grants.
+  const baseSet = rest.match(/^(?:has|have)\s+base power and toughness\s+(\d+)\/(\d+)\b/);
   if (baseSet) {
-    return [{ layer: 7, sublayer: "7b", op: { power: parseInt(baseSet[1], 10), toughness: parseInt(baseSet[2], 10) }, duration: { kind: "permanent" } }];
+    out.push({ layer: 7, sublayer: "7b", op: { power: parseInt(baseSet[1], 10), toughness: parseInt(baseSet[2], 10) }, duration: { kind: "permanent" } });
+    rest = rest.slice(baseSet[0].length).trim().replace(/^and\s+/, "").trim(); // "…9/9 and has flying" → "has flying"
+    if (!rest) return out;                              // bare base-P/T set, no keyword tail
   }
 
   // EQUIP-DYNAMIC-PT (layer 7c): "gets +X/+Y for each <metric>" (Conqueror's Flail). The metric must be a
@@ -2524,10 +2531,18 @@ export function parseAttachedBonus(card, subjectOverride) {
     // still drops, keeping The Reaver Cleaver body-only.)
     // EQUIPMENT-ONLY: equipment nativeness is gated by coverage.permanentEquipmentCovered, which independently
     // requires every trigger sentence to ROUTE natively (allTriggerSentencesModeled) — so skipping the trigger
-    // here can't over-claim. The AURA gate (isNativeAura) has NO such trigger-routing check; it relies on this
-    // parse failing to keep a triggered-ability aura non-native (the auras-grant-trigger slice is separate), so
-    // for the "enchanted" subject we keep the original all-or-nothing behavior (a trigger line poisons it → []).
+    // here can't over-claim.
     if (subject === "equipped" && /^(?:when|whenever|at)\b/.test(c.trim())) continue;
+    // AURA (SUPER STATE): the aura's OWN trigger sentence poisons the bonus parse (it "touches" the enchanted
+    // creature but isn't a "<subject> creature has/gets" static clause → parseAttachedClause returns null → the
+    // bonus drops to []). Skip it ONLY when it is a KNOWN-MODELED aura-own trigger (isModeledAuraOwnTrigger) —
+    // the same shape isNativeAura's residue gate admits — so the runtime attaches + fires it while the layer
+    // engine applies the P/T/keyword bonus independently. An UNMODELED aura trigger is NOT skipped → the bonus
+    // still drops to [] → non-native (CREED: an aura trigger the engine can't fire keeps the whole card off
+    // native, never a silent drop). Mirrors the equipment trigger-skip, gated to the modeled shape for auras.
+    if (subject === "enchanted" && /^(?:when|whenever|at)\b/.test(c.trim())) {
+      if (isModeledAuraOwnTrigger(c)) continue;
+    }
     if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
     const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
     if (!parsed) { if (slot) slot[slotKey] = []; return []; }     // a creature clause we can't fully model
@@ -2593,9 +2608,19 @@ function auraResidueClauses(card) {
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;                       // the Enchant keyword line
-    if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus clause
-    if (isSelfPigReturnClause(c)) continue;                   // SELF-LTB: the modeled Aura self-PiG-return trigger
-    if (isTotemArmorClause(c)) continue;                      // TOTEM ARMOR: the modeled destruction-replacement (both sites)
+    // An aura-own TRIGGER sentence starting with When/Whenever/At "touches" the enchanted creature but is NOT
+    // a static bonus clause; admit it as non-residue ONLY when it is the modeled aura-own trigger (the runtime
+    // fires it), else it stays residue → non-native (CREED). Checked BEFORE the generic touchesAttachedCreature
+    // skip so an UNMODELED aura trigger ("Whenever enchanted creature dies, draw a card") is NOT silently
+    // admitted — it falls through to `out.push`, keeping the Aura body-only.
+    if (/^(?:when|whenever|at)\b/.test(c)) {
+      if (isModeledAuraOwnTrigger(c)) continue;               // AURA-OWN-TRIGGER: modeled combat-damage relay (Super State)
+      if (isSelfPigReturnClause(c)) continue;                 // SELF-LTB: the modeled Aura self-PiG-return trigger
+      out.push(clause);                                       // any other aura-own trigger → residue → non-native
+      continue;
+    }
+    if (isTotemArmorClause(c)) continue;                      // TOTEM ARMOR (Bear Umbra): the modeled destruction-replacement
+    if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus (P/T / keyword) clause
     out.push(clause);
   }
   return out;
@@ -2641,6 +2666,21 @@ export function auraHasTotemArmor(card) {
   return abilityClauses(oracle).some((c) => isTotemArmorClause(c));
 }
 
+// AURA-OWN-TRIGGER (SUPER STATE) — the EXACT aura-own combat-damage trigger the engine now plays end-to-end:
+// "Whenever enchanted creature deals combat damage to a player/an opponent, it deals that much damage to each
+// other opponent." The Aura is a live trigger SOURCE while attached; triggers.checkCombatDamageTriggers fires
+// its printed trigger (detected via the "enchanted creature deals combat damage" → equippedCreature-scope
+// path) and the cdmg-to-each-other-opponent atom deals the combat-damage amount to each OTHER opponent. So
+// this clause is no longer residue AND must not poison the P/T bonus parse. Anchored EXACTLY to the modeled
+// shape (the trigger condition + the sole modeled effect); any OTHER aura-own trigger (a different effect, a
+// rider, a "to a player or planeswalker" qualifier) does NOT match → it stays residue → the Aura is body-only
+// (CREED all-or-nothing: an aura trigger the engine can't fire end-to-end keeps the whole card off native).
+const AURA_OWN_MODELED_TRIGGER_RE =
+  /^whenever enchanted creature deals combat damage to (?:a player|an opponent), it deals that much damage to each other opponent\.?$/i;
+function isModeledAuraOwnTrigger(clause) {
+  return AURA_OWN_MODELED_TRIGGER_RE.test(String(clause || "").trim());
+}
+
 /**
  * Is this Aura one the engine can play END-TO-END natively? ALL of (no silent gaps):
  *   1. type line is an Aura,
@@ -2653,9 +2693,28 @@ export function auraHasTotemArmor(card) {
  */
 export function isNativeAura(card) {
   if (!isAuraCard(card)) return false;
-  if (auraEnchantSubject(card) !== "creature") return false;
+  if (!auraEnchantRestrictions(card)) return false;         // "creature" or "creature you control" only
   if (!parseAuraBonus(card).length) return false;
   return auraResidueClauses(card).length === 0;
+}
+
+/**
+ * The MODELED enchant-subject restrictions for a creature Aura, or null if the subject isn't one the engine
+ * targets natively. Exactly two modeled subjects (CR 702.5):
+ *   "creature"             → [] (any creature on any battlefield, no controller restriction)
+ *   "creature you control" → [{ kind:"controller", who:"you" }] (only the caster's own creatures — the aura
+ *                            targeting reuses the proven creatureSatisfiesRestrictions "you" filter, so the
+ *                            aura can NEVER attach to an opponent's creature — CR 303.4a + CREED FP-forbidden).
+ * Any other subject (a zone/type restriction, "creature an opponent controls", a color/subtype qualifier) →
+ * null → the Aura is not native (routes to the Arbiter). Single source of truth shared by isNativeAura (both
+ * runtime + metric) AND legalChoices' aura target enumeration, so nativeness and the legal-target set can't
+ * drift. Pure.
+ */
+export function auraEnchantRestrictions(card) {
+  const subject = auraEnchantSubject(card);
+  if (subject === "creature") return [];
+  if (subject === "creature you control") return [{ kind: "controller", who: "you" }];
+  return null;
 }
 
 // ─── AURA-LAND-MANA-BOOST ───────────────────────────────────────────────────────
