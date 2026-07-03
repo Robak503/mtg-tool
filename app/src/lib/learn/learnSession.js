@@ -47,7 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -645,6 +645,17 @@ function settleImpulseDigChoice(state, cardId) {
 }
 
 /**
+ * Settle a dig-land-to-battlefield choice (Silverback Elder mode 2): put the chosen land onto the battlefield
+ * (firing its ETB/landfall), bottom the rest in a random order, resume the suspended program (no rider on
+ * Silverback, but the seam is uniform — a resumed atom could re-pause, so guard pendingChoice before flushing),
+ * then finalizeStackResolution flushes any triggers the land's entry enqueued.
+ */
+function settleDigLandChoice(state, cardId) {
+  const next = resolveDigLandChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * ===== EDICTS ===== — settle a sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict): the
  * sacrificing player gives up the chosen creature (dies triggers fire), then the caster's riders resume
  * (Geth's Verdict "You lose 1 life" — which may itself re-pause, so guard pendingChoice before flushing).
@@ -1114,6 +1125,21 @@ export function advanceUntilDecision(
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
         });
         current = { ...current, state: settleImpulseDigChoice(current.state, picked.candidateId) };
+        continue;
+      }
+      // DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2): the player's OWN dig surfaces a pick-which-land
+      // picker (the LAND cards among their revealed top N); Expert autopilot + an opponent auto-put the best
+      // land (reuses the highest-mana-value picker — the most impactful available land goes onto the field).
+      if (pc.kind === "dig-land-to-battlefield") {
+        if (pause) {
+          return { session: current, decision: { kind: "dig-land-to-battlefield", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickDigLandCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleDigLandChoice(current.state, picked.candidateId) };
         continue;
       }
       // ===== EDICTS ===== — sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict). pc.controller
@@ -2205,6 +2231,51 @@ export function applyImpulseDigChoice(session, choice) {
 }
 
 /**
+ * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — the player picked which land to put onto the battlefield
+ * from a `dig-land-to-battlefield` decision. Validates the pick against the offered lands, puts it out (ETB +
+ * landfall fire) + bottoms the rest in a random order, resumes the program, then re-derives the next decision.
+ * `choice.cardId` is the chosen land's library card id. A null/illegal pick re-surfaces the picker (a real land
+ * is always available when this pauses — the atom only pauses with ≥1 land candidate). Mirrors applyImpulseDigChoice.
+ */
+export function applyDigLandChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "dig-land-to-battlefield") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+  }
+
+  let newState;
+  try {
+    newState = settleDigLandChoice(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "dig-land-choice" },
+    auto: false,
+    reasoning: "user-chose-dig-land",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * ===== EDICTS ===== — the player picked which creature to sacrifice from a `sacrifice-choice` decision
  * (Diabolic Edict / Cruel Edict / Geth's Verdict). This fires when the HUMAN is the sacrificing player
  * (the edict's target). Validates the pick against the offered creatures, sacrifices it (dies triggers
@@ -2324,6 +2395,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "commander-return") return applyCommanderReturnChoice(session, choice);
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice);
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice);
+  if (kind === "dig-land-to-battlefield") return applyDigLandChoice(session, choice);
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
   if (kind === "discard") return applyDiscardChoice(session, choice);
   if (kind === "divide-damage") return applyDivideChoice(session, choice);

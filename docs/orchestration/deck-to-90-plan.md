@@ -34,3 +34,32 @@ Runner-up: cost-reduction-{X} (The Great Henge — Omnath + Toph).
 
 ## Full triage data
 `tasks/w53n5imer.output` (Omnath/Toph/Kellan full reports + 22-cluster table). Re-run the triage for the 11 rate-limited decks when the server limit clears.
+
+---
+
+## OMNATH — remaining non-native cards, categorized (2026-07-02, Clyde) — batch plan
+
+**Flipped:** Up the Beanstalk (compound-triggers, shipped).
+**Batch 1 (fan-out RUNNING, w5ltdoin6):** Doubling Cube, Utopia Sprawl, Silverback Elder, Kogla, Genesis Wave, Vaultborn Tyrant, Old One Eye.
+
+### BATCH 2 — buildable slices (agent-buildable, precise briefs ready)
+1. **Lurking Predators** (body-only) — cast trigger DETECTED; effect = "reveal top card; if creature → battlefield; otherwise you may put on bottom." Build the reveal-top-conditional-put effect (creature→battlefield else optional-to-bottom). Check impulse-dig / library atoms + the conditional branch.
+2. **Finale of Devastation** (arbiter-spell) — {X} tutor: "search library and/or graveyard for a creature card MV≤X → battlefield; shuffle if library; if X≥10, creatures you control get +X/+X and gain haste." Build X-tutor-to-battlefield (library-and/or-graveyard) + the X≥10 conditional team-pump-haste rider.
+3. **Selvala, Heart of the Wilds** (body-only) — TWO abilities: ETB "whenever another creature enters, its controller may draw a card if its power is greater than each other creature's power" (conditional-power ETB draw, any-controller); "{G},{T}: Add X mana in any combination of colors, X = greatest power among creatures you control" (variable-mana ability). Both must model.
+4. **Yeva, Nature's Herald** (body-only) — "You may cast green creature spells as though they had flash." A static casting-permission (flash-grant filtered to green creature spells). Model the casting-permission static (see Leyline of Anticipation-style "as though flash").
+5. **Titan of Industry** (body-only) — modal ETB "choose two —" : destroy artifact/enchantment (modeled), target player gains 5 life (modeled), create a 4/4 Rhino (modeled), **put a shield counter on it** (NEW primitive — a shield counter prevents the next damage/destruction). Build the shield-counter atom + wire the choose-two modal ETB.
+6. **Kamahl, Heart of Krosa** (body-only) — combatBegin trigger DETECTED ("creatures you control get +3/+3 and gain trample") + activated "{1}{G}: target land you control becomes a 1/1 Elemental creature with haste that's still a land" (land-animate). Check the animate-land atom (earthbend-adjacent).
+7. **Return of the Wildspeaker** (arbiter-spell) — modal: "draw cards equal to the greatest power among NON-HUMAN creatures you control" / "NON-HUMAN creatures you control get +3/+3." Add a creature-TYPE-negation filter ("non-Human") to the power-count source + the pump scope.
+8. **Defense of the Heart** (body-only) — upkeep trigger DETECTED + intervening-if (an opponent controls 3+ creatures) + sacrifice-self + "search your library for up to two creature cards, put them onto the battlefield, shuffle." Build the multi-tutor-to-battlefield (up-to-two) + the compound (upkeep→intervening-if→sac-self→multi-fetch). Triage flagged resolverExists.
+
+### BATCH 2b — borderline (include with "park if too deep")
+9. **Awaken the Woods** (arbiter-spell) — "Create X 1/1 green Forest Dryad land creature tokens." Parked at tokens.js:400 (a LAND-creature token's intrinsic mana would be dropped). Needs the token to FUNCTION as a mana-producing Forest. Build only if the mana-token is cleanly modelable, else park.
+
+### SUBSYSTEM BUCKET — NOT one-shot agent builds; each is a design pass (name the subsystem)
+- **Bear Umbra, Super State** → aura-granted-triggered/keyword-ability (grant a templated ability to the enchanted permanent). Highest cross-deck leverage (recurs in Toph, Kellan).
+- **Kozilek, Butcher of Truth** → annihilator (defending player sacrifices N on attack) + the GY-shuffle-back.
+- **Apex Devastator** → multi-cascade (cascade×N — single cascade is modeled but "cascade, cascade" is parked; emit N synthesized cascade triggers).
+- **The Great Henge** → cost-reduction-{X} (dynamic self-cost-reduction by greatest power).
+- **Commander's Plate** → equipment + dynamic protection-from-commander-color-identity.
+
+**Sequencing:** integrate Batch 1 → launch Batch 2 (8 slices) → integrate → the subsystems become the Omnath tail (each a dedicated design+build). After all Batch-1/2 land, re-measure Omnath; the subsystems decide whether it clears 90%.

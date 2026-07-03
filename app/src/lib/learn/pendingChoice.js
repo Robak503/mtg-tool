@@ -33,6 +33,7 @@ export const PENDING_CHOICE_KINDS = [
   "commander-return",
   "hand-discard",
   "impulse-dig",
+  "dig-land-to-battlefield",
   "sacrifice-choice",
   "discard",
   "divide-damage",
@@ -188,6 +189,38 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       controller,
       candidates,
       restTo,
+      sourceName,
+    },
+  };
+}
+
+/**
+ * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — flag a "look at the top
+ * N of your library, put a LAND from among them onto the battlefield [tapped], the rest to the bottom in a
+ * random order" awaiting the controller's pick of WHICH land to put out. This is a DIFFERENT effect from
+ * impulse-dig (which keeps a card to HAND): here the chosen land enters the BATTLEFIELD (firing its ETB), and
+ * the rest of the looked-at set (including any non-chosen lands + all nonland cards) go to the BOTTOM of the
+ * library in a RANDOM order. `candidates` is ONLY the LAND cards among the top N as `{ id, name }` (the "you
+ * may put a LAND card" gate — nonland cards are never puttable, so they're not candidates); an empty candidate
+ * list means the whole looked-at set just bottoms with no put (resolved inline by the atom, no pause). `restIds`
+ * is the FULL looked-at set's ids (top N, ordered) so the settler can dispose everything-but-the-chosen to the
+ * bottom without re-reading the library (which the enter-battlefield move would have already mutated). The put
+ * is OPTIONAL ("you may"), but since a land to the battlefield strictly dominates that land going to the bottom
+ * (no cost, ramp), the modeled line always puts the best available land — an explicit decline is a future
+ * refinement (like impulse-dig's dominated "you may reveal" decline). Public to the controller (own library).
+ * FIFO: one choice at a time. Plain JSON (serialize-safe).
+ */
+export function setPendingDigLandChoice(state, { controller, candidates, restIds, entersTapped = false, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "dig-land-pending", controller, count: candidates.length, entersTapped, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "dig-land-to-battlefield",
+      controller,
+      candidates,
+      restIds,
+      entersTapped: !!entersTapped,
       sourceName,
     },
   };

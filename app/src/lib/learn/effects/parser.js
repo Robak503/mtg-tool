@@ -1127,6 +1127,32 @@ function matchImpulseDig(oracle) {
 }
 
 /**
+ * Match the "Look at the top N cards of your library. You may put a land card from among them onto the
+ * battlefield [tapped]. Put the rest on the bottom of your library in a random order." template — a DIFFERENT
+ * effect from impulse-dig (Silverback Elder mode 2). Instead of keeping a card to HAND, it puts a LAND onto the
+ * BATTLEFIELD (dig-land-to-battlefield atom → applyDigLandToBattlefieldAtom → a pick-which-land choice, the
+ * chosen land enters + fires its ETB/landfall, the rest bottom in a random order). Two sentences whose effect
+ * spans them (the internal " and " / "from among them" would be shattered by splitClauses), so it's matched up
+ * front as ONE atom like the impulse-dig template. Returns `{ atom, rest }` or null.
+ *
+ * ALL-OR-NOTHING ALLOWLIST: EXACTLY "put A LAND card from among them onto the battlefield [tapped]" + rest →
+ * bottom in a random order. A TYPED/FILTERED put ("a basic land", "a Forest card"), a MANDATORY put (no "you
+ * may"), a MULTI put ("put any number of lands"), a keep-to-HAND ("put it into your hand" — that's the impulse-
+ * dig template), an "into your graveyard" rest, or a variable/unspelled N all fail the anchor → the mode/card
+ * stays low → Arbiter (FN-safe — a partial would be forbidden). Only the unfiltered "a land card" + battlefield
+ * + rest-to-bottom-random shape is claimed.
+ */
+function matchDigLandToBattlefield(oracle) {
+  const m = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. you may put a land card from among them onto the battlefield( tapped)?\. put the rest on the bottom of your library in a random order\.?/i,
+  );
+  if (!m) return null;
+  const amount = DIG_NUM[m[1].toLowerCase()];
+  if (!amount) return null;                                     // "the top X cards" (variable) / unspelled → Arbiter
+  return { atom: { op: "dig-land-to-battlefield", amount, entersTapped: !!m[2] }, rest: oracle.slice(m[0].length).trim() };
+}
+
+/**
  * CHOSEN-TYPE DRAW (CR 614.12) — Distant Melody "Choose a creature type. Draw a card for each permanent you
  * control of that type." Two sentences whose effect spans them (the count refers back to the chosen type), so
  * it's matched up front as ONE draw atom like the other collapsed templates. The draw count is a
@@ -1953,6 +1979,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (hd) return collapsed(hd);
   const dig = matchImpulseDig(oracle);
   if (dig) return collapsed(dig);
+  // DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — "Look at the top N … You may put a land card from
+  // among them onto the battlefield [tapped]. Put the rest on the bottom … in a random order." spans two
+  // sentences (the "from among them" / trailing " and " would shatter), so it's collapsed up front to one
+  // dig-land-to-battlefield atom, then any rider runs through the normal pipeline. Tried AFTER matchImpulseDig
+  // (the two anchors are mutually exclusive — hand vs. battlefield — so order is documentation, not precedence).
+  const digLand = matchDigLandToBattlefield(oracle);
+  if (digLand) return collapsed(digLand);
   // CHOSEN-TYPE DRAW (Distant Melody) — "Choose a creature type. Draw a card for each permanent you control
   // of that type." spans two sentences, so it's collapsed up front to one chosen-type-count draw atom.
   const ctd = matchChooseTypeDraw(oracle);

@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
@@ -303,6 +303,57 @@ export function resolveImpulseDigChoice(state, cardId) {
   const chosenId = (pc.candidates || []).some((c) => c.id === cardId) ? cardId : null;
   next = applyImpulseDig(next, { playerId: pc.controller, n: (pc.candidates || []).length, chosenId, restTo: pc.restTo });
   next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: !!chosenId, restTo: pc.restTo });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — deterministically auto-pick which land an AI / Expert
+ * puts onto the battlefield (no picker): the highest-mana-value land (a fetchland / dual > a basic), codepoint
+ * tie-break by name then id (serialize-stable, no Math.random). Returns the chosen LAND's id from the candidate
+ * set (already lands-only, gathered by applyDigLandToBattlefieldAtom), or null if none remain. Mirrors
+ * autoPickTutorCandidate's highest-MV heuristic — the AI puts out its most impactful available land.
+ */
+export function autoPickDigLandCandidate(state, pendingChoice) {
+  const lib = state.players?.[pendingChoice.controller]?.library || [];
+  const byId = new Map(lib.map((c) => [c.id, c]));
+  const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  if (cards.length === 0) return null;
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...cards].sort((a, b) =>
+    tutorManaValue(b) - tutorManaValue(a) ||
+    cmp(String(a.name || ""), String(b.name || "")) ||
+    cmp(String(a.id || ""), String(b.id || "")),
+  )[0].id;
+}
+
+/**
+ * Settle a pending dig-land-to-battlefield choice (Silverback Elder mode 2): the chosen LAND enters the
+ * controller's battlefield (via enterCardFromZone — firing its ETB + landfall, entersTapped per the card),
+ * then the REST of the looked-at set (the full restIds minus the chosen land) go to the BOTTOM of the library
+ * in a RANDOM order (bottomLibraryCardsByIds — deterministic). A `cardId` not among the offered land
+ * candidates (stale) puts NOTHING but still bottoms the whole looked-at set (a legal decline). An
+ * eliminated-controller guard (the pause can outlive the SBA that removes them). Then RESUME the suspended
+ * program (Silverback's modal has no rider past this mode, but the shared seam is uniform). Hidden-info safe
+ * (the controller's own library).
+ */
+export function resolveDigLandChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "dig-land-to-battlefield") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → clean no-op
+  const chosenId = (pc.candidates || []).some((c) => c.id === cardId) ? cardId : null;
+  let put = false;
+  if (chosenId) {
+    const r = enterCardFromZone(next, { playerId: pc.controller, cardId: chosenId, fromZone: "library", tapped: !!pc.entersTapped });
+    next = r.state;
+    put = r.entered;
+  }
+  // Bottom the REST of the looked-at set — the frozen top-N ids minus the land that went to the battlefield
+  // (if none was put, the whole looked-at set bottoms). bottomLibraryCardsByIds ignores ids no longer in the
+  // library (the chosen land already left), so passing the full restIds is correct either way.
+  const restIds = (pc.restIds || []).filter((id) => id !== chosenId);
+  next = bottomLibraryCardsByIds(next, pc.controller, restIds);
+  next = logEvent(next, { kind: "spell-effect", effect: "dig-land-to-battlefield", controller: pc.controller, put });
   return resumeAfterChoice(next, pc);
 }
 

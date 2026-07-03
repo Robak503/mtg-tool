@@ -4,7 +4,7 @@
  */
 
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
-import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice } from "../../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
@@ -238,6 +238,107 @@ export function applyImpulseDigAtom(state, atom, ctx) {
   }
   const cards = pool.map((c) => ({ id: c.id, name: c.name }));
   return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
+}
+
+/**
+ * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — "Look at the top N cards of your library. You may put
+ * a land card from among them onto the battlefield [tapped]. Put the rest on the bottom of your library in a
+ * random order." A DIFFERENT effect from impulse-dig: the chosen LAND enters the BATTLEFIELD (firing its ETB,
+ * resolveDigLandChoice handles the enter + bottom), while the REST of the looked-at set (non-chosen lands +
+ * every nonland card) go to the bottom of the library in a RANDOM order (CR 701.19e-style deterministic shuffle
+ * of just those cards). At RESOLUTION this atom peeks the top N, gathers the LAND cards as the puttable
+ * candidates (the "you may put a LAND card" gate — nonland cards are never puttable), and either:
+ *   - NO land in the top N → no put; bottom the WHOLE looked-at set in a random order inline (a clean no-pause
+ *     no-op-put — you looked, there was no land to put, so everything goes under). Never fabricated.
+ *   - ≥1 land → set the pending dig-land choice (candidates = the lands; restIds = the full top-N id list) so
+ *     the controller picks which land to put out; the driver pauses a human / auto-picks the best land for AI.
+ * An empty library is a logged no-op. Hidden-info safe (the controller's own library). Pure (the random bottom
+ * uses the threaded rngSeed, advanced like discover/cascade, so a serialized game restores byte-identical).
+ */
+export function applyDigLandToBattlefieldAtom(state, atom, ctx) {
+  const player = state.players[ctx.controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const n = Math.min(Math.max(0, atom.amount || 0), player.library.length);
+  if (n === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "dig-land-to-battlefield", controller: ctx.controller, count: 0, put: false });
+  }
+  const top = player.library.slice(0, n);
+  const lands = top.filter((c) => isLandCard(c));
+  if (lands.length === 0) {
+    // Looked at N, no land to put → the whole looked-at set goes to the bottom in a random order (no pause).
+    const next = bottomTopNInRandomOrder(state, ctx.controller, n);
+    return logEvent(next, { kind: "spell-effect", effect: "dig-land-to-battlefield", controller: ctx.controller, count: n, put: false });
+  }
+  const candidates = lands.map((c) => ({ id: c.id, name: c.name }));
+  return setPendingDigLandChoice(state, {
+    controller: ctx.controller,
+    candidates,
+    restIds: top.map((c) => c.id), // the full looked-at set (ordered) — the settler bottoms all-but-the-chosen
+    entersTapped: !!atom.entersTapped,
+    sourceName: ctx.cardName || null,
+  });
+}
+
+/**
+ * Move the top `n` cards of `controller`'s library to the BOTTOM in a deterministic RANDOM order (CR "in a
+ * random order"), advancing the threaded rngSeed exactly like shuffleControllerLibrary / discover / cascade so
+ * a serialized game restores byte-identical (no Math.random in state mutation). Shared by the no-land inline
+ * path here and the settler (which bottoms the top-N minus the chosen land). Pure.
+ */
+export function bottomTopNInRandomOrder(state, controller, n) {
+  const player = state.players[controller];
+  if (!player) return state;
+  const count = Math.min(Math.max(0, n || 0), (player.library || []).length);
+  if (count === 0) return state;
+  const moved = player.library.slice(0, count);
+  const remaining = player.library.slice(count);
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const shuffledMoved = [...moved];
+  for (let i = shuffledMoved.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffledMoved[i], shuffledMoved[j]] = [shuffledMoved[j], shuffledMoved[i]];
+  }
+  return {
+    ...state,
+    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: [...remaining, ...shuffledMoved] },
+    },
+  };
+}
+
+/**
+ * Move the specific library cards whose ids are in `ids` to the BOTTOM of `controller`'s library in a
+ * deterministic RANDOM order (CR "in a random order"), leaving every other library card in place. Used by
+ * resolveDigLandChoice to bottom the looked-at REST after the chosen land has already left the library for the
+ * battlefield (so a positional top-N helper can't be used — the ids are the frozen looked-at set minus the put
+ * land). Advances the threaded rngSeed like the other random-order helpers so a serialized game restores
+ * byte-identical (no Math.random). Ids not currently in the library are silently ignored (the card moved). Pure.
+ */
+export function bottomLibraryCardsByIds(state, controller, ids) {
+  const player = state.players[controller];
+  if (!player) return state;
+  const idSet = new Set(ids || []);
+  const moved = (player.library || []).filter((c) => idSet.has(c.id));
+  if (moved.length === 0) return state;
+  const remaining = (player.library || []).filter((c) => !idSet.has(c.id));
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const shuffledMoved = [...moved];
+  for (let i = shuffledMoved.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffledMoved[i], shuffledMoved[j]] = [shuffledMoved[j], shuffledMoved[i]];
+  }
+  return {
+    ...state,
+    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: [...remaining, ...shuffledMoved] },
+    },
+  };
 }
 
 /**
@@ -760,6 +861,7 @@ export const libraryResolvers = {
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
+  "dig-land-to-battlefield": applyDigLandToBattlefieldAtom, // DIG-LAND-TO-BATTLEFIELD (Silverback Elder) — look top N, put a land onto the battlefield, rest → bottom random. Settled by resolveDigLandChoice.
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.
   "mill": applyMill,
