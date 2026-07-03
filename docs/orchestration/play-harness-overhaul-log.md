@@ -144,3 +144,16 @@ fallback. A/B probe: NEW 55.0% / OLD 45.0%, dead turns 0.02. +10 pins.
 (games=3 rows=8204, ×2 reproducible; combined A3+B1 battery: suite 7,558/519 files · lint clean ·
 tier/program/runtime 0-diff at pick time · main tree clean). Build worktrees swept junction-safe
 (incl. build-a2's leftover junction — removed via rmdir first; main node_modules verified intact).
+
+### ✅ LANE C COMPLETE (omnath-tools/pilots) — all R11 mechanisms eliminated, P4 DONE
+W0 duel.mjs + H1–H8 verified/completed/built (H1 needed a playbook-layer completion: 4 playbooks
+penalized `pass` and re-inverted tap-vs-pass — fixed via standingPat()). Same-seed r11-diagnose:
+divergence 2,559→**188** (1.5%) · taps 2,271→**0** · untapped-off-turn 0.00→**3.18** · counters
+offered 0%→**25.7%** · self-counters 43→**0** · chumps 27→**1** · suicides 23→**0** · junk
+removal→**0** · land picks 71→**0** · X-sizing 0 rows. **vs-default: interaction 18/36 (parity ±10
+met; was 17–33%), ramp 27/36 = 75% (was 50%)**. Pod 12/12, 0 weight-0, 2,578 trust-gated cases.
+Pilots tests 160→**190** + memory 26 + dryrun 12 + lab smoke. Parked-with-evidence: global
+exact-tie name tiebreak (fixed lands 56→0 but contaminated tied attacks 5→42 — reverted to
+land-pairs-only; recorded in R11-DIAGNOSIS.md). Honest residuals: casting-order style divergence
+(out of H-scope) · inheritor 4/12 on 1v1 interaction (its flags are 4P-shaped) · pod win spread
+deck-skewed (Zaxara 7/12) — future-wave candidates, not defects.
