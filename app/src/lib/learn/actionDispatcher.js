@@ -71,11 +71,6 @@ export class DispatcherError extends Error {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function findCardInHand(state, playerId, cardId) {
-  const player = state.players[playerId];
-  return player?.hand.find(c => c.id === cardId) || null;
-}
-
 function findCreatureOnBattlefield(state, playerId, permanentId) {
   const player = state.players[playerId];
   return player?.battlefield.find(p => p.id === permanentId) || null;
@@ -121,12 +116,16 @@ function applyPlayLand(state, action) {
   if (player.landsPlayedThisTurn >= landDropAllowance(state, action.playerId)) {
     throw new DispatcherError("Already played a land this turn", "LAND_PER_TURN");
   }
-  const card = findCardInHand(state, action.playerId, action.cardId);
-  if (!card) throw new DispatcherError(`Card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+  // IMPULSE-EXILE (CR 118.10): a land impulse-exiled this turn is played FROM EXILE (action.fromZone === "exile"),
+  // not from hand — the same land-drop rules apply, only the source zone differs. Default "hand" keeps every
+  // existing play-land call byte-identical. The card is found in whichever zone the action names.
+  const fromZone = action.fromZone === "exile" ? "exile" : "hand";
+  const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
+  if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
 
   let next = moveCardToZone(state, {
     playerId: action.playerId,
-    fromZone: "hand",
+    fromZone,
     toZone: "battlefield",
     cardId: action.cardId,
     becomePermanent: true,

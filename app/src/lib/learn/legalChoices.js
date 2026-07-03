@@ -1564,6 +1564,40 @@ function actionsCastPlottedFromExile(state, playerId) {
 }
 
 /**
+ * IMPULSE-EXILE step 2 — PLAY a card impulse-exiled THIS TURN, at FULL COST (CR 118.10 permission — "you may
+ * play that card this turn"). The `impulse-exile` atom stamped `_impulse: true` + `_impulseTurn` when it exiled
+ * the top card; here we offer to play it FROM EXILE this turn only (the turn stamp gates it, exactly like PLOT's
+ * `_plottedTurn`, and gameEngine's cleanup clears the flags at end of turn). "Play" = cast a NONLAND normally
+ * (the shared castActionsFromZone builder with fromZone "exile", freeCast=FALSE — the cost is paid in full,
+ * respecting the card's own instant/sorcery timing), OR play a LAND from exile (a play-land action consuming a
+ * land drop). A NONLAND is enumerated through the exact cast machinery a hand-cast uses (cost / X / modal /
+ * targets / additional costs), so target selection / the stack / cast triggers / AI all behave identically; the
+ * card leaves exile onto the stack when cast, so it can't be played twice. A LAND rides the play-land path
+ * (sorcery-speed, own main, land-drop budget) — the same gates as a hand land — with fromZone "exile" so the
+ * dispatcher splices it from the right zone. GATE: `_impulse && _impulseTurn === state.turn` (this turn only —
+ * CR; a stale flag from a prior turn is already cleared at cleanup, so this is belt-and-suspenders). Once-per-
+ * card is enforced naturally (the card leaves exile when played).
+ */
+function actionsPlayImpulseFromExile(state, playerId) {
+  const player = state.players[playerId];
+  const impulsed = (player.exile || []).filter(c => c && c._impulse && c._impulseTurn === state.turn);
+  if (impulsed.length === 0) return [];
+  const nonlands = impulsed.filter(c => !isLand(c));
+  const lands = impulsed.filter(c => isLand(c));
+  const actions = [];
+  // NONLANDS — cast at full cost from exile (freeCast=false), same builder as a hand cast (timing/cost/X/targets).
+  actions.push(...castActionsFromZone(state, playerId, nonlands, "exile", null, false));
+  // LANDS — play from exile if a land drop is available at sorcery speed (the same gates the hand play-land uses).
+  if (lands.length && canCastSorcerySpeed(state, playerId)
+      && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
+    for (const card of lands) {
+      actions.push({ kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "exile" });
+    }
+  }
+  return actions;
+}
+
+/**
  * ADVENTURE step 1 — cast the ADVENTURE (instant/sorcery) HALF from hand (CR 715.3). Offered ONLY for an
  * Adventure card whose BOTH halves are modeled (classifyCard returns a native tier — the metric's own
  * authority, so the runtime and coverage can't disagree; a card with an unmodeled half is body-only and is
@@ -1948,6 +1982,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSpell(state, playerId));
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
+    actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile

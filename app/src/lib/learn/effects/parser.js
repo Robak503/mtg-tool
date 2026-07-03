@@ -1902,6 +1902,32 @@ function matchRevealTopConditional(oracle) {
 }
 
 /**
+ * ===== IMPULSE-EXILE-AND-PLAY ===== "Exile the top card of your library. You may play that card this turn."
+ * (Professional Face-Breaker's sac-Treasure activated ability; the Light Up the Stage / impulse-draw family).
+ * A TWO-sentence effect: the "exile the top card" half and the "you may play that card this turn" permission
+ * half are ONE modeled unit — the clause splitter would shatter them into individually-unmatchable fragments
+ * ("exile the top card of your library" alone is not a modeled atom; "you may play that card this turn" is a
+ * bare back-reference to the exiled card). So it's collapsed up front to ONE `impulse-exile` atom whose
+ * resolver (applyImpulseExileAtom) moves the top card to exile FACE-UP + stamps the this-turn play permission,
+ * which the ACTION layer (legalChoices.actionsPlayImpulseFromExile) then genuinely OFFERS + ENFORCES (a real
+ * full-cost cast / play-land from exile, this turn only, cleared at cleanup) — never a parse-only marker.
+ *
+ * ALLOWLIST (CREED whole-effect, anchored ^…$ on the exact two-sentence shape, apostrophe/whitespace normalized,
+ * trailing period stripped): the referent-pronoun variants "that card" / "it" and the duration phrasings
+ * "this turn" / "until end of turn". Any rider / variant — a COUNT ("the top TWO cards"), a mana-value cap, an
+ * IMPRINT / another-zone ("from your graveyard"), a cost rider ("you may play that card. If you do, …"), or a
+ * different owner's library — leaves residue → no match → low → Arbiter (never a partial). The op is KNOWN
+ * (registered in libraryResolvers), so the caller emits a HIGH single-atom program. Returns { atom }.
+ */
+function matchImpulseExilePlay(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^exile the top card of your library\. you may play (?:that card|it)(?: this turn| until end of turn)$/.test(s)) {
+    return null;
+  }
+  return { atom: { op: "impulse-exile", targetType: null } };
+}
+
+/**
  * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
  * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
  * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
@@ -2407,6 +2433,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rtc = matchRevealTopConditional(oracle);
   if (rtc && KNOWN.has(rtc.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [rtc.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== IMPULSE-EXILE-AND-PLAY ===== "Exile the top card of your library. You may play that card this turn."
+  // → ONE impulse-exile atom (exile the top card face-up + stamp the this-turn play permission; the action
+  // layer then offers a real full-cost cast / play-land from exile). The two-sentence effect would shatter
+  // under the clause splitter (each half is individually unmatchable), so it's collapsed up front. HIGH iff the
+  // op is KNOWN (it is — registered in libraryResolvers). Not an X spell.
+  const iep = matchImpulseExilePlay(oracle);
+  if (iep && KNOWN.has(iep.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [iep.atom], xSpell: false, unparsedTail: null });
   }
   // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
   // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken

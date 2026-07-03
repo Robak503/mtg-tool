@@ -152,8 +152,12 @@ describe("VIHAAN-TREASURE — CREED: unmodeled cards stay body-only (no over-cla
   it("Kellogg, Dangerous Mind stays body-only — 'Sacrifice five Treasures: Gain control …' is unmodeled", () => {
     expect(classifyCard({ name: "Kellogg, Dangerous Mind", type: "Legendary Creature — Human Mercenary", mana: "{1}{B}{R}", oracle: "First strike, haste\nWhenever Kellogg attacks, create a Treasure token.\nSacrifice five Treasures: Gain control of target creature for as long as you control Kellogg. Activate only as a sorcery." })).toBe("body-only");
   });
-  it("Professional Face-Breaker stays body-only — 'Sacrifice a Treasure: Exile top, may play' is unmodeled", () => {
-    expect(classifyCard({ name: "Professional Face-Breaker", type: "Creature — Human Warrior", mana: "{2}{R}", oracle: "Menace\nWhenever one or more creatures you control deal combat damage to a player, create a Treasure token.\nSacrifice a Treasure: Exile the top card of your library. You may play that card this turn." })).toBe("body-only");
+  it("Professional Face-Breaker is now native-mixed — the sac-Treasure IMPULSE-EXILE ability is modeled (real full-cost play-from-exile this turn)", () => {
+    // IMPULSE-EXILE slice: "Exile the top card of your library. You may play that card this turn." is now a modeled
+    // impulse-exile atom whose exiled card is genuinely playable this turn at full cost (legalChoices.actions-
+    // PlayImpulseFromExile), cleared at cleanup. With Menace + the team-cdmg Treasure trigger already modeled, the
+    // WHOLE card flips native-mixed. (Was pinned body-only when the impulse ability was the sole unmodeled clause.)
+    expect(classifyCard({ name: "Professional Face-Breaker", type: "Creature — Human Warrior", mana: "{2}{R}", oracle: "Menace\nWhenever one or more creatures you control deal combat damage to a player, create a Treasure token.\nSacrifice a Treasure: Exile the top card of your library. You may play that card this turn." })).toBe("native-mixed");
   });
   it("Cruel Celebrant is now native — the creature-OR-PLANESWALKER death-drain union is modeled (PW deaths fed to the dies dispatch)", () => {
     expect(classifyCard({ name: "Cruel Celebrant", type: "Creature — Vampire", mana: "{W}{B}", oracle: "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life." })).toMatch(/^native/);

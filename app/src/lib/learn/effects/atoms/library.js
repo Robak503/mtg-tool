@@ -663,6 +663,55 @@ export function applyRevealTopToHand(state, atom, ctx) {
 }
 
 /**
+ * ===== IMPULSE-EXILE-AND-PLAY ===== (CR 701.x "play" + CR 118.10 permission) — "Exile the top card of your
+ * library. You may play that card this turn." (Professional Face-Breaker's sac-Treasure activated ability;
+ * Light Up the Stage / Chandra's impulse-draw family). The top card of the CONTROLLER's library is moved to
+ * their exile FACE-UP and stamped `_impulse: true` + `_impulseTurn: state.turn`. The play PERMISSION is then
+ * offered at the ACTION layer (legalChoices.actionsPlayImpulseFromExile) THIS TURN ONLY (the turn stamp gates
+ * it, exactly like PLOT's `_plottedTurn`): a NONLAND card is cast at FULL COST from exile via the shared
+ * castActionsFromZone builder (freeCast=false — "play" means pay costs normally, unlike discover/cascade/plot's
+ * free-cast), and a LAND is played from exile through the play-land path (consuming a land drop). The permission
+ * LAPSES at end of turn — gameEngine's cleanup step clears the `_impulse`/`_impulseTurn` flags, leaving the
+ * unplayed card inert in exile (CR-correct: the "you may play … this turn" window closes; the card is NOT put
+ * anywhere else). A card actually played leaves exile onto the stack / battlefield through the normal cast /
+ * play-land machinery, so the flag goes with it — never a phantom re-play.
+ *
+ * FAITHFUL WHOLE-EFFECT (no clause dropped): the "Exile the top card" and "You may play that card this turn"
+ * sentences are ONE modeled unit — the exile writes the card to exile AND the play permission is genuinely
+ * offered + enforced (a real castable/playable action the pilot/driver can take), never a parse-only marker. An
+ * EMPTY library exiles nothing → a clean logged no-op (never fabricated). Pure data mutation (a library→exile
+ * move + a boolean/turn stamp) so a game serialized mid-resolution restores byte-identical (no closures). The
+ * controller reads ctx.controller (threaded by the activated-ability / spell resolution path); an eliminated
+ * controller mid-resolution is a clean no-op (CR 800.4a).
+ */
+export function applyImpulseExileAtom(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const lib = player.library || [];
+  if (lib.length === 0) {
+    // Empty library — nothing to exile. A clean logged no-op (never fabricated).
+    return logEvent(state, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: null });
+  }
+  const top = lib[0];
+  // Move the top card to exile FACE-UP, stamped with the play permission for THIS turn. The turn stamp is what
+  // enforces "this turn" — actionsPlayImpulseFromExile compares `_impulseTurn === state.turn`, and gameEngine's
+  // cleanup clears the flags at end of turn — so the same monotonic turn counter gates the window (no per-turn
+  // reset flag to wire). Mirrors PLOT's `_plotted` stamp on the exiled copy.
+  const stampedTop = { ...top, _impulse: true, _impulseTurn: state.turn };
+  const next = {
+    ...state,
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: lib.slice(1), exile: [...(player.exile || []), stampedTop] },
+    },
+  };
+  // Exiling from your own library is public-info here (the card is named in the log — it's the controller's own
+  // card revealed by the play permission), matching the impulse-draw family's face-up exile.
+  return logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: top.name });
+}
+
+/**
  * ===== GENESIS-WAVE ===== (CR 701 "put onto the battlefield" + CR 701.13 mill) — the mass reveal-top-X
  * spell family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards with mana
  * value X or less from among them onto the battlefield. Then put all cards revealed this way that weren't put
@@ -1238,6 +1287,7 @@ export const libraryResolvers = {
   "mill": applyMill,
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
+  "impulse-exile": applyImpulseExileAtom, // ===== IMPULSE-EXILE-AND-PLAY ===== exile top card → exile face-up, stamp `_impulse`/`_impulseTurn`; play permission offered THIS TURN at the action layer (full-cost cast / play-land from exile), cleared at cleanup. Professional Face-Breaker's sac-Treasure ability flips native-mixed.
   "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
   "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
