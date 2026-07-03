@@ -6,7 +6,6 @@
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
-import { enterCardFromZone } from "./zones.js"; // REVEAL-TOP-CONDITIONAL — put the revealed creature onto the battlefield from the library (fires ETB); zones.js is a leaf sibling (imports only gameState/triggers/shared/spellEffects/parseHelpers, never parser.js), so this atom→atom edge is cycle-free.
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
