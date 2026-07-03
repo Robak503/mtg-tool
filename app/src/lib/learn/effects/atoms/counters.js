@@ -444,8 +444,52 @@ export function addNamedCounterSelfClauseParser(clause) {
   return { op: "add-named-counter-self", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10) };
 }
 
+/**
+ * SHIELD-COUNTER (CR 122.1c) — "Put a shield counter on <a creature you control | target creature>". A shield
+ * counter is a REAL protective counter: gameState's destruction sites (destroyLethalCreatures SBA +
+ * applyDestroyEffect) and damage sites (applyDamageEffect + combatResolution) each check `hasShieldCounter` and
+ * consume one via the CR 122.1c replacement/prevention (damage prevented, destruction replaced). This atom just
+ * PLACES it — one shield counter on each resolved target — through gameState.addCounter (so a counter doubler
+ * composes; a +1/+1-only doubler like Hardened Scales correctly skips a shield counter, while Doubling Season /
+ * Vorinclex double it, CR 616). The target list is the shared atomTargets dispatch: `scope:"oneYouControl"` (the
+ * Titan mode — the controller's best own creature, auto-picked, non-targeted) or `targetType:"creature"` (the
+ * chosen-target forms — Boon of Safety, Perrie — offered by the targeting enumerator). Absent/empty target → a
+ * clean no-op (never a fabricated counter). Only CREATURE targets are shielded here (every modeled form targets
+ * a creature); a non-creature target descriptor is skipped defensively. */
+export function applyShieldCounter(state, atom, ctx) {
+  let next = state;
+  const targets = atomTargets(state, atom, ctx);
+  const placed = [];
+  for (const t of targets) {
+    const lk = findPermanent(next, t.id);
+    if (!lk || !isCreatureCard(lk.permanent.card)) continue;
+    next = addCounter(next, { permanentId: t.id, type: "shield", amount: 1 });
+    placed.push(t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "shield-counter", targets: placed });
+}
+
+// SHIELD-COUNTER parser (CR 122.1c) — the two clean, whole-clause-anchored forms that resolve natively:
+//   • "put a shield counter on a creature you control"     → scope:"oneYouControl" (non-targeted, controller's
+//                                                            best own creature — Titan of Industry's mode)
+//   • "put a shield counter on target creature"            → targetType:"creature" (a chosen target — Boon of
+//                                                            Safety, Perrie, the Pulverizer's ETB lead)
+// A SINGLE shield counter only ("a shield counter"); a multi-count / multi-target / filtered / permanent-typed
+// form ("on each of up to three target creatures", "on target permanent", "on another target creature you
+// control", "on target noncommander creature you don't control") is NOT matched here → null → low → Arbiter (an
+// FN-safe park — those carry cardinality/scope this atom doesn't model, and a partial model would be an FP).
+// The trailing reminder text "(If it would be dealt damage or destroyed, …)" is already stripped by
+// stripReminder before clause parsing. Pure; registered via registerClauseParser.
+export function shieldCounterClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
+  if (t === "put a shield counter on a creature you control") return { op: "shield-counter", scope: "oneYouControl" };
+  if (t === "put a shield counter on target creature") return { op: "shield-counter", targetType: "creature" };
+  return null;
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "shield-counter": applyShieldCounter, // SHIELD COUNTER (CR 122.1c) — a protective counter; consumed at the damage/destruction sites in gameState
   "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
   "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main

@@ -488,11 +488,18 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
     expect(parseEffectProgram(I("Create a 1/1 black and green Worm creature token for each land card in your graveyard.")).atoms[0])
       .toMatchObject({ op: "create-token", countFor: { kind: "cardsInGraveyard", cardType: "land" } });
   });
-  it("FOREACH-TOK MUST_DROP_TO_LOW: unmodeled source / 0-toughness / land token → Arbiter", () => {
+  it("FOREACH-TOK MUST_DROP_TO_LOW: unmodeled source / 0-toughness / NON-BASIC land token → Arbiter", () => {
     const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
     expect(conf("Create a 1/1 green Saproling creature token for each creature an opponent controls.")).toBe("low"); // opponent-scoped
     expect(conf("Create a 0/0 green Plant creature token for each land you control.")).toBe("low");        // 0-toughness dies to SBA
-    expect(conf("Create a 0/1 green Dryad land creature token for each Forest you control.")).toBe("low"); // LAND creature token (intrinsic mana dropped)
+    // A "land" token with NO basic-land subtype ("Dryad land") has no defined intrinsic mana color → still parked.
+    expect(conf("Create a 0/1 green Dryad land creature token for each Forest you control.")).toBe("low"); // LAND creature token, no basic subtype → Arbiter
+  });
+  // ===== LAND-CREATURE-TOKEN (CR 305.6) ===== a BASIC-land-subtype land token flips HIGH: the intrinsic
+  // "{T}: Add <color>" ability is minted onto the token (tokenOracle), so it functions as a real Forest.
+  it("FOREACH-TOK: a basic-land-subtype land creature token flips HIGH with its intrinsic mana ability", () => {
+    expect(parseEffectProgram(I("Create a 1/1 green Forest Dryad land creature token for each Forest you control.")).atoms[0])
+      .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "green forest dryad land", tokenOracle: "({T}: Add {G}.)", countFor: { kind: "permanentsYouControl", subtype: "Forest" } });
   });
   // ===== TOKENS ===== T1: keyword tokens parse HIGH, with keywords minted onto the token.
   it("recognizes a single-keyword token (flying)", () => {
@@ -615,13 +622,22 @@ describe("parseEffectProgram — X-count create-token (TOK-3)", () => {
     expect(programConfidence(parseEffectProgram(X("Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.")))).toBe("low");
     // Without an {X} cost, a literal "Create X …" isn't a cost-X count → low (no mana → hasX false).
     expect(programConfidence(parseEffectProgram({ type: "Instant", oracle: "Create X 1/1 white Soldier creature tokens." }))).toBe("low");
-    // A LAND creature token (descriptor contains "land") drops its intrinsic mana ability if minted
-    // vanilla → low → Arbiter (Awaken the Woods); applies to fixed counts too.
-    expect(programConfidence(parseEffectProgram(X("Create X 1/1 green Forest Dryad land creature tokens.", "{X}{G}{G}")))).toBe("low");
+    // A "land" token with NO basic-land subtype ("Saproling land") has no defined intrinsic mana color →
+    // its mana would be dropped → stays low → Arbiter (CREED near-miss for the LAND-CREATURE-TOKEN slice).
     expect(programConfidence(parseEffectProgram(I("Create two 1/1 green Saproling land creature tokens.")))).toBe("low");
     // (A plain 0/1 Plant token has toughness 1 — a legit vanilla token, stays HIGH; the land-ness of
     // Khalni Garden lives on the LAND, not the token, so the guard must NOT over-reach to non-land tokens.)
     expect(programConfidence(parseEffectProgram(I("Create a 0/1 green Plant creature token.")))).toBe("high");
+  });
+  // ===== LAND-CREATURE-TOKEN (CR 305.6) ===== Awaken the Woods flips HIGH: an X-count BASIC-land-subtype
+  // (Forest) land creature token that taps for {G} via its minted intrinsic mana ability (tokenOracle).
+  it("LAND-CREATURE-TOKEN: Awaken the Woods flips HIGH with the Forest token's intrinsic {G} ability", () => {
+    const atom = parseEffectProgram(X("Create X 1/1 green Forest Dryad land creature tokens.", "{X}{G}{G}")).atoms[0];
+    expect(atom).toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "green forest dryad land", tokenOracle: "({T}: Add {G}.)", countX: true });
+    // CREED near-miss: a MULTI-basic ("Forest Island") land token can't be modeled by a single-color line → parked.
+    expect(programConfidence(parseEffectProgram(X("Create X 1/1 green Forest Island Dryad land creature tokens.", "{X}{G}{G}")))).toBe("low");
+    // CREED near-miss: a basic-land token carrying a "with <keyword>" rider collides with the mana line → parked.
+    expect(programConfidence(parseEffectProgram(I("Create a 1/1 green Forest Dryad land creature token with flying.")))).toBe("low");
   });
 });
 
@@ -826,8 +842,12 @@ const MUST_DROP_TO_LOW = [
   "Search your library for a creature card with mana value x or less, put it into your hand, then shuffle.", // WAVE-2b: a non-numeric MV ("X") stays low
   "Search your library for any number of Goblin cards, reveal them, then shuffle and put those cards on top in any order.", // WAVE-2b FETCH-TO-TOP is single-card; "any number" (Goblin Recruiter) stays low
   "Search your library for a card, then shuffle and put that card on the bottom.", // WAVE-2b: an unmodeled "on the bottom" destination stays low
-  "Search your library for up to three creature cards, put them onto the battlefield tapped, then shuffle.", // WAVE-2b UP-TO-N keeps the LAND-guard: a non-land multi-fetch stays low
-  "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
+  // (Defense of the Heart opened the up-to-N multi-fetch to a PLAIN "creature" filter — "up to two/three
+  //  creature cards … put them/those cards onto the battlefield" is now HIGH, pinned in the MULTI-FETCH-CREATURES
+  //  block below. A SUBTYPED / typed / unioned multi-fetch still stays LOW here.)
+  "Search your library for up to three Dragon cards, put them onto the battlefield tapped, then shuffle.", // subtyped creature multi-fetch keeps the guard → low (no wrong-cheat)
+  "Search your library for up to two artifact cards, put them onto the battlefield, then shuffle.", // a non-creature typed multi-fetch to battlefield stays low → Arbiter
+  "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts SINGLE battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
   // RAMP-MULTI models the bare "up to N <land> → battlefield"; RAMP-SPLIT models the Cultivate "one … the
   // other" split (intrinsically two) — an "up to THREE" SPLIT (one-and-the-other) stays low.

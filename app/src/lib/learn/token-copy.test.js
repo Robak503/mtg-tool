@@ -54,9 +54,27 @@ describe("tokenCopyParser — exact anchors only", () => {
   it("the isn't-legendary rider is recognized (no-op) — Miirym", () => {
     expect(tokenCopyParser("create a token that's a copy of it, except the token isn't legendary")?.copySource).toBe("triggering");
   });
-  it("FORBIDDEN: a type-add rider (4/4 Hero) → null (whole card non-native)", () => {
+  it("FORBIDDEN: a STAT/SUBTYPE-add rider (4/4 Hero) → null (whole card non-native)", () => {
+    // A P/T + creature-SUBtype change ("4/4 black hero") is still deferred (it changes copiable P/T + feeds
+    // the live subtype scopes). Only the clean CARD-TYPE add ("artifact in addition") is now modeled below.
     expect(tokenCopyParser("create a token that's a copy of it, except it's a 4/4 black hero")).toBeNull();
-    expect(tokenCopyParser("create a token that's a copy of this creature, except it's an artifact in addition to its other types")).toBeNull();
+  });
+  // ADD-CARD-TYPE rider (Vaultborn Tyrant / Ochre Jelly, CR 707.9a) — "…except it's an artifact in addition
+  // to its other types" is now MODELED: the copy gains the card type (prepended to the type line), a faithful
+  // whole-card model (NOT a dropped rider). Distinct from the 4/4-Hero form above, which stays deferred.
+  it("ADD-CARD-TYPE: '…except it's an artifact in addition to its other types' → addCardTypes:[Artifact]", () => {
+    expect(tokenCopyParser("create a token that's a copy of this creature, except it's an artifact in addition to its other types"))
+      .toEqual({ op: "create-token-copy", copySource: "self", count: 1, targetType: null, addCardTypes: ["Artifact"] });
+    expect(tokenCopyParser("create a token that's a copy of it, except it's an artifact in addition to its other types"))
+      .toEqual({ op: "create-token-copy", copySource: "triggering", count: 1, targetType: null, addCardTypes: ["Artifact"] });
+    // enchantment is also allowlisted
+    expect(tokenCopyParser("create a token that's a copy of it, except it's an enchantment in addition to its other types")?.addCardTypes).toEqual(["Enchantment"]);
+  });
+  it("CREED: an un-addable card type / a stat-or-subtype variant stays null (no partial copy)", () => {
+    // "vehicle" is not an ADDABLE_CARD_TYPES member (it's a subtype-ish word, not a clean permanent card type here)
+    expect(tokenCopyParser("create a token that's a copy of it, except it's a vehicle in addition to its other types")).toBeNull();
+    // a creature-SUBtype "in addition" (not a card type) is NOT matched by the card-type anchor → null
+    expect(tokenCopyParser("create a token that's a copy of it, except it's a Zombie in addition to its other types")).toBeNull();
   });
   it("FORBIDDEN: a TARGET source (Thousand-Faced Shadow) → null", () => {
     expect(tokenCopyParser("create a token that's a copy of another target attacking creature")).toBeNull();

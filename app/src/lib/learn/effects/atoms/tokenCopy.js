@@ -40,6 +40,20 @@
 // isn't legendary" tail and nothing else. Apostrophes normalized to straight by the caller. "that's"
 // is the contraction-stripped form; the full "that is a copy" is also accepted.
 const TOKEN_COPY_RE = /^create a token that(?:'s| is) a copy of (this creature|it)(?:, except the token isn't legendary)?$/;
+// TOKEN-COPY + ADD-CARD-TYPE rider (Vaultborn Tyrant — "create a token that's a copy of it, except it's an
+// artifact in addition to its other types"; also Ochre Jelly's self form). CR 707.9a — the copy gains the
+// named CARD TYPE (a supertype-position add, LEFT of the "—"), so the minted token genuinely IS that type
+// for every type-line read (artifact-scoped batch combat, artifact-matters triggers) — a FAITHFUL whole-card
+// model, NOT a dropped rider. DISTINCT from the creature-SUBtype add ("except it's a 4/4 Hero" — a P/T + a
+// subtype we still defer). Anchored to the exact "it's an <cardtype> in addition to its other types" tail;
+// the <cardtype> must be in ADDABLE_CARD_TYPES (a printed permanent card type the copy snapshot can carry
+// cleanly). An OPTIONAL leading ", except the token isn't legendary" no-op is tolerated. The card type is
+// prepended to the type line via snapshotCopiedCard's addCardType rider (cloneCopy.addCardTypeToLine).
+const TOKEN_COPY_ADD_CARDTYPE_RE = /^create a token that(?:'s| is) a copy of (this creature|it)(?:, except the token isn't legendary)?, except it's an ([a-z]+) in addition to its other types$/;
+// Card types the copy snapshot can add cleanly (a printed permanent card type — no zone/cast implications
+// for a permanent already on the battlefield). "artifact"/"enchantment" are the corpus forms; a NON-permanent
+// or supertype word falls through the allowlist → null → Arbiter (CREED — never a mis-typed copy).
+const ADDABLE_CARD_TYPES = new Set(["artifact", "enchantment"]);
 // TOKEN-COPY-TARGET — "create a token that's a copy of target creature you control" (Quasiduplicate,
 // Cackling Counterpart, Self-Reflection, Multiversal Recruitment). The resolver ALREADY supports
 // copySource:"target" (resolveCopySource → ctx.targets[0]); only the recognition was missing. The optional
@@ -83,6 +97,20 @@ export function tokenCopyParser(clause) {
   if (m) {
     const copySource = m[1] === "this creature" ? "self" : "triggering";
     return { op: "create-token-copy", copySource, count: 1, targetType: null };
+  }
+  // ADD-CARD-TYPE rider (Vaultborn Tyrant, Ochre Jelly) — a copy that gains a CARD TYPE ("…except it's an
+  // artifact in addition to its other types"). Faithfully modeled: the type is prepended to the copy's type
+  // line (snapshotCopiedCard addCardType rider), so the token genuinely IS that type. Anchored + allowlisted;
+  // an unmodeled card type / a stat-or-subtype rider falls through → null → Arbiter (CREED whole-card).
+  const cm = t.match(TOKEN_COPY_ADD_CARDTYPE_RE);
+  if (cm) {
+    const copySource = cm[1] === "this creature" ? "self" : "triggering";
+    const cardType = cm[2];
+    if (ADDABLE_CARD_TYPES.has(cardType)) {
+      const Cap = cardType.charAt(0).toUpperCase() + cardType.slice(1);
+      return { op: "create-token-copy", copySource, count: 1, targetType: null, addCardTypes: [Cap] };
+    }
+    return null; // an un-addable card type → Arbiter (no partial copy)
   }
   if (TOKEN_COPY_TARGET_RE.test(t)) {
     return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };

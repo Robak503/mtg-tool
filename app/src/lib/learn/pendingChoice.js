@@ -33,6 +33,7 @@ export const PENDING_CHOICE_KINDS = [
   "commander-return",
   "hand-discard",
   "impulse-dig",
+  "dig-land-to-battlefield",
   "sacrifice-choice",
   "discard",
   "divide-damage",
@@ -52,7 +53,7 @@ export const PENDING_CHOICE_KINDS = [
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", destinations = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -84,6 +85,13 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
       // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
       sourceZone: sourceZone === "hand" ? "hand" : "library",
+      // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — the UNION of source zones the search drew
+      // from. When present, each candidate carries its own `zone` (set in applyTutor) and resolveTutorChoice
+      // moves the chosen card FROM that candidate's zone; `sourceZone` above is then only the shuffle-decision
+      // fallback. Null on every single-zone tutor (the original path). Plain JSON (serialize-safe).
+      sourceZones: Array.isArray(sourceZones) && sourceZones.length
+        ? sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : "library"))
+        : null,
       // RAMP-1 — where the chosen card goes: "hand" (P3.2 tutor) or "battlefield" (+ entersTapped, ramp). For
       // RAMP-SPLIT these reflect the CURRENT pick (the head of the destinations sequence).
       destination: effDestination,
@@ -188,6 +196,38 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       controller,
       candidates,
       restTo,
+      sourceName,
+    },
+  };
+}
+
+/**
+ * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — flag a "look at the top
+ * N of your library, put a LAND from among them onto the battlefield [tapped], the rest to the bottom in a
+ * random order" awaiting the controller's pick of WHICH land to put out. This is a DIFFERENT effect from
+ * impulse-dig (which keeps a card to HAND): here the chosen land enters the BATTLEFIELD (firing its ETB), and
+ * the rest of the looked-at set (including any non-chosen lands + all nonland cards) go to the BOTTOM of the
+ * library in a RANDOM order. `candidates` is ONLY the LAND cards among the top N as `{ id, name }` (the "you
+ * may put a LAND card" gate — nonland cards are never puttable, so they're not candidates); an empty candidate
+ * list means the whole looked-at set just bottoms with no put (resolved inline by the atom, no pause). `restIds`
+ * is the FULL looked-at set's ids (top N, ordered) so the settler can dispose everything-but-the-chosen to the
+ * bottom without re-reading the library (which the enter-battlefield move would have already mutated). The put
+ * is OPTIONAL ("you may"), but since a land to the battlefield strictly dominates that land going to the bottom
+ * (no cost, ramp), the modeled line always puts the best available land — an explicit decline is a future
+ * refinement (like impulse-dig's dominated "you may reveal" decline). Public to the controller (own library).
+ * FIFO: one choice at a time. Plain JSON (serialize-safe).
+ */
+export function setPendingDigLandChoice(state, { controller, candidates, restIds, entersTapped = false, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "dig-land-pending", controller, count: candidates.length, entersTapped, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "dig-land-to-battlefield",
+      controller,
+      candidates,
+      restIds,
+      entersTapped: !!entersTapped,
       sourceName,
     },
   };

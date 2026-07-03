@@ -4,7 +4,7 @@
  */
 
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
-import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice } from "../../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
@@ -12,6 +12,12 @@ import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
 // atoms barrel must NOT import effects/parser.js — that's the TDZ hazard; triggers.js is fine).
 import { checkMilledTriggers } from "../../triggers.js";
+// GENESIS-WAVE — the mass reveal-top-X → put-permanents-onto-battlefield atom reuses the shared
+// enterCardFromZone helper (fires ETB / landfall / permanent-enters exactly like reanimation + library ramp),
+// so a Genesis-Wave-put permanent behaves identically to a Wargate/reanimate entry. library.js → zones.js is a
+// ONE-WAY atom-module edge (zones.js does NOT import library.js), so it's cycle-free — the atoms barrel must
+// not be imported here (that would TDZ-cycle, since the barrel imports library.js). Direct sibling import only.
+import { enterCardFromZone } from "./zones.js";
 
 /**
  * P3.2 tutor (CR 701.19) — search the caster's library for a card matching the modeled
@@ -141,6 +147,12 @@ export function applyTutor(state, atom, ctx) {
   if (!player) return state;
   // LAND-FROM-HAND — `sourceZone:"hand"` gathers candidates from the HAND instead of the library (Growth
   // Spiral); every other tutor searches the library (the default). The choice/picker/auto-pick are identical.
+  // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — `sourceZones` is the UNION of zones the search
+  // draws from; each candidate is tagged with the zone it lives in so resolveTutorChoice enters it from the
+  // right zone. A single `sourceZone` is the degenerate 1-element case; when `sourceZones` is present it wins.
+  const sourceZones = Array.isArray(atom.sourceZones) && atom.sourceZones.length
+    ? atom.sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : "library"))
+    : null;
   const sourceZone = atom.sourceZone === "hand" ? "hand" : "library";
   // SEARCH→BATTLEFIELD MV-CAPPED-BY-X (bfx) — a `mvCapX` filter resolves its MV cap from the CHOSEN X at
   // resolution (Wargate / Nature's Rhythm "mana value X or less", X bound at cast per CR 601.2b / 202.3b).
@@ -159,17 +171,28 @@ export function applyTutor(state, atom, ctx) {
   // by setPendingTutorChoice's Math.max(1, …) RAMP guard. A static-`remaining` / non-countFor tutor is
   // untouched (this branch is countFor-only).
   const dynCount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : null;
+  // A library search always shuffles afterward (CR 701.19e); a multi-zone search that includes the library
+  // (bfxg) shuffles too. A from-hand / graveyard-only search never touches the library.
+  const searchesLibrary = sourceZones ? sourceZones.includes("library") : sourceZone === "library";
   if (dynCount === 0) {
-    const shuffled = sourceZone === "library" ? shuffleControllerLibrary(state, controller) : state;
+    const shuffled = searchesLibrary ? shuffleControllerLibrary(state, controller) : state;
     return logEvent(shuffled, { kind: "spell-effect", effect: "tutor", found: false, destination: atom.destination || "hand", controller });
   }
-  const candidates = (player[sourceZone] || [])
-    .filter((c) => cardMatchesTutorFilter(c, effFilter))
-    .map((c) => ({ id: c.id, name: c.name }));
+  // Gather candidates. MULTI-ZONE (bfxg) — pull from every source zone, tagging each with its zone so the
+  // resolver moves the chosen card from the correct place. Single-zone tutors keep the original untagged shape
+  // (the resolver falls back to `pc.sourceZone` when a candidate carries no `zone`), so no existing card drifts.
+  const candidates = sourceZones
+    ? sourceZones.flatMap((zone) => (player[zone] || [])
+        .filter((c) => cardMatchesTutorFilter(c, effFilter))
+        .map((c) => ({ id: c.id, name: c.name, zone })))
+    : (player[sourceZone] || [])
+        .filter((c) => cardMatchesTutorFilter(c, effFilter))
+        .map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
     candidates,
     sourceZone,
+    sourceZones,
     sourceName: ctx.cardName || null,
     filterLabel: atom.filterLabel || null,
     // WAVE-2b TUTOR — thread the structured filter so the auto-pick can defensively re-apply the type/MV gate.
@@ -238,6 +261,107 @@ export function applyImpulseDigAtom(state, atom, ctx) {
   }
   const cards = pool.map((c) => ({ id: c.id, name: c.name }));
   return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
+}
+
+/**
+ * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — "Look at the top N cards of your library. You may put
+ * a land card from among them onto the battlefield [tapped]. Put the rest on the bottom of your library in a
+ * random order." A DIFFERENT effect from impulse-dig: the chosen LAND enters the BATTLEFIELD (firing its ETB,
+ * resolveDigLandChoice handles the enter + bottom), while the REST of the looked-at set (non-chosen lands +
+ * every nonland card) go to the bottom of the library in a RANDOM order (CR 701.19e-style deterministic shuffle
+ * of just those cards). At RESOLUTION this atom peeks the top N, gathers the LAND cards as the puttable
+ * candidates (the "you may put a LAND card" gate — nonland cards are never puttable), and either:
+ *   - NO land in the top N → no put; bottom the WHOLE looked-at set in a random order inline (a clean no-pause
+ *     no-op-put — you looked, there was no land to put, so everything goes under). Never fabricated.
+ *   - ≥1 land → set the pending dig-land choice (candidates = the lands; restIds = the full top-N id list) so
+ *     the controller picks which land to put out; the driver pauses a human / auto-picks the best land for AI.
+ * An empty library is a logged no-op. Hidden-info safe (the controller's own library). Pure (the random bottom
+ * uses the threaded rngSeed, advanced like discover/cascade, so a serialized game restores byte-identical).
+ */
+export function applyDigLandToBattlefieldAtom(state, atom, ctx) {
+  const player = state.players[ctx.controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const n = Math.min(Math.max(0, atom.amount || 0), player.library.length);
+  if (n === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "dig-land-to-battlefield", controller: ctx.controller, count: 0, put: false });
+  }
+  const top = player.library.slice(0, n);
+  const lands = top.filter((c) => isLandCard(c));
+  if (lands.length === 0) {
+    // Looked at N, no land to put → the whole looked-at set goes to the bottom in a random order (no pause).
+    const next = bottomTopNInRandomOrder(state, ctx.controller, n);
+    return logEvent(next, { kind: "spell-effect", effect: "dig-land-to-battlefield", controller: ctx.controller, count: n, put: false });
+  }
+  const candidates = lands.map((c) => ({ id: c.id, name: c.name }));
+  return setPendingDigLandChoice(state, {
+    controller: ctx.controller,
+    candidates,
+    restIds: top.map((c) => c.id), // the full looked-at set (ordered) — the settler bottoms all-but-the-chosen
+    entersTapped: !!atom.entersTapped,
+    sourceName: ctx.cardName || null,
+  });
+}
+
+/**
+ * Move the top `n` cards of `controller`'s library to the BOTTOM in a deterministic RANDOM order (CR "in a
+ * random order"), advancing the threaded rngSeed exactly like shuffleControllerLibrary / discover / cascade so
+ * a serialized game restores byte-identical (no Math.random in state mutation). Shared by the no-land inline
+ * path here and the settler (which bottoms the top-N minus the chosen land). Pure.
+ */
+export function bottomTopNInRandomOrder(state, controller, n) {
+  const player = state.players[controller];
+  if (!player) return state;
+  const count = Math.min(Math.max(0, n || 0), (player.library || []).length);
+  if (count === 0) return state;
+  const moved = player.library.slice(0, count);
+  const remaining = player.library.slice(count);
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const shuffledMoved = [...moved];
+  for (let i = shuffledMoved.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffledMoved[i], shuffledMoved[j]] = [shuffledMoved[j], shuffledMoved[i]];
+  }
+  return {
+    ...state,
+    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: [...remaining, ...shuffledMoved] },
+    },
+  };
+}
+
+/**
+ * Move the specific library cards whose ids are in `ids` to the BOTTOM of `controller`'s library in a
+ * deterministic RANDOM order (CR "in a random order"), leaving every other library card in place. Used by
+ * resolveDigLandChoice to bottom the looked-at REST after the chosen land has already left the library for the
+ * battlefield (so a positional top-N helper can't be used — the ids are the frozen looked-at set minus the put
+ * land). Advances the threaded rngSeed like the other random-order helpers so a serialized game restores
+ * byte-identical (no Math.random). Ids not currently in the library are silently ignored (the card moved). Pure.
+ */
+export function bottomLibraryCardsByIds(state, controller, ids) {
+  const player = state.players[controller];
+  if (!player) return state;
+  const idSet = new Set(ids || []);
+  const moved = (player.library || []).filter((c) => idSet.has(c.id));
+  if (moved.length === 0) return state;
+  const remaining = (player.library || []).filter((c) => !idSet.has(c.id));
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const shuffledMoved = [...moved];
+  for (let i = shuffledMoved.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffledMoved[i], shuffledMoved[j]] = [shuffledMoved[j], shuffledMoved[i]];
+  }
+  return {
+    ...state,
+    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: [...remaining, ...shuffledMoved] },
+    },
+  };
 }
 
 /**
@@ -457,6 +581,125 @@ export function applyRevealTopToHand(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "reveal-top-to-hand", controller, revealed: top.name, mv });
 }
 
+/**
+ * ===== GENESIS-WAVE ===== (CR 701 "put onto the battlefield" + CR 701.13 mill) — the mass reveal-top-X
+ * spell family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards with mana
+ * value X or less from among them onto the battlefield. Then put all cards revealed this way that weren't put
+ * onto the battlefield into your graveyard." (Genesis Wave — `permanent`; Saheeli's Directive — `artifact`).
+ *
+ * X is the SPELL'S chosen X (bound at cast per CR 601.2b, threaded via ctx.xValue). It caps BOTH the reveal
+ * count (top X) AND the eligible permanents' mana value (MV ≤ X) — the same X in both places, read once here.
+ * `?? 0` (never `|| 0`) so an explicit X=0 reveals 0 and puts nothing (a clean no-op, the mill of an empty
+ * reveal is a no-op) — the cardinal CREED guarantee that the cap is never silently treated as "uncapped".
+ *
+ * THE "YOU MAY PUT ANY NUMBER" CHOICE — resolved deterministically (v1, the same posture as the tutor
+ * auto-pick / Expert autopilot): put EVERY eligible permanent card (matching the type filter AND within the
+ * MV cap) onto the battlefield. Putting all of them is a LEGAL resolution of "any number" (choosing to put
+ * all), and it's the maximizing, standard line for a Genesis Wave cast — the atom applies the WHOLE card
+ * (reveal + selective put + mill-the-rest), no clause dropped, so this is faithful, not a partial. An
+ * interactive per-card multi-select picker is a future refinement (like scry's / the multi-count picker).
+ *
+ * DISPOSITION OF THE REST — every revealed card NOT put onto the battlefield (an over-cap permanent, an
+ * instant/sorcery, or — for the artifact filter — a non-artifact permanent) goes into the controller's
+ * GRAVEYARD (Genesis Wave / Saheeli's Directive both say "into your graveyard"). This slice models ONLY the
+ * graveyard disposition (`restTo:"graveyard"`); a "bottom of library in a random order" variant (Majestic
+ * Genesis, Knickknack Ouphe) is a DIFFERENT disposition and stays unmatched → low → Arbiter (CREED FN-safe).
+ *
+ * Each eligible permanent enters via enterCardFromZone (fires ETB / landfall / permanent-enters triggers,
+ * mints a fresh perm id + timestamp) — the exact shared entry the battlefield-tutor / reanimation paths use,
+ * so a Genesis-Wave-put permanent can't drift from a Wargate-fetched one. The mill-the-rest goes through the
+ * millOnePlayer chokepoint (fires the milled trigger bind, CR 701.13a). An EMPTY library reveals nothing → a
+ * clean no-op. Pure data mutation — a game serialized mid-resolution restores byte-identical (no closures).
+ */
+export function applyGenesisWave(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const x = Math.max(0, ctx.xValue ?? 0); // X caps BOTH the reveal count and the MV (bound at cast, CR 601.2b)
+  const lib = player.library || [];
+  const revealed = lib.slice(0, Math.min(x, lib.length)); // the top X (or fewer if the library is short)
+  if (revealed.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "genesis-wave", controller, x, put: 0, milled: 0 });
+  }
+  // Eligible = matches the type filter (permanent / artifact / …) AND MV ≤ X. cardMatchesTutorFilter is the
+  // exact gate Wargate uses (permanentOnly rejects instants/sorceries; a groups filter matches the front-face
+  // type line; mv.max caps the mana value) — so "put any number of permanent cards with MV ≤ X" is enforced
+  // identically to the battlefield-tutor cap, never fabricated.
+  const capFilter = { ...(atom.filter || {}), mv: { max: x } };
+  const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, capFilter)).map((c) => c.id));
+  // Put EVERY eligible permanent onto the battlefield (the deterministic "put all" resolution of "any number").
+  // enterCardFromZone removes the card from the library and enters it under the controller's control, firing
+  // ETB / landfall / permanent-enters — one card at a time so each entry's triggers are enqueued in order.
+  let next = state;
+  let put = 0;
+  for (const c of revealed) {
+    if (!eligibleIds.has(c.id)) continue;
+    const r = enterCardFromZone(next, { playerId: controller, cardId: c.id, fromZone: "library" });
+    if (r.entered) { next = r.state; put += 1; }
+  }
+  // The REST — every revealed card that wasn't put onto the battlefield — goes to the graveyard. After the
+  // puts above, those cards are STILL at the top of the library (enterCardFromZone only removed the put ones,
+  // preserving relative order), so the leftover-revealed cards remain the top `revealed.length - put` of the
+  // library. Mill exactly that many (through the millOnePlayer chokepoint so the milled trigger bind fires).
+  const milled = revealed.length - put;
+  if (milled > 0) next = millOnePlayer(next, controller, milled);
+  return logEvent(next, { kind: "spell-effect", effect: "genesis-wave", controller, x, put, milled });
+}
+
+/**
+ * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
+ * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
+ * (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
+ * effect (fired by "Whenever an opponent casts a spell, …" — ctx.controller is the enchantment's controller).
+ * Three faithful outcomes, all executed here as ONE atom (the sentences span the clause splitter, so the parser
+ * collapses them up front to this single atom — see matchRevealTopConditional):
+ *   1. CREATURE → the revealed card enters the controller's battlefield as a permanent (enterCardFromZone from
+ *      the library, firing its ETB / permanent-enters / landfall watchers exactly like reanimation / ramp — a
+ *      free creature is the whole point of the card). The card is REMOVED from the library and becomes a
+ *      permanent under the controller's control.
+ *   2. NON-CREATURE → the "you may put that card on the bottom of your library" is a genuine player option; both
+ *      legal branches (bottom vs. leave-on-top) DROP no clause, so — exactly like EXPLORE's "back or graveyard"
+ *      option (CR 701.44a) and scry's keep/bottom — it is resolved DETERMINISTICALLY here. We take the "may"
+ *      action (put on the bottom), the card-selection identity of the effect: it cycles the dead card away so
+ *      the next opponent's cast can reveal a fresh top. An interactive keep/bottom picker is a future refinement
+ *      (mirroring explore / scry), never a correctness gap — leave-on-top is the strictly weaker alternative and
+ *      skips no instruction. The move stays WITHIN the library (top → bottom), so no ETB / zone-change fires.
+ *   3. EMPTY library → nothing to reveal (a clean no-op, a legal reveal of zero cards — never a fabrication).
+ * Pure data mutation (a library shuffle/move + a permanent add) so a game serialized mid-resolution restores
+ * byte-identical. Non-pausing (deterministic), so it needs no PAUSING_ATOM_OPS entry and no session driver wiring.
+ */
+export function applyRevealTopConditional(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const lib = player.library || [];
+  if (lib.length === 0) {
+    // Empty library — nothing to reveal (a legal reveal of zero cards).
+    return logEvent(state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: null });
+  }
+  const top = lib[0];
+  if (isCreatureCard(top)) {
+    // The revealed creature card enters the controller's battlefield from the library, firing its ETB /
+    // permanent-enters / landfall watchers (enterCardFromZone — the same put-onto-the-battlefield seam
+    // reanimation and library ramp use). enterCardFromZone removes the card from the library and adds the
+    // permanent; entered:false (an unchanged state) only if the card already left, which can't happen for the
+    // library top we just read — but the guard keeps it a no-op rather than a throw.
+    const r = enterCardFromZone(state, { playerId: controller, cardId: top.id, fromZone: "library" });
+    return logEvent(r.state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBattlefield: r.entered });
+  }
+  // Non-creature → take the optional "put that card on the bottom of your library" (a legal choice; leave-on-top
+  // is the strictly weaker alternative and skips no instruction — see the header note). A same-zone move can't go
+  // through moveCardToZone (its fromZone/toZone patch would collide on the "library" key), so splice the top off
+  // and append it to the bottom directly: library index 0 is the TOP (drawCardEffect slices from the front), so
+  // the last element is the bottom.
+  const bottomLib = [...lib.slice(1), top];
+  const next = {
+    ...state,
+    players: { ...state.players, [controller]: { ...player, library: bottomLib } },
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBottom: true });
+}
+
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
 export function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
@@ -622,6 +865,33 @@ export function tutorClauseParser(clause, ctx = {}) {
   // numeric cap (that's the tm to-HAND path, not battlefield), or a "graveyard"/rider variant won't match the
   // anchor → falls through → low → Arbiter (Finale's library-and/or-graveyard + X≥10 pump rider stays LOW).
   if (ctx.hasX) {
+    // bfxg — SEARCH LIBRARY-AND/OR-GRAVEYARD → BATTLEFIELD, MV-CAPPED-BY-X (Finale of Devastation): "search
+    // your library and/or graveyard for a creature card with mana value X or less and put it onto the
+    // battlefield" on an {X}-cost spell. Same MV-cap SAFETY as bfx (the fetched card's mana value must be
+    // <= the chosen X, bound at cast, read at resolution via ctx.xValue — CR 202.3b), but the candidate pool
+    // is the UNION of the caster's LIBRARY and GRAVEYARD: `sourceZones:["library","graveyard"]` tells applyTutor
+    // to gather from both zones (tagging each candidate with its zone) and resolveTutorChoice to enter the
+    // chosen card from whichever zone it lives in. The library is ALWAYS searched (so the CR-701.19e shuffle
+    // always runs — Finale's separate "If you search your library this way, shuffle." reminder is stripped in
+    // splitClauses since the tutor's own shuffle covers it). Finale prints "and put" (no comma before "put"),
+    // so the anchor accepts "(and )?put" with the "and/or graveyard" zone phrase required. CREED: the X cap
+    // is never dropped (mvCapX); a graveyard-only ("search your graveyard …") or library-only variant does NOT
+    // match this anchor (the "library and/or graveyard" phrase is mandatory here) → falls through to bfx / low.
+    const bfxg = t.match(/^search your library and\/or graveyard for an? (creature|permanent) cards? with mana value x or less(?:,)?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+    if (bfxg) {
+      const phrase = bfxg[1];
+      const base = phrase === "permanent" ? { groups: [], permanentOnly: true } : parseTutorFilter(phrase);
+      if (!base) return null; // defensive (the regex already constrains to the two allowed words)
+      return {
+        op: "tutor",
+        filter: { ...base, mvCapX: true }, // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
+        filterLabel: `${phrase} card with mana value X or less`,
+        destination: "battlefield",
+        entersTapped: !!bfxg[2],
+        sourceZones: ["library", "graveyard"], // candidate pool = library ∪ graveyard; enter from the chosen card's zone
+        targetType: null,
+      };
+    }
     const bfx = t.match(/^search your library for an? (creature|permanent) cards? with mana value x or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
     if (bfx) {
       const phrase = bfx[1];
@@ -690,8 +960,10 @@ export function tutorClauseParser(clause, ctx = {}) {
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
   }
-  // mf — RAMP-MULTI up-to-N LANDS to battlefield.
-  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put them onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // mf — RAMP-MULTI up-to-N LANDS (or PLAIN CREATURES) to battlefield. "put them" (the ramp forms) OR "put
+  // those cards" (Defense of the Heart's compound-trigger multi-fetch) — the two printed anaphors for the
+  // up-to-N pile; the multi-fetch chains identically for both (resolveTutorChoice re-suspends per remaining).
+  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put (?:them|those cards) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (mf) {
     const phrase = mf[2];
     const count = UP_TO_N_WORD[mf[1]];
@@ -702,7 +974,17 @@ export function tutorClauseParser(clause, ctx = {}) {
     if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
     }
-    return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
+    // MULTI-FETCH-CREATURES-TO-BATTLEFIELD (Defense of the Heart) — an up-to-N fetch of PLAIN "creature" cards
+    // straight onto the battlefield. Faithful: cardMatchesTutorFilter selects exactly the caster's creature
+    // cards, and resolveTutorChoice's battlefield path enters each via enterCardFromZone (ETB triggers fire),
+    // chaining `remaining` picks exactly like the land ramp. Gated to the EXACT single unqualified `creature`
+    // filter (one group `["creature"]`, no MV cap / subtype / union / tapped rider) — the corpus's only such
+    // card — so no filtered / typed / non-creature multi-fetch can slip through (a wrong-cheat FP would be
+    // forbidden, CREED). A subtyped or unioned creature fetch (none in the corpus) still falls through → Arbiter.
+    if (filter && filter.groups.length === 1 && filter.groups[0].length === 1 && filter.groups[0][0] === "creature") {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
+    }
+    return null; // a non-land / non-plain-creature / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
   }
   // mfx — RAMP-MULTI-X up-to-X LANDS to battlefield, count from a board source (Traverse the Outlands "X =
   // greatest power among creatures you control"; Boundless Realms "X = number of lands you control"). The X is
@@ -760,9 +1042,12 @@ export const libraryResolvers = {
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
+  "dig-land-to-battlefield": applyDigLandToBattlefieldAtom, // DIG-LAND-TO-BATTLEFIELD (Silverback Elder) — look top N, put a land onto the battlefield, rest → bottom random. Settled by resolveDigLandChoice.
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.
   "mill": applyMill,
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
+  "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
+  "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
 };

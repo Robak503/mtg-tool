@@ -157,6 +157,16 @@ function opponentIds(state, controllerId) {
 const OPP_CONTROLS_MORE_RE = /^an opponent controls more (lands|creatures|artifacts|enchantments) than you$/;
 const OPP_HAS_MORE_RE = /^an opponent has more (life|cards in hand) than you$/;
 
+// ===== OPPONENT CONTROLS N-OR-MORE (CR 603.4 board query — the "opponent has a board" payoff family) =======
+// "an opponent controls a/an/<N> or more <filter>" (Defense of the Heart "three or more creatures") — TRUE iff
+// AT LEAST ONE opponent controls ≥N permanents matching the filter (CR 104.3a — each opponent counted
+// independently; "an opponent" = the existential over opponents). Distinct from OPP_CONTROLS_MORE (a compare
+// vs the controller's own count): this is an ABSOLUTE per-opponent threshold. The filter reuses parseFilter /
+// permMatchesFilter (so type/subtype/token/tapped-state all work, layer-irrelevant board counts read
+// identically at flush AND resolution). A single opponent's board of ≥N matches satisfies it; a malformed
+// filter → parseFilter null → the whole condition is unparseable → Arbiter (false-negative SAFE, CREED).
+const OPP_CONTROLS_N_RE = new RegExp(`^an opponent controls ${NUM_RE}(?: or more)? (.+)$`);
+
 // ===== CONTROLLER LIFE THRESHOLD (CR 603.4 board query — the "low-on-life payoff" family) ==================
 // "you have N or {less|fewer|more} life" — a pure player.life numeric compare for the CONTROLLER (NOT an
 // opponent existential like OPP_HAS_MORE). "N or less"/"N or fewer" → life ≤ N (Convalescent Care "5 or less",
@@ -219,6 +229,22 @@ const KICKED_ETB_RE = /^it was kicked$/;
 // trigger stays unrouted / on the Arbiter — FN-safe, never fail-open). Straight + curly apostrophe tolerated.
 const TRIBUTE_NOT_PAID_RE = /^tribute wasn['’]t paid$/;
 const TRIBUTE_PAID_RE = /^tribute was paid$/;
+
+// ===== NOT-A-TOKEN (CR 111.7 + 603.4) ========================================================
+// "it's not a token" / "it isn't a token" — the intervening-if on a self-dies trigger whose payoff copies
+// the dying creature ("When this creature dies, if it's not a token, create a token that's a copy of it…" —
+// Vaultborn Tyrant, Ochre Jelly). "it" (CR 608.2c) is the object the ability triggered on — for a self-scope
+// dies trigger that's the DEAD source itself. A per-PERMANENT token-status read, NOT a board query: the
+// dead source's token-ness is threaded through the trigger context as ctx.triggeringCardIsToken (makePending-
+// Trigger stamps !!triggeringPermanent.card.token, and checkDiesTriggers sets triggeringPermanent === the
+// dead look-back for the self path). Read identically at flush (the death look-back is fixed once the SBA
+// ran) AND resolution (CR 603.4 second check — the source is gone, so its captured token-ness can't change).
+// This is the non-recurse guard the printed card carries: a TOKEN Vaultborn copy dying reads
+// triggeringCardIsToken=true → "it's not a token" is false → no further copy (mirrors Miirym's nontoken
+// gate). A missing/undefined flag → null (can't confirm → FN-safe, never fail-open). Straight + curly
+// apostrophe tolerated. Anchored EXACTLY to the token-status shape (a color/type "it's not a <X>" variant
+// falls through → Arbiter, CREED — never a mis-read designation).
+const NOT_A_TOKEN_RE = /^it(?:'s| is)? ?not a token$|^it isn['’]t a token$/;
 
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
@@ -305,6 +331,18 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return TRIBUTE_NOT_PAID_RE.test(c) ? entering.tributePaid === false : entering.tributePaid === true;
   }
 
+  // NOT-A-TOKEN (CR 111.7) — "it's not a token" / "it isn't a token": read the triggering (dead, for a self-
+  // dies trigger) object's token-ness off the context flag (ctx.triggeringCardIsToken, stamped by
+  // makePendingTrigger as !!triggeringPermanent.card.token). NOT a board scan — the object may be in a
+  // graveyard by now, so its captured token status (fixed at the death look-back) is the only faithful read,
+  // and it's identical at flush AND resolution (CR 603.4 second check). A definite boolean once the trigger
+  // fires; an undefined flag (no context / not a per-object trigger) → null (can't confirm → FN-safe).
+  if (NOT_A_TOKEN_RE.test(c)) {
+    const isToken = context?.triggeringCardIsToken;
+    if (typeof isToken !== "boolean") return null; // no per-object token flag in context → can't confirm (FN-safe)
+    return isToken === false; // "it's not a token" → true iff the triggering object was NOT a token
+  }
+
   // "you control no <filter>"  → count == 0
   let m = c.match(/^you control no (.+)$/);
   if (m) {
@@ -346,6 +384,20 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   if (m) {
     const mine = controllerMetric(state, controllerId, m[1]);
     return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
+  }
+  // "an opponent controls a/an/<N> or more <filter>" — an ABSOLUTE per-opponent board threshold (Defense of
+  // the Heart "an opponent controls three or more creatures"). Anchored AFTER OPP_CONTROLS_MORE so the
+  // compare-vs-you form ("more … than you") wins its exact wording first; this matches the cardinal form. TRUE
+  // iff some opponent controls ≥N filter-matching permanents (existential, CR 104.3a). An unparseable filter
+  // (parseFilter null) drops the whole condition → Arbiter (FN-safe, never a fabricated board read — CREED).
+  m = c.match(OPP_CONTROLS_N_RE);
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const filter = parseFilter(m[2]);
+    if (!filter) return null;
+    return opponentIds(state, controllerId).some((oid) =>
+      controllerBoard(state, oid).filter((p) => permMatchesFilter(p, filter, state)).length >= n);
   }
 
   // "you have N or {less|fewer|more} life" — the controller's own life vs a fixed threshold (Convalescent
@@ -407,8 +459,11 @@ export function interveningIfParseable(condition) {
   // board-count shape ignores the extra permanent and a non-creature name, so its truth on the empty-ish
   // board is unchanged. An unparseable condition still returns null → false. The probe also stamps a
   // definite `tributePaid` boolean so the TRIBUTE ETB shape returns a boolean here (the runtime stamps it
-  // for real on every tribute permanent); a non-tribute board-shape ignores the extra field.
+  // for real on every tribute permanent); a non-tribute board-shape ignores the extra field. The probe
+  // context ALSO carries a definite `triggeringCardIsToken` boolean so the NOT-A-TOKEN shape returns a
+  // boolean here (the runtime stamps it for real off every triggering permanent's card.token); every other
+  // shape ignores the extra context field.
   const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" }, tributePaid: false };
   const probe = { players: { __probe__: { battlefield: [entering], graveyard: [] } } };
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__" }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false }) !== null;
 }

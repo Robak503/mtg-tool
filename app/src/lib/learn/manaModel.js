@@ -560,7 +560,18 @@ export function landAuraManaBonus(state, landPerm) {
     const lk = findPermanent(state, attId);
     if (!lk) continue;
     const bonus = parseAuraLandManaBonus(lk.permanent?.card);
-    if (bonus) out.push({ colors: [...bonus.colors], amount: bonus.amount });
+    if (!bonus) continue;
+    // CHOSEN-COLOR (Utopia Sprawl): the boost adds one mana of the color CHOSEN AS THE AURA ENTERED
+    // (CR 614.12b), stamped durably on the Aura permanent as `chosenColor` (resolvers.enterPermanent).
+    // Resolve the marker here — the ONLY read-site that has the attached Aura permanent. If the stamp is
+    // somehow missing (never happens: the native gate requires the choice line, and ETB always picks),
+    // DROP the bonus rather than fabricate a color (safe FN, CREED).
+    if (bonus.chosenColor) {
+      const chosen = lk.permanent?.chosenColor;
+      if (chosen) out.push({ colors: [chosen], amount: bonus.amount });
+      continue;
+    }
+    out.push({ colors: [...bonus.colors], amount: bonus.amount });
   }
   return out;
 }

@@ -956,6 +956,27 @@ export function clearRemovedFromCombatFlags(state) {
   return changed ? { ...state, players } : state;
 }
 
+// ── SHIELD COUNTER (CR 122.1c) — a permanent counter that protects the permanent ────────────────────────────
+// One or more shield counters on a permanent create a SINGLE replacement + a SINGLE prevention effect:
+//   • "If this permanent would be DESTROYED as the result of an effect, instead REMOVE a shield counter."
+//   • "If DAMAGE would be DEALT to this permanent, PREVENT that damage and REMOVE a shield counter."
+// Unlike a regeneration shield (turn-scoped, taps + clears damage), a shield counter is a PERSISTENT counter
+// (it lives in the standard `counters.shield` map, so proliferate / move-counter / remove-counter all compose
+// and it does NOT clear at cleanup). Each "would be dealt damage / destroyed" EVENT removes exactly one shield.
+// `hasShieldCounter` is the read the destruction sites (destroyLethalCreatures SBA + applyDestroyEffect) and the
+// damage sites (applyDamageEffect + combatResolution) gate on; `consumeShieldCounter` removes one. Gated on the
+// counter being present, so a permanent without a shield counter is byte-identical to before.
+export function hasShieldCounter(permanent) {
+  return ((permanent?.counters?.shield) || 0) > 0;
+}
+
+/** Remove one shield counter from a permanent (the replacement/prevention "remove a shield counter from it").
+ * Goes through removeCounter so the counters map is normalized (the key is deleted when it hits 0). A no-op if
+ * the permanent has no shield counter (belt-and-suspenders — every caller checks hasShieldCounter first). */
+export function consumeShieldCounter(state, permanentId) {
+  return removeCounter(state, { permanentId, type: "shield", amount: 1 });
+}
+
 /**
  * Untap every permanent the given player controls AND remove summoning
  * sickness from creatures that started the turn under their control.
@@ -1170,6 +1191,7 @@ export function clearCombatDamage(state) {
 export function destroyLethalCreatures(state, deathtouched = new Set(), cause = "sba") {
   const dead = [];
   const regenerated = []; // REGEN (CR 701.15) — creatures whose destruction a regen shield replaces this SBA
+  const shieldSaved = []; // SHIELD COUNTER (CR 122.1c) — creatures whose destruction a shield counter replaces
   // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
   // already in the graveyard, so its last-known characteristics travel with the `dead` entry.
   // SELF-LTB (Wave 4): the look-back also carries the dead creature's `attachments` ids (the
@@ -1221,9 +1243,14 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       }
       const lethalDamage = (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0);
       if (lethalDamage && !isIndestructible(perm, state)) {
-        // CR 701.15 — a regeneration shield REPLACES this destruction: consume one shield (clear damage +
-        // tap, applied below) instead of dying. Checked after indestructible (a creature can't be both).
-        if ((perm.regenShields || 0) > 0) regenerated.push(perm.id);
+        // CR 122.1c — a SHIELD COUNTER replaces this destruction (704.5g "would be destroyed"): remove one
+        // shield counter (applied below) instead of dying, no tap. Checked BEFORE regen (both are replacements;
+        // the permanent's controller orders them per CR 616, and a shield is strictly better — no tap). In
+        // normal flow damage to a shielded creature is PREVENTED at the damage site (never marked, so this rarely
+        // fires), but this mirrors the regen safety net so any lethal-damage that reached the SBA still consumes
+        // a shield rather than killing. Checked after indestructible (a creature can't be both).
+        if (hasShieldCounter(perm)) shieldSaved.push(perm.id);
+        else if ((perm.regenShields || 0) > 0) regenerated.push(perm.id); // CR 701.15 — regen shield replaces
         else markDead(pid, perm); // CR 704.5g — destruction; an indestructible creature survives
       }
     }
@@ -1240,6 +1267,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
     // own (now-removed) duplicate emission collapses into this one without changing the log shape.
     next = logEvent(next, { kind: "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause });
   }
+  for (const id of shieldSaved) next = consumeShieldCounter(next, id); // CR 122.1c — remove one shield, survive (no tap)
   for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.15a — clear damage + tap, survive
   return { state: next, dead };
 }

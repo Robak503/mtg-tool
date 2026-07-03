@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
@@ -151,9 +151,15 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
 export function autoPickTutorCandidate(state, pendingChoice) {
   // LAND-FROM-HAND — read the candidate cards from the choice's source zone (hand for Growth Spiral, the
   // library for every search). The pick heuristic (highest MV) is identical.
-  const zone = pendingChoice.sourceZone === "hand" ? "hand" : "library";
-  const lib = state.players?.[pendingChoice.controller]?.[zone] || [];
-  const byId = new Map(lib.map((c) => [c.id, c]));
+  // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — resolve each candidate against EVERY source
+  // zone (a card lives in exactly one), so a graveyard candidate is found too. Single-zone tutors read their
+  // one zone exactly as before.
+  const player = state.players?.[pendingChoice.controller] || {};
+  const zones = Array.isArray(pendingChoice.sourceZones) && pendingChoice.sourceZones.length
+    ? pendingChoice.sourceZones
+    : [pendingChoice.sourceZone === "hand" ? "hand" : "library"];
+  const byId = new Map();
+  for (const z of zones) for (const c of (player[z] || [])) byId.set(c.id, c);
   // WAVE-2b TUTOR — DEFENSIVELY re-apply the structured filter (type groups + MV cap — Spellseeker MV<=2,
   // Trophy Mage MV=3). Candidates are already filtered upstream by applyTutor, so this is a belt-and-braces
   // guard that the auto-pick can never select an off-filter card even if a future caller skips pre-filtering.
@@ -183,7 +189,13 @@ export function resolveTutorChoice(state, cardId) {
 
   // Apply the fetch (cardId null = the player chose to find nothing, or no candidate). LAND-FROM-HAND —
   // `sourceZone` is the zone the card moves FROM: "hand" (Growth Spiral) or "library" (every search).
-  const sourceZone = pc.sourceZone === "hand" ? "hand" : "library";
+  // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — the chosen candidate carries its own `zone`
+  // (library or graveyard); the card moves FROM that zone. Fall back to `pc.sourceZone` for a single-zone
+  // tutor (whose candidates carry no `zone`), so the existing library/hand paths are byte-identical.
+  const chosenCand = cardId ? (pc.candidates || []).find((c) => c.id === cardId) : null;
+  const sourceZone = (chosenCand && chosenCand.zone)
+    ? (chosenCand.zone === "hand" ? "hand" : chosenCand.zone === "graveyard" ? "graveyard" : "library")
+    : (pc.sourceZone === "hand" ? "hand" : "library");
   const inSource = cardId && (next.players?.[pc.controller]?.[sourceZone] || []).some((c) => c.id === cardId);
   // WAVE-2b FETCH-TO-TOP — three destinations: "battlefield" (ramp), "top" (Vampiric/Mystical Tutor —
   // shuffle FIRST, then place the chosen card on top, CR 701.19e, so it survives the shuffle), "hand" (default).
@@ -229,7 +241,9 @@ export function resolveTutorChoice(state, cardId) {
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
       filter: pc.filter, // WAVE-2b — carry the structured filter so chained picks keep the auto-pick gate
-      destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone,
+      // MULTI-ZONE — carry the source-zone set (bfxg) so a chained pick still moves from the right per-candidate
+      // zone; `sourceZone` (this pick's chosen zone) rides along as the single-zone shuffle-decision fallback.
+      destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone, sourceZones: pc.sourceZones || null,
       // RAMP-SPLIT — advance the ordered destination sequence so the NEXT pick uses the next destination
       // (Cultivate: pick 1 -> battlefield tapped, pick 2 -> hand). Null on the uniform single/multi path.
       destinations: Array.isArray(pc.destinations) ? pc.destinations.slice(1) : null,
@@ -238,7 +252,12 @@ export function resolveTutorChoice(state, cardId) {
   }
   // A library search shuffles afterward (CR 701.19e); a from-HAND put (LAND-FROM-HAND) doesn't touch the
   // library; a FETCH-TO-TOP already shuffled-then-placed above, so re-shuffling would knock the card off top.
-  if (sourceZone === "library" && !topAlreadyShuffled) next = shuffleControllerLibrary(next, pc.controller);
+  // MULTI-ZONE (bfxg) — the library was searched whenever "library" is in the source-zone set, even if the
+  // chosen card came from the graveyard (so `sourceZone` is "graveyard"); shuffle in that case too.
+  const searchedLibrary = Array.isArray(pc.sourceZones) && pc.sourceZones.length
+    ? pc.sourceZones.includes("library")
+    : sourceZone === "library";
+  if (searchedLibrary && !topAlreadyShuffled) next = shuffleControllerLibrary(next, pc.controller);
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inSource, destination });
 
   return resumeAfterChoice(next, pc);
@@ -303,6 +322,57 @@ export function resolveImpulseDigChoice(state, cardId) {
   const chosenId = (pc.candidates || []).some((c) => c.id === cardId) ? cardId : null;
   next = applyImpulseDig(next, { playerId: pc.controller, n: (pc.candidates || []).length, chosenId, restTo: pc.restTo });
   next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: !!chosenId, restTo: pc.restTo });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — deterministically auto-pick which land an AI / Expert
+ * puts onto the battlefield (no picker): the highest-mana-value land (a fetchland / dual > a basic), codepoint
+ * tie-break by name then id (serialize-stable, no Math.random). Returns the chosen LAND's id from the candidate
+ * set (already lands-only, gathered by applyDigLandToBattlefieldAtom), or null if none remain. Mirrors
+ * autoPickTutorCandidate's highest-MV heuristic — the AI puts out its most impactful available land.
+ */
+export function autoPickDigLandCandidate(state, pendingChoice) {
+  const lib = state.players?.[pendingChoice.controller]?.library || [];
+  const byId = new Map(lib.map((c) => [c.id, c]));
+  const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  if (cards.length === 0) return null;
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...cards].sort((a, b) =>
+    tutorManaValue(b) - tutorManaValue(a) ||
+    cmp(String(a.name || ""), String(b.name || "")) ||
+    cmp(String(a.id || ""), String(b.id || "")),
+  )[0].id;
+}
+
+/**
+ * Settle a pending dig-land-to-battlefield choice (Silverback Elder mode 2): the chosen LAND enters the
+ * controller's battlefield (via enterCardFromZone — firing its ETB + landfall, entersTapped per the card),
+ * then the REST of the looked-at set (the full restIds minus the chosen land) go to the BOTTOM of the library
+ * in a RANDOM order (bottomLibraryCardsByIds — deterministic). A `cardId` not among the offered land
+ * candidates (stale) puts NOTHING but still bottoms the whole looked-at set (a legal decline). An
+ * eliminated-controller guard (the pause can outlive the SBA that removes them). Then RESUME the suspended
+ * program (Silverback's modal has no rider past this mode, but the shared seam is uniform). Hidden-info safe
+ * (the controller's own library).
+ */
+export function resolveDigLandChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "dig-land-to-battlefield") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → clean no-op
+  const chosenId = (pc.candidates || []).some((c) => c.id === cardId) ? cardId : null;
+  let put = false;
+  if (chosenId) {
+    const r = enterCardFromZone(next, { playerId: pc.controller, cardId: chosenId, fromZone: "library", tapped: !!pc.entersTapped });
+    next = r.state;
+    put = r.entered;
+  }
+  // Bottom the REST of the looked-at set — the frozen top-N ids minus the land that went to the battlefield
+  // (if none was put, the whole looked-at set bottoms). bottomLibraryCardsByIds ignores ids no longer in the
+  // library (the chosen land already left), so passing the full restIds is correct either way.
+  const restIds = (pc.restIds || []).filter((id) => id !== chosenId);
+  next = bottomLibraryCardsByIds(next, pc.controller, restIds);
+  next = logEvent(next, { kind: "spell-effect", effect: "dig-land-to-battlefield", controller: pc.controller, put });
   return resumeAfterChoice(next, pc);
 }
 

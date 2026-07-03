@@ -44,6 +44,8 @@ import {
   addCommanderDamage,
   addCounter,
   addPoison,
+  hasShieldCounter,
+  consumeShieldCounter,
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
@@ -129,6 +131,18 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // — it deals and takes no further combat damage. It's still on the battlefield (findPermanent finds it), so
   // the damage loops must skip it explicitly. `combatant` returns the live lookup ONLY while still in combat.
   const combatant = (id) => { const lk = findPermanent(state, id); return lk && !lk.permanent.removedFromCombat ? lk : null; };
+
+  // CR 122.1c — a creature with a SHIELD COUNTER has all combat damage that would be dealt to it this step
+  // PREVENTED, and removes one shield counter (ONE event per creature — CR 510.2 combat damage is simultaneous).
+  // Modeled like protection: the shield is read off the PRE-step `state`, so a creature shielded at the start of
+  // the step prevents every source's damage this step and (below, after the deal loops) removes exactly one
+  // shield. Prevented damage is NOT dealt — no marks, no -1/-1, no lifelink credit, no combat-damage-to-creature
+  // trigger (Toxin/Wolverine), no enrage — matching CR 120.8 (0 damage dealt). ASSIGNMENT still treats the
+  // shielded creature as absorbing its lethal share for trample (CR 510.1c-d — assignment ignores prevention),
+  // so a trampler over a shielded blocker still spills only the excess. `shieldConsumed` records which shields to
+  // remove after the loops. Gated on the counter, so a no-shield board never allocates work → byte-identical.
+  const shieldPrevents = (id) => { const lk = findPermanent(state, id); return !!(lk && hasShieldCounter(lk.permanent)); };
+  const shieldConsumed = new Set();
 
   // ── Compute damage from the pre-step board (simultaneous within the step) ──
   const dmgToPermanent = {};   // permanentId -> amount
@@ -292,6 +306,14 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
           continue;
         }
         const give = Math.min(remaining, lethalNeed);
+        // CR 122.1c — a SHIELD COUNTER on the blocker PREVENTS the damage (0 dealt: no mark, no lifelink, no
+        // Wolverine/Toxin combat-damage-to-creature trigger) and removes one shield. Like protection, ASSIGNMENT
+        // still absorbs its lethal share (`remaining -= give` below), so a trampler spills only the excess.
+        if (shieldPrevents(blk.permanent.id)) {
+          shieldConsumed.add(blk.permanent.id);
+          remaining -= give;
+          continue;
+        }
         // DAMAGE-REPLACEMENT (CR 614 + 702.19e): the attacker ASSIGNS lethal off normal toughness, then each
         // assigned chunk is doubled as it's DEALT — so `remaining` decrements by the un-doubled `give` (the
         // assignment math) while the blocker is MARKED (and lifelink credited) the doubled amount. 120.8: a
@@ -329,6 +351,10 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       // KW-PROTECTION (CR 702.16e): if the attacker has protection from the blocker's color, the blocker's
       // damage back to it is prevented — 0 dealt, and no lifelink for the blocker.
       if (protectionPrevents(att.permanentId, permanentColors(state, blk.permanent.id))) continue;
+      // CR 122.1c — a SHIELD COUNTER on the ATTACKER (the recipient here) PREVENTS the blocker's damage (0 dealt:
+      // no mark, no blocker lifelink, no Wolverine/Toxin trigger) and removes one shield. No trample math applies
+      // to a creature dealing damage back, so this is a clean skip (mirrors the protection skip above).
+      if (shieldPrevents(att.permanentId)) { shieldConsumed.add(att.permanentId); continue; }
       // KW-POISON — the BLOCKER is the source here, so its OWN infect/wither reroutes the damage it
       // deals back to the attacker into -1/-1 counters (toxic is player-only, irrelevant blocking).
       const bminus = permanentHasKeyword(state, blk.permanent.id, "Infect") || permanentHasKeyword(state, blk.permanent.id, "Wither");
@@ -344,6 +370,9 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
 
   // ── Apply marks + life changes ──
   let next = state;
+  // CR 122.1c — remove one shield counter from each creature whose combat damage this step was prevented by its
+  // shield (recorded at the deal sites). Done BEFORE marking so the log reflects the post-prevention board.
+  for (const id of shieldConsumed) if (findPermanent(next, id)) next = consumeShieldCounter(next, id);
   for (const [id, amount] of Object.entries(dmgToPermanent)) {
     if (findPermanent(next, id)) next = markCombatDamage(next, { permanentId: id, amount });
   }

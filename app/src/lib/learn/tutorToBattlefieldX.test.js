@@ -66,8 +66,10 @@ describe("parser — bfx: creature/permanent search→battlefield capped by X", 
     expect(programConfidence(parseEffectClause("Search your library for a creature card, put it onto the battlefield, then shuffle.", "Sorcery", { hasX: true }))).toBe("low");
     // "mana value X or GREATER" — an unmodeled comparator (would mis-cap). Stays low.
     expect(programConfidence(parseEffectClause("Search your library for a creature card with mana value X or greater, put it onto the battlefield, then shuffle.", "Sorcery", { hasX: true }))).toBe("low");
-    // Finale of Devastation — library AND/OR graveyard + "If X is 10 or more …" pump/haste rider → low.
-    expect(programConfidence(progOf({ name: "Finale of Devastation", type: "Sorcery", mana: "{X}{G}{G}", oracle: "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn." }))).toBe("low");
+    // Finale of Devastation NOW FLIPS HIGH (bfxg — library-and/or-graveyard tutor + the condX team-pump-haste
+    // rider, both modeled faithfully). See the FINALE block below for the atom-shape + runtime coverage. A
+    // GRAVEYARD-ONLY search-to-battlefield remains a landmine (not the "library and/or graveyard" bfxg shape).
+    expect(programConfidence(parseEffectClause("Search your graveyard for a creature card with mana value X or less and put it onto the battlefield.", "Sorcery", { hasX: true }))).toBe("low");
     // Natural Order — "sacrifice a GREEN creature" (color-qualified sac cost unmodeled) → low.
     expect(programConfidence(progOf({ name: "Natural Order", type: "Sorcery", mana: "{2}{G}{G}", oracle: "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle." }))).toBe("low");
     // Chord of Calling — the RAW oracle (with the convoke line) is low to the BARE effect parser (it doesn't
@@ -175,10 +177,15 @@ describe("coverage — Wargate + Nature's Rhythm flip native-spell; landmines st
     expect(classifyCard(C("Instant", "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nSearch your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle.", "{X}{G}{G}{G}", "Chord of Calling"))).toBe("native-spell");
   });
 
-  it("landmines remain arbiter-spell (Finale rider / Natural Order color-sac / non-X no-cap)", () => {
-    // Finale of Devastation — library AND/OR graveyard search + an "If X is 10 or more" pump/haste rider that
-    // is NOT modeled → the whole card stays arbiter-spell (no partial; the X-cap core is not built in isolation).
-    expect(classifyCard(C("Sorcery", "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn.", "{X}{G}{G}", "Finale of Devastation"))).toBe("arbiter-spell");
+  it("Finale of Devastation flips native-spell (bfxg library∪graveyard tutor + condX team-pump-haste — both modeled)", () => {
+    // FAITHFUL FLIP (was a pinned landmine): the "library and/or graveyard" MV-capped-by-X tutor to the
+    // battlefield (bfxg) + the "If X is 10 or more, creatures you control get +X/+X and gain haste" rider
+    // (condX team pump) are BOTH modeled end-to-end. See finaleOfDevastation.test.js for the atom shape + the
+    // library/graveyard-fetch + X<10/X>=10 pump runtime coverage. No partial: both halves resolve or neither.
+    expect(classifyCard(C("Sorcery", "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn.", "{X}{G}{G}", "Finale of Devastation"))).toBe("native-spell");
+  });
+
+  it("landmines remain arbiter-spell (Natural Order color-sac / non-X no-cap)", () => {
     expect(classifyCard(C("Sorcery", "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle.", "{2}{G}{G}", "Natural Order"))).toBe("arbiter-spell");
     // A creature→battlefield with NO mana-value cap (not even an {X} spell) must never be native (would fetch anything).
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, put it onto the battlefield, then shuffle.", "{3}{G}", "Fake Uncapped"))).toBe("arbiter-spell");

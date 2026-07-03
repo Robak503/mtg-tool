@@ -93,8 +93,13 @@ describe("WAVE-2b parser — CREED false-positive guards (must stay LOW → Arbi
   it("a multi-card 'any number … on top' (Goblin Recruiter) drops to low", () => {
     expect(low("search your library for any number of goblin cards, reveal them, then shuffle and put those cards on top in any order", "Creature")).toBe(true);
   });
-  it("a NON-LAND up-to-three to the battlefield drops to low (LAND-guard intact)", () => {
-    expect(low("search your library for up to three creature cards, put them onto the battlefield tapped, then shuffle", "Sorcery")).toBe(true);
+  it("a PLAIN 'creature' up-to-N to the battlefield is now HIGH (Defense of the Heart); a SUBTYPED / typed one stays low", () => {
+    // Defense of the Heart opened the multi-fetch to a single unqualified "creature" filter (faithful — each
+    // fetched creature enters via enterCardFromZone, firing ETB). The land-guard still rejects a SUBTYPED
+    // ("Dragon") or non-creature-typed ("artifact") multi-fetch (no wrong-cheat FP — CREED).
+    expect(low("search your library for up to three creature cards, put them onto the battlefield tapped, then shuffle", "Sorcery")).toBe(false);
+    expect(low("search your library for up to three Dragon cards, put them onto the battlefield tapped, then shuffle", "Sorcery")).toBe(true);
+    expect(low("search your library for up to two artifact cards, put them onto the battlefield, then shuffle", "Sorcery")).toBe(true);
   });
   it("an out-of-range 'up to six' multi-fetch drops to low", () => {
     expect(low("search your library for up to six basic land cards, put them onto the battlefield tapped, then shuffle", "Sorcery")).toBe(true);

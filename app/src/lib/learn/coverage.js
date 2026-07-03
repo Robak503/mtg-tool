@@ -117,6 +117,9 @@ export const COVERED_KEYWORDS = [
   // `startsWith("cycling ")` rule would mis-credit any line opening with "cycling " (e.g. Fluctuator's
   // static "Cycling abilities you activate cost {2} less to activate"), so cycling is gated to the
   // exact "cycling {cost}" activated-ability shape the engine actually enforces (parseCyclingCost).
+  // KW-PARTNER is NOT a generic startsWith keyword either — see rePartnerBare in isKeywordOnly. The generic
+  // `startsWith("partner ")` rule would mis-credit "Partner with <name>" (CR 702.124f), which carries a real
+  // LINKED partner-tutor ETB the engine does NOT model, so partner is gated to the EXACT bare-word form.
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
@@ -148,6 +151,7 @@ export function isKeywordOnly(oracle, name) {
     isEnforcedEvasionClause(c) ||
     reCyclingCost.test(c) ||
     reNinjutsuCost.test(c) ||
+    rePartnerBare.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
     // name was already normalized to "this creature" above). ENFORCED in opponentAI.pickAttackPlan (the
     // creature is force-declared as an attacker when able), so it's a modeled static, not residue.
@@ -172,6 +176,15 @@ export function isKeywordOnly(oracle, name) {
 // ability" trigger, or Monet's "if Monet was ninjutsu'd" conditional (none end in a brace cost right after
 // "ninjutsu ").
 const reNinjutsuCost = /^(?:commander |library )?ninjutsu (?:\{[^}]+\})+$/;
+
+// KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
+// isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),
+// FULLY modeled at the command zone (cmdPartner — commandersOf seats BOTH partners; the per-commander cast tax
+// and per-commander damage track them independently). On the battlefield it is a no-op keyword with no clause
+// to drop, so a permanent whose only residue is the bare "partner" line is fully played. EXACT-anchored so it
+// can never match "partner with <name>" (CR 702.124f — a LINKED partner-tutor ETB the engine does NOT model,
+// which must stay body-only), "friends forever", or "choose a background" (all carry extra unmodeled text).
+const rePartnerBare = /^partner$/;
 
 // KW-CYCLING — credit a clause ONLY when it's "cycling {cost}" (the keyword + one or more brace mana
 // symbols), mirroring the engine's parseCyclingCost (effects/abilities.js) EXACTLY so the metric never
@@ -234,6 +247,19 @@ function hasModeledVariableXMana(card) {
   if (!/\badd x mana\b/i.test(oracle)) return false;            // not the variable-X form → not this tier
   const prod = manaProduction(card);
   return !!prod?.amountSpec;                                     // native ONLY when the runtime models the metric
+}
+
+// DOUBLE-MANA-POOL (Doubling Cube — "{3}, {T}: Double the amount of each type of unspent mana you have.").
+// This is a MANA ability (CR 605.1a) the runtime now plays natively OFF the stack (legalChoices.actions-
+// DoubleManaPool → actionDispatcher.applyDoubleManaPool doubles the activator's pool). hasManaAbility keys on
+// "Add …" and misses this doubling wording, so it's admitted to the native-mana tier separately. Read the
+// SAME parseActivatedAbilities the runtime enumerates on (its `doubleManaPool` marker) — so the metric credits
+// EXACTLY the ability the runtime resolves, never drifting. `type_line` fallback matches the parser's card
+// shape. Any card with such a modeled ability qualifies; the caller's manaCardResidueModeled gate still
+// requires the REST of the card (any trigger/level text) to be modeled too, so this can't over-claim a card
+// whose non-mana body is unmodeled (Doubling Cube has none — its whole text IS this one ability).
+function hasDoubleManaPoolAbility(card) {
+  return parseActivatedAbilities(card).some((a) => a.doubleManaPool);
 }
 
 /** True when an instant/sorcery resolves fully through the EffectProgram interpreter. */
@@ -494,6 +520,16 @@ export function permanentTriggersCovered(card) {
     // Anchored to the modeled wording, so it can only consume a true modeled follow-up (FN-safe — an UNmodeled
     // drain variant fails the HIGH gate above and never reaches here). Curly apostrophe tolerated.
     .replace(/\beach opponent loses life equal to (?:that card['’]s|the card['’]s|its) mana value\b\.?\s*/gi, " ")
+    // REVEAL-TOP-CONDITIONAL (Lurking Predators) — the two follow-up sentences "If it's a creature card, put it
+    // onto the battlefield. Otherwise, you may put that card on the bottom of your library." are part of the SAME
+    // cast-trigger's effect (detectTriggers keeps the whole three-sentence body in the effectClause, which parses
+    // HIGH in allTriggerSentencesModeled above via the collapsed matchRevealTopConditional — proven before this
+    // residue check runs), but the trigger regex stops at the first period after "…reveal the top card of your
+    // library.", leaving these two sentences as apparent residue. Strip the EXACT modeled branch shape so the card
+    // reads keyword-only (Lurking Predators has no other body text). Anchored to the exact conditional wording, so
+    // it can only consume this modeled follow-up — FN-safe (an UNmodeled reveal-conditional variant fails the HIGH
+    // gate above and never reaches here). Curly apostrophe tolerated.
+    .replace(/\bif it['’]s a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library\b\.?\s*/gi, " ")
     // SELF-CAST HALF-X ROUNDING (CR 107.3) — a trailing "Round down/up each time." directive is part of the
     // self-cast trigger's effect (it governs the "half X" magnitudes the parser models via the halve flag, so
     // the WHOLE effect parses HIGH in allTriggerSentencesModeled above — proven before this residue check runs),
@@ -966,7 +1002,10 @@ export function classifyCard(card) {
   // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via
   // hasModeledVariableXMana — gated on manaProduction returning a runtime amountSpec, so an unmodeled-metric
   // X source (Wirewood Channeler) stays body-only (no over-claim). The same residue gate then applies.
-  if ((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) || hasModeledVariableXMana(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
+  // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool — admitted to the
+  // native-mana tier alongside "Add …" sources (the runtime resolves it via applyDoubleManaPool). The same
+  // residue gate applies, so a variant with unmodeled non-mana body text (none in the corpus) stays Arbiter.
+  if ((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers

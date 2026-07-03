@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -56,7 +56,7 @@ import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a 
 // identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
@@ -306,6 +306,26 @@ export function landDropAllowance(state, playerId) {
   // budget (no effect resolved) reads exactly 0, never a fabricated allowance.
   extra += player.extraLandsThisTurn ?? 0;
   return 1 + extra;
+}
+
+/**
+ * FLASH-CAST-PERMISSION (CR 601.3e) — the flash-cast-permission specs `playerId` currently has, from every
+ * static they control ("You may cast <FILTER> spells as though they had flash" — Yeva, Vedalken Orrery,
+ * Leyline of Anticipation, …). A static ability functions ONLY while its source is on the battlefield (CR
+ * 113.6), so only the battlefield is scanned — a creature-commander carrying this clause grants nothing while
+ * it sits in the command zone. Each spec is the serializable `{ any } | { qualifiers }` filter; the cast site
+ * tests each castable card against them (spellMatchesFlashFilter) to decide instant-speed timing. Gathered
+ * ONCE per castActionsFromZone (invariant across the loop), mirroring the cost-reducer hoist. Pure; [] when
+ * the player controls no such static.
+ */
+export function flashPermissionSpecsFor(state, playerId) {
+  const player = state.players?.[playerId];
+  if (!player) return [];
+  const specs = [];
+  for (const perm of player.battlefield || []) {
+    for (const spec of flashCastPermissionsOf(perm.card)) specs.push(spec);
+  }
+  return specs;
 }
 
 function actionsPlayLand(state, playerId) {
@@ -593,6 +613,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         ...collectCostReducers(player.command || [], { commandZone: true }),
       ];
 
+  // FLASH-CAST-PERMISSION (CR 601.3e): the flash-cast statics this player controls ("You may cast <FILTER>
+  // spells as though they had flash" — Yeva, Vedalken Orrery, …), gathered ONCE (invariant across the loop).
+  // A card that isn't instant-speed but matches one of these specs (spellMatchesFlashFilter) is offered at
+  // instant speed below (subject to the normal instant-speed priority window). A free-cast bypasses the timing
+  // gate entirely, so the specs are unused then.
+  const flashSpecs = freeCast ? [] : flashPermissionSpecsFor(state, playerId);
+
   for (const card of cards) {
     if (isLand(card)) continue;
 
@@ -606,7 +633,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // combined-card cast is a false positive.
     if (isAdventureCard(card)) continue;
 
-    const sorcerySpeed = isSorcerySpeed(card);
+    // FLASH-CAST-PERMISSION (CR 601.3e): a sorcery-speed card the player has flash permission for (Yeva → a
+    // green creature; Vedalken Orrery → any spell) may be cast whenever the player has priority (instant
+    // speed). Checked only when the card ISN'T already instant-speed (a real Instant / a Flash card reads
+    // instant-speed via isSorcerySpeed already) and only against this player's own statics — so it never
+    // widens an opponent's timing. A false match is impossible: the spec was validated to a modeled filter
+    // upstream (else it's null and never emitted), so this only offers a cast the rules genuinely permit.
+    const hasFlashPermission = flashSpecs.length > 0 && flashSpecs.some((spec) => spellMatchesFlashFilter(spec, card));
+    const sorcerySpeed = isSorcerySpeed(card) && !hasFlashPermission;
     const timingOk = sorcerySpeed
       ? canCastSorcerySpeed(state, playerId)
       : canCastInstantSpeed(state, playerId);
@@ -916,7 +950,12 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // opponent's land just ramps them), so we offer own lands only (a safe, useful subset). Once
     // attached, the boost mana appears inline whenever that land taps (manaModel.landAuraManaBonus).
     if (isNativeManaAura(card)) {
-      const targets = enumerateTargets(state, playerId, { targetType: "land", restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card));
+      // CHOSEN-COLOR (Utopia Sprawl): the Aura enchants the "Forest" basic-land SUBTYPE, so only the caster's
+      // own FORESTS are legal targets (the "forest" targetType requires BOTH a Land type line and the Forest
+      // subtype). A bare "Enchant land" mana Aura offers any own land. Honoring the subtype at the target site
+      // is what keeps the boost faithful to "enchant Forest" — the Aura only ever attaches to (and boosts) a Forest.
+      const targetType = auraEnchantSubject(card) === "forest" ? "forest" : "land";
+      const targets = enumerateTargets(state, playerId, { targetType, restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card));
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -1309,6 +1348,54 @@ function actionsActivateAbility(state, playerId) {
           });
         }
       }
+    }
+  }
+  return actions;
+}
+
+/**
+ * DOUBLE-MANA-POOL (Doubling Cube — "{3}, {T}: Double the amount of each type of unspent mana you have.").
+ * A MANA ability (CR 605.1a) that resolves WITHOUT the stack (CR 605.3a) — so, like tap-for-mana and unlike
+ * a stack `activate-ability`, it's enumerated here as its own `double-mana-pool` action rather than through
+ * actionsActivateAbility (which filters mana abilities out via `!ab.isManaEffect`). Offer it when the source
+ * is untapped, un-summoning-sick if a creature (granted Haste counts, CR 302.6), and its `{3},{T}` cost is
+ * affordable from the player's pool + untapped sources (the source itself excluded from paying the {mana},
+ * mirroring actionsActivateAbility's tapSelf exclusion). Same main + priority window as the sibling mana /
+ * activated-ability enumerators — a conservative gate (mana abilities are instant-speed, CR 605.3a, but
+ * under-offering off-turn is a safe false-negative). The AI auto-pickers ignore this kind (like tap-for-mana),
+ * so self-play never loops on it; it's the explicit manual play for a floating-mana line + the coverage-native
+ * proof that the runtime can actually resolve the card.
+ */
+function actionsDoubleManaPool(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const perm of player.battlefield) {
+    for (const ab of parseActivatedAbilities(perm.card)) {
+      if (!ab.doubleManaPool) continue;
+      if (ab.tapSelf) {
+        if (perm.tapped) continue; // can't tap an already-tapped source
+        if (isCreature(perm.card) && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+      }
+      const cost = parseManaCost(ab.manaPips || "");
+      if (cost.hasX) continue; // no X-cost double-mana ability exists; guard defensively
+      // The {mana} part is paid from the pool + untapped sources EXCLUDING the source itself when it also
+      // taps ({T}) — a source can't tap for mana AND pay its own {T} (mirrors actionsActivateAbility).
+      const sources = manaSources(state, playerId).filter((s) => !(ab.tapSelf && s.permanentId === perm.id));
+      if (!canAfford(player.manaPool, sources, cost)) continue;
+      actions.push({
+        kind: "double-mana-pool",
+        playerId,
+        permanentId: perm.id,
+        name: perm.card.name,
+        abilityIndex: ab.index,
+        cost,
+        cmc: totalCmc(cost),
+        tapSelf: ab.tapSelf,
+        abilityText: ab.raw,
+      });
     }
   }
   return actions;
@@ -1787,6 +1874,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
   actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.171a): exile from hand for the plot cost — a SPECIAL action, not casting
   actions.push(...actionsTapForMana(state, playerId));
+  actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   actions.push(...actionsActivateAbility(state, playerId));
   actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
   actions.push(...actionsActivateLoyalty(state, playerId));

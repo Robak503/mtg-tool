@@ -7,7 +7,7 @@ import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenKeywords } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
 /**
  * ===== TOKENS ===== Build a token's type line from its descriptor ("colorless thopter artifact"
@@ -243,7 +243,20 @@ export function applyCreateNamedToken(state, atom, ctx) {
  */
 function resolveCopySource(state, atom, ctx) {
   if (atom.copySource === "self") return ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent : null;
-  if (atom.copySource === "triggering") return ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId)?.permanent : null;
+  if (atom.copySource === "triggering") {
+    const live = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId)?.permanent : null;
+    if (live) return live;
+    // DIES-COPY (Vaultborn Tyrant / Ochre Jelly, CR 707.2) — "create a token that's a copy of it" on a
+    // self-DIES trigger: the triggering creature has ALREADY left the battlefield, so findPermanent fails.
+    // CR 707.2 copies the creature's LAST-KNOWN printed characteristics, which the death look-back preserved
+    // as ctx.triggeringCard (a plain card object). Return a synthetic { card } source so snapshotCopiedCard
+    // (which reads only sourcePerm.card) can copy it. A NON-token source only (a token that died ceases to
+    // exist and can't be copied, CR 111.7 — and Vaultborn's own "if it's not a token" intervening-if already
+    // gates that off; guarding here too keeps the resolver correct for any caller). No look-back card at all
+    // → null → CR 111.12 no copy (a clean no-op, never a fabricated body).
+    if (ctx.triggeringCard && !ctx.triggeringCard.token) return { card: ctx.triggeringCard };
+    return null;
+  }
   if (atom.copySource === "target") {
     const t = (ctx.targets || []).find((x) => x?.type === "creature") || (ctx.targets || [])[0];
     return t?.id ? findPermanent(state, t.id)?.permanent : null;
@@ -266,9 +279,15 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   // applied to the snapshot via the SAME addKeyword rider a clone uses (writes card.keywords → layers'
   // printedKeywords seeds from it), so the copy genuinely gains the keyword. The parser only ever supplies
   // layer-grantable keywords (tokenCopy.GRANTABLE_KEYWORDS), so this can never fabricate an unenforced ability.
-  const copyRiders = Array.isArray(atom.grantKeywords) && atom.grantKeywords.length
-    ? [{ kind: "addKeyword", keywords: atom.grantKeywords }]
-    : [];
+  // CR 707.9a — an ADD-CARD-TYPE rider (Vaultborn Tyrant: "…except it's an artifact in addition to its other
+  // types") prepends the card type to the copy's type line (snapshotCopiedCard addCardType rider), so the
+  // minted token genuinely IS that type for every type-line read. The parser only supplies an allowlisted
+  // permanent card type (tokenCopy.ADDABLE_CARD_TYPES).
+  const copyRiders = [];
+  if (Array.isArray(atom.grantKeywords) && atom.grantKeywords.length) copyRiders.push({ kind: "addKeyword", keywords: atom.grantKeywords });
+  if (Array.isArray(atom.addCardTypes) && atom.addCardTypes.length) {
+    for (const ct of atom.addCardTypes) copyRiders.push({ kind: "addCardType", cardType: ct });
+  }
   const copiable = snapshotCopiedCard(sourcePerm, undefined, copyRiders);
   // Wave-3a token doubler (CR 616): a token-copy is still "a token created", so a doubler multiplies it.
   // Computed once (the minted copy is token:true, never itself a doubler).
@@ -357,6 +376,29 @@ export function createNamedTokenClauseParser(clause) {
   return null;
 }
 
+// ===== LAND-CREATURE-TOKEN (CR 305.6) ===== the intrinsic mana ability of a basic-land-subtype token.
+// A permanent with a basic land subtype has the intrinsic mana ability "{T}: Add <color>" (CR 305.6) —
+// so a "Forest Dryad land creature token" (Awaken the Woods) genuinely taps for {G}. To model this
+// FAITHFULLY the token must FUNCTION as that land: we mint it with the SAME reminder-text mana line the
+// engine already reads off a real dual land / Dryad Arbor ("({T}: Add {G}.)"), so manaModel.manaProduction
+// / manaSources tap it for the right color with ZERO new mana-model code — the shipped T4 "ability-carrying
+// token" pattern (mint real oracle text; existing subsystems drive it).
+//
+// CREED GATE: this returns the mana oracle ONLY when the descriptor carries EXACTLY ONE basic-land subtype
+// (Forest/Island/Swamp/Mountain/Plains). A "land" descriptor with NO basic subtype (a bare "Dryad land" /
+// "Saproling land") has no defined intrinsic color — minting it would drop or fabricate its mana — so it
+// returns null and the whole clause stays LOW → Arbiter (a faithful non-native park, not a partial model).
+// MULTIPLE basic subtypes (a hypothetical "Forest Island land" token) also returns null: the token would
+// tap for a CHOICE of colors and the single-color reminder line can't model that (whole card or nothing).
+const BASIC_SUBTYPE_COLOR = { plains: "W", island: "U", swamp: "B", mountain: "R", forest: "G" };
+function landTokenManaOracle(descriptor) {
+  const words = String(descriptor || "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.includes("land")) return { ok: true, oracle: null }; // not a land token — no mana line, unchanged
+  const basics = words.filter((w) => BASIC_LAND_SUBTYPES.has(w));
+  if (basics.length !== 1) return { ok: false, oracle: null };     // no basic subtype, or a multi-color dual → park
+  return { ok: true, oracle: `({T}: Add {${BASIC_SUBTYPE_COLOR[basics[0]]}}.)` };
+}
+
 /**
  * CREATE-TOKEN clause parser (vanilla typed creature tokens) — migrated from parser.js parseExtendedAtom
  * (seam batch 20 / Wave C). Two matchers, original first-match order (for-each before fixed-N):
@@ -381,9 +423,13 @@ export function createTokenClauseParser(clause) {
   if (mtf) {
     const toughness = parseInt(mtf[2], 10);
     if (toughness < 1) return null;
-    if (/\bland\b/.test(mtf[3])) return null;
+    // LAND-CREATURE-TOKEN (CR 305.6): a "land" descriptor is admitted ONLY with exactly one basic-land subtype
+    // whose intrinsic {T}: Add <color> ability is minted onto the token (landTokenManaOracle); a bare/multi
+    // land token returns ok:false → null → Arbiter (the intrinsic mana would be dropped/ambiguous — CREED).
+    const landMana = landTokenManaOracle(mtf[3]);
+    if (!landMana.ok) return null;
     const countFor = parseCountSource(mtf[4]);
-    return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null } : null;
+    return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null, ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}) } : null;
   }
   // NAMED-TOKEN (CR 111.4) — a typed creature token can carry a printed name ("…creature token named Koma's
   // Coil", Koma/Ur-Dragon-style). The name is captured into atom.name (applyCreateToken stamps it on the
@@ -397,9 +443,18 @@ export function createTokenClauseParser(clause) {
     const power = parseInt(m[2], 10);
     const toughness = parseInt(m[3], 10);
     if (toughness < 1) return null;  // 0-toughness token dies to the lethal SBA → incomplete capture → Arbiter
-    if (/\bland\b/.test(m[4])) return null;  // a LAND creature token's intrinsic mana would be dropped → Arbiter
+    // LAND-CREATURE-TOKEN (CR 305.6): admit a "land" descriptor ONLY with exactly one basic-land subtype whose
+    // intrinsic {T}: Add <color> ability is minted onto the token; otherwise its intrinsic mana would be
+    // dropped/ambiguous → null → Arbiter (Saproling land / bare Dryad land stay parked — CREED).
+    const landMana = landTokenManaOracle(m[4]);
+    if (!landMana.ok) return null;
+    // A land token's intrinsic mana line (tokenOracle) and a "with <ability/keyword>" rider would BOTH claim
+    // the single tokenOracle slot — modeling one would drop the other. So a land token carrying a "with"
+    // rider is parked (whole card or nothing — CREED). Awaken's tokens have no "with" clause, so this only
+    // guards a hypothetical "Forest Dryad land creature token with flying".
+    if (landMana.oracle && m[6] !== undefined) return null;
     const tokenName = m[5] ? m[5].trim().split(/\s+/).map(cap).join(" ") : null; // title-case the parsed name (it was lowercased upstream)
-    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(tokenName ? { name: tokenName } : {}), targetType: null };
+    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
     if (m[6] === undefined) return base;
     // A QUOTED inline ability → clean-mana-ability gate; a non-quoted phrase → the keyword path. The quote disambiguates.
     if (/^["“']/.test(m[6].trim())) {

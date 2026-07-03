@@ -493,8 +493,21 @@ function classifyCondition(condRaw, cardName, cardType) {
   // entering creature's layer-resolved power ≥ N, checked at ETB), UNLIKE the generic unmodeled "with <…>"
   // (a +1/+1 counter / keyword) the FIX-TRIG-CONDITION guard below rejects. Carved out BEFORE that guard.
   // "a creature" → creature-only (no land-entry concern). scopeMatches reads creaturePower(perm, state).
+  //
+  // SELF-OR-OTHER form (Vaultborn Tyrant — "this creature or another creature you control with power 4 or
+  // greater enters"): the "with power N or greater" qualifier modifies the WHOLE "creature you control" noun
+  // phrase after the disjunction, so it applies to BOTH the self and the other (per the printed templating —
+  // mirrors the creatureOrPwYouControl reasoning above). The union { this creature } ∪ { another creature you
+  // control with power ≥ N } therefore reduces EXACTLY to { a creature you control with power ≥ N } — "this
+  // creature" IS a creature you control, and the qualifier gates both halves. So it maps to the SAME
+  // creatureYouControlPower scope with NO scope change: the entering creature (self or other) must be a
+  // controller-owned creature whose layer-resolved power ≥ N. When the source itself enters below its own
+  // threshold (a power-reducing static), it correctly does NOT fire — which is the CR-faithful reading of the
+  // qualifier applying to the self too.
   if (/\benters(?:\s+the battlefield)?\s*$/.test(c)) {
-    const powM = subjectBefore(c, "enters").match(/^a creature you control with power (\d+) or greater$/);
+    const subj = subjectBefore(c, "enters");
+    const powM = subj.match(/^a creature you control with power (\d+) or greater$/)
+      || subj.match(/^this creature or another creature you control with power (\d+) or greater$/);
     if (powM) return { event: "etb", scope: "creatureYouControlPower", whose: "any", powerThreshold: parseInt(powM[1], 10) };
   }
 
@@ -1908,6 +1921,17 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     // a token (CR 111.7 — a token ceases to exist, never returns to a hand). Harmless extra fields otherwise.
     triggeringCardId: triggeringPermanent?.card?.id,
     triggeringCardIsToken: !!triggeringPermanent?.card?.token,
+    // DIES-COPY (Vaultborn Tyrant / Ochre Jelly) — the triggering object's copiable CARD (CR 707.2 uses the
+    // creature's last-known printed characteristics). For a self-dies "…copy of it" the source has ALREADY
+    // left the battlefield, so findPermanent(triggeringPermanentId) fails; the copy resolver falls back to a
+    // synthetic permanent built from this look-back card so the dead creature is still faithfully copied.
+    // Plain-data (the same card object the death look-back carried) — serializes trivially, ignored by every
+    // other resolver.
+    triggeringCard: triggeringPermanent?.card,
+    // The triggering object's controller — for a self-dies copy the token enters under the DYING creature's
+    // last controller (the ability's controller, already threaded as the trigger controller); carried for
+    // parity with the id/name/token trio.
+    triggeringPermanentController: triggeringPermanent?.controller,
     ...triggeringContext,
   };
   return {

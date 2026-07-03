@@ -46,7 +46,12 @@ describe("parser — multi-land battlefield ramp (RAMP-MULTI)", () => {
     // "one … the other" phrasing is intrinsically two; pinned low in parser.test.js.)
     expect(atomsOf("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."))
       .toEqual([{ op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: true, remaining: 3, targetType: null }]);
-    expect(isHigh("Search your library for up to two creature cards, put them onto the battlefield, then shuffle.")).toBe(false);                              // non-land
+    // MULTI-FETCH-CREATURES (Defense of the Heart) — the PLAIN "up to two creature cards" fetch to battlefield
+    // is now native (its resolver enters each creature via enterCardFromZone, firing ETB). Was parked; the slice
+    // opens exactly the single-unqualified-"creature" filter. A SUBTYPED / MV-capped / unioned creature fetch
+    // (none in the corpus) still stays LOW → Arbiter (CREED — no wrong-cheat FP).
+    expect(isHigh("Search your library for up to two creature cards, put them onto the battlefield, then shuffle.")).toBe(true);                               // plain creature — now native
+    expect(isHigh("Search your library for up to two Dragon cards, put them onto the battlefield, then shuffle.")).toBe(false);                                // subtyped creature — stays Arbiter (CREED)
     expect(isHigh("Search your library for up to two basic Forest or Island cards, put them onto the battlefield, then shuffle.")).toBe(false);                // ambiguous-basic union
     expect(isHigh("Search your library for up to two land cards, put them onto the battlefield tapped, then shuffle. Then if you control three or more Deserts, create two 2/2 black Zombie creature tokens.")).toBe(false); // Hour of Promise (rider)
   });

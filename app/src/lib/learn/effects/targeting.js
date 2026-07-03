@@ -107,21 +107,21 @@ function atomTargetSpec(atom) {
  * targeting (CR 702.16b) — empty on the trigger-flush / ability paths (a safe FN, PR-later).
  * A `role` (FIGHT-PAIR / DAMAGE-TARGET-POWER) rides along so the runner/resolver can tell the chosen
  * fighter (the dealer) from the chosen target (the dealee) — both targets share the atomIndex. */
-function atomTargets(state, controllerId, atom, atomIndex, sourceColors = []) {
+function atomTargets(state, controllerId, atom, atomIndex, sourceColors = [], ctx = null) {
   const spec = atomTargetSpec(atom);
   if (!spec) return null;
-  return enumerateTargets(state, controllerId, spec, sourceColors).map(t => ({ ...t, atomIndex, ...(atom.role ? { role: atom.role } : {}) }));
+  return enumerateTargets(state, controllerId, spec, sourceColors, ctx).map(t => ({ ...t, atomIndex, ...(atom.role ? { role: atom.role } : {}) }));
 }
 
 /** The SECONDARY target option list for a TWO-CHOSEN-TARGET atom (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the
  * chosen FIGHTER ("target creature you control"), distinct restrictions from the primary (enemy) target.
  * Returns null when the atom has no secondary spec (the single-target case — unchanged). Both option lists
  * carry the SAME atomIndex (one atom) but different `role`, so targetsForAtom routes both to the resolver. */
-function secondaryAtomTargets(state, controllerId, atom, atomIndex, sourceColors = []) {
+function secondaryAtomTargets(state, controllerId, atom, atomIndex, sourceColors = [], ctx = null) {
   if (!atom?.secondaryTargetType) return null;
   const spec = atomTargetSpec({ op: atom.op, targetType: atom.secondaryTargetType, restrictions: atom.secondaryRestrictions || [] });
   if (!spec) return null;
-  return enumerateTargets(state, controllerId, spec, sourceColors).map(t => ({ ...t, atomIndex, role: atom.secondaryRole || "fighter" }));
+  return enumerateTargets(state, controllerId, spec, sourceColors, ctx).map(t => ({ ...t, atomIndex, role: atom.secondaryRole || "fighter" }));
 }
 
 /**
@@ -131,14 +131,14 @@ function secondaryAtomTargets(state, controllerId, atom, atomIndex, sourceColors
  *   - `null`   when a targeting atom has ZERO legal targets (spell uncastable)
  *   - otherwise an array of flat, atomIndex-tagged target arrays.
  */
-function expandAtoms(state, controllerId, atoms, sourceColors = []) {
+function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) {
   const perAtom = [];
   // atomIndexes that carry a two-target pair (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the fighter + target of
   // ONE such atom must be DISTINCT creatures (CR 701.12 / "another target creature"); enforced post-combine.
   const pairAtomIdx = [];
   for (let i = 0; i < atoms.length; i++) {
     const atom = atoms[i];
-    const tagged = atomTargets(state, controllerId, atom, i, sourceColors);
+    const tagged = atomTargets(state, controllerId, atom, i, sourceColors, ctx);
     if (tagged === null) continue;            // non-targeted atom
     // MULTI-COUNT TARGET ("up to N target …"): this atom chooses a SUBSET of [minTargets..maxTargets] distinct legal
     // targets (all tagged atomIndex i). Push the subsets as this atom's options; the combine loop SPREADS a subset
@@ -164,7 +164,7 @@ function expandAtoms(state, controllerId, atoms, sourceColors = []) {
     }
     // TWO-CHOSEN-TARGET (FIGHT-PAIR / DAMAGE-TARGET-POWER): also enumerate the SECONDARY target (the chosen
     // fighter "you control"). Both lists share atomIndex i; distinctness is enforced after the cartesian.
-    const secondary = secondaryAtomTargets(state, controllerId, atom, i, sourceColors);
+    const secondary = secondaryAtomTargets(state, controllerId, atom, i, sourceColors, ctx);
     if (secondary !== null) {
       if (secondary.length === 0) return null; // the fighter half has no legal pick → uncastable
       perAtom.push(secondary);
@@ -203,8 +203,13 @@ function expandAtoms(state, controllerId, atoms, sourceColors = []) {
  *   sequence → [{ targets }]                          (one per target-combo)
  *   modal    → [{ chosenMode, targets, label }]       (one per mode × target-combo)
  * An empty array means the spell has no legal cast right now (no legal targets).
+ *
+ * `ctx` (optional) carries the trigger's resolution context — currently only `defenderId` (CR 509.1a),
+ * threaded from an ATTACKS trigger so a who:"defendingPlayer" controller restriction ("… defending player
+ * controls", Kogla) enumerates ONLY the specific attacked player's permanents. Absent on spell / non-attack
+ * paths (the restriction only arises off an attacks trigger, so those never see it → empty pool, drop).
  */
-export function expandCastChoices(state, controllerId, program, sourceColors = []) {
+export function expandCastChoices(state, controllerId, program, sourceColors = [], ctx = null) {
   if (!program) return [];
 
   if (program.structure === "modal") {
@@ -214,7 +219,7 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
     if (chooseCount <= 1) {
       const out = [];
       modes.forEach((mode, chosenMode) => {
-        const combos = expandAtoms(state, controllerId, mode.atoms, sourceColors);
+        const combos = expandAtoms(state, controllerId, mode.atoms, sourceColors, ctx);
         if (combos === null) return; // this mode is uncastable (a target has no legal pick)
         for (const targets of combos) out.push({ chosenMode, targets, label: mode.label });
       });
@@ -231,7 +236,7 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
     for (const size of sizes) {
       for (const combo of kCombinations(modes.length, size)) {
         const concatAtoms = combo.flatMap((k) => modes[k].atoms);
-        const combos = expandAtoms(state, controllerId, concatAtoms, sourceColors);
+        const combos = expandAtoms(state, controllerId, concatAtoms, sourceColors, ctx);
         if (combos === null) continue; // some required target in this mode-combo has no legal pick
         const label = combo.map((k) => modes[k].label).join(" + ");
         for (const targets of combos) out.push({ chosenMode: combo, targets, label });
@@ -240,7 +245,7 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
     return out;
   }
 
-  const combos = expandAtoms(state, controllerId, program.atoms || [], sourceColors);
+  const combos = expandAtoms(state, controllerId, program.atoms || [], sourceColors, ctx);
   if (combos === null) return [];
   return combos.map(targets => ({ targets }));
 }

@@ -50,8 +50,8 @@ import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTRO
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTutorFilter, parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); SMALL_NUM for MULTI-COUNT damage count words
-import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
-import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
+import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, shieldCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + SHIELD-COUNTER (CR 122.1c protective counter)
+import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
@@ -360,6 +360,12 @@ function splitClauses(oracle) {
   // lives in parseTokenManaAbility — a non-mana ability still drops the whole clause to low). The merge
   // can only PROMOTE a card that was already low (the orphan clause), never regress a HIGH one.
   const normalized = stripReminder(oracle)
+    // FINALE-SHUFFLE-REMINDER — strip the vacuous "If you search your library this way, shuffle." sentence
+    // (Finale of Devastation). Its "and/or graveyard" tutor (bfxg) ALWAYS searches the library, so the CR-
+    // 701.19e shuffle the tutor's own resolver runs already covers this conditional exactly — stripping it
+    // just prevents the sentence from orphaning into an unparsed clause (→ low). Anchored to the exact
+    // wording, so it can only PROMOTE this already-low library-and/or-graveyard shape; no other card prints it.
+    .replace(/\s*If you search your library this way,?\s+shuffle\.?/gi, "")
     // ===== WALT-ANIMATE ===== strip the vacuous "it's/that's still a land" reminder. A land that
     // "becomes a creature" is additive BY DEFAULT (it stays a land — that's why it still taps; 0
     // non-additive land-animates in the corpus), so this clause never changes resolution. Stripping it
@@ -420,6 +426,23 @@ function splitClauses(oracle) {
     .replace(
       /(search your library for up to x [a-z][a-z ,]*? cards,? where x is [^.]+?)\.\s+(put those cards onto the battlefield)/gi,
       "$1, $2",
+    )
+    // SELF-SAC + MULTI-FETCH SEQUENCE (Defense of the Heart) — the compound upkeep-trigger effect "sacrifice
+    // this <noun>, search your library for up to two creature cards, put those cards onto the battlefield, then
+    // shuffle" is a comma-joined SEQUENCE, not one instruction: the leading "sacrifice this <noun>" is a
+    // self-sac atom, the rest is a self-contained tutor. The top-level " and "/", then " split (below) doesn't
+    // sever the comma between the self-sac and the tutor, so the whole head-chunk ("sacrifice this <noun>,
+    // search…for…cards, put those cards…") would parse as one unmatched clause → low. Cut the FIRST comma
+    // (after the leading imperative "sacrifice this <noun>") to a period so the sentence splitter separates the
+    // self-sac clause from the tutor, and the tutor half — now STARTING "search your library" — takes the
+    // keep-whole tutor path (its internal "…cards, put those cards…" comma is preserved). Anchored to a
+    // CLAUSE-INITIAL imperative "sacrifice this <noun>" IMMEDIATELY followed by ", search your library" (the
+    // corpus's only such compound is Defense of the Heart), so it can only PROMOTE this one already-low shape;
+    // a "you/may sacrifice…" or any non-clause-initial form is untouched. Each split piece is still judged on
+    // its own merits (an unmodeled half → low → Arbiter), so a mis-fold can never yield a confident wrong partial.
+    .replace(
+      /^(sacrifice this (?:creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)), (search your library)/i,
+      "$1. $2",
     );
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
@@ -452,6 +475,12 @@ function splitClauses(oracle) {
     // the clause parse binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // COND-X TEAM PUMP (Finale of Devastation) — "If X is N or more, creatures you control get +X/+X and gain
+    // KW until end of turn". The "If X is N or more, " prefix conditions the WHOLE team pump on the chosen X;
+    // the " and gain …" is INTERNAL to that one pump instruction (same as the unconditional form above), NOT a
+    // top-level boundary. Keep the whole sentence so condPumpXClauseParser binds the condition + pump + grant
+    // together. All-or-nothing anchored downstream (an un-grantable keyword / non-+X/+X delta fails → low).
+    if (/^if x is \d+ or more, creatures you control get \+x\/\+x(?: and gain\b.*)? until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TEAM-PUMP-SCOPE — the "other creatures" (excludes the source) and "<Subtype>s you control [other than
     // this creature]" (subtype-filtered) variants of the Overrun-style team pump + keyword grant ("Other
     // creatures you control get +2/+2 and gain trample until end of turn" — End-Raze Forerunners; "Dinosaurs
@@ -459,6 +488,11 @@ function splitClauses(oracle) {
     // The " and gain …" is INTERNAL to the one team-pump instruction (same as the unfiltered form above), NOT a
     // top-level boundary — keep the whole sentence so the clause parse binds the scoped pump + grant together.
     if (/^(?:other creatures|[a-z]+s) you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TYPE-NEGATED TEAM PUMP + KEYWORD GRANT — the "non-<Subtype> creatures you control get +P/+T and gain KW …"
+    // variant (Return of the Wildspeaker's +3/+3 mode has no keyword, so it never reaches this " and " guard;
+    // this only protects the keyword-grant sibling form). The " and gain …" is INTERNAL to the one team-pump
+    // instruction — keep the whole sentence so pumpClauseParser binds the negated-scope pump + grant together.
+    if (/^non-[a-z]+ creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // MULTI-COUNT PUMP + KEYWORD GRANT (VERIFY PROTOTYPE) — keep "up to N target creatures each get ±P/±T and gain KW until end of turn" whole.
     if (/^up to (?:two|three|four|five) target creatures(?: you control)? each get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // GROUP-KEYWORD-GRANT — "(Creatures|Permanents) you control gain <kw> and <kw> until end of turn"
@@ -514,7 +548,7 @@ function splitClauses(oracle) {
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so
     // the clause parse binds the P/T-set + every granted keyword to the same animate atom (all-or-nothing
     // anchored — an un-grantable keyword / color-set / permanent duration just fails to match → low → Arbiter).
-    if (/^(?:until end of turn, )?(?:target|this) land becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^(?:until end of turn, )?(?:target|this) land(?: you control)? becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // OVERRUN-X — a COUNT-SCALED team pump ("[Until end of turn,] creatures you control gain trample and
     // get +X/+X[ until end of turn], where X is the greatest power among / the number of creatures you
     // control" — Overwhelming Stampede, Craterhoof Behemoth's ETB). The " and " between the keyword grant
@@ -1127,6 +1161,32 @@ function matchImpulseDig(oracle) {
 }
 
 /**
+ * Match the "Look at the top N cards of your library. You may put a land card from among them onto the
+ * battlefield [tapped]. Put the rest on the bottom of your library in a random order." template — a DIFFERENT
+ * effect from impulse-dig (Silverback Elder mode 2). Instead of keeping a card to HAND, it puts a LAND onto the
+ * BATTLEFIELD (dig-land-to-battlefield atom → applyDigLandToBattlefieldAtom → a pick-which-land choice, the
+ * chosen land enters + fires its ETB/landfall, the rest bottom in a random order). Two sentences whose effect
+ * spans them (the internal " and " / "from among them" would be shattered by splitClauses), so it's matched up
+ * front as ONE atom like the impulse-dig template. Returns `{ atom, rest }` or null.
+ *
+ * ALL-OR-NOTHING ALLOWLIST: EXACTLY "put A LAND card from among them onto the battlefield [tapped]" + rest →
+ * bottom in a random order. A TYPED/FILTERED put ("a basic land", "a Forest card"), a MANDATORY put (no "you
+ * may"), a MULTI put ("put any number of lands"), a keep-to-HAND ("put it into your hand" — that's the impulse-
+ * dig template), an "into your graveyard" rest, or a variable/unspelled N all fail the anchor → the mode/card
+ * stays low → Arbiter (FN-safe — a partial would be forbidden). Only the unfiltered "a land card" + battlefield
+ * + rest-to-bottom-random shape is claimed.
+ */
+function matchDigLandToBattlefield(oracle) {
+  const m = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. you may put a land card from among them onto the battlefield( tapped)?\. put the rest on the bottom of your library in a random order\.?/i,
+  );
+  if (!m) return null;
+  const amount = DIG_NUM[m[1].toLowerCase()];
+  if (!amount) return null;                                     // "the top X cards" (variable) / unspelled → Arbiter
+  return { atom: { op: "dig-land-to-battlefield", amount, entersTapped: !!m[2] }, rest: oracle.slice(m[0].length).trim() };
+}
+
+/**
  * CHOSEN-TYPE DRAW (CR 614.12) — Distant Melody "Choose a creature type. Draw a card for each permanent you
  * control of that type." Two sentences whose effect spans them (the count refers back to the chosen type), so
  * it's matched up front as ONE draw atom like the other collapsed templates. The draw count is a
@@ -1573,6 +1633,79 @@ function matchRevealTopDrainByMv(oracle) {
 }
 
 /**
+ * ===== GENESIS-WAVE (mass reveal-top-X → put-permanents-onto-battlefield → mill-the-rest) ===== the {X}-cost
+ * mass permanent-drop family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards
+ * with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that
+ * weren't put onto the battlefield into your graveyard." (Genesis Wave — `permanent`; the same template also
+ * covers an `artifact`/`creature`/`enchantment`-filtered variant, though Saheeli's Directive's Improvise line
+ * — an unmodeled cost keyword — keeps THAT card LOW until Improvise is stripped, a SAFE false-negative).
+ *
+ * This spans three sentences and reads the SPELL'S X in two places (the reveal count AND the MV cap), so the
+ * top-level sentence splitter would shatter it into unmatchable fragments (the second sentence's "from among
+ * them" and the third's "revealed this way" are back-references with no standalone meaning). It's therefore
+ * collapsed up front to ONE `genesis-wave` atom (applyGenesisWave reveals the top X, puts every eligible
+ * permanent — matching the filter AND MV ≤ X — onto the battlefield, then mills the rest to the graveyard).
+ *
+ * GATED to hasX (an {X}-cost spell) — the caller only calls this on an {X} spell, and the atom is stamped so
+ * the program derives xSpell:true (the cast path enumerates affordable X so ctx.xValue reaches the resolver's
+ * reveal+cap). CREED: the X cap is the safety — a dropped cap would put ANY-MV permanent onto the battlefield
+ * (a forbidden FP) — so the anchor REQUIRES the literal "with mana value x or less" AND an {X} cost, and the
+ * filter is validated (permanent → permanentOnly gate; a typed word → parseTutorFilter allowlist). The exact
+ * "into your graveyard" disposition is required: a "bottom of your library in a random order" variant (Majestic
+ * Genesis / Knickknack Ouphe) or a "shuffle the rest" variant (Genesis Hydra) leaves residue → no match → low →
+ * Arbiter. A "put A nonland permanent" (singular) / a dynamic non-cost X ("where X is …") / a spell-mastery or
+ * undergrowth rider all fail the exact anchor → low → Arbiter (CREED FN-safe). Returns { atom }.
+ */
+function matchGenesisWave(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  // Whole-string anchored: reveal top X → "you may put any number of <filter> cards with mana value X or less
+  // from among them onto the battlefield" → "then put all cards revealed this way that weren't put onto the
+  // battlefield into your graveyard". The filter phrase is captured (group 1). "onto the battlefield tapped" is
+  // NOT accepted here (Genesis Wave / Saheeli's Directive enter untapped; a "tapped" mass-put is a different,
+  // unmodeled shape — Animist's Awakening's mandatory all-lands-tapped — so it stays low).
+  const m = s.match(
+    /^reveal the top x cards of your library\. you may put any number of ([a-z][a-z ]*?) cards with mana value x or less from among them onto the battlefield\. then put all cards revealed this way that weren't put onto the battlefield into your graveyard$/,
+  );
+  if (!m) return null;
+  const phrase = m[1].trim();
+  // "permanent" → NO type group (every card type matches) PLUS the permanentOnly gate (front-face must be a
+  // permanent type, never an instant/sorcery) — exactly the Wargate `bfx` handling. Any other phrase must be a
+  // parseTutorFilter-allowlisted type word ("artifact", "creature", "enchantment", …); the type group itself
+  // then restricts to that permanent type (an instant/sorcery could never match "artifact"/"creature"/…).
+  const filter = phrase === "permanent" ? { groups: [], permanentOnly: true } : parseTutorFilter(phrase);
+  if (!filter) return null; // an unmodeled filter word → low → Arbiter (never a fabricated match)
+  // A typed filter must still be permanent-only. parseTutorFilter allows "instant"/"sorcery" words (used by the
+  // to-hand tutor family), so reject a group that names a NON-permanent card type — the mass-put must never put
+  // an instant/sorcery onto the battlefield (they can't be permanents; a filter naming them is a malformed shape).
+  const NONPERMANENT = new Set(["instant", "sorcery"]);
+  if (Array.isArray(filter.groups) && filter.groups.some((g) => g.some((w) => NONPERMANENT.has(w)))) return null;
+  return { atom: { op: "genesis-wave", filter, filterLabel: `${phrase} card with mana value X or less`, targetType: null } };
+}
+
+/**
+ * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
+ * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
+ * This is a THREE-sentence effect whose branches (reveal → if-creature → otherwise-may) are shattered by the
+ * clause splitter into individually-unmatchable fragments ("reveal the top card of your library" alone is not a
+ * modeled atom; "if it's a creature card, put it onto the battlefield" is a conditional the splitter can't route;
+ * "otherwise, you may put that card on the bottom of your library" is a back-reference to the reveal). So it's
+ * collapsed up front to ONE `reveal-top-conditional` atom whose resolver (applyRevealTopConditional) executes the
+ * WHOLE branch faithfully: creature → onto the battlefield (enterCardFromZone, firing ETB); non-creature → put on
+ * the bottom (the deterministic "may" branch, exactly like EXPLORE's deterministic keep-on-top option). Anchored
+ * ^…$ on the exact three-sentence shape (curly apostrophe + whitespace normalized, trailing period stripped) — any
+ * rider / variant (a different fallback, a "then draw", "if it's a land card", a shuffle) leaves residue → no match
+ * → low → Arbiter (CREED whole-card, no partial). The op is KNOWN (registered in libraryResolvers), so the caller
+ * emits a HIGH single-atom program. Returns { atom }.
+ */
+function matchRevealTopConditional(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^reveal the top card of your library\. if it's a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library$/.test(s)) {
+    return null;
+  }
+  return { atom: { op: "reveal-top-conditional", targetType: null } };
+}
+
+/**
  * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
  * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
  * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
@@ -1953,6 +2086,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (hd) return collapsed(hd);
   const dig = matchImpulseDig(oracle);
   if (dig) return collapsed(dig);
+  // DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — "Look at the top N … You may put a land card from
+  // among them onto the battlefield [tapped]. Put the rest on the bottom … in a random order." spans two
+  // sentences (the "from among them" / trailing " and " would shatter), so it's collapsed up front to one
+  // dig-land-to-battlefield atom, then any rider runs through the normal pipeline. Tried AFTER matchImpulseDig
+  // (the two anchors are mutually exclusive — hand vs. battlefield — so order is documentation, not precedence).
+  const digLand = matchDigLandToBattlefield(oracle);
+  if (digLand) return collapsed(digLand);
   // CHOSEN-TYPE DRAW (Distant Melody) — "Choose a creature type. Draw a card for each permanent you control
   // of that type." spans two sentences, so it's collapsed up front to one chosen-type-count draw atom.
   const ctd = matchChooseTypeDraw(oracle);
@@ -1991,6 +2131,29 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rtm = matchRevealTopDrainByMv(oracle);
   if (rtm && rtm.atoms.every(a => KNOWN.has(a.op)) && revealTopSequenceOk(rtm.atoms)) {
     return makeProgram({ confidence: "high", atoms: rtm.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== GENESIS-WAVE ===== (an {X}-cost mass permanent-drop) — "Reveal the top X cards. You may put any number
+  // of <filter> cards with mana value X or less from among them onto the battlefield. Then put all cards revealed
+  // this way that weren't put onto the battlefield into your graveyard." → ONE `genesis-wave` atom (reveal top X →
+  // put every eligible permanent → mill the rest). Spans three sentences reading the SPELL'S X twice (reveal count
+  // + MV cap), so it's collapsed up front before the clause splitter shatters it. Gated to hasX (the MV cap = X is
+  // the CREED safety — never fired without a real {X} cost); the atom is KNOWN → HIGH, and xSpell:true so the cast
+  // path enumerates affordable X into ctx.xValue. A non-matching disposition / singular put / dynamic-X variant
+  // fails the exact anchor → falls through → low → Arbiter.
+  if (hasX) {
+    const gw = matchGenesisWave(oracle);
+    if (gw && KNOWN.has(gw.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [gw.atom], xSpell: true, unparsedTail: null });
+    }
+  }
+  // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card … If it's a creature card, put it
+  // onto the battlefield. Otherwise, you may put that card on the bottom …" → ONE reveal-top-conditional atom
+  // (creature → onto the battlefield firing ETB; else → deterministically to the bottom). The three-sentence
+  // branch would shatter under the clause splitter, so it's collapsed up front. HIGH iff the op is KNOWN (it is).
+  // Not an X spell.
+  const rtc = matchRevealTopConditional(oracle);
+  if (rtc && KNOWN.has(rtc.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [rtc.atom], xSpell: false, unparsedTail: null });
   }
   // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
   // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken
@@ -2457,6 +2620,15 @@ export function atomTargetIntent(atom) {
       // The controller never targets themselves with a discard trigger.
       if (tt === "player" || tt === "opponent") return "enemy";
       return "ambiguous";
+    case "gain-life":
+      // "target player gains N life" (Titan of Industry's ETB mode, Perrie, various charms) — life gain is
+      // purely BENEFICIAL, so the controller always targets THEMSELVES on a trigger flush (targeting an opponent
+      // would only help them — never the play). Own-side, mirroring the "target player draws" case below. The
+      // applyGainLife who:"target" resolver already gains life for whoever is in ctx.targets, and the flush
+      // chooser (chooseTriggerTargets) resolves "own" to the controller — so this routes faithfully, never a
+      // wrong target. A non-"player" gain-life target has no card in the corpus → the ambiguous default.
+      if (tt === "player") return "own";
+      return "ambiguous";
     case "draw":
       // "target player draws N cards" (Saltwater Stalwart: combatDamage → target player draws) —
       // beneficial draw, own-side: the controller always targets themselves to draw.
@@ -2614,6 +2786,10 @@ registerClauseParser(combatKeywordClauseParser);
 // PUMP (seam batch 12c / Wave B1b) — the most fragmented op (14 returns, 7 interleaved clusters) migrated to
 // atoms/combat.pumpClauseParser; branch order preserved. program-diff = 0 (gate-verified).
 registerClauseParser(pumpClauseParser);
+// COND-X TEAM PUMP (Finale of Devastation) — "If X is N or more, creatures you control get +X/+X and gain KW
+// until end of turn". Registered AFTER pumpClauseParser: the "if x is …" prefix matches no earlier parser
+// (disjoint anchor), and the gated pump emits { op:"pump", condX:{min} } which applyPumpEffect no-ops below X.
+registerClauseParser(condPumpXClauseParser);
 registerClauseParser(groupGrantClauseParser); // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
 registerClauseParser(setBasePtTeamClauseParser); // SET-BASE-PT-TEAM (Biomass Mutation) — "creatures you control have base power and toughness X/X until end of turn"
 // ANIMATE (seam batch 14 / Wave C) — WALT-ANIMATE (target land) + man-land self-animate migrated to
@@ -2653,6 +2829,12 @@ registerClauseParser(addCounterClauseParser);
 // cast trigger). A NAMED (non-±1/+1) counter on the SOURCE permanent of any type, resolved via ctx.sourceId.
 // Anchored end-to-end; distinct subject ("this artifact/permanent" vs addCounter's "this creature") → no overlap.
 registerClauseParser(addNamedCounterSelfClauseParser);
+// SHIELD-COUNTER (CR 122.1c) — "put a shield counter on a creature you control" (Titan of Industry's ETB mode)
+// / "put a shield counter on target creature" (Boon of Safety, Perrie). A REAL protective counter: the
+// destruction sites (destroyLethalCreatures SBA + applyDestroyEffect) and damage sites (applyDamageEffect +
+// combatResolution) consume it via the CR 122.1c replacement/prevention. Whole-clause anchored (multi-count /
+// permanent-typed / opponent-targeted forms stay on the Arbiter). Distinct subject → no overlap with add-counter.
+registerClauseParser(shieldCounterClauseParser);
 // DESTROY ⇄ EXILE (seam batch 27 / Wave C, RIDER-FOLDING) — the 5 destroy/exile matchers (exile-creature +
 // shared (destroy|exile) target <typelist> + MASS wipes) co-extracted to atoms/removal.destroyExileClauseParser.
 // The rider-folding dispatch (matchRemovalControllerRider) now resolves its lead via parseExtendedAtom() ||

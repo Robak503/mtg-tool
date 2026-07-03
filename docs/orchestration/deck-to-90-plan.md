@@ -34,3 +34,46 @@ Runner-up: cost-reduction-{X} (The Great Henge — Omnath + Toph).
 
 ## Full triage data
 `tasks/w53n5imer.output` (Omnath/Toph/Kellan full reports + 22-cluster table). Re-run the triage for the 11 rate-limited decks when the server limit clears.
+
+---
+
+## OMNATH — remaining non-native cards, categorized (2026-07-02, Clyde) — batch plan
+
+**Flipped:** Up the Beanstalk (compound-triggers, shipped).
+**Batch 1 (fan-out RUNNING, w5ltdoin6):** Doubling Cube, Utopia Sprawl, Silverback Elder, Kogla, Genesis Wave, Vaultborn Tyrant, Old One Eye.
+
+### BATCH 2 — buildable slices (agent-buildable, precise briefs ready)
+1. **Lurking Predators** (body-only) — cast trigger DETECTED; effect = "reveal top card; if creature → battlefield; otherwise you may put on bottom." Build the reveal-top-conditional-put effect (creature→battlefield else optional-to-bottom). Check impulse-dig / library atoms + the conditional branch.
+2. **Finale of Devastation** (arbiter-spell) — {X} tutor: "search library and/or graveyard for a creature card MV≤X → battlefield; shuffle if library; if X≥10, creatures you control get +X/+X and gain haste." Build X-tutor-to-battlefield (library-and/or-graveyard) + the X≥10 conditional team-pump-haste rider.
+3. **Selvala, Heart of the Wilds** (body-only) — TWO abilities: ETB "whenever another creature enters, its controller may draw a card if its power is greater than each other creature's power" (conditional-power ETB draw, any-controller); "{G},{T}: Add X mana in any combination of colors, X = greatest power among creatures you control" (variable-mana ability). Both must model.
+4. **Yeva, Nature's Herald** (body-only) — "You may cast green creature spells as though they had flash." A static casting-permission (flash-grant filtered to green creature spells). Model the casting-permission static (see Leyline of Anticipation-style "as though flash").
+5. **Titan of Industry** (body-only) — modal ETB "choose two —" : destroy artifact/enchantment (modeled), target player gains 5 life (modeled), create a 4/4 Rhino (modeled), **put a shield counter on it** (NEW primitive — a shield counter prevents the next damage/destruction). Build the shield-counter atom + wire the choose-two modal ETB.
+6. **Kamahl, Heart of Krosa** (body-only) — combatBegin trigger DETECTED ("creatures you control get +3/+3 and gain trample") + activated "{1}{G}: target land you control becomes a 1/1 Elemental creature with haste that's still a land" (land-animate). Check the animate-land atom (earthbend-adjacent).
+7. **Return of the Wildspeaker** (arbiter-spell) — modal: "draw cards equal to the greatest power among NON-HUMAN creatures you control" / "NON-HUMAN creatures you control get +3/+3." Add a creature-TYPE-negation filter ("non-Human") to the power-count source + the pump scope.
+8. **Defense of the Heart** (body-only) — upkeep trigger DETECTED + intervening-if (an opponent controls 3+ creatures) + sacrifice-self + "search your library for up to two creature cards, put them onto the battlefield, shuffle." Build the multi-tutor-to-battlefield (up-to-two) + the compound (upkeep→intervening-if→sac-self→multi-fetch). Triage flagged resolverExists.
+
+### BATCH 2b — borderline (include with "park if too deep")
+9. **Awaken the Woods** (arbiter-spell) — "Create X 1/1 green Forest Dryad land creature tokens." Parked at tokens.js:400 (a LAND-creature token's intrinsic mana would be dropped). Needs the token to FUNCTION as a mana-producing Forest. Build only if the mana-token is cleanly modelable, else park.
+
+### SUBSYSTEM BUCKET — NOT one-shot agent builds; each is a design pass (name the subsystem)
+- **Bear Umbra, Super State** → aura-granted-triggered/keyword-ability (grant a templated ability to the enchanted permanent). Highest cross-deck leverage (recurs in Toph, Kellan).
+- **Kozilek, Butcher of Truth** → annihilator (defending player sacrifices N on attack) + the GY-shuffle-back.
+- **Apex Devastator** → multi-cascade (cascade×N — single cascade is modeled but "cascade, cascade" is parked; emit N synthesized cascade triggers).
+- **The Great Henge** → cost-reduction-{X} (dynamic self-cost-reduction by greatest power).
+- **Commander's Plate** → equipment + dynamic protection-from-commander-color-identity.
+
+**Sequencing:** integrate Batch 1 → launch Batch 2 (8 slices) → integrate → the subsystems become the Omnath tail (each a dedicated design+build). After all Batch-1/2 land, re-measure Omnath; the subsystems decide whether it clears 90%.
+
+---
+
+## NEXT DECK — near-deck triage (correct full-card classify, 2026-07-03, Clyde)
+
+**ZAXARA (80%, 20 non-native) — SCAFFOLDED, staged at scratchpad/zaxara-batch1.js.** X-spell deck = the most agent-buildable near deck. Batch 1 (10 agents): Animist's Awakening, Open the Way (reveal-X-lands→battlefield), Curse of the Swine (exile-X-target-creatures + boar rider — reuses multi-count target infra), Villainous Wealth (opp-mill-X + impulse-cast-free), Here Comes a New Hero! (X-draw-target-player + token-copy), Torment of Hailfire (repeat-X edict), Rampaging Yao Guai (enters-with-X + ETB destroy-any-number-artifacts), Nexos (granted-mana-to-basics), Freed from the Real (aura tap/untap grant), Finale of Revelation (borderline X-draw conditional). **Already helped by Omnath batch 2:** Finale of Devastation, Mana Drain (shared). SUBSYSTEM/park tail: Gargos (cost-reduction-X), Nyxborn Hydra (bestow), Unbound Flourishing (X-doubler), Hungering Hydra (can't-be-blocked-by->1, deliberately parked), Aberrant/Tervigon (ravenous — enters-with-X + conditional-draw + more text), Benevolent Hydra (counter-amp), Wan Shi Tong (X-counters + half-X-draw + trigger).
+
+**KOMA (82%, 18 non-native) — clone-heavy.** Buildable: Mana Drain / Arcane Denial (counter + deferred-C-mana), Scourge of Fleets (ETB mass-bounce toughness≤X), Murkfiend Liege (dual-anthem + untap), Enduring Curiosity (combat-dmg-draw + dies-flash-return), Serpent of Yawning Depths (can't-be-blocked-except-by-subtypes). Already-building (shared, Omnath b2): Return of the Wildspeaker, Defense of the Heart. SUBSYSTEM: Auton Soldier / Chameleon / Sakashima / Double Major / Ember Island / Quantum Misalignment (clone-copy — the clone-noncreature + copy-token subsystem, high cross-deck), Nezahal (multi-clause), Kira (aura-granted-ability), Junk Winder (affinity), Arixmethes (slumber-land).
+
+**VIHAAN (83%, 17 non-native) — Treasure/token-doubler-heavy.** Buildable: Smothering Tithe (the documented opponent-DRAW taxed-payment follow-on — reuses shipped taxed-payment infra), the combat-damage→create-Treasure triggers (Grim Hireling / Professional Face-Breaker / Kellogg / Goldspan — some multi-clause), Generous Plunderer / Lotho / Smuggler's Share / Land Tax (upkeep/trigger treasures). SUBSYSTEM: Mondrak + Xorn (TOKEN-DOUBLER replacement — high cross-deck), Teysa Karlov (trigger-doubler), Marionette (fabricate), Cyberman (afflict-grant), Agent of the Iron Throne (commander-granted-ability).
+
+**Cross-deck subsystems worth a dedicated build (recur across decks):** clone-copy (Koma×4, Rograkh/Kinnan), token-doubler (Vihaan, +others), aura-granted-ability (Omnath Bear Umbra/Super State + Kira + Toph + Kellan — the #1 cross-deck lever), cost-reduction-X (Gargos, Great Henge).
+
+**Sequencing:** integrate Omnath b2 → launch Zaxara b1 (staged) → integrate → Koma/Vihaan buildables → then the cross-deck subsystems (each a design pass, lifts multiple decks at once).

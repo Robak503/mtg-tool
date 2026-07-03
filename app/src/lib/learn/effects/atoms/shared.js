@@ -14,7 +14,12 @@ export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "gree
 // subtype) and "legendary spirit" mints "Token Legendary Creature — Spirit". Anything unrecognized
 // falls through to a subtype (safe: the token is still a creature with the right P/T).
 export const TOKEN_SUPERTYPE_WORDS = new Set(["legendary", "snow"]);
-export const TOKEN_CARDTYPE_WORDS = new Set(["artifact", "enchantment"]);
+// "land" is a CARD TYPE, not a subtype — so "green Forest Dryad land" mints "Token Land Creature —
+// Forest Dryad" (Land placed before Creature; Forest/Dryad as subtypes), NOT a bogus "Land" subtype.
+// The create-token parser only ever admits a "land" descriptor when it carries a basic-land subtype
+// (Forest/Island/…) whose intrinsic {T}: Add <color> mana ability is minted onto the token, so the
+// Land card type is always accompanied by a real, engine-readable mana line (a faithful Forest token).
+export const TOKEN_CARDTYPE_WORDS = new Set(["artifact", "enchantment", "land"]);
 export const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 
 export const typeLineStr = (card) => String(card?.type || card?.type_line || "");
@@ -97,10 +102,16 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   //     The subtype comes from the curated COUNT_SUBTYPE allowlist (parser-side), so it's a real,
   //     collision-free MTG subtype — the \b match credits exactly the subtyped creatures (CREED).
   const subRe = opts.subtypeFilter ? new RegExp(`\\b${opts.subtypeFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) : null;
+  // TYPE-NEGATED team scope (Return of the Wildspeaker "Non-Human creatures you control get +3/+3") — subtypeNegate
+  // keeps only creatures NOT of that subtype. Word-bounded, case-insensitive front-face read (CR 712.4a), and a
+  // CHANGELING (CR 702.73a — IS every creature type) is excluded too, mirroring greatestPtAmong's notSubtype. The
+  // subtype is a curated allowlist word (parser-side), so the \b match credits exactly the non-<Subtype> creatures.
+  const negRe = opts.subtypeNegate ? new RegExp(`\\b${opts.subtypeNegate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
   return player.battlefield
     .filter((perm) => isCreatureCard(perm.card))
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
     .filter((perm) => !subRe || subRe.test(typeLineStr(perm.card)))
+    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
     .map((perm) => ({ type: "creature", id: perm.id, controller }));
 }
 
@@ -138,7 +149,23 @@ export const atomTargets = (state, atom, ctx) => {
     ? (c) => isLandCard(c) && new RegExp(`\\b${atom.landSubtype}\\b`, "i").test(typeLineStr(c)) // MASS-LAND-SUBTYPE (Boil "destroy all Islands")
     : isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
-  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter });
+  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
+  // ONE-YOU-CONTROL — a non-targeted "a creature you control" the CONTROLLER picks ONE of (Titan of Industry's
+  // shield-counter mode "Put a shield counter on a creature you control"). A shield counter is purely
+  // beneficial, so the optimal + deterministic auto-pick is the controller's HIGHEST-POWER own creature (the
+  // most valuable to protect), tie-broken by battlefield order — never an opponent's creature, never a chooser.
+  // Empty own board → [] (a clean no-op, never a fabricated target). Read AT RESOLUTION (CR 608.2h).
+  if (atom.scope === "oneYouControl") {
+    const own = controllerCreatureTargets(state, ctx.controller);
+    if (own.length === 0) return [];
+    let best = own[0], bestPow = -Infinity;
+    for (const t of own) {
+      const lk = findPermanent(state, t.id);
+      const pw = lk ? creaturePower(lk.permanent, state) : 0;
+      if (Number.isFinite(pw) && pw > bestPow) { bestPow = pw; best = t; }
+    }
+    return [best];
+  }
   // DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon's "put X +1/+1 counters on
   // each of up to two TARGET creatures"). Modeled as a controller-scoped optimal pick: a +1/+1 counter is
   // purely beneficial, so the controller buffs up to two of ITS OWN creatures (never an opponent's). The
@@ -441,10 +468,18 @@ function isExcludedSelf(perm, spec, ctx) {
 // MANA-VARIABLE / DRAW-METRIC — the greatest layer-resolved P/T among the controller's creatures, honoring the
 // "among OTHER creatures" exclusion (spec.excludeSelf, via isExcludedSelf). `read` = creaturePower or
 // creatureToughness. Empty (or self-only with excludeSelf) → 0.
+//
+// TYPE-NEGATED (Return of the Wildspeaker "greatest power among non-Human creatures you control") — spec.notSubtype
+// drops every creature of that subtype from the pool. Word-bounded, case-insensitive front-face type-line read
+// (CR 712.4a — a DFC/adventure's front face defines its types), mirroring massCreatureTargets' subtypeNegate; a
+// CHANGELING (CR 702.73a — IS every creature type, so it IS the negated subtype) is also excluded. Absent → no
+// filter (every existing caller is byte-for-byte unchanged).
 function greatestPtAmong(state, player, spec, ctx, read) {
+  const negRe = spec.notSubtype ? new RegExp(`\\b${spec.notSubtype.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
   return (player.battlefield || [])
     .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
     .filter((perm) => !isExcludedSelf(perm, spec, ctx))
+    .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
     .reduce((mx, perm) => Math.max(mx, read(perm, state)), 0);
 }
 

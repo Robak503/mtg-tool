@@ -82,6 +82,13 @@ export function applyRegenerate(state, atom, ctx) {
  */
 export function applyPumpEffect(state, atom, ctx) {
   let next = state;
+  // COND-X GATE (Finale of Devastation — "If X is N or more, …"): the pump applies ONLY when the chosen X
+  // reaches the threshold. Below it, the whole pump is a logged no-op — NO continuous effects, NO grants —
+  // exactly as printed (the "If X is N or more" condition simply isn't met, CR). `?? 0` treats a missing
+  // xValue as 0 (never as "condition met"), so the gate is never silently skipped.
+  if (atom.condX && (ctx.xValue ?? 0) < atom.condX.min) {
+    return logEvent(next, { kind: "spell-effect", effect: "pump", power: 0, toughness: 0, targets: [] });
+  }
   // X-pump ("+X/+X until end of turn") binds both pips to the chosen X (ctx.xValue);
   // a fixed pump reads its printed ptDelta.
   const x = ctx.xValue || 0;
@@ -739,6 +746,18 @@ export function pumpClauseParser(clause) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // TYPE-NEGATED TEAM PUMP (Return of the Wildspeaker mode 2) — "non-<Subtype> creatures you control get ±P/±T[ and
+  // gain KW] until end of turn". The negated subtype is credited via subtypeNegate → controllerCreatureTargets keeps
+  // only creatures NOT of that subtype (changeling-aware, CR 702.73a). CURATED subtype only (TARGET_SUBTYPES) — a
+  // non-allowlisted word fails the guard → null → low → Arbiter (FN-safe). Optional "and gain <KW>…" grant is
+  // all-or-nothing via parseGrantedKeywords. Whole-clause anchored ($); checked AFTER the plain youControl forms so
+  // "non-<X>" never collides with them. subtypeNegate is a Title-Cased word for the resolution \b type-line match.
+  let tn = t.match(/^non-([a-z]+) creatures you control get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  if (tn && TARGET_SUBTYPES.has(tn[1])) {
+    const kws = tn[4] ? parseGrantedKeywords(tn[4]) : null;
+    if (tn[4] && !kws) return null;
+    return { op: "pump", scope: "youControl", subtypeNegate: tn[1].charAt(0).toUpperCase() + tn[1].slice(1), ptDelta: { p: parseInt(tn[2], 10), t: parseInt(tn[3], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
   // TEAM-PUMP-SCOPE — the two scoped variants of the youControl team pump, sharing applyPumpEffect's
   // controllerCreatureTargets gatherer (set locked at resolution, CR 611.2c; endOfTurn → cleanup wear-off):
   //   • "OTHER creatures you control get …"  → excludeSource:true (CR 113.7 — every creature but the source)
@@ -819,6 +838,36 @@ export function pumpClauseParser(clause) {
 }
 
 /**
+ * COND-X TEAM PUMP clause parser (Finale of Devastation) — "If X is N or more, creatures you control get
+ * +X/+X and gain KW until end of turn". The team pump (scope youControl, amountX → ctx.xValue scales BOTH
+ * pips) is GATED on the chosen X reaching the threshold: applyPumpEffect no-ops the whole pump (adds NO
+ * continuous effects) when ctx.xValue < condX.min — so an X below the threshold does exactly nothing, exactly
+ * as printed (CR — the conditional simply isn't met). The " and gain <KW>…" grant is optional and ALL-OR-
+ * NOTHING via parseGrantedKeywords (leaf); an un-grantable keyword → null → low → Arbiter. Only "+X/+X" (the
+ * spell's chosen {X}, symmetric both pips) is admitted here — a FIXED "+N/+N" or a BOARD-scaled "where X is …"
+ * form is NOT this shape (never reaches this anchor). Whole-clause anchored ($): any rider / non-youControl
+ * scope fails → null → low → Arbiter (CREED, FN-safe — never a wrong partial). Pure (no parser.js import).
+ * Registered via registerClauseParser in parser.js AFTER pumpClauseParser (disjoint anchors — the "if x is …"
+ * prefix never matches a bare pump).
+ */
+export function condPumpXClauseParser(clause, ctx = {}) {
+  if (!ctx.hasX) return null; // "+X/+X" scales with the spell's {X} — only meaningful on an {X}-cost spell
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^if x is (\d+) or more, creatures you control get \+x\/\+x(?: and gain (.+))? until end of turn$/);
+  if (!m) return null;
+  const kws = m[2] ? parseGrantedKeywords(m[2]) : null;
+  if (m[2] && !kws) return null; // an un-grantable keyword drops the whole clause → low → Arbiter
+  return {
+    op: "pump",
+    scope: "youControl",
+    amountX: true, // +X/+X — both pips = ctx.xValue (applyPumpEffect)
+    condX: { min: parseInt(m[1], 10) }, // gate: applied only when ctx.xValue >= min (CR — the "If X is N or more" condition)
+    ...(kws ? { grantKeywords: kws } : {}),
+    targetType: null,
+  };
+}
+
+/**
  * GROUP-KEYWORD-GRANT keyword vocab — the shared static-grant set (combat keywords + indestructible +
  * hexproof + shroud; STATIC-HEXPROOF-SHROUD admitted those last two once their enforcement was proven
  * complete + layer-aware). ALL-OR-NOTHING: one unmodeled word (protection from …, an ability word, a
@@ -871,15 +920,23 @@ export function groupGrantClauseParser(clause) {
  */
 export function animateClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  const anm = t.match(/^(until end of turn, )?target land becomes a (\d+)\/(\d+)(?: ([a-z]+))? creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
+  // The "you control" qualifier (Kamahl, Heart of Krosa "{1}{G}: Until end of turn, target land you
+  // control becomes a 1/1 Elemental creature with …") RESTRICTS the target to the controller's own lands
+  // (CR 601.2c). Captured as anm[2] and emitted as a controller:"you" restriction so the enumerator
+  // (enumerateTargets → creatureSatisfiesRestrictions) only offers your OWN lands — never an opponent's,
+  // which would be an illegal target (a forbidden FP). The unqualified "target land" (Animate Land) keeps
+  // its any-land targeting (no restriction).
+  const anm = t.match(/^(until end of turn, )?target land( you control)? becomes a (\d+)\/(\d+)(?: ([a-z]+))? creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anm) {
-    if (!anm[1] && !anm[6]) return null;  // a PERMANENT animate (no until-end-of-turn) is not modeled → Arbiter
+    if (!anm[1] && !anm[7]) return null;  // a PERMANENT animate (no until-end-of-turn) is not modeled → Arbiter
     const COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "multicolored"]);
-    if (anm[4] && COLOR_WORDS.has(anm[4])) return null;  // "becomes a black creature" SETS color (layer 5) — not modeled → Arbiter
-    const grantKeywords = anm[5] ? parseGrantedKeywords(anm[5]) : [];
-    if (anm[5] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
-    const subtypes = anm[4] ? [anm[4].charAt(0).toUpperCase() + anm[4].slice(1)] : [];
-    return { op: "animate", targetType: "land", power: parseInt(anm[2], 10), toughness: parseInt(anm[3], 10), subtypes, grantKeywords, duration: "endOfTurn" };
+    if (anm[5] && COLOR_WORDS.has(anm[5])) return null;  // "becomes a black creature" SETS color (layer 5) — not modeled → Arbiter
+    const grantKeywords = anm[6] ? parseGrantedKeywords(anm[6]) : [];
+    if (anm[6] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
+    const subtypes = anm[5] ? [anm[5].charAt(0).toUpperCase() + anm[5].slice(1)] : [];
+    const atom = { op: "animate", targetType: "land", power: parseInt(anm[3], 10), toughness: parseInt(anm[4], 10), subtypes, grantKeywords, duration: "endOfTurn" };
+    if (anm[2]) atom.restrictions = [{ kind: "controller", who: "you" }]; // "land you control" — enumerate own lands only
+    return atom;
   }
   const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anmSelf) {
