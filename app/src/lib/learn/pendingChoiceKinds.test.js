@@ -37,6 +37,7 @@ import {
   setPendingOptionalDiscardPaymentChoice,
   setPendingSacUnlessPayChoice,
   setPendingTaxedPaymentChoice,
+  setPendingEdictModeChoice,
   setPendingCommanderReturnChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
@@ -94,6 +95,10 @@ const FIXTURES = {
   "optional-discard-payment": (s) => setPendingOptionalDiscardPaymentChoice(s, { controller: "ai", available: false, effectAtoms: [] }),
   "sac-unless-pay": (s) => setPendingSacUnlessPayChoice(s, { controller: "ai", cost: { kind: "mana", mana: { generic: 2, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } }, sourceId: null }),
   "taxed-payment": (s) => setPendingTaxedPaymentChoice(s, { payer: "ai", beneficiary: "user", cost: { kind: "mana", mana: { generic: 1, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } } }),
+  // ITERATED-EDICT (Torment of Hailfire) — the affected OPPONENT (ai) chooses one mode. Comfortable life →
+  // autoPickEdictMode returns { mode: "life" }; resolveEdictModeChoice applies the 3-life loss, then advances
+  // the (empty) queue → chain done → the spell finishes (no resume) → pendingChoice cleared. One-tick settle.
+  "edict-mode": (s) => setPendingEdictModeChoice(s, { controller: "ai", modes: ["life"], sac: [], disc: [], queue: [{ playerId: "ai" }] }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

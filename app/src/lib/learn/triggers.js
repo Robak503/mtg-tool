@@ -682,6 +682,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^an enchantment you control enters(?: the battlefield)?$/.test(c)) {
     return { event: "permanentEnters", permanentFilter: "enchantment", scope: "enchantmentYouControl", whose: "any" };
   }
+  // TOKEN-ENTERS — "Whenever a token you control enters" (Junk Winder — the token-swarm tap payoff). Fires the
+  // permanentEnters event (checkPermanentEntersTriggers is called on every minted token from tokens.js's
+  // fireTokenEnterTriggers, and on ANY permanent entry). scopeMatches' tokenYouControl gates it to the entering
+  // permanent's `card.token` flag (the token-factory convention) AND the controller ("you control") — a
+  // NONTOKEN entry never fires (no over-fire). Controller-scoped ONLY: a bare "a token enters" (without "you
+  // control") would cover an opponent's token, a scope the engine can't enforce → UNDETECTED → Arbiter (SAFE
+  // false-negative), mirroring the artifact/enchantment perm-enters discipline above.
+  if (/^a token you control enters(?: the battlefield)?$/.test(c)) {
+    return { event: "permanentEnters", permanentFilter: "token", scope: "tokenYouControl", whose: "any" };
+  }
   // ===== LTB / PiG WATCHER (CR 700.4 / 603.6e) — "a <filter> you control is put into a graveyard from the
   // battlefield" / "a token you control leaves the battlefield" ===== The aristocrats LTB drains (Marionette
   // Apprentice / Master, Nadier's Nightblade). The leaving permanent is the TRIGGERING permanent; the WATCHER
@@ -1161,6 +1171,15 @@ const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain th
 // residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE false-negative).
 const SELF_RETURN_IT_RE = /^return it to its owner's hand$/i;
 
+// SELF-DIES-RETURN-AS-ENCHANTMENT (the "Enduring"/Glimmer cycle — Enduring Curiosity, Tenacity, Vitality,
+// Innocence, Courage, …) — the EXACT self-dies effect "return it to the battlefield under its owner's control.
+// It's an enchantment." (the "(It's not a creature.)" reminder is stripped in detectTriggers before the
+// effect is assembled). Whole-clause anchored ($): a rider ("…tapped", a delayed "at the beginning of the
+// next end step") leaves residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE
+// false-negative). Gated (at the rewrite site) to a self-scope dies trigger, so "it" (CR 608.2c) is the dead
+// SOURCE now in its owner's graveyard — exactly the object applySelfReturnBattlefieldEnchantment re-enters.
+const SELF_RETURN_BF_ENCHANTMENT_RE = /^return it to the battlefield under its owner's control\. it's an enchantment$/i;
+
 // WAVE 3b COUNTERS-ON-EVENT — the NON-SELF triggering-referent counter. A NON-self attack / combat-damage
 // trigger ("Whenever a creature you control deals combat damage to a player, put a +1/+1 counter on THAT
 // CREATURE" — Sphere Grid; "…attacks, put a +1/+1 counter on IT") names the TRIGGERING permanent (CR
@@ -1258,6 +1277,17 @@ const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 // Returns null when the effect doesn't begin with the source's name (the common case — most effects use "it"
 // or have no self-subject), making this a pure promotion.
 const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals )/i;
+// TRAILING self-name (ARIXMETHES) — a counter REMOVAL whose SOURCE-permanent referent trails the verb:
+// "[you may ]remove a slumber counter from <Name>". The self-name sits at the END of the clause (unlike the
+// leading "<Name> gets +1/+1" shape above), so it's rewritten to "this creature" only when the whole clause
+// matches this exact remove-counter-on-self grammar — a "remove" verb + a single-word non-±1/+1 counter kind +
+// a "from <Name>" tail. Whole-clause anchored, so a coincidental name prefix elsewhere never mis-binds (CREED).
+// The captured group excludes the name; the caller substitutes "this creature" for it, yielding the parseable
+// self form. SCOPED TO "remove … from" ONLY (not "put … on <Name>"): the remove-named-counter-self atom rejects
+// the reserved fade/time/loyalty kinds, so the only cards this newly flips are genuinely-modeled ones; a
+// broader "put … on <Name>" rewrite would let a card whose OWN mana/other ability is mis-modeled (Famous Museum
+// — a "for each art counter" scaled mana source read as a flat amount) slip through the leaky mana gate — an FP.
+const SELF_NAME_TRAILING_COUNTER_RE = /^((?:you may )?remove (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? from )$/i;
 function rewriteSelfNameToThisCreature(effectClause, cardName) {
   const eff = String(effectClause || "");
   const fullName = String(cardName || "").trim();
@@ -1272,6 +1302,13 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // Only rewrite when what FOLLOWS the name is a modeled self-effect verb — otherwise the name might be a
     // coincidental prefix of unrelated text and rewriting could mis-bind (CREED). The parser re-gates anyway.
     if (m && SELF_NAME_EFFECT_VERB_RE.test(m[1])) return `this creature ${m[1]}`;
+    // TRAILING self-name (ARIXMETHES) — "[you may ]remove/put a <name> counter from/on <Name>". The name is at
+    // the clause END; rewrite it to "this creature" only when the leading text is the exact counter-on-self
+    // grammar (SELF_NAME_TRAILING_COUNTER_RE). Whole-clause anchored on the head + the bare name tail, so it
+    // can't consume a filtered/multi-target counter clause or a coincidental trailing name (CREED). The parser
+    // re-gates the rewritten form anyway (a non-modeled counter kind fails there → the card stays non-native).
+    const tm = eff.match(new RegExp(`^(.+?)\\s*${esc}$`, "i"));
+    if (tm && SELF_NAME_TRAILING_COUNTER_RE.test(tm[1].trim() + " ")) return `${tm[1].trim()} this creature`;
   }
   return effectClause;
 }
@@ -1495,6 +1532,23 @@ export function detectTriggers(card) {
         // SELF_RETURN_IT_RE anchor ($) means a rider on the return ("…tapped", "…then draw") never matches →
         // body-only (CREED all-or-nothing).
         effectClause = `[self-return:self] ${effectClause}`;
+      } else if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_BF_ENCHANTMENT_RE.test(effectClause)) {
+        // SELF-DIES-RETURN-AS-ENCHANTMENT (the "Enduring"/Glimmer cycle — Enduring Curiosity et al) —
+        // "When this creature dies, if it was a creature, return it to the battlefield under its owner's
+        // control. It's an enchantment. (It's not a creature.)" The creature DIED, so "it" (CR 608.2c) is
+        // the dead SOURCE, now in its owner's graveyard. The intervening-if "it was a creature" is enforced
+        // by interveningIf.js (evaluated at flush AND resolution against ctx.triggeringWasCreature). Rewrite
+        // the effect to the kind-tagged marker ONLY the selfReturnClauseParser models → the
+        // self-return-bf-enchantment atom (graveyard → battlefield under owner's control, type stripped to a
+        // non-creature enchantment). SAME self-scope + dies-event gate as the return-to-hand branch above (a
+        // LIVE-event self "return it to the battlefield" doesn't exist in the corpus, and the dies-event
+        // restriction guarantees the source is already in the graveyard). The whole-clause anchor means any
+        // rider on the return keeps its raw text → the parser fails HIGH → body-only (CREED all-or-nothing).
+        // REPLACE (not prepend) with a single-sentence marker: parseEffectClause splits the effect on ". " so
+        // an internal period ("…owner's control. It's an enchantment") would split the marker into two
+        // sentences that neither clause parser matches → LOW. The "It's an enchantment" semantics are captured
+        // by the marker tag itself (the resolver strips the creature type), so the collapsed sentence is faithful.
+        effectClause = "[self-return-bf:enchantment] return it to the battlefield under its owner's control as an enchantment";
       } else if (cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-LTB (Wave 4) — "return it to its owner's hand" where the returned object has ALREADY LEFT the
         // battlefield (it's in a graveyard): the Aura self-PiG-return (Rancor — "it" = the Aura) or the
@@ -1814,6 +1868,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "enchantmentYouControl":
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
       return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
+    case "tokenYouControl":
+      // TOKEN-ENTERS (Junk Winder — "a token you control enters") — the entering permanent must be a TOKEN
+      // (card.token, the token-factory convention, same gate as tokenYouControlLeaves) AND controlled by the
+      // source's controller. A nontoken entry never matches (no over-fire); an opponent's token never matches.
+      return !!triggeringPermanent && !!triggeringPermanent.card?.token
+        && triggeringPermanent.controller === sourcePermanent.controller;
     case "subtypeYouControl":
       // SUBTYPE scope — shared by FOUR events: SUBTYPE-ETB-SELF ("NAME or another SUBTYPE you control
       // enters", Pantlaza — #330), SUBTYPE combat-damage (#333), and SUBTYPE attacks / dies (#335). Fires
@@ -2193,7 +2253,13 @@ export function checkDiesTriggers(state, dead) {
     // an unsized CDA) carries `undefined` → the payoff resolves to 0 (a clean no-op, never a fabricated count).
     // All fires read `state2` (post-checkLeavesTriggers, consistent with the return below).
     const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [] };
-    const diesCtx = d.power != null ? { dyingPower: d.power } : {};
+    // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
+    // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
+    // type line (the object's last-known characteristics, fixed once it left the battlefield), so
+    // interveningIf.js reads an identical value at flush AND resolution (the source is gone by then). A
+    // creature-front DFC / an Enchantment Creature both read true; a non-creature look-back reads false.
+    const diesCtx = { triggeringWasCreature: /\bCreature\b/i.test(String(d.card?.type || d.card?.type_line || "")) };
+    if (d.power != null) diesCtx.dyingPower = d.power;
     fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     for (const pid of Object.keys(state2.players)) {
       for (const watcher of triggerSourcesOf(state2, pid)) {

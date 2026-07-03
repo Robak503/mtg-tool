@@ -16,7 +16,9 @@ import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack, finalizeStackResolution } from "./gameEngine.js";
 import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { resolveCloneChoice } from "./resolvers.js";
-import { isCloneCard, parseCloneSpec, parseCloneRider, cloneCandidates, cloneMvCap, autoPickCloneCandidate } from "./cloneCopy.js";
+import { isCloneCard, parseCloneSpec, parseCloneRider, cloneCandidates, cloneMvCap, autoPickCloneCandidate, snapshotCopiedCard } from "./cloneCopy.js";
+import { classifyCard } from "./coverage.js";
+import { detectTriggers } from "./triggers.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -498,5 +500,99 @@ describe("WI-2 — mandatory-ness is parsed, threaded, and ENFORCED (CR 707.9)",
     s = finalizeStackResolution(resolveCloneChoice(s, null));
     expect(s.players.user.battlefield).toHaveLength(0);
     expect(s.players.user.graveyard.map((c) => c.name)).toEqual(["Clone"]);
+  });
+});
+
+// ── SAKASHIMA OF A THOUSAND FACES (COPY-RIDER: retainOwnAbilities) ────────────────────────────────
+// Real Oracle (CR 707.9): "You may have Sakashima enter as a copy of another creature you control, except it
+// has Sakashima's other abilities." + the legend-rule-off static + Partner. Three modeling seams this exercises:
+//   1. the SHORT-name self-reference (the card is "Sakashima of a Thousand Faces" but its own text says just
+//      "Sakashima" — legendary first-word elision, mirroring triggers.js);
+//   2. the "another creature you control" scope (a youControl set — the clone isn't on the battlefield yet, so
+//      "another" is naturally satisfied);
+//   3. the retainOwnAbilities rider — the copy ALSO keeps Sakashima's own abilities (the legend-rule-off static,
+//      an unenforced no-op line, and Partner, a bare keyword), appended to the copy so it reads as printed.
+const SAKASHIMA = {
+  id: "c-sak",
+  name: "Sakashima of a Thousand Faces",
+  type: "Legendary Creature — Human Rogue",
+  mana: "{3}{U}",
+  power: 3,
+  toughness: 1,
+  keywords: ["Partner"],
+  oracle: "You may have Sakashima enter as a copy of another creature you control, except it has Sakashima's other abilities.\nThe \"legend rule\" doesn't apply to permanents you control.\nPartner (You can have two commanders if both have partner.)",
+};
+
+describe("Sakashima of a Thousand Faces — classifier + short-name scope + retainOwnAbilities rider", () => {
+  it("flips to native-clone: youControl scope (short-name elided) + the single retainOwnAbilities rider", () => {
+    expect(classifyCard(SAKASHIMA)).toBe("native-clone");
+    expect(isCloneCard(SAKASHIMA)).toBe(true);
+    expect(parseCloneSpec(SAKASHIMA)).toEqual({
+      optional: true,
+      scope: "youControl",
+      mvLimit: false,
+      riders: [
+        {
+          kind: "retainOwnAbilities",
+          oracle: "The \"legend rule\" doesn't apply to permanents you control.\nPartner (You can have two commanders if both have partner.)",
+          keywords: ["Partner"],
+        },
+      ],
+    });
+  });
+
+  it("candidates honor the youControl scope — only the caster's creatures, never an opponent's", () => {
+    const s = boardState({
+      user: [createPermanent({ id: "u1", card: creature("Mine", 2, 2), controller: "user", summoningSick: false })],
+      ai: [createPermanent({ id: "a1", card: creature("Theirs", 4, 4), controller: "ai", summoningSick: false })],
+    });
+    const spec = parseCloneSpec(SAKASHIMA);
+    expect(cloneCandidates(s, "user", spec.scope).map((c) => c.id)).toEqual(["u1"]);
+  });
+
+  it("runtime: enters as a copy of your creature — copied P/T + keywords PLUS Sakashima's own abilities", () => {
+    let s = boardState({
+      user: [createPermanent({ id: "u-angel", card: creature("Serra Angel", 4, 4, { type: "Creature — Angel", keywords: ["Flying", "Vigilance"], oracle: "" }), controller: "user", summoningSick: false })],
+      hand: [SAKASHIMA], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-sak");
+    expect(s.pendingChoice).toMatchObject({ kind: "clone-search", controller: "user" });
+    expect(s.pendingChoice.candidates.map((c) => c.id)).toEqual(["u-angel"]); // only your creature (not itself)
+
+    s = finalizeStackResolution(resolveCloneChoice(s, "u-angel"));
+    const cl = s.players.user.battlefield.find((p) => p.printedCard);
+    expect(cl.card.name).toBe("Serra Angel");                                 // copied name
+    expect([permanentPower(s, cl.id), permanentToughness(s, cl.id)]).toEqual([4, 4]); // copied P/T
+    expect(permanentHasKeyword(s, cl.id, "Flying")).toBe(true);              // copied keyword
+    expect(permanentHasKeyword(s, cl.id, "Partner")).toBe(true);            // Sakashima's own keyword retained
+    expect(cl.card.oracle).toContain("legend rule");                         // Sakashima's own static retained
+    expect(cl.printedCard.name).toBe("Sakashima of a Thousand Faces");       // original stashed (CR 707.2)
+    expect(cl.card.token).toBeFalsy();                                       // a real permanent, not a token
+    expect(cl.card.isCommander).toBeFalsy();                                 // a copy is never a commander (CR 903.3)
+  });
+
+  it("the copied creature's ETB trigger still fires (retained own abilities don't clobber the copy's oracle)", () => {
+    const copy = snapshotCopiedCard(
+      { card: { name: "Elvish Visionary", type: "Creature — Elf", power: 1, toughness: 1, oracle: "When Elvish Visionary enters, draw a card." } },
+      SAKASHIMA,
+      parseCloneSpec(SAKASHIMA).riders,
+    );
+    // The copy's oracle carries BOTH the source ETB trigger AND Sakashima's own inert abilities.
+    expect(detectTriggers(copy).map((t) => t.effectClause)).toEqual(["draw a card"]);
+    expect(copy.oracle).toContain("Partner");
+  });
+
+  // CREED near-miss — an UNMODELED own ability on the tail must PARK the whole card (never a partial copy).
+  it("PARKS a Sakashima-shaped clone whose retained tail carries an UNMODELED ability (false-positive guard)", () => {
+    const FAKE = {
+      ...SAKASHIMA,
+      name: "Fakashima the Trickster",
+      // A retained-ability tail with a real, unmodeled ETB draw ability — the retained set would be a PARTIAL
+      // if we flipped it, so the whole card must PARK (CREED: whole copy or nothing).
+      oracle: "You may have Fakashima enter as a copy of another creature you control, except it has Fakashima's other abilities.\nWhen Fakashima enters, draw two cards.\nPartner",
+    };
+    expect(parseCloneSpec(FAKE)).toBeNull();
+    expect(isCloneCard(FAKE)).toBe(false);
+    expect(classifyCard(FAKE)).not.toBe("native-clone");
   });
 });

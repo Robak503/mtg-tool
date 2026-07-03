@@ -57,6 +57,7 @@ import { parseUrDragonAttackTrigger } from "./urDragonAttack.js"; // UR-DRAGON c
 import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN commander — runtime hook lives in gameEngine (applyVihaanCombatAnimate)
 import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.86a) — runtime hook lives in gameEngine (applyAnnihilatorTriggers)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
+import { isMurkfiendUntap } from "./murkfiendUntap.js"; // MURKFIEND-UNTAP — runtime hook lives in gameEngine (applyMurkfiendUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
@@ -481,6 +482,16 @@ export function permanentTriggersCovered(card) {
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
     .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ")
+    // NO-UNTAP LOCKDOWN (Junk Winder) — the follow-up sentence "It doesn't untap during its controller's next
+    // untap step." is part of the SAME token-enters trigger's effect: detectTriggers keeps it in the effectClause,
+    // splitClauses folds it onto the tap atom (noUntapNext), and the WHOLE effect parses HIGH in
+    // allTriggerSentencesModeled above (proven before this residue check runs — an unmodeled tap variant fails
+    // that gate and never reaches here). The trigger-sentence strip (line ~480) stops at the first period after
+    // "…an opponent controls.", leaving the lockdown sentence as apparent residue. Strip the EXACT modeled
+    // wording so the card reads keyword-only (Junk Winder's only other text is the stripped Affinity line).
+    // Anchored to the exact untap-lockdown phrasing, so it can only consume this modeled follow-up (FN-safe).
+    // Curly apostrophe tolerated.
+    .replace(/\bit doesn['’]t untap during its controller['’]s next untap step\b\.?\s*/gi, " ")
     // DICE-ROLL (CR 726) — the result-scaled payoff sentences that FOLLOW a combat-damage trigger's "roll a
     // d20." are part of THAT trigger's effect (detectTriggers folds them into the effectClause, which parses
     // HIGH in allTriggerSentencesModeled above — proven before this residue check runs), but the trigger
@@ -771,6 +782,45 @@ function isNativeActivatedGrantAura(card) {
   return true;
 }
 
+// AURA-OWN-ACTIVATED — an Aura whose ONLY body is the Enchant line + one-or-more activated abilities PRINTED
+// ON THE AURA that tap/untap the ENCHANTED CREATURE (Freed from the Real "{U}: Tap enchanted creature." /
+// "{U}: Untap enchanted creature."). Distinct from the GRANTED-ACTIVATED family (which quotes an ability the
+// HOST gains — "Enchanted creature has \"…\""): here the ability lives on the Aura and affects its host via
+// the fixed target:"enchanted" referent (atomTargets → the Aura's attachedTo host). The runtime enumerates
+// the Aura's printed abilities on the Aura permanent (legalChoices.actionsActivateAbility) and resolves the
+// tap/untap on the host (combat.applyTapEffect). ALL-OR-NOTHING (CREED): every printed activated ability must
+// be modeled AND its program must be EXCLUSIVELY the aura-safe target:"enchanted" tap/untap atom — a
+// self-binding "this creature gets …" (target:"self", which no-ops on the non-creature Aura source) or ANY
+// other effect keeps the card Arbiter, and no non-Enchant / non-activated body clause may remain.
+function isNativeOwnActivatedAura(card) {
+  if (!isAuraCard(card)) return false;
+  const abilities = parseActivatedAbilities(card);
+  if (!abilities.length) return false;
+  // Every printed activated ability must be a modeled, non-mana, non-equip ability whose program is nothing
+  // but target:"enchanted" tap/untap atoms — the exact aura-own family this slice models. Anything else
+  // (an unmodeled ability, a mana ability, a self/chosen-target effect) fails → the card stays Arbiter.
+  const isEnchantedTapProgram = (prog) =>
+    !!prog && Array.isArray(prog.atoms) && prog.atoms.length > 0 &&
+    prog.structure !== "modal" &&
+    prog.atoms.every((a) => (a.op === "tap" || a.op === "untap") && a.target === "enchanted");
+  if (!abilities.every((a) => a.modeled && !a.isManaEffect && !a.isEquipAbility && isEnchantedTapProgram(a.program))) return false;
+  // No body clause other than the Enchant keyword line and the printed activated-ability lines. An activated
+  // ability line contains a colon whose cost is symbol/word-bearing (the same shape parseActivatedAbilities
+  // keys on); a residue line (an ETB trigger, a static restriction, a P/T bonus) → Arbiter (CREED whole-card).
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
+  const activatedLineCount = abilities.length;
+  let sawActivated = 0;
+  for (const rawLine of oracle.split(/\n+/)) {
+    const t = rawLine.trim();
+    if (!t) continue;
+    if (/^enchant\b/i.test(t)) continue;                                    // the Enchant keyword line
+    // An activated-ability line: "{cost}: effect." with a colon (mirrors parseActivatedAbilities' detection).
+    if (/^[^:]*\{[^}]+\}[^:]*:/.test(t)) { sawActivated++; continue; }
+    return false;                                                           // any other clause = residue → Arbiter
+  }
+  return sawActivated === activatedLineCount;
+}
+
 // GRANTED-ACTIVATED EQUIPMENT (subsystem 1 phase 1b) — an Equipment whose ONLY body is a modeled Equip
 // cost + one-or-more granted activated abilities on the equipped creature ("Equipped creature has \"{T}:
 // This creature deals 2 damage to any target.\"" — Bow of the Hunter, Viridian Longbow, Siren Song Lyre).
@@ -902,6 +952,11 @@ export function classifyCard(card) {
     // enumerates + resolves (legalChoices.grantedActivatedForHost). All-or-nothing: every granted ability
     // modeled AND no other body clause (a rider keeps it Arbiter).
     if (isNativeActivatedGrantAura(card)) return "native-activated";
+    // AURA-OWN-ACTIVATED: an Aura with PRINTED "{cost}: Tap/Untap enchanted creature" abilities (Freed from
+    // the Real) — the runtime enumerates the abilities on the Aura and taps/untaps its host via the fixed
+    // target:"enchanted" referent. All-or-nothing (isNativeOwnActivatedAura): every printed ability is a
+    // modeled aura-safe enchanted-tap/untap + no residue, else Arbiter.
+    if (isNativeOwnActivatedAura(card)) return "native-activated";
     // GRANTED-TRIGGERED (1c): "Enchanted creature has \"Whenever/At …\"" (Sixth Sense, Commander's Authority)
     // — the host gains a triggered ability the runtime fires on the host's event (triggers.triggersForEvent).
     if (isNativeTriggerGrantAuraOrEquipment(card)) return "native-trigger";
@@ -1741,6 +1796,48 @@ function classifySeedbornUntap(card) {
   return "native-static";                                       // the during-each-other-untap-step untap static
 }
 registerCoverageClassifier((card) => classifySeedbornUntap(card));
+
+// ─── MURKFIEND-UNTAP — Murkfiend Liege (Simic G/U anthem + phase-static untap engine) ─────────────────────────
+// "Other green creatures you control get +1/+1.
+//  Other blue creatures you control get +1/+1.
+//  Untap all green and/or blue creatures you control during each other player's untap step."
+// Two color anthems (green +1/+1, blue +1/+1 — already covered by staticAbilitiesCoverCard) PLUS the same
+// "during each other player's untap step" phase static Seedborn Muse carries, but FILTERED to the
+// controller's green/blue CREATURES. The general parser can't route the untap (no untap-others atom / phase
+// event); the runtime plays it through a DEDICATED hook (gameEngine.runStepActions → case "untap" →
+// applyMurkfiendUntap, murkfiendUntap.js) that untaps each non-active watcher-controller's green/blue
+// creatures — reading the SAME layer-aware effective color/type the anthems use. Seedborn's own classifier
+// rejects this card (its residue check requires an EMPTY body, and the anthems leave residue), so this is a
+// separate additive classifier that credits the untap static AND requires the anthem residue to be fully
+// covered. Mechanism-keyed (the exact untap templating), not name-keyed.
+//
+// CREED — whole card, all three abilities modeled:
+//   • green anthem + blue anthem (staticAbilitiesCoverCard, layer-7 group buffs the runtime applies);
+//   • the untap phase static (isMurkfiendUntap → applyMurkfiendUntap, the color/type-filtered untap hook).
+// All-or-nothing: the untap static must be present on THIS card; NO trigger or activated ability may remain
+// (a detected one is unmodeled residue the runtime won't play through this tier — a FORBIDDEN dropped-ability
+// FP, e.g. Balefire Liege's cast triggers keep IT non-native); and after stripping the untap sentence the
+// remainder must be fully covered by staticAbilitiesCoverCard (the two anthems). Returns native-static or null.
+const MURKFIEND_UNTAP_SENTENCE_RE =
+  /untap all green and\/or blue creatures you control during each other player'?s untap step\.?/i;
+function classifyMurkfiendUntap(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The hook untaps a battlefield permanent's controller's creatures — only a permanent qualifies. Gate
+  // defensively so this never claims an instant/sorcery/land/PW.
+  if (/\b(instant|sorcery|land)\b/.test(type) || !/\b(creature|artifact|enchantment)\b/.test(type)) return null;
+  if (!isMurkfiendUntap(card)) return null;                      // not the exact green/blue-untap static → not ours
+  // Neither the untap nor the anthems is a trigger/activated ability — a detected one is unmodeled residue
+  // (CREED). Belt-and-suspenders: Balefire Liege's "Whenever you cast a red spell…" would trip this.
+  if (detectTriggers(card).length > 0) return null;
+  if (parseActivatedAbilities(card).length > 0) return null;
+  // Strip the modeled untap sentence; the remainder (the two anthems + any keyword line) must be fully
+  // covered by the general static path — the anthems parse to layer-7 group buffs, keyword lines are vanilla.
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const stripped = { ...card, oracle: oracle.replace(MURKFIEND_UNTAP_SENTENCE_RE, " ").replace(/\s+/g, " ").trim() };
+  if (!staticAbilitiesCoverCard(stripped, (c) => isKeywordOnly(c, card?.name))) return null; // unmodeled anthem residue → Arbiter
+  return "native-static";                                        // green/blue anthems + the phase-filtered untap static
+}
+registerCoverageClassifier((card) => classifyMurkfiendUntap(card));
 
 // ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. (HIGH corpus yield, ~150 cards) ──────────────────
 // An Adventure card has a CREATURE half and an instant/sorcery "Adventure" half (CR 715.1). From hand you may

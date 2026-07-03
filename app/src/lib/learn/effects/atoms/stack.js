@@ -10,6 +10,7 @@ import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
+import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
 
 /**
  * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
@@ -444,6 +445,35 @@ export function copySpellClauseParser(clause) {
 }
 
 /**
+ * ===== COPY-A-CREATURE-SPELL (Double Major, CR 707.10 / 707.12) ===== "Copy target creature spell you control[,
+ * except it isn't legendary if the spell is legendary]." The copy is a NEW object put onto the stack; a copy of a
+ * PERMANENT spell "becomes a token as it resolves" (CR 707.10a) — so when it resolves it enters the battlefield as
+ * a TOKEN creature that is a copy of the chosen spell. This is DISTINCT from `copy-spell` (STORM), which copies THIS
+ * spell N times for each spell cast; here it's a SINGLE targeted copy of ANOTHER creature spell on the stack.
+ *
+ * The atom carries `targetType:"spell"` + `spellFilter:"creature"` (so the shared stack-spell enumerator offers
+ * exactly the creature spells) + `spellController:"you"` (own spells only) + `copyNotCounter:true` (a copy is not a
+ * counter — uncounterability never restricts a copy target). `stripLegendary` records the "except it isn't legendary"
+ * rider (CR 707.12). A different shape never matches → no atom → the card stays on the Arbiter (CREED FN-safe). Pure.
+ */
+export function copyCreatureSpellClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
+  // Base form + the Double Major "except it isn't legendary if the spell is legendary" rider (optional).
+  const m = t.match(/^copy target creature spell you control(, except it isn't legendary if the spell is legendary)?$/);
+  if (m) {
+    return {
+      op: "copy-creature-spell",
+      targetType: "spell",
+      spellFilter: "creature",
+      spellController: "you",
+      copyNotCounter: true,
+      ...(m[1] ? { stripLegendary: true } : {}),
+    };
+  }
+  return null;
+}
+
+/**
  * ===== SOURCE-POWER-FANOUT (Chandra's Ignition, CR 701) ===== the CHOSEN target creature (you control) deals
  * damage equal to ITS layer-aware power to each OTHER creature (every creature on every battlefield except the
  * source) AND each opponent. All the damage is dealt by the source simultaneously, so it's ONE applyDamageEffect
@@ -761,8 +791,80 @@ function applyCdmgMassToDamagedPlayer(state, atom, ctx) {
   return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: { id: ctx.sourceId } });
 }
 
+/**
+ * ===== COPY-A-CREATURE-SPELL (Double Major, CR 707.10 / 707.12) ===== resolve "Copy target creature spell you
+ * control[, except it isn't legendary]." The chosen creature spell (ctx.targets[0], a stack object) is copied as a
+ * NEW object put on top of the stack; a copy of a PERMANENT spell "becomes a token as it resolves" (CR 707.10a), so
+ * the copy carries the SAME resolver payload the original creature spell carries (PERMANENT_ETB) with a `token:true`
+ * snapshot of the copiable card. When it resolves it enters the battlefield as a token creature copy — its own ETB
+ * triggers firing for free (enterPermanent detects them off the copied card.oracle), a real playable permanent.
+ *
+ * CR 707.10b — the copy copies the value of {X} the original was cast for: the original's cast-time xValue rides on
+ * its PERMANENT_ETB payload (params.xValue), so cloning the payload preserves it (the copy enters at the same P/T).
+ * CR 707.12 — `stripLegendary` removes the Legendary supertype from the copy's type line (Double Major's rider), so
+ * two copies of one legend can coexist without the legend rule killing one.
+ *
+ * A target no longer on the stack (it resolved / was countered first) → a logged fizzle (CR 608.2b), never an error.
+ * A target whose payload isn't a permanent-enters copy (defensive — the enumerator only ever offers creature spells,
+ * which resolve via PERMANENT_ETB) → a logged no-op, never a fabricated body. The copy is stamped token+isCopy so no
+ * zone/disposition path treats it as a real card (CR 707.10a — a copy is not a card).
+ */
+// Remove the Legendary supertype from a type line (CR 707.12) — word-bounded, both the `type` and (if present)
+// `type_line` fields, collapsing the leftover double space. A non-legendary line is returned unchanged.
+function stripLegendarySupertype(card) {
+  const strip = (s) => String(s || "").replace(/\bLegendary\b\s*/gi, "").replace(/\s{2,}/g, " ").trim();
+  const next = { ...card, type: strip(card.type || card.type_line) };
+  if (card.type_line) next.type_line = strip(card.type_line);
+  return next;
+}
+
+function applyCopyCreatureSpell(state, atom, ctx) {
+  const t = (ctx.targets || []).find((x) => x?.type === "spell");
+  if (!t?.id) {
+    return logEvent(state, { kind: "spell-effect", effect: "copy-creature-spell", controller: ctx.controller, count: 0 });
+  }
+  const idx = (state.stack || []).findIndex((o) => o.id === t.id && o.kind === "spell");
+  if (idx === -1) {
+    // Target left the stack (resolved / countered first) — CR 608.2b illegal target, the copy fizzles.
+    return logEvent(state, { kind: "spell-effect", effect: "copy-creature-spell-fizzle", targetId: t.id, controller: ctx.controller });
+  }
+  const targetObj = state.stack[idx];
+  const sourcePayload = targetObj.payload;
+  const sourceCard = targetObj.source;
+  // A creature spell resolves via PERMANENT_ETB (a permanent enters). Its copiable card is params.card (the cast
+  // card). Defensive: if the chosen spell isn't a permanent-enters copy, no-op rather than fabricate a body.
+  if (!sourcePayload?.params?.card || !isCreatureCard(sourceCard)) {
+    return logEvent(state, { kind: "spell-effect", effect: "copy-creature-spell", controller: ctx.controller, count: 0, cardName: sourceCard?.name });
+  }
+  // CR 707.2 — the copiable card (printed values, fresh object, isCommander stripped). token:true is the load-
+  // bearing flag: the resolved permanent is a TOKEN (CR 707.10a) — it never goes to a graveyard/zone as a card.
+  let copyCard = snapshotCopiedCard({ card: sourcePayload.params.card }, undefined, []);
+  copyCard = { ...copyCard, token: true };
+  if (atom.stripLegendary) copyCard = stripLegendarySupertype(copyCard); // CR 707.12 — "except it isn't legendary"
+  const { id, state: s2 } = mintId(state, "stk");
+  let next = s2;
+  // Clone the original's PERMANENT_ETB payload so the copy enters the SAME way (preserving xValue/kicked — CR
+  // 707.10b copies the value of X), then overwrite params.card with the token snapshot (a fresh per-copy id so
+  // two copies never share one). The copy carries no printed-card disposition (it's a token, not a card).
+  const clonedPayload = JSON.parse(JSON.stringify(sourcePayload));
+  copyCard = { ...copyCard, id: `tok-${id}` };
+  clonedPayload.params.card = copyCard;
+  clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
+  const copyObj = createStackObject({
+    id,
+    kind: "spell",
+    source: { ...copyCard, token: true, isCopy: true },
+    controller: ctx.controller,
+    targets: [],
+    payload: clonedPayload,
+  });
+  next = { ...next, stack: [...next.stack, { ...copyObj, isCopy: true }] };
+  return logEvent(next, { kind: "spell-effect", effect: "copy-creature-spell", count: 1, controller: ctx.controller, cardName: sourceCard?.name });
+}
+
 export const stackResolvers = {
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
+  "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell
   "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"

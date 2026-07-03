@@ -17,6 +17,17 @@
 
 import { enumerateTargets } from "../spellEffects.js";
 import { isNonChosenTargetType } from "../targetTypes.js";
+import { findPermanent } from "../gameState.js";
+
+// A permanent's mana value (CR 202.3), read off the live battlefield permanent by id. Used by the
+// COLLECTIVE-X-MV restriction ("with total mana value X or less") to sum the chosen subset's MVs. Reads the
+// slim-index `cmc` field (a number); 0 when the permanent is gone or lacks a cmc (a SAFE under-count — it can
+// only ADMIT a subset, never wrongly reject a legal one; a stale id contributing 0 is harmless since the
+// destroy resolver skips missing permanents). Pure.
+function permanentManaValue(state, permanentId) {
+  const lk = findPermanent(state, permanentId);
+  return lk?.permanent?.card?.cmc ?? 0;
+}
 
 // Bounds the cartesian blow-up of a multi-target spell (CR-spirit: a "deal 4
 // divided among any number of targets" would explode legalChoices + the UI). The
@@ -87,6 +98,11 @@ function atomTargetSpec(atom) {
     ...(atom.minMv != null && { minMv: atom.minMv }),
     ...(atom.maxMv != null && { maxMv: atom.maxMv }),
     ...(atom.colorFilter != null && { colorFilter: atom.colorFilter }),
+    // COPY-SPELL (Double Major) — "copy target creature spell YOU CONTROL". A copy is not a counter, so it
+    // enumerates own-controller spells (spellController) and ignores the uncounterability gates (copyNotCounter).
+    // Only the copy-creature-spell atom sets these; every counter atom leaves them undefined (byte-identical).
+    ...(atom.spellController != null && { spellController: atom.spellController }),
+    ...(atom.copyNotCounter && { copyNotCounter: true }),
   };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the matching graveyard cards. anyGraveyard (Reanimate / Hymn of
@@ -145,8 +161,44 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     // (an array) into the combo. Gated on maxTargets>1 — every single-target atom takes the unchanged path below, so
     // existing casts are byte-identical (the flip-diff proves LOST=0). A multi-count atom has no secondary/pair.
     if (atom.maxTargets > 1) {
-      const subsets = targetSubsets(tagged, atom.minTargets ?? 0, atom.maxTargets);
+      let subsets = targetSubsets(tagged, atom.minTargets ?? 0, atom.maxTargets);
       if (subsets === null) return null;      // a required minimum can't be met → uncastable
+      // COLLECTIVE-X-MV restriction (CR 601.2c — "with total mana value X or less"): keep ONLY subsets whose
+      // chosen permanents' mana values SUM to ≤ the paid {X} (ctx.xValue, threaded from the ETB self-trigger).
+      // Rampaging Yao Guai: "destroy any number of target artifacts and/or enchantments with total mana value X
+      // or less". This is a restriction on the CHOSEN SET, not a per-target cap — so it's enforced HERE, at
+      // subset enumeration, never as a resolution-time truncation (which could over-destroy past the budget — a
+      // FORBIDDEN partial-model FP, CREED). A missing/zero X (no {X} paid, or the referent unset) yields cap 0 →
+      // only the empty subset survives (destroy nothing) — the CR-correct "MV ≤ 0" behavior, never a fabricated
+      // over-destroy. cap is read from ctx.xValue; each target's MV from its live permanent's cmc (CR 202.3).
+      if (atom.totalMvXConstraint) {
+        const cap = Math.max(0, ctx?.xValue ?? 0);
+        subsets = subsets.filter((sub) => sub.reduce((sum, t) => sum + permanentManaValue(state, t.id), 0) <= cap);
+        if (subsets.length === 0) return null; // no legal subset (not even empty) → shouldn't happen (empty is MV 0 ≤ cap), but guard
+        // AUTO-PICK ORDER (this atom only — gated on totalMvXConstraint, so no other flip's enumeration moves):
+        // sort LARGEST subset first so the trigger-flush chooser (gameEngine.chooseTriggerTargets, which takes the
+        // FIRST all-correct-side candidate) picks the MAXIMAL enemy-artifact/enchantment sweep within the X budget
+        // instead of the (also-legal, but wasteful) empty subset that k-ascending order would surface first. Every
+        // candidate is still a legal in-budget subset, and the chooser only accepts an ALL-ENEMY-side one, so this
+        // is strictly a better SAFE auto-play — never a wrong or over-budget destroy (CREED). Ties (same size) keep
+        // targetSubsets' deterministic combination order → serialize-stable. The empty subset sinks to LAST (the
+        // fallback the chooser lands on only when no enemy target is legal). A human still sees every subset.
+        subsets = subsets.slice().sort((a, b) => b.length - a.length);
+      }
+      perAtom.push(subsets);
+      continue;
+    }
+    // X-COUNT TARGET ("Exile X target creatures", Curse of the Swine): the target count IS the chosen X
+    // (ctx.xValue, bound at cast from the {X} mana cost). Pick EXACTLY x distinct legal targets (min=max=x) —
+    // targetSubsets(tagged, x, x) yields precisely the size-x combinations, all tagged atomIndex i, capped by
+    // MAX_CAST_EXPANSIONS. Gated on targetCountX (every non-X atom takes the unchanged paths below, so existing
+    // casts are byte-identical → flip-diff LOST=0). An X larger than the legal-target pool → null → uncastable
+    // at that X (CR 601.2c — you can't choose more targets than exist; the cast is offered only where n ≥ x).
+    if (atom.targetCountX) {
+      const x = Math.max(0, ctx?.xValue || 0);
+      if (x === 0) return null;               // X=0 exiles nothing — a no-op cast, not surfaced (FN-safe)
+      const subsets = targetSubsets(tagged, x, x);
+      if (subsets === null) return null;      // fewer than x legal targets → uncastable at this X
       perAtom.push(subsets);
       continue;
     }

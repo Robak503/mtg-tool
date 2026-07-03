@@ -50,12 +50,12 @@ import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTRO
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTutorFilter, parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); SMALL_NUM for MULTI-COUNT damage count words
-import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, shieldCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + SHIELD-COUNTER (CR 122.1c protective counter)
+import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
-import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell)
+import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -254,8 +254,11 @@ function legacyToAtom(effect) {
   return null;
 }
 
-function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null }) {
-  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null };
+function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null, selfExile = false }) {
+  // `selfExile` (Finale of Revelation "Exile <this>.") — the resolved spell exiles ITSELF instead of going to
+  // the graveyard (runEffectProgram honors it at GY-1). Omitted from the object when false so the vast majority
+  // of programs are byte-identical to before (no shape churn).
+  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null, ...(selfExile ? { selfExile: true } : {}) };
 }
 
 // α2 optional-scope invariant — an `optional` atom ("you may <effect>") scopes ONLY its own clause, so an
@@ -389,6 +392,13 @@ function splitClauses(oracle) {
     // PUMP-UNTAP above). Anchored to the exact tap-permanent + rider pair, so it can only PROMOTE Koma's
     // already-low mode, never regress another card.
     .replace(/(tap target permanent)\.\s+its activated abilities can't be activated this turn\.?/gi, "$1 and its activated abilities can't be activated this turn")
+    // TAP-NONLAND-LOCKDOWN — fold Junk Winder's separate "It doesn't untap during its controller's next untap
+    // step." sentence that follows "Tap target nonland permanent an opponent controls." into the tap sentence
+    // as " and it doesn't untap …", so combatKeywordClauseParser binds the one-shot no-untap lockdown to the
+    // SAME single target ("It" = the tapped permanent) rather than orphaning it into a separate, unbindable
+    // clause (the same fold as TAP-PERMANENT-LOCK / PUMP-UNTAP above). Anchored to the exact tap-nonland +
+    // rider pair, so it can only PROMOTE this already-low shape, never regress another card.
+    .replace(/(tap target nonland permanent an opponent controls)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step")
     // DRAW-LOSE-SUBJECT — "Target player draws N cards and loses M life" (Sign in Blood, Blood Pact, Painful
     // Lesson, Harrowing Journey) shares ONE subject across the conjunction; the top-level " and " split would
     // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse
@@ -599,6 +609,13 @@ function splitClauses(oracle) {
     // SAME single target (else the top-level split below shatters it into "tap target permanent" + an
     // unbindable "its activated abilities …" → low). Anchored to the exact folded form.
     if (/^tap target permanent and its activated abilities can't be activated this turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TAP-NONLAND-LOCKDOWN (Junk Winder) — the normalize fold above joined "Tap target nonland permanent an
+    // opponent controls. It doesn't untap during its controller's next untap step." into one sentence with an
+    // internal " and "; that " and " is INTERNAL to the one tap+lockdown instruction ("It" = the tapped
+    // permanent), NOT a top-level effect boundary. Keep the whole sentence so combatKeywordClauseParser binds
+    // the tap + no-untap lockdown to the SAME single target (else the top-level split below shatters it into
+    // "tap target nonland permanent an opponent controls" + an unbindable "it doesn't untap …" → low).
+    if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TOKEN-COPY-KEYWORD (Irenicus's Vile Duplication) — "create a token that's a copy of target creature you
     // control, except the token has flying and it isn't legendary": the " and " joins the granted-keyword rider
     // to the "it isn't legendary" no-op, INTERNAL to the one copy instruction, NOT a top-level effect boundary.
@@ -1601,6 +1618,26 @@ function matchDrainEachOpponentX(oracle) {
 }
 
 /**
+ * ===== ITERATED-EDICT (Torment of Hailfire, CR 118.9) ===== "Repeat the following process X times. Each
+ * opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a
+ * card." — an {X}-times-repeated, per-opponent, THREE-mode edict where EACH opponent chooses their own way
+ * out (lose 3 life / sacrifice a nonland permanent / discard a card). The "repeat X times" wrapper + the
+ * "loses N unless that player sacrifices…or discards" multi-mode choice are BOTH unmodeled by the clause
+ * splitter (the "unless…or…" would shatter into unrelated lose-life / sacrifice / discard atoms, dropping
+ * the affected-player CHOICE — a forbidden partial), so the whole card is collapsed here to ONE
+ * `iterated-edict` atom whose resolver drives the X × opponents pausing choice chain (each opponent picks a
+ * legal mode; a life-only opponent is forced to lose 3). Anchored ^…$ on the exact printed shape — any
+ * variant (a different life amount, a filtered pool, a rider) leaves residue → no match → low → Arbiter
+ * (CREED — never a mis-modeled iteration). Gated to hasX by the caller (an {X} cost); the atom is stamped
+ * amountX so the cast path binds the chosen X into ctx.xValue (the repeat count). Returns { atom }.
+ */
+function matchIteratedEdict(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ");
+  if (!/^repeat the following process x times\. each opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a card\.?$/.test(s)) return null;
+  return { atom: { op: "iterated-edict", amountX: true, targetType: null } };
+}
+
+/**
  * ===== REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) ===== "Reveal the top card of your library and put
  * that card into your hand. Each opponent loses life equal to that card's mana value." The SECOND sentence's
  * amount ("that card's mana value") is a value generated MID-RESOLUTION by the first sentence (the revealed
@@ -1656,6 +1693,58 @@ function matchRevealTopDrainByMv(oracle) {
  * Arbiter. A "put A nonland permanent" (singular) / a dynamic non-cost X ("where X is …") / a spell-mastery or
  * undergrowth rider all fail the exact anchor → low → Arbiter (CREED FN-safe). Returns { atom }.
  */
+/**
+ * ===== FINALE-OF-REVELATION ===== ({X}{U}{U} sorcery) — "Draw X cards. If X is 10 or more, instead shuffle
+ * your graveyard into your library, draw X cards, untap up to five lands, and you have no maximum hand size for
+ * the rest of the game. Exile <this>." A THRESHOLD-REPLACEMENT X-spell: the net draw is X either way, but at
+ * X ≥ 10 you ALSO shuffle your graveyard into your library (BEFORE the draw, so you draw from the refilled
+ * library) and untap up to five of your lands. The "you have no maximum hand size" static is VACUOUS in this
+ * engine (cleanup discard is unimplemented — see stripNoMaxHandSizeRider) and is stripped, and "Exile <this>"
+ * is the spell exiling ITSELF on resolution (instead of going to the graveyard) — modeled via the program's
+ * `selfExile` flag (runEffectProgram honors it at GY-1). The three-sentence, "instead"-replacement, self-
+ * referential shape would shatter under the generic clause splitter (the "instead" + the multi-effect comma
+ * list + the self-exile all unmodeled by the splitter), so it's collapsed up front to a fixed atom list:
+ *
+ *   [ shuffle-graveyard-into-library (condX 10),  ← runs first, only at X ≥ 10
+ *     draw (amountX),                             ← always runs, X cards (from the refilled library if shuffled)
+ *     untap-lands (condX 10, uptoN 5) ]           ← only at X ≥ 10
+ *
+ * This is FUNCTIONALLY IDENTICAL to the printed card: below 10, only the draw fires (both condX atoms no-op);
+ * at/above 10, shuffle→draw→untap all fire in printed order. The shuffle + untap resolvers each carry the same
+ * condX gate as applyPumpEffect (Finale of Devastation's precedent). GATED to hasX — the caller only calls this
+ * on an {X} spell, and the returned program is stamped xSpell:true so the cast path enumerates affordable X into
+ * ctx.xValue (both the draw magnitude AND the ≥10 threshold read it). ANCHORED to the exact whole-oracle shape
+ * (after stripping the vacuous hand-size rider): any rider / different threshold / different effect list leaves
+ * residue → no match → low → Arbiter (CREED FN-safe — never a partial/wrong model). Returns { atoms, selfExile }.
+ */
+function matchFinaleOfRevelation(oracle) {
+  // NOTE: parseEffectClauseImpl already ran stripNoMaxHandSizeRider on `oracle` before this matcher, replacing
+  // the VACUOUS "you have no maximum hand size for the rest of the game" rider with " " — which leaves a
+  // DANGLING ", and  " conjunction at the tail of the ≥10 comma-list ("…untap up to five lands, and  \nExile…").
+  // The cleanup-discard the rider governs is unimplemented (see stripNoMaxHandSizeRider), so the rider is a
+  // documented no-op and its removal is faithful. Here we just normalize the dangling ", and" so the sentence
+  // closes cleanly at "untap up to five lands." and the "Exile" self-exile sentence survives for the tail match.
+  const s = stripReminder(oracle)
+    .trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ")
+    .replace(/,\s*and\s+(?=\.?\s*exile\b)/g, ". ")   // dangling ", and " left by the upstream hand-size strip → sentence break
+    .replace(/\s+/g, " ").replace(/\.\s*\./g, ".").trim();
+  // Whole-string anchored: base draw-X, then the ≥10 "instead" replacement (shuffle-GY-into-library, draw X,
+  // untap up to five lands), then the self-exile sentence (the spell names ITSELF — matched generically as
+  // "exile <name>" at the tail, so it's robust to the printed card name).
+  const m = s.match(
+    /^draw x cards\. if x is 10 or more, instead shuffle your graveyard into your library, draw x cards, untap up to five lands\. exile [a-z][a-z ',-]*\.?$/,
+  );
+  if (!m) return null;
+  return {
+    atoms: [
+      { op: "shuffle-graveyard-into-library", condX: { min: 10 }, targetType: null }, // runs first, only at X ≥ 10
+      { op: "draw", amountX: true, targetType: null },                                 // always — X cards
+      { op: "untap-lands", uptoN: 5, condX: { min: 10 }, targetType: null },           // only at X ≥ 10
+    ],
+    selfExile: true, // "Exile <this>." — the spell exiles itself on resolution instead of going to the graveyard
+  };
+}
+
 function matchGenesisWave(oracle) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
   // Whole-string anchored: reveal top X → "you may put any number of <filter> cards with mana value X or less
@@ -1680,6 +1769,104 @@ function matchGenesisWave(oracle) {
   const NONPERMANENT = new Set(["instant", "sorcery"]);
   if (Array.isArray(filter.groups) && filter.groups.some((g) => g.some((w) => NONPERMANENT.has(w)))) return null;
   return { atom: { op: "genesis-wave", filter, filterLabel: `${phrase} card with mana value X or less`, targetType: null } };
+}
+
+/**
+ * ===== ANIMIST'S AWAKENING (mass reveal-top-X → put-all-LANDS-tapped → bottom-the-rest, + spell-mastery untap)
+ * ===== the {X}-cost land-flood family: "Reveal the top X cards of your library. Put all land cards from among
+ * them onto the battlefield tapped and the rest on the bottom of your library in a random order.\nSpell mastery
+ * — If there are two or more instant and/or sorcery cards in your graveyard, untap those lands." (Animist's
+ * Awakening — {X}{G}.)
+ *
+ * A DISTINCT shape from genesis-wave (which explicitly BANS "onto the battlefield tapped" and requires a "with
+ * mana value X or less" MV cap + a "into your graveyard" disposition): here the filter is TYPE-ONLY (all lands,
+ * no MV cap), the entry is TAPPED, and the rest goes to the BOTTOM in a random order — plus a spell-mastery
+ * untap rider that back-references "those lands". The whole card is collapsed to ONE `animist-awakening` atom
+ * because (a) the "put all … and the rest …" reads the SPELL'S X for the reveal count, and (b) the rider's
+ * "untap those lands" is a standalone-meaningless back-reference to the lands this atom just put out — the clause
+ * splitter would shatter both. GATED to hasX (the reveal count = X binds at cast; a non-X spell would reveal 0).
+ *
+ * CREED: whole-string anchored on the EXACT template. The base line requires the type-only "put all land cards
+ * … onto the battlefield tapped" + "the rest on the bottom of your library in a random order"; the rider
+ * requires the EXACT spell-mastery threshold "two or more instant and/or sorcery cards in your graveyard, untap
+ * those lands". A different filter (nonland / a specific type), a non-tapped entry, a milled/shuffled/graveyard
+ * disposition, an absent or different rider, or a NON-{X} spell all fail the anchor → no match → low → Arbiter
+ * (a SAFE false-negative). Returns { atom }.
+ */
+function matchAnimistAwakening(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/[—–]/g, "-").replace(/\s+/g, " ").replace(/\.$/, "");
+  // Whole-string anchored: reveal top X → put ALL land cards onto the battlefield TAPPED + the rest on the bottom
+  // in a random order → spell-mastery: 2+ instant and/or sorcery in graveyard untaps those lands. The exact card;
+  // every deviation (filter word, tapped/untapped, disposition, rider) fails the anchor → low → Arbiter.
+  const m = s.match(
+    /^reveal the top x cards of your library\. put all land cards from among them onto the battlefield tapped and the rest on the bottom of your library in a random order\.?\s*spell mastery ?-? ?if there are two or more instant and\/or sorcery cards in your graveyard, untap those lands$/,
+  );
+  if (!m) return null;
+  return { atom: { op: "animist-awakening", targetType: null } };
+}
+
+/**
+ * ===== OPEN-THE-WAY (reveal-until-X-lands → lands onto the battlefield tapped, rest to the bottom) ===== the
+ * {X}-cost sorcery: "X can't be greater than the number of players in the game. Reveal cards from the top of your
+ * library until you reveal X land cards. Put those land cards onto the battlefield tapped and the rest on the
+ * bottom of your library in a random order." (Open the Way.)
+ *
+ * This spans THREE sentences and reads the SPELL'S X (both the reveal-until count AND the printed player-count
+ * cap), so the top-level sentence splitter would shatter it into unmatchable fragments (the "X can't be greater
+ * than …" cap sentence has no atom; "reveal cards … until you reveal X land cards" is a novel dig anchor; "put
+ * those land cards … and the rest …" is a back-reference to the reveal). It's therefore collapsed up front to ONE
+ * `reveal-until-n-lands` atom (applyRevealUntilNLands reveals from the top until X lands appear — capped at the
+ * player count — puts them all onto the battlefield TAPPED firing ETB/landfall, and bottoms every other revealed
+ * card in a random order).
+ *
+ * GATED to hasX (an {X}-cost spell) — the caller only calls this on an {X} spell, and the atom is stamped so the
+ * program derives xSpell:true (the cast path enumerates affordable X so ctx.xValue reaches the resolver). CREED:
+ * the player-count cap is the printed constraint on X and is enforced at resolution (capPlayerCount → min(X,
+ * players) — never a fabricated/uncapped count). The anchor REQUIRES the EXACT three-sentence shape: the leading
+ * "X can't be greater than the number of players in the game." cap, the "reveal … until you reveal X land cards"
+ * dig, and the EXACT "onto the battlefield tapped and the rest on the bottom of your library in a random order"
+ * disposition. Any variant — a "reveal until N nonland cards", an "into your hand" disposition, an untapped put,
+ * a different cap ("can't be greater than the number of Islands") — leaves residue → no match → low → Arbiter
+ * (CREED whole-card, no partial). The op is KNOWN (registered in libraryResolvers), so the caller emits a HIGH
+ * single-atom xSpell program. Returns { atom } or null.
+ */
+function matchOpenTheWay(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  // Whole-string anchored: the player-count cap sentence, then "reveal cards from the top of your library until
+  // you reveal X land cards", then "put those land cards onto the battlefield tapped and the rest on the bottom
+  // of your library in a random order". The cap is required (it's the printed X constraint this atom enforces).
+  const m = s.match(
+    /^x can't be greater than the number of players in the game\. reveal cards from the top of your library until you reveal x land cards\. put those land cards onto the battlefield tapped and the rest on the bottom of your library in a random order$/,
+  );
+  if (!m) return null;
+  return { atom: { op: "reveal-until-n-lands", capPlayerCount: true, entersTapped: true, targetType: null } };
+}
+
+/**
+ * ===== EXILE-X-CONTROLLER-RIDER (Curse of the Swine) ===== the X-COUNT twin of matchRemovalControllerRider —
+ * "Exile X target creatures. For each creature exiled this way, its controller creates a 2/2 green Boar creature
+ * token." → ONE `exile` atom with `targetCountX:true` (the target count is X, bound at cast from the {X} mana
+ * cost) + a PER-EXILED controllerRider. The lead is an X-COUNT chosen-target exile (targeting.expandAtoms picks
+ * EXACTLY ctx.xValue distinct legal creatures, all tagged atomIndex 0), and the rider — parsed by the SHARED
+ * parseControllerRider so the createToken token grammar (N/N <color> <subtype>[ with KW]) is reused verbatim —
+ * is applied at RESOLUTION to EACH exiled creature's captured controller by applyRemovalWithRider (which already
+ * loops over ctx.targets, capturing every controller before the removal, then applies the rider per-controller).
+ * That loop is EXACTLY "For each creature exiled this way, its controller <rider>". GATED to hasX (the target
+ * count = X is the CREED safety — the count only binds off a real {X} cost). ALL-OR-NOTHING: a non-createToken
+ * rider, a fixed-count / "up to N" lead, or any residue fails the exact anchor → null → whole card low → Arbiter
+ * (never the exile without the rider, never a wrong token). Anchored ^…$ on the two-sentence shape.
+ */
+function matchExileXControllerRider(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = s.match(/^exile x target creatures\. for each creature exiled this way, its controller (.+)$/);
+  if (!m) return null;
+  const rider = parseControllerRider(m[1].trim());
+  // The corpus form (Curse of the Swine) is a createToken rider; restrict to that kind so a hypothetical
+  // "for each creature exiled … its controller gains life / draws" (which reads a per-creature magnitude this
+  // slice doesn't compute from the exiled creatures) never fires a partial. createToken is per-controller and
+  // count-independent, so the per-exiled loop is faithful. Any other rider kind → null → low → Arbiter.
+  if (!rider || rider.kind !== "createToken") return null;
+  return { atom: { op: "exile", targetType: "creature", targetCountX: true, controllerRider: rider } };
 }
 
 /**
@@ -2078,7 +2265,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
       atoms.push(a);
     }
     if (atoms.every(a => KNOWN.has(a.op)) && optionalsFormSuffix(atoms)) {
-      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX), unparsedTail: null });
+      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX || a.mvCapX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
   };
@@ -2122,6 +2309,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
       return makeProgram({ confidence: "high", atoms: [drx.atom], xSpell: true, unparsedTail: null });
     }
   }
+  // ===== ITERATED-EDICT (Torment of Hailfire) ===== "Repeat the following process X times. Each opponent loses
+  // 3 life unless that player sacrifices a nonland permanent of their choice or discards a card." → ONE
+  // iterated-edict atom (X × per-opponent lose-3 / sac-nonland / discard, each opponent's own choice, resolved
+  // through the pausing edict chain). Collapsed up front — the "repeat X times" wrapper + the "unless…or…"
+  // multi-mode CHOICE both defeat the clause splitter, which would drop the affected-player decision. Gated to
+  // an {X}-cost spell; xSpell:true so the cast path binds the chosen X (the repeat count) into ctx.xValue.
+  if (hasX) {
+    const ie = matchIteratedEdict(oracle);
+    if (ie && KNOWN.has(ie.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [ie.atom], xSpell: true, unparsedTail: null });
+    }
+  }
   // ===== REVEAL-TOP-DRAIN-BY-MV (Yuriko) ===== "Reveal the top card … put that card into your hand. Each
   // opponent loses life equal to that card's mana value." → reveal-top-to-hand (stamps the drawn card's MV on
   // state.revealedCardMV) + lose-life eachOpponent reading that MV via amountCount:{kind:"revealedCardMV"}. The
@@ -2144,6 +2343,51 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const gw = matchGenesisWave(oracle);
     if (gw && KNOWN.has(gw.atom.op)) {
       return makeProgram({ confidence: "high", atoms: [gw.atom], xSpell: true, unparsedTail: null });
+    }
+    // ===== ANIMIST'S AWAKENING ===== (an {X}-cost land-flood) — "Reveal the top X cards. Put all land cards …
+    // onto the battlefield tapped and the rest on the bottom … in a random order. Spell mastery — if 2+ instant/
+    // sorcery in your graveyard, untap those lands." → ONE `animist-awakening` atom (reveal top X → put all lands
+    // tapped → bottom the rest random → spell-mastery untap). The base line + the "those lands" back-referencing
+    // rider span sentences the clause splitter would shatter, so it's collapsed up front. Gated to hasX (the
+    // reveal count = X); disjoint anchor from genesis-wave ("all land cards … tapped" vs "mana value X or less"),
+    // so order-free. xSpell:true so the cast path enumerates affordable X into ctx.xValue. Non-match → low → Arbiter.
+    const aa = matchAnimistAwakening(oracle);
+    if (aa && KNOWN.has(aa.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [aa.atom], xSpell: true, unparsedTail: null });
+    }
+    // ===== OPEN-THE-WAY ===== ({X}-cost, X≤players) — "X can't be greater than the number of players in the game.
+    // Reveal cards from the top of your library until you reveal X land cards. Put those land cards onto the
+    // battlefield tapped and the rest on the bottom of your library in a random order." → ONE `reveal-until-n-lands`
+    // atom (reveal-until-X-lands → all lands onto the battlefield tapped → rest to the bottom in random order). The
+    // three-sentence span (cap + dig + disposition, all reading the spell's X) would shatter under the clause
+    // splitter, so it's collapsed up front. Gated to hasX; the atom is KNOWN → HIGH, xSpell:true so the cast path
+    // enumerates affordable X into ctx.xValue (the resolver then caps at the player count). A non-matching cap /
+    // disposition / dig variant fails the exact anchor → falls through → low → Arbiter.
+    const otw = matchOpenTheWay(oracle);
+    if (otw && KNOWN.has(otw.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [otw.atom], xSpell: true, unparsedTail: null });
+    }
+  }
+  // ===== EXILE-X-CONTROLLER-RIDER (Curse of the Swine) ===== "Exile X target creatures. For each creature
+  // exiled this way, its controller creates a 2/2 green Boar creature token." → ONE exile atom (targetCountX —
+  // the target count is the chosen X) carrying a per-exiled createToken controllerRider. Gated to hasX (the
+  // count = X is the CREED safety); xSpell:true so the cast path enumerates affordable X into ctx.xValue and
+  // targeting.expandAtoms picks EXACTLY X targets. A non-matching lead / rider fails the anchor → low → Arbiter.
+  if (hasX) {
+    const exr = matchExileXControllerRider(oracle);
+    if (exr && KNOWN.has(exr.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [exr.atom], xSpell: true, unparsedTail: null });
+    }
+  }
+  // ===== FINALE-OF-REVELATION ===== ({X} sorcery) — "Draw X. If X ≥ 10, instead shuffle GY→library, draw X,
+  // untap up to five lands. Exile <this>." → [shuffle-gy-into-library(condX 10), draw(amountX), untap-lands(condX
+  // 10, uptoN 5)] + selfExile. Collapsed up front (the "instead"-replacement + multi-effect comma list + self-
+  // exile would shatter under the clause splitter). HIGH iff every atom is KNOWN (they are); xSpell:true so the
+  // cast path enumerates X (both the draw magnitude AND the ≥10 gate read ctx.xValue). Gated to hasX.
+  if (hasX) {
+    const fr = matchFinaleOfRevelation(oracle);
+    if (fr && fr.atoms.every((a) => KNOWN.has(a.op))) {
+      return makeProgram({ confidence: "high", atoms: fr.atoms, xSpell: true, unparsedTail: null, selfExile: fr.selfExile });
     }
   }
   // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card … If it's a creature card, put it
@@ -2266,7 +2510,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
     if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))) {
-      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX));
+      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX || a.mvCapX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
     return makeProgram({ confidence: "low", structure: "modal", atoms: [], modal: null, unparsedTail: oracle });
@@ -2323,7 +2567,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
     // `mvCapX` (a search→battlefield tutor whose MV cap IS the spell's X — Wargate, Nature's Rhythm) also makes
     // this an X-spell: the cast path must enumerate affordable X so ctx.xValue reaches applyTutor's cap resolve.
-    const xSpell = seq.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX);
+    const xSpell = seq.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX || a.mvCapX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 
@@ -2811,6 +3055,7 @@ registerClauseParser(dealDamageScaledClauseParser);
 registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE — "deals N damage to each creature with/without flying"
 registerClauseParser(cdmgMassToDamagedPlayerClauseParser); // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — combat-damage trigger: "deals that much damage to each creature that player controls"
 registerClauseParser(copySpellClauseParser); // STORM (CR 702.40) — the synthesized "copy this spell for each spell cast before it this turn" clause
+registerClauseParser(copyCreatureSpellClauseParser); // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — "copy target creature spell you control[, except it isn't legendary…]"
 // GRAVEYARD-RETURN (seam batch 16 / Wave C) — return-from-graveyard ⇄ reanimate co-extracted to
 // atoms/zones.graveyardReturnClauseParser (one parser, original first-match order: to-hand then to-battlefield).
 // The "return target … from your graveyard …" clauses match no earlier registered parser and (verified) no
@@ -2829,6 +3074,7 @@ registerClauseParser(addCounterClauseParser);
 // cast trigger). A NAMED (non-±1/+1) counter on the SOURCE permanent of any type, resolved via ctx.sourceId.
 // Anchored end-to-end; distinct subject ("this artifact/permanent" vs addCounter's "this creature") → no overlap.
 registerClauseParser(addNamedCounterSelfClauseParser);
+registerClauseParser(removeNamedCounterSelfClauseParser); // ARIXMETHES — "remove a slumber counter from this creature" (cast trigger)
 // SHIELD-COUNTER (CR 122.1c) — "put a shield counter on a creature you control" (Titan of Industry's ETB mode)
 // / "put a shield counter on target creature" (Boon of Safety, Perrie). A REAL protective counter: the
 // destruction sites (destroyLethalCreatures SBA + applyDestroyEffect) and damage sites (applyDamageEffect +

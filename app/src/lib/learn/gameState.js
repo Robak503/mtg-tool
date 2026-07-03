@@ -282,6 +282,16 @@ export function markLoyaltyActivated(state, permanentId, value = true) {
 }
 
 /**
+ * NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): flag a
+ * permanent so untapAll SKIPS untapping it exactly once, clearing the flag as it skips (so ONLY the next
+ * untap step is affected — a self-clearing one-shot restriction, CR 302.6). Set at the tap effect's
+ * resolution (effects/atoms/combat.applyTapEffect). Pure. A permanent with no flag untaps normally.
+ */
+export function setDoesNotUntapNext(state, permanentId, value = true) {
+  return updatePermanent(state, permanentId, (p) => ({ ...p, doesNotUntapNext: value }));
+}
+
+/**
  * State-based action (CR 704.5i): a planeswalker with 0 (or less) loyalty is put into its owner's
  * graveyard. Only fires on a planeswalker that actually carries a `loyalty` counter key (entered
  * with finite starting loyalty), so a non-numeric-loyalty walker is never spuriously killed.
@@ -986,14 +996,26 @@ export function untapAll(state, { playerId }) {
   assertPlayer(playerId);
   return withPlayer(state, playerId, player => ({
     ...player,
-    battlefield: player.battlefield.map(p => ({
-      ...p,
-      tapped: false,
-      summoningSick: false,
-      // CR 606.3 once-per-turn loyalty reset: clear the flag at the controller's untap so each of
-      // their planeswalkers can activate one loyalty ability again this turn. Harmless on non-walkers.
-      loyaltyActivatedThisTurn: false,
-    })),
+    battlefield: player.battlefield.map(p => {
+      // NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): a
+      // permanent flagged doesNotUntapNext (setDoesNotUntapNext) is SKIPPED for the tap-clear this untap
+      // step; the flag is CLEARED here so only THIS (the next) untap step is affected — the permanent stays
+      // tapped and untaps normally on the following turn (CR 302.6 self-clearing one-shot). Summoning
+      // sickness / loyalty flags still clear (those are tied to the controller's untap step, not the tap
+      // state), matching how a normally-tapped permanent's non-tap flags reset.
+      if (p.doesNotUntapNext) {
+        const { doesNotUntapNext, ...rest } = p; // eslint-disable-line no-unused-vars
+        return { ...rest, summoningSick: false, loyaltyActivatedThisTurn: false };
+      }
+      return {
+        ...p,
+        tapped: false,
+        summoningSick: false,
+        // CR 606.3 once-per-turn loyalty reset: clear the flag at the controller's untap so each of
+        // their planeswalkers can activate one loyalty ability again this turn. Harmless on non-walkers.
+        loyaltyActivatedThisTurn: false,
+      };
+    }),
   }));
 }
 

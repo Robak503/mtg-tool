@@ -7,7 +7,7 @@ import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone } from
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
-import { SMALL_NUM } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards" (leaf, cycle-free)
+import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards"; parseCountSource: MASS-OPPONENT-BOUNCE toughness-threshold count (leaf, cycle-free)
 
 /** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
  * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
@@ -308,6 +308,25 @@ export function bounceClauseParser(clause) {
   if (me) {
     const subs = parseExceptSubtypes(me[1]);
     if (subs) return { op: "bounce", targetType: "eachCreature", subtypeFilter: subs, subtypeNegate: true };
+  }
+  // MASS-OPPONENT-BOUNCE (Scourge of Fleets) — "return each creature your opponents control[ with toughness X or
+  // less] to its owner's hand[, where X is <board count>]". A NON-targeted mass bounce scoped to the OPPONENTS'
+  // creatures, gathered AT RESOLUTION (targetType:"eachOpponentCreature" → atomTargets → opponentCreatureTargets;
+  // each card moves to its OWN owner's hand). TWO forms:
+  //   • bare "return each creature your opponents control to its owner's hand" — every opponent creature.
+  //   • toughness-bounded "…with toughness X or less…, where X is <count>" — the entering-creature filter's upper
+  //     bound X is a board COUNT (parseCountSource, e.g. "Islands you control"). The count is bound to the atom
+  //     (toughnessAtMostCount) and resolved at RESOLUTION against the controller's board (CR 608.2h — layer-aware
+  //     via creatureToughness), so a creature buffed above X is spared. An UNMODELED count source (a non-curated
+  //     "where X is …") → null → low → Arbiter (CREED: never a silently mis-scoped sweep). ANCHORED to the exact
+  //     "your opponents control" scope so the you-control/no-scope bounces above are untouched.
+  if (/^return each creature your opponents control to its owner's hand$/.test(t)) {
+    return { op: "bounce", targetType: "eachOpponentCreature" };
+  }
+  const tb = t.match(/^return each creature your opponents control with toughness x or less to its owner's hand, where x is the number of (.+)$/);
+  if (tb) {
+    const count = parseCountSource(tb[1]);
+    if (count) return { op: "bounce", targetType: "eachOpponentCreature", toughnessAtMostCount: count };
   }
   return null;
 }

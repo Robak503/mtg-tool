@@ -55,6 +55,7 @@ import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyAnnihilatorTriggers } from "./annihilator.js";
 import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applySeedbornUntap } from "./seedbornUntap.js";
+import { applyMurkfiendUntap } from "./murkfiendUntap.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
@@ -233,6 +234,11 @@ export function runStepActions(state) {
       // non-active watcher-controller's permanents here, right after the active player's own turn-based untap.
       // A no-op when no Seedborn-style watcher is on any non-active player's board (seedbornUntap.js).
       next = applySeedbornUntap(next, state.activePlayer);
+      // MURKFIEND-UNTAP (same #319 phase-static family as Seedborn): Murkfiend Liege — "Untap all green
+      // and/or blue creatures you control during each other player's untap step" — untaps only the
+      // watcher-controller's green/blue CREATURES (layer-aware color+type), not all permanents. A no-op
+      // when no Murkfiend-style watcher is on any non-active player's board (murkfiendUntap.js).
+      next = applyMurkfiendUntap(next, state.activePlayer);
       next = logEvent(next, { kind: "step", phase: "beginning", step: "untap", player: state.activePlayer });
       break;
 

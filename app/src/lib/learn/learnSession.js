@@ -47,7 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice, autoPickEdictMode, resolveEdictModeChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -563,6 +563,14 @@ function settleTaxedPaymentChoice(state, pay) {
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
+// ITERATED-EDICT (Torment of Hailfire) — settle ONE opponent's edict mode ({ mode, permId?, cardId? }): apply the
+// lose-3 / sac-nonland / discard, then advance the chain. The chain RE-PAUSES for the next opponent/round (guard
+// pendingChoice before flushing); when the whole X × opponents queue empties, resumeAfterChoice finishes the spell.
+function settleEdictModeChoice(state, choice) {
+  const next = resolveEdictModeChoice(state, choice);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
 /**
  * Settle an optional "you may <effect>" choice (α2): run-or-skip the paused atom and resume — which
  * may itself set ANOTHER choice ("you may scry 2"), so guard pendingChoice before flushing — then
@@ -835,6 +843,22 @@ function pendingYesNoActions(pc) {
     { kind: "pending-choice", choiceKind: pc.kind, value: true },
     { kind: "pending-choice", choiceKind: pc.kind, value: false },
   ];
+}
+
+/** ITERATED-EDICT (Torment of Hailfire) — the legal MODE actions for one opponent's edict decision. "life"
+ *  is always offered; "sacrifice" fans out to one action per nonland permanent (each carrying its permId);
+ *  "discard" fans out to one action per hand card (each carrying its cardId). Every offered action maps to a
+ *  legal mode + a real candidate the settler accepts (the ids come from pc.sac / pc.disc), so nothing is
+ *  fabricated. A human picker can thus choose the exact permanent / card; the auto-pick uses autoPickEdictMode. */
+function pendingEdictModeActions(pc) {
+  const actions = [{ kind: "pending-choice", choiceKind: pc.kind, mode: "life" }];
+  if ((pc.modes || []).includes("sacrifice")) {
+    for (const c of pc.sac || []) actions.push({ kind: "pending-choice", choiceKind: pc.kind, mode: "sacrifice", permId: c.id });
+  }
+  if ((pc.modes || []).includes("discard")) {
+    for (const c of pc.disc || []) actions.push({ kind: "pending-choice", choiceKind: pc.kind, mode: "discard", cardId: c.id });
+  }
+  return actions;
 }
 
 /**
@@ -1300,6 +1324,23 @@ export function advanceUntilDecision(
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickTaxedPayment(current.state, pc) },
         });
         current = { ...current, state: settleTaxedPaymentChoice(current.state, picked.value) };
+        continue;
+      }
+      // ITERATED-EDICT (Torment of Hailfire) — one opponent's edict decision (lose 3 / sac a nonland permanent
+      // / discard a card). pc.controller is the AFFECTED OPPONENT (the chooser, CR 118.9), so `pause` already
+      // pauses a human opponent and auto-picks for an AI. A human picks the exact mode + permanent/card; the AI
+      // auto-decides (autoPickEdictMode). The chain re-sets the next opponent/round after this settles, so the
+      // loop sequences the whole X × opponents queue.
+      if (pc.kind === "edict-mode") {
+        if (pause) {
+          return { session: current, decision: { kind: "edict-mode", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingEdictModeActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, ...autoPickEdictMode(current.state, pc) },
+        });
+        current = { ...current, state: settleEdictModeChoice(current.state, picked) };
         continue;
       }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
@@ -2063,6 +2104,40 @@ export function applyTaxedPaymentChoice(session, choice) {
 }
 
 /**
+ * ===== ITERATED-EDICT (Torment of Hailfire) ===== — the affected OPPONENT resolved one edict decision. `choice`
+ * carries { mode, permId?, cardId? } (the picked mode + the specific permanent / card). settleEdictModeChoice applies
+ * it (lose 3 / sac / discard), advances the chain to the next opponent/round, then finishes the spell when the whole
+ * queue drains. Mirrors applySacUnlessPayChoice (the actor is the affected opponent, whose seat == pc.controller).
+ */
+export function applyEdictModeChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "edict-mode") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const mode = (pc.modes || []).includes(choice?.mode) ? choice.mode : "life";
+  let newState;
+  try {
+    newState = settleEdictModeChoice(session.state, { mode, permId: choice?.permId ?? null, cardId: choice?.cardId ?? null });
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "edict-mode-choice", mode },
+    auto: false,
+    reasoning: "user-chose-edict-mode",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
@@ -2407,6 +2482,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "optional-discard-payment") return applyOptionalDiscardPaymentChoice(session, choice);
   if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice);
   if (kind === "taxed-payment") return applyTaxedPaymentChoice(session, choice);
+  if (kind === "edict-mode") return applyEdictModeChoice(session, choice);
   if (kind === "tutor-search") return applyTutorChoice(session, choice);
   // WI-4 FAILSAFE — no pendingChoice at all (nothing to answer) re-derives, byte-identical to every
   // apply* function's own "double-submit" guard. A REAL unhandled kind never reaches applyTutorChoice's

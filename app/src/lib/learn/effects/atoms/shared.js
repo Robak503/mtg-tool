@@ -31,6 +31,10 @@ export const isCreatureCard = (card) => /Creature/.test(typeLineStr(card));
 export const isArtifactCard = (card) => /\bArtifact\b/.test(typeLineStr(card));
 export const isEnchantmentCard = (card) => /\bEnchantment\b/.test(typeLineStr(card));
 export const isLandCard = (card) => /\bLand\b/.test(typeLineStr(card));
+// "instant and/or sorcery" — the graveyard threshold read by spell-mastery (Animist's Awakening) and the
+// gated-graveyard static family. Word-anchored so a "Tribal Sorcery — Goblin" / "Instant — Adventure" still
+// counts, without a substring false match.
+export const isInstantOrSorceryCard = (card) => /\b(Instant|Sorcery)\b/.test(typeLineStr(card));
 
 /**
  * Every creature on EVERY battlefield, as target descriptors `{type:"creature", id,
@@ -122,13 +126,21 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
  * fixed when the one-shot begins). In this engine's 1v1 + 4P-FFA formats opponentsOf = every player but the
  * controller, so this is exactly the printed "your opponents control" set.
  */
-export function opponentCreatureTargets(state, controller) {
+export function opponentCreatureTargets(state, controller, opts = {}) {
+  // TOUGHNESS-THRESHOLD (Scourge of Fleets "…with toughness X or less", where X is a board count) — an optional
+  // upper bound on the entering-creature filter. LAYER-AWARE (counters + anthems count), read at resolution via
+  // creatureToughness (CR 608.2h), NOT a printed type-line stat — a creature buffed above the threshold is spared,
+  // one debuffed to/below it is caught, exactly like the printed "toughness X or less". Absent → no bound (every
+  // existing caller is byte-for-byte unchanged: `opts` defaults to {}, toughnessAtMost stays undefined).
+  const cap = opts.toughnessAtMost;
   const out = [];
   for (const oppId of opponentsOf(state, controller)) {
     const opp = state.players?.[oppId];
     if (!opp) continue;
     for (const perm of opp.battlefield) {
-      if (isCreatureCard(perm.card)) out.push({ type: "creature", id: perm.id, controller: oppId });
+      if (!isCreatureCard(perm.card)) continue;
+      if (cap != null && creatureToughness(perm, state) > cap) continue; // above the count-derived bound → spared
+      out.push({ type: "creature", id: perm.id, controller: oppId });
     }
   }
   return out;
@@ -149,6 +161,17 @@ export const atomTargets = (state, atom, ctx) => {
     ? (c) => isLandCard(c) && new RegExp(`\\b${atom.landSubtype}\\b`, "i").test(typeLineStr(c)) // MASS-LAND-SUBTYPE (Boil "destroy all Islands")
     : isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
+  // MASS-OPPONENT-BOUNCE (Scourge of Fleets) — "each creature your opponents control[ with toughness X or less]"
+  // gathered AT RESOLUTION (CR 611.2c — the set is fixed as the one-shot begins). The optional toughness bound X
+  // is a board COUNT (atom.toughnessAtMostCount, e.g. "the number of Islands you control") resolved here via
+  // countForSpec against the CONTROLLER's board, then applied as a layer-aware upper bound in opponentCreature-
+  // Targets. No chosen targets (a NON-targeted mass set, like eachCreature), so the trigger routes natively on
+  // program confidence alone. Absent count → no bound (a full opponent-board bounce). CR 111.7: an opponent's
+  // token returned this way ceases to exist (handled by the hand-zone move in applyZoneMove).
+  if (atom.targetType === "eachOpponentCreature") {
+    const cap = atom.toughnessAtMostCount ? countForSpec(state, ctx, atom.toughnessAtMostCount) : undefined;
+    return opponentCreatureTargets(state, ctx.controller, { toughnessAtMost: cap });
+  }
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
   // ONE-YOU-CONTROL — a non-targeted "a creature you control" the CONTROLLER picks ONE of (Titan of Industry's
   // shield-counter mode "Put a shield counter on a creature you control"). A shield counter is purely
@@ -181,8 +204,27 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.scope === "blockingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.blockers || []).some((b) => b.blockerId === t.id));
   if (atom.target === "self") return selfTargets(state, ctx);
   if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
+  if (atom.target === "enchanted") return enchantedTargets(state, ctx);
   return ctx.targets || [];
 };
+
+/**
+ * AURA-OWN-ENCHANTED — the creature THIS Aura is attached to, as a target list (for an activated ability
+ * PRINTED ON THE AURA that affects "enchanted creature" — Freed from the Real "{U}: Tap enchanted creature",
+ * Pemmin's Aura). ctx.sourceId is the Aura permanent (threaded by the activated dispatcher); its `attachedTo`
+ * names the host. Resolved AT RESOLUTION (CR 303.4a, 608.2) off the LIVE state: a detached Aura (no
+ * attachedTo) or a host that has left the battlefield → [] (a clean no-op, never a fabricated tap). Only a
+ * CREATURE host is returned — "enchanted creature" implies the enchanted permanent is a creature.
+ */
+export function enchantedTargets(state, ctx) {
+  const auraLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const hostId = auraLk?.permanent?.attachedTo;
+  if (!hostId) return [];
+  const hostLk = findPermanent(state, hostId);
+  return hostLk && isCreatureCard(hostLk.permanent.card)
+    ? [{ type: "creature", id: hostId, controller: hostLk.controller }]
+    : [];
+}
 
 /**
  * The trigger/activated SOURCE permanent as a target list (for a "this creature gets …" self

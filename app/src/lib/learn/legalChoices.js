@@ -790,11 +790,28 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // CR 601.2b — a spell cast without paying its mana cost has X = 0. Otherwise enumerate affordable X.
       const xValues = freeCast ? [0] : affordableXValues(state, playerId, cost);
       if (xValues.length === 0) continue;
-      const combos = expandCastChoices(state, playerId, program, colorsOf(card));
-      if (combos.length === 0) continue;
+      // Two reasons the legal target set can DEPEND on the chosen X, BOTH requiring PER-X enumeration:
+      //   • targetCountX (Curse of the Swine "Exile X target creatures") — the NUMBER of targets is X.
+      //   • mvCapX / valueX restriction (Here Comes a New Hero! "copy up to one target creature with mana value X
+      //     or less") — the target's LEGALITY (MV ≤ X) reads X; a shared list would offer a target whose MV
+      //     exceeds a smaller X (a confident illegal target, CREED FP).
+      // Either way a shared X-independent combo list is wrong, so gate to per-X (threading ctx.xValue). Every
+      // ordinary X-spell (damage/draw/token count — X-independent targets) keeps the SINGLE hoisted fast path
+      // byte-identical (the flip-diff proves LOST=0). CR 601.2c — declining "up to one" is a legal cast, handled
+      // by expandAtoms' optionalTarget decline.
+      const expandsTargetsPerX = (program.atoms || []).some((a) =>
+        a.targetCountX || a.mvCapX || (Array.isArray(a.restrictions) && a.restrictions.some((r) => r.valueX)));
+      const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, colorsOf(card));
+      if (!expandsTargetsPerX && combosOnce.length === 0) continue;
       for (const x of xValues) {
         const xCost = xResolvedCost(cost, x); // DOUBLE-X (CR 107.3): a {X}{X} spell owes 2X; xValue stays X for the effect
         const xCmc = printedCmc + (cost.xCount ?? 1) * x; // mana value = printed + total X paid (CR 202.3b); commander tax doesn't count
+        // Per-X target enumeration for an X-count-target (min=max=X distinct) OR an X-MV-bound target; otherwise
+        // the hoisted X-independent combos. An X with too few / no legal targets yields no combos → that X skipped.
+        const combos = expandsTargetsPerX
+          ? expandCastChoices(state, playerId, program, colorsOf(card), { xValue: x })
+          : combosOnce;
+        if (combos.length === 0) continue; // this X yields no legal cast (e.g. MV≤X excludes every creature and the copy target is mandatory — never here, "up to one" always has the decline)
         // AI safety: parseSpellEffect returns null for the literal "X", so base.effect
         // is null and pickCastAction would skip its enemy-only target filter. Re-attach
         // a synthetic legacy effect for a single-atom X-damage program so the AI still

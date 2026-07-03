@@ -3,9 +3,9 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
-import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
+import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
@@ -365,6 +365,87 @@ export function bottomLibraryCardsByIds(state, controller, ids) {
 }
 
 /**
+ * ===== ANIMIST'S AWAKENING ===== ({X}-cost mass reveal-top-X → put-all-LANDS-tapped → bottom-the-rest, with a
+ * spell-mastery untap rider) — "Reveal the top X cards of your library. Put all land cards from among them onto
+ * the battlefield tapped and the rest on the bottom of your library in a random order.\nSpell mastery — If there
+ * are two or more instant and/or sorcery cards in your graveyard, untap those lands." (Animist's Awakening —
+ * {X}{G}.)
+ *
+ * A SIBLING of genesis-wave (mass reveal-top-X) and dig-land-to-battlefield (put lands out + bottom-the-rest in
+ * a random order), but a DISTINCT shape genesis-wave explicitly rejects (its matcher bans "onto the battlefield
+ * tapped"): here EVERY revealed LAND enters (no MV cap — a type-only filter, so X caps ONLY the reveal count,
+ * never a mana value), it enters TAPPED, and the REST bottoms in a random order (not milled). X is the SPELL'S
+ * chosen X (bound at cast, CR 601.2b, threaded via ctx.xValue) and caps the reveal count only. `?? 0` (never
+ * `|| 0`) so an explicit X=0 reveals 0 and does nothing — the CREED guarantee the cap is never treated as
+ * "uncapped".
+ *
+ * FAITHFUL WHOLE-CARD, no clause dropped, executed as ONE atom (the "put all land cards … and the rest …" spans
+ * one sentence but the spell-mastery rider back-references "those lands" — the lands this atom just put out — so
+ * it can't be split off; matchAnimistAwakening collapses the whole card up front):
+ *   1. REVEAL the top X (or fewer if the library is short). An empty reveal is a clean no-op (never fabricated).
+ *   2. PUT every revealed LAND onto the battlefield TAPPED via the SHARED enterCardFromZone (tapped:true), firing
+ *      ETB / landfall / permanent-enters exactly like a Cultivate/Wargate/reanimation entry — one at a time so
+ *      each entry's triggers enqueue in order. Each entered land's fresh perm id is captured (the last-appended
+ *      battlefield perm) so the spell-mastery untap targets EXACTLY these lands, never a pre-existing tapped land.
+ *   3. BOTTOM the REST — every revealed card that is NOT a land — on the bottom of the library in a random order
+ *      via the shared bottomLibraryCardsByIds (the deterministic threaded-rngSeed shuffle, byte-identical on
+ *      re-serialize). After step 2 removed only the lands from the library, the non-land revealed cards are still
+ *      the frozen revealed set minus the lands, addressed by their captured ids (a positional top-N helper can't
+ *      be used — the lands already left the library, shifting positions).
+ *   4. SPELL MASTERY (CR 702.x ability word — no rules meaning, a threshold gate): if the controller's graveyard
+ *      holds TWO OR MORE instant-and/or-sorcery cards AT RESOLUTION, UNTAP those just-entered lands (untapPermanent
+ *      on each captured id). The rider is modeled in FULL — the untap is not silently dropped — so a spell-mastery
+ *      Animist's Awakening plays as printed (the lands come in untapped, i.e. ready to tap for mana). Below the
+ *      threshold, the lands stay tapped (the printed default). The graveyard count reads the stored card `.type`
+ *      lines (a milled/discarded spell carries its type), matching the isInstantOrSorcery predicate.
+ *
+ * Pure data mutation (library moves + permanent adds + tapped flips) so a game serialized mid-resolution restores
+ * byte-identical (no closures). Non-pausing (deterministic — "all lands" and "the rest" are not player choices,
+ * and the untap is a mandatory threshold), so no PAUSING_ATOM_OPS entry and no session-driver wiring is needed.
+ */
+export function applyAnimistAwakening(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const x = Math.max(0, ctx.xValue ?? 0); // X caps the reveal count ONLY (bound at cast, CR 601.2b) — a type-only filter, no MV cap
+  const lib = player.library || [];
+  const revealed = lib.slice(0, Math.min(x, lib.length)); // the top X (or fewer if the library is short)
+  if (revealed.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "animist-awakening", controller, x, lands: 0, bottomed: 0, spellMastery: false });
+  }
+  // Partition the revealed set: LANDS enter tapped; the REST bottom in a random order. Freeze the id lists BEFORE
+  // any mutation so the bottom step can address the non-land revealed cards after the lands have left the library.
+  const landIds = revealed.filter((c) => isLandCard(c)).map((c) => c.id);
+  const restIds = revealed.filter((c) => !isLandCard(c)).map((c) => c.id);
+  // Put every revealed LAND onto the battlefield TAPPED, one at a time (each entry's ETB / landfall enqueues in
+  // order). enterCardFromZone appends exactly ONE perm to the controller's battlefield per successful entry, so
+  // the last element of the post-entry battlefield is the perm we just made — capture its id to untap later.
+  let next = state;
+  const enteredLandPermIds = [];
+  for (const id of landIds) {
+    const r = enterCardFromZone(next, { playerId: controller, cardId: id, fromZone: "library", tapped: true });
+    if (r.entered) {
+      next = r.state;
+      const bf = next.players[controller].battlefield;
+      enteredLandPermIds.push(bf[bf.length - 1].id);
+    }
+  }
+  // Bottom the REST (the revealed non-lands) in a random order (the lands are gone from the library, so a
+  // positional top-N helper can't be used — address the frozen non-land ids directly).
+  if (restIds.length > 0) next = bottomLibraryCardsByIds(next, controller, restIds);
+  // SPELL MASTERY — two or more instant-and/or-sorcery cards in the controller's graveyard at resolution untaps
+  // the lands this spell just put out. Read the CURRENT graveyard (after the entries above; those entries only
+  // touched the library + battlefield, never the graveyard, so the count is stable).
+  const gy = next.players[controller]?.graveyard || [];
+  const isCount = gy.filter((c) => isInstantOrSorceryCard(c)).length;
+  const spellMastery = isCount >= 2;
+  if (spellMastery) {
+    for (const permId of enteredLandPermIds) next = untapPermanent(next, permId);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "animist-awakening", controller, x, lands: enteredLandPermIds.length, bottomed: restIds.length, spellMastery });
+}
+
+/**
  * ===== DISCOVER ===== (LCI keyword, CR 701.x) — "Discover N/X": exile cards from the TOP of the
  * controller's library until a NONLAND card with mana value <= N is exiled (or the library runs out). The
  * found card is parked in `state.pendingDiscover` for the controller's CAST-IT-FREE-or-PUT-IN-HAND decision
@@ -647,6 +728,79 @@ export function applyGenesisWave(state, atom, ctx) {
 }
 
 /**
+ * ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X}-cost sorcery) — "X can't be greater than the number of
+ * players in the game. Reveal cards from the top of your library until you reveal X land cards. Put those land
+ * cards onto the battlefield tapped and the rest on the bottom of your library in a random order."
+ *
+ * A DISTINCT dig from genesis-wave / dig-land-to-battlefield: it reveals from the top ONE AT A TIME until it has
+ * seen `n` LAND cards (or the library runs out), puts ALL of those found lands onto the battlefield TAPPED, and
+ * bottoms EVERY OTHER revealed card (the interleaved nonlands) in a random order. There is NO choice — every land
+ * found goes to the battlefield, so this is deterministic (non-pausing) like genesis-wave / reveal-top-conditional.
+ *
+ * X is the SPELL'S chosen X (bound at cast per CR 601.2b, threaded via ctx.xValue), CAPPED at the number of
+ * players in the game — the printed "X can't be greater than the number of players in the game" constraint. The
+ * cap is enforced HERE at resolution (min(xValue, playerCount)) so the effect can NEVER reveal-until more lands
+ * than the card legally allows even if the cast path offered a larger X: the whole clause is honored, never
+ * partially (CREED). `?? 0` (never `|| 0`) so an explicit X=0 reveals nothing (a clean no-op) — the cap is never
+ * silently treated as "uncapped".
+ *
+ * Each found LAND enters via enterCardFromZone (tapped, firing its ETB / landfall / permanent-enters triggers —
+ * the exact shared entry the battlefield-tutor / reanimation / genesis-wave paths use), one at a time so each
+ * entry's triggers enqueue in order. THE REST — every revealed card that isn't one of the put lands — is still at
+ * the TOP of the library after the puts (enterCardFromZone removed only the lands, preserving relative order), so
+ * the leftover-revealed cards remain the top `revealed.length - landsPut` of the library; bottomTopNInRandomOrder
+ * moves exactly those to the bottom in a deterministic random order (CR "in a random order", threaded rngSeed —
+ * a serialized game restores byte-identical). An EMPTY library (or X capped to 0) reveals nothing → clean no-op.
+ * Pure data mutation (no closures). Non-pausing → no PAUSING_ATOM_OPS entry, no session-driver wiring.
+ */
+export function applyRevealUntilNLands(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  // X caps the number of LANDS to reveal-until. Open the Way caps X at the number of players in the game (the
+  // printed constraint) — enforced here so the effect never reveals-until more lands than legal, whatever X the
+  // cast path bound. min(xValue, playerCount); ?? 0 so an explicit X=0 is a no-op, never "uncapped".
+  const rawX = Math.max(0, ctx.xValue ?? 0);
+  const playerCount = Object.keys(state.players || {}).length;
+  const n = atom.capPlayerCount ? Math.min(rawX, playerCount) : rawX;
+  const lib = player.library || [];
+  if (n === 0 || lib.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "reveal-until-n-lands", controller, n, lands: 0, bottomed: 0 });
+  }
+  // Reveal from the top until we've seen `n` land cards (or the library is exhausted). The revealed set is the
+  // contiguous prefix ending at (and including) the Nth land — exactly what "reveal until you reveal X land
+  // cards" describes. Fewer than N lands in the whole library → the whole library is revealed (CR: you reveal
+  // until you can't; you put whatever lands you found).
+  let landsSeen = 0;
+  let revealEnd = 0; // exclusive index into lib
+  for (let i = 0; i < lib.length; i++) {
+    revealEnd = i + 1;
+    if (isLandCard(lib[i])) {
+      landsSeen += 1;
+      if (landsSeen >= n) break;
+    }
+  }
+  const revealed = lib.slice(0, revealEnd);
+  const landIds = new Set(revealed.filter((c) => isLandCard(c)).map((c) => c.id));
+  // Put every revealed LAND onto the battlefield TAPPED (enterCardFromZone removes it from the library and enters
+  // it under the controller's control, firing ETB / landfall / permanent-enters). One at a time so each entry's
+  // triggers enqueue in order — identical to the genesis-wave put loop.
+  let next = state;
+  let landsPut = 0;
+  for (const c of revealed) {
+    if (!landIds.has(c.id)) continue;
+    const r = enterCardFromZone(next, { playerId: controller, cardId: c.id, fromZone: "library", tapped: true });
+    if (r.entered) { next = r.state; landsPut += 1; }
+  }
+  // THE REST — every revealed card that wasn't a put land — is still the top `revealed.length - landsPut` of the
+  // library (enterCardFromZone removed only the lands, preserving relative order, exactly like genesis-wave's
+  // mill-the-rest). Bottom exactly that many in a deterministic random order (CR "in a random order").
+  const bottomCount = revealed.length - landsPut;
+  if (bottomCount > 0) next = bottomTopNInRandomOrder(next, controller, bottomCount);
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-until-n-lands", controller, n, lands: landsPut, bottomed: bottomCount });
+}
+
+/**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
  * (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
@@ -705,6 +859,41 @@ export function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
   const next = shuffleControllerLibrary(state, ctx.controller);
   return logEvent(next, { kind: "spell-effect", effect: "shuffle", controller: ctx.controller });
+}
+
+/**
+ * SHUFFLE-GRAVEYARD-INTO-LIBRARY (Finale of Revelation "shuffle your graveyard into your library", CR 701.19)
+ * — move EVERY card in the controller's graveyard into their library, then shuffle deterministically (the same
+ * threaded-seed shuffle as every other library shuffle, so it's serialize-stable). The graveyard is emptied
+ * (its cards are now in the library and randomized), matching the printed effect exactly. condX-gated: when
+ * atom.condX is set, this only happens once the chosen X reaches the threshold — a below-threshold cast leaves
+ * the graveyard untouched (the "If X is N or more, …instead…" branch simply isn't met, CR). `?? 0` treats a
+ * missing xValue as 0. Mirrors the applyPumpEffect / applyUntapLands condX gate. Hidden-info safe: the log
+ * records the controller + how many cards moved, never the card identities.
+ */
+export function applyShuffleGraveyardIntoLibrary(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (atom?.condX && (ctx.xValue ?? 0) < atom.condX.min) {
+    return logEvent(state, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
+  }
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const graveyard = player.graveyard || [];
+  if (graveyard.length === 0) {
+    // Empty graveyard — still shuffle the library (CR: you shuffle regardless), a logged near-no-op.
+    const shuffled = shuffleControllerLibrary(state, controller);
+    return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
+  }
+  // Move all graveyard cards into the library (order is irrelevant — the shuffle randomizes), empty the GY.
+  const merged = {
+    ...state,
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: [...(player.library || []), ...graveyard], graveyard: [] },
+    },
+  };
+  const shuffled = shuffleControllerLibrary(merged, controller);
+  return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: graveyard.length });
 }
 
 /**
@@ -1039,6 +1228,7 @@ export function tutorClauseParser(clause, ctx = {}) {
 export const libraryResolvers = {
   "tutor": applyTutor,
   "shuffle": applyShuffle,
+  "shuffle-graveyard-into-library": applyShuffleGraveyardIntoLibrary, // SHUFFLE-GY-INTO-LIBRARY (Finale of Revelation) — move controller's whole GY into library, then shuffle; condX-gated
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
@@ -1049,5 +1239,7 @@ export const libraryResolvers = {
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
   "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
+  "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
+  "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
 };

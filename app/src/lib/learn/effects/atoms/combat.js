@@ -4,7 +4,7 @@
  */
 
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage, setDoesNotUntapNext } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
@@ -31,9 +31,19 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export function applyTapEffect(state, atom, ctx, tap) {
   let next = state;
   const wantsLand = atom?.targetType === "land";
-  const wantsPermanent = atom?.targetType === "permanent";
+  // TAP-PERMANENT ("Tap target permanent", Koma) AND TAP-NONLAND-PERMANENT ("Tap target nonland permanent an
+  // opponent controls", Junk Winder) both act on any live permanent that the restriction-aware enumerator
+  // already surfaced (the nonlandPermanent predicate + controller restriction were enforced at target time),
+  // so the resolver acts on whatever it's handed — enumerateTargets never offers a land / own permanent here.
+  const wantsPermanent = atom?.targetType === "permanent" || atom?.targetType === "nonlandPermanent";
   const wantsBasicSubtype = BASIC_SUBTYPE_TARGET.has(atom?.targetType);
-  for (const t of ctx.targets || []) {
+  // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap/Untap enchanted creature.") — a FIXED referent, not a
+  // chosen target: atomTargets resolves target:"enchanted" to the Aura's host (ctx.sourceId→attachedTo) at
+  // resolution (CR 303.4a). Every other tap/untap form carries a `targetType` (no `target`) and reads the
+  // chosen ctx.targets byte-for-byte as before. atomTargets returns [{type:"creature", id}] for a live host,
+  // [] for a detached/gone Aura (a clean no-op, never a fabricated tap).
+  const list = atom?.target ? atomTargets(next, atom, ctx) : (ctx.targets || []);
+  for (const t of list) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
     const tl = typeLineStr(lk.permanent.card);
@@ -54,8 +64,48 @@ export function applyTapEffect(state, atom, ctx, tap) {
         source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null },
       }).state;
     }
+    // NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): flag the
+    // tapped permanent so untapAll (gameState.js) SKIPS it exactly once (clearing the flag as it skips, so only
+    // the NEXT untap step is affected — CR 302.6 / a self-clearing one-shot restriction). Folded into the SAME
+    // tap atom ("It" = the just-tapped permanent), like lockActivated above — no cross-atom "it" to resolve.
+    if (tap && atom?.noUntapNext) {
+      next = setDoesNotUntapNext(next, t.id, true);
+    }
   }
-  return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: (ctx.targets || []).map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: list.map(t => t.id) });
+}
+
+/**
+ * UNTAP-UP-TO-N-LANDS (Finale of Revelation "untap up to five lands") — a NON-targeted, CONTROLLER-scoped
+ * untap of up to `atom.uptoN` of the controller's OWN tapped lands (CR 701.20). Untapping is never a downside
+ * and the controller would always untap the MAXIMUM available (up to the cap), so this is a deterministic
+ * greedy auto-untap (min(cap, tapped lands)) — no interactive choice needed and no CREED risk (over-untapping
+ * an opponent's land / a non-land is impossible; only the controller's tapped lands, in battlefield order, are
+ * touched). condX-gated: when atom.condX is set, the untap only happens once the chosen X reaches the threshold
+ * (a below-threshold cast is a logged no-op — the "If X is N or more, …instead…" branch simply isn't met, CR).
+ * `?? 0` treats a missing xValue as 0 (never "condition met"). Mirrors the applyPumpEffect condX gate exactly.
+ */
+export function applyUntapLands(state, atom, ctx) {
+  if (atom?.condX && (ctx.xValue ?? 0) < atom.condX.min) {
+    return logEvent(state, { kind: "spell-effect", effect: "untap", targets: [] });
+  }
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const cap = Number.isFinite(atom?.uptoN) ? atom.uptoN : 0;
+  // The controller's OWN tapped lands, in stable battlefield order (serialize-deterministic — no sort needed;
+  // battlefield order is already stable). Re-verify the LIVE type line is a land before untapping (CREED —
+  // never untap a non-land). Take the first `cap` of them.
+  const ids = [];
+  for (const perm of player.battlefield || []) {
+    if (ids.length >= cap) break;
+    if (!perm.tapped) continue;
+    if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
+    ids.push(perm.id);
+  }
+  let next = state;
+  for (const id of ids) next = untapPermanent(next, id);
+  return logEvent(next, { kind: "spell-effect", effect: "untap", targets: ids });
 }
 
 /** REGEN (CR 701.15) — give the SOURCE (self) or the chosen creature a regeneration shield. The shield is
@@ -573,6 +623,18 @@ export function combatKeywordClauseParser(clause) {
   if (tapPermM) {
     return { op: "tap", targetType: "permanent", restrictions: [], ...(tapPermM[1] ? { lockActivated: true } : {}) };
   }
+  // TAP-NONLAND-PERMANENT-LOCKDOWN (Junk Winder — "Tap target nonland permanent an opponent controls. It
+  // doesn't untap during its controller's next untap step.") — a single chosen NONLAND permanent an opponent
+  // controls (the nonlandPermanent predicate + controller-opponent restriction enforced by enumerateTargets),
+  // tapped with a one-shot no-untap lockdown. The rider is FOLDED onto this SAME tap atom (splitClauses joins
+  // the two sentences with " and " — the same fold as Koma's lockActivated), so "It" = the just-tapped
+  // permanent with no cross-atom reference. The rider is REQUIRED ($ anchor): a bare "tap target nonland
+  // permanent an opponent controls" without the lockdown, or any other rider, stays LOW → Arbiter (a SAFE
+  // false-negative — model the WHOLE clause or nothing). noUntapNext → applyTapEffect flags the permanent so
+  // untapAll skips its NEXT untap step once (CR 302.6, self-clearing).
+  if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/.test(t)) {
+    return { op: "tap", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "opponent" }], noUntapNext: true };
+  }
   const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
   if (tapM) {
     const qual = tapM[1];
@@ -591,6 +653,15 @@ export function combatKeywordClauseParser(clause) {
     return { op: "tap", targetType: "creature", restrictions };
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap enchanted creature." / "{U}: Untap enchanted creature.";
+  // Pemmin's Aura, Kasimir the Lone Wolf's kin) — an activated ability PRINTED ON THE AURA that taps/untaps
+  // "enchanted creature". This is a FIXED (non-chosen) referent, NOT a chosen target: the affected creature is
+  // whatever the Aura is attached to (its host, resolved at resolution time off ctx.sourceId→attachedTo via
+  // atomTargets' target:"enchanted" case — CR 303.4a, the Aura affects the enchanted permanent). No player
+  // choice, so no `targetType` (it never enters targeting/enumerateTargets); applyTapEffect resolves the host
+  // through atomTargets. Whole-clause anchored ($) so any qualified/rider form falls through → low → Arbiter.
+  if (/^tap enchanted creature$/.test(t)) return { op: "tap", target: "enchanted" };
+  if (/^untap enchanted creature$/.test(t)) return { op: "untap", target: "enchanted" };
   // UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") — a single chosen land. targetType "land" routes
   // through PERMANENT_PREDICATES.land in enumerateTargets (so any land on any battlefield is a legal target),
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so
@@ -1132,6 +1203,7 @@ export const combatResolvers = {
   "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
+  "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "switch-pt": applySwitchPT, // SWITCH-PT — "switch ~ power and toughness until end of turn" → layer-7 sublayer-7d endOfTurn swap

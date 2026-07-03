@@ -73,6 +73,7 @@ const CARD_TYPES_SUPERTYPES = /\b(?:artifact|enchantment|creature|land|planeswal
  *   { kind: "addKeyword", keywords } — "it has flying" / "it has flying and vigilance" (modeled kws only)
  *   { kind: "setPT", power, toughness } — "it's 7/7"
  *   { kind: "grantVanishing", n }    — "it has vanishing 3 if that creature doesn't have vanishing"
+ *   { kind: "retainOwnAbilities" }   — "it has ~'s other abilities" (marker; parseCloneSpec fills oracle/keywords)
  */
 export function parseCloneRider(clause) {
   // Lowercase so a directly-called rider (mixed-case "Bird") parses the same as the spec-level path
@@ -83,9 +84,16 @@ export function parseCloneRider(clause) {
   // "it isn't legendary" (Spark Double) — a NO-OP rider (the legend rule is unenforced by the engine), so it
   // carries no atom field but IS recognized (returning a no-op kind) so the all-or-nothing rider gate doesn't
   // park the whole clone over an unenforced-but-harmless modification. Mirrors the tokenCopy isn't-legendary
-  // no-op exactly. Distinct from "it's legendary in addition …" (Sakashima), which ADDS a supertype + pairs
-  // with an unmodeled granted-ability rider — that card parks (it never reaches a clean rider list here).
+  // no-op exactly.
   if (/^it (?:isn'?t|is not) legendary$|^it'?s not legendary$/.test(cl)) return { kind: "noop" };
+
+  // "it has ~'s other abilities" (Sakashima of a Thousand Faces, CR 707.9) — the copy ALSO KEEPS the clone
+  // card's OWN abilities (everything on the clone but the copy clause itself). A MARKER atom: parseCloneSpec
+  // fills in `.oracle` / `.keywords` from the own-ability clauses it stripped off the tail (the name-elided
+  // `~` is why this can't fall through to the generic "it has <kw>" rider — that char class excludes `~`).
+  // parseCloneSpec only emits this marker when EVERY own-ability clause it stripped is modeled, so the append
+  // is the WHOLE set of retained abilities, never a partial.
+  if (/^it has ~'?s other abilities$/.test(cl)) return { kind: "retainOwnAbilities" };
 
   // "it's N/N" — a copy that sets base P/T (Quicksilver Gargantuan). CR 707.9.
   let m = cl.match(/^it'?s (\d+)\/(\d+)$/);
@@ -139,8 +147,32 @@ export function parseCloneRider(clause) {
  */
 export function parseCloneSpec(card) {
   let t = stripReminder(card?.oracle || card?.oracle_text || "").toLowerCase();
-  const name = card?.name ? escapeRegex(String(card.name).toLowerCase()) : null;
-  if (name) t = t.replace(new RegExp(name, "g"), "~");
+  const nameL = card?.name ? String(card.name).toLowerCase() : null;
+  if (nameL) {
+    t = t.replace(new RegExp(escapeRegex(nameL), "g"), "~");
+    // Legendary cards refer to themselves by their SHORT name in their own text (CR 201.4) — the pre-comma
+    // part ("Pantlaza") or, for the comma-less "<First> …" style, the FIRST word ("Sakashima of a Thousand
+    // Faces" → "Sakashima"). The full-name elision above misses those, so also elide the short/first-word
+    // form for legends (word-bounded, ≥3 chars, distinct from the full name) — mirrors triggers.js's
+    // legendary self-reference handling so a copy clause / rider templated with the short name anchors.
+    const isLegendary = /legendary/i.test(String(card?.type || card?.type_line || ""));
+    if (isLegendary) {
+      const shortForms = new Set();
+      const comma = nameL.split(",")[0].trim();
+      if (comma && comma !== nameL) shortForms.add(comma);
+      if (!nameL.includes(",") && /\s/.test(nameL)) shortForms.add(nameL.split(/\s+/)[0]);
+      for (const sf of shortForms) {
+        if (sf.length >= 3) t = t.replace(new RegExp("\\b" + escapeRegex(sf) + "\\b", "g"), "~");
+      }
+    }
+  }
+  // A clone that KEEPS its own abilities (Sakashima's "except it has ~'s other abilities") has extra
+  // ability clauses trailing the copy clause. Strip the MODELED own-ability clauses off the tail before
+  // anchoring the copy clause, and remember them (their ORIGINAL oracle text + own keywords) so the
+  // retainOwnAbilities rider can re-append the WHOLE set to the copy. All-or-nothing: if any trailing
+  // own-ability clause is UNmodeled, `own` is null and the copy clause won't `$`-anchor → PARK.
+  const { head: headText, own } = stripOwnAbilityTail(t, card);
+  t = headText;
   // Consume modeled printed keyword tokens AHEAD of the copy clause (Mockingbird's "flying ").
   // Each must be a modeled combat keyword; an unmodeled pre-copy keyword/ability (ninjutsu,
   // changeling, convoke, improvise, flash, prototype…) is NOT consumed → the head won't anchor →
@@ -152,8 +184,11 @@ export function parseCloneSpec(card) {
   // SCOPE "a creature or planeswalker you control" (Spark Double) — the copy may be a planeswalker; the
   // entry path (enterPermanent castsAsPlaneswalker) gives a copied PW its starting loyalty, and the
   // conditional counter rider (entersWithCounterIf) adds the +1/+1-if-creature / loyalty-if-planeswalker.
+  // SCOPE "another creature you control" (Sakashima) — a "you control" scope that excludes the clone itself;
+  // since the clone isn't on the battlefield yet when candidates are gathered, "another" is naturally
+  // satisfied, so it maps to the same youControl candidate set.
   const m = t.match(
-    /^(?:you may have (?:~|this creature) enter|(?:~|this creature) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|a creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this creature) enter|(?:~|this creature) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return null;
 
@@ -163,18 +198,76 @@ export function parseCloneSpec(card) {
     // unmodeled sub-clause fails the whole card (CREED: whole copy or nothing).
     const subs = m[3].split(/,\s*and\s+|,\s+|\s+and\s+/).map((s) => s.trim()).filter(Boolean);
     for (const s of subs) {
-      const atom = parseCloneRider(s);
+      let atom = parseCloneRider(s);
       if (!atom) return null;
+      // "it has ~'s other abilities" is only a WHOLE, faithful copy modification when EVERY own-ability
+      // clause we stripped off the tail is modeled (own !== null) — else the retained set would be a
+      // partial (a forbidden FP), so PARK. When modeled, carry the concrete own-ability oracle + keywords
+      // on the rider so snapshotCopiedCard re-appends them to the copy.
+      if (atom.kind === "retainOwnAbilities") {
+        if (!own) return null;
+        atom = { ...atom, oracle: own.oracle, keywords: own.keywords };
+      }
       riders.push(atom);
     }
   }
   return {
     optional: /^you may\b/.test(t),
-    scope: m[1] === "a creature you control" ? "youControl"
+    scope: m[1] === "a creature you control" || m[1] === "another creature you control" ? "youControl"
       : m[1] === "a creature or planeswalker you control" ? "youControlCreatureOrPw"
         : "any",
     mvLimit: !!m[2],
     riders,
+  };
+}
+
+/**
+ * Split the MODELED "own ability" clauses off the TAIL of a clone's normalized oracle so the copy clause can
+ * `$`-anchor, and return them so a retainOwnAbilities rider can re-append the clone's own abilities to the copy
+ * (Sakashima of a Thousand Faces, CR 707.9). Only a fixed set of own abilities is modeled — each has NO
+ * runtime battlefield effect, so appending its text to the copy is faithful and inert:
+ *   • the legend-rule-off static ("The 'legend rule' doesn't apply to permanents you control.") — the legend
+ *     rule is UNENFORCED by the engine (see the isn't-legendary no-op), so this is a harmless inert line.
+ *   • Partner — a bare keyword with no battlefield behavior (it only matters at commander assignment, and a
+ *     copy is never a commander per CR 903.3 — snapshotCopiedCard already strips isCommander).
+ * `own.oracle` is the ORIGINAL (reminder-preserved) card oracle lines for those abilities; `own.keywords` is
+ * the clone's own keywords (e.g. Partner). Returns { head, own }: `head` is the oracle with those tail clauses
+ * removed; `own` is null when the tail has NO extra clauses (a plain clone — nothing to retain) OR when it has
+ * an UNmodeled extra clause (→ head keeps it, the copy clause won't anchor, the card PARKs).
+ */
+function stripOwnAbilityTail(normalized, card) {
+  // Modeled tail-clause matchers on the normalized (reminder-stripped, name-elided, lowercased) text.
+  const OWN_ABILITY_CLAUSES = [
+    /the "legend rule" doesn'?t apply to permanents you control\./,
+    /the legend rule doesn'?t apply to permanents you control\./,
+    /\bpartner\b\.?/,
+  ];
+  let head = normalized;
+  let strippedAny = false;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const re of OWN_ABILITY_CLAUSES) {
+      const anchored = new RegExp("\\s*" + re.source + "\\s*$", re.flags);
+      if (anchored.test(head)) {
+        head = head.replace(anchored, "").trim();
+        strippedAny = true;
+        changed = true;
+        break;
+      }
+    }
+  }
+  if (!strippedAny) return { head, own: null };
+  // Reconstruct the ORIGINAL own-ability oracle lines (reminder text preserved) + own keywords from the card,
+  // dropping the copy clause. A clone's own abilities appended to the copy must read as printed instances.
+  const rawLines = String(card?.oracle || card?.oracle_text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const ownLines = rawLines.filter((l) => !/enter(?:s)?(?: the battlefield)? as a copy of/i.test(l));
+  return {
+    head,
+    own: {
+      oracle: ownLines.join("\n"),
+      keywords: Array.isArray(card?.keywords) ? [...card.keywords] : [],
+    },
   };
 }
 
@@ -321,6 +414,24 @@ export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
       const oracle = String(card.oracle || card.oracle_text || "");
       if (!/(?:^|\n|, |; )vanishing\s+\d+/i.test(oracle)) {
         card = { ...card, oracle: (oracle ? oracle.replace(/\s*$/, "") + "\n" : "") + "Vanishing " + r.n };
+      }
+    } else if (r.kind === "retainOwnAbilities") {
+      // "it has ~'s other abilities" (Sakashima, CR 707.9) — the copy ALSO KEEPS the clone's own abilities.
+      // Append the clone's own-ability oracle lines to the copy's oracle and union its own keywords onto the
+      // copy's keyword array, so the copy carries them as printed instances. These own abilities are the
+      // modeled inert set (legend-rule-off static, Partner) parseCloneSpec verified — no ETB trigger, no
+      // battlefield behavior — so appending them mints the WHOLE copy, never a partial. Idempotent per line.
+      const oracle = String(card.oracle || card.oracle_text || "");
+      const addLines = String(r.oracle || "").split("\n").map((l) => l.trim()).filter(Boolean)
+        .filter((l) => !oracle.includes(l));
+      if (addLines.length) {
+        card = { ...card, oracle: (oracle ? oracle.replace(/\s*$/, "") + "\n" : "") + addLines.join("\n") };
+      }
+      const ownKws = Array.isArray(r.keywords) ? r.keywords : [];
+      if (ownKws.length) {
+        const have = Array.isArray(card.keywords) ? card.keywords.map((k) => String(k).toLowerCase()) : [];
+        const add = ownKws.filter((k) => !have.includes(String(k).toLowerCase()));
+        if (add.length) card = { ...card, keywords: [...(Array.isArray(card.keywords) ? card.keywords : []), ...add] };
       }
     }
   }

@@ -118,8 +118,10 @@ describe("SUBTYPE-SCOPED ETB/dies — detection", () => {
     expect(det("Whenever a permanent you control enters, draw a card.")).toHaveLength(0);
     // "an artifact you control enters" → the EXISTING permanentEnters/artifactYouControl path, NOT my subtype branch.
     expect(det("Whenever an artifact you control enters, draw a card.")[0]).toMatchObject({ event: "permanentEnters", scope: "artifactYouControl" });
-    // "a token you control enters" — token is denylisted → UNDETECTED.
-    expect(det("Whenever a token you control enters, draw a card.")).toHaveLength(0);
+    // "a token you control enters" → the DEDICATED permanentEnters/tokenYouControl path (Junk Winder slice),
+    // NOT the subtype branch (token is denylisted as a subtype). Was previously UNDETECTED (token parked); the
+    // token-enters trigger is now modeled, so it routes through its own scope (still never the subtype path).
+    expect(det("Whenever a token you control enters, draw a card.")[0]).toMatchObject({ event: "permanentEnters", scope: "tokenYouControl" });
   });
 });
 
