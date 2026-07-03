@@ -24,7 +24,7 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 400,
-      background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(0,242,255,0.07) 0%, rgba(0,242,255,0.015) 32%, transparent 60%), " + BG,
+      background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.07) 0%, rgba(86,214,93,0.015) 32%, transparent 60%), " + BG,
       color: TEXT, fontFamily,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       padding: 24, overflowY: "auto",
@@ -66,8 +66,8 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
               title={active ? `${p.name} (current)` : `Switch to ${p.name}`}
               style={{
                 width: 150, padding: "22px 14px 16px", cursor: busy ? "default" : "pointer",
-                background: active ? "rgba(0,242,255,0.06)" : "var(--surface-container-lowest)",
-                border: `1px solid ${active ? "rgba(0,242,255,0.45)" : LINE}`,
+                background: active ? "rgba(86,214,93,0.06)" : "var(--surface-container-lowest)",
+                border: `1px solid ${active ? "rgba(86,214,93,0.45)" : LINE}`,
                 borderRadius: 12, color: TEXT, fontFamily,
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
                 opacity: busy ? 0.55 : 1,
@@ -77,9 +77,9 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
                 width: 72, height: 72, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontFamily: FD, fontSize: 28, fontWeight: 700,
-                color: active ? "#00363a" : GOLD,
-                background: active ? GOLD : "rgba(0,242,255,0.10)",
-                border: `1px solid ${active ? GOLD : "rgba(0,242,255,0.3)"}`,
+                color: active ? "#05130a" : GOLD,
+                background: active ? GOLD : "rgba(86,214,93,0.10)",
+                border: `1px solid ${active ? GOLD : "rgba(86,214,93,0.3)"}`,
               }}>
                 {initials(p.name)}
               </span>

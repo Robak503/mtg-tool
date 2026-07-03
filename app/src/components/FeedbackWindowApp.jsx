@@ -119,7 +119,7 @@ export default function FeedbackWindowPage() {
   const LINE = "#2c393b";
   const TEXT = "#e3e2e6";
   const MUTED = "#b9cacb";
-  const GOLD = "#00dbe7";
+  const GOLD = "#56d65d";
   const FONT = "var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
 
   return (

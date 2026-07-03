@@ -76,7 +76,7 @@ export default function AppHeader({
 
   return (
     <div style={{padding:"9px 16px",borderBottom:`1px solid ${LINE}`,background:BG2,backdropFilter:"blur(16px) saturate(1.2)",WebkitBackdropFilter:"blur(16px) saturate(1.2)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-      <span style={{fontFamily:"var(--font-display), Georgia, serif",fontSize:18,fontWeight:700,letterSpacing:"-0.01em",color:"transparent",background:"linear-gradient(180deg,#74f5ff 0%,#00dbe7 52%,#00a3ab 100%)",WebkitBackgroundClip:"text",backgroundClip:"text",filter:"drop-shadow(0 0 9px rgba(0,242,255,.40))"}}>
+      <span style={{fontFamily:"var(--font-display), Georgia, serif",fontSize:18,fontWeight:700,letterSpacing:"-0.01em",color:"transparent",background:"linear-gradient(180deg,#74ff86 0%,#56d65d 52%,#2e9a3f 100%)",WebkitBackgroundClip:"text",backgroundClip:"text",filter:"drop-shadow(0 0 9px rgba(86,214,93,.40))"}}>
         MTG Assistant
         {appVersion && (
           <span style={{

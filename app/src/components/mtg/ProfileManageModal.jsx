@@ -76,7 +76,7 @@ export default function ProfileManageModal({ profiles = [], activeId, onCreate, 
             />
             <button onClick={create} disabled={busy || !name.trim()} style={{
               fontFamily, fontSize: 13, fontWeight: 600, padding: "8px 16px", borderRadius: 6, cursor: busy || !name.trim() ? "default" : "pointer",
-              background: GOLD, color: "#00363a", border: `1px solid ${GOLD}`, opacity: busy || !name.trim() ? 0.5 : 1,
+              background: GOLD, color: "#05130a", border: `1px solid ${GOLD}`, opacity: busy || !name.trim() ? 0.5 : 1,
             }}>Create</button>
           </div>
 
@@ -88,16 +88,16 @@ export default function ProfileManageModal({ profiles = [], activeId, onCreate, 
               return (
                 <div key={p.id} style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8,
-                  background: "var(--surface-container-lowest)", border: `1px solid ${active ? "rgba(0,242,255,0.35)" : LINE}`,
+                  background: "var(--surface-container-lowest)", border: `1px solid ${active ? "rgba(86,214,93,0.35)" : LINE}`,
                 }}>
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: 13, fontWeight: 700, color: active ? "#00363a" : GOLD, background: active ? GOLD : "rgba(0,242,255,0.12)" }}>
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: 13, fontWeight: 700, color: active ? "#05130a" : GOLD, background: active ? GOLD : "rgba(86,214,93,0.12)" }}>
                     {(p.name.trim()[0] || "?").toUpperCase()}
                   </span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.name}
                     {active && <span style={{ marginLeft: 8, fontFamily: "var(--font-mono), monospace", fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: GOLD }}>current</span>}
                   </span>
-                  {!active && <button onClick={() => onSwitch(p.id)} disabled={busy} style={{ ...btn(), color: GOLD, borderColor: "rgba(0,242,255,0.4)" }}>Switch</button>}
+                  {!active && <button onClick={() => onSwitch(p.id)} disabled={busy} style={{ ...btn(), color: GOLD, borderColor: "rgba(86,214,93,0.4)" }}>Switch</button>}
                   <button onClick={() => rename(p)} disabled={busy} style={btn()}>Rename</button>
                   <button
                     onClick={() => remove(p)}

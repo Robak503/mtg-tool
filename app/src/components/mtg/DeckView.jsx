@@ -69,7 +69,7 @@ export default function DeckView({
   const BG = bg;
   const BG3 = bg3;
   const F = fontFamily;
-  // Aether type + accent. GOLD token resolves to the cyan hero (#00dbe7).
+  // LEYLINE type + accent. GOLD token resolves to the phosphor green (#56d65d).
   const FD = "var(--font-display), Georgia, 'Palatino Linotype', serif";
   const FM = "var(--font-mono), 'Consolas', monospace";
   const CY = GOLD;
@@ -331,7 +331,7 @@ export default function DeckView({
                   const grp = deckCards.filter(c => c.section === g); if (!grp.length) return null;
                   return (
                     <div key={g} style={{ marginBottom: 10 }}>
-                      <div style={{ ...dlabel, color: CY, padding: "4px 8px", marginBottom: 4, borderBottom: `1px solid rgba(0,242,255,0.2)` }}>
+                      <div style={{ ...dlabel, color: CY, padding: "4px 8px", marginBottom: 4, borderBottom: `1px solid rgba(86,214,93,0.2)` }}>
                         {g} ({grp.reduce((s, c) => s + c.qty, 0)})
                       </div>
                       {grp.map((c, i) => (

@@ -229,7 +229,7 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
           </span>
         )}
         {selectMode && isChecked && (
-          <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(0,242,255,0.16)" }} />
+          <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(86,214,93,0.16)" }} />
         )}
         {(card.scryfallId || card.artCropUrl) && !imgError ? (
           <img

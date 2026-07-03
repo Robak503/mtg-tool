@@ -106,7 +106,7 @@ export default function SettingsModal({
                         onClick={() => setModelProvider(t.id)}
                         style={{
                           textAlign: "left", padding: "11px 13px", borderRadius: 8, cursor: "pointer",
-                          background: on ? "rgba(0,242,255,0.12)" : BG3,
+                          background: on ? "rgba(86,214,93,0.12)" : BG3,
                           border: `1px solid ${on ? GOLD : LINE}`, color: TEXT, fontFamily: F,
                         }}
                       >
@@ -131,7 +131,7 @@ export default function SettingsModal({
                       const on = (id === "fast") === Boolean(fastMode);
                       return (
                         <button key={id} onClick={() => setFastMode(id === "fast")}
-                          style={{ border: 0, background: on ? "rgba(0,242,255,0.12)" : "transparent", color: on ? GOLD : MUTED, cursor: "pointer", fontFamily: F, fontSize: 12, padding: "6px 14px" }}>
+                          style={{ border: 0, background: on ? "rgba(86,214,93,0.12)" : "transparent", color: on ? GOLD : MUTED, cursor: "pointer", fontFamily: F, fontSize: 12, padding: "6px 14px" }}>
                           {label}
                         </button>
                       );
@@ -253,7 +253,7 @@ function Bullets({ items, muted, text }) {
     <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 0" }}>
       {items.map(([lead, rest], i) => (
         <li key={i} style={{ fontSize: 13, color: muted, lineHeight: 1.5, marginBottom: 9, paddingLeft: 16, position: "relative" }}>
-          <span style={{ position: "absolute", left: 0, color: "#00dbe7" }}>•</span>
+          <span style={{ position: "absolute", left: 0, color: "#56d65d" }}>•</span>
           <strong style={{ color: text }}>{lead}</strong>{rest}
         </li>
       ))}

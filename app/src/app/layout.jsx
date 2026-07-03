@@ -1,14 +1,14 @@
 import "./globals.css";
 
-import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 
 import DailySnapshotTrigger from "../components/DailySnapshotTrigger";
 
-// Aether type system. next/font self-hosts these at build time, so the running
+// LEYLINE type system. next/font self-hosts these at build time, so the running
 // .exe serves them locally — no runtime network calls (local-first mandate).
-const display = Playfair_Display({
+const display = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["500", "600", "700"],
   variable: "--font-display",
   display: "swap"
 });

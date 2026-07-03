@@ -31,13 +31,13 @@ export default function ProfileMenu({ activeProfile, profiles = [], activeId, on
         title="Switch profile"
         style={{
           display: "flex", alignItems: "center", gap: 6,
-          border: `1px solid ${LINE}`, borderRadius: 5, background: open ? "rgba(0,242,255,0.10)" : "transparent",
+          border: `1px solid ${LINE}`, borderRadius: 5, background: open ? "rgba(86,214,93,0.10)" : "transparent",
           color: TEXT, cursor: "pointer", fontFamily, fontSize: 11, padding: "4px 8px", whiteSpace: "nowrap",
         }}
       >
         <span style={{
           width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 10, fontWeight: 700, color: "#00363a", background: GOLD,
+          fontSize: 10, fontWeight: 700, color: "#05130a", background: GOLD,
         }}>{initial}</span>
         <span style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
         <span style={{ color: MUTED, fontSize: 9 }}>{open ? "▴" : "▾"}</span>
@@ -63,14 +63,14 @@ export default function ProfileMenu({ activeProfile, profiles = [], activeId, on
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 8, textAlign: "left",
                   padding: "7px 8px", borderRadius: 6, border: "1px solid transparent", cursor: active ? "default" : "pointer",
-                  background: active ? "rgba(0,242,255,0.08)" : "transparent", color: active ? GOLD : TEXT,
+                  background: active ? "rgba(86,214,93,0.08)" : "transparent", color: active ? GOLD : TEXT,
                   fontFamily, fontSize: 12,
                 }}
               >
                 <span style={{
                   width: 18, height: 18, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, fontWeight: 700, color: active ? "#00363a" : GOLD,
-                  background: active ? GOLD : "rgba(0,242,255,0.12)",
+                  fontSize: 10, fontWeight: 700, color: active ? "#05130a" : GOLD,
+                  background: active ? GOLD : "rgba(86,214,93,0.12)",
                 }}>{(p.name.trim()[0] || "?").toUpperCase()}</span>
                 <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                 {active && <span style={{ fontSize: 9, color: GOLD }}>●</span>}

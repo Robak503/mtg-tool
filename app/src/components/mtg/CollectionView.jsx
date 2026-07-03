@@ -39,7 +39,7 @@ const COLORS = {
   LINE: "#2c393b",
   TEXT: "#e3e2e6",
   MUTED: "#b9cacb",
-  GOLD: "#00dbe7",
+  GOLD: "#56d65d",
   RED: "#ffb4ab",
 };
 
@@ -48,9 +48,9 @@ const FONT = `var(--font-body), system-ui, -apple-system, "Segoe UI", Roboto, sa
 // The Vault leads with the cyan hero accent (not agent-themed); reuse the shared cfg shape.
 const VAULT_CFG = {
   color: COLORS.GOLD,
-  border: "rgba(0,242,255,0.30)",
-  dim: "rgba(0,242,255,0.10)",
-  glow: "rgba(0,242,255,0.30)",
+  border: "rgba(86,214,93,0.30)",
+  dim: "rgba(86,214,93,0.10)",
+  glow: "rgba(86,214,93,0.30)",
 };
 
 const DEFAULT_FILTERS = {
@@ -513,7 +513,7 @@ export default function CollectionView({ onClose, onBuildCommander }) {
             {[["collection", "Collection"], ["build", "Build"], ["stats", "Stats"], ["sets", "Sets"], ["finance", "Finance"]].map(([k, label]) => (
               <button key={k} onClick={() => setMode(k)} style={{
                 background: mode === k ? COLORS.GOLD : "transparent",
-                color: mode === k ? "#00363a" : COLORS.MUTED,
+                color: mode === k ? "#05130a" : COLORS.MUTED,
                 fontWeight: mode === k ? 600 : 400,
                 border: `1px solid ${mode === k ? COLORS.GOLD : COLORS.LINE}`,
                 padding: "4px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.04em",
@@ -919,7 +919,7 @@ function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, 
       >
         {busy ? "Working…" : `Delete${has ? ` (${count})` : ""}`}
       </button>
-      <button onClick={onExit} disabled={busy} style={{ ...pill, background: colors.GOLD, color: "#00363a", border: `1px solid ${colors.GOLD}`, fontWeight: 600 }}>
+      <button onClick={onExit} disabled={busy} style={{ ...pill, background: colors.GOLD, color: "#05130a", border: `1px solid ${colors.GOLD}`, fontWeight: 600 }}>
         Done
       </button>
     </div>
@@ -943,7 +943,7 @@ function primaryHeaderBtn() {
   return {
     ...btn(),
     background: COLORS.GOLD,
-    color: "#00363a",
+    color: "#05130a",
     border: `1px solid ${COLORS.GOLD}`,
     fontWeight: 600,
   };
