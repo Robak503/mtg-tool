@@ -87,3 +87,10 @@ OOM/~300s → **3.4s total, ~220MB peak**. Proof level: pure-perf (trajectory ha
 offered-X-subset QUALITY (lexicographic first-64 = AI never sees most subsets; ~600-action
 windows) → play-quality re-anchor lane, after B3 · padded-mirror shared card-id aliasing
 (selfPlayRunner.js:601-607 / gameState.js:369) → lane A4 watch-item + test.
+
+### ✅ D1 SHIPPED (rolling 193519dd) — kCombinations bounded at the cap
+Rograkh 4-game batch **OOM/~300s → 2.9s, peak ~357MB** (was a single 7-8GB allocation).
+Behavior-safety: trajectory hash == baseline `0c75d0de…` byte-for-byte (×2 runs) · tier/program/
+runtime fingerprints 0-diff · suite 7,503→7,508 (5 new combination-parity + OOM-guard tests,
+verified against an independent successor-generator reference) · lint clean. Integration
+re-battery on the rolling branch: 7,508 green + lint. Build worktree removed junction-safe.
