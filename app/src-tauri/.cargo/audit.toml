@@ -1,0 +1,26 @@
+# cargo-audit configuration (read by the rust.yml "Audit dependencies" step,
+# which runs from app/src-tauri).
+#
+# IGNORED ADVISORIES — each entry must carry a justification and a revisit
+# condition. Do not add entries without both.
+
+[advisories]
+ignore = [
+  # RUSTSEC-2026-0194 + RUSTSEC-2026-0195: quick-xml 0.39.x DoS-class issues
+  # (quadratic duplicate-attribute check; unbounded NsReader namespace
+  # allocation). Fixed in quick-xml >= 0.41.
+  #
+  # WHY IGNORED: quick-xml reaches this tree ONLY via plist -> tauri-utils
+  # (`cargo tree -i quick-xml`). plist parses Apple Info.plist XML during
+  # macOS bundling; this app ships Windows-only (.exe/NSIS), so the parsing
+  # path never runs on attacker-controlled input here — both advisories are
+  # denial-of-service, not code execution, and the input at build time is the
+  # repo's own trusted config. Upgrade is upstream-blocked: tauri-utils 2.9.2
+  # pins plist ^1.9, and plist 1.9.0 (latest compatible) pins quick-xml ^0.39
+  # (`cargo update -p plist` -> "0 packages updated", verified 2026-07-03).
+  #
+  # REVISIT: remove both entries when `cargo update -p plist` pulls a plist
+  # with quick-xml >= 0.41 (i.e. after a tauri-utils/plist upstream bump).
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+]
