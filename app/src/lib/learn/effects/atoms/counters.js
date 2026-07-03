@@ -80,7 +80,13 @@ export function applyAddCounter(state, atom, ctx) {
   // a source-stat ("equal to that creature's power"). A 0 count adds NO counters (a clean no-op, never forced to
   // 1); a FIXED count floors at 1. Computed ONCE here (state pre-mutation), then applied to every target. The
   // amount auto-routes through addCounter's central doubler hook, so the Wave-3 counter doubler still composes.
-  const amount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : (atom.amount || 1);
+  // ENRAGE / DAMAGE-RECEIVED self-scaled (countContext:"combatDamageAmount") — "put that many +1/+1 counters on
+  // it": the count is a trigger-context magnitude (ctx.combatDamageAmount, the damage just dealt), resolved via the
+  // SHARED resolveScaledAmount (floored at 0 → a clean no-op on 0 damage). A fixed/dynamic form is unchanged
+  // (countContext unset). Mutually exclusive with countFor by construction (the parser emits at most one).
+  const amount = atom.countContext ? Math.max(0, resolveScaledAmount(state, atom, ctx) || 0)
+    : atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor))
+    : (atom.amount || 1);
   // PER-TARGET-DOUBLE (CR 121 — board-wide "double the number of +1/+1 counters on EACH creature you control":
   // Kalonian Hydra's attack trigger, Bristly Bill / She-Hulk / Court of Garenbrig). Unlike the SELF double
   // (countFor:countersOnSource — one global amount read off the source), the board-wide form doubles EACH
@@ -348,6 +354,18 @@ export function addCounterClauseParser(clause) {
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
   dm = t.match(/^put (?:x|a number of) ([+-]1\/[+-]1) counters? on (target creature you control|target creature|each creature you control) equal to the number of (.+)$/);
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
+  // ===== ENRAGE / DAMAGE-RECEIVED self-scaled (CR 603.2) ===== "put that many +1/+1 counters on it / on this
+  // creature" — the ENRAGE payoff (Hungering Hydra: "Whenever this creature is dealt damage, put that many +1/+1
+  // counters on it"). "that many" = the damage the creature just took, threaded by checkDealtDamageTriggers as
+  // ctx.combatDamageAmount (its alias of dealtDamageAmount). countContext reads that magnitude (applyAddCounter
+  // resolveScaledAmount), floored at 0 → a clean no-op on 0 damage (CR 120.8). combatDamageReferentSatisfied gates
+  // this countContext to the dealtDamage/combatDamageToPlayer events ONLY, so a non-combat "that many" (absent
+  // referent → 0) can never over-place. Recipient is the SOURCE (target:"self"): "it"/"this creature" in a
+  // self-scope enrage trigger IS the damaged creature (ctx.sourceId), and selfTargets honors the layer-aware
+  // creature. Only +1/+1 (the enforced positive form). Anchored ^…$ — any rider ("…, then …", "up to that many")
+  // leaves residue → low → Arbiter (CREED, never a dropped clause). No target enumeration (non-targeted self).
+  const enrageM = t.match(/^put that many \+1\/\+1 counters? on (?:it|this creature)$/);
+  if (enrageM) return { op: "add-counter", counterType: "+1/+1", countContext: "combatDamageAmount", target: "self" };
   // ===== DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon) ===== "put X +1/+1
   // counters on each of up to two target creatures, where X is the result" — X is the just-rolled d20 value
   // (countFor diceResult, read off state.diceRoll, paired with a preceding roll-d20 by the parser's CREED

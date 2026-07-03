@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
+import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -1988,6 +1988,11 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
 
   // A creature already assigned as a blocker this combat can't block again.
   const assigned = new Set((state.combat?.blockers || []).map(b => b.blockerId));
+  // BLOCK-COUNT CAP (CR 509.1c — the menace-inverse) — count blockers ALREADY assigned per attacker this combat,
+  // so a "can't be blocked by more than one creature" attacker (Hungering Hydra) is never offered a 2nd blocker
+  // (blocks accumulate one declare-blocker action at a time; combat.blockers is the running tally).
+  const blockersOnAttacker = {};
+  for (const b of state.combat?.blockers || []) blockersOnAttacker[b.attackerId] = (blockersOnAttacker[b.attackerId] || 0) + 1;
   const player = state.players[playerId];
   const candidateBlockers = player.battlefield
     // Layer-aware (WALT-ANIMATE): an animated permanent can be declared as a blocker.
@@ -2014,6 +2019,9 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
       const eligible = eligibleByAttacker[attackerId];
       if (!eligible.includes(blocker)) continue;                                  // pairwise illegal
       if (attackerHasMenace(state, attackerId) && eligible.length < 2) continue;  // can't form a legal ≥2 menace block
+      // BLOCK-COUNT CAP (CR 509.1c) — "can't be blocked by more than one creature": once one blocker is on this
+      // attacker, no further blocker may be declared (menace-inverse). Layer-aware via the attacker's live card.
+      if ((blockersOnAttacker[attackerId] || 0) >= 1 && isBlockedByAtMostOne(findPermanent(state, attackerId)?.permanent?.card)) continue;
       // N2: attach the attacker's name — without it, blocking among several attackers in a pod
       // renders as N byte-identical "Block the attacker with [[X]]." lines.
       const attackerName = findPermanent(state, attackerId)?.permanent?.card?.name || null;

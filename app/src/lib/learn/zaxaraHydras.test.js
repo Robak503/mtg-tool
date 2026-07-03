@@ -253,10 +253,10 @@ describe("ZAXARA-HYDRAS — HALF-X-CREATE-TOKENS: The Goose Mother flips native 
 });
 describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-only (the strip never masks it)", () => {
   const parked = {
-    "Hungering Hydra (can't-be-blocked-by->1 + dealt-damage→counters)": {
-      type: "Creature — Hydra", mana: "{X}{G}",
-      oracle: "This creature enters with X +1/+1 counters on it.\nThis creature can't be blocked by more than one creature.\nWhenever this creature is dealt damage, put that many +1/+1 counters on it.",
-    },
+    // Hungering Hydra FLIPPED native-trigger via the BLOCK-COUNT-CAP evasion static (its "can't be blocked by more
+    // than one creature", the menace-inverse, is now enforced in legalChoices.legalBlockerActions) + the ENRAGE
+    // self-scaled counter payoff ("put that many +1/+1 counters on it" = ctx.combatDamageAmount) — moved out of
+    // PARKED to hungeringHydra.test.js.
     "Benevolent Hydra ({T},remove-counter: move a counter)": {
       type: "Creature — Hydra", mana: "{X}{G}{G}",
       oracle: "This creature enters with X +1/+1 counters on it.\nIf one or more +1/+1 counters would be put on another creature you control, that many plus one +1/+1 counters are put on it instead.\n{T}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on another target creature you control.",

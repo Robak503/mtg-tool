@@ -218,6 +218,14 @@ function permIsSubtype(state, permId, subtype) {
 const reBareUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked\s*(?:\.|$)/;
 const reCantBlock = /(?:^|[\n.;])\s*(?:this creature|it) can't block\s*(?:\.|$)/;
 const reBlockOnlyFlying = /(?:^|[\n.;])\s*(?:this creature|it) can block only creatures with flying\s*(?:\.|$)/;
+// BLOCK-COUNT CAP (CR 509.1c — the menace-INVERSE) — "This creature can't be blocked by more than one creature."
+// A SET-level restriction on how MANY creatures may block this attacker (at most one), the mirror of menace's ≥2.
+// Enforced at block DECLARATION (legalChoices.legalBlockerActions): once this attacker already has one blocker,
+// no further blocker is offered on it. Self-subject, unconditional, bare (END at "creature"); a conditional /
+// higher-cap ("by more than two") variant is NOT this shape → no match → body-only (safe FN). Corpus: Hungering
+// Hydra. Anchored at a sentence boundary so a team-grant ("creatures you control can't be blocked by more than
+// one creature") never matches (the subject must be "this creature"/"it" after name-normalization).
+const reBlockedByAtMostOne = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked by more than one creature\s*(?:\.|$)/;
 
 // RAD-CONDITIONAL UNBLOCKABLE (CR 509.1b + CR 728) — "This creature can't be blocked as long as defending
 // player has a rad counter." A self-subject conditional evasion static whose condition reads the DEFENDING
@@ -231,6 +239,8 @@ const reRadConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't b
 export function isSelfUnblockable(card) { return reBareUnblockable.test(selfOracle(card)); }
 export function isSelfCantBlock(card) { return reCantBlock.test(selfOracle(card)); }
 export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfOracle(card)); }
+/** BLOCK-COUNT CAP (CR 509.1c) — this attacker "can't be blocked by more than one creature" (menace-inverse). */
+export function isBlockedByAtMostOne(card) { return reBlockedByAtMostOne.test(selfOracle(card)); }
 /** Nightkin Ambusher — unblockable while the DEFENDING player has ≥1 rad counter (corpus-unique). */
 export function isRadConditionalUnblockable(card) { return reRadConditionalUnblockable.test(selfOracle(card)); }
 
@@ -269,6 +279,10 @@ export function isEnforcedEvasionClause(clause) {
   if (/^(?:this creature |it )?can't be blocked$/.test(c)) return true;
   if (/^(?:this creature |it )?can't block$/.test(c)) return true;
   if (/^(?:this creature |it )?can block only creatures with flying$/.test(c)) return true;
+  // BLOCK-COUNT CAP (CR 509.1c — menace-inverse) — "can't be blocked by more than one creature". Enforced in
+  // legalChoices.legalBlockerActions (a 2nd blocker on this attacker is never offered), so a body whose only
+  // non-keyword text is this static is honestly native.
+  if (/^(?:this creature |it )?can't be blocked by more than one creature$/.test(c)) return true;
   if (reEvasionQualifier.test(c)) return true;
   // RAD-CONDITIONAL UNBLOCKABLE (Nightkin Ambusher) — credited here so a body whose only non-keyword text is
   // this conditional evasion static is honestly native; canBlockAttacker enforces the rad-counter condition.
