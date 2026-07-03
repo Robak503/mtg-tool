@@ -82,7 +82,6 @@ function ColorPie({ colors }) {
 
 export default function RightPanel({
   bodyRef,
-  cfg,
   commanderArtName,
   colorBreakdown,
   colorIssues,
@@ -128,12 +127,12 @@ export default function RightPanel({
                 )}
                 <div style={{display:"flex",borderBottom:`1px solid ${LINE}`,flexShrink:0}}>
                   {[["search","Search"],["stats","Stats"],["legal","Legal"],["combos","Combos"]].map(([key,label])=>(
-                    <button key={key} style={{flex:1,padding:"9px 2px",background:rightTab===key?cfg.dim:"transparent",border:"none",borderBottom:rightTab===key?`2px solid ${cfg.color}`:"2px solid transparent",color:rightTab===key?cfg.color:MUTED,cursor:"pointer",fontSize:11,fontFamily:F}}
+                    <button key={key} style={{flex:1,padding:"9px 2px",background:rightTab===key?"var(--ley-green-dim)":"transparent",border:"none",borderBottom:rightTab===key?"2px solid var(--ley-green)":"2px solid transparent",color:rightTab===key?"var(--ley-green)":MUTED,cursor:"pointer",fontSize:11,fontWeight:rightTab===key?700:400,fontFamily:F}}
                       onClick={()=>{setRightTab(key);if(key==="combos")loadCombos();else if(key!=="search")loadDeckData();}}>
                       {label}
                     </button>
                   ))}
-                  {!mobile&&<button onClick={()=>setRightOpen(false)} style={{padding:"9px 10px",background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:14,flexShrink:0}}>x</button>}
+                  {!mobile&&<button aria-label="Hide panel" title="Hide panel" onClick={()=>setRightOpen(false)} style={{padding:"9px 10px",background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:14,flexShrink:0}}>×</button>}
                 </div>
                 <div style={{flex:1,overflowY:"auto",padding:14}}>
     

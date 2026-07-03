@@ -8,7 +8,6 @@ import ProfileMenu from "./ProfileMenu";
 
 export default function AppHeader({
   agent,
-  cfg,
   fastMode,
   mobile,
   rightOpen,
@@ -56,21 +55,21 @@ export default function AppHeader({
   if (knowledgeStatus) {
     const { ollama, spellbook, salt, cardData, rulesFreshness } = knowledgeStatus;
     if (ollama && !ollama.available) {
-      warnings.push({ key: "ollama-down", text: "Ollama offline", detail: "Start with: ollama serve", color: "#c2786f" });
+      warnings.push({ key: "ollama-down", text: "Ollama offline", detail: "Start with: ollama serve", color: "var(--ley-red)" });
     } else if (ollama?.missingModels?.length) {
-      warnings.push({ key: "models-missing", text: `Model missing`, detail: `Run: ollama pull ${ollama.missingModels[0]}`, color: "#c2786f" });
+      warnings.push({ key: "models-missing", text: `Model missing`, detail: `Run: ollama pull ${ollama.missingModels[0]}`, color: "var(--ley-red)" });
     }
     if (cardData?.stale) {
-      warnings.push({ key: "carddata-stale", text: `Card data ${cardData.staleDays}d old`, detail: "Open Data & Updates to refresh card data from Scryfall", color: "#b08a3e", sync: true });
+      warnings.push({ key: "carddata-stale", text: `Card data ${cardData.staleDays}d old`, detail: "Open Data & Updates to refresh card data from Scryfall", color: "var(--ley-gold)", sync: true });
     }
     if (spellbook?.stale) {
-      warnings.push({ key: "spellbook-stale", text: `Combos ${spellbook.staleDays}d old`, detail: "Open Data & Updates to refresh combos", color: "#b08a3e", sync: true });
+      warnings.push({ key: "spellbook-stale", text: `Combos ${spellbook.staleDays}d old`, detail: "Open Data & Updates to refresh combos", color: "var(--ley-gold)", sync: true });
     }
     if (salt?.stale) {
-      warnings.push({ key: "salt-stale", text: `Salt ${salt.staleDays}d old`, detail: "Open Data & Updates to refresh EDHREC salt", color: "#b08a3e", sync: true });
+      warnings.push({ key: "salt-stale", text: `Salt ${salt.staleDays}d old`, detail: "Open Data & Updates to refresh EDHREC salt", color: "var(--ley-gold)", sync: true });
     }
     if (rulesFreshness?.stale) {
-      warnings.push({ key: "rules-stale", text: `Rules ${rulesFreshness.staleDays}d old`, detail: "Open Data & Updates to refresh the Comprehensive Rules", color: "#b08a3e", sync: true });
+      warnings.push({ key: "rules-stale", text: `Rules ${rulesFreshness.staleDays}d old`, detail: "Open Data & Updates to refresh the Comprehensive Rules", color: "var(--ley-gold)", sync: true });
     }
   }
 
@@ -98,7 +97,8 @@ export default function AppHeader({
         )}
         {warnings.map(w => {
           const chipStyle = {
-            border:`1px solid ${w.color}44`,
+            // color-mix keeps the border a soft 30% tint of the (token) chip color
+            border:`1px solid color-mix(in srgb, ${w.color} 30%, transparent)`,
             borderRadius:5,
             color:w.color,
             fontFamily,
@@ -145,12 +145,13 @@ export default function AppHeader({
                   style={{
                     border:0,
                     borderRight:option.id !== providerOptions[providerOptions.length - 1].id ? `1px solid ${LINE}` : 0,
-                    background:active?cfg.dim:"transparent",
-                    color:active?cfg.color:"var(--on-surface-variant)",
+                    background:active?"var(--ley-green-dim)":"transparent",
+                    color:active?"var(--ley-green)":"var(--on-surface-variant)",
+                    fontWeight:active?700:400,
                     cursor:"pointer",
                     fontFamily,
                     fontSize:11,
-                    padding:"5px 8px",
+                    padding:"5px 9px",
                   }}
                 >
                   {option.label}
@@ -164,7 +165,7 @@ export default function AppHeader({
           <button
             onClick={()=>setFastMode(!fastMode)}
             title={fastMode?"Fast: compressed prompt, lower cost, slight accuracy drop":"Full: complete engine prompt, max accuracy"}
-            style={{...pb(false,true),background:fastMode?cfg.dim:"transparent",borderColor:cfg.border,color:cfg.color}}
+            style={{...pb(false,true),background:fastMode?"var(--ley-green-dim)":"transparent"}}
           >
             {fastMode?"Fast":"Full"}
           </button>

@@ -208,6 +208,16 @@ pub fn run() {
             Some(vec!["--autostart"]),
         ))
         .setup(move |app| {
+            // Title carries the running version (kiosk chrome: the user always
+            // knows what build they're on without opening Settings).
+            #[cfg(desktop)]
+            {
+                use tauri::Manager;
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.set_title(&format!("MTG Tool v{}", app.package_info().version));
+                }
+            }
+
             // When launched at Windows startup the autostart plugin
             // injects --autostart; start hidden in tray so we don't
             // pop a window in the user's face. Normal double-click

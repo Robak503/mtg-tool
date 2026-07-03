@@ -721,8 +721,12 @@ export default function MTGAssistant() {
   // glass panels, cool off-white text. Tokens mirror globals.css :root.
   const BG="#050705",BG2="rgba(10,14,10,0.8)",BG3="rgba(8,11,8,0.6)",LINE="#2a3a2c",TEXT="#e6f0e6",MUTED="#a8bfaa",GOLD="#56d65d";
   const F="var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  const sb=(outline)=>({width:"100%",padding:"7px 9px",borderRadius:8,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"rgba(255,255,255,0.02)":cfg.dim,color:outline?MUTED:cfg.color});
-  const pb=(primary,sm)=>({padding:sm?"6px 12px":"8px 16px",borderRadius:9,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:`1px solid ${primary?cfg.color:cfg.border}`,background:primary?cfg.color:"rgba(255,255,255,0.03)",color:primary?"#0c0b0a":cfg.color,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?`0 3px 12px -4px ${cfg.glow}`:"inset 0 1px 0 rgba(255,255,255,0.04)"});
+  // LEYLINE: system chrome is always green — agent identity colors live only on
+  // identity elements (agent rows, chat bubbles), never on system buttons.
+  // Geometry mirrors globals.css .btn-primary/.btn-secondary so migrating a
+  // call site to the classes is visually a no-op.
+  const sb=(outline)=>({width:"100%",padding:"9px 10px",borderRadius:8,fontFamily:F,fontSize:11,fontWeight:600,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:"var(--ley-line-bright)"}`,background:outline?"rgba(255,255,255,0.02)":"var(--ley-green-dim)",color:outline?MUTED:GOLD,transition:"border-color .1s,background .1s,color .1s"});
+  const pb=(primary,sm)=>({padding:sm?"6px 12px":"10px 16px",borderRadius:sm?6:10,fontFamily:F,fontSize:sm?11:13,fontWeight:600,cursor:"pointer",border:`1px solid ${primary?"var(--ley-green-bright)":"var(--ley-line-bright)"}`,background:primary?"linear-gradient(180deg, var(--ley-green) 0%, var(--ley-green-deep) 100%)":"rgba(255,255,255,0.03)",color:primary?"var(--ley-on-green)":GOLD,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?"0 0 14px var(--ley-green-glow), inset 0 1px 0 rgba(255,255,255,0.25)":"inset 0 1px 0 rgba(255,255,255,0.04)",transition:"border-color .1s,background .1s,color .1s,box-shadow .16s"});
   const deckActionPrompts = {
     jace: `Create a table-ready briefing for the active deck "${activeDeck?.name || "this deck"}". Explain the commander plan, early/mid/late game priorities, biggest rules or sequencing traps, and the 5 questions I should ask during a real game.\n\nDeck list:\n${serializeDeck(deckCards)}`,
     karn: `Create a commander-focused upgrade plan for the active deck "${activeDeck?.name || "this deck"}". Give me: core game plan, role balance, 10 strongest cuts, 10 strongest adds, mana/ramp fixes, interaction/protection fixes, and a short testing plan. Make it useful to save as deck memory.`,
@@ -801,8 +805,8 @@ export default function MTGAssistant() {
       <style>{`
         @keyframes mtgd{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:.9}}
         *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#060608}::-webkit-scrollbar-thumb{background:#2a2c46;border-radius:2px}
-        input:focus,textarea:focus{border-color:#3a3c5e!important;outline:none}button:hover{opacity:.82}
+        input:focus,textarea:focus,select:focus{border-color:rgba(88,214,95,0.45)!important;outline:none}
+        button:hover{filter:brightness(1.15)}button:active{filter:brightness(.94)}button:disabled{filter:none}
       `}</style>
 
       <AppHeader
@@ -1155,6 +1159,7 @@ export default function MTGAssistant() {
             agent={agent}
             activeDeckId={activeDeckId}
             cfg={cfg}
+            centerView={centerView}
             mobile={mobile}
             sending={sending}
             savedDecks={savedDecks}
@@ -1172,7 +1177,7 @@ export default function MTGAssistant() {
             unloadActiveDeck={unloadActiveDeck}
             openPodBalance={() => setShowPodBalance(true)}
             sb={sb}
-            colors={{BG2, LINE, MUTED, TEXT}}
+            colors={{BG2, LINE, MUTED, TEXT, GOLD}}
             fontFamily={F}
           />
         )}
