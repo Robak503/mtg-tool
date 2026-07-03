@@ -259,7 +259,23 @@ export function observe(state, seat) {
 // are the contract surface — breaking any of them bumps the MAJOR and is announced on memory/COMMS.md
 // before release. Additive fields are MINOR and safe to ignore.
 
-export const PLAY_API_VERSION = "1.0.0";
+// 1.1.0 (additive MINOR — PLAY-API-CONTRACT change discipline):
+//   - act(session, decision, answer, opts = {}) grew the optional trailing opts bag; the
+//     settlers thread it through every internal re-advance, so a caller-driven game stays
+//     instrumented (decide/recordDecision/timePressure/onTurnStart) past the first act().
+//   - createGame now HONORS the contract-documented `pilots` option (previously silently
+//     dropped): pilots are routed via session.playOpts.decide + a mulligan config.
+//   - Instrumented advances stamp `state.observedTurn` (additive state field, save-schema v5)
+//     so re-entrant advances never re-fire the turn-boundary clock/observer.
+// 1.2.0 (additive MINOR — SD-5/PS-4, the session-layer A/B seam):
+//   - createGame gained the optional `policy` option (null | "v1" | per-subsystem map — see
+//     opponentAI.normalizePolicy). It rides session.playOpts.policy, is merged into every
+//     nextDecision/act advance (explicit opts.policy wins), and reaches pickAction/
+//     pickAttackPlan/pickBlockPlan for every AI-auto-picked decision — so pilots can run
+//     old-vs-new policy probes through the contract seam. It only ever re-ranks actions
+//     already offered by legalChoices — NEVER a legality gate (THE CREED). Default null ⇒
+//     byte-identical play.
+export const PLAY_API_VERSION = "1.2.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for
@@ -268,9 +284,41 @@ export const PLAY_API_VERSION = "1.0.0";
  *     userCommanders/opponentCommanders, seed, pilots: { [seat]: { decide, decideMulligan?, ... } } }
  * difficulty "expert" makes AI seats self-decide inside nextDecision; pass pilots to route every
  * seat's decisions through your own decide instead (the selfPlayRunner adapter).
+ *
+ * `pilots` (contract §1.1/§1.3) is consumed HERE, not by createLearnSession: each seat's
+ * decide is wrapped in a per-seat router stored as `session.playOpts.decide`, which
+ * nextDecision/act merge into the driver opts on every advance (an explicit opts.decide
+ * from the caller wins — lab.mjs-style drivers are unaffected). When any pilots[seat] has a
+ * decideMulligan, a mulligan config (same construction as the selfPlayRunner adapter) is
+ * built and passed to createLearnSession — unless the caller supplied `mulligan` themselves
+ * (explicit caller mulligan wins). Malformed pilots THROW loudly (never silently dropped —
+ * a contract-faithful consumer must never get default-AI play while believing pilots drive).
+ * No pilots ⇒ no playOpts key ⇒ byte-identical to a bare createLearnSession.
+ * NOTE: a pilots session holds live closures (playOpts) — it is driver-memory-only and is
+ * honestly rejected by the save layer's isSerializable guard; the HTTP path never has one.
+ *
+ * `policy` (contract §1.1, v1.2.0 — SD-5/PS-4) is the opponentAI A/B knob (null | "v1" |
+ * a per-subsystem map; see opponentAI.normalizePolicy). It rides session.playOpts.policy
+ * and is merged into every nextDecision/act advance exactly like the pilots router, so
+ * a whole game plays under the requested policy with no per-call plumbing. Single knob,
+ * whole game (per-seat policy is explicitly out of v1.x scope). Default null ⇒ no
+ * playOpts.policy key ⇒ byte-identical.
  */
 export function createGame(options) {
-  return createLearnSession(options);
+  const { pilots = null, policy = null, ...engineOpts } = options ?? {};
+  if (pilots == null && policy == null) return createLearnSession(engineOpts);
+  const { decide, mulliganConfig } = pilots == null
+    ? { decide: null, mulliganConfig: null }
+    : buildPilotRouter(pilots);
+  if (mulliganConfig && engineOpts.mulligan == null) {
+    engineOpts.mulligan = mulliganConfig;
+  }
+  const session = createLearnSession(engineOpts);
+  const playOpts = {};
+  if (decide) playOpts.decide = decide; // identity-only pilots (no decide anywhere) — nothing to route
+  if (policy != null) playOpts.policy = policy;
+  if (Object.keys(playOpts).length === 0) return session;
+  return { ...session, playOpts };
 }
 
 /**
@@ -280,7 +328,7 @@ export function createGame(options) {
  * timePressure — the self-play instrumentation seam).
  */
 export function nextDecision(session, options = {}) {
-  return advanceUntilDecision(session, options);
+  return advanceUntilDecision(session, mergePlayOpts(session, options));
 }
 
 /**
@@ -290,12 +338,20 @@ export function nextDecision(session, options = {}) {
  * a PENDING_CHOICE_KINDS member → the kind-echo-validated settler; "unresolved" → the Arbiter
  * acknowledgement. Terminal/no-op kinds return the session unchanged with the same decision.
  * Always returns { session, decision } — the same shape as nextDecision.
+ *
+ * `opts` (v1.1.0, additive) is the instrumentation bag nextDecision already takes
+ * ({ decide, pilot, recordDecision, timePressure, onTurnStart, archetype }); it is threaded
+ * through the settlers into every internal re-advance, so the engine-auto segments BETWEEN
+ * caller decisions stay routed/recorded/clocked. Omitted ⇒ {} ⇒ byte-identical to v1.0.0
+ * (the HTTP/human path). session.playOpts (the createGame pilots router) is merged in with
+ * explicit opts winning per-field.
  */
-export function act(session, decision, answer) {
+export function act(session, decision, answer, opts = {}) {
   const kind = decision?.kind;
-  if (kind === "ask") return applyChoice(session, answer);
-  if (kind === "unresolved") return continueFromArbiter(session);
-  if (PENDING_CHOICE_KINDS.includes(kind)) return applyPendingChoice(session, answer);
+  const merged = mergePlayOpts(session, opts);
+  if (kind === "ask") return applyChoice(session, answer, merged);
+  if (kind === "unresolved") return continueFromArbiter(session, merged);
+  if (PENDING_CHOICE_KINDS.includes(kind)) return applyPendingChoice(session, answer, merged);
   if (kind === "game-over" || kind === "dispatch-error" || kind === "engine-stuck") {
     return { session, decision };
   }
@@ -304,6 +360,95 @@ export function act(session, decision, answer) {
 }
 
 // ─── internals ───────────────────────────────────────────────────────────────
+
+/**
+ * Merge the session-level pilots router (session.playOpts, set by createGame's `pilots`
+ * option) into a caller's per-call opts bag. Explicit opts win per-field, so a driver
+ * that routes decisions itself (lab.mjs's nextDecision-opts style) is unaffected; a
+ * contract-faithful createGame({ pilots }) consumer gets its router on EVERY advance —
+ * nextDecision and act alike — with no per-call plumbing. No playOpts ⇒ the caller's
+ * opts pass through untouched (byte-identical default path).
+ */
+function mergePlayOpts(session, opts) {
+  const po = session?.playOpts;
+  if (!po) return opts;
+  const merged = { ...opts };
+  if (merged.decide === undefined && typeof po.decide === "function") {
+    merged.decide = po.decide;
+  }
+  // The createGame `policy` knob (v1.2.0) — same explicit-wins semantics as decide.
+  if (merged.policy === undefined && po.policy != null) {
+    merged.policy = po.policy;
+  }
+  return merged;
+}
+
+/**
+ * Validate + compile a contract §1.3 `pilots` map into the driver's single-decide seam.
+ * Same construction as the selfPlayRunner adapter (its per-seat router + identity map +
+ * mulligan config) — duplicated here deliberately rather than importing the runner
+ * (selfPlayRunner imports gameApi; the reverse import would be a cycle) and kept
+ * byte-equivalent so both paths route identically.
+ *
+ * THROWS on a malformed map (non-object pilots, a non-object seat entry, a present-but-
+ * non-function decide/decideMulligan): the contract documents `pilots` as load-bearing,
+ * so silently dropping a broken one would mislabel default-AI play as pilot-driven —
+ * the self-play data-trust poison case. A seat entry with NEITHER decide nor
+ * decideMulligan is legal (identity-only, plays the default AI — the runner allows it).
+ *
+ * Returns { decide, mulliganConfig } (either may be null when no seat opted in).
+ */
+function buildPilotRouter(pilots) {
+  if (typeof pilots !== "object" || pilots === null || Array.isArray(pilots)) {
+    throw new Error("createGame: pilots must be a { [seat]: { decide, decideMulligan?, playbook?, temperament? } } map");
+  }
+  for (const [seat, p] of Object.entries(pilots)) {
+    if (!p || typeof p !== "object" || Array.isArray(p)) {
+      throw new Error(`createGame: pilots["${seat}"] must be an object ({ decide, decideMulligan?, ... })`);
+    }
+    if (p.decide !== undefined && typeof p.decide !== "function") {
+      throw new Error(`createGame: pilots["${seat}"].decide must be a function (got ${typeof p.decide})`);
+    }
+    if (p.decideMulligan !== undefined && typeof p.decideMulligan !== "function") {
+      throw new Error(`createGame: pilots["${seat}"].decideMulligan must be a function (got ${typeof p.decideMulligan})`);
+    }
+  }
+
+  // Per-seat pilot identity ({playbook,temperament} | null) — passed to decide and stamped
+  // on recorded rows, exactly like the selfPlayRunner's pilotIdentity.
+  const pilotIdentity = (seat) => {
+    const p = pilots?.[seat];
+    return p ? { playbook: p.playbook ?? null, temperament: p.temperament ?? null } : null;
+  };
+
+  // The in-game router: advanceUntilDecision takes ONE decide; route it to the acting
+  // seat's pilot. A seat with no pilot decide returns undefined ⇒ the driver falls back
+  // to the default autopilot pick (byte-identical for that seat).
+  const hasAnyPilot = Object.values(pilots).some((p) => typeof p?.decide === "function");
+  const decide = hasAnyPilot
+    ? ({ state, legalActions, seat }) => {
+        const p = pilots?.[seat];
+        if (typeof p?.decide !== "function") return undefined;
+        return p.decide({ state, legalActions, seat, pilot: pilotIdentity(seat) });
+      }
+    : null;
+
+  // Pre-game London mulligan (CR 103.5), built iff ANY seat has a decideMulligan — the
+  // selfPlayRunner's exact construction (a seat without one keeps its dealt 7).
+  const hasAnyMulliganPilot = Object.values(pilots).some((p) => typeof p?.decideMulligan === "function");
+  const mulliganConfig = hasAnyMulliganPilot
+    ? {
+        decide: ({ state, legalActions, seat, pilot }) => {
+          const p = pilots?.[seat];
+          if (typeof p?.decideMulligan !== "function") return { kind: "mulligan-keep" }; // no mull pilot → keep the 7
+          return p.decideMulligan({ state, legalActions, seat, pilot });
+        },
+        pilots: Object.fromEntries(Object.keys(pilots).map((seat) => [seat, pilotIdentity(seat)])),
+      }
+    : null;
+
+  return { decide, mulliganConfig };
+}
 
 /**
  * Deep structural equality for two action objects. Actions are small, JSON-ish

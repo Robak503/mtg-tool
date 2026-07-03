@@ -19,6 +19,16 @@
  *     --out=<path>                explicit .txt output path (default: <appRoot>/data/self-play/...)
  *     --max=N                     cap the number of decks (e.g. --max=4 for a quick smoke)
  *     --games-per=N               repeat each pairing N times (distinct seeds → varied games)
+ *     --seed=N|auto               batch base seed (HB-4). Default 1 — deterministic, a bare
+ *                                 rerun reproduces byte-identically. A number = that seed
+ *                                 (echoed + stamped per game so banked duplicates are
+ *                                 detectable); "auto" = a fresh crypto-derived sweep seed.
+ *     --no-mulligan               disable the AI London mulligan (AI-F9 — default ON for
+ *                                 batches so 0-land/7-land dealt hands are shipped, not kept)
+ *     --rotate-seats              HB-5: rotate deck→seat assignment across the batch so
+ *                                 pilot/deck/seat de-confound (recorded on meta.seatRotation)
+ *     --pod-shuffle               HB-6: re-deal deck→pod composition each cycle (seed-derived)
+ *                                 so cross-chunk matchups get sampled
  *     --no-time-pressure          disable the opt-in "game clock" (recovers old draw-at-cap;
  *                                 default is ON so stalling games end decisively W/L)
  *     --export-trajectories=<path>  ENGINE→BRAIN DATA HOOK (Omnath seam, P3): also record every
@@ -41,11 +51,11 @@ import process from "node:process";
 
 import { appRoot } from "../src/lib/server/paths.js";
 import { loadAllProfileDecks, toRunnerDeck } from "../src/lib/server/selfPlayDecks.js";
-import { runSelfPlayBatch } from "../src/lib/learn/selfPlayRunner.js";
+import { runSelfPlayBatch, resolveBaseSeed, summarizeSeatOutcomes } from "../src/lib/learn/selfPlayRunner.js";
 import { aggregateBreakages, formatBreakageTxt } from "../src/lib/learn/breakageReport.js";
 
 function parseArgs(argv) {
-  const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true, exportTrajectories: null };
+  const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true, exportTrajectories: null, seed: null, mulligan: true, rotateSeats: false, podShuffle: false };
   for (const a of argv) {
     if (a.startsWith("--mode=")) args.mode = a.slice(7) === "standard" ? "standard" : "commander";
     else if (a.startsWith("--ids=")) args.ids = a.slice(6).split(",").map((s) => s.trim()).filter(Boolean);
@@ -54,6 +64,10 @@ function parseArgs(argv) {
     else if (a.startsWith("--games-per=")) args.gamesPer = Math.max(1, parseInt(a.slice(12), 10) || 1);
     else if (a === "--no-time-pressure") args.timePressure = false; // recover the old draw-at-cap behavior
     else if (a.startsWith("--export-trajectories=")) args.exportTrajectories = a.slice(22);
+    else if (a.startsWith("--seed=")) args.seed = a.slice(7); // HB-4: N | "auto" (resolved below)
+    else if (a === "--no-mulligan") args.mulligan = false; // AI-F9 opt-out (recovers keep-every-7)
+    else if (a === "--rotate-seats") args.rotateSeats = true; // HB-5 deck↔seat de-confound
+    else if (a === "--pod-shuffle") args.podShuffle = true; // HB-6 cross-chunk pod sampling
   }
   return args;
 }
@@ -102,13 +116,21 @@ async function main() {
   }
 
   const t0 = Date.now();
-  console.log(`[self-play] running self-play batch…`);
+  // HB-4: resolve the batch base seed. Default 1 (deterministic — a bare rerun
+  // reproduces byte-identically); an explicit number is normalized (>>>0) so the
+  // echoed value is the effective one; "auto" mints a fresh non-Date sweep seed.
+  const baseSeed = resolveBaseSeed(args.seed);
+  console.log(`[self-play] running self-play batch… (baseSeed ${baseSeed}${args.seed === "auto" ? " — auto" : ""}, mulligan ${args.mulligan ? "ON" : "OFF"}${args.rotateSeats ? ", rotate-seats" : ""}${args.podShuffle ? ", pod-shuffle" : ""})`);
   // Time pressure is ON by default for batches (decisive endings → clean W/L training
   // labels). Pass --no-time-pressure to recover the old draw-at-cap behavior.
   const batch = runSelfPlayBatch(runnerDecks, {
     mode: args.mode,
     gamesPer: args.gamesPer,
+    baseSeed,
     timePressure: args.timePressure,
+    mulligan: args.mulligan, // AI-F9: default ON (ship unkeepable 7s); --no-mulligan opts out
+    rotateSeats: args.rotateSeats, // HB-5 (opt-in)
+    podShuffle: args.podShuffle, // HB-6 (opt-in)
     recordDecisions: !!args.exportTrajectories, // the export needs the per-decision rows
   });
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
@@ -127,6 +149,17 @@ async function main() {
   for (const k of Object.keys(dist).sort()) console.log(`[self-play]   ${k}: ${dist[k]} (${pct(k)})`);
   console.log(`[self-play]   → decisive (W/L): ${decisive}/${batch.games.length} (${pct("user-wins")} + ${pct("ai-wins")} = ${((decisive / n) * 100).toFixed(1)}%)`);
   console.log(`[self-play]   → draw: ${pct("draw")} · timeout: ${pct("timeout")}`);
+
+  // HB-7: per-seat / per-deck / on-the-play win tables — the measurement that makes a
+  // turn-order-position bias (the "ai1 concentration" question) visible. Wilson 95% CIs;
+  // without --rotate-seats, seat and deck are CONFOUNDED (the tables then differ only by label).
+  const seatSummary = summarizeSeatOutcomes(batch.games);
+  const fmtRow = (k, e) => `[self-play]   ${k.padEnd(28)} ${String(e.wins).padStart(3)}/${String(e.games).padEnd(4)} ${(e.winRate * 100).toFixed(1).padStart(5)}%  CI95 [${(e.ci95.lo * 100).toFixed(1)}%, ${(e.ci95.hi * 100).toFixed(1)}%]`;
+  console.log(`[self-play] win rates by TURN-ORDER seat position (${seatSummary.decisiveGames}/${seatSummary.games} decisive${args.rotateSeats ? "" : "; seat↔deck confounded — pass --rotate-seats to de-confound"}):`);
+  for (const [k, e] of Object.entries(seatSummary.bySeat)) console.log(fmtRow(k, e));
+  console.log(`[self-play] win rates by DECK:`);
+  for (const [k, e] of Object.entries(seatSummary.byDeck)) console.log(fmtRow(k, e));
+  console.log(fmtRow("on-the-play", seatSummary.onThePlay));
 
   const aggregate = aggregateBreakages(batch.games);
   const generatedAt = new Date().toISOString();
@@ -158,6 +191,7 @@ async function main() {
       schema: "omnath-trajectory-v1",
       generatedAt,
       mode: args.mode,
+      baseSeed, // HB-4 (additive within v1): the batch base — with meta.seed, banked duplicates are detectable
       result: g.result ?? null,
       winnerSeat: g.winnerSeat ?? null,
       onThePlay: g.onThePlay ?? null,

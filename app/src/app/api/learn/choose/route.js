@@ -20,6 +20,7 @@
 export const runtime = "nodejs";
 
 import { applyPendingChoice, isComplete, filteredDecisionLogTail } from "../../../../lib/learn/learnSession.js";
+import { decisionViewForWire } from "../../../../lib/learn/decisionWire.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
@@ -70,7 +71,7 @@ export async function POST(request) {
 
   return Response.json({
     sessionId: stepped.id,
-    decision: enrichUnresolvedDecision(result.decision, stepped.state),
+    decision: decisionViewForWire(enrichUnresolvedDecision(result.decision, stepped.state)),
     status: stepped.status,
     difficulty: stepped.difficulty,
     turn: stepped.state.turn,

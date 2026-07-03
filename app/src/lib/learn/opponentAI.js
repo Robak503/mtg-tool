@@ -32,7 +32,8 @@ import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCre
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
 import { attackerHasMenace, canBlockAttacker } from "./combatEvasion.js";
-import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog, atomTargetIntent } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
+import { parseAuraBonus } from "./staticAbilityParser.js";
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
 
@@ -45,15 +46,18 @@ import { programContainsCounter, programContainsMassRemoval, programContainsTeam
  * Accepted shapes:
  *   null / undefined                        → all-current (the shipping behavior)
  *   "v1"                                    → every subsystem legacy
- *   { land|block|attack|xSizing: "v1" }     → per-subsystem legacy
+ *   { land|block|attack|xSizing|counter|unresolvable: "v1" } → per-subsystem legacy
  *
  * The DEFAULT is always the new behavior (the Academy and self-play improve
  * automatically); "v1" exists only so the probe can measure old-vs-new inside one
  * seeded run. Policies only ever re-rank actions already offered by legalChoices —
  * never gate legality on a policy flag (THE CREED: the engine's chokepoints, not
  * private heuristics, decide what is legal).
+ *
+ * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
+ * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -270,6 +274,16 @@ function pickXCast(state, aiPlayerId, actions) {
   }
   if (bestKill) return bestKill.action;
   if (bestFace) return bestFace.action;
+  // AI-F12 — MIXED-TARGET X GROUP: one targeted variant used to flip the WHOLE group
+  // into the damage-only scorer, holding groups whose "up to …" DECLINE variant is
+  // pure castable value (draw X / token X with an optional rider target). When the
+  // targeted scan approves nothing, fall back to the best UNTARGETED variant — the
+  // decline is a legal cast by construction (CR 601.2c; expandAtoms enumerates it).
+  // An all-targeted unscorable group still returns null (the existing safe hold).
+  const untargeted = actions.filter((a) => !(a.targets?.length));
+  if (untargeted.length) {
+    return untargeted.reduce((best, a) => (xOf(a) > xOf(best) ? a : best), untargeted[0]);
+  }
   return null;
 }
 
@@ -305,12 +319,334 @@ function pickCounterCast(state, aiPlayerId, actions) {
     const obj = spellById.get(t.id);
     if (!obj || !enemies.has(obj.controller)) continue; // unknown stack object or OUR OWN spell → never
     const cost = castCostTotal(obj.cost);
-    if (cost < COUNTER_THREAT_MIN_COST) continue;       // a cantrip isn't worth the counter
+    // ALT-COST: a PAID alternative cost (pitch a card / pay life / sac / bounce lands — never the free
+    // kind) is a built-in 2-for-1 — it only answers a genuinely scary threat (≥5 mana), so the AI never
+    // trades two cards for a mid-curve spell it could simply let resolve. Free alt-casts and normal casts
+    // keep the standard ≥3 threat bar.
+    const minCost = a.altCost && a.altCost.kind !== "free" ? 5 : COUNTER_THREAT_MIN_COST;
+    if (cost < minCost) continue;                       // below the threat bar → not worth the counter
     if (!best || cost > best.cost || (cost === best.cost && String(t.id) < String(best.targetId))) {
       best = { action: a, cost, targetId: t.id };
     }
   }
   return best?.action || null;
+}
+
+// ─── ALT-COST variant discipline (CR 601.2b/118.9 offers; ranking only — THE CREED gates nothing here) ──
+//
+// legalChoices' alt-cost dual offer twins each cast of an alt-carrier (Fierce Guardianship, Force of Will,
+// Snuff Out …) with `altCost` payment variants. Before the normal per-card cascade scores the group, apply
+// a CONSERVATIVE dominance filter so the AI pays an alternative cost only when it is clearly worth it:
+//   • FREE twin (same targets/mode) → strictly dominates its normal-cost twin: same effect, zero mana.
+//     Keep the free variant, drop the normal (the mana stays open for the rest of the turn).
+//   • PAID twin whose normal cast is ALSO offered (the printed cost is affordable) → pay mana, never the
+//     card/life/board resource. Drop the paid variant.
+//   • PAID variants with NO normal twin (the printed cost was unaffordable — the only reason to pitch):
+//     kept ONLY for interaction (a counter, or single-target removal — the spells worth a 2-for-1), only
+//     when a life payment leaves ≥10 life, and only the single CHEAPEST payment per target (lowest-MV
+//     pitch/sac candidate, id tiebreak — deterministic, never emission-order-dependent). Non-interaction
+//     paid alts (Gush draw / Unmask discard / Pyrokinesis burn / Snapback bounce / Flare of Cultivation
+//     tutor / Cave-In) are dropped — human-only offers, a safe false-negative.
+// pol.altCost === "v1" recovers the legacy never-pay-alt arm for the A/B probe.
+const ALT_REMOVAL_OPS = new Set(["destroy", "exile", "tuck"]);
+function altSingleTargetRemovalProgram(program) {
+  if (!program || program.structure === "modal") return false;
+  const atoms = program.atoms || [];
+  return atoms.length === 1 && ALT_REMOVAL_OPS.has(atoms[0].op) && !!atoms[0].targetType;
+}
+function altVariantKey(a) {
+  const t = (a.targets || []).map((x) => String(x?.id)).sort().join(",");
+  return `${t}|${a.chosenMode ?? ""}|${a.xValue ?? ""}`;
+}
+function altCardMv(c) { return typeof c?.cmc === "number" ? c.cmc : 0; }
+function altPaymentMv(state, aiPlayerId, alt) {
+  if (alt.exilePitchId) return altCardMv((state.players?.[aiPlayerId]?.hand || []).find((h) => h.id === alt.exilePitchId));
+  if (alt.sacId) return altCardMv((state.players?.[aiPlayerId]?.battlefield || []).find((p) => p.id === alt.sacId)?.card);
+  return 0;
+}
+function altResourceId(alt) { return String(alt.exilePitchId ?? alt.sacId ?? (alt.returnLandIds || []).join("+")); }
+function filterAltCastVariants(state, aiPlayerId, actions) {
+  if (!actions.some((a) => a.altCost)) return actions;
+  const normalKeys = new Set(actions.filter((a) => !a.altCost).map(altVariantKey));
+  const freeKeys = new Set(actions.filter((a) => a.altCost?.kind === "free").map(altVariantKey));
+  const program = actions[0].program;
+  const interaction = programContainsCounter(program) || altSingleTargetRemovalProgram(program);
+  const life = state.players?.[aiPlayerId]?.life ?? 0;
+  // Alt-only PAID variants: pick the single cheapest payment per (targets, mode) key.
+  const bestPaidByKey = new Map();
+  for (const a of actions) {
+    const alt = a.altCost;
+    if (!alt || alt.kind === "free") continue;
+    if (normalKeys.has(altVariantKey(a))) continue;            // the affordable normal cast wins
+    if (!interaction) continue;                                // non-interaction paid alt → human-only
+    if (alt.payLife && life - alt.payLife < 10) continue;      // life prudence floor
+    const mv = altPaymentMv(state, aiPlayerId, alt);
+    const k = altVariantKey(a);
+    const cur = bestPaidByKey.get(k);
+    if (!cur || mv < cur.mv || (mv === cur.mv && altResourceId(alt) < altResourceId(cur.a.altCost))) {
+      bestPaidByKey.set(k, { a, mv });
+    }
+  }
+  const keptPaid = new Set([...bestPaidByKey.values()].map((v) => v.a));
+  const out = [];
+  for (const a of actions) {
+    if (!a.altCost) {
+      if (!freeKeys.has(altVariantKey(a))) out.push(a);        // a free twin strictly dominates its normal
+    } else if (a.altCost.kind === "free") {
+      out.push(a);                                             // free alt-cast: always the preferred variant
+    } else if (keptPaid.has(a)) {
+      out.push(a);
+    }
+  }
+  return out;
+}
+
+/**
+ * W7c (AI-F4) — is the AI CLEARLY behind on the creature board? Layer-aware counts + power
+ * sums over the AI's battlefield vs the UNION of every living opponent's (pod-aware — a wipe
+ * answers the whole table, not one seat). Clearly behind when the table has 3+ more creatures
+ * than the AI, OR the table's total power is at least double the AI's plus 6 (so an empty own
+ * board vs one 7/7 qualifies, but 4-vs-2 or an empty table never does). Deterministic reads.
+ */
+function clearlyBehindOnBoard(state, aiPlayerId) {
+  let enemies;
+  try { enemies = opponentsOf(state, aiPlayerId); } catch { return false; }
+  const boardOf = (pid) => (state.players?.[pid]?.battlefield || [])
+    .filter((p) => { try { return permanentIsCreature(state, p.id); } catch { return false; } });
+  const powerOf = (perms) => perms.reduce((s, p) => {
+    try { return s + Math.max(0, permanentPower(state, p.id)); } catch { return s; }
+  }, 0);
+  const own = boardOf(aiPlayerId);
+  let enemyCount = 0;
+  let enemyPower = 0;
+  for (const pid of enemies) {
+    if ((state.players?.[pid]?.life ?? 0) <= 0) continue; // a dead seat's board answers nothing
+    const board = boardOf(pid);
+    enemyCount += board.length;
+    enemyPower += powerOf(board);
+  }
+  if (enemyCount === 0) return false; // empty enemy boards — a wipe answers nothing
+  return (enemyCount - own.length >= 3) || (enemyPower >= 2 * powerOf(own) + 6);
+}
+
+/**
+ * W7b (AI-F5) — the total UNBLOCKED attacking power currently aimed at this seat's FACE:
+ * attackers in state.combat attacking aiPlayerId (walker-directed rows excluded — they don't
+ * hit the life total) minus every attacker already blocked (state.combat.blockers). The same
+ * math pickBlockers' chump stage runs over its local structures — kept as one shared read so
+ * the fog timing can never disagree with the block plan about what is incoming. Zero when the
+ * AI isn't the defender in this combat.
+ */
+function unblockedIncomingFace(state, aiPlayerId) {
+  const blocked = new Set((state.combat?.blockers || []).map((b) => b.attackerId));
+  return (state.combat?.attackers || [])
+    .filter((a) => a.attackingPlayer !== aiPlayerId && a.defender === aiPlayerId && !a.defenderPlaneswalkerId)
+    .filter((a) => !blocked.has(a.permanentId))
+    .map((a) => combatStatsOf(state, a.permanentId))
+    .filter(Boolean)
+    .reduce((s, a) => s + a.power, 0);
+}
+
+/**
+ * W7d (AI-F7) — the AI's would-be attackers THIS turn: its battlefield creatures that could be
+ * declared (untapped, not summoning-sick unless Haste, no Defender) — the SAME eligibility
+ * filters legalChoices' declare-attacker enumeration applies, read here at precombat-main time
+ * (before the declare-attackers step exists) so the pump timing can model the coming swing.
+ */
+function wouldBeAttackerIds(state, aiPlayerId) {
+  return (state.players?.[aiPlayerId]?.battlefield || [])
+    .filter((p) => {
+      try {
+        return permanentIsCreature(state, p.id)
+          && !p.tapped
+          && !permanentHasKeyword(state, p.id, "Defender")
+          && (!p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
+      } catch { return false; }
+    })
+    .map((p) => p.id);
+}
+
+/**
+ * W7d (AI-F7) — would a flat +N team pump FLIP this turn's swing from non-lethal to lethal on
+ * the chosen defender? Runs the SAME per-attacker describe pipeline the W4 attack filter uses
+ * (block legality via eligibleBlockersFor, menace in the budget, swingIsLethalV2), once at the
+ * printed powers and once at power+N. Already-lethal → false (never waste the pump); trample
+ * riders ignored (a safe underestimate — the unpumped lethality check would have fired anyway).
+ */
+function teamPumpFlipsLethal(state, aiPlayerId, pumpPower) {
+  const defenderId = chooseDefender(state, aiPlayerId);
+  if (!defenderId || !state.players?.[defenderId]) return false;
+  const atkIds = wouldBeAttackerIds(state, aiPlayerId);
+  if (atkIds.length === 0) return false; // no attackers — nothing to pump into
+  const blockers = untappedDefenderBlockers(state, defenderId);
+  const rows = atkIds.map((id) => {
+    const s = combatStatsOf(state, id);
+    if (!s) return null;
+    const eligible = eligibleBlockersFor(state, defenderId, id, blockers);
+    return { power: s.power, menace: hasMenace(state, id), eligibleCount: eligible.length };
+  }).filter(Boolean);
+  if (rows.length === 0) return false;
+  const defenderLife = state.players[defenderId].life ?? 0;
+  if (swingIsLethalV2(rows, blockers.length, defenderLife)) return false; // already lethal — don't waste it
+  const pumped = rows.map((r) => ({ ...r, power: r.power + pumpPower }));
+  return swingIsLethalV2(pumped, blockers.length, defenderLife);
+}
+
+/**
+ * W7e (AI-F6) — which side should this Aura land on? Classified from parseAuraBonus — the SAME
+ * parse the battlefield layer engine applies once the Aura attaches, so the AI's read of "what
+ * this Aura does" can never disagree with what it WILL do. "own" = every granted descriptor is
+ * beneficial (a non-negative P/T mod, a dynamic non-negative per-count mod, a keyword or
+ * protection grant); "enemy" = every descriptor is harmful (a non-positive P/T mod, a keyword
+ * removal); null = HOLD — an empty parse (the bonus machinery couldn't model the grant), a
+ * mixed +/- delta, a base-P/T set (could buff or shrink depending on the body), or any
+ * mixed own/enemy combination. Mirrors atomTargetIntent's ambiguous→skip discipline (CREED:
+ * never guess a side — a beneficial Aura on an enemy fatty is a live FP).
+ */
+function auraCastIntent(card) {
+  let bonus;
+  try { bonus = parseAuraBonus(card); } catch { return null; }
+  if (!Array.isArray(bonus) || bonus.length === 0) return null;
+  let own = 0;
+  let enemy = 0;
+  for (const d of bonus) {
+    const op = d?.op || {};
+    if (op.layerOp === "ptModify") {
+      const p = op.power || 0;
+      const t = op.toughness || 0;
+      if (p >= 0 && t >= 0) own++;
+      else if (p <= 0 && t <= 0) enemy++;
+      else return null;                                   // mixed +/- delta → ambiguous
+    } else if (op.layerOp === "ptModifyDynamicCount") {
+      if ((op.perPower || 0) >= 0 && (op.perToughness || 0) >= 0) own++;
+      else return null;
+    } else if (op.layerOp === "addKeyword" || op.layerOp === "addProtection") {
+      own++;
+    } else if (op.layerOp === "removeKeyword") {
+      enemy++;                                            // grounding a flyer — a soft curse
+    } else {
+      return null;                                        // base-P/T set / future ops → unevaluable
+    }
+  }
+  if (own > 0 && enemy > 0) return null;
+  return own > 0 ? "own" : "enemy";
+}
+
+/**
+ * W7e (AI-F6) — pick the Aura cast the AI should take from the card's offered per-target
+ * actions, or null to HOLD. A LAND-enchant mana Aura (Wild Growth — the only isAuraSpell shape
+ * whose targets aren't creatures) is offered on the caster's OWN lands only by construction
+ * (legalChoices' mana-aura branch), so it's pure ramp upside: take the deterministic first
+ * target. A CREATURE Aura casts on-intent only: an OWN-intent buff onto the AI's highest-power
+ * creature, an ENEMY-intent curse onto the biggest enemy threat among the offered targets; an
+ * unparsed/ambiguous grant, or an intent with no on-side legal target (an enemy-intent
+ * "enchant creature you control" corner), HOLDS. Chooses among OFFERED actions only.
+ */
+function pickAuraCast(state, aiPlayerId, actions, card) {
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const opts = actions.filter((a) => (a.targets?.length || 0) === 1);
+  if (opts.length === 0) return null;
+  if (opts.every((a) => a.targets[0].type !== "creature")) {
+    // Land mana Aura — own lands only by the offer; deterministic pick.
+    return [...opts].sort((x, y) => cmp(String(x.targets[0].id), String(y.targets[0].id)))[0];
+  }
+  const intent = auraCastIntent(card);
+  if (!intent) return null;
+  let enemies;
+  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
+  const powerOf = (id) => { try { return Math.max(0, permanentPower(state, id)); } catch { return 0; } };
+  const onSide = opts.filter((a) => {
+    const t = a.targets[0];
+    if (t.type !== "creature") return false;
+    return intent === "own" ? t.controller === aiPlayerId : enemies.has(t.controller);
+  });
+  if (onSide.length === 0) return null;
+  return [...onSide].sort((x, y) =>
+    (powerOf(y.targets[0].id) - powerOf(x.targets[0].id)) || cmp(String(x.targets[0].id), String(y.targets[0].id)))[0];
+}
+
+/**
+ * The target-discipline cascade for ONE card's action group (or a kicked/unkicked
+ * SUBSET of it — AI-F1 runs it once per variant set). Applies the per-shape
+ * choosers (hand disruption / edicts / fights / generic targeted) and returns the
+ * approved action, or null to HOLD (no good enemy target / unscorable effect).
+ * Untargeted groups with no special shape return their first action unchanged.
+ */
+function chooseDisciplinedVariant(state, aiPlayerId, actions) {
+  if (!actions.length) return null;
+  const effect = actions[0].effect;
+  let chosen = actions[0];
+  // δ-1b hand disruption (Duress / Thoughtseize / …): the target is an OPPONENT (a player), and the
+  // card to strip is chosen at RESOLUTION (hand-blind at cast — the faithful flow). The targets are
+  // opponents only by construction, so no self-target risk; the AI picks the opponent with the most
+  // cards in hand (the most to disrupt), then autoPickHandDiscardCandidate takes their best card when
+  // the spell resolves. This bypasses the chooseAITarget hold below (a program-only spell, null legacy
+  // `effect`) so the AI actually plays its discard.
+  if ((actions[0].program?.atoms || []).some(a => a.op === "discard-chosen")) {
+    const handSize = (a) => (state.players?.[a.targets?.[0]?.id]?.hand || []).length;
+    chosen = actions.reduce((best, a) => (handSize(a) > handSize(best) ? a : best), actions[0]);
+  } else if ((actions[0].program?.atoms || []).some(a => a.op === "sacrifice")) {
+    // ===== EDICTS ===== (Diabolic Edict / Cruel Edict): a program-only edict targeting a player. The AI
+    // only ever edicts an OPPONENT that controls a creature to lose — never itself, never a creatureless
+    // player (the edict would just fizzle) — and picks the opponent with the MOST creatures. The victim
+    // creature is chosen at RESOLUTION (autoPickSacrificeCandidate sacs that opponent's least valuable).
+    // Restricted to a PURE single-target edict (the player is the only chosen target): a multi-target
+    // edict program (e.g. Grave Exchange = graveyard-return + edict) is HELD — the AI doesn't yet pick
+    // the extra target — which is safe (a miss only costs tempo). Bypasses the chooseAITarget hold below.
+    const creatureCount = (pid) => (state.players?.[pid]?.battlefield || [])
+      .filter(p => permanentIsCreature(state, p.id)).length;  // layer-aware: an animated man-land counts
+    const oppActions = actions.filter(a => {
+      if ((a.targets?.length || 0) !== 1) return false;       // pure single-target edict only
+      const tid = a.targets[0]?.id;
+      return tid && tid !== aiPlayerId && creatureCount(tid) > 0;
+    });
+    if (oppActions.length === 0) return null; // no clean opponent target → the edict fizzles / is multi-target; hold
+    chosen = oppActions.reduce((best, a) => (creatureCount(a.targets[0].id) > creatureCount(best.targets[0].id) ? a : best), oppActions[0]);
+  } else if ((actions[0].program?.atoms || []).some(a => a.op === "fight-pair" || a.op === "damage-target-power")) {
+    // TWO-CHOSEN-TARGET fight (Prey Upon / Pounce = fight-pair; Aggressive Instinct / Rabid Bite =
+    // one-way damage-target-power): each cast action carries a role-tagged pair — a `fighter` (the AI's
+    // own creature, the dealer) + a `target` (the creature it hits). The generic chooser below can't
+    // score a two-target program (null legacy `effect`), so pick here. Discipline: the fighter must be
+    // the AI's OWN creature and the target an ENEMY (never aim it at our own board), and the fight must
+    // KILL the enemy (fighter power ≥ enemy toughness) — and for the two-way fight-pair the fighter must
+    // SURVIVE (enemy power < fighter toughness) so we never trade our creature into a worse one. Among
+    // qualifying casts, hit the biggest enemy; if none qualifies, HOLD (a miss only costs a card, never a
+    // wrong play). CREED — a confidently-bad fight (suicide / friendly-fire) is never offered.
+    const oneWay = (actions[0].program.atoms).some(a => a.op === "damage-target-power");
+    const enemies = new Set(opponentsOf(state, aiPlayerId));
+    const lk = (id) => findPermanent(state, id)?.permanent;
+    const good = [];
+    for (const a of actions) {
+      const fighterT = (a.targets || []).find(t => t.role === "fighter");
+      const targetT = (a.targets || []).find(t => t.role === "target");
+      if (!fighterT || !targetT) continue;
+      if (fighterT.controller !== aiPlayerId) continue;            // our fighter must be ours
+      if (!enemies.has(targetT.controller)) continue;              // the victim must be an opponent's
+      const fp = lk(fighterT.id), tp = lk(targetT.id);
+      if (!fp || !tp) continue;
+      const fPow = Math.max(0, permanentPower(state, fighterT.id));
+      const tTou = Math.max(0, permanentToughness(state, targetT.id));
+      const tPow = Math.max(0, permanentPower(state, targetT.id));
+      const fTou = Math.max(0, permanentToughness(state, fighterT.id));
+      const fDeath = permanentHasKeyword(state, fighterT.id, "Deathtouch");
+      const kills = (fDeath && fPow > 0) || (tTou > 0 && fPow >= tTou); // lethal to the enemy
+      if (!kills) continue;
+      if (!oneWay && tPow >= fTou) continue;                        // fight-pair: our fighter would die → skip
+      good.push({ a, enemyPow: tPow });
+    }
+    if (good.length === 0) return null;                            // no profitable fight → hold
+    chosen = good.sort((x, y) => y.enemyPow - x.enemyPow)[0].a;    // kill the biggest threat
+  } else if (actions.some(a => a.targets?.length)) {
+    // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
+    // enemies for the scorable legacy effects (damage/destroy); for spells it can't
+    // score yet (effect == null — the P2.7 extended atoms tap/bounce/exile/counters)
+    // it returns null, so the AI HOLDS them rather than aim removal at its own board.
+    const options = actions.map(a => a.targets?.[0]).filter(Boolean);
+    const target = effect ? chooseAITarget(state, aiPlayerId, effect, options) : null;
+    if (!target) return null;
+    chosen = actions.find(a => a.targets?.[0]?.id === target.id) || actions[0];
+  }
+  return chosen;
 }
 
 /**
@@ -330,12 +666,29 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
   }
 
   const scored = [];
-  for (const [cardId, actions] of byCard) {
+  for (const [cardId, groupActions] of byCard) {
+    // ALT-COST variant discipline (see filterAltCastVariants): free twins replace their normal casts, paid
+    // alts survive only as interaction-of-last-resort. policy "v1" = the legacy never-pay arm (probe).
+    const actions = pol.altCost === "v1"
+      ? groupActions.filter((a) => !a.altCost)
+      : filterAltCastVariants(state, aiPlayerId, groupActions);
+    if (actions.length === 0) continue; // every variant filtered (e.g. an imprudent alt-only paid cast) → hold
     // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
     // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not
     // the combined card, so the pick reflects what will really resolve.
     const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId);
     if (!card) continue; // card vanished
+    // AI-F2 — UNRESOLVABLE SPELLS: a LOW-confidence instant/sorcery whose program carries ZERO
+    // runnable atoms (and no legacy `effect`, no chosen target) resolves as markPendingArbiter —
+    // in self-play the spell just VANISHES (the Tier-1 breakage census's spell-unresolved rows:
+    // Ember Island Production / Reality Shift / Teferi's Protection). Casting it burns the card
+    // + mana for literally nothing, so HOLD it. Ranking-only (the action stays offered by
+    // legalChoices — THE CREED gates nothing here); the zero-atoms clause is belt-and-suspenders
+    // so a partial LOW model that still runs atoms is not over-held. parseEffectProgram returns
+    // null for permanents, so this can never suppress a creature/permanent cast. policy
+    // 'v1' (`unresolvable`) recovers the legacy cast-it-anyway for the A/B probe.
+    if (pol.unresolvable !== "v1" && actions[0].program && programConfidence(actions[0].program) !== "high"
+      && !actions[0].effect && !(actions[0].targets?.length) && !(actions[0].program.atoms || []).length) continue;
     // W7a — COUNTERS: cast a held counter at a threatening ENEMY spell on the
     // stack (ownership resolved via state.stack — the AI never counters its OWN
     // spell, the FP guard the old blanket hold existed for). Only pure
@@ -349,26 +702,56 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       scored.push({ action: counterPick, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
       continue;
     }
-    // The AI HOLDS a symmetric board wipe (destroy/exile/-X-X all creatures): it can't yet
-    // weigh whether the wipe nets out in its favor, and an indiscriminate Wrath into its own
-    // board plays terribly. The player casts wipes normally. (Deferred board-state heuristic.)
-    if (programContainsMassRemoval(actions[0].program)) continue;
-    // The AI HOLDS a controller-scoped TEAM pump (Overrun / Trumpet Blast — "creatures you
-    // control get +N/+N until end of turn"): the buff is its OWN, so this is purely a timing
-    // call (cast it pre-combat into a profitable attack), which the AI can't make yet — casting
-    // it blindly in its main phase wastes it. Holding only costs tempo, never a wrong play.
-    // (Deferred "pump my team before a good attack" heuristic; player casts it normally.)
-    if (programContainsTeamPump(actions[0].program)) continue;
-    // The AI HOLDS a FOG ("prevent all combat damage this turn", FOG-1): it's a purely DEFENSIVE
-    // reaction, and the AI can't yet time it — casting it in its own main phase would set the
-    // turn-latch and wipe out ITS OWN attackers' damage (actively self-defeating). Holding only
-    // costs a defensive option, never a wrong play. (Deferred "fog under lethal attack" heuristic.)
-    if (programContainsFog(actions[0].program)) continue;
-    // The AI HOLDS Auras (deferred seam): it doesn't yet weigh which creature to enchant
-    // (buff its own attacker vs. curse an enemy) and must never hang a beneficial Aura on an
-    // opponent. The player casts Auras normally; the AI passes. (Belt-and-suspenders — these
-    // also have a null `effect`, so the targeted branch below would hold them anyway.)
-    if (actions[0].isAuraSpell) continue;
+    // W7c (AI-F4) — BOARD WIPES: cast a held symmetric wipe when the AI is CLEARLY behind on
+    // the creature board (3+ creatures down, or facing double-plus-6 total power — summed over
+    // the whole table, pod-aware); otherwise keep holding. Only a CREATURE wipe unlocks — the
+    // behind-metric says nothing about lands/artifacts, so Armageddon-class mass removal keeps
+    // the unconditional hold. A qualifying wipe FALLS THROUGH the cascade: an untargeted Wrath
+    // scores like any sorcery; an X-scaled wipe (Black Sun's Zenith) still sizes X via the
+    // X-sizing branch below. Sorcery-speed timing is the OFFER side's (legalChoices), so a
+    // "when behind" cast lands in the AI's own main. policy 'v1' recovers hold-always (probe).
+    if (programContainsMassRemoval(actions[0].program)) {
+      if (pol.wipe === "v1"
+        || !programContainsCreatureMassRemoval(actions[0].program)
+        || !clearlyBehindOnBoard(state, aiPlayerId)) continue;
+    }
+    // W7d (AI-F7) — TEAM PUMP (Overrun / Trumpet Blast): cast it in the AI's OWN precombat
+    // main ONLY when the flat +N flips this turn's swing from non-lethal to LETHAL on the
+    // chosen defender (the W4 describe pipeline at power+N; already-lethal → keep holding, the
+    // pump would be wasted). A dynamic/filtered/X pump (teamPumpAmount null) is unevaluable →
+    // keep holding, the legacy-safe direction. policy 'v1' recovers hold-always for the probe.
+    if (programContainsTeamPump(actions[0].program)) {
+      if (pol.pump === "v1") continue;
+      if (state.activePlayer !== aiPlayerId || state.phase !== "precombat-main") continue;
+      const pumpPower = teamPumpAmount(actions[0].program);
+      if (pumpPower == null || pumpPower <= 0) continue;
+      if (!teamPumpFlipsLethal(state, aiPlayerId, pumpPower)) continue;
+    }
+    // W7b (AI-F5) — FOG: cast it exactly when it saves the game — mid-combat (declare-blockers
+    // / combat-damage) with the UNBLOCKED power aimed at this seat's face ≥ its life. Counting
+    // only attacks on THIS seat's face makes "the AI is the defender" implicit, so the own-turn
+    // self-fog risk the old blanket hold guarded against can't arise (the AI's own attack never
+    // aims at itself). Below-lethal pressure keeps holding — the card is worth more at the
+    // moment it wins the game. policy 'v1' recovers hold-always for the probe.
+    if (programContainsFog(actions[0].program)) {
+      if (pol.fog === "v1") continue;
+      if (state.step !== "declare-blockers" && state.step !== "combat-damage") continue;
+      const life = state.players?.[aiPlayerId]?.life ?? 0;
+      if (life <= 0 || unblockedIncomingFace(state, aiPlayerId) < life) continue;
+    }
+    // W7e (AI-F6) — AURAS: cast on-intent only. The grant side comes from parseAuraBonus (the
+    // SAME parse the layer engine applies on attach, so the read can't drift): a beneficial
+    // grant → the AI's own highest-power creature; a harmful grant → the biggest enemy threat
+    // among the offered targets; an unparsed/ambiguous grant, or no on-side legal target,
+    // HOLDS (CREED — never hang a buff on an enemy). A land mana Aura (Wild Growth) is offered
+    // on own lands only, so it casts as pure ramp. policy 'v1' recovers hold-always (probe).
+    if (actions[0].isAuraSpell) {
+      if (pol.aura === "v1") continue;
+      const auraPick = pickAuraCast(state, aiPlayerId, actions, card);
+      if (!auraPick) continue;
+      scored.push({ action: auraPick, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+      continue;
+    }
     // W5 — X-SPELL SIZING: an X card is offered once per affordable X (× target
     // combo). The legacy path fell through to actions[0] — always X=1 — burning
     // near-total value on every X card. Choose the right X via pickXCast; hold
@@ -381,89 +764,34 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       scored.push({ action: xChosen, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
       continue;
     }
-    const effect = actions[0].effect;
-    let chosen = actions[0];
-    // KICKER (CR 702.33): a kicker creature is emitted as a normal cast plus — when the kicker mana is also
+    // KICKER (CR 702.33): a kicker card is emitted as a normal cast plus — when the kicker mana is also
     // affordable — a `kicked:true` cast (legalChoices only offers the kicked option when payable). For the
-    // modeled kicked payoffs (enters with extra +1/+1 counters; or a kicked ETB trigger — destroy a land,
-    // ping a creature, draw cards) the kicked play adds strictly more value with the identical base body, so
-    // paying the kicker is the higher-value play — prefer it when offered. This is the AI's "decide yes/no by
-    // value": pay when affordable (the kicked action exists), else cast normally.
-    const kickedAction = actions.find(a => a.kicked === true);
-    if (kickedAction) {
-      scored.push({ action: kickedAction, score: scoreCastAction(kickedAction, card, archetype), cmc: kickedAction.cmc || 0 });
+    // modeled kicked payoffs the kicked play adds strictly more value on the identical base, so paying the
+    // kicker is the higher-value play — prefer it when offered. This is the AI's "decide yes/no by value":
+    // pay when affordable (the kicked action exists), else cast normally.
+    const kickedActions = actions.filter(a => a.kicked === true);
+    if (kickedActions.length && kickedActions.every(a => !(a.targets?.length))) {
+      // TARGETLESS kicked group — kicker CREATURES (counter + ETB variants always emit targets:[]) and
+      // untargeted kicked-spell-effects: no aiming to get wrong, take the kicked cast (legacy behavior).
+      scored.push({ action: kickedActions[0], score: scoreCastAction(kickedActions[0], card, archetype), cmc: kickedActions[0].cmc || 0 });
       continue;
     }
-    // δ-1b hand disruption (Duress / Thoughtseize / …): the target is an OPPONENT (a player), and the
-    // card to strip is chosen at RESOLUTION (hand-blind at cast — the faithful flow). The targets are
-    // opponents only by construction, so no self-target risk; the AI picks the opponent with the most
-    // cards in hand (the most to disrupt), then autoPickHandDiscardCandidate takes their best card when
-    // the spell resolves. This bypasses the chooseAITarget hold below (a program-only spell, null legacy
-    // `effect`) so the AI actually plays its discard.
-    if ((actions[0].program?.atoms || []).some(a => a.op === "discard-chosen")) {
-      const handSize = (a) => (state.players?.[a.targets?.[0]?.id]?.hand || []).length;
-      chosen = actions.reduce((best, a) => (handSize(a) > handSize(best) ? a : best), actions[0]);
-    } else if ((actions[0].program?.atoms || []).some(a => a.op === "sacrifice")) {
-      // ===== EDICTS ===== (Diabolic Edict / Cruel Edict): a program-only edict targeting a player. The AI
-      // only ever edicts an OPPONENT that controls a creature to lose — never itself, never a creatureless
-      // player (the edict would just fizzle) — and picks the opponent with the MOST creatures. The victim
-      // creature is chosen at RESOLUTION (autoPickSacrificeCandidate sacs that opponent's least valuable).
-      // Restricted to a PURE single-target edict (the player is the only chosen target): a multi-target
-      // edict program (e.g. Grave Exchange = graveyard-return + edict) is HELD — the AI doesn't yet pick
-      // the extra target — which is safe (a miss only costs tempo). Bypasses the chooseAITarget hold below.
-      const creatureCount = (pid) => (state.players?.[pid]?.battlefield || [])
-        .filter(p => permanentIsCreature(state, p.id)).length;  // layer-aware: an animated man-land counts
-      const oppActions = actions.filter(a => {
-        if ((a.targets?.length || 0) !== 1) return false;       // pure single-target edict only
-        const tid = a.targets[0]?.id;
-        return tid && tid !== aiPlayerId && creatureCount(tid) > 0;
-      });
-      if (oppActions.length === 0) continue; // no clean opponent target → the edict fizzles / is multi-target; hold
-      chosen = oppActions.reduce((best, a) => (creatureCount(a.targets[0].id) > creatureCount(best.targets[0].id) ? a : best), oppActions[0]);
-    } else if ((actions[0].program?.atoms || []).some(a => a.op === "fight-pair" || a.op === "damage-target-power")) {
-      // TWO-CHOSEN-TARGET fight (Prey Upon / Pounce = fight-pair; Aggressive Instinct / Rabid Bite =
-      // one-way damage-target-power): each cast action carries a role-tagged pair — a `fighter` (the AI's
-      // own creature, the dealer) + a `target` (the creature it hits). The generic chooser below can't
-      // score a two-target program (null legacy `effect`), so pick here. Discipline: the fighter must be
-      // the AI's OWN creature and the target an ENEMY (never aim it at our own board), and the fight must
-      // KILL the enemy (fighter power ≥ enemy toughness) — and for the two-way fight-pair the fighter must
-      // SURVIVE (enemy power < fighter toughness) so we never trade our creature into a worse one. Among
-      // qualifying casts, hit the biggest enemy; if none qualifies, HOLD (a miss only costs a card, never a
-      // wrong play). CREED — a confidently-bad fight (suicide / friendly-fire) is never offered.
-      const oneWay = (actions[0].program.atoms).some(a => a.op === "damage-target-power");
-      const enemies = new Set(opponentsOf(state, aiPlayerId));
-      const lk = (id) => findPermanent(state, id)?.permanent;
-      const good = [];
-      for (const a of actions) {
-        const fighterT = (a.targets || []).find(t => t.role === "fighter");
-        const targetT = (a.targets || []).find(t => t.role === "target");
-        if (!fighterT || !targetT) continue;
-        if (fighterT.controller !== aiPlayerId) continue;            // our fighter must be ours
-        if (!enemies.has(targetT.controller)) continue;              // the victim must be an opponent's
-        const fp = lk(fighterT.id), tp = lk(targetT.id);
-        if (!fp || !tp) continue;
-        const fPow = Math.max(0, permanentPower(state, fighterT.id));
-        const tTou = Math.max(0, permanentToughness(state, targetT.id));
-        const tPow = Math.max(0, permanentPower(state, targetT.id));
-        const fTou = Math.max(0, permanentToughness(state, fighterT.id));
-        const fDeath = permanentHasKeyword(state, fighterT.id, "Deathtouch");
-        const kills = (fDeath && fPow > 0) || (tTou > 0 && fPow >= tTou); // lethal to the enemy
-        if (!kills) continue;
-        if (!oneWay && tPow >= fTou) continue;                        // fight-pair: our fighter would die → skip
-        good.push({ a, enemyPow: tPow });
-      }
-      if (good.length === 0) continue;                               // no profitable fight → hold
-      chosen = good.sort((x, y) => y.enemyPow - x.enemyPow)[0].a;    // kill the biggest threat
-    } else if (actions.some(a => a.targets?.length)) {
-      // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
-      // enemies for the scorable legacy effects (damage/destroy); for spells it can't
-      // score yet (effect == null — the P2.7 extended atoms tap/bounce/exile/counters)
-      // it returns null, so the AI HOLDS them rather than aim removal at its own board.
-      const options = actions.map(a => a.targets?.[0]).filter(Boolean);
-      const target = effect ? chooseAITarget(state, aiPlayerId, effect, options) : null;
-      if (!target) continue;
-      chosen = actions.find(a => a.targets?.[0]?.id === target.id) || actions[0];
+    if (kickedActions.length) {
+      // AI-F1 — TARGETED kicked group (kicked-spell-effect, CR 702.33e: Into the Roil / Blink of an Eye /
+      // Hurloon Battle Hymn). The old short-circuit cast the FIRST enumerated kicked combo — seat-order
+      // targeting that aimed bounce/removal at the AI's OWN permanents. Route the kicked variants through
+      // the SAME discipline cascade as every other targeted spell, preferring kicked-when-approved, then
+      // the unkicked remainder; when neither is approved (e.g. bounce — no scorer yet) the card is HELD,
+      // the same safe hold the unkicked path already took.
+      const unkicked = actions.filter(a => a.kicked !== true);
+      const chosen = chooseDisciplinedVariant(state, aiPlayerId, kickedActions)
+        ?? chooseDisciplinedVariant(state, aiPlayerId, unkicked);
+      if (!chosen) continue;
+      scored.push({ action: chosen, score: scoreCastAction(chosen, card, archetype), cmc: chosen.cmc || 0 });
+      continue;
     }
+    const chosen = chooseDisciplinedVariant(state, aiPlayerId, actions);
+    if (!chosen) continue;
     scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
   }
 
@@ -693,6 +1021,79 @@ export function pickLoyaltyAction(state, aiPlayerId, loyaltyActions) {
   return safe.slice().sort((a, b) => loyaltyActionScore(b) - loyaltyActionScore(a))[0];
 }
 
+// ─── W6 (AI-F3) — activated-ability piloting ──────────────────────────────────
+
+/**
+ * Slice 1 — EQUIP: attach each equipment to the AI's BEST creature (highest derived power via
+ * permanentPower — layers.js, so anthems/counters/the equipment's own bonus all count), id
+ * tiebreak. Equip targets are the AI's OWN creatures by construction (legalChoices enumerates
+ * the controller's battlefield only, CR 702.6e), so there is no side to get wrong — only
+ * PROFITABILITY: skip when the equipment already sits on the chosen best body (a no-op
+ * re-equip), and only MOVE an attached equipment onto a STRICTLY higher-power body. The
+ * strict-improvement rule is also the TERMINATION guard (recon-flagged loop risk): once the
+ * equipment sits on the best body — whose derived power now includes the equipment's own
+ * bonus — no offered target ranks strictly higher, so a free equip (Lightning Greaves {0})
+ * can never oscillate. Equipment are visited in id order; one equip per tick.
+ */
+function pickEquipAction(state, aiPlayerId, equipActions) {
+  if (!equipActions.length) return null;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const powerOf = (id) => { try { return Math.max(0, permanentPower(state, id)); } catch { return 0; } };
+  const byEquip = new Map();
+  for (const a of equipActions) {
+    if ((a.targets?.length || 0) !== 1) continue;
+    if (!byEquip.has(a.permanentId)) byEquip.set(a.permanentId, []);
+    byEquip.get(a.permanentId).push(a);
+  }
+  for (const equipId of [...byEquip.keys()].sort(cmp)) {
+    const best = byEquip.get(equipId).slice().sort((x, y) =>
+      (powerOf(y.targets[0].id) - powerOf(x.targets[0].id)) || cmp(String(x.targets[0].id), String(y.targets[0].id)))[0];
+    const holder = findPermanent(state, equipId)?.permanent?.attachedTo ?? null;
+    if (holder === best.targets[0].id) continue;                        // already on the best body
+    if (holder != null && powerOf(best.targets[0].id) <= powerOf(holder)) continue; // move on strict improvement only
+    return best;
+  }
+  return null;
+}
+
+/**
+ * Slice 2 — generic MODELED activated abilities, conservative whitelist. Activate only when
+ * every one of these holds (anything else keeps the legacy never-activate — a held ability
+ * only costs value, never a wrong play):
+ *   - the ability carries a fully-modeled effect program whose every atom is an UNTARGETED
+ *     pure-upside op (draw / create-token / scry / surveil / gain-life) — no targets to aim
+ *     wrong, no side to get wrong, resolvable without the Arbiter;
+ *   - the COST is the safe subset: {T} and/or mana only — no sacrifice (self/other/N/X), no
+ *     exile-self, no counter removal, no life payment, no tap-another, no land bounce, no
+ *     modal/X choice (each of those is a real cost the AI can't yet value);
+ *   - it either taps the source or costs ≥1 mana — the per-turn TERMINATION bound (a free
+ *     non-tapping ability would be re-offered forever).
+ * Rank: draw > token > scry/surveil > lifegain, then cheapest, then name/id — deterministic.
+ */
+const SAFE_ABILITY_OPS = new Map([["draw", 0], ["create-token", 1], ["scry", 2], ["surveil", 2], ["gain-life", 3]]);
+function pickSafeAbilityActivation(abilityActions) {
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const safe = [];
+  for (const a of abilityActions) {
+    if (!a.program || a.program.structure === "modal") continue;
+    if ((a.targets?.length || 0) > 0) continue;
+    if (a.sacSelf || a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter
+      || (a.payLife || 0) > 0 || a.tapCreatureId || a.returnLandId || a.xValue != null || a.chosenMode != null) continue;
+    if (!a.tapSelf && (a.cmc || 0) < 1) continue;         // termination bound: tap or a real mana cost
+    const atoms = a.program.atoms || [];
+    if (atoms.length === 0) continue;                     // nothing runnable — activating burns the cost
+    if (!atoms.every((atom) => SAFE_ABILITY_OPS.has(atom.op) && !atom.targetType)) continue;
+    const rank = Math.min(...atoms.map((atom) => SAFE_ABILITY_OPS.get(atom.op)));
+    safe.push({ a, rank });
+  }
+  if (safe.length === 0) return null;
+  safe.sort((x, y) => (x.rank - y.rank) || ((x.a.cmc || 0) - (y.a.cmc || 0))
+    || cmp(String(x.a.name || ""), String(y.a.name || ""))
+    || cmp(String(x.a.permanentId), String(y.a.permanentId))
+    || ((x.a.abilityIndex ?? 0) - (y.a.abilityIndex ?? 0)));
+  return safe[0].a;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -795,6 +1196,24 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   if (loyalties.length > 0) {
     const loy = pickLoyaltyAction(state, aiPlayerId, loyalties);
     if (loy) return loy;
+  }
+
+  // W6 (AI-F3) — ACTIVATED ABILITIES: the AI previously never activated ANY activated ability
+  // (dead equipment / stranded utility). Two disjoint slices, both consuming already-offered
+  // actions only (the offer side gates timing/affordability — THE CREED). After lands + casts +
+  // loyalty so mana develops the board first; one activation per tick (the driver re-offers).
+  // policy 'v1' recovers never-activate for the A/B probe.
+  if (pol.ability !== "v1") {
+    const abilities = filterActions(actions, "activate-ability");
+    if (abilities.length > 0) {
+      // Slice 1 — EQUIP: move each equipment onto the AI's best body (strict improvement only).
+      const equip = pickEquipAction(state, aiPlayerId, abilities.filter(a => a.isEquipAbility));
+      if (equip) return equip;
+      // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
+      // two slices are disjoint by construction).
+      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility));
+      if (generic) return generic;
+    }
   }
 
   // No active-window action — pass priority. (The engine's combat

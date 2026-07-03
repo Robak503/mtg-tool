@@ -161,13 +161,22 @@ describe("attach state helpers", () => {
   });
 });
 
-describe("AI — does not equip (deferred seam)", () => {
-  it("the AI never activates the Equip ability (passes instead)", () => {
+describe("AI — equips (W6 / AI-F3: the deferred seam is unlocked)", () => {
+  const equipState = () => {
     const bear = createPermanent({ id: "ab", card: bearCard, controller: "ai", summoningSick: false });
     const sword = createPermanent({ id: "as", card: SWORD, controller: "ai", summoningSick: false });
-    const s = { ...boardState({}), activePlayer: "ai", priorityHolder: "ai",
+    return { ...boardState({}), activePlayer: "ai", priorityHolder: "ai",
       players: { ...createGameState({ userDeck: [], aiDeck: [] }).players, ai: { ...createGameState({ userDeck: [], aiDeck: [] }).players.ai, battlefield: [bear, sword], manaPool: { C: 5 } } } };
+  };
+  it("the AI activates the offered Equip onto its own creature (was the dead-cardboard hold)", () => {
+    const s = equipState();
     const picked = pickAction(s, "ai", legalActionsForPlayer(s, "ai"));
+    expect(picked).toMatchObject({ kind: "activate-ability", isEquipAbility: true, permanentId: "as" });
+    expect(picked.targets[0].id).toBe("ab");
+  });
+  it('policy ability:"v1" recovers the legacy never-equip for the A/B probe', () => {
+    const s = equipState();
+    const picked = pickAction(s, "ai", legalActionsForPlayer(s, "ai"), { policy: { ability: "v1" } });
     expect(picked?.kind === "activate-ability").toBe(false);
   });
 });

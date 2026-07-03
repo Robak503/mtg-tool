@@ -55,8 +55,8 @@ function isOnlyPassPriority(actions) {
  * suggestions and AI behavior consistent. Expert always picks
  * automatically.
  */
-function autoPick(state, playerId, actions, { archetype = null } = {}) {
-  return pickAction(state, playerId, actions, { archetype });
+function autoPick(state, playerId, actions, { archetype = null, policy = null } = {}) {
+  return pickAction(state, playerId, actions, { archetype, policy });
 }
 
 /**
@@ -83,7 +83,12 @@ function findDefaultIndex(actions, suggested) {
  *   state         — current GameState
  *   playerId      — "user" | "ai" | "ai1" | "ai2" | "ai3" — whose turn?
  *   actions       — legal actions array (from legalChoices.js)
- *   options       — { difficulty, archetype, cardLookup }
+ *   options       — { difficulty, archetype, cardLookup, policy }
+ *
+ * `policy` (default null, SD-5/PS-4) is the opponentAI A/B seam ("v1" = the legacy
+ * heuristics; see opponentAI.normalizePolicy). It is forwarded to every autoPick —
+ * AI seats AND the expert/intermediate user auto-pick paths — so a session-layer
+ * probe can drive old-vs-new policy through decisionGate. null ⇒ byte-identical.
  *
  * For AI players, the gate always auto-picks regardless of difficulty
  * (difficulty governs what the USER sees, not what the AI does).
@@ -97,7 +102,7 @@ function findDefaultIndex(actions, suggested) {
  */
 export function makeDecision(state, playerId, actions, options = {}) {
   const difficulty = normaliseDifficulty(options.difficulty);
-  const { archetype = null, cardLookup = () => null } = options;
+  const { archetype = null, policy = null, cardLookup = () => null } = options;
 
   // Safety: empty list → engine has no work to do. Surface a sentinel
   // so callers don't pass null into the engine.
@@ -113,7 +118,7 @@ export function makeDecision(state, playerId, actions, options = {}) {
   // seat is AI-controlled — Standard "ai", Commander "ai1"/"ai2"/"ai3".
   // (difficulty governs what the USER sees, never how an AI plays.)
   if (playerId !== "user") {
-    const picked = autoPick(state, playerId, actions, { archetype });
+    const picked = autoPick(state, playerId, actions, { archetype, policy });
     return {
       kind: "auto-decided",
       action: picked,
@@ -132,7 +137,7 @@ export function makeDecision(state, playerId, actions, options = {}) {
 
   // Difficulty branches.
   if (difficulty === "expert") {
-    const picked = autoPick(state, playerId, actions, { archetype });
+    const picked = autoPick(state, playerId, actions, { archetype, policy });
     return {
       kind: "auto-decided",
       action: picked,
@@ -150,7 +155,7 @@ export function makeDecision(state, playerId, actions, options = {}) {
     if (lands.length > 0) {
       // Auto-pick the same land opponentAI would (alphabetical for
       // now; PR8 can revisit when color-need logic lands).
-      const picked = autoPick(state, playerId, lands, { archetype });
+      const picked = autoPick(state, playerId, lands, { archetype, policy });
       return {
         kind: "auto-decided",
         action: picked,
@@ -177,7 +182,7 @@ export function makeDecision(state, playerId, actions, options = {}) {
         };
       }
       // Trap detected — surface as an ASK with the trap prefix on the prompt.
-      const suggested = autoPick(state, playerId, actions, { archetype });
+      const suggested = autoPick(state, playerId, actions, { archetype, policy });
       const baseNarration = narrateDecision(state, actions, { difficulty, cardLookup });
       const trapPrefix = narrateAttackTrap(traps);
       const prompt = trapPrefix
@@ -212,7 +217,7 @@ export function makeDecision(state, playerId, actions, options = {}) {
   }
 
   // Beginner (default), or Intermediate with interesting choices.
-  const suggested = autoPick(state, playerId, actions, { archetype });
+  const suggested = autoPick(state, playerId, actions, { archetype, policy });
   const prompt = narrateDecision(state, actions, { difficulty, cardLookup });
   return {
     kind: "ask",

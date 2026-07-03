@@ -220,15 +220,24 @@ describe("cast legality + Arbiter routing", () => {
   });
 });
 
-describe("AI — holds Auras (deferred seam)", () => {
-  it("the AI never casts an Aura (passes instead)", () => {
+describe("AI — casts Auras on-intent (W7e / AI-F6: the deferred seam is unlocked)", () => {
+  const auraState = () => {
     const aiBear = createPermanent({ id: "ab", card: bearCard, controller: "ai", summoningSick: false });
     const base = createGameState({ userDeck: [], aiDeck: [] });
-    const s = {
+    return {
       ...base, phase: "precombat-main", step: "main", activePlayer: "ai", priorityHolder: "ai", consecutivePasses: 0,
       players: { ...base.players, ai: { ...base.players.ai, battlefield: [aiBear], hand: [STRENGTH], manaPool: { C: 5 } } },
     };
+  };
+  it("the AI casts a beneficial Aura onto its OWN creature (was the blanket hold)", () => {
+    const s = auraState();
     const picked = pickAction(s, "ai", legalActionsForPlayer(s, "ai"));
+    expect(picked).toMatchObject({ kind: "cast-spell", isAuraSpell: true });
+    expect(picked.targets[0].id).toBe("ab"); // own-intent buff → own creature, never an opponent's
+  });
+  it('policy aura:"v1" recovers the legacy hold-always for the A/B probe', () => {
+    const s = auraState();
+    const picked = pickAction(s, "ai", legalActionsForPlayer(s, "ai"), { policy: { aura: "v1" } });
     expect(picked?.kind === "cast-spell" && picked?.isAuraSpell).toBeFalsy();
   });
 });

@@ -18,6 +18,7 @@
 export const runtime = "nodejs";
 
 import { applyChoice, isComplete, filteredDecisionLogTail } from "../../../../lib/learn/learnSession.js";
+import { decisionViewForWire } from "../../../../lib/learn/decisionWire.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
@@ -75,7 +76,7 @@ export async function POST(request) {
 
   return Response.json({
     sessionId: stepped.id,
-    decision: stripDecisionForWire(enrichUnresolvedDecision(result.decision, stepped.state)),
+    decision: decisionViewForWire(enrichUnresolvedDecision(result.decision, stepped.state)),
     status: stepped.status,
     difficulty: stepped.difficulty,
     turn: stepped.state.turn,
@@ -85,20 +86,4 @@ export async function POST(request) {
     table: tableSnapshot(stepped.state),
     board: boardSnapshot(stepped.state),
   });
-}
-
-function stripDecisionForWire(decision) {
-  if (!decision) return null;
-  if (decision.kind !== "ask") return decision;
-  return {
-    ...decision,
-    options: (decision.options || []).map(opt => {
-      const { ...safe } = opt;
-      return safe;
-    }),
-    metadata: decision.metadata ? {
-      ...decision.metadata,
-      suggestion: decision.metadata.suggestion ? { ...decision.metadata.suggestion } : null,
-    } : undefined,
-  };
 }

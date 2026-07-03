@@ -212,6 +212,13 @@ export function autoPickTutorCandidate(state, pendingChoice) {
 export function resolveTutorChoice(state, cardId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "tutor-search") return state;
+  // AI-F10 — an ILLEGAL DECLINE on a mandatory quantity-only search (CR 701.23d: "a card" /
+  // "three cards" must be found when available) is rejected at the settler, the same no-op
+  // pattern as the kind mismatch above, so it can't slip in via the wire even though the
+  // offer side already drops the find-nothing action (learnSession gates allowDecline on
+  // pc.mayFailToFind). The choice stays pending — the driver re-derives the same picker.
+  // Old saves / legacy callers carry mayFailToFind null → unchanged behavior (non-breaking).
+  if (cardId == null && pc.mayFailToFind === false && (pc.candidates || []).length > 0) return state;
   let next = clearPendingChoice(state);
 
   // Apply the fetch (cardId null = the player chose to find nothing, or no candidate). LAND-FROM-HAND —
@@ -268,6 +275,8 @@ export function resolveTutorChoice(state, cardId) {
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
       filter: pc.filter, // WAVE-2b — carry the structured filter so chained picks keep the auto-pick gate
+      mayFailToFind: pc.mayFailToFind, // AI-F10 — the find-optionality carries to every chained pick
+      // (multi-fetch tutors are all quality-filtered today, but the flag must never silently reset)
       // MULTI-ZONE — carry the source-zone set (bfxg) so a chained pick still moves from the right per-candidate
       // zone; `sourceZone` (this pick's chosen zone) rides along as the single-zone shuffle-decision fallback.
       destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone, sourceZones: pc.sourceZones || null,

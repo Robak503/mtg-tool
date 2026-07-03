@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -89,6 +89,16 @@ export const MIGRATIONS = {
       },
     };
   },
+
+  // v4 → v5 — SD-2 lifted the driver's turn-boundary stamp into state as
+  // `state.observedTurn`, written ONLY on instrumented advances (time-pressure /
+  // onTurnStart), so re-entrant advances never re-fire the boundary. It is
+  // absent-by-default and absent === "boundary not yet stamped", so a v4 save needs
+  // no backfill — this migration only stamps the version forward (mirrors v2→v3).
+  // HONESTY NOTE: a pre-v5 save resumed mid-turn lacks the stamp, so the boundary
+  // fires once more for the in-flight turn — harmless today (resume passes no opts;
+  // worst case one extra time-pressure drain on an opted-in resume). (CONTRACT-MIG.)
+  4: (doc) => ({ ...doc, schemaVersion: 5 }),
 };
 
 export class SaveMigrationError extends Error {

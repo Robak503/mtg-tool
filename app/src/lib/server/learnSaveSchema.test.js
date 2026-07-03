@@ -236,6 +236,33 @@ describe("migrate", () => {
     expect(isResumable(upgraded)).toBe(true);
   });
 
+  // CONTRACT-MIG (SD-2): v5 lifted the driver's turn-boundary stamp into state as
+  // `state.observedTurn` (written only on instrumented advances). It is absent-by-default
+  // (absent === "not yet stamped"), so the v4→v5 migration is stamp-only — no backfill,
+  // no field churn — and a v4 save stays resumable.
+  it("carries a v4 save forward to v5 (stamp-only; observedTurn stays absent)", () => {
+    const saveV4 = {
+      schemaVersion: 4,
+      kind: "learn-session-save",
+      savedAt: "2026-07-03T00:00:00.000Z",
+      sessionId: "learn-v4",
+      serializable: true,
+      session: {
+        id: "learn-v4", difficulty: "beginner", mode: "standard", status: "active",
+        state: { turn: 7, idSeq: 11, stack: [], rngSeed: 42, continuousEffects: [], timestampCounter: 0, players: { user: { life: 34, battlefield: [] }, ai: { life: 40, battlefield: [] } } },
+        decisionLog: [],
+      },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(saveV4.session.state.observedTurn).toBeUndefined(); // pre-v5: no stamp on disk
+    const upgraded = migrate(saveV4);
+    expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(upgraded.session.state.observedTurn).toBeUndefined(); // absent-by-default, NOT backfilled
+    expect(upgraded.session.state.turn).toBe(7);                 // game data preserved untouched
+    expect(upgraded.session.state.rngSeed).toBe(42);
+    expect(isResumable(upgraded)).toBe(true);
+  });
+
   // A game serialized mid-tutor-search (a paused pendingChoice + its resume continuation)
   // is plain JSON — it must round-trip losslessly so save/resume mid-search is exact.
   it("a v4 save paused on a tutor-search (pendingChoice + resume) round-trips serializably", () => {

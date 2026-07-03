@@ -24,9 +24,11 @@
  * The main dev tree's app/ satisfies both.
  *
  * Flags:
- *   --legacy=land,block,attack,xSizing | all
+ *   --legacy=<keys> | all
  *                        which policy subsystems the OLD side runs as "v1"
- *                        (default all). Use a single key to isolate one work item.
+ *                        (default all; all = every opponentAI.POLICY_KEYS entry, so
+ *                        new subsystems are covered automatically). Use a single
+ *                        key to isolate one work item. Unknown keys are rejected.
  *   --mode=standard|commander   default standard (clean 1v1 head-to-head)
  *   --pairing=mirror|cross      mirror = each deck vs itself (default; no deck-
  *                               strength confound). cross = adjacent-pair decks
@@ -53,7 +55,9 @@ import { loadAllProfileDecks, toRunnerDeck } from "../src/lib/server/selfPlayDec
 import { runSelfPlayGame } from "../src/lib/learn/selfPlayRunner.js";
 import * as opponentAI from "../src/lib/learn/opponentAI.js";
 
-const LEGACY_KEYS = ["land", "block", "attack", "xSizing"];
+// AI-F11 — derived from the ONE policy-key list opponentAI exports: a hand-copied
+// list silently dropped every new subsystem (counter) from `--legacy=all`.
+const LEGACY_KEYS = [...opponentAI.POLICY_KEYS];
 
 function parseArgs(argv) {
   const args = {
@@ -81,6 +85,13 @@ function parseArgs(argv) {
     else if (a === "--no-time-pressure") args.timePressure = false;
     else if (a.startsWith("--json=")) args.json = a.slice(7);
     else if (a === "--self-test") args.selfTest = true;
+  }
+  // AI-F11 — reject unknown legacy keys LOUDLY: a typo (`--legacy=blok`) used to build a
+  // silent no-op policy and the "A/B" measured nothing. Every key must be a real POLICY_KEY.
+  const badKeys = args.legacy.filter((k) => !LEGACY_KEYS.includes(k));
+  if (badKeys.length) {
+    console.error(`[probe] unknown --legacy key(s): ${badKeys.join(", ")} — valid keys: ${LEGACY_KEYS.join(", ")} (or "all")`);
+    process.exit(1);
   }
   // Keep the 2×2 {old-side × on-the-play} grid balanced.
   args.games = Math.ceil(args.games / 4) * 4;

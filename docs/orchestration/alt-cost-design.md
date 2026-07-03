@@ -1,6 +1,17 @@
 # ALT-COST casting subsystem — build-ready design (2026-07-02, Clyde)
 
-> **STATUS (2026-07-02): the COVERAGE half shipped a simpler way; the OFFER subsystem below is DEFERRED.**
+> **STATUS (2026-07-03): the OFFER subsystem SHIPPED (play-harness overhaul lane B3).** legalChoices twins
+> each HIGH alt-carrier cast via a single post-pass over the emitted actions (`action.altCost` — a separate
+> marker from `freeCast`, whose pendingFreeCast clearing invariant keeps its single producer); the
+> dispatcher applies the payment atomically (fail-fast ALTCOST_UNPAID/ALTCOST_UNSUPPORTED); the AI pays an
+> alt cost under a conservative dominance filter (free > normal; paid = interaction of last resort;
+> pol.altCost "v1" = legacy never-pay arm). The offer layer gates on its OWN kind set
+> (`OFFERED_ALT_COST_KINDS` in legalChoices.js), NOT the parser's strip-vetting set. Offer population =
+> the 16 HIGH carriers (the 10 below + Cave-In, Pyrokinesis, Snapback, Unmask, Rouse, Thwart); the 15 LOW
+> carriers (Misdirection, Deflecting Swat, Force of Vigor, …) are MUST-NOT-OFFER canaries pinned in
+> altCostOffer.test.js. Corrections vs the original sketch are folded in below, marked **[BUILD]**.
+
+> **STATUS (2026-07-02): the COVERAGE half shipped a simpler way; the OFFER subsystem below was DEFERRED.**
 > All 16 alt-cost cards flipped native via a pure **parser strip** (waves 3a/3b/3c on PR #383) — the alt-cost
 > sentence is removed like the flashback/jump-start `CAST_KEYWORD_LINE` strips, the effect body parses, and the
 > card is native because its effect is modeled + it's castable at its PRINTED mana cost (the alt-cost is recorded
@@ -34,14 +45,14 @@ Deck occurrences (census): Fierce Guardianship ×5 (Rog/Thras, Kinnan, Yuriko, C
 - **parser.js** — new private `extractAltCost(oracle)` → `{altCost, rest}` (next to `extractAdditionalCosts` ~1179-1203). Anchored `^...$` regexes per KIND (normalize `’`→`'` per freeCast.js:99). Only a MODELED kind+condition strips the sentence; else `{altCost:null, rest:oracle}` (CONSERVATIVE → stays LOW). Wire into `parseEffectProgram` (~1343-1352) alongside `extractAdditionalCosts`: strip line-0, parse body, `if (altCost && program) program.altCost = altCost`. X-cost+alt-cost compound (Disrupting Shoal) → leave sentence in → LOW.
 - **`SUPPORTED_ALT_COST_KINDS` gate in `programConfidence`** (~1982, mirror the additionalCosts gate): `if (program.altCost && !SUPPORTED_ALT_COST_KINDS.has(program.altCost.kind)) return "low"` + force LOW on an unrecognized condition enum. **This is the CREED brake** — a kind flips HIGH only once its cast-path payment exists. (Probe-proven: attaching an unsupported kind → LOW.)
 - **coverage.js** — NO edit needed to credit native; `spellIsNative` already ends at "body program HIGH → true". The parser gate is the whole control.
-- **legalChoices.js `castActionsFromZone`** — additive alt-cost dual-offer branch (mirror the additionalCosts dual-offer ~698-746 and emerge fall-through ~944-975; alt-cost is an ALTERNATIVE, so DON'T `continue` — normal hard-cast still falls through). Gate on `altCostConditionHolds(state, playerId, condition, card)` + per-KIND resource enumeration; emit a 2nd cast action carrying the payment fields. Helpers to add: `altCostConditionHolds`, `colorMatches` (near counterSpellTargetFilter ~558).
+- **legalChoices.js `castActionsFromZone`** — **[BUILD — replaced by the TWIN POST-PASS]** the original per-branch insertion plan is unbuildable on current master: the additionalCosts branch, the multi/modal branch (where every HIGH counter exits), the emerge fall-through and the legacy targeted/no-target paths are 5+ separate emission sites, and a per-branch dual-offer is the duplicated-exclusion-list drift trap (mass-targetType memory). As built: the loop computes a per-card `altSpec` BEFORE the affordability gate (both gates widened — `!affordable && !emergeSpec && !altSpec` and `!affordable && !altSpec`), then ONE post-pass over the emitted actions twins each plain hand-cast action of an alt-carrier with its payment variants and splices out unaffordable normal casts (they were never offered pre-change). Helpers: `altCostConditionHolds`, `enumerateAltPayments`, `computeAltCastSpec`, `OFFERED_ALT_COST_KINDS`.
 - **actionDispatcher.js `applyCastSpell`** — free KIND reuses the existing `action.freeCast` skip (~208, keyed purely off the flag, independent of pendingFreeCast; wrapper ~895-918 clears pending only if set → untouched). pitch/sac/return KINDS: enforce payment as a COST after the additionalCosts loop (~270), before the card leaves its zone, with FAIL-FAST throws (DispatcherError) so a mis-offered alt-cast NEVER resolves free. Helpers all exist: moveCardToZone, loseLife, sacrificePermanentForCost.
 - **opponentAI.js** — v1 rule: `preferAlt = altKind==="free" || !normalAffordable` (free is strictly ≥ paid; pitch/sac/return only when mana-short, so the AI never needlessly pitches/sacs/bounces). Counters route through pickCounterCast (preserves alt fields); add the mana-short tiebreak.
 
 ## CREED gates (two-sites: offer AND payment)
 | KIND | condition (offer) | resource (offer) | payment (dispatch) |
 |---|---|---|---|
-| free (commander) | `controlCommander`: scan battlefield+command for `isCommander` FLAG (NOT type-line — interveningIf.js:95) | none | `action.freeCast` skip |
+| free (commander) | `controlCommander`: **[BUILD]** BATTLEFIELD-ONLY scan for the `isCommander` FLAG (NOT type-line). "You control a commander" requires it ON THE BATTLEFIELD (CR 109.4 — only battlefield/stack objects have a controller); a command-zone commander is controlled by no one, and scanning the command zone would free-cast Fierce Guardianship on turn 1 (the cardinal FP). Real anchors: gameState.js stamps the flag on the command-zone card and cmdCast.test.js proves it rides onto the battlefield permanent. | none | `action.altCost` (kind "free") — NEVER `action.freeCast` (single-producer invariant at the pendingFreeCast clear) |
 | free (Submerge) | `submergeGate`: opp battlefield has \bForest\b AND you have \bIsland\b | none | freeCast skip |
 | payLife (Snuff Out) | `controlLand(Swamp)` | life ≥ amount | loseLife; ≤0→SBA |
 | payLifeExilePitch (FoW) | always | ≥1 hand card of color (excl self) AND life ≥ amount | exile card + loseLife; throw if gone |
@@ -66,6 +77,6 @@ Deck occurrences (census): Fierce Guardianship ×5 (Rog/Thras, Kinnan, Yuriko, C
 suite (no MTG_APP_ROOT) + lint · tier flip-diff (GAINED = exactly the wave's cards, LOST=0) · program-fp (the flipped cards) · **trajectory hash RE-ANCHORS** (new legal actions → self-play decisions change; expected, record old→new) · **play-quality probe** for 3b/3c (3a is trivially non-negative: free ≤ paid).
 
 ## Flagged (verify at build)
-- `colorMatches` fidelity — "blue card" is by color IDENTITY/indicator, not just a {U} pip. Scope precisely in 3b (the balloon risk).
+- `colorMatches` fidelity — **[BUILD — CORRECTED]** "blue card" = the card's COLOR (CR 105.2: mana-cost pips + color indicator/CDAs), **NOT color identity** (CR 903.4 is deck-construction only — identity would illegally offer colorless cards with rules-text pips, e.g. a {U}-activation artifact for Force of Will). Implemented via layers.js `colorsOf`, which already returns the Scryfall `colors` array (indicators included) with a pip fallback; canaries pin the indicator-blue and colorless-{U}-in-text cases.
 - `opponentCastNPlus` state — not found in the cast path; treated absent → 3d deferred.
 - alt-cost-on-permanents (Bringer of the Blue Dawn WUBRG) — OUT of scope; parseEffectProgram returns null for non-instant/sorcery. Clean boundary (all 10 are instants/sorceries).

@@ -16,10 +16,16 @@ import {
   runSelfPlayBatch,
   buildPairings,
   outcomeLabelForSeat,
+  outcomeLabelForSeatV2,
   trajectoriesToJsonl,
   writeTrajectoriesJsonl,
   startSeatForGame,
   engineSeatsForMode,
+  resolveBaseSeed,
+  permutedDeckIndices,
+  dedupeSeatDecks,
+  wilsonInterval,
+  summarizeSeatOutcomes,
 } from "./selfPlayRunner.js";
 import { FEATURE_KEYS } from "./gameFeatures.js";
 
@@ -527,5 +533,365 @@ describe("runSelfPlayBatch alternateStart — balanced, deterministic seating", 
       expect(["user", "ai"]).toContain(g.onThePlay);
       expect(["user-wins", "ai-wins", "draw", "timeout"]).toContain(g.result);
     }
+  });
+});
+
+// ─── LANE A4 — RUNNER DATA QUALITY ──────────────────────────────────────────────
+
+function quiet(fn) {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  try {
+    return fn();
+  } finally {
+    warn.mockRestore();
+    log.mockRestore();
+  }
+}
+
+describe("outcomeLabelForSeatV2 — per-seat FATE labels (HB-3)", () => {
+  // Minimal terminal-state fixtures: only the fields the labeler reads
+  // (players[id] presence, life/poison/commanderDamageFrom/lostGame via isPlayerDead, wonGame).
+  const alive = (life = 20) => ({ life });
+  const dead = () => ({ life: 0 });
+
+  it("Commander wonGame (CR 104.2a) winner: ONLY the winner is 1, every other pod seat 0", () => {
+    const state = { players: { user: alive(), ai1: alive(3), ai2: { life: 10, wonGame: true }, ai3: alive(5) } };
+    const label = (seat) => outcomeLabelForSeatV2({ seat, result: "ai-wins", winnerSeat: "ai2", state });
+    expect(label("user")).toBe(0);
+    expect(label("ai1")).toBe(0);
+    expect(label("ai2")).toBe(1);
+    expect(label("ai3")).toBe(0);
+    // THE HB-3 bug this fixes: the old blanket labeler crowned the two losers too.
+    expect(outcomeLabelForSeat("ai1", "ai-wins")).toBe(1); // (the deprecated behavior, pinned for contrast)
+  });
+
+  it("Commander user-death with 3 LIVE opponents: user 0, survivors null (undetermined — never crown liveOpponents[0])", () => {
+    const state = { players: { user: dead(), ai1: alive(), ai2: alive(), ai3: alive() } };
+    // gameStatus would report winnerSeat = "ai1" (arbitrary turn-order-first survivor).
+    const label = (seat) => outcomeLabelForSeatV2({ seat, result: "ai-wins", winnerSeat: "ai1", state });
+    expect(label("user")).toBe(0);
+    expect(label("ai1")).toBeNull();
+    expect(label("ai2")).toBeNull();
+    expect(label("ai3")).toBeNull();
+  });
+
+  it("Commander user-death with a SOLE survivor (others eliminated/removed): survivor 1, all others 0", () => {
+    // ai1 was removed from the game entirely (CR 800.4a), ai2 is dead-in-state, ai3 survives.
+    const state = { players: { user: dead(), ai2: dead(), ai3: alive(12) } };
+    const label = (seat) => outcomeLabelForSeatV2({ seat, result: "ai-wins", winnerSeat: "ai3", state });
+    expect(label("ai3")).toBe(1);
+    expect(label("user")).toBe(0);
+    expect(label("ai1")).toBe(0); // removed seat → eliminated → a proven loss
+    expect(label("ai2")).toBe(0);
+  });
+
+  it("Standard is unchanged by construction (exactly one opponent ⇒ always a TRUE winner)", () => {
+    const aiWon = { players: { user: dead(), ai: alive() } };
+    expect(outcomeLabelForSeatV2({ seat: "ai", result: "ai-wins", winnerSeat: "ai", state: aiWon })).toBe(1);
+    expect(outcomeLabelForSeatV2({ seat: "user", result: "ai-wins", winnerSeat: "ai", state: aiWon })).toBe(0);
+    const userWon = { players: { user: alive(), ai: dead() } };
+    expect(outcomeLabelForSeatV2({ seat: "user", result: "user-wins", winnerSeat: "user", state: userWon })).toBe(1);
+    expect(outcomeLabelForSeatV2({ seat: "ai", result: "user-wins", winnerSeat: "user", state: userWon })).toBe(0);
+  });
+
+  it("draw/turn-limit → 0.5 for every seat; timeout/stuck/error → null for every seat", () => {
+    const state = { players: { user: alive(), ai1: alive(), ai2: alive(), ai3: alive() } };
+    for (const seat of ["user", "ai1", "ai2", "ai3"]) {
+      expect(outcomeLabelForSeatV2({ seat, result: "draw", winnerSeat: null, state })).toBe(0.5);
+      expect(outcomeLabelForSeatV2({ seat, result: "turn-limit", winnerSeat: null, state })).toBe(0.5);
+      expect(outcomeLabelForSeatV2({ seat, result: "timeout", winnerSeat: null, state })).toBeNull();
+      expect(outcomeLabelForSeatV2({ seat, result: "engine-stuck", winnerSeat: null, state })).toBeNull();
+      expect(outcomeLabelForSeatV2({ seat, result: "dispatch-error", winnerSeat: null, state })).toBeNull();
+    }
+  });
+
+  it("a recorded pod game's labels are FATE-sane: at most one 1, user-wins labels exactly [1, 0, 0, 0]", () => {
+    const game = quiet(() => runSelfPlayGame({
+      deckA: aggroDeck("u"),
+      opponentDecks: [aggroDeck("a1"), aggroDeck("a2"), aggroDeck("a3")],
+      mode: "commander",
+      seed: 21,
+      timePressure: true,
+      recordTrajectory: true,
+    }));
+    expect(game.trajectory).toBeTruthy();
+    const winners = game.trajectory.seats.filter((s) => s.outcome === 1);
+    expect(winners.length).toBeLessThanOrEqual(1); // NEVER the 3-winners-per-pod corruption
+    if (game.result === "user-wins") {
+      expect(game.trajectory.seats.find((s) => s.seat === "user").outcome).toBe(1);
+      for (const s of game.trajectory.seats) if (s.seat !== "user") expect(s.outcome).toBe(0);
+    }
+    if (game.result === "ai-wins") {
+      expect(game.trajectory.seats.find((s) => s.seat === "user").outcome).toBe(0);
+      // A 1 (if any) must be the reported winnerSeat; other opponents are 0 (proven) or null (undetermined).
+      for (const s of winners) expect(s.seat).toBe(game.winnerSeat);
+    }
+  });
+});
+
+describe("resolveBaseSeed — seed discipline (HB-4)", () => {
+  it("defaults to the historical deterministic 1 (null/empty/garbage)", () => {
+    expect(resolveBaseSeed(null)).toBe(1);
+    expect(resolveBaseSeed(undefined)).toBe(1);
+    expect(resolveBaseSeed("")).toBe(1);
+    expect(resolveBaseSeed("not-a-number")).toBe(1);
+  });
+
+  it("normalizes numbers exactly like the runner (>>>0), so the echoed seed is the effective one", () => {
+    expect(resolveBaseSeed(42)).toBe(42);
+    expect(resolveBaseSeed("42")).toBe(42);
+    expect(resolveBaseSeed(-1)).toBe(4294967295);
+  });
+
+  it("auto mode uses the injected nonce (deterministic in tests, never Date-based) or a crypto uint32", () => {
+    expect(resolveBaseSeed("auto", { nonce: 123 })).toBe(123);
+    expect(resolveBaseSeed("auto", { nonce: 123 })).toBe(123); // counter/nonce path is pure
+    const minted = resolveBaseSeed("auto");
+    expect(Number.isInteger(minted)).toBe(true);
+    expect(minted).toBeGreaterThanOrEqual(0);
+    expect(minted).toBeLessThanOrEqual(0xffffffff);
+  });
+
+  it("the per-game seed rides the recorded trajectory + JSONL rows (banked duplicates are detectable)", () => {
+    const decks = ["A", "B"].map((n) => ({ id: n, name: n, cards: aggroDeck(n) }));
+    const batch = quiet(() => runSelfPlayBatch(decks, { mode: "standard", record: true, baseSeed: 77 }));
+    const g = batch.games[0];
+    expect(g.trajectory.seed).toBe(g.meta.seed);
+    const lines = trajectoriesToJsonl(batch).trim().split("\n");
+    for (const line of lines) expect(JSON.parse(line).seed).toBe(g.meta.seed);
+  });
+});
+
+describe("runSelfPlayBatch rotateSeats — deck↔seat de-confounding (HB-5)", () => {
+  const decksN = (names) => names.map((n) => ({ id: n, name: n, cards: aggroDeck(n) }));
+
+  it("OFF (default): meta carries NO seatRotation key and seating never rotates (legacy byte-identical)", () => {
+    const batch = quiet(() => runSelfPlayBatch(decksN(["U", "A"]), { mode: "standard", gamesPer: 2, baseSeed: 5 }));
+    for (const g of batch.games) {
+      expect("seatRotation" in g.meta).toBe(false);
+      expect(g.meta.seatNames).toEqual(["U", "A"]);
+    }
+  });
+
+  it("ON: rotation advances once per seatCount games (slower than startSeat — the anti-aliasing axis split)", () => {
+    const batch = quiet(() => runSelfPlayBatch(decksN(["U", "A"]), { mode: "standard", gamesPer: 4, baseSeed: 5, rotateSeats: true }));
+    expect(batch.games.map((g) => g.meta.seatRotation)).toEqual([0, 0, 1, 1]);
+    expect(batch.games[0].meta.seatNames).toEqual(["U", "A"]); // game 0 byte-identical to unrotated
+    expect(batch.games[1].meta.seatNames).toEqual(["U", "A"]);
+    expect(batch.games[2].meta.seatNames).toEqual(["A", "U"]); // the decks swapped seats
+    expect(batch.games[3].meta.seatNames).toEqual(["A", "U"]);
+    // startSeat still rides the RAW game counter (round-robin per game, unchanged).
+    expect(batch.games.map((g) => g.meta.startSeat)).toEqual(["user", "ai", "user", "ai"]);
+  });
+
+  it("DEGENERATE-CASE PIN: a single pod at gamesPer=3 rotates ZERO times — visible as seatRotation:0, not mistaken for rotation", () => {
+    const batch = quiet(() => runSelfPlayBatch(decksN(["A", "B", "C", "D"]), { mode: "commander", gamesPer: 3, baseSeed: 9, rotateSeats: true }));
+    expect(batch.games.length).toBe(3);
+    for (const g of batch.games) {
+      expect(g.meta.seatRotation).toBe(0); // floor(idx/4)%4 = 0 for idx 0..2 — a documented no-op
+      expect(g.meta.seatNames).toEqual(["A", "B", "C", "D"]);
+    }
+  });
+
+  it("rotation is deterministic per baseSeed and the trajectory attribution follows the rotated seating", () => {
+    const decks = decksN(["U", "A"]);
+    const a = quiet(() => runSelfPlayBatch(decks, { mode: "standard", gamesPer: 4, baseSeed: 13, rotateSeats: true, record: true }));
+    const b = quiet(() => runSelfPlayBatch(decks, { mode: "standard", gamesPer: 4, baseSeed: 13, rotateSeats: true, record: true }));
+    expect(a.games.map((g) => g.meta.seatNames)).toEqual(b.games.map((g) => g.meta.seatNames));
+    // deckIds on the recorded trajectory are the PER-GAME rotated assignment (attribution can't drift).
+    expect(a.games[2].trajectory.deckIds).toEqual(["A", "U"]);
+    expect(a.games[0].trajectory.deckIds).toEqual(["U", "A"]);
+  });
+});
+
+describe("runSelfPlayBatch podShuffle — cross-chunk pod sampling (HB-6)", () => {
+  const decksN = (names) => names.map((n) => ({ id: n, name: n, cards: aggroDeck(n) }));
+
+  it("permutedDeckIndices is a deterministic permutation (pure per (n, seed))", () => {
+    const p1 = permutedDeckIndices(8, 12345);
+    const p2 = permutedDeckIndices(8, 12345);
+    expect(p1).toEqual(p2);
+    expect([...p1].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(permutedDeckIndices(8, 54321)).not.toEqual(p1); // a different seed re-deals
+  });
+
+  it("OFF (default): legacy pairing-major order, no podCycle/podPermutation keys", () => {
+    const batch = quiet(() => runSelfPlayBatch(decksN(["A", "B", "C", "D", "E", "F", "G", "H"]), { mode: "commander", gamesPer: 2, baseSeed: 3 }));
+    expect(batch.games.length).toBe(4); // 2 pods × 2 repeats, pairing-major
+    expect(batch.games[0].meta.seatNames).toEqual(["A", "B", "C", "D"]);
+    expect(batch.games[1].meta.seatNames).toEqual(["A", "B", "C", "D"]); // repeats stay grouped per pod
+    expect(batch.games[2].meta.seatNames).toEqual(["E", "F", "G", "H"]);
+    for (const g of batch.games) expect("podCycle" in g.meta).toBe(false);
+  });
+
+  it("ON: each cycle re-deals pod composition (cross-chunk matchups sampled), deterministically per baseSeed", () => {
+    const names = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    const run = () => quiet(() => runSelfPlayBatch(decksN(names), { mode: "commander", gamesPer: 4, baseSeed: 3, podShuffle: true }));
+    const batch = run();
+    expect(batch.games.length).toBe(8); // 4 cycles × 2 pods — same total as repeats
+    // Every game is stamped with its cycle + the cycle's full permutation (attribution).
+    for (const g of batch.games) {
+      expect(g.meta.podCycle).toBeGreaterThanOrEqual(0);
+      expect(typeof g.meta.podPermutation).toBe("string");
+    }
+    // Deck A meets MULTIPLE distinct pod compositions across cycles (the fixed-chunk gap closed).
+    const podsWithA = new Set(
+      batch.games
+        .filter((g) => g.meta.seatNames.includes("A"))
+        .map((g) => [...g.meta.seatNames].sort().join("|"))
+    );
+    expect(podsWithA.size).toBeGreaterThanOrEqual(3);
+    // Fully seed-derived: an identical rerun deals the identical compositions.
+    const again = run();
+    expect(again.games.map((g) => g.meta.seatNames)).toEqual(batch.games.map((g) => g.meta.seatNames));
+  });
+});
+
+describe("dedupeSeatDecks — padded-mirror shared-card-id de-aliasing (watch item)", () => {
+  it("passes distinct decks through UNTOUCHED (identity — the non-padded path is byte-identical)", () => {
+    const a = { id: "a", name: "A", cards: aggroDeck("a"), commanders: [], companion: null };
+    const b = { id: "b", name: "B", cards: aggroDeck("b"), commanders: [], companion: null };
+    const out = dedupeSeatDecks([a, b]);
+    expect(out[0]).toBe(a);
+    expect(out[1]).toBe(b);
+  });
+
+  it("suffixes the 2nd+ occurrence of the SAME deck object so cross-seat card ids are disjoint", () => {
+    const cmd = { id: "cmd-x", name: "Cmdr", type: "Legendary Creature" };
+    const a = { id: "a", name: "A", cards: aggroDeck("a"), commanders: [cmd], companion: { id: "comp-x", name: "Comp" } };
+    const out = dedupeSeatDecks([a, a, a]);
+    expect(out[0]).toBe(a); // first occurrence untouched
+    expect(out[1]).not.toBe(a);
+    expect(out[1].cards[0].id).toBe(`${a.cards[0].id}~s1`);
+    expect(out[2].cards[0].id).toBe(`${a.cards[0].id}~s2`);
+    expect(out[1].commanders[0].id).toBe("cmd-x~s1");
+    expect(out[1].companion.id).toBe("comp-x~s1");
+    // Non-id fields survive the clone.
+    expect(out[1].cards[0].name).toBe(a.cards[0].name);
+    // All three seats' id sets are pairwise disjoint.
+    const ids = out.map((d) => new Set(d.cards.map((c) => c.id)));
+    expect([...ids[0]].filter((id) => ids[1].has(id) || ids[2].has(id))).toEqual([]);
+    expect([...ids[1]].filter((id) => ids[2].has(id))).toEqual([]);
+  });
+
+  it("GUARD: a padded 2-deck commander pod seats DISJOINT card ids (no cross-seat aliasing in the live state)", () => {
+    const decks = [
+      { id: "a", name: "A", cards: aggroDeck("a") },
+      { id: "b", name: "B", cards: aggroDeck("b") },
+    ];
+    let captured = null;
+    const pilots = {
+      user: {
+        decide: ({ state }) => {
+          if (!captured) captured = state;
+          return undefined; // fall through to the default autopilot pick
+        },
+      },
+    };
+    const batch = quiet(() => runSelfPlayBatch(decks, { mode: "commander", baseSeed: 2, pilots }));
+    expect(batch.pairings[0].padded).toBe(true); // [0,1,0,1] — decks A and B each seat twice
+    expect(batch.games[0].result).not.toBe("setup-error");
+    expect(captured).toBeTruthy();
+    const seats = Object.keys(captured.players);
+    const idsOf = (seat) => {
+      const p = captured.players[seat];
+      return new Set([...(p.library || []), ...(p.hand || [])].map((c) => c.id));
+    };
+    for (let i = 0; i < seats.length; i++) {
+      for (let j = i + 1; j < seats.length; j++) {
+        const a = idsOf(seats[i]);
+        const overlap = [...idsOf(seats[j])].filter((id) => a.has(id));
+        expect(overlap).toEqual([]); // shared deck ⇒ previously IDENTICAL ids across seats
+      }
+    }
+  });
+});
+
+describe("runSelfPlayBatch mulligan default (AI-F9)", () => {
+  const noLandDeck = (p) => {
+    const cards = [];
+    for (let i = 0; i < 50; i++) cards.push(bear(`${p}-${i}`));
+    return cards;
+  };
+
+  it("ON by default: an unkeepable dealt hand (0 lands) is SHIPPED — twice, then the forced floor keep", () => {
+    const decks = [
+      { id: "u", name: "U", cards: noLandDeck("u") },
+      { id: "a", name: "A", cards: aggroDeck("a") },
+    ];
+    const batch = quiet(() => runSelfPlayBatch(decks, { mode: "standard", baseSeed: 4 }));
+    const g = batch.games[0];
+    // The 0-land seat ships exactly twice (decideMulliganForAI's ≤2-ship floor), then keeps.
+    const ships = g.log.filter((e) => e.kind === "mulligan-ship" && e.player === "user");
+    expect(ships.length).toBe(2);
+    const keep = g.log.find((e) => e.kind === "mulligan-keep" && e.player === "user");
+    expect(keep).toBeTruthy();
+    expect(keep.mulligans).toBe(2);
+  });
+
+  it("mulligan:false recovers the pre-slice keep-every-7 batch (no mulligan events at all)", () => {
+    const decks = [
+      { id: "u", name: "U", cards: noLandDeck("u") },
+      { id: "a", name: "A", cards: aggroDeck("a") },
+    ];
+    const batch = quiet(() => runSelfPlayBatch(decks, { mode: "standard", baseSeed: 4, mulligan: false }));
+    const g = batch.games[0];
+    expect(g.log.some((e) => e.kind === "mulligan-ship" || e.kind === "mulligan-keep")).toBe(false);
+  });
+
+  it("a pilot's own decideMulligan still takes precedence over the batch default", () => {
+    const decks = [
+      { id: "u", name: "U", cards: noLandDeck("u") },
+      { id: "a", name: "A", cards: aggroDeck("a") },
+    ];
+    const pilots = { user: { decideMulligan: () => ({ kind: "mulligan-keep" }) } };
+    const batch = quiet(() => runSelfPlayBatch(decks, { mode: "standard", baseSeed: 4, pilots }));
+    const g = batch.games[0];
+    // The pilot kept its (terrible) 7 — the AI default did NOT override it.
+    expect(g.log.filter((e) => e.kind === "mulligan-ship" && e.player === "user")).toEqual([]);
+    const keep = g.log.find((e) => e.kind === "mulligan-keep" && e.player === "user");
+    expect(keep.mulligans).toBe(0);
+  });
+});
+
+describe("summarizeSeatOutcomes — the seat-position win table (HB-7)", () => {
+  it("wilsonInterval brackets the point estimate and degrades to [0,1] on n=0", () => {
+    expect(wilsonInterval(0, 0)).toEqual({ lo: 0, hi: 1 });
+    const ci = wilsonInterval(7, 12);
+    expect(ci.lo).toBeGreaterThan(0);
+    expect(ci.lo).toBeLessThan(7 / 12);
+    expect(ci.hi).toBeGreaterThan(7 / 12);
+    expect(ci.hi).toBeLessThanOrEqual(1);
+  });
+
+  it("tables wins by turn-order seat, by deck (positional join through per-game seatNames), and on-the-play", () => {
+    const games = [
+      { result: "ai-wins", winnerSeat: "ai1", onThePlay: "user", meta: { mode: "commander", seatNames: ["A", "B", "C", "D"] } },
+      { result: "ai-wins", winnerSeat: "ai1", onThePlay: "ai1", meta: { mode: "commander", seatNames: ["D", "A", "B", "C"] } }, // rotated assignment
+      { result: "user-wins", winnerSeat: "user", onThePlay: "ai2", meta: { mode: "commander", seatNames: ["A", "B", "C", "D"] } },
+      { result: "timeout", winnerSeat: null, onThePlay: "ai3", meta: { mode: "commander", seatNames: ["A", "B", "C", "D"] } },
+      { result: "setup-error", winnerSeat: null, onThePlay: null, meta: { mode: "commander", seatNames: ["A", "B", "C", "D"] } },
+    ];
+    const s = summarizeSeatOutcomes(games);
+    expect(s.games).toBe(5);
+    expect(s.decisiveGames).toBe(3); // the timeout is honest non-signal; setup-error never seated
+    // TURN-ORDER POSITION marginals — the "is ai1 over-winning?" instrument.
+    expect(s.bySeat.ai1).toMatchObject({ wins: 2, games: 4 });
+    expect(s.bySeat.user).toMatchObject({ wins: 1, games: 4 });
+    expect(s.bySeat.ai2).toMatchObject({ wins: 0, games: 4 });
+    expect(s.bySeat.ai3).toMatchObject({ wins: 0, games: 4 });
+    // DECK marginals join through the PER-GAME seat assignment (rotation-correct):
+    // game 2's ai1 seat held deck A, so A collects that win + game 3's user-seat win.
+    expect(s.byDeck.A).toMatchObject({ wins: 2, games: 4 });
+    expect(s.byDeck.B).toMatchObject({ wins: 1, games: 4 }); // game 1: ai1 held B
+    expect(s.byDeck.C).toMatchObject({ wins: 0, games: 4 });
+    expect(s.byDeck.D).toMatchObject({ wins: 0, games: 4 });
+    // On-the-play: 4 seated games; only game 2's winner was also on the play.
+    expect(s.onThePlay).toMatchObject({ wins: 1, games: 4 });
+    // Every row carries a rate + CI.
+    expect(s.bySeat.ai1.winRate).toBeCloseTo(0.5);
+    expect(s.bySeat.ai1.ci95.lo).toBeLessThan(0.5);
+    expect(s.bySeat.ai1.ci95.hi).toBeGreaterThan(0.5);
   });
 });

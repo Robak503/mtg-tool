@@ -17,7 +17,11 @@ import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import {
   PLAY_API_VERSION, createGame, nextDecision, act,
   legalActions, applyAction, isLegalAction, gameStatus, observe,
+  _internals,
 } from "./gameApi.js";
+import { PENDING_CHOICE_KINDS } from "./pendingChoice.js";
+import { abandon } from "./learnSession.js";
+import { lookupCard, lookupRulingsForCard } from "../server/cardIndex.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -35,6 +39,37 @@ describe("consultation seam — the classify/parse surface Omnath's gate consume
     const prog = parseEffectProgram({ name: "Divination", type: "Sorcery", mana: "{2}{U}", oracle: "Draw two cards." });
     expect(Array.isArray(prog.atoms)).toBe(true);
     expect(["high", "low"]).toContain(programConfidence(prog));
+  });
+});
+
+// ── Seam 1b: the cardIndex consultation rows (contract §2 — PS-5) ──
+describe("consultation seam — cardIndex lookups Omnath's tools consume (contract §2)", () => {
+  it("exports lookupCard + lookupRulingsForCard as functions", () => {
+    expect(typeof lookupCard).toBe("function");
+    expect(typeof lookupRulingsForCard).toBe("function");
+  });
+
+  it("lookupCard golden shape: Lightning Bolt is a named card — or the honest ENOENT when no oracle snapshot is on disk", () => {
+    // INDEX-TOLERANT (the 07358ddd pattern): plain vitest may run with no bundled oracle
+    // snapshot. The §2 contract row documents exactly this split: with a snapshot, a hit is
+    // a card object and a MISS returns null (never a throw); with NO snapshot, the index
+    // load throws an honest ENOENT — it never fabricates a card.
+    let bolt;
+    try {
+      bolt = lookupCard("Lightning Bolt");
+    } catch (err) {
+      expect(err.code).toBe("ENOENT");
+      return;
+    }
+    expect(bolt === null || typeof bolt.name === "string").toBe(true);
+    if (bolt) expect(bolt.name.toLowerCase()).toContain("lightning bolt");
+    expect(lookupCard("zzz-not-a-real-card-name-zzz")).toBeNull(); // a miss is null, never a throw
+  });
+
+  it("lookupRulingsForCard always returns an array — [] on no oracle_id / no rulings snapshot", () => {
+    expect(lookupRulingsForCard(null)).toEqual([]);
+    expect(lookupRulingsForCard({ name: "No Oracle Id" })).toEqual([]);
+    expect(Array.isArray(lookupRulingsForCard({ oracle_id: "no-such-oracle-id" }))).toBe(true);
   });
 });
 
@@ -80,6 +115,43 @@ describe("play-API v1 — the pilot drive loop (PLAY-API-CONTRACT.md)", () => {
     const out = act(session, { kind: "not-a-kind" }, null);
     expect(out.decision.kind).toBe("dispatch-error");
     expect(out.decision.code).toBe("UNKNOWN_DECISION_KIND");
+  });
+
+  it("the v1.2 decision vocabulary: all 20 pending kinds are present (removal = MAJOR; additive kinds pass)", () => {
+    // Presence-pinned, NOT length-pinned (contract §1.1a + §5): a future additive kind is
+    // MINOR and must pass; a removal/rename is MAJOR and must fire this canary.
+    const V12_KINDS = [
+      "tutor-search", "clone-search", "scry-surveil", "optional-effect", "commander-return",
+      "hand-discard", "impulse-dig", "dig-land-to-battlefield", "sacrifice-choice", "discard",
+      "divide-damage", "distribute-counters", "soft-counter", "optional-mana-payment",
+      "optional-sac-payment", "optional-draw-discard", "optional-discard-payment",
+      "sac-unless-pay", "taxed-payment", "edict-mode",
+    ];
+    for (const kind of V12_KINDS) expect(PENDING_CHOICE_KINDS).toContain(kind);
+  });
+
+  it("an ask carries metadata.suggestion — the engine's own, guaranteed-legal pick (contract §1.1b)", () => {
+    const session = createGame({ userDeck: deck("u"), opponentDeck: deck("a"), difficulty: "beginner", mode: "standard" });
+    const first = nextDecision(session);
+    expect(first.decision.kind).toBe("ask");
+    const suggestion = first.decision.metadata?.suggestion;
+    expect(suggestion).toBeTruthy();
+    expect(typeof suggestion.kind).toBe("string");
+    // The documented guarantee: suggestion ∈ options (the always-legal fallback answer).
+    expect(first.decision.options.some((o) => _internals.actionsEqual(o, suggestion))).toBe(true);
+    // §1.1b answering-seat derivation: with no mid-resolution window pending, the ask's
+    // answering seat is exactly state.priorityHolder (asks carry NO seat field in v1.x).
+    const s = first.session.state;
+    expect(s.pendingDiscover ?? s.pendingFreeCast ?? s.pendingCascade ?? null).toBeNull();
+    expect(s.priorityHolder).toBe("user");
+  });
+
+  it("session.status vocabulary (contract §1.1c): fresh = 'active'; abandon() = 'abandoned'", () => {
+    const session = createGame({ userDeck: deck("u"), opponentDeck: deck("a"), difficulty: "beginner", mode: "standard" });
+    expect(session.status).toBe("active");
+    expect(abandon(session).status).toBe("abandoned");
+    // (The game-over statuses — user-wins/ai-wins/draw/timeout — are pinned by the expert
+    // drive-loop test above, matching the §1.1c list.)
   });
 
   it("v0 pure layer keeps its shape (legalActions/isLegalAction/applyAction/observe)", () => {

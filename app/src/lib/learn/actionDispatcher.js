@@ -206,8 +206,13 @@ function applyCastSpell(state, action) {
   // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): skip the mana plan + payment
   // entirely when `action.freeCast` is set. ONLY the mana cost is waived — the ADDITIONAL costs below
   // (sacrifice / pay-life / discard) still apply, exactly as CR requires. Otherwise pay normally.
+  // ALT-COST (CR 601.2b / 118.9): a printed-alternative-cost cast (`action.altCost`, the legalChoices twin
+  // post-pass) likewise pays NO mana — its own payment (life / pitch / sac / return-lands) is applied
+  // atomically in step 2b' below, before the card leaves its zone. Deliberately a SEPARATE marker from
+  // freeCast: the pendingFreeCast/pendingCascade clears further down are keyed off action.freeCast under a
+  // single-producer invariant an overloaded flag would silently corrupt.
   let working;
-  if (action.freeCast) {
+  if (action.freeCast || action.altCost) {
     working = state;
   } else {
     // Plan payment from the current pool PLUS untapped mana sources. planPayment
@@ -268,6 +273,52 @@ function applyCastSpell(state, action) {
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
     } else {
       throw new DispatcherError(`Unsupported additional cost kind: ${ac.kind}`, "ADDCOST_UNSUPPORTED");
+    }
+  }
+
+  // 2b'. ALT-COST payment (CR 601.2b / 118.9) — the printed-alternative cost chosen at the offer
+  // (action.altCost, carrying the frozen payment fields), applied atomically BEFORE the card leaves its
+  // zone (CR 601.2h). The offer only ever emits payable variants (enumerateAltPayments), so every throw
+  // here is a true upstream bug — FAIL-FAST rather than resolve a spell whose cost was never paid
+  // (silently skipping a cost is the cardinal false-positive failure, CLAUDE.md §1.2). Each resource is
+  // re-resolved against the LIVE state at payment time.
+  if (action.altCost) {
+    const alt = action.altCost;
+    if (alt.kind === "free") {
+      // No payment — the offer gate verified the printed condition (controlCommander / submergeGate).
+    } else if (alt.kind === "payLife") {
+      if (!(alt.payLife > 0)) throw new DispatcherError("Alt-cost cast requires a life payment but none was chosen", "ALTCOST_UNPAID");
+      working = loseLife(working, { playerId: action.playerId, amount: alt.payLife });
+    } else if (alt.kind === "payLifeExilePitch" || alt.kind === "exileColorCard") {
+      if (!alt.exilePitchId) throw new DispatcherError("Alt-cost cast requires an exiled pitch card but none was chosen", "ALTCOST_UNPAID");
+      if (!working.players[action.playerId]?.hand.some((c) => c.id === alt.exilePitchId)) {
+        throw new DispatcherError(`Alt-cost pitch card ${alt.exilePitchId} not in hand`, "CARD_NOT_IN_HAND");
+      }
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "exile", cardId: alt.exilePitchId });
+      if (alt.kind === "payLifeExilePitch") {
+        if (!(alt.payLife > 0)) throw new DispatcherError("Alt-cost cast requires a life payment but none was chosen", "ALTCOST_UNPAID");
+        working = loseLife(working, { playerId: action.playerId, amount: alt.payLife });
+      }
+    } else if (alt.kind === "sacrificeCreature") {
+      if (!alt.sacId) throw new DispatcherError("Alt-cost cast requires a sacrifice but no victim was chosen", "ALTCOST_UNPAID");
+      const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === alt.sacId);
+      if (!victim) throw new DispatcherError(`Alt-cost sacrifice victim ${alt.sacId} not on battlefield`, "PERM_NOT_FOUND");
+      working = sacrificePermanentForCost(working, action.playerId, victim);
+    } else if (alt.kind === "returnLandsToHand") {
+      if (!Array.isArray(alt.returnLandIds) || alt.returnLandIds.length === 0) {
+        throw new DispatcherError("Alt-cost cast requires returned lands but none were chosen", "ALTCOST_UNPAID");
+      }
+      // Same mechanism as the γ1g return-cost: battlefield → hand per land, draining each land's leave
+      // event (checkLeavesTriggers) so modeled leave watchers stack correctly (CR 603.3b); the offer gate
+      // already excluded lands with an unmodeled leaves/LTB trigger (sacrificeDropsTrigger).
+      for (const lid of alt.returnLandIds) {
+        const land = working.players[action.playerId]?.battlefield.find((p) => p.id === lid);
+        if (!land) throw new DispatcherError(`Alt-cost return land ${lid} not on battlefield`, "PERM_NOT_FOUND");
+        working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: lid });
+        working = checkLeavesTriggers(working);
+      }
+    } else {
+      throw new DispatcherError(`Unsupported alt cost kind: ${alt.kind}`, "ALTCOST_UNSUPPORTED");
     }
   }
 
@@ -1024,6 +1075,10 @@ function applyCastSpellMaybeDiscover(state, action) {
   // was taken). The short-circuit in legalActionsForPlayer guarantees that while pendingFreeCast is set the
   // ONLY cast actions offered are the free-cast ones (action.freeCast), so this never clears the flag on an
   // unrelated cast. The card was cast FROM HAND, so no fromZone gate is needed beyond the freeCast marker.
+  // SINGLE-PRODUCER INVARIANT: an ALT-COST cast (a printed alternative cost — Fierce Guardianship free,
+  // Force of Will pitch) carries `action.altCost` and NEVER `action.freeCast`, and the alt-cost dual offer
+  // is suppressed inside every freeCast enumeration — so this clear (and the pendingCascade one below) can
+  // never be tripped, nor starved, by the alt-cost subsystem.
   if (state.pendingFreeCast && action.freeCast) {
     const { pendingFreeCast: _drop, ...rest } = next;
     return rest;

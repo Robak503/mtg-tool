@@ -26,9 +26,10 @@
  * the whole batch reproducible run-to-run (same baseSeed ⇒ same set of games).
  */
 
-import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
+import { createLearnSession, advanceUntilDecision, isPlayerDead, hasWonGame } from "./learnSession.js";
 import { featurizeState } from "./gameFeatures.js";
 import { gameStatus } from "./gameApi.js";
+import { decideMulliganForAI } from "./opponentAI.js";
 
 /**
  * Map a terminal self-play `result` token to a per-seat VALUE LABEL for the value-
@@ -36,17 +37,12 @@ import { gameStatus } from "./gameApi.js";
  * 0.5 for every seat (no winner, no loser). `seatId` is the engine seat ("user" |
  * "ai" | "ai1".."ai3"); `result` is runSelfPlayGame's mapped result.
  *
- * Honest by construction: only "user-wins"/"ai-wins" produce a 1, and ONLY for the
- * seat that actually won — a real draw/turn-limit (no clock) is 0.5, and everything
- * else returns null so those rows are DROPPED rather than mislabeled. That null set
- * includes `timeout`: a time-pressure game that still hit the cap is an HONEST
- * non-result — we never fabricate a W/L (or even a 0.5) from a stall, the exact label
- * noise this work removes. Non-completions (engine-stuck/dispatch-error/setup-error)
- * are null for the same reason (you can't learn "who won" from a game that never
- * finished). Standard maps user→"user", ai→"ai"; Commander's winning seat is "user"
- * for a user-wins and — since the engine reports a pod win as the surviving seat via
- * status — currently only distinguishes the user seat vs the rest (a finer per-ai-seat
- * winner label is a follow-up noted in the recorder docs).
+ * DEPRECATED (HB-3): this labeler has no winner identity, so in a Commander pod an
+ * "ai-wins" labeled EVERY non-user seat 1 — the two losing pod seats were recorded as
+ * winners (50%+ label noise). The runner now labels by per-seat FATE via
+ * outcomeLabelForSeatV2 below; this export is kept only for its Standard-shaped
+ * contract (where "the rest" is exactly one seat and the mapping is correct) and for
+ * back-compat with existing consumers/tests. New code must use outcomeLabelForSeatV2.
  */
 export function outcomeLabelForSeat(seatId, result) {
   if (result === "user-wins") return seatId === "user" ? 1 : 0;
@@ -54,6 +50,46 @@ export function outcomeLabelForSeat(seatId, result) {
   if (result === "draw" || result === "turn-limit") return 0.5;
   // timeout / engine-stuck / dispatch-error / setup-error / unexpected → don't fabricate a label
   return null;
+}
+
+/**
+ * Per-seat FATE labeler (HB-3) — the honest value target for pods.
+ *
+ * Label semantics (never fabricate — THE CREED):
+ *   - draw / turn-limit           → 0.5 for every seat (no winner, no loser)
+ *   - timeout / engine-stuck / dispatch-error / setup-error / unexpected → null
+ *     for every seat (an honest non-result; rows are dropped, never mislabeled)
+ *   - user-wins                   → user 1, every opponent 0 (all provably dead —
+ *     gameStatus only returns user-wins when every opponent lost, CR 704.5)
+ *   - ai-wins with a TRUE winner  → that seat 1, every other seat 0. A TRUE winner
+ *     is a seat with the wonGame flag (CR 104.2a) OR the SOLE surviving opponent
+ *     (everyone else provably lost).
+ *   - ai-wins via the user's death with 2+ opponents still alive → user 0,
+ *     already-eliminated opponents 0, SURVIVING opponents null: the pod never
+ *     played out, so their W/L is undetermined — gameStatus's winnerSeat there is
+ *     just liveOpponents[0] (an arbitrary turn-order-first survivor), and crowning
+ *     it would fabricate a win + fabricate losses for the other survivors.
+ *
+ * `state` is the terminal game state (used for the wonGame flag + per-seat death /
+ * elimination checks — a seat removed from state.players by CR 800.4a is eliminated).
+ * Standard is unchanged by construction: with exactly one opponent the TRUE-winner
+ * case always applies and reproduces outcomeLabelForSeat's mapping exactly.
+ */
+export function outcomeLabelForSeatV2({ seat, result, winnerSeat = null, state = null }) {
+  if (result === "draw" || result === "turn-limit") return 0.5;
+  if (result === "user-wins") return seat === "user" ? 1 : 0;
+  if (result !== "ai-wins") return null; // timeout / stuck / error / unexpected → no label
+  const players = state?.players || {};
+  // A seat removed from the game (CR 800.4a) has no player record → eliminated.
+  const eliminated = (id) => players[id] === undefined || isPlayerDead(state, id);
+  const survivingOpponents = Object.keys(players).filter((id) => id !== "user" && !isPlayerDead(state, id));
+  const isTrueWinner =
+    winnerSeat != null &&
+    (hasWonGame(state, winnerSeat) || (survivingOpponents.length === 1 && survivingOpponents[0] === winnerSeat));
+  if (isTrueWinner) return seat === winnerSeat ? 1 : 0;
+  // ai-wins via user death with 2+ survivors: losses only where PROVEN; survivors undetermined.
+  if (seat === "user") return 0;
+  return eliminated(seat) ? 0 : null;
 }
 
 /**
@@ -156,6 +192,8 @@ export function runSelfPlayGame({
   timePressure = false, // default OFF here (a single game is byte-identical); runSelfPlayBatch turns it ON.
   pilots = {}, // EXTERNAL-DECIDE ADAPTER: { [seatId]: { decide, decideMulligan?, playbook?, temperament? } }; {} ⇒ all-default play.
   recordDecisions = false, // opt-in per-DECISION (policy) trajectory; default OFF ⇒ byte-identical.
+  policy = null, // SD-5/PS-4 — opponentAI A/B knob (null | "v1" | per-subsystem map) threaded into advanceOpts; null ⇒ byte-identical.
+  mulligan = null, // AI-F9 — null/false (single-game default, byte-identical): mulligan only for seats whose PILOT supplies decideMulligan; true: seats WITHOUT one default to decideMulliganForAI (runSelfPlayBatch turns this ON so 0-land/7-land keeps stop poisoning labels).
 } = {}) {
   // Per-seat pilot identity ({playbook,temperament} | null) — used by both the in-game decide
   // router/recorder below AND the pre-game mulligan config. Defined up here so the mulligan
@@ -168,21 +206,26 @@ export function runSelfPlayGame({
   // ── Pre-game London mulligan (opt-in, CR 103.5) ──────────────────────────────
   //
   // A seat opts into the mulligan by giving its pilot a `decideMulligan`. When ANY seat
-  // has one, we build a `mulligan` config for createLearnSession → startGame: a routed
-  // decide that, given the seat being offered keep/ship, calls THAT seat's decideMulligan
-  // (a seat without one returns "keep" ⇒ it keeps its dealt 7, byte-identical). When NO
-  // seat has a decideMulligan we pass no `mulligan` at all, so game start is byte-identical
-  // to the pre-slice engine (the dealt 7s are kept untouched). The mulligan decisions are
-  // recorded into the per-DECISION trajectory (turn 0, tagged by pilot) when recordDecisions
-  // is on, so a pilot's pre-game choices ride alongside its in-game ones.
+  // has one — OR the `mulligan:true` opt is set (AI-F9: runSelfPlayBatch's default, so a
+  // 0-land/7-land dealt hand is shipped instead of silently kept and poisoning the game's
+  // W/L label) — we build a `mulligan` config for createLearnSession → startGame: a routed
+  // decide that, given the seat being offered keep/ship, calls THAT seat's decideMulligan;
+  // a seat without one falls back to decideMulliganForAI when `mulligan:true`, else keeps
+  // its dealt 7 (byte-identical). When NO seat has a decideMulligan and the opt is off we
+  // pass no `mulligan` at all, so game start is byte-identical to the pre-slice engine
+  // (the dealt 7s are kept untouched). The mulligan decisions are recorded into the
+  // per-DECISION trajectory (turn 0, tagged by pilot) when recordDecisions is on, so a
+  // pilot's pre-game choices ride alongside its in-game ones.
+  const defaultAIMulligan = mulligan === true;
   const hasAnyMulliganPilot = pilots && Object.values(pilots).some((p) => typeof p?.decideMulligan === "function");
   const mulliganRows = [];
-  const mulliganConfig = hasAnyMulliganPilot
+  const mulliganConfig = (hasAnyMulliganPilot || defaultAIMulligan)
     ? {
         decide: ({ state, legalActions, seat, pilot }) => {
           const p = pilots?.[seat];
-          if (typeof p?.decideMulligan !== "function") return { kind: "mulligan-keep" }; // no mull pilot → keep the 7
-          return p.decideMulligan({ state, legalActions, seat, pilot });
+          if (typeof p?.decideMulligan === "function") return p.decideMulligan({ state, legalActions, seat, pilot });
+          if (defaultAIMulligan) return decideMulliganForAI({ state, legalActions, seat }); // AI-F9 default heuristic
+          return { kind: "mulligan-keep" }; // no mull pilot, opt off → keep the 7
         },
         pilots: Object.fromEntries((Object.keys(pilots || {})).map((seat) => [seat, pilotIdentity(seat)])),
         recordMulligan: recordDecisions
@@ -304,6 +347,7 @@ export function runSelfPlayGame({
   if (timePressure) advanceOpts.timePressure = timePressure;
   if (routedDecide) advanceOpts.decide = routedDecide;
   if (recordDecision) advanceOpts.recordDecision = recordDecision;
+  if (policy != null) advanceOpts.policy = policy; // SD-5/PS-4 — the A/B knob for probe batches; absent ⇒ byte-identical
 
   // Drive to termination. advanceUntilDecision NEVER throws on engine bugs — it
   // returns a structured engine-stuck / dispatch-error decision — but we still
@@ -406,10 +450,13 @@ export function runSelfPlayGame({
   // (engine-stuck/dispatch-error) yield a null label for every seat → those rows carry
   // outcome:null so a consumer drops the game instead of training on a fabricated W/L.
   // (trainingWeight:0 on the game is the coarse-grained version of the same signal.)
+  // HB-3: labels are per-seat FATE (outcomeLabelForSeatV2) — in a pod, only the TRUE
+  // winner gets a 1; losing pod seats get 0; survivors of a user-death pod that never
+  // played out get null (undetermined, dropped), never a fabricated W/L.
   const labelResult = result === "draw" && base.reason === "turn-limit" ? "turn-limit" : result;
   const seats = [];
   for (const [seat, rows] of seatRows.entries()) {
-    seats.push({ seat, outcome: outcomeLabelForSeat(seat, labelResult), rows });
+    seats.push({ seat, outcome: outcomeLabelForSeatV2({ seat, result: labelResult, winnerSeat, state: out.state }), rows });
   }
 
   return {
@@ -501,6 +548,158 @@ export function startSeatForGame(mode, index) {
 }
 
 /**
+ * Resolve a caller-supplied base-seed spec into a concrete uint32 baseSeed (HB-4).
+ *
+ *   - null / "" / undefined → 1 (the historical default — DETERMINISTIC, so a bare
+ *     rerun still reproduces byte-identically; the seed now rides the recorded data
+ *     so duplicate banking is detectable either way)
+ *   - a number / numeric string → that value >>> 0 (matches the runner's own
+ *     normalization, so the echoed seed is exactly the effective one)
+ *   - "auto" → a fresh independent sweep seed: the injected `nonce` (>>>0) when the
+ *     caller provides one (tests inject a counter — NEVER Date-based, so test runs
+ *     stay reproducible), else a crypto 32-bit value (also not Date-based).
+ */
+export function resolveBaseSeed(spec, { nonce = null } = {}) {
+  if (spec == null || spec === "" || spec === true) return 1;
+  if (spec === "auto") {
+    if (nonce != null && Number.isFinite(Number(nonce))) return Number(nonce) >>> 0;
+    const buf = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(buf);
+    return buf[0] >>> 0;
+  }
+  const n = Number(spec);
+  return Number.isFinite(n) ? n >>> 0 : 1;
+}
+
+/** The same deterministic PRNG (mulberry32) the engine's seeded shuffle uses
+ *  (effects/atoms/library.js — not exported there; mirrored so the pod-shuffle
+ *  permutation stream matches the engine's PRNG family). */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Deterministic Fisher–Yates permutation of [0..n) from a uint32 seed (HB-6).
+ * Pure: a given (n, seed) always yields the same permutation. Used by the batch's
+ * podShuffle mode to re-deal deck→pod composition each cycle.
+ */
+export function permutedDeckIndices(n, seed) {
+  const rng = mulberry32(seed >>> 0);
+  const idx = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  return idx;
+}
+
+/**
+ * De-alias duplicated decks within ONE pod's seat assignment (the padded-mirror
+ * shared-card-id watch item). buildPairings pads a short/trailing pod by WRAPPING
+ * the deck list, so the SAME deck object can occupy two seats — and since
+ * createPlayerState copies the library array but not the card objects
+ * (gameState.js `library: [...library]`), both seats' libraries would then hold
+ * the very same card objects with IDENTICAL card ids. Card ids are the engine's
+ * cross-zone identity (targets, tutors, commander tax keys), so cross-seat id
+ * collisions alias. Fix at pad time: the 2nd+ occurrence of a deck gets its
+ * cards/commanders/companion cloned with a per-seat id suffix (`~s<seatIndex>`),
+ * making every seat's ids disjoint. First occurrences (and every non-padded pod)
+ * pass through UNTOUCHED — byte-identical. Duplicates are detected by object
+ * identity (the batch reuses the same deck object per index). Pure.
+ */
+export function dedupeSeatDecks(seatDecks) {
+  const seen = new Set();
+  return (seatDecks || []).map((deck, k) => {
+    if (!deck || typeof deck !== "object") return deck;
+    if (!seen.has(deck)) {
+      seen.add(deck);
+      return deck;
+    }
+    const tag = (c) => (c ? { ...c, id: `${c.id}~s${k}` } : c);
+    return {
+      ...deck,
+      cards: (deck.cards || []).map(tag),
+      commanders: (deck.commanders || []).map(tag),
+      companion: deck.companion ? tag(deck.companion) : (deck.companion ?? null),
+    };
+  });
+}
+
+/**
+ * Wilson score interval for a binomial win-rate (HB-7). Returns { lo, hi } at the
+ * given z (default 1.96 ≈ 95%). Pure; n=0 → the uninformative [0,1].
+ */
+export function wilsonInterval(wins, n, z = 1.96) {
+  if (!n) return { lo: 0, hi: 1 };
+  const p = wins / n;
+  const z2 = z * z;
+  const denom = 1 + z2 / n;
+  const center = (p + z2 / (2 * n)) / denom;
+  const half = (z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)) / denom;
+  return { lo: Math.max(0, center - half), hi: Math.min(1, center + half) };
+}
+
+/**
+ * Per-seat / per-deck / on-the-play win tables for a batch's games (HB-7) — the
+ * measurement instrument for the "does one turn-order position over-win?" question.
+ * Pure over runSelfPlayGame results; analysis-only (never feeds gameplay).
+ *
+ *   - bySeat:     wins/games per TURN-ORDER POSITION (engine seat id). Every seat
+ *                 of a game's mode counts one game; the winnerSeat counts the win.
+ *   - byDeck:     wins/games per deck NAME, joined positionally via each game's
+ *                 meta.seatNames (correct under HB-5 rotation too — the meta is
+ *                 the per-game assignment). NOTE: without rotateSeats, deck and
+ *                 seat are fully confounded — bySeat ≡ byDeck reshuffled.
+ *   - onThePlay:  wins/games for the seat that led (CR 103.8a position edge).
+ * Only DECISIVE games (user-wins/ai-wins with a named winnerSeat) count wins;
+ * draws/timeouts/non-completions count as games (decisiveGames tells them apart).
+ * Each row carries a 95% Wilson CI on the win rate.
+ */
+export function summarizeSeatOutcomes(games) {
+  const bySeat = {};
+  const byDeck = {};
+  const onThePlay = { wins: 0, games: 0 };
+  let decisiveGames = 0;
+  const bump = (table, key, won) => {
+    const e = table[key] || (table[key] = { wins: 0, games: 0 });
+    e.games += 1;
+    if (won) e.wins += 1;
+  };
+  const list = Array.isArray(games) ? games : [];
+  for (const g of list) {
+    if (g?.result === "setup-error") continue; // the game never seated anyone
+    const mode = g?.meta?.mode || "commander";
+    const seats = engineSeatsForMode(mode);
+    const names = g?.meta?.seatNames || [];
+    const decisive = (g?.result === "user-wins" || g?.result === "ai-wins") && g?.winnerSeat != null;
+    if (decisive) decisiveGames += 1;
+    for (let k = 0; k < seats.length; k++) {
+      const won = decisive && g.winnerSeat === seats[k];
+      bump(bySeat, seats[k], won);
+      bump(byDeck, names[k] ?? `deck${k}`, won);
+    }
+    if (g?.onThePlay != null) {
+      onThePlay.games += 1;
+      if (decisive && g.winnerSeat === g.onThePlay) onThePlay.wins += 1;
+    }
+  }
+  const finalize = (e) => ({ ...e, winRate: e.games ? e.wins / e.games : 0, ci95: wilsonInterval(e.wins, e.games) });
+  return {
+    games: list.length,
+    decisiveGames,
+    bySeat: Object.fromEntries(Object.entries(bySeat).map(([k, e]) => [k, finalize(e)])),
+    byDeck: Object.fromEntries(Object.entries(byDeck).map(([k, e]) => [k, finalize(e)])),
+    onThePlay: finalize(onThePlay),
+  };
+}
+
+/**
  * Run a full self-play batch over a list of enriched decks.
  *
  * @param {Array<object>} deckList  each entry: {
@@ -531,10 +730,12 @@ export function startSeatForGame(mode, index) {
  *     `{ [seatId]: { decide, decideMulligan?, playbook?, temperament? } }` map (seatIds are the
  *     engine seats — "user", "ai" for Standard; "user","ai1","ai2","ai3" for Commander). Passed
  *     straight through to every game's runSelfPlayGame, including each seat's optional
- *     `decideMulligan` (the pre-game London keep/ship; a seat without one keeps its 7). Omnath's
+ *     `decideMulligan` (the pre-game London keep/ship; a seat without one falls back to the batch
+ *     `mulligan` default below — decideMulliganForAI when ON, keep-the-7 when off). Omnath's
  *     pilot module is injected HERE by the caller; the runner never imports it. Default {} ⇒ every
- *     seat plays the default autopilot AND keeps its opening 7 (byte-identical). The same map
- *     applies to all pairings (positional seats are stable).
+ *     seat plays the default autopilot. The same map applies to all pairings (positional seats
+ *     are stable; under rotateSeats a seat's pilot rides the SEAT, not the deck — that is the
+ *     de-confounding HB-5 exists for).
  * @param {boolean} [opts.recordDecisions]  OPT-IN (default false): record the per-DECISION
  *     (policy) trajectory for every game (passes through to runSelfPlayGame.recordDecisions).
  *     Each game's `.decisionTrajectory` is tagged with `deckIds`/`seatNames` for attribution.
@@ -550,12 +751,37 @@ export function startSeatForGame(mode, index) {
  *     the-play (the pre-slice batch behavior). The chosen seat is recorded on meta.startSeat and
  *     the result's onThePlay. Turn order is unchanged; win-detection is seat-identity based, so
  *     the result still names which DECK won regardless of who led.
+ * @param {boolean|string} [opts.mulligan]  DEFAULT TRUE for batches (AI-F9): every seat
+ *     runs the pre-game London mulligan, using its pilot's `decideMulligan` when supplied
+ *     and decideMulliganForAI otherwise — a 0-land/7-land dealt hand is shipped instead of
+ *     silently kept, removing the pre-decided mana-screw noise from the W/L labels. Pass
+ *     false to recover the old keep-every-7 batch behavior (byte-identical replays of
+ *     pre-slice batches).
+ * @param {boolean} [opts.rotateSeats]  OPT-IN (default false — byte-identical) HB-5: rotate
+ *     which DECK sits at which engine seat across the batch, so pilot (seat-keyed), deck, and
+ *     seat position de-confound. Game idx gets rotation floor(idx/seatCount) % seatCount of
+ *     its pairing's seats (startSeat keeps riding the RAW idx — the two axes advance at
+ *     different rates by design; keying both to idx%seatCount would alias so that half the
+ *     decks never lead). The per-game assignment is recorded on meta.seatNames/deckNames +
+ *     meta.seatRotation and rides the trajectory attribution. NOTE: any rotation at all needs
+ *     gamesPer ≥ seatCount+... — concretely, a pairing with repeats < seatCount+1 (e.g. a
+ *     single pod at gamesPer=3) gets rotation 0 for every game (a visible no-op:
+ *     meta.seatRotation stays 0); the exact full deck×seat factorial needs gamesPer =
+ *     k·seatCount² (k·16 for Commander). Size batches accordingly (HB-7's probe uses ≥16).
+ * @param {boolean} [opts.podShuffle]  OPT-IN (default false — byte-identical) HB-6: re-deal
+ *     the deck→pod composition each CYCLE. The batch restructures from per-pairing repeats to
+ *     per-cycle passes (cycle c = one full traversal of the pairing list): each cycle derives
+ *     a deterministic permutation of deck indices from mulberry32 seeded
+ *     (baseSeed ^ 0x9e3779b9·(c+1)) and applies it BEFORE pod chunking, so cross-chunk
+ *     matchups get sampled instead of deck i only ever meeting its 3 list-neighbours.
+ *     Recorded on meta.podCycle + meta.podPermutation. Fully seed-derived (same baseSeed ⇒
+ *     same compositions). OFF ⇒ the legacy pairing-major loop, byte-identical.
  * @returns {{ games: object[], deckList: object[], mode, pairings }}
  *     games — one runSelfPlayGame result per game, each tagged with .meta
  *             { mode, deckNames, seatNames, userDeckName, startSeat } and a trainingWeight,
  *             plus an `onThePlay` field naming the seat that led (CR 103.8a)
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true, policy = null, mulligan = true, rotateSeats = false, podShuffle = false } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
   // Seeded shuffle makes repeats REAL: each game gets a distinct seed, so gamesPer>1
@@ -568,85 +794,129 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
   const base = (Number.isFinite(baseSeed) ? baseSeed : 1) >>> 0;
 
   const games = [];
-  for (const pairing of pairings) {
-    const seatDecks = pairing.seats.map((i) => decks[i]);
+
+  // Run ONE game of `pairing` (repeat r). `extraMeta` carries the podShuffle cycle
+  // attribution. The monotonic per-game counter (gameIndex) drives the seed, the
+  // starting seat, and (when rotateSeats) the deck→seat rotation, so a single game
+  // reproduces exactly from its recorded { seed, startSeat, seatNames }.
+  const runOne = (pairing, r, extraMeta = null) => {
+    const idx = gameIndex;
+    gameIndex += 1;
+    // Distinct per-game seed. The large odd stride keeps consecutive seeds far apart in
+    // the mulberry32 stream so neighbouring games don't share near-identical opening draws.
+    const seed = ((base + Math.imul(idx, 2654435761)) >>> 0);
+    // Which seat is ON THE PLAY for this game. alternateStart (default) ⇒ a deterministic
+    // round-robin over the mode's seats (balanced across the batch; game 0 leads with "user").
+    // OFF ⇒ null, which runSelfPlayGame treats as "user" ⇒ BYTE-IDENTICAL to the pre-slice batch.
+    const startSeat = alternateStart ? startSeatForGame(mode, idx) : null;
+    // HB-5 deck↔seat rotation (opt-in). rot advances once per seatCount games — deliberately
+    // SLOWER than startSeat's per-game round-robin, so (deck-at-seat × on-the-play) sweeps the
+    // full factorial instead of aliasing (rot=idx%N with startSeat=seats[idx%N] would pin the
+    // on-the-play deck to only half the pairing positions). rot=0 (and rotateSeats:false) keeps
+    // the pairing's natural order — game 0 is always byte-identical to the unrotated batch.
+    const seatCount = pairing.seats.length;
+    const rot = rotateSeats ? Math.floor(idx / seatCount) % seatCount : 0;
+    const seatIndices = rot === 0 ? pairing.seats : pairing.seats.map((_, k) => pairing.seats[(k + rot) % seatCount]);
+    // De-alias duplicated decks in a padded/mirror pod (shared-card-id watch item): the 2nd+
+    // occurrence of the SAME deck object gets id-suffixed clones so cross-seat card ids stay
+    // disjoint. No-op (identity) for every non-padded pod.
+    const seatDecks = dedupeSeatDecks(seatIndices.map((i) => decks[i]));
     const seatNames = seatDecks.map((d) => d?.name || d?.id || "Unknown deck");
     const seatIds = seatDecks.map((d) => d?.id || d?.name || "unknown");
-    for (let r = 0; r < repeats; r++) {
-      // The monotonic per-game counter drives BOTH the seed and (when alternating) the
-      // starting seat, so the two are locked together and a single game reproduces from its
-      // recorded { seed, startSeat }. Captured before the increment.
-      const idx = gameIndex;
-      // Distinct per-game seed. The large odd stride keeps consecutive seeds far apart in
-      // the mulberry32 stream so neighbouring games don't share near-identical opening draws.
-      const seed = ((base + Math.imul(idx, 2654435761)) >>> 0);
-      // Which seat is ON THE PLAY for this game. alternateStart (default) ⇒ a deterministic
-      // round-robin over the mode's seats (balanced across the batch; game 0 leads with "user").
-      // OFF ⇒ null, which runSelfPlayGame treats as "user" ⇒ BYTE-IDENTICAL to the pre-slice batch.
-      const startSeat = alternateStart ? startSeatForGame(mode, idx) : null;
-      gameIndex += 1;
-      const meta = {
+    const meta = {
+      mode,
+      seatNames,
+      deckNames: seatNames,
+      userDeckName: seatNames[0],
+      padded: !!pairing.padded,
+      seed, // record the per-game seed so a specific game can be reproduced exactly
+      startSeat, // the seat put on the play (null ⇒ default user-first); reproduces seating exactly
+      repeat: r,
+      // Feature-gated keys ONLY (absent on default runs ⇒ legacy meta byte-identical):
+      ...(rotateSeats ? { seatRotation: rot } : {}),
+      ...(extraMeta || {}),
+    };
+    let game;
+    if (mode === "commander") {
+      const [userDeck, ...oppDecks] = seatDecks;
+      game = runSelfPlayGame({
+        deckA: userDeck?.cards || [],
+        opponentDecks: oppDecks.map((d) => d?.cards || []),
+        userCommanders: userDeck?.commanders || [],
+        opponentCommanders: oppDecks.map((d) => d?.commanders || []),
+        userCompanion: userDeck?.companion || null,
+        opponentCompanions: oppDecks.map((d) => d?.companion || null),
         mode,
-        seatNames,
-        deckNames: seatNames,
-        userDeckName: seatNames[0],
-        padded: !!pairing.padded,
-        seed, // record the per-game seed so a specific game can be reproduced exactly
-        startSeat, // the seat put on the play (null ⇒ default user-first); reproduces seating exactly
-        repeat: r,
-      };
-      let game;
-      if (mode === "commander") {
-        const [userDeck, ...oppDecks] = seatDecks;
-        game = runSelfPlayGame({
-          deckA: userDeck?.cards || [],
-          opponentDecks: oppDecks.map((d) => d?.cards || []),
-          userCommanders: userDeck?.commanders || [],
-          opponentCommanders: oppDecks.map((d) => d?.commanders || []),
-          userCompanion: userDeck?.companion || null,
-          opponentCompanions: oppDecks.map((d) => d?.companion || null),
-          mode,
-          meta,
-          recordTrajectory: record,
-          seed,
-          startSeat,
-          timePressure,
-          pilots,
-          recordDecisions,
-        });
-      } else {
-        const [a, b] = seatDecks;
-        game = runSelfPlayGame({
-          deckA: a?.cards || [],
-          deckB: b?.cards || [],
-          userCommanders: a?.commanders || [],
-          opponentCommanders: b?.commanders || [],
-          userCompanion: a?.companion || null,
-          opponentCompanions: b?.companion || null,
-          mode,
-          meta,
-          recordTrajectory: record,
-          seed,
-          startSeat,
-          timePressure,
-          pilots,
-          recordDecisions,
-        });
+        meta,
+        recordTrajectory: record,
+        seed,
+        startSeat,
+        timePressure,
+        pilots,
+        recordDecisions,
+        policy, // SD-5/PS-4 — single knob, whole batch (null => byte-identical)
+        mulligan: mulligan === false ? null : true, // AI-F9 — batch default ON; pass false to opt out
+      });
+    } else {
+      const [a, b] = seatDecks;
+      game = runSelfPlayGame({
+        deckA: a?.cards || [],
+        deckB: b?.cards || [],
+        userCommanders: a?.commanders || [],
+        opponentCommanders: b?.commanders || [],
+        userCompanion: a?.companion || null,
+        opponentCompanions: b?.companion || null,
+        mode,
+        meta,
+        recordTrajectory: record,
+        seed,
+        startSeat,
+        timePressure,
+        pilots,
+        recordDecisions,
+        policy, // SD-5/PS-4 — single knob, whole batch (null => byte-identical)
+        mulligan: mulligan === false ? null : true, // AI-F9 — batch default ON; pass false to opt out
+      });
+    }
+    // Attribute each trajectory to its decks so JSONL rows carry deck identity. The
+    // seat order matches state.turnOrder (user first, then ai/ai1..), so seat→deck
+    // is positional and stable — and under rotateSeats these are the PER-GAME rotated
+    // assignments, so attribution follows the actual seating. The per-game seed rides
+    // along (HB-4) so banked rows are dedupable after the fact.
+    if (record && game.trajectory) {
+      game.trajectory.deckIds = seatIds;
+      game.trajectory.seatNames = seatNames;
+      game.trajectory.seed = seed;
+    }
+    // Same attribution for the per-decision (policy) trajectory: a positional seat→deck map
+    // (rows already carry the seat id, so a consumer can join row.seat → deck via this map).
+    if (recordDecisions && game.decisionTrajectory) {
+      game.decisionTrajectory.deckIds = seatIds;
+      game.decisionTrajectory.seatNames = seatNames;
+      game.decisionTrajectory.seed = seed;
+    }
+    games.push(game);
+  };
+
+  if (podShuffle) {
+    // HB-6: cycle-major traversal — each cycle re-deals deck→pod composition via a
+    // seed-derived permutation applied to the pairing indices (permuting the deck list
+    // then chunking ≡ mapping the identity chunks through the permutation).
+    for (let c = 0; c < repeats; c++) {
+      const permSeed = (base ^ Math.imul(0x9e3779b9, c + 1)) >>> 0;
+      const perm = permutedDeckIndices(decks.length, permSeed);
+      for (const pairing of pairings) {
+        runOne(
+          { ...pairing, seats: pairing.seats.map((i) => perm[i]) },
+          c,
+          { podCycle: c, podPermutation: perm.join(",") }
+        );
       }
-      // Attribute each trajectory to its decks so JSONL rows carry deck identity. The
-      // seat order matches state.turnOrder (user first, then ai/ai1..), so seat→deck
-      // is positional and stable.
-      if (record && game.trajectory) {
-        game.trajectory.deckIds = seatIds;
-        game.trajectory.seatNames = seatNames;
-      }
-      // Same attribution for the per-decision (policy) trajectory: a positional seat→deck map
-      // (rows already carry the seat id, so a consumer can join row.seat → deck via this map).
-      if (recordDecisions && game.decisionTrajectory) {
-        game.decisionTrajectory.deckIds = seatIds;
-        game.decisionTrajectory.seatNames = seatNames;
-      }
-      games.push(game);
+    }
+  } else {
+    // Legacy pairing-major loop — byte-identical order and behavior.
+    for (const pairing of pairings) {
+      for (let r = 0; r < repeats; r++) runOne(pairing, r);
     }
   }
 
@@ -659,8 +929,11 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
  * the I/O lives in `writeTrajectoriesJsonl` so this is unit-testable without disk.
  *
  * Each line is a JSON object:
- *   { game, seat, deckId, turn, outcome, features }
- * Rows from non-completed games (outcome === null) are SKIPPED — never write a
+ *   { game, mode, result, seat, deckId, seed, turn, outcome, features }
+ * `seed` is the game's exact shuffle seed (HB-4: additive per omnath-trajectory-v1's
+ * schema rule) — banked rows from a re-run of the same batch are byte-identifiable
+ * duplicates, so double-banking is detectable after the fact. Rows from
+ * non-completed games (outcome === null) are SKIPPED — never write a
  * fabricated win/loss label. Returns "" when there is nothing to write.
  *
  * @param {object} batch  the runSelfPlayBatch(..., { record:true }) return
@@ -681,6 +954,7 @@ export function trajectoriesToJsonl(batch) {
           result: traj.result,
           seat: s.seat,
           deckId: deckIds[si] ?? null,
+          seed: traj.seed ?? null, // HB-4: the game's shuffle seed — banked duplicates are detectable
           turn: row.turn,
           outcome: s.outcome,
           features: row.features,

@@ -212,6 +212,17 @@ export function applyTutor(state, atom, ctx) {
     // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ordered per-fetch destination sequence; setPendingTutorChoice
     // derives this pick's destination from its head and carries the tail to the next chained fetch.
     destinations: Array.isArray(atom.destinations) ? atom.destinations : null,
+    // AI-F10 — may the searcher legally fail to find? A search WITH a stated quality (any
+    // structured filter — type group / MV cap / color) may fail (CR 701.23b); a quantity-only
+    // unfiltered search ("search your library for a card" — effFilter null) MUST find when a
+    // candidate exists (CR 701.23d), so its find-nothing option is dropped from the offer.
+    // `atom.optional` rides along defensively, but by the time applyTutor runs, the α2
+    // optional-effect wrapper has already consumed + stripped the "you may" (runProgram pauses
+    // the optional atom for its yes/no first and re-runs it with optional:false) — and having
+    // CHOSEN to search, the find requirement is the filter's alone, which is exactly what this
+    // predicate encodes. (The design sketch also keyed on filterLabel, but the unfiltered tutor
+    // atom carries filterLabel "card" — using it would re-open the very hole being closed.)
+    mayFailToFind: Boolean(atom.optional || effFilter),
   });
 }
 

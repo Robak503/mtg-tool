@@ -3279,13 +3279,37 @@ export function programContainsMassRemoval(program) {
 }
 
 /**
+ * W7c (AI-F4) — does the mass-removal program hit CREATURES? The AI's "cast a held wipe when
+ * clearly behind" heuristic is a CREATURE-board metric (creature counts + power), so it may only
+ * unlock wipes that actually answer a creature board: destroy/exile/negative-pump scoped
+ * `eachCreature`, plus Blood Money's mass-destroy (it destroys all creatures). A NON-creature
+ * mass removal (Armageddon's eachLand, a Vandalblast-class eachArtifact) stays under the
+ * unconditional hold — casting Armageddon because you're behind on CREATURES is exactly the
+ * blind self-wipe the hold exists to prevent. A positive symmetric pump ("all creatures get
+ * +1/+1", targetType eachCreature) is NOT a wipe the behind-metric should unlock either — it
+ * helps the bigger board most — so the pump op qualifies only when its delta is negative (or
+ * X-scaled, e.g. Black Sun's Zenith, where the AI sizes X against the board it answers).
+ */
+export function programContainsCreatureMassRemoval(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a =>
+    a.op === "mass-destroy-treasure-per-nontoken" ||
+    (a.targetType === "eachCreature" && (
+      a.op === "destroy" || a.op === "exile" ||
+      (a.op === "pump" && (a.amountX || (a.ptDelta?.p ?? 0) < 0 || (a.ptDelta?.t ?? 0) < 0))
+    )));
+}
+
+/**
  * Does the program contain a controller-scoped TEAM pump (`scope:"youControl"`, an Overrun /
  * Trumpet Blast / Inspired Charge "creatures you control get +N/+N [and gain KW] until end of
- * turn")? The AI HOLDS these for now (opponentAI.pickCastAction): a team pump only earns its
- * value cast pre-combat into a profitable attack, and the AI can't yet time it — casting it
- * blindly in its main phase (or with no creatures) wastes the card. Holding is SAFE (the buff
- * is the AI's own, so a miss only costs tempo, never a wrong play); the player casts it normally.
- * Narrow + deferred — lift it once a "pump my team before a good attack" heuristic exists.
+ * turn")? The AI HOLDS these unless the pump flips this turn's swing to lethal
+ * (opponentAI.pickCastAction, W7d): a team pump only earns its value cast pre-combat into a
+ * profitable attack. Holding is SAFE (the buff is the AI's own, so a miss only costs tempo,
+ * never a wrong play); the player casts it normally.
  */
 export function programContainsTeamPump(program) {
   if (!program) return false;
@@ -3293,6 +3317,28 @@ export function programContainsTeamPump(program) {
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
   return atoms.some(a => a.op === "pump" && a.scope === "youControl");
+}
+
+/**
+ * W7d (AI-F7) — the FLAT power bonus of a PLAIN whole-team pump ("creatures you control get
+ * +N/+N [and gain KW] until end of turn"), or null when the AI can't evaluate it. Anchored to
+ * the SAME atom shape programContainsTeamPump matches, so the two can never disagree about
+ * which cast is a team pump. Null (→ keep holding, the safe direction) for every scaled or
+ * partial form: a dynamic per-board delta (ptDeltaCount — Overrun-scale "+X/+X where X is …"),
+ * an {X}-cost pump (amountX), a subtype-filtered pump (only Dinosaurs get it — applying it to
+ * every attacker would overcount), a subtype-negated or source-excluding pump. The keyword
+ * rider (Trample etc.) is intentionally ignored by the caller — a safe underestimate.
+ */
+export function teamPumpAmount(program) {
+  if (!program) return null;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  const pump = atoms.find(a => a.op === "pump" && a.scope === "youControl");
+  if (!pump) return null;
+  if (pump.ptDeltaCount || pump.amountX || pump.subtypeFilter || pump.subtypeNegate || pump.excludeSource) return null;
+  const p = pump.ptDelta?.p;
+  return Number.isInteger(p) ? p : null;
 }
 
 /**

@@ -81,16 +81,21 @@ export function readRegistry() {
   }
 }
 
+// Atomic temp + rename (the atomicJson.js idiom, sync flavor). A torn in-place
+// write can never truncate the live file. Unique tmp name keeps two concurrent
+// writers off one temp file.
+function atomicWriteFileSync(target, body) {
+  const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
+  writeFileSync(tmp, body);
+  renameSync(tmp, target);
+}
+
 function writeRegistry(reg) {
   mkdirSync(dataRoot(), { recursive: true });
-  const target = profilesRegistryPath();
-  // Atomic temp + rename (the atomicJson.js idiom, sync flavor). The registry
-  // is the root pointer to EVERY profile folder — a torn in-place write here
-  // orphans all per-profile data at once, so it must never truncate the live
-  // file. Unique tmp name keeps two concurrent writers off one temp file.
-  const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
-  writeFileSync(tmp, JSON.stringify(reg, null, 2));
-  renameSync(tmp, target);
+  // The registry is the root pointer to EVERY profile folder — a torn in-place
+  // write here orphans all per-profile data at once, so it must never truncate
+  // the live file.
+  atomicWriteFileSync(profilesRegistryPath(), JSON.stringify(reg, null, 2));
 }
 
 /** List profiles (running migration first if needed). */
@@ -331,8 +336,14 @@ export function ensureMigrated() {
     const targetId = (o && idByName[o]) || primaryId;
     decksByProfile[targetId].push(deck);
   }
+  // Atomic per-profile write (HB-2): a kill during this loop lands BEFORE the
+  // terminal writeRegistry below, and the next launch's rebuildRegistryFromDirs
+  // registers whatever folders exist as live profiles — so a torn/0-byte
+  // decks.local.json here would persist as silent deck loss. tmp+rename means
+  // the file is either absent (missing => empty library, recoverable from
+  // .pre-profiles-backup) or complete.
   for (const p of profiles) {
-    writeFileSync(
+    atomicWriteFileSync(
       path.join(profileDir(p.id), "decks.local.json"),
       JSON.stringify({ version: decksFile?.version || 1, updatedAt: nowIso(), decks: decksByProfile[p.id] }, null, 2),
     );
