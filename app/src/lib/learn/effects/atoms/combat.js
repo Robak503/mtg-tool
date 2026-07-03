@@ -31,6 +31,10 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export function applyTapEffect(state, atom, ctx, tap) {
   let next = state;
   const wantsLand = atom?.targetType === "land";
+  // UNTAP-BASIC-LAND (Earthcraft): the target must be a land carrying the Basic supertype — re-verify the
+  // LIVE type line (a Land WITH "Basic") before acting, mirroring the land re-verify (never untap a nonbasic
+  // land / non-land for a basic-land atom — CREED).
+  const wantsBasicLand = atom?.targetType === "basicLand";
   // TAP-PERMANENT ("Tap target permanent", Koma) AND TAP-NONLAND-PERMANENT ("Tap target nonland permanent an
   // opponent controls", Junk Winder) both act on any live permanent that the restriction-aware enumerator
   // already surfaced (the nonlandPermanent predicate + controller restriction were enforced at target time),
@@ -52,6 +56,7 @@ export function applyTapEffect(state, atom, ctx, tap) {
     // basic subtype (verified live). TAP-PERMANENT: act on ANY live permanent. CREATURE form: a creature.
     const ok = wantsBasicSubtype
       ? isLand && new RegExp(`\\b${cap(atom.targetType)}\\b`).test(tl)
+      : wantsBasicLand ? (isLand && /\bbasic\b/i.test(tl))
       : wantsLand ? isLand : wantsPermanent ? true : t.type === "creature";
     if (!ok) continue;
     next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
@@ -661,6 +666,21 @@ export function combatKeywordClauseParser(clause) {
     return { op: "tap", targetType: "creature", restrictions };
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  // UNTAP-ANOTHER-TARGET-PERMANENT (Formidable Speaker "{1}, {T}: Untap another target permanent.") — a single
+  // chosen permanent of ANY type, OTHER than the source (CR 109.5, "another" = not this permanent). The
+  // `permanent` targetType routes through PERMANENT_PREDICATES.permanent (any permanent on any battlefield is
+  // legal), the `notSource` restriction excludes the source permanent (ctx.sourceId, threaded from the activated
+  // ability's expandCastChoices), and applyTapEffect untaps the live target. Both the "another" (notSource) and
+  // the bare "target permanent"/"target creature" forms are accepted; a qualified/rider/multi-target form
+  // ("untap X target permanents", "untap target permanent you control") is not anchored here → stays LOW →
+  // Arbiter (a SAFE false-negative — model the whole clause or nothing).
+  {
+    const upM = t.match(/^untap (another )?target (permanent|creature)$/);
+    if (upM) {
+      const restrictions = upM[1] ? [{ kind: "notSource" }] : [];
+      return { op: "untap", targetType: upM[2], restrictions };
+    }
+  }
   // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap enchanted creature." / "{U}: Untap enchanted creature.";
   // Pemmin's Aura, Kasimir the Lone Wolf's kin) — an activated ability PRINTED ON THE AURA that taps/untaps
   // "enchanted creature". This is a FIXED (non-chosen) referent, NOT a chosen target: the affected creature is
@@ -675,6 +695,20 @@ export function combatKeywordClauseParser(clause) {
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so
   // a qualified form ("untap target land you control", "untap X target lands") stays Arbiter (a safe FN).
   if (/^untap target land$/.test(t)) return { op: "untap", targetType: "land" };
+  // UNTAP-BASIC-LAND (Earthcraft "Tap an untapped creature you control: Untap target basic land") — a single
+  // chosen land carrying the Basic supertype (CR 205.4a). targetType "basicLand" routes through
+  // PERMANENT_PREDICATES.basicLand in enumerateTargets (any BASIC land on any battlefield is a legal target),
+  // and applyTapEffect re-verifies the LIVE permanent is a basic land before untapping (never a nonbasic land
+  // / non-land — CREED). Whole-clause anchored ($) so "untap target basic land you control" / an X form stays
+  // Arbiter (a safe FN). Distinct from the bare "land" form (which accepts nonbasics) and the subtype forms.
+  if (/^untap target basic land$/.test(t)) return { op: "untap", targetType: "basicLand" };
+  // UNTAP-X-TARGET-LANDS (Candelabra of Tawnos "{X}, {T}: Untap X target lands.") — a MULTI-COUNT chosen-target
+  // untap whose target count IS the paid {X} (CR 601.2c). Reuses the SAME applyTapEffect resolver as single-target
+  // untap (it already loops ctx.targets) + the SAME targetCountX enumeration Curse of the Swine's exile uses
+  // (targeting.expandAtoms picks EXACTLY x distinct legal lands, bound from ctx.xValue). BARE "X target lands"
+  // only — a qualified form ("X target lands you control", a subtype, a rider) doesn't match this anchor and stays
+  // LOW → Arbiter (a safe false-negative). Whole-clause anchored via the caller's $ boundary.
+  if (/^untap x target lands$/.test(t)) return { op: "untap", targetType: "land", targetCountX: true };
   // UNTAP-BASIC-SUBTYPE (Arbor Elf "{T}: Untap target Forest"; Voyaging Satyr's typed kin) — a single chosen
   // land of a basic SUBTYPE (CR 305.6). targetType is the lowercased subtype; enumerateTargets routes it
   // through PERMANENT_PREDICATES.<subtype> (any land of that subtype on any battlefield is legal), and

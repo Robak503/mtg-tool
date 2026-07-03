@@ -808,10 +808,11 @@ describe("parseEffectProgram — RAMP-SPLIT (Cultivate / Kodama's Reach)", () =>
 // unless …", which legacy parses as a plain destroy) — the clean-clause gate
 // catches the rider so the interpreter never resolves the wrong thing.
 const MUST_DROP_TO_LOW = [
-  // ── KWSTRIP-1 — only the SIX vacuous cast-keyword lines are stripped. A NON-vacuous keyword
-  // (rebound/cipher/conspire/learn/proliferate/amass) is NOT stripped → its line is an unparseable clause
-  // → low; and a vacuous-keyword card whose BODY is unmodeled also stays low (all-or-nothing). ──
-  "Target creature gets +1/+0 until end of turn.\nRebound",                     // rebound — NOT vacuous (recasts) → not stripped → low
+  // ── KWSTRIP-1 — only the SIX vacuous cast-keyword lines are stripped. A NON-vacuous keyword whose effect
+  // the engine can't model (cipher/conspire/learn/proliferate/amass) is NOT stripped → its line is an
+  // unparseable clause → low; and a vacuous-keyword card whose BODY is unmodeled also stays low (all-or-
+  // nothing). (Rebound is now modeled FAITHFULLY — exile-on-resolution via selfExile, recast declined — so a
+  // rebound spell with a MODELED body is HIGH; pinned in effects/rebound.test.js + the KWSTRIP describe below.) ──
   "Target player discards a card.\nCipher",                                     // cipher — NOT vacuous (encodes) → not stripped → low
   "Suspend 4—{1}{R}\nReturn all creature cards from your graveyard to the battlefield.", // Living-End-ish — suspend stripped, the MASS-reanimation body is unmodeled → low (the wheel body is now native: WHEEL)
   "Foretell {3}{B}{B}\nReturn all creature cards from your graveyard to the battlefield.", // foretell stripped, but the MASS-reanimation body is unmodeled → low
@@ -1288,9 +1289,22 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
   it("strips ONLY the keyword line — a suspend body's own unmodeled text keeps the card low", () => {
     expect(programConfidence(parseEffectProgram(I("Suspend 4—{1}{R}\nReturn all creature cards from your graveyard to the battlefield.")))).toBe("low"); // suspend stripped, MASS-reanimation body unmodeled → low
   });
-  it("does NOT strip a non-vacuous keyword (rebound / cipher) — the card stays low → Arbiter", () => {
-    expect(programConfidence(parseEffectProgram(I("Target creature gets +1/+0 until end of turn.\nRebound")))).toBe("low");
+  it("does NOT text-strip a non-vacuous keyword (cipher) — the card stays low → Arbiter", () => {
+    // Cipher (encode the spell onto a creature) changes the card's disposition in a way the engine doesn't
+    // model, so it must NOT be silently stripped — the card stays low → Arbiter.
     expect(programConfidence(parseEffectProgram(I("Target player discards a card.\nCipher")))).toBe("low");
+  });
+  it("REBOUND is now modeled faithfully (CR 702.88) — the body parses HIGH and the program is stamped selfExile", () => {
+    // Rebound is NOT a text-strip: the body parses on its own merits AND the program is stamped `selfExile`
+    // so the spell exiles itself on resolution (not the graveyard — the real state divergence; the optional
+    // upkeep recast is faithfully DECLINED, CR 702.88e). See effects/rebound.test.js for the runtime proof.
+    const reb = parseEffectProgram(I("Target creature gets +1/+0 until end of turn.\nRebound"));
+    expect(programConfidence(reb)).toBe("high");
+    expect(reb.selfExile).toBe(true);
+    // An UNMODELED rebound body still stays low → Arbiter (no fabricated flip); selfExile never on a low program.
+    const unmodeled = parseEffectProgram(I("Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound"));
+    expect(programConfidence(unmodeled)).toBe("low");
+    expect(unmodeled.selfExile).toBeUndefined();
   });
 });
 

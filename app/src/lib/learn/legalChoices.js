@@ -1253,6 +1253,60 @@ function actionsActivateAbility(state, playerId) {
       // and what the dispatcher is handed. Mana abilities never reach here (isManaEffect excludes them); an
       // X-cost ability is deferred just below, so the reduced generic never mixes with an unresolved {X}.
       if (isCreaturePerm && activatedReducers.length) cost = activatedCostReductionForCost(activatedReducers, cost);
+      // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a bare mana-{X} cost whose
+      // effect's TARGET COUNT is the paid X (a targetCountX atom → program.xSpell). The PLAYER chooses X at
+      // activation, so — exactly like the cast path's X-spell branch — enumerate every affordable X and, per X,
+      // expand the X-count-target combos (min=max=X distinct legal lands via targeting.expandAtoms, bound from
+      // ctx.xValue). Each action bakes the chosen X into the cost (generic += X, so payment auto-taps fixed + X)
+      // and threads xValue:x into resolution (applyActivateAbility → ctx.xValue). Gated to ab.costX AND a
+      // targets-per-X program; ANY OTHER X-cost activated ability (an X-scaled magnitude, an unmodeled X body)
+      // still falls through to the deferral below (a safe false-negative → Arbiter).
+      const expandsTargetsPerX = ab.program && (ab.program.atoms || []).some((a) => a.targetCountX);
+      if (ab.costX && expandsTargetsPerX) {
+        // Mirror the dispatcher's payment sources: a source paying its own cost by tapping ({T}), sac, or exile
+        // can't ALSO tap for mana — exclude it from the affordable-X ceiling and the per-X target expansion's
+        // affordability. (Candelabra's {T} taps the artifact, which isn't a mana source anyway, but a future
+        // creature-with-{T} X ability needs this exclusion to be correct.)
+        const xSources = manaSources(state, playerId).filter((s) =>
+          !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id));
+        const poolTotal = totalAvailableMana(state, playerId);
+        const sourceTotal = xSources.reduce((sum, s) => sum + (s.amount || 1), 0);
+        const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
+        for (let x = 1; x <= ceiling; x++) {
+          const xCost = xResolvedCost(cost, x); // generic += xCount * X (CR 107.3; xCount = 1 for a single {X})
+          if (!canAfford(player.manaPool, xSources, xCost)) break; // monotonic in X → stop at the first shortfall
+          // Per-X target enumeration: exactly X distinct legal lands (targetCountX → expandAtoms min=max=X). An X
+          // with too few legal lands (fewer than X untappable targets exist) yields no combos → that X is skipped.
+          const combos = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { xValue: x });
+          for (const ch of combos) {
+            actions.push({
+              kind: "activate-ability",
+              playerId,
+              permanentId: perm.id,
+              name: perm.card.name,
+              abilityIndex: ab.index,
+              cost: xCost,
+              cmc: totalCmc(xCost),
+              tapSelf: ab.tapSelf,
+              payLife: ab.payLife || 0,
+              sacSelf: ab.sacSelf || false,
+              exileSelf: ab.exileSelf || false,
+              removeCounter: ab.removeCounter || null,
+              sacCreatureId: null,
+              sacCreatureName: null,
+              sacCountIds: null,
+              xValue: x,                                  // γ1f — the chosen X threads into the effect (ctx.xValue)
+              program: ab.program,
+              targets: ch.targets,
+              chosenMode: ch.chosenMode ?? null,
+              needsTargets: ch.targets.length > 0,
+              targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+              abilityText: `X=${x}: ${ab.effectClause}`,
+            });
+          }
+        }
+        continue; // costX expanded its own per-X actions; skip the deferral + single-action push below
+      }
       if (cost.hasX) continue; // X-cost activated abilities deferred (need the X-choice expansion)
       // γ1 — a "Pay N life" cost needs the life to spend (CR 119.4: you can't pay life you don't
       // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
@@ -1348,17 +1402,57 @@ function actionsActivateAbility(state, playerId) {
         if (sacVictims.length === 0) continue; // no legal sacrifice available → the cost can't be paid
       }
 
-      const choices = expandCastChoices(state, playerId, ab.program);
+      // γ1f — a "Tap an untapped creature you control" cost (Earthcraft): the PLAYER picks which UNTAPPED
+      // creature they control to tap. Expand one action per legal creature to tap (an UNTAPPED creature you
+      // control). A summoning-sick creature CAN be tapped for a cost that isn't its own {T} ability (CR 302.6
+      // only gates the creature's OWN {T}), so no sickness filter here. Empty pool → the cost can't be paid →
+      // not offered. Threaded as tapVictims below (parallel to sacVictims), tapped by the dispatcher and
+      // excluded from that action's mana sources (a creature tapped for the cost can't also tap for mana).
+      // tapCreature + sacOther never co-occur on a modeled ability, so the two victim sets don't mix.
+      //
+      // SOURCE EXCLUSION (CREED — never offer an unpayable / crashing action): the SOURCE permanent is
+      // excluded as its own tap-victim when it would ALREADY be tapped by another part of THIS cost — i.e.
+      // when the ability also has a {T} cost (tapSelf), since the source can't tap for both {T} and the
+      // tap-creature cost (Selesnya Evangel "{1}, {T}, Tap an untapped creature you control: …"; Revelsong
+      // Horn). Also excluded when the cost text says "another" (it never does for the modeled shape, but the
+      // flag is honored). Without this, the dispatcher would throw ALREADY_TAPPED on an offered action.
+      let tapVictims = [null];
+      if (ab.tapCreature) {
+        const selfExcluded = ab.tapSelf || ab.tapCreature.another;
+        tapVictims = player.battlefield.filter((v) =>
+          !v.tapped && isCreature(v.card) &&
+          !(selfExcluded && v.id === perm.id),
+        );
+        if (tapVictims.length === 0) continue; // no untapped creature to tap → the cost can't be paid
+      }
+
+      // Thread the SOURCE permanent id into target enumeration so an "another target …" restriction
+      // (notSource — Formidable Speaker's "Untap another target permanent") excludes this very permanent
+      // (CR 109.5). Non-"another" abilities ignore sourceId, so this is a no-op for every existing ability.
+      const choices = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { sourceId: perm.id });
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
       for (const victim of sacVictims) {
         // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
         // affordability — mirrors the dispatcher's payment filter exactly.
         if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost)) continue;
+       for (const tapVictim of tapVictims) {
+        // γ1f — a "Tap an untapped creature you control" cost: the chosen creature to tap can't ALSO tap for
+        // mana (a mana-dork tapped for the cost is already tapped), so exclude it from THIS victim's mana
+        // sources for the affordability check — mirrors the dispatcher's payment filter exactly. Earthcraft's
+        // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
+        // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
+        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id), cost)) continue;
         for (const ch of choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
           if (victim && ch.targets.some((t) => t.id === victim.id)) continue;
+          // γ1f — don't offer tapping the very creature the effect targets when the target is that same
+          // creature (a basic-land untap can't target a creature, so this never fires for Earthcraft — it's a
+          // belt-and-suspenders no-op guard mirroring the sac path; a future tap-creature ability that targets
+          // a creature would need it). The tapped creature stays on the battlefield, so this is only a "don't
+          // waste the tap on your own target" nicety, not a correctness gate.
+          if (ab.tapCreature && tapVictim && ch.targets.some((t) => t.id === tapVictim.id)) continue;
           // γ1d — pick the N fungible victims for a "Sacrifice N <subtype>" cost, EXCLUDING any that the
           // effect targets (same no-op guard). If the targets consume so many of the pool that fewer than N
           // remain, this choice can't pay the cost → skip it (a different target combo may still be legal).
@@ -1431,6 +1525,8 @@ function actionsActivateAbility(state, playerId) {
             sacCreatureId: victim?.id ?? null,           // γ1b — the chosen victim to sacrifice (cost)
             sacCreatureName: victim?.card?.name ?? null,
             sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)
+            tapCreatureId: tapVictim?.id ?? null,        // γ1f — the chosen untapped creature to tap (cost)
+            tapCreatureName: tapVictim?.card?.name ?? null,
             program: ab.program,
             targets: ch.targets,
             chosenMode: ch.chosenMode ?? null,
@@ -1438,9 +1534,11 @@ function actionsActivateAbility(state, playerId) {
             targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
             abilityText: ab.sacCount
               ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
+              : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
               : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
           });
         }
+       }
       }
     }
   }
@@ -1720,7 +1818,9 @@ function actionsActivateLoyalty(state, playerId) {
       if (ab.costDelta < 0 && loyalty + ab.costDelta < 0) continue;
       const costLabel = `${ab.costDelta >= 0 ? "+" : ""}${ab.costDelta}`;
       if (ab.modeled) {
-        const choices = expandCastChoices(state, playerId, ab.program);
+        // Thread the walker's id so an "another target …" restriction (notSource) excludes the walker itself
+        // (CR 109.5). A no-op for every non-"another" loyalty ability (they ignore sourceId).
+        const choices = expandCastChoices(state, playerId, ab.program, [], { sourceId: perm.id });
         if (choices.length === 0) continue; // a required target has no legal pick → can't activate THIS ability
         for (const ch of choices) {
           actions.push({

@@ -318,7 +318,15 @@ export function parseCreatureTargetRestrictions(card) {
 /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
   for (const r of restrictions) {
-    if (r.kind === "controller") {
+    if (r.kind === "notSource") {
+      // "ANOTHER" (CR 109.5) — "untap another target permanent" (Formidable Speaker) may not target the
+      // source permanent itself. ctx.sourceId is threaded from the activated ability's expandCastChoices; a
+      // permanent whose id equals the source is excluded. FAIL-CLOSED when the source is unknown (no
+      // ctx.sourceId): no permanent qualifies → the pool is empty and the ability drops no-target (SAFE, CREED
+      // — never targets the wrong permanent). A source that has already left play (id no longer on any
+      // battlefield) simply never matches, which is harmless.
+      if (!ctx?.sourceId || perm.id === ctx.sourceId) return false;
+    } else if (r.kind === "controller") {
       if (r.who === "you" && pid !== casterId) return false;
       if (r.who === "opponent" && pid === casterId) return false;
       // DEFENDING-PLAYER scope (CR 509.1a) — only the SPECIFIC attacked player's permanents are legal
@@ -546,6 +554,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // Basic supertype (CR 205.4a). Both a Land type line AND the absence of the Basic supertype are required,
     // so a basic land (type line "Basic Land — …") is excluded and a non-land bearing neither word never matches.
     nonbasicLand: (tl) => /\bLand\b/.test(tl) && !/\bBasic\b/.test(tl),
+    // BASIC-LAND (Earthcraft "Untap target basic land") — a Land WITH the Basic supertype (CR 205.4a). Both a
+    // Land type line AND the Basic supertype are required, so a nonbasic land (type line "Land — …", no "Basic")
+    // is excluded and a non-land never matches. Symmetric with nonbasicLand above.
+    basicLand: (tl) => /\bLand\b/.test(tl) && /\bBasic\b/.test(tl),
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
     creatureOrEnchantment: (tl) => /\bCreature\b|\bEnchantment\b/.test(tl), // β-2 type unions
     creatureOrLand: (tl) => /\bCreature\b|\bLand\b/.test(tl),

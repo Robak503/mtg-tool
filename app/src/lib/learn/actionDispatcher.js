@@ -603,9 +603,12 @@ function applyActivateAbility(state, action) {
   const sacCountExcluded = new Set(action.sacCountIds || []);
   // W3: the γ1b chosen victim, when a ONE-SHOT mana source, is excluded exactly like legalChoices'
   // per-victim affordability (the two-sites invariant — offered ⇒ payable without cracking the victim).
+  // γ1f: a creature TAPPED for a "Tap an untapped creature you control" cost can't ALSO tap for mana —
+  // exclude it from the mana sources (mirrors legalChoices' per-victim affordability filter exactly).
   const sources = sourcesExcludingOneShotVictim(
     manaSources(state, action.playerId).filter(s =>
       !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
+      !(action.tapCreatureId && s.permanentId === action.tapCreatureId) &&
       !sacCountExcluded.has(s.permanentId)),
     action.sacCreatureId,
   );
@@ -622,6 +625,16 @@ function applyActivateAbility(state, action) {
   // (γ1, CR 119.4), then the self-sacrifice (γ1) and/or the chosen-victim sacrifice (γ1b), then the
   // self-exile (γ1c) and/or a self counter removal (γ1c).
   if (action.payLife) working = loseLife(working, { playerId: action.playerId, amount: action.payLife });
+  // γ1f — pay a "Tap an untapped creature you control" cost by TAPPING the chosen creature (CR 602.1b). The
+  // victim is re-resolved against the LIVE battlefield; a missing / already-tapped victim is a hard error so we
+  // never silently under-pay the cost (tapping is not a zone change, so no dies/leave triggers fire — a clean
+  // cost payment). Done BEFORE the ability goes on the stack, like every other cost item.
+  if (action.tapCreatureId) {
+    const tv = working.players[action.playerId]?.battlefield.find((p) => p.id === action.tapCreatureId);
+    if (!tv) throw new DispatcherError(`Tap-cost creature ${action.tapCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+    if (tv.tapped) throw new DispatcherError("Tap-cost creature is already tapped", "ALREADY_TAPPED");
+    working = tapPermanent(working, action.tapCreatureId);
+  }
   if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
   if (action.sacCreatureId) {
     const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);

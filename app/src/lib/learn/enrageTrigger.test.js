@@ -93,6 +93,11 @@ describe("ENRAGE — modeled-atom enrage cards flip to native-trigger", () => {
     // FRONTIER round 3 — the FILTERED MASS-COUNTER scope ("each OTHER creature you control", CR 113.7 self-exclude)
     // is now modeled (counters.js add-counter scope:youControl excludeSource), so Bellowing Aegisaur flips too.
     ["Bellowing Aegisaur", "Enrage — Whenever this creature is dealt damage, put a +1/+1 counter on each other creature you control."],
+    // Cacophodon — its ONLY text is an enrage trigger whose effect is "untap target permanent", now a modeled
+    // atom (combatKeywordClauseParser → { op:"untap", targetType:"permanent" }; PERMANENT_PREDICATES.permanent),
+    // so the enrage trigger routes natively → native-trigger. (Was pinned body-only below when untap-permanent
+    // was unrouted — moved here with the Formidable Speaker untap-permanent slice.)
+    ["Cacophodon", "Enrage — Whenever this creature is dealt damage, untap target permanent."],
   ];
   for (const [name, oracle] of cases) {
     it(`${name} → native-trigger`, () => {
@@ -110,7 +115,8 @@ describe("ENRAGE — unmodeled-effect enrage cards stay non-native (all-or-nothi
     // the PERMANENT-EDICT subsystem (effects/atoms/removal.js — the what:"permanent" victim pool); see its
     // native-trigger pin in edicts.test.js. It was previously an unmodeled-enrage example here — premise stale.
     ["Vrondiss (token with its own ability)", "Enrage — Whenever Vrondiss is dealt damage, you may create a 5/4 red and green Dragon Spirit creature token with \"When this token deals damage, sacrifice it.\""],
-    ["Cacophodon (untap not routed)", "Enrage — Whenever this creature is dealt damage, untap target permanent."],
+    // NOTE: Cacophodon ("untap target permanent") is now NATIVE via the untap-permanent atom — see its
+    // native-trigger pin above. It was previously an unmodeled-enrage example here — premise stale.
   ];
   for (const [label, oracle] of cases) {
     it(`${label} stays body-only`, () => {

@@ -683,7 +683,18 @@ export function permanentFullyCovered(card) {
   // native-trigger residue chain's ordering).
   const afterTriggers = stripTriggerAbilityLabel(oracle)
     .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
-    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
+    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n")
+    // REFLEXIVE (CR 603.7) + OPTIONAL-PAYMENT (CR 603.7c) tails — a "When you do, <reflexive>." / "If you do,
+    // <effect>." sentence is part of the PRECEDING trigger's effect (detectTriggers folds it into the
+    // effectClause, which parses HIGH in allTriggerSentencesModeled above — proven before this residue check
+    // runs). The trigger-sentence strip stops at the first period, leaving the tail as apparent residue. Mirror
+    // permanentTriggersCovered's residue chain EXACTLY (same two anchors) so an ETB reflexive / optional-payment
+    // permanent (Formidable Speaker: "you may discard a card. If you do, search your library for a creature
+    // card…" + a {1}{T} untap ability) doesn't falsely read body-only in the COMPOSITE gate. FN-safe: the HIGH
+    // gate above already vouched the whole trigger effect is modeled, so stripping its "when/if you do" tail can
+    // only reveal the keyword/activated body — never hide a genuinely unmodeled sentence.
+    .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
+    .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ");
   const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))
     .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");
