@@ -520,6 +520,16 @@ export function permanentTriggersCovered(card) {
     // Anchored to the modeled wording, so it can only consume a true modeled follow-up (FN-safe — an UNmodeled
     // drain variant fails the HIGH gate above and never reaches here). Curly apostrophe tolerated.
     .replace(/\beach opponent loses life equal to (?:that card['’]s|the card['’]s|its) mana value\b\.?\s*/gi, " ")
+    // REVEAL-TOP-CONDITIONAL (Lurking Predators) — the two follow-up sentences "If it's a creature card, put it
+    // onto the battlefield. Otherwise, you may put that card on the bottom of your library." are part of the SAME
+    // cast-trigger's effect (detectTriggers keeps the whole three-sentence body in the effectClause, which parses
+    // HIGH in allTriggerSentencesModeled above via the collapsed matchRevealTopConditional — proven before this
+    // residue check runs), but the trigger regex stops at the first period after "…reveal the top card of your
+    // library.", leaving these two sentences as apparent residue. Strip the EXACT modeled branch shape so the card
+    // reads keyword-only (Lurking Predators has no other body text). Anchored to the exact conditional wording, so
+    // it can only consume this modeled follow-up — FN-safe (an UNmodeled reveal-conditional variant fails the HIGH
+    // gate above and never reaches here). Curly apostrophe tolerated.
+    .replace(/\bif it['’]s a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library\b\.?\s*/gi, " ")
     // SELF-CAST HALF-X ROUNDING (CR 107.3) — a trailing "Round down/up each time." directive is part of the
     // self-cast trigger's effect (it governs the "half X" magnitudes the parser models via the halve flag, so
     // the WHOLE effect parses HIGH in allTriggerSentencesModeled above — proven before this residue check runs),

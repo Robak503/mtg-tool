@@ -6,6 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
+import { enterCardFromZone } from "./zones.js"; // REVEAL-TOP-CONDITIONAL — put the revealed creature onto the battlefield from the library (fires ETB); zones.js is a leaf sibling (imports only gameState/triggers/shared/spellEffects/parseHelpers, never parser.js), so this atom→atom edge is cycle-free.
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
@@ -629,6 +630,60 @@ export function applyGenesisWave(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "genesis-wave", controller, x, put, milled });
 }
 
+/**
+ * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
+ * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
+ * (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
+ * effect (fired by "Whenever an opponent casts a spell, …" — ctx.controller is the enchantment's controller).
+ * Three faithful outcomes, all executed here as ONE atom (the sentences span the clause splitter, so the parser
+ * collapses them up front to this single atom — see matchRevealTopConditional):
+ *   1. CREATURE → the revealed card enters the controller's battlefield as a permanent (enterCardFromZone from
+ *      the library, firing its ETB / permanent-enters / landfall watchers exactly like reanimation / ramp — a
+ *      free creature is the whole point of the card). The card is REMOVED from the library and becomes a
+ *      permanent under the controller's control.
+ *   2. NON-CREATURE → the "you may put that card on the bottom of your library" is a genuine player option; both
+ *      legal branches (bottom vs. leave-on-top) DROP no clause, so — exactly like EXPLORE's "back or graveyard"
+ *      option (CR 701.44a) and scry's keep/bottom — it is resolved DETERMINISTICALLY here. We take the "may"
+ *      action (put on the bottom), the card-selection identity of the effect: it cycles the dead card away so
+ *      the next opponent's cast can reveal a fresh top. An interactive keep/bottom picker is a future refinement
+ *      (mirroring explore / scry), never a correctness gap — leave-on-top is the strictly weaker alternative and
+ *      skips no instruction. The move stays WITHIN the library (top → bottom), so no ETB / zone-change fires.
+ *   3. EMPTY library → nothing to reveal (a clean no-op, a legal reveal of zero cards — never a fabrication).
+ * Pure data mutation (a library shuffle/move + a permanent add) so a game serialized mid-resolution restores
+ * byte-identical. Non-pausing (deterministic), so it needs no PAUSING_ATOM_OPS entry and no session driver wiring.
+ */
+export function applyRevealTopConditional(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const lib = player.library || [];
+  if (lib.length === 0) {
+    // Empty library — nothing to reveal (a legal reveal of zero cards).
+    return logEvent(state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: null });
+  }
+  const top = lib[0];
+  if (isCreatureCard(top)) {
+    // The revealed creature card enters the controller's battlefield from the library, firing its ETB /
+    // permanent-enters / landfall watchers (enterCardFromZone — the same put-onto-the-battlefield seam
+    // reanimation and library ramp use). enterCardFromZone removes the card from the library and adds the
+    // permanent; entered:false (an unchanged state) only if the card already left, which can't happen for the
+    // library top we just read — but the guard keeps it a no-op rather than a throw.
+    const r = enterCardFromZone(state, { playerId: controller, cardId: top.id, fromZone: "library" });
+    return logEvent(r.state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBattlefield: r.entered });
+  }
+  // Non-creature → take the optional "put that card on the bottom of your library" (a legal choice; leave-on-top
+  // is the strictly weaker alternative and skips no instruction — see the header note). A same-zone move can't go
+  // through moveCardToZone (its fromZone/toZone patch would collide on the "library" key), so splice the top off
+  // and append it to the bottom directly: library index 0 is the TOP (drawCardEffect slices from the front), so
+  // the last element is the bottom.
+  const bottomLib = [...lib.slice(1), top];
+  const next = {
+    ...state,
+    players: { ...state.players, [controller]: { ...player, library: bottomLib } },
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBottom: true });
+}
+
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
 export function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
@@ -951,4 +1006,5 @@ export const libraryResolvers = {
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
   "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
+  "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
 };

@@ -1671,6 +1671,29 @@ function matchGenesisWave(oracle) {
 }
 
 /**
+ * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
+ * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
+ * This is a THREE-sentence effect whose branches (reveal → if-creature → otherwise-may) are shattered by the
+ * clause splitter into individually-unmatchable fragments ("reveal the top card of your library" alone is not a
+ * modeled atom; "if it's a creature card, put it onto the battlefield" is a conditional the splitter can't route;
+ * "otherwise, you may put that card on the bottom of your library" is a back-reference to the reveal). So it's
+ * collapsed up front to ONE `reveal-top-conditional` atom whose resolver (applyRevealTopConditional) executes the
+ * WHOLE branch faithfully: creature → onto the battlefield (enterCardFromZone, firing ETB); non-creature → put on
+ * the bottom (the deterministic "may" branch, exactly like EXPLORE's deterministic keep-on-top option). Anchored
+ * ^…$ on the exact three-sentence shape (curly apostrophe + whitespace normalized, trailing period stripped) — any
+ * rider / variant (a different fallback, a "then draw", "if it's a land card", a shuffle) leaves residue → no match
+ * → low → Arbiter (CREED whole-card, no partial). The op is KNOWN (registered in libraryResolvers), so the caller
+ * emits a HIGH single-atom program. Returns { atom }.
+ */
+function matchRevealTopConditional(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^reveal the top card of your library\. if it's a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library$/.test(s)) {
+    return null;
+  }
+  return { atom: { op: "reveal-top-conditional", targetType: null } };
+}
+
+/**
  * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
  * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
  * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
@@ -2110,6 +2133,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     if (gw && KNOWN.has(gw.atom.op)) {
       return makeProgram({ confidence: "high", atoms: [gw.atom], xSpell: true, unparsedTail: null });
     }
+  }
+  // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card … If it's a creature card, put it
+  // onto the battlefield. Otherwise, you may put that card on the bottom …" → ONE reveal-top-conditional atom
+  // (creature → onto the battlefield firing ETB; else → deterministically to the bottom). The three-sentence
+  // branch would shatter under the clause splitter, so it's collapsed up front. HIGH iff the op is KNOWN (it is).
+  // Not an X spell.
+  const rtc = matchRevealTopConditional(oracle);
+  if (rtc && KNOWN.has(rtc.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [rtc.atom], xSpell: false, unparsedTail: null });
   }
   // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
   // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken
