@@ -246,6 +246,21 @@ const TRIBUTE_PAID_RE = /^tribute was paid$/;
 // falls through → Arbiter, CREED — never a mis-read designation).
 const NOT_A_TOKEN_RE = /^it(?:'s| is)? ?not a token$|^it isn['’]t a token$/;
 
+// ===== WAS-A-CREATURE (CR 603.4 + 603.6e last-known-info) ====================================
+// "it was a creature" — the intervening-if on the "Enduring"/Glimmer self-dies-return trigger ("When this
+// creature dies, if it was a creature, return it to the battlefield … It's an enchantment." — Enduring
+// Curiosity, Tenacity, Vitality, Innocence, Courage). "it" (CR 608.2c) is the object the ability triggered
+// on — the DEAD source itself. A per-PERMANENT last-known-info read, NOT a board query: the dying object may
+// already be in a graveyard by resolution, so its captured creature-ness (fixed at the death look-back, CR
+// 603.6e) is the only faithful read. Threaded through the trigger context as ctx.triggeringWasCreature
+// (checkDiesTriggers stamps it from the death look-back's card type line). Read identically at flush (the
+// look-back is fixed once the SBA ran) AND resolution (CR 603.4 second check — the source is gone, its
+// captured type can't change). An Enchantment Creature dying reads true → the return runs; a permanent that
+// had lost its creature type before dying reads false → the trigger does nothing (CR 603.4 drop). A
+// missing/undefined flag → null (can't confirm → FN-safe, never fail-open). Anchored EXACTLY (a "was a <X>"
+// type/color variant falls through → Arbiter, CREED — never a mis-read designation).
+const WAS_A_CREATURE_RE = /^it was a creature$/;
+
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
 // — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
@@ -341,6 +356,18 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const isToken = context?.triggeringCardIsToken;
     if (typeof isToken !== "boolean") return null; // no per-object token flag in context → can't confirm (FN-safe)
     return isToken === false; // "it's not a token" → true iff the triggering object was NOT a token
+  }
+
+  // WAS-A-CREATURE (CR 603.6e) — "it was a creature": read the dying object's captured creature-ness off the
+  // context flag (ctx.triggeringWasCreature, stamped by checkDiesTriggers from the death look-back type line).
+  // NOT a board scan — the object is in a graveyard by now, so its last-known creature-ness (fixed at the death
+  // look-back) is the only faithful read, identical at flush AND resolution (CR 603.4 second check). A definite
+  // boolean once the dies trigger fires; an undefined flag (no context / not a per-object dies trigger) → null
+  // (can't confirm → FN-safe, never fail-open).
+  if (WAS_A_CREATURE_RE.test(c)) {
+    const wasCreature = context?.triggeringWasCreature;
+    if (typeof wasCreature !== "boolean") return null; // no per-object was-creature flag → can't confirm (FN-safe)
+    return wasCreature === true; // "it was a creature" → true iff the dying object was a creature
   }
 
   // "you control no <filter>"  → count == 0
@@ -462,8 +489,10 @@ export function interveningIfParseable(condition) {
   // for real on every tribute permanent); a non-tribute board-shape ignores the extra field. The probe
   // context ALSO carries a definite `triggeringCardIsToken` boolean so the NOT-A-TOKEN shape returns a
   // boolean here (the runtime stamps it for real off every triggering permanent's card.token); every other
-  // shape ignores the extra context field.
+  // shape ignores the extra context field. It ALSO carries a definite `triggeringWasCreature` boolean so the
+  // WAS-A-CREATURE shape returns a boolean here (the runtime stamps it for real off every dying object's type
+  // line); every other shape ignores the extra field.
   const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" }, tributePaid: false };
   const probe = { players: { __probe__: { battlefield: [entering], graveyard: [] } } };
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true }) !== null;
 }

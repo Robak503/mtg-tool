@@ -1161,6 +1161,15 @@ const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain th
 // residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE false-negative).
 const SELF_RETURN_IT_RE = /^return it to its owner's hand$/i;
 
+// SELF-DIES-RETURN-AS-ENCHANTMENT (the "Enduring"/Glimmer cycle — Enduring Curiosity, Tenacity, Vitality,
+// Innocence, Courage, …) — the EXACT self-dies effect "return it to the battlefield under its owner's control.
+// It's an enchantment." (the "(It's not a creature.)" reminder is stripped in detectTriggers before the
+// effect is assembled). Whole-clause anchored ($): a rider ("…tapped", a delayed "at the beginning of the
+// next end step") leaves residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE
+// false-negative). Gated (at the rewrite site) to a self-scope dies trigger, so "it" (CR 608.2c) is the dead
+// SOURCE now in its owner's graveyard — exactly the object applySelfReturnBattlefieldEnchantment re-enters.
+const SELF_RETURN_BF_ENCHANTMENT_RE = /^return it to the battlefield under its owner's control\. it's an enchantment$/i;
+
 // WAVE 3b COUNTERS-ON-EVENT — the NON-SELF triggering-referent counter. A NON-self attack / combat-damage
 // trigger ("Whenever a creature you control deals combat damage to a player, put a +1/+1 counter on THAT
 // CREATURE" — Sphere Grid; "…attacks, put a +1/+1 counter on IT") names the TRIGGERING permanent (CR
@@ -1495,6 +1504,23 @@ export function detectTriggers(card) {
         // SELF_RETURN_IT_RE anchor ($) means a rider on the return ("…tapped", "…then draw") never matches →
         // body-only (CREED all-or-nothing).
         effectClause = `[self-return:self] ${effectClause}`;
+      } else if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_BF_ENCHANTMENT_RE.test(effectClause)) {
+        // SELF-DIES-RETURN-AS-ENCHANTMENT (the "Enduring"/Glimmer cycle — Enduring Curiosity et al) —
+        // "When this creature dies, if it was a creature, return it to the battlefield under its owner's
+        // control. It's an enchantment. (It's not a creature.)" The creature DIED, so "it" (CR 608.2c) is
+        // the dead SOURCE, now in its owner's graveyard. The intervening-if "it was a creature" is enforced
+        // by interveningIf.js (evaluated at flush AND resolution against ctx.triggeringWasCreature). Rewrite
+        // the effect to the kind-tagged marker ONLY the selfReturnClauseParser models → the
+        // self-return-bf-enchantment atom (graveyard → battlefield under owner's control, type stripped to a
+        // non-creature enchantment). SAME self-scope + dies-event gate as the return-to-hand branch above (a
+        // LIVE-event self "return it to the battlefield" doesn't exist in the corpus, and the dies-event
+        // restriction guarantees the source is already in the graveyard). The whole-clause anchor means any
+        // rider on the return keeps its raw text → the parser fails HIGH → body-only (CREED all-or-nothing).
+        // REPLACE (not prepend) with a single-sentence marker: parseEffectClause splits the effect on ". " so
+        // an internal period ("…owner's control. It's an enchantment") would split the marker into two
+        // sentences that neither clause parser matches → LOW. The "It's an enchantment" semantics are captured
+        // by the marker tag itself (the resolver strips the creature type), so the collapsed sentence is faithful.
+        effectClause = "[self-return-bf:enchantment] return it to the battlefield under its owner's control as an enchantment";
       } else if (cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-LTB (Wave 4) — "return it to its owner's hand" where the returned object has ALREADY LEFT the
         // battlefield (it's in a graveyard): the Aura self-PiG-return (Rancor — "it" = the Aura) or the
@@ -2193,7 +2219,13 @@ export function checkDiesTriggers(state, dead) {
     // an unsized CDA) carries `undefined` → the payoff resolves to 0 (a clean no-op, never a fabricated count).
     // All fires read `state2` (post-checkLeavesTriggers, consistent with the return below).
     const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [] };
-    const diesCtx = d.power != null ? { dyingPower: d.power } : {};
+    // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
+    // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
+    // type line (the object's last-known characteristics, fixed once it left the battlefield), so
+    // interveningIf.js reads an identical value at flush AND resolution (the source is gone by then). A
+    // creature-front DFC / an Enchantment Creature both read true; a non-creature look-back reads false.
+    const diesCtx = { triggeringWasCreature: /\bCreature\b/i.test(String(d.card?.type || d.card?.type_line || "")) };
+    if (d.power != null) diesCtx.dyingPower = d.power;
     fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     for (const pid of Object.keys(state2.players)) {
       for (const watcher of triggerSourcesOf(state2, pid)) {

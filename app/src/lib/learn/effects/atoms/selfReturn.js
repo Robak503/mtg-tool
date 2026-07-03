@@ -38,6 +38,7 @@
  */
 
 import { logEvent, moveCardToZone } from "../../gameState.js";
+import { enterCardFromZone } from "./zones.js";
 
 /**
  * The two NARROW self-LTB trigger CONDITIONS, classified for detectTriggers' registry seam (consulted only
@@ -129,11 +130,93 @@ export function applySelfReturn(state, atom, ctx) {
  * Mortus Strider) is NOT matched → it keeps its existing (Arbiter/body-only) handling. Anchored ^…$.
  */
 export function selfReturnClauseParser(clause) {
-  return /^\[self-return:(?:self|attached)\] return it to its owner's hand$/i.test(String(clause || "").trim())
-    ? { op: "self-return" }
-    : null;
+  const t = String(clause || "").trim();
+  if (/^\[self-return:(?:self|attached)\] return it to its owner's hand$/i.test(t)) return { op: "self-return" };
+  // SELF-DIES-RETURN-AS-ENCHANTMENT (the "Enduring"/Glimmer cycle) — the kind-tagged marker
+  // triggers.detectTriggers produces for "return it to the battlefield under its owner's control. It's an
+  // enchantment." (Enduring Curiosity et al). Anchored ^…$ so any rider on the return leaves it unmatched →
+  // LOW → Arbiter (CREED all-or-nothing). Bare (un-marked) text is never rewritten so it never reaches here.
+  if (/^\[self-return-bf:enchantment\] return it to the battlefield under its owner's control as an enchantment$/i.test(t)) {
+    return { op: "self-return-bf-enchantment" };
+  }
+  return null;
+}
+
+/**
+ * applySelfReturnBattlefieldEnchantment — SELF-DIES-RETURN-AS-ENCHANTMENT (the "Enduring"/Glimmer cycle:
+ * Enduring Curiosity, Tenacity, Vitality, Innocence, Courage, …).
+ *
+ * "When <this creature> dies, if it was a creature, return it to the battlefield under its owner's control.
+ * It's an enchantment. (It's not a creature.)" The dying object (an Enchantment Creature — its card now in a
+ * graveyard) is put BACK onto the battlefield under its OWNER's control, but AS A NON-CREATURE ENCHANTMENT:
+ * per the printed rider it's an enchantment that's no longer a creature (CR 604.3 / 613 — a type-changing
+ * effect baked into the returning permanent), so it has NO power/toughness and can't attack/block or be hit
+ * by "creature" removal. The "if it was a creature" intervening-if (CR 603.4) is enforced upstream by
+ * interveningIf.js (evaluated at flush AND resolution against ctx.triggeringWasCreature), so this resolver
+ * only ever runs when the dying object WAS a creature — it does the return + the type strip.
+ *
+ * FAITHFUL TYPE STRIP: the returning object's card is cloned with "Creature" removed from its type line (an
+ * "Enchantment Creature — Cat Glimmer" becomes "Enchantment — Cat Glimmer") and its power/toughness cleared,
+ * so every downstream reader (combat, lethal SBA, "destroy target creature", isCreaturePerm, P/T layers)
+ * correctly treats the returned permanent as a non-creature — the WHOLE state change is modeled, never a
+ * parse-only flip (CREED). The clone keeps the SAME card id so look-backs / the graveyard removal still key on
+ * it; enterCardFromZone reads the card from the graveyard by id, so we first REPLACE the graveyard copy with
+ * the type-stripped clone, then enter it (firing its enchantment-ETB / constellation triggers — CR 603: the
+ * return IS an enters-the-battlefield event).
+ *
+ * Fail-safe (CR 608.2b): if the card already left the graveyard (a later effect grabbed it, or it never
+ * landed there — e.g. it was exiled instead of dying), this is a logged no-op — never a throw, never a
+ * fabricated permanent. CR 111.7: a token ceases to exist and never returns (guarded via triggeringCardIsToken).
+ */
+function stripCreatureFromCard(card) {
+  const line = String(card?.type || card?.type_line || "");
+  // Remove the "Creature" card type (and a redundant leading/trailing space) from BOTH type + type_line so
+  // every reader (some read .type, some .type_line) sees the non-creature enchantment. Collapse doubled spaces.
+  const strip = (s) => String(s || "").replace(/\bCreature\b/g, "").replace(/\s{2,}/g, " ").replace(/\s+—/g, " —").replace(/^\s+|\s+$/g, "");
+  const next = { ...card, type: strip(card?.type ?? line) };
+  if (card?.type_line != null) next.type_line = strip(card.type_line);
+  // A non-creature has no power/toughness (CR 208.3) — clear them so the P/T primitive reads null (the
+  // permanent is not a creature and has no combat stats).
+  next.power = null;
+  next.toughness = null;
+  return next;
+}
+
+export function applySelfReturnBattlefieldEnchantment(state, atom, ctx) {
+  const owner = ctx.triggeringController;
+  const cardId = ctx.triggeringCardId;
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  // CR 111.7 / 704.5d — a token never returns (it ceases to exist).
+  if (ctx.triggeringCardIsToken) {
+    return logEvent(state, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: false, reason: "token", controller: owner });
+  }
+  const gy = state.players[owner].graveyard || [];
+  const card = gy.find((c) => c.id === cardId);
+  if (!card) {
+    // CR 608.2b — the object left the graveyard before this resolved: a logged no-op.
+    return logEvent(state, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: false, controller: owner });
+  }
+  // Replace the graveyard copy with the type-stripped (non-creature enchantment) clone, SAME id, so
+  // enterCardFromZone (which reads the card from the graveyard by id) enters the transformed object.
+  const strippedCard = stripCreatureFromCard(card);
+  const withStripped = {
+    ...state,
+    players: {
+      ...state.players,
+      [owner]: {
+        ...state.players[owner],
+        graveyard: gy.map((c) => (c.id === cardId ? strippedCard : c)),
+      },
+    },
+  };
+  // Enter it under the OWNER's control (CR 400.3 — the printed "under its owner's control"). enterCardFromZone
+  // fires ETB / enchantment-enters / constellation triggers (the return IS an enters event). isCreatureCard
+  // inside enterCardFromZone reads the stripped type line → NOT a creature → no summoning sickness bookkeeping.
+  const { state: entered, entered: didEnter } = enterCardFromZone(withStripped, { playerId: owner, cardId, fromZone: "graveyard" });
+  return logEvent(entered, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: didEnter, controller: owner });
 }
 
 export const selfReturnResolvers = {
   "self-return": applySelfReturn,
+  "self-return-bf-enchantment": applySelfReturnBattlefieldEnchantment,
 };
