@@ -75,7 +75,7 @@ const COLOR_WORDS = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
  * boundaries (period, semicolon, newline). Each clause is matched independently
  * at its start, so a buff pattern can't match mid-sentence.
  */
-function abilityClauses(oracle) {
+export function abilityClauses(oracle) {
   // QUOTE-AWARE split: a granted QUOTED ability ("All Slivers have \"{T}: Add one mana of any color.\"")
   // carries sentence punctuation (./;) INSIDE the quotes that must NOT split the clause — otherwise the
   // grant is shredded into "… have \"{T}: Add …" + a dangling "\"". Walk the text, tracking double-quote
@@ -327,17 +327,30 @@ function parseSelfCountSource(phrase) {
  */
 function parseGrantedManaSpec(quoted) {
   const q = String(quoted || "");
-  // Must be a {T}: Add … ability — left-of-colon tap cost, right-of-colon "Add" effect. A {Q}/cost-with-mana
-  // or sacrifice-cost ability is out of the modeled subset.
+  // Must be a "<cost>: Add … " ability — left-of-colon cost, right-of-colon "Add" effect.
   const ci = q.indexOf(":");
   if (ci === -1) return null;
   const cost = q.slice(0, ci);
   const effect = q.slice(ci + 1);
-  // The cost must be EXACTLY a {T} tap — nothing else. A rider cost ("{T}, Pay 1 life: Add …" — Forgotten
-  // Monument; "{T}, Sacrifice …") is NOT modeled by the granted-tap source, and silently dropping it would
-  // grant FREE mana (a CREED FP). Allow only "{t}" + whitespace/commas in the cost.
-  if (!/\{t\}/i.test(cost)) return null;                      // require a {T} tap cost
-  if (cost.replace(/\{t\}/ig, "").replace(/[\s,]/g, "") !== "") return null; // any extra cost (life/sac/pips) → reject
+  // The cost must reduce to EXACTLY a {T} tap and/or a SELF-SACRIFICE — nothing else. Two modeled shapes:
+  //   (a) "{T}" — a repeatable tap source (Gemhide/Manaweft "{T}: Add one mana of any color").
+  //   (b) "{T}, Sacrifice this artifact/token/permanent" — a ONE-SHOT sac source (Goldspan's granted
+  //       Treasure ability "{T}, Sacrifice this artifact: Add two mana of any one color"). The self-sac binds
+  //       to the RECIPIENT (the Treasure it's granted to), so the runtime cracks the Treasure on use — the
+  //       same tap+sac the Treasure's OWN ability has. `sacrifices:true` is flagged so manaModel/legalChoices
+  //       sacrifice it (never a phantom repeatable source). A bare "Sacrifice this …: Add …" (Gold, no {T}) is
+  //       ALSO accepted (tap-less one-shot sac). Any OTHER rider cost ("{T}, Pay 1 life", a mana pip, a
+  //       "Sacrifice ANOTHER …") stays UNmodeled — dropping it would grant cheaper/free mana (a CREED FP).
+  const selfSacRe = /\bsacrifice this (?:artifact|token|permanent)\b/i;
+  const sacrifices = selfSacRe.test(cost);
+  const bareCost = cost
+    .replace(/\{t\}/ig, "")
+    .replace(selfSacRe, "")
+    .replace(/[\s,.]/g, "");
+  if (bareCost !== "") return null;                           // any extra cost (life/sac-other/pips) → reject
+  // At least one real cost token must remain: a {T} tap OR a self-sacrifice (an empty cost is not a mana
+  // ability we model here — every printed granted source in the corpus taps and/or self-sacs).
+  if (!/\{t\}/i.test(cost) && !sacrifices) return null;
   if (!/\badd\b/i.test(effect)) return null;                  // must be a mana ("Add …") ability
   if (/\bx\b/i.test(effect) || /\bfor each\b|\bequal to\b/i.test(effect)) return null; // VARIABLE → wrong scope
   // A SPENDING RESTRICTION on the produced mana ("Spend this mana only to cast …" — Clement/Charitable
@@ -345,22 +358,25 @@ function parseGrantedManaSpec(quoted) {
   // unrestricted), so dropping it would grant unrestricted mana the card actually restricts (a CREED FP).
   // Reject the whole grant — the recipient keeps no fabricated all-purpose mana.
   if (/\bspend this mana\b|\bthis mana can'?t be spent\b|\bcan'?t be spent\b|\bonly to (?:cast|pay|activate)\b/i.test(effect)) return null;
+  // `sac` rides onto every returned spec so a self-sacrifice granted source is cracked (never a phantom
+  // repeatable). An omitted/false flag leaves the spec identical to the pre-existing tap-only shape.
+  const sac = sacrifices ? { sacrifices: true } : {};
   // "Add N mana of any one color" — N spelled or digit; "Add … mana of any color" — amount 1.
   let mm = effect.match(/\badd\s+(one|two|three|four|five|\d+)\s+mana of any one color\b/i);
   if (mm) {
     const amount = _ENTER_NUM[mm[1].toLowerCase()] ?? parseInt(mm[1], 10);
-    if (Number.isFinite(amount) && amount > 0) return { colors: ["W", "U", "B", "R", "G"], amount };
+    if (Number.isFinite(amount) && amount > 0) return { colors: ["W", "U", "B", "R", "G"], amount, ...sac };
     return null;
   }
   if (/\badd\b[^.]*\bmana of any( one)? color\b/i.test(effect)) {
-    return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1, ...sac };
   }
   // Fixed pips: "Add {G}" / "Add {C}{C}" (concat = sum) / "Add {W} or {U}" ("or" = choice, amount 1).
   const symbols = [...effect.matchAll(/\{([WUBRGC])\}/gi)].map((x) => x[1].toUpperCase());
   if (symbols.length === 0) return null;
   const unique = [...new Set(symbols)];
-  if (/\bor\b/i.test(effect)) return { colors: unique, amount: 1 };
-  return { colors: unique, amount: symbols.length };
+  if (/\bor\b/i.test(effect)) return { colors: unique, amount: 1, ...sac };
+  return { colors: unique, amount: symbols.length, ...sac };
 }
 
 /**
@@ -1216,18 +1232,31 @@ function parseClause(clause, out, selfName, selfType) {
   {
     const grantQ = clause.match(/^(.+?)\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
     if (grantQ) {
-      const selector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
+      const creatureSelector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
       const quoted = grantQ[2];
-      const manaSpec = selector ? parseGrantedManaSpec(quoted) : null;
       const isTriggeredBody = /^(?:when|whenever|at)\b/i.test(quoted.trim());
+      // NON-CREATURE TOKEN-MANA GRANT (Goldspan Dragon — "Treasures you control have \"{T}, Sacrifice this
+      // artifact: Add two mana of any one color.\""). A grant to a mana-relevant ARTIFACT token subtype
+      // (Treasure/Gold/…) is modeled ONLY for a MANA ability — the recipient (a Treasure) gains a tap/sac-
+      // for-mana source through the SAME grantedManaSpecsFor → manaSources runtime a creature group-grant uses.
+      // The token selector is tried ONLY when the creature selector didn't match AND the quoted body is a
+      // modeled mana spec: a token can't take a Creature-restricted keyword/anthem grant (crew unmodeled), so
+      // a keyword/triggered/activated grant to a token stays UNMODELED → body-only (the CREED FN, matching the
+      // parseCreatureSelector NON_CREATURE_SUBTYPES exclusion). `upgrade:true` marks the spec so
+      // manaModel.applyAuraManaGrantSupplement lets it DOMINATE the token's own printed production (Goldspan's
+      // "two" replaces the Treasure's own "one" — a single tap, never a double-tap): the granter (a Dragon) is
+      // never itself a Treasure, so it can't self-include and mis-upgrade its own source.
+      const tokenManaSelector = creatureSelector ? null : parseTokenArtifactManaSelector(grantQ[1].toLowerCase() + " have");
+      const selector = creatureSelector || tokenManaSelector;
+      const manaSpec = selector ? parseGrantedManaSpec(quoted) : null;
       if (selector && manaSpec) {
         out.push({
           layer: 6,
-          op: { layerOp: "addAbility", grant: { kind: "mana", spec: manaSpec } },
+          op: { layerOp: "addAbility", grant: { kind: "mana", spec: tokenManaSelector ? { ...manaSpec, upgrade: true } : manaSpec } },
           affects: selector,
           duration: { kind: "permanent" },
         });
-      } else if (selector && isTriggeredBody) {
+      } else if (creatureSelector && isTriggeredBody) {
         // GROUP-GRANT granted quoted TRIGGERED ability ("Sliver creatures you control have \"Whenever this
         // creature deals combat damage to a player, put a +1/+1 counter on it.\"" — Tempered Sliver). The
         // quoted body must parse to FULLY-MODELED, natively-routing trigger(s) through detectTriggers +
@@ -1240,11 +1269,11 @@ function parseClause(clause, out, selfName, selfType) {
           out.push({
             layer: 6,
             op: { layerOp: "addAbility", grant: { kind: "triggered", quoted } },
-            affects: selector,
+            affects: creatureSelector,
             duration: { kind: "permanent" },
           });
         }
-      } else if (selector && !isTriggeredBody) {
+      } else if (creatureSelector && !isTriggeredBody) {
         // GROUP-GRANT granted quoted ACTIVATED ability ("All Slivers have \"{2}: Regenerate this permanent.\""
         // — Clot Sliver; "\"{2}, Sacrifice this permanent: Draw a card.\"" — Mnemonic; "\"Sacrifice this
         // permanent: You gain 3 life.\"" — Darkheart). The quoted body must parse to a FULLY-MODELED, non-mana
@@ -1927,6 +1956,34 @@ function parseCreatureSelector(c) {
   }
 
   return null;
+}
+
+// NON-CREATURE ARTIFACT-TOKEN SUBTYPES that a mana-grant static can target ("Treasures you control have
+// \"{T}, Sacrifice this artifact: Add …\"" — Goldspan Dragon). Each is an ARTIFACT subtype, so the selector
+// gates cardTypes:["Artifact"] + the subtype (matchesSelector honors both). These NEVER carry a Creature
+// grant (crew unmodeled — that's why they're excluded from parseCreatureSelector's NON_CREATURE_SUBTYPES);
+// the mana-grant path is the ONLY place a grant to them is modeled. Singular, lowercase.
+const TOKEN_ARTIFACT_MANA_SUBTYPES = new Set(["treasure", "gold", "clue", "food", "powerstone", "blood", "map", "junk", "incubator"]);
+
+/**
+ * NON-CREATURE mana-grant selector — "<Token-subtype>s you control [have]" where the subtype is a mana-
+ * relevant ARTIFACT token (Treasure/Gold/…). Returns a dynamic selector { cardTypes:["Artifact"],
+ * subtypes:[Subtype] } scoped to the controller, or null if the subject is not a bare token-artifact-subtype
+ * "you control" phrase. Used ONLY by the MANA-grant branch (the recipient gains a tap/sac-for-mana source the
+ * grantedManaSpecsFor → manaSources runtime already offers), NEVER for keyword/anthem grants (a Creature-
+ * restricted keyword grant on a Treasure selects nobody — the parseCreatureSelector exclusion stands). Bare
+ * subject only: a determiner ("all"/"other"), a rider, or a non-token subtype leaves residue → null (safe FN).
+ */
+function parseTokenArtifactManaSelector(c) {
+  const m = String(c).match(/^([a-z]+)\s+you control(?:\s+have)?$/i);
+  if (!m) return null;
+  let word = m[1].toLowerCase();
+  if (word.endsWith("s")) word = word.slice(0, -1);           // Treasures → treasure
+  if (!TOKEN_ARTIFACT_MANA_SUBTYPES.has(word)) return null;   // not a mana-relevant token subtype → safe FN
+  return {
+    mode: "dynamic",
+    selector: { controllerScope: "you", cardTypes: ["Artifact"], subtypes: [normalizeSubtype(word)] },
+  };
 }
 
 /**

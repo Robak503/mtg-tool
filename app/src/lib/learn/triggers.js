@@ -867,20 +867,24 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
   // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
   if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
-  // ===== ATTACKS-OR-BECOMES-TARGET (compound-trigger guard, CR 603.2 / CR 115.1) ===== A condition that
-  // names BOTH "attacks" and "becomes the target of a spell" ("Whenever this creature attacks or becomes
-  // the target of a spell, …" — Goldspan Dragon, Tectonic Giant, Giggling Skitterspike) is a COMPOUND event.
-  // The bare "becomes the target of a spell" event has NO general runtime (only HEROIC is modeled, and it
-  // fires exclusively for a spell the TARGET's controller casts — CR 702.35 — not for ANY spell targeting
-  // the permanent, so it can't stand in for this broader condition). The \battacks\b branch below would
-  // detect this as JUST "attacks" and SILENTLY DROP the "becomes the target of a spell" half — the trigger
-  // would fire on attack only, a confident WRONG partial (CLAUDE.md §1.2 / THE CREED): the card would never
-  // fire when it's targeted. Mirrors the "attacks or blocks" guard directly above. Leave it UNDETECTED so the
-  // trigger-sentence count matches in allTriggerSentencesModeled and the whole card routes to the Arbiter (a
-  // SAFE false-negative) until a general becomes-target-of-a-spell event exists. Anchored on "becomes the
-  // target of a spell" (a Ward reminder's "…of a spell or ability an opponent controls" never reaches here —
-  // detectTriggers strips reminder text upstream and Ward is a separate keyword lane).
-  if (/\battacks\b/.test(c) && /\bbecomes the target of a spell\b/.test(c)) return null;
+  // ===== ATTACKS-OR-BECOMES-TARGET (compound event, CR 603.2 / CR 115.1) ===== A condition naming BOTH
+  // "attacks" and "becomes the target of a spell" ("Whenever this creature attacks or becomes the target of
+  // a spell, …" — Goldspan Dragon) is a COMPOUND event firing on TWO distinct sites: (a) when THIS creature
+  // is declared as an attacker (checkAttackTriggers), and (b) when THIS permanent becomes the target of ANY
+  // spell any player casts (checkCastTriggers, per CR 115.1 — the target is chosen at cast). Modeled as ONE
+  // self-scope descriptor `event:"attacksOrBecomesTarget"` that BOTH runtime sites fire (so neither half is
+  // ever silently dropped — the CREED all-sites requirement): the attack site enqueues it for the attacking
+  // permanent, the cast site enqueues it for each targeted permanent regardless of controller. The
+  // effectClause routes through the SAME buildTriggerStack flush a printed trigger uses (Goldspan's "create a
+  // Treasure token" parses HIGH). GATED to the UNRESTRICTED bare self form: a "…of a spell AN OPPONENT
+  // CONTROLS" restriction (Tectonic Giant — no per-caster gate at the cast site) or a NON-self subject leaves
+  // residue → falls through UNDETECTED → Arbiter (a SAFE false-negative). Anchored ^…$ so any rider is caught.
+  if (/\battacks\b/.test(c) && /\bbecomes the target of a spell\b/.test(c)) {
+    if (selfRef && /^this creature attacks or becomes the target of a spell$/.test(c)) {
+      return { event: "attacksOrBecomesTarget", scope: "self", whose: "any" };
+    }
+    return null; // restricted ("an opponent controls") / non-self form stays UNDETECTED → Arbiter (SAFE FN)
+  }
   // ===== ATTACKS-ALONE (sole-attacker restriction guard, CR 508.4a) ===== "attacks alone" fires ONLY when
   // exactly one creature is attacking. The engine has NO sole-attacker gate, so the non-anchored
   // "a creature you control" match below would silently DROP "alone" and fire on EVERY attacker (Black
@@ -2638,6 +2642,11 @@ export function checkAttackTriggers(state) {
     const context = { defenderId: a.defender };
     // self ("this attacks") + the attacker's own "creature you control attacks"
     fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    // ATTACKS-OR-BECOMES-TARGET (CR 603.2) — the ATTACK site of Goldspan's compound self-trigger. The
+    // descriptor is scope:"self", so it fires ONLY for the attacking permanent's own compound trigger (never a
+    // watcher's) — the becomes-target site is handled separately in checkCastTriggers. Same per-attacker batch
+    // as "attacks" above, so it can't drift from the declare-attackers event.
+    fired = fired.concat(triggersForEvent(state, { event: "attacksOrBecomesTarget", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
     // CHOSEN-TYPE (Kindred Discovery) — the "attacks" half. The attacking player's watchers (Kindred is an
     // Enchantment they control) fire when this attacker is a creature they control of the chosen type. Same
     // attacker batch as the "attacks" event above (CR 508.3), so it can't drift from the per-attacker fire.
@@ -3320,6 +3329,24 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
     for (const d of detectTriggers(targetPerm.card).filter(x => x.event === "heroic")) {
       fired.push(makePendingTrigger(d, targetPerm, null, context));
     }
+  }
+  // ===== BECOMES-TARGET-OF-A-SPELL (CR 115.1) ===== the CAST site of Goldspan's compound self-trigger. Unlike
+  // HEROIC above (gated to a spell the TARGET's own controller casts, CR 702.35), "becomes the target of a
+  // spell" fires for a spell ANY player casts that targets the permanent — so this loop does NOT gate on the
+  // target's controller. Each chosen target that resolves to a battlefield permanent (any seat) fires its own
+  // scope:"self" attacksOrBecomesTarget descriptor. A spell targeting the same permanent MULTIPLE times still
+  // fires the ability once per targeting instance is out of scope here — but `targets` carries one entry per
+  // chosen target object, so a single-target spell fires exactly once (the common case; the Goldspan corpus is
+  // all single-target enablers). Via triggersForEvent so a granted/group-granted variant is honored uniformly.
+  for (const target of targets) {
+    if (!target?.id) continue;
+    let targetPerm = null;
+    for (const pid of Object.keys(state.players)) {
+      targetPerm = (state.players[pid]?.battlefield || []).find(p => p.id === target.id);
+      if (targetPerm) break;
+    }
+    if (!targetPerm) continue;
+    fired = fired.concat(triggersForEvent(state, { event: "attacksOrBecomesTarget", sourcePermanent: targetPerm, triggeringPermanent: targetPerm, triggeringContext: context }));
   }
   // ===== TRIG-PROWESS (CR 702.108) ===== Prowess is a printed keyword = "Whenever you cast a noncreature
   // spell, this creature gets +1/+1 until end of turn." detectTriggers can't see it (no When/Whenever
