@@ -92,6 +92,7 @@ export function parseAbilityCost(costStr) {
   if (!items.length) return null;
   let manaPips = "";
   let tapSelf = false;
+  let costX = false;
   let payLife = 0;
   let sacSelf = false;
   let sacOther = null;
@@ -187,13 +188,21 @@ export function parseAbilityCost(costStr) {
       if (FUNGIBLE.has(sub)) { sacX = { type: "permanent", subtype: sub }; continue; }
       return null; // a variable-count sac of a non-fungible/unknown subtype → unmodeled (deferred)
     }
+    // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a lone `{X}` cost item is a
+    // GENERIC-X mana cost the player picks at activation (CR 601.2b/107.3). It threads into `manaPips` verbatim
+    // (parseManaCost sets hasX/xCount++), and legalChoices' actionsActivateAbility now enumerates one action per
+    // affordable X (like the cast path's X-spell branch). Gated to a STANDALONE `{X}` item ONLY — a mixed pip
+    // ("{2}{X}") or a second `{X}` ({X}{X} — a double-X activated cost, none in the corpus) is rare and NOT split
+    // into its own item, so it falls through to the multi-pip run below where `pipIsMana("X")` is false → null
+    // (deferred, a safe false-negative). Recording costX lets parseActivatedAbilities require an X-scaled effect.
+    if (/^\{x\}$/i.test(item)) { costX = true; manaPips += "{X}"; continue; }
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature };
+  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, costX };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -402,12 +411,24 @@ export function parseActivatedAbilities(card) {
     // gate below) — a sac-X whose effect DOESN'T consume X would leave the paid X with no payoff (a half-model,
     // CREED). Every other cost keeps hasX:false (the prior behavior — no {X} in an activated cost otherwise).
     const sacX = cost?.sacX ?? null;
+    // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a lone `{X}` mana cost item
+    // makes the ability's X a PLAYER CHOICE bound at activation. Like sacX, the effect MUST be X-scaled — the
+    // paid X must be consumed (here: the TARGET COUNT = X, a targetCountX atom); a fixed effect under a mana-{X}
+    // cost would leave the X with no payoff (a half-model). Parse with hasX:true and require an xSpell program.
+    const costX = cost?.costX ?? false;
     let program = null;
     let effectHigh = false;
     if (cost && !isManaEffect) {
       // CR 201.4: rewrite the card's own name → "this creature" so a self-referential effect
       // ("Regenerate Wolverine.") matches the engine's self-anchored atoms.
-      program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant", { hasX: !!sacX });
+      program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant", { hasX: !!sacX || costX });
+      // γ1f — the ONLY X-payoff the activated-{X} RUNTIME wires (legalChoices.actionsActivateAbility) is a
+      // TARGET-COUNT = X set (a targetCountX atom, expanded per-X). An {X}-cost ability whose effect scales X some
+      // OTHER way (an amountX magnitude — "{X}: deal X damage") parses xSpell:true but has NO runtime path here,
+      // so gating it modeled would over-claim native for a card the engine can't offer. Require a targetCountX
+      // atom so classify (metric) and the runtime stay in lock-step; every other {X} activated effect stays parked
+      // (a safe false-negative → Arbiter) until its runtime lane is built.
+      const costXTargetCount = !!program && (program.atoms || []).some((a) => a.targetCountX);
       // MODAL-ACTIVATED (CR 602.1 / 700.2 — Koma "Sacrifice another Serpent: Choose one — …"): a "Choose one"
       // modal effect IS playable here. The runtime offers ONE action per mode (legalChoices →
       // expandCastChoices expands mode × target combos, stamping chosenMode) and the dispatcher executes the
@@ -416,12 +437,16 @@ export function parseActivatedAbilities(card) {
       // X-choice expansion isn't wired); a "Choose two/one or more" modal also rides this (expandCastChoices
       // handles the mode-combinations). The all-or-nothing modal HIGH gate (every mode parses) already
       // guarantees no mode is silently un-modeled, so this can't half-resolve.
-      // sacX (γ1e): the effect MUST be an X-scaled program (xSpell — its amount reads the chosen X); a fixed /
-      // non-X effect under a sac-X cost is a mis-model (the player pays X but nothing consumes it) → not modeled.
-      // Every non-sacX ability keeps the original gate: HIGH, non-modal, non-X (a stray {X} effect stays parked).
+      // sacX (γ1e): the effect must be ANY X-scaled program (xSpell — Grim Hireling's amountX "-X/-X" is wired by
+      // the sacX runtime path). costX (γ1f): NARROWER — only a targetCountX program (the sole wired runtime lane).
+      // Both require HIGH + non-modal (the activated X-choice × modal-mode cross-expansion isn't wired). Every
+      // non-X ability keeps the original gate: HIGH, non-modal, non-X (a stray {X} effect under a non-X cost stays
+      // parked). A mis-model (X paid, nothing consumes it) is a forbidden half-model — the gate forbids it.
       effectHigh = sacX
         ? (!!program && programConfidence(program) === "high" && !!program.xSpell && !program.modal)
-        : (!!program && programConfidence(program) === "high" && !program.xSpell);
+        : costX
+          ? (!!program && programConfidence(program) === "high" && costXTargetCount && !program.modal)
+          : (!!program && programConfidence(program) === "high" && !program.xSpell);
     }
     out.push({
       index: index++,
@@ -435,6 +460,7 @@ export function parseActivatedAbilities(card) {
       sacOther: cost?.sacOther ?? null, // γ1b — "Sacrifice a/another <type>": legalChoices picks the victim
       sacCount: cost?.sacCount ?? null, // γ1d — "Sacrifice N <fungible subtype>": legalChoices auto-picks N victims
       sacX,                             // γ1e — "Sacrifice X <fungible subtype>": player chooses X, X threads to the effect
+      costX,                            // γ1f — "{X}" mana cost item: player chooses X, X = the effect's target count
       exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       tapCreature: cost?.tapCreature ?? null,  // γ1f — "Tap an untapped creature you control": legalChoices picks the creature

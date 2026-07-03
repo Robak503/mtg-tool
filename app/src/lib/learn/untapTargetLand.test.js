@@ -5,11 +5,11 @@
  * "land" }; the land routes through PERMANENT_PREDICATES.land in enumerateTargets, and applyTapEffect
  * re-verifies the LIVE permanent is a land before untapping (never a non-land). Classifies native-activated.
  *
- * CREED: the $ anchor keeps every qualified / X form Arbiter — "untap X target lands" (Candelabra / Magus,
- * an X-cost ability deferred), "untap target land you control", "return a land you control" untaps (Oboro) —
- * a safe false-negative, never a mis-applied or fabricated untap. NOTE: "untap target basic land" under a
- * "Tap an untapped creature you control" cost (Earthcraft) is NOW modeled (γ1f tap-creature cost +
- * targetType "basicLand"); see earthcraft.test.js for the end-to-end proof.
+ * CREED: the $ anchor keeps every qualified form Arbiter — "untap target land you control" — a safe
+ * false-negative, never a mis-applied or fabricated untap. NOW MODELED (γ1f family): "untap target basic land"
+ * under a "Tap an untapped creature you control" cost (Earthcraft — see earthcraft.test.js), "untap X target
+ * lands" under a lone {X} mana cost (Candelabra / Magus — see activatedX.test.js), and the "return a land you
+ * control" activation cost (Oboro — see its own test).
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -54,8 +54,12 @@ describe("UNTAP-TARGET-LAND — parser", () => {
     const r = parseEffectClause("untap target creature.", "Instant");
     expect(r).toMatchObject({ confidence: "high", atoms: [{ op: "untap", targetType: "creature" }] });
   });
-  it("qualified / X forms stay low (Arbiter) — CREED safe FN", () => {
-    expect(parseEffectClause("untap X target lands.", "Artifact").confidence).toBe("low");
+  it("'untap X target lands' → high, targetCountX (γ1f — the multi-count X-target untap, Candelabra)", () => {
+    expect(parseEffectClause("untap X target lands.", "Artifact", { hasX: true })).toMatchObject({
+      confidence: "high", xSpell: true, atoms: [{ op: "untap", targetType: "land", targetCountX: true }],
+    });
+  });
+  it("qualified forms stay low (Arbiter) — CREED safe FN", () => {
     expect(parseEffectClause("untap target land you control.", "Creature").confidence).toBe("low");
   });
   it("'untap target basic land' → high, { op: untap, targetType: basicLand } (Earthcraft — now modeled)", () => {
@@ -69,10 +73,12 @@ describe("UNTAP-TARGET-LAND — classifyCard", () => {
   it("Voyaging Satyr classifies native-activated", () => {
     expect(classifyCard(VOYAGING_SATYR)).toBe("native-activated");
   });
-  it("X-cost / non-standard-cost untap-land cards stay non-native", () => {
-    // {X}, {T} cost is deferred (X-cost activated abilities) — body-only.
-    expect(classifyCard(CANDELABRA)).toBe("body-only");
-    // "Return a land you control" is an unmodeled non-standard activation cost — body-only.
+  it("Candelabra of Tawnos ({X}, {T}: Untap X target lands) classifies native-activated (γ1f)", () => {
+    // The lone {X} mana cost + the X-count target set (targetCountX) are now BOTH modeled: the player picks X,
+    // pays {X}, and untaps exactly X target lands. See activatedX.test.js for the end-to-end runtime proof.
+    expect(classifyCard(CANDELABRA)).toBe("native-activated");
+  });
+  it("Oboro's return-a-land untap stays non-native until its own commit lands (CREED safe FN)", () => {
     expect(classifyCard(OBORO)).toBe("body-only");
   });
   it("Earthcraft classifies native-activated (γ1f tap-creature cost + basic-land untap now modeled)", () => {

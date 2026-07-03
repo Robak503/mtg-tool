@@ -2467,7 +2467,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
       atoms.push(a);
     }
     if (atoms.every(a => KNOWN.has(a.op)) && optionalsFormSuffix(atoms)) {
-      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX || a.mvCapX), unparsedTail: null });
+      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
   };
@@ -2756,7 +2756,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
     if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))) {
-      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX || a.mvCapX));
+      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
     return makeProgram({ confidence: "low", structure: "modal", atoms: [], modal: null, unparsedTail: oracle });
@@ -2813,7 +2813,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
     // `mvCapX` (a search→battlefield tutor whose MV cap IS the spell's X — Wargate, Nature's Rhythm) also makes
     // this an X-spell: the cast path must enumerate affordable X so ctx.xValue reaches applyTutor's cap resolve.
-    const xSpell = seq.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX || a.mvCapX);
+    const xSpell = seq.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 

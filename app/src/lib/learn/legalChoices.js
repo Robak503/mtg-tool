@@ -1253,6 +1253,60 @@ function actionsActivateAbility(state, playerId) {
       // and what the dispatcher is handed. Mana abilities never reach here (isManaEffect excludes them); an
       // X-cost ability is deferred just below, so the reduced generic never mixes with an unresolved {X}.
       if (isCreaturePerm && activatedReducers.length) cost = activatedCostReductionForCost(activatedReducers, cost);
+      // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a bare mana-{X} cost whose
+      // effect's TARGET COUNT is the paid X (a targetCountX atom → program.xSpell). The PLAYER chooses X at
+      // activation, so — exactly like the cast path's X-spell branch — enumerate every affordable X and, per X,
+      // expand the X-count-target combos (min=max=X distinct legal lands via targeting.expandAtoms, bound from
+      // ctx.xValue). Each action bakes the chosen X into the cost (generic += X, so payment auto-taps fixed + X)
+      // and threads xValue:x into resolution (applyActivateAbility → ctx.xValue). Gated to ab.costX AND a
+      // targets-per-X program; ANY OTHER X-cost activated ability (an X-scaled magnitude, an unmodeled X body)
+      // still falls through to the deferral below (a safe false-negative → Arbiter).
+      const expandsTargetsPerX = ab.program && (ab.program.atoms || []).some((a) => a.targetCountX);
+      if (ab.costX && expandsTargetsPerX) {
+        // Mirror the dispatcher's payment sources: a source paying its own cost by tapping ({T}), sac, or exile
+        // can't ALSO tap for mana — exclude it from the affordable-X ceiling and the per-X target expansion's
+        // affordability. (Candelabra's {T} taps the artifact, which isn't a mana source anyway, but a future
+        // creature-with-{T} X ability needs this exclusion to be correct.)
+        const xSources = manaSources(state, playerId).filter((s) =>
+          !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id));
+        const poolTotal = totalAvailableMana(state, playerId);
+        const sourceTotal = xSources.reduce((sum, s) => sum + (s.amount || 1), 0);
+        const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
+        for (let x = 1; x <= ceiling; x++) {
+          const xCost = xResolvedCost(cost, x); // generic += xCount * X (CR 107.3; xCount = 1 for a single {X})
+          if (!canAfford(player.manaPool, xSources, xCost)) break; // monotonic in X → stop at the first shortfall
+          // Per-X target enumeration: exactly X distinct legal lands (targetCountX → expandAtoms min=max=X). An X
+          // with too few legal lands (fewer than X untappable targets exist) yields no combos → that X is skipped.
+          const combos = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { xValue: x });
+          for (const ch of combos) {
+            actions.push({
+              kind: "activate-ability",
+              playerId,
+              permanentId: perm.id,
+              name: perm.card.name,
+              abilityIndex: ab.index,
+              cost: xCost,
+              cmc: totalCmc(xCost),
+              tapSelf: ab.tapSelf,
+              payLife: ab.payLife || 0,
+              sacSelf: ab.sacSelf || false,
+              exileSelf: ab.exileSelf || false,
+              removeCounter: ab.removeCounter || null,
+              sacCreatureId: null,
+              sacCreatureName: null,
+              sacCountIds: null,
+              xValue: x,                                  // γ1f — the chosen X threads into the effect (ctx.xValue)
+              program: ab.program,
+              targets: ch.targets,
+              chosenMode: ch.chosenMode ?? null,
+              needsTargets: ch.targets.length > 0,
+              targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+              abilityText: `X=${x}: ${ab.effectClause}`,
+            });
+          }
+        }
+        continue; // costX expanded its own per-X actions; skip the deferral + single-action push below
+      }
       if (cost.hasX) continue; // X-cost activated abilities deferred (need the X-choice expansion)
       // γ1 — a "Pay N life" cost needs the life to spend (CR 119.4: you can't pay life you don't
       // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-

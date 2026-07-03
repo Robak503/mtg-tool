@@ -687,6 +687,13 @@ export function combatKeywordClauseParser(clause) {
   // / non-land — CREED). Whole-clause anchored ($) so "untap target basic land you control" / an X form stays
   // Arbiter (a safe FN). Distinct from the bare "land" form (which accepts nonbasics) and the subtype forms.
   if (/^untap target basic land$/.test(t)) return { op: "untap", targetType: "basicLand" };
+  // UNTAP-X-TARGET-LANDS (Candelabra of Tawnos "{X}, {T}: Untap X target lands.") — a MULTI-COUNT chosen-target
+  // untap whose target count IS the paid {X} (CR 601.2c). Reuses the SAME applyTapEffect resolver as single-target
+  // untap (it already loops ctx.targets) + the SAME targetCountX enumeration Curse of the Swine's exile uses
+  // (targeting.expandAtoms picks EXACTLY x distinct legal lands, bound from ctx.xValue). BARE "X target lands"
+  // only — a qualified form ("X target lands you control", a subtype, a rider) doesn't match this anchor and stays
+  // LOW → Arbiter (a safe false-negative). Whole-clause anchored via the caller's $ boundary.
+  if (/^untap x target lands$/.test(t)) return { op: "untap", targetType: "land", targetCountX: true };
   // UNTAP-BASIC-SUBTYPE (Arbor Elf "{T}: Untap target Forest"; Voyaging Satyr's typed kin) — a single chosen
   // land of a basic SUBTYPE (CR 305.6). targetType is the lowercased subtype; enumerateTargets routes it
   // through PERMANENT_PREDICATES.<subtype> (any land of that subtype on any battlefield is legal), and
