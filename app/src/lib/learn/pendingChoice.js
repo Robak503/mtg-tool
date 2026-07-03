@@ -45,6 +45,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-discard-payment",
   "sac-unless-pay",
   "taxed-payment",
+  "edict-mode",
 ];
 
 /**
@@ -465,6 +466,28 @@ export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, 
   return {
     ...next,
     pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName },
+  };
+}
+
+/**
+ * ===== ITERATED-EDICT ===== (Torment of Hailfire, CR 118.9) — flag ONE per-opponent edict decision awaiting
+ * the AFFECTED OPPONENT's mode pick: lose 3 life, sacrifice a nonland permanent, or discard a card. The
+ * `controller` here is the OPPONENT making the choice (the driver's `pause = pc.controller === "user"` rule
+ * pauses a human opponent and auto-picks for an AI), NOT the caster. `modes` is the legal-mode list ("life"
+ * always, plus "sacrifice"/"discard" when the pools are non-empty) and `sac`/`disc` are the corresponding
+ * candidate pools as `{ id, name }` — all public (the opponent's board + hand size), and the sac permanent /
+ * discard card are chosen by the opponent, so it's hidden-info safe. The chain resolves as a sequence of
+ * these picks: `queue` is the remaining per-opponent decisions (head = the current one). The caster's
+ * continuation rides on `pendingChoice.resume` (attached by runProgram on the first pause; resolveEdictMode-
+ * Choice carries it forward across the chain). Only flagged when a REAL choice exists (≥2 modes); a life-only
+ * opponent is the forced inline loss with no pause. FIFO (guarded).
+ */
+export function setPendingEdictModeChoice(state, { controller, modes, sac = [], disc = [], queue = null, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "edict-mode-pending", controller, modes, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "edict-mode", controller, modes, sac, disc, queue, sourceName },
   };
 }
 

@@ -1601,6 +1601,26 @@ function matchDrainEachOpponentX(oracle) {
 }
 
 /**
+ * ===== ITERATED-EDICT (Torment of Hailfire, CR 118.9) ===== "Repeat the following process X times. Each
+ * opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a
+ * card." — an {X}-times-repeated, per-opponent, THREE-mode edict where EACH opponent chooses their own way
+ * out (lose 3 life / sacrifice a nonland permanent / discard a card). The "repeat X times" wrapper + the
+ * "loses N unless that player sacrifices…or discards" multi-mode choice are BOTH unmodeled by the clause
+ * splitter (the "unless…or…" would shatter into unrelated lose-life / sacrifice / discard atoms, dropping
+ * the affected-player CHOICE — a forbidden partial), so the whole card is collapsed here to ONE
+ * `iterated-edict` atom whose resolver drives the X × opponents pausing choice chain (each opponent picks a
+ * legal mode; a life-only opponent is forced to lose 3). Anchored ^…$ on the exact printed shape — any
+ * variant (a different life amount, a filtered pool, a rider) leaves residue → no match → low → Arbiter
+ * (CREED — never a mis-modeled iteration). Gated to hasX by the caller (an {X} cost); the atom is stamped
+ * amountX so the cast path binds the chosen X into ctx.xValue (the repeat count). Returns { atom }.
+ */
+function matchIteratedEdict(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ");
+  if (!/^repeat the following process x times\. each opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a card\.?$/.test(s)) return null;
+  return { atom: { op: "iterated-edict", amountX: true, targetType: null } };
+}
+
+/**
  * ===== REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) ===== "Reveal the top card of your library and put
  * that card into your hand. Each opponent loses life equal to that card's mana value." The SECOND sentence's
  * amount ("that card's mana value") is a value generated MID-RESOLUTION by the first sentence (the revealed
@@ -2218,6 +2238,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const drx = matchDrainEachOpponentX(oracle);
     if (drx && KNOWN.has(drx.atom.op)) {
       return makeProgram({ confidence: "high", atoms: [drx.atom], xSpell: true, unparsedTail: null });
+    }
+  }
+  // ===== ITERATED-EDICT (Torment of Hailfire) ===== "Repeat the following process X times. Each opponent loses
+  // 3 life unless that player sacrifices a nonland permanent of their choice or discards a card." → ONE
+  // iterated-edict atom (X × per-opponent lose-3 / sac-nonland / discard, each opponent's own choice, resolved
+  // through the pausing edict chain). Collapsed up front — the "repeat X times" wrapper + the "unless…or…"
+  // multi-mode CHOICE both defeat the clause splitter, which would drop the affected-player decision. Gated to
+  // an {X}-cost spell; xSpell:true so the cast path binds the chosen X (the repeat count) into ctx.xValue.
+  if (hasX) {
+    const ie = matchIteratedEdict(oracle);
+    if (ie && KNOWN.has(ie.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [ie.atom], xSpell: true, unparsedTail: null });
     }
   }
   // ===== REVEAL-TOP-DRAIN-BY-MV (Yuriko) ===== "Reveal the top card … put that card into your hand. Each

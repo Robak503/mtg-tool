@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
@@ -598,6 +598,81 @@ export function resolveDiscardChoice(state, cardId) {
       : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
   }
   // Chain done → resume the caster's suspended program (its riders).
+  const casterId = pc.resume?.controller;
+  if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
+  return resumeAfterChoice(r, pc);
+}
+
+/**
+ * ===== ITERATED-EDICT ===== (Torment of Hailfire) — deterministically pick the mode an AI opponent takes for
+ * ONE edict decision (no picker for the AI / Expert), returning `{ mode, permId?, cardId? }`. Heuristic (a
+ * LEGAL choice always — CR 601, never wrong): if life is LOW (≤ the 3-life loss, so losing it risks death),
+ * PRESERVE life — discard the least-valuable card if the pool has one, else sacrifice the least-valuable
+ * nonland permanent (lowest MV, serialize-stable tie-break); otherwise (comfortable life total) LOSE the 3
+ * life and keep the board + hand intact. Only ever returns a mode the pool supports (the fallbacks re-check
+ * pool emptiness), so the settler never applies an illegal mode; a board-aware refinement is a future slice.
+ */
+export function autoPickEdictMode(state, pc) {
+  const player = state.players?.[pc?.controller];
+  if (!player) return { mode: "life" };
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const cheapestCard = () => {
+    const hand = (player.hand || []).filter((c) => !c.token);
+    const byId = new Map(hand.map((c) => [c.id, c]));
+    const cards = (pc.disc || []).map((c) => byId.get(c.id)).filter(Boolean);
+    if (!cards.length) return null;
+    return [...cards].sort((a, b) =>
+      tutorManaValue(a) - tutorManaValue(b) || cmp(String(a.name || ""), String(b.name || "")) || cmp(String(a.id || ""), String(b.id || "")),
+    )[0].id;
+  };
+  const cheapestPerm = () => {
+    const perms = (pc.sac || [])
+      .map((c) => ({ c, mv: tutorManaValue(findPermanent(state, c.id)?.permanent?.card) }))
+      .filter((x) => findPermanent(state, x.c.id));
+    if (!perms.length) return null;
+    return [...perms].sort((a, b) => a.mv - b.mv || cmp(String(a.c.name || ""), String(b.c.name || "")) || cmp(String(a.c.id || ""), String(b.c.id || "")))[0].c.id;
+  };
+  const lifeLow = (player.life ?? 0) <= EDICT_LIFE_LOSS;
+  if (lifeLow) {
+    const cardId = pc.modes.includes("discard") ? cheapestCard() : null;
+    if (cardId) return { mode: "discard", cardId };
+    const permId = pc.modes.includes("sacrifice") ? cheapestPerm() : null;
+    if (permId) return { mode: "sacrifice", permId };
+  }
+  return { mode: "life" };
+}
+
+/**
+ * ===== ITERATED-EDICT ===== (Torment of Hailfire) — settle ONE pick in the edict chain: apply the chosen
+ * `choice` ({ mode, permId?, cardId? }) for the AFFECTED opponent (pc.controller) via applyEdictMode — "life"
+ * loses 3, "sacrifice" gives up the chosen nonland permanent (dies triggers fire), "discard" pitches the
+ * chosen card — then ADVANCE the chain (advanceEdictChain), which either pauses again (the next opponent /
+ * round owes a real choice) or, when the queue empties, RESUMES the caster's suspended program. An eliminated
+ * opponent mid-pause (CR 800.4a) is a logged no-op that still advances the chain; a stale/illegal permId or
+ * cardId falls back to the mandatory life loss inside applyEdictMode (never a fabricated sac/discard). The
+ * caster-resume rides forward across each re-pause. Hidden-info safe (the affected opponent is the chooser).
+ */
+export function resolveEdictModeChoice(state, choice) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "edict-mode") return state;
+  let next = clearPendingChoice(state);
+  if (next.players?.[pc.controller]) {
+    const mode = pc.modes.includes(choice?.mode) ? choice.mode : "life";
+    next = applyEdictMode(next, { playerId: pc.controller, mode, permId: choice?.permId ?? null, cardId: choice?.cardId ?? null, sac: pc.sac || [] });
+  } else {
+    next = logEvent(next, { kind: "spell-effect", effect: "iterated-edict-skip", controller: pc.controller });
+  }
+  // Advance the chain — drop the settled head, then continue (the next opponent / round).
+  const queue = (pc.queue || []).slice(1);
+  const r = advanceEdictChain(next, { queue, sourceName: pc.sourceName });
+  if (r.pendingChoice) {
+    // The chain re-paused (the next decision owes a real choice). Carry the original caster-resume forward
+    // so the program resumes once the whole chain settles (advanceEdictChain never sets a resume itself).
+    return r.pendingChoice.resume || !pc.resume
+      ? r
+      : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
+  }
+  // Chain done → resume the caster's suspended program (its riders, if any).
   const casterId = pc.resume?.controller;
   if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
   return resumeAfterChoice(r, pc);

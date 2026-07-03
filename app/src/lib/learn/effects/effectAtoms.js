@@ -34,6 +34,7 @@ import { selfReturnResolvers } from "./atoms/selfReturn.js";
 import { winGameResolvers } from "./atoms/winGame.js";
 import { rollResolvers } from "./atoms/roll.js";
 import { freeCastResolvers } from "./atoms/freeCast.js";
+import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
@@ -45,6 +46,7 @@ export { counterSpellById, controllerSacSubtypeMatch } from "./atoms/stack.js";
 export { tutorManaValue, cardMatchesTutorFilter, shuffleControllerLibrary, bottomLibraryCardsByIds } from "./atoms/library.js";
 export { advanceDiscardChain } from "./atoms/hand.js";
 export { applyDivideDamage } from "./atoms/misc.js";
+export { advanceEdictChain, applyEdictMode, edictLegalModes, edictLoseLife, EDICT_LIFE_LOSS } from "./atoms/iteratedEdict.js";
 
 export const ATOM_RESOLVERS = Object.freeze({
   ...stackResolvers,   // deal-damage, counter, self-attach
@@ -65,6 +67,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...winGameResolvers, // win-game (UPKEEP-WIN, CR 104.2a) — "you win the game" / "target player loses the game"
   ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
+  ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain
 });
 
 /**
@@ -100,6 +103,7 @@ const PAUSING_OPS_LIST = [
   "optional-discard-payment", // stack.js applyOptionalDiscardPayment → setPendingOptionalDiscardPaymentChoice (the cost-discard pause; payoff is non-pausing)
   "sac-unless-pay", // stack.js applyUpkeepSacUnlessPay → setPendingSacUnlessPayChoice (upkeep pay-or-sacrifice)
   "taxed-draw", // stack.js applyTaxedDraw → setPendingTaxedPaymentChoice (opponent pays or you draw — Rhystic Study)
+  "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
 ];
 for (const op of PAUSING_OPS_LIST) {
   if (!ATOM_RESOLVERS[op]) throw new Error(`PAUSING_ATOM_OPS drift: "${op}" is not a registered atom op`);
