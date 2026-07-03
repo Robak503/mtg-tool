@@ -11,7 +11,7 @@
  * later slices generalize to "up to two target creatures" (damage/destroy/bounce/pump, 111 cards).
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { createGameState, createPermanent, _resetIdsForTests } from "../gameState.js";
+import { createGameState, createPermanent, creaturePower, creatureToughness, _resetIdsForTests } from "../gameState.js";
 import { parseEffectProgram } from "./parser.js";
 import { expandCastChoices } from "./targeting.js";
 import { runEffectProgram } from "./runProgram.js";
@@ -184,5 +184,55 @@ describe("multi-count — deal-damage (N to each of up to K target creatures)", 
     expect(dmg.x).toBe(2); // full 2 to x
     expect(dmg.z).toBe(2); // full 2 to z (NOT divided)
     expect(dmg.y || 0).toBe(0); // y untargeted
+  });
+});
+
+describe("multi-count — pump (up to N target creatures EACH GET +P/+T [and gain KW])", () => {
+  it("parses 'up to two target creatures each get +2/+2 until end of turn' → maxTargets:2", () => {
+    const a = prog("Up to two target creatures each get +2/+2 until end of turn.", "Instant").atoms[0];
+    expect(a).toMatchObject({ op: "pump", targetType: "creature", maxTargets: 2, minTargets: 0, ptDelta: { p: 2, t: 2 } });
+  });
+
+  it("carries the 'and gain KW' keyword grant + the 'you control' restriction", () => {
+    const kw = prog("Up to two target creatures each get +1/+1 and gain trample until end of turn.", "Instant").atoms[0];
+    expect(kw.maxTargets).toBe(2);
+    expect(kw.grantKeywords.map((k) => k.toLowerCase())).toContain("trample");
+    const yc = prog("Up to two target creatures you control each get +1/+1 until end of turn.", "Instant").atoms[0];
+    expect(yc.restrictions).toEqual([{ kind: "controller", who: "you" }]);
+  });
+
+  it("single-target pump is untouched; a non-'each' near-miss stays off multi", () => {
+    expect(prog("Target creature gets +3/+3 until end of turn.", "Instant").atoms[0].maxTargets).toBeUndefined();
+  });
+
+  // Creatures with EXPLICIT base P/T so creaturePower reads a real layer-stacked value.
+  const pumpBoard = (ids) => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const mk = (id) => createPermanent({ id, card: { id: `c-${id}`, name: id, type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: ids.map(mk), hand: [] } } };
+  };
+
+  it("resolving two chosen targets pumps BOTH (+2/+2), leaving the third untouched", () => {
+    const s = pumpBoard(["a", "b", "c"]);
+    const p = prog("Up to two target creatures each get +2/+2 until end of turn.", "Instant");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "c", controller: "user", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Dauntless Onslaught" }, payload: { params: { program: p, controller: "user", targets } } });
+    const byId = Object.fromEntries(out.players.user.battlefield.map((pm) => [pm.id, pm]));
+    expect([creaturePower(byId.a, out), creatureToughness(byId.a, out)]).toEqual([4, 4]); // 2/2 base + 2/2
+    expect([creaturePower(byId.c, out), creatureToughness(byId.c, out)]).toEqual([4, 4]);
+    expect([creaturePower(byId.b, out), creatureToughness(byId.b, out)]).toEqual([2, 2]); // untargeted — base
+  });
+
+  it("the keyword grant lands on EACH chosen target (not just the first)", () => {
+    const s = pumpBoard(["a", "b"]);
+    const p = prog("Up to two target creatures each get +1/+1 and gain trample until end of turn.", "Instant");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "b", controller: "user", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Press the Advantage" }, payload: { params: { program: p, controller: "user", targets } } });
+    // applyPumpEffect applies the ptDelta (layer 7c) and the grantKeywords (layer 6) in the SAME per-target loop,
+    // so a per-target power buff proves the keyword grant also lands per-target. Both go 2/2 → 3/3.
+    for (const id of ["a", "b"]) {
+      const pm = out.players.user.battlefield.find((x) => x.id === id);
+      expect(creaturePower(pm, out)).toBe(3); // 2 base + 1
+    }
   });
 });

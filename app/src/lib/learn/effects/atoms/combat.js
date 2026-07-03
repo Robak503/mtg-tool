@@ -698,6 +698,13 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pctrl[2]);
     return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ===== MULTI-COUNT PUMP (VERIFY PROTOTYPE) ===== "up to N target creatures[ you control] each get ±P/±T[ and gain KW] until end of turn"
+  let mc = t.match(/^up to (two|three|four|five) target creatures(?: (you control))? each get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  if (mc) {
+    const kws = mc[5] ? parseGrantedKeywords(mc[5]) : null;
+    if (mc[5] && !kws) return null;
+    return { op: "pump", targetType: "creature", maxTargets: SMALL_NUM[mc[1]], minTargets: 0, ptDelta: { p: parseInt(mc[3], 10), t: parseInt(mc[4], 10) }, ...(mc[2] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}), ...(kws ? { grantKeywords: kws } : {}) };
+  }
   // ===== SUBTYPE-RESTRICTED TARGETING (CR 205.3 / 115) ===== a single chosen target restricted to a creature
   // SUBTYPE — "target <Subtype>[ creature] gets +X/+Y[ and gains KW] until end of turn" / "target <Subtype>[
   // creature] gains KW until end of turn" (Otepec Huntmaster "{T}: Target Dinosaur gains haste until end of

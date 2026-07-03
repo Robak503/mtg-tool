@@ -459,6 +459,8 @@ function splitClauses(oracle) {
     // The " and gain …" is INTERNAL to the one team-pump instruction (same as the unfiltered form above), NOT a
     // top-level boundary — keep the whole sentence so the clause parse binds the scoped pump + grant together.
     if (/^(?:other creatures|[a-z]+s) you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // MULTI-COUNT PUMP + KEYWORD GRANT (VERIFY PROTOTYPE) — keep "up to N target creatures each get ±P/±T and gain KW until end of turn" whole.
+    if (/^up to (?:two|three|four|five) target creatures(?: you control)? each get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // GROUP-KEYWORD-GRANT — "(Creatures|Permanents) you control gain <kw> and <kw> until end of turn"
     // (Heroic Intervention "hexproof and indestructible"): the " and " joins a KEYWORD LIST, INTERNAL to
     // one group-grant instruction, NOT a top-level effect boundary. Keep the whole sentence so
