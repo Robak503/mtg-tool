@@ -119,3 +119,13 @@ plan + D1 SHIPPED, suite 7,508 green). Build lanes stopped POST-COMMIT, pre-inte
    P6 release (ships the 123 unreleased grind commits too).
 **Findings ledger:** session tasks dir `p1-confirmed.json` (62 findings, full designs). One-owner
 lock: COMMS "Omnath 4" — grind chat stays paused until this pass posts its handoff.
+
+### ✅ A1+A2 INTEGRATED (rolling @ 189d6f5e) — battery perfect
+A1 (5502912c): HB-1 vitest env scrub + dev-data tripwire (tests can never again write a real
+data root — the P0 class that polluted the dev tree and could have hit AppData) + HB-2 atomic
+migration writes; the one-time dev-tree repair was executed (fixtures backed up + removed).
+A2 (189d6f5e): instrumentation opts threaded through act()/all settlers (~45 sites), session-state
+turn-boundary stamp (no double time-pressure), createGame honors `pilots` (PS-3) — caller-driven
+v1 games are now FULLY instrumented end-to-end (gameApiInstrumentation.test.js pins it).
+Battery: suite **7,523** (515 files) · lint clean · tier/program/runtime **0-diff** · trajectory
+hash **== `0c75d0de…` byte-for-byte** · main tree clean.
