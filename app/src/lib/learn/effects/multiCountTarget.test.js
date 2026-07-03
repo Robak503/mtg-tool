@@ -161,3 +161,28 @@ describe("multi-count — counters (put a +1/+1 counter on each of up to N targe
     expect(counters).toEqual({ a: 1, b: 0, c: 1 }); // a & c buffed, b untouched
   });
 });
+
+describe("multi-count — deal-damage (N to each of up to K target creatures)", () => {
+  it("parses the self-referential named form 'Dual Shot deals 1 damage to each of up to two …' → maxTargets:2", () => {
+    const p = parseEffectProgram({ type: "Instant", name: "Dual Shot", oracle: "Dual Shot deals 1 damage to each of up to two target creatures." });
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "deal-damage", amount: 1, targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("single-target damage is untouched; a trailing rider stays LOW (whole-clause anchor)", () => {
+    expect(parseEffectProgram({ type: "Instant", name: "Shock", oracle: "Shock deals 2 damage to target creature." }).atoms[0].maxTargets).toBeUndefined();
+    const rider = parseEffectProgram({ type: "Sorcery", name: "Sparkmage's Gambit", oracle: "Sparkmage's Gambit deals 1 damage to each of up to two target creatures. Those creatures can't block this turn." });
+    expect(rider.atoms).toHaveLength(0); // "can't block" rider unmodeled → whole card LOW
+  });
+
+  it("resolving two chosen targets deals the FULL amount to EACH (not divided)", () => {
+    const s = battlefield({ ai: [{ id: "x", type: "Creature — Bear" }, { id: "y", type: "Creature — Bear" }, { id: "z", type: "Creature — Bear" }] });
+    const p = parseEffectProgram({ type: "Instant", name: "Dual Shot", oracle: "Dual Shot deals 2 damage to each of up to two target creatures." });
+    const targets = [{ type: "creature", id: "x", controller: "ai", atomIndex: 0 }, { type: "creature", id: "z", controller: "ai", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Dual Shot" }, payload: { params: { program: p, controller: "user", targets } } });
+    const dmg = Object.fromEntries(out.players.ai.battlefield.map((pm) => [pm.id, pm.damageMarked || pm.damage || 0]));
+    expect(dmg.x).toBe(2); // full 2 to x
+    expect(dmg.z).toBe(2); // full 2 to z (NOT divided)
+    expect(dmg.y || 0).toBe(0); // y untargeted
+  });
+});

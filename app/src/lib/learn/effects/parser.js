@@ -49,7 +49,7 @@ import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; SMALL_NUM left with the S2 cdmg-payoff drain (atoms/counters)
+import { parseTutorFilter, parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); SMALL_NUM for MULTI-COUNT damage count words
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
@@ -768,6 +768,18 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     const a = p(s, { cardType, hasX });
     if (a) return a;
   }
+
+  // MULTI-COUNT DAMAGE (CR 601.2c "up to N") — "deal N damage to each of up to K target creatures" → the full N to
+  // EACH chosen creature (applyDamageEffect's chosen-target loop deals the amount per target; targeting.expandAtoms
+  // offers each 0..K subset). Intercepted HERE, before the legacy single-target parse — which would DROP the "each of
+  // up to K" and mis-model it as ONE target. Bare "target creatures" only (a restriction/rider or the "and/or
+  // planeswalkers" widening stays LOW → Arbiter, FN-safe). The "divided among" form is a DISTINCT divide-damage atom
+  // and never matches this "to each of up to K target creatures" anchor.
+  // Optional leading self-reference — the printed card name (e.g. "Dual Shot deals …") or "~"/"this spell" — since
+  // Scryfall oracle text is self-referential; the clause splitter has isolated ONE clause, so the only text before
+  // "deals" is the subject. End-anchored ($) so a trailing rider ("… Those creatures can't block") still stays LOW.
+  const mcd = s.toLowerCase().match(/^(?:[a-z0-9'’,\- ]+? )?deals? (\d+) damage to each of up to (two|three|four|five) target creatures$/);
+  if (mcd) return { op: "deal-damage", amount: parseInt(mcd[1], 10), targetType: "creature", maxTargets: SMALL_NUM[mcd[2]], minTargets: 0 };
 
   const sub = { type: cardType, oracle: s };
   const atom = legacyToAtom(parseSpellEffect(sub));

@@ -949,7 +949,9 @@ const MUST_DROP_TO_LOW = [
   "Pyroclasm deals 3 damage to each creature an opponent controls.",            // qualified — only bare "each creature" is modeled
   "Target creature gets +1/+1 until end of turn. Another target creature gets -1/-1 until end of turn.", // "another" = distinct target, unmodeled
   "Target creature gets +2/+2 until end of turn. Up to one other target creature gets +1/+1 until end of turn.", // "up to" + "other"
-  "Dual Shot deals 1 damage to each of up to two target creatures.",            // "each of up to two" cardinality
+  // NOTE: "… deals N damage to each of up to two target creatures" is now NATIVE (MULTI-COUNT damage slice — real
+  // runtime: N to EACH chosen creature via applyDamageEffect's per-target loop + targeting.expandAtoms subsets).
+  // Pinned HIGH in multiCountTarget.test.js. A trailing rider ("Those creatures can't block") still stays LOW.
   "Tiered (Choose one additional cost.)\n• Thunder — {0} — Thunder Magic deals 2 damage to target creature.\n• Thundara — {3} — Thunder Magic deals 4 damage to target creature.", // bulleted NON-modal (tiers) → not a 2-damage sequence
   "Two target players each draw a card.",                                       // draw, but a DIFFERENT subject draws — not the controller
   "Target creature gets +2/+0 until end of turn. Draw a card at the beginning of the next turn's upkeep.", // DELAYED draw rider
