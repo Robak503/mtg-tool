@@ -31,6 +31,8 @@ import {
   creatureToughness,
   isIndestructible,
   regeneratePermanent,
+  hasShieldCounter,
+  consumeShieldCounter,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
   isPlaneswalker,
@@ -756,6 +758,17 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       prevented.push(t.id);
       continue;
     }
+    // CR 122.1c — a SHIELD COUNTER replaces this destruction: remove one shield counter (no tap), the permanent
+    // survives and fires no dies-trigger (it never left the battlefield). Checked BEFORE regen (both are
+    // replacements the permanent's controller orders per CR 616; a shield is strictly better — no tap). A
+    // "can't be regenerated" rider (Wrath/Terminate — cannotRegenerate) does NOT bypass a shield counter: that
+    // rider is specific to the regeneration replacement (CR 701.15), NOT the shield-counter replacement, so a
+    // shielded creature still survives a "can't be regenerated" destroy by removing a shield (CR 122.1c).
+    if (hasShieldCounter(lk.permanent)) {
+      next = consumeShieldCounter(next, t.id);
+      prevented.push(t.id);
+      continue;
+    }
     // CR 701.15 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives
     // (clear damage + tap) and fires no dies-trigger (it never left the battlefield). Same look as indestructible.
     // MTG-001 — a "can't be regenerated" destroy (Wrath of God, Terminate) sets `cannotRegenerate`, which
@@ -827,6 +840,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   const hitCreature = (s, permId) => {
     const dealt = dmgConsult(amount, "creature", permId);
     if (dealt <= 0) return s;
+    // CR 122.1c — a SHIELD COUNTER PREVENTS all damage this event would deal to the creature and removes one
+    // shield counter. The damage is prevented, so it is NOT marked, feeds NO enrage/dealtDamage tally (CR 120.8 —
+    // 0 damage was dealt), and no infect/wither -1/-1 counters land. One event removes exactly one shield (this
+    // effect hits each creature at most once). Gated on the counter, so an unshielded creature is byte-identical.
+    const lk = findPermanent(s, permId);
+    if (lk && hasShieldCounter(lk.permanent)) return consumeShieldCounter(s, permId);
     dealtToCreature[permId] = (dealtToCreature[permId] || 0) + dealt;
     let out = (sourceInfect || sourceWither)
       ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })

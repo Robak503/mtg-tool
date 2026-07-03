@@ -139,6 +139,22 @@ export const atomTargets = (state, atom, ctx) => {
     : isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter });
+  // ONE-YOU-CONTROL — a non-targeted "a creature you control" the CONTROLLER picks ONE of (Titan of Industry's
+  // shield-counter mode "Put a shield counter on a creature you control"). A shield counter is purely
+  // beneficial, so the optimal + deterministic auto-pick is the controller's HIGHEST-POWER own creature (the
+  // most valuable to protect), tie-broken by battlefield order — never an opponent's creature, never a chooser.
+  // Empty own board → [] (a clean no-op, never a fabricated target). Read AT RESOLUTION (CR 608.2h).
+  if (atom.scope === "oneYouControl") {
+    const own = controllerCreatureTargets(state, ctx.controller);
+    if (own.length === 0) return [];
+    let best = own[0], bestPow = -Infinity;
+    for (const t of own) {
+      const lk = findPermanent(state, t.id);
+      const pw = lk ? creaturePower(lk.permanent, state) : 0;
+      if (Number.isFinite(pw) && pw > bestPow) { bestPow = pw; best = t; }
+    }
+    return [best];
+  }
   // DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon's "put X +1/+1 counters on
   // each of up to two TARGET creatures"). Modeled as a controller-scoped optimal pick: a +1/+1 counter is
   // purely beneficial, so the controller buffs up to two of ITS OWN creatures (never an opponent's). The

@@ -50,7 +50,7 @@ import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTRO
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTutorFilter, parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); SMALL_NUM for MULTI-COUNT damage count words
-import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
+import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, shieldCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + SHIELD-COUNTER (CR 122.1c protective counter)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
@@ -2554,6 +2554,15 @@ export function atomTargetIntent(atom) {
       // The controller never targets themselves with a discard trigger.
       if (tt === "player" || tt === "opponent") return "enemy";
       return "ambiguous";
+    case "gain-life":
+      // "target player gains N life" (Titan of Industry's ETB mode, Perrie, various charms) — life gain is
+      // purely BENEFICIAL, so the controller always targets THEMSELVES on a trigger flush (targeting an opponent
+      // would only help them — never the play). Own-side, mirroring the "target player draws" case below. The
+      // applyGainLife who:"target" resolver already gains life for whoever is in ctx.targets, and the flush
+      // chooser (chooseTriggerTargets) resolves "own" to the controller — so this routes faithfully, never a
+      // wrong target. A non-"player" gain-life target has no card in the corpus → the ambiguous default.
+      if (tt === "player") return "own";
+      return "ambiguous";
     case "draw":
       // "target player draws N cards" (Saltwater Stalwart: combatDamage → target player draws) —
       // beneficial draw, own-side: the controller always targets themselves to draw.
@@ -2750,6 +2759,12 @@ registerClauseParser(addCounterClauseParser);
 // cast trigger). A NAMED (non-±1/+1) counter on the SOURCE permanent of any type, resolved via ctx.sourceId.
 // Anchored end-to-end; distinct subject ("this artifact/permanent" vs addCounter's "this creature") → no overlap.
 registerClauseParser(addNamedCounterSelfClauseParser);
+// SHIELD-COUNTER (CR 122.1c) — "put a shield counter on a creature you control" (Titan of Industry's ETB mode)
+// / "put a shield counter on target creature" (Boon of Safety, Perrie). A REAL protective counter: the
+// destruction sites (destroyLethalCreatures SBA + applyDestroyEffect) and damage sites (applyDamageEffect +
+// combatResolution) consume it via the CR 122.1c replacement/prevention. Whole-clause anchored (multi-count /
+// permanent-typed / opponent-targeted forms stay on the Arbiter). Distinct subject → no overlap with add-counter.
+registerClauseParser(shieldCounterClauseParser);
 // DESTROY ⇄ EXILE (seam batch 27 / Wave C, RIDER-FOLDING) — the 5 destroy/exile matchers (exile-creature +
 // shared (destroy|exile) target <typelist> + MASS wipes) co-extracted to atoms/removal.destroyExileClauseParser.
 // The rider-folding dispatch (matchRemovalControllerRider) now resolves its lead via parseExtendedAtom() ||
