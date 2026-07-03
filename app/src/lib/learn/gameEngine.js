@@ -46,7 +46,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -943,11 +943,26 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     });
   }
 
-  return {
+  let out = {
     ...s,
     stack: [...s.stack, ...newStackObjects],
     pendingTriggers: [],
   };
+  // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): a TRIGGERED ability that chose a target (bound
+  // above at stack time, CR 603.3c) may target a permanent carrying the "becomes the target … sacrifice it"
+  // trigger. This is the 4th and final target-choice site (the spell-cast / activated-ability / loyalty sites
+  // live in actionDispatcher). Fire the sac trigger for each just-created triggered-ability stack object, then
+  // recurse to put it ABOVE them (CR 603.3b — it resolves first, sacrificing the creature, so the targeting
+  // triggered ability is countered on resolution if it lost its only legal target). Recursion terminates: a
+  // sacrifice-it trigger targets nothing, so its own stack object never re-triggers this. No-op (no re-flush)
+  // when no new triggered ability targeted a becomes-target permanent — the common case, byte-identical to before.
+  for (const so of newStackObjects) {
+    out = checkBecomesTargetTriggers(out, so);
+  }
+  if ((out.pendingTriggers || []).length) {
+    return flushTriggers(out, { chooseTargets });
+  }
+  return out;
 }
 
 // ─── Game start helper ───────────────────────────────────────────────────────

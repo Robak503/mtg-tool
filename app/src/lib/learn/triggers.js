@@ -927,6 +927,28 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bblocks\b/.test(c) && selfRef && !/\bblocks\s*$/.test(c.trim())) return null;
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
 
+  // ===== BECOMES THE TARGET (CR 603.2 — the becomes-target event; the Phantasmal Illusion family) =====
+  // "When[ever] this <permanent> becomes the target of a spell or ability, <effect>" (Phantasmal Bear /
+  // Dragon / Dreadmaw, Frost Walker, Illusionary Servant, Gossamer Phantasm, Skulking Ghost/Fugitive, Phantom
+  // Beast, Tar Pit Warrior, Phantasmal Abomination/Shieldback, …). A NEW event fired at EVERY target-choice
+  // site (checkBecomesTargetTriggers, wired at the spell-cast / activated-ability / loyalty-ability / triggered-
+  // ability target chokepoints) — the permanent enters the event the instant it is CHOSEN as a target, by ANY
+  // controller's spell or ability (CR 603.2 makes no controller distinction, unlike Heroic/Ward). SELF SCOPE
+  // ONLY: the source IS the targeted permanent, so "it" in the effect ("sacrifice it") is the SOURCE (CR
+  // 608.2c) — the effect-rewrite chain below normalizes "sacrifice it" → "sacrifice this creature" (target:
+  // "self" → ctx.sourceId) exactly like the self-pump/self-counter "it" rewrites.
+  //
+  // CREED — anchored to the BARE self form ending on "a spell or ability" ONLY. A COMPOUND ("attacks or becomes
+  // the target of a spell", caught by the guard above) or a RESTRICTED variant — "becomes the target of a spell
+  // or ability an opponent controls" (a group-ward tax, a different lane), "becomes the target of a spell"
+  // (spell-only — Heroic's lane; no bare-ability runtime here), or any trailing rider ("…, sacrifice it unless
+  // you discard a land card" — Cursed Monstrosity; the effect stays LOW → body-only) — does NOT match this
+  // exact anchor → UNDETECTED → Arbiter (a SAFE false-negative). The effect faithfulness is re-gated by
+  // triggerRoutesNatively: only when the whole effect parses HIGH (a plain self-sac does) is the card credited.
+  if (selfRef && /\bbecomes the target of a spell or ability\s*$/.test(c.trim())) {
+    return { event: "becomesTarget", scope: "self", whose: "any" };
+  }
+
   // Combat-damage-to-a-player (CR 510.2 — combat damage dealt). "Whenever <self> deals combat damage to a player" (self) /
   // "Whenever a creature you control deals combat damage to a player" (creatureYouControl). BARE form
   // only — END-anchored on "a player" so a qualified variant ("…to a player or planeswalker", "…to a
@@ -1230,6 +1252,16 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .
 // (parser.js: "…counters? on this creature$", target:"self") with "it"; whole-clause anchored, so a
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
+
+// SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — a SELF-scope trigger sacrifices its OWN
+// source with the pronoun "it": "When this creature becomes the target of a spell or ability, sacrifice it."
+// For a self-scope trigger "it" is the SOURCE (CR 608.2c — the object the ability triggered on = the targeted
+// permanent = the source), so rewrite "sacrifice it" → "sacrifice this creature" (the parser's self-sac atom,
+// target:"self" → ctx.sourceId). Whole-clause anchored; a rider ("sacrifice it unless you discard a land card"
+// — Cursed Monstrosity) leaves residue → no rewrite → LOW → Arbiter (a SAFE false-negative). Gated on
+// cls.scope === "self" at the rewrite site (a NON-self trigger's "it" is the OTHER triggering permanent — the
+// NONSELF_SAC_REF_RE → thatCreature lane handles those), so this never mis-binds.
+const SELF_SAC_IT_RE = /^sacrifice it$/i;
 
 // COUNTERS-PLACED — the EXACT "that many"/"that much" payoff shapes a counters-placed trigger rewrites to an
 // event-specific sentinel (so the count binds ctx.countersPlaced, not combatDamageAmount). Anchored to the
@@ -1630,7 +1662,16 @@ export function detectTriggers(card) {
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
-      } else if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
+      }
+      if (cls.event === "becomesTarget" && cls.scope === "self" && SELF_SAC_IT_RE.test(effectClause)) {
+        // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — "…sacrifice it" where "it" is the
+        // SOURCE (CR 608.2c — the targeted permanent = the trigger source). Rewrite → "sacrifice this creature"
+        // so the parser's self-sac atom (target:"self" → ctx.sourceId) models it. Self-scope + whole-clause
+        // anchored (a rider leaves residue → LOW → Arbiter). The checker (checkBecomesTargetTriggers) fires this
+        // trigger at every target-choice site with sourceId = the targeted permanent, so the self-sac resolves it.
+        effectClause = "sacrifice this creature";
+      }
+      if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-DIES-RETURN (frontier round 4, the Phoenix shape) — "When this creature dies, return it to its
         // owner's hand." (Shivan Phoenix, Immortal Phoenix, Mortus Strider, Weatherseed Treefolk). The
         // creature DIED, so "it" (CR 608.2c — the object the ability triggered on) is the dead creature, now
@@ -2675,6 +2716,48 @@ export function checkBlockTriggers(state) {
     if (amt <= 0) continue;
     const descriptor = { event: "rampage", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${amt}/+${amt} until end of turn`, optional: false, sourceText: `Rampage ${ramp[1]}` };
     fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+// The permanent target types a stack object can carry — the set the becomes-target event scans (CR 603.2 —
+// the event fires when a PERMANENT becomes a target; a player/spell/card target never triggers it).
+const BECOMES_TARGET_PERM_TYPES = new Set(["creature", "permanent", "planeswalker", "artifact", "enchantment", "land"]);
+
+/**
+ * BECOMES-TARGET triggers (CR 603.2 — the "becomes the target of a spell or ability" event; the Phantasmal
+ * Illusion family). Enqueue the SELF becomesTarget triggers for every PERMANENT `stackObj` targets that carries
+ * one (printed via detectTriggers, or clone-carried on Phantasmal Image's copy oracle — both surface through
+ * triggersForEvent's detectTriggers scan). Called at EVERY target-choice site — spell cast (applyCastSpell),
+ * activated ability (applyActivateAbility), loyalty ability (applyActivateLoyalty), and triggered-ability
+ * target selection (gameEngine.flushTriggers) — so the event fires no matter WHO or WHAT chooses the target
+ * (CR 603.2 makes no controller distinction, unlike Heroic/Ward). The trigger goes on the stack ABOVE the
+ * targeting object (the caller flushes immediately), so it resolves FIRST (CR 603.3b): the creature is
+ * sacrificed, then the now-targetless spell/ability is countered on resolution (CR 608.2b) if it lost its
+ * only legal target. Each targeted permanent fires AT MOST ONCE per stack object (a spell targeting the same
+ * permanent twice is not a corpus shape; deduped by id for safety — CR 603.2 is one event per becoming-a-target).
+ *
+ * Fires for the TARGETED permanent as the source (self-scope), so ctx.sourceId = the targeted permanent and the
+ * self-sac atom sacrifices exactly it. Pure — appends to pendingTriggers.
+ */
+export function checkBecomesTargetTriggers(state, stackObj) {
+  const targets = stackObj?.targets || [];
+  if (!targets.length) return state;
+  let fired = [];
+  const seen = new Set();
+  for (const t of targets) {
+    if (!t || !BECOMES_TARGET_PERM_TYPES.has(t.type)) continue; // player/spell/card targets don't trigger it
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    const lk = findPermanent(state, t.id);
+    if (!lk?.permanent) continue; // a target that already left the battlefield (a fizzled earlier target) — skip
+    fired = fired.concat(triggersForEvent(state, {
+      event: "becomesTarget",
+      sourcePermanent: lk.permanent,
+      triggeringPermanent: lk.permanent,
+      triggeringContext: {},
+    }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
