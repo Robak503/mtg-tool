@@ -14,7 +14,12 @@ export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "gree
 // subtype) and "legendary spirit" mints "Token Legendary Creature — Spirit". Anything unrecognized
 // falls through to a subtype (safe: the token is still a creature with the right P/T).
 export const TOKEN_SUPERTYPE_WORDS = new Set(["legendary", "snow"]);
-export const TOKEN_CARDTYPE_WORDS = new Set(["artifact", "enchantment"]);
+// "land" is a CARD TYPE, not a subtype — so "green Forest Dryad land" mints "Token Land Creature —
+// Forest Dryad" (Land placed before Creature; Forest/Dryad as subtypes), NOT a bogus "Land" subtype.
+// The create-token parser only ever admits a "land" descriptor when it carries a basic-land subtype
+// (Forest/Island/…) whose intrinsic {T}: Add <color> mana ability is minted onto the token, so the
+// Land card type is always accompanied by a real, engine-readable mana line (a faithful Forest token).
+export const TOKEN_CARDTYPE_WORDS = new Set(["artifact", "enchantment", "land"]);
 export const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 
 export const typeLineStr = (card) => String(card?.type || card?.type_line || "");
