@@ -243,7 +243,20 @@ export function applyCreateNamedToken(state, atom, ctx) {
  */
 function resolveCopySource(state, atom, ctx) {
   if (atom.copySource === "self") return ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent : null;
-  if (atom.copySource === "triggering") return ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId)?.permanent : null;
+  if (atom.copySource === "triggering") {
+    const live = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId)?.permanent : null;
+    if (live) return live;
+    // DIES-COPY (Vaultborn Tyrant / Ochre Jelly, CR 707.2) — "create a token that's a copy of it" on a
+    // self-DIES trigger: the triggering creature has ALREADY left the battlefield, so findPermanent fails.
+    // CR 707.2 copies the creature's LAST-KNOWN printed characteristics, which the death look-back preserved
+    // as ctx.triggeringCard (a plain card object). Return a synthetic { card } source so snapshotCopiedCard
+    // (which reads only sourcePerm.card) can copy it. A NON-token source only (a token that died ceases to
+    // exist and can't be copied, CR 111.7 — and Vaultborn's own "if it's not a token" intervening-if already
+    // gates that off; guarding here too keeps the resolver correct for any caller). No look-back card at all
+    // → null → CR 111.12 no copy (a clean no-op, never a fabricated body).
+    if (ctx.triggeringCard && !ctx.triggeringCard.token) return { card: ctx.triggeringCard };
+    return null;
+  }
   if (atom.copySource === "target") {
     const t = (ctx.targets || []).find((x) => x?.type === "creature") || (ctx.targets || [])[0];
     return t?.id ? findPermanent(state, t.id)?.permanent : null;
@@ -266,9 +279,15 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   // applied to the snapshot via the SAME addKeyword rider a clone uses (writes card.keywords → layers'
   // printedKeywords seeds from it), so the copy genuinely gains the keyword. The parser only ever supplies
   // layer-grantable keywords (tokenCopy.GRANTABLE_KEYWORDS), so this can never fabricate an unenforced ability.
-  const copyRiders = Array.isArray(atom.grantKeywords) && atom.grantKeywords.length
-    ? [{ kind: "addKeyword", keywords: atom.grantKeywords }]
-    : [];
+  // CR 707.9a — an ADD-CARD-TYPE rider (Vaultborn Tyrant: "…except it's an artifact in addition to its other
+  // types") prepends the card type to the copy's type line (snapshotCopiedCard addCardType rider), so the
+  // minted token genuinely IS that type for every type-line read. The parser only supplies an allowlisted
+  // permanent card type (tokenCopy.ADDABLE_CARD_TYPES).
+  const copyRiders = [];
+  if (Array.isArray(atom.grantKeywords) && atom.grantKeywords.length) copyRiders.push({ kind: "addKeyword", keywords: atom.grantKeywords });
+  if (Array.isArray(atom.addCardTypes) && atom.addCardTypes.length) {
+    for (const ct of atom.addCardTypes) copyRiders.push({ kind: "addCardType", cardType: ct });
+  }
   const copiable = snapshotCopiedCard(sourcePerm, undefined, copyRiders);
   // Wave-3a token doubler (CR 616): a token-copy is still "a token created", so a doubler multiplies it.
   // Computed once (the minted copy is token:true, never itself a doubler).

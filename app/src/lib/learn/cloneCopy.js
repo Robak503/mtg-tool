@@ -267,6 +267,18 @@ function addSubtypeToLine(line, subtype) {
   return (l.trim() + " — " + subtype).trim();
 }
 
+/** PREPEND a card TYPE (Artifact/Enchantment/…) to a type line "in addition to its other types"
+ *  (CR 707.9a — Vaultborn Tyrant: "…except it's an artifact in addition to its other types"). A card type
+ *  lives to the LEFT of the "—" (before the subtypes), so "Creature — Dinosaur" → "Artifact Creature —
+ *  Dinosaur"; a line with no dash simply prepends. Idempotent (never duplicates a type it already carries).
+ *  Distinct from addSubtypeToLine (which appends a creature SUBtype after the dash). */
+function addCardTypeToLine(line, cardType) {
+  const l = String(line || "");
+  const re = new RegExp("\\b" + escapeRegex(cardType) + "\\b", "i");
+  if (re.test(l)) return l; // already this card type
+  return (cardType + " " + l.trim()).trim();
+}
+
 /**
  * The copiable card a clone takes from its source (CR 707.2): the source's CURRENT card
  * (printed, or itself a copy — "copy the copy" works because a clone's card is already the
@@ -289,6 +301,13 @@ export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
     if (r.kind === "addType") {
       card = { ...card, type: addSubtypeToLine(card.type || card.type_line, r.subtype) };
       if (card.type_line) card.type_line = addSubtypeToLine(card.type_line, r.subtype);
+    } else if (r.kind === "addCardType") {
+      // CR 707.9a — a CARD-TYPE addition ("…it's an artifact in addition to its other types", Vaultborn
+      // Tyrant). The type goes to the LEFT of the "—", so the copy genuinely IS that card type (an
+      // artifact/enchantment) for every type-line read (the artifact-scoped batch combat gate, artifact-
+      // matters triggers). NOT a subtype append.
+      card = { ...card, type: addCardTypeToLine(card.type || card.type_line, r.cardType) };
+      if (card.type_line) card.type_line = addCardTypeToLine(card.type_line, r.cardType);
     } else if (r.kind === "addKeyword") {
       const have = Array.isArray(card.keywords) ? card.keywords.map((k) => String(k).toLowerCase()) : [];
       const add = r.keywords.filter((k) => !have.includes(k));

@@ -220,6 +220,22 @@ const KICKED_ETB_RE = /^it was kicked$/;
 const TRIBUTE_NOT_PAID_RE = /^tribute wasn['’]t paid$/;
 const TRIBUTE_PAID_RE = /^tribute was paid$/;
 
+// ===== NOT-A-TOKEN (CR 111.7 + 603.4) ========================================================
+// "it's not a token" / "it isn't a token" — the intervening-if on a self-dies trigger whose payoff copies
+// the dying creature ("When this creature dies, if it's not a token, create a token that's a copy of it…" —
+// Vaultborn Tyrant, Ochre Jelly). "it" (CR 608.2c) is the object the ability triggered on — for a self-scope
+// dies trigger that's the DEAD source itself. A per-PERMANENT token-status read, NOT a board query: the
+// dead source's token-ness is threaded through the trigger context as ctx.triggeringCardIsToken (makePending-
+// Trigger stamps !!triggeringPermanent.card.token, and checkDiesTriggers sets triggeringPermanent === the
+// dead look-back for the self path). Read identically at flush (the death look-back is fixed once the SBA
+// ran) AND resolution (CR 603.4 second check — the source is gone, so its captured token-ness can't change).
+// This is the non-recurse guard the printed card carries: a TOKEN Vaultborn copy dying reads
+// triggeringCardIsToken=true → "it's not a token" is false → no further copy (mirrors Miirym's nontoken
+// gate). A missing/undefined flag → null (can't confirm → FN-safe, never fail-open). Straight + curly
+// apostrophe tolerated. Anchored EXACTLY to the token-status shape (a color/type "it's not a <X>" variant
+// falls through → Arbiter, CREED — never a mis-read designation).
+const NOT_A_TOKEN_RE = /^it(?:'s| is)? ?not a token$|^it isn['’]t a token$/;
+
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
 // — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
@@ -303,6 +319,18 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const entering = board.find((p) => p.id === triggeringId);
     if (!entering || typeof entering.tributePaid !== "boolean") return null; // not a resolved-tribute permanent → can't confirm (FN-safe)
     return TRIBUTE_NOT_PAID_RE.test(c) ? entering.tributePaid === false : entering.tributePaid === true;
+  }
+
+  // NOT-A-TOKEN (CR 111.7) — "it's not a token" / "it isn't a token": read the triggering (dead, for a self-
+  // dies trigger) object's token-ness off the context flag (ctx.triggeringCardIsToken, stamped by
+  // makePendingTrigger as !!triggeringPermanent.card.token). NOT a board scan — the object may be in a
+  // graveyard by now, so its captured token status (fixed at the death look-back) is the only faithful read,
+  // and it's identical at flush AND resolution (CR 603.4 second check). A definite boolean once the trigger
+  // fires; an undefined flag (no context / not a per-object trigger) → null (can't confirm → FN-safe).
+  if (NOT_A_TOKEN_RE.test(c)) {
+    const isToken = context?.triggeringCardIsToken;
+    if (typeof isToken !== "boolean") return null; // no per-object token flag in context → can't confirm (FN-safe)
+    return isToken === false; // "it's not a token" → true iff the triggering object was NOT a token
   }
 
   // "you control no <filter>"  → count == 0
@@ -407,8 +435,11 @@ export function interveningIfParseable(condition) {
   // board-count shape ignores the extra permanent and a non-creature name, so its truth on the empty-ish
   // board is unchanged. An unparseable condition still returns null → false. The probe also stamps a
   // definite `tributePaid` boolean so the TRIBUTE ETB shape returns a boolean here (the runtime stamps it
-  // for real on every tribute permanent); a non-tribute board-shape ignores the extra field.
+  // for real on every tribute permanent); a non-tribute board-shape ignores the extra field. The probe
+  // context ALSO carries a definite `triggeringCardIsToken` boolean so the NOT-A-TOKEN shape returns a
+  // boolean here (the runtime stamps it for real off every triggering permanent's card.token); every other
+  // shape ignores the extra context field.
   const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" }, tributePaid: false };
   const probe = { players: { __probe__: { battlefield: [entering], graveyard: [] } } };
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__" }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false }) !== null;
 }
