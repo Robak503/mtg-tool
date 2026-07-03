@@ -12,6 +12,12 @@ import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
 // atoms barrel must NOT import effects/parser.js — that's the TDZ hazard; triggers.js is fine).
 import { checkMilledTriggers } from "../../triggers.js";
+// GENESIS-WAVE — the mass reveal-top-X → put-permanents-onto-battlefield atom reuses the shared
+// enterCardFromZone helper (fires ETB / landfall / permanent-enters exactly like reanimation + library ramp),
+// so a Genesis-Wave-put permanent behaves identically to a Wargate/reanimate entry. library.js → zones.js is a
+// ONE-WAY atom-module edge (zones.js does NOT import library.js), so it's cycle-free — the atoms barrel must
+// not be imported here (that would TDZ-cycle, since the barrel imports library.js). Direct sibling import only.
+import { enterCardFromZone } from "./zones.js";
 
 /**
  * P3.2 tutor (CR 701.19) — search the caster's library for a card matching the modeled
@@ -558,6 +564,71 @@ export function applyRevealTopToHand(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "reveal-top-to-hand", controller, revealed: top.name, mv });
 }
 
+/**
+ * ===== GENESIS-WAVE ===== (CR 701 "put onto the battlefield" + CR 701.13 mill) — the mass reveal-top-X
+ * spell family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards with mana
+ * value X or less from among them onto the battlefield. Then put all cards revealed this way that weren't put
+ * onto the battlefield into your graveyard." (Genesis Wave — `permanent`; Saheeli's Directive — `artifact`).
+ *
+ * X is the SPELL'S chosen X (bound at cast per CR 601.2b, threaded via ctx.xValue). It caps BOTH the reveal
+ * count (top X) AND the eligible permanents' mana value (MV ≤ X) — the same X in both places, read once here.
+ * `?? 0` (never `|| 0`) so an explicit X=0 reveals 0 and puts nothing (a clean no-op, the mill of an empty
+ * reveal is a no-op) — the cardinal CREED guarantee that the cap is never silently treated as "uncapped".
+ *
+ * THE "YOU MAY PUT ANY NUMBER" CHOICE — resolved deterministically (v1, the same posture as the tutor
+ * auto-pick / Expert autopilot): put EVERY eligible permanent card (matching the type filter AND within the
+ * MV cap) onto the battlefield. Putting all of them is a LEGAL resolution of "any number" (choosing to put
+ * all), and it's the maximizing, standard line for a Genesis Wave cast — the atom applies the WHOLE card
+ * (reveal + selective put + mill-the-rest), no clause dropped, so this is faithful, not a partial. An
+ * interactive per-card multi-select picker is a future refinement (like scry's / the multi-count picker).
+ *
+ * DISPOSITION OF THE REST — every revealed card NOT put onto the battlefield (an over-cap permanent, an
+ * instant/sorcery, or — for the artifact filter — a non-artifact permanent) goes into the controller's
+ * GRAVEYARD (Genesis Wave / Saheeli's Directive both say "into your graveyard"). This slice models ONLY the
+ * graveyard disposition (`restTo:"graveyard"`); a "bottom of library in a random order" variant (Majestic
+ * Genesis, Knickknack Ouphe) is a DIFFERENT disposition and stays unmatched → low → Arbiter (CREED FN-safe).
+ *
+ * Each eligible permanent enters via enterCardFromZone (fires ETB / landfall / permanent-enters triggers,
+ * mints a fresh perm id + timestamp) — the exact shared entry the battlefield-tutor / reanimation paths use,
+ * so a Genesis-Wave-put permanent can't drift from a Wargate-fetched one. The mill-the-rest goes through the
+ * millOnePlayer chokepoint (fires the milled trigger bind, CR 701.13a). An EMPTY library reveals nothing → a
+ * clean no-op. Pure data mutation — a game serialized mid-resolution restores byte-identical (no closures).
+ */
+export function applyGenesisWave(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const x = Math.max(0, ctx.xValue ?? 0); // X caps BOTH the reveal count and the MV (bound at cast, CR 601.2b)
+  const lib = player.library || [];
+  const revealed = lib.slice(0, Math.min(x, lib.length)); // the top X (or fewer if the library is short)
+  if (revealed.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "genesis-wave", controller, x, put: 0, milled: 0 });
+  }
+  // Eligible = matches the type filter (permanent / artifact / …) AND MV ≤ X. cardMatchesTutorFilter is the
+  // exact gate Wargate uses (permanentOnly rejects instants/sorceries; a groups filter matches the front-face
+  // type line; mv.max caps the mana value) — so "put any number of permanent cards with MV ≤ X" is enforced
+  // identically to the battlefield-tutor cap, never fabricated.
+  const capFilter = { ...(atom.filter || {}), mv: { max: x } };
+  const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, capFilter)).map((c) => c.id));
+  // Put EVERY eligible permanent onto the battlefield (the deterministic "put all" resolution of "any number").
+  // enterCardFromZone removes the card from the library and enters it under the controller's control, firing
+  // ETB / landfall / permanent-enters — one card at a time so each entry's triggers are enqueued in order.
+  let next = state;
+  let put = 0;
+  for (const c of revealed) {
+    if (!eligibleIds.has(c.id)) continue;
+    const r = enterCardFromZone(next, { playerId: controller, cardId: c.id, fromZone: "library" });
+    if (r.entered) { next = r.state; put += 1; }
+  }
+  // The REST — every revealed card that wasn't put onto the battlefield — goes to the graveyard. After the
+  // puts above, those cards are STILL at the top of the library (enterCardFromZone only removed the put ones,
+  // preserving relative order), so the leftover-revealed cards remain the top `revealed.length - put` of the
+  // library. Mill exactly that many (through the millOnePlayer chokepoint so the milled trigger bind fires).
+  const milled = revealed.length - put;
+  if (milled > 0) next = millOnePlayer(next, controller, milled);
+  return logEvent(next, { kind: "spell-effect", effect: "genesis-wave", controller, x, put, milled });
+}
+
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
 export function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
@@ -867,4 +938,5 @@ export const libraryResolvers = {
   "mill": applyMill,
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
+  "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
 };

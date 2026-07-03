@@ -1599,6 +1599,56 @@ function matchRevealTopDrainByMv(oracle) {
 }
 
 /**
+ * ===== GENESIS-WAVE (mass reveal-top-X → put-permanents-onto-battlefield → mill-the-rest) ===== the {X}-cost
+ * mass permanent-drop family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards
+ * with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that
+ * weren't put onto the battlefield into your graveyard." (Genesis Wave — `permanent`; the same template also
+ * covers an `artifact`/`creature`/`enchantment`-filtered variant, though Saheeli's Directive's Improvise line
+ * — an unmodeled cost keyword — keeps THAT card LOW until Improvise is stripped, a SAFE false-negative).
+ *
+ * This spans three sentences and reads the SPELL'S X in two places (the reveal count AND the MV cap), so the
+ * top-level sentence splitter would shatter it into unmatchable fragments (the second sentence's "from among
+ * them" and the third's "revealed this way" are back-references with no standalone meaning). It's therefore
+ * collapsed up front to ONE `genesis-wave` atom (applyGenesisWave reveals the top X, puts every eligible
+ * permanent — matching the filter AND MV ≤ X — onto the battlefield, then mills the rest to the graveyard).
+ *
+ * GATED to hasX (an {X}-cost spell) — the caller only calls this on an {X} spell, and the atom is stamped so
+ * the program derives xSpell:true (the cast path enumerates affordable X so ctx.xValue reaches the resolver's
+ * reveal+cap). CREED: the X cap is the safety — a dropped cap would put ANY-MV permanent onto the battlefield
+ * (a forbidden FP) — so the anchor REQUIRES the literal "with mana value x or less" AND an {X} cost, and the
+ * filter is validated (permanent → permanentOnly gate; a typed word → parseTutorFilter allowlist). The exact
+ * "into your graveyard" disposition is required: a "bottom of your library in a random order" variant (Majestic
+ * Genesis / Knickknack Ouphe) or a "shuffle the rest" variant (Genesis Hydra) leaves residue → no match → low →
+ * Arbiter. A "put A nonland permanent" (singular) / a dynamic non-cost X ("where X is …") / a spell-mastery or
+ * undergrowth rider all fail the exact anchor → low → Arbiter (CREED FN-safe). Returns { atom }.
+ */
+function matchGenesisWave(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  // Whole-string anchored: reveal top X → "you may put any number of <filter> cards with mana value X or less
+  // from among them onto the battlefield" → "then put all cards revealed this way that weren't put onto the
+  // battlefield into your graveyard". The filter phrase is captured (group 1). "onto the battlefield tapped" is
+  // NOT accepted here (Genesis Wave / Saheeli's Directive enter untapped; a "tapped" mass-put is a different,
+  // unmodeled shape — Animist's Awakening's mandatory all-lands-tapped — so it stays low).
+  const m = s.match(
+    /^reveal the top x cards of your library\. you may put any number of ([a-z][a-z ]*?) cards with mana value x or less from among them onto the battlefield\. then put all cards revealed this way that weren't put onto the battlefield into your graveyard$/,
+  );
+  if (!m) return null;
+  const phrase = m[1].trim();
+  // "permanent" → NO type group (every card type matches) PLUS the permanentOnly gate (front-face must be a
+  // permanent type, never an instant/sorcery) — exactly the Wargate `bfx` handling. Any other phrase must be a
+  // parseTutorFilter-allowlisted type word ("artifact", "creature", "enchantment", …); the type group itself
+  // then restricts to that permanent type (an instant/sorcery could never match "artifact"/"creature"/…).
+  const filter = phrase === "permanent" ? { groups: [], permanentOnly: true } : parseTutorFilter(phrase);
+  if (!filter) return null; // an unmodeled filter word → low → Arbiter (never a fabricated match)
+  // A typed filter must still be permanent-only. parseTutorFilter allows "instant"/"sorcery" words (used by the
+  // to-hand tutor family), so reject a group that names a NON-permanent card type — the mass-put must never put
+  // an instant/sorcery onto the battlefield (they can't be permanents; a filter naming them is a malformed shape).
+  const NONPERMANENT = new Set(["instant", "sorcery"]);
+  if (Array.isArray(filter.groups) && filter.groups.some((g) => g.some((w) => NONPERMANENT.has(w)))) return null;
+  return { atom: { op: "genesis-wave", filter, filterLabel: `${phrase} card with mana value X or less`, targetType: null } };
+}
+
+/**
  * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
  * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
  * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
@@ -2024,6 +2074,20 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rtm = matchRevealTopDrainByMv(oracle);
   if (rtm && rtm.atoms.every(a => KNOWN.has(a.op)) && revealTopSequenceOk(rtm.atoms)) {
     return makeProgram({ confidence: "high", atoms: rtm.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== GENESIS-WAVE ===== (an {X}-cost mass permanent-drop) — "Reveal the top X cards. You may put any number
+  // of <filter> cards with mana value X or less from among them onto the battlefield. Then put all cards revealed
+  // this way that weren't put onto the battlefield into your graveyard." → ONE `genesis-wave` atom (reveal top X →
+  // put every eligible permanent → mill the rest). Spans three sentences reading the SPELL'S X twice (reveal count
+  // + MV cap), so it's collapsed up front before the clause splitter shatters it. Gated to hasX (the MV cap = X is
+  // the CREED safety — never fired without a real {X} cost); the atom is KNOWN → HIGH, and xSpell:true so the cast
+  // path enumerates affordable X into ctx.xValue. A non-matching disposition / singular put / dynamic-X variant
+  // fails the exact anchor → falls through → low → Arbiter.
+  if (hasX) {
+    const gw = matchGenesisWave(oracle);
+    if (gw && KNOWN.has(gw.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [gw.atom], xSpell: true, unparsedTail: null });
+    }
   }
   // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
   // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken
