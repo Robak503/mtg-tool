@@ -4,7 +4,7 @@
  */
 
 import { applyDamageEffect } from "../../spellEffects.js";
-import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject } from "../../gameState.js";
+import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
@@ -648,6 +648,42 @@ function applyUpkeepSacUnlessPay(state, atom, ctx) {
   });
 }
 
+// CUMULATIVE UPKEEP (CR 702.24) — the synthesized upkeep trigger of a "Cumulative upkeep {cost}" permanent
+// (Mystic Remora, Glacial Chasm). CR 702.24e: "put an age counter on this permanent, then sacrifice it unless
+// you pay its upkeep cost for each age counter on it." Resolve in exactly that order: (1) ADD one age counter
+// via addCounter (routes through the counter-doubler chokepoint — Doubling Season DOES double age counters,
+// CR 122.1, so this is the faithful placement), (2) read the NEW age-counter total on the source, (3) SCALE
+// the printed per-counter cost by that total, (4) suspend on the SAME sac-unless-pay pending choice the
+// echo-family uses (INVERTED polarity: pay the escalated cost → keep it; decline/can't-afford → sacrifice
+// the source). Reusing setPendingSacUnlessPayChoice means the whole resolve/settle/auto-pick chain
+// (resolveSacUnlessPayChoice, autoPickSacUnlessPay, learnSession settle) is inherited unchanged — the ONLY
+// new behavior is the age-counter placement + the per-counter cost scaling done here at fire time. A stale/
+// absent sourceId (the permanent already left the battlefield before the trigger resolved) is a clean no-op:
+// findPermanent returns null → no counter, no pending choice, the trigger fizzles (CR 603.4-adjacent).
+function applyCumulativeUpkeep(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const sourceId = ctx.sourceId ?? null;
+  const lk = sourceId ? findPermanent(state, sourceId) : null;
+  if (!lk) return state; // source gone → the ability does nothing (no counter, no sac, no pay)
+  // (1) place ONE age counter (doubler-aware — CR 122.1c), then (2) read the resulting total from the SAME
+  // source (findPermanent again — addCounter returned a new state; a placed doubler may have added >1).
+  let next = addCounter(state, { permanentId: sourceId, type: "age", amount: 1 });
+  const afterLk = findPermanent(next, sourceId);
+  const ageCount = Math.max(1, afterLk?.permanent?.counters?.age || 1); // >=1 (we just placed at least one)
+  // (3) scale the printed per-counter mana cost by the age-counter total. Base is a pure generic/colored cost
+  // (the matcher rejects hybrid/{X}), so multiplying each pip count by ageCount is exact — {1} at N counters
+  // owes {N} generic; {1}{U} at N owes {N}{U…} (N generic + N of the color), CR 702.24b "for each age counter".
+  const base = atom.cost?.mana || {};
+  const scaled = { generic: (base.generic || 0) * ageCount, W: (base.W || 0) * ageCount, U: (base.U || 0) * ageCount, B: (base.B || 0) * ageCount, R: (base.R || 0) * ageCount, G: (base.G || 0) * ageCount, C: (base.C || 0) * ageCount, hybrid: [] };
+  next = logEvent(next, { kind: "spell-effect", effect: "cumulative-upkeep", controller: ctx.controller, ageCounters: ageCount, sourceName: ctx.cardName || null });
+  return setPendingSacUnlessPayChoice(next, {
+    controller: ctx.controller,
+    cost: { kind: "mana", mana: scaled },
+    sourceId,
+    sourceName: ctx.cardName || null,
+  });
+}
+
 // STORM-COPY-TARGET — the enemy/own SIDE of a chosen target, for the per-copy new-target chooser (CR 707.10c).
 // Mirrors gameEngine.chooseTriggerTargets' `sideOf` but is replicated inline so atoms/stack.js stays clear of the
 // stack→gameEngine→parser cycle (gameEngine + parser both transitively import this file). A target carries no
@@ -907,6 +943,7 @@ export const stackResolvers = {
   "optional-draw-discard": applyOptionalDrawDiscard, // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. if you do, discard a card."
   "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
   "sac-unless-pay": applyUpkeepSacUnlessPay, // UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword) — "sacrifice this <noun> unless you pay {cost}"
+  "cumulative-upkeep": applyCumulativeUpkeep, // CUMULATIVE UPKEEP (CR 702.24) — add age counter, pay {cost}×age-counters or sacrifice (Mystic Remora)
   "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
   "taxed-treasure": applyTaxedTreasure, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "an opponent draws → that player may pay {N}, else you create a Treasure" (Smothering Tithe)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent

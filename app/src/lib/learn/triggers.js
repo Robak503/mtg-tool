@@ -1844,6 +1844,27 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Rampage ${n}`,
     });
   }
+  // CUMULATIVE UPKEEP (CR 702.24) — KEYWORD→TRIGGER synthesis, the BUSHIDO/AFFLICT precedent. "Cumulative upkeep
+  // {cost}" is a keyword whose triggered ability lives entirely in REMINDER parens ("(At the beginning of your
+  // upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age
+  // counter on it.)"), which the boundary-anchored When/Whenever/At regex above can't reach (the "(" isn't a
+  // sentence boundary). Synthesize a "your upkeep" descriptor off the keyword so the runtime fires it
+  // (checkStepTriggers fires "upkeep" for each of the controller's permanents; whose:"yours" gates it to the
+  // controller's own turn — CR 702.24a) and coverage counts it (allTriggerSentencesModeled bumps the shaped
+  // count). The effectClause is the SENTINEL "cumulative upkeep {cost}" the parser's matchCumulativeUpkeep maps
+  // to the single `cumulative-upkeep` atom (add an age counter → scale the per-counter cost → pay-or-sacrifice),
+  // so triggerRoutesNatively gates it HIGH. Match ONLY the printed keyword's brace cost — capture the cost pips
+  // right after "cumulative upkeep " (curly-brace group). A {X}/hybrid cost is passed through verbatim; the
+  // parser matcher rejects it (→ LOW → the whole card stays on the Arbiter, a SAFE FN). Reminder-stripped first
+  // so the parenthetical "…upkeep cost…" text never interferes with the keyword capture.
+  const cumUpkeep = oracle.replace(/\([^)]*\)/g, " ").match(/\bcumulative upkeep\s+(\{[^}]+\}(?:\{[^}]+\})*)/i);
+  if (cumUpkeep) {
+    out.push({
+      event: "upkeep", scope: "you", whose: "yours",
+      effect: null, effectClause: `cumulative upkeep ${cumUpkeep[1]}`,
+      optional: false, sourceText: `Cumulative upkeep ${cumUpkeep[1]}`,
+    });
+  }
   // STORM (CR 702.40) — KEYWORD→TRIGGER synthesis. "Storm" is a keyword whose triggered ability lives in
   // REMINDER parens ("(When you cast this spell, copy it for each spell cast before it this turn. …)"), which
   // the boundary-anchored When/Whenever/At regex above can't match (the "(" before "When" isn't a sentence

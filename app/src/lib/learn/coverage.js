@@ -101,6 +101,15 @@ export const COVERED_KEYWORDS = [
   // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
   // "fading N" / "vanishing N" match via the startsWith check.
   "fading", "vanishing",
+  // CUMULATIVE UPKEEP (CR 702.24) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers
+  // (a "your upkeep" descriptor whose sentinel effectClause parses to the `cumulative-upkeep` atom) and fired by
+  // checkStepTriggers — at each of the controller's upkeeps the atom adds an age counter, scales the printed
+  // per-counter cost by the age-counter total, and suspends on the shared pay-or-sacrifice choice. The clause
+  // "cumulative upkeep {cost}" matches via the startsWith check (the reminder text is stripped by isKeywordOnly
+  // before the keyword-only split), exactly like "fading N"/"bushido N"; allTriggerSentencesModeled bumps the
+  // shaped count. Only the EXACT modeled cost shape flips — a hybrid/{X} cost is rejected by the parser matcher
+  // (matchCumulativeUpkeep → the synthesized trigger routes LOW → the whole card stays body-only, a SAFE FN).
+  "cumulative upkeep",
   // KW-FABRICATE (CR 702.111a) — ENFORCED: the ETB choice (N +1/+1 counters OR N 1/1 Servo tokens) resolves in
   // enterPermanent (resolvers.js) via fabricate.js — the counters branch adds them AS the creature enters
   // (through applyCounterDoubling), the Servo branch mints the tokens + fires their ETB watchers. "fabricate N"
@@ -439,9 +448,14 @@ function allTriggerSentencesModeled(card, oracle) {
   // SAME "have/has afflict" guard detectTriggers uses excludes the GROUP-GRANT form ("Sliver creatures you
   // control have afflict N" — Lazotep Sliver): there the afflict is a static grant to OTHER creatures, not a
   // self-trigger, so it contributes 0 to this bump (and 0 to the detected count — no self becomesBlocked).
+  // CUMULATIVE UPKEEP (CR 702.24) — like bushido/afflict, the printed "Cumulative upkeep {cost}" keyword's
+  // triggered ability lives entirely in stripped reminder text, so it never counts as a shaped sentence.
+  // detectTriggers synthesizes a "your upkeep" descriptor from the keyword; bump the shaped count by 1 so
+  // shaped === detected holds. Keyed on the bare keyword surviving in the reminder-stripped text.
+  const cumUpkeepShaped = /\bcumulative upkeep\s+\{/i.test(stripReminder(oracle)) ? 1 : 0;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
