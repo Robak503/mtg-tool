@@ -234,6 +234,30 @@ export function applyScrySurveilAtom(state, atom, ctx, mode) {
 }
 
 /**
+ * ===== REORDER-TOP (Ponder / Serum Visions-adjacent "any order" dig) ===== "Look at the top N cards of your
+ * library, then put them back in any order. [You may shuffle.]" (Ponder — N=3, with an optional shuffle;
+ * CR 701.18 look + a within-library reorder + an optional CR 103.2 shuffle). A DISTINCT effect from scry: NONE
+ * of the looked-at cards leave the top — the WHOLE set is put BACK on top in a player-chosen order (scry can
+ * bottom some; reorder never does). Reuses the existing scry-surveil pending choice (the same top-N reorder +
+ * pause→resume seam) narrowed to reorder mode via `reorder:true` — every looked-at card is kept on top, so the
+ * settle's "moved → bottom" partition is empty and a pure reorder results. `mayShuffle` carries Ponder's
+ * OPTIONAL post-reorder shuffle onto the choice so resolveScryChoice can honor it (a human may shuffle; the
+ * deterministic/auto line declines — you don't shuffle away a deliberate ordering, so declining is the strictly
+ * stronger legal play, never a dropped clause). An EMPTY library is a logged no-op. Hidden-info safe (the
+ * controller's own library). Pausing (sets pendingChoice), so `reorder-top` is registered in PAUSING_ATOM_OPS.
+ */
+export function applyReorderTopAtom(state, atom, ctx) {
+  const player = state.players[ctx.controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const n = Math.min(Math.max(0, atom.amount || 0), player.library.length);
+  if (n === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "reorder-top", controller: ctx.controller, count: 0 });
+  }
+  const cards = player.library.slice(0, n).map((c) => ({ id: c.id, name: c.name }));
+  return setPendingScryChoice(state, { controller: ctx.controller, mode: "scry", cards, sourceName: ctx.cardName || null, reorder: true, mayShuffle: !!atom.mayShuffle });
+}
+
+/**
  * Impulse-dig (δ-2 — Anticipate / Strategic Planning / Impulse) — flag a resolution-time
  * CHOICE: peek the top N of the controller's library and set state.pendingChoice (runProgram pauses,
  * like scry/tutor). The driver surfaces a pick-one picker (the player) or auto-picks the best card
@@ -1294,6 +1318,7 @@ export const libraryResolvers = {
   "shuffle-graveyard-into-library": applyShuffleGraveyardIntoLibrary, // SHUFFLE-GY-INTO-LIBRARY (Finale of Revelation) — move controller's whole GY into library, then shuffle; condX-gated
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
+  "reorder-top": applyReorderTopAtom, // ===== REORDER-TOP (Ponder) ===== look at top N, put them ALL back in any order (reuses the scry-surveil choice in reorder mode — nothing bottomed), with an optional shuffle. Ponder flips native-spell.
   "impulse-dig": applyImpulseDigAtom,
   "dig-land-to-battlefield": applyDigLandToBattlefieldAtom, // DIG-LAND-TO-BATTLEFIELD (Silverback Elder) — look top N, put a land onto the battlefield, rest → bottom random. Settled by resolveDigLandChoice.
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).

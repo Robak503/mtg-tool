@@ -91,6 +91,7 @@ const PAUSING_OPS_LIST = [
   "tutor", // library.js applyTutor → setPendingTutorChoice
   "scry", // library.js applyScrySurveilAtom → setPendingScryChoice
   "surveil", // library.js applyScrySurveilAtom → setPendingScryChoice (mode "surveil")
+  "reorder-top", // library.js applyReorderTopAtom → setPendingScryChoice (reorder mode — Ponder "put them back in any order")
   "impulse-dig", // library.js applyImpulseDigAtom → setPendingImpulseDigChoice
   "discard-chosen", // hand.js applyDiscardChosen → setPendingHandDiscardChoice
   "discard", // hand.js applyDiscard → advanceDiscardChain → setPendingDiscardChoice

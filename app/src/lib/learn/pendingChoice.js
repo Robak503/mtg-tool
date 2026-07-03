@@ -140,7 +140,7 @@ export function setPendingCloneChoice(state, { controller, candidates, sourceNam
  * "surveil" (rest → graveyard). Like the tutor, `runProgram` records the suspended-program
  * continuation onto `pendingChoice.resume` when it detects the pause. FIFO: one choice at a time.
  */
-export function setPendingScryChoice(state, { controller, mode, cards, sourceName = null }) {
+export function setPendingScryChoice(state, { controller, mode, cards, sourceName = null, reorder = false, mayShuffle = false }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "scry-pending", controller, mode, count: cards.length, sourceName });
   return {
@@ -151,6 +151,13 @@ export function setPendingScryChoice(state, { controller, mode, cards, sourceNam
       mode,
       cards,
       sourceName,
+      // REORDER-TOP (Ponder) — a "put them back in ANY order" dig: NONE of the looked-at cards leave the top, so
+      // the settle keeps every card on top (the "moved → bottom/graveyard" partition is forced empty). Absent /
+      // false on every ordinary scry/surveil (the original keep-subset behavior is byte-for-byte unchanged).
+      ...(reorder ? { reorder: true } : {}),
+      // Ponder's OPTIONAL "You may shuffle." — honored by resolveScryChoice when the settle opts in. Only ever
+      // set alongside reorder; a plain scry/surveil never carries it.
+      ...(mayShuffle ? { mayShuffle: true } : {}),
     },
   };
 }

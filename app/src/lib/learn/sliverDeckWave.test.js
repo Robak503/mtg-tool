@@ -20,10 +20,10 @@
  * PARKED (pinned non-native here with the exact blocker, so a future flip is deliberate, never accidental):
  *   Bident of Thassa (force-attack-opponents activated = goad-class, unmodeled), Damn (Overload modal cast
  *   target→each, unmodeled), Lifecrafter's Bestiary (optional-mana-payment reflexive "you may pay {G}. If you
- *   do, draw" — unmodeled), For the Ancestors (reveal-dig — Arbiter-domain). Ponder / Windfall flip in this wave.
- *   NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord FLIPPED — subtypeGlobal damage→controller-lifegain /
- *   granted count-scaled subtype pump / afflict-subsystem group grant / gain-control (CR 720) respectively;
- *   positive pins live in the per-card test files (essenceSliver / magmaSliver / afflict / sliverOverlord).
+ *   do, draw" — unmodeled), For the Ancestors (reveal-dig — Arbiter-domain, the sole remaining park).
+ *   NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord + Ponder + Windfall ALL FLIPPED —
+ *   subtypeGlobal lifegain / granted count-scaled pump / afflict group grant / gain-control (CR 720) /
+ *   REORDER-TOP / each-player-wheel respectively; positive pins live in the per-card describe blocks + test files.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -214,16 +214,23 @@ describe("Slivers PARK pins — these remain non-native until their blocker subs
     // NOTE: Lifecrafter's Bestiary FLIPPED to native-trigger (OPTIONAL-MANA-PAYMENT, CR 603.7c) — its upkeep
     // scry was already native; modeling "you may pay {G}. If you do, draw a card." flips the WHOLE card. The
     // positive pin moved to the "Slivers native" block below.
-    // NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord ALL FLIPPED — positive pins live in the
-    // dedicated describe blocks above and the per-card test files (essenceSliver / magmaSliver / afflict /
-    // sliverOverlord). None remain body-only, so their PARK entries are removed from this cases list.
-    ["Ponder", "Sorcery", "{U}", "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.", "arbiter-spell"], // library reorder
-    // NOTE: Windfall FLIPPED to native-spell (WINDFALL max-discard matcher — the whole-hand discard stamps
-    // state.maxDiscardedThisWay and the each-player draw reads it). Its positive pin lives in wheelDiscardHand.test.js.
+    // NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord + Ponder + Windfall ALL FLIPPED — positive pins
+    // live in the dedicated describe blocks above + per-card test files (essenceSliver / magmaSliver / afflict /
+    // sliverOverlord / reorderTop / wheelDiscardHand). None remain body-only, so their PARK entries are removed.
     ["For the Ancestors", "Instant", "{2}{G}", "Choose a creature type. Look at the top six cards of your library. You may reveal any number of cards of the chosen type from among them and put the revealed cards into your hand. Put the rest on the bottom of your library in a random order.\nFlashback {3}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)", "arbiter-spell"], // reveal-dig
   ];
   it.each(cases)("%s stays non-native (%s)", (name, type, mana, oracle, expectedTier) => {
     const tier = classifyCard({ name, type, mana, oracle });
     expect(tier).toBe(expectedTier);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// REORDER-TOP (Ponder) — "Look at the top N …, then put them back in any order. You may shuffle." flipped native
+// ───────────────────────────────────────────────────────────────────────────────
+describe("Ponder — REORDER-TOP (look top 3 → reorder all back on top → optional shuffle → draw) → native-spell", () => {
+  const CARD = { name: "Ponder", type: "Sorcery", mana: "{U}", oracle: "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card." };
+  it("classifies native-spell", () => {
+    expect(classifyCard(CARD)).toBe("native-spell");
   });
 });

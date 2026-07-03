@@ -1190,6 +1190,30 @@ function matchImpulseDig(oracle) {
 }
 
 /**
+ * Match the "Look at the top N cards of your library, then put them back in any order.[ You may shuffle.]"
+ * REORDER-TOP template (Ponder — N=3 + optional shuffle; Preordain-family "look, reorder, no bottom"). A
+ * DISTINCT effect from impulse-dig / scry: EVERY looked-at card is put BACK on top in a chosen order (none go
+ * to hand, none are bottomed), with an OPTIONAL shuffle. The "look … then put them back … You may shuffle."
+ * span (the comma-joined "then" and the separate optional-shuffle sentence) would be shattered by splitClauses,
+ * so it's matched up front as ONE `reorder-top` atom; any trailing sentence (Ponder's "Draw a card.") runs
+ * through the normal clause pipeline via collapsed(). Returns `{ atom, rest }` or null.
+ *
+ * ALL-OR-NOTHING ALLOWLIST: EXACTLY "look at the top N cards of your library, then put them back in any order"
+ * + an OPTIONAL trailing "You may shuffle." A variable/unspelled N, a "reveal" (not "look"), a filtered reorder,
+ * a MANDATORY shuffle ("then shuffle"), or a "put … on the bottom" disposition all fail the anchor → low →
+ * Arbiter (FN-safe — a partial would be forbidden). `mayShuffle` records whether the optional shuffle is present.
+ */
+function matchReorderTop(oracle) {
+  const m = String(oracle).match(
+    /^look at the top (\w+) cards? of your library, then put them back in any order\.(\s+you may shuffle\.)?/i,
+  );
+  if (!m) return null;
+  const amount = DIG_NUM[m[1].toLowerCase()];
+  if (!amount) return null;                                     // "the top X cards" (variable) / unspelled → Arbiter
+  return { atom: { op: "reorder-top", amount, mayShuffle: !!m[2] }, rest: oracle.slice(m[0].length).trim() };
+}
+
+/**
  * Match the "Look at the top N cards of your library. You may put a land card from among them onto the
  * battlefield [tapped]. Put the rest on the bottom of your library in a random order." template — a DIFFERENT
  * effect from impulse-dig (Silverback Elder mode 2). Instead of keeping a card to HAND, it puts a LAND onto the
@@ -2458,6 +2482,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // (the two anchors are mutually exclusive — hand vs. battlefield — so order is documentation, not precedence).
   const digLand = matchDigLandToBattlefield(oracle);
   if (digLand) return collapsed(digLand);
+  // REORDER-TOP (Ponder) — "Look at the top N cards of your library, then put them back in any order. You may
+  // shuffle." → ONE reorder-top atom (look at top N → put ALL back on top in any order, with an optional shuffle;
+  // nothing bottomed). The comma-joined "then" + the separate optional-shuffle sentence would shatter under the
+  // clause splitter, so it's collapsed up front; Ponder's trailing "Draw a card." runs through the normal pipeline
+  // via collapsed(). Disjoint anchor from impulse-dig ("put them back in any order" vs "put one … into your hand"),
+  // so order is documentation. HIGH iff every atom (this + any rider) is KNOWN. Not an X spell.
+  const reorderTop = matchReorderTop(oracle);
+  if (reorderTop) return collapsed(reorderTop);
   // CHOSEN-TYPE DRAW (Distant Melody) — "Choose a creature type. Draw a card for each permanent you control
   // of that type." spans two sentences, so it's collapsed up front to one chosen-type-count draw atom.
   const ctd = matchChooseTypeDraw(oracle);
