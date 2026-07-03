@@ -31,6 +31,10 @@ export const isCreatureCard = (card) => /Creature/.test(typeLineStr(card));
 export const isArtifactCard = (card) => /\bArtifact\b/.test(typeLineStr(card));
 export const isEnchantmentCard = (card) => /\bEnchantment\b/.test(typeLineStr(card));
 export const isLandCard = (card) => /\bLand\b/.test(typeLineStr(card));
+// "instant and/or sorcery" — the graveyard threshold read by spell-mastery (Animist's Awakening) and the
+// gated-graveyard static family. Word-anchored so a "Tribal Sorcery — Goblin" / "Instant — Adventure" still
+// counts, without a substring false match.
+export const isInstantOrSorceryCard = (card) => /\b(Instant|Sorcery)\b/.test(typeLineStr(card));
 
 /**
  * Every creature on EVERY battlefield, as target descriptors `{type:"creature", id,

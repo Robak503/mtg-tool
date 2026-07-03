@@ -1683,6 +1683,40 @@ function matchGenesisWave(oracle) {
 }
 
 /**
+ * ===== ANIMIST'S AWAKENING (mass reveal-top-X → put-all-LANDS-tapped → bottom-the-rest, + spell-mastery untap)
+ * ===== the {X}-cost land-flood family: "Reveal the top X cards of your library. Put all land cards from among
+ * them onto the battlefield tapped and the rest on the bottom of your library in a random order.\nSpell mastery
+ * — If there are two or more instant and/or sorcery cards in your graveyard, untap those lands." (Animist's
+ * Awakening — {X}{G}.)
+ *
+ * A DISTINCT shape from genesis-wave (which explicitly BANS "onto the battlefield tapped" and requires a "with
+ * mana value X or less" MV cap + a "into your graveyard" disposition): here the filter is TYPE-ONLY (all lands,
+ * no MV cap), the entry is TAPPED, and the rest goes to the BOTTOM in a random order — plus a spell-mastery
+ * untap rider that back-references "those lands". The whole card is collapsed to ONE `animist-awakening` atom
+ * because (a) the "put all … and the rest …" reads the SPELL'S X for the reveal count, and (b) the rider's
+ * "untap those lands" is a standalone-meaningless back-reference to the lands this atom just put out — the clause
+ * splitter would shatter both. GATED to hasX (the reveal count = X binds at cast; a non-X spell would reveal 0).
+ *
+ * CREED: whole-string anchored on the EXACT template. The base line requires the type-only "put all land cards
+ * … onto the battlefield tapped" + "the rest on the bottom of your library in a random order"; the rider
+ * requires the EXACT spell-mastery threshold "two or more instant and/or sorcery cards in your graveyard, untap
+ * those lands". A different filter (nonland / a specific type), a non-tapped entry, a milled/shuffled/graveyard
+ * disposition, an absent or different rider, or a NON-{X} spell all fail the anchor → no match → low → Arbiter
+ * (a SAFE false-negative). Returns { atom }.
+ */
+function matchAnimistAwakening(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/[—–]/g, "-").replace(/\s+/g, " ").replace(/\.$/, "");
+  // Whole-string anchored: reveal top X → put ALL land cards onto the battlefield TAPPED + the rest on the bottom
+  // in a random order → spell-mastery: 2+ instant and/or sorcery in graveyard untaps those lands. The exact card;
+  // every deviation (filter word, tapped/untapped, disposition, rider) fails the anchor → low → Arbiter.
+  const m = s.match(
+    /^reveal the top x cards of your library\. put all land cards from among them onto the battlefield tapped and the rest on the bottom of your library in a random order\.?\s*spell mastery ?-? ?if there are two or more instant and\/or sorcery cards in your graveyard, untap those lands$/,
+  );
+  if (!m) return null;
+  return { atom: { op: "animist-awakening", targetType: null } };
+}
+
+/**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
  * This is a THREE-sentence effect whose branches (reveal → if-creature → otherwise-may) are shattered by the
@@ -2144,6 +2178,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const gw = matchGenesisWave(oracle);
     if (gw && KNOWN.has(gw.atom.op)) {
       return makeProgram({ confidence: "high", atoms: [gw.atom], xSpell: true, unparsedTail: null });
+    }
+    // ===== ANIMIST'S AWAKENING ===== (an {X}-cost land-flood) — "Reveal the top X cards. Put all land cards …
+    // onto the battlefield tapped and the rest on the bottom … in a random order. Spell mastery — if 2+ instant/
+    // sorcery in your graveyard, untap those lands." → ONE `animist-awakening` atom (reveal top X → put all lands
+    // tapped → bottom the rest random → spell-mastery untap). The base line + the "those lands" back-referencing
+    // rider span sentences the clause splitter would shatter, so it's collapsed up front. Gated to hasX (the
+    // reveal count = X); disjoint anchor from genesis-wave ("all land cards … tapped" vs "mana value X or less"),
+    // so order-free. xSpell:true so the cast path enumerates affordable X into ctx.xValue. Non-match → low → Arbiter.
+    const aa = matchAnimistAwakening(oracle);
+    if (aa && KNOWN.has(aa.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [aa.atom], xSpell: true, unparsedTail: null });
     }
   }
   // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card … If it's a creature card, put it
