@@ -150,6 +150,20 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
       perAtom.push(subsets);
       continue;
     }
+    // X-COUNT TARGET ("Exile X target creatures", Curse of the Swine): the target count IS the chosen X
+    // (ctx.xValue, bound at cast from the {X} mana cost). Pick EXACTLY x distinct legal targets (min=max=x) —
+    // targetSubsets(tagged, x, x) yields precisely the size-x combinations, all tagged atomIndex i, capped by
+    // MAX_CAST_EXPANSIONS. Gated on targetCountX (every non-X atom takes the unchanged paths below, so existing
+    // casts are byte-identical → flip-diff LOST=0). An X larger than the legal-target pool → null → uncastable
+    // at that X (CR 601.2c — you can't choose more targets than exist; the cast is offered only where n ≥ x).
+    if (atom.targetCountX) {
+      const x = Math.max(0, ctx?.xValue || 0);
+      if (x === 0) return null;               // X=0 exiles nothing — a no-op cast, not surfaced (FN-safe)
+      const subsets = targetSubsets(tagged, x, x);
+      if (subsets === null) return null;      // fewer than x legal targets → uncastable at this X
+      perAtom.push(subsets);
+      continue;
+    }
     if (atom.optionalTarget) {
       // "up to one target …": MAY take a target or none. Offer each legal target PLUS a decline
       // option — so the cast is legal even with zero legal targets, and real targets come BEFORE

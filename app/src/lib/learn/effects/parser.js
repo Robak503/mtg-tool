@@ -1754,6 +1754,33 @@ function matchOpenTheWay(oracle) {
 }
 
 /**
+ * ===== EXILE-X-CONTROLLER-RIDER (Curse of the Swine) ===== the X-COUNT twin of matchRemovalControllerRider —
+ * "Exile X target creatures. For each creature exiled this way, its controller creates a 2/2 green Boar creature
+ * token." → ONE `exile` atom with `targetCountX:true` (the target count is X, bound at cast from the {X} mana
+ * cost) + a PER-EXILED controllerRider. The lead is an X-COUNT chosen-target exile (targeting.expandAtoms picks
+ * EXACTLY ctx.xValue distinct legal creatures, all tagged atomIndex 0), and the rider — parsed by the SHARED
+ * parseControllerRider so the createToken token grammar (N/N <color> <subtype>[ with KW]) is reused verbatim —
+ * is applied at RESOLUTION to EACH exiled creature's captured controller by applyRemovalWithRider (which already
+ * loops over ctx.targets, capturing every controller before the removal, then applies the rider per-controller).
+ * That loop is EXACTLY "For each creature exiled this way, its controller <rider>". GATED to hasX (the target
+ * count = X is the CREED safety — the count only binds off a real {X} cost). ALL-OR-NOTHING: a non-createToken
+ * rider, a fixed-count / "up to N" lead, or any residue fails the exact anchor → null → whole card low → Arbiter
+ * (never the exile without the rider, never a wrong token). Anchored ^…$ on the two-sentence shape.
+ */
+function matchExileXControllerRider(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = s.match(/^exile x target creatures\. for each creature exiled this way, its controller (.+)$/);
+  if (!m) return null;
+  const rider = parseControllerRider(m[1].trim());
+  // The corpus form (Curse of the Swine) is a createToken rider; restrict to that kind so a hypothetical
+  // "for each creature exiled … its controller gains life / draws" (which reads a per-creature magnitude this
+  // slice doesn't compute from the exiled creatures) never fires a partial. createToken is per-controller and
+  // count-independent, so the per-exiled loop is faithful. Any other rider kind → null → low → Arbiter.
+  if (!rider || rider.kind !== "createToken") return null;
+  return { atom: { op: "exile", targetType: "creature", targetCountX: true, controllerRider: rider } };
+}
+
+/**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
  * This is a THREE-sentence effect whose branches (reveal → if-creature → otherwise-may) are shattered by the
@@ -2238,6 +2265,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const otw = matchOpenTheWay(oracle);
     if (otw && KNOWN.has(otw.atom.op)) {
       return makeProgram({ confidence: "high", atoms: [otw.atom], xSpell: true, unparsedTail: null });
+    }
+  }
+  // ===== EXILE-X-CONTROLLER-RIDER (Curse of the Swine) ===== "Exile X target creatures. For each creature
+  // exiled this way, its controller creates a 2/2 green Boar creature token." → ONE exile atom (targetCountX —
+  // the target count is the chosen X) carrying a per-exiled createToken controllerRider. Gated to hasX (the
+  // count = X is the CREED safety); xSpell:true so the cast path enumerates affordable X into ctx.xValue and
+  // targeting.expandAtoms picks EXACTLY X targets. A non-matching lead / rider fails the anchor → low → Arbiter.
+  if (hasX) {
+    const exr = matchExileXControllerRider(oracle);
+    if (exr && KNOWN.has(exr.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [exr.atom], xSpell: true, unparsedTail: null });
     }
   }
   // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card … If it's a creature card, put it

@@ -790,11 +790,22 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // CR 601.2b — a spell cast without paying its mana cost has X = 0. Otherwise enumerate affordable X.
       const xValues = freeCast ? [0] : affordableXValues(state, playerId, cost);
       if (xValues.length === 0) continue;
-      const combos = expandCastChoices(state, playerId, program, colorsOf(card));
-      if (combos.length === 0) continue;
+      // X-COUNT TARGET (Curse of the Swine "Exile X target creatures"): the number of TARGETS is the chosen X,
+      // so the legal target combos DEPEND on X — they must be enumerated per-X with ctx.xValue. Every other
+      // X-spell's targets are X-independent (X is only an amount/count), so combos are hoisted ONCE (byte-
+      // identical to before). expandsTargetsPerX gates the two paths.
+      const expandsTargetsPerX = (program.atoms || []).some((a) => a.targetCountX);
+      const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, colorsOf(card));
+      if (!expandsTargetsPerX && combosOnce.length === 0) continue;
       for (const x of xValues) {
         const xCost = xResolvedCost(cost, x); // DOUBLE-X (CR 107.3): a {X}{X} spell owes 2X; xValue stays X for the effect
         const xCmc = printedCmc + (cost.xCount ?? 1) * x; // mana value = printed + total X paid (CR 202.3b); commander tax doesn't count
+        // Per-X target enumeration for an X-count-target spell (min=max=X distinct creatures); otherwise the
+        // hoisted X-independent combos. An X with too few legal targets yields no combos → that X is skipped.
+        const combos = expandsTargetsPerX
+          ? expandCastChoices(state, playerId, program, colorsOf(card), { xValue: x })
+          : combosOnce;
+        if (combos.length === 0) continue;
         // AI safety: parseSpellEffect returns null for the literal "X", so base.effect
         // is null and pickCastAction would skip its enemy-only target filter. Re-attach
         // a synthetic legacy effect for a single-atom X-damage program so the AI still
