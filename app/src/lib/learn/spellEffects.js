@@ -318,7 +318,15 @@ export function parseCreatureTargetRestrictions(card) {
 /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
   for (const r of restrictions) {
-    if (r.kind === "controller") {
+    if (r.kind === "notSource") {
+      // "ANOTHER" (CR 109.5) — "untap another target permanent" (Formidable Speaker) may not target the
+      // source permanent itself. ctx.sourceId is threaded from the activated ability's expandCastChoices; a
+      // permanent whose id equals the source is excluded. FAIL-CLOSED when the source is unknown (no
+      // ctx.sourceId): no permanent qualifies → the pool is empty and the ability drops no-target (SAFE, CREED
+      // — never targets the wrong permanent). A source that has already left play (id no longer on any
+      // battlefield) simply never matches, which is harmless.
+      if (!ctx?.sourceId || perm.id === ctx.sourceId) return false;
+    } else if (r.kind === "controller") {
       if (r.who === "you" && pid !== casterId) return false;
       if (r.who === "opponent" && pid === casterId) return false;
       // DEFENDING-PLAYER scope (CR 509.1a) — only the SPECIFIC attacked player's permanents are legal

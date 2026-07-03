@@ -2278,10 +2278,18 @@ function matchOptionalDrawDiscard(oracle) {
 /**
  * ===== OPTIONAL-DISCARD-PAYMENT (CR 603.7c) ===== "you may discard a card. If you do, <effect>." — the discard is
  * the pausing COST (a which-card choice), the payoff runs ONLY after a real discard settles. DISTINCT from draw-then-
- * discard (there the discard is the coupled effect, LAST-position; here it's the leading cost). The cost owns the one
- * pause slot, so the payoff MUST be non-pausing (else the two pauses would interleave and drop atoms — the 32-flip
- * guard). CREED guards: HIGH + non-modal + not-xSpell + every atom KNOWN + targetless; reject a chained 2nd reflexive
- * or an else-branch. Match → the single atom, else null (the clause stays LOW → Arbiter).
+ * discard (there the discard is the coupled effect, LAST-position; here it's the leading cost). CREED guards: HIGH +
+ * non-modal + not-xSpell + every atom KNOWN + targetless; reject a chained 2nd reflexive or an else-branch.
+ *
+ * PAUSE MODEL: resolveOptionalDiscardPaymentChoice runs [cost-discard, ...payoff] as ONE program through
+ * runEffectProgram, whose resume cursor (pendingChoice.resume.nextAtomIndex) chains SEQUENTIAL pauses — each pause
+ * records where to resume, the settler re-enters, the next pause records the next resume, and so on. So a LAST-
+ * position pausing payoff (Formidable Speaker's ETB: "you may discard a card. If you do, search your library for a
+ * creature card, reveal it, put it into your hand, then shuffle" → tutor-to-hand) is SAFE: discard pauses (which-
+ * card) → settles → tutor pauses (which-creature) → settles → done, strictly sequential, never interleaved, never a
+ * dropped atom (runtime-probed end-to-end). A NON-last pausing atom is still rejected (mirrors matchOptionalDrawDiscard's
+ * `inner.slice(0,-1)` rule — only the last may pause) to stay inside the proven-safe last-position family. Match →
+ * the single atom, else null (the clause stays LOW → Arbiter).
  */
 function matchOptionalDiscardPayment(oracle) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
@@ -2292,12 +2300,14 @@ function matchOptionalDiscardPayment(oracle) {
   // LOAD-BEARING (mirrors matchOptionalDrawDiscard FIX A): parse the payoff under LITERAL "Instant", NOT the card's
   // own type — the draw atom's legacy gate returns HIGH only for Instant/Sorcery, and 30 of the 32 flips are creatures
   // whose payoff is "draw a card". Passing cardType (Creature/Artifact) → LOW → the draw flips vanish. The payoff
-  // atoms (draw/token/pump) resolve type-agnostically, so "Instant" is behavior-identical and correct.
+  // atoms (draw/token/pump/tutor) resolve type-agnostically, so "Instant" is behavior-identical and correct.
   const payoff = parseEffectClauseImpl(payoffText, "Instant", { hasX: false });
   if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
   const inner = payoff.atoms || [];
   if (!inner.length || !inner.every((a) => KNOWN.has(a.op)) || programNeedsChosenTarget(payoff)) return null;
-  if (inner.some((a) => PAUSING_ATOM_OPS.has(a.op))) return null; // the cost-discard owns the only pause slot — a pausing payoff would interleave
+  // Only the LAST payoff atom may pause — the [cost-discard, ...payoff] program chains sequential pauses via the
+  // resume cursor, so a trailing tutor/scry/etc. is safe, but a mid-payoff pause (atoms after it) stays LOW → Arbiter.
+  if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;
   return { atom: { op: "optional-discard-payment", effectAtoms: inner, targetType: null } };
 }
 

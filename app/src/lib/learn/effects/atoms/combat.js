@@ -666,6 +666,21 @@ export function combatKeywordClauseParser(clause) {
     return { op: "tap", targetType: "creature", restrictions };
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  // UNTAP-ANOTHER-TARGET-PERMANENT (Formidable Speaker "{1}, {T}: Untap another target permanent.") — a single
+  // chosen permanent of ANY type, OTHER than the source (CR 109.5, "another" = not this permanent). The
+  // `permanent` targetType routes through PERMANENT_PREDICATES.permanent (any permanent on any battlefield is
+  // legal), the `notSource` restriction excludes the source permanent (ctx.sourceId, threaded from the activated
+  // ability's expandCastChoices), and applyTapEffect untaps the live target. Both the "another" (notSource) and
+  // the bare "target permanent"/"target creature" forms are accepted; a qualified/rider/multi-target form
+  // ("untap X target permanents", "untap target permanent you control") is not anchored here → stays LOW →
+  // Arbiter (a SAFE false-negative — model the whole clause or nothing).
+  {
+    const upM = t.match(/^untap (another )?target (permanent|creature)$/);
+    if (upM) {
+      const restrictions = upM[1] ? [{ kind: "notSource" }] : [];
+      return { op: "untap", targetType: upM[2], restrictions };
+    }
+  }
   // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap enchanted creature." / "{U}: Untap enchanted creature.";
   // Pemmin's Aura, Kasimir the Lone Wolf's kin) — an activated ability PRINTED ON THE AURA that taps/untaps
   // "enchanted creature". This is a FIXED (non-chosen) referent, NOT a chosen target: the affected creature is

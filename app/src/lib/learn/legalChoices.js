@@ -1426,7 +1426,10 @@ function actionsActivateAbility(state, playerId) {
         if (tapVictims.length === 0) continue; // no untapped creature to tap → the cost can't be paid
       }
 
-      const choices = expandCastChoices(state, playerId, ab.program);
+      // Thread the SOURCE permanent id into target enumeration so an "another target …" restriction
+      // (notSource — Formidable Speaker's "Untap another target permanent") excludes this very permanent
+      // (CR 109.5). Non-"another" abilities ignore sourceId, so this is a no-op for every existing ability.
+      const choices = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { sourceId: perm.id });
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
       for (const victim of sacVictims) {
         // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
@@ -1815,7 +1818,9 @@ function actionsActivateLoyalty(state, playerId) {
       if (ab.costDelta < 0 && loyalty + ab.costDelta < 0) continue;
       const costLabel = `${ab.costDelta >= 0 ? "+" : ""}${ab.costDelta}`;
       if (ab.modeled) {
-        const choices = expandCastChoices(state, playerId, ab.program);
+        // Thread the walker's id so an "another target …" restriction (notSource) excludes the walker itself
+        // (CR 109.5). A no-op for every non-"another" loyalty ability (they ignore sourceId).
+        const choices = expandCastChoices(state, playerId, ab.program, [], { sourceId: perm.id });
         if (choices.length === 0) continue; // a required target has no legal pick → can't activate THIS ability
         for (const ch of choices) {
           actions.push({
