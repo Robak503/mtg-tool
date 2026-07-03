@@ -6,7 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard } from "./shared.js";
-import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
+import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
@@ -1130,21 +1130,35 @@ export function tutorClauseParser(clause, ctx = {}) {
         targetType: null,
       };
     }
-    const bfx = t.match(/^search your library for an? (creature|permanent) cards? with mana value x or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+    // COLOR-QUALIFIED (Green Sun's Zenith "a green creature card with mana value X or less") — an OPTIONAL
+    // single leading color word ("green" / "nonwhite") before "creature". The color is peeled into
+    // `filter.colors` and enforced upstream by cardMatchesTutorFilter's COLOR gate (which reads the card's
+    // enriched `colors` array — CR 105 / 202.2), so only a creature of that color AND MV ≤ X is offered. A
+    // color prefix is admitted ONLY on the "creature" phrase (a "green permanent" isn't a printed shape and
+    // color-gating a typeless permanent is out of scope) — a "<color> permanent" won't match the anchor. CREED:
+    // the color is NEVER dropped — a green-creature fetch that silently ignored "green" would over-fetch (a
+    // forbidden FP); the gate makes the color as load-bearing as the MV cap.
+    const bfx = t.match(/^search your library for an? (?:(white|blue|black|red|green|nonwhite|nonblue|nonblack|nonred|nongreen) )?(creature|permanent) cards? with mana value x or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
     if (bfx) {
-      const phrase = bfx[1];
+      const colorWord = bfx[1]; // undefined when no color prefix
+      const phrase = bfx[2];
+      // A color prefix is only modeled on "creature" (a "green permanent" filter is out of scope — see above).
+      if (colorWord && phrase !== "creature") return null;
+      if (colorWord && !TUTOR_COLOR_WORD.has(colorWord)) return null; // defensive (regex already constrains)
       // "creature" → a type-group filter (matches `\bcreature\b` in the type line). "permanent" → no type
       // group (every type matches) PLUS the permanentOnly gate (front-face must be a permanent type, never an
       // instant/sorcery) — "permanent" is intentionally NOT in TUTOR_FILTER_WORDS because `\bpermanent\b`
       // never appears in a real type line, so a group match would be vacuous; the permanentOnly gate is correct.
       const base = phrase === "permanent" ? { groups: [], permanentOnly: true } : parseTutorFilter(phrase);
       if (!base) return null; // defensive (the regex already constrains to the two allowed words)
+      const filter = { ...base, mvCapX: true }; // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
+      if (colorWord) filter.colors = [colorWord]; // color gate enforced upstream by cardMatchesTutorFilter
       return {
         op: "tutor",
-        filter: { ...base, mvCapX: true }, // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
-        filterLabel: `${phrase} card with mana value X or less`,
+        filter,
+        filterLabel: `${colorWord ? `${colorWord} ` : ""}${phrase} card with mana value X or less`,
         destination: "battlefield",
-        entersTapped: !!bfx[2],
+        entersTapped: !!bfx[3],
         targetType: null,
       };
     }

@@ -323,6 +323,15 @@ const TUTOR_FILTER_WORDS = new Set([
 // Island, Swamp, or Mountain card") alongside the literal "basic land" phrase, without a non-land
 // cheat-into-play ever slipping through the land-guard.
 export const BASIC_LAND_SUBTYPES = new Set(["plains", "island", "swamp", "mountain", "forest"]);
+// ===== COLOR-QUALIFIED FILTER ===== the five mono-colors a "<color> creature card" tutor/put filter may
+// name, plus their "non<color>" negations (Surprise Deployment's "nonwhite creature"). A UNION ("white or
+// blue") or a guild word ("Gruul") is NOT modeled — only a single leading color word is peeled. Shared source
+// of truth for the hand→battlefield put (Dramatic Entrance) AND the library→battlefield X-tutor (Green Sun's
+// Zenith "a green creature card"); cardMatchesTutorFilter's color gate reads the resulting `colors` array.
+export const TUTOR_COLOR_WORD = new Set([
+  "white", "blue", "black", "red", "green",
+  "nonwhite", "nonblue", "nonblack", "nonred", "nongreen",
+]);
 /**
  * Parse a tutor's filter phrase (the words between "for a/an" and "card") into
  * `{ groups }` — an OR of AND-groups: "instant or sorcery" → [["instant"],["sorcery"]],
