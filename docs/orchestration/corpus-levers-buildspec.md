@@ -17,6 +17,27 @@ Two durable lessons: (1) the "parse payoff under literal Instant" trick is MANDA
 
 ---
 
+## 📋 VERIFIED BUILDSPEC — OPPONENT-PAYS-TO-DENY (rhystic-tax) · Rhystic Study +1, generalizes to Smothering Tithe · M · FP-RISKY
+**Prerequisite + effect-gap both VERIFIED against live code (2026-07-02, Clyde). The novel part is the SEAT semantics — the pay-decision belongs to the OPPONENT who cast, not the effect's controller. Get that wrong and you charge the wrong player / draw the wrong player's card in 4-player Commander (a game-warping FP). Build fresh + careful; do NOT rush.**
+
+Rhystic Study is body-only today. The trigger EVENT ("whenever an opponent casts a spell") IS detected (triggers.js `parseTriggerCondition` → `{event:"cast", scope:"castWatcher", whose:"opponent"}`, fired by `checkCastTriggers`). Two gaps:
+
+1. **PREREQUISITE (verified — do FIRST):** `checkCastTriggers` (triggers.js:2852) builds `const context = { castSpellName, castSpellType }` at **line 2854** — the caster's seat is DROPPED (`makePendingTrigger(d, watcher, null, context)` passes triggeringPermanent=null too). Add `castingPlayerId: casterId` to that context object. SAFE + additive: no existing trigger reads it, so it's inert for every current card (confirmed — grep `castingPlayerId` = 0 hits). It rides `...context` → `trigger.context` → the resolver's `ctx.context`.
+
+2. **EFFECT (verified LOW today):** `parseEffectClause("you may draw a card unless that player pays {1}")` → LOW. Add a matcher (a trigger-effect clause parser or inline) for `^(?:you may )?draw a card unless that player pays (\{[^}]+\}(?:\{[^}]+\})*)$` → a new atom `{op:"taxed-draw", cost:{kind:"mana", mana:parseFixedManaPips(pips)}}` (null on {X} → Esper Sentinel stays Arbiter; reuse parseFixedManaPips from parser.js:1583). The leading "you may" (Rhystic) vs bare "draw a card unless" (Esper-shape) both map to the same atom — the payer's non-payment is what triggers the draw either way.
+
+**RESOLVER (the novel seat part):** `applyTaxedDraw(state, atom, ctx)` sets a pendingChoice whose **payer = ctx.context.castingPlayerId** (NOT ctx.controller = you; NOT triggeringController = null for cast triggers), **beneficiary = ctx.controller** (you), cost = atom.cost. Kind `"taxed-payment"`. If castingPlayerId is absent (a non-cast context) → no-op (CREED-safe FN, never fabricate).
+
+**SETTLE:** `resolveTaxedPaymentChoice(state, pay)`: if `pay` AND the PAYER can afford it → `payManaCost(state, pc.payer, pc.cost.mana)` charges the payer, and the beneficiary draws NOTHING; else (declined or can't afford) → the BENEFICIARY draws a card (drawCards(pc.beneficiary, 1)). Mirror resolveSoftCounterChoice's PLUMBING (pay/afford gate + eliminated-seat guards) but INVERT the semantics (payer≠controller, non-pay→beneficiary-draws).
+
+**⚠️ SEAT/DRIVER SEMANTICS (the FP surface):** the pendingChoice's decision belongs to the PAYER, so the learnSession driver must pause/auto-decide for **pc.payer's** seat, not pc.controller's. `autoPickTaxedPayment` = the PAYER pays iff they can afford it (deny the opponent's draw — the self-interested default; always a LEGAL choice CR 601). Wire kind+setter (pendingChoice.js), PAUSING_OPS (effectAtoms.js), stack register (atoms/stack.js), autoPick+resolve (runProgram.js), learnSession settle/driver/apply/dispatch, + the contract fixture.
+
+**MANDATORY FP TEST (the one green suites miss):** a **3-opponent Commander** fixture (not 1v1). Opponent A casts a spell → assert `pc.payer === A` EXACTLY (not "an opponent"), `pc.beneficiary === you`. Then: A pays → you draw 0, A's mana charged; A declines → you draw 1; and a SEPARATE broke opponent B being unable to pay must NOT make you draw off A's cast (the payer is A, bound at fire time). Add an autoPick unit test (affordable→pay/true, empty→decline/false).
+
+**YIELD:** Rhystic Study (+1 clean, single-clause). Mystic Remora rides the SAME atom but stays Arbiter until cumulative-upkeep is independently native (all-or-nothing — do NOT claim it). Esper Sentinel needs {X}=power (defer). **The real prize is GENERALIZATION:** the `taxed-payment` pendingChoice + castingPlayerId threading is the engine for the whole "opponent pays {N} or you get X" family — **Smothering Tithe** (opponent pays {1} or you create a Treasure — a top-tier staple), Aeromunculus-likes, etc. Build the payoff as pluggable (draw / create-token) from the start and the family opens up.
+
+---
+
 ## ⛰️ STRATEGIC INFLECTION (2026-07-02, Clyde) — the clean-fold era is ending
 Empirically confirmed this session, after shipping ~+98 native via folds (optional-payment family +46, multi-count +52):
 - **Multi-count ("up to N target") is HARVESTED.** Shipped: return-gy (+19), bounce+tap (+22), +1/+1 counter (+8), deal-damage (+3). Remaining families (destroy/exile/pump/untap) have **~0 clean single-clause yield** — their cards are planeswalker loyalty abilities, restricted forms ("you control"/"an opponent controls"), or multi-clause. Building them = inert (verified: untap built→0 flips→reverted). The mechanism (targeting.expandAtoms subsets, gated on maxTargets>1) is general and shipped; only the parser matchers per family are missing, and they'd flip nothing until restriction-support or planeswalker modeling lands.
