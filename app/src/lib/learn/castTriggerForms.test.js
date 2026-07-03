@@ -60,6 +60,10 @@ describe("Nth-spell-per-turn detection (generalized castSecond)", () => {
     expect(nthDescriptors("Whenever you cast your third spell each turn, draw a card.")[0]).toMatchObject({ whose: "you", nth: 3 });
     expect(nthDescriptors("Whenever an opponent casts their first spell each turn, you draw a card.")[0]).toMatchObject({ whose: "opponent", nth: 1 });
   });
+  it("detects the ANY-player form ('a player casts their second spell' — Lotho) as whose:any", () => {
+    expect(nthDescriptors("Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token.")[0])
+      .toMatchObject({ whose: "any", nth: 2 });
+  });
   it("does NOT detect a TYPED-Nth condition (the type word breaks the bare anchor)", () => {
     expect(nthDescriptors("Whenever an opponent casts their first noncreature spell each turn, draw a card.")).toHaveLength(0);
   });
@@ -173,6 +177,71 @@ describe("castNth fires exactly on the Nth cast (off-by-one safe)", () => {
     const after2 = cast(cleared, "c-b", "SpellB");
     expect(after2.stack.some((o) => o.kind === "triggered-ability")).toBe(false);
     expect(after2.players.user.life).toBe(beforeSecond);
+  });
+});
+
+// ─── Lotho, Corrupt Shirriff — the "a player" (whose:any) second-spell watcher ────
+
+describe("Lotho, Corrupt Shirriff — 'a player casts their second spell' (whose:any)", () => {
+  const LOTHO_ORACLE =
+    'Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token. (It\'s an artifact with "{T}, Sacrifice this token: Add one mana of any color.")';
+
+  it("flips to native-trigger (payoff = lose 1 life + create a Treasure both parse HIGH)", () => {
+    const lotho = { name: "Lotho, Corrupt Shirriff", type: "Legendary Creature — Halfling Rogue", power: 3, toughness: 3, oracle: LOTHO_ORACLE };
+    expect(detectTriggers({ ...lotho }).filter((d) => d.event === "castNth")[0]).toMatchObject({ whose: "any", nth: 2 });
+    expect(permanentTriggersCovered(lotho)).toBe(true);
+  });
+
+  function lothoState() {
+    const lotho = createPermanent({
+      id: "p-lotho",
+      card: { id: "c-lotho", name: "Lotho, Corrupt Shirriff", type: "Legendary Creature — Halfling Rogue", power: 3, toughness: 3, oracle: LOTHO_ORACLE },
+      controller: "user", summoningSick: false,
+    });
+    const a = { id: "c-a", name: "SpellA", type: "Instant", mana: "{R}", oracle: "SpellA deals 1 damage to any target." };
+    const b = { id: "c-b", name: "SpellB", type: "Instant", mana: "{R}", oracle: "SpellB deals 1 damage to any target." };
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = {
+      ...s,
+      activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main",
+      players: { ...s.players, user: { ...s.players.user, battlefield: [lotho], hand: [a, b], manaPool: { W: 0, U: 0, B: 0, R: 2, G: 0, C: 0 }, spellsCastThisTurn: 0 } },
+    };
+    return s;
+  }
+  const cast = (s, id, name) => dispatchAction(s, { kind: "cast-spell", playerId: "user", cardId: id, name, cost: { generic: 0, W: 0, U: 0, B: 0, R: 1, G: 0, C: 0, hybrid: [], phyrexian: [] }, targets: [{ type: "player", id: "ai" }] });
+
+  it("the controller's OWN 2nd spell fires it: lose 1 life + a Treasure token that taps for mana is minted", () => {
+    let s = lothoState();
+    const lifeBefore = s.players.user.life;
+    // first cast — count reaches 1, no fire
+    let s1 = cast(s, "c-a", "SpellA");
+    expect(s1.stack.some((o) => o.kind === "triggered-ability")).toBe(false);
+    while (s1.stack.length) s1 = resolveTopOfStack(s1);
+    // second cast — count reaches 2, Lotho fires
+    let s2 = cast(s1, "c-b", "SpellB");
+    expect(s2.stack.some((o) => o.kind === "triggered-ability")).toBe(true);
+    while (s2.stack.length) s2 = resolveTopOfStack(s2);
+    expect(s2.players.user.life).toBe(lifeBefore - 1);
+    const treasures = (s2.players.user.battlefield || []).filter((p) => /treasure/i.test(p.card?.name || ""));
+    expect(treasures).toHaveLength(1);
+    // the minted Treasure carries its own tap-for-mana ability (the whole card is modeled, not a bare body)
+    expect(String(treasures[0].card?.oracle || treasures[0].card?.oracle_text || "")).toMatch(/add one mana/i);
+  });
+
+  it("an OPPONENT's 2nd spell ALSO fires it (whose:any), but NOT the opponent's 1st spell", () => {
+    // opponent (ai) casts their 2nd spell → Lotho (controlled by user) fires
+    let base = createGameState({ userDeck: [], aiDeck: [] });
+    const lotho = createPermanent({ id: "p-lotho2", card: { id: "c-lotho2", name: "Lotho", type: "Legendary Creature — Halfling Rogue", power: 3, toughness: 3, oracle: LOTHO_ORACLE }, controller: "user", summoningSick: false });
+    base = { ...base, players: { ...base.players, user: { ...base.players.user, battlefield: [lotho] } } };
+    const opp2 = { ...base, players: { ...base.players, ai: { ...base.players.ai, spellsCastThisTurn: 2 } } };
+    expect((checkCastTriggers(opp2, { spellCard: { name: "X", type: "Instant" }, casterId: "ai" }).pendingTriggers || [])).toHaveLength(1);
+    const opp1 = { ...base, players: { ...base.players, ai: { ...base.players.ai, spellsCastThisTurn: 1 } } };
+    expect((checkCastTriggers(opp1, { spellCard: { name: "X", type: "Instant" }, casterId: "ai" }).pendingTriggers || [])).toHaveLength(0);
+  });
+
+  it("CREED near-miss: a spell-type rider ('second noncreature spell') stays UNDETECTED → Arbiter (never a flip)", () => {
+    expect(nthDescriptors("Whenever a player casts their second noncreature spell each turn, you draw a card.")).toHaveLength(0);
+    expect(permanentTriggersCovered({ name: "Fake", type: "Creature", oracle: "Whenever a player casts their second noncreature spell each turn, you draw a card." })).toBe(false);
   });
 });
 

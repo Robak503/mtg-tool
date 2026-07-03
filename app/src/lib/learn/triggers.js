@@ -997,16 +997,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you cast your second spell (?:each|this) turn$/.test(c)) return { event: "castSecond", scope: "you", whose: "any" };
   // TRIG-CASTNTH — "cast your <ordinal> spell each turn" generalized to the off-by-one-safe Nth-per-turn
   // event (CR 601, spells cast one at a time → spellsCastThisTurn equals N exactly once per turn). Covers the
-  // controller form ("you cast your first/third spell each turn" — Rashmi) AND the opponent form ("an
-  // opponent casts their first spell each turn" — Mind's Dilation). BARE form ONLY — a spell-type rider
+  // controller form ("you cast your first/third spell each turn" — Rashmi), the opponent form ("an
+  // opponent casts their first spell each turn" — Mind's Dilation), AND the ANY-player form ("a player casts
+  // their second spell each turn" — Lotho, Corrupt Shirriff → whose:"any", which the checkCastTriggers castNth
+  // handler fires for every seat's watcher regardless of caster, so Lotho's controller's watcher fires on each
+  // player's Nth spell — CR-correct for the "a player" subject). BARE form ONLY — a spell-type rider
   // ("…first noncreature spell") fails the `$` anchor → UNDETECTED → Arbiter (never an over-fire). The
   // PAYOFF still has to parse HIGH to fire (Rashmi's reveal/free-cast does not → stays non-native; the
   // detection is correct but the whole card routes to the Arbiter, a SAFE false-negative). checkCastTriggers
-  // reads the CASTER's count. (The bare "second" form stays its own castSecond event for stable identity.)
-  const nthM = c.match(/^(you|an opponent) casts? (?:your|their) (first|second|third) spell (?:each|this) turn$/);
+  // reads the CASTER's count. (The bare "you … second" form stays its own castSecond event for stable identity.)
+  const nthM = c.match(/^(you|an opponent|a player) casts? (?:your|their) (first|second|third) spell (?:each|this) turn$/);
   if (nthM) {
     const nth = nthM[2] === "first" ? 1 : nthM[2] === "second" ? 2 : 3;
-    const whose = nthM[1] === "you" ? "you" : "opponent";
+    const whose = nthM[1] === "you" ? "you" : nthM[1] === "an opponent" ? "opponent" : "any";
     return { event: "castNth", scope: "castWatcher", whose, nth };
   }
   // X-SPELL cast trigger — "cast a spell with {X} in its mana cost" (CR 107.3 / 601.2b). The {X} and "mana
@@ -3056,13 +3059,15 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
       }
     }
   }
-  // TRIG-CASTNTH (CR 601): "Whenever (you|an opponent) casts (your|their) <Nth> spell each turn." The count
-  // just incremented in applyCastSpell is the CASTER's running total, so it equals descriptor.nth EXACTLY
+  // TRIG-CASTNTH (CR 601): "Whenever (you|an opponent|a player) casts (your|their) <Nth> spell each turn." The
+  // count just incremented in applyCastSpell is the CASTER's running total, so it equals descriptor.nth EXACTLY
   // ONCE this turn (the off-by-one trap: the count is already post-increment, so an Nth trigger compares ===
   // nth, NOT > nth-1 — a single fire on the Nth cast). A "you" watcher fires only when its controller IS the
   // caster; an "opponent" watcher fires only when the caster is one of the watcher's opponents (so each
-  // opponent's Mind's Dilation fires once on that opponent's Nth cast). Scanned across ALL seats so opponent
-  // watchers see the cast. The PAYOFF still must parse HIGH at flush to fire natively.
+  // opponent's Mind's Dilation fires once on that opponent's Nth cast); an "any" watcher ("a player casts their
+  // second spell" — Lotho, Corrupt Shirriff) passes BOTH guards → fires for its controller on EVERY player's Nth
+  // cast (its own and each opponent's). Scanned across ALL seats so opponent/any watchers see the cast. The
+  // PAYOFF still must parse HIGH at flush to fire natively.
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
       for (const d of detectTriggers(watcher.card).filter((x) => x.event === "castNth")) {
