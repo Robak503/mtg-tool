@@ -157,6 +157,16 @@ function opponentIds(state, controllerId) {
 const OPP_CONTROLS_MORE_RE = /^an opponent controls more (lands|creatures|artifacts|enchantments) than you$/;
 const OPP_HAS_MORE_RE = /^an opponent has more (life|cards in hand) than you$/;
 
+// ===== OPPONENT CONTROLS N-OR-MORE (CR 603.4 board query — the "opponent has a board" payoff family) =======
+// "an opponent controls a/an/<N> or more <filter>" (Defense of the Heart "three or more creatures") — TRUE iff
+// AT LEAST ONE opponent controls ≥N permanents matching the filter (CR 104.3a — each opponent counted
+// independently; "an opponent" = the existential over opponents). Distinct from OPP_CONTROLS_MORE (a compare
+// vs the controller's own count): this is an ABSOLUTE per-opponent threshold. The filter reuses parseFilter /
+// permMatchesFilter (so type/subtype/token/tapped-state all work, layer-irrelevant board counts read
+// identically at flush AND resolution). A single opponent's board of ≥N matches satisfies it; a malformed
+// filter → parseFilter null → the whole condition is unparseable → Arbiter (false-negative SAFE, CREED).
+const OPP_CONTROLS_N_RE = new RegExp(`^an opponent controls ${NUM_RE}(?: or more)? (.+)$`);
+
 // ===== CONTROLLER LIFE THRESHOLD (CR 603.4 board query — the "low-on-life payoff" family) ==================
 // "you have N or {less|fewer|more} life" — a pure player.life numeric compare for the CONTROLLER (NOT an
 // opponent existential like OPP_HAS_MORE). "N or less"/"N or fewer" → life ≤ N (Convalescent Care "5 or less",
@@ -374,6 +384,20 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   if (m) {
     const mine = controllerMetric(state, controllerId, m[1]);
     return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
+  }
+  // "an opponent controls a/an/<N> or more <filter>" — an ABSOLUTE per-opponent board threshold (Defense of
+  // the Heart "an opponent controls three or more creatures"). Anchored AFTER OPP_CONTROLS_MORE so the
+  // compare-vs-you form ("more … than you") wins its exact wording first; this matches the cardinal form. TRUE
+  // iff some opponent controls ≥N filter-matching permanents (existential, CR 104.3a). An unparseable filter
+  // (parseFilter null) drops the whole condition → Arbiter (FN-safe, never a fabricated board read — CREED).
+  m = c.match(OPP_CONTROLS_N_RE);
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const filter = parseFilter(m[2]);
+    if (!filter) return null;
+    return opponentIds(state, controllerId).some((oid) =>
+      controllerBoard(state, oid).filter((p) => permMatchesFilter(p, filter, state)).length >= n);
   }
 
   // "you have N or {less|fewer|more} life" — the controller's own life vs a fixed threshold (Convalescent

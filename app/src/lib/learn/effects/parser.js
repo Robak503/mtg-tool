@@ -420,6 +420,23 @@ function splitClauses(oracle) {
     .replace(
       /(search your library for up to x [a-z][a-z ,]*? cards,? where x is [^.]+?)\.\s+(put those cards onto the battlefield)/gi,
       "$1, $2",
+    )
+    // SELF-SAC + MULTI-FETCH SEQUENCE (Defense of the Heart) — the compound upkeep-trigger effect "sacrifice
+    // this <noun>, search your library for up to two creature cards, put those cards onto the battlefield, then
+    // shuffle" is a comma-joined SEQUENCE, not one instruction: the leading "sacrifice this <noun>" is a
+    // self-sac atom, the rest is a self-contained tutor. The top-level " and "/", then " split (below) doesn't
+    // sever the comma between the self-sac and the tutor, so the whole head-chunk ("sacrifice this <noun>,
+    // search…for…cards, put those cards…") would parse as one unmatched clause → low. Cut the FIRST comma
+    // (after the leading imperative "sacrifice this <noun>") to a period so the sentence splitter separates the
+    // self-sac clause from the tutor, and the tutor half — now STARTING "search your library" — takes the
+    // keep-whole tutor path (its internal "…cards, put those cards…" comma is preserved). Anchored to a
+    // CLAUSE-INITIAL imperative "sacrifice this <noun>" IMMEDIATELY followed by ", search your library" (the
+    // corpus's only such compound is Defense of the Heart), so it can only PROMOTE this one already-low shape;
+    // a "you/may sacrifice…" or any non-clause-initial form is untouched. Each split piece is still judged on
+    // its own merits (an unmodeled half → low → Arbiter), so a mis-fold can never yield a confident wrong partial.
+    .replace(
+      /^(sacrifice this (?:creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)), (search your library)/i,
+      "$1. $2",
     );
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();

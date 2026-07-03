@@ -862,8 +862,10 @@ export function tutorClauseParser(clause, ctx = {}) {
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
   }
-  // mf — RAMP-MULTI up-to-N LANDS to battlefield.
-  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put them onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // mf — RAMP-MULTI up-to-N LANDS (or PLAIN CREATURES) to battlefield. "put them" (the ramp forms) OR "put
+  // those cards" (Defense of the Heart's compound-trigger multi-fetch) — the two printed anaphors for the
+  // up-to-N pile; the multi-fetch chains identically for both (resolveTutorChoice re-suspends per remaining).
+  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put (?:them|those cards) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (mf) {
     const phrase = mf[2];
     const count = UP_TO_N_WORD[mf[1]];
@@ -874,7 +876,17 @@ export function tutorClauseParser(clause, ctx = {}) {
     if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
     }
-    return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
+    // MULTI-FETCH-CREATURES-TO-BATTLEFIELD (Defense of the Heart) — an up-to-N fetch of PLAIN "creature" cards
+    // straight onto the battlefield. Faithful: cardMatchesTutorFilter selects exactly the caster's creature
+    // cards, and resolveTutorChoice's battlefield path enters each via enterCardFromZone (ETB triggers fire),
+    // chaining `remaining` picks exactly like the land ramp. Gated to the EXACT single unqualified `creature`
+    // filter (one group `["creature"]`, no MV cap / subtype / union / tapped rider) — the corpus's only such
+    // card — so no filtered / typed / non-creature multi-fetch can slip through (a wrong-cheat FP would be
+    // forbidden, CREED). A subtyped or unioned creature fetch (none in the corpus) still falls through → Arbiter.
+    if (filter && filter.groups.length === 1 && filter.groups[0].length === 1 && filter.groups[0][0] === "creature") {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
+    }
+    return null; // a non-land / non-plain-creature / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
   }
   // mfx — RAMP-MULTI-X up-to-X LANDS to battlefield, count from a board source (Traverse the Outlands "X =
   // greatest power among creatures you control"; Boundless Realms "X = number of lands you control"). The X is

@@ -267,7 +267,14 @@ function applySacrifice(state, atom, ctx) {
  */
 export function sacrificeEdictClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  if (/^sacrifice this creature$/.test(t)) return { op: "sacrifice", target: "self" };
+  // SELF-SACRIFICE — "sacrifice this <permanent-type-noun>" (CR 113.7 — "this" always names the ability's
+  // SOURCE object, whatever its card type). Every noun form resolves to the SAME target:"self" (the source
+  // sacrifices itself via ctx.sourceId); the noun is purely the source's own type ("sacrifice this enchantment"
+  // on Defense of the Heart, "sacrifice this creature" on an aristocrat). sacrificeCreatureEffect moves ANY
+  // permanent to the graveyard (dies-triggers only fire for a creature), so a non-creature self-sac is faithful.
+  // The noun allowlist is the corpus's printed set of "sacrifice this X" self-references — a bare permanent type,
+  // never a filtered / conjoined sacrifice, so no wrong-victim FP (CREED).
+  if (/^sacrifice this (creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)$/.test(t)) return { op: "sacrifice", target: "self" };
   if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
   let m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };

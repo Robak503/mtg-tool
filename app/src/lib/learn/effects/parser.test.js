@@ -826,8 +826,12 @@ const MUST_DROP_TO_LOW = [
   "Search your library for a creature card with mana value x or less, put it into your hand, then shuffle.", // WAVE-2b: a non-numeric MV ("X") stays low
   "Search your library for any number of Goblin cards, reveal them, then shuffle and put those cards on top in any order.", // WAVE-2b FETCH-TO-TOP is single-card; "any number" (Goblin Recruiter) stays low
   "Search your library for a card, then shuffle and put that card on the bottom.", // WAVE-2b: an unmodeled "on the bottom" destination stays low
-  "Search your library for up to three creature cards, put them onto the battlefield tapped, then shuffle.", // WAVE-2b UP-TO-N keeps the LAND-guard: a non-land multi-fetch stays low
-  "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
+  // (Defense of the Heart opened the up-to-N multi-fetch to a PLAIN "creature" filter — "up to two/three
+  //  creature cards … put them/those cards onto the battlefield" is now HIGH, pinned in the MULTI-FETCH-CREATURES
+  //  block below. A SUBTYPED / typed / unioned multi-fetch still stays LOW here.)
+  "Search your library for up to three Dragon cards, put them onto the battlefield tapped, then shuffle.", // subtyped creature multi-fetch keeps the guard → low (no wrong-cheat)
+  "Search your library for up to two artifact cards, put them onto the battlefield, then shuffle.", // a non-creature typed multi-fetch to battlefield stays low → Arbiter
+  "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts SINGLE battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
   // RAMP-MULTI models the bare "up to N <land> → battlefield"; RAMP-SPLIT models the Cultivate "one … the
   // other" split (intrinsically two) — an "up to THREE" SPLIT (one-and-the-other) stays low.
