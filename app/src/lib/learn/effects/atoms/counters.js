@@ -278,6 +278,15 @@ export function cdmgPayoffClauseParser(clause) {
   // (a) combat-damage draw — "draw that many cards"
   const cdmgDrawM = t.match(/^(you may )?draw that many cards$/);
   if (cdmgDrawM) return { op: "draw", countContext: "combatDamageAmount", optional: !!cdmgDrawM[1], targetType: null };
+  // (a-life) combat-damage lifegain — "gain that much life" (Essence Sliver — "Whenever a Sliver deals damage,
+  // its controller gains that much life"; detectTriggers rewrites the leading "its controller " → "you " for the
+  // subtypeGlobal beneficiary, so the bare "you gain that much life" / "gain that much life" reaches here). The
+  // count is the triggering combat-damage amount (ctx.combatDamageAmount), the SAME referent the draw sentinel
+  // reads — combatDamageReferentSatisfied admits countContext:"combatDamageAmount" ONLY on the combatDamageToPlayer
+  // / dealtDamage events, so a non-combat "gain that much life" (absent referent → 0, a clean no-op) can never
+  // over-gain. Anchored ^…$ so any rider ("…and draw a card", "…this way") leaves residue → low → Arbiter.
+  const cdmgLifeM = t.match(/^(you may )?(?:you )?gain that much life$/);
+  if (cdmgLifeM) return { op: "gain-life", countContext: "combatDamageAmount", optional: !!cdmgLifeM[1], targetType: null };
   // (cp) counters-placed sentinels — "draw that many counters-placed cards" / "gain that much counters-placed life"
   const cpDrawM = t.match(/^(you may )?draw that many counters-placed cards$/);
   if (cpDrawM) return { op: "draw", countContext: "countersPlaced", optional: !!cpDrawM[1], targetType: null };

@@ -9,7 +9,7 @@
  *
  * Covers: parser atom shape + HIGH confidence (you-control + bare forms; toughness variant); countForSpec
  * resolution (chosen target's power, layer-aware via counters, missing/non-creature target → 0); the CREED
- * anti-FP pins (an unmodeled gain-that-much-life rider stays LOW → Arbiter; a filtered "nonland" target stays
+ * anti-FP pins (an unmodeled scry-that-many rider stays LOW → Arbiter; a filtered "nonland" target stays
  * LOW); the cast-path target enumeration (you-control offers ONLY the caster's creatures); the live end-to-end
  * cast (Soul's Majesty draws exactly the chosen creature's power; opponent's creatures are not offered).
  */
@@ -89,9 +89,15 @@ describe("DRAW-BY-TARGET-POWER — parser", () => {
 });
 
 describe("DRAW-BY-TARGET-POWER — CREED anti-FP (an unmodeled clause keeps the WHOLE card LOW → Arbiter)", () => {
-  it("an unmodeled 'gain that much life' rider stays LOW (all-or-nothing — never a dropped clause)", () => {
-    expect(conf(S("Draw cards equal to the power of target creature you control. You gain that much life."))).toBe("low");
-    expect(parseEffectProgram(S("Draw cards equal to the power of target creature you control. You gain that much life.")).atoms).toEqual([]);
+  it("an unmodeled 'scry that many' rider stays LOW (all-or-nothing — never a dropped clause)", () => {
+    // NOTE: the former example here ("You gain that much life.") is now a MODELED atom (Essence Sliver's
+    // combat-damage-scaled gain-that-much-life sentinel, countContext:"combatDamageAmount"), so the composed
+    // PROGRAM parses HIGH. That is NOT a spell-path FP: coverage.nativeSpell's COMBAT-REFERENT SPELL GUARD
+    // rejects a countContext:"combatDamageAmount" atom on the cast path (a spell never supplies the referent →
+    // the card stays on the Arbiter). "Scry that many" is a genuinely-unmodeled rider that still proves the
+    // parser's all-or-nothing gate here (an unmodeled follow-on drops the WHOLE program to LOW, never a partial).
+    expect(conf(S("Draw cards equal to the power of target creature you control. Scry that many."))).toBe("low");
+    expect(parseEffectProgram(S("Draw cards equal to the power of target creature you control. Scry that many.")).atoms).toEqual([]);
   });
 
   it("a filtered 'nonland creature' target stays LOW (the filter is unmodeled → Arbiter)", () => {

@@ -176,6 +176,17 @@ describe("Lifecrafter's Bestiary — OPTIONAL-MANA-PAYMENT (CR 603.7c) → nativ
   });
 });
 
+describe("Essence Sliver — GLOBAL SUBTYPE damage → controller-lifegain → native-trigger", () => {
+  // "Whenever a Sliver deals damage, its controller gains that much life." A Sliver-wide TRIGGERED grant that
+  // reuses the subtypeGlobal + itsController machinery (Synapse/Brood) plus a new "gain that much life"
+  // combat-damage-scaled sentinel. Full runtime lifegain proofs (amount scaling, beneficiary, CREED near-misses)
+  // live in essenceSliver.test.js; this is the deck-wave classification pin.
+  const CARD = { name: "Essence Sliver", type: "Creature — Sliver", mana: "{3}{W}", oracle: "Whenever a Sliver deals damage, its controller gains that much life." };
+  it("classifies native-trigger", () => {
+    expect(classifyCard(CARD)).toBe("native-trigger");
+  });
+});
+
 // ───────────────────────────────────────────────────────────────────────────────
 // PARKED — pin the Arbiter-domain tail (whole-card or park; a future flip must be deliberate)
 // ───────────────────────────────────────────────────────────────────────────────
@@ -188,7 +199,9 @@ describe("Slivers PARK pins — these remain non-native until their blocker subs
     // NOTE: Lifecrafter's Bestiary FLIPPED to native-trigger (OPTIONAL-MANA-PAYMENT, CR 603.7c) — its upkeep
     // scry was already native; modeling "you may pay {G}. If you do, draw a card." flips the WHOLE card. The
     // positive pin moved to the "Slivers native" block below.
-    ["Essence Sliver", "Creature — Sliver", "{3}{W}", "Whenever a Sliver deals damage, its controller gains that much life.", "body-only"], // source-keyed lifegain subsystem
+    // NOTE: Essence Sliver FLIPPED to native-trigger (GLOBAL SUBTYPE damage → controller-lifegain). Its
+    // positive pin moved to the dedicated block below. It reuses the subtypeGlobal + itsController machinery
+    // (Synapse/Brood) with a new "gain that much life" combat-damage-scaled sentinel.
     ["Magma Sliver", "Creature — Sliver", "{3}{R}", "All Slivers have \"{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield.\"", "body-only"], // granted dynamic-X pump
     ["Lazotep Sliver", "Creature — Zombie Sliver", "{3}{B}", "Sliver creatures you control have afflict 2. (Whenever a creature with afflict 2 becomes blocked, defending player loses 2 life.)\nWhenever a nontoken Sliver you control dies, amass Slivers 2. (Put two +1/+1 counters on an Army you control. It's also a Sliver. If you don't control an Army, create a 0/0 black Sliver Army creature token first.)", "body-only"], // afflict keyword grant
     ["Sliver Overlord", "Legendary Creature — Sliver Mutant", "{W}{U}{B}{R}{G}", "{3}: Search your library for a Sliver card, reveal that card, put it into your hand, then shuffle.\n{3}: Gain control of target Sliver. (This effect lasts indefinitely.)", "body-only"], // tutor + indefinite control
