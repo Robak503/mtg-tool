@@ -48,3 +48,21 @@ repairing the dev registration is a P2 wave (P1 scan estate `runner-data` owns t
 4. Contracts: PLAY-API-CONTRACT v1.1 (kinds truth, instrumentation opts, §2 table additions
    Q4) — COMMS-posted before shipping.
 5. No coverage growth: tier flip-diff LOST=0 GAINED=0 all pass (any tier movement = a bug).
+
+## P1 — scan complete (31 agents; 62 findings kept, 0 refuted; full ledger in session artifacts)
+
+**Wave plan (locked 2026-07-03):**
+| Wave | Scope (finding ids) | Gate |
+|---|---|---|
+| A1 test-isolation | HB-1 env scrub + tripwire + dev-tree repair · HB-2 atomic migration | suite+lint, all fp 0-diff, deliberate-leak repro |
+| A2 instrumentation threading | SD-1/PS-2/ENG-FLAG-1 (~45 apply* sites + act()) · SD-2 turn-boundary · PS-3 pilots opt | trajectory hash BYTE-IDENTICAL on default paths + new threaded-path tests |
+| A3 session correctness | SD-3 off-turn ask wedge · SD-4 wire strip · SD-5/PS-4 policy exposure · SD-6 stale-submit guard | suite + new pins; hash identical (defaults untouched) |
+| A4 runner data quality | HB-3 pod label bug · HB-4 seed discipline · HB-5 deck/seat/pilot rotation · HB-6 pairing coverage (+HB-7 measurement) | hash RE-ANCHORS (documented old→new); label-correctness tests |
+| B1 AI correctness | AI-F1 kicked-target bypass · AI-F2 low-confidence waste · AI-F11 probe key drift · AI-F12 X-group routing | A/B probe + suite |
+| B2 AI parked slices | AI-F3 equip/activated · AI-F4 wipes · AI-F5 fog · AI-F6 auras · AI-F7 pump · AI-F9 mulligan-on · AI-F10 tutor decline | A/B probe per slice (win-rate + dead-turn evidence) |
+| B3 alt-cost OFFER | ALT-1..8 (corrected design: twin post-pass, altCost marker, 16 HIGH carriers, 15 MUST-NOT-OFFER canaries, conservative AI filter, pol.altCost key) | tier fp 0-diff (play-quality only) + A/B counter-usage evidence |
+| C pilots base layer | PILOT-W0 duel.mjs prerequisite → H1..H8 | r11-diagnose re-gate per fix; final vs-default + pod re-measure |
+| D perf | pathology (hunter in flight) · GC/alloc lane · targeting.js pick · HB-9 export streaming · HB-11 stats scan · SD-8 split (maybe) | §3 pure-perf: hash byte-identical + before/after numbers |
+| E contract v1.1 | PS-1 kinds=20 truth · PS-5 Q4 table · PS-6 vocabulary · PS-7 versioning discipline | doc + canaries both sides + COMMS post |
+
+Serialization: lane A waves share learnSession/gameApi (serial); lane B owns opponentAI (serial); lane C is a different repo (parallel); D after the pathology report; E after A2/B features settle. Concurrency cap ≤2 builder lanes live at once (standing hazard).
