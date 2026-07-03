@@ -17,7 +17,18 @@ Two durable lessons: (1) the "parse payoff under literal Instant" trick is MANDA
 
 ---
 
-## 🎯 NEXT MARQUEE LEVER — MULTI-COUNT CHOSEN TARGETS ("up to N target …") · ~352 corpus cards · MEDIUM
+## ⛰️ STRATEGIC INFLECTION (2026-07-02, Clyde) — the clean-fold era is ending
+Empirically confirmed this session, after shipping ~+98 native via folds (optional-payment family +46, multi-count +52):
+- **Multi-count ("up to N target") is HARVESTED.** Shipped: return-gy (+19), bounce+tap (+22), +1/+1 counter (+8), deal-damage (+3). Remaining families (destroy/exile/pump/untap) have **~0 clean single-clause yield** — their cards are planeswalker loyalty abilities, restricted forms ("you control"/"an opponent controls"), or multi-clause. Building them = inert (verified: untap built→0 flips→reverted). The mechanism (targeting.expandAtoms subsets, gated on maxTargets>1) is general and shipped; only the parser matchers per family are missing, and they'd flip nothing until restriction-support or planeswalker modeling lands.
+- **Granted abilities ("X have '<ability>'") = 760 non-native, ALL complex** (triggered 288, activated 255, static 217; simple-KEYWORD grants are already native). A layer-6 grant-arbitrary-ability SUBSYSTEM, not a fold. Deck-relevant (Slivers "all Slivers have …", commander-granters).
+- **Clone-noncreature** (8 deck cards) = creature-only-by-design subsystem (deck-workflow verified).
+What REMAINS is subsystem-scale or small bounded M-mechanics. The "add a matcher, flip N" era is largely over — further native% costs real engineering per point.
+
+**Buildable now (bounded M-mechanics, ~8-9 cards each, from the perm frontier):** damage-prevention (`{M}: prevent the next N damage to any target this turn` — 9), firebreathing-once (`{M}: +N/+N. activate only once each turn` — 9), can't-attack-unless (`can't attack unless defending player controls an island` — 8). **Deck-relevant buildable:** rhystic-tax-draw (Rhystic Study, M — needs the `castingPlayerId` threading prerequisite + 3-opponent FP test; full spec in the deck-levers workflow output). **Subsystem bets (L, highest ceiling):** grant-arbitrary-ability (760, deck-relevant), planeswalker loyalty (would unlock the multi-count PW tail), clone-noncreature.
+
+---
+
+## 🎯 MARQUEE LEVER (SHIPPED) — MULTI-COUNT CHOSEN TARGETS ("up to N target …") · ~52 shipped · MEDIUM
 **Scouted 2026-07-02 (Clyde), post-buildspec. This is the single biggest remaining corpus lever — far bigger than any fold.**
 
 Census (`clause-frontier.mjs` + a direct count): **352 non-native corpus cards** carry an "up to N target" clause the parser rejects. Top shapes: `up to two target creatures` (111), `up to two target creature cards` (32, the GY-return family, corpus-wide + deck cards Morbid Plunder/Dead Revels/March of the Returned/Soul Salvage/Dutiful Return), `up to two target cards` (21), `up to three target cards` (14), `up to three target creatures` (14), `up to four target cards` (9)…
