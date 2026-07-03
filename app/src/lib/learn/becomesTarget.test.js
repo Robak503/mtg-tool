@@ -67,9 +67,12 @@ describe("detectTriggers — the becomesTarget self-sac event", () => {
     expect(classifyCard(pub(spellOnly))).toBe("body-only");
   });
 
-  it("CREED near-miss: the compound 'attacks or becomes the target of a spell' stays UNDETECTED", () => {
+  it("CREED near-miss: the compound 'attacks or becomes the target of a spell' is NOT the bare becomesTarget self-event", () => {
+    // The bare becomesTarget self-sac event must never over-fire on the compound. The compound IS handled by
+    // its OWN lane (Goldspan Dragon's `attacksOrBecomesTarget` compound trigger, shipped separately), so it's
+    // detected as that event — never as the bare `becomesTarget` self event this module added.
     const compound = bearCard("Whenever this creature attacks or becomes the target of a spell, it gets +1/+1 until end of turn.");
-    expect(detectTriggers(pub(compound))).toHaveLength(0);
+    expect(detectTriggers(pub(compound)).some((d) => d.event === "becomesTarget")).toBe(false);
   });
 
   it("CREED near-miss: the group-ward 'an opponent controls' variant stays UNDETECTED (a different lane)", () => {
