@@ -771,6 +771,45 @@ function isNativeActivatedGrantAura(card) {
   return true;
 }
 
+// AURA-OWN-ACTIVATED — an Aura whose ONLY body is the Enchant line + one-or-more activated abilities PRINTED
+// ON THE AURA that tap/untap the ENCHANTED CREATURE (Freed from the Real "{U}: Tap enchanted creature." /
+// "{U}: Untap enchanted creature."). Distinct from the GRANTED-ACTIVATED family (which quotes an ability the
+// HOST gains — "Enchanted creature has \"…\""): here the ability lives on the Aura and affects its host via
+// the fixed target:"enchanted" referent (atomTargets → the Aura's attachedTo host). The runtime enumerates
+// the Aura's printed abilities on the Aura permanent (legalChoices.actionsActivateAbility) and resolves the
+// tap/untap on the host (combat.applyTapEffect). ALL-OR-NOTHING (CREED): every printed activated ability must
+// be modeled AND its program must be EXCLUSIVELY the aura-safe target:"enchanted" tap/untap atom — a
+// self-binding "this creature gets …" (target:"self", which no-ops on the non-creature Aura source) or ANY
+// other effect keeps the card Arbiter, and no non-Enchant / non-activated body clause may remain.
+function isNativeOwnActivatedAura(card) {
+  if (!isAuraCard(card)) return false;
+  const abilities = parseActivatedAbilities(card);
+  if (!abilities.length) return false;
+  // Every printed activated ability must be a modeled, non-mana, non-equip ability whose program is nothing
+  // but target:"enchanted" tap/untap atoms — the exact aura-own family this slice models. Anything else
+  // (an unmodeled ability, a mana ability, a self/chosen-target effect) fails → the card stays Arbiter.
+  const isEnchantedTapProgram = (prog) =>
+    !!prog && Array.isArray(prog.atoms) && prog.atoms.length > 0 &&
+    prog.structure !== "modal" &&
+    prog.atoms.every((a) => (a.op === "tap" || a.op === "untap") && a.target === "enchanted");
+  if (!abilities.every((a) => a.modeled && !a.isManaEffect && !a.isEquipAbility && isEnchantedTapProgram(a.program))) return false;
+  // No body clause other than the Enchant keyword line and the printed activated-ability lines. An activated
+  // ability line contains a colon whose cost is symbol/word-bearing (the same shape parseActivatedAbilities
+  // keys on); a residue line (an ETB trigger, a static restriction, a P/T bonus) → Arbiter (CREED whole-card).
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
+  const activatedLineCount = abilities.length;
+  let sawActivated = 0;
+  for (const rawLine of oracle.split(/\n+/)) {
+    const t = rawLine.trim();
+    if (!t) continue;
+    if (/^enchant\b/i.test(t)) continue;                                    // the Enchant keyword line
+    // An activated-ability line: "{cost}: effect." with a colon (mirrors parseActivatedAbilities' detection).
+    if (/^[^:]*\{[^}]+\}[^:]*:/.test(t)) { sawActivated++; continue; }
+    return false;                                                           // any other clause = residue → Arbiter
+  }
+  return sawActivated === activatedLineCount;
+}
+
 // GRANTED-ACTIVATED EQUIPMENT (subsystem 1 phase 1b) — an Equipment whose ONLY body is a modeled Equip
 // cost + one-or-more granted activated abilities on the equipped creature ("Equipped creature has \"{T}:
 // This creature deals 2 damage to any target.\"" — Bow of the Hunter, Viridian Longbow, Siren Song Lyre).
@@ -902,6 +941,11 @@ export function classifyCard(card) {
     // enumerates + resolves (legalChoices.grantedActivatedForHost). All-or-nothing: every granted ability
     // modeled AND no other body clause (a rider keeps it Arbiter).
     if (isNativeActivatedGrantAura(card)) return "native-activated";
+    // AURA-OWN-ACTIVATED: an Aura with PRINTED "{cost}: Tap/Untap enchanted creature" abilities (Freed from
+    // the Real) — the runtime enumerates the abilities on the Aura and taps/untaps its host via the fixed
+    // target:"enchanted" referent. All-or-nothing (isNativeOwnActivatedAura): every printed ability is a
+    // modeled aura-safe enchanted-tap/untap + no residue, else Arbiter.
+    if (isNativeOwnActivatedAura(card)) return "native-activated";
     // GRANTED-TRIGGERED (1c): "Enchanted creature has \"Whenever/At …\"" (Sixth Sense, Commander's Authority)
     // — the host gains a triggered ability the runtime fires on the host's event (triggers.triggersForEvent).
     if (isNativeTriggerGrantAuraOrEquipment(card)) return "native-trigger";

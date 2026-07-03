@@ -33,7 +33,13 @@ export function applyTapEffect(state, atom, ctx, tap) {
   const wantsLand = atom?.targetType === "land";
   const wantsPermanent = atom?.targetType === "permanent";
   const wantsBasicSubtype = BASIC_SUBTYPE_TARGET.has(atom?.targetType);
-  for (const t of ctx.targets || []) {
+  // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap/Untap enchanted creature.") — a FIXED referent, not a
+  // chosen target: atomTargets resolves target:"enchanted" to the Aura's host (ctx.sourceId→attachedTo) at
+  // resolution (CR 303.4a). Every other tap/untap form carries a `targetType` (no `target`) and reads the
+  // chosen ctx.targets byte-for-byte as before. atomTargets returns [{type:"creature", id}] for a live host,
+  // [] for a detached/gone Aura (a clean no-op, never a fabricated tap).
+  const list = atom?.target ? atomTargets(next, atom, ctx) : (ctx.targets || []);
+  for (const t of list) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
     const tl = typeLineStr(lk.permanent.card);
@@ -55,7 +61,7 @@ export function applyTapEffect(state, atom, ctx, tap) {
       }).state;
     }
   }
-  return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: (ctx.targets || []).map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: list.map(t => t.id) });
 }
 
 /** REGEN (CR 701.15) — give the SOURCE (self) or the chosen creature a regeneration shield. The shield is
@@ -591,6 +597,15 @@ export function combatKeywordClauseParser(clause) {
     return { op: "tap", targetType: "creature", restrictions };
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap enchanted creature." / "{U}: Untap enchanted creature.";
+  // Pemmin's Aura, Kasimir the Lone Wolf's kin) — an activated ability PRINTED ON THE AURA that taps/untaps
+  // "enchanted creature". This is a FIXED (non-chosen) referent, NOT a chosen target: the affected creature is
+  // whatever the Aura is attached to (its host, resolved at resolution time off ctx.sourceId→attachedTo via
+  // atomTargets' target:"enchanted" case — CR 303.4a, the Aura affects the enchanted permanent). No player
+  // choice, so no `targetType` (it never enters targeting/enumerateTargets); applyTapEffect resolves the host
+  // through atomTargets. Whole-clause anchored ($) so any qualified/rider form falls through → low → Arbiter.
+  if (/^tap enchanted creature$/.test(t)) return { op: "tap", target: "enchanted" };
+  if (/^untap enchanted creature$/.test(t)) return { op: "untap", target: "enchanted" };
   // UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") — a single chosen land. targetType "land" routes
   // through PERMANENT_PREDICATES.land in enumerateTargets (so any land on any battlefield is a legal target),
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so

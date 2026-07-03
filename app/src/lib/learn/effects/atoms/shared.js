@@ -185,8 +185,27 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.scope === "blockingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.blockers || []).some((b) => b.blockerId === t.id));
   if (atom.target === "self") return selfTargets(state, ctx);
   if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
+  if (atom.target === "enchanted") return enchantedTargets(state, ctx);
   return ctx.targets || [];
 };
+
+/**
+ * AURA-OWN-ENCHANTED — the creature THIS Aura is attached to, as a target list (for an activated ability
+ * PRINTED ON THE AURA that affects "enchanted creature" — Freed from the Real "{U}: Tap enchanted creature",
+ * Pemmin's Aura). ctx.sourceId is the Aura permanent (threaded by the activated dispatcher); its `attachedTo`
+ * names the host. Resolved AT RESOLUTION (CR 303.4a, 608.2) off the LIVE state: a detached Aura (no
+ * attachedTo) or a host that has left the battlefield → [] (a clean no-op, never a fabricated tap). Only a
+ * CREATURE host is returned — "enchanted creature" implies the enchanted permanent is a creature.
+ */
+export function enchantedTargets(state, ctx) {
+  const auraLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const hostId = auraLk?.permanent?.attachedTo;
+  if (!hostId) return [];
+  const hostLk = findPermanent(state, hostId);
+  return hostLk && isCreatureCard(hostLk.permanent.card)
+    ? [{ type: "creature", id: hostId, controller: hostLk.controller }]
+    : [];
+}
 
 /**
  * The trigger/activated SOURCE permanent as a target list (for a "this creature gets …" self
