@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createGameState, _resetIdsForTests } from "../gameState.js";
-import { expandCastChoices } from "./targeting.js";
+import { expandCastChoices, _internals } from "./targeting.js";
 import { parseEffectProgram } from "./parser.js";
 import { runEffectProgram } from "./runProgram.js";
 import { RESOLVER_KEYS } from "../resolvers.js";
@@ -213,5 +213,79 @@ describe("optional counter resolves to a counter or a clean no-op (end-to-end, C
     const state = withBoard([cr("Ogre", "ogre", "user")]);
     const out = runEffectProgram(state, castObj(PROGRAM(), []));
     expect(out.players.user.battlefield.find(p => p.id === "ogre").counters["+1/+1"]).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// BOUNDED kCombinations / targetSubsets (D1 OOM fix) — the enumerator now stops at `limit` rows instead of
+// materializing all C(n,k) index-arrays (C(32,10) ≈ 64.5M arrays ≈ 7-8GB in ONE legalActionsForPlayer call).
+// These pin (a) the bounded prefix is BYTE-IDENTICAL to the unbounded enumeration (no behavior change) and
+// (b) an OOM-shaped exact-k targetSubsets call returns capped output fast.
+// ---------------------------------------------------------------------------------------------------------
+describe("bounded kCombinations — first-N prefix identical to the unbounded enumeration", () => {
+  const { kCombinations, targetSubsets, MAX_CAST_EXPANSIONS } = _internals;
+
+  // Independent lexicographic reference (standard successor function) — no shared code with the DFS.
+  function refCombos(n, k, count) {
+    if (k <= 0 || k > n) return [];
+    const out = [];
+    const c = Array.from({ length: k }, (_, i) => i);
+    while (out.length < count) {
+      out.push(c.slice());
+      let i = k - 1;
+      while (i >= 0 && c[i] === n - k + i) i--;
+      if (i < 0) break; // exhausted
+      c[i]++;
+      for (let j = i + 1; j < k; j++) c[j] = c[j - 1] + 1;
+    }
+    return out;
+  }
+
+  it("bounded output === unbounded.slice(0, limit) for representative (n,k) × limits", () => {
+    for (const [n, k] of [[6, 3], [8, 4], [10, 2], [5, 5], [7, 1]]) {
+      const full = kCombinations(n, k); // unbounded (limit = Infinity default)
+      expect(full).toEqual(refCombos(n, k, Infinity)); // the unbounded order itself is lex-ascending
+      for (const limit of [1, 3, MAX_CAST_EXPANSIONS, full.length, full.length + 5]) {
+        expect(kCombinations(n, k, limit)).toEqual(full.slice(0, limit));
+      }
+    }
+  });
+
+  it("limit ≤ 0 and degenerate (k>n, k≤0) yield [] — same as before", () => {
+    expect(kCombinations(6, 3, 0)).toEqual([]);
+    expect(kCombinations(6, 3, -1)).toEqual([]);
+    expect(kCombinations(3, 5)).toEqual([]);
+    expect(kCombinations(3, 0)).toEqual([]);
+  });
+
+  it("targetSubsets exact-k (min==max, the X-count caller) matches the full enumeration when under the cap", () => {
+    const tagged = Array.from({ length: 5 }, (_, i) => ({ id: `t${i}`, atomIndex: 0 }));
+    const subs = targetSubsets(tagged, 3, 3); // C(5,3) = 10 < 64 — nothing capped
+    expect(subs).toEqual(kCombinations(5, 3).map((c) => c.map((ix) => tagged[ix])));
+  });
+
+  it("threads REMAINING capacity across a k-boundary (minK < maxK): rows past the cap never materialize", () => {
+    // n=60, minK=1, maxK=2: k=1 contributes 60 rows, then k=2 gets remaining capacity 4 → exactly the
+    // first 4 pairs of the ascending enumeration, and the cap closes the list at 64.
+    const tagged = Array.from({ length: 60 }, (_, i) => ({ id: `t${i}`, atomIndex: 0 }));
+    const subs = targetSubsets(tagged, 1, 2);
+    expect(subs).toHaveLength(MAX_CAST_EXPANSIONS);
+    expect(subs.slice(60).map((s) => s.map((t) => t.id))).toEqual([
+      ["t0", "t1"], ["t0", "t2"], ["t0", "t3"], ["t0", "t4"],
+    ]);
+  });
+
+  it("OOM guard: an (n=32, k=10)-shaped exact-k call returns the capped 64-row prefix in milliseconds", () => {
+    // Pre-fix this materialized all C(32,10) = 64,512,240 index-arrays (~7-8GB) before the cap could bite.
+    const tagged = Array.from({ length: 32 }, (_, i) => ({ id: `t${i}`, atomIndex: 0 }));
+    const t0 = Date.now();
+    const subs = targetSubsets(tagged, 10, 10); // the Rograkh-mirror shape (targetCountX, min==max)
+    const elapsed = Date.now() - t0;
+    expect(subs).toHaveLength(MAX_CAST_EXPANSIONS); // exactly the cap — row count == cap, nothing more
+    // Byte-identical to the first 64 of the full ascending enumeration (via the independent reference).
+    expect(subs.map((s) => s.map((t) => t.id))).toEqual(
+      refCombos(32, 10, MAX_CAST_EXPANSIONS).map((c) => c.map((ix) => `t${ix}`))
+    );
+    expect(elapsed).toBeLessThan(2000); // was ~300s/OOM-class; generous CI margin, still 100x under
   });
 });

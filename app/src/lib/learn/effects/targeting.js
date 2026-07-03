@@ -49,13 +49,20 @@ function range(a, b) {
   return out;
 }
 
-/** All ascending-order k-combinations of indices 0..n-1 (MODAL-2 mode-combinations). */
-function kCombinations(n, k) {
-  if (k <= 0 || k > n) return [];
+/** All ascending-order k-combinations of indices 0..n-1 (MODAL-2 mode-combinations), capped at `limit` rows.
+ * The DFS stops the moment `limit` combos exist, so the result is EXACTLY the first-`limit` prefix of the full
+ * ascending enumeration (byte-identical to slicing the unbounded list — pinned by test). The cap is the OOM fix:
+ * without it a "up to N targets" atom over a big pool (C(32,10) ≈ 64.5M index-arrays, ~7-8GB) fully materializes
+ * inside ONE legalActionsForPlayer call before the callers' post-hoc MAX_CAST_EXPANSIONS cap can bite. */
+function kCombinations(n, k, limit = Infinity) {
+  if (k <= 0 || k > n || limit <= 0) return [];
   const out = [];
   const pick = (start, combo) => {
     if (combo.length === k) { out.push(combo.slice()); return; }
-    for (let i = start; i < n; i++) { combo.push(i); pick(i + 1, combo); combo.pop(); }
+    for (let i = start; i < n; i++) {
+      combo.push(i); pick(i + 1, combo); combo.pop();
+      if (out.length >= limit) return; // capacity reached — unwind the whole DFS
+    }
   };
   pick(0, []);
   return out;
@@ -74,7 +81,9 @@ function targetSubsets(tagged, minK, maxK) {
   const out = [];
   for (let k = lo; k <= hi; k++) {
     if (k === 0) { out.push([]); continue; } // choose zero — a legal "up to" cast
-    for (const combo of kCombinations(n, k)) {
+    // Thread the REMAINING capacity into the enumerator so it never materializes more than the cap needs
+    // (the post-push return below then fires on the last admitted row — same output, bounded memory).
+    for (const combo of kCombinations(n, k, MAX_CAST_EXPANSIONS - out.length)) {
       out.push(combo.map((ix) => tagged[ix]));
       if (out.length >= MAX_CAST_EXPANSIONS) return out; // cap the option blow-up (backstop)
     }
@@ -290,7 +299,9 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
     const sizes = (program.modal?.upTo || program.modal?.atLeastOne) ? range(1, chooseCount) : [chooseCount];
     const out = [];
     for (const size of sizes) {
-      for (const combo of kCombinations(modes.length, size)) {
+      // MAX_CAST_EXPANSIONS here is a pure DoS backstop on the mode-combination count: no real card's mode
+      // count comes near C(n,k) > 64 (that needs 8+ modes), so every real modal cast list is byte-identical.
+      for (const combo of kCombinations(modes.length, size, MAX_CAST_EXPANSIONS)) {
         const concatAtoms = combo.flatMap((k) => modes[k].atoms);
         const combos = expandAtoms(state, controllerId, concatAtoms, sourceColors, ctx);
         if (combos === null) continue; // some required target in this mode-combo has no legal pick
@@ -305,3 +316,6 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
   if (combos === null) return [];
   return combos.map(targets => ({ targets }));
 }
+
+// Test-only handles (repo convention) — pins the bounded-enumeration prefix identity + the OOM guard.
+export const _internals = { kCombinations, targetSubsets, MAX_CAST_EXPANSIONS };
