@@ -678,6 +678,21 @@ export function combatKeywordClauseParser(clause) {
   // doesn't exist, and the predicate also requires a Land type line).
   const us = t.match(/^untap target (forest|island|swamp|mountain|plains)$/);
   if (us) return { op: "untap", targetType: us[1] };
+  // UNTAP-UP-TO-N-LANDS (Cloud of Faeries / Peregrine Drake "untap up to N lands"; Treachery, Snap, Frantic
+  // Search, et al.) — a NON-targeted, CONTROLLER-scoped untap of up to N of the controller's OWN tapped lands
+  // (CR 701.20). This is the SAME atom Finale of Revelation's anchor already emits (op:"untap-lands", uptoN,
+  // targetType:null) and the SAME applyUntapLands resolver plays: a deterministic greedy auto-untap of up to
+  // the cap, no chosen target and no CREED risk (only the controller's own tapped lands, in battlefield order,
+  // are touched — never an opponent's land, never a non-land, verified live). The optional "you control" is
+  // redundant (the resolver already scopes to the controller's own lands) but accepted so both printed forms
+  // (bare + "you control") route identically. Whole-clause anchored ($): a "target"/"of your"/qualified form
+  // ("untap up to N target lands" — Krosan Restorer, Pip-Boy; "up to N of your lands") stays LOW → Arbiter (a
+  // SAFE false-negative — those are a chosen-target family this bare-scope resolver doesn't model). N≥1.
+  const upN = t.match(/^untap up to (one|two|three|four|five) lands(?: you control)?$/);
+  if (upN) {
+    const n = SMALL_NUM[upN[1]];
+    if (n >= 1) return { op: "untap-lands", uptoN: n, targetType: null };
+  }
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).
