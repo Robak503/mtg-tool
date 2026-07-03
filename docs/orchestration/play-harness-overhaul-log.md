@@ -129,3 +129,18 @@ turn-boundary stamp (no double time-pressure), createGame honors `pilots` (PS-3)
 v1 games are now FULLY instrumented end-to-end (gameApiInstrumentation.test.js pins it).
 Battery: suite **7,523** (515 files) · lint clean · tier/program/runtime **0-diff** · trajectory
 hash **== `0c75d0de…` byte-for-byte** · main tree clean.
+
+### ✅ A3+B1 INTEGRATED (rolling @ b74214c1) — suite 7,558; NEW HASH ANCHOR
+A3 (258df475): SD-3 off-turn pending-window wedge FIXED (controller-based validation + repro pins) ·
+SD-4 real wire strip (`decisionWire.js`, 4 routes — `choose` had none; resume/effectAtoms/queue no
+longer leak) · SD-5/PS-4 policy A/B seam live end-to-end (createGame({policy}) → pickAction; v1 arm
+proven divergent, null default proven byte-identical) · SD-6 stale-submit guard. PLAY_API_VERSION →
+1.2.0 (additive). +25 pins.
+B1 (b74214c1): AI-F1 kicked-cast target discipline (never self-targets; kicked/unkicked parity pins) ·
+AI-F2 unresolvable-spell hold — **pod census spell-unresolved 4 → 0** (15→12 entries) · AI-F11 probe
+keys derived from POLICY_KEYS (+ new 'unresolvable' key, 'v1' recovers legacy) · AI-F12 mixed-X decline
+fallback. A/B probe: NEW 55.0% / OLD 45.0%, dead turns 0.02. +10 pins.
+**Trajectory-hash anchor RE-BASED (AI change, documented): `0c75d0de…` → `1c7e3a9d…`**
+(games=3 rows=8204, ×2 reproducible; combined A3+B1 battery: suite 7,558/519 files · lint clean ·
+tier/program/runtime 0-diff at pick time · main tree clean). Build worktrees swept junction-safe
+(incl. build-a2's leftover junction — removed via rmdir first; main node_modules verified intact).
