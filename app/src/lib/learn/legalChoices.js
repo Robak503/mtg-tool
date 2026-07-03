@@ -1315,6 +1315,54 @@ function actionsActivateAbility(state, playerId) {
 }
 
 /**
+ * DOUBLE-MANA-POOL (Doubling Cube — "{3}, {T}: Double the amount of each type of unspent mana you have.").
+ * A MANA ability (CR 605.1a) that resolves WITHOUT the stack (CR 605.3a) — so, like tap-for-mana and unlike
+ * a stack `activate-ability`, it's enumerated here as its own `double-mana-pool` action rather than through
+ * actionsActivateAbility (which filters mana abilities out via `!ab.isManaEffect`). Offer it when the source
+ * is untapped, un-summoning-sick if a creature (granted Haste counts, CR 302.6), and its `{3},{T}` cost is
+ * affordable from the player's pool + untapped sources (the source itself excluded from paying the {mana},
+ * mirroring actionsActivateAbility's tapSelf exclusion). Same main + priority window as the sibling mana /
+ * activated-ability enumerators — a conservative gate (mana abilities are instant-speed, CR 605.3a, but
+ * under-offering off-turn is a safe false-negative). The AI auto-pickers ignore this kind (like tap-for-mana),
+ * so self-play never loops on it; it's the explicit manual play for a floating-mana line + the coverage-native
+ * proof that the runtime can actually resolve the card.
+ */
+function actionsDoubleManaPool(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const perm of player.battlefield) {
+    for (const ab of parseActivatedAbilities(perm.card)) {
+      if (!ab.doubleManaPool) continue;
+      if (ab.tapSelf) {
+        if (perm.tapped) continue; // can't tap an already-tapped source
+        if (isCreature(perm.card) && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+      }
+      const cost = parseManaCost(ab.manaPips || "");
+      if (cost.hasX) continue; // no X-cost double-mana ability exists; guard defensively
+      // The {mana} part is paid from the pool + untapped sources EXCLUDING the source itself when it also
+      // taps ({T}) — a source can't tap for mana AND pay its own {T} (mirrors actionsActivateAbility).
+      const sources = manaSources(state, playerId).filter((s) => !(ab.tapSelf && s.permanentId === perm.id));
+      if (!canAfford(player.manaPool, sources, cost)) continue;
+      actions.push({
+        kind: "double-mana-pool",
+        playerId,
+        permanentId: perm.id,
+        name: perm.card.name,
+        abilityIndex: ab.index,
+        cost,
+        cmc: totalCmc(cost),
+        tapSelf: ab.tapSelf,
+        abilityText: ab.raw,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * KW-CYCLING (CR 702.29) — cycling is an activated ability usable only from a player's HAND
  * ("[Cost], Discard this card: Draw a card"). Offer one `cycle` action per hand card whose plain,
  * fully-modeled cycling cost (parseCyclingCost — null for typecycling + cycle-trigger cards) the
@@ -1787,6 +1835,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
   actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.171a): exile from hand for the plot cost — a SPECIAL action, not casting
   actions.push(...actionsTapForMana(state, playerId));
+  actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   actions.push(...actionsActivateAbility(state, playerId));
   actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
   actions.push(...actionsActivateLoyalty(state, playerId));

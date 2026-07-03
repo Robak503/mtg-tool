@@ -175,6 +175,24 @@ function effectIsManaAbility(clause) {
 }
 
 /**
+ * DOUBLE-MANA-POOL (Doubling Cube — "Double the amount of each type of unspent mana you have.").
+ * This is a MANA ability (CR 605.1a — an activated ability with no target that could put mana into its
+ * controller's pool), so it resolves without using the stack (CR 605.3a), exactly like a tap-for-mana
+ * ability — NOT through the stack effect-program interpreter. `effectIsManaAbility` above keys on "Add …"
+ * and misses this doubling wording, so we flag it here as a distinct mana-effect kind. The runtime
+ * (legalChoices.actionsDoubleManaPool → actionDispatcher.applyDoubleManaPool) doubles every color in the
+ * activating player's pool. Gated to the EXACT printed shape — a doubling of "each type of unspent mana
+ * you have" — so it matches ONLY Doubling Cube's effect (audited corpus-wide: the sole card with this
+ * wording); any other doubling clause (a static mana-doubler like Mana Reflection, worded as a replacement
+ * effect, never as "{cost}: Double …") never reaches this matcher. Tolerates the "each type of" phrasing
+ * only (the printed Oracle) — a variant that doubled a SUBSET, added a cap, or drained life would not
+ * match and would stay unmodeled → Arbiter (a safe false-negative, never a partial application — THE CREED).
+ */
+function effectIsDoubleManaPool(clause) {
+  return /^double the amount of each type of unspent mana you have\.?$/i.test(String(clause).trim());
+}
+
+/**
  * γ1 fail-safe — would sacrificing this permanent as a COST silently drop one of its OWN triggers?
  * The self-sac path fires only creature "dies" triggers (checkDiesTriggers); a "leaves the battlefield"
  * / "when you sacrifice this" trigger, or a COMPOUND condition the detector under-splits ("…enters AND
@@ -343,7 +361,13 @@ export function parseActivatedAbilities(card) {
     // (a level band, a Class line, a keyword-action colon) → skip, so we never mis-detect.
     if (!costStr.includes("{") && !cost) continue;
 
-    const isManaEffect = effectIsManaAbility(effectClause);
+    // DOUBLE-MANA-POOL (Doubling Cube): a mana ability (CR 605.1a) with the doubling wording rather than
+    // "Add …" — flag it as a mana effect (routes off the stack path, via actionsDoubleManaPool) and carry
+    // a `doubleManaPool` marker the runtime enumerator/dispatcher key on. `isManaEffect` true ⇒ no stack
+    // program is parsed and `modeled` stays false (like every mana ability), so it's never offered as a
+    // stack `activate-ability`.
+    const doubleManaPool = effectIsDoubleManaPool(effectClause);
+    const isManaEffect = effectIsManaAbility(effectClause) || doubleManaPool;
     let program = null;
     let effectHigh = false;
     if (cost && !isManaEffect) {
@@ -375,6 +399,7 @@ export function parseActivatedAbilities(card) {
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       costModeled: !!cost,
       isManaEffect,
+      doubleManaPool, // DOUBLE-MANA-POOL (Doubling Cube) — the runtime doubles the activator's pool (no stack)
       program,
       // Playable on the stack: cost is mana+{T}(+pay-life/self-sac/exile/remove-counter), effect is HIGH
       // (non-modal, non-X), NOT a mana ability (no-stack path), AND — for a cost that can make the source

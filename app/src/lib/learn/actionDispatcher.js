@@ -31,6 +31,8 @@ import {
   logEvent,
   opponentsOf,
   tapPermanent,
+  addMana,
+  MANA_COLORS,
   loseLife,
   removeCounter,
   addCounter,
@@ -507,6 +509,49 @@ function applyTapForMana(state, action) {
     cardName: perm.card?.name,
   });
   return next;
+}
+
+/**
+ * DOUBLE-MANA-POOL (Doubling Cube — "{3}, {T}: Double the amount of each type of unspent mana you have.").
+ * A MANA ability (CR 605.1a) — it resolves immediately, WITHOUT using the stack (CR 605.3a), exactly like
+ * tap-for-mana. Pays the `{3}` mana (planPayment + auto-tap, with the source excluded so it never taps for
+ * mana AND pays its own {T}) then taps the source for the `{T}`, then DOUBLES the activator's pool: for each
+ * mana color, add another copy of the current amount (so N → 2N). The doubling reads the pool AFTER the {3}
+ * has been spent (CR 605.3a — the cost is paid before the ability's effect applies), which is the correct
+ * Oracle behavior: any mana still floating after paying {3} is what gets doubled.
+ */
+function applyDoubleManaPool(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const perm = player.battlefield.find((p) => p.id === action.permanentId);
+  if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
+  if (action.tapSelf && perm.tapped) throw new DispatcherError("Ability source is already tapped", "ALREADY_TAPPED");
+
+  // Pay the {mana} cost. The source paying its own {T} can't also tap for mana — exclude it (mirrors
+  // legalChoices.actionsDoubleManaPool + applyActivateAbility exactly, the two-sites invariant).
+  const sources = manaSources(state, action.playerId).filter(
+    (s) => !(action.tapSelf && s.permanentId === action.permanentId),
+  );
+  const plan = planPayment(player.manaPool, sources, action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
+  let working = commitPaymentPlan(state, action.playerId, plan);
+  if (action.tapSelf) working = tapPermanent(working, action.permanentId);
+
+  // Double the pool AFTER the cost is paid (CR 605.3a). addMana(color, amount = current) turns N into 2N per
+  // color; addMana rejects negatives/non-integers, and every pool amount is a non-negative integer, so a 0
+  // color is a harmless no-op (0 → 0). No stack push — a mana ability resolves as it's activated.
+  const pool = working.players[action.playerId].manaPool;
+  for (const color of MANA_COLORS) {
+    const amount = pool[color] || 0;
+    if (amount > 0) working = addMana(working, { playerId: action.playerId, color, amount });
+  }
+  return logEvent(working, {
+    kind: "double-mana-pool",
+    playerId: action.playerId,
+    permanentId: action.permanentId,
+    cardName: perm.card?.name,
+    abilityText: action.abilityText,
+  });
 }
 
 /**
@@ -1000,6 +1045,7 @@ const HANDLERS = {
   "play-land": applyPlayLand,
   "cast-spell": applyCastSpellMaybeDiscover, // DISCOVER: clears pendingDiscover after a free-cast from exile
   "tap-for-mana": applyTapForMana,
+  "double-mana-pool": applyDoubleManaPool, // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   "activate-ability": applyActivateAbility,
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "plot": applyPlot,   // PLOT (CR 702.171a): exile a hand card face-up for the plot cost (special action)

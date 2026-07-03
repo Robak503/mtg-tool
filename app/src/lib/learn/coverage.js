@@ -236,6 +236,19 @@ function hasModeledVariableXMana(card) {
   return !!prod?.amountSpec;                                     // native ONLY when the runtime models the metric
 }
 
+// DOUBLE-MANA-POOL (Doubling Cube — "{3}, {T}: Double the amount of each type of unspent mana you have.").
+// This is a MANA ability (CR 605.1a) the runtime now plays natively OFF the stack (legalChoices.actions-
+// DoubleManaPool → actionDispatcher.applyDoubleManaPool doubles the activator's pool). hasManaAbility keys on
+// "Add …" and misses this doubling wording, so it's admitted to the native-mana tier separately. Read the
+// SAME parseActivatedAbilities the runtime enumerates on (its `doubleManaPool` marker) — so the metric credits
+// EXACTLY the ability the runtime resolves, never drifting. `type_line` fallback matches the parser's card
+// shape. Any card with such a modeled ability qualifies; the caller's manaCardResidueModeled gate still
+// requires the REST of the card (any trigger/level text) to be modeled too, so this can't over-claim a card
+// whose non-mana body is unmodeled (Doubling Cube has none — its whole text IS this one ability).
+function hasDoubleManaPoolAbility(card) {
+  return parseActivatedAbilities(card).some((a) => a.doubleManaPool);
+}
+
 /** True when an instant/sorcery resolves fully through the EffectProgram interpreter. */
 export function spellIsNative(card) {
   // STORM (CR 702.40): an instant/sorcery can carry the "Storm" KEYWORD ("Storm (When you cast this spell, copy
@@ -966,7 +979,10 @@ export function classifyCard(card) {
   // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via
   // hasModeledVariableXMana — gated on manaProduction returning a runtime amountSpec, so an unmodeled-metric
   // X source (Wirewood Channeler) stays body-only (no over-claim). The same residue gate then applies.
-  if ((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) || hasModeledVariableXMana(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
+  // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool — admitted to the
+  // native-mana tier alongside "Add …" sources (the runtime resolves it via applyDoubleManaPool). The same
+  // residue gate applies, so a variant with unmodeled non-mana body text (none in the corpus) stays Arbiter.
+  if ((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers
