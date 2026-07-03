@@ -154,8 +154,14 @@ export function applyPumpEffect(state, atom, ctx) {
   const xSigned = atom.amountXNeg ? -x : x;
   const xP = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "p");
   const xT = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "t");
-  const power = scaled != null ? scaled : (xP ? xSigned : atom.ptDelta?.p || 0);
-  const toughness = scaled != null ? scaled : (xT ? xSigned : atom.ptDelta?.t || 0);
+  // COUNT-SCALED SLOT (Magma Sliver's granted "+X/+0 … where X is the number of Slivers on the battlefield"):
+  // ptDeltaCountSlot ("p"/"t") marks WHICH stat gets the board-count-scaled X for an ASYMMETRIC count pump;
+  // the OTHER stat reads its printed ptDelta. Absent slot = symmetric (both stats = the count, the original
+  // Overrun-X behavior). Mirrors amountXSlot exactly but for the board-count (`scaled`) magnitude, not ctx.xValue.
+  const cP = scaled != null && (!atom.ptDeltaCountSlot || atom.ptDeltaCountSlot === "p");
+  const cT = scaled != null && (!atom.ptDeltaCountSlot || atom.ptDeltaCountSlot === "t");
+  const power = cP ? scaled : (scaled != null && !cP ? (atom.ptDelta?.p || 0) : (xP ? xSigned : atom.ptDelta?.p || 0));
+  const toughness = cT ? scaled : (scaled != null && !cT ? (atom.ptDelta?.t || 0) : (xT ? xSigned : atom.ptDelta?.t || 0));
   // Chosen targets for a single-creature pump (Giant Growth), EVERY creature for a mass
   // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
   // Languish), or the controller's creatures for a TEAM pump (atom.scope "youControl" — Overrun
@@ -824,6 +830,34 @@ export function pumpClauseParser(clause) {
   if (sg && TARGET_SUBTYPES.has(sg[1])) {
     const kws = parseGrantedKeywords(sg[2]);
     return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "subtype", subtype: sg[1] }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // ===== SUBTYPE-TARGET COUNT-SCALED PUMP (Magma Sliver's granted firebreathing) ===== "target <Subtype>[
+  // creature] gets +X/+0 [or +0/+X, or +X/+X] until end of turn, where X is <count source>". The count is
+  // resolved AT RESOLUTION off the board (CR 608.2h) via ptDeltaCount → applyPumpEffect's count-scaled path;
+  // the X slot marks WHICH stat scales (ptDeltaCountSlot "p"/"t" for the asymmetric +X/+0 / +0/+X; absent =
+  // symmetric +X/+X). The subtype rides as a target restriction (enumerateTargets → creatureSatisfiesRestrictions
+  // kind:"subtype"), so the runtime offers + pumps ONLY the matching subtype (THE CREED). CURATED subtype only
+  // (TARGET_SUBTYPES); the count source must be one parseCountSource models under allowBattlefield (the all-seats
+  // "<Subtype>s on the battlefield" or any legacy source) — an unmodeled count → null → low → Arbiter (safe FN).
+  // The "+0/+0" degenerate (both fixed 0) never matches because at least one pip must be the literal x. Whole-
+  // clause anchored ($); a rider fails the anchor → Arbiter. Magma Sliver grants THIS quoted body to all Slivers.
+  const scg = t.match(/^target ([a-z]+)(?: creature)? gets (\+x|\+\d+)\/(\+x|\+\d+) until end of turn, where x is (?:the )?(.+)$/);
+  if (scg && TARGET_SUBTYPES.has(scg[1])) {
+    const pIsX = scg[2] === "+x";
+    const tIsX = scg[3] === "+x";
+    if (!pIsX && !tIsX) return null;                                    // needs at least one X pip (else it's a fixed pump — handled above)
+    const countSpec = parseCountSource(scg[4].replace(/^number of /, ""), { allowBattlefield: true });
+    if (!countSpec) return null;                                        // unmodeled count → low → Arbiter (CREED)
+    const slot = pIsX && tIsX ? null : (pIsX ? "p" : "t");             // asymmetric → which stat scales; symmetric → both
+    const fixed = { p: pIsX ? 0 : parseInt(scg[2], 10), t: tIsX ? 0 : parseInt(scg[3], 10) }; // the non-X stat's printed value
+    return {
+      op: "pump",
+      targetType: "creature",
+      restrictions: [{ kind: "subtype", subtype: scg[1] }],
+      ptDeltaCount: countSpec,
+      ...(slot ? { ptDeltaCountSlot: slot } : {}),
+      ptDelta: fixed,
+    };
   }
   let m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };

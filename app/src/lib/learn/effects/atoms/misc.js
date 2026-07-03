@@ -3,7 +3,7 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem, addMana } from "../../gameState.js";
+import { logEvent, addEmblem, addMana, opponentsOf } from "../../gameState.js";
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard } from "./shared.js";
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
@@ -69,6 +69,31 @@ function applyDrawAtom(state, atom, ctx) {
 function applyFog(state, atom, ctx) {
   const next = { ...state, preventCombatDamageTurn: state.turn };
   return logEvent(next, { kind: "spell-effect", effect: "fog", controller: ctx.controller, turn: state.turn });
+}
+
+/**
+ * ===== FORCED-ATTACK ===== (FORCE-ATTACK-1, CR 508.1a / 802) — "Creatures your opponents control attack
+ * this turn if able." (Bident of Thassa's {1}{U},{T} activated ability). Every creature each opponent of the
+ * ACTIVATOR (ctx.controller) controls now carries an ATTACK requirement THIS turn: at their declare-attackers
+ * step it must attack (a player or planeswalker) if it's able — untapped, no summoning sickness, not otherwise
+ * restricted (CR 508.1a checks the requirement only against creatures that CAN legally attack, so a tapped /
+ * defender / can't-attack creature is a clean no-op — it's simply not "able"). Turn-scoped like the Fog latch:
+ * stamp `forcedToAttackTurn[opponentId] = state.turn` for each opponent, which self-expires the moment the turn
+ * number advances (no cleanup needed) and serializes as a plain number map (a mid-turn save/restore is
+ * byte-identical). The ENFORCEMENT lives in opponentAI.pickAttackPlan (the batch attacker picker force-includes
+ * every eligible attacker for a seat under an active force this turn), mirroring the self-must-attack path. A
+ * removed/eliminated opponent is skipped by opponentsOf's live-seat read. Non-targeted; a removed activator is a
+ * clean no-op. The `who` is currently only "opponents" (Bident's exact wording); a broader referent would gate
+ * a distinct atom shape (CREED — never over-apply the force to seats the printed text doesn't name).
+ */
+function applyForceAttack(state, atom, ctx) {
+  if (!ctx.controller || !state.players?.[ctx.controller]) return state; // removed/eliminated activator → clean no-op
+  const affected = atom.who === "opponents" ? opponentsOf(state, ctx.controller) : [];
+  if (affected.length === 0) return state;
+  const stamped = { ...(state.forcedToAttackTurn || {}) };
+  for (const pid of affected) if (state.players?.[pid]) stamped[pid] = state.turn;
+  const next = { ...state, forcedToAttackTurn: stamped };
+  return logEvent(next, { kind: "spell-effect", effect: "force-attack", controller: ctx.controller, affected, turn: state.turn });
 }
 
 /**
@@ -150,6 +175,13 @@ export function applyDivideDamage(state, atom, ctx) {
 export function miscClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  // FORCED-ATTACK (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able."
+  // (Bident of Thassa). A turn-scoped combat REQUIREMENT on every creature the activator's opponents control:
+  // the force-attack atom stamps forcedToAttackTurn[opponentId] and opponentAI.pickAttackPlan force-declares
+  // every ABLE attacker for a forced seat that turn. Whole-clause anchored ($) — a filtered/subtype scope
+  // ("nonblue creatures", "creatures target opponent controls") or any rider leaves residue → no match → low
+  // → Arbiter (CREED: never widen or narrow the printed "your opponents control" referent).
+  if (/^creatures your opponents control attack this turn if able$/.test(t)) return { op: "force-attack", who: "opponents", targetType: null };
   // ONE-SHOT EXTRA-LAND (CR 505.5b) — "[you may] play [an|up to N] additional land[s] this turn." A resolving
   // SELF one-shot land-budget bump (Explore +1, Summer Bloom "up to three" → +3, Urban Evolution +1). The
   // parser's α2 wrapper PEELS the leading "you may" before this runs (and leaves the atom UN-optional — the
@@ -311,6 +343,7 @@ export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
+  "force-attack": applyForceAttack, // ===== FORCED-ATTACK ===== (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able" (Bident): a turn-scoped attack requirement enforced in opponentAI.pickAttackPlan
   "play-extra-land-this-turn": applyPlayExtraLandThisTurn, // ===== ONE-SHOT EXTRA-LAND ===== (CR 505.5b) bump the controller's per-turn land budget (Explore/Summer Bloom/Urban Evolution); reset each turn
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"
   // ===== DIVIDE ===== (MT-1) — split N damage among any number of targets via a resolution-time picker.

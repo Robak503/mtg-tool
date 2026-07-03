@@ -68,8 +68,12 @@ describe("GROUP-ACTIVATED grant (queue 1) — recognition", () => {
     // A tutor body stays body-only. (Telekinetic Sliver's "{T}: Tap target permanent" now flips native-static —
     // tap-target-permanent is modeled — so it's no longer the boundary; an unparseable tutor body is.)
     expect(classifyCard(sliver("Tutor Sliver", 'All Slivers have "{T}: Search your library for a card, then shuffle."'))).toBe("body-only");
-    // Magma stays body-only — an X-scaling pump ("+X/+0 where X = the number of Slivers") is NOT modeled (PARK).
-    expect(classifyCard(sliver("Magma Sliver", 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."'))).toBe("body-only");
+    // Magma Sliver now FLIPS native-static — its "+X/+0 where X = the number of Slivers on the battlefield"
+    // subtype-target count-pump is modeled (see the Magma Sliver runtime describe block below). The FN boundary
+    // is now an X-pump over an UNMODELED count source ("the number of creatures on the battlefield" has no count
+    // kind — only the curated subtype-on-battlefield form is modeled), which stays body-only (CREED safe FN).
+    expect(classifyCard(sliver("Magma Sliver", 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."'))).toBe("native-static");
+    expect(classifyCard(sliver("Fake Magma", 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of creatures on the battlefield."'))).toBe("body-only");
     // a GROUP-granted TRIGGERED body whose EFFECT does not route natively (reanimate-on-death) stays body-only
     // (the Tempered Sliver combat-damage→+1/+1-counter body IS modeled now — see groupTriggeredGrant.test.js).
     expect(classifyCard(sliver("Test Reanimator Sliver", 'Sliver creatures you control have "When this creature dies, return it to the battlefield under your control."'))).toBe("body-only");

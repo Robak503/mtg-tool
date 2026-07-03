@@ -35,6 +35,7 @@ import { winGameResolvers } from "./atoms/winGame.js";
 import { rollResolvers } from "./atoms/roll.js";
 import { freeCastResolvers } from "./atoms/freeCast.js";
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
+import { controlResolvers } from "./atoms/control.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
@@ -68,6 +69,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
   ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain
+  ...controlResolvers, // gain-control (CR 720 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
 });
 
 /**
@@ -89,6 +91,7 @@ const PAUSING_OPS_LIST = [
   "tutor", // library.js applyTutor → setPendingTutorChoice
   "scry", // library.js applyScrySurveilAtom → setPendingScryChoice
   "surveil", // library.js applyScrySurveilAtom → setPendingScryChoice (mode "surveil")
+  "reorder-top", // library.js applyReorderTopAtom → setPendingScryChoice (reorder mode — Ponder "put them back in any order")
   "impulse-dig", // library.js applyImpulseDigAtom → setPendingImpulseDigChoice
   "discard-chosen", // hand.js applyDiscardChosen → setPendingHandDiscardChoice
   "discard", // hand.js applyDiscard → advanceDiscardChain → setPendingDiscardChoice

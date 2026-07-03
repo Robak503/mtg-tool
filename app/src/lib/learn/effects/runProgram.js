@@ -710,8 +710,15 @@ export function resolveEdictModeChoice(state, choice) {
  * top in that order, the rest of the looked-at cards go to the bottom (scry) / graveyard (surveil)
  * — then RESUME the suspended program. A null/empty keep list moves everything away; an omitted
  * decision (the auto-keep-all default is supplied by the driver) keeps all on top. Hidden-info safe.
+ *
+ * REORDER-TOP (Ponder) — when the pending choice is a `reorder` one ("put them back in ANY order"),
+ * NONE of the looked-at cards leave the top: the keep-list is completed to the FULL looked-at set (the
+ * caller's order first, then any looked-at id the caller omitted, appended in library order) so nothing
+ * is bottomed — a pure reorder. If the choice `mayShuffle` (Ponder's optional "You may shuffle.") and the
+ * settle opts in (`opts.shuffle`), the library is shuffled AFTER the reorder. The auto/deterministic path
+ * passes no shuffle (declining keeps the deliberate ordering — the strictly stronger legal line).
  */
-export function resolveScryChoice(state, keepIdsOrdered) {
+export function resolveScryChoice(state, keepIdsOrdered, opts = {}) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "scry-surveil") return state;
   let next = clearPendingChoice(state);
@@ -724,9 +731,19 @@ export function resolveScryChoice(state, keepIdsOrdered) {
   // library mutation does, so the kept/moved log is honest under a malformed/duplicate input).
   const valid = new Set((pc.cards || []).map((c) => c.id));
   const seen = new Set();
-  const keep = (keepIdsOrdered || []).filter((id) => valid.has(id) && !seen.has(id) && seen.add(id));
+  let keep = (keepIdsOrdered || []).filter((id) => valid.has(id) && !seen.has(id) && seen.add(id));
+  // REORDER-TOP — put ALL looked-at cards back on top: complete the keep-list to the full set so the
+  // "moved → bottom/graveyard" partition is empty (Ponder never bottoms a looked-at card). Any card the
+  // caller didn't name is appended in its original library order (a legal put-back of the untouched cards).
+  if (pc.reorder) {
+    for (const c of pc.cards || []) if (!seen.has(c.id)) { keep.push(c.id); seen.add(c.id); }
+  }
   next = applyScrySurveil(next, { playerId: pc.controller, n: (pc.cards || []).length, keepIdsOrdered: keep, mode: pc.mode });
-  next = logEvent(next, { kind: "spell-effect", effect: pc.mode, controller: pc.controller, looked: (pc.cards || []).length, moved: (pc.cards || []).length - keep.length });
+  // REORDER-TOP optional shuffle (Ponder's "You may shuffle.") — only when the choice permits it AND the
+  // settle opts in. A plain scry/surveil never shuffles (no mayShuffle flag), so this is a no-op there.
+  const shuffled = pc.mayShuffle && opts.shuffle === true;
+  if (shuffled) next = shuffleControllerLibrary(next, pc.controller);
+  next = logEvent(next, { kind: "spell-effect", effect: pc.reorder ? "reorder-top" : pc.mode, controller: pc.controller, looked: (pc.cards || []).length, moved: (pc.cards || []).length - keep.length, shuffled });
   return resumeAfterChoice(next, pc);
 }
 

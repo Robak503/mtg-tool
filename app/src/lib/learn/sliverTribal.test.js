@@ -13,8 +13,9 @@
  *                        the ward soft-counter chokepoint).
  *
  * Engine-first (THE CREED): each card both CLASSIFIES native AND its behavior RESOLVES end-to-end — a matcher
- * with no working resolution is itself a false positive. PARKED (covered by their own comments): Lazotep
- * Sliver (afflict keyword grant is unmodeled) and Sliver Overlord (indefinite control-change is unmodeled).
+ * with no working resolution is itself a false positive. FLIPPED (positive pins in their own test files):
+ * Lazotep Sliver → native-mixed (afflict group grant, afflict.test.js) and Sliver Overlord → native-activated
+ * (indefinite control-change op:"gain-control", sliverOverlord.test.js). No Sliver-tribal card remains parked here.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 

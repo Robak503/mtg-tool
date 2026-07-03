@@ -58,6 +58,7 @@ import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
+import { gainControlClauseParser } from "./atoms/control.js"; // GAIN-CONTROL — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
@@ -1189,6 +1190,30 @@ function matchImpulseDig(oracle) {
 }
 
 /**
+ * Match the "Look at the top N cards of your library, then put them back in any order.[ You may shuffle.]"
+ * REORDER-TOP template (Ponder — N=3 + optional shuffle; Preordain-family "look, reorder, no bottom"). A
+ * DISTINCT effect from impulse-dig / scry: EVERY looked-at card is put BACK on top in a chosen order (none go
+ * to hand, none are bottomed), with an OPTIONAL shuffle. The "look … then put them back … You may shuffle."
+ * span (the comma-joined "then" and the separate optional-shuffle sentence) would be shattered by splitClauses,
+ * so it's matched up front as ONE `reorder-top` atom; any trailing sentence (Ponder's "Draw a card.") runs
+ * through the normal clause pipeline via collapsed(). Returns `{ atom, rest }` or null.
+ *
+ * ALL-OR-NOTHING ALLOWLIST: EXACTLY "look at the top N cards of your library, then put them back in any order"
+ * + an OPTIONAL trailing "You may shuffle." A variable/unspelled N, a "reveal" (not "look"), a filtered reorder,
+ * a MANDATORY shuffle ("then shuffle"), or a "put … on the bottom" disposition all fail the anchor → low →
+ * Arbiter (FN-safe — a partial would be forbidden). `mayShuffle` records whether the optional shuffle is present.
+ */
+function matchReorderTop(oracle) {
+  const m = String(oracle).match(
+    /^look at the top (\w+) cards? of your library, then put them back in any order\.(\s+you may shuffle\.)?/i,
+  );
+  if (!m) return null;
+  const amount = DIG_NUM[m[1].toLowerCase()];
+  if (!amount) return null;                                     // "the top X cards" (variable) / unspelled → Arbiter
+  return { atom: { op: "reorder-top", amount, mayShuffle: !!m[2] }, rest: oracle.slice(m[0].length).trim() };
+}
+
+/**
  * Match the "Look at the top N cards of your library. You may put a land card from among them onto the
  * battlefield [tapped]. Put the rest on the bottom of your library in a random order." template — a DIFFERENT
  * effect from impulse-dig (Silverback Elder mode 2). Instead of keeping a card to HAND, it puts a LAND onto the
@@ -1990,6 +2015,35 @@ function matchMassDestroyTreasurePerNontoken(oracle) {
   return { atom: { op: "mass-destroy-treasure-per-nontoken", targetType: "eachCreature" } };
 }
 
+/**
+ * ===== WINDFALL (max-discarded wheel) ===== "Each player discards their hand, then draws cards equal to the
+ * greatest number of cards a player discarded this way." (Windfall, Whispering Madness' base body). A ONE-
+ * sentence discard-then-draw where the draw count is the GREATEST number any player discarded — a back-
+ * reference to the discard step that just resolved (CR 118.10 "this way"). The plain WHEEL rewrite (§the
+ * splitClauses fold above) only handles a FIXED "draws N cards" tail; this variable "greatest discarded" count
+ * has no standalone count source, so the ", then" split would orphan it → low. Collapse the whole compound up
+ * front to TWO atoms in fixed order:
+ *   1. discard who:eachPlayer all:true recordMaxDiscarded — every player pitches their whole hand (no choice,
+ *      resolved inline — see applyDiscard), and the resolver stamps state.maxDiscardedThisWay = the greatest
+ *      whole-hand size it pitched (the exact "greatest number of cards a player discarded this way").
+ *   2. draw who:eachPlayer amountCount:{kind:"maxDiscardedThisWay"} — every player draws that stamped max
+ *      (countForSpec reads state.maxDiscardedThisWay, the inter-atom channel — mirrors Yuriko's revealedCardMV /
+ *      the dice-roll diceResult mid-resolution value capture).
+ * The two atoms are emitted TOGETHER (never independently parseable), so the record-then-read order is
+ * structurally guaranteed — the draw can never read a stale/absent max. Anchored ^…$ on the exact printed
+ * shape; a rider (Whispering Madness' Cipher line is a SEPARATE line, so the anchored single-sentence match
+ * fails on the multi-line oracle → the whole card stays Arbiter — a SAFE false-negative) leaves residue → no
+ * match → low → Arbiter (CREED). Not an X spell. Returns { atoms }.
+ */
+function matchWindfallMaxDiscard(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way$/.test(s)) return null;
+  return { atoms: [
+    { op: "discard", who: "eachPlayer", all: true, recordMaxDiscarded: true, targetType: null },
+    { op: "draw", who: "eachPlayer", amountCount: { kind: "maxDiscardedThisWay", per: 1 }, targetType: null },
+  ] };
+}
+
 // ===== OPTIONAL-MANA-PAYMENT (CR 603.7c — the "pay {cost}" reflexive) ===== the single-color/generic mana
 // pips of an optional-pay cost, parsed into the planPayment cost shape — or null if ANY pip isn't a known
 // FIXED mana symbol (digit / single color / {C} / hybrid). {X}/{Y}/{Z} → null (Shanna's "{X}" is unmodeled:
@@ -2428,6 +2482,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // (the two anchors are mutually exclusive — hand vs. battlefield — so order is documentation, not precedence).
   const digLand = matchDigLandToBattlefield(oracle);
   if (digLand) return collapsed(digLand);
+  // REORDER-TOP (Ponder) — "Look at the top N cards of your library, then put them back in any order. You may
+  // shuffle." → ONE reorder-top atom (look at top N → put ALL back on top in any order, with an optional shuffle;
+  // nothing bottomed). The comma-joined "then" + the separate optional-shuffle sentence would shatter under the
+  // clause splitter, so it's collapsed up front; Ponder's trailing "Draw a card." runs through the normal pipeline
+  // via collapsed(). Disjoint anchor from impulse-dig ("put them back in any order" vs "put one … into your hand"),
+  // so order is documentation. HIGH iff every atom (this + any rider) is KNOWN. Not an X spell.
+  const reorderTop = matchReorderTop(oracle);
+  if (reorderTop) return collapsed(reorderTop);
   // CHOSEN-TYPE DRAW (Distant Melody) — "Choose a creature type. Draw a card for each permanent you control
   // of that type." spans two sentences, so it's collapsed up front to one chosen-type-count draw atom.
   const ctd = matchChooseTypeDraw(oracle);
@@ -2563,6 +2625,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const bm = matchMassDestroyTreasurePerNontoken(oracle);
   if (bm && KNOWN.has(bm.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [bm.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== WINDFALL ===== "Each player discards their hand, then draws cards equal to the greatest number of cards
+  // a player discarded this way." → [discard eachPlayer all recordMaxDiscarded, draw eachPlayer amountCount
+  // maxDiscardedThisWay] (the draw count = the greatest whole-hand pitched, stamped at resolution). The variable
+  // "greatest discarded" back-reference defeats the plain WHEEL rewrite (fixed-N only) + the clause splitter, so
+  // it's collapsed up front. HIGH iff both atoms are KNOWN (they are — discard + draw). Not an X spell.
+  const wf = matchWindfallMaxDiscard(oracle);
+  if (wf && wf.atoms.every((a) => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: wf.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do, <reflexive>." — fold the reflexive as
   // the sequential tail of the (mandatory, always-firing) primary. matchReflexiveTrigger applies every CREED
@@ -3353,3 +3424,10 @@ registerClauseParser(putFromHandClauseParser);
 // cast-free/decline decision, mirroring discover). Fixed-MV-cap forms only; a variable/relational cap or a
 // multi-cast "any number of spells" stays low → Arbiter. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(freeCastClauseParser);
+// GAIN-CONTROL (CR 720 / 702.10c) — "Gain control of target creature." / "Gain control of target <Subtype>."
+// (Sliver Overlord). INDEFINITE (non-reverting) control change only — the "(This effect lasts indefinitely.)"
+// reminder is pre-stripped; a duration word ("until end of turn"), a controller/self-exclusion restriction, or
+// a non-curated word after "target" fails the anchored matcher → LOW → Arbiter (CREED). The subtype rides as a
+// {kind:"subtype"} target restriction (enumerateTargets enforces it), and applyGainControl moves the permanent
+// to the new controller's battlefield summoning-sick. Whole-clause anchored — matches no earlier parser.
+registerClauseParser(gainControlClauseParser);

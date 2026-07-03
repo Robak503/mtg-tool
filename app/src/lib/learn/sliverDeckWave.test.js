@@ -20,9 +20,10 @@
  * PARKED (pinned non-native here with the exact blocker, so a future flip is deliberate, never accidental):
  *   Bident of Thassa (force-attack-opponents activated = goad-class, unmodeled), Damn (Overload modal cast
  *   target→each, unmodeled), Lifecrafter's Bestiary (optional-mana-payment reflexive "you may pay {G}. If you
- *   do, draw" — unmodeled), Essence Sliver (source-keyed lifegain subsystem), Magma Sliver (granted dynamic-X
- *   pump), Lazotep Sliver (afflict keyword grant), Sliver Overlord (tutor + indefinite control), Ponder /
- *   Windfall / For the Ancestors (library/wheel/reveal-dig — Arbiter-domain).
+ *   do, draw" — unmodeled), For the Ancestors (reveal-dig — Arbiter-domain, the sole remaining park).
+ *   NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord + Ponder + Windfall ALL FLIPPED —
+ *   subtypeGlobal lifegain / granted count-scaled pump / afflict group grant / gain-control (CR 720) /
+ *   REORDER-TOP / each-player-wheel respectively; positive pins live in the per-card describe blocks + test files.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -176,28 +177,60 @@ describe("Lifecrafter's Bestiary — OPTIONAL-MANA-PAYMENT (CR 603.7c) → nativ
   });
 });
 
+describe("Essence Sliver — GLOBAL SUBTYPE damage → controller-lifegain → native-trigger", () => {
+  // "Whenever a Sliver deals damage, its controller gains that much life." A Sliver-wide TRIGGERED grant that
+  // reuses the subtypeGlobal + itsController machinery (Synapse/Brood) plus a new "gain that much life"
+  // combat-damage-scaled sentinel. Full runtime lifegain proofs (amount scaling, beneficiary, CREED near-misses)
+  // live in essenceSliver.test.js; this is the deck-wave classification pin.
+  const CARD = { name: "Essence Sliver", type: "Creature — Sliver", mana: "{3}{W}", oracle: "Whenever a Sliver deals damage, its controller gains that much life." };
+  it("classifies native-trigger", () => {
+    expect(classifyCard(CARD)).toBe("native-trigger");
+  });
+});
+
+describe("Sliver Overlord — GAIN-CONTROL (CR 720 / 702.10c) → native-activated", () => {
+  // The tutor half ("Search your library for a Sliver card …") was already modeled (the shipped Sliver-filtered
+  // tutor); modeling the second ability's INDEFINITE control change ("Gain control of target Sliver.") — the new
+  // op:"gain-control" atom — flips the WHOLE card. Both activated abilities now route natively. Full runtime +
+  // CREED near-miss coverage lives in sliverOverlord.test.js.
+  const CARD = { name: "Sliver Overlord", type: "Legendary Creature — Sliver Mutant", mana: "{W}{U}{B}{R}{G}", oracle: "{3}: Search your library for a Sliver card, reveal that card, put it into your hand, then shuffle.\n{3}: Gain control of target Sliver. (This effect lasts indefinitely.)" };
+  it("classifies native-activated", () => {
+    expect(classifyCard(CARD)).toBe("native-activated");
+  });
+});
+
 // ───────────────────────────────────────────────────────────────────────────────
 // PARKED — pin the Arbiter-domain tail (whole-card or park; a future flip must be deliberate)
 // ───────────────────────────────────────────────────────────────────────────────
 describe("Slivers PARK pins — these remain non-native until their blocker subsystem ships", () => {
   const cases = [
-    ["Bident of Thassa", "Legendary Enchantment Artifact", "{2}{U}{U}", "Whenever a creature you control deals combat damage to a player, you may draw a card.\n{1}{U}, {T}: Creatures your opponents control attack this turn if able.", "body-only"], // force-attack-opponents activated = goad-class, unmodeled
+    // NOTE: Bident of Thassa FLIPPED to native-mixed (FORCE-ATTACK-1, CR 508.1a) — its combat-damage may-draw
+    // trigger already routed native; modeling the "{1}{U},{T}: Creatures your opponents control attack this turn
+    // if able." activated ability (a turn-scoped attack requirement, enforced in opponentAI.pickAttackPlan) flips
+    // the WHOLE card. The positive pin lives in forceAttack.test.js.
     // NOTE: Damn FLIPPED to native-spell (OVERLOAD now in the parser's CAST_KEYWORD_LINE family) — its printed
     // single-target mode ("Destroy target creature. …") is the one the engine casts; the "each" overload rewrite
     // is vacuous for the normal cast. The positive pin lives in warpOverloadCoverage.test.js.
     // NOTE: Lifecrafter's Bestiary FLIPPED to native-trigger (OPTIONAL-MANA-PAYMENT, CR 603.7c) — its upkeep
     // scry was already native; modeling "you may pay {G}. If you do, draw a card." flips the WHOLE card. The
     // positive pin moved to the "Slivers native" block below.
-    ["Essence Sliver", "Creature — Sliver", "{3}{W}", "Whenever a Sliver deals damage, its controller gains that much life.", "body-only"], // source-keyed lifegain subsystem
-    ["Magma Sliver", "Creature — Sliver", "{3}{R}", "All Slivers have \"{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield.\"", "body-only"], // granted dynamic-X pump
-    ["Lazotep Sliver", "Creature — Zombie Sliver", "{3}{B}", "Sliver creatures you control have afflict 2. (Whenever a creature with afflict 2 becomes blocked, defending player loses 2 life.)\nWhenever a nontoken Sliver you control dies, amass Slivers 2. (Put two +1/+1 counters on an Army you control. It's also a Sliver. If you don't control an Army, create a 0/0 black Sliver Army creature token first.)", "body-only"], // afflict keyword grant
-    ["Sliver Overlord", "Legendary Creature — Sliver Mutant", "{W}{U}{B}{R}{G}", "{3}: Search your library for a Sliver card, reveal that card, put it into your hand, then shuffle.\n{3}: Gain control of target Sliver. (This effect lasts indefinitely.)", "body-only"], // tutor + indefinite control
-    ["Ponder", "Sorcery", "{U}", "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.", "arbiter-spell"], // library reorder
-    ["Windfall", "Sorcery", "{2}{U}", "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.", "arbiter-spell"], // wheel / symmetric draw
+    // NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord + Ponder + Windfall ALL FLIPPED — positive pins
+    // live in the dedicated describe blocks above + per-card test files (essenceSliver / magmaSliver / afflict /
+    // sliverOverlord / reorderTop / wheelDiscardHand). None remain body-only, so their PARK entries are removed.
     ["For the Ancestors", "Instant", "{2}{G}", "Choose a creature type. Look at the top six cards of your library. You may reveal any number of cards of the chosen type from among them and put the revealed cards into your hand. Put the rest on the bottom of your library in a random order.\nFlashback {3}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)", "arbiter-spell"], // reveal-dig
   ];
   it.each(cases)("%s stays non-native (%s)", (name, type, mana, oracle, expectedTier) => {
     const tier = classifyCard({ name, type, mana, oracle });
     expect(tier).toBe(expectedTier);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// REORDER-TOP (Ponder) — "Look at the top N …, then put them back in any order. You may shuffle." flipped native
+// ───────────────────────────────────────────────────────────────────────────────
+describe("Ponder — REORDER-TOP (look top 3 → reorder all back on top → optional shuffle → draw) → native-spell", () => {
+  const CARD = { name: "Ponder", type: "Sorcery", mana: "{U}", oracle: "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card." };
+  it("classifies native-spell", () => {
+    expect(classifyCard(CARD)).toBe("native-spell");
   });
 });

@@ -49,8 +49,10 @@ describe("discard-hand / wheel — coverage flips", () => {
 });
 
 describe("discard-hand / wheel — CREED: a count-scaled draw / unless-pay / rider stays Arbiter", () => {
-  it("'draws cards equal to the greatest number discarded' (Windfall) stays Arbiter", () => {
-    expect(classifyCard(S("Windfall", "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way."))).not.toMatch(/^native/);
+  it("'draws cards equal to the greatest number discarded' (Windfall) NOW flips native (WINDFALL max-discard matcher)", () => {
+    // Was Arbiter (the greatest-discarded draw count was unmodeled). The WINDFALL matcher now stamps
+    // state.maxDiscardedThisWay on the whole-hand discard and the following each-player draw reads it.
+    expect(classifyCard(S("Windfall", "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way."))).toBe("native-spell");
   });
   it("'discards their hand unless they pay 7 life' (Tyrannize) stays Arbiter", () => {
     expect(classifyCard(S("Tyrannize", "Target player discards their hand unless they pay 7 life."))).not.toMatch(/^native/);

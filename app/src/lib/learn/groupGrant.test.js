@@ -135,7 +135,21 @@ describe("GROUP-GRANT (B) — granted quoted MANA ability (parse + CREED gate)",
     // A triggered body whose EFFECT is unmodeled (reanimate-on-death) → no descriptor (the trigger detects but
     // does not route natively, so the group-triggered validator rejects it).
     expect(parseStaticAbilities({ name: "Test Reanimator Sliver", oracle: 'Sliver creatures you control have "When this creature dies, return it to the battlefield under your control."' })).toEqual([]);
-    expect(parseStaticAbilities({ name: "Magma Sliver", oracle: 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."' })).toEqual([]);
+    // Magma Sliver now DOES emit a grant (its count-scaled subtype pump is modeled — see the positive assertion
+    // below). The still-unmodeled X-pump boundary is an X over an UNMODELED count source (a bare card-type board
+    // count has no count kind — only the curated subtype-on-battlefield form is modeled).
+    expect(parseStaticAbilities({ name: "Fake Magma", oracle: 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of creatures on the battlefield."' })).toEqual([]);
+  });
+
+  it("Magma Sliver — the modeled count-scaled subtype pump emits an activated group grant", () => {
+    // "All Slivers have \"{T}: Target Sliver creature gets +X/+0 … where X is the number of Slivers on the
+    // battlefield.\"" — a modeled subtype-target count-pump → a layer-6 addAbility (kind "activated") carrying
+    // the quoted text, scoped by the "All Slivers" selector. legalChoices re-parses the quoted text on each
+    // recipient (see magmaSliver.test.js for the runtime pump).
+    const grants = parseStaticAbilities({ name: "Magma Sliver", oracle: 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."' });
+    expect(grants).toHaveLength(1);
+    expect(grants[0].op.grant.kind).toBe("activated");
+    expect(grants[0].op.grant.quoted).toContain("Target Sliver creature gets +X/+0");
   });
 
   it("CREED: a spending RESTRICTION or a non-{T} cost rider is rejected (would grant free/unrestricted mana)", () => {

@@ -1426,6 +1426,35 @@ function detectSubtypeGlobalCombatDamageToCreature(condRaw, _cardName, _typeLine
   return { event: "combatDamageToCreature", scope: "subtypeGlobalToCreature", whose: "any", subtypeFilter: filter, destroyThatCreature: true };
 }
 
+// GLOBAL SUBTYPE damage → controller-lifegain (Essence Sliver) — "Whenever a <Subtype> deals damage, ITS
+// CONTROLLER gains that much life." A Sliver-wide TRIGGERED grant: every Sliver on the battlefield (any
+// controller) has a damage→lifegain trigger, and the LIFE goes to the DEALING creature's controller, scaled to
+// the damage amount. Reuses the SAME subtypeGlobal + itsController machinery as detectSubtypeGlobalCombatDamage
+// (Synapse/Brood) — the ONLY differences are (1) the bare "deals damage" condition (NO "combat", NO "to a
+// player") and (2) the amount-scaled "gains that much life" effect. The engine's checkCombatDamageTriggers
+// subtypeGlobal scan fires this on combat damage to a player, threading ctx.combatDamageAmount (which the
+// "gain that much life" sentinel reads) + the dealer's controller as the beneficiary override. Slivers dealing
+// combat damage to a CREATURE or non-combat damage under-fire (that path carries no amount) — a SAFE
+// false-negative (the controller gains LESS life, never a wrong/fabricated amount), the same accepted
+// approximation as the TRIG-DMG-TO-OPPONENT self form ("deals damage" ≈ combat damage in the simulator).
+// CREED gates, mirroring the sibling detectors: fires ONLY when (a) the condition is the BARE global "deals
+// damage" form (END-anchored; NO "you control" — a you-control form is a different scope; NO "combat"/"to a
+// player" rider — those match the sibling detector instead) AND (b) the effect is EXACTLY "its controller gains
+// that much life" (the sole beneficiary+amount shape this scope models; a fixed-N "gains 2 life" or a different
+// beneficiary leaves residue → non-native). parseSubtypeList rejects a card-TYPE word ("a creature deals damage")
+// → null → no over-fire. itsController:true threads the dealer-controller beneficiary override.
+function detectSubtypeGlobalDamageLifegain(condRaw, _cardName, _typeLine, effectRaw) {
+  const c = String(condRaw || "").toLowerCase().trim();
+  const eff = String(effectRaw || "").toLowerCase().trim();
+  const m = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) deals damage$/);
+  if (!m) return null;
+  if (/\byou control\b/.test(c)) return null;          // a you-control form is a different scope, not modeled here
+  if (!/^its controller gains that much life$/.test(eff)) return null; // only the dealer-controller amount-scaled lifegain (CREED gate)
+  const filter = parseSubtypeList(m[1]);
+  if (!filter) return null;                            // a card-TYPE word / non-subtype → Arbiter (no over-fire)
+  return { event: "combatDamageToPlayer", scope: "subtypeGlobal", whose: "any", subtypeFilter: filter, itsController: true };
+}
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
 // consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
@@ -1650,13 +1679,18 @@ export function detectTriggers(card) {
         effectClause = effectClause.replace(/^it /i, "the triggering creature ");
       } else if (cls.scope === "subtypeGlobal" && cls.itsController) {
         // GLOBAL SUBTYPE "its controller" (Synapse/Brood Sliver — "Whenever a Sliver deals combat damage to a
-        // player, ITS CONTROLLER may draw / create …"). The beneficiary is the DEALING creature's controller
-        // (CR 608.2c — "its controller" refers to the object the ability triggered on), threaded as the
-        // pending trigger's `controller` by checkCombatDamageTriggers' beneficiary override. Rewrite the
-        // leading "its controller" → "you" so the effect parser models the payoff against that controller
-        // (the same draw/create atoms the YOU-control forms use). The detector already gated nativeness on
-        // this exact "its controller" prefix, so a different beneficiary phrase never reaches this rewrite.
-        effectClause = effectClause.replace(/^its controller /i, "you ");
+        // player, ITS CONTROLLER may draw / create …"; Essence Sliver — "…its controller GAINS that much life").
+        // The beneficiary is the DEALING creature's controller (CR 608.2c — "its controller" refers to the object
+        // the ability triggered on), threaded as the pending trigger's `controller` by checkCombatDamageTriggers'
+        // beneficiary override. Rewrite the leading "its controller" → "you" so the effect parser models the
+        // payoff against that controller (the same draw/create/gain-life atoms the YOU-control forms use). The
+        // detector already gated nativeness on this exact "its controller" prefix, so a different beneficiary
+        // phrase never reaches this rewrite. VERB AGREEMENT: the may-forms ("its controller may …") need no fix
+        // ("may" is invariant → "you may …"), but the bare present-tense "its controller GAINS" would become the
+        // ungrammatical "you gains", which the second-person "gain that much life" sentinel can't match — so
+        // normalize the leading third-person "gains" → "gain" in the same rewrite (anchored to the exact
+        // Essence-shape lead so no other clause is touched).
+        effectClause = effectClause.replace(/^its controller gains /i, "you gain ").replace(/^its controller /i, "you ");
       } else if (cls.scope === "subtypeGlobalToCreature" && cls.destroyThatCreature) {
         // GLOBAL SUBTYPE combat-damage-to-a-creature (Toxin Sliver — "Whenever a Sliver deals combat damage to
         // a creature, destroy THAT creature. It can't be regenerated."). "that creature" is the DAMAGED creature
@@ -1760,6 +1794,40 @@ export function detectTriggers(card) {
       event: "blocksOrBecomesBlocked", scope: "self", whose: "any",
       effect: null, effectClause: `this creature gets +${n}/+${n} until end of turn`,
       optional: false, sourceText: `Bushido ${n}`,
+    });
+  }
+  // AFFLICT (CR 702.131) — KEYWORD→TRIGGER synthesis, the BUSHIDO precedent exactly. "Afflict N" is a keyword
+  // whose triggered ability lives in REMINDER parens ("(Whenever this creature becomes blocked, defending
+  // player loses N life.)"), which the boundary-anchored When/Whenever/At regex above can't reach (the "("
+  // before "Whenever" isn't a sentence boundary). Synthesize the real "becomesBlocked" descriptor off the
+  // keyword so the runtime FIRES it (checkBlockTriggers fires the becomesBlocked event for each blocked
+  // attacker, threading the defending player) and coverage counts it (allTriggerSentencesModeled bumps the
+  // shaped count for the keyword to match). The effectClause is the CANONICAL afflict sentence's effect
+  // ("defending player loses N life"), which parseEffectClause maps HIGH to the lose-life atom (who:
+  // defendingPlayer) — so triggerRoutesNatively gates it HIGH. UNLIKE rampage the amount is FIXED (N), so this
+  // descriptor is the authoritative one (no separate dynamic fire in checkBlockTriggers). scope:"self"/
+  // whose:"any" matches the modeled becomes-blocked contract. This also drives the GROUP-GRANT case (Lazotep
+  // Sliver "Sliver creatures you control have afflict 2"): grantedTriggersForGroup re-runs detectTriggers on
+  // the granted quoted afflict sentence, which the NORMAL grammar detects (the quoted body has no reminder
+  // parens) — so the group path never reaches this keyword branch and there's no double-detection.
+  // GUARD (CREED — no false self-synthesis): match ONLY the printed KEYWORD form (a bare "Afflict N" line),
+  // never a GROUP GRANT ("Sliver creatures you control have afflict N" — Lazotep Sliver, Cyberman Patrol) where
+  // the afflict belongs to the GRANTED creatures, not this permanent. Two exclusions, both required:
+  //   (a) STRIP REMINDER first — afflict's reminder REPEATS the keyword ("(Whenever a creature with afflict N
+  //       becomes blocked, …)"), and that inner "afflict N" is NOT preceded by "have"/"has", so it would defeat
+  //       the lookbehind and cause a false self-synthesis on Lazotep/Cyberman. (bushido/rampage reminders don't
+  //       repeat their keyword, so they never needed this.)
+  //   (b) NEGATIVE-LOOKBEHIND on "have/has " — the grant signature; the printed keyword is always line-initial
+  //       or after another keyword (Khenra "Afflict 1", Spellweaver "Prowess\nAfflict 2"), never after "have".
+  // The grant form is handled by the static group-grant path (staticAbilityParser → grantedTriggersForGroup),
+  // which fires afflict on each RECIPIENT — so it must NOT also self-synthesize here.
+  const afflict = oracle.replace(/\([^)]*\)/g, " ").match(/(?<!\bhave\s)(?<!\bhas\s)\bafflict (\d+)\b/i);
+  if (afflict) {
+    const n = parseInt(afflict[1], 10);
+    out.push({
+      event: "becomesBlocked", scope: "self", whose: "any",
+      effect: null, effectClause: `defending player loses ${n} life`,
+      optional: false, sourceText: `Afflict ${n}`,
     });
   }
   // RAMPAGE (subsystem 2) — KEYWORD→TRIGGER synthesis (CR 702.23a — "Whenever this creature becomes blocked,
@@ -2512,7 +2580,14 @@ export function checkBlockTriggers(state) {
     seenAttacker.add(b.attackerId);
     const lk = findPermanent(state, b.attackerId);
     if (!lk) continue;
-    fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
+    // DEFENDING-PLAYER (CR 509.1h) — thread the blocked attacker's declared defender into the context so a
+    // becomes-blocked effect that reads "defending player" (AFFLICT — "defending player loses N life") resolves
+    // to the right player. The attacker's `defender` was stamped at declare-attackers (checkAttackTriggers uses
+    // the same field). Absent (a synthetic combat with no attacker record) → applyLoseLife's defendingPlayer
+    // branch is a clean no-op, never a fabricated/wrong loss. Non-afflict becomes-blocked effects ignore it.
+    const attackerRec = (state.combat?.attackers || []).find((a) => a?.permanentId === b.attackerId);
+    const context = attackerRec?.defender ? { defenderId: attackerRec.defender } : {};
+    fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
   }
   // BUSHIDO (subsystem 2) — the combined "blocks OR becomes blocked" event fires for a creature in EITHER
   // role: each blocker AND each blocked attacker. Deduped across both roles so a creature that somehow
@@ -3309,3 +3384,10 @@ registerTriggerDetector(detectSubtypeGlobalCombatDamage);
 // the to-a-creature form (the inline combat-damage block returns only for the to-a-PLAYER you-control shapes),
 // so this is purely additive (no existing classification changes).
 registerTriggerDetector(detectSubtypeGlobalCombatDamageToCreature);
+// GLOBAL SUBTYPE damage → controller-lifegain ("a <Subtype> deals damage, its controller gains that much life"
+// — Essence Sliver). Registered here (defined above, no import) so every importer — runtime AND the coverage
+// metric — sees it. Consulted only after the inline classifyCondition returns falsy, which it does for the bare
+// "deals damage" form (the inline combat-damage block only handles the "…combat damage to a player/creature/an
+// opponent" shapes, and the self-scope "deals damage to a player/opponent" — none match "a <Subtype> deals
+// damage"), so this is purely additive (no existing classification changes).
+registerTriggerDetector(detectSubtypeGlobalDamageLifegain);
