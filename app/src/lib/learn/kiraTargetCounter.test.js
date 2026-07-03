@@ -20,7 +20,6 @@ import {
   resetBecameTargetThisTurnAllPlayers,
   _resetIdsForTests,
 } from "./gameState.js";
-import { publicCard, lookupCard } from "../server/cardIndex.js";
 import { classifyCard } from "./coverage.js";
 import { hasKiraGrant, isNativeKira, applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { isKeywordOnly } from "./coverage.js";
@@ -36,7 +35,9 @@ const KIRA_ORACLE =
 
 describe("KIRA — classifier", () => {
   it("the real Kira, Great Glass-Spinner classifies native-trigger", () => {
-    const c = publicCard(lookupCard("Kira, Great Glass-Spinner"));
+    // Inline card (real Scryfall oracle) — plain vitest has no oracle index on disk, so lookupCard is unavailable
+    // here; every other classifier test uses an inline card object the same way.
+    const c = { name: "Kira, Great Glass-Spinner", type: "Legendary Creature — Spirit", mana: "{1}{U}{U}", oracle: KIRA_ORACLE };
     expect(c.oracle).toContain("becomes the target of a spell or ability for the first time each turn");
     expect(classifyCard(c)).toBe("native-trigger");
   });
