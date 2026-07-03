@@ -11,8 +11,15 @@
  *       gamesPer?:  number,     // repeats per pairing; each repeat gets a distinct shuffle seed (real variety)
  *       allProfiles?: boolean,  // when true, resolve deckIds across ALL profiles (the
  *                               // 13-deck set spans two); default = active profile only
- *       record?:    boolean     // OPT-IN: also bank a per-turn training trajectory
+ *       record?:    boolean,    // OPT-IN: also bank a per-turn training trajectory
  *                               // (Track-1a) to profilePath("self-play/trajectories")
+ *       baseSeed?:  number,     // HB-4: batch base seed (default 1 — deterministic; a "run
+ *                               // again" re-banks byte-identical rows UNLESS you vary this;
+ *                               // echoed in the response + sidecar and stamped per game)
+ *       mulligan?:  boolean,    // AI-F9: default true (AI London mulligan — unkeepable dealt
+ *                               // 7s are shipped); false recovers keep-every-7
+ *       rotateSeats?: boolean,  // HB-5 (opt-in): rotate deck→seat across the batch
+ *       podShuffle?:  boolean   // HB-6 (opt-in): re-deal deck→pod composition each cycle
  *     }
  *
  *   Response (JSON):
@@ -62,6 +69,7 @@ import {
   runSelfPlayBatch,
   trajectoriesToJsonl,
   writeTrajectoriesJsonl,
+  summarizeSeatOutcomes,
 } from "../../../lib/learn/selfPlayRunner.js";
 import {
   aggregateBreakages,
@@ -107,6 +115,14 @@ export async function POST(request) {
   const mode = body?.mode === "standard" ? "standard" : "commander";
   const gamesPer = Number.isFinite(body?.gamesPer) ? body.gamesPer : 1;
   const record = body?.record === true;
+  // HB-4: batch base seed. Default 1 (deterministic, as always) — but now the caller can
+  // vary it, it's echoed back + stamped into the sidecar and every recorded game, so a
+  // "run again" that would re-bank duplicate training rows is detectable/preventable.
+  // Coerced >>>0 to match the runner's own normalization (the echo IS the effective seed).
+  const baseSeed = Number.isFinite(body?.baseSeed) ? body.baseSeed >>> 0 : 1;
+  const mulligan = body?.mulligan === false ? false : true; // AI-F9: default ON
+  const rotateSeats = body?.rotateSeats === true; // HB-5 (opt-in)
+  const podShuffle = body?.podShuffle === true; // HB-6 (opt-in)
   // "pod" = run the selection as a SINGLE table; "all" (default) = every pairing
   // the runner builds. We honour "pod" by trimming to one pod-size worth of decks
   // below, so the UI's "just the selected pod" promise is real, not cosmetic.
@@ -159,7 +175,7 @@ export async function POST(request) {
   // `record` (opt-in) also captures a per-turn feature trajectory for Track-1a.
   let batch;
   try {
-    batch = runSelfPlayBatch(runnerDecks, { mode, gamesPer, record });
+    batch = runSelfPlayBatch(runnerDecks, { mode, gamesPer, record, baseSeed, mulligan, rotateSeats, podShuffle });
   } catch (error) {
     return Response.json(
       { error: error?.message || "Self-play batch failed." },
@@ -167,6 +183,9 @@ export async function POST(request) {
     );
   }
   const aggregate = aggregateBreakages(batch.games);
+  // HB-7: per-seat / per-deck / on-the-play win tables (analysis-only) so a turn-order
+  // position bias is measurable from the Sim Center, not just the CLI.
+  const seatSummary = summarizeSeatOutcomes(batch.games);
   const generatedAt = new Date().toISOString();
   const report = formatBreakageTxt(aggregate, { deckNames, mode, generatedAt });
 
@@ -201,6 +220,8 @@ export async function POST(request) {
         deckNames,
         ...(skippedDecks.length ? { skippedDecks } : {}),
         deckIds,
+        baseSeed, // HB-4: the effective batch seed — a duplicate banking of this exact run is identifiable
+        seatSummary, // HB-7: win-by-seat/deck/on-the-play tables (Wilson CIs)
         breakageCount: aggregate.cards.length,
         ...aggregate,
         games: undefined,
@@ -219,6 +240,8 @@ export async function POST(request) {
       outcomes: aggregate.outcomes,
       avgTurns: aggregate.avgTurns,
       breakages: aggregate.cards,
+      baseSeed,
+      seatSummary,
       report,
       file: null,
       writeError: error?.message || String(error),
@@ -237,6 +260,8 @@ export async function POST(request) {
     outcomes: aggregate.outcomes,
     avgTurns: aggregate.avgTurns,
     breakages: aggregate.cards,
+    baseSeed,
+    seatSummary,
     report,
     file: filename,
     trajectoryFile,
