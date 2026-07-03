@@ -2851,7 +2851,11 @@ function prowessDescriptor() {
  */
 export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null }) {
   if (!spellCard) return state;
-  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
+  // `castingPlayerId` carries the CASTER's seat into every cast-trigger's context (spread into the resolver ctx by
+  // runEffectProgram). Load-bearing for OPPONENT-PAYS-TO-DENY (taxed-payment) — the pay-decision belongs to the
+  // player who cast, not the watcher's controller. Additive + inert for every existing cast trigger (no other
+  // consumer reads it). See docs/orchestration/corpus-levers-buildspec.md.
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {

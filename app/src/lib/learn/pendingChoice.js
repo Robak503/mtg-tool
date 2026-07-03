@@ -43,6 +43,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-draw-discard",
   "optional-discard-payment",
   "sac-unless-pay",
+  "taxed-payment",
 ];
 
 /**
@@ -408,6 +409,22 @@ export function setPendingSacUnlessPayChoice(state, { controller, cost, sourceId
   return {
     ...next,
     pendingChoice: { kind: "sac-unless-pay", controller, cost, sourceId, sourceName },
+  };
+}
+
+/**
+ * OPPONENT-PAYS-TO-DENY (taxed-payment, CR 603.7c) — "Whenever an opponent casts a spell, you may draw a card unless
+ * that player pays {N}." (Rhystic Study). The DECISION belongs to the `payer` (the opponent who cast), so
+ * `controller` IS the payer — the learnSession driver keys the choice SEAT off pc.controller, so this routes the
+ * pay/decline to the payer's seat with NO special driver logic. `beneficiary` (the trigger's controller) draws when
+ * the payer declines / can't afford. FIFO.
+ */
+export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "taxed-payment-pending", payer, beneficiary, amount: wardCostHeadline(cost), sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName },
   };
 }
 

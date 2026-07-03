@@ -99,6 +99,7 @@ const PAUSING_OPS_LIST = [
   "optional-draw-discard", // stack.js applyOptionalDrawDiscard → setPendingOptionalDrawDiscardChoice
   "optional-discard-payment", // stack.js applyOptionalDiscardPayment → setPendingOptionalDiscardPaymentChoice (the cost-discard pause; payoff is non-pausing)
   "sac-unless-pay", // stack.js applyUpkeepSacUnlessPay → setPendingSacUnlessPayChoice (upkeep pay-or-sacrifice)
+  "taxed-draw", // stack.js applyTaxedDraw → setPendingTaxedPaymentChoice (opponent pays or you draw — Rhystic Study)
 ];
 for (const op of PAUSING_OPS_LIST) {
   if (!ATOM_RESOLVERS[op]) throw new Error(`PAUSING_ATOM_OPS drift: "${op}" is not a registered atom op`);

@@ -1639,6 +1639,26 @@ function matchUpkeepSacUnlessPay(oracle) {
 }
 
 /**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-draw, CR 603.7c) ===== the effect clause of a "Whenever an opponent casts a
+ * spell, you may draw a card unless that player pays {N}." trigger (Rhystic Study; Mystic Remora's draw half). The
+ * PAYER is the opponent who cast (bound at resolution from ctx.castingPlayerId, threaded by checkCastTriggers); the
+ * BENEFICIARY is the trigger's controller (you). applyTaxedDraw suspends on the PAYER's pay-or-let-you-draw choice.
+ * A FIXED mana cost only — "{X}, where X is this creature's power" (Esper Sentinel) → parseFixedManaPips null →
+ * unmodeled (SAFE FN). The bare "draw a card unless …" (no "you may") maps to the same atom (the payer's choice IS
+ * the "may").
+ */
+function matchTaxedDraw(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^(?:you may )?draw a card unless that player pays (\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null; // {X} (Esper Sentinel) / unknown symbol → unmodeled cost
+  return { atom: { op: "taxed-draw", cost: { kind: "mana", mana }, targetType: null } };
+}
+
+/**
  * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." — an OPTIONAL mana
  * payment whose payoff resolves ONLY if the controller pays (Lifecrafter's Bestiary "you may pay {G}. If you
  * do, draw a card."; Mind's Eye / Inheritance / Horizon-Origin-Panic Spellbomb / Urza's Miter / Symmetry
@@ -2007,6 +2027,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const sup = matchUpkeepSacUnlessPay(oracle);
   if (sup && KNOWN.has(sup.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [sup.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPPONENT-PAYS-TO-DENY ===== "you may draw a card unless that player pays {N}" (Rhystic Study's trigger
+  // effect) → ONE taxed-draw atom (the payer = the opponent who cast, from ctx.castingPlayerId; the beneficiary =
+  // you). applyTaxedDraw suspends on the payer's pay/decline. Disjoint anchor from the folds above.
+  const txd = matchTaxedDraw(oracle);
+  if (txd && KNOWN.has(txd.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [txd.atom], xSpell: false, unparsedTail: null });
   }
   // ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== "You may sacrifice a <subtype>. If you do, <effect>." → ONE
   // optional-sac-payment atom (the resolver suspends on a real sac/decline; sacrificeCreatureEffect pitches one

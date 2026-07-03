@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
@@ -935,6 +935,41 @@ export function resolveSacUnlessPayChoice(state, pay) {
   next = logEvent(next, { kind: "spell-effect", effect: "sac-unless-pay", controller: pc.controller, paid, sourceName: pc.sourceName || null });
   if (!paid) {
     next = sacrificeCreatureEffect(next, pc.controller, pc.sourceId); // couldn't/wouldn't pay → the source sacrifices itself
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-payment) ===== — auto-pick for the PAYER (the opponent who cast): pay iff they
+ * can afford the tax (deny the beneficiary the draw — the self-interested default; always a LEGAL choice, CR 601).
+ * Returns false (→ the beneficiary draws) when the payer is gone or can't afford. pc.payer is the seat (== pc.controller).
+ */
+export function autoPickTaxedPayment(state, pc) {
+  const player = state.players?.[pc?.payer];
+  if (!player) return false; // payer gone → can't pay → beneficiary draws
+  return canAfford(player.manaPool, manaSources(state, pc.payer), pc.cost?.mana || {});
+}
+
+/**
+ * ===== OPPONENT-PAYS-TO-DENY (taxed-payment, CR 603.7c) ===== — settle "you may draw a card unless that player pays
+ * {N}" (Rhystic Study). If `pay` AND the PAYER (the opponent who cast — pc.payer, bound at fire time) can afford it,
+ * charge the payer's mana (payManaCost) and the beneficiary draws NOTHING; else (declined or unaffordable — payManaCost
+ * fabricates no mana, CR 119) the BENEFICIARY (the trigger's controller — pc.beneficiary) draws ONE card. Then RESUME
+ * the trigger's program. Eliminated-seat guards on BOTH payer and beneficiary (either can leave mid-pause, CR 800.4a).
+ */
+export function resolveTaxedPaymentChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "taxed-payment") return state;
+  let next = clearPendingChoice(state);
+  let paid = false;
+  if (pay && pc.cost?.kind === "mana" && next.players?.[pc.payer]) {
+    const r = payManaCost(next, pc.payer, pc.cost.mana || {});
+    next = r.state;
+    paid = r.paid;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "taxed-payment", payer: pc.payer, beneficiary: pc.beneficiary, paid, sourceName: pc.sourceName || null });
+  if (!paid && next.players?.[pc.beneficiary]) {
+    next = drawCards(next, { playerId: pc.beneficiary, count: 1 }); // payer declined / couldn't pay → beneficiary draws
   }
   return resumeAfterChoice(next, pc);
 }
