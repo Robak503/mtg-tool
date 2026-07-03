@@ -1185,6 +1185,23 @@ function castSpellFilter(text) {
 const _detectCache = new WeakMap();
 
 /**
+ * CASCADE (CR 702.85) — count the number of STACKED cascade keyword instances on a card ("Cascade" = 1,
+ * "Cascade, cascade" = 2, "Cascade, cascade, cascade, cascade" = 4). The reminder ("Multiple instances of
+ * cascade each trigger separately") makes each instance a SEPARATE trigger that digs independently. Match ONLY
+ * the run of comma-separated "cascade" keyword tokens IMMEDIATELY preceding the canonical self-cascade reminder
+ * (CR 702.85a), so a GRANT — "Sliver spells you cast have cascade" (The First Sliver) — whose "cascade" is NOT
+ * followed by that reminder is NEVER counted (the card's OWN single Cascade line is; the grant is judged
+ * separately). Returns 0 when the card has no self-cascade keyword. Shared by detectTriggers (emits N cascade
+ * descriptors) and coverage (bumps the shaped count by N so shaped === detected holds).
+ */
+export function cascadeInstanceCount(oracle) {
+  const o = String(oracle || "");
+  const m = o.match(/\b(cascade(?:\s*,\s*cascade)*)\s*\((?=when you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less)/i);
+  if (!m) return 0;
+  return (m[1].match(/cascade/gi) || []).length;
+}
+
+/**
  * TRIG-PUMP-1 (the trigger-effect compiler pilot) — a SELF-scope trigger states the pump on its OWN
  * source with the pronoun "it": "Whenever this creature attacks, IT gets +2/+0 until end of turn"
  * (Brazen Wolves), "…, IT gains trample until end of turn" (the combat-buff family). The modeled
@@ -1896,20 +1913,28 @@ export function detectTriggers(card) {
   // HIGH + non-targeted. `cascade:true` is the marker the cast-path threading keys on; scope:"self"/whose:"you"
   // matches the existing self-cast contract (the spell is always on the stack under the caster).
   //
-  // SINGLE cascade only (CREED — model the WHOLE card or PARK). A "Cascade, cascade" / "Cascade, cascade, …"
-  // card (Apex Devastator, Maelstrom Wanderer, Call Forth the Tempest) digs MULTIPLE times ("Then do it again");
-  // modeling one dig would silently drop the rest, so those stay body-only → Arbiter (the `cascade, cascade`
-  // exclusion). The signature anchors on "When you cast THIS spell" (CR 702.85a), so a GRANT — "the next/first
-  // spell you cast … has cascade" (The First Sliver, Imoti, Maelstrom Nexus) whose reminder says "When you
-  // (next|cast that/your first) …", never "this spell" — never matches (the grant's own coverage is judged
-  // separately). The keyword can sit on a creature, an instant/sorcery, an artifact, or an enchantment.
-  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(oracle)
-    && !/\bcascade,\s*cascade\b/i.test(oracle)) {
-    out.push({
-      event: "selfCast", scope: "self", whose: "you", cascade: true,
-      effect: null, effectClause: "cascade through your library",
-      optional: false, sourceText: "Cascade",
-    });
+  // MULTI-INSTANCE cascade (CR 702.85, reminder — "Multiple instances of cascade each trigger separately"). A
+  // "Cascade, cascade, cascade, cascade" (Apex Devastator, N=4) / "Cascade, cascade" (Maelstrom Wanderer, N=2)
+  // card carries N stacked instances of the keyword; each triggers SEPARATELY and digs INDEPENDENTLY, every dig
+  // capping at the SAME cascading spell's mana value (ctx.cascadeSpellMv, snapshotted once at cast). Emit ONE
+  // selfCast cascade descriptor PER instance — checkCastTriggers pushes them all above the spell, and the
+  // pendingCascade action gate resolves them one at a time (each dig → its own cast-free/decline decision → the
+  // next dig), which is exactly N independent cascades, never a partial. cascadeInstanceCount matches the run of
+  // comma-separated "cascade" keyword tokens IMMEDIATELY preceding the canonical reminder, so it counts ONLY the
+  // stacked keyword, not a "cascade" that appears in a GRANT sentence: a GRANT — "the next/first spell you cast …
+  // has cascade" (The First Sliver, Imoti, Maelstrom Nexus) — has its own single Cascade line whose reminder says
+  // "When you cast THIS spell", and its grant "have cascade" is NOT followed by that reminder, so N stays 1 (its
+  // own cascade) and the grant's coverage is judged separately. The keyword can sit on a creature, an
+  // instant/sorcery, an artifact, or an enchantment.
+  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(oracle)) {
+    const n = cascadeInstanceCount(oracle) || 1; // ≥1 guaranteed by the reminder signature above; default defensively
+    for (let i = 0; i < n; i++) {
+      out.push({
+        event: "selfCast", scope: "self", whose: "you", cascade: true,
+        effect: null, effectClause: "cascade through your library",
+        optional: false, sourceText: "Cascade",
+      });
+    }
   }
   _detectCache.set(card, out);
   return out;

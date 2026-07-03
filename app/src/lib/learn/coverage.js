@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -156,10 +156,10 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  */
 export function isKeywordOnly(oracle, name) {
   let t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
-  // DOUBLE CASCADE (CR 702.85) — "Cascade, cascade[, …]" digs MULTIPLE times and is NOT modeled (CREED — one
-  // dig would silently drop the rest). It splits into two covered "cascade" clauses on the comma, so guard it
-  // explicitly: a multi-instance cascade line is never keyword-only (Apex Devastator / Maelstrom Wanderer).
-  if (/\bcascade,\s*cascade\b/.test(t)) return false;
+  // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
+  // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered
+  // "cascade" clauses on the comma, each matching the "cascade" COVERED_KEYWORD, so a keyword-only body like Apex
+  // Devastator reads keyword-only here just as a single-cascade body does — no special-case guard needed.
   if (name) {
     const n = String(name).toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (n) t = t.replace(new RegExp(`\\b${n}\\b`, "g"), "this creature");
@@ -329,12 +329,13 @@ export function spellIsNative(card) {
   // HIGH + non-targeted) AND (b) its NON-cascade body is itself native. Strip the whole "Cascade (…reminder…)"
   // LINE before parsing the body (the bare "Cascade" residue would drag an otherwise-HIGH spell to LOW — the
   // keyword carries no parseable atom of its own). Anchored on the canonical self-cascade reminder signature so a
-  // card merely NAMED "…Cascade" without the keyword is untouched, and DOUBLE cascade ("Cascade, cascade" — Call
-  // Forth the Tempest, Throes of Chaos) is excluded (it digs twice; modeling one dig would silently drop the
-  // rest → CREED). Checked before the cost-only/Plot strips so the body gate is cascade-aware. CREED: an
-  // unmodeled body → not native (the whole card stays Arbiter, never a partial).
-  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(String(card.oracle || ""))
-    && !/\bcascade,\s*cascade\b/i.test(String(card.oracle || ""))) {
+  // card merely NAMED "…Cascade" without the keyword is untouched. MULTI-INSTANCE cascade ("Cascade, cascade" —
+  // Call Forth the Tempest, Throes of Chaos) is now MODELED: detectTriggers emits N independent cascade triggers
+  // (cascadeInstanceCount), each digging separately at the SAME spell-MV cap — so an N-cascade spell is native on
+  // the same terms as a 1-cascade spell (native cascade trigger(s) + native non-cascade body). Checked before the
+  // cost-only/Plot strips so the body gate is cascade-aware. CREED: an unmodeled body → not native (the whole card
+  // stays Arbiter, never a partial).
+  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(String(card.oracle || ""))) {
     const cascadeTrigs = detectTriggers(card).filter((d) => d.cascade);
     if (!cascadeTrigs.length || !cascadeTrigs.every(triggerRoutesNatively)) return false; // dig mechanism not modeled → Arbiter
     // Strip the Cascade keyword LINE (the line carrying the reminder), then parse the bare body. It must be HIGH
@@ -435,13 +436,13 @@ function allTriggerSentencesModeled(card, oracle) {
   // sentence lives in stripped reminder text, so it never counts as a shaped sentence). Bump the shaped count so
   // shaped === detected holds (the synthesized trigger is validated like any other). Keyed on the reminder
   // signature that survives in the RAW oracle (stripReminder removes it from the counting text, so test it before).
-  // CASCADE (CR 702.85): detectTriggers synthesizes a selfCast trigger from the "Cascade" KEYWORD when the card
-  // carries the canonical self-cascade reminder ("When you cast this spell, exile cards … a nonland card that
-  // costs less") AND is NOT a double-cascade ("Cascade, cascade" — those stay on the Arbiter). Its real trigger
-  // sentence lives in stripped reminder text, so it never counts as a shaped sentence — bump the shaped count by
-  // 1 so shaped === detected holds. Keyed on the RAW oracle (stripReminder removes the signature, so test before).
-  const cascadeKw = /\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(oracle)
-    && !/\bcascade,\s*cascade\b/i.test(oracle) ? 1 : 0;
+  // CASCADE (CR 702.85): detectTriggers synthesizes ONE selfCast trigger PER cascade keyword instance when the
+  // card carries the canonical self-cascade reminder ("When you cast this spell, exile cards … a nonland card that
+  // costs less"). A MULTI-INSTANCE cascade ("Cascade, cascade, cascade, cascade" — Apex Devastator) emits N
+  // triggers, each an independent dig. Its real trigger sentence lives in stripped reminder text, so it never
+  // counts as a shaped sentence — bump the shaped count by N (cascadeInstanceCount) so shaped === detected holds.
+  // Keyed on the RAW oracle (stripReminder removes the signature, so count before).
+  const cascadeKw = cascadeInstanceCount(oracle);
   // AFFLICT (CR 702.131) — like bushido/rampage, the printed "Afflict N" keyword's triggered ability lives in
   // stripped reminder text, so it never counts as a shaped sentence. detectTriggers synthesizes a
   // becomesBlocked descriptor from the keyword; bump the shaped count by 1 so shaped === detected holds. The
