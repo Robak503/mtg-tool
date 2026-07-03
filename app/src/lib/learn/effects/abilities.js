@@ -394,6 +394,22 @@ export function parseActivatedAbilities(card) {
       });
       continue;
     }
+    // "Equip commander {cost}" — a RESTRICTED equip variant (CR 702.6c: "Equip [quality]"). Identical to a
+    // plain Equip EXCEPT its legal targets are narrowed to a commander you control (legalChoices enforces the
+    // restriction via `equipQuality`). Only the "commander" quality is modeled (the sole quality whose
+    // restriction the runtime can evaluate from state — isCommander travels the card, CR 903.3). Any OTHER
+    // quality ("Equip Human {1}", "Equip legendary creature {2}") is deliberately NOT matched here → body-only.
+    const ecm = !line.includes(":") && line.match(/^equip\s+commander\s*(?:[—–-])?\s*((?:\{[^}]+\})+)$/i);
+    if (ecm) {
+      const cost = parseAbilityCost(ecm[1]);
+      out.push({
+        index: index++, raw: line, costStr: line, effectClause: "",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+        equipQuality: "commander",
+      });
+      continue;
+    }
     const ci = line.indexOf(":");
     if (ci === -1) continue;
     const costStr = line.slice(0, ci).trim();

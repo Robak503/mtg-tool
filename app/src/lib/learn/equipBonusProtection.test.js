@@ -86,9 +86,17 @@ describe("parseAttachedClause — EQUIP-PROTECTION (has protection from <color>�
     // Sword of Wealth and Power — the +2/+2 also drops (CREED: model both or neither).
     expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from instants and from sorceries.\nEquip {2}" })).toEqual([]);
   });
-  it("a DYNAMIC quality ('from each color that's not in your commander's color identity') drops the whole bonus", () => {
-    // Commander's Plate — the +3/+3 + dynamic protection are both dropped.
-    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature gets +3/+3 and has protection from each color that's not in your commander's color identity.\nEquip {5}" })).toEqual([]);
+  it("the DYNAMIC 'from each color that's not in your commander's color identity' → +3/+3 + a DYNAMIC addProtection op", () => {
+    // Commander's Plate — the sole modeled non-color quality: state-resolved at read time (WUBRG minus the
+    // controller's commander color identity), so the op carries `dynamicColors` instead of a static `colors`.
+    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature gets +3/+3 and has protection from each color that's not in your commander's color identity.\nEquip {5}" })).toEqual([
+      { layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: 3, toughness: 3 }, duration: { kind: "permanent" } },
+      { layer: 6, op: { layerOp: "addProtection", dynamicColors: "notCommanderIdentity" }, duration: { kind: "permanent" } },
+    ]);
+  });
+  it("any OTHER dynamic/non-color quality still drops the whole bonus (safe FN — only the commander-identity phrase is modeled)", () => {
+    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from each color you don't control.\nEquip {2}" })).toEqual([]);
+    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from the color of your choice.\nEquip {2}" })).toEqual([]);
   });
 });
 
@@ -247,12 +255,12 @@ describe("coverage — clean flips and pinned false-negatives (CREED)", () => {
     expect(classifyCard({ name: "Shield of Duty and Reason", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature has protection from green and from blue." })).toBe("native-aura");
     expect(classifyCard({ name: "Blanchwood Armor", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1 for each Forest you control." })).toBe("native-aura");
   });
-  it("PINNED FNs: the Swords (combat-damage trigger rider), Commander's Plate (dynamic prot + typed equip),", () => {
-    // Conqueror's Flail (opponents-can't-cast rider), Aettir and Priwen (dynamic base-P/T) — all body-only.
+  it("PINNED FNs: the Swords (combat-damage trigger rider), Conqueror's Flail (rider), Aettir and Priwen (dynamic base-P/T) — all body-only", () => {
     expect(classifyCard({ name: "Sword of Feast and Famine", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from black and from green.\nWhenever equipped creature deals combat damage to a player, that player discards a card and you untap all lands you control.\nEquip {2}" })).toBe("body-only");
     expect(classifyCard({ name: "Sword of Wealth and Power", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from instants and from sorceries.\nWhenever equipped creature deals combat damage to a player, create a Treasure token.\nEquip {2}" })).toBe("body-only");
-    expect(classifyCard({ name: "Commander's Plate", type: "Artifact — Equipment", oracle: "Equipped creature gets +3/+3 and has protection from each color that's not in your commander's color identity.\nEquip commander {3}\nEquip {5}" })).toBe("body-only");
     expect(classifyCard({ name: "Conqueror's Flail", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1 for each color among permanents you control.\nAs long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.\nEquip {2}" })).toBe("body-only");
     expect(classifyCard({ name: "Aettir and Priwen", type: "Legendary Artifact — Equipment", oracle: "Equipped creature has base power and toughness X/X, where X is your life total.\nEquip {5}" })).toBe("body-only");
+    // A typed equip whose quality is NOT "commander" stays body-only (only the commander quality is modeled).
+    expect(classifyCard({ name: "Steelclaw Lance", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+0.\nEquip Knight {1}\nEquip {3}" })).toBe("body-only");
   });
 });

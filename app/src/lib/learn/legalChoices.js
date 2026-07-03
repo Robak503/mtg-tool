@@ -1373,6 +1373,11 @@ function actionsActivateAbility(state, playerId) {
         if ((state.stack?.length || 0) > 0) continue;
         for (const t of player.battlefield) {
           if (!isCreature(t.card)) continue;
+          // EQUIP-[QUALITY] (CR 702.6c): a restricted equip ("Equip commander {3}") may target only a
+          // creature you control that has the stated quality. The sole modeled quality is "commander" —
+          // the target must be a commander (CR 903.3 designation on the card). A non-commander creature is
+          // not a legal target for this ability (the plain "Equip {5}" ability still enumerates it).
+          if (ab.equipQuality === "commander" && !t.card?.isCommander) continue;
           // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6e), so it obeys targetability — a Shroud
           // creature (CR 702.18a) can't be targeted even by its controller. Route through the shared
           // guard (hexproof never blocks here, since Equip only targets your OWN creatures — CR 702.11b).
