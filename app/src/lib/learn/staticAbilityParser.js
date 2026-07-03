@@ -124,6 +124,9 @@ function signed(str) {
 const IRREGULAR_SUBTYPE_PLURALS = {
   allies: "Ally",
   mice: "Mouse", oxen: "Ox", heroes: "Hero", detectives: "Detective",
+  // "-uses" plurals of an "-us" singular (Octopus → Octopuses): the naive trailing-"s" strip yields
+  // "Octopuse", matching NO creature. Map the plural explicitly (Serpent of Yawning Depths names Octopuses).
+  octopuses: "Octopus",
   // invariant "-us" subtypes (singular === plural): a trailing-s strip would wrongly cut them
   pegasus: "Pegasus", fungus: "Fungus", homunculus: "Homunculus", locus: "Locus", jellyfish: "Jellyfish",
 };
@@ -136,6 +139,54 @@ function normalizeSubtype(word) {
   if (/ves$/i.test(w)) w = w.slice(0, -3) + "f";
   else if (w.endsWith("s")) w = w.slice(0, -1);
   return w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w;
+}
+
+// ── GROUP-BLOCK-RESTRICTION parse (Shifting Sliver / Serpent of Yawning Depths) — the SINGLE SOURCE OF TRUTH.
+// Both the classifier (the `blockRestriction` static marker below) and the runtime block-legality chokepoint
+// (combatEvasion.canBlockAttacker via groupBlockRestrictionOf) call this ONE pure function, so the metric and
+// the enforcement can never drift. A subtype-list token is one-or-more comma-separated plural words, with an
+// optional "and"/"or" before the last ("krakens, leviathans, and serpents"). Anchored ^…$ on the whole clause.
+const RE_SUBTYPE_LIST = "([a-z]+s(?:\\s*,\\s*[a-z]+s)*(?:,?\\s+(?:and|or)\\s+[a-z]+s)?)";
+const RE_GROUP_BLOCK_RESTRICTION = new RegExp(
+  `^${RE_SUBTYPE_LIST}(\\s+you control)? can't be blocked except by ${RE_SUBTYPE_LIST}$`,
+);
+
+// Split a matched subtype-list token into canonical singular subtypes (via normalizeSubtype), de-duped and
+// sorted (order-independent set compare).
+function _subtypeListToCanon(token) {
+  return [...new Set(
+    String(token)
+      // Split on commas (incl. the Oxford ", and"/", or") and bare "and"/"or" joiners.
+      .split(/\s*,\s*(?:and\s+|or\s+)?|\s+and\s+|\s+or\s+/)
+      .map((w) => w.trim())
+      .filter(Boolean)
+      .map(normalizeSubtype),
+  )].sort();
+}
+
+/**
+ * Parse the SYMMETRIC group "…can't be blocked except by <same subtype set>" static from raw oracle text.
+ * Returns `{ subtypes: [canonical…], controllerScope: "you" | "any" }` when the attacker-side and
+ * allowed-blocker-side subtype SETS are IDENTICAL (the modeled tribal shape), else null (safe FN).
+ *   • controllerScope "you"  — the "…you control…" form (Serpent): the restriction applies only to
+ *                              those-subtype attackers the static's controller controls.
+ *   • controllerScope "any"  — board-wide (Shifting Sliver): every controller's such attacker is restricted.
+ * Reminder text is stripped, the card name normalized to "this creature" (a harmless no-op — the subject is a
+ * bare plural), and the text lowercased. Pure; no game-state dependency. `name` is optional.
+ */
+export function parseGroupBlockRestriction(oracle, name) {
+  const norm = selfNormalizeOracle(String(oracle || ""), name).toLowerCase().replace(/[’']/g, "'");
+  for (const clause of norm.split(/(?:^|[\n.;])\s*/)) {
+    const m = clause.trim().match(RE_GROUP_BLOCK_RESTRICTION);
+    if (!m) continue;
+    const atk = _subtypeListToCanon(m[1]);
+    const blk = _subtypeListToCanon(m[3]);
+    // SYMMETRIC only: attacker set === allowed-blocker set (order-independent); else safe FN.
+    if (atk.length === 0 || atk.length !== blk.length) continue;
+    if (atk.some((s, i) => s !== blk[i])) continue;
+    return { subtypes: atk, controllerScope: m[2] ? "you" : "any" };
+  }
+  return null;
 }
 
 // Leading words in "<word> creatures you control …" that are NOT creature subtypes — board STATE
@@ -1089,6 +1140,25 @@ function parseClause(clause, out, selfName, selfType) {
       out.push({ cantBeCountered: { subtype: normalizeSubtype(word) } });
     }
     return; // a cant-be-countered clause — handled (or intentionally dropped to body-only)
+  }
+
+  // ── GROUP-BLOCK-RESTRICTION (Shifting Sliver / Serpent of Yawning Depths) — the SYMMETRIC tribal
+  // "<subtypes> [you control] can't be blocked except by <same subtypes>" static (CR 509.1b). Emitted as
+  // a coverage MARKER ({ blockRestriction } with NO `affects`/`op`, so the layer engine ignores it —
+  // effectAffects bails on a missing `affects`). The RUNTIME enforcement is entirely in
+  // combatEvasion.canBlockAttacker (which reads the SAME parseGroupBlockRestriction), so this marker exists
+  // only so the CLAUSE classifies as a modeled static (not residue) — the two can't drift (one parser).
+  // parseGroupBlockRestriction returns null for an ASYMMETRIC / "N or more" / conditional variant → NO
+  // descriptor → the card stays body-only (Arbiter, never a half-modeled evasion). Single-subtype board-wide
+  // Shifting Sliver ALSO flips through isKeywordOnly's isEnforcedEvasionClause route; emitting the marker here
+  // too is harmless (both paths agree the card is native) and makes the multi-subtype list — which the
+  // comma-splitting isKeywordOnly gate can't credit — natively classified.
+  {
+    const restriction = parseGroupBlockRestriction(clause, selfName);
+    if (restriction) {
+      out.push({ blockRestriction: restriction });
+      return;
+    }
   }
 
   // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
