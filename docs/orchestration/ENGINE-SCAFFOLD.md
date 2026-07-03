@@ -259,7 +259,10 @@ needs a player choice (tutor, scry, edict, mode, divide damage…), it **pauses*
 onto `state.pendingChoice` with a `resume` continuation. The driver
 (`learnSession`) surfaces the choice, gets an answer, and resumes; each settlement
 ends in `finalizeStackResolution` (flush triggers + drain leave events). There are
-~13 `pendingChoice` kinds, each with a settler.
+**20** `pendingChoice` kinds, each with a settler — `PENDING_CHOICE_KINDS` in
+`pendingChoice.js` is the canonical vocabulary (contract-pinned by
+`pendingChoiceKinds.test.js` + `omnathSeam.test.js`; the PLAY-API-CONTRACT list is
+informative, the export is truth).
 
 ### 4.6 Layers (`layers.js`, CR 613)
 
@@ -294,7 +297,12 @@ means "all permanents" (vacuous filter).
 ### 4.8 Combat, legal choices, the pilot seam
 
 `legalChoices.js` enumerates legal actions (casts, activations, attacks, blocks,
-mana taps, pending-choice options). `combatResolution.resolveCombatDamage` handles
+mana taps, pending-choice options). A single **twin post-pass** over the emitted
+actions additionally offers the printed alternative costs on the HIGH alt-cost
+carriers (`action.altCost` — a SEPARATE marker from `freeCast`; battlefield-only
+`controlCommander` per CR 109.4, pitch by card COLOR never identity, one canonical
+return-lands set) — non-carrier decks stay byte-identical by construction, and the
+LOW carriers are pinned MUST-NOT-OFFER. `combatResolution.resolveCombatDamage` handles
 the keyword soup (trample/deathtouch/lifelink/infect/toxic/protection/menace),
 consults damage replacements, applies commander damage, then SBAs + dies triggers.
 `decide({state, legalActions, seat, pilot})` is the **pilot injection point** for
@@ -306,17 +314,32 @@ optional `decideMulligan` (same shape) fires at keep/ship windows.
 
 `learnSession.advanceUntilDecision` is the real driver loop (SBA check →
 eliminations → pending-* settlement → turn cap → priority window → `makeDecision`
-→ `dispatchAction`, with a progress-signature anti-loop latch). `selfPlayRunner`
-builds seeded batches (rotated start seat, optional time pressure) and labels
-outcomes **honestly** — a timeout/non-completion gets a `null` label and
+→ `dispatchAction`, with a progress-signature anti-loop latch). Instrumentation
+opts (`decide`/`recordDecision`/`timePressure`/`onTurnStart`) are threaded through
+`act()` and every pending-choice settler, so caller-driven v1 games are fully
+instrumented end-to-end (`gameApiInstrumentation.test.js` pins it). `selfPlayRunner`
+builds seeded batches — the base seed is stamped into meta AND every banked row
+(duplicate banking is detectable); seat rotation (`rotateSeats`) and cross-chunk
+pod pairing (`podShuffle`) are opt-in; mulligans default ON for batches
+(`--no-mulligan` recovers keep-every-7) — and labels outcomes **honestly**:
+per-seat FATE via `outcomeLabelForSeatV2` (in a pod only the TRUE winner labels 1;
+undetermined seats label `null` and are dropped), a timeout/non-completion gets
 `trainingWeight 0`, never a fabricated win. `gameApi.js` is the
-**play-API v1** (`PLAY_API_VERSION "1.0.0"`): the pure layer
+**play-API v1** (`PLAY_API_VERSION "1.2.0"`): the pure layer
 (`legalActions/isLegalAction/applyAction/gameStatus/observe`) plus a SESSION layer
 (`createGame/nextDecision/act`) that drives COMPLETE games including
-pendingChoice/pendingArbiter settlement. The contract is locked in
-[PLAY-API-CONTRACT.md](PLAY-API-CONTRACT.md); `omnathSeam.test.js` is the in-gate
+pendingChoice/pendingArbiter settlement. `createGame` honors `pilots` (per-seat
+`decide`/`decideMulligan` routers — malformed pilots THROW, never silently drop)
+and `policy` — the opponent-AI **A/B seam** (`null` default is byte-identical;
+`"v1"` or a per-subsystem map re-ranks every AI pick; `opponentAI.POLICY_KEYS` is
+the ONE exported key list every policy subsystem registers in). The contract is
+locked in [PLAY-API-CONTRACT.md](PLAY-API-CONTRACT.md) (v1.x: the 20-kind decision
+vocabulary, per-kind answer shapes, §5 versioning discipline — the runtime export
+is canonical, the doc list informative); `omnathSeam.test.js` is the in-gate
 tripwire; `scripts/self-play.mjs --export-trajectories` emits the
-omnath-trajectory-v1 engine→brain hook.
+omnath-trajectory-v1 engine→brain hook; `scripts/play-quality-probe.mjs` is the
+seeded A/B evidence instrument for every AI-policy change (see
+[PLAY-HARNESS-OVERHAUL-PLAYBOOK.md](PLAY-HARNESS-OVERHAUL-PLAYBOOK.md) §2–§3).
 
 ---
 
@@ -493,5 +516,7 @@ became playable — never because a matcher got looser.**
 
 ---
 
-*Consolidation pass, Claude Fable 5, 2026-07-01. Keep this current: when you change
-a seam, update §6; when you add a tier or gate, update §2/§7.*
+*Consolidation pass, Claude Fable 5, 2026-07-01. Harness/AI sections (§4.5, §4.8,
+§4.9) updated to post-pass reality by the play-harness overhaul, 2026-07-03. Keep
+this current: when you change a seam, update §6; when you add a tier or gate,
+update §2/§7.*

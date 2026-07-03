@@ -167,9 +167,12 @@ repo secrets — never committed. Full flow + key rotation + rollback: [RELEASE.
 gate), `program-fingerprint.mjs` (parser-seam gate), `runtime-fingerprint.mjs`
 (mana drift), `qa-sweep.mjs`, `allowlist-guard.mjs` (self-certification tamper
 guard), `clause-frontier.mjs`, `play-ranked-backlog.mjs`, `self-play.mjs`
-(`--export-trajectories` = the omnath-trajectory-v1 engine→brain hook),
-`play-quality-probe.mjs` (seeded A/B for AI-policy changes). These
-are how the engine work is verified — see ENGINE-SCAFFOLD §7.
+(seeded batches: `--seed`/`--rotate-seats`/`--pod-shuffle`/`--no-mulligan`;
+`--export-trajectories` = the omnath-trajectory-v1 engine→brain hook),
+`play-quality-probe.mjs` (seeded A/B — the evidence instrument for every
+AI-policy change; `--legacy=<key>|all` isolates one policy subsystem). These
+are how the engine work is verified — see ENGINE-SCAFFOLD §7 and, for
+harness/AI change classes, PLAY-HARNESS-OVERHAUL-PLAYBOOK §2–§3.
 
 ---
 
