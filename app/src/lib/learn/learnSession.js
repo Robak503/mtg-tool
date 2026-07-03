@@ -827,8 +827,8 @@ function decidePendingChoice({ decide, state, seat, pilot, recordDecision, build
 
 /** Normalized legal-candidate actions for a PICK-ONE pendingChoice (tutor / clone / hand-
  *  discard / impulse-dig / sacrifice / discard): one action per real candidate id, plus an
- *  optional find-nothing/decline action when the choice permits it (tutor & clone — CR
- *  701.19f / a "you may" copy). The ids come straight from `pc.candidates`, so every offered
+ *  optional find-nothing/decline action when the choice permits it (a stated-quality tutor —
+ *  CR 701.23b — or a "you may" clone copy). The ids come straight from `pc.candidates`, so every offered
  *  action maps to a candidate the settler accepts; nothing is fabricated. */
 function pendingPickActions(pc, { allowDecline = false } = {}) {
   const actions = (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, candidateId: c.id }));
@@ -1366,27 +1366,28 @@ export function advanceUntilDecision(
         current = { ...current, state: settleEdictModeChoice(current.state, picked) };
         continue;
       }
-      // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
-      // 701.19f); default = the auto-pick (highest-MV), byte-identical.
+      // Tutor library search. A pilot may fetch a different legal candidate — or find nothing,
+      // WHEN that is legal: a stated-quality search "isn't required to find" (CR 701.23b), but a
+      // quantity-only search ("a card") "must find that many cards" when they're available
+      // (CR 701.23d). Default = the auto-pick (highest-MV), byte-identical.
       //
-      // WI-5 KNOWN SOFT SPOT (documented, not fixed): `allowDecline: true` here unconditionally offers a
-      // "find nothing" action for EVERY tutor, including an unfiltered ("search your library for A CARD")
-      // mandatory search. CR 701.19d requires a mandatory search to find a card IF one is available — the
-      // engine can't currently tell "no legal candidates" (a true miss) apart from "candidates exist but
-      // the picker declined" (an illegal pass on a mandatory search). pc.candidates is already the FULL
-      // legal set at the moment the atom paused, so an empty array is the only case CR-honestly permits a
-      // no-find; a non-empty candidates + decline on a NON-"you may" tutor is technically off-CR but
-      // currently unenforced (the human picker and the AI/pilot decline path both allow it). Left as a
-      // soft gap rather than removing the decline entirely, since some tutors ARE genuinely optional
-      // ("you may search...") and share this same code path — pc doesn't yet carry an `optional` flag for
-      // tutors the way clone-search does (see WI-2 in the recon).
+      // AI-F10 (was the WI-5 KNOWN SOFT SPOT, now fixed): `allowDecline` keys on the
+      // `pc.mayFailToFind` flag applyTutor stamps from the atom (true = quality-filtered /
+      // "you may" tutor; false = mandatory unfiltered search). A FALSE flag drops the
+      // find-nothing action from the offered set, so a pilot can no longer make the off-CR
+      // decline; resolveTutorChoice additionally rejects a null pick on the wire when
+      // candidates exist. `!== false` keeps old saves / legacy setters (flag null/undefined)
+      // on today's decline-allowed behavior — non-breaking. An EMPTY candidates array is
+      // still the honest no-find regardless of the flag (the true miss, CR 701.23d's "as many
+      // as possible"). autoPickTutorCandidate never declines, so default self-play/Academy
+      // behavior is byte-identical either way.
       if (pc.kind === "tutor-search") {
         if (pause) {
           return { session: current, decision: { kind: "tutor-search", ...pc } };
         }
         const tutorPick = decidePendingChoice({
           decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
-          buildOffered: () => pendingPickActions(pc, { allowDecline: true }),
+          buildOffered: () => pendingPickActions(pc, { allowDecline: pc.mayFailToFind !== false }),
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
         });
         current = { ...current, state: settleTutorChoice(current.state, tutorPick.candidateId) };
@@ -1685,7 +1686,9 @@ export function continueFromArbiter(session, opts = {}) {
  * The player picked a card (or chose "find nothing") from a `tutor-search` decision.
  * Validates the pick against the pending candidates, applies the fetch + shuffle, resumes
  * the suspended effect program, then re-derives the next decision. `choice.cardId` is the
- * chosen library card id, or null/absent to find nothing (CR 701.19f). Returns
+ * chosen library card id, or null/absent to find nothing (legal for a stated-quality search,
+ * CR 701.23b; a null pick on a mandatory unfiltered search with candidates available is
+ * rejected by resolveTutorChoice — CR 701.23d — and the same picker re-surfaces). Returns
  * { session, decision } like advanceUntilDecision.
  */
 export function applyTutorChoice(session, choice, opts = {}) {

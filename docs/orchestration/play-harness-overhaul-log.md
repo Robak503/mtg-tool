@@ -145,6 +145,40 @@ fallback. A/B probe: NEW 55.0% / OLD 45.0%, dead turns 0.02. +10 pins.
 tier/program/runtime 0-diff at pick time · main tree clean). Build worktrees swept junction-safe
 (incl. build-a2's leftover junction — removed via rmdir first; main node_modules verified intact).
 
+### ✅ B2 — THE SIX UNLOCKED AI SLICES (build-b2) — dead cardboard lives
+AI-F3 W6-equip (slice 1: equip onto the best own body, strict-improvement + no-op guards =
+the termination proof; slice 2: cost-safe generic abilities — untargeted draw/token/scry/
+surveil/gain-life, {T}-or-mana costs only) · AI-F4 W7c wipes (CREATURE wipes cast when
+clearly behind — 3+ creatures down or 2×power+6; Armageddon-class non-creature mass removal
+stays held) · AI-F5 W7b fog (cast mid-combat when unblocked incoming face power ≥ life —
+counting only attacks on this seat's face makes defender-ness implicit) · AI-F6 W7e auras
+(intent from parseAuraBonus — the layer engine's own parse; buffs → own best creature,
+curses → biggest enemy threat, ambiguous → hold; land mana-auras cast as ramp) · AI-F7 W7d
+team pump (own precombat main, only when the flat +N flips swingIsLethalV2; dynamic/filtered
+pumps stay held) · AI-F10 tutor mandatory-search decline (pc.mayFailToFind stamped by
+applyTutor: filter ⇒ may fail per CR 701.23b, unfiltered ⇒ must find per CR 701.23d —
+verified vs the bundled CR (the old "701.19d" cite was STALE: 701.19 is Regenerate now);
+offer drops the decline + resolveTutorChoice rejects a null pick on the wire; null-flag
+legacy saves keep old behavior). 5 new POLICY_KEYS (wipe/fog/aura/pump/ability), all "v1"-
+recoverable. Deviation from the design sketch, documented: the mayFailToFind predicate uses
+the FILTER only (the sketch's filterLabel clause would mark the unfiltered tutor may-fail —
+its label is literally "card"); atom.optional is vestigial (the α2 wrapper strips it before
+applyTutor) but kept defensively.
+**Battery: suite 7,558→7,598 (+38 new pins across 2 files; 2 old deferred-seam pins updated
+to pin the NEW behavior + the v1 arm) · lint clean · tier/program/runtime fingerprints
+0-diff vs rolling tip · trajectory hash RE-ANCHORED (AI change, documented):
+`1c7e3a9d…` → `7fe774c56c214b30fc12925fa85217ef919503f45f79ec4826581a4052cc0059`
+(games=3 rows=8204→8352, ×2 reproducible).**
+**A/B evidence — default grid (60 mirror games, all decisive): NEW vs all-legacy 55.0% (rolling
+tip) → 60.0% (with the slices); avg turns 49.6→46.4. Per-slice (commander mirror ×24 games,
+all decisive): wipe 50.0/50.0 (neutral — no regression) · fog NEW 54.2% · aura NEW 58.3% ·
+pump NEW 54.2% · ability NEW 58.3%. Census: Tier-1 pod 12 breakage entries (unchanged — no
+new classes); behavior counts, equipment pod (Cap/Wolverine/Yuriko/Mothman, games-per=3):
+equip activations 0→16 (11 distinct equipment), native aura casts +1 (Rancor), avg turns
+68→53, 3/3 decisive; Tier-1 pod: wipe casts 0→1 (Day of Judgment). All full games terminate
+(the recon-flagged equip-loop risk: strict-improvement move rule + derived-power-includes-
+own-bonus makes a free Equip {0} a fixed point).**
+
 ### ✅ LANE C COMPLETE (omnath-tools/pilots) — all R11 mechanisms eliminated, P4 DONE
 W0 duel.mjs + H1–H8 verified/completed/built (H1 needed a playbook-layer completion: 4 playbooks
 penalized `pass` and re-inverted tap-vs-pass — fixed via standingPat()). Same-seed r11-diagnose:

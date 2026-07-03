@@ -54,7 +54,7 @@ export const PENDING_CHOICE_KINDS = [
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -103,6 +103,15 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // RAMP-SPLIT — the remaining ORDERED destination sequence (head = this pick); resolveTutorChoice advances
       // it per chained fetch. Null on the uniform path. Plain JSON (serialize-safe per this module's mandate).
       destinations: destSeq,
+      // AI-F10 — MAY the searcher legally FAIL TO FIND? CR 701.23b: a stated-quality search
+      // ("a basic land card", an MV-capped card) isn't required to find; CR 701.23d: a
+      // quantity-only search ("a card") MUST find. Stamped tri-state by applyTutor:
+      //   true  → the decline/find-nothing option is legal (quality-filtered or "you may" tutor)
+      //   false → declining with candidates available is an ILLEGAL pass — the offer side drops
+      //           the decline and resolveTutorChoice rejects a null pick on the wire
+      //   null  → legacy caller / an old save without the flag — keeps today's decline-allowed
+      //           behavior (non-breaking).
+      mayFailToFind: mayFailToFind === true ? true : mayFailToFind === false ? false : null,
     },
   };
 }
