@@ -57,6 +57,7 @@ import { parseUrDragonAttackTrigger } from "./urDragonAttack.js"; // UR-DRAGON c
 import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN commander — runtime hook lives in gameEngine (applyVihaanCombatAnimate)
 import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.86a) — runtime hook lives in gameEngine (applyAnnihilatorTriggers)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
+import { isMurkfiendUntap } from "./murkfiendUntap.js"; // MURKFIEND-UNTAP — runtime hook lives in gameEngine (applyMurkfiendUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
@@ -1795,6 +1796,48 @@ function classifySeedbornUntap(card) {
   return "native-static";                                       // the during-each-other-untap-step untap static
 }
 registerCoverageClassifier((card) => classifySeedbornUntap(card));
+
+// ─── MURKFIEND-UNTAP — Murkfiend Liege (Simic G/U anthem + phase-static untap engine) ─────────────────────────
+// "Other green creatures you control get +1/+1.
+//  Other blue creatures you control get +1/+1.
+//  Untap all green and/or blue creatures you control during each other player's untap step."
+// Two color anthems (green +1/+1, blue +1/+1 — already covered by staticAbilitiesCoverCard) PLUS the same
+// "during each other player's untap step" phase static Seedborn Muse carries, but FILTERED to the
+// controller's green/blue CREATURES. The general parser can't route the untap (no untap-others atom / phase
+// event); the runtime plays it through a DEDICATED hook (gameEngine.runStepActions → case "untap" →
+// applyMurkfiendUntap, murkfiendUntap.js) that untaps each non-active watcher-controller's green/blue
+// creatures — reading the SAME layer-aware effective color/type the anthems use. Seedborn's own classifier
+// rejects this card (its residue check requires an EMPTY body, and the anthems leave residue), so this is a
+// separate additive classifier that credits the untap static AND requires the anthem residue to be fully
+// covered. Mechanism-keyed (the exact untap templating), not name-keyed.
+//
+// CREED — whole card, all three abilities modeled:
+//   • green anthem + blue anthem (staticAbilitiesCoverCard, layer-7 group buffs the runtime applies);
+//   • the untap phase static (isMurkfiendUntap → applyMurkfiendUntap, the color/type-filtered untap hook).
+// All-or-nothing: the untap static must be present on THIS card; NO trigger or activated ability may remain
+// (a detected one is unmodeled residue the runtime won't play through this tier — a FORBIDDEN dropped-ability
+// FP, e.g. Balefire Liege's cast triggers keep IT non-native); and after stripping the untap sentence the
+// remainder must be fully covered by staticAbilitiesCoverCard (the two anthems). Returns native-static or null.
+const MURKFIEND_UNTAP_SENTENCE_RE =
+  /untap all green and\/or blue creatures you control during each other player'?s untap step\.?/i;
+function classifyMurkfiendUntap(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The hook untaps a battlefield permanent's controller's creatures — only a permanent qualifies. Gate
+  // defensively so this never claims an instant/sorcery/land/PW.
+  if (/\b(instant|sorcery|land)\b/.test(type) || !/\b(creature|artifact|enchantment)\b/.test(type)) return null;
+  if (!isMurkfiendUntap(card)) return null;                      // not the exact green/blue-untap static → not ours
+  // Neither the untap nor the anthems is a trigger/activated ability — a detected one is unmodeled residue
+  // (CREED). Belt-and-suspenders: Balefire Liege's "Whenever you cast a red spell…" would trip this.
+  if (detectTriggers(card).length > 0) return null;
+  if (parseActivatedAbilities(card).length > 0) return null;
+  // Strip the modeled untap sentence; the remainder (the two anthems + any keyword line) must be fully
+  // covered by the general static path — the anthems parse to layer-7 group buffs, keyword lines are vanilla.
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const stripped = { ...card, oracle: oracle.replace(MURKFIEND_UNTAP_SENTENCE_RE, " ").replace(/\s+/g, " ").trim() };
+  if (!staticAbilitiesCoverCard(stripped, (c) => isKeywordOnly(c, card?.name))) return null; // unmodeled anthem residue → Arbiter
+  return "native-static";                                        // green/blue anthems + the phase-filtered untap static
+}
+registerCoverageClassifier((card) => classifyMurkfiendUntap(card));
 
 // ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. (HIGH corpus yield, ~150 cards) ──────────────────
 // An Adventure card has a CREATURE half and an instant/sorcery "Adventure" half (CR 715.1). From hand you may

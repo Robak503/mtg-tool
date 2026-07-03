@@ -35,13 +35,12 @@ describe("SEEDBORN-UNTAP — classification (CREED whole-card)", () => {
     expect(isSeedbornUntap({ oracle: "Untap all permanents you control." })).toBe(false);
   });
 
-  it("anti-FP: an anthem rider (Murkfiend Liege) keeps the card body-only — never a partial flip", () => {
-    // Murkfiend Liege's untap is "green and/or blue creatures" (not "all permanents"), AND it has two anthems.
-    expect(classifyCard({
-      name: "Murkfiend Liege",
-      type: "Creature — Horror",
-      oracle: "Other green creatures you control get +1/+1.\nOther blue creatures you control get +1/+1.\nUntap all green and/or blue creatures you control during each other player's untap step.",
-    })).toBe("body-only");
+  it("anti-FP: Murkfiend Liege's different-subject untap is NOT the Seedborn static (isSeedbornUntap false)", () => {
+    // Murkfiend Liege's untap is "green and/or blue creatures" (not "all permanents"), so it is NOT claimed by
+    // the Seedborn tier — it has its own hook (murkfiendUntap.js). It still classifies native-static there (a
+    // separate slice), but this Seedborn-specific matcher must reject it.
+    const MURKFIEND = "Other green creatures you control get +1/+1.\nOther blue creatures you control get +1/+1.\nUntap all green and/or blue creatures you control during each other player's untap step.";
+    expect(isSeedbornUntap({ oracle: MURKFIEND })).toBe(false);
   });
 
   it("anti-FP: a second (unmodeled) ability alongside the untap static keeps it body-only", () => {
