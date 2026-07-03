@@ -58,6 +58,7 @@ import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
+import { gainControlClauseParser } from "./atoms/control.js"; // GAIN-CONTROL — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
@@ -3353,3 +3354,10 @@ registerClauseParser(putFromHandClauseParser);
 // cast-free/decline decision, mirroring discover). Fixed-MV-cap forms only; a variable/relational cap or a
 // multi-cast "any number of spells" stays low → Arbiter. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(freeCastClauseParser);
+// GAIN-CONTROL (CR 720 / 702.10c) — "Gain control of target creature." / "Gain control of target <Subtype>."
+// (Sliver Overlord). INDEFINITE (non-reverting) control change only — the "(This effect lasts indefinitely.)"
+// reminder is pre-stripped; a duration word ("until end of turn"), a controller/self-exclusion restriction, or
+// a non-curated word after "target" fails the anchored matcher → LOW → Arbiter (CREED). The subtype rides as a
+// {kind:"subtype"} target restriction (enumerateTargets enforces it), and applyGainControl moves the permanent
+// to the new controller's battlefield summoning-sick. Whole-clause anchored — matches no earlier parser.
+registerClauseParser(gainControlClauseParser);
