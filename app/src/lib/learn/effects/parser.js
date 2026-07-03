@@ -1561,6 +1561,48 @@ function stripSelfShuffleIntoLibrary(card, oracle) {
   return { body: oracle.replace(re, "").trim(), selfShuffle: true };
 }
 
+/**
+ * ===== REBOUND DISPOSITION ===== (CR 702.88) — a spell with keyword `Rebound` on its LAST line. Rebound is
+ * NOT a vacuous cast-keyword (it is DELIBERATELY excluded from CAST_KEYWORD_LINE): it changes the spell's
+ * resolution disposition — "If you cast this spell from your hand, EXILE it as it resolves" (CR 702.88a),
+ * replacing the default CR 608.2m graveyard put. It ALSO grants a delayed triggered ability at the
+ * controller's next upkeep offering an OPTIONAL recast from exile (CR 702.88c/d).
+ *
+ * We model rebound FAITHFULLY by two moves and NOT a text-strip:
+ *   (1) EXILE-ON-RESOLUTION — the body is peeled off and the produced HIGH program is stamped `selfExile`, so
+ *       runEffectProgram's GY-1 puts the spell into EXILE, not the graveyard. This is the REAL state divergence
+ *       that a naive strip would violate (letting the card hit the graveyard — a forbidden FP that changes
+ *       every "cards in graveyard" / graveyard-recursion read). It reuses the EXACT selfExile disposition that
+ *       Finale of Revelation's "Exile <this>." already threads (finishSpellResolution, { selfExile }).
+ *   (2) DECLINE-THE-RECAST — the delayed upkeep recast is OPTIONAL (CR 702.88d "you MAY cast"). We do not set
+ *       up the delayed ability; the engine simply never offers it, which is EXACTLY the CR-legal line where the
+ *       controller DECLINES to recast (CR 702.88e — a declined rebound card stays in exile for the rest of the
+ *       game). The resulting state (card permanently in exile, never recast) is a real reachable state, and —
+ *       critically — declining FABRICATES NOTHING (the FP direction): we never conjure a free spell. Not
+ *       offering the free recast is a SAFE false-negative on the UPSIDE; the mandatory exile disposition (the
+ *       only part whose omission would be a wrong play) is modeled exactly.
+ *
+ * The strip is anchored to a TRAILING `Rebound` keyword line — every rebound printing prints it last (verified
+ * across the corpus) — optionally followed by its reminder parenthetical (six wordings exist; a bare `Rebound`
+ * with no reminder also occurs, e.g. Unnatural Summons). The body then parses through the normal pipeline and
+ * must earn a HIGH tier ON ITS OWN merits: an unmodeled body (Ephemerate's flicker, Consuming Vapors' edict,
+ * World at War's extra-combat) stays LOW → Arbiter, which disposes the spell itself, so the selfExile flag is
+ * inert there. Returns { body, rebound }. A card without the line yields { body: oracle, rebound: false }
+ * (byte-identical to the prior behavior).
+ */
+function stripReboundLine(oracle) {
+  // Trailing `Rebound`, on its own (a newline / sentence boundary before it), optionally followed by a single
+  // (non-nesting) reminder parenthetical, at end of string. The keyword line carries NO body effect, so peeling
+  // it never removes a real clause. `(?<=^|[\n.])` — the keyword starts a line or follows a sentence period.
+  const re = /(?:^|[\n.])\s*rebound\b(?:\s*\([^)]*\))?\s*$/i;
+  if (!re.test(oracle)) return { body: oracle, rebound: false };
+  // Replace only the matched tail; keep the preceding sentence's terminating period (the match's leading
+  // boundary char) by capturing it back is unnecessary — the tail begins at the newline/period boundary, and we
+  // want to KEEP a body-ending period. Use a callback to preserve a leading "." (a body sentence's period).
+  const body = oracle.replace(re, (m) => (m.startsWith(".") ? "." : "")).trim();
+  return { body, rebound: true };
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
   const rawOracle = stripStormKeywordLine(stripSelfCostReduction(oracleOf(card)));
@@ -1570,13 +1612,22 @@ export function parseEffectProgram(card) {
   // the graveyard). No family member carries a kicker/additional/alt cost, so stripping before those checks is
   // safe; the body still must parse HIGH on its own (an unmodeled body stays LOW → Arbiter). A card without the
   // sentence yields `oracle === rawOracle` and `selfShuffle === false` — byte-identical to the prior behavior.
-  const { body: oracle, selfShuffle } = stripSelfShuffleIntoLibrary(card, rawOracle);
-  // Stamp `selfShuffle` on the produced program WITHOUT reconstructing it (preserve every field —
+  const { body: shuffleBody, selfShuffle } = stripSelfShuffleIntoLibrary(card, rawOracle);
+  // REBOUND DISPOSITION (CR 702.88) — peel a trailing `Rebound` keyword line up front so the BODY parses
+  // through the normal pipeline, and stamp the resulting HIGH program `selfExile` (runEffectProgram's GY-1 then
+  // exiles the spell instead of the graveyard — the real state divergence; the optional upkeep recast is
+  // faithfully DECLINED, CR 702.88e). No rebound printing carries a self-shuffle sentence, so the two strips
+  // never overlap (rebound is peeled AFTER shuffle so a hypothetical both-lines card keeps working). A card
+  // without the line yields `oracle === shuffleBody` and `rebound === false` — byte-identical to prior behavior.
+  const { body: oracle, rebound } = stripReboundLine(shuffleBody);
+  // Stamp `selfShuffle` / `selfExile` on the produced program WITHOUT reconstructing it (preserve every field —
   // additionalCosts / altCost / xSpell / modal — that later lines may have attached). Only a HIGH program is
   // flagged: a LOW body (unmodeled family member) routes to the Arbiter, which disposes the spell itself, so
   // the flag would be inert there anyway. Mutating the returned object is safe (it's freshly built per call).
+  // selfShuffle and selfExile are mutually exclusive in the corpus (no card both shuffles-self and rebounds).
   const stamp = (p) => {
     if (selfShuffle && p && programConfidence(p) === "high") p.selfShuffle = true;
+    if (rebound && p && programConfidence(p) === "high") p.selfExile = true;
     return p;
   };
   // KICKED-SPELL-EFFECT (CR 702.33e) — "<base>. If this spell was kicked, <extra>." The kicked atom(s) are
