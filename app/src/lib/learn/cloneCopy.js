@@ -57,6 +57,24 @@ function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// BECOMES-TARGET SAC TRIGGER (the Phantasmal Illusion family, CR 603.2) — the EXACT modeled granted trigger
+// Phantasmal Image confers: "When this creature becomes the target of a spell or ability, sacrifice it." A leaf
+// recognizer (cloneCopy stays a leaf — no triggers.js import); it mirrors triggers.classifyCondition's
+// becomesTarget anchor + the SELF_SAC_IT_RE effect ("sacrifice it") so the granted body is credited ONLY when
+// it's the same self-sac trigger the runtime fires on the copy. Reminder-stripped, lowercased, whitespace-
+// collapsed, trailing period optional. Any other quoted body (a different effect, a rider) fails → the clone PARKs.
+const BECOMES_TARGET_SAC_RE = /^when(?:ever)? this creature becomes the target of a spell or ability, sacrifice it\.?$/;
+function isBecomesTargetSacTriggerText(quoted) {
+  const t = stripReminder(quoted).toLowerCase().trim();
+  return BECOMES_TARGET_SAC_RE.test(t);
+}
+// The canonical (title-case-verb) oracle line snapshotCopiedCard appends to the copy, so detectTriggers reads a
+// printed-instance-identical trigger sentence. parseCloneRider lowercases the whole clause, so restore the
+// leading "When" capitalization that detectTriggers' When/Whenever/At grammar anchors on.
+function normalizeGrantedTriggerText() {
+  return "When this creature becomes the target of a spell or ability, sacrifice it.";
+}
+
 // Modeled combat/keyword grants for the "it has <kw>" rider AND the printed pre-copy keyword line.
 // RESTRICTED to keywords the layer engine actually enforces and can GRANT (keywords.GRANTABLE…),
 // so granting one to a copy behaves EXACTLY like a printed instance — never a fake ability. Kept
@@ -116,6 +134,19 @@ export function parseCloneRider(clause) {
   m = cl.match(/^it has vanishing (\d+) if that creature doesn'?t have vanishing$/);
   if (m) return { kind: "grantVanishing", n: parseInt(m[1], 10) };
 
+  // GRANT A BECOMES-TARGET SAC TRIGGER (Phantasmal Image, CR 707.9a + 603.2) — 'it has "When this creature
+  // becomes the target of a spell or ability, sacrifice it."'. The copy GAINS the printed self-sac trigger the
+  // Illusion family carries; snapshotCopiedCard appends its quoted body to the copy's oracle so detectTriggers
+  // sees it exactly like a printed instance, and the becomes-target event (checkBecomesTargetTriggers) fires it
+  // on the copy at every target-choice site. Anchored to EXACTLY the modeled becomes-target-sac trigger (the
+  // quoted text must parse to the same becomesTarget/self-sac descriptor the printed siblings do) — any other
+  // granted quoted ability leaves this null → the whole clone PARKs (CREED all-or-nothing). The quote is
+  // preserved intact through parseCloneSpec's quote-aware rider split (its internal comma/period never splits it).
+  m = cl.match(/^it has\s+["“](.+?)["”]\.?$/);
+  if (m && isBecomesTargetSacTriggerText(m[1])) {
+    return { kind: "grantTrigger", oracle: normalizeGrantedTriggerText(m[1]) };
+  }
+
   // CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c + 122.6a) — "it enters with an
   // additional +1/+1 counter on it if it's a creature" / "it enters with an additional loyalty counter on it
   // if it's a planeswalker". A REPLACEMENT that adds ONE counter to the ENTERING PERMANENT (counters live on
@@ -158,6 +189,27 @@ export function parseCloneRider(clause) {
   }
 
   return null; // unmodeled rider → caller PARKs the whole card
+}
+
+/**
+ * Peel any 'it has "…"' granted-ability sub-clause(s) out of a rider clause so its opaque QUOTE (with internal
+ * commas/periods) survives the comma/"and" split (Phantasmal Image, CR 707.9a). Returns { quotedClauses, remainder }:
+ * `quotedClauses` are the extracted 'it has "…"' units (each an intact rider sub-clause for parseCloneRider);
+ * `remainder` is the rider text with those units + their joining " and "/", " removed, ready for the normal split.
+ * Non-quoted riders yield an empty quotedClauses and remainder === input (byte-identical to the old path). Pure.
+ */
+function extractQuotedRiderClauses(riderText) {
+  const quotedClauses = [];
+  // Match 'it has "<anything up to the closing quote>"' plus any FLANKING connector (", "/", and "/" and ") so
+  // removing the clause leaves the remaining riders cleanly split-able. The quote is opaque (its internal ,/. never
+  // split). Each removed span becomes a single space; the remainder is whitespace-collapsed + trimmed below.
+  const RE = /(?:,?\s*and\s+|,\s*)?it has\s+["“][^"”]*["”]\.?(?:\s*,?\s*and\s+|,\s*)?/gi;
+  const remainder = String(riderText || "").replace(RE, (match) => {
+    const inner = match.match(/it has\s+["“][^"”]*["”]\.?/i);
+    if (inner) quotedClauses.push(inner[0].trim());
+    return " ";
+  }).replace(/\s+/g, " ").replace(/^[,\s]+|[,\s]+$/g, "").trim();
+  return { quotedClauses, remainder };
 }
 
 /**
@@ -226,9 +278,15 @@ export function parseCloneSpec(card) {
 
   let riders = [];
   if (m[3]) {
-    // Split the rider clause into sub-clauses on ", and " / ", " / " and ", parse each. ANY
-    // unmodeled sub-clause fails the whole card (CREED: whole copy or nothing).
-    const subs = m[3].split(/,\s*and\s+|,\s+|\s+and\s+/).map((s) => s.trim()).filter(Boolean);
+    // QUOTE-AWARE rider split (Phantasmal Image, CR 707.9a) — a granted-ability rider carries a QUOTED trigger
+    // whose own text has internal commas/periods ('it has "When this creature becomes the target of a spell or
+    // ability, sacrifice it."'). Splitting the whole rider clause on ", "/" and " would shatter that quote. So
+    // FIRST peel off any 'it has "…"' sub-clause as a single unit (its quote is opaque to the split), parse it
+    // as a grantTrigger atom, and split ONLY the remainder on the normal delimiters. A leading/trailing " and "
+    // joining the quoted clause to the others is consumed with it. Non-quoted riders keep the exact old split.
+    const { quotedClauses, remainder } = extractQuotedRiderClauses(m[3]);
+    const subs = remainder.split(/,\s*and\s+|,\s+|\s+and\s+/).map((s) => s.trim()).filter(Boolean);
+    for (const q of quotedClauses) subs.push(q);
     for (const s of subs) {
       let atom = parseCloneRider(s);
       if (!atom) return null;
@@ -453,6 +511,19 @@ export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
       const oracle = String(card.oracle || card.oracle_text || "");
       if (!/(?:^|\n|, |; )vanishing\s+\d+/i.test(oracle)) {
         card = { ...card, oracle: (oracle ? oracle.replace(/\s*$/, "") + "\n" : "") + "Vanishing " + r.n };
+      }
+    } else if (r.kind === "grantTrigger") {
+      // GRANT A BECOMES-TARGET SAC TRIGGER (Phantasmal Image, CR 707.9a + 603.2) — append the granted trigger's
+      // canonical oracle line ("When this creature becomes the target of a spell or ability, sacrifice it.") to
+      // the copy's oracle, so detectTriggers reads it exactly like a printed instance and the becomes-target event
+      // (checkBecomesTargetTriggers) fires it on the copy at every target-choice site. "this creature" binds to the
+      // copy (the trigger's source). Idempotent — never duplicates a line the copied creature already carries
+      // (an Illusion copied by Phantasmal Image already has it). Appended AFTER the type/keyword riders so the
+      // Illusion add-type is already applied; the copy is then the WHOLE card (all riders), never a partial.
+      const oracle = String(card.oracle || card.oracle_text || "");
+      const line = String(r.oracle || "").trim();
+      if (line && !oracle.includes(line)) {
+        card = { ...card, oracle: (oracle ? oracle.replace(/\s*$/, "") + "\n" : "") + line };
       }
     } else if (r.kind === "retainOwnAbilities") {
       // "it has ~'s other abilities" (Sakashima, CR 707.9) — the copy ALSO KEEPS the clone's own abilities.

@@ -54,7 +54,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./stat
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkLeavesTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkLeavesTriggers, checkBecomesTargetTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -426,6 +426,14 @@ function applyCastSpell(state, action) {
   next = recordSpellCast(next, { playerId: action.playerId }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
   next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches)
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): if this spell targets one or more permanents
+  // that carry a "When this creature becomes the target of a spell or ability, sacrifice it." trigger, fire it
+  // now — enqueued then flushed ABOVE the spell (it resolves FIRST, CR 603.3b: the creature is sacrificed, then
+  // the now-targetless spell is countered on resolution if it lost its only legal target, CR 608.2b). Fires for
+  // ANY caster's spell (no controller distinction, CR 603.2 — a Giant Growth on your OWN Phantasmal Bear
+  // sacrifices it too), unlike ward/Heroic. A no-op when no targeted permanent carries the trigger.
+  next = checkBecomesTargetTriggers(next, stackObject);
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // ZAXARA X-CAST: casting a spell with {X} → each of the caster's "cast a spell with {X} → make a token
   // with X +1/+1 counters" permanents makes its Hydra token (a real X/X). The general trigger compiler
   // doesn't model the token-with-X effect, so it's a targeted hook reading the chosen X (action.xValue).
@@ -729,6 +737,12 @@ function applyActivateAbility(state, action) {
   // the stack now (ABOVE the ability, so they resolve first — CR 603.3b), exactly as the cast path
   // flushes cast triggers. A no-op when nothing triggered (the pre-γ1 common case).
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): an activated ability targeting a permanent that
+  // carries the sac trigger fires it too — the event is any spell OR ability, CR 603.2. Enqueued + flushed ABOVE
+  // the ability so it resolves first (CR 603.3b). Fires regardless of who activated (a player pinging their own
+  // Phantasmal Bear sacrifices it). No-op when no targeted permanent carries the trigger.
+  next = checkBecomesTargetTriggers(next, stackObject);
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // KW-WARD-PR2 (CR 702.21a): ward triggers on a spell OR an ABILITY an opponent controls — so an
   // opponent's activated/triggered ability targeting a single ward permanent raises the same pay-or-be-
   // countered choice as the cast path. An Equip ability targets the activator's OWN creature (controller
@@ -864,6 +878,13 @@ function applyActivateLoyalty(state, action) {
     costDelta: action.costDelta,
     abilityText: action.abilityText,
   });
+  // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): a loyalty ability that TARGETS a permanent
+  // carrying the sac trigger fires it too — a loyalty ability IS an activated ability (CR 606.1), so "a spell or
+  // ability" covers it. Enqueued + flushed ABOVE the loyalty ability so it resolves first (CR 603.3b). No-op
+  // when the loyalty ability targets nothing / no targeted permanent carries the trigger. Placed BEFORE the
+  // zero-loyalty SBA sweep so the sac trigger sits atop the loyalty ability regardless of the walker's fate.
+  next = checkBecomesTargetTriggers(next, stackObject);
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // SBA (CR 704.5i): paying a −N cost down to 0 puts the walker into the graveyard. The ability is
   // already on the stack (above) and still resolves — putting it there before the sweep is what
   // preserves that ordering.

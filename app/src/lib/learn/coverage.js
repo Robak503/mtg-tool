@@ -32,7 +32,7 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -624,6 +624,17 @@ export function permanentTriggersCovered(card) {
 function isActivatedAbilityLine(line) {
   const ci = line.indexOf(":");
   if (ci === -1) return false;
+  // QUOTED-GRANT GUARD (CR 113.7) — a GROUP-GRANT static ("Artifacts you control have \"{T}: Add …\"" —
+  // Galazeth Prismari; "Treasures you control have \"{T}, Sacrifice …\"" — Goldspan Dragon) carries its
+  // ability's colon INSIDE the quotes. The naive first-colon split reads "…have \"{T}" as a cost (it contains
+  // "{") and mis-classifies the grant as an activated-ability LINE, so permanentFullyCovered would FILTER it
+  // out of the residue — hiding an UNMODELED grant (a spend-restricted / rider-cost one that parseStaticAbilities
+  // correctly drops) and false-flipping the card native (CREED FP). A group grant is a STATIC (the residue's
+  // clauseProducesStatic judges it), never the card's own activated ability. Detect it by odd double-quote
+  // parity before the split colon (the colon is inside an open quote) and return false so the line SURVIVES to
+  // the residue static-check. Inert for a printed activated ability (no quote before its cost colon → parity 0).
+  const preColonQuotes = (line.slice(0, ci).match(/["“”]/g) || []).length;
+  if (preColonQuotes % 2 === 1) return false;
   const costStr = line.slice(0, ci).trim();
   return costStr.includes("{") || !!parseAbilityCost(costStr);
 }
@@ -713,7 +724,13 @@ export function permanentFullyCovered(card) {
   const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))
     .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");
-  for (const clause of afterActivated.split(/[\n.;]+/).map((s) => s.trim()).filter(Boolean)) {
+  // QUOTE-AWARE residue split (abilityClauses, the SAME splitter staticAbilitiesCoverCard uses): a GROUP-GRANT
+  // static whose quoted ability carries an internal period ("Treasures you control have \"{T}, Sacrifice this
+  // artifact: Add two mana of any one color.\"" — Goldspan Dragon) must NOT be shredded by that period into a
+  // dangling "…any one color" + orphan-quote fragment (neither parses → false residue → a false body-only on a
+  // fully-modeled MIXED card). Walking quote depth keeps the quoted ability intact. Behavior-identical to the
+  // old `/[\n.;]+/` split for quote-free residue (the common case — every existing native-mixed card).
+  for (const clause of abilityClauses(afterActivated)) {
     if (clauseProducesStatic(clause)) continue;  // a modeled static clause
     if (isKeywordOnly(clause, card?.name)) continue;  // keyword-only / vanilla
     return false;                                 // unmodeled residue

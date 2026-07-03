@@ -56,7 +56,7 @@ import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a 
 // identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
@@ -909,7 +909,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     if (isNativeAura(card)) {
       // KW-PROTECTION (CR 702.16b): the Aura spell's colors gate targeting — a protection-from-[color]
       // creature can't be the Aura's target if the Aura is that color (also its 702.16c enchant immunity).
-      const targets = enumerateTargets(state, playerId, { targetType: "creature" }, colorsOf(card));
+      // ENCHANT-RESTRICTION (CR 303.4a): "Enchant creature you control" limits legal targets to the caster's
+      // OWN creatures — the SAME restriction (creatureSatisfiesRestrictions "you") isNativeAura gated on, so
+      // the aura can never attach to an illegal creature. Bare "Enchant creature" → [] (any creature).
+      const targets = enumerateTargets(state, playerId, { targetType: "creature", restrictions: auraEnchantRestrictions(card) || [] }, colorsOf(card));
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });

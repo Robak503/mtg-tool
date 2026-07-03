@@ -10,9 +10,10 @@
  * an ETB trigger (Verdant Haven), a sac ability (Wolfwillow Haven), an extra land-static (Trace of
  * Abundance), or an unmodeled boost grammar (Market Festival "in any combination") — STAYS body-only
  * (a safe false-negative). (Utopia Sprawl's Forest-subtype + as-enters chosen-color boost is now a
- * MODELED slice — see utopiaSprawl.test.js.) Sub-slice B
- * (AURA-GRANTS-TRIGGERED-ABILITY: Bear Umbra) is DEFERRED (CREED #17 — the granted "untap all lands"
- * effect is unmodeled), so Bear Umbra also stays non-native.
+ * MODELED slice — see utopiaSprawl.test.js.) Bear Umbra is a CREATURE-enchant Aura (not a land-mana
+ * aura) so it is NOT native-mana-aura — parseAuraLandManaBonus/isNativeManaAura correctly reject it here.
+ * Its OWN nativeness (buff + granted untap-all-lands trigger + totem armor) is now MODELED via the creature-
+ * aura path (native-aura) — see effects/bearUmbra.test.js; here it just isn't the land-mana tier.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -106,7 +107,9 @@ describe("coverage — native-mana-aura tier", () => {
     expect(classifyCard(VERDANT_HAVEN)).toBe("body-only");
     expect(classifyCard(TRACE)).toBe("body-only");
     expect(classifyCard(MARKET_FESTIVAL)).toBe("body-only");
-    expect(classifyCard(BEAR_UMBRA)).toBe("body-only");
+    // Bear Umbra is NOT a land-mana aura (it enchants a creature); its own creature-aura nativeness
+    // (buff + granted untap-all-lands trigger + totem armor) is modeled → native-aura, not this tier.
+    expect(classifyCard(BEAR_UMBRA)).toBe("native-aura");
   });
 });
 

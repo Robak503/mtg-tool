@@ -630,7 +630,17 @@ export function applyAuraManaGrantSupplement(state, perm, prod) {
   if (!prod || prod.amountSpec) return prod;          // only fixed-amount own producers (lands/rocks) supplement
   const ownColors = prod.colors || [];
   for (const g of grantedManaSpecsFor(state, perm.id)) {
-    if (g.via !== "attached") continue;               // only a genuinely-distinct aura ability supplements
+    // Two supplementing kinds, both a SINGLE-tap dominating upgrade of the host's own production (never an
+    // extra tap):
+    //   • via:"attached" — a genuinely-distinct AURA ability granting a LAND host a second {T} (Settlement).
+    //   • upgrade:true — a GROUP static UPGRADING an artifact token's OWN mana ability (Goldspan Dragon —
+    //     "Treasures you control have \"{T}, Sacrifice this artifact: Add two mana of any one color\"": the
+    //     Treasure's printed "one" is replaced by "two"). The group-grant dedup in manaSources normally SKIPS
+    //     a recipient that already produces its own mana (to avoid a double-tap); this marker is the explicit
+    //     opt-in for the ONE case where the grant is a strict IN-PLACE upgrade of that same tap-for-mana
+    //     ability (a single tap, never a phantom second source). The granter (a non-token permanent — Goldspan
+    //     is a Dragon) can't self-include via a Treasure selector, so it never mis-upgrades its own source.
+    if (g.via !== "attached" && !g.upgrade) continue;
     const gColors = g.colors || [];
     const superset = gColors.length >= ownColors.length && ownColors.every((c) => gColors.includes(c));
     if (superset && (g.amount ?? 0) >= (prod.amount ?? 0)) {

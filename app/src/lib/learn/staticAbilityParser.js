@@ -75,7 +75,7 @@ const COLOR_WORDS = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
  * boundaries (period, semicolon, newline). Each clause is matched independently
  * at its start, so a buff pattern can't match mid-sentence.
  */
-function abilityClauses(oracle) {
+export function abilityClauses(oracle) {
   // QUOTE-AWARE split: a granted QUOTED ability ("All Slivers have \"{T}: Add one mana of any color.\"")
   // carries sentence punctuation (./;) INSIDE the quotes that must NOT split the clause — otherwise the
   // grant is shredded into "… have \"{T}: Add …" + a dangling "\"". Walk the text, tracking double-quote
@@ -327,17 +327,30 @@ function parseSelfCountSource(phrase) {
  */
 function parseGrantedManaSpec(quoted) {
   const q = String(quoted || "");
-  // Must be a {T}: Add … ability — left-of-colon tap cost, right-of-colon "Add" effect. A {Q}/cost-with-mana
-  // or sacrifice-cost ability is out of the modeled subset.
+  // Must be a "<cost>: Add … " ability — left-of-colon cost, right-of-colon "Add" effect.
   const ci = q.indexOf(":");
   if (ci === -1) return null;
   const cost = q.slice(0, ci);
   const effect = q.slice(ci + 1);
-  // The cost must be EXACTLY a {T} tap — nothing else. A rider cost ("{T}, Pay 1 life: Add …" — Forgotten
-  // Monument; "{T}, Sacrifice …") is NOT modeled by the granted-tap source, and silently dropping it would
-  // grant FREE mana (a CREED FP). Allow only "{t}" + whitespace/commas in the cost.
-  if (!/\{t\}/i.test(cost)) return null;                      // require a {T} tap cost
-  if (cost.replace(/\{t\}/ig, "").replace(/[\s,]/g, "") !== "") return null; // any extra cost (life/sac/pips) → reject
+  // The cost must reduce to EXACTLY a {T} tap and/or a SELF-SACRIFICE — nothing else. Two modeled shapes:
+  //   (a) "{T}" — a repeatable tap source (Gemhide/Manaweft "{T}: Add one mana of any color").
+  //   (b) "{T}, Sacrifice this artifact/token/permanent" — a ONE-SHOT sac source (Goldspan's granted
+  //       Treasure ability "{T}, Sacrifice this artifact: Add two mana of any one color"). The self-sac binds
+  //       to the RECIPIENT (the Treasure it's granted to), so the runtime cracks the Treasure on use — the
+  //       same tap+sac the Treasure's OWN ability has. `sacrifices:true` is flagged so manaModel/legalChoices
+  //       sacrifice it (never a phantom repeatable source). A bare "Sacrifice this …: Add …" (Gold, no {T}) is
+  //       ALSO accepted (tap-less one-shot sac). Any OTHER rider cost ("{T}, Pay 1 life", a mana pip, a
+  //       "Sacrifice ANOTHER …") stays UNmodeled — dropping it would grant cheaper/free mana (a CREED FP).
+  const selfSacRe = /\bsacrifice this (?:artifact|token|permanent)\b/i;
+  const sacrifices = selfSacRe.test(cost);
+  const bareCost = cost
+    .replace(/\{t\}/ig, "")
+    .replace(selfSacRe, "")
+    .replace(/[\s,.]/g, "");
+  if (bareCost !== "") return null;                           // any extra cost (life/sac-other/pips) → reject
+  // At least one real cost token must remain: a {T} tap OR a self-sacrifice (an empty cost is not a mana
+  // ability we model here — every printed granted source in the corpus taps and/or self-sacs).
+  if (!/\{t\}/i.test(cost) && !sacrifices) return null;
   if (!/\badd\b/i.test(effect)) return null;                  // must be a mana ("Add …") ability
   if (/\bx\b/i.test(effect) || /\bfor each\b|\bequal to\b/i.test(effect)) return null; // VARIABLE → wrong scope
   // A SPENDING RESTRICTION on the produced mana ("Spend this mana only to cast …" — Clement/Charitable
@@ -345,22 +358,25 @@ function parseGrantedManaSpec(quoted) {
   // unrestricted), so dropping it would grant unrestricted mana the card actually restricts (a CREED FP).
   // Reject the whole grant — the recipient keeps no fabricated all-purpose mana.
   if (/\bspend this mana\b|\bthis mana can'?t be spent\b|\bcan'?t be spent\b|\bonly to (?:cast|pay|activate)\b/i.test(effect)) return null;
+  // `sac` rides onto every returned spec so a self-sacrifice granted source is cracked (never a phantom
+  // repeatable). An omitted/false flag leaves the spec identical to the pre-existing tap-only shape.
+  const sac = sacrifices ? { sacrifices: true } : {};
   // "Add N mana of any one color" — N spelled or digit; "Add … mana of any color" — amount 1.
   let mm = effect.match(/\badd\s+(one|two|three|four|five|\d+)\s+mana of any one color\b/i);
   if (mm) {
     const amount = _ENTER_NUM[mm[1].toLowerCase()] ?? parseInt(mm[1], 10);
-    if (Number.isFinite(amount) && amount > 0) return { colors: ["W", "U", "B", "R", "G"], amount };
+    if (Number.isFinite(amount) && amount > 0) return { colors: ["W", "U", "B", "R", "G"], amount, ...sac };
     return null;
   }
   if (/\badd\b[^.]*\bmana of any( one)? color\b/i.test(effect)) {
-    return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1, ...sac };
   }
   // Fixed pips: "Add {G}" / "Add {C}{C}" (concat = sum) / "Add {W} or {U}" ("or" = choice, amount 1).
   const symbols = [...effect.matchAll(/\{([WUBRGC])\}/gi)].map((x) => x[1].toUpperCase());
   if (symbols.length === 0) return null;
   const unique = [...new Set(symbols)];
-  if (/\bor\b/i.test(effect)) return { colors: unique, amount: 1 };
-  return { colors: unique, amount: symbols.length };
+  if (/\bor\b/i.test(effect)) return { colors: unique, amount: 1, ...sac };
+  return { colors: unique, amount: symbols.length, ...sac };
 }
 
 /**
@@ -926,6 +942,27 @@ function parseClause(clause, out, selfName, selfType) {
     return; // a flash-cast-permission clause — handled (or intentionally dropped to body-only on an unmodeled filter)
   }
 
+  // ── DIES-TRIGGER MULTIPLIER (Teysa Karlov) ─────────────────────────────────────────────────────────
+  // "If a creature dying causes a triggered ability of a permanent you control to trigger, that ability
+  // triggers an additional time." A rule-modifying STATIC (CR 603.x — it changes HOW MANY TIMES a
+  // creature-death-caused triggered ability fires, like Panharmonicon does for ETB), NOT a layer-6/7 grant.
+  // Emitted as a self-affecting continuous effect carrying op.layerOp:"diesTriggerMultiplier" so
+  // collectContinuousEffects picks it up while the source is on the battlefield; layers.diesTriggerMultiplierCount
+  // counts these per controller, and checkDiesTriggers / checkSacrificeTriggers (triggers.js) enqueue each
+  // creature-death-caused trigger one ADDITIONAL time per multiplier the trigger's controller has. affects:self
+  // (no candidate is buffed — the effect scopes to its controller, resolved from the source permanent), so the
+  // P/T-and-keyword layer engine treats it as an inert board static (effectAffects.self matches only the source,
+  // and no layer-6/7 op reads it). Anchored to the exact printed clause — no variant of this sentence exists.
+  if (/^if a creature dying causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time$/.test(c)) {
+    out.push({
+      layer: 6,
+      op: { layerOp: "diesTriggerMultiplier" },
+      affects: { mode: "self" },
+      duration: { kind: "permanent" },
+    });
+    return; // handled — a modeled rule-modifying static (the coverage residue check credits it via `produced.length`)
+  }
+
   // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
   // "<Subtype> spells you cast cost {N} less to cast" reduces the GENERIC portion of the matching spell's
   // cost (CR 601.2f — effects may reduce the cost to pay), floored at {0} when the cost is applied at the
@@ -1216,18 +1253,31 @@ function parseClause(clause, out, selfName, selfType) {
   {
     const grantQ = clause.match(/^(.+?)\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
     if (grantQ) {
-      const selector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
+      const creatureSelector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
       const quoted = grantQ[2];
-      const manaSpec = selector ? parseGrantedManaSpec(quoted) : null;
       const isTriggeredBody = /^(?:when|whenever|at)\b/i.test(quoted.trim());
+      // NON-CREATURE TOKEN-MANA GRANT (Goldspan Dragon — "Treasures you control have \"{T}, Sacrifice this
+      // artifact: Add two mana of any one color.\""). A grant to a mana-relevant ARTIFACT token subtype
+      // (Treasure/Gold/…) is modeled ONLY for a MANA ability — the recipient (a Treasure) gains a tap/sac-
+      // for-mana source through the SAME grantedManaSpecsFor → manaSources runtime a creature group-grant uses.
+      // The token selector is tried ONLY when the creature selector didn't match AND the quoted body is a
+      // modeled mana spec: a token can't take a Creature-restricted keyword/anthem grant (crew unmodeled), so
+      // a keyword/triggered/activated grant to a token stays UNMODELED → body-only (the CREED FN, matching the
+      // parseCreatureSelector NON_CREATURE_SUBTYPES exclusion). `upgrade:true` marks the spec so
+      // manaModel.applyAuraManaGrantSupplement lets it DOMINATE the token's own printed production (Goldspan's
+      // "two" replaces the Treasure's own "one" — a single tap, never a double-tap): the granter (a Dragon) is
+      // never itself a Treasure, so it can't self-include and mis-upgrade its own source.
+      const tokenManaSelector = creatureSelector ? null : parseTokenArtifactManaSelector(grantQ[1].toLowerCase() + " have");
+      const selector = creatureSelector || tokenManaSelector;
+      const manaSpec = selector ? parseGrantedManaSpec(quoted) : null;
       if (selector && manaSpec) {
         out.push({
           layer: 6,
-          op: { layerOp: "addAbility", grant: { kind: "mana", spec: manaSpec } },
+          op: { layerOp: "addAbility", grant: { kind: "mana", spec: tokenManaSelector ? { ...manaSpec, upgrade: true } : manaSpec } },
           affects: selector,
           duration: { kind: "permanent" },
         });
-      } else if (selector && isTriggeredBody) {
+      } else if (creatureSelector && isTriggeredBody) {
         // GROUP-GRANT granted quoted TRIGGERED ability ("Sliver creatures you control have \"Whenever this
         // creature deals combat damage to a player, put a +1/+1 counter on it.\"" — Tempered Sliver). The
         // quoted body must parse to FULLY-MODELED, natively-routing trigger(s) through detectTriggers +
@@ -1240,11 +1290,11 @@ function parseClause(clause, out, selfName, selfType) {
           out.push({
             layer: 6,
             op: { layerOp: "addAbility", grant: { kind: "triggered", quoted } },
-            affects: selector,
+            affects: creatureSelector,
             duration: { kind: "permanent" },
           });
         }
-      } else if (selector && !isTriggeredBody) {
+      } else if (creatureSelector && !isTriggeredBody) {
         // GROUP-GRANT granted quoted ACTIVATED ability ("All Slivers have \"{2}: Regenerate this permanent.\""
         // — Clot Sliver; "\"{2}, Sacrifice this permanent: Draw a card.\"" — Mnemonic; "\"Sacrifice this
         // permanent: You gain 3 life.\"" — Darkheart). The quoted body must parse to a FULLY-MODELED, non-mana
@@ -1907,6 +1957,22 @@ function parseCreatureSelector(c) {
     }
   }
 
+  // TOKEN anthem (Teysa Karlov — "Creature tokens you control have vigilance and lifelink"): a static
+  // keyword/P/T grant restricted to CREATURE TOKENS the controller owns. Anchored ^"creature tokens you
+  // control …" so it never overlaps the generic "creatures you control" anthem below (which the intervening
+  // "tokens" word prevents matching anyway). The `token: true` selector predicate is honored by
+  // matchesSelector (layers.js) — a candidate matches only when its card carries token:true (CR 111.1 —
+  // set at every token-mint chokepoint, incl. token COPIES). cardTypes:["Creature"] keeps it creature-only
+  // (a non-creature Treasure/Clue token is never buffed by a creature-keyword anthem). Only "you control" is
+  // modeled here (every corpus token anthem is controller-scoped); a symmetric "creature tokens have …" form
+  // (none in the corpus) falls through to null — a SAFE false-negative, never a fabricated symmetric grant.
+  if (/^creatures?\s+tokens?\s+you control\s+(?:gets?|gains?|has|have)\b/.test(c)) {
+    return {
+      mode: "dynamic",
+      selector: { controllerScope: "you", cardTypes: ["Creature"], token: true },
+    };
+  }
+
   // Generic anthem: "creatures you control [get|have]"
   if (/^creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/.test(c)) {
     return {
@@ -1927,6 +1993,34 @@ function parseCreatureSelector(c) {
   }
 
   return null;
+}
+
+// NON-CREATURE ARTIFACT-TOKEN SUBTYPES that a mana-grant static can target ("Treasures you control have
+// \"{T}, Sacrifice this artifact: Add …\"" — Goldspan Dragon). Each is an ARTIFACT subtype, so the selector
+// gates cardTypes:["Artifact"] + the subtype (matchesSelector honors both). These NEVER carry a Creature
+// grant (crew unmodeled — that's why they're excluded from parseCreatureSelector's NON_CREATURE_SUBTYPES);
+// the mana-grant path is the ONLY place a grant to them is modeled. Singular, lowercase.
+const TOKEN_ARTIFACT_MANA_SUBTYPES = new Set(["treasure", "gold", "clue", "food", "powerstone", "blood", "map", "junk", "incubator"]);
+
+/**
+ * NON-CREATURE mana-grant selector — "<Token-subtype>s you control [have]" where the subtype is a mana-
+ * relevant ARTIFACT token (Treasure/Gold/…). Returns a dynamic selector { cardTypes:["Artifact"],
+ * subtypes:[Subtype] } scoped to the controller, or null if the subject is not a bare token-artifact-subtype
+ * "you control" phrase. Used ONLY by the MANA-grant branch (the recipient gains a tap/sac-for-mana source the
+ * grantedManaSpecsFor → manaSources runtime already offers), NEVER for keyword/anthem grants (a Creature-
+ * restricted keyword grant on a Treasure selects nobody — the parseCreatureSelector exclusion stands). Bare
+ * subject only: a determiner ("all"/"other"), a rider, or a non-token subtype leaves residue → null (safe FN).
+ */
+function parseTokenArtifactManaSelector(c) {
+  const m = String(c).match(/^([a-z]+)\s+you control(?:\s+have)?$/i);
+  if (!m) return null;
+  let word = m[1].toLowerCase();
+  if (word.endsWith("s")) word = word.slice(0, -1);           // Treasures → treasure
+  if (!TOKEN_ARTIFACT_MANA_SUBTYPES.has(word)) return null;   // not a mana-relevant token subtype → safe FN
+  return {
+    mode: "dynamic",
+    selector: { controllerScope: "you", cardTypes: ["Artifact"], subtypes: [normalizeSubtype(word)] },
+  };
 }
 
 /**
@@ -2295,14 +2389,21 @@ function parseAttachedClause(c, subject) {
   let rest = c.replace(new RegExp(`^${subject} creature\\s+`), "").trim();
   const out = [];
 
-  // EQUIP-BASE-PT-SET (layer 7b): "has base power and toughness N/N" (literal). A DYNAMIC form
-  // ("…N/N, where X is your life total") has trailing residue after the N/N and is NOT matched here, so
-  // the all-or-nothing tail check below rejects it (Aettir and Priwen stays body-only — safe FN, no
-  // fabricated CDA). Anchored to the whole clause (no other bonus composes with a base-P/T set in the
-  // modeled corpus). applyLayer7 already applies sublayer 7b.
-  const baseSet = rest.match(/^(?:has|have)\s+base power and toughness\s+(\d+)\/(\d+)$/);
+  // EQUIP-BASE-PT-SET (layer 7b): "has base power and toughness N/N" (literal), OPTIONALLY composed with a
+  // trailing "and has <grantable keyword>…" list (Super State "…9/9 and has flying, first strike, trample,
+  // and haste"; Almost Perfect "…9/10 and has indestructible"; Gigantiform "…8/8 and has trample"). The
+  // base-set is consumed, then `rest` advances past it (dropping the joining "and") so the SHARED
+  // have-keyword tail below models the keyword grant — no second keyword parser, so a base-set + keyword
+  // aura can't drift from a plain keyword aura. A DYNAMIC form ("…N/N, where X is your life total") has a
+  // trailing clause that is NOT a "has <keyword>" grant, so the have-tail's GRANTABLE_KEYWORDS check rejects
+  // it → null → whole bonus drops (Aettir and Priwen stays body-only — safe FN, no fabricated CDA). Without
+  // a keyword tail (the bare "…N/N" form) `rest` becomes "" and the function returns the lone 7b op below.
+  // applyLayer7 already applies sublayer 7b, layered after the layer-6 keyword grants.
+  const baseSet = rest.match(/^(?:has|have)\s+base power and toughness\s+(\d+)\/(\d+)\b/);
   if (baseSet) {
-    return [{ layer: 7, sublayer: "7b", op: { power: parseInt(baseSet[1], 10), toughness: parseInt(baseSet[2], 10) }, duration: { kind: "permanent" } }];
+    out.push({ layer: 7, sublayer: "7b", op: { power: parseInt(baseSet[1], 10), toughness: parseInt(baseSet[2], 10) }, duration: { kind: "permanent" } });
+    rest = rest.slice(baseSet[0].length).trim().replace(/^and\s+/, "").trim(); // "…9/9 and has flying" → "has flying"
+    if (!rest) return out;                              // bare base-P/T set, no keyword tail
   }
 
   // EQUIP-DYNAMIC-PT (layer 7c): "gets +X/+Y for each <metric>" (Conqueror's Flail). The metric must be a
@@ -2336,6 +2437,25 @@ function parseAttachedClause(c, subject) {
       if (!GRANTABLE_KEYWORDS.has(kw)) return null;    // only a modeled combat keyword may be removed
       out.push({ layer: 6, op: { layerOp: "removeKeyword", keyword: canonicalKeyword(kw) }, duration: { kind: "permanent" } });
       rest = "";
+    }
+    // COMBINED GRANT-TRIGGER (Bear Umbra "+2/+2 and has \"Whenever this creature attacks, untap all lands you
+    // control.\""; Snake Umbra "+1/+1 and has \"…draw a card.\"") — after the P/T bonus, a "has \"<quoted
+    // triggered ability>\"" tail is NOT a static keyword grant; it's a TRIGGERED ability the trigger system
+    // fires on the host (triggers.parseGrantedTriggeredAbilities → grantedTriggersForHost, the SAME line the
+    // combined GRANTED_ABILITY_LINE now matches). Emit ONLY the P/T bonus here (the trigger applies
+    // independently), exactly like the equipment path skips trigger sentences — no double-count, no dropped
+    // clause. CREED-gated: only when the quoted body is a FULLY-MODELED triggered ability (every trigger routes
+    // natively, via the injected group-triggered validator that owns triggerRoutesNatively). If it isn't
+    // modeled — or the validator isn't registered — fall through to the have-tail keyword check, which returns
+    // null on a quoted trigger → the whole bonus drops → the Aura stays Arbiter (safe FN). Anchored to the
+    // WHOLE quoted-ability tail ($) so any trailing rider leaves residue and keeps the card Arbiter.
+    const quotedTrigM = rest.match(/^(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/);
+    if (quotedTrigM) {
+      const quoted = quotedTrigM[1].trim();
+      if (/^(?:when|whenever|at)\b/i.test(quoted)
+        && _groupTriggeredBodyValidator && _groupTriggeredBodyValidator(quoted)) {
+        return out.length ? out : null;                // P/T bonus applies; the trigger fires via the trigger system
+      }
     }
   }
   if (rest) {
@@ -2411,10 +2531,18 @@ export function parseAttachedBonus(card, subjectOverride) {
     // still drops, keeping The Reaver Cleaver body-only.)
     // EQUIPMENT-ONLY: equipment nativeness is gated by coverage.permanentEquipmentCovered, which independently
     // requires every trigger sentence to ROUTE natively (allTriggerSentencesModeled) — so skipping the trigger
-    // here can't over-claim. The AURA gate (isNativeAura) has NO such trigger-routing check; it relies on this
-    // parse failing to keep a triggered-ability aura non-native (the auras-grant-trigger slice is separate), so
-    // for the "enchanted" subject we keep the original all-or-nothing behavior (a trigger line poisons it → []).
+    // here can't over-claim.
     if (subject === "equipped" && /^(?:when|whenever|at)\b/.test(c.trim())) continue;
+    // AURA (SUPER STATE): the aura's OWN trigger sentence poisons the bonus parse (it "touches" the enchanted
+    // creature but isn't a "<subject> creature has/gets" static clause → parseAttachedClause returns null → the
+    // bonus drops to []). Skip it ONLY when it is a KNOWN-MODELED aura-own trigger (isModeledAuraOwnTrigger) —
+    // the same shape isNativeAura's residue gate admits — so the runtime attaches + fires it while the layer
+    // engine applies the P/T/keyword bonus independently. An UNMODELED aura trigger is NOT skipped → the bonus
+    // still drops to [] → non-native (CREED: an aura trigger the engine can't fire keeps the whole card off
+    // native, never a silent drop). Mirrors the equipment trigger-skip, gated to the modeled shape for auras.
+    if (subject === "enchanted" && /^(?:when|whenever|at)\b/.test(c.trim())) {
+      if (isModeledAuraOwnTrigger(c)) continue;
+    }
     if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
     const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
     if (!parsed) { if (slot) slot[slotKey] = []; return []; }     // a creature clause we can't fully model
@@ -2480,8 +2608,19 @@ function auraResidueClauses(card) {
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;                       // the Enchant keyword line
-    if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus clause
-    if (isSelfPigReturnClause(c)) continue;                   // SELF-LTB: the modeled Aura self-PiG-return trigger
+    // An aura-own TRIGGER sentence starting with When/Whenever/At "touches" the enchanted creature but is NOT
+    // a static bonus clause; admit it as non-residue ONLY when it is the modeled aura-own trigger (the runtime
+    // fires it), else it stays residue → non-native (CREED). Checked BEFORE the generic touchesAttachedCreature
+    // skip so an UNMODELED aura trigger ("Whenever enchanted creature dies, draw a card") is NOT silently
+    // admitted — it falls through to `out.push`, keeping the Aura body-only.
+    if (/^(?:when|whenever|at)\b/.test(c)) {
+      if (isModeledAuraOwnTrigger(c)) continue;               // AURA-OWN-TRIGGER: modeled combat-damage relay (Super State)
+      if (isSelfPigReturnClause(c)) continue;                 // SELF-LTB: the modeled Aura self-PiG-return trigger
+      out.push(clause);                                       // any other aura-own trigger → residue → non-native
+      continue;
+    }
+    if (isTotemArmorClause(c)) continue;                      // TOTEM ARMOR (Bear Umbra): the modeled destruction-replacement
+    if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus (P/T / keyword) clause
     out.push(clause);
   }
   return out;
@@ -2501,6 +2640,47 @@ function isSelfPigReturnClause(clause) {
   return SELF_PIG_RETURN_CLAUSE_RE.test(String(clause || "").trim());
 }
 
+// TOTEM ARMOR (CR 702.116 — "Umbra armor" is the older functional-reminder name; both are the SAME ability).
+// "If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura." A
+// destruction-REPLACEMENT effect on the Aura (CR 614): the NEXT time the enchanted permanent would be
+// destroyed, the Aura is destroyed instead and all damage is removed from the creature (it survives). Modeled
+// end-to-end by the runtime at BOTH destruction sites (gameState.destroyLethalCreatures — the lethal-damage
+// SBA — and spellEffects.applyDestroyEffect — the targeted-destroy effect), which walk the creature's
+// attachments for a totem-armor Aura and consume it instead of killing. abilityClauses already dropped the
+// parenthetical reminder text, so the whole clause reduces to the bare keyword name. Anchored exactly ($) —
+// only the printed keyword line ("Umbra armor" / "Totem armor") matches; any rider stays residue (CREED).
+const TOTEM_ARMOR_CLAUSE_RE = /^(?:umbra|totem) armor$/i;
+function isTotemArmorClause(clause) {
+  return TOTEM_ARMOR_CLAUSE_RE.test(String(clause || "").trim());
+}
+
+/**
+ * Does this Aura (or token-Aura) carry TOTEM ARMOR / Umbra armor (CR 702.116)? The single source of truth
+ * shared by the coverage classifier (crediting the keyword line as modeled) AND the two runtime destruction
+ * sites (which consume the Aura instead of destroying the creature). Detected from the Aura's own oracle text
+ * so no per-permanent flag needs stamping at attach time. Pure; card-based; false for a non-Aura.
+ */
+export function auraHasTotemArmor(card) {
+  if (!isAuraCard(card)) return false;
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  return abilityClauses(oracle).some((c) => isTotemArmorClause(c));
+}
+
+// AURA-OWN-TRIGGER (SUPER STATE) — the EXACT aura-own combat-damage trigger the engine now plays end-to-end:
+// "Whenever enchanted creature deals combat damage to a player/an opponent, it deals that much damage to each
+// other opponent." The Aura is a live trigger SOURCE while attached; triggers.checkCombatDamageTriggers fires
+// its printed trigger (detected via the "enchanted creature deals combat damage" → equippedCreature-scope
+// path) and the cdmg-to-each-other-opponent atom deals the combat-damage amount to each OTHER opponent. So
+// this clause is no longer residue AND must not poison the P/T bonus parse. Anchored EXACTLY to the modeled
+// shape (the trigger condition + the sole modeled effect); any OTHER aura-own trigger (a different effect, a
+// rider, a "to a player or planeswalker" qualifier) does NOT match → it stays residue → the Aura is body-only
+// (CREED all-or-nothing: an aura trigger the engine can't fire end-to-end keeps the whole card off native).
+const AURA_OWN_MODELED_TRIGGER_RE =
+  /^whenever enchanted creature deals combat damage to (?:a player|an opponent), it deals that much damage to each other opponent\.?$/i;
+function isModeledAuraOwnTrigger(clause) {
+  return AURA_OWN_MODELED_TRIGGER_RE.test(String(clause || "").trim());
+}
+
 /**
  * Is this Aura one the engine can play END-TO-END natively? ALL of (no silent gaps):
  *   1. type line is an Aura,
@@ -2513,9 +2693,28 @@ function isSelfPigReturnClause(clause) {
  */
 export function isNativeAura(card) {
   if (!isAuraCard(card)) return false;
-  if (auraEnchantSubject(card) !== "creature") return false;
+  if (!auraEnchantRestrictions(card)) return false;         // "creature" or "creature you control" only
   if (!parseAuraBonus(card).length) return false;
   return auraResidueClauses(card).length === 0;
+}
+
+/**
+ * The MODELED enchant-subject restrictions for a creature Aura, or null if the subject isn't one the engine
+ * targets natively. Exactly two modeled subjects (CR 702.5):
+ *   "creature"             → [] (any creature on any battlefield, no controller restriction)
+ *   "creature you control" → [{ kind:"controller", who:"you" }] (only the caster's own creatures — the aura
+ *                            targeting reuses the proven creatureSatisfiesRestrictions "you" filter, so the
+ *                            aura can NEVER attach to an opponent's creature — CR 303.4a + CREED FP-forbidden).
+ * Any other subject (a zone/type restriction, "creature an opponent controls", a color/subtype qualifier) →
+ * null → the Aura is not native (routes to the Arbiter). Single source of truth shared by isNativeAura (both
+ * runtime + metric) AND legalChoices' aura target enumeration, so nativeness and the legal-target set can't
+ * drift. Pure.
+ */
+export function auraEnchantRestrictions(card) {
+  const subject = auraEnchantSubject(card);
+  if (subject === "creature") return [];
+  if (subject === "creature you control") return [{ kind: "controller", who: "you" }];
+  return null;
 }
 
 // ─── AURA-LAND-MANA-BOOST ───────────────────────────────────────────────────────

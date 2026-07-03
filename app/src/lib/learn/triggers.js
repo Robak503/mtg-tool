@@ -22,7 +22,7 @@ import {
   recordCreatureDeaths,
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, diesTriggerMultiplierCount } from "./layers.js";
 import { applyMothmanRadOnEnter } from "./mothmanRad.js";
 
 function oracleOf(card) {
@@ -867,20 +867,24 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
   // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
   if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
-  // ===== ATTACKS-OR-BECOMES-TARGET (compound-trigger guard, CR 603.2 / CR 115.1) ===== A condition that
-  // names BOTH "attacks" and "becomes the target of a spell" ("Whenever this creature attacks or becomes
-  // the target of a spell, …" — Goldspan Dragon, Tectonic Giant, Giggling Skitterspike) is a COMPOUND event.
-  // The bare "becomes the target of a spell" event has NO general runtime (only HEROIC is modeled, and it
-  // fires exclusively for a spell the TARGET's controller casts — CR 702.35 — not for ANY spell targeting
-  // the permanent, so it can't stand in for this broader condition). The \battacks\b branch below would
-  // detect this as JUST "attacks" and SILENTLY DROP the "becomes the target of a spell" half — the trigger
-  // would fire on attack only, a confident WRONG partial (CLAUDE.md §1.2 / THE CREED): the card would never
-  // fire when it's targeted. Mirrors the "attacks or blocks" guard directly above. Leave it UNDETECTED so the
-  // trigger-sentence count matches in allTriggerSentencesModeled and the whole card routes to the Arbiter (a
-  // SAFE false-negative) until a general becomes-target-of-a-spell event exists. Anchored on "becomes the
-  // target of a spell" (a Ward reminder's "…of a spell or ability an opponent controls" never reaches here —
-  // detectTriggers strips reminder text upstream and Ward is a separate keyword lane).
-  if (/\battacks\b/.test(c) && /\bbecomes the target of a spell\b/.test(c)) return null;
+  // ===== ATTACKS-OR-BECOMES-TARGET (compound event, CR 603.2 / CR 115.1) ===== A condition naming BOTH
+  // "attacks" and "becomes the target of a spell" ("Whenever this creature attacks or becomes the target of
+  // a spell, …" — Goldspan Dragon) is a COMPOUND event firing on TWO distinct sites: (a) when THIS creature
+  // is declared as an attacker (checkAttackTriggers), and (b) when THIS permanent becomes the target of ANY
+  // spell any player casts (checkCastTriggers, per CR 115.1 — the target is chosen at cast). Modeled as ONE
+  // self-scope descriptor `event:"attacksOrBecomesTarget"` that BOTH runtime sites fire (so neither half is
+  // ever silently dropped — the CREED all-sites requirement): the attack site enqueues it for the attacking
+  // permanent, the cast site enqueues it for each targeted permanent regardless of controller. The
+  // effectClause routes through the SAME buildTriggerStack flush a printed trigger uses (Goldspan's "create a
+  // Treasure token" parses HIGH). GATED to the UNRESTRICTED bare self form: a "…of a spell AN OPPONENT
+  // CONTROLS" restriction (Tectonic Giant — no per-caster gate at the cast site) or a NON-self subject leaves
+  // residue → falls through UNDETECTED → Arbiter (a SAFE false-negative). Anchored ^…$ so any rider is caught.
+  if (/\battacks\b/.test(c) && /\bbecomes the target of a spell\b/.test(c)) {
+    if (selfRef && /^this creature attacks or becomes the target of a spell$/.test(c)) {
+      return { event: "attacksOrBecomesTarget", scope: "self", whose: "any" };
+    }
+    return null; // restricted ("an opponent controls") / non-self form stays UNDETECTED → Arbiter (SAFE FN)
+  }
   // ===== ATTACKS-ALONE (sole-attacker restriction guard, CR 508.4a) ===== "attacks alone" fires ONLY when
   // exactly one creature is attacking. The engine has NO sole-attacker gate, so the non-anchored
   // "a creature you control" match below would silently DROP "alone" and fire on EVERY attacker (Black
@@ -927,6 +931,28 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bblocks\b/.test(c) && selfRef && !/\bblocks\s*$/.test(c.trim())) return null;
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
 
+  // ===== BECOMES THE TARGET (CR 603.2 — the becomes-target event; the Phantasmal Illusion family) =====
+  // "When[ever] this <permanent> becomes the target of a spell or ability, <effect>" (Phantasmal Bear /
+  // Dragon / Dreadmaw, Frost Walker, Illusionary Servant, Gossamer Phantasm, Skulking Ghost/Fugitive, Phantom
+  // Beast, Tar Pit Warrior, Phantasmal Abomination/Shieldback, …). A NEW event fired at EVERY target-choice
+  // site (checkBecomesTargetTriggers, wired at the spell-cast / activated-ability / loyalty-ability / triggered-
+  // ability target chokepoints) — the permanent enters the event the instant it is CHOSEN as a target, by ANY
+  // controller's spell or ability (CR 603.2 makes no controller distinction, unlike Heroic/Ward). SELF SCOPE
+  // ONLY: the source IS the targeted permanent, so "it" in the effect ("sacrifice it") is the SOURCE (CR
+  // 608.2c) — the effect-rewrite chain below normalizes "sacrifice it" → "sacrifice this creature" (target:
+  // "self" → ctx.sourceId) exactly like the self-pump/self-counter "it" rewrites.
+  //
+  // CREED — anchored to the BARE self form ending on "a spell or ability" ONLY. A COMPOUND ("attacks or becomes
+  // the target of a spell", caught by the guard above) or a RESTRICTED variant — "becomes the target of a spell
+  // or ability an opponent controls" (a group-ward tax, a different lane), "becomes the target of a spell"
+  // (spell-only — Heroic's lane; no bare-ability runtime here), or any trailing rider ("…, sacrifice it unless
+  // you discard a land card" — Cursed Monstrosity; the effect stays LOW → body-only) — does NOT match this
+  // exact anchor → UNDETECTED → Arbiter (a SAFE false-negative). The effect faithfulness is re-gated by
+  // triggerRoutesNatively: only when the whole effect parses HIGH (a plain self-sac does) is the card credited.
+  if (selfRef && /\bbecomes the target of a spell or ability\s*$/.test(c.trim())) {
+    return { event: "becomesTarget", scope: "self", whose: "any" };
+  }
+
   // Combat-damage-to-a-player (CR 510.2 — combat damage dealt). "Whenever <self> deals combat damage to a player" (self) /
   // "Whenever a creature you control deals combat damage to a player" (creatureYouControl). BARE form
   // only — END-anchored on "a player" so a qualified variant ("…to a player or planeswalker", "…to a
@@ -944,6 +970,14 @@ function classifyCondition(condRaw, cardName, cardType) {
     // UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire). whose:"any" like the per-attacker
     // self/creatureYouControl forms above.
     if (/^equipped creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+    // AURA-RIDER combat-damage (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage to a player,
+    // <effect>". An Aura's OWN triggered ability keyed off its host: the watcher is the AURA, the connecting
+    // attacker is the triggering permanent, so the SAME "equippedCreature" attached-linkage scope fires ONLY
+    // when the attacker IS this Aura's host (sourcePermanent.attachedTo). Auras and Equipment attach through
+    // the identical `attachedTo` field, and the per-host correctness relies on ATTACH permitting only an
+    // own-creature host (resolvers.js), exactly like the Equipment rider above. The "to an opponent" object is
+    // handled in the sibling block below (the outer guard here is END-anchored on "a player"). whose:"any".
+    if (/^enchanted creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
     // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
     // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
     // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
@@ -995,6 +1029,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bdeals? damage to (?:a player|an opponent)$/.test(c) && selfRef) {
     return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
   }
+  // AURA-RIDER combat-damage TO AN OPPONENT (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage
+  // to an opponent, <effect>". The "to an opponent" object is equivalent to "to a player" for this event: the
+  // defender of a combat-damage-player event is ALWAYS an opponent of the attacking player (CR 509.1a), and
+  // the Aura's controller IS the attacking player (ATTACH forbids a non-own host), so the just-damaged player
+  // is always an opponent — the same equivalence the SUBTYPE-BATCH block above relies on. Reuses the
+  // "equippedCreature" attached-linkage scope; the per-host correctness is identical to the "to a player"
+  // sibling above. Anchored bare-object ("…to an opponent$"); a qualifier leaves residue → undetected → Arbiter.
+  if (/^enchanted creature deals combat damage to an opponent$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
 
   // ===== ENRAGE / DAMAGE-RECEIVED (CR 603.2 trigger condition, the ENRAGE family) ===== "Whenever this creature is dealt
   // damage, …" / "Whenever <name> is dealt damage, …". The SOURCE permanent IS the creature that took the
@@ -1230,6 +1272,16 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .
 // (parser.js: "…counters? on this creature$", target:"self") with "it"; whole-clause anchored, so a
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
+
+// SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — a SELF-scope trigger sacrifices its OWN
+// source with the pronoun "it": "When this creature becomes the target of a spell or ability, sacrifice it."
+// For a self-scope trigger "it" is the SOURCE (CR 608.2c — the object the ability triggered on = the targeted
+// permanent = the source), so rewrite "sacrifice it" → "sacrifice this creature" (the parser's self-sac atom,
+// target:"self" → ctx.sourceId). Whole-clause anchored; a rider ("sacrifice it unless you discard a land card"
+// — Cursed Monstrosity) leaves residue → no rewrite → LOW → Arbiter (a SAFE false-negative). Gated on
+// cls.scope === "self" at the rewrite site (a NON-self trigger's "it" is the OTHER triggering permanent — the
+// NONSELF_SAC_REF_RE → thatCreature lane handles those), so this never mis-binds.
+const SELF_SAC_IT_RE = /^sacrifice it$/i;
 
 // COUNTERS-PLACED — the EXACT "that many"/"that much" payoff shapes a counters-placed trigger rewrites to an
 // event-specific sentinel (so the count binds ctx.countersPlaced, not combatDamageAmount). Anchored to the
@@ -1630,7 +1682,16 @@ export function detectTriggers(card) {
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
-      } else if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
+      }
+      if (cls.event === "becomesTarget" && cls.scope === "self" && SELF_SAC_IT_RE.test(effectClause)) {
+        // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — "…sacrifice it" where "it" is the
+        // SOURCE (CR 608.2c — the targeted permanent = the trigger source). Rewrite → "sacrifice this creature"
+        // so the parser's self-sac atom (target:"self" → ctx.sourceId) models it. Self-scope + whole-clause
+        // anchored (a rider leaves residue → LOW → Arbiter). The checker (checkBecomesTargetTriggers) fires this
+        // trigger at every target-choice site with sourceId = the targeted permanent, so the self-sac resolves it.
+        effectClause = "sacrifice this creature";
+      }
+      if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-DIES-RETURN (frontier round 4, the Phoenix shape) — "When this creature dies, return it to its
         // owner's hand." (Shivan Phoenix, Immortal Phoenix, Mortus Strider, Weatherseed Treefolk). The
         // creature DIED, so "it" (CR 608.2c — the object the ability triggered on) is the dead creature, now
@@ -2206,7 +2267,13 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
   };
 }
 
-const GRANTED_ABILITY_LINE = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+// A granted quoted ability line. Two shapes, both ending in the quoted ability:
+//   bare:     "Enchanted creature has \"<ability>\""                          (Sixth Sense)
+//   combined: "Enchanted creature gets +2/+2 and has \"<ability>\""          (Bear Umbra, Snake Umbra)
+// The optional "gets +X/+Y and " P/T prefix is applied by the LAYER engine (parseAttachedBonus), so here we
+// only reach past it to the quoted ability. Anchored whole-line ($) — a trailing rider after the quote
+// ("… and has \"…\" and gets +1/+1") leaves residue and does NOT match, keeping such a card Arbiter (CREED).
+const GRANTED_ABILITY_LINE = /^(?:enchanted|equipped) creature\s+(?:gets?\s+[+-]\d+\/[+-]\d+\s+and\s+)?(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
 
 /**
  * GRANTED triggered abilities (subsystem 1 phase 1c) — an Aura/Equipment that grants the enchanted/equipped
@@ -2417,6 +2484,38 @@ export function checkPermanentEntersTriggers(state, enteredPerm) {
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
+/**
+ * DIES-TRIGGER MULTIPLIER expansion (Teysa Karlov, CR 603.x). Given the list of triggered abilities that
+ * fired because a CREATURE died (each a pending-trigger whose `.controller` is the ability's controller —
+ * makePendingTrigger sets it to the source permanent's controller), return the list with each entry repeated
+ * one ADDITIONAL time per diesTriggerMultiplier static its controller controls (Teysa → +1 = fires twice; two
+ * Teysas → +2 = fires 3× — the official ruling). Each duplicate is a DISTINCT pending-trigger (a shallow copy)
+ * so flushTriggers/buildTriggerStack builds it into its own stack object with independently-chosen targets and
+ * ordering (CR 603.x — the extra instance is a separate ability, not a re-resolve of the first). Per-controller
+ * count is memoized within the call (a batch of simultaneous deaths shares one board scan per controller). A 0
+ * multiplier leaves the list unchanged — the no-Teysa fast path. Pure.
+ */
+function multiplyDiesTriggers(state, fired) {
+  if (!fired.length) return fired;
+  const countByController = new Map();
+  const multFor = (controller) => {
+    if (controller == null) return 0;
+    if (!countByController.has(controller)) countByController.set(controller, diesTriggerMultiplierCount(state, controller));
+    return countByController.get(controller);
+  };
+  // Fast path: no multiplier anywhere → return the original list untouched.
+  let anyExtra = false;
+  for (const t of fired) { if (multFor(t.controller) > 0) { anyExtra = true; break; } }
+  if (!anyExtra) return fired;
+  const out = [];
+  for (const t of fired) {
+    out.push(t);
+    const extra = multFor(t.controller);
+    for (let i = 0; i < extra; i++) out.push({ ...t }); // a distinct additional instance
+  }
+  return out;
+}
+
 export function checkDiesTriggers(state, dead) {
   // SELF-LTB (Wave 4): drain any "leaves the battlefield" events queued by gameState.detachPermanentFromAll
   // FIRST (every death path runs destroyLethalCreatures → moveCardToZone → detach, then checkDiesTriggers),
@@ -2458,6 +2557,12 @@ export function checkDiesTriggers(state, dead) {
     }
   }
   if (!fired.length) return state2;
+  // DIES-TRIGGER MULTIPLIER (Teysa Karlov): every fire here is caused by a CREATURE dying (event "dies",
+  // triggeringPermanent a dead creature) → each qualifying ability triggers an additional time per multiplier
+  // its controller controls. Applied AFTER the fired list is fully built so a batch of simultaneous deaths is
+  // multiplied uniformly. checkPlaneswalkerDiesTriggers deliberately does NOT call this — a planeswalker dying
+  // is not "a creature dying" (CR — Teysa's clause names creatures), so PW-death triggers are never doubled.
+  fired = multiplyDiesTriggers(state2, fired);
   return { ...state2, pendingTriggers: [...(state2.pendingTriggers || []), ...fired] };
 }
 
@@ -2597,6 +2702,11 @@ export function checkAttackTriggers(state) {
     const context = { defenderId: a.defender };
     // self ("this attacks") + the attacker's own "creature you control attacks"
     fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    // ATTACKS-OR-BECOMES-TARGET (CR 603.2) — the ATTACK site of Goldspan's compound self-trigger. The
+    // descriptor is scope:"self", so it fires ONLY for the attacking permanent's own compound trigger (never a
+    // watcher's) — the becomes-target site is handled separately in checkCastTriggers. Same per-attacker batch
+    // as "attacks" above, so it can't drift from the declare-attackers event.
+    fired = fired.concat(triggersForEvent(state, { event: "attacksOrBecomesTarget", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
     // CHOSEN-TYPE (Kindred Discovery) — the "attacks" half. The attacking player's watchers (Kindred is an
     // Enchantment they control) fire when this attacker is a creature they control of the chosen type. Same
     // attacker batch as the "attacks" event above (CR 508.3), so it can't drift from the per-attacker fire.
@@ -2675,6 +2785,48 @@ export function checkBlockTriggers(state) {
     if (amt <= 0) continue;
     const descriptor = { event: "rampage", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${amt}/+${amt} until end of turn`, optional: false, sourceText: `Rampage ${ramp[1]}` };
     fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+// The permanent target types a stack object can carry — the set the becomes-target event scans (CR 603.2 —
+// the event fires when a PERMANENT becomes a target; a player/spell/card target never triggers it).
+const BECOMES_TARGET_PERM_TYPES = new Set(["creature", "permanent", "planeswalker", "artifact", "enchantment", "land"]);
+
+/**
+ * BECOMES-TARGET triggers (CR 603.2 — the "becomes the target of a spell or ability" event; the Phantasmal
+ * Illusion family). Enqueue the SELF becomesTarget triggers for every PERMANENT `stackObj` targets that carries
+ * one (printed via detectTriggers, or clone-carried on Phantasmal Image's copy oracle — both surface through
+ * triggersForEvent's detectTriggers scan). Called at EVERY target-choice site — spell cast (applyCastSpell),
+ * activated ability (applyActivateAbility), loyalty ability (applyActivateLoyalty), and triggered-ability
+ * target selection (gameEngine.flushTriggers) — so the event fires no matter WHO or WHAT chooses the target
+ * (CR 603.2 makes no controller distinction, unlike Heroic/Ward). The trigger goes on the stack ABOVE the
+ * targeting object (the caller flushes immediately), so it resolves FIRST (CR 603.3b): the creature is
+ * sacrificed, then the now-targetless spell/ability is countered on resolution (CR 608.2b) if it lost its
+ * only legal target. Each targeted permanent fires AT MOST ONCE per stack object (a spell targeting the same
+ * permanent twice is not a corpus shape; deduped by id for safety — CR 603.2 is one event per becoming-a-target).
+ *
+ * Fires for the TARGETED permanent as the source (self-scope), so ctx.sourceId = the targeted permanent and the
+ * self-sac atom sacrifices exactly it. Pure — appends to pendingTriggers.
+ */
+export function checkBecomesTargetTriggers(state, stackObj) {
+  const targets = stackObj?.targets || [];
+  if (!targets.length) return state;
+  let fired = [];
+  const seen = new Set();
+  for (const t of targets) {
+    if (!t || !BECOMES_TARGET_PERM_TYPES.has(t.type)) continue; // player/spell/card targets don't trigger it
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    const lk = findPermanent(state, t.id);
+    if (!lk?.permanent) continue; // a target that already left the battlefield (a fizzled earlier target) — skip
+    fired = fired.concat(triggersForEvent(state, {
+      event: "becomesTarget",
+      sourcePermanent: lk.permanent,
+      triggeringPermanent: lk.permanent,
+      triggeringContext: {},
+    }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
@@ -2998,6 +3150,16 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
     }
   }
   if (!fired.length) return state;
+  // DIES-TRIGGER MULTIPLIER (Teysa Karlov): sacrificing a CREATURE puts it into a graveyard — it "died" (CR
+  // 700.4) — so a "whenever you sacrifice a creature" ability that fired is ALSO caused by a creature dying
+  // and Teysa doubles it (the official ruling names sacrifice triggers explicitly). GATED on the sacrificed
+  // permanent being a CREATURE: a non-creature sacrifice (Treasure/Clue/Food, or the Mirkwood-Bats onSacrifice
+  // token drain off a NON-creature token) is NOT a creature dying, so it's never doubled (no over-fire — the
+  // CREED gate). Uses the same shared expansion as the dies dispatch (per-controller multiplier, distinct
+  // additional instances). A non-creature sac leaves the fired list unchanged (a clean skip).
+  if (/\bcreature\b/i.test(String(sacrificed.card?.type || sacrificed.card?.type_line || ""))) {
+    fired = multiplyDiesTriggers(state, fired);
+  }
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
@@ -3237,6 +3399,24 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
     for (const d of detectTriggers(targetPerm.card).filter(x => x.event === "heroic")) {
       fired.push(makePendingTrigger(d, targetPerm, null, context));
     }
+  }
+  // ===== BECOMES-TARGET-OF-A-SPELL (CR 115.1) ===== the CAST site of Goldspan's compound self-trigger. Unlike
+  // HEROIC above (gated to a spell the TARGET's own controller casts, CR 702.35), "becomes the target of a
+  // spell" fires for a spell ANY player casts that targets the permanent — so this loop does NOT gate on the
+  // target's controller. Each chosen target that resolves to a battlefield permanent (any seat) fires its own
+  // scope:"self" attacksOrBecomesTarget descriptor. A spell targeting the same permanent MULTIPLE times still
+  // fires the ability once per targeting instance is out of scope here — but `targets` carries one entry per
+  // chosen target object, so a single-target spell fires exactly once (the common case; the Goldspan corpus is
+  // all single-target enablers). Via triggersForEvent so a granted/group-granted variant is honored uniformly.
+  for (const target of targets) {
+    if (!target?.id) continue;
+    let targetPerm = null;
+    for (const pid of Object.keys(state.players)) {
+      targetPerm = (state.players[pid]?.battlefield || []).find(p => p.id === target.id);
+      if (targetPerm) break;
+    }
+    if (!targetPerm) continue;
+    fired = fired.concat(triggersForEvent(state, { event: "attacksOrBecomesTarget", sourcePermanent: targetPerm, triggeringPermanent: targetPerm, triggeringContext: context }));
   }
   // ===== TRIG-PROWESS (CR 702.108) ===== Prowess is a printed keyword = "Whenever you cast a noncreature
   // spell, this creature gets +1/+1 until end of turn." detectTriggers can't see it (no When/Whenever

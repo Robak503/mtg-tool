@@ -509,6 +509,11 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
     const cols = colorsOf(candidate.card);
     if (!selector.colors.some(c => cols.includes(c))) return false;
   }
+  // TOKEN gate (Teysa Karlov — "Creature TOKENS you control have vigilance and lifelink"): the candidate
+  // must be a token (CR 111.1 — card.token stamped at every token-mint chokepoint, incl. token copies). A
+  // nontoken creature is skipped, so the anthem confers vigilance/lifelink to exactly the controller's
+  // creature tokens. Re-read each collection, so a token entering/leaving updates the grant live.
+  if (selector.token && !candidate.card?.token) return false;
   // COUNTER-PAYOFF: a per-permanent counter gate (Herald of Secret Streams — "creatures you control WITH
   // A +1/+1 COUNTER on it …"). Re-evaluated each collection, so the grant tracks the counter dynamically.
   if (selector.requiresCounter && (candidate.counters?.[selector.requiresCounter] || 0) <= 0) return false;
@@ -1024,6 +1029,30 @@ export function grantedTriggeredQuotedFor(state, permanentId) {
     out.push(e.op.grant.quoted);
   }
   return out;
+}
+
+/**
+ * DIES-TRIGGER MULTIPLIER (Teysa Karlov, CR 603.x) — how many EXTRA times a creature-death-caused triggered
+ * ability of a permanent `controllerId` controls fires. Counts the board's diesTriggerMultiplier statics
+ * (staticAbilityParser emits one, self-affecting, per Teysa) whose SOURCE permanent is currently controlled
+ * by `controllerId`. Each such static means the ability "triggers an additional time", so N Teysas → +N
+ * copies (two Teysas → the ability fires 3 times total — the official ruling). Reads the source's LIVE
+ * controller from state (a stolen/copied Teysa counts for its current controller). Pure; 0 when the player
+ * controls none. Consumed by triggers.checkDiesTriggers / checkSacrificeTriggers at the death-trigger enqueue
+ * sites — the only two places a creature dying (put into a graveyard) causes a triggered ability to fire.
+ */
+export function diesTriggerMultiplierCount(state, controllerId) {
+  if (!state || controllerId == null) return 0;
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return 0;
+  let n = 0;
+  for (const e of board) {
+    if (e.op?.layerOp !== "diesTriggerMultiplier") continue;
+    // The static is self-affecting; its controller is the source permanent's LIVE controller.
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src && src.controller === controllerId) n += 1;
+  }
+  return n;
 }
 
 /**

@@ -219,8 +219,21 @@ describe("rider parser (parseCloneRider) — exact modeled atoms only", () => {
     expect(parseCloneRider("it's legendary in addition to its other types")).toBeNull();   // supertype change
     expect(parseCloneRider("it has myriad")).toBeNull();                              // unmodeled keyword
     expect(parseCloneRider("it has changeling")).toBeNull();                          // unmodeled keyword
-    expect(parseCloneRider('it has "When this creature becomes the target of a spell or ability, sacrifice it"')).toBeNull();
+    // A granted quoted ability that ISN'T the modeled becomes-target self-sac stays unmodeled (CREED).
+    expect(parseCloneRider('it has "When this creature dies, draw a card"')).toBeNull();
+    expect(parseCloneRider('it has "sacrifice it unless you discard a land card"')).toBeNull();
     expect(parseCloneRider("its name is ~")).toBeNull();                              // keep-name unmodeled
+  });
+  it("parses the granted becomes-target sac trigger (Phantasmal Image — CR 707.9a + 603.2)", () => {
+    // 'it has "When this creature becomes the target of a spell or ability, sacrifice it."' → a grantTrigger atom
+    // carrying the canonical trigger line snapshotCopiedCard appends to the copy, so detectTriggers reads it as a
+    // printed instance and the becomes-target event (checkBecomesTargetTriggers) fires it on the copy.
+    expect(parseCloneRider('it has "When this creature becomes the target of a spell or ability, sacrifice it."')).toEqual({
+      kind: "grantTrigger", oracle: "When this creature becomes the target of a spell or ability, sacrifice it.",
+    });
+    expect(parseCloneRider('it has "Whenever this creature becomes the target of a spell or ability, sacrifice it"')).toEqual({
+      kind: "grantTrigger", oracle: "When this creature becomes the target of a spell or ability, sacrifice it.",
+    });
   });
 });
 
@@ -238,10 +251,31 @@ describe("classifier — riders flip ONLY when every clause is modeled", () => {
     // Auton Soldier — myriad (unmodeled) STILL parks even though the artifact card-type rider is now modeled: the
     // "and has myriad" sub-clause is an unmodeled keyword, so the all-or-nothing rider gate fails the whole card.
     expect(isCloneCard({ name: "Auton Soldier", type: "Artifact Creature — Alien Soldier", mana: "{4}{U}{U}", oracle: "You may have this creature enter as a copy of any creature on the battlefield, except it isn't legendary, is an artifact in addition to its other types, and has myriad." })).toBe(false);
-    // Phantasmal Image — granted becomes-target sacrifice trigger (unmodeled event).
-    expect(isCloneCard({ name: "Phantasmal Image", type: "Creature — Illusion", mana: "{1}{U}", oracle: 'You may have this creature enter as a copy of any creature on the battlefield, except it\'s an Illusion in addition to its other types and it has "When this creature becomes the target of a spell or ability, sacrifice it."' })).toBe(false);
+    // (Phantasmal Image moved OUT of this list — its Illusion add-type + granted becomes-target sac trigger are
+    // now BOTH modeled; see the Phantasmal Image describe block.)
     // Sakashima's Student — Ninjutsu (an unmodeled pre-copy ability, not a modeled keyword).
     expect(isCloneCard({ name: "Sakashima's Student", type: "Creature — Human Ninja", mana: "{2}{U}", oracle: "Ninjutsu {1}{U}\nYou may have this creature enter as a copy of any creature on the battlefield, except it's a Ninja in addition to its other creature types." })).toBe(false);
+  });
+});
+
+describe("Phantasmal Image — a clone that grants the becomes-target sac trigger (CR 707.9a + 603.2)", () => {
+  const IMAGE = { name: "Phantasmal Image", type: "Creature — Illusion", mana: "{1}{U}", oracle: 'You may have this creature enter as a copy of any creature on the battlefield, except it\'s an Illusion in addition to its other types and it has "When this creature becomes the target of a spell or ability, sacrifice it."' };
+  it("is a modeled clone with the Illusion add-type + granted sac-trigger riders", () => {
+    expect(isCloneCard(IMAGE)).toBe(true);
+    expect(parseCloneSpec(IMAGE)).toEqual({
+      optional: true, scope: "any", mvLimit: false,
+      riders: [
+        { kind: "addType", subtype: "Illusion" },
+        { kind: "grantTrigger", oracle: "When this creature becomes the target of a spell or ability, sacrifice it." },
+      ],
+    });
+  });
+  it("bakes BOTH the Illusion type and the sac trigger onto the copy (snapshotCopiedCard)", () => {
+    const spec = parseCloneSpec(IMAGE);
+    const source = { card: { name: "Grizzly Bears", type: "Creature — Bear", type_line: "Creature — Bear", oracle: "", power: 2, toughness: 2 } };
+    const copy = snapshotCopiedCard(source, { id: "clone-x" }, spec.riders);
+    expect(copy.type).toBe("Creature — Bear Illusion");
+    expect(copy.oracle).toContain("When this creature becomes the target of a spell or ability, sacrifice it.");
   });
 });
 

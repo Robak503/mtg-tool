@@ -412,6 +412,18 @@ export function parseActivatedAbilities(card) {
     }
     const ci = line.indexOf(":");
     if (ci === -1) continue;
+    // QUOTED-GRANT GUARD (CR 113.7) — a GROUP-GRANT / attached static grants a quoted ability to OTHER
+    // permanents ("Treasures you control have \"{T}, Sacrifice this artifact: Add two mana of any one
+    // color.\"" — Goldspan Dragon; "Sliver creatures you control have \"{T}: Add …\"" — Manaweft). The
+    // ability's colon sits INSIDE the quotes, so the naive first-colon split mis-reads the whole grant line
+    // as THIS card's own activated ability with an unparseable cost ("Treasures you control have \"{T}, …")
+    // → modeled:false → a false residue that fails permanentFullyCovered's every-modeled gate on a MIXED
+    // (trigger + group-grant) card. The grant is a STATIC (staticAbilityParser owns it), never the card's own
+    // activated ability. Detect it by odd double-quote parity before the split colon (the colon is inside an
+    // open quote) → skip the line. A normal activated ability has no quote before its cost colon (parity 0),
+    // so this is inert for every printed ability. Straight " and curly “/” both count.
+    const preColonQuotes = (line.slice(0, ci).match(/["“”]/g) || []).length;
+    if (preColonQuotes % 2 === 1) continue;   // colon inside a quoted granted ability → a static grant, not our own
     const costStr = line.slice(0, ci).trim();
     // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5i) — a WHEN restriction the runtime
     // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the

@@ -56,11 +56,16 @@ describe("isNativeAura — all-or-nothing native gate", () => {
     expect(isNativeAura(FLIGHT)).toBe(true);
     expect(isNativeAura(WEAKNESS)).toBe(true);
   });
-  it("a non-creature / restricted enchant subject is NOT native", () => {
+  it("a non-creature / unmodeled enchant subject is NOT native", () => {
     expect(isNativeAura({ type: "Enchantment — Aura", oracle: "Enchant permanent\nEnchanted permanent doesn't untap." })).toBe(false);
     expect(isNativeAura({ type: "Enchantment — Aura", oracle: "Enchant land\nEnchanted land has '{T}: Add one mana of any color.'" })).toBe(false);
-    // "Enchant creature you control" carries a controller restriction we don't model.
-    expect(isNativeAura({ type: "Enchantment — Aura", oracle: "Enchant creature you control\nEnchanted creature gets +1/+1." })).toBe(false);
+    // A controller-inverted / restricted subject is still unmodeled.
+    expect(isNativeAura({ type: "Enchantment — Aura", oracle: "Enchant creature an opponent controls\nEnchanted creature gets -1/-1." })).toBe(false);
+  });
+  it('"Enchant creature you control" IS native (the controller:"you" restriction gates the aura to own creatures)', () => {
+    // SUPER STATE subject support: "creature you control" resolves to a controller:"you" target restriction,
+    // so the aura can only attach to the caster's own creatures — a modeled, all-or-nothing subject.
+    expect(isNativeAura({ type: "Enchantment — Aura", oracle: "Enchant creature you control\nEnchanted creature gets +1/+1." })).toBe(true);
   });
   it("an unmodeled bonus or an extra (triggered/activated) clause is NOT native (no silent gap)", () => {
     // Bonus has an unmodeled rider → parseAuraBonus is [] → not native.
