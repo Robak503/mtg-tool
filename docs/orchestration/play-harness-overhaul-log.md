@@ -66,3 +66,24 @@ repairing the dev registration is a P2 wave (P1 scan estate `runner-data` owns t
 | E contract v1.1 | PS-1 kinds=20 truth · PS-5 Q4 table · PS-6 vocabulary · PS-7 versioning discipline | doc + canaries both sides + COMMS post |
 
 Serialization: lane A waves share learnSession/gameApi (serial); lane B owns opponentAI (serial); lane C is a different repo (parallel); D after the pathology report; E after A2/B features settle. Concurrency cap ≤2 builder lanes live at once (standing hazard).
+
+## D — perf pathology ROOT-CAUSED (hunter report, 2026-07-03)
+
+**Rograkh/Thrasios mirror OOM/300s = one mechanism:** Candelabra of Tawnos / Magus of the
+Candelabra ("Untap X target lands") → γ1f X-loop (legalChoices.js:1259-1311, x→10) →
+X-count targeting (targeting.js:204 → :77) where `kCombinations` **fully materializes all
+C(n,x) index-arrays before the MAX_CAST_EXPANSIONS=64 cap sees a row**. 4-seat mirror pools
+n=32 lands → C(32,10)=64,512,240 arrays ≈ 7-8GB live in ONE call → OOM (12.2GB observed);
+sub-critical n gives the ~300s GC-bound regime (fast-game profile: GC 30% + pick 24.4%).
+Degenerate seed: batch idx 1 (seed 2654435762). Refuted: log/decision accumulation, counter
+wars, time-pressure failure.
+
+**Fix (D1, pre-proven by the hunter's in-memory A/B):** thread remaining capacity into the
+kCombinations DFS (targeting.js, ~10 LOC; also the modal site :293). Ascending order ⇒
+identical first-64 prefix ⇒ **action-set sha256 identical on all completable games**; batch
+OOM/~300s → **3.4s total, ~220MB peak**. Proof level: pure-perf (trajectory hash byte-identical).
+
+**Follow-ups routed:** detectArchetype re-derivation memo → lane B (AI-F8 territory) ·
+offered-X-subset QUALITY (lexicographic first-64 = AI never sees most subsets; ~600-action
+windows) → play-quality re-anchor lane, after B3 · padded-mirror shared card-id aliasing
+(selfPlayRunner.js:601-607 / gameState.js:369) → lane A4 watch-item + test.
