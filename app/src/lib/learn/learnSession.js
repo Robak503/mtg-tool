@@ -911,10 +911,17 @@ function pendingEdictModeActions(pc) {
  * — the POLICY-training substrate (which action from which state). Append-only + pure
  * (featurizeState reads, mutates nothing); the action is a stable JSON descriptor with no
  * engine handle. Default (no recorder) ⇒ zero overhead, byte-identical.
+ *
+ * PLAY-POLICY A/B (`policy`, default null ⇒ today's heuristics, SD-5/PS-4): forwarded
+ * verbatim into every makeDecision call, which hands it to opponentAI.pickAction /
+ * pickAttackPlan / pickBlockPlan (the documented "v1" legacy-vs-current probe seam,
+ * opponentAI.js normalizePolicy). It only ever RE-RANKS actions already offered by
+ * legalChoices — never a legality gate (THE CREED). null ⇒ normalizePolicy(null) ⇒ the
+ * current shipping behavior, byte-identical.
  */
 export function advanceUntilDecision(
   session,
-  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null } = {},
+  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null, policy = null } = {},
 ) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
   const timeCfg = resolveTimePressure(timePressure);
@@ -1046,6 +1053,7 @@ export function advanceUntilDecision(
       const dDecision = makeDecision(current.state, dc, dActions, {
         difficulty: dc === "user" ? current.difficulty : "expert",
         archetype,
+        policy,
       });
       if (dDecision.kind === "ask") {
         return { session: current, decision: dDecision };
@@ -1452,6 +1460,7 @@ export function advanceUntilDecision(
     const decision = makeDecision(state, actor, actions, {
       difficulty: actor === "user" ? current.difficulty : "expert",
       archetype,
+      policy,
     });
 
     if (decision.kind === "ask") {
@@ -1559,14 +1568,37 @@ export function applyChoice(session, choice, opts = {}) {
       decision: { kind: "game-over", reason: session.status },
     };
   }
-  if (!session.state.priorityHolder) {
+
+  // SD-6 — a suspended resolution-time choice (state.pendingChoice) or Arbiter ruling
+  // (state.pendingArbiter) owns the session right now: those are answered via
+  // applyPendingChoice / continueFromArbiter, NEVER via a priority action. Without this
+  // guard, legalActionsForPlayer (which has no pendingChoice short-circuit) computes
+  // normal priority actions for the reset priorityHolder, so a stale /step submit (e.g.
+  // a racing pass-priority) could resolve the NEXT stack object while the suspended
+  // program's spell is mid-resolution. Drop the stale submit and re-surface the live
+  // picker/ruling — byte-identical to applyPendingChoice's stale-submit semantics.
+  // pendingDiscover/pendingFreeCast/pendingCascade are NOT included: their answers
+  // legitimately arrive as actions through applyChoice (see the actor derivation below).
+  if (session.state.pendingChoice || session.state.pendingArbiter) {
+    return advanceUntilDecision(session, opts);
+  }
+
+  // SD-3 (CR 702.85a / 601.2b) — a mid-resolution pending window (discover / free-cast /
+  // cascade) belongs to its CONTROLLER, who may NOT be the current priorityHolder:
+  // resolveTopOfStack always finalizes (resetPriorityLoop ⇒ priorityHolder = activePlayer),
+  // so a user's off-turn discover pauses with priorityHolder = the AI active player.
+  // legalChoices short-circuits all three windows to "controller only, [] for everyone
+  // else" — validating against the priorityHolder made the human's ask UNANSWERABLE
+  // (INVALID_CHOICE forever, a hard wedge). Validate against the window controller.
+  const s = session.state;
+  const actor = s.pendingDiscover?.controller ?? s.pendingFreeCast?.controller ?? s.pendingCascade?.controller ?? s.priorityHolder;
+  if (!actor) {
     return {
       session,
       decision: { kind: "dispatch-error", reason: "No priority holder set" },
     };
   }
 
-  const actor = session.state.priorityHolder;
   const actions = legalActionsForPlayer(session.state, actor);
   const matched = resolveChoice(actions, choice);
   if (!matched) {

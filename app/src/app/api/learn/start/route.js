@@ -36,6 +36,7 @@
 export const runtime = "nodejs";
 
 import { createLearnSession, advanceUntilDecision } from "../../../../lib/learn/learnSession.js";
+import { decisionViewForWire } from "../../../../lib/learn/decisionWire.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
@@ -120,7 +121,7 @@ export async function POST(request) {
 
   return Response.json({
     sessionId: session.id,
-    decision: stripDecisionForWire(enrichUnresolvedDecision(advanced.decision, session.state)),
+    decision: decisionViewForWire(enrichUnresolvedDecision(advanced.decision, session.state)),
     status: session.status,
     mode: session.mode,
     difficulty: session.difficulty,
@@ -130,27 +131,4 @@ export async function POST(request) {
     table: tableSnapshot(session.state),
     board: boardSnapshot(session.state),
   });
-}
-
-/**
- * Strip non-serialisable properties from a decision before sending it
- * over the wire. payload.onResolve functions on stack objects don't
- * round-trip — they live only in server memory.
- */
-function stripDecisionForWire(decision) {
-  if (!decision) return null;
-  if (decision.kind !== "ask") return decision;
-  return {
-    ...decision,
-    options: (decision.options || []).map(opt => {
-      const { ...safe } = opt;
-      return safe;
-    }),
-    // metadata.suggestion has the same shape as an option; keep it
-    // but strip any function fields.
-    metadata: decision.metadata ? {
-      ...decision.metadata,
-      suggestion: decision.metadata.suggestion ? { ...decision.metadata.suggestion } : null,
-    } : undefined,
-  };
 }

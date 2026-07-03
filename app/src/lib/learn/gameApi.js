@@ -267,7 +267,15 @@ export function observe(state, seat) {
 //     dropped): pilots are routed via session.playOpts.decide + a mulligan config.
 //   - Instrumented advances stamp `state.observedTurn` (additive state field, save-schema v5)
 //     so re-entrant advances never re-fire the turn-boundary clock/observer.
-export const PLAY_API_VERSION = "1.1.0";
+// 1.2.0 (additive MINOR — SD-5/PS-4, the session-layer A/B seam):
+//   - createGame gained the optional `policy` option (null | "v1" | per-subsystem map — see
+//     opponentAI.normalizePolicy). It rides session.playOpts.policy, is merged into every
+//     nextDecision/act advance (explicit opts.policy wins), and reaches pickAction/
+//     pickAttackPlan/pickBlockPlan for every AI-auto-picked decision — so pilots can run
+//     old-vs-new policy probes through the contract seam. It only ever re-ranks actions
+//     already offered by legalChoices — NEVER a legality gate (THE CREED). Default null ⇒
+//     byte-identical play.
+export const PLAY_API_VERSION = "1.2.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for
@@ -288,17 +296,29 @@ export const PLAY_API_VERSION = "1.1.0";
  * No pilots ⇒ no playOpts key ⇒ byte-identical to a bare createLearnSession.
  * NOTE: a pilots session holds live closures (playOpts) — it is driver-memory-only and is
  * honestly rejected by the save layer's isSerializable guard; the HTTP path never has one.
+ *
+ * `policy` (contract §1.1, v1.2.0 — SD-5/PS-4) is the opponentAI A/B knob (null | "v1" |
+ * a per-subsystem map; see opponentAI.normalizePolicy). It rides session.playOpts.policy
+ * and is merged into every nextDecision/act advance exactly like the pilots router, so
+ * a whole game plays under the requested policy with no per-call plumbing. Single knob,
+ * whole game (per-seat policy is explicitly out of v1.x scope). Default null ⇒ no
+ * playOpts.policy key ⇒ byte-identical.
  */
 export function createGame(options) {
-  const { pilots = null, ...engineOpts } = options ?? {};
-  if (pilots == null) return createLearnSession(engineOpts);
-  const { decide, mulliganConfig } = buildPilotRouter(pilots);
+  const { pilots = null, policy = null, ...engineOpts } = options ?? {};
+  if (pilots == null && policy == null) return createLearnSession(engineOpts);
+  const { decide, mulliganConfig } = pilots == null
+    ? { decide: null, mulliganConfig: null }
+    : buildPilotRouter(pilots);
   if (mulliganConfig && engineOpts.mulligan == null) {
     engineOpts.mulligan = mulliganConfig;
   }
   const session = createLearnSession(engineOpts);
-  if (!decide) return session; // identity-only pilots (no decide anywhere) — nothing to route
-  return { ...session, playOpts: { decide } };
+  const playOpts = {};
+  if (decide) playOpts.decide = decide; // identity-only pilots (no decide anywhere) — nothing to route
+  if (policy != null) playOpts.policy = policy;
+  if (Object.keys(playOpts).length === 0) return session;
+  return { ...session, playOpts };
 }
 
 /**
@@ -355,6 +375,10 @@ function mergePlayOpts(session, opts) {
   const merged = { ...opts };
   if (merged.decide === undefined && typeof po.decide === "function") {
     merged.decide = po.decide;
+  }
+  // The createGame `policy` knob (v1.2.0) — same explicit-wins semantics as decide.
+  if (merged.policy === undefined && po.policy != null) {
+    merged.policy = po.policy;
   }
   return merged;
 }

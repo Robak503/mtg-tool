@@ -15,6 +15,7 @@
 export const runtime = "nodejs";
 
 import { advanceUntilDecision } from "../../../../lib/learn/learnSession.js";
+import { decisionViewForWire } from "../../../../lib/learn/decisionWire.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
@@ -75,7 +76,7 @@ export async function POST(request) {
 
   return Response.json({
     sessionId: advanced.session.id,
-    decision: stripDecisionForWire(enrichUnresolvedDecision(advanced.decision, advanced.session.state)),
+    decision: decisionViewForWire(enrichUnresolvedDecision(advanced.decision, advanced.session.state)),
     status: advanced.session.status,
     mode: advanced.session.mode,
     difficulty: advanced.session.difficulty,
@@ -86,20 +87,4 @@ export async function POST(request) {
     board: boardSnapshot(advanced.session.state),
     resumed: true,
   });
-}
-
-function stripDecisionForWire(decision) {
-  if (!decision) return null;
-  if (decision.kind !== "ask") return decision;
-  return {
-    ...decision,
-    options: (decision.options || []).map(opt => {
-      const { ...safe } = opt;
-      return safe;
-    }),
-    metadata: decision.metadata ? {
-      ...decision.metadata,
-      suggestion: decision.metadata.suggestion ? { ...decision.metadata.suggestion } : null,
-    } : undefined,
-  };
 }

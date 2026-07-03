@@ -10,7 +10,20 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.1.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.2.0"`
+
+> **v1.2.0 (additive MINOR, 2026-07-03 — SD-5/PS-4, the session-layer policy A/B seam):**
+> - `createGame` gained the optional **`policy`** option — the opponentAI A/B knob
+>   (`null | "v1" | { land|block|attack|xSizing|counter: "v1" }`; see
+>   `opponentAI.normalizePolicy`). It rides `session.playOpts.policy`, is merged into every
+>   `nextDecision`/`act` advance (explicit per-call `opts.policy` wins, mirroring `decide`),
+>   and reaches `pickAction`/`pickAttackPlan`/`pickBlockPlan` on every AI-auto-picked
+>   decision — so pilots can drive old-vs-new policy probes through THIS seam
+>   (`lab.mjs cmdVsDefault`-style old-policy baselines are now session-drivable).
+>   `runSelfPlayGame`/`runSelfPlayBatch` grew the same `policy` passthrough. Single knob,
+>   whole game — per-seat policy is out of v1.x scope (a v1.2+ additive if pods need mixing).
+>   GUARD (THE CREED): policy only ever RE-RANKS actions already offered by legalChoices —
+>   it never gates legality. Default `null` ⇒ byte-identical play (trajectory-hash-stable).
 
 > **v1.1.0 (additive MINOR, 2026-07-03 — the instrumentation-threading wave):**
 > - `act(session, decision, answer, opts = {})` grew an optional trailing `opts` bag — the
@@ -43,6 +56,7 @@ let { session, decision } = nextDecision(createGame({
   difficulty: "beginner" | "intermediate" | "expert",
   userCommanders, opponentCommanders,        // commander mode
   pilots: { [seat]: { decide, decideMulligan?, playbook?, temperament? } }, // the locked decide contract
+  policy: null | "v1" | { /* per-subsystem */ },  // v1.2.0 — the opponentAI old-vs-new A/B seam
 }));
 while (decision.kind !== "game-over") {
   const answer = myPilot(decision);          // ∈ decision.options (ask) / per-kind shape (pendings)
