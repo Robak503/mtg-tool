@@ -1,3 +1,47 @@
+# 🌅 WAKE REPORT — 2026-07-03 (PLAY-HARNESS OVERHAUL pass — merged via PR #393)
+
+> **v0.86.0 = the play-harness + AI overhaul** (the second Fable 5 system pass, run in the Omnath
+> session under a one-owner lock) **+ the overnight grind's +250 flips** (PRs #384–#392, previously
+> unreleased). Suite **7,661** green · lint clean · every wave battery-proven. THE two docs to read:
+> [play-harness-overhaul-log.md](play-harness-overhaul-log.md) (wave-by-wave evidence) +
+> [PLAY-HARNESS-OVERHAUL-PLAYBOOK.md](PLAY-HARNESS-OVERHAUL-PLAYBOOK.md) (the replication method —
+> anchor-lineage discipline, proof levels, never-list).
+
+## What shipped (v0.86.0)
+- **AI:** 60/40 vs old policy, dead turns 0.03 · equip/activated abilities (0→16 activations) ·
+  wipes-when-behind · fog-under-lethal · on-intent auras · lethal-flip pump · CR-correct tutor
+  decline (701.23b/d) · alt-cost OFFER live (16 carriers; free/pitch/life/sac/return-lands; 15
+  LOW carriers pinned never-offer) · no more unresolvable-spell waste (census 4→0) · kicked-target
+  discipline.
+- **Harness:** instrumentation threads through act()/settlers (caller-driven games fully recorded) ·
+  session-layer policy A/B (PLAY_API_VERSION 1.2.0) · per-seat FATE labels (losing pod seats no
+  longer 'winners') · seeds stamped on banked rows · seat/deck rotation + podShuffle + Wilson-CI
+  win tables · mulligans ON for batches · pad de-alias · off-turn ask wedge fixed · wire strip real ·
+  stale-submit guard · P0 test-isolation hole closed (env scrub + tripwire; dev profiles repaired).
+- **Perf:** kCombinations bounded — Candelabra-class OOM/~315s → seconds, decisions provably identical.
+- **Contract:** PLAY-API-CONTRACT v1.2.0 truth — real 20 pending kinds + per-kind answer shapes +
+  §5 versioning discipline; omnathSeam canaries 7→13 (incl. Omnath's Q4 lookups).
+- **Pilots (omnath-tools):** all R11 mechanisms eliminated — interaction parity, 75% on ramp vs
+  the default AI; tests 190/26/12 green.
+
+## ⚠️ PARKED (carry forward)
+1. Prior standing items unchanged (land-tier metric-only call · fail-closed Spellbook guard ·
+   U-F4 color-tag stopgap · squash-merged branch sweep).
+2. From this pass: decision.seat field (reserved additive MINOR — asks derive seat via the SD-3
+   chain today) · AI holds for free non-interaction spells (Flawless Maneuver greed) · paid-alt
+   usage for the 6 non-interaction carriers (human-only offers today) · offered-X-subset QUALITY
+   (AI sees the lexicographic first-64) · SD-8 learnSession façade split (analyzed, deferred) ·
+   HB-9 trajectory gzip/streaming · HB-11 stats-scan O(bytes) · ENG-FLAG-2 plumbing tag (reserved) ·
+   detectArchetype memo · Ozolith/corpus-lever grind resumes per clyde-grind-relaunch.md.
+3. **Dev-tree profiles:** repaired (test fixtures purged, backup in session scratchpad); the
+   prof_65a43f93 training registration is EMPTY — re-register from AppData when the grind resumes.
+
+## 🔁 How the next session resumes
+Read the PLAYBOOK §5 never-list before touching the engine. Grind: memory/orders/clyde-grind-relaunch.md
+(one-owner lock in COMMS lifts at the v0.86.0 handoff post). Pilots: omnath-tools/pilots/README.md.
+
+---
+
 # 🔄 COVERAGE GRIND — 2026-07-02 (post-v0.85.0 relaunch, Clyde)
 
 > Live grind session on top of v0.85.0. Integrating via **PR [#383](https://github.com/Robak503/mtg-tool/pull/383)** (rolling branch `claude/clever-liskov-6e04be`) — direct ff-push to master is blocked by the auto-mode classifier (as the CREED discipline documents: master push is PR-only), so waves stack as individually-verified commits on the PR. **Merge #383 when ready, or add a Bash permission rule to authorize direct-to-master pushes for the faster ff-grind.**
