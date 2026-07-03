@@ -14,6 +14,11 @@ import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor } from "./library.js";
 import { applyZoneMove } from "./zones.js";
 
+// MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
+// sentinel large enough that targeting.targetSubsets always clamps it to the ACTUAL eligible-target count
+// (hi = Math.min(maxTargets, n)). targetSubsets' MAX_CAST_EXPANSIONS backstop still caps the option blow-up.
+const MULTI_COUNT_UNBOUNDED = 99;
+
 /**
  * ===== RIDER-REMOVAL ===== (Dex) targeted removal whose SECOND clause acts on the TARGET's controller
  * (CR — "its controller" = the just-removed permanent's controller): Swords to Plowshares (exile + that
@@ -405,6 +410,22 @@ export function destroyExileClauseParser(clause) {
     };
     const op = /^(greater|more)$/.test(mvm[4]) ? ">=" : "<=";
     return { op: mvm[1] === "destroy" ? "destroy" : "exile", targetType: TT[mvm[2]], restrictions: [{ kind: "manaValue", op, value: parseInt(mvm[3], 10) }] };
+  }
+  // MULTI-COUNT + COLLECTIVE-X-MV destroy (CR 601.2c "any number of target" + the TOTAL-MV target restriction) —
+  // "destroy any number of target artifacts and/or enchantments with total mana value X or less" (Rampaging Yao
+  // Guai's {X}-cast ETB). "any number of target" is the unbounded multi-count form (minTargets:0, maxTargets = an
+  // effectively-unbounded sentinel that targeting.targetSubsets clamps to the actual eligible count). The
+  // "total mana value X or less" is a COLLECTIVE restriction on the CHOSEN SUBSET (CR 601.2c — you choose a set of
+  // targets satisfying the restriction), NOT a per-target cap: the SUM of the chosen permanents' mana values must
+  // be ≤ the {X} the creature was cast with. It's stamped as `totalMvXConstraint` so targeting.expandAtoms only
+  // OFFERS subsets whose MV-sum ≤ ctx.xValue (threaded from the ETB self-trigger's context.xValue — the paid X).
+  // Enforced AT ENUMERATION, so the resolver (applyDestroyEffect over ctx.targets) destroys exactly a legal set —
+  // never over-destroys past the X budget (a FORBIDDEN partial-model FP, CREED). The "and/or" union maps to the
+  // SAME artifactOrEnchantment predicate the "artifact or enchantment" filter uses (order-free OR). Whole-clause
+  // anchored; a form WITHOUT the "with total mana value X or less" tail (Consign to Dust — a Strive instant whose
+  // count is bounded by its per-target cost) fails the `$` → stays LOW → Arbiter (out of scope, FN-safe).
+  if (/^destroy any number of target artifacts and\/or enchantments with total mana value x or less$/.test(t)) {
+    return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: MULTI_COUNT_UNBOUNDED, totalMvXConstraint: true };
   }
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
