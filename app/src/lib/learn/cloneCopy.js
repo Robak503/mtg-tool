@@ -45,6 +45,10 @@ const isCreatureCard = (card) => /Creature/.test(typeLine(card).split(" // ")[0]
 // copy a battlefield permanent whose FRONT is a planeswalker; the copy then enters with its starting loyalty
 // (enterPermanent's castsAsPlaneswalker path) plus any conditional loyalty rider.
 const isPlaneswalkerCard = (card) => /Planeswalker/.test(typeLine(card).split(" // ")[0]);
+// Front-face artifact (CR 712.4a) — a clone with an "artifact or creature" scope (Phyrexian Metamorph) may
+// copy a battlefield permanent whose FRONT is an artifact (including a NON-creature artifact); the copy enters
+// as that artifact (plus the "it's an artifact" rider, harmless-idempotent when it's already one).
+const isArtifactCard = (card) => /Artifact/.test(typeLine(card).split(" // ")[0]);
 
 function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
@@ -61,9 +65,18 @@ const RIDER_KEYWORDS = new Set([
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
   "lifelink", "vigilance", "menace", "haste",
 ]);
-// Creature SUBtypes only — a card-type/supertype change ("it's an artifact…", "it's legendary…")
-// has runtime/zone implications the copy snapshot doesn't model, so those route to the Arbiter.
+// Creature SUBtypes only — a card-type/supertype change ("it's legendary…") has runtime/zone
+// implications the copy snapshot doesn't model, so those route to the Arbiter. The two ADDABLE
+// permanent card types (artifact/enchantment) are handled by their own rider below (addCardType) —
+// the copy snapshot genuinely prepends them to the type line — so they're excluded here to avoid the
+// generic addType (subtype) branch mis-parsing "it's an artifact…" as a subtype.
 const CARD_TYPES_SUPERTYPES = /\b(?:artifact|enchantment|creature|land|planeswalker|battle|instant|sorcery|legendary|basic|snow|world|tribal|kindred)\b/;
+// Permanent card types the copy snapshot can faithfully PREPEND to a copied permanent's type line via
+// snapshotCopiedCard's addCardType rider (addCardTypeToLine): the copy genuinely IS that card type for
+// every type-line read. Mirrors tokenCopy.js ADDABLE_CARD_TYPES exactly (Vaultborn Tyrant / Phyrexian
+// Metamorph). Artifact/Enchantment only — a Creature/Land/Planeswalker addition has P/T-or-zone
+// implications the snapshot doesn't model, so those are NOT addable → the rider PARKs.
+const ADDABLE_CARD_TYPES = new Set(["artifact", "enchantment"]);
 
 /**
  * Parse ONE "except …" rider sub-clause into a modeled atom, or null (= unmodeled → the whole
@@ -111,6 +124,19 @@ export function parseCloneRider(clause) {
   // Anchored to exactly the +1/+1-if-creature and loyalty-if-planeswalker shapes (a literal singular counter).
   m = cl.match(/^it enters with an additional (\+1\/\+1|loyalty) counter on it if it'?s an? (creature|planeswalker)$/);
   if (m) return { kind: "entersWithCounterIf", counterType: m[1], n: 1, ifType: m[2] };
+
+  // "it's an artifact in addition to its other types" (Phyrexian Metamorph, CR 707.9a) — add a permanent
+  // CARD TYPE (artifact/enchantment) to the copy. The type is PREPENDED to the copy's type line by
+  // snapshotCopiedCard's addCardType rider (addCardTypeToLine), so the copy genuinely IS that card type for
+  // every type-line read (artifact-matters triggers, the artifact-scoped batch combat gate). Anchored to the
+  // singular addable card types only; a Creature/Land/Planeswalker/supertype addition (P/T-or-zone
+  // implications the snapshot doesn't model) falls through → null → PARK. Mirrors tokenCopy.js's
+  // TOKEN_COPY_ADD_CARDTYPE_RE for the token form of the same modification.
+  m = cl.match(/^it'?s an? ([a-z]+) in addition to its other types$/);
+  if (m && ADDABLE_CARD_TYPES.has(m[1])) {
+    const Cap = m[1].charAt(0).toUpperCase() + m[1].slice(1);
+    return { kind: "addCardType", cardType: Cap };
+  }
 
   // "it's a <Subtype> in addition to its other [creature] types" — add a creature subtype (CR 707.9).
   // Must be a SUBTYPE only; a card-type/supertype change is unmodeled (CARD_TYPES_SUPERTYPES → null).
@@ -187,8 +213,14 @@ export function parseCloneSpec(card) {
   // SCOPE "another creature you control" (Sakashima) — a "you control" scope that excludes the clone itself;
   // since the clone isn't on the battlefield yet when candidates are gathered, "another" is naturally
   // satisfied, so it maps to the same youControl candidate set.
+  // SCOPE "any artifact or creature on the battlefield" (Phyrexian Metamorph) — the copy may be a NON-creature
+  // ARTIFACT too (front-face, CR 712.4a). Copying an artifact snapshots its whole card (mana abilities /
+  // activated abilities resolve through the same runtime as the source, CR 707.2) and — with the addCardType
+  // "it's an artifact" rider — the entering permanent is an artifact (non-creature artifacts enter without a
+  // lethal-toughness SBA, so they don't die like a 0/0 clone). enterPermanent handles a non-creature card
+  // (summoningSick only stamped for creatures).
   const m = t.match(
-    /^(?:you may have (?:~|this creature) enter|(?:~|this creature) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this creature) enter|(?:~|this creature) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return null;
 
@@ -215,7 +247,8 @@ export function parseCloneSpec(card) {
     optional: /^you may\b/.test(t),
     scope: m[1] === "a creature you control" || m[1] === "another creature you control" ? "youControl"
       : m[1] === "a creature or planeswalker you control" ? "youControlCreatureOrPw"
-        : "any",
+        : m[1] === "any artifact or creature on the battlefield" ? "anyArtifactOrCreature"
+          : "any",
     mvLimit: !!m[2],
     riders,
   };
@@ -333,15 +366,21 @@ export function cloneMvCap(cloneCard, spec, xValue = 0) {
  * legal (front-face, CR 712.4a). Both copy correctly: a creature copy enters as the snapshot; a planeswalker
  * copy enters with its starting loyalty via enterPermanent's castsAsPlaneswalker path. (No MV cap pairs with
  * this scope in the corpus; the cap filter still applies harmlessly if one ever did.)
+ *
+ * SCOPE "anyArtifactOrCreature" (Phyrexian Metamorph) — every ARTIFACT *and* every CREATURE on ANY player's
+ * battlefield is legal (front-face, CR 712.4a — an artifact-front DFC copies as its artifact side). A copied
+ * NON-creature artifact enters as an artifact (no lethal SBA, doesn't die like a 0/0). An artifact creature
+ * satisfies both predicates and is offered once (the `||`).
  */
 export function cloneCandidates(state, controller, scope, mvCap = null) {
   const out = [];
   const youControlOnly = scope === "youControl" || scope === "youControlCreatureOrPw";
   const allowPw = scope === "youControlCreatureOrPw";
+  const allowArtifact = scope === "anyArtifactOrCreature";
   for (const pid of Object.keys(state.players)) {
     if (youControlOnly && pid !== controller) continue;
     for (const perm of state.players[pid].battlefield) {
-      const copiable = isCreatureCard(perm.card) || (allowPw && isPlaneswalkerCard(perm.card));
+      const copiable = isCreatureCard(perm.card) || (allowPw && isPlaneswalkerCard(perm.card)) || (allowArtifact && isArtifactCard(perm.card));
       if (!copiable) continue;
       if (mvCap != null && manaValueOfCard(perm.card) > mvCap) continue; // CR 707 head MV filter
       out.push({ id: perm.id, name: perm.card?.name });
