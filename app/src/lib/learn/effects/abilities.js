@@ -99,8 +99,18 @@ export function parseAbilityCost(costStr) {
   let sacX = null;
   let exileSelf = false;
   let removeCounter = null;
+  let tapCreature = null;
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
+    // γ1f — TAP-CREATURE cost (Earthcraft "Tap an untapped creature you control: …"): a CHOICE cost
+    // (CR 602.1b — "tap an untapped creature you control" is a cost to tap ANOTHER permanent, distinct
+    // from the source's own {T}). The player picks WHICH untapped creature they control to tap (like
+    // the sacOther victim pick); the parser only records the shape. legalChoices expands one action per
+    // legal untapped creature you control, and the dispatcher taps it (excluding it from the mana
+    // sources — a creature tapped for the cost can't also tap for mana). Whole-item anchored ($) so a
+    // COUNT ("tap two untapped creatures"), a subtype filter, or an "you control or a land" compound
+    // doesn't match → null (deferred), keeping the all-or-nothing gate — a safe false-negative.
+    if (/^tap an untapped creature you control$/i.test(item)) { tapCreature = { another: false }; continue; }
     // γ1 — two NO-CHOICE non-mana costs the engine pays without a player decision:
     //   "Pay N life"          → deduct N life (the caller checks affordability).
     //   "Sacrifice this[ …]"  → sacrifice the SOURCE permanent (no "which one?" choice).
@@ -183,7 +193,7 @@ export function parseAbilityCost(costStr) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter };
+  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -427,6 +437,7 @@ export function parseActivatedAbilities(card) {
       sacX,                             // γ1e — "Sacrifice X <fungible subtype>": player chooses X, X threads to the effect
       exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
+      tapCreature: cost?.tapCreature ?? null,  // γ1f — "Tap an untapped creature you control": legalChoices picks the creature
       costModeled: !!cost,
       isManaEffect,
       doubleManaPool, // DOUBLE-MANA-POOL (Doubling Cube) — the runtime doubles the activator's pool (no stack)

@@ -103,10 +103,11 @@ describe("OMNATH BUILD A — UNTAP-BASIC-SUBTYPE (Arbor Elf)", () => {
     expect(classifyCard(ARBOR_ELF)).toBe("native-activated");
   });
   it("CREED — qualified / X / non-basic forms stay low (Arbiter)", () => {
-    expect(parseEffectClause("untap target basic land.", "Creature").confidence).toBe("low"); // generic basic-land tutor variant
     expect(parseEffectClause("untap target forest you control.", "Creature").confidence).toBe("low");
     expect(parseEffectClause("untap two target forests.", "Creature").confidence).toBe("low");
     expect(parseEffectClause("untap target land.", "Creature")).toMatchObject({ confidence: "high", atoms: [{ op: "untap", targetType: "land" }] }); // the plain-land form is unchanged
+    // "untap target basic land" is now modeled (Earthcraft, targetType basicLand) — see earthcraft.test.js.
+    expect(parseEffectClause("untap target basic land.", "Creature")).toMatchObject({ confidence: "high", atoms: [{ op: "untap", targetType: "basicLand" }] });
   });
 
   it("enumerateTargets offers ONLY the Forest (not a Mountain) as an untap-forest target", () => {

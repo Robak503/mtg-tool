@@ -1348,17 +1348,54 @@ function actionsActivateAbility(state, playerId) {
         if (sacVictims.length === 0) continue; // no legal sacrifice available → the cost can't be paid
       }
 
+      // γ1f — a "Tap an untapped creature you control" cost (Earthcraft): the PLAYER picks which UNTAPPED
+      // creature they control to tap. Expand one action per legal creature to tap (an UNTAPPED creature you
+      // control). A summoning-sick creature CAN be tapped for a cost that isn't its own {T} ability (CR 302.6
+      // only gates the creature's OWN {T}), so no sickness filter here. Empty pool → the cost can't be paid →
+      // not offered. Threaded as tapVictims below (parallel to sacVictims), tapped by the dispatcher and
+      // excluded from that action's mana sources (a creature tapped for the cost can't also tap for mana).
+      // tapCreature + sacOther never co-occur on a modeled ability, so the two victim sets don't mix.
+      //
+      // SOURCE EXCLUSION (CREED — never offer an unpayable / crashing action): the SOURCE permanent is
+      // excluded as its own tap-victim when it would ALREADY be tapped by another part of THIS cost — i.e.
+      // when the ability also has a {T} cost (tapSelf), since the source can't tap for both {T} and the
+      // tap-creature cost (Selesnya Evangel "{1}, {T}, Tap an untapped creature you control: …"; Revelsong
+      // Horn). Also excluded when the cost text says "another" (it never does for the modeled shape, but the
+      // flag is honored). Without this, the dispatcher would throw ALREADY_TAPPED on an offered action.
+      let tapVictims = [null];
+      if (ab.tapCreature) {
+        const selfExcluded = ab.tapSelf || ab.tapCreature.another;
+        tapVictims = player.battlefield.filter((v) =>
+          !v.tapped && isCreature(v.card) &&
+          !(selfExcluded && v.id === perm.id),
+        );
+        if (tapVictims.length === 0) continue; // no untapped creature to tap → the cost can't be paid
+      }
+
       const choices = expandCastChoices(state, playerId, ab.program);
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
       for (const victim of sacVictims) {
         // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
         // affordability — mirrors the dispatcher's payment filter exactly.
         if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost)) continue;
+       for (const tapVictim of tapVictims) {
+        // γ1f — a "Tap an untapped creature you control" cost: the chosen creature to tap can't ALSO tap for
+        // mana (a mana-dork tapped for the cost is already tapped), so exclude it from THIS victim's mana
+        // sources for the affordability check — mirrors the dispatcher's payment filter exactly. Earthcraft's
+        // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
+        // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
+        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id), cost)) continue;
         for (const ch of choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
           if (victim && ch.targets.some((t) => t.id === victim.id)) continue;
+          // γ1f — don't offer tapping the very creature the effect targets when the target is that same
+          // creature (a basic-land untap can't target a creature, so this never fires for Earthcraft — it's a
+          // belt-and-suspenders no-op guard mirroring the sac path; a future tap-creature ability that targets
+          // a creature would need it). The tapped creature stays on the battlefield, so this is only a "don't
+          // waste the tap on your own target" nicety, not a correctness gate.
+          if (ab.tapCreature && tapVictim && ch.targets.some((t) => t.id === tapVictim.id)) continue;
           // γ1d — pick the N fungible victims for a "Sacrifice N <subtype>" cost, EXCLUDING any that the
           // effect targets (same no-op guard). If the targets consume so many of the pool that fewer than N
           // remain, this choice can't pay the cost → skip it (a different target combo may still be legal).
@@ -1431,6 +1468,8 @@ function actionsActivateAbility(state, playerId) {
             sacCreatureId: victim?.id ?? null,           // γ1b — the chosen victim to sacrifice (cost)
             sacCreatureName: victim?.card?.name ?? null,
             sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)
+            tapCreatureId: tapVictim?.id ?? null,        // γ1f — the chosen untapped creature to tap (cost)
+            tapCreatureName: tapVictim?.card?.name ?? null,
             program: ab.program,
             targets: ch.targets,
             chosenMode: ch.chosenMode ?? null,
@@ -1438,9 +1477,11 @@ function actionsActivateAbility(state, playerId) {
             targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
             abilityText: ab.sacCount
               ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
+              : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
               : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
           });
         }
+       }
       }
     }
   }

@@ -6,8 +6,10 @@
  * re-verifies the LIVE permanent is a land before untapping (never a non-land). Classifies native-activated.
  *
  * CREED: the $ anchor keeps every qualified / X form Arbiter — "untap X target lands" (Candelabra / Magus,
- * an X-cost ability deferred), "untap target land you control", non-standard-cost untaps (Oboro's "return a
- * land", Earthcraft's "tap a creature") — a safe false-negative, never a mis-applied or fabricated untap.
+ * an X-cost ability deferred), "untap target land you control", "return a land you control" untaps (Oboro) —
+ * a safe false-negative, never a mis-applied or fabricated untap. NOTE: "untap target basic land" under a
+ * "Tap an untapped creature you control" cost (Earthcraft) is NOW modeled (γ1f tap-creature cost +
+ * targetType "basicLand"); see earthcraft.test.js for the end-to-end proof.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -55,7 +57,10 @@ describe("UNTAP-TARGET-LAND — parser", () => {
   it("qualified / X forms stay low (Arbiter) — CREED safe FN", () => {
     expect(parseEffectClause("untap X target lands.", "Artifact").confidence).toBe("low");
     expect(parseEffectClause("untap target land you control.", "Creature").confidence).toBe("low");
-    expect(parseEffectClause("untap target basic land.", "Enchantment").confidence).toBe("low");
+  });
+  it("'untap target basic land' → high, { op: untap, targetType: basicLand } (Earthcraft — now modeled)", () => {
+    const r = parseEffectClause("untap target basic land.", "Enchantment");
+    expect(r).toMatchObject({ confidence: "high", atoms: [{ op: "untap", targetType: "basicLand" }] });
   });
 });
 
@@ -67,9 +72,11 @@ describe("UNTAP-TARGET-LAND — classifyCard", () => {
   it("X-cost / non-standard-cost untap-land cards stay non-native", () => {
     // {X}, {T} cost is deferred (X-cost activated abilities) — body-only.
     expect(classifyCard(CANDELABRA)).toBe("body-only");
-    // Non-standard activation costs ("return a land", "tap a creature") are unmodeled — body-only.
+    // "Return a land you control" is an unmodeled non-standard activation cost — body-only.
     expect(classifyCard(OBORO)).toBe("body-only");
-    expect(classifyCard(EARTHCRAFT)).toBe("body-only");
+  });
+  it("Earthcraft classifies native-activated (γ1f tap-creature cost + basic-land untap now modeled)", () => {
+    expect(classifyCard(EARTHCRAFT)).toBe("native-activated");
   });
 });
 
