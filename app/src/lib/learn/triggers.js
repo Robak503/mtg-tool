@@ -958,6 +958,25 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (selfRef && /\bbecomes the target of a spell or ability\s*$/.test(c.trim())) {
     return { event: "becomesTarget", scope: "self", whose: "any" };
   }
+  // ===== GROUP BECOMES-TARGET (CR 603.2 — a creature YOU CONTROL becomes the target of a SPELL) ===== The
+  // controller-scoped sibling of the self form above (Gargos, Vicious Watcher — "Whenever a creature you
+  // control becomes the target of a spell, Gargos fights up to one target creature you don't control";
+  // Venerated Rotpriest). UNLIKE the self form the WATCHER is a DIFFERENT permanent (Gargos) than the
+  // targeted creature — so the effect subject is the SOURCE NAME (rewriteSelfNameToThisCreature normalizes
+  // "Gargos fights …" → "this creature fights …", scope-independently) and the runtime fans out to the
+  // targeted creature's controller's watchers (checkBecomesTargetTriggers, gated on stackObj.kind==="spell").
+  //
+  // CREED — anchored to the BARE "a creature you control" subject + a SPELL-ONLY event (ends on "of a spell"),
+  // no rider. This is a DISTINCT event ("becomesTargetGroup") from the self form because it fires ONLY on a
+  // SPELL (CR 115.1 — the target is chosen at cast; Gargos's text is "of a spell", not "of a spell or ability"),
+  // whereas the self form fires at all four target-choice sites incl. abilities. A RESTRICTED subject ("a Dragon
+  // you control", "a permanent you control", "another creature you control"), a WARD-TAX rider ("…of a spell or
+  // ability an opponent controls"), an "instant or sorcery"/"a spell or ability" variant, or ANY trailing effect
+  // rider leaves residue → does NOT match this exact anchor → UNDETECTED → Arbiter (a SAFE false-negative). The
+  // effect faithfulness is re-gated by triggerRoutesNatively (the fight parses HIGH only after the self-name rewrite).
+  if (/^a creature you control becomes the target of a spell$/.test(c.trim())) {
+    return { event: "becomesTargetGroup", scope: "creatureYouControl", whose: "any" };
+  }
 
   // Combat-damage-to-a-player (CR 510.2 — combat damage dealt). "Whenever <self> deals combat damage to a player" (self) /
   // "Whenever a creature you control deals combat damage to a player" (creatureYouControl). BARE form
@@ -1425,11 +1444,14 @@ const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 // portion before the first comma, CR 201.4) both refer to the source. detectTriggers rewrites a LEADING
 // self-name → "this creature" so the parser's self atom (target:"self") models it, exactly like the "it"
 // rewrite. SELF SCOPE ONLY — a non-self trigger never names the SOURCE in this slot. Anchored on a leading
-// name + a self-effect VERB (gets/gains/deals — the modeled self-effect shapes), so a name appearing mid-clause
-// or before an unmodeled verb is left untouched → the program stays LOW → Arbiter (CREED — no mis-bound effect).
+// name + a self-effect VERB (gets/gains/deals/fights — the modeled self-effect shapes), so a name appearing
+// mid-clause or before an unmodeled verb is left untouched → the program stays LOW → Arbiter (CREED — no
+// mis-bound effect). "fights" is the GROUP-BECOMES-TARGET payoff (Gargos, Vicious Watcher — "Gargos fights up
+// to one target creature you don't control"): the named subject IS the source (the watcher), so rewriting →
+// "this creature fights …" binds the fight's own-side to the source (the parser's fight atom re-gates the tail).
 // Returns null when the effect doesn't begin with the source's name (the common case — most effects use "it"
 // or have no self-subject), making this a pure promotion.
-const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals )/i;
+const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights )/i;
 // TRAILING self-name (ARIXMETHES) — a counter REMOVAL whose SOURCE-permanent referent trails the verb:
 // "[you may ]remove a slumber counter from <Name>". The self-name sits at the END of the clause (unlike the
 // leading "<Name> gets +1/+1" shape above), so it's rewritten to "this creature" only when the whole clause
@@ -2860,10 +2882,19 @@ const BECOMES_TARGET_PERM_TYPES = new Set(["creature", "permanent", "planeswalke
  *
  * Fires for the TARGETED permanent as the source (self-scope), so ctx.sourceId = the targeted permanent and the
  * self-sac atom sacrifices exactly it. Pure — appends to pendingTriggers.
+ *
+ * GROUP FORM (becomesTargetGroup, CR 603.2 — "a creature you control becomes the target of a SPELL", Gargos /
+ * Venerated Rotpriest): the watcher is a DIFFERENT permanent than the targeted creature, so for each targeted
+ * CREATURE we ALSO fan out to that creature's controller's watchers (triggerSourcesOf), threading the targeted
+ * creature as the triggeringPermanent — scopeMatches "creatureYouControl" gates it to same-controller watchers.
+ * SPELL-ONLY (CR 115.1): the group form fires ONLY when the targeting stack object is a SPELL (stackObj.kind ===
+ * "spell"), never an activated/loyalty/triggered ability (Gargos's printed event is "of a spell", not "…or
+ * ability"). The self form still fires at every target-choice site (its printed event is "a spell or ability").
  */
 export function checkBecomesTargetTriggers(state, stackObj) {
   const targets = stackObj?.targets || [];
   if (!targets.length) return state;
+  const isSpell = stackObj?.kind === "spell"; // GROUP form is spell-only (CR 115.1 — target chosen at cast)
   let fired = [];
   const seen = new Set();
   for (const t of targets) {
@@ -2878,6 +2909,21 @@ export function checkBecomesTargetTriggers(state, stackObj) {
       triggeringPermanent: lk.permanent,
       triggeringContext: {},
     }));
+    // GROUP fan-out (spell-only): a CREATURE the targeted creature's controller controls became a spell's
+    // target → fire every "a creature you control becomes the target of a spell" watcher that controller has.
+    // scopeMatches("creatureYouControl") requires the triggering creature and the watcher share a controller,
+    // so scanning only the targeted creature's controller's sources is exact (an opponent's watcher never
+    // matches). isCreaturePerm gate on the target: the group anchor's subject is "a creature you control".
+    if (isSpell && isCreaturePerm(lk.permanent)) {
+      for (const watcher of triggerSourcesOf(state, lk.permanent.controller)) {
+        fired = fired.concat(triggersForEvent(state, {
+          event: "becomesTargetGroup",
+          sourcePermanent: watcher,
+          triggeringPermanent: lk.permanent,
+          triggeringContext: {},
+        }));
+      }
+    }
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
