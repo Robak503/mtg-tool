@@ -526,7 +526,19 @@ export function entersWithNamedCounters(card) {
  * variant is a DIFFERENT magnitude (not the cast X) → false, left for the Arbiter. Leaf (no engine import).
  */
 export function entersWithXCounters(card) {
-  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  const rawOracle = String(card?.oracle || card?.oracle_text || "");
+  // KW-RAVENOUS (Edge of Eternities / Warhammer 40k — CR keyword) — the keyword's enters-with-X mechanic
+  // lives ENTIRELY in REMINDER parens ("Ravenous (This creature enters with X +1/+1 counters on it. If X is
+  // 5 or more, draw a card when it enters.)"), so the reminder-strip below erases it and the literal-X regex
+  // never matches. Ravenous is ALWAYS the bare cast-{X} form (canonical fixed reminder — never a "for each"/
+  // "where X is" board metric), so the {X} pip feeds the counters through the SAME resolver the printed
+  // enters-with-X form uses (resolvers.enterPermanent, opts.xValue → applyCounterDoubling). Detect the printed
+  // keyword directly (line-initial or after another keyword, reminder parens right after) so the resolver adds
+  // the X counters. The "If X is 5 or more, draw a card" half is a SEPARATE synthesized ETB trigger
+  // (triggers.detectTriggers) — this function only owns the counters. Every Ravenous card carries a real {X}
+  // pip in its cost, so the classifier's xPipCount>=1 gate is always satisfied (no over-claim on a bare form).
+  if (/\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\b/i.test(rawOracle)) return true;
+  const oracle = rawOracle.replace(/\([^)]*\)/g, " ");
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
     if (!/\benters (?:the battlefield )?with x \+1\/\+1 counters? on it/i.test(sentence)) continue;
     // A "where X is <board count>" / "for each" / "equal to" / "plus N" magnitude is NOT the cast {X}

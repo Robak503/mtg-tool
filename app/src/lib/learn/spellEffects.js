@@ -337,6 +337,13 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // — never a mis-scoped destroy). A non-defending opponent's permanent is excluded, so in multiplayer the
       // pool is exactly the defending player's, never "any opponent's".
       if (r.who === "defendingPlayer" && (!ctx?.defenderId || pid !== ctx.defenderId)) return false;
+      // DAMAGED-PLAYER scope (CR 510.2 — the just-combat-damaged player) — only the SPECIFIC player this
+      // creature dealt combat damage to is legal (ctx.damagedPlayerId, threaded from the combat-damage
+      // trigger's context by triggers.checkCombatDamageTriggers). Absent damagedPlayerId (a spell / a
+      // non-combat path) → no permanent qualifies → empty pool → the ability drops no-target (SAFE, CREED —
+      // never a mis-scoped destroy). A non-damaged opponent's permanent is excluded, so in multiplayer the
+      // pool is exactly the damaged player's, never "any opponent's" — the exact mirror of defendingPlayer.
+      if (r.who === "damagedPlayer" && (!ctx?.damagedPlayerId || pid !== ctx.damagedPlayerId)) return false;
     } else if (r.kind === "tapped") {
       if (!!perm.tapped !== r.value) return false;
     } else if (r.kind === "power") {

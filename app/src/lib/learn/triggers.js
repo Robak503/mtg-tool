@@ -179,6 +179,12 @@ function isLandPerm(perm) {
 // gates nativeness). Lowercased (the strip runs case-insensitively).
 const FLAVOR_TRIGGER_LABELS = [
   "catch", "genius industrialist", "treasure hunter",
+  // "heavy power hammer" is Aberrant's (Warhammer 40k) flavor ability-word label on its combat-damage
+  // trigger ("Heavy Power Hammer — Whenever this creature deals combat damage to a player, destroy target
+  // artifact or enchantment that player controls."). Pure CR 207.2c flavor with no rules meaning; unique to
+  // Aberrant in the corpus (verified). Stripping it lets the boundary-anchored trigger regex see the bare
+  // "Whenever" so the combat-damage destroy is detected; the effect's coverage is judged separately.
+  "heavy power hammer",
 ];
 const FLAVOR_LABEL_RE = new RegExp(
   // optional leading "... " (Cap's "... Catch"), then a flavor label, then the dash before a trigger keyword.
@@ -2018,8 +2024,45 @@ export function detectTriggers(card) {
       });
     }
   }
+  // KW-RAVENOUS (Edge of Eternities / Warhammer 40k) — KEYWORD→TRIGGER synthesis, the CASCADE/CUMULATIVE-UPKEEP
+  // precedent. "Ravenous" is a keyword whose ability lives entirely in REMINDER parens ("Ravenous (This creature
+  // enters with X +1/+1 counters on it. If X is 5 or more, draw a card when it enters.)"). It has TWO halves:
+  //   (1) enters-with-X +1/+1 counters — a REPLACEMENT (not a trigger), modeled by staticAbilityParser
+  //       .entersWithXCounters (which now recognizes the reminder form) + resolvers.enterPermanent (opts.xValue
+  //       → the counters). NOT synthesized here — it's not a triggered ability.
+  //   (2) "If X is 5 or more, draw a card when it enters" — a genuine ETB triggered ability GATED on X≥5.
+  //       Synthesize a self ETB descriptor for it. The effectClause is the bare "draw a card" (parses HIGH to
+  //       the draw atom, non-targeted → triggerRoutesNatively HIGH); the intervening-if "x is 5 or more" is
+  //       evaluated by interveningIf.js against ctx.xValue (checkEnterTriggers threads enteredPerm.xValue into
+  //       the self-ETB context — CR 608.2h). effectHasX:true so the parse sites treat the {X} card as X-bearing.
+  // The boundary-anchored When/Whenever/At regex above can't reach either half (the "(" isn't a sentence
+  // boundary, and "draw a card when it enters" isn't a When-led sentence), so synthesizing here is required.
+  // allTriggerSentencesModeled bumps the shaped count by 1 for the keyword (ravenousTriggerCount) so
+  // shaped === detected holds. Anchored on the canonical Ravenous reminder signature so a card merely NAMED
+  // "Ravenous …" (Ravenous Rats, Ravenous Chupacabra) without the keyword+reminder is untouched.
+  if (/\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\. if x is (\d+) or more, draw a card when it enters\.?\)/i.test(oracleOf(card))) {
+    const thresh = oracleOf(card).match(/if x is (\d+) or more, draw a card when it enters/i);
+    out.push({
+      event: "etb", scope: "self", whose: "any",
+      effect: null, effectClause: "draw a card",
+      interveningIf: `x is ${thresh[1]} or more`,
+      effectHasX: true,
+      optional: false, sourceText: "Ravenous",
+    });
+  }
   _detectCache.set(card, out);
   return out;
+}
+
+/**
+ * RAVENOUS (Edge of Eternities / Warhammer 40k) — the count of synthesized Ravenous ETB draw triggers on a
+ * card (0 or 1). The keyword's "If X is 5 or more, draw a card when it enters" half is a triggered ability
+ * that lives in REMINDER parens (never a When/Whenever/At sentence), so it's absent from the shaped-sentence
+ * count in coverage.allTriggerSentencesModeled — this bumps that count so shaped === detected holds, exactly
+ * like cascadeInstanceCount does for the cascade keyword. Anchored on the canonical Ravenous reminder.
+ */
+export function ravenousTriggerCount(oracle) {
+  return /\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\. if x is \d+ or more, draw a card when it enters\.?\)/i.test(String(oracle || "")) ? 1 : 0;
 }
 
 /** Convenience: does this card have any trigger for the given event? */
