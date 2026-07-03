@@ -151,9 +151,15 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
 export function autoPickTutorCandidate(state, pendingChoice) {
   // LAND-FROM-HAND — read the candidate cards from the choice's source zone (hand for Growth Spiral, the
   // library for every search). The pick heuristic (highest MV) is identical.
-  const zone = pendingChoice.sourceZone === "hand" ? "hand" : "library";
-  const lib = state.players?.[pendingChoice.controller]?.[zone] || [];
-  const byId = new Map(lib.map((c) => [c.id, c]));
+  // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — resolve each candidate against EVERY source
+  // zone (a card lives in exactly one), so a graveyard candidate is found too. Single-zone tutors read their
+  // one zone exactly as before.
+  const player = state.players?.[pendingChoice.controller] || {};
+  const zones = Array.isArray(pendingChoice.sourceZones) && pendingChoice.sourceZones.length
+    ? pendingChoice.sourceZones
+    : [pendingChoice.sourceZone === "hand" ? "hand" : "library"];
+  const byId = new Map();
+  for (const z of zones) for (const c of (player[z] || [])) byId.set(c.id, c);
   // WAVE-2b TUTOR — DEFENSIVELY re-apply the structured filter (type groups + MV cap — Spellseeker MV<=2,
   // Trophy Mage MV=3). Candidates are already filtered upstream by applyTutor, so this is a belt-and-braces
   // guard that the auto-pick can never select an off-filter card even if a future caller skips pre-filtering.
@@ -183,7 +189,13 @@ export function resolveTutorChoice(state, cardId) {
 
   // Apply the fetch (cardId null = the player chose to find nothing, or no candidate). LAND-FROM-HAND —
   // `sourceZone` is the zone the card moves FROM: "hand" (Growth Spiral) or "library" (every search).
-  const sourceZone = pc.sourceZone === "hand" ? "hand" : "library";
+  // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — the chosen candidate carries its own `zone`
+  // (library or graveyard); the card moves FROM that zone. Fall back to `pc.sourceZone` for a single-zone
+  // tutor (whose candidates carry no `zone`), so the existing library/hand paths are byte-identical.
+  const chosenCand = cardId ? (pc.candidates || []).find((c) => c.id === cardId) : null;
+  const sourceZone = (chosenCand && chosenCand.zone)
+    ? (chosenCand.zone === "hand" ? "hand" : chosenCand.zone === "graveyard" ? "graveyard" : "library")
+    : (pc.sourceZone === "hand" ? "hand" : "library");
   const inSource = cardId && (next.players?.[pc.controller]?.[sourceZone] || []).some((c) => c.id === cardId);
   // WAVE-2b FETCH-TO-TOP — three destinations: "battlefield" (ramp), "top" (Vampiric/Mystical Tutor —
   // shuffle FIRST, then place the chosen card on top, CR 701.19e, so it survives the shuffle), "hand" (default).
@@ -229,7 +241,9 @@ export function resolveTutorChoice(state, cardId) {
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
       filter: pc.filter, // WAVE-2b — carry the structured filter so chained picks keep the auto-pick gate
-      destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone,
+      // MULTI-ZONE — carry the source-zone set (bfxg) so a chained pick still moves from the right per-candidate
+      // zone; `sourceZone` (this pick's chosen zone) rides along as the single-zone shuffle-decision fallback.
+      destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone, sourceZones: pc.sourceZones || null,
       // RAMP-SPLIT — advance the ordered destination sequence so the NEXT pick uses the next destination
       // (Cultivate: pick 1 -> battlefield tapped, pick 2 -> hand). Null on the uniform single/multi path.
       destinations: Array.isArray(pc.destinations) ? pc.destinations.slice(1) : null,
@@ -238,7 +252,12 @@ export function resolveTutorChoice(state, cardId) {
   }
   // A library search shuffles afterward (CR 701.19e); a from-HAND put (LAND-FROM-HAND) doesn't touch the
   // library; a FETCH-TO-TOP already shuffled-then-placed above, so re-shuffling would knock the card off top.
-  if (sourceZone === "library" && !topAlreadyShuffled) next = shuffleControllerLibrary(next, pc.controller);
+  // MULTI-ZONE (bfxg) — the library was searched whenever "library" is in the source-zone set, even if the
+  // chosen card came from the graveyard (so `sourceZone` is "graveyard"); shuffle in that case too.
+  const searchedLibrary = Array.isArray(pc.sourceZones) && pc.sourceZones.length
+    ? pc.sourceZones.includes("library")
+    : sourceZone === "library";
+  if (searchedLibrary && !topAlreadyShuffled) next = shuffleControllerLibrary(next, pc.controller);
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inSource, destination });
 
   return resumeAfterChoice(next, pc);

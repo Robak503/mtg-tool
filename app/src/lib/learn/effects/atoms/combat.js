@@ -82,6 +82,13 @@ export function applyRegenerate(state, atom, ctx) {
  */
 export function applyPumpEffect(state, atom, ctx) {
   let next = state;
+  // COND-X GATE (Finale of Devastation — "If X is N or more, …"): the pump applies ONLY when the chosen X
+  // reaches the threshold. Below it, the whole pump is a logged no-op — NO continuous effects, NO grants —
+  // exactly as printed (the "If X is N or more" condition simply isn't met, CR). `?? 0` treats a missing
+  // xValue as 0 (never as "condition met"), so the gate is never silently skipped.
+  if (atom.condX && (ctx.xValue ?? 0) < atom.condX.min) {
+    return logEvent(next, { kind: "spell-effect", effect: "pump", power: 0, toughness: 0, targets: [] });
+  }
   // X-pump ("+X/+X until end of turn") binds both pips to the chosen X (ctx.xValue);
   // a fixed pump reads its printed ptDelta.
   const x = ctx.xValue || 0;
@@ -828,6 +835,36 @@ export function pumpClauseParser(clause) {
     return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
   return null;
+}
+
+/**
+ * COND-X TEAM PUMP clause parser (Finale of Devastation) — "If X is N or more, creatures you control get
+ * +X/+X and gain KW until end of turn". The team pump (scope youControl, amountX → ctx.xValue scales BOTH
+ * pips) is GATED on the chosen X reaching the threshold: applyPumpEffect no-ops the whole pump (adds NO
+ * continuous effects) when ctx.xValue < condX.min — so an X below the threshold does exactly nothing, exactly
+ * as printed (CR — the conditional simply isn't met). The " and gain <KW>…" grant is optional and ALL-OR-
+ * NOTHING via parseGrantedKeywords (leaf); an un-grantable keyword → null → low → Arbiter. Only "+X/+X" (the
+ * spell's chosen {X}, symmetric both pips) is admitted here — a FIXED "+N/+N" or a BOARD-scaled "where X is …"
+ * form is NOT this shape (never reaches this anchor). Whole-clause anchored ($): any rider / non-youControl
+ * scope fails → null → low → Arbiter (CREED, FN-safe — never a wrong partial). Pure (no parser.js import).
+ * Registered via registerClauseParser in parser.js AFTER pumpClauseParser (disjoint anchors — the "if x is …"
+ * prefix never matches a bare pump).
+ */
+export function condPumpXClauseParser(clause, ctx = {}) {
+  if (!ctx.hasX) return null; // "+X/+X" scales with the spell's {X} — only meaningful on an {X}-cost spell
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^if x is (\d+) or more, creatures you control get \+x\/\+x(?: and gain (.+))? until end of turn$/);
+  if (!m) return null;
+  const kws = m[2] ? parseGrantedKeywords(m[2]) : null;
+  if (m[2] && !kws) return null; // an un-grantable keyword drops the whole clause → low → Arbiter
+  return {
+    op: "pump",
+    scope: "youControl",
+    amountX: true, // +X/+X — both pips = ctx.xValue (applyPumpEffect)
+    condX: { min: parseInt(m[1], 10) }, // gate: applied only when ctx.xValue >= min (CR — the "If X is N or more" condition)
+    ...(kws ? { grantKeywords: kws } : {}),
+    targetType: null,
+  };
 }
 
 /**

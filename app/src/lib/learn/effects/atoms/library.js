@@ -148,6 +148,12 @@ export function applyTutor(state, atom, ctx) {
   if (!player) return state;
   // LAND-FROM-HAND — `sourceZone:"hand"` gathers candidates from the HAND instead of the library (Growth
   // Spiral); every other tutor searches the library (the default). The choice/picker/auto-pick are identical.
+  // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — `sourceZones` is the UNION of zones the search
+  // draws from; each candidate is tagged with the zone it lives in so resolveTutorChoice enters it from the
+  // right zone. A single `sourceZone` is the degenerate 1-element case; when `sourceZones` is present it wins.
+  const sourceZones = Array.isArray(atom.sourceZones) && atom.sourceZones.length
+    ? atom.sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : "library"))
+    : null;
   const sourceZone = atom.sourceZone === "hand" ? "hand" : "library";
   // SEARCH→BATTLEFIELD MV-CAPPED-BY-X (bfx) — a `mvCapX` filter resolves its MV cap from the CHOSEN X at
   // resolution (Wargate / Nature's Rhythm "mana value X or less", X bound at cast per CR 601.2b / 202.3b).
@@ -166,17 +172,28 @@ export function applyTutor(state, atom, ctx) {
   // by setPendingTutorChoice's Math.max(1, …) RAMP guard. A static-`remaining` / non-countFor tutor is
   // untouched (this branch is countFor-only).
   const dynCount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : null;
+  // A library search always shuffles afterward (CR 701.19e); a multi-zone search that includes the library
+  // (bfxg) shuffles too. A from-hand / graveyard-only search never touches the library.
+  const searchesLibrary = sourceZones ? sourceZones.includes("library") : sourceZone === "library";
   if (dynCount === 0) {
-    const shuffled = sourceZone === "library" ? shuffleControllerLibrary(state, controller) : state;
+    const shuffled = searchesLibrary ? shuffleControllerLibrary(state, controller) : state;
     return logEvent(shuffled, { kind: "spell-effect", effect: "tutor", found: false, destination: atom.destination || "hand", controller });
   }
-  const candidates = (player[sourceZone] || [])
-    .filter((c) => cardMatchesTutorFilter(c, effFilter))
-    .map((c) => ({ id: c.id, name: c.name }));
+  // Gather candidates. MULTI-ZONE (bfxg) — pull from every source zone, tagging each with its zone so the
+  // resolver moves the chosen card from the correct place. Single-zone tutors keep the original untagged shape
+  // (the resolver falls back to `pc.sourceZone` when a candidate carries no `zone`), so no existing card drifts.
+  const candidates = sourceZones
+    ? sourceZones.flatMap((zone) => (player[zone] || [])
+        .filter((c) => cardMatchesTutorFilter(c, effFilter))
+        .map((c) => ({ id: c.id, name: c.name, zone })))
+    : (player[sourceZone] || [])
+        .filter((c) => cardMatchesTutorFilter(c, effFilter))
+        .map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
     candidates,
     sourceZone,
+    sourceZones,
     sourceName: ctx.cardName || null,
     filterLabel: atom.filterLabel || null,
     // WAVE-2b TUTOR — thread the structured filter so the auto-pick can defensively re-apply the type/MV gate.
@@ -849,6 +866,33 @@ export function tutorClauseParser(clause, ctx = {}) {
   // numeric cap (that's the tm to-HAND path, not battlefield), or a "graveyard"/rider variant won't match the
   // anchor → falls through → low → Arbiter (Finale's library-and/or-graveyard + X≥10 pump rider stays LOW).
   if (ctx.hasX) {
+    // bfxg — SEARCH LIBRARY-AND/OR-GRAVEYARD → BATTLEFIELD, MV-CAPPED-BY-X (Finale of Devastation): "search
+    // your library and/or graveyard for a creature card with mana value X or less and put it onto the
+    // battlefield" on an {X}-cost spell. Same MV-cap SAFETY as bfx (the fetched card's mana value must be
+    // <= the chosen X, bound at cast, read at resolution via ctx.xValue — CR 202.3b), but the candidate pool
+    // is the UNION of the caster's LIBRARY and GRAVEYARD: `sourceZones:["library","graveyard"]` tells applyTutor
+    // to gather from both zones (tagging each candidate with its zone) and resolveTutorChoice to enter the
+    // chosen card from whichever zone it lives in. The library is ALWAYS searched (so the CR-701.19e shuffle
+    // always runs — Finale's separate "If you search your library this way, shuffle." reminder is stripped in
+    // splitClauses since the tutor's own shuffle covers it). Finale prints "and put" (no comma before "put"),
+    // so the anchor accepts "(and )?put" with the "and/or graveyard" zone phrase required. CREED: the X cap
+    // is never dropped (mvCapX); a graveyard-only ("search your graveyard …") or library-only variant does NOT
+    // match this anchor (the "library and/or graveyard" phrase is mandatory here) → falls through to bfx / low.
+    const bfxg = t.match(/^search your library and\/or graveyard for an? (creature|permanent) cards? with mana value x or less(?:,)?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+    if (bfxg) {
+      const phrase = bfxg[1];
+      const base = phrase === "permanent" ? { groups: [], permanentOnly: true } : parseTutorFilter(phrase);
+      if (!base) return null; // defensive (the regex already constrains to the two allowed words)
+      return {
+        op: "tutor",
+        filter: { ...base, mvCapX: true }, // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
+        filterLabel: `${phrase} card with mana value X or less`,
+        destination: "battlefield",
+        entersTapped: !!bfxg[2],
+        sourceZones: ["library", "graveyard"], // candidate pool = library ∪ graveyard; enter from the chosen card's zone
+        targetType: null,
+      };
+    }
     const bfx = t.match(/^search your library for an? (creature|permanent) cards? with mana value x or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
     if (bfx) {
       const phrase = bfx[1];

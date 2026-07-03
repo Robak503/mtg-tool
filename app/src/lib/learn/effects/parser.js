@@ -51,7 +51,7 @@ import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tuto
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTutorFilter, parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); SMALL_NUM for MULTI-COUNT damage count words
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, shieldCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + SHIELD-COUNTER (CR 122.1c protective counter)
-import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
+import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
@@ -360,6 +360,12 @@ function splitClauses(oracle) {
   // lives in parseTokenManaAbility — a non-mana ability still drops the whole clause to low). The merge
   // can only PROMOTE a card that was already low (the orphan clause), never regress a HIGH one.
   const normalized = stripReminder(oracle)
+    // FINALE-SHUFFLE-REMINDER — strip the vacuous "If you search your library this way, shuffle." sentence
+    // (Finale of Devastation). Its "and/or graveyard" tutor (bfxg) ALWAYS searches the library, so the CR-
+    // 701.19e shuffle the tutor's own resolver runs already covers this conditional exactly — stripping it
+    // just prevents the sentence from orphaning into an unparsed clause (→ low). Anchored to the exact
+    // wording, so it can only PROMOTE this already-low library-and/or-graveyard shape; no other card prints it.
+    .replace(/\s*If you search your library this way,?\s+shuffle\.?/gi, "")
     // ===== WALT-ANIMATE ===== strip the vacuous "it's/that's still a land" reminder. A land that
     // "becomes a creature" is additive BY DEFAULT (it stays a land — that's why it still taps; 0
     // non-additive land-animates in the corpus), so this clause never changes resolution. Stripping it
@@ -469,6 +475,12 @@ function splitClauses(oracle) {
     // the clause parse binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // COND-X TEAM PUMP (Finale of Devastation) — "If X is N or more, creatures you control get +X/+X and gain
+    // KW until end of turn". The "If X is N or more, " prefix conditions the WHOLE team pump on the chosen X;
+    // the " and gain …" is INTERNAL to that one pump instruction (same as the unconditional form above), NOT a
+    // top-level boundary. Keep the whole sentence so condPumpXClauseParser binds the condition + pump + grant
+    // together. All-or-nothing anchored downstream (an un-grantable keyword / non-+X/+X delta fails → low).
+    if (/^if x is \d+ or more, creatures you control get \+x\/\+x(?: and gain\b.*)? until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TEAM-PUMP-SCOPE — the "other creatures" (excludes the source) and "<Subtype>s you control [other than
     // this creature]" (subtype-filtered) variants of the Overrun-style team pump + keyword grant ("Other
     // creatures you control get +2/+2 and gain trample until end of turn" — End-Raze Forerunners; "Dinosaurs
@@ -2774,6 +2786,10 @@ registerClauseParser(combatKeywordClauseParser);
 // PUMP (seam batch 12c / Wave B1b) — the most fragmented op (14 returns, 7 interleaved clusters) migrated to
 // atoms/combat.pumpClauseParser; branch order preserved. program-diff = 0 (gate-verified).
 registerClauseParser(pumpClauseParser);
+// COND-X TEAM PUMP (Finale of Devastation) — "If X is N or more, creatures you control get +X/+X and gain KW
+// until end of turn". Registered AFTER pumpClauseParser: the "if x is …" prefix matches no earlier parser
+// (disjoint anchor), and the gated pump emits { op:"pump", condX:{min} } which applyPumpEffect no-ops below X.
+registerClauseParser(condPumpXClauseParser);
 registerClauseParser(groupGrantClauseParser); // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
 registerClauseParser(setBasePtTeamClauseParser); // SET-BASE-PT-TEAM (Biomass Mutation) — "creatures you control have base power and toughness X/X until end of turn"
 // ANIMATE (seam batch 14 / Wave C) — WALT-ANIMATE (target land) + man-land self-animate migrated to

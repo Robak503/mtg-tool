@@ -53,7 +53,7 @@ export const PENDING_CHOICE_KINDS = [
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", destinations = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -85,6 +85,13 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
       // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
       sourceZone: sourceZone === "hand" ? "hand" : "library",
+      // MULTI-ZONE (bfxg — Finale's "library and/or graveyard") — the UNION of source zones the search drew
+      // from. When present, each candidate carries its own `zone` (set in applyTutor) and resolveTutorChoice
+      // moves the chosen card FROM that candidate's zone; `sourceZone` above is then only the shuffle-decision
+      // fallback. Null on every single-zone tutor (the original path). Plain JSON (serialize-safe).
+      sourceZones: Array.isArray(sourceZones) && sourceZones.length
+        ? sourceZones.map((z) => (z === "hand" ? "hand" : z === "graveyard" ? "graveyard" : "library"))
+        : null,
       // RAMP-1 — where the chosen card goes: "hand" (P3.2 tutor) or "battlefield" (+ entersTapped, ramp). For
       // RAMP-SPLIT these reflect the CURRENT pick (the head of the destinations sequence).
       destination: effDestination,
