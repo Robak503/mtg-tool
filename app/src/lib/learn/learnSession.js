@@ -937,6 +937,17 @@ export function advanceUntilDecision(
   // so the FIRST loop iteration fires for the opening turn, then once per subsequent
   // turn increment. Entirely inert when neither the observer nor time pressure is on.
   const observe = typeof onTurnStart === "function";
+  // SD-2 — instrumented runs persist the turn-boundary stamp in session STATE
+  // (state.observedTurn) so a re-entrant advance (act()/apply* re-entries within
+  // the same turn — the SD-1 threaded path) never re-fires the clock/observer for
+  // a turn already stamped: a per-call local would double-apply the time-pressure
+  // drain on every act() (corrupted W/L labels) and duplicate onTurnStart rows.
+  // Uninstrumented runs keep the per-call local and write NO state field — the
+  // default path stays byte-identical. A pre-v5 save resumed mid-turn lacks the
+  // stamp and fires the boundary once more for the in-flight turn — harmless
+  // (resume passes no opts today; worst case one extra drain on an opted-in
+  // resume). Save-schema: learnSaveSchema MIGRATIONS[4] (v4→v5, absent-by-default).
+  const instrumented = Boolean(timeCfg) || observe;
   let lastTurnBoundary = null;
 
   while (ticks < SAFETY_CAP) {
@@ -946,8 +957,12 @@ export function advanceUntilDecision(
     // before this turn's actions). Used for BOTH the opt-in observer snapshot AND the
     // opt-in time-pressure clock. `lastTurnBoundary` starts null so it triggers once
     // per turn, including the opening turn. Entirely inert when both are off.
-    if (current.state && current.state.turn !== lastTurnBoundary) {
+    const boundaryStamp = instrumented ? (current.state?.observedTurn ?? null) : lastTurnBoundary;
+    if (current.state && current.state.turn !== boundaryStamp) {
       lastTurnBoundary = current.state.turn;
+      if (instrumented) {
+        current = { ...current, state: { ...current.state, observedTurn: current.state.turn } };
+      }
 
       // Opt-in time-pressure clock. Applied to the ACTIVE player at turn start so the
       // life loss is in effect for THIS turn and is immediately seen by the SBA check
@@ -1528,9 +1543,16 @@ export function advanceUntilDecision(
  * the choice against the legal actions, dispatch, log, then call
  * advanceUntilDecision so the next prompt is ready to render.
  *
+ * `opts` (additive, default {}) is the SD-1 instrumentation pass-through: it is
+ * forwarded verbatim to the re-advance (advanceUntilDecision's
+ * { decide, pilot, recordDecision, timePressure, onTurnStart, archetype } seam)
+ * so a caller-driven game stays instrumented across act() boundaries. The HTTP
+ * routes pass nothing → {} → the human path is byte-identical. Every apply*
+ * settler below threads the same trailing opts.
+ *
  * Returns { session, decision } same shape as advanceUntilDecision.
  */
-export function applyChoice(session, choice) {
+export function applyChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return {
       session,
@@ -1581,7 +1603,7 @@ export function applyChoice(session, choice) {
     decisionLog: [...session.decisionLog, logEntry],
   };
 
-  return advanceUntilDecision(next);
+  return advanceUntilDecision(next, opts);
 }
 
 /**
@@ -1593,13 +1615,13 @@ export function applyChoice(session, choice) {
  * deferred to the player's manual application of the ruling — the engine never
  * fabricates it. Returns { session, decision } like advanceUntilDecision.
  */
-export function continueFromArbiter(session) {
+export function continueFromArbiter(session, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   if (!session.state.pendingArbiter) {
     // Nothing pending (e.g. a double-submit) — just re-derive the next decision.
-    return advanceUntilDecision(session);
+    return advanceUntilDecision(session, opts);
   }
 
   const pa = session.state.pendingArbiter;
@@ -1624,7 +1646,7 @@ export function continueFromArbiter(session) {
     ...session,
     state: logged,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -1634,21 +1656,21 @@ export function continueFromArbiter(session) {
  * chosen library card id, or null/absent to find nothing (CR 701.19f). Returns
  * { session, decision } like advanceUntilDecision.
  */
-export function applyTutorChoice(session, choice) {
+export function applyTutorChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "tutor-search") {
     // Nothing pending (e.g. a double-submit) — just re-derive the next decision.
-    return advanceUntilDecision(session);
+    return advanceUntilDecision(session, opts);
   }
   const cardId = choice?.cardId ?? null;
   if (cardId !== null && !pc.candidates.some((c) => c.id === cardId)) {
     // An illegal/stale pick must NOT strand the game: the choice is still pending, so
     // re-surface the SAME picker (advanceUntilDecision re-derives it) instead of a
     // terminal dispatch-error the UI can't recover from.
-    return advanceUntilDecision(session);
+    return advanceUntilDecision(session, opts);
   }
 
   let newState;
@@ -1673,7 +1695,7 @@ export function applyTutorChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -1683,22 +1705,22 @@ export function applyTutorChoice(session, choice) {
  * `choice.permId` is the chosen battlefield permanent id, or null/absent to decline a "you may"
  * clone. Returns { session, decision } like advanceUntilDecision.
  */
-export function applyCloneChoice(session, choice) {
+export function applyCloneChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const permId = choice?.permId ?? null;
   if (permId !== null && !pc.candidates.some((c) => c.id === permId)) {
-    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+    return advanceUntilDecision(session, opts); // illegal/stale pick → re-surface the same picker.
   }
   // WI-2 (CREED — CR 707.9): a MANDATORY clone cannot be declined — a null submit re-surfaces the
   // picker (the hand-discard null-reject pattern) instead of misplaying the copy as a 0/0.
   if (permId === null && pc.resume?.optional === false) {
-    return advanceUntilDecision(session);
+    return advanceUntilDecision(session, opts);
   }
 
   let newState;
@@ -1723,7 +1745,7 @@ export function applyCloneChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -1732,13 +1754,13 @@ export function applyCloneChoice(session, choice) {
  * (scry) or the graveyard (surveil). Applies the reorder + resumes, then re-derives the next
  * decision. Returns { session, decision } like advanceUntilDecision.
  */
-export function applyScryChoice(session, choice) {
+export function applyScryChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "scry-surveil") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   // Keep only ids that are actually among the looked-at cards, each at most once (defensive
   // against a stale/duplicate-id UI submit — keeps the library mutation + the log count honest).
@@ -1767,7 +1789,7 @@ export function applyScryChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -1784,13 +1806,13 @@ export function applyScryChoice(session, choice) {
  * partial spend. An empty candidate set (nothing to assign to) still settles at 0 — resolveDivideChoice's
  * own cap already handles that no-op correctly.
  */
-export function applyDivideChoice(session, choice) {
+export function applyDivideChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "divide-damage") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const distribution = Array.isArray(choice?.distribution) ? choice.distribution : [];
   if ((pc.candidates || []).length > 0) {
@@ -1819,7 +1841,7 @@ export function applyDivideChoice(session, choice) {
     auto: false,
     reasoning: "user-assigned-divide",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -1828,13 +1850,13 @@ export function applyDivideChoice(session, choice) {
  * candidates + caps the running sum at pc.amount. Same WI-5 full-assignment guard: a short distribution
  * re-surfaces the picker (CR 601.2d — the whole amount must be assigned). Mirrors applyDivideChoice.
  */
-export function applyDistributeChoice(session, choice) {
+export function applyDistributeChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "distribute-counters") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const distribution = Array.isArray(choice?.distribution) ? choice.distribution : [];
   if ((pc.candidates || []).length > 0) {
@@ -1863,7 +1885,7 @@ export function applyDistributeChoice(session, choice) {
     auto: false,
     reasoning: "user-assigned-distribute",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -1872,13 +1894,13 @@ export function applyDistributeChoice(session, choice) {
  * if declined / unaffordable — payGenericMana never fabricates mana), then resumes + re-derives. A
  * double-submit (nothing pending) re-derives.
  */
-export function applySoftCounterChoice(session, choice) {
+export function applySoftCounterChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "soft-counter") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const pay = choice?.pay === true || choice === true;
   let newState;
@@ -1897,7 +1919,7 @@ export function applySoftCounterChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-soft-counter-pay",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -1907,13 +1929,13 @@ export function applySoftCounterChoice(session, choice) {
  * unaffordable — payManaCost never fabricates mana), then resumes + re-derives. A double-submit (nothing
  * pending) re-derives. Mirrors applySoftCounterChoice.
  */
-export function applyOptionalManaPaymentChoice(session, choice) {
+export function applyOptionalManaPaymentChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "optional-mana-payment") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const pay = choice?.pay === true || choice === true;
   let newState;
@@ -1932,7 +1954,7 @@ export function applyOptionalManaPaymentChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-optional-mana-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -1942,13 +1964,13 @@ export function applyOptionalManaPaymentChoice(session, choice) {
  * the payoff (or skips it if declined / none available — sacrificeCreatureEffect never fabricates a sac), then
  * resumes + re-derives. A double-submit (nothing pending) re-derives. Mirrors applyOptionalManaPaymentChoice.
  */
-export function applyOptionalSacChoice(session, choice) {
+export function applyOptionalSacChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "optional-sac-payment") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const sac = choice?.sac === true || choice === true;
   let newState;
@@ -1967,7 +1989,7 @@ export function applyOptionalSacChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-optional-sac-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -1975,13 +1997,13 @@ export function applyOptionalSacChoice(session, choice) {
  * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
  * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
  */
-export function applyOptionalDrawDiscardChoice(session, choice) {
+export function applyOptionalDrawDiscardChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "optional-draw-discard") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const doDraw = choice?.draw === true || choice === true;
   let newState;
@@ -2000,7 +2022,7 @@ export function applyOptionalDrawDiscardChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-optional-draw-discard",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -2008,13 +2030,13 @@ export function applyOptionalDrawDiscardChoice(session, choice) {
  * card. If you do, <effect>." `choice.discard` is the yes/no. resolveOptionalDiscardPaymentChoice runs the [discard,
  * ...payoff] on yes (or nothing on decline / empty hand), then resumes + re-derives. Mirrors applyOptionalDrawDiscardChoice.
  */
-export function applyOptionalDiscardPaymentChoice(session, choice) {
+export function applyOptionalDiscardPaymentChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "optional-discard-payment") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const doDiscard = choice?.discard === true || choice === true;
   let newState;
@@ -2033,7 +2055,7 @@ export function applyOptionalDiscardPaymentChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-optional-discard-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -2041,13 +2063,13 @@ export function applyOptionalDiscardPaymentChoice(session, choice) {
  * "sacrifice this <noun> unless you pay {cost}." `choice.pay` is the yes/no. resolveSacUnlessPayChoice charges the
  * mana + keeps it on a pay-and-afford, else sacrifices the source, then resumes + re-derives. Mirrors applyOptionalSacChoice.
  */
-export function applySacUnlessPayChoice(session, choice) {
+export function applySacUnlessPayChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "sac-unless-pay") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const pay = choice?.pay === true || choice === true;
   let newState;
@@ -2066,7 +2088,7 @@ export function applySacUnlessPayChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-sac-unless-pay",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -2075,13 +2097,13 @@ export function applySacUnlessPayChoice(session, choice) {
  * yes/no. resolveTaxedPaymentChoice charges the payer + suppresses the draw on pay, else the beneficiary draws, then
  * resumes + re-derives. Mirrors applySacUnlessPayChoice (the actor is the PAYER, whose seat == pc.controller).
  */
-export function applyTaxedPaymentChoice(session, choice) {
+export function applyTaxedPaymentChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "taxed-payment") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const pay = choice?.pay === true || choice === true;
   let newState;
@@ -2100,7 +2122,7 @@ export function applyTaxedPaymentChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-taxed-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -2109,13 +2131,13 @@ export function applyTaxedPaymentChoice(session, choice) {
  * it (lose 3 / sac / discard), advances the chain to the next opponent/round, then finishes the spell when the whole
  * queue drains. Mirrors applySacUnlessPayChoice (the actor is the affected opponent, whose seat == pc.controller).
  */
-export function applyEdictModeChoice(session, choice) {
+export function applyEdictModeChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "edict-mode") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const mode = (pc.modes || []).includes(choice?.mode) ? choice.mode : "life";
   let newState;
@@ -2134,7 +2156,7 @@ export function applyEdictModeChoice(session, choice) {
     auto: false,
     reasoning: "user-chose-edict-mode",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
 }
 
 /**
@@ -2142,13 +2164,13 @@ export function applyEdictModeChoice(session, choice) {
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
  */
-export function applyOptionalChoice(session, choice) {
+export function applyOptionalChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "optional-effect") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const take = choice?.take === true || choice === true;
 
@@ -2174,7 +2196,7 @@ export function applyOptionalChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -2182,13 +2204,13 @@ export function applyOptionalChoice(session, choice) {
  * back to the command zone (taxed recast available), false leaves it in the graveyard/exile. Mirrors
  * applyOptionalChoice — settle, log, re-derive the next decision.
  */
-export function applyCommanderReturnChoice(session, choice) {
+export function applyCommanderReturnChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "commander-return") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const doReturn = choice?.return === true || choice === true;
 
@@ -2214,7 +2236,7 @@ export function applyCommanderReturnChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -2223,17 +2245,17 @@ export function applyCommanderReturnChoice(session, choice) {
  * moves it to their graveyard, resumes the caster's riders, then re-derives the next decision.
  * `choice.cardId` is the chosen opponent-hand card id. Returns { session, decision } like the others.
  */
-export function applyHandDiscardChoice(session, choice) {
+export function applyHandDiscardChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "hand-discard") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const cardId = choice?.cardId ?? null;
   if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
-    return advanceUntilDecision(session); // a hand-discard always strips one (no "decline") → illegal/stale pick re-surfaces the picker.
+    return advanceUntilDecision(session, opts); // a hand-discard always strips one (no "decline") → illegal/stale pick re-surfaces the picker.
   }
 
   let newState;
@@ -2258,7 +2280,7 @@ export function applyHandDiscardChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -2267,17 +2289,17 @@ export function applyHandDiscardChoice(session, choice) {
  * then re-derives the next decision. `choice.cardId` is the chosen library card id. A null/illegal pick
  * re-surfaces the picker (a dig always keeps one when ≥1 was revealed).
  */
-export function applyImpulseDigChoice(session, choice) {
+export function applyImpulseDigChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "impulse-dig") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const cardId = choice?.cardId ?? null;
   if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
-    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+    return advanceUntilDecision(session, opts); // illegal/stale pick → re-surface the same picker.
   }
 
   let newState;
@@ -2302,7 +2324,7 @@ export function applyImpulseDigChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -2312,17 +2334,17 @@ export function applyImpulseDigChoice(session, choice) {
  * `choice.cardId` is the chosen land's library card id. A null/illegal pick re-surfaces the picker (a real land
  * is always available when this pauses — the atom only pauses with ≥1 land candidate). Mirrors applyImpulseDigChoice.
  */
-export function applyDigLandChoice(session, choice) {
+export function applyDigLandChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "dig-land-to-battlefield") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const cardId = choice?.cardId ?? null;
   if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
-    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+    return advanceUntilDecision(session, opts); // illegal/stale pick → re-surface the same picker.
   }
 
   let newState;
@@ -2347,7 +2369,7 @@ export function applyDigLandChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -2358,17 +2380,17 @@ export function applyDigLandChoice(session, choice) {
  * creature's permanent id. A null/illegal pick re-surfaces the picker (an edict always sacs one when ≥2
  * were offered — no decline). Returns { session, decision } like the others.
  */
-export function applySacrificeChoice(session, choice) {
+export function applySacrificeChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "sacrifice-choice") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const cardId = choice?.cardId ?? null;
   if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
-    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+    return advanceUntilDecision(session, opts); // illegal/stale pick → re-surface the same picker.
   }
 
   let newState;
@@ -2393,7 +2415,7 @@ export function applySacrificeChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -2404,17 +2426,17 @@ export function applySacrificeChoice(session, choice) {
  * is the chosen hand card id. A null/illegal pick re-surfaces the picker (a discard always pitches one when
  * a real choice exists — no decline). Returns { session, decision } like the others.
  */
-export function applyDiscardChoice(session, choice) {
+export function applyDiscardChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
   }
   const pc = session.state.pendingChoice;
   if (!pc || pc.kind !== "discard") {
-    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
   }
   const cardId = choice?.cardId ?? null;
   if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
-    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+    return advanceUntilDecision(session, opts); // illegal/stale pick → re-surface the same picker.
   }
 
   let newState;
@@ -2439,7 +2461,7 @@ export function applyDiscardChoice(session, choice) {
     ...session,
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
-  });
+  }, opts);
 }
 
 /**
@@ -2449,7 +2471,7 @@ export function applyDiscardChoice(session, choice) {
  * sacrifice pick, and the each/target-player discard pick. (Named apart from the decision-gate
  * `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
  */
-export function applyPendingChoice(session, choice) {
+export function applyPendingChoice(session, choice, opts = {}) {
   const kind = session.state?.pendingChoice?.kind;
   // WI-5 KIND ECHO-CHECK — every useLearnSession apply* method stamps its own choice payload with
   // `kind: "<expected-kind>"` (added alongside this guard). A stale/cross-kind submit — e.g. a
@@ -2462,34 +2484,34 @@ export function applyPendingChoice(session, choice) {
   // returned so the UI can re-sync. Legacy/absent `choice.kind` (e.g. a raw API client, or a body with
   // no kind field) is unaffected — this is purely additive.
   if (choice && typeof choice.kind === "string" && kind && choice.kind !== kind) {
-    return advanceUntilDecision(session);
+    return advanceUntilDecision(session, opts);
   }
-  if (kind === "clone-search") return applyCloneChoice(session, choice);
-  if (kind === "scry-surveil") return applyScryChoice(session, choice);
-  if (kind === "optional-effect") return applyOptionalChoice(session, choice);
-  if (kind === "commander-return") return applyCommanderReturnChoice(session, choice);
-  if (kind === "hand-discard") return applyHandDiscardChoice(session, choice);
-  if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice);
-  if (kind === "dig-land-to-battlefield") return applyDigLandChoice(session, choice);
-  if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
-  if (kind === "discard") return applyDiscardChoice(session, choice);
-  if (kind === "divide-damage") return applyDivideChoice(session, choice);
-  if (kind === "distribute-counters") return applyDistributeChoice(session, choice);
-  if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
-  if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
-  if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
-  if (kind === "optional-draw-discard") return applyOptionalDrawDiscardChoice(session, choice);
-  if (kind === "optional-discard-payment") return applyOptionalDiscardPaymentChoice(session, choice);
-  if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice);
-  if (kind === "taxed-payment") return applyTaxedPaymentChoice(session, choice);
-  if (kind === "edict-mode") return applyEdictModeChoice(session, choice);
-  if (kind === "tutor-search") return applyTutorChoice(session, choice);
+  if (kind === "clone-search") return applyCloneChoice(session, choice, opts);
+  if (kind === "scry-surveil") return applyScryChoice(session, choice, opts);
+  if (kind === "optional-effect") return applyOptionalChoice(session, choice, opts);
+  if (kind === "commander-return") return applyCommanderReturnChoice(session, choice, opts);
+  if (kind === "hand-discard") return applyHandDiscardChoice(session, choice, opts);
+  if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice, opts);
+  if (kind === "dig-land-to-battlefield") return applyDigLandChoice(session, choice, opts);
+  if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice, opts);
+  if (kind === "discard") return applyDiscardChoice(session, choice, opts);
+  if (kind === "divide-damage") return applyDivideChoice(session, choice, opts);
+  if (kind === "distribute-counters") return applyDistributeChoice(session, choice, opts);
+  if (kind === "soft-counter") return applySoftCounterChoice(session, choice, opts);
+  if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice, opts);
+  if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
+  if (kind === "optional-draw-discard") return applyOptionalDrawDiscardChoice(session, choice, opts);
+  if (kind === "optional-discard-payment") return applyOptionalDiscardPaymentChoice(session, choice, opts);
+  if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice, opts);
+  if (kind === "taxed-payment") return applyTaxedPaymentChoice(session, choice, opts);
+  if (kind === "edict-mode") return applyEdictModeChoice(session, choice, opts);
+  if (kind === "tutor-search") return applyTutorChoice(session, choice, opts);
   // WI-4 FAILSAFE — no pendingChoice at all (nothing to answer) re-derives, byte-identical to every
   // apply* function's own "double-submit" guard. A REAL unhandled kind never reaches applyTutorChoice's
   // settler silently — advanceUntilDecision re-derives and its own WI-4 failsafe (the pendingChoice
   // branch's unguarded tail) logs + clears + reports engine-stuck honestly instead of misinterpreting
   // the submitted choice as a tutor pick.
-  return advanceUntilDecision(session);
+  return advanceUntilDecision(session, opts);
 }
 
 // ─── Termination ─────────────────────────────────────────────────────────────

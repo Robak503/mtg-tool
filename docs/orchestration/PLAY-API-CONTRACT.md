@@ -10,7 +10,26 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.0.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.1.0"`
+
+> **v1.1.0 (additive MINOR, 2026-07-03 — the instrumentation-threading wave):**
+> - `act(session, decision, answer, opts = {})` grew an optional trailing `opts` bag — the
+>   same `{ decide, pilot, recordDecision, timePressure, onTurnStart }` seam `nextDecision`
+>   takes. It is threaded through every settler's internal re-advance, so a caller-driven
+>   drive loop stays instrumented PAST the first `act()` (previously: engine-auto segments
+>   initiated by `act()` ran default policy, unrecorded, clockless). Omitted ⇒ byte-identical
+>   to v1.0.0.
+> - `createGame` now HONORS the `pilots:` option documented below (previously it was silently
+>   dropped — only `runSelfPlayBatch` honored it). Pilots are compiled into a per-seat router
+>   stored as `session.playOpts.decide`, merged into every `nextDecision`/`act` advance;
+>   **explicit per-call `opts.decide` wins** (nextDecision-opts drivers are unaffected). A
+>   `decideMulligan` on any seat auto-builds the mulligan config unless the caller passed
+>   `mulligan` themselves. **Malformed `pilots` THROW** (never silently default-AI). A pilots
+>   session holds live closures → it is driver-memory-only (rejected by `isSerializable`).
+> - Instrumented advances (timePressure and/or onTurnStart active) stamp `state.observedTurn`
+>   (additive state field; save-schema v5, stamp-only migration) so a re-entrant advance never
+>   re-fires the turn-boundary clock/observer within the same turn. Uninstrumented advances
+>   write no such field.
 
 ### 1.1 The session layer (v1 — drives a COMPLETE game, pendings included)
 
@@ -36,8 +55,10 @@ const verdict = gameStatus(session.state);   // { over, result, winnerSeat, reas
   flushes, and pending-settlement to the next decision (or game over). `opts` passes through
   to the driver: `{ decide, pilot, recordDecision, timePressure }` — the self-play
   instrumentation seam.
-- `act(session, decision, answer)` routes by `decision.kind` and ALWAYS returns
-  `{ session, decision }`:
+- `act(session, decision, answer, opts?)` routes by `decision.kind` and ALWAYS returns
+  `{ session, decision }`. `opts` (v1.1.0) is the same instrumentation bag `nextDecision`
+  takes, threaded through the settlers' internal re-advances; omit it for the v1.0.0
+  behavior:
 
 | decision.kind | answer | routing |
 |---|---|---|
