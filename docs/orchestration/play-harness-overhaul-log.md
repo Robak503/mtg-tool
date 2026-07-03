@@ -191,3 +191,22 @@ exact-tie name tiebreak (fixed lands 56→0 but contaminated tied attacks 5→42
 land-pairs-only; recorded in R11-DIAGNOSIS.md). Honest residuals: casting-order style divergence
 (out of H-scope) · inheritor 4/12 on 1v1 interaction (its flags are 4P-shaped) · pod win spread
 deck-skewed (Zaxara 7/12) — future-wave candidates, not defects.
+
+### ✅ A4+B2 INTEGRATED (rolling @ 6b942802) — suite 7,623; anchor lineage documented
+A4 (fc719225): HB-3 per-seat FATE labels (losing pod seats NO LONGER labeled winners — winner-seat
+labels 30→4 over the evidence batch; undetermined = null rows dropped) · HB-4 seed discipline
+(--seed/api baseSeed, stamped in meta + every banked row — duplicate banking detectable) · HB-5
+seat rotation (opt-in, assignment recorded) · HB-6 podShuffle cross-chunk pairing · HB-7 seat/deck/
+on-the-play win tables with Wilson CIs (the ai1-concentration question is now measurable: ai1 7/12
+[32.0%,80.7%] while by-deck Zaxara 8/12 — confound separated) · AI-F9 mulligans ON for batches
+(unkeepable keeps 9→0; legacy pin proves it's the only probe-path delta) · pad de-alias shipped
+(mirror pods no longer share card ids). +25 tests.
+B2 (6b942802): the six unlocked slices — equip/activated abilities (activations 0→16, equipment-pod
+avg turns 68→53), wipes-when-behind (creature wipes only — Armageddon class stays held), fog under
+exactly-lethal, on-intent auras (parse-grounded buff/curse routing), lethal-flip team pump,
+CR-correct tutor decline (701.23b/d verified; stale 701.19d cite fixed). All 'v1'-recoverable via
+POLICY_KEYS. **A/B: NEW 60.0% / OLD 40.0**, dead turns 0.03. +40 tests.
+**Anchor lineage:** baseline `0c75d0de…` → B1 `1c7e3a9d…` → A4+B2 combined **`a2a03ba8…`**
+(games=3 rows=8281 ai/user/ai, ×2 reproducible; per-lane intermediates 847e2c57 (A4-only) /
+7fe774c5 (B2-only) recorded in the lane reports). Suite 7,623/521 · lint clean · fp 0-diff at
+pick · main tree clean · worktrees swept junction-safe.
