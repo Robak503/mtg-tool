@@ -15,7 +15,7 @@
 | Tier-1 pod batch (games-per=3) | **1.56s wall**, 3/3 complete, avg 51.3 turns | §2 self-play.mjs standard pod (MTG_APP_ROOT=AppData — see note) |
 | Trajectory hash | **`0c75d0de2d1b32996e4a702bb3fbdd85fef01b9347c0a4334fc978010ef9ad50`** — byte-identical ×2; 3 games / 8,014 rows / ai-wins×3 | §2 spec probe (scratchpad script, recreate per PLAYBOOK) |
 | Breakage census (pod) | 15 entries: Aberrant ×9 `trigger-removed-no-target`, Ember Island Production ×2 + Reality Shift + Teferi's Protection `spell-unresolved`, Garruk's Uprising ×2 | same pod run report |
-| Play-quality A/B (new vs `policy:"v1"`) | *pending — probe running at P0 close; recorded in the P1 entry* | `play-quality-probe.mjs` |
+| Play-quality A/B (new vs `policy:"v1"`) | **NEW 58.3% / OLD 41.7%** (60 mirror games, all decisive); dead turns 0.02 vs 0.37; X-sizing 4.74 vs 1.00; **flags: NEW blocks ≈ never (0.12 vs 4.35/game) · Rograkh/Thrasios mirror ~315s vs ~2s others (perf pathology)** | `play-quality-probe.mjs` (default config) |
 | Pilot-side reference | R11 diagnosis (pilots lose 17–33% on interaction to the default AI; 5 mechanisms) | `omnath-tools/pilots/R11-DIAGNOSIS.md`, rerun `node pilots/r11-diagnose.mjs 6` |
 
 **Baseline deviation note:** the §2 recipes assume dev-tree profile registrations
