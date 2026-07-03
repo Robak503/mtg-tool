@@ -8,8 +8,9 @@
  *
  * CREED all-or-nothing: only a clean land-mana Aura flips native. An Aura carrying ANY residue —
  * an ETB trigger (Verdant Haven), a sac ability (Wolfwillow Haven), an extra land-static (Trace of
- * Abundance), a subtype + as-enters color choice (Utopia Sprawl), or an unmodeled boost grammar
- * (Market Festival "in any combination") — STAYS body-only (a safe false-negative). Sub-slice B
+ * Abundance), or an unmodeled boost grammar (Market Festival "in any combination") — STAYS body-only
+ * (a safe false-negative). (Utopia Sprawl's Forest-subtype + as-enters chosen-color boost is now a
+ * MODELED slice — see utopiaSprawl.test.js.) Sub-slice B
  * (AURA-GRANTS-TRIGGERED-ABILITY: Bear Umbra) is DEFERRED (CREED #17 — the granted "untap all lands"
  * effect is unmodeled), so Bear Umbra also stays non-native.
  */
@@ -29,8 +30,10 @@ beforeEach(() => _resetIdsForTests());
 const WILD_GROWTH = { id: "c-wg", name: "Wild Growth", type: "Enchantment — Aura", mana: "{G}", oracle: "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}." };
 const OVERGROWTH = { id: "c-og", name: "Overgrowth", type: "Enchantment — Aura", mana: "{2}{G}", oracle: "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}{G}." };
 const FERTILE_GROUND = { id: "c-fg", name: "Fertile Ground", type: "Enchantment — Aura", mana: "{1}{G}", oracle: "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color." };
-// Non-native (residue / unmodeled grammar / deferred):
+// Utopia Sprawl — its chosen-color boost is MODELED (see utopiaSprawl.test.js); kept here to pin the
+// parser marker + the fact that a chosen-color boost is NOT the fixed/any-color grammar.
 const UTOPIA_SPRAWL = { id: "c-us", name: "Utopia Sprawl", type: "Enchantment — Aura", mana: "{G}", oracle: "Enchant Forest\nAs this Aura enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color." };
+// Non-native (residue / unmodeled grammar / deferred):
 const WOLFWILLOW = { id: "c-wh", name: "Wolfwillow Haven", type: "Enchantment — Aura", mana: "{G}", oracle: "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}.\n{4}{G}, Sacrifice this Aura: Create a 2/2 green Wolf creature token. Activate only during your turn." };
 const VERDANT_HAVEN = { id: "c-vh", name: "Verdant Haven", type: "Enchantment — Aura", mana: "{1}{G}", oracle: "Enchant land\nWhen this Aura enters, you gain 2 life.\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color." };
 const TRACE = { id: "c-ta", name: "Trace of Abundance", type: "Enchantment — Aura", mana: "{1}{G}", oracle: "Enchant land\nEnchanted land has shroud.\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color." };
@@ -59,7 +62,9 @@ describe("parseAuraLandManaBonus — the boost grammar", () => {
   });
   it("rejects every unmodeled boost form (no fabricated amount/color)", () => {
     expect(parseAuraLandManaBonus(MARKET_FESTIVAL)).toBeNull();   // "two mana in any combination"
-    expect(parseAuraLandManaBonus(UTOPIA_SPRAWL)).toBeNull();      // "of the chosen color" (as-enters choice)
+    // CHOSEN-COLOR (Utopia Sprawl) is now MODELED — the boost parses to a chosen-color marker (resolved
+    // against the Aura's stamped `chosenColor` at the tap site); see utopiaSprawl.test.js for the full slice.
+    expect(parseAuraLandManaBonus(UTOPIA_SPRAWL)).toEqual({ chosenColor: true, amount: 1 });
     // a "for each" variable boost is not this slice
     expect(parseAuraLandManaBonus({ type: "Enchantment — Aura", oracle: "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G} for each creature you control." })).toBeNull();
     // a fixed MULTI-color run ("{G}{U}") isn't the single-chosen-color model
@@ -80,7 +85,6 @@ describe("isNativeManaAura — all-or-nothing native gate", () => {
     expect(isNativeManaAura(WOLFWILLOW)).toBe(false);     // sac activated ability residue
     expect(isNativeManaAura(VERDANT_HAVEN)).toBe(false);  // ETB trigger residue
     expect(isNativeManaAura(TRACE)).toBe(false);          // extra land-static ("has shroud") residue
-    expect(isNativeManaAura(UTOPIA_SPRAWL)).toBe(false);  // "Enchant Forest" subtype + as-enters choice
     expect(isNativeManaAura(MARKET_FESTIVAL)).toBe(false); // unmodeled boost grammar
     expect(isNativeManaAura(BEAR_UMBRA)).toBe(false);     // enchants a creature (Sub-slice B, deferred)
   });
@@ -101,7 +105,6 @@ describe("coverage — native-mana-aura tier", () => {
     expect(classifyCard(WOLFWILLOW)).toBe("body-only");
     expect(classifyCard(VERDANT_HAVEN)).toBe("body-only");
     expect(classifyCard(TRACE)).toBe("body-only");
-    expect(classifyCard(UTOPIA_SPRAWL)).toBe("body-only");
     expect(classifyCard(MARKET_FESTIVAL)).toBe("body-only");
     expect(classifyCard(BEAR_UMBRA)).toBe("body-only");
   });

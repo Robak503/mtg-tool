@@ -1987,13 +1987,24 @@ export function isAuraCard(card) {
  * card has no Enchant line. The modeled subset is EXACTLY "creature" (any creature, no
  * controller/zone restriction); everything else stays unmodeled.
  */
-function auraEnchantSubject(card) {
+export function auraEnchantSubject(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   for (const clause of abilityClauses(oracle)) {
     const m = clause.trim().match(/^enchant\s+(.+)$/i);
     if (m) return m[1].trim().toLowerCase();
   }
   return null;
+}
+
+// CHOSEN-COLOR ON ENTER (CR 614.12b) — the EXACT "As this Aura enters, choose a color" cast-time color
+// choice (Utopia Sprawl). Anchored whole-clause so a color choice with a rider ("…choose a color other
+// than green", "…choose two colors") does NOT match → the card stays non-native (safe FN). Exported so
+// resolvers.enterPermanent stamps the auto-picked `chosenColor` on the Aura permanent under the SAME gate
+// the native-mana-aura path uses — the metric + runtime can't drift.
+const AURA_CHOOSE_COLOR_ETB_RE = /^as this aura enters, choose a color$/i;
+export function auraChoosesColorOnEnter(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  return abilityClauses(oracle).some((c) => AURA_CHOOSE_COLOR_ETB_RE.test(c.trim()));
 }
 
 /**
@@ -2088,9 +2099,19 @@ export function parseAuraLandManaBonus(card) {
     if (!m) continue;
     const tail = m[1].trim();
     // Any-color form (fixed amount 1). "one mana of any color" only — "X mana", "two mana in any
-    // combination", "of the chosen color" are NOT this form and fall through to null.
+    // combination" fall through to null.
     if (/^one mana of any color$/.test(tail)) {
       return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
+    }
+    // CHOSEN-COLOR form (Utopia Sprawl) — "one mana of the chosen color". The color is fixed at cast
+    // time by the Aura's "As this Aura enters, choose a color" line (CR 614.12b), stored DURABLY on the
+    // Aura permanent as `chosenColor` (resolvers.enterPermanent). This static parser can't know the
+    // runtime pick, so it returns a MARKER (`chosenColor:true`, no fabricated color) that the mana-read
+    // site (manaModel.landAuraManaBonus) resolves against the attached Aura's stored `chosenColor`. The
+    // gate (isNativeManaAura) separately requires that as-enters choice line, so this tail only ever
+    // flows native on a card that actually stamps the color — never a fabricated boost color.
+    if (/^one mana of the chosen color$/.test(tail)) {
+      return { chosenColor: true, amount: 1 };
     }
     // Fixed colored/colorless pips ("{g}", "{g}{g}", "{c}"). The clause must be EXACTLY the pip run —
     // any extra word ("two mana…", "{g} for each…") leaves residue → null.
@@ -2104,7 +2125,7 @@ export function parseAuraLandManaBonus(card) {
       }
       return null;
     }
-    return null; // an unmodeled boost tail (combination/chosen-color/for-each) — non-native
+    return null; // an unmodeled boost tail (combination/for-each) — non-native
   }
   return null;
 }
@@ -2122,6 +2143,7 @@ function manaAuraResidueClauses(card) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;                                   // the Enchant keyword line
     if (/^whenever enchanted (?:land|forest) is tapped for mana,/.test(c)) continue; // the modeled boost line
+    if (AURA_CHOOSE_COLOR_ETB_RE.test(c)) continue;                       // CHOSEN-COLOR: the modeled cast-time color choice (Utopia Sprawl)
     out.push(clause);
   }
   return out;
@@ -2130,18 +2152,37 @@ function manaAuraResidueClauses(card) {
 /**
  * Is this a land-enchant Aura the engine plays END-TO-END natively as a mana boost? ALL of:
  *   1. type line is an Aura,
- *   2. it enchants EXACTLY "land" (bare — a subtype-restricted "Enchant Forest" stays non-native:
- *      Utopia Sprawl also needs an as-enters color choice, deferred),
- *   3. `parseAuraLandManaBonus` yields a modeled fixed/any-color boost, AND
- *   4. there is NO residual clause (no ETB trigger / sac ability / extra land-static we'd drop).
+ *   2. it enchants EXACTLY "land" (bare) OR — CHOSEN-COLOR (Utopia Sprawl) — the "Forest" basic-land
+ *      SUBTYPE, which the runtime honors by offering only the caster's OWN Forests as targets and
+ *      attaching there (the boost only ever rides a Forest, faithful to the "enchant Forest" restriction),
+ *   3. `parseAuraLandManaBonus` yields a modeled boost (fixed pips / any-color / chosen-color marker), AND
+ *   4. there is NO residual clause. For the chosen-color form the "As this Aura enters, choose a color"
+ *      line is MODELED (auraChoosesColorOnEnter — resolvers.enterPermanent auto-picks + stamps the color),
+ *      so it's exempt from residue; any OTHER extra clause (Shimmerwilds Growth's "Enchanted land is the
+ *      chosen color" color-changing static) survives as residue → the card stays non-native (safe FN).
+ * The chosen-color boost is ONLY native when the card actually carries the color-choice line — otherwise
+ * the marker would resolve to no stamped color, so the gate requires it (never a fabricated boost color).
  * Separate from isNativeAura (the creature path) — the creature gate is left BYTE-IDENTICAL. Single
  * source of truth for runtime + metric. Pure.
  */
 export function isNativeManaAura(card) {
   if (!isAuraCard(card)) return false;
-  if (auraEnchantSubject(card) !== "land") return false;
-  if (!parseAuraLandManaBonus(card)) return false;
-  return manaAuraResidueClauses(card).length === 0;
+  const subject = auraEnchantSubject(card);
+  const bonus = parseAuraLandManaBonus(card);
+  if (!bonus) return false;
+  if (subject === "land") {
+    // Bare "Enchant land" (Wild Growth / Overgrowth / Fertile Ground) — a fixed/any-color boost only.
+    // A chosen-color boost on a bare-land Aura is NOT this slice (no such printed card; would need the
+    // color-choice line handled too) → non-native.
+    if (bonus.chosenColor) return false;
+    return manaAuraResidueClauses(card).length === 0;
+  }
+  if (subject === "forest" && bonus.chosenColor) {
+    // CHOSEN-COLOR (Utopia Sprawl): "Enchant Forest" + the as-enters color choice + the chosen-color boost.
+    if (!auraChoosesColorOnEnter(card)) return false; // the boost color must be stamped at cast — no choice line, no native
+    return manaAuraResidueClauses(card).length === 0;
+  }
+  return false;
 }
 
 // ─── GLOBAL TAP-FOR-MANA AUGMENT (CR 605.1b) ─────────────────────────────────────

@@ -27,7 +27,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, isNativeManaAura } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + AURA-LAND-MANA-BOOST
+import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, isNativeManaAura, auraChoosesColorOnEnter } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl)
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) — "If this creature was kicked, it enters with N +1/+1 counters"; added only when opts.kicked
 import { parseTribute, decideTribute, tributeIfNotClause } from "./tribute.js"; // TRIBUTE (CR 702.96) — opponent ETB choice: pay N +1/+1 counters OR the "if tribute wasn't paid" effect fires (leaf, acyclic)
@@ -158,6 +158,38 @@ function autoPickCreatureType(state, controller) {
   return best;
 }
 
+// AUTO-PICK the color for a "choose a color as it enters" Aura (CR 614.12b — Utopia Sprawl) in this
+// SELF-PLAY engine (no interactive picker). Heuristic: the color the controller's remaining spells most
+// NEED — tally the colored pips ({W}/{U}/{B}/{R}/{G}, hybrid counted for each side) across the mana costs
+// of cards in the controller's HAND then LIBRARY (what still has to be cast), and pick the most-frequent.
+// Ties break in WUBRG order for determinism (serialize-stable — no Map-iteration reliance). Falls back to
+// "G" when nothing has a colored pip: the enchanted Forest already produces {G}, so doubling green is the
+// safe, always-useful default (and keeps the stamp well-formed so the boost is never dropped). Pure — reads
+// the PRE-entry `state` (the Aura isn't on the battlefield yet; it has no mana cost pips of interest anyway).
+const CHOOSE_COLOR_WUBRG = ["W", "U", "B", "R", "G"];
+function autoPickManaColor(state, controller) {
+  const player = state.players[controller];
+  const tally = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+  const add = (cards) => {
+    for (const c of cards || []) {
+      const cost = String(c?.card?.mana_cost ?? c?.card?.mana ?? c?.mana_cost ?? c?.mana ?? "");
+      for (const m of cost.matchAll(/\{([^}]+)\}/g)) {
+        for (const sym of m[1].toUpperCase().split("/")) {
+          if (sym in tally) tally[sym] += 1;
+        }
+      }
+    }
+  };
+  add(player?.hand);
+  add(player?.library);
+  let best = null;
+  let bestN = 0;
+  for (const c of CHOOSE_COLOR_WUBRG) {
+    if (tally[c] > bestN) { best = c; bestN = tally[c]; }
+  }
+  return best || "G";
+}
+
 export function enterPermanent(state, card, controller, opts = {}) {
   const player = state.players[controller];
   if (!player) return state;
@@ -263,6 +295,13 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // re-picked. Read by the chosenTypeYouControl trigger scope (triggers.js). An interactive picker is a future
   // refinement; the deterministic auto-pick is correct + sufficient for self-play.
   if (choosesCreatureTypeOnEnter(card)) perm.chosenType = autoPickCreatureType(state, controller);
+  // CHOSEN-COLOR state primitive (CR 614.12b — Utopia Sprawl) — "As this Aura enters, choose a color": the
+  // self-play engine auto-picks the controller's most-needed casting color (autoPickManaColor reads the
+  // PRE-entry `state`) and stores it DURABLY on the Aura permanent as `chosenColor` (a single WUBRG letter).
+  // Plain string → serializes via the trivial JSON pass-through, set ONCE here at ETB, never re-picked. Read
+  // back by manaModel.landAuraManaBonus to resolve the "additional one mana of the chosen color" boost when
+  // the enchanted Forest taps. Mirrors chosenType. A non-choosing Aura leaves chosenColor undefined.
+  if (auraChoosesColorOnEnter(card)) perm.chosenColor = autoPickManaColor(state, controller);
   // CHOSEN-TYPE ETB COUNTER (CR 614.1c + 122.6a) — Banner of Kinship enters with a <name> counter for each
   // creature the controller controls of the chosen type. Runs AFTER the chosenType auto-pick above so the
   // metric uses the just-picked type; `state` is pre-entry (the artifact isn't a creature, so it's never
@@ -524,7 +563,12 @@ export const RESOLVERS = Object.freeze({
     // still be attached to a LAND at resolution; every other native Aura enchants a Creature. The
     // required target type follows the card (single source of truth — isNativeManaAura), so the
     // creature path stays byte-identical.
-    const requiredType = isNativeManaAura(card) ? /Land/ : /Creature/;
+    // CHOSEN-COLOR (Utopia Sprawl) enchants the FOREST subtype specifically, so its resolution re-check
+    // requires a Forest (CR 303.4h — an Aura whose enchant restriction its target no longer meets isn't put
+    // onto the battlefield). A bare land-mana Aura requires any Land; a creature Aura requires a Creature.
+    const requiredType = isNativeManaAura(card)
+      ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/)
+      : /Creature/;
     if (!tgt || !requiredType.test(tgtType)) {
       // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
       // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as

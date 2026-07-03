@@ -56,7 +56,7 @@ import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a 
 // identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
@@ -916,7 +916,12 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // opponent's land just ramps them), so we offer own lands only (a safe, useful subset). Once
     // attached, the boost mana appears inline whenever that land taps (manaModel.landAuraManaBonus).
     if (isNativeManaAura(card)) {
-      const targets = enumerateTargets(state, playerId, { targetType: "land", restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card));
+      // CHOSEN-COLOR (Utopia Sprawl): the Aura enchants the "Forest" basic-land SUBTYPE, so only the caster's
+      // own FORESTS are legal targets (the "forest" targetType requires BOTH a Land type line and the Forest
+      // subtype). A bare "Enchant land" mana Aura offers any own land. Honoring the subtype at the target site
+      // is what keeps the boost faithful to "enchant Forest" — the Aura only ever attaches to (and boosts) a Forest.
+      const targetType = auraEnchantSubject(card) === "forest" ? "forest" : "land";
+      const targets = enumerateTargets(state, playerId, { targetType, restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card));
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
