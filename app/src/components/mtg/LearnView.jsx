@@ -119,12 +119,9 @@ function companionOf(deck) {
 
 export default function LearnView({
   savedDecks,
-  cfg,
-  colors,
   fontFamily,
   setCenterView,
 }) {
-  const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
   const session = useLearnSession();
   const [mode, setMode] = useState("standard");
   const [userDeckId, setUserDeckId] = useState("");
@@ -196,8 +193,8 @@ export default function LearnView({
 
   if (session.status === "idle" || session.status === "starting") {
     return (
-      <div style={containerStyle(BG, fontFamily)}>
-        <header style={{ ...headerStyle(LINE, BG2, GOLD), justifyContent: "space-between" }}>
+      <div style={containerStyle(fontFamily)}>
+        <header style={{ ...headerStyle(), justifyContent: "space-between" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
             The Academy
             <StabilityBadge level="preview" title="Preview — the Academy is early and still being built out" />
@@ -206,42 +203,34 @@ export default function LearnView({
             {setCenterView && (
               <button
                 type="button"
+                className="btn btn-ghost btn-sm"
                 onClick={() => setCenterView("sim")}
                 title="The self-play stress test is now its own Sim Center section"
-                style={{
-                  padding: "4px 12px",
-                  fontSize: 12,
-                  fontFamily,
-                  border: `1px solid ${LINE}`,
-                  background: "transparent",
-                  color: MUTED,
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
               >
                 Stress test → Sim Center
               </button>
             )}
-            {session.status === "starting" && <span style={{ fontSize: 12, color: MUTED }}>starting…</span>}
+            {session.status === "starting" && <span style={{ fontSize: 12, color: "var(--ley-text-dim)" }}>starting…</span>}
           </span>
         </header>
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
           <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
-            <p style={{ fontSize: 14, color: TEXT, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: "var(--ley-text)", lineHeight: 1.5 }}>
               Pick a deck to learn, an opponent to play against, and a difficulty.
               The session runs locally — every decision is narrated by Jace at
               Beginner difficulty, lighter at higher difficulties.
             </p>
 
             {saves.length > 0 && (
-              <div style={{ border: `1px solid ${LINE}`, borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ ...labelStyle(MUTED), padding: 0 }}>Continue a game</div>
+              <div style={{ border: "1px solid var(--ley-line)", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ ...labelStyle(), padding: 0 }}>Continue a game</div>
                 {saves.map(s => (
                   <div
                     key={s.sessionId}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", border: `1px solid ${LINE}`, borderRadius: 4, background: BG2 }}
+                    className="ley-row"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", borderRadius: 4, background: "var(--ley-surface-2)" }}
                   >
-                    <span style={{ fontSize: 12, color: TEXT }}>
+                    <span style={{ fontSize: 12, color: "var(--ley-text)" }}>
                       {(s.userDeckName || "Untitled deck")}
                       {" · "}{s.mode === "commander" ? "Commander" : "Standard"}
                       {" · turn "}{s.turn ?? "?"}
@@ -249,17 +238,17 @@ export default function LearnView({
                     </span>
                     <span style={{ display: "inline-flex", gap: 6 }}>
                       <button
+                        className="btn btn-secondary btn-sm"
                         onClick={() => handleResume(s.sessionId)}
                         disabled={!s.resumable || session.status === "starting"}
                         title={s.resumable ? "Resume this game" : "Saved on an incompatible version — start a new game"}
-                        style={{ padding: "4px 10px", fontSize: 11, background: s.resumable ? (cfg?.color || GOLD) : LINE, color: "#fff", border: "none", borderRadius: 4, cursor: s.resumable ? "pointer" : "not-allowed", fontFamily, opacity: s.resumable ? 1 : 0.5 }}
                       >
                         Resume
                       </button>
                       <button
+                        className="btn btn-ghost btn-sm btn-icon"
                         onClick={() => handleDeleteSave(s.sessionId)}
                         title="Delete this saved game"
-                        style={{ padding: "4px 8px", fontSize: 11, background: "transparent", color: MUTED, border: `1px solid ${LINE}`, borderRadius: 4, cursor: "pointer", fontFamily }}
                       >
                         ✕
                       </button>
@@ -270,32 +259,32 @@ export default function LearnView({
             )}
 
             <fieldset style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "none", padding: 0 }}>
-              <legend style={{ ...labelStyle(MUTED), padding: 0, gridColumn: "1 / -1" }}>Format</legend>
+              <legend style={{ ...labelStyle(), padding: 0, gridColumn: "1 / -1" }}>Format</legend>
               {MODE_OPTIONS.map(opt => (
                 <label
                   key={opt.value}
                   style={{
                     display: "flex", flexDirection: "column", padding: "10px 12px",
-                    border: `1px solid ${mode === opt.value ? cfg?.border || GOLD : LINE}`,
-                    background: mode === opt.value ? cfg?.dim || BG2 : "transparent",
+                    border: `1px solid ${mode === opt.value ? "var(--ley-green)" : "var(--ley-line)"}`,
+                    background: mode === opt.value ? "var(--ley-green-dim)" : "transparent",
                     borderRadius: 6, cursor: "pointer",
                   }}
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input type="radio" name="mode" value={opt.value} checked={mode === opt.value} onChange={e => setMode(e.target.value)} />
-                    <strong style={{ color: cfg?.color || GOLD, fontSize: 13 }}>{opt.label}</strong>
+                    <strong style={{ color: "var(--ley-green)", fontSize: 13 }}>{opt.label}</strong>
                   </span>
-                  <span style={{ fontSize: 11, color: MUTED, marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
+                  <span style={{ fontSize: 11, color: "var(--ley-text-dim)", marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
                 </label>
               ))}
             </fieldset>
 
-            <label style={labelStyle(MUTED)}>
+            <label style={labelStyle()}>
               Your deck
               <select
                 value={userDeckId}
                 onChange={e => setUserDeckId(e.target.value)}
-                style={selectStyle(BG2, BG3, LINE, TEXT, fontFamily)}
+                style={selectStyle(fontFamily)}
               >
                 <option value="">(pick a saved deck)</option>
                 {savedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -303,12 +292,12 @@ export default function LearnView({
             </label>
 
             {Array.from({ length: oppCount }).map((_, i) => (
-              <label key={i} style={labelStyle(MUTED)}>
+              <label key={i} style={labelStyle()}>
                 {oppCount === 1 ? "Opponent's deck" : `Opponent ${i + 1}'s deck`}
                 <select
                   value={oppIds[i] || ""}
                   onChange={e => setOppId(i, e.target.value)}
-                  style={selectStyle(BG2, BG3, LINE, TEXT, fontFamily)}
+                  style={selectStyle(fontFamily)}
                 >
                   <option value="">(pick a saved deck)</option>
                   {savedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -317,7 +306,7 @@ export default function LearnView({
             ))}
 
             <fieldset style={{ display: "grid", gap: 8, border: "none", padding: 0 }}>
-              <legend style={{ ...labelStyle(MUTED), padding: 0 }}>Difficulty</legend>
+              <legend style={{ ...labelStyle(), padding: 0 }}>Difficulty</legend>
               {DIFFICULTY_OPTIONS.map(opt => (
                 <label
                   key={opt.value}
@@ -325,8 +314,8 @@ export default function LearnView({
                     display: "flex",
                     flexDirection: "column",
                     padding: "10px 12px",
-                    border: `1px solid ${difficulty === opt.value ? cfg?.border || GOLD : LINE}`,
-                    background: difficulty === opt.value ? cfg?.dim || BG2 : "transparent",
+                    border: `1px solid ${difficulty === opt.value ? "var(--ley-green)" : "var(--ley-line)"}`,
+                    background: difficulty === opt.value ? "var(--ley-green-dim)" : "transparent",
                     borderRadius: 6,
                     cursor: "pointer",
                   }}
@@ -339,28 +328,18 @@ export default function LearnView({
                       checked={difficulty === opt.value}
                       onChange={e => setDifficulty(e.target.value)}
                     />
-                    <strong style={{ color: cfg?.color || GOLD, fontSize: 13 }}>{opt.label}</strong>
+                    <strong style={{ color: "var(--ley-green)", fontSize: 13 }}>{opt.label}</strong>
                   </span>
-                  <span style={{ fontSize: 11, color: MUTED, marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
+                  <span style={{ fontSize: 11, color: "var(--ley-text-dim)", marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
                 </label>
               ))}
             </fieldset>
 
             <button
+              className="btn btn-primary btn-lg"
               onClick={handleStart}
               disabled={!canStart}
-              style={{
-                padding: "10px 18px",
-                background: canStart ? cfg?.color || GOLD : LINE,
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                cursor: canStart ? "pointer" : "not-allowed",
-                fontSize: 14,
-                fontFamily,
-                opacity: canStart ? 1 : 0.5,
-                marginTop: 8,
-              }}
+              style={{ marginTop: 8 }}
             >
               {session.status === "starting" ? "Starting…" : "Start game"}
             </button>
@@ -382,15 +361,15 @@ export default function LearnView({
   const decision = session.decision;
 
   return (
-    <div style={containerStyle(BG, fontFamily)}>
-      <header style={{ ...headerStyle(LINE, BG2, GOLD), justifyContent: "space-between" }}>
+    <div style={containerStyle(fontFamily)}>
+      <header style={{ ...headerStyle(), justifyContent: "space-between" }}>
         <span>The Academy · {session.mode === "commander" ? "Commander 4P pod" : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}</span>
-        <span style={{ fontSize: 11, color: MUTED }}>
+        <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>
           Turn {session.turn} · {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`} {session.step}
         </span>
       </header>
 
-      <TableStrip table={session.table} activePlayer={session.activePlayer} cfg={cfg} colors={colors} />
+      <TableStrip table={session.table} activePlayer={session.activePlayer} />
 
       {session.board ? (
         <LearnBoard
@@ -400,7 +379,6 @@ export default function LearnView({
           logTail={session.decisionLogTail}
           turn={session.turn}
           step={session.step}
-          colors={colors}
           status={session.status}
           difficulty={session.difficulty}
           onNewGame={handleAbandon}
@@ -411,9 +389,6 @@ export default function LearnView({
         <main style={{ flex: 2, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
           <DecisionPrompt
             decision={decision}
-            cfg={cfg}
-            colors={colors}
-            fontFamily={fontFamily}
             onChoose={session.applyChoice}
             onContinue={session.continueGame}
             onTutorChoose={session.applyTutorChoice}
@@ -435,15 +410,15 @@ export default function LearnView({
         {/* Auto-played feed */}
         <aside style={{
           width: 280,
-          borderLeft: `1px solid ${LINE}`,
-          background: BG2,
+          borderLeft: "1px solid var(--ley-line)",
+          background: "var(--ley-surface-1)",
           padding: 14,
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
           gap: 6,
         }}>
-          <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          <div style={sectionLabelStyle()}>
             Recent actions
           </div>
           {(session.decisionLogTail || []).slice().reverse().map((entry, i) => (
@@ -451,15 +426,15 @@ export default function LearnView({
               key={`${entry.ts}-${i}`}
               style={{
                 fontSize: 11,
-                color: TEXT,
+                color: "var(--ley-text)",
                 lineHeight: 1.4,
                 padding: "6px 8px",
-                background: BG3,
-                border: `1px solid ${LINE}`,
+                background: "var(--ley-surface-2)",
+                border: "1px solid var(--ley-line)",
                 borderRadius: 4,
               }}
             >
-              <div style={{ color: entry.actor === "user" ? cfg?.color || GOLD : "#9d98b8", fontWeight: 700, marginBottom: 2 }}>
+              <div style={{ color: entry.actor === "user" ? "var(--ley-green)" : "var(--ley-blue)", fontWeight: 700, marginBottom: 2 }}>
                 T{entry.turn} · {entry.actor}{entry.auto ? " (auto)" : ""}
               </div>
               <div>
@@ -469,7 +444,7 @@ export default function LearnView({
             </div>
           ))}
           {!(session.decisionLogTail || []).length && (
-            <div style={{ fontSize: 11, color: MUTED }}>No actions yet.</div>
+            <div style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>No actions yet.</div>
           )}
         </aside>
       </div>
@@ -478,101 +453,101 @@ export default function LearnView({
       {/* Unresolved spell → Arbiter ruling as a NON-BLOCKING side-sheet over the
           board (GAP C). The board behind it stays visible and interactive. */}
       {session.board && decision?.kind === "unresolved" && (
-        <div style={unresolvedSheetStyle(LINE, BG2)}>
-          <UnresolvedPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onContinue={session.continueGame} />
+        <div className="ley-glass-strong ley-glass-lit" style={unresolvedSheetStyle()}>
+          <UnresolvedPanel decision={decision} onContinue={session.continueGame} />
         </div>
       )}
       {/* Interactive tutor search → library picker side-sheet (non-blocking, board behind
           stays visible). The game is paused on this choice until the player picks. */}
       {session.board && decision?.kind === "tutor-search" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <TutorSearchPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyTutorChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <TutorSearchPanel decision={decision} onChoose={session.applyTutorChoice} />
         </div>
       )}
       {/* Interactive clone copy-pick → choose which creature to copy (CR 707). Same side-sheet. */}
       {session.board && decision?.kind === "clone-search" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <CloneCopyPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyCloneChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <CloneCopyPanel decision={decision} onChoose={session.applyCloneChoice} />
         </div>
       )}
       {/* Interactive scry/surveil → keep/move the top N (CR 701.22 / 701.25). Same side-sheet. */}
       {session.board && decision?.kind === "scry-surveil" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <ScrySurveilPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyScryChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <ScrySurveilPanel decision={decision} onChoose={session.applyScryChoice} />
         </div>
       )}
       {/* α2 — optional "you may <effect>" → a yes/no. Same side-sheet. */}
       {session.board && decision?.kind === "optional-effect" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <OptionalChoicePanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={session.applyOptionalChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <OptionalChoicePanel decision={decision} onChoose={session.applyOptionalChoice} />
         </div>
       )}
       {/* CMD-RETURN (CR 903.9) — your commander died: return it to the command zone (recastable, taxed) or leave it. */}
       {session.board && decision?.kind === "commander-return" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <CommanderReturnPanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={session.applyCommanderReturnChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <CommanderReturnPanel decision={decision} onChoose={session.applyCommanderReturnChoice} />
         </div>
       )}
       {/* δ-1b — hand disruption (Duress / Thoughtseize) → pick a card from the targeted opponent's
           REVEALED hand to discard. Only that one opponent's hand is shown (no 4P leak). Same side-sheet. */}
       {session.board && decision?.kind === "hand-discard" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <HandDiscardPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyHandDiscardChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <HandDiscardPanel decision={decision} onChoose={session.applyHandDiscardChoice} />
         </div>
       )}
       {/* δ-2 — impulse-dig (Strategic Planning / Anticipate) → keep one of the looked-at top N cards;
           the rest go to the bottom / graveyard. Same side-sheet. */}
       {session.board && decision?.kind === "impulse-dig" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <ImpulseDigPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyImpulseDigChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <ImpulseDigPanel decision={decision} onChoose={session.applyImpulseDigChoice} />
         </div>
       )}
       {/* EDICTS — sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict) → the human (the edict's
           target) picks which of THEIR OWN creatures to sacrifice. Same side-sheet. */}
       {session.board && decision?.kind === "sacrifice-choice" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <SacrificeChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applySacrificeChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <SacrificeChoicePanel decision={decision} onChoose={session.applySacrificeChoice} />
         </div>
       )}
       {/* EACH-PLAYER discard (Mind Rot / Fugue / Delirium Skeins) → the human (a discarder) picks which
           card from THEIR OWN hand to pitch (CR 701.8 — the discarding player chooses). N>1 / each-player
           re-surfaces this panel per card. Same side-sheet. */}
       {session.board && decision?.kind === "discard" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <DiscardChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyDiscardChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <DiscardChoicePanel decision={decision} onChoose={session.applyDiscardChoice} />
         </div>
       )}
       {/* DIVIDE (MT-1) — divide-damage division → the human caster assigns the spell's full damage among
           any number of targets (creatures + players) via steppers. Same side-sheet. */}
       {session.board && decision?.kind === "divide-damage" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <DivideDamagePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyDivideChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <DivideDamagePanel decision={decision} onChoose={session.applyDivideChoice} />
         </div>
       )}
       {/* SOFT-CNT — the player's spell is under a soft counter → pay {N} or let it be countered. Same side-sheet. */}
       {session.board && decision?.kind === "soft-counter" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <SoftCounterPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applySoftCounterChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <SoftCounterPanel decision={decision} onChoose={session.applySoftCounterChoice} />
         </div>
       )}
       {/* OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. If you do, <effect>" (Lifecrafter's
           Bestiary / Mind's Eye / Inheritance / …) → pay or decline. Same side-sheet. */}
       {session.board && decision?.kind === "optional-mana-payment" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <OptionalManaPaymentPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyOptionalManaPaymentChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <OptionalManaPaymentPanel decision={decision} onChoose={session.applyOptionalManaPaymentChoice} />
         </div>
       )}
       {/* REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
           (The Goose Mother / Wedding Security) → sac or decline. Same side-sheet. */}
       {session.board && decision?.kind === "optional-sac-payment" && (
-        <div style={tutorSheetStyle(LINE, BG2)}>
-          <OptionalSacPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyOptionalSacChoice} />
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <OptionalSacPanel decision={decision} onChoose={session.applyOptionalSacChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
           to text, and never leaves the stale board looking silently interactive). */}
       {session.board && (session.status === "error" || decision?.kind === "dispatch-error" || decision?.kind === "engine-stuck") && (
-        <div style={floatErrorStyle()}>
+        <div className="ley-glass-strong" style={floatErrorStyle()}>
           ⚠ {session.status === "error"
             ? (session.error || "Lost the connection to the game.")
             : `${decision.kind === "engine-stuck" ? "The engine got stuck" : "The engine rejected that"}: ${decision.reason}${decision.code ? ` (${decision.code})` : ""}`}
@@ -580,27 +555,26 @@ export default function LearnView({
         </div>
       )}
 
-      <footer style={{ padding: "10px 16px", borderTop: `1px solid ${LINE}`, background: BG2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={handleAbandon} style={{ ...subtleButtonStyle(LINE, MUTED, fontFamily) }}>
+      <footer style={{ padding: "10px 16px", borderTop: "1px solid var(--ley-line)", background: "var(--ley-surface-1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button className="btn btn-danger btn-sm" onClick={handleAbandon}>
           Abandon game
         </button>
-        {session.error && <span style={{ fontSize: 11, color: "#e0a89a" }}>⚠ {session.error}</span>}
+        {session.error && <span style={{ fontSize: 11, color: "var(--ley-red)" }}>⚠ {session.error}</span>}
       </footer>
 
-      <AskPanel sessionId={session.sessionId} cfg={cfg} colors={colors} fontFamily={fontFamily} avoidSheet={!!session.board && decision?.kind === "unresolved"} />
+      <AskPanel sessionId={session.sessionId} avoidSheet={!!session.board && decision?.kind === "unresolved"} />
     </div>
   );
 }
 
 // ─── Ask Jace — real-time, board-aware tutor pop-out ──────────────────────────
 
-function AskPanel({ sessionId, cfg, colors, fontFamily, avoidSheet = false }) {
+function AskPanel({ sessionId, avoidSheet = false }) {
   // When the unresolved Arbiter side-sheet (right:16, width:372 → left edge ~388,
   // z-40) is up, slide the Ask-Jace pop-out clear of it and lift it above the sheet
   // so the affordance isn't painted behind the ruling card.
   const dockRight = avoidSheet ? 404 : 18;
   const dockZ = avoidSheet ? 45 : 20;
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -629,21 +603,13 @@ function AskPanel({ sessionId, cfg, colors, fontFamily, avoidSheet = false }) {
     }
   };
 
-  const accent = cfg?.color || GOLD;
-
   if (!open) {
     return (
       <button
+        className="btn btn-secondary"
         onClick={() => setOpen(true)}
         title="Ask Jace about the board"
-        style={{
-          position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ,
-          display: "flex", alignItems: "center", gap: 7,
-          padding: "9px 14px", borderRadius: 999,
-          background: accent, color: "#fff", border: "none", cursor: "pointer",
-          fontSize: 12.5, fontWeight: 600, fontFamily,
-          boxShadow: "0 6px 18px -6px rgba(0,0,0,0.6)",
-        }}
+        style={{ position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ }}
       >
         💬 Ask Jace
       </button>
@@ -651,46 +617,44 @@ function AskPanel({ sessionId, cfg, colors, fontFamily, avoidSheet = false }) {
   }
 
   return (
-    <div style={{
+    <div className="ley-glass-strong ley-glass-lit" style={{
       position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ,
       width: 330, maxWidth: "calc(100% - 36px)", maxHeight: 400,
       display: "flex", flexDirection: "column",
-      background: BG2, border: `1px solid ${cfg?.border || LINE}`, borderRadius: 10,
-      boxShadow: "0 16px 40px -12px rgba(0,0,0,0.7)",
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderBottom: `1px solid ${LINE}` }}>
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: accent }}>Ask Jace</span>
-        <button onClick={() => setOpen(false)} aria-label="Close" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 17, lineHeight: 1 }}>×</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderBottom: "1px solid var(--ley-line)" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ley-green)" }}>Ask Jace</span>
+        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setOpen(false)} aria-label="Close">×</button>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
         {history.length === 0 && (
-          <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
             Ask anything about the current board — &ldquo;what can I play?&rdquo;, &ldquo;is it safe to attack?&rdquo;, &ldquo;what does this step do?&rdquo;. Jace reads the live game to answer.
           </div>
         )}
         {history.map((item, i) => (
           <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ fontSize: 12, color: TEXT, fontWeight: 600 }}>{item.q}</div>
-            {item.pending && <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic" }}>Jace is thinking…</div>}
-            {item.a && <div style={{ fontSize: 12, color: TEXT, lineHeight: 1.5, background: BG3, border: `1px solid ${LINE}`, borderRadius: 6, padding: "7px 9px", whiteSpace: "pre-wrap" }}>{item.a}</div>}
-            {item.error && <div style={{ fontSize: 11.5, color: "#e0a89a" }}>⚠ {item.error}</div>}
+            <div style={{ fontSize: 12, color: "var(--ley-text)", fontWeight: 600 }}>{item.q}</div>
+            {item.pending && <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", fontStyle: "italic" }}>Jace is thinking…</div>}
+            {item.a && <div style={{ fontSize: 12, color: "var(--ley-text)", lineHeight: 1.5, background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: 6, padding: "7px 9px", whiteSpace: "pre-wrap" }}>{item.a}</div>}
+            {item.error && <div style={{ fontSize: 11.5, color: "var(--ley-red)" }}>⚠ {item.error}</div>}
           </div>
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderTop: `1px solid ${LINE}` }}>
+      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderTop: "1px solid var(--ley-line)" }}>
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !busy) ask(); }}
           placeholder="Ask about the board…"
-          style={{ flex: 1, padding: "7px 10px", background: BG3, border: `1px solid ${LINE}`, borderRadius: 6, color: TEXT, fontSize: 12.5, fontFamily }}
+          style={{ flex: 1, padding: "7px 10px", background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: 6, color: "var(--ley-text)", fontSize: 12.5 }}
         />
         <button
+          className="btn btn-secondary btn-sm"
           onClick={ask}
           disabled={busy || !q.trim()}
-          style={{ padding: "7px 12px", background: accent, color: "#fff", border: "none", borderRadius: 6, cursor: busy || !q.trim() ? "not-allowed" : "pointer", opacity: busy || !q.trim() ? 0.5 : 1, fontSize: 12.5, fontWeight: 600, fontFamily }}
         >
           {busy ? "…" : "Ask"}
         </button>
@@ -701,40 +665,39 @@ function AskPanel({ sessionId, cfg, colors, fontFamily, avoidSheet = false }) {
 
 // ─── Table strip (all seats: life / zones / commander damage) ─────────────────
 
-function TableStrip({ table, activePlayer, cfg, colors }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+function TableStrip({ table, activePlayer }) {
   if (!table || table.length === 0) return null;
   return (
-    <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: BG2, borderBottom: `1px solid ${LINE}`, overflowX: "auto" }}>
+    <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--ley-surface-1)", borderBottom: "1px solid var(--ley-line)", overflowX: "auto" }}>
       {table.map(seat => {
         const active = seat.id === activePlayer;
         const cmd = Object.entries(seat.commanderDamage || {}).filter(([, n]) => n > 0);
         return (
           <div
             key={seat.id}
+            className={active ? "ley-live" : undefined}
             style={{
               minWidth: 118, flexShrink: 0, padding: "8px 10px", borderRadius: 6,
-              background: BG3,
-              border: `1px solid ${active ? cfg?.border || GOLD : LINE}`,
-              boxShadow: active ? `0 0 0 1px ${cfg?.border || GOLD}` : "none",
+              background: "var(--ley-surface-2)",
+              border: `1px solid ${active ? "var(--ley-green)" : "var(--ley-line)"}`,
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: seat.isUser ? (cfg?.color || GOLD) : TEXT }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: seat.isUser ? "var(--ley-green-text)" : "var(--ley-text)" }}>
                 {seatLabel(seat.id)}
               </span>
-              {active && <span style={{ fontSize: 8, color: cfg?.color || GOLD, textTransform: "uppercase", letterSpacing: "0.08em" }}>turn</span>}
+              {active && <span style={{ fontSize: 8, color: "var(--ley-green)", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.08em" }}>turn</span>}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: seat.life <= 5 ? "#e0a89a" : TEXT, lineHeight: 1.15 }}>
-              {seat.life} <span style={{ fontSize: 10, color: MUTED, fontWeight: 400 }}>life</span>
+            <div style={{ fontSize: 20, fontWeight: 700, color: seat.life <= 5 ? "var(--ley-red)" : "var(--ley-text)", lineHeight: 1.15 }}>
+              {seat.life} <span style={{ fontSize: 10, color: "var(--ley-text-dim)", fontWeight: 400 }}>life</span>
             </div>
-            <div style={{ display: "flex", gap: 9, fontSize: 10, color: MUTED, marginTop: 2 }}>
+            <div style={{ display: "flex", gap: 9, fontSize: 10, color: "var(--ley-text-dim)", marginTop: 2 }}>
               <span title="cards in hand">✋ {seat.handCount}</span>
               <span title="permanents on board">▦ {seat.boardCount}</span>
               <span title="cards in graveyard">⚰ {seat.graveyardCount}</span>
             </div>
             {cmd.length > 0 && (
-              <div style={{ fontSize: 9, color: MUTED, marginTop: 3 }}>
+              <div style={{ fontSize: 9, color: "var(--ley-text-faint)", marginTop: 3 }}>
                 cmdr dmg {cmd.map(([from, n]) => `${seatLabel(from)} ${n}`).join(" · ")}
               </div>
             )}
@@ -747,53 +710,52 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
-  const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
 
   if (!decision) {
-    return <p style={{ color: MUTED, fontSize: 13 }}>Waiting for engine…</p>;
+    return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Waiting for engine…</p>;
   }
   if (decision.kind === "unresolved") {
-    return <UnresolvedPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onContinue={onContinue} />;
+    return <UnresolvedPanel decision={decision} onContinue={onContinue} />;
   }
   if (decision.kind === "tutor-search") {
-    return <TutorSearchPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onTutorChoose} />;
+    return <TutorSearchPanel decision={decision} onChoose={onTutorChoose} />;
   }
   if (decision.kind === "clone-search") {
-    return <CloneCopyPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onCloneChoose} />;
+    return <CloneCopyPanel decision={decision} onChoose={onCloneChoose} />;
   }
   if (decision.kind === "scry-surveil") {
-    return <ScrySurveilPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onScryChoose} />;
+    return <ScrySurveilPanel decision={decision} onChoose={onScryChoose} />;
   }
   if (decision.kind === "optional-effect") {
-    return <OptionalChoicePanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={onOptionalChoose} />;
+    return <OptionalChoicePanel decision={decision} onChoose={onOptionalChoose} />;
   }
   if (decision.kind === "hand-discard") {
-    return <HandDiscardPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onHandDiscardChoose} />;
+    return <HandDiscardPanel decision={decision} onChoose={onHandDiscardChoose} />;
   }
   if (decision.kind === "impulse-dig") {
-    return <ImpulseDigPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onImpulseDigChoose} />;
+    return <ImpulseDigPanel decision={decision} onChoose={onImpulseDigChoose} />;
   }
   if (decision.kind === "sacrifice-choice") {
-    return <SacrificeChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onSacrificeChoose} />;
+    return <SacrificeChoicePanel decision={decision} onChoose={onSacrificeChoose} />;
   }
   if (decision.kind === "discard") {
-    return <DiscardChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onDiscardChoose} />;
+    return <DiscardChoicePanel decision={decision} onChoose={onDiscardChoose} />;
   }
   if (decision.kind === "divide-damage") {
-    return <DivideDamagePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onDivideChoose} />;
+    return <DivideDamagePanel decision={decision} onChoose={onDivideChoose} />;
   }
   if (decision.kind === "soft-counter") {
-    return <SoftCounterPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onSoftCounterChoose} />;
+    return <SoftCounterPanel decision={decision} onChoose={onSoftCounterChoose} />;
   }
   if (decision.kind === "optional-mana-payment") {
-    return <OptionalManaPaymentPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onOptionalManaPaymentChoose} />;
+    return <OptionalManaPaymentPanel decision={decision} onChoose={onOptionalManaPaymentChoose} />;
   }
   if (decision.kind === "optional-sac-payment") {
-    return <OptionalSacPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onOptionalSacChoose} />;
+    return <OptionalSacPanel decision={decision} onChoose={onOptionalSacChoose} />;
   }
   if (decision.kind === "commander-return") {
-    return <CommanderReturnPanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={onCommanderReturnChoose} />;
+    return <CommanderReturnPanel decision={decision} onChoose={onCommanderReturnChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -807,10 +769,10 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
     return <div style={errorBoxStyle()}>⚠ Engine got stuck: {decision.reason}</div>;
   }
   if (decision.kind === "auto-decided") {
-    return <p style={{ color: MUTED, fontSize: 13 }}>Engine auto-decided ({decision.metadata?.reasoning || "no reason"})…</p>;
+    return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Engine auto-decided ({decision.metadata?.reasoning || "no reason"})…</p>;
   }
   if (decision.kind !== "ask") {
-    return <p style={{ color: MUTED, fontSize: 13 }}>Unknown decision kind: {decision.kind}</p>;
+    return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Unknown decision kind: {decision.kind}</p>;
   }
 
   return (
@@ -818,11 +780,11 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
       <div style={{
         whiteSpace: "pre-wrap",
         fontSize: 13,
-        color: TEXT,
+        color: "var(--ley-text)",
         lineHeight: 1.6,
         padding: "12px 14px",
-        background: BG3,
-        border: `1px solid ${LINE}`,
+        background: "var(--ley-surface-2)",
+        border: "1px solid var(--ley-line)",
         borderRadius: 6,
       }}>
         {decision.prompt}
@@ -834,27 +796,24 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
           return (
             <button
               key={`${opt.kind}-${opt.cardId || opt.permanentId || "x"}-${i}`}
+              className="btn btn-secondary btn-sm"
               onClick={() => onChoose(opt)}
               style={{
+                width: "100%",
+                justifyContent: "flex-start",
                 textAlign: "left",
-                padding: "10px 14px",
-                background: isRecommended ? (cfg?.dim || BG3) : "transparent",
-                border: `1px solid ${isRecommended ? cfg?.border || GOLD : LINE}`,
-                borderRadius: 6,
-                color: TEXT,
-                cursor: "pointer",
-                fontSize: 13,
-                fontFamily,
+                whiteSpace: "normal",
+                ...(isRecommended ? { background: "var(--ley-green-dim)" } : {}),
               }}
             >
-              <span style={{ color: isRecommended ? cfg?.color || GOLD : MUTED, fontSize: 10, marginRight: 8 }}>
+              <span style={{ color: isRecommended ? "var(--ley-green)" : "var(--ley-text-faint)", fontSize: 10, marginRight: 8 }}>
                 {i + 1}.
               </span>
               {opt.name || opt.kind}
               {opt.kind === "declare-attacker" && opt.defenderId && (
-                <span style={{ color: MUTED }}> → {seatLabel(opt.defenderId)}</span>
+                <span style={{ color: "var(--ley-text-dim)" }}> → {seatLabel(opt.defenderId)}</span>
               )}
-              {isRecommended && <span style={{ fontSize: 10, color: cfg?.color || GOLD, marginLeft: 8 }}>(recommended)</span>}
+              {isRecommended && <span style={{ fontSize: 10, color: "var(--ley-green)", marginLeft: 8 }}>(recommended)</span>}
             </button>
           );
         })}
@@ -872,9 +831,7 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
  * it as a teaching moment, and let the player continue. The engine never made a
  * network call — this component does, exactly as the design intends.
  */
-function UnresolvedPanel({ decision, cfg, colors, fontFamily, onContinue }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function UnresolvedPanel({ decision, onContinue }) {
   const [ruling, setRuling] = useState({ trace: "", status: null, loading: true, error: null });
   const [continuing, setContinuing] = useState(false);
 
@@ -908,17 +865,17 @@ function UnresolvedPanel({ decision, cfg, colors, fontFamily, onContinue }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{
         padding: "12px 14px",
-        background: BG3,
-        border: `1px solid ${accent}`,
+        background: "var(--ley-green-faint)",
+        border: "1px solid var(--ley-line-bright)",
         borderRadius: 6,
         display: "flex",
         flexDirection: "column",
         gap: 6,
       }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           ⚖ Rules check — {decision.cardName || "this card"}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5 }}>
           The simulator can&rsquo;t fully model this card yet, so rather than guess it asked
           the Arbiter (the local rules engine) for a ruling. Read it, apply it on your board
           if you like, then continue.
@@ -927,36 +884,25 @@ function UnresolvedPanel({ decision, cfg, colors, fontFamily, onContinue }) {
 
       <div style={{
         padding: "12px 14px",
-        background: BG2,
-        border: `1px solid ${LINE}`,
+        background: "var(--ley-surface-2)",
+        border: "1px solid var(--ley-line)",
         borderRadius: 6,
         minHeight: 60,
       }}>
-        {ruling.loading && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>Asking the Arbiter…</div>}
+        {ruling.loading && <div style={{ fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>Asking the Arbiter…</div>}
         {!ruling.loading && ruling.trace && (
-          <div style={{ fontSize: 12, color: TEXT, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{ruling.trace}</div>
+          <div style={{ fontSize: 12, color: "var(--ley-text)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{ruling.trace}</div>
         )}
         {!ruling.loading && !ruling.trace && ruling.error && (
-          <div style={{ fontSize: 12, color: "#e0a89a" }}>⚠ {ruling.error}</div>
+          <div style={{ fontSize: 12, color: "var(--ley-gold)" }}>⚠ {ruling.error}</div>
         )}
       </div>
 
       <button
+        className="btn btn-primary btn-sm"
+        style={{ alignSelf: "flex-start" }}
         onClick={handleContinue}
         disabled={continuing}
-        style={{
-          alignSelf: "flex-start",
-          padding: "9px 16px",
-          background: accent,
-          color: "#fff",
-          border: "none",
-          borderRadius: 6,
-          cursor: continuing ? "not-allowed" : "pointer",
-          opacity: continuing ? 0.6 : 1,
-          fontSize: 13,
-          fontWeight: 600,
-          fontFamily,
-        }}
       >
         {continuing ? "Continuing…" : "Continue playing"}
       </button>
@@ -970,9 +916,7 @@ function UnresolvedPanel({ decision, cfg, colors, fontFamily, onContinue }) {
  * nothing. Resumes the suspended spell via session.applyTutorChoice. The board behind
  * stays visible (non-blocking sheet), but the game is paused until the choice is made.
  */
-function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function TutorSearchPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -992,11 +936,11 @@ function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🔍 Search your library{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           Choose {decision.filterLabel ? `a ${decision.filterLabel}` : "a card"} to put into your hand
           ({candidates.length} match{candidates.length === 1 ? "" : "es"}). Then your library is shuffled.
         </div>
@@ -1004,7 +948,7 @@ function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
       <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
         {candidates.length === 0 && (
-          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: MUTED, fontStyle: "italic" }}>
+          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>
             No matching cards in your library.
           </div>
         )}
@@ -1017,19 +961,19 @@ function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
               title={c.name}
               style={{
                 display: "flex", flexDirection: "column", gap: 4, padding: 4,
-                background: isSel ? (cfg?.dim || BG3) : "transparent",
-                border: `2px solid ${isSel ? accent : LINE}`,
-                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8, cursor: "pointer", textAlign: "left",
               }}
             >
               <img
                 src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
-              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
                 {c.name}
               </div>
             </button>
@@ -1039,23 +983,17 @@ function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
       <div style={{ display: "flex", gap: 8 }}>
         <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
           onClick={() => submit(selected)}
           disabled={!selected || submitting}
-          style={{
-            flex: 1, padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-            cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
-            fontSize: 13, fontWeight: 600, fontFamily,
-          }}
         >
           {submitting ? "…" : "Put in hand"}
         </button>
         <button
+          className="btn btn-ghost btn-sm"
           onClick={() => submit(null)}
           disabled={submitting}
-          style={{
-            padding: "9px 14px", background: "transparent", color: MUTED, border: `1px solid ${LINE}`,
-            borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontSize: 13, fontFamily,
-          }}
         >
           Find nothing
         </button>
@@ -1072,9 +1010,7 @@ function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * tutor picker; unlike a tutor, there's no "find nothing" — a hand-discard always strips one card (the
  * engine only pauses here when ≥1 legal card was revealed).
  */
-function HandDiscardPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function HandDiscardPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1091,11 +1027,11 @@ function HandDiscardPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🗯 Hand disruption{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           {decision.victim ? `${decision.victim}'s` : "Your opponent's"} hand is revealed. Choose a card to discard
           ({candidates.length} eligible).
         </div>
@@ -1111,19 +1047,19 @@ function HandDiscardPanel({ decision, cfg, colors, fontFamily, onChoose }) {
               title={c.name}
               style={{
                 display: "flex", flexDirection: "column", gap: 4, padding: 4,
-                background: isSel ? (cfg?.dim || BG3) : "transparent",
-                border: `2px solid ${isSel ? accent : LINE}`,
-                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8, cursor: "pointer", textAlign: "left",
               }}
             >
               <img
                 src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
-              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
                 {c.name}
               </div>
             </button>
@@ -1132,13 +1068,9 @@ function HandDiscardPanel({ decision, cfg, colors, fontFamily, onChoose }) {
       </div>
 
       <button
+        className="btn btn-primary btn-sm"
         onClick={() => submit(selected)}
         disabled={!selected || submitting}
-        style={{
-          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-          cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
-          fontSize: 13, fontWeight: 600, fontFamily,
-        }}
       >
         {submitting ? "…" : "Discard"}
       </button>
@@ -1153,9 +1085,7 @@ function HandDiscardPanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * non-blocking side-sheet as the tutor picker; the keep is mandatory (the engine only pauses here when
  * ≥1 card was revealed), so there's no "keep nothing".
  */
-function ImpulseDigPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function ImpulseDigPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1172,11 +1102,11 @@ function ImpulseDigPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🔮 Dig{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           Top {candidates.length} of your library — keep one in hand. The rest go to the {restWord}.
         </div>
       </div>
@@ -1191,19 +1121,19 @@ function ImpulseDigPanel({ decision, cfg, colors, fontFamily, onChoose }) {
               title={c.name}
               style={{
                 display: "flex", flexDirection: "column", gap: 4, padding: 4,
-                background: isSel ? (cfg?.dim || BG3) : "transparent",
-                border: `2px solid ${isSel ? accent : LINE}`,
-                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8, cursor: "pointer", textAlign: "left",
               }}
             >
               <img
                 src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
-              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
                 {c.name}
               </div>
             </button>
@@ -1212,13 +1142,9 @@ function ImpulseDigPanel({ decision, cfg, colors, fontFamily, onChoose }) {
       </div>
 
       <button
+        className="btn btn-primary btn-sm"
         onClick={() => submit(selected)}
         disabled={!selected || submitting}
-        style={{
-          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-          cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
-          fontSize: 13, fontWeight: 600, fontFamily,
-        }}
       >
         {submitting ? "…" : "Keep"}
       </button>
@@ -1239,9 +1165,7 @@ function ImpulseDigPanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * via per-target steppers bounded by a live "remaining" budget. Submit is gated until the whole amount is
  * assigned (CR 601.2d — all of it must be divided). Submits `[{ id, type, amount }]` via session.applyDivideChoice.
  */
-function DivideDamagePanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function DivideDamagePanel({ decision, onChoose }) {
   const candidates = decision.candidates || [];
   const total = decision.amount || 0;
   const [amounts, setAmounts] = useState({});
@@ -1257,12 +1181,6 @@ function DivideDamagePanel({ decision, cfg, colors, fontFamily, onChoose }) {
     const next = Math.max(0, delta > 0 ? Math.min(cur + delta, cur + Math.max(0, remaining)) : cur + delta);
     return { ...prev, [id]: next };
   });
-  const stepStyle = (disabled) => ({
-    width: 24, height: 24, lineHeight: "20px", padding: 0, background: BG2, color: TEXT,
-    border: `1px solid ${LINE}`, borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.4 : 1, fontSize: 15, fontWeight: 700, fontFamily,
-  });
-
   const submit = async () => {
     if (submitting || remaining !== 0) return;
     const distribution = candidates.filter((c) => (amounts[c.id] || 0) > 0).map((c) => ({ id: c.id, type: c.type, amount: amounts[c.id] }));
@@ -1272,37 +1190,33 @@ function DivideDamagePanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🎯 Divide {total} damage{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
-          Assign all {total} among any number of targets. Remaining: <b style={{ color: remaining === 0 ? accent : "#e0a030" }}>{remaining}</b>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          Assign all {total} among any number of targets. Remaining: <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>{remaining}</b>
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
         {candidates.map((c) => {
           const amt = amounts[c.id] || 0;
           return (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: amt > 0 ? (cfg?.dim || BG3) : "transparent", border: `1px solid ${amt > 0 ? accent : LINE}`, borderRadius: 6 }}>
-              <span style={{ fontSize: 12, color: TEXT, fontFamily }}>{c.type === "player" ? `🧑 ${c.name}` : c.name}</span>
+            <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: amt > 0 ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${amt > 0 ? "var(--ley-green)" : "var(--ley-line)"}`, borderRadius: 6 }}>
+              <span style={{ fontSize: 12, color: "var(--ley-text)" }}>{c.type === "player" ? `🧑 ${c.name}` : c.name}</span>
               <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button onClick={() => bump(c.id, -1)} disabled={amt <= 0} style={stepStyle(amt <= 0)}>−</button>
-                <span style={{ minWidth: 16, textAlign: "center", fontSize: 13, color: accent, fontWeight: 700 }}>{amt}</span>
-                <button onClick={() => bump(c.id, +1)} disabled={remaining <= 0} style={stepStyle(remaining <= 0)}>+</button>
+                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, -1)} disabled={amt <= 0}>−</button>
+                <span style={{ minWidth: 16, textAlign: "center", fontSize: 13, color: "var(--ley-green)", fontWeight: 700 }}>{amt}</span>
+                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, +1)} disabled={remaining <= 0}>+</button>
               </span>
             </div>
           );
         })}
       </div>
       <button
+        className="btn btn-primary btn-sm"
         onClick={submit}
         disabled={remaining !== 0 || submitting}
-        style={{
-          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-          cursor: (remaining !== 0 || submitting) ? "not-allowed" : "pointer", opacity: (remaining !== 0 || submitting) ? 0.5 : 1,
-          fontSize: 13, fontWeight: 600, fontFamily,
-        }}
       >
         {remaining === 0 ? "Deal damage" : `Assign ${remaining} more`}
       </button>
@@ -1315,9 +1229,7 @@ function DivideDamagePanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * Shown to the player whose spell is targeted: pay {N} to save it, or let it be countered. "Pay" is disabled
  * when `decision.affordable` is false (not enough untapped mana). Submits the boolean via applySoftCounterChoice.
  */
-function SoftCounterPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function SoftCounterPanel({ decision, onChoose }) {
   const costLabel = wardCostLabel(decision);
   const affordable = decision.affordable !== false;
   const [submitting, setSubmitting] = useState(false);
@@ -1328,27 +1240,22 @@ function SoftCounterPanel({ decision, cfg, colors, fontFamily, onChoose }) {
     try { await onChoose?.(pay); } finally { setSubmitting(false); }
   };
 
-  const btn = (bg, disabled) => ({
-    flex: 1, padding: "10px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6,
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily,
-  });
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🛡️ {costLabel} or be countered{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           {decision.spellName ? <b>{decision.spellName}</b> : "Your spell"} will be countered unless you {costLabel.toLowerCase()}.
-          {!affordable && <span style={{ color: "#e0a030" }}> You don’t have that available.</span>}
+          {!affordable && <span style={{ color: "var(--ley-gold)" }}> You don’t have that available.</span>}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => submit(true)} disabled={submitting || !affordable} style={btn(accent, submitting || !affordable)}>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => submit(true)} disabled={submitting || !affordable}>
           {costLabel}
         </button>
-        <button onClick={() => submit(false)} disabled={submitting} style={btn(LINE, submitting)}>
+        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => submit(false)} disabled={submitting}>
           Let it be countered
         </button>
       </div>
@@ -1363,9 +1270,7 @@ function SoftCounterPanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * enough untapped mana — the driver enriches this at pause time). Submits the boolean via
  * applyOptionalManaPaymentChoice. Structurally a SoftCounterPanel variant (same yes/no shape).
  */
-function OptionalManaPaymentPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function OptionalManaPaymentPanel({ decision, onChoose }) {
   const costLabel = wardCostLabel(decision);
   const affordable = decision.affordable !== false;
   const [submitting, setSubmitting] = useState(false);
@@ -1376,27 +1281,22 @@ function OptionalManaPaymentPanel({ decision, cfg, colors, fontFamily, onChoose 
     try { await onChoose?.(pay); } finally { setSubmitting(false); }
   };
 
-  const btn = (bg, disabled) => ({
-    flex: 1, padding: "10px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6,
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily,
-  });
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           ✨ You may {costLabel.toLowerCase()}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           You may {costLabel.toLowerCase()}. If you do, the effect resolves.
-          {!affordable && <span style={{ color: "#e0a030" }}> You don’t have that available.</span>}
+          {!affordable && <span style={{ color: "var(--ley-gold)" }}> You don’t have that available.</span>}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => submit(true)} disabled={submitting || !affordable} style={btn(accent, submitting || !affordable)}>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => submit(true)} disabled={submitting || !affordable}>
           {costLabel}
         </button>
-        <button onClick={() => submit(false)} disabled={submitting} style={btn(LINE, submitting)}>
+        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => submit(false)} disabled={submitting}>
           Decline
         </button>
       </div>
@@ -1411,9 +1311,7 @@ function OptionalManaPaymentPanel({ decision, cfg, colors, fontFamily, onChoose 
  * is false (no matching permanent to give up — set at suspend time, pendingChoice.js). Submits the boolean
  * via applyOptionalSacChoice. Structurally a SoftCounterPanel variant (same yes/no shape).
  */
-function OptionalSacPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function OptionalSacPanel({ decision, onChoose }) {
   const subtype = decision.subtype || "permanent";
   const available = decision.available !== false;
   const [submitting, setSubmitting] = useState(false);
@@ -1424,27 +1322,22 @@ function OptionalSacPanel({ decision, cfg, colors, fontFamily, onChoose }) {
     try { await onChoose?.(sac); } finally { setSubmitting(false); }
   };
 
-  const btn = (bg, disabled) => ({
-    flex: 1, padding: "10px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6,
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily,
-  });
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           💀 You may sacrifice a {subtype}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           You may sacrifice a {subtype}. If you do, the effect resolves.
-          {!available && <span style={{ color: "#e0a030" }}> You don’t control a {subtype} to sacrifice.</span>}
+          {!available && <span style={{ color: "var(--ley-gold)" }}> You don’t control a {subtype} to sacrifice.</span>}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => submit(true)} disabled={submitting || !available} style={btn(accent, submitting || !available)}>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => submit(true)} disabled={submitting || !available}>
           Sacrifice a {subtype}
         </button>
-        <button onClick={() => submit(false)} disabled={submitting} style={btn(LINE, submitting)}>
+        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => submit(false)} disabled={submitting}>
           Decline
         </button>
       </div>
@@ -1452,9 +1345,7 @@ function OptionalSacPanel({ decision, cfg, colors, fontFamily, onChoose }) {
   );
 }
 
-function SacrificeChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function SacrificeChoicePanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1470,11 +1361,11 @@ function SacrificeChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           💀 Sacrifice{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           You must sacrifice a creature — choose which one to give up.
         </div>
       </div>
@@ -1489,19 +1380,19 @@ function SacrificeChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
               title={c.name}
               style={{
                 display: "flex", flexDirection: "column", gap: 4, padding: 4,
-                background: isSel ? (cfg?.dim || BG3) : "transparent",
-                border: `2px solid ${isSel ? accent : LINE}`,
-                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8, cursor: "pointer", textAlign: "left",
               }}
             >
               <img
                 src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
-              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
                 {c.name}
               </div>
             </button>
@@ -1510,13 +1401,9 @@ function SacrificeChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
       </div>
 
       <button
+        className="btn btn-primary btn-sm"
         onClick={() => submit(selected)}
         disabled={!selected || submitting}
-        style={{
-          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-          cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
-          fontSize: 13, fontWeight: 600, fontFamily,
-        }}
       >
         {submitting ? "…" : "Sacrifice"}
       </button>
@@ -1533,9 +1420,7 @@ function SacrificeChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * mandatory (the engine only pauses here when there's a real choice — a hand ≤ remaining is pitched
  * whole with no panel), so there's no decline.
  */
-function DiscardChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function DiscardChoicePanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1552,11 +1437,11 @@ function DiscardChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🃏 Discard{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           Choose a card from your hand to discard{remaining > 1 ? ` (${remaining} more to discard)` : ""}.
         </div>
       </div>
@@ -1571,19 +1456,19 @@ function DiscardChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
               title={c.name}
               style={{
                 display: "flex", flexDirection: "column", gap: 4, padding: 4,
-                background: isSel ? (cfg?.dim || BG3) : "transparent",
-                border: `2px solid ${isSel ? accent : LINE}`,
-                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8, cursor: "pointer", textAlign: "left",
               }}
             >
               <img
                 src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
-              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
                 {c.name}
               </div>
             </button>
@@ -1592,13 +1477,9 @@ function DiscardChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
       </div>
 
       <button
+        className="btn btn-primary btn-sm"
         onClick={() => submit(selected)}
         disabled={!selected || submitting}
-        style={{
-          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-          cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
-          fontSize: 13, fontWeight: 600, fontFamily,
-        }}
       >
         {submitting ? "…" : "Discard"}
       </button>
@@ -1611,8 +1492,7 @@ function DiscardChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * onChoose(false) declines. Only ever shown for the human player's own optional (beginner/
  * intermediate); Expert + opponents auto-take it in the engine.
  */
-function OptionalChoicePanel({ decision, colors, fontFamily, onChoose }) {
-  const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+function OptionalChoicePanel({ decision, onChoose }) {
   const opLabel = {
     "draw": "draw a card", "gain-life": "gain life", "lose-life": "lose life", "create-token": "create a token",
     "deal-damage": "deal the damage", "destroy": "destroy the target", "exile": "exile the target",
@@ -1620,20 +1500,16 @@ function OptionalChoicePanel({ decision, colors, fontFamily, onChoose }) {
     "untap": "untap the target", "bounce": "return it to hand", "mill": "mill", "scry": "scry", "surveil": "surveil",
     "return-from-graveyard": "return the card", "counter": "counter the spell",
   }[decision?.effectOp] || "apply this effect";
-  const btn = (border, color, weight) => ({
-    flex: 1, padding: "10px 14px", borderRadius: 6, border: `1px solid ${border}`,
-    background: BG3, color, cursor: "pointer", fontSize: 13, fontWeight: weight, fontFamily,
-  });
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontFamily }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>You may…</div>
-      <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-        {decision?.cardName ? <strong style={{ color: TEXT }}>{decision.cardName}</strong> : "This effect"} lets you{" "}
-        <strong style={{ color: GOLD }}>{opLabel}</strong>. Do it?
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ley-text)" }}>You may…</div>
+      <div style={{ fontSize: 13, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
+        {decision?.cardName ? <strong style={{ color: "var(--ley-text)" }}>{decision.cardName}</strong> : "This effect"} lets you{" "}
+        <strong style={{ color: "var(--ley-green)" }}>{opLabel}</strong>. Do it?
       </div>
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => onChoose(true)} style={btn(GOLD, TEXT, 600)}>Yes, do it</button>
-        <button onClick={() => onChoose(false)} style={btn(LINE, MUTED, 400)}>No, skip</button>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => onChoose(true)}>Yes, do it</button>
+        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => onChoose(false)}>No, skip</button>
       </div>
     </div>
   );
@@ -1644,23 +1520,18 @@ function OptionalChoicePanel({ decision, colors, fontFamily, onChoose }) {
  * it can be recast, paying the higher commander tax) or leave it in the graveyard (e.g. to reanimate it).
  * A yes/no, mirroring OptionalChoicePanel; finishes server-side via session.applyCommanderReturnChoice.
  */
-function CommanderReturnPanel({ decision, colors, fontFamily, onChoose }) {
-  const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
-  const btn = (border, color, weight) => ({
-    flex: 1, padding: "10px 14px", borderRadius: 6, border: `1px solid ${border}`,
-    background: BG3, color, cursor: "pointer", fontSize: 13, fontWeight: weight, fontFamily,
-  });
+function CommanderReturnPanel({ decision, onChoose }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontFamily }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>Commander down</div>
-      <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-        Your commander <strong style={{ color: TEXT }}>{decision?.cardName || "commander"}</strong> is in the{" "}
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ley-text)" }}>Commander down</div>
+      <div style={{ fontSize: 13, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
+        Your commander <strong style={{ color: "var(--ley-text)" }}>{decision?.cardName || "commander"}</strong> is in the{" "}
         {decision?.zone === "exile" ? "exile zone" : "graveyard"}. Put it back in the{" "}
-        <strong style={{ color: GOLD }}>command zone</strong>? (You can recast it, paying the {"{2}"} commander tax.)
+        <strong style={{ color: "var(--ley-green)" }}>command zone</strong>? (You can recast it, paying the {"{2}"} commander tax.)
       </div>
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => onChoose(true)} style={btn(GOLD, TEXT, 600)}>Return to command zone</button>
-        <button onClick={() => onChoose(false)} style={btn(LINE, MUTED, 400)}>Leave it</button>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => onChoose(true)}>Return to command zone</button>
+        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => onChoose(false)}>Leave it</button>
       </div>
     </div>
   );
@@ -1674,9 +1545,7 @@ function CommanderReturnPanel({ decision, colors, fontFamily, onChoose }) {
  * must be made (a null submit is server-rejected too). Finishes the entry server-side via
  * session.applyCloneChoice. Same non-blocking side-sheet as the tutor picker.
  */
-function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function CloneCopyPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1693,11 +1562,11 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🧬 Enter as a copy{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           Choose a creature for {decision.sourceName || "this creature"} to enter as a copy of
           ({candidates.length} option{candidates.length === 1 ? "" : "s"}).
         </div>
@@ -1713,19 +1582,19 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
               title={c.name}
               style={{
                 display: "flex", flexDirection: "column", gap: 4, padding: 4,
-                background: isSel ? (cfg?.dim || BG3) : "transparent",
-                border: `2px solid ${isSel ? accent : LINE}`,
-                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8, cursor: "pointer", textAlign: "left",
               }}
             >
               <img
                 src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
-              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
                 {c.name}
               </div>
             </button>
@@ -1735,24 +1604,18 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
       <div style={{ display: "flex", gap: 8 }}>
         <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
           onClick={() => submit(selected)}
           disabled={!selected || submitting}
-          style={{
-            flex: 1, padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-            cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
-            fontSize: 13, fontWeight: 600, fontFamily,
-          }}
         >
           {submitting ? "…" : "Enter as copy"}
         </button>
         {!mandatory && (
           <button
+            className="btn btn-ghost btn-sm"
             onClick={() => submit(null)}
             disabled={submitting}
-            style={{
-              padding: "9px 14px", background: "transparent", color: MUTED, border: `1px solid ${LINE}`,
-              borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontSize: 13, fontFamily,
-            }}
             title="Enter as itself (a 0/0 that dies)"
           >
             Don&apos;t copy
@@ -1769,9 +1632,7 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * or the graveyard (surveil). Submits the ordered keep-list via session.applyScryChoice. Same
  * non-blocking side-sheet as the tutor/clone pickers.
  */
-function ScrySurveilPanel({ decision, cfg, colors, fontFamily, onChoose }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+function ScrySurveilPanel({ decision, onChoose }) {
   const cards = decision.cards || [];
   const surveil = decision.mode === "surveil";
   const awayLabel = surveil ? "graveyard" : "bottom";
@@ -1804,19 +1665,19 @@ function ScrySurveilPanel({ decision, cfg, colors, fontFamily, onChoose }) {
     if (!c) return null;
     const i = kept.indexOf(id);
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 4, border: `1px solid ${LINE}`, borderRadius: 8, background: where === "keep" ? (cfg?.dim || BG3) : "transparent" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 4, border: "1px solid var(--ley-line)", borderRadius: 8, background: where === "keep" ? "var(--ley-green-dim)" : "transparent" }}>
         <img src={`/api/art-crop?name=${encodeURIComponent(c.name)}`} alt={c.name} loading="lazy"
-          style={{ width: 64, aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+          style={{ width: 64, aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
           onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
-        <div style={{ flex: 1, fontSize: 12, color: TEXT, fontWeight: where === "keep" ? 600 : 400 }}>{c.name}</div>
+        <div style={{ flex: 1, fontSize: 12, color: "var(--ley-text)", fontWeight: where === "keep" ? 600 : 400 }}>{c.name}</div>
         {where === "keep" ? (
           <>
-            <button onClick={() => move(id, -1)} disabled={i <= 0} title="Move up" style={arrowBtn(LINE, MUTED, i <= 0)}>▲</button>
-            <button onClick={() => move(id, 1)} disabled={i >= kept.length - 1} title="Move down" style={arrowBtn(LINE, MUTED, i >= kept.length - 1)}>▼</button>
-            <button onClick={() => setMove(id)} title={`Put on ${awayLabel}`} style={pillBtn(accent, "transparent", MUTED, LINE)}>→ {awayLabel}</button>
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={() => move(id, -1)} disabled={i <= 0} title="Move up">▲</button>
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={() => move(id, 1)} disabled={i >= kept.length - 1} title="Move down">▼</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setMove(id)} title={`Put on ${awayLabel}`}>→ {awayLabel}</button>
           </>
         ) : (
-          <button onClick={() => setKeep(id)} title="Keep on top" style={pillBtn(accent, accent, "#fff")}>↑ keep on top</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setKeep(id)} title="Keep on top">↑ keep on top</button>
         )}
       </div>
     );
@@ -1824,41 +1685,34 @@ function ScrySurveilPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           {surveil ? "📜 Surveil" : "🔮 Scry"} {cards.length}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
-        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           Top of your library. Keep cards on top (drag order with ▲▼) or send them to the {awayLabel}.
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>On top ({kept.length}) — top first</div>
-        {kept.length === 0 && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>(nothing kept)</div>}
+        <div style={sectionLabelStyle()}>On top ({kept.length}) — top first</div>
+        {kept.length === 0 && <div style={{ fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>(nothing kept)</div>}
         {kept.map((id) => <CardRow key={id} id={id} where="keep" />)}
-        {moved.length > 0 && <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 6 }}>To {awayLabel} ({moved.length})</div>}
+        {moved.length > 0 && <div style={{ ...sectionLabelStyle(), marginTop: 6 }}>To {awayLabel} ({moved.length})</div>}
         {moved.map((c) => <CardRow key={c.id} id={c.id} where="away" />)}
       </div>
 
-      <button onClick={submit} disabled={submitting}
-        style={{ padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
-          cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily }}>
+      <button className="btn btn-primary btn-sm" onClick={submit} disabled={submitting}>
         {submitting ? "…" : "Done"}
       </button>
     </div>
   );
 }
-function arrowBtn(LINE, MUTED, disabled) {
-  return { padding: "2px 6px", background: "transparent", color: MUTED, border: `1px solid ${LINE}`, borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.35 : 1, fontSize: 11 };
-}
-function pillBtn(accent, bg, color, border) {
-  return { padding: "3px 8px", background: bg, color, border: `1px solid ${border || accent}`, borderRadius: 5, cursor: "pointer", fontSize: 11, whiteSpace: "nowrap" };
-}
 
-// ─── Style helpers ───────────────────────────────────────────────────────────
+// ─── Style helpers (LEYLINE — layout + tokens only; glass panels come from
+//     the .ley-glass-strong/.ley-glass-lit classes on the elements) ───────────
 
-function tutorSheetStyle(LINE, BG2) {
+function tutorSheetStyle() {
   return {
     position: "absolute",
     top: 70,
@@ -1866,10 +1720,6 @@ function tutorSheetStyle(LINE, BG2) {
     bottom: 64,
     width: 440,
     maxWidth: "52%",
-    background: BG2 || "#12131c",
-    border: `1px solid ${LINE || "#272a3c"}`,
-    borderRadius: 12,
-    boxShadow: "0 20px 60px #000a",
     padding: 16,
     display: "flex",
     flexDirection: "column",
@@ -1877,23 +1727,23 @@ function tutorSheetStyle(LINE, BG2) {
   };
 }
 
-function containerStyle(BG, fontFamily) {
+function containerStyle(fontFamily) {
   return {
     display: "flex",
     flexDirection: "column",
     height: "100%",
-    background: BG,
+    background: "var(--ley-bg)",
     fontFamily,
     position: "relative", // anchors the floating Ask-Jace pop-out
   };
 }
 
-function headerStyle(LINE, BG2, GOLD) {
+function headerStyle() {
   return {
     padding: "10px 16px",
-    borderBottom: `1px solid ${LINE}`,
-    background: BG2,
-    color: GOLD,
+    borderBottom: "1px solid var(--ley-line)",
+    background: "var(--ley-surface-1)",
+    color: "var(--ley-green)",
     fontFamily: "var(--font-display), Georgia, serif",
     fontSize: 18,
     fontWeight: 700,
@@ -1904,24 +1754,36 @@ function headerStyle(LINE, BG2, GOLD) {
   };
 }
 
-function labelStyle(MUTED) {
+function labelStyle() {
   return {
     display: "flex",
     flexDirection: "column",
     gap: 4,
-    fontSize: 11,
-    color: MUTED,
+    fontFamily: "var(--font-mono)",
+    fontSize: 10,
+    color: "var(--ley-text-faint)",
     textTransform: "uppercase",
-    letterSpacing: "0.08em",
+    letterSpacing: "0.18em",
   };
 }
 
-function selectStyle(BG2, BG3, LINE, TEXT, fontFamily) {
+// Tracked mono section label (the LEYLINE label treatment).
+function sectionLabelStyle() {
+  return {
+    fontFamily: "var(--font-mono)",
+    fontSize: 10,
+    color: "var(--ley-text-faint)",
+    textTransform: "uppercase",
+    letterSpacing: "0.18em",
+  };
+}
+
+function selectStyle(fontFamily) {
   return {
     padding: "8px 10px",
-    background: BG2,
-    color: TEXT,
-    border: `1px solid ${LINE}`,
+    background: "var(--ley-surface-2)",
+    color: "var(--ley-text)",
+    border: "1px solid var(--ley-line)",
     borderRadius: 6,
     fontSize: 13,
     fontFamily,
@@ -1931,7 +1793,7 @@ function selectStyle(BG2, BG3, LINE, TEXT, fontFamily) {
 // Floating Arbiter side-sheet — sits over the right of the board, non-blocking
 // (the board behind stays visible + interactive). Anchored by containerStyle's
 // position:relative.
-function unresolvedSheetStyle(LINE, BG2) {
+function unresolvedSheetStyle() {
   return {
     position: "absolute",
     top: 70,
@@ -1939,10 +1801,6 @@ function unresolvedSheetStyle(LINE, BG2) {
     bottom: 64,
     width: 372,
     maxWidth: "44%",
-    background: BG2 || "#12131c",
-    border: `1px solid ${LINE || "#272a3c"}`,
-    borderRadius: 12,
-    boxShadow: "0 20px 60px #000a",
     padding: 16,
     overflowY: "auto",
     zIndex: 40,
@@ -1950,6 +1808,7 @@ function unresolvedSheetStyle(LINE, BG2) {
 }
 
 // Floating engine-error banner over the board (replaces the old drop-to-text).
+// Red accents on glass — the element also carries .ley-glass-strong.
 function floatErrorStyle() {
   return {
     position: "absolute",
@@ -1957,37 +1816,22 @@ function floatErrorStyle() {
     left: "50%",
     transform: "translateX(-50%)",
     maxWidth: 560,
-    background: "#2a1416",
-    border: "1px solid #7a3a3a",
-    color: "#e0a89a",
+    border: "1px solid var(--ley-red)",
+    color: "var(--ley-red)",
     borderRadius: 8,
     padding: "10px 16px",
     fontSize: 12.5,
     lineHeight: 1.5,
     zIndex: 41,
-    boxShadow: "0 12px 36px #000a",
-  };
-}
-
-function subtleButtonStyle(LINE, MUTED, fontFamily) {
-  return {
-    padding: "6px 12px",
-    background: "transparent",
-    color: MUTED,
-    border: `1px solid ${LINE}`,
-    borderRadius: 5,
-    fontSize: 11,
-    cursor: "pointer",
-    fontFamily,
   };
 }
 
 function errorBoxStyle() {
   return {
     padding: "10px 12px",
-    background: "#2a1414",
-    border: "1px solid #6b3a3a",
-    color: "#e0a89a",
+    background: "var(--ley-red-dim)",
+    border: "1px solid var(--ley-red)",
+    color: "var(--ley-red)",
     borderRadius: 6,
     fontSize: 12,
   };

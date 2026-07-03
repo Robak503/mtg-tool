@@ -27,8 +27,11 @@ import { reasonToOutcome } from "../../lib/learn/learnOutcome.js";
 const BOARD_SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "Opponent 1", ai2: "Opponent 2", ai3: "Opponent 3" };
 
 const ART = (name) => `/api/card-image?name=${encodeURIComponent(name || "")}`;
+// WUBRG+C mana-identity swatches — the one sanctioned set of literal colors on
+// this surface (they ARE Magic's colors, not theme colors). Everything else
+// composes from the LEYLINE var(--ley-*) tokens.
 const MANA_PIPS = [["W", "#f5f0d8"], ["U", "#a9d2f0"], ["B", "#b9a7c0"], ["R", "#f0a98f"], ["G", "#9fd0a3"], ["C", "#cfd0dd"]];
-const TONE_COLOR = { win: "#85d18a", loss: "#e0a89a", draw: "#d8c98a", neutral: "#c9cad8" };
+const TONE_COLOR = { win: "var(--ley-green)", loss: "var(--ley-red)", draw: "var(--ley-gold)", neutral: "var(--ley-text-dim)" };
 const KW_ABBR = { Flying: "FLY", Reach: "RCH", Deathtouch: "DT", Trample: "TR", Vigilance: "VIG", Lifelink: "LL", "First Strike": "FS", "Double Strike": "DS", Menace: "MEN", Haste: "HST", Hexproof: "HEX", Indestructible: "IND" };
 
 /** Group identical permanents (token stacks) into one tile with a count. */
@@ -60,7 +63,7 @@ function progressionLabel(step, stackLen, passOption) {
   }
 }
 
-export default function LearnBoard({ board, decision, onAction, logTail = [], turn, step, colors = {}, status, difficulty, onNewGame }) {
+export default function LearnBoard({ board, decision, onAction, logTail = [], turn, step, status, difficulty, onNewGame }) {
   const [focusedId, setFocusedId] = useState(null);
   const [handUp, setHandUp] = useState(true);
   const [enlarged, setEnlarged] = useState(null);
@@ -74,7 +77,6 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   // expert play isn't cluttered, but the teaching content becomes reachable in the UI that ships.
   const [narrExpanded, setNarrExpanded] = useState(false);
 
-  const GOLD = colors.GOLD || "#c9a14e";
   const players = board?.players || [];
   const me = players.find(p => p.isUser) || players[0];
   const opponents = players.filter(p => !p.isUser);
@@ -138,23 +140,23 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   };
 
   return (
-    <div className="lb-root" style={{ "--gold": GOLD }}>
+    <div className="lb-root">
       <style>{LB_CSS}</style>
 
       {viewingOpp && (
-        <button className="lb-backbar" onClick={() => setFocusedId(me.id)}>← Back to your board (viewing {focused.id})</button>
+        <button className="lb-backbar btn btn-secondary btn-sm" onClick={() => setFocusedId(me.id)}>← Back to your board (viewing {focused.id})</button>
       )}
       {targeting && (
         <div className="lb-targetbar">Choose a target for <b>{targeting.card.name}</b> · highlighted permanents are legal
-          <button onClick={() => setTargeting(null)}>cancel</button>
+          <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setTargeting(null)}>cancel</button>
         </div>
       )}
       {manaPick && (
         <div className="lb-targetbar lb-manabar">Tap <b>{manaPick.name}</b> for which color?
           {manaPick.options.map((o, i) => (
-            <button key={i} className="lb-manabtn" onClick={() => { onAction(o); setManaPick(null); }}>{o.color}</button>
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => { onAction(o); setManaPick(null); }}>{o.color}</button>
           ))}
-          <button onClick={() => setManaPick(null)}>cancel</button>
+          <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setManaPick(null)}>cancel</button>
         </div>
       )}
 
@@ -246,7 +248,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
 
       {/* HAND DOCK — collapsible via the toggle button */}
       <div className={`lb-dock ${handUp ? "up" : ""}`}>
-        <button className="lb-dtab" onClick={() => setHandUp(v => !v)}>
+        <button className="lb-dtab btn btn-secondary btn-sm" onClick={() => setHandUp(v => !v)}>
           <span className="lb-ar">{handUp ? "▼" : "▲"}</span> Your Hand · {me.hand?.length || 0}
         </button>
         <div className="lb-hand">
@@ -278,7 +280,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
         </span>
         <div className="lb-actions">
           {options.filter(o => o.kind !== "pass-priority" && o.kind !== "tap-for-mana").slice(0, 6).map((o, i) => (
-            <button key={i} className="lb-act" onClick={() => onAction(o)} title={o.kind}>
+            <button key={i} className="btn btn-secondary btn-sm" onClick={() => onAction(o)} title={o.kind}>
               {o.kind === "cast-spell" ? `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}`
                 : o.kind === "play-land" ? `Play ${o.name}`
                   : o.kind === "declare-attacker" ? `Attack ${o.targetName || o.defenderName || BOARD_SEAT_LABELS[o.defenderId] || ""} with ${o.name}`
@@ -288,19 +290,20 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
           ))}
         </div>
         {me.manaPool && (
-          <button className={`lb-mtoggle ${manualMana ? "on" : ""}`} onClick={() => setManualMana(v => !v)}
+          <button className="btn btn-secondary btn-sm" style={manualMana ? { background: "var(--ley-green-dim)" } : undefined}
+            onClick={() => setManualMana(v => !v)}
             title="Tap your own lands for mana before casting (teaching aid). Casting still auto-pays any shortfall.">
             ⛁ Manual mana {manualMana ? "ON" : "OFF"}
           </button>
         )}
-        {progLabel && <button className="lb-prog" onClick={clickProgress}>{progLabel}</button>}
+        {progLabel && <button className="btn btn-primary" onClick={clickProgress}>{progLabel}</button>}
       </div>
 
       {narrExpanded && decision?.prompt && (
         <div className="lb-narrpanel" onClick={() => setNarrExpanded(false)}>
-          <div className="lb-narrbody" onClick={e => e.stopPropagation()}>
+          <div className="lb-narrbody ley-glass-strong ley-glass-lit" onClick={e => e.stopPropagation()}>
             {decision.prompt.split("\n").map((line, i) => <p key={i}>{line || " "}</p>)}
-            <button className="lb-narrclose" onClick={() => setNarrExpanded(false)}>Close</button>
+            <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setNarrExpanded(false)}>Close</button>
           </div>
         </div>
       )}
@@ -316,18 +319,24 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
       {/* GAME-OVER scrim — sits ON the final board; "Review board" peeks underneath. */}
       {isOver && outcome && !peek && (
         <div className="lb-result">
-          <div className="lb-resultcard">
+          <div className="lb-resultcard ley-glass-strong ley-glass-lit">
             <h2 style={{ color: TONE_COLOR[outcome.tone] || TONE_COLOR.neutral }}>{outcome.title}</h2>
             <p>{outcome.blurb}</p>
             <div className="lb-resultbtns">
-              <button className="lb-prog" onClick={() => onNewGame?.()}>New game</button>
-              <button className="lb-rev" onClick={() => setPeek(true)}>Review board ▸</button>
+              <button className="btn btn-primary" onClick={() => onNewGame?.()}>New game</button>
+              <button className="btn btn-secondary" onClick={() => setPeek(true)}>Review board ▸</button>
             </div>
           </div>
         </div>
       )}
       {isOver && outcome && peek && (
-        <button className="lb-showresult" onClick={() => setPeek(false)}>◂ Show result</button>
+        <button
+          className="btn btn-secondary btn-sm"
+          style={{ position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", zIndex: 61 }}
+          onClick={() => setPeek(false)}
+        >
+          ◂ Show result
+        </button>
       )}
     </div>
   );
@@ -371,99 +380,94 @@ function Pile({ label, count, card, back, exile, onClick }) {
   );
 }
 
+/* LEYLINE (P3 lane C) — every color below composes from the var(--ley-*) tokens
+   in globals.css; black-alpha rgba() shadows/scrims are the only literals (they
+   are neutral depth, not theme colors). Buttons use the shared .btn system; the
+   lb-* button classes that remain are layout/shape-only companions. */
 const LB_CSS = `
-.lb-root{position:relative;display:flex;flex-direction:column;flex:1;min-height:0;background:radial-gradient(130% 90% at 50% 0%,#15182a,#07080d 70%),#0b0c12;color:#e9e7df;font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden;}
-.lb-zl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#8a7338;font-weight:800;}
-.lb-empty{font-size:11px;color:#6a6c80;padding:10px;}
-.lb-backbar,.lb-targetbar{display:flex;align-items:center;gap:10px;padding:6px 14px;font-size:12px;font-weight:700;}
-.lb-backbar{background:#2a1f10;color:var(--gold);border:none;cursor:pointer;text-align:left;}
-.lb-targetbar{background:#241016;color:#e7b08f;} .lb-targetbar b{color:#fff;} .lb-targetbar button{margin-left:auto;background:#3a2230;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:11px;}
+.lb-root{position:relative;display:flex;flex-direction:column;flex:1;min-height:0;background:radial-gradient(130% 90% at 50% 0%,var(--ley-surface-2),var(--ley-bg) 70%),var(--ley-surface-0);color:var(--ley-text);font-family:var(--font-body);overflow:hidden;}
+.lb-zl{font-family:var(--font-mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ley-text-faint);font-weight:800;}
+.lb-empty{font-size:11px;color:var(--ley-text-faint);padding:10px;}
+.lb-backbar{width:100%;justify-content:flex-start;}
+.lb-targetbar{display:flex;align-items:center;gap:10px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--ley-gold-dim);color:var(--ley-gold);}
+.lb-targetbar b{color:var(--ley-text);}
 .lb-table{flex:1;display:grid;grid-template-columns:166px 1fr 290px;gap:8px;padding:8px;min-height:0;}
 .lb-left{display:flex;flex-direction:column;gap:8px;min-height:0;}
-.lb-box{border:1px solid #272a3c;border-radius:9px;background:#13151f;padding:8px;}
-.lb-life{text-align:center;} .lb-life .lb-n{font-size:30px;font-weight:800;color:#fff;line-height:1;} .lb-life .lb-h{color:#d98a6a;}
+.lb-box{border:1px solid var(--ley-line);border-radius:9px;background:var(--ley-surface-1);padding:8px;}
+.lb-life{text-align:center;} .lb-life .lb-n{font-size:30px;font-weight:800;color:var(--ley-text);line-height:1;} .lb-life .lb-h{color:var(--ley-red);}
 .lb-cmd{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;} .lb-cmd .lb-card{width:100%;aspect-ratio:488/680;}
-.lb-tax{text-align:center;} .lb-tax .lb-tn{font-size:18px;font-weight:800;color:var(--gold);}
+.lb-tax{text-align:center;} .lb-tax .lb-tn{font-size:18px;font-weight:800;color:var(--ley-gold);}
 .lb-zones{display:flex;gap:8px;justify-content:space-between;align-items:flex-end;}
-.lb-zpile{position:relative;cursor:pointer;text-align:center;} .lb-zpile .lb-img{width:40px;height:56px;border-radius:5px;border:1px solid #383c54;object-fit:cover;display:block;box-shadow:2.5px 2.5px 0 #0e0f17,4px 4px 0 #383c54;}
-.lb-zpile .lb-back{background:repeating-linear-gradient(45deg,#1b1e2c,#1b1e2c 5px,#262a40 5px,#262a40 10px);} .lb-zpile .lb-emptyz{background:#0e0f17;border-style:dashed;}
+.lb-zpile{position:relative;cursor:pointer;text-align:center;} .lb-zpile .lb-img{width:40px;height:56px;border-radius:5px;border:1px solid var(--ley-line-bright);object-fit:cover;display:block;box-shadow:2.5px 2.5px 0 var(--ley-surface-0),4px 4px 0 var(--ley-surface-4);}
+.lb-zpile .lb-back{background:repeating-linear-gradient(45deg,var(--ley-surface-2),var(--ley-surface-2) 5px,var(--ley-surface-4) 5px,var(--ley-surface-4) 10px);} .lb-zpile .lb-emptyz{background:var(--ley-surface-0);border-style:dashed;}
 .lb-zpile.exile .lb-img{transform:rotate(90deg);margin:8px 7px;}
-.lb-zpile .lb-cb{position:absolute;top:-8px;right:-8px;background:var(--gold);color:#1a1206;font-weight:800;font-size:10px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid #0b0c12;z-index:3;}
-.lb-zpile .lb-lb{font-size:7.5px;letter-spacing:1px;text-transform:uppercase;color:#8a7338;font-weight:800;margin-top:4px;}
-.lb-zpile:hover .lb-img{border-color:var(--gold);}
+.lb-zpile .lb-cb{position:absolute;top:-8px;right:-8px;background:var(--ley-green);color:var(--ley-on-green);font-weight:800;font-size:10px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ley-bg);z-index:3;}
+.lb-zpile .lb-lb{font-family:var(--font-mono);font-size:7.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ley-text-faint);font-weight:800;margin-top:4px;}
+.lb-zpile:hover .lb-img{border-color:var(--ley-green);}
 .lb-center{display:flex;flex-direction:column;gap:8px;min-height:0;}
-.lb-stack-strip{display:flex;align-items:center;gap:8px;border:1px solid #3a3e55;border-radius:8px;background:#1a1d2e;padding:5px 10px;flex-wrap:wrap;}
-.lb-stackitem{font-size:11px;font-weight:700;color:#fff;background:#2a2e48;border-radius:5px;padding:2px 8px;}
-.lb-field{flex:1;border:1px solid #272a3c;border-radius:10px;background:radial-gradient(70% 80% at 50% 40%,#1a1e30aa,#0c0e16 85%);padding:10px 12px;position:relative;min-height:0;overflow-y:auto;}
-.lb-lands{flex:0 0 168px;border:1px solid #272a3c;border-radius:10px;background:#13151f;padding:10px 12px;position:relative;overflow-y:auto;}
+.lb-stack-strip{display:flex;align-items:center;gap:8px;border:1px solid var(--ley-line-bright);border-radius:8px;background:var(--ley-surface-2);padding:5px 10px;flex-wrap:wrap;}
+.lb-stackitem{font-size:11px;font-weight:700;color:var(--ley-text);background:var(--ley-surface-4);border-radius:5px;padding:2px 8px;}
+.lb-field{flex:1;border:1px solid var(--ley-line);border-radius:10px;background:radial-gradient(70% 80% at 50% 40%,var(--ley-green-faint),var(--ley-surface-0) 85%);padding:10px 12px;position:relative;min-height:0;overflow-y:auto;}
+.lb-lands{flex:0 0 168px;border:1px solid var(--ley-line);border-radius:10px;background:var(--ley-surface-1);padding:10px 12px;position:relative;overflow-y:auto;}
 .lb-corner{position:absolute;top:8px;right:12px;}
 .lb-row{display:flex;gap:12px;flex-wrap:wrap;align-content:flex-start;padding-top:6px;}
-.lb-card{position:relative;width:104px;aspect-ratio:488/680;border-radius:7px;overflow:hidden;border:1px solid #383c54;background:#0e0f17;box-shadow:0 2px 6px #0008;cursor:pointer;flex:0 0 auto;}
+.lb-card{position:relative;width:104px;aspect-ratio:488/680;border-radius:7px;overflow:hidden;border:1px solid var(--ley-line-bright);background:var(--ley-surface-0);box-shadow:0 2px 6px rgba(0,0,0,0.5);cursor:pointer;flex:0 0 auto;}
 .lb-card .lb-cimg{width:100%;height:100%;object-fit:cover;display:block;}
-.lb-card .lb-kw{position:absolute;left:3px;bottom:3px;font-size:7px;color:#e2f5ec;background:#000c;border-radius:3px;padding:1px 4px;font-weight:800;letter-spacing:.5px;}
-.lb-card .lb-pt{position:absolute;right:3px;bottom:3px;font-size:11px;font-weight:800;color:#fff;background:#000d;border:1px solid var(--gold);border-radius:4px;padding:0 5px;line-height:16px;}
-.lb-card .lb-mag{position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#000b;border:1px solid #383c54;color:#cfd0dd;font-size:9px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .1s;}
+.lb-card .lb-kw{position:absolute;left:3px;bottom:3px;font-size:7px;color:var(--ley-text);background:rgba(0,0,0,0.75);border-radius:3px;padding:1px 4px;font-weight:800;letter-spacing:.5px;}
+.lb-card .lb-pt{position:absolute;right:3px;bottom:3px;font-size:11px;font-weight:800;color:var(--ley-text);background:rgba(0,0,0,0.82);border:1px solid var(--ley-line-bright);border-radius:4px;padding:0 5px;line-height:16px;}
+.lb-card .lb-mag{position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,0.7);border:1px solid var(--ley-line-bright);color:var(--ley-text-dim);font-size:9px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .1s;}
 .lb-card:hover .lb-mag{opacity:1;}
-.lb-card .lb-cnt{position:absolute;top:-9px;right:-9px;z-index:6;background:var(--gold);color:#1a1206;font-weight:800;font-size:11px;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:2px solid #0b0c12;}
-.lb-card.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold);}
+.lb-card .lb-cnt{position:absolute;top:-9px;right:-9px;z-index:6;background:var(--ley-green);color:var(--ley-on-green);font-weight:800;font-size:11px;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ley-bg);}
+.lb-card.sel{border-color:var(--ley-green);box-shadow:0 0 0 2px var(--ley-green);}
 .lb-card.tapped{transform:rotate(90deg);} .lb-card.sick{filter:saturate(.6) brightness(.84);}
-.lb-card.target{border-color:#6ee0a8;box-shadow:0 0 0 2px #6ee0a8,0 0 14px #6ee0a877;}
-.lb-card:hover{border-color:var(--gold);}
-.lb-land{position:relative;width:78px;aspect-ratio:488/680;border-radius:6px;overflow:hidden;border:1px solid #383c54;background:#0e0f17;cursor:pointer;}
+.lb-card.target{border-color:var(--ley-green-bright);box-shadow:0 0 0 2px var(--ley-green-bright),0 0 14px var(--ley-green-glow);}
+.lb-card:hover{border-color:var(--ley-green);}
+.lb-land{position:relative;width:78px;aspect-ratio:488/680;border-radius:6px;overflow:hidden;border:1px solid var(--ley-line-bright);background:var(--ley-surface-0);cursor:pointer;}
 .lb-land .lb-cimg{width:100%;height:100%;object-fit:cover;}
-.lb-land.tapped{transform:rotate(90deg);} .lb-land .lb-cnt.sm{position:absolute;top:-7px;right:-7px;background:var(--gold);color:#1a1206;font-weight:800;font-size:9px;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border:2px solid #0b0c12;z-index:3;}
+.lb-land.tapped{transform:rotate(90deg);} .lb-land .lb-cnt.sm{position:absolute;top:-7px;right:-7px;background:var(--ley-green);color:var(--ley-on-green);font-weight:800;font-size:9px;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ley-bg);z-index:3;}
 .lb-right{display:flex;flex-direction:column;gap:8px;min-height:0;}
-.lb-osum{display:flex;align-items:center;gap:10px;border:1px solid #272a3c;border-radius:9px;background:linear-gradient(#16111a,#120f17);padding:8px 11px;cursor:pointer;position:relative;flex:0 0 auto;}
-.lb-osum:hover,.lb-osum.on{border-color:#d98a6a;box-shadow:0 0 0 1px #d98a6a44;}
-.lb-osum .lb-ct{width:42px;height:57px;border-radius:5px;border:1px solid var(--gold);object-fit:cover;flex:0 0 auto;}
-.lb-osum .lb-info{flex:1;min-width:0;} .lb-osum .lb-onm{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lb-osum .lb-ost{font-size:10.5px;color:#878aa0;margin-top:4px;} .lb-osum .lb-ost b{color:#e9e7df;}
-.lb-osum .lb-go{font-size:9px;color:#d98a6a;position:absolute;right:11px;bottom:8px;}
-.lb-log{flex:1;min-height:0;border:1px solid #272a3c;border-radius:9px;background:#13151f;padding:9px 12px;overflow-y:auto;}
-.lb-log .lb-ln{font-size:10.5px;color:#878aa0;line-height:1.45;padding:3px 0;border-bottom:1px solid #ffffff08;} .lb-log .lb-ln b{color:#e9e7df;}
+.lb-osum{display:flex;align-items:center;gap:10px;border:1px solid var(--ley-line);border-radius:9px;background:linear-gradient(var(--ley-surface-2),var(--ley-surface-1));padding:8px 11px;cursor:pointer;position:relative;flex:0 0 auto;}
+.lb-osum:hover,.lb-osum.on{border-color:var(--ley-green);box-shadow:0 0 0 1px var(--ley-green-dim);}
+.lb-osum .lb-ct{width:42px;height:57px;border-radius:5px;border:1px solid var(--ley-line-bright);object-fit:cover;flex:0 0 auto;}
+.lb-osum .lb-info{flex:1;min-width:0;} .lb-osum .lb-onm{font-size:13px;font-weight:800;color:var(--ley-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-osum .lb-ost{font-size:10.5px;color:var(--ley-text-dim);margin-top:4px;} .lb-osum .lb-ost b{color:var(--ley-text);}
+.lb-osum .lb-go{font-size:9px;color:var(--ley-green-text);position:absolute;right:11px;bottom:8px;}
+.lb-log{flex:1;min-height:0;border:1px solid var(--ley-line);border-radius:9px;background:var(--ley-surface-1);padding:9px 12px;overflow-y:auto;}
+.lb-log .lb-ln{font-family:var(--font-mono);font-size:11px;color:var(--ley-text-dim);line-height:1.45;padding:3px 0;border-bottom:1px solid var(--ley-line-faint);} .lb-log .lb-ln b{color:var(--ley-text);}
 .lb-dock{position:absolute;left:0;right:0;bottom:46px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;transform:translateY(150px);transition:transform .28s cubic-bezier(.2,.7,.2,1);z-index:30;pointer-events:none;}
 .lb-dock.up{transform:translateY(0);} .lb-dock>*{pointer-events:auto;}
-.lb-dtab{background:linear-gradient(#232743,#171a28);border:1px solid #8a7338;border-bottom:none;border-radius:10px 10px 0 0;padding:7px 22px;font-size:12.5px;font-weight:800;color:var(--gold);cursor:pointer;box-shadow:0 -3px 12px #0007;}
+.lb-dtab{border-radius:10px 10px 0 0;box-shadow:0 -3px 12px rgba(0,0,0,0.45);}
 .lb-hand{position:relative;display:flex;justify-content:center;align-items:flex-end;gap:4px;padding:0 10px;height:176px;}
 .lb-handcard{transform-origin:bottom center;cursor:pointer;width:120px;flex:0 0 auto;margin:0 -8px;transition:transform .12s;}
-.lb-handcard.playable .lb-card{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 6px 16px #000b;}
+.lb-handcard.playable .lb-card{border-color:var(--ley-green);box-shadow:0 0 0 1px var(--ley-green),0 6px 16px rgba(0,0,0,0.7);}
 .lb-handcard:hover{transform:translateY(-18px) rotate(0deg)!important;z-index:9;}
 .lb-handcard .lb-card{width:118px;}
-.lb-playhint{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--gold);background:#000c;border:1px solid #8a7338;border-radius:4px;padding:1px 6px;}
-.lb-bar{height:46px;display:flex;align-items:center;gap:12px;background:linear-gradient(#171a28,#10121c);border-top:1px solid #272a3c;padding:0 14px;position:relative;z-index:31;}
-.lb-bar .lb-turn{font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap;}
-.lb-bar .lb-narr{flex:1;font-size:12px;color:#c9cad8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lb-bar .lb-narr-click{cursor:pointer;} .lb-bar .lb-narr-click:hover{color:var(--gold);}
+.lb-playhint{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--ley-green-bright);background:rgba(0,0,0,0.75);border:1px solid var(--ley-line-bright);border-radius:4px;padding:1px 6px;}
+.lb-bar{height:46px;display:flex;align-items:center;gap:12px;background:linear-gradient(var(--ley-surface-2),var(--ley-surface-0));border-top:1px solid var(--ley-line);padding:0 14px;position:relative;z-index:31;}
+.lb-bar .lb-turn{font-size:12px;color:var(--ley-green);font-weight:700;white-space:nowrap;}
+.lb-bar .lb-narr{flex:1;font-size:12px;color:var(--ley-text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-bar .lb-narr-click{cursor:pointer;} .lb-bar .lb-narr-click:hover{color:var(--ley-green);}
 .lb-actions{display:flex;gap:6px;overflow-x:auto;max-width:42%;}
-.lb-act{background:#1d2030;color:#d6d7e2;border:1px solid #383c54;border-radius:6px;padding:5px 9px;font-size:11px;white-space:nowrap;cursor:pointer;} .lb-act:hover{border-color:var(--gold);color:var(--gold);}
-.lb-prog{background:linear-gradient(var(--gold),#a9863b);color:#1a1206;font-weight:800;font-size:13px;border:none;border-radius:7px;padding:9px 18px;cursor:pointer;white-space:nowrap;}
-.lb-overlay{position:absolute;inset:0;background:#000b;z-index:50;display:flex;align-items:center;justify-content:center;}
-.lb-narrpanel{position:absolute;inset:0;background:#000b;z-index:52;display:flex;align-items:center;justify-content:center;padding:24px;}
-.lb-narrbody{background:#14162200;background:linear-gradient(#181b28,#101220);border:1px solid #383c54;border-radius:12px;padding:20px 24px;max-width:560px;max-height:70vh;overflow-y:auto;box-shadow:0 24px 70px #000;}
-.lb-narrbody p{font-size:13px;line-height:1.5;color:#d6d7e2;margin:0 0 8px;}
+.lb-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:50;display:flex;align-items:center;justify-content:center;}
+.lb-narrpanel{position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:52;display:flex;align-items:center;justify-content:center;padding:24px;}
+.lb-narrbody{padding:20px 24px;max-width:560px;max-height:70vh;overflow-y:auto;}
+.lb-narrbody p{font-size:13px;line-height:1.5;color:var(--ley-text);margin:0 0 8px;}
 .lb-narrbody p:empty{display:none;}
-.lb-narrclose{margin-top:8px;background:#1d2030;color:#d6d7e2;border:1px solid #383c54;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;} .lb-narrclose:hover{border-color:var(--gold);color:var(--gold);}
-.lb-close{position:absolute;top:18px;right:26px;color:#fff;font-size:24px;cursor:pointer;}
-.lb-bigimg{width:auto;height:80vh;max-height:680px;border-radius:18px;box-shadow:0 24px 70px #000;cursor:default;}
-.lb-bigpt{position:absolute;bottom:9%;left:50%;transform:translateX(-50%);font-size:20px;font-weight:800;color:#fff;background:#000d;border:1px solid var(--gold);border-radius:6px;padding:3px 14px;}
+.lb-close{position:absolute;top:18px;right:26px;color:var(--ley-text);font-size:24px;cursor:pointer;}
+.lb-bigimg{width:auto;height:80vh;max-height:680px;border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,0.9);cursor:default;}
+.lb-bigpt{position:absolute;bottom:9%;left:50%;transform:translateX(-50%);font-size:20px;font-weight:800;color:var(--ley-text);background:rgba(0,0,0,0.85);border:1px solid var(--ley-line-bright);border-radius:6px;padding:3px 14px;}
 /* Mana pool widget */
 .lb-mana{text-align:left;} .lb-pool{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
-.lb-pip{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:800;color:#4a4d62;background:#0e0f17;border:1px solid #272a3c;border-radius:5px;padding:2px 5px;min-width:26px;justify-content:center;}
-.lb-pip b{font-size:11px;} .lb-pip.on{background:#1a1d2e;}
-.lb-manahint{font-size:9px;color:#8a7338;margin-top:6px;line-height:1.3;}
-/* Manual-mana tap affordance on lands */
-.lb-land.manatap{border-color:#8a7338;box-shadow:0 0 0 1px #8a733888;cursor:pointer;} .lb-land.manatap:hover{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 12px #c9a14e66;}
-.lb-taphint{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);font-size:8px;font-weight:800;color:#1a1206;background:var(--gold);border-radius:3px;padding:0 4px;white-space:nowrap;}
-.lb-manabar .lb-manabtn{background:#23304a;color:#cfe0ff;border:1px solid #4a6aa0;border-radius:5px;padding:3px 11px;cursor:pointer;font-size:12px;font-weight:800;} .lb-manabar .lb-manabtn:hover{border-color:#8fb4ff;}
-/* Manual-mana toggle in the bottom bar */
-.lb-mtoggle{background:#1d2030;color:#8a8ca0;border:1px solid #383c54;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
-.lb-mtoggle.on{background:#2a2410;color:var(--gold);border-color:#8a7338;}
+.lb-pip{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:800;color:var(--ley-text-faint);background:var(--ley-surface-0);border:1px solid var(--ley-line);border-radius:5px;padding:2px 5px;min-width:26px;justify-content:center;}
+.lb-pip b{font-size:11px;} .lb-pip.on{background:var(--ley-surface-3);}
+.lb-manahint{font-size:9px;color:var(--ley-text-faint);margin-top:6px;line-height:1.3;}
+/* Manual-mana tap affordance on lands — a genuinely live interaction state */
+.lb-land.manatap{border-color:var(--ley-green);box-shadow:0 0 0 1px var(--ley-green-dim);cursor:pointer;} .lb-land.manatap:hover{border-color:var(--ley-green-bright);box-shadow:0 0 0 2px var(--ley-green),0 0 12px var(--ley-green-glow);}
+.lb-taphint{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);font-size:8px;font-weight:800;color:var(--ley-on-green);background:var(--ley-green);border-radius:3px;padding:0 4px;white-space:nowrap;}
 /* Game-over scrim — overlays the final board, never unmounts it */
-.lb-result{position:absolute;inset:0;background:#070810ee;backdrop-filter:blur(2px);z-index:60;display:flex;align-items:center;justify-content:center;}
-.lb-resultcard{text-align:center;max-width:440px;padding:30px 34px;background:linear-gradient(#15182a,#0c0e16);border:1px solid #2a2e44;border-radius:16px;box-shadow:0 24px 70px #000c;}
+.lb-result{position:absolute;inset:0;background:var(--ley-glass-strong);backdrop-filter:blur(2px);z-index:60;display:flex;align-items:center;justify-content:center;}
+.lb-resultcard{text-align:center;max-width:440px;padding:30px 34px;}
 .lb-resultcard h2{font-size:30px;margin:0 0 12px;font-weight:800;}
-.lb-resultcard p{font-size:13px;color:#aeb0c4;line-height:1.55;margin:0 0 20px;}
+.lb-resultcard p{font-size:13px;color:var(--ley-text-dim);line-height:1.55;margin:0 0 20px;}
 .lb-resultbtns{display:flex;gap:10px;justify-content:center;}
-.lb-rev{background:#1d2030;color:#d6d7e2;border:1px solid #383c54;border-radius:7px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;} .lb-rev:hover{border-color:var(--gold);color:var(--gold);}
-.lb-showresult{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:61;background:linear-gradient(var(--gold),#a9863b);color:#1a1206;font-weight:800;font-size:12px;border:none;border-radius:7px;padding:7px 16px;cursor:pointer;box-shadow:0 4px 14px #000a;}
 `;
