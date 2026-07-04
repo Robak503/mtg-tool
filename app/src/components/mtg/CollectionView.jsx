@@ -31,26 +31,29 @@ import VaultSetBrowserView from "./VaultSetBrowserView";
 import VaultBuildView from "./VaultBuildView";
 import useColorTags from "../../hooks/useColorTags";
 
-// Aether — matches the app shell theme (near-black Material surfaces, cyan hero).
+// LEYLINE — token-backed shape consumed by every Collection/Vault child
+// component via the `colors` prop. GOLD is a legacy field name (kept so the
+// ~14 files sharing this shape don't all need a rename in one pass) but its
+// value is the LEYLINE accent green, not gold.
 const COLORS = {
-  BG: "#090a0d",
-  BG2: "#121316",
-  BG3: "#1f1f23",
-  LINE: "#2c393b",
-  TEXT: "#e3e2e6",
-  MUTED: "#b9cacb",
-  GOLD: "#56d65d",
-  RED: "#ffb4ab",
+  BG: "var(--ley-bg)",
+  BG2: "var(--ley-surface-1)",
+  BG3: "var(--ley-surface-2)",
+  LINE: "var(--ley-line)",
+  TEXT: "var(--ley-text)",
+  MUTED: "var(--ley-text-dim)",
+  GOLD: "var(--ley-green)",
+  RED: "var(--ley-red)",
 };
 
 const FONT = `var(--font-body), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
 
-// The Vault leads with the cyan hero accent (not agent-themed); reuse the shared cfg shape.
+// The Vault leads with the LEYLINE green accent; reuse the shared cfg shape.
 const VAULT_CFG = {
   color: COLORS.GOLD,
-  border: "rgba(86,214,93,0.30)",
-  dim: "rgba(86,214,93,0.10)",
-  glow: "rgba(86,214,93,0.30)",
+  border: "var(--ley-line-bright)",
+  dim: "var(--ley-green-dim)",
+  glow: "var(--ley-green-glow)",
 };
 
 const DEFAULT_FILTERS = {
@@ -509,15 +512,24 @@ export default function CollectionView({ onClose, onBuildCommander }) {
           }}>
             The Vault
           </h1>
-          <div style={{ display: "flex", gap: 4, alignSelf: "center" }}>
+          <div style={{ display: "flex", borderBottom: `1px solid ${COLORS.LINE}`, alignSelf: "stretch" }}>
             {[["collection", "Collection"], ["build", "Build"], ["stats", "Stats"], ["sets", "Sets"], ["finance", "Finance"]].map(([k, label]) => (
-              <button key={k} onClick={() => setMode(k)} style={{
-                background: mode === k ? COLORS.GOLD : "transparent",
-                color: mode === k ? "#05130a" : COLORS.MUTED,
-                fontWeight: mode === k ? 600 : 400,
-                border: `1px solid ${mode === k ? COLORS.GOLD : COLORS.LINE}`,
-                padding: "4px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.04em",
-              }}>{label}</button>
+              <button
+                key={k}
+                onClick={() => setMode(k)}
+                style={{
+                  padding: "9px 14px",
+                  background: mode === k ? "var(--ley-green-dim)" : "transparent",
+                  border: "none",
+                  borderBottom: mode === k ? "2px solid var(--ley-green)" : "2px solid transparent",
+                  color: mode === k ? "var(--ley-green)" : COLORS.MUTED,
+                  fontWeight: mode === k ? 700 : 400,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-mono), monospace",
+                  letterSpacing: "0.04em",
+                }}
+              >{label}</button>
             ))}
           </div>
           {state.status === "ready" && (
@@ -532,7 +544,7 @@ export default function CollectionView({ onClose, onBuildCommander }) {
                   {priceDelta && priceDelta.delta !== 0 && (
                     <span
                       title={`Price movement of your current cards since ${priceDelta.asOf}`}
-                      style={{ color: priceDelta.delta > 0 ? "#6fbf73" : COLORS.RED, marginLeft: 5 }}
+                      style={{ color: priceDelta.delta > 0 ? "var(--ley-green)" : COLORS.RED, marginLeft: 5 }}
                     >
                       {priceDelta.delta > 0 ? "▲" : "▼"} ${Math.abs(priceDelta.delta).toFixed(2)} 30d
                     </span>
@@ -544,14 +556,10 @@ export default function CollectionView({ onClose, onBuildCommander }) {
                   {" · "}
                   <button
                     onClick={() => setConflictsOpen(true)}
+                    className="btn btn-ghost btn-sm"
                     style={{
-                      background: "none",
-                      border: "none",
                       padding: 0,
                       color: COLORS.RED,
-                      cursor: "pointer",
-                      fontFamily: FONT,
-                      fontSize: 12,
                       textDecoration: "underline dotted",
                     }}
                   >
@@ -570,18 +578,18 @@ export default function CollectionView({ onClose, onBuildCommander }) {
           {cards.length > 0 && (
             <button
               onClick={() => setRoastOpen(true)}
-              style={{ ...btn(), border: "1px solid #c4534e", color: "#c4534e" }}
+              className="btn btn-danger btn-sm"
               title="Have Tibalt roast your collection"
             >
               Roast me
             </button>
           )}
-          <button onClick={() => setDecksOpen(true)} style={btn()}>Decks</button>
-          <button onClick={() => setTagsOpen(true)} style={btn()}>Color tags</button>
+          <button onClick={() => setDecksOpen(true)} className="btn btn-secondary btn-sm">Decks</button>
+          <button onClick={() => setTagsOpen(true)} className="btn btn-secondary btn-sm">Color tags</button>
           {cards.length > 0 && (
             <button
               onClick={() => { if (selectMode) { exitSelectMode(); } else { setSelectedRow(null); setSelectMode(true); } }}
-              style={selectMode ? primaryHeaderBtn() : btn()}
+              className={selectMode ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
               title="Select multiple cards to tag or remove at once"
             >
               {selectMode ? "Done" : "Select"}
@@ -590,17 +598,17 @@ export default function CollectionView({ onClose, onBuildCommander }) {
           <button
             onClick={handleRefreshPrices}
             disabled={refreshing}
-            style={{ ...btn(), opacity: refreshing ? 0.6 : 1 }}
+            className="btn btn-secondary btn-sm"
             title="Re-pull live prices for cards TCGPlayer can't price"
           >
             {refreshing ? "Refreshing…" : "↻ Prices"}
           </button>
-          <button onClick={() => setImportOpen(true)} style={btn()}>Import CSV</button>
-          <button onClick={exportCollection} style={btn()}>Export CSV</button>
-          <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} style={primaryHeaderBtn()}>+ Add card</button>
+          <button onClick={() => setImportOpen(true)} className="btn btn-secondary btn-sm">Import CSV</button>
+          <button onClick={exportCollection} className="btn btn-secondary btn-sm">Export CSV</button>
+          <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} className="btn btn-primary btn-sm">+ Add card</button>
           </>)}
           {onClose && (
-            <button onClick={onClose} style={btn()}>Close</button>
+            <button onClick={onClose} className="btn btn-ghost btn-sm">Close</button>
           )}
         </div>
       </header>
@@ -608,8 +616,8 @@ export default function CollectionView({ onClose, onBuildCommander }) {
       {state.recoveryWarning && (
         <div style={{
           padding: "10px 20px",
-          background: "rgba(254,216,58,0.08)",
-          color: "var(--tertiary-container)",
+          background: "var(--ley-gold-dim)",
+          color: "var(--ley-gold)",
           fontSize: 13,
           borderBottom: `1px solid ${COLORS.LINE}`,
         }}>
@@ -622,7 +630,7 @@ export default function CollectionView({ onClose, onBuildCommander }) {
       )}
 
       {mode === "stats" && (
-        <VaultStatsView colors={COLORS} fontFamily={FONT} />
+        <VaultStatsView colors={COLORS} fontFamily={FONT} onGoToCollection={() => setMode("collection")} />
       )}
 
       {mode === "sets" && (
@@ -630,7 +638,7 @@ export default function CollectionView({ onClose, onBuildCommander }) {
       )}
 
       {mode === "build" && (
-        <VaultBuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} />
+        <VaultBuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} onGoToCollection={() => setMode("collection")} />
       )}
 
       {mode === "collection" && (<>
@@ -684,7 +692,9 @@ export default function CollectionView({ onClose, onBuildCommander }) {
         <main style={{ flex: 1, overflow: "hidden", position: "relative" }}>
           {state.status === "loading" && <CenterMessage text="Loading collection..." color={COLORS.MUTED} />}
           {state.status === "error" && <CenterMessage text={`Error: ${state.error}`} color={COLORS.RED} />}
-          {state.status === "ready" && cards.length === 0 && <EmptyState color={COLORS.MUTED} gold={COLORS.GOLD} />}
+          {state.status === "ready" && cards.length === 0 && (
+            <EmptyState color={COLORS.MUTED} onAddCard={() => { setAddPrefill(""); setAddOpen(true); }} />
+          )}
           {state.status === "ready" && cards.length > 0 && filteredCards.length === 0 && (
             <CenterMessage text="No cards match the current filters." color={COLORS.MUTED} />
           )}
@@ -780,19 +790,17 @@ function ConflictsModal({ conflicts, totalDecks, onClose, colors }) {
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="ley-glass-strong ley-glass-lit"
         style={{
           width: 560,
           maxWidth: "calc(100vw - 40px)",
           maxHeight: "calc(100vh - 80px)",
-          background: colors.BG2,
-          border: `1px solid ${colors.LINE}`,
-          borderRadius: 8,
           display: "flex",
           flexDirection: "column",
           color: colors.TEXT,
@@ -806,17 +814,14 @@ function ConflictsModal({ conflicts, totalDecks, onClose, colors }) {
           alignItems: "center",
         }}>
           <div>
-            <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500 }}>
+            <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500, fontFamily: "var(--font-display)" }}>
               Cross-deck conflicts
             </div>
             <div style={{ fontSize: 11, color: colors.MUTED, marginTop: 2 }}>
               Across {totalDecks} deck{totalDecks === 1 ? "" : "s"}
             </div>
           </div>
-          <button onClick={onClose} style={{
-            background: "none", border: "none", color: colors.MUTED, cursor: "pointer",
-            fontSize: 20, width: 24, height: 24, lineHeight: 1,
-          }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="btn btn-ghost btn-icon btn-sm">×</button>
         </header>
         <div style={{ overflowY: "auto", padding: "8px 0" }}>
           {conflicts.length === 0 && (
@@ -857,30 +862,34 @@ function CenterMessage({ text, color }) {
   );
 }
 
-function EmptyState({ color }) {
+function EmptyState({ color, onAddCard }) {
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       height: "100%", padding: 40, textAlign: "center",
     }}>
       <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>📚</div>
-      <div style={{ fontSize: 16, color: "#cec8e0", marginBottom: 8 }}>
+      <div style={{ fontSize: 16, color: "var(--ley-text)", marginBottom: 8, fontFamily: "var(--font-display)" }}>
         Your collection is empty.
       </div>
-      <div style={{ fontSize: 13, color, maxWidth: 420, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 13, color, maxWidth: 420, lineHeight: 1.5, marginBottom: 20 }}>
         Add cards individually or import from Deckbox / Moxfield CSV. Once
         you've added cards, every agent (Karn, Tibalt, Jace) will know what
         you own and tailor suggestions to your actual collection.
       </div>
+      {onAddCard && (
+        <button onClick={onAddCard} className="btn btn-primary">+ Add your first card</button>
+      )}
     </div>
   );
 }
 
 function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, onClear, onExit, visibleCount, colors, font }) {
   const has = count > 0;
-  const pill = {
+  const selectStyle = {
     background: "transparent", border: `1px solid ${colors.LINE}`, color: colors.TEXT,
-    padding: "5px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: font,
+    padding: "5px 12px", borderRadius: 4, fontSize: 12, cursor: has ? "pointer" : "default", fontFamily: font,
+    opacity: has ? 1 : 0.5,
   };
   return (
     <div style={{
@@ -891,10 +900,10 @@ function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, 
       <span style={{ fontSize: 13, color: has ? colors.GOLD : colors.MUTED, fontWeight: 600, minWidth: 90 }}>
         {has ? `${count} selected` : "Select cards…"}
       </span>
-      <button onClick={onSelectAll} disabled={busy} style={pill} title="Select all cards matching the current filters">
+      <button onClick={onSelectAll} disabled={busy} className="btn btn-secondary btn-sm" title="Select all cards matching the current filters">
         Select all {visibleCount}
       </button>
-      <button onClick={onClear} disabled={busy || !has} style={{ ...pill, opacity: has ? 1 : 0.5 }}>Clear</button>
+      <button onClick={onClear} disabled={busy || !has} className="btn btn-ghost btn-sm">Clear</button>
 
       <div style={{ flex: 1 }} />
 
@@ -902,7 +911,7 @@ function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, 
         defaultValue=""
         disabled={busy || !has}
         onChange={(e) => { const v = e.target.value; e.target.value = ""; if (v) onAssignTag(v === "__none" ? null : v); }}
-        style={{ ...pill, opacity: has ? 1 : 0.5, cursor: has ? "pointer" : "default" }}
+        style={selectStyle}
         title="Assign a color tag to the selected cards"
       >
         <option value="" disabled>Assign tag ▾</option>
@@ -915,36 +924,14 @@ function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, 
       <button
         onClick={onDelete}
         disabled={busy || !has}
-        style={{ ...pill, border: `1px solid ${colors.RED}`, color: colors.RED, opacity: has ? 1 : 0.5 }}
+        className="btn btn-danger btn-sm"
+        style={{ marginLeft: 4 }}
       >
         {busy ? "Working…" : `Delete${has ? ` (${count})` : ""}`}
       </button>
-      <button onClick={onExit} disabled={busy} style={{ ...pill, background: colors.GOLD, color: "#05130a", border: `1px solid ${colors.GOLD}`, fontWeight: 600 }}>
+      <button onClick={onExit} disabled={busy} className="btn btn-primary btn-sm" style={{ marginLeft: 10 }}>
         Done
       </button>
     </div>
   );
-}
-
-function btn() {
-  return {
-    background: "transparent",
-    border: `1px solid ${COLORS.LINE}`,
-    color: COLORS.TEXT,
-    padding: "6px 14px",
-    borderRadius: 6,
-    fontSize: 13,
-    cursor: "pointer",
-    fontFamily: FONT,
-  };
-}
-
-function primaryHeaderBtn() {
-  return {
-    ...btn(),
-    background: COLORS.GOLD,
-    color: "#05130a",
-    border: `1px solid ${COLORS.GOLD}`,
-    fontWeight: 600,
-  };
 }

@@ -39,7 +39,8 @@ export default function CollectionRoastModal({ onClose, colors }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.7)",
+        background: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -48,13 +49,11 @@ export default function CollectionRoastModal({ onClose, colors }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="ley-glass-strong ley-glass-lit"
         style={{
           width: 560,
           maxWidth: "calc(100vw - 40px)",
           maxHeight: "calc(100vh - 80px)",
-          background: colors.BG2,
-          border: `1px solid ${colors.LINE}`,
-          borderRadius: 8,
           display: "flex",
           flexDirection: "column",
           color: colors.TEXT,
@@ -67,13 +66,10 @@ export default function CollectionRoastModal({ onClose, colors }) {
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          <div style={{ fontSize: 14, color: "#c4534e", fontWeight: 500 }}>
+          <div style={{ fontSize: 14, color: "var(--ley-red)", fontWeight: 500, fontFamily: "var(--font-display)" }}>
             Tibalt roasts your collection
           </div>
-          <button onClick={onClose} style={{
-            background: "none", border: "none", color: colors.MUTED,
-            cursor: "pointer", fontSize: 20, width: 24, height: 24, lineHeight: 1,
-          }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="btn btn-ghost btn-icon btn-sm">×</button>
         </header>
 
         <div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
@@ -86,10 +82,10 @@ export default function CollectionRoastModal({ onClose, colors }) {
           {state.status === "error" && (
             <div style={{
               padding: "10px 14px",
-              background: "#3a2020",
+              background: "var(--ley-red-dim)",
               border: `1px solid ${colors.RED}`,
               borderRadius: 4,
-              color: "#f4b8b6",
+              color: colors.RED,
               fontSize: 13,
             }}>
               {state.error}
@@ -135,16 +131,7 @@ export default function CollectionRoastModal({ onClose, colors }) {
           display: "flex",
           justifyContent: "flex-end",
         }}>
-          <button onClick={onClose} style={{
-            background: "transparent",
-            border: `1px solid ${colors.LINE}`,
-            color: colors.TEXT,
-            padding: "6px 14px",
-            borderRadius: 4,
-            fontSize: 13,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">
             Close
           </button>
         </footer>

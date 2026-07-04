@@ -124,7 +124,8 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.7)",
+        background: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -133,13 +134,11 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="ley-glass-strong ley-glass-lit"
         style={{
           width: 560,
           maxWidth: "calc(100vw - 40px)",
           maxHeight: "calc(100vh - 80px)",
-          background: colors.BG2,
-          border: `1px solid ${colors.LINE}`,
-          borderRadius: 8,
           display: "flex",
           flexDirection: "column",
           color: colors.TEXT,
@@ -153,10 +152,10 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500 }}>
+          <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500, fontFamily: "var(--font-display)" }}>
             Import collection
           </div>
-          <button onClick={onClose} style={iconBtn(colors)} aria-label="Close">×</button>
+          <button onClick={onClose} className="btn btn-ghost btn-icon btn-sm" aria-label="Close">×</button>
         </header>
 
         <div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
@@ -206,15 +205,15 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
           justifyContent: "flex-end",
           gap: 8,
         }}>
-          <button onClick={onClose} style={btn(colors)}>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">
             {phase === "done" ? "Close" : "Cancel"}
           </button>
           {phase === "preview" && preview?.matched?.length > 0 && (
             <button
               onClick={commit}
-              style={mode === "reconcile" && diff?.removed?.length
-                ? { ...primary(colors), background: colors.RED, borderColor: colors.RED, color: "#3a0a06" }
-                : primary(colors)}
+              className={mode === "reconcile" && diff?.removed?.length
+                ? "btn btn-danger btn-sm"
+                : "btn btn-primary btn-sm"}
             >
               {mode === "reconcile" && diff?.removed?.length
                 ? `Reconcile (removes ${diff.removed.length})`
@@ -246,17 +245,7 @@ function PickPanel({ onPickFile, colors }) {
         Both export formats are auto-detected. Cards matched to the bundled
         Scryfall data import directly; unmatched cards are listed for review.
       </div>
-      <button onClick={onPickFile} style={{
-        background: colors.GOLD,
-        color: colors.BG,
-        border: "none",
-        padding: "10px 20px",
-        borderRadius: 4,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: "pointer",
-        fontFamily: "inherit",
-      }}>
+      <button onClick={onPickFile} className="btn btn-primary">
         Choose CSV file
       </button>
     </div>
@@ -294,8 +283,8 @@ function PreviewPanel({ preview, filename, colors, mode, onChangeMode, diff, dif
       {preview.warning && (
         <div style={{
           padding: "10px 14px",
-          background: "rgba(254,216,58,0.08)",
-          color: "var(--tertiary-container)",
+          background: "var(--ley-gold-dim)",
+          color: "var(--ley-gold)",
           borderRadius: 4,
           fontSize: 12,
           marginBottom: 16,
@@ -312,14 +301,16 @@ function PreviewPanel({ preview, filename, colors, mode, onChangeMode, diff, dif
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
             {MODES.map(m => {
               const on = m.id === mode;
+              const danger = m.id === "reconcile";
               return (
                 <button
                   key={m.id}
                   onClick={() => onChangeMode(m.id)}
                   style={{
-                    background: on ? (m.id === "reconcile" ? colors.RED : colors.GOLD) : "transparent",
-                    color: on ? "#fff" : colors.MUTED,
-                    border: `1px solid ${on ? (m.id === "reconcile" ? colors.RED : colors.GOLD) : colors.LINE}`,
+                    background: on ? (danger ? "var(--ley-red-dim)" : "var(--ley-green-dim)") : "transparent",
+                    color: on ? (danger ? "var(--ley-red)" : "var(--ley-green)") : colors.MUTED,
+                    fontWeight: on ? 700 : 400,
+                    border: `1px solid ${on ? (danger ? "var(--ley-red)" : "var(--ley-line-bright)") : colors.LINE}`,
                     padding: "4px 10px", borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
                   }}
                 >{m.label}</button>
@@ -333,7 +324,7 @@ function PreviewPanel({ preview, filename, colors, mode, onChangeMode, diff, dif
             {diffLoading && <div style={{ fontSize: 12, color: colors.MUTED }}>Computing changes…</div>}
             {!diffLoading && diff && (
               <div style={{ fontSize: 12, color: colors.TEXT, lineHeight: 1.6 }}>
-                <span style={{ color: "#6fbf73" }}>+{diff.newCards.length} new</span>
+                <span style={{ color: "var(--ley-green)" }}>+{diff.newCards.length} new</span>
                 {" · "}
                 <span style={{ color: colors.GOLD }}>{diff.changed.length} qty changed</span>
                 {" · "}
@@ -444,7 +435,7 @@ function PreviewPanel({ preview, filename, colors, mode, onChangeMode, diff, dif
 function Stat({ label, value, color }) {
   return (
     <div>
-      <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+      <span style={{ color: "var(--ley-text-faint)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
         {label}{" "}
       </span>
       <span style={{ color, fontWeight: 600 }}>{value}</span>
@@ -452,41 +443,13 @@ function Stat({ label, value, color }) {
   );
 }
 
-function btn(colors) {
-  return {
-    background: "transparent",
-    border: `1px solid ${colors.LINE}`,
-    color: colors.TEXT,
-    padding: "6px 14px",
-    borderRadius: 4,
-    fontSize: 13,
-    cursor: "pointer",
-    fontFamily: "inherit",
-  };
-}
-function primary(colors) {
-  return { ...btn(colors), background: colors.GOLD, color: colors.BG, borderColor: colors.GOLD, fontWeight: 600 };
-}
-function iconBtn(colors) {
-  return {
-    background: "none",
-    border: "none",
-    color: colors.MUTED,
-    padding: 2,
-    cursor: "pointer",
-    fontSize: 20,
-    width: 24,
-    height: 24,
-    lineHeight: 1,
-  };
-}
 function errorBox(colors) {
   return {
     padding: "10px 12px",
-    background: "#3a2020",
+    background: "var(--ley-red-dim)",
     border: `1px solid ${colors.RED}`,
     borderRadius: 4,
-    color: "#f4b8b6",
+    color: colors.RED,
     fontSize: 12,
     marginTop: 12,
   };

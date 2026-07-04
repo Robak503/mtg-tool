@@ -23,7 +23,7 @@ const PIP = {
 };
 const PIP_ORDER = ["W", "U", "B", "R", "G"];
 
-export default function VaultBuildView({ colors, fontFamily, onBuildCommander }) {
+export default function VaultBuildView({ colors, fontFamily, onBuildCommander, onGoToCollection }) {
   const { BG, BG2, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const F = fontFamily;
   const [state, setState] = useState({ status: "loading", data: null, error: null });
@@ -43,7 +43,7 @@ export default function VaultBuildView({ colors, fontFamily, onBuildCommander })
 
   const wrap = { flex: 1, overflowY: "auto", padding: "16px 20px", background: BG, color: TEXT, fontFamily: F };
   const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
-  const h = { fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12 };
+  const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (state.status === "loading") return <Centered color={MUTED}>Finding what you can build…</Centered>;
   if (state.status === "error") return <Centered color={RED}>{state.error}</Centered>;
@@ -61,6 +61,11 @@ export default function VaultBuildView({ colors, fontFamily, onBuildCommander })
             (and the cards in their colors) to your Vault and they&apos;ll show up here,
             ranked by how much of a deck you already own around each one.
           </div>
+          {onGoToCollection && (
+            <button onClick={onGoToCollection} className="btn btn-secondary btn-sm" style={{ marginTop: 12 }}>
+              + Add cards to your Vault
+            </button>
+          )}
         </div>
       </div>
     );
@@ -79,9 +84,10 @@ export default function VaultBuildView({ colors, fontFamily, onBuildCommander })
           <button
             key={c.name}
             onClick={() => onBuildCommander?.(c.name)}
+            className="ley-row"
             style={{
               display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
-              padding: "10px 6px", background: "transparent", border: "none", borderTop: `1px solid ${LINE}`,
+              padding: "10px 6px", background: "transparent", borderRadius: 6,
               cursor: "pointer", fontFamily: F, color: TEXT,
             }}
             title={`Build a Commander deck around ${c.name} with Karn`}

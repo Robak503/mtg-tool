@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 
 export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
+  const { BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const [state, setState] = useState({ status: "loading", decks: [], error: null });
   const [expanded, setExpanded] = useState(null);
   const [buildableOnly, setBuildableOnly] = useState(false);
@@ -40,24 +40,24 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
     >
       <div
         onClick={e => e.stopPropagation()}
+        className="ley-glass-strong ley-glass-lit"
         style={{
           width: 620, maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 80px)",
-          background: BG2, border: `1px solid ${LINE}`, borderRadius: 8,
           display: "flex", flexDirection: "column", color: TEXT,
         }}
       >
         <header style={{ padding: "14px 18px", borderBottom: `1px solid ${LINE}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: GOLD }}>Decks · cost to finish</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: GOLD, fontFamily: "var(--font-display)" }}>Decks · cost to finish</div>
             <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
               How much of each deck you own, and the cheapest price to complete it.
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="btn btn-ghost btn-icon btn-sm">×</button>
         </header>
 
         <div style={{ overflowY: "auto", padding: "8px 0" }}>
@@ -73,7 +73,7 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
               <button
                 onClick={() => setBuildableOnly(v => !v)}
                 title="Show only decks you can build entirely from cards you own"
-                style={{ background: buildableOnly ? GOLD : "transparent", border: `1px solid ${buildableOnly ? GOLD : LINE}`, color: buildableOnly ? "#1a1626" : MUTED, borderRadius: 4, padding: "3px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}
+                style={{ background: buildableOnly ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${buildableOnly ? "var(--ley-line-bright)" : LINE}`, color: buildableOnly ? "var(--ley-green)" : MUTED, fontWeight: buildableOnly ? 700 : 400, borderRadius: 4, padding: "3px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}
               >
                 {buildableOnly ? "✓ Buildable only" : "Buildable only"}
               </button>
@@ -90,17 +90,18 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
               <div key={deck.deckId || deck.deckName} style={{ borderBottom: `1px solid ${LINE}` }}>
                 <button
                   onClick={() => setExpanded(open ? null : deck.deckId)}
-                  style={{ width: "100%", display: "block", textAlign: "left", padding: "11px 18px", background: open ? BG3 : "transparent", border: "none", cursor: "pointer", color: TEXT, fontFamily: "inherit" }}
+                  className="ley-row"
+                  style={{ width: "100%", display: "block", textAlign: "left", padding: "11px 18px", background: open ? BG3 : "transparent", cursor: "pointer", color: TEXT, fontFamily: "inherit" }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
                     <span style={{ fontSize: 13, fontWeight: 500 }}>{deck.deckName}</span>
-                    <span style={{ fontSize: 12, color: deck.complete ? "#6fbf73" : GOLD, fontWeight: 600, flexShrink: 0 }}>
+                    <span style={{ fontSize: 12, color: deck.complete ? "var(--ley-green)" : GOLD, fontWeight: 600, flexShrink: 0 }}>
                       {deck.complete ? "✓ Fully owned" : `$${deck.costToFinish.toFixed(2)} to finish`}
                     </span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
                     <div style={{ flex: 1, height: 5, background: LINE, borderRadius: 3, overflow: "hidden" }}>
-                      <div style={{ width: `${deck.ownedPct}%`, height: "100%", background: deck.complete ? "#6fbf73" : GOLD }} />
+                      <div style={{ width: `${deck.ownedPct}%`, height: "100%", background: deck.complete ? "var(--ley-green)" : GOLD }} />
                     </div>
                     <span style={{ fontSize: 10, color: MUTED, minWidth: 128, textAlign: "right" }}>
                       {deck.ownedPct}% owned · {deck.neededCards} card{deck.neededCards === 1 ? "" : "s"} short
@@ -123,7 +124,8 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
                         <button
                           onClick={() => onAddCard?.(card.name)}
                           title="Add to your collection (mark purchased)"
-                          style={{ background: "transparent", border: `1px solid ${LINE}`, color: GOLD, borderRadius: 4, padding: "3px 9px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}
+                          className="btn btn-secondary btn-sm"
+                          style={{ flexShrink: 0 }}
                         >
                           + Add
                         </button>
@@ -139,7 +141,8 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
                         a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      style={{ background: "transparent", border: `1px solid ${LINE}`, color: TEXT, borderRadius: 4, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", marginTop: 8 }}
+                      className="btn btn-ghost btn-sm"
+                      style={{ marginTop: 8 }}
                     >
                       ⬇ Export shopping list (paste into Moxfield / Archidekt)
                     </button>

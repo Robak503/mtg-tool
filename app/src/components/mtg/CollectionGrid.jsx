@@ -126,24 +126,9 @@ export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, sele
   );
 }
 
-function stepBtnStyle(colors, color) {
-  return {
-    background: "none",
-    border: "none",
-    color,
-    cursor: "pointer",
-    fontSize: 15,
-    lineHeight: 1,
-    fontWeight: 700,
-    width: 22,
-    height: 22,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 0,
-    fontFamily: "inherit",
-  };
-}
+// Layout-only override for the grid quick-adjust steppers: keep the tight
+// 22px square inside the pill; variant classes carry all color.
+const STEP_BTN_LAYOUT = { width: 22, height: 22 };
 
 function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, isChecked, onClick, onQuickAdjust, tag, colors }) {
   const [imgError, setImgError] = useState(false);
@@ -167,7 +152,7 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
       aria-label={selectMode
         ? `${isChecked ? "Deselect" : "Select"} ${card.name}`
         : `View ${card.name} details`}
-      className="aether-card"
+      className="ley-card"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -229,7 +214,7 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
           </span>
         )}
         {selectMode && isChecked && (
-          <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(86,214,93,0.16)" }} />
+          <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: 2, background: "var(--ley-green-dim)" }} />
         )}
         {(card.scryfallId || card.artCropUrl) && !imgError ? (
           <img
@@ -265,7 +250,7 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
               position: "absolute", top: 6, left: 6,
               width: 10, height: 10, borderRadius: 5,
               background: colors.RED,
-              boxShadow: "0 0 6px rgba(196,83,78,0.7)",
+              boxShadow: "0 0 6px var(--ley-red-dim)",
             }}
           />
         )}
@@ -275,17 +260,17 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
             style={{
               position: "absolute", top: 6, right: 6,
               display: "flex", alignItems: "stretch",
-              background: "rgba(0,0,0,0.74)",
+              background: "rgba(5,7,5,0.82)",
               border: `1px solid ${colors.LINE}`,
               borderRadius: 5, overflow: "hidden",
-              backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
             }}
           >
             <button
               onClick={step(-1)}
               aria-label={qty <= 1 ? `Remove ${card.name} from collection` : `Decrease ${card.name} quantity`}
               title={qty <= 1 ? "Remove from collection" : "Decrease quantity"}
-              style={stepBtnStyle(colors, qty <= 1 ? colors.RED : colors.TEXT)}
+              className={qty <= 1 ? "btn btn-danger btn-sm btn-icon" : "btn btn-ghost btn-sm btn-icon"}
+              style={STEP_BTN_LAYOUT}
             >
               −
             </button>
@@ -301,7 +286,8 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
               onClick={step(+1)}
               aria-label={`Increase ${card.name} quantity`}
               title="Add a copy"
-              style={stepBtnStyle(colors, colors.TEXT)}
+              className="btn btn-ghost btn-sm btn-icon"
+              style={STEP_BTN_LAYOUT}
             >
               +
             </button>

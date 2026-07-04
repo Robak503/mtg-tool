@@ -24,7 +24,7 @@ const GRAIL_MIN_USD = 50;
 function MoverPill({ mover, colors }) {
   if (!mover) return <span style={{ fontSize: 11, color: colors.MUTED }}>—</span>;
   const up = mover.pctChange > 0;
-  const col = up ? "#6fbf73" : colors.RED;
+  const col = up ? "var(--ley-green)" : colors.RED;
   return (
     <span style={{ fontSize: 11, color: col, whiteSpace: "nowrap" }} title={`vs ${mover.asOf}`}>
       {up ? "▲" : "▼"} {Math.abs(mover.pctChange)}% ({up ? "+" : "−"}${Math.abs(mover.absChange).toFixed(2)})
@@ -138,8 +138,8 @@ export default function VaultFinanceView({ colors, fontFamily }) {
   }
 
   const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
-  const h = { fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 };
-  const colHead = { fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 };
+  const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 10 };
+  const colHead = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 6 };
 
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", background: BG, color: TEXT, fontFamily: F }}>
@@ -154,7 +154,7 @@ export default function VaultFinanceView({ colors, fontFamily }) {
             if (!d) return <span key={k} style={{ fontSize: 12, color: MUTED }}>{label}: —</span>;
             const up = d.delta > 0;
             return (
-              <span key={k} style={{ fontSize: 13, color: d.delta === 0 ? MUTED : up ? "#6fbf73" : RED }}>
+              <span key={k} style={{ fontSize: 13, color: d.delta === 0 ? MUTED : up ? "var(--ley-green)" : RED }}>
                 {label}: {d.delta === 0 ? "flat" : `${up ? "▲" : "▼"} $${Math.abs(d.delta).toFixed(2)}`}
               </span>
             );
@@ -177,8 +177,8 @@ export default function VaultFinanceView({ colors, fontFamily }) {
             {(data.alertsMetCount || 0) > 0 && (
               <span style={{
                 marginLeft: "auto", marginBottom: 10, fontSize: 11, fontWeight: 700,
-                color: "#6fbf73", background: "rgba(111,191,115,0.12)",
-                border: "1px solid #6fbf73", borderRadius: 999, padding: "1px 9px",
+                color: "var(--ley-green)", background: "var(--ley-green-dim)",
+                border: "1px solid var(--ley-green)", borderRadius: 999, padding: "1px 9px",
               }}>🔔 {data.alertsMetCount} hit</span>
             )}
           </div>
@@ -192,7 +192,7 @@ export default function VaultFinanceView({ colors, fontFamily }) {
                   notify {a.direction === "above" ? "≥" : "≤"} ${a.target.toFixed(2)}
                 </span>
               </span>
-              <span style={{ fontSize: 13, color: a.met ? "#6fbf73" : GOLD, minWidth: 64, textAlign: "right" }}>{money(a.currentPrice)}</span>
+              <span style={{ fontSize: 13, color: a.met ? "var(--ley-green)" : GOLD, minWidth: 64, textAlign: "right" }}>{money(a.currentPrice)}</span>
             </div>
           ))}
         </div>
@@ -205,7 +205,7 @@ export default function VaultFinanceView({ colors, fontFamily }) {
           {data.deals.map((d) => (
             <div key={d.scryfallId} style={rowStyle(LINE)}>
               <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
-              <span style={{ fontSize: 11, color: "#6fbf73", minWidth: 92, textAlign: "right" }}>▼ {d.dipPct}% off high</span>
+              <span style={{ fontSize: 11, color: "var(--ley-green)", minWidth: 92, textAlign: "right" }}>▼ {d.dipPct}% off high</span>
               <span style={{ fontSize: 13, color: GOLD, minWidth: 64, textAlign: "right" }}>{money(d.current)}</span>
               <span style={{ fontSize: 10, color: MUTED, minWidth: 70, textAlign: "right" }}>low {money(d.low)}</span>
             </div>
@@ -219,7 +219,7 @@ export default function VaultFinanceView({ colors, fontFamily }) {
           <div style={h}>Finance plays · biggest movers (30d)</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
             <div>
-              <div style={{ ...colHead, color: "#6fbf73" }}>▲ Risers</div>
+              <div style={{ ...colHead, color: "var(--ley-green)" }}>▲ Risers</div>
               <MoverList movers={data?.movers?.risers} colors={colors} empty="No risers yet." />
             </div>
             <div>
@@ -236,7 +236,7 @@ export default function VaultFinanceView({ colors, fontFamily }) {
           <div style={h}>Your cards · movers (30d)</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
             <div>
-              <div style={{ ...colHead, color: "#6fbf73" }}>▲ Up</div>
+              <div style={{ ...colHead, color: "var(--ley-green)" }}>▲ Up</div>
               <MoverList movers={data?.owned?.risers} colors={colors} empty="None of your cards are up." />
             </div>
             <div>
@@ -254,8 +254,10 @@ export default function VaultFinanceView({ colors, fontFamily }) {
           <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
             {[["staples", "EDHREC staples"], ["combos", "Combo pieces"]].map(([k, label]) => (
               <button key={k} onClick={() => setWorthTab(k)} style={{
-                background: worthTab === k ? GOLD : "transparent", color: worthTab === k ? "#fff" : MUTED,
-                border: `1px solid ${worthTab === k ? GOLD : LINE}`, borderRadius: 4, padding: "3px 9px",
+                background: worthTab === k ? "var(--ley-green-dim)" : "transparent",
+                color: worthTab === k ? "var(--ley-green)" : MUTED,
+                fontWeight: worthTab === k ? 700 : 400,
+                border: `1px solid ${worthTab === k ? "var(--ley-line-bright)" : LINE}`, borderRadius: 4, padding: "3px 9px",
                 fontSize: 11, cursor: "pointer", fontFamily: F,
               }}>{label}</button>
             ))}
@@ -327,7 +329,7 @@ export default function VaultFinanceView({ colors, fontFamily }) {
             </span>
             <span style={{ fontSize: 13, color: GOLD, minWidth: 64, textAlign: "right" }}>{money(g.usd)}</span>
             <div style={{ minWidth: 96, textAlign: "right" }}><MoverPill mover={g.mover30d} colors={colors} /></div>
-            <button onClick={() => removeGrail(g.scryfallId)} title="Stop tracking" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16, lineHeight: 1, flexShrink: 0 }}>×</button>
+            <button onClick={() => removeGrail(g.scryfallId)} title="Stop tracking" aria-label={`Stop tracking ${g.name}`} className="btn btn-ghost btn-sm btn-icon" style={{ flexShrink: 0 }}>×</button>
           </div>
         ))}
       </div>
@@ -351,8 +353,7 @@ function MoverList({ movers, colors, empty }) {
   ));
 }
 
-function GrailButton({ on, onClick, colors, font, usd }) {
-  const { LINE, GOLD } = colors;
+function GrailButton({ on, onClick, usd }) {
   // Below the grail threshold (and not already tracked): don't offer it at all.
   if (!on && usd != null && usd < GRAIL_MIN_USD) return null;
   return (
@@ -360,11 +361,8 @@ function GrailButton({ on, onClick, colors, font, usd }) {
       onClick={onClick}
       disabled={on}
       title={on ? "Tracking in Grails" : "Add to Grails watchlist"}
-      style={{
-        flexShrink: 0, background: "transparent", border: `1px solid ${on ? "#6fbf73" : LINE}`,
-        color: on ? "#6fbf73" : GOLD, borderRadius: 4, padding: "3px 8px", fontSize: 11,
-        cursor: on ? "default" : "pointer", fontFamily: font, whiteSpace: "nowrap",
-      }}
+      className="btn btn-secondary btn-sm"
+      style={{ flexShrink: 0 }}
     >
       {on ? "✓ Tracking" : "+ Grail"}
     </button>

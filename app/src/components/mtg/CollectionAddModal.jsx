@@ -183,7 +183,8 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.7)",
+        background: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -192,13 +193,11 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="ley-glass-strong ley-glass-lit"
         style={{
           width: 520,
           maxWidth: "calc(100vw - 40px)",
           maxHeight: "calc(100vh - 80px)",
-          background: colors.BG2,
-          border: `1px solid ${colors.LINE}`,
-          borderRadius: 8,
           display: "flex",
           flexDirection: "column",
           color: colors.TEXT,
@@ -212,8 +211,8 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500 }}>Add card</div>
-          <button onClick={onClose} style={iconBtn(colors)} aria-label="Close">×</button>
+          <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500, fontFamily: "var(--font-display)" }}>Add card</div>
+          <button onClick={onClose} className="btn btn-ghost btn-icon btn-sm" aria-label="Close">×</button>
         </header>
 
         <div style={{ padding: 16 }}>
@@ -247,6 +246,7 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
                 <li key={r.id}>
                   <button
                     onClick={() => setSelected(r)}
+                    className="ley-row"
                     style={resultRow(colors)}
                   >
                     {r.artCropUrl ? (
@@ -370,8 +370,8 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
           justifyContent: "flex-end",
           gap: 8,
         }}>
-          <button onClick={onClose} disabled={busy} style={btn(colors)}>Cancel</button>
-          <button onClick={submit} disabled={!selected || busy} style={primary(colors)}>
+          <button onClick={onClose} disabled={busy} className="btn btn-ghost btn-sm">Cancel</button>
+          <button onClick={submit} disabled={!selected || busy} className="btn btn-primary btn-sm">
             {busy ? "Adding..." : "Add to collection"}
           </button>
         </footer>
@@ -428,13 +428,13 @@ function PrintingRow({ printing, selectedId, selectedFinish, onPick, colors }) {
 
 function treatmentBtn(colors, active) {
   return {
-    background: active ? colors.GOLD : "transparent",
-    color: active ? colors.BG : colors.TEXT,
-    border: `1px solid ${active ? colors.GOLD : colors.LINE}`,
+    background: active ? "var(--ley-green-dim)" : "transparent",
+    color: active ? "var(--ley-green)" : colors.TEXT,
+    border: `1px solid ${active ? "var(--ley-green)" : colors.LINE}`,
     borderRadius: 999,
     padding: "4px 12px",
     fontSize: 11.5,
-    fontWeight: active ? 600 : 400,
+    fontWeight: active ? 700 : 400,
     cursor: "pointer",
     fontFamily: "inherit",
     lineHeight: 1.3,
@@ -464,7 +464,7 @@ function SelectedPreview({ card, onChange, colors }) {
           {card.set} · #{card.collectorNumber}
         </div>
       </div>
-      <button onClick={onChange} style={textBtn(colors)}>Change</button>
+      <button onClick={onChange} className="btn btn-ghost btn-sm">Change</button>
     </div>
   );
 }
@@ -480,45 +480,6 @@ function Field({ label, children, colors }) {
   );
 }
 
-function btn(colors) {
-  return {
-    background: "transparent",
-    border: `1px solid ${colors.LINE}`,
-    color: colors.TEXT,
-    padding: "6px 14px",
-    borderRadius: 4,
-    fontSize: 13,
-    cursor: "pointer",
-    fontFamily: "inherit",
-  };
-}
-function primary(colors) {
-  return { ...btn(colors), background: colors.GOLD, color: colors.BG, borderColor: colors.GOLD, fontWeight: 600 };
-}
-function textBtn(colors) {
-  return {
-    background: "none",
-    border: "none",
-    color: colors.MUTED,
-    padding: "4px 0",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    fontSize: 11,
-  };
-}
-function iconBtn(colors) {
-  return {
-    background: "none",
-    border: "none",
-    color: colors.MUTED,
-    padding: 2,
-    cursor: "pointer",
-    fontSize: 20,
-    width: 24,
-    height: 24,
-    lineHeight: 1,
-  };
-}
 function selectStyle(colors) {
   return {
     background: colors.BG,
@@ -551,8 +512,7 @@ function resultRow(colors) {
     gap: 10,
     padding: "8px 10px",
     background: "transparent",
-    border: "none",
-    borderBottom: `1px solid ${colors.LINE}`,
+    borderRadius: 6,
     cursor: "pointer",
     color: colors.TEXT,
     fontFamily: "inherit",
@@ -569,10 +529,10 @@ function chipRow() {
 function errorBox(colors) {
   return {
     padding: "8px 10px",
-    background: "#3a2020",
+    background: "var(--ley-red-dim)",
     border: `1px solid ${colors.RED}`,
     borderRadius: 4,
-    color: "#f4b8b6",
+    color: colors.RED,
     fontSize: 12,
   };
 }
