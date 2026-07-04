@@ -140,7 +140,7 @@ each learned the hard way):
 | Suite count | `cd app && npx vitest run` (no MTG_APP_ROOT); current anchor lives in WAKE-REPORT (7,681 @ v0.88.0) |
 | Corpus native % | `MTG_APP_ROOT=<main>/app node scripts/measure-coverage.mjs` (recipe + caveats in the grind order); last 8,645 @ v0.85.0 |
 | Shipped version / state | CHANGELOG.md + `git tag` — never a doc's prose |
-| Behavior anchors | WAKE-REPORT's current trajectory hash (`a2a03ba8…` @ v0.88.0) + tier-fp baseline |
+| Behavior anchors | WAKE-REPORT's current trajectory hash (**`ab524e20…`** as of 2026-07-04; the v0.88.0 `a2a03ba8` no longer reproduces — benign DECK-DATA drift, engine byte-identical v0.88→master per `git diff`) + tier-fp baseline |
 | Deck lists / census | AppData `profiles/<prof>/decks.local.json` (Colton `prof_a981996c…`, Joe `prof_b1412fcc…`) — never the memory `deck_*.md` files |
 | Parked work | WAKE-REPORT ⚠️ section (current pass) + the ledger pointers in §6 |
 

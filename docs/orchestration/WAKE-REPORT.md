@@ -1,8 +1,26 @@
-> ⚠️ **SYNC NOTE — 2026-07-04 post-merge:** current version is **0.99.0**, suite **7,711**.
+> 🔧 **ENGINE-TAIL PASS — 2026-07-04 (Cindy, Opus 4.8) — E1 SHIPPED · E2/E3 PREP DONE · one-owner ENGINE-WRITE lock held (COMMS top).**
+> **E1 earthbend-return** (commit `a2dfdc34`, on master, UNTAGGED — releases batched with E2/E3): the CR 603.7
+> "when it dies or is exiled, return it tapped" rider is now enforced (`combat.applyEarthbend` flags the animated land →
+> `triggers.checkLeavesTriggers` synthesizes a delayed trigger → `zones.applyEarthbendReturn`, `enterCardFromZone` tapped,
+> fires landfall). Fence: **suite 7,718** (+7) · lint 0 · tier flip-diff **LOST=0/GAINED=0** (0 tier changes — the
+> earthbend permanents were ALREADY native safe-FN partials, NOT the 34-card flip the stale order/CAP assumed; the
+> reminder count-strip had already shipped. `retired-fp-ledger.md` CAP corrected) · trajectory byte-identical before/after.
+>
+> **⚠️ TRAJECTORY ANCHOR RE-BASELINED: `a2a03ba8` (v0.88.0, doc) → `ab524e20` (current, reproducible ×4, rows 5706, seed=1).**
+> Root-caused BENIGN: `git diff v0.88.0..master -- app/src/lib/learn` is EMPTY (engine byte-identical) + the deck-loader is
+> too, so the change is DECK-DATA drift (Colton's profile `prof_a981996c` edited 2026-07-04; rows 8281→5706), NOT a code
+> regression. **`ab524e20` is the honest pre-E2/E3 anchor — E2/E3 re-anchors FROM it, not from the stale `a2a03ba8`.**
+>
+> **E2/E3 A/B BASELINE** (`play-quality-probe.mjs`, standard·mirror·games=4·seed=7·legacy=all, 60 games, decisive 60, reproducible ×2):
+> NEW(shipping default) **58.3%** vs OLD(v1 legacy) 41.7% (35–25 wins) · dead turns **0.00** vs 0.50 · avg X-cast **4.33** vs 1.00 ·
+> casts 10.48/11.28 · lands 6.92/6.05 · attacks 22.4/15.8 · blocks 0.78/9.08. This is the yardstick E2/E3's tuned NEW must
+> hold/beat (per-subsystem isolation via `--legacy=<key>`; `altCost` + `xSizing` legacy arms already in `opponentAI.POLICY_KEYS`).
+>
+> ⚠️ **SYNC NOTE — 2026-07-04 post-merge:** current version is **0.99.0**; suite is now **7,718** (E1 added 7; was 7,711).
 > A parallel chat shipped collector UX + full-card frames as 0.96-0.99 (a version collision:
 > my tags v0.96-0.98 point at E5/P4/P8, their v0.99.0 at the collector UX). **BOTH are in
-> master** — E5/P4/P8 code all present. Engine STILL untouched since v0.88.0 (trajectory
-> a2a03ba8 holds). Numbers below that say 7,703 are pre-merge.
+> master** — E5/P4/P8 code all present. Engine byte-identical v0.88.0→master (git-verified); the historical
+> `a2a03ba8` no longer reproduces on current decks — see the anchor re-baseline above. Numbers below that say 7,703/7,711 are pre-E1.
 
 # 🌅 WAKE REPORT — 2026-07-04 (backlog tail cont. — v0.96→v0.98: E5 + P4 + P8)
 
