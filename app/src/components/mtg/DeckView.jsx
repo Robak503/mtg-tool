@@ -19,6 +19,7 @@ import { AGENTS } from "../../lib/agents";
 import { useMemo, useState, useEffect } from "react";
 import GarfieldPanel from "./GarfieldPanel";
 import MulliganLab from "./MulliganLab";
+import DeckReport from "./DeckReport";
 import { restoreDeckCards, isRestorable, createSnapshotEntry, relabelSnapshot, diffDeckCards, cardsFromEntry } from "../../lib/deck/deckApply";
 
 export default function DeckView({
@@ -666,6 +667,12 @@ export default function DeckView({
           {activeDeck?.id && (
             <div style={{ marginTop: 12 }}>
               <MulliganLab deckId={activeDeck.id} fontFamily={F} />
+            </div>
+          )}
+
+          {activeDeck?.id && (
+            <div style={{ marginTop: 12 }}>
+              <DeckReport deckId={activeDeck.id} fontFamily={F} />
             </div>
           )}
         </>
