@@ -103,6 +103,7 @@ export default function VaultBuildView({ colors, fontFamily, onBuildCommander, o
           </button>
         ))}
       </div>
+      <ForgeCombos colors={colors} fontFamily={F} card={card} h={h} />
       <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.5, padding: "0 2px 16px" }}>
         Commanders and color identities come from the bundled card index; ownership from your
         collection. The count is how many other cards you own that are legal in that commander&apos;s
@@ -130,4 +131,104 @@ function Pips({ ci }) {
 
 function Centered({ color, children }) {
   return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color, fontSize: 13, padding: 40 }}>{children}</div>;
+}
+
+// The Forge's combo shelf — what the Spellbook snapshot says you can assemble
+// from owned cards right now, plus the cheapest one-card-away upgrades.
+function ForgeCombos({ colors, fontFamily, card, h }) {
+  const { TEXT, MUTED, GOLD, RED } = colors;
+  const [state, setState] = useState({ status: "loading", data: null, error: null });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch("/api/collection/combos");
+        const body = await resp.json();
+        if (!resp.ok) setState({ status: "error", data: null, error: body.error || "Failed to load combos." });
+        else setState({ status: "ready", data: body, error: null });
+      } catch (e) {
+        setState({ status: "error", data: null, error: e.message });
+      }
+    })();
+  }, []);
+
+  if (state.status === "loading") return null;
+  if (state.status === "error") {
+    return (
+      <div style={{ ...card, fontFamily }}>
+        <div style={h}>Combos you can assemble</div>
+        <div style={{ fontSize: 12, color: RED }}>{state.error}</div>
+      </div>
+    );
+  }
+
+  const { ready, complete = [], completeCount = 0, oneAway = [] } = state.data || {};
+  if (!ready) {
+    return (
+      <div style={{ ...card, fontFamily }}>
+        <div style={h}>Combos you can assemble</div>
+        <div style={{ fontSize: 12, color: MUTED }}>
+          The Commander Spellbook snapshot isn&apos;t synced yet — run a data sync from the
+          Updates panel and this shelf fills in.
+        </div>
+      </div>
+    );
+  }
+  if (complete.length === 0 && oneAway.length === 0) return null;
+
+  const comboLine = (c) => (
+    <div style={{ padding: "8px 6px", borderBottom: "1px solid var(--ley-line)" }}>
+      <div style={{ fontSize: 13, color: TEXT }}>
+        {(c.cards || []).join(" + ")}
+        {c.bracketTag && (
+          <span style={{ fontSize: 10, color: MUTED, border: "1px solid var(--ley-line)", borderRadius: 3, padding: "1px 5px", marginLeft: 8 }}>
+            {c.bracketTag}
+          </span>
+        )}
+      </div>
+      {(c.produces || []).length > 0 && (
+        <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>→ {c.produces.join(" · ")}</div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ ...card, fontFamily }}>
+      <div style={h}>Combos you can assemble</div>
+      {complete.length > 0 ? (
+        <>
+          <div style={{ fontSize: 12, color: GOLD, marginBottom: 6 }}>
+            {completeCount} complete combo{completeCount === 1 ? "" : "s"} in your Vault
+            {completeCount > complete.length ? ` (showing ${complete.length})` : ""}
+          </div>
+          {complete.map((c, i) => <div key={i}>{comboLine(c)}</div>)}
+        </>
+      ) : (
+        <div style={{ fontSize: 12, color: MUTED, marginBottom: 6 }}>
+          No complete combos yet — the cheapest ways in are below.
+        </div>
+      )}
+      {oneAway.length > 0 && (
+        <>
+          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", fontFamily: "var(--font-mono), monospace", margin: "14px 0 6px" }}>
+            One card away
+          </div>
+          {oneAway.map((c, i) => (
+            <div key={i} style={{ padding: "8px 6px", borderBottom: "1px solid var(--ley-line)" }}>
+              <div style={{ fontSize: 13, color: TEXT, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ minWidth: 0 }}>{(c.cards || []).join(" + ")}</span>
+                <span style={{ color: GOLD, flexShrink: 0 }}>
+                  needs {c.missingName}
+                  {Number.isFinite(c.missingUsd) ? ` · ~$${c.missingUsd.toFixed(2)}` : ""}
+                </span>
+              </div>
+              {(c.produces || []).length > 0 && (
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>→ {c.produces.join(" · ")}</div>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
 }

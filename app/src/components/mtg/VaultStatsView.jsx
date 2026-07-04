@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from "react";
 
-import Sparkline from "./Sparkline";
+import VaultValueChart from "./VaultValueChart";
 
 const COLOR_META = {
   W: { label: "White", swatch: "#e9e4cf" },
@@ -92,20 +92,7 @@ export default function VaultStatsView({ colors, fontFamily, onGoToCollection })
           <Stat label="Owned value" value={money(data?.value?.currentUsd)} color={GOLD} />
           <Stat label="Sets represented" value={b.setCount ?? 0} color={TEXT} />
         </div>
-        {(() => {
-          const series = data?.value?.series || [];
-          if (series.length < 2) return null;
-          const first = series[0].value;
-          const last = series[series.length - 1].value;
-          return (
-            <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
-                Value over time · {money(first)} → {money(last)}
-              </div>
-              <Sparkline points={series.map((p) => p.value)} width={420} height={56} strokeWidth={2} />
-            </div>
-          );
-        })()}
+        <VaultValueChart series={data?.value?.series} colors={colors} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
