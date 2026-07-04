@@ -189,6 +189,20 @@ export async function POST(request) {
   const generatedAt = new Date().toISOString();
   const report = formatBreakageTxt(aggregate, { deckNames, mode, generatedAt });
 
+  // P4 matchup ledger: compact per-game outcome rows (deck-vs-deck records).
+  // Additive to the sidecar (app-internal); winnerDeck maps winnerSeat →
+  // meta.seatNames positionally, honest null when the game was undecided.
+  const perGameOutcomes = batch.games.map((g) => {
+    const seats = g?.meta?.seatNames || [];
+    const w = g?.winnerSeat;
+    return {
+      decks: seats,
+      winnerDeck: (w != null && seats[w]) ? seats[w] : null,
+      result: g?.result ?? null,
+      turns: g?.turns ?? null,
+    };
+  }).filter((r) => r.decks.length >= 2);
+
   // Bank training data (opt-in). Atomic JSONL write to the trajectories namespace;
   // a write failure here must NOT discard the completed run, so we capture the
   // outcome and surface it honestly in the response rather than throwing.
@@ -225,6 +239,7 @@ export async function POST(request) {
         breakageCount: aggregate.cards.length,
         ...aggregate,
         games: undefined,
+        perGameOutcomes,
         gamesCount: aggregate.games.length,
       }
     );
@@ -276,6 +291,38 @@ export async function POST(request) {
  * counts). A .txt with no readable sidecar still appears (counts unknown) so the
  * list never silently hides a real report.
  */
+async function buildMatchupLedger() {
+  let files;
+  try { files = await fs.readdir(SELF_PLAY_DIR()); } catch { return { decks: [], soloWins: {}, pair: {}, games: 0 }; }
+  const soloWins = {};
+  const pair = {};
+  let games = 0;
+  for (const f of files.filter((x) => x.endsWith(".json"))) {
+    let sc;
+    try { sc = JSON.parse(await fs.readFile(path.join(SELF_PLAY_DIR(), f), "utf8")); } catch { continue; }
+    for (const row of sc.perGameOutcomes || []) {
+      const decks = Array.isArray(row.decks) ? row.decks : [];
+      if (decks.length < 2) continue;
+      games += 1;
+      const winner = row.winnerDeck;
+      for (const d of decks) {
+        soloWins[d] = soloWins[d] || { games: 0, wins: 0 };
+        soloWins[d].games += 1;
+        if (d === winner) soloWins[d].wins += 1;
+      }
+      for (const a of decks) for (const b of decks) {
+        if (a === b) continue;
+        const key = a + "||" + b;
+        pair[key] = pair[key] || { games: 0, aWins: 0 };
+        pair[key].games += 1;
+        if (winner === a) pair[key].aWins += 1;
+      }
+    }
+  }
+  const decks = Object.keys(soloWins).sort((x, y) => soloWins[y].games - soloWins[x].games);
+  return { decks, soloWins, pair, games };
+}
+
 async function listSavedReports() {
   let files;
   try {
@@ -344,6 +391,10 @@ export async function GET(request) {
   try {
     if (action === "reports") {
       return Response.json({ reports: await listSavedReports() });
+    }
+
+    if (action === "matchups") {
+      return Response.json(await buildMatchupLedger());
     }
 
     if (action === "stats") {
