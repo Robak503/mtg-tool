@@ -1,4 +1,32 @@
-# UI-OVERHAUL LOG — the LEYLINE pass (v0.86.0 → v0.87.0)
+# UI-OVERHAUL LOG — the LEYLINE pass (v0.86.0 → v0.87.0) + wave 2 (→ v0.88.0)
+
+## WAVE 2 (2026-07-04, Colton's direct orders post-v0.87.0)
+
+### W1 — the kiosk landing + area IA (commit 8e5d3210)
+- **The IA**: profile gate → LANDING (three glass doors) → areas, with a
+  bottom AreaBar everywhere (desktop) / a Home tab (mobile). All of it
+  renders from ONE registry (`mtg/areas.jsx`) — `docs/HOW-TO-ADD-AN-AREA.md`
+  is the no-AI extension guide Colton asked for.
+- Areas: **The Agents** (3 big squares, hand-crafted 12×12 pixel-art
+  portraits — blue Jace / silver Karn / red Tibalt — inline SVG, zero image
+  assets) · **The Proving Grounds** (Academy · Sim Center · Pod Balance
+  umbrella — the "universal headline name"; alternates offered: War Room,
+  The Gauntlet, The Crucible, The Colosseum) · **The Vault**.
+- The old desktop nav sidebar RETIRED (survives mobile-only); its deck
+  functionality became the **Decks ▾** header dropdown (DeckMenu). Chat
+  actions + RightPanel now render only inside the Agents area.
+- **originGuard hardened to dynamic same-origin**: an http Origin exactly
+  matching the request's own LOOPBACK Host passes (dev servers on
+  auto-assigned ports — the guard previously pinned :3000, which 403'd
+  legitimate same-origin POSTs the moment the dev port moved); foreign /
+  cross-port / https-scheme / non-loopback-Host all still 403. Tests
+  extended with spoof + widening cases; verified live both ways.
+- Gate: lint 0 + originGuard tests green (full battery at wave close);
+  screenshots `w1-*.png`.
+
+---
+
+# Wave 1 record below (v0.86.0 → v0.87.0)
 
 > Wave-by-wave work log of the one-time Fable 5 UI/UX overhaul
 > (mission: `memory/orders/fable5-ui-overhaul.md`). Same discipline as
