@@ -1,4 +1,66 @@
-# UI-OVERHAUL LOG — the LEYLINE pass (v0.86.0 → v0.87.0)
+# UI-OVERHAUL LOG — the LEYLINE pass (v0.86.0 → v0.87.0) + wave 2 (→ v0.88.0)
+
+## WAVE 2 (2026-07-04, Colton's direct orders post-v0.87.0)
+
+### W1 — the kiosk landing + area IA (commit 8e5d3210)
+- **The IA**: profile gate → LANDING (three glass doors) → areas, with a
+  bottom AreaBar everywhere (desktop) / a Home tab (mobile). All of it
+  renders from ONE registry (`mtg/areas.jsx`) — `docs/HOW-TO-ADD-AN-AREA.md`
+  is the no-AI extension guide Colton asked for.
+- Areas: **The Agents** (3 big squares, hand-crafted 12×12 pixel-art
+  portraits — blue Jace / silver Karn / red Tibalt — inline SVG, zero image
+  assets) · **The Proving Grounds** (Academy · Sim Center · Pod Balance
+  umbrella — the "universal headline name"; alternates offered: War Room,
+  The Gauntlet, The Crucible, The Colosseum) · **The Vault**.
+- The old desktop nav sidebar RETIRED (survives mobile-only); its deck
+  functionality became the **Decks ▾** header dropdown (DeckMenu). Chat
+  actions + RightPanel now render only inside the Agents area.
+- **originGuard hardened to dynamic same-origin**: an http Origin exactly
+  matching the request's own LOOPBACK Host passes (dev servers on
+  auto-assigned ports — the guard previously pinned :3000, which 403'd
+  legitimate same-origin POSTs the moment the dev port moved); foreign /
+  cross-port / https-scheme / non-loopback-Host all still 403. Tests
+  extended with spoof + widening cases; verified live both ways.
+- Gate: lint 0 + originGuard tests green (full battery at wave close);
+  screenshots `w1-*.png`.
+
+### W2 — Pod Balance: surface + all-profile pods + ratings (lane cf8eabf6 → integrated 2d6f2101 + wiring c9e1967b, fable)
+- PodBalanceModal DELETED; **PodBalanceView** is a Proving Grounds surface:
+  all-profile deck picker (grouped by owner, via GET /api/self-play),
+  compare ≤4 with server-side deck loading (`{deckIds, allProfiles}` —
+  additive; the legacy `{decks}` wire unchanged), fairness verdict panel.
+- **Ratings**: additive `memory.powerRank` {powerLevel, bracket,
+  bracketLabel, ratedAt} (Colton's free-text powerLevel untouched);
+  **auto-rate fires on both import paths** (fire-and-forget, latest-ref
+  guarded, failure = console.warn + "unrated"); Rate button on unrated
+  active-profile rows; verified live end-to-end (test deck → 3.2/Bracket 1,
+  persisted).
+- +5 route tests (two-profile tmpdir registry fixture).
+
+### W3 — power-rank X fix + audit (lane 7733e206 → integrated b8435546, fable)
+- **X floors at 1** (Colton's rule) via `manaValueFloorX` in curve/ramp/
+  cantrip/combo-cost paths; `effectiveManaValue` (assumed X 3–5) kept for
+  impact/playability — two documented cost models.
+- Audit fixes: assumedX=5 staples name-only ("each opponent" text no longer
+  triggers) · MDFC front-face-only X count · interaction axis 14+ → 3 (was
+  unreachable) + Math.max vs `||` · `Commander:` colon headers parse.
+- +12 tests, ZERO existing pins changed. Example movements (real oracle):
+  Debt to the Deathless effMV 9→7; a 22-X-spell Zaxara pile avgMV 2.6→3.1
+  (cheap cantrips 2→0, efficiency 8.9→8.3); Ballista+Mikaeus combo MV 6→8.
+- Parked (debatable, written not changed): speed-axis `||` chain ordering ·
+  CRISPI axes don't feed powerLevel (display-only — looks intentional) ·
+  unresolved cards price combos at 0 · dead `land` param.
+
+### W4 — battery + ship (v0.88.0)
+- Full battery: **7,681 green** (+20 this wave) + lint 0.
+- **Fence proofs**: trajectory hash == `a2a03ba8…` again; tier fp 0-diff
+  (power-rank is app-side — the play engine never moved).
+- Versions bumped 0.88.0; CHANGELOG entry; exe built + released via the
+  standing tag flow.
+
+---
+
+# Wave 1 record below (v0.86.0 → v0.87.0)
 
 > Wave-by-wave work log of the one-time Fable 5 UI/UX overhaul
 > (mission: `memory/orders/fable5-ui-overhaul.md`). Same discipline as

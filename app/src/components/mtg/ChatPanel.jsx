@@ -621,7 +621,7 @@ export default function ChatPanel({
               to lock it to the conversation.
             </>
           ) : (
-            <> Load a deck from the sidebar for deck-specific help.</>
+            <> Load a deck from the Decks menu above for deck-specific help.</>
           )}
         </div>
       )}

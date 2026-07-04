@@ -73,6 +73,11 @@ export function defaultDeckMemory() {
     notes: "",
     tags: "",
     powerLevel: "",
+    // Machine power rating from the local power ranker (/api/power-rank), written
+    // automatically on import and by the Pod Balance surface. Distinct from
+    // `powerLevel` above, which stays Colton's own free-text notes field.
+    // Shape when set: { powerLevel:number, bracket:number, bracketLabel:string, ratedAt:ISO }
+    powerRank: null,
     boardSnapshot: "",
     agentNotes: { jace: "", karn: "", tibalt: "", arbiter: "" },
     games: [],
@@ -103,6 +108,12 @@ export function normalizeDeck(deck) {
       karnPlans: Array.isArray(memory.karnPlans) ? memory.karnPlans : [],
       tibaltRoasts: Array.isArray(memory.tibaltRoasts) ? memory.tibaltRoasts : [],
       snapshots: Array.isArray(memory.snapshots) ? memory.snapshots : [],
+      // Guard the machine rating's shape so a hand-edited file can't feed the
+      // UI a string/array where an object is expected. null = unrated.
+      powerRank:
+        memory.powerRank && typeof memory.powerRank === "object" && !Array.isArray(memory.powerRank)
+          ? memory.powerRank
+          : null,
     },
   };
 }

@@ -8,6 +8,33 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.88.0] - 2026-07-04
+
+### Added
+- **The kiosk landing screen.** The app now opens onto three big doors — **The Agents**,
+  **The Proving Grounds**, and **The Vault** — with hand-made pixel-art icons, and a bottom
+  area bar to hop between them from anywhere. Areas are registry-driven:
+  `docs/HOW-TO-ADD-AN-AREA.md` shows how to add one with no AI help.
+- **The Agents front door:** three big squares with pixel portraits (blue Jace, silver Karn,
+  red Tibalt) — one tap into that agent's chat. Deck loading moved into a **Decks ▾** header
+  menu (the old navigation sidebar is retired on desktop).
+- **The Proving Grounds** now houses everything about play: The Academy, the Sim Center, and
+  **Pod Balance as a full surface** (was a modal) that sees **every profile's decks**, grouped
+  by owner. Compare up to 4 for a fairness verdict; decks without a rating get a **Rate**
+  button, and **newly imported decks auto-rate** in the background. Ratings live on the deck
+  (power level, official bracket, when rated).
+
+### Fixed
+- **Power ranking: X spells no longer count as free.** A deck's curve, ramp/cantrip buckets,
+  and combo costs previously evaluated {X} as 0 mana; X now floors at 1 everywhere the ranker
+  prices a card (and the "what would you actually pay" model for card impact keeps its
+  smarter 3–5 estimate). Also fixed in the audit: "each opponent" in rules text no longer
+  wrongly inflates an X-spell's assumed cost, double-faced cards no longer double-count a
+  back-face {X}, an interaction-axis tier that could never score its top value now does, and
+  `Commander:` headers with colons parse correctly in deck lists.
+- The local write-protection now accepts same-origin requests on any loopback port (dev
+  servers on auto-assigned ports were 403'd); foreign origins are still blocked.
+
 ## [0.87.0] - 2026-07-03
 
 ### Changed

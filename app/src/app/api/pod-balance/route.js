@@ -7,11 +7,25 @@
  * balance verdict (bracket/power spread). Surfaces the bracket + Game Changers
  * the app already detects from the bundled Commander Spellbook snapshot; no new
  * data and no network calls.
+ *
+ * Two request shapes (both POST, both capped at 4 decks — a pod is 4):
+ *   { decks: [{ id, name, cards }] }          — legacy: caller ships deck bodies.
+ *   { deckIds: [...], allProfiles: true }     — W2: server loads the bodies from
+ *     the on-disk profile deck files (loadAllProfileDecks, same pool /api/self-play
+ *     resolves from), so the Pod Balance surface can compare decks across EVERY
+ *     profile without the client holding other profiles' lists. Each ranked deck
+ *     gains a `profile` field (owning profile's display name) on this path.
  */
 
 export const runtime = "nodejs";
 
 import { rankDeckPower } from "../../../lib/server/powerRanker.js";
+import {
+  decksForActiveProfile,
+  listAllProfileDecks,
+  loadAllProfileDecks,
+  selectDecksByIds,
+} from "../../../lib/server/selfPlayDecks.js";
 
 const MAX_DECKS = 4;
 
@@ -70,14 +84,42 @@ export async function POST(request) {
   }
 
   const decks = Array.isArray(body?.decks) ? body.decks.slice(0, MAX_DECKS) : null;
-  if (!decks || !decks.length) {
+  const deckIds = Array.isArray(body?.deckIds)
+    ? body.deckIds.filter((id) => typeof id === "string" && id).slice(0, MAX_DECKS)
+    : null;
+  if ((!decks || !decks.length) && (!deckIds || !deckIds.length)) {
     return Response.json(
-      { ready: false, error: "Request body must include a non-empty decks array (max 4)." },
+      { ready: false, error: "Request body must include a non-empty decks or deckIds array (max 4)." },
       { status: 400 },
     );
   }
 
   try {
+    // W2 path: resolve ids → deck bodies server-side. Cross-profile when asked
+    // (mirrors /api/self-play's pool selection), else the active profile only.
+    if (!decks?.length) {
+      const pool = body?.allProfiles ? await loadAllProfileDecks() : await decksForActiveProfile();
+      const chosen = selectDecksByIds(pool, deckIds);
+      if (!chosen.length) {
+        return Response.json(
+          { ready: false, error: "None of the requested deckIds matched a saved deck." },
+          { status: 400 },
+        );
+      }
+      // Owning-profile display names (only known on the cross-profile path;
+      // decksForActiveProfile deliberately has no registry dependency).
+      let profileByDeckId = new Map();
+      if (body?.allProfiles) {
+        const listing = await listAllProfileDecks();
+        profileByDeckId = new Map(listing.map((d) => [d.id, d.profile]));
+      }
+      const ranked = chosen.map((deck) => ({
+        ...summarize(deck),
+        profile: profileByDeckId.get(deck.id) ?? null,
+      }));
+      return Response.json({ ready: true, decks: ranked, comparison: buildComparison(ranked) });
+    }
+
     const ranked = decks.map(summarize);
     return Response.json({ ready: true, decks: ranked, comparison: buildComparison(ranked) });
   } catch (err) {

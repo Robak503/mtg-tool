@@ -10,7 +10,10 @@ import { shouldBlockOrigin } from "./lib/server/originGuard.js";
 
 export function middleware(request) {
   const origin = request.headers.get("origin");
-  if (shouldBlockOrigin(request.method, origin)) {
+  // Host enables the dynamic same-origin rule (dev servers on non-3000
+  // loopback ports) — see originGuard.js.
+  const host = request.headers.get("host");
+  if (shouldBlockOrigin(request.method, origin, host)) {
     return Response.json(
       { error: `Cross-origin request blocked: ${origin} may not modify local MTG Tool data.` },
       { status: 403 },

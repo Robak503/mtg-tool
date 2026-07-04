@@ -193,6 +193,60 @@ export default function useDeckStore(activeProfileName) {
     }
   };
 
+  // Latest-value ref for savedDecks — background callbacks (auto power-rating)
+  // resolve AFTER the import's persistDecks, so the closure's savedDecks array
+  // would be stale and missing the just-imported deck. The ref always points at
+  // the current library.
+  const savedDecksRef = useRef(savedDecks);
+  savedDecksRef.current = savedDecks;
+
+  // AUTO-RATE ON IMPORT (W2): every newly added deck gets a machine power rating.
+  // Fire-and-forget — never blocks or fails the import UX; a failure is logged
+  // and the deck simply stays "unrated" (the Pod Balance surface can rate it
+  // later). The rating comes from the local power ranker (/api/power-rank, zero
+  // network) and lands in memory.powerRank {powerLevel,bracket,bracketLabel,ratedAt}.
+  const autoRatePower = (deck) => {
+    const cards = (deck?.cards || []).filter(c => c.section !== "Tokens" && c.section !== "Sideboard");
+    if (!deck?.id || !cards.length) return;
+    (async () => {
+      try {
+        const resp = await fetch("/api/power-rank", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cards, maxAlmost: 0 }),
+        });
+        const result = await resp.json();
+        if (!resp.ok || !Number.isFinite(result?.powerLevel)) {
+          throw new Error(result?.error || `power-rank responded ${resp.status}`);
+        }
+        const powerRank = {
+          powerLevel: result.powerLevel,
+          bracket: result.bracket,
+          bracketLabel: result.bracketLabel || "",
+          ratedAt: new Date().toISOString(),
+        };
+        const current = savedDecksRef.current;
+        // The deck may have been deleted while the rating ran — drop it then.
+        if (!current.some(d => d.id === deck.id)) return;
+        persistDecks(current.map(d =>
+          d.id === deck.id
+            ? {
+                ...d,
+                memory: {
+                  ...defaultDeckMemory(),
+                  ...(d.memory || {}),
+                  powerRank,
+                  updatedAt: new Date().toISOString(),
+                },
+              }
+            : d
+        ));
+      } catch (err) {
+        console.warn("[useDeckStore] auto power-rating failed (import unaffected):", err?.message || err);
+      }
+    })();
+  };
+
   const updateActiveDeck = (updater) => {
     if (!activeDeckId) return;
     const updated = savedDecks.map(deck =>
@@ -287,6 +341,7 @@ export default function useDeckStore(activeProfileName) {
     setDeckData({});
     setDeckRaw("");
     setDeckName("My Deck");
+    autoRatePower(deck);
 
     return deck;
   };
@@ -317,6 +372,7 @@ export default function useDeckStore(activeProfileName) {
     persistDecks([...savedDecks, deck], { fileSave: "immediate" });
     setActiveDeckId(deck.id);
     setDeckData({});
+    autoRatePower(deck);
     return deck;
   };
 

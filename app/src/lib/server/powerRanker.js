@@ -88,9 +88,36 @@ function round1(value) {
   return Math.round(value * 10) / 10;
 }
 
+// ---- X-cost helpers -------------------------------------------------------
+// Scryfall's `cmc` treats {X} as 0, but you essentially never cast an X spell
+// for X=0, so the ranker deliberately keeps TWO distinct cost models:
+//   - manaValueFloorX(): "minimum real cost" — base cmc + 1 per {X} symbol.
+//     Used everywhere a COST is evaluated: averageManaValue / curve, ramp
+//     tiers, the cheap-cantrip gate, and combo total mana value.
+//   - effectiveManaValue(): "what you'd typically pay" — base cmc + an
+//     assumed X of 3-5 based on the payoff. Used for impact/playability
+//     estimates, where realistic sunk mana matters more than the minimum.
+
+// Front-face mana cost only: joining every face's cost (see manaCostText)
+// would double-count a back-face {X} on MDFCs when counting X symbols.
+function frontFaceManaCost(card) {
+  if (Array.isArray(card?.card_faces) && card.card_faces.length) {
+    return card.card_faces[0]?.mana_cost || card?.mana_cost || "";
+  }
+  return card?.mana_cost || "";
+}
+
+function countXSymbols(card) {
+  return (frontFaceManaCost(card).match(/\{X\}/g) || []).length;
+}
+
+function manaValueFloorX(card) {
+  return Number(card?.cmc ?? 0) + countXSymbols(card);
+}
+
 function cardManaValue(name) {
   const card = lookupCard(name);
-  return Number(card?.cmc ?? 0);
+  return manaValueFloorX(card);
 }
 
 function colorIdentityForNames(names = []) {
@@ -224,7 +251,10 @@ function parseDeckText(deckText = "") {
   for (const rawLine of String(deckText || "").split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
-    if (/^(commander|mainboard|deck|sideboard|maybeboard|tokens?)$/i.test(line)) {
+    // Optional trailing colon: "Commander:" headers are common in exports —
+    // the replace() below always intended to handle them, but the old regex
+    // (no `:?`) could never match a colon-suffixed line in the first place.
+    if (/^(commander|mainboard|deck|sideboard|maybeboard|tokens?):?$/i.test(line)) {
       section = line.replace(/:$/, "");
       continue;
     }
@@ -279,7 +309,10 @@ function cardInfo(entry) {
   const typeLine = card?.type_line || "";
   const text = oracleText(card);
   const nameKey = normalizeName(entry.name);
+  // Raw Scryfall mana value ({X} counts as 0) — kept for reporting and as the
+  // base of effectiveManaValue(). Cost evaluation uses manaValueFloored.
   const manaValue = Number(card?.cmc ?? 0);
+  const manaValueFloored = manaValueFloorX(card);
 
   // For MDFCs (type_line like "Sorcery // Land"), use the front face type for
   // classification so spell//land cards aren't mistakenly treated as pure lands
@@ -307,6 +340,7 @@ function cardInfo(entry) {
     text,
     search: `${entry.name}\n${typeLine}\n${text}`,
     manaValue,
+    manaValueFloored,
     isLand,
     isCreature,
     isArtifact,
@@ -326,19 +360,21 @@ function isRamp(info) {
 
 function rampWeight(info) {
   if (!isRamp(info)) return 0;
-  if (FAST_MANA.has(info.nameKey)) return info.manaValue <= 1 ? 1 : 0.9;
+  // Cost tiers use the X-floored mana value: an {X} ramp spell is never truly
+  // castable at X=0, so it must not qualify for the cheap-ramp tiers.
+  if (FAST_MANA.has(info.nameKey)) return info.manaValueFloored <= 1 ? 1 : 0.9;
   if (LAND_RAMP.test(info.search)) {
-    if (info.manaValue <= 2) return 0.85;
-    if (info.manaValue === 3) return 0.65;
+    if (info.manaValueFloored <= 2) return 0.85;
+    if (info.manaValueFloored === 3) return 0.65;
     return 0.45;
   }
   if (/treasure token/i.test(info.search)) {
     if (/\bwhenever\b|\bat the beginning\b|\battack/i.test(info.search)) return 0.35;
     return 0.55;
   }
-  if (info.manaValue <= 1) return 0.85;
-  if (info.manaValue === 2) return 0.7;
-  if (info.manaValue === 3) return 0.45;
+  if (info.manaValueFloored <= 1) return 0.85;
+  if (info.manaValueFloored === 2) return 0.7;
+  if (info.manaValueFloored === 3) return 0.45;
   return 0.25;
 }
 
@@ -352,7 +388,8 @@ function isTutor(info) {
 }
 
 function isCheapCantrip(info) {
-  return !info.isLand && info.manaValue <= 2 && DRAW_TEXT.test(info.search);
+  // X-floored: "{X}{X}{U} draw X cards" is not a cheap cantrip at any real X.
+  return !info.isLand && info.manaValueFloored <= 2 && DRAW_TEXT.test(info.search);
 }
 
 function landSlowWeight(info) {
@@ -491,7 +528,9 @@ function countRoles(infos) {
     if (flags.land) addCount(counts, "lands", qty);
     else {
       addCount(counts, "nonlands", qty);
-      mvTotal += info.manaValue * qty;
+      // X floors at 1 per {X} symbol — averageManaValue drives the curve,
+      // speed, and efficiency axes, and an X spell is never cast for X=0.
+      mvTotal += info.manaValueFloored * qty;
       mvCards += qty;
     }
     if (info.isCreature) addCount(counts, "creatures", qty);
@@ -541,15 +580,31 @@ function virtualLandCount(infos) {
   return round1(vlc);
 }
 
+// All-faces mana cost text — used only for requiredColors, where needing the
+// colors of either face is the safe assumption. X counting must NOT use this
+// (a back-face {X} would inflate the front cost); see frontFaceManaCost().
 function manaCostText(card) {
   if (card?.mana_cost) return card.mana_cost;
   return (card?.card_faces || []).map(face => face.mana_cost || "").join("");
 }
 
+// X spells whose realistic X is game-ending — matched by card NAME only.
+// These used to be text patterns alongside "each opponent", which made every
+// X card that merely mentions "each opponent" price as assumedX 5.
+const X_HEAVY_STAPLES = new Set([
+  "torment of hailfire",
+  "exsanguinate",
+  "walking ballista",
+  "villainous wealth",
+  "finale of devastation",
+]);
+
+// "What you'd typically pay" model for impact/playability — assumes a
+// realistic X of 3-5 by payoff. Distinct from manaValueFloorX() (minimum real
+// cost, X>=1), which is what curve/efficiency/combo costing uses.
 function effectiveManaValue(info) {
   const base = Number(info.manaValue || 0);
-  const cost = manaCostText(info.card);
-  const xSymbols = (cost.match(/\{X\}/g) || []).length;
+  const xSymbols = countXSymbols(info.card);
   if (!xSymbols) return base;
 
   const text = `${info.name} ${info.typeLine} ${info.search}`;
@@ -557,7 +612,7 @@ function effectiveManaValue(info) {
   if (/\b(draw X|X cards|X target|X damage|loses X life|lose X life|enters with X|X \+1\/\+1 counters|create an X\/X|mana value X|power is X|toughness is X)\b/i.test(text)) {
     assumedX = 4;
   }
-  if (/\b(win the game|each opponent|Torment of Hailfire|Exsanguinate|Walking Ballista|Villainous Wealth|Finale of Devastation)\b/i.test(text)) {
+  if (X_HEAVY_STAPLES.has(info.nameKey) || /\bwin the game\b/i.test(text)) {
     assumedX = 5;
   }
 
@@ -760,9 +815,15 @@ function scoreAxes(counts, spellbook, commanderColors = []) {
   );
 
   const interactionTotal = counts.removal + counts.counters + counts.wipes;
+  // 14+ total interaction is the top tier (was a `? 2 : ... ? 2` typo that
+  // made 14+ and 9+ identical). Math.max instead of `||` so one free
+  // interaction piece (tier 2) can't short-circuit and UNDERCUT a deck that
+  // also clears the 14+ density tier (tier 3).
   const interaction = clamp(
-    (counts.freeInteraction >= 3 ? 3 : counts.freeInteraction >= 1 ? 2 : 0) ||
-    (interactionTotal >= 14 ? 2 : interactionTotal >= 9 ? 2 : interactionTotal >= 6 ? 1 : 0),
+    Math.max(
+      counts.freeInteraction >= 3 ? 3 : counts.freeInteraction >= 1 ? 2 : 0,
+      interactionTotal >= 14 ? 3 : interactionTotal >= 9 ? 2 : interactionTotal >= 6 ? 1 : 0
+    ),
     0,
     3
   );
