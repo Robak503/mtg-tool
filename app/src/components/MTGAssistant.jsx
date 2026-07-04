@@ -16,7 +16,7 @@
  * down in this component — search "Inline style vocabulary".
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 import { AGENTS } from "../lib/agents";
 import { parseMessage } from "../lib/chatMarkdown";
@@ -64,6 +64,8 @@ import VaultGalleryView from "./mtg/VaultGalleryView";
 import RecordsView from "./mtg/RecordsView";
 import JudgeTrialsView from "./mtg/JudgeTrialsView";
 import LibraryView from "./mtg/LibraryView";
+import CardInspector from "./mtg/CardInspector";
+import CommandPalette from "./mtg/CommandPalette";
 import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
@@ -568,7 +570,7 @@ export default function MTGAssistant() {
         style={{width:30,height:21,objectFit:"cover",objectPosition:"center 28%",borderRadius:3,border:`1px solid ${cfg.border}`,boxShadow:`0 0 7px ${cfg.glow}`,flexShrink:0}}/>
       <span style={{background:cfg.dim,border:`1px solid ${cfg.border}`,color:cfg.color,borderRadius:4,padding:"1px 6px",cursor:"pointer",fontStyle:"italic",fontSize:"0.87em"}}
         onMouseEnter={e=>handleChipHover(name,e)} onMouseLeave={()=>setTooltip(null)}
-        onClick={()=>window.open(`https://scryfall.com/search?q=${encodeURIComponent('"'+name+'"')}`,"_blank")}>{name}</span>
+        onClick={()=>inspectCard(name)}>{name}</span>
     </span>
   );
   // Inline tokens → JSX: card chips + bold/italic/inline-code over plain runs.
@@ -748,6 +750,58 @@ export default function MTGAssistant() {
     setCenterView("deck-ready");
   };
   const [deckReadyId, setDeckReadyId] = useState(null);
+  // K1: the local card inspector — clicking any card opens this instead of
+  // bouncing to scryfall.com. onAskJace prefills the composer with a question.
+  const [inspectedCard, setInspectedCard] = useState(null);
+  const inspectCard = (name) => { if (name) setInspectedCard(name); };
+  // K6: Ctrl/⌘+K command palette.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const searchCardsForPalette = async (q) => {
+    try {
+      const r = await fetch(`/api/cards?search=${encodeURIComponent(q)}&limit=6`);
+      if (!r.ok) return [];
+      const b = await r.json();
+      return (b.cards || []).map((c) => ({ name: c.name }));
+    } catch { return []; }
+  };
+  const paletteCommands = useMemo(() => {
+    const cmds = [];
+    for (const a of AREAS) cmds.push({ label: a.title, hint: "area", group: "Go to", run: () => enterArea(a.id) });
+    cmds.push(
+      { label: "Judge Trials", hint: "quiz", group: "Go to", run: () => { setArea("proving"); setCenterView("judge"); } },
+      { label: "Table Records", hint: "records", group: "Go to", run: () => { setArea("proving"); setCenterView("records"); } },
+      { label: "Pod Balance", hint: "pods", group: "Go to", run: () => { setArea("proving"); setCenterView("podbalance"); } },
+      { label: "Sim Center", hint: "self-play", group: "Go to", run: () => { setArea("proving"); setCenterView("sim"); } },
+      { label: "The Academy", hint: "learn", group: "Go to", run: () => { setArea("proving"); setCenterView("learn"); } },
+    );
+    cmds.push(
+      { label: "New chat with Karn", group: "Action", run: () => { pickAgent("karn"); setArea("agents"); setCenterView("chat"); } },
+      { label: "New chat with Jace", group: "Action", run: () => { pickAgent("jace"); setArea("agents"); setCenterView("chat"); } },
+      { label: "New chat with Tibalt", group: "Action", run: () => { pickAgent("tibalt"); setArea("agents"); setCenterView("chat"); } },
+      { label: "Open Updates", group: "Action", run: () => setShowUpdates(true) },
+      { label: "Open Settings", group: "Action", run: () => setShowSettings(true) },
+    );
+    for (const d of (savedDecks || [])) cmds.push({ label: d.name, hint: d.memory?.owner || "deck", group: "Deck", run: () => { setActiveDeckId(d.id); setArea("agents"); setCenterView("deck"); } });
+    for (const s of (sessions || []).filter((x) => !x.archived).slice(0, 20)) cmds.push({ label: s.name || "Chat", hint: s.lockedDeck?.name || "chat", group: "Chat", run: () => { pickAgent(s.agent); setArea("agents"); switchSession(s.id); setCenterView("chat"); } });
+    return cmds;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedDecks, sessions]);
+  const askJaceAboutCard = (name) => {
+    pickAgent("jace");
+    setArea("agents");
+    setCenterView("chat");
+    setInput(`Explain how ${name} works.`);
+  };
 
   const unloadActiveDeck = () => {
     setActiveDeckId(null);
@@ -1392,6 +1446,7 @@ export default function MTGAssistant() {
             ):centerView==="deck"?(
               <DeckView
                 activeDeck={activeDeck}
+                onInspectCard={inspectCard}
                 agentNotes={agentNotes}
                 askDeckAgent={askDeckAgent}
                 bg={BG}
@@ -1561,6 +1616,18 @@ export default function MTGAssistant() {
           see mtg/areas.jsx to add areas. */}
       {!mobile&&(
         <AreaBar area={area} onEnterArea={enterArea} onHome={goHome} fontFamily={F} />
+      )}
+
+      {inspectedCard && (
+        <CardInspector name={inspectedCard} onClose={() => setInspectedCard(null)} onAskJace={askJaceAboutCard} />
+      )}
+      {paletteOpen && (
+        <CommandPalette
+          commands={paletteCommands}
+          onClose={() => setPaletteOpen(false)}
+          onSearchCards={searchCardsForPalette}
+          onPickCard={inspectCard}
+        />
       )}
 
       {/* In-app feedback capture. Floats over everything; writes to

@@ -169,7 +169,7 @@ summary here for the queue:
 
 ## Wave K — knowledge & card-data features (the bundled-data dividend)
 
-- **K1 · Local card inspector** (M, 4) — stop bouncing every card click to scryfall.com
+- ✅ v0.93.0 **K1 · Local card inspector** (M, 4) — stop bouncing every card click to scryfall.com
   (DeckView ~341/~655; chat chips via `renderText`). One shared CardInspector panel:
   image (`/api/card-image`), oracle + type + mana, official rulings (`/api/cards` +
   `rulingsFor` exist), price, legality, Printings tab (`/api/printings/by-name`).
@@ -193,7 +193,7 @@ summary here for the queue:
   steps) + `notablePrerequisites` at sync time (currently stripped by
   `sync-spellbook.cjs`); combo modal from RightPanel Combos tab + Pod Balance: pieces
   with art, steps, bracket badge. Degrades gracefully on old snapshots.
-- **K6 · Ctrl+K command palette** (M, 4) — fuzzy overlay over areas/surfaces, saved decks,
+- ✅ v0.93.0 **K6 · Ctrl+K command palette** (M, 4) — fuzzy overlay over areas/surfaces, saved decks,
   chat sessions, agents, actions, and local card search (`searchLocalCards`,
   `scryfall.js:501`). Every target handler already exists in MTGAssistant. Rides Q1's key
   layer.
