@@ -64,7 +64,9 @@ export async function POST(request) {
   putSession(stepped);
 
   if (isComplete(stepped)) {
-    try { await appendGameRecord(recordFromSession(stepped, filteredDecisionLogTail(stepped))); } catch { /* records are best-effort */ }
+    // The record keeps a FULL narrative tail (up to the store's 160-line cap) for
+    // the P7 replay scrubber — not the 5-entry "recent activity" strip the live feed uses.
+    try { await appendGameRecord(recordFromSession(stepped, filteredDecisionLogTail(stepped, 160))); } catch { /* records are best-effort */ }
     deleteSession(sessionId);
     try { await deleteSave(sessionId); } catch { /* never block on cleanup */ }
   } else {

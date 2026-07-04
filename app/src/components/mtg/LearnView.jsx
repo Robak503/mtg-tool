@@ -28,6 +28,7 @@ import LearnBoard from "./LearnBoard";
 import StabilityBadge from "./StabilityBadge";
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
 import { stableActionKey } from "../../lib/learn/actionKey.js";
+import { LearnLogEntry } from "./LearnLogEntry.jsx";
 
 /**
  * A short human-readable pip string for a KW-WARD-PR2 STRUCTURED cost descriptor
@@ -460,26 +461,7 @@ export default function LearnView({
             Recent actions
           </div>
           {(session.decisionLogTail || []).slice().reverse().map((entry, i) => (
-            <div
-              key={`${entry.ts}-${i}`}
-              style={{
-                fontSize: 11,
-                color: "var(--ley-text)",
-                lineHeight: 1.4,
-                padding: "6px 8px",
-                background: "var(--ley-surface-2)",
-                border: "1px solid var(--ley-line)",
-                borderRadius: 4,
-              }}
-            >
-              <div style={{ color: entry.actor === "user" ? "var(--ley-green)" : "var(--ley-blue)", fontWeight: 700, marginBottom: 2 }}>
-                T{entry.turn} · {entry.actor}{entry.auto ? " (auto)" : ""}
-              </div>
-              <div>
-                {entry.action.kind}
-                {entry.action.name ? ` · ${entry.action.name}` : ""}
-              </div>
-            </div>
+            <LearnLogEntry key={`${entry.ts}-${i}`} entry={entry} />
           ))}
           {!(session.decisionLogTail || []).length && (
             <div style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>No actions yet.</div>
