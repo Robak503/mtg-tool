@@ -195,7 +195,7 @@ summary here for the queue:
 - **P7 · Spectate My Deck** (M, 4) — run ONE recorded self-play game featuring the active
   deck, play it back turn-by-turn in the P2 replay viewer with narration — "watch the
   engine pilot it". Depends on P2.
-- **P8 · Mulligan Lab** (M, 3) — seeded opening-7 keep/ship trainer vs the exported
+- ✅ v0.98.0 (deal + engine-verdict compare; banked keep-rate stats parked) **P8 · Mulligan Lab** (M, 3) — seeded opening-7 keep/ship trainer vs the exported
   `decideMulliganForAI` heuristic (`opponentAI.js:1579`); banked keep-rates ride P5's
   passthrough.
 - **P9 · Puzzle Mode — "find the line"** (L, 4) — mine self-play for decision points
