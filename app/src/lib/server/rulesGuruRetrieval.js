@@ -89,6 +89,10 @@ function parseRulesGuruFile() {
     const cardNames = extractBracketedCardNames(scenario);
     const cleanedScenario = cleanScenarioForMatch(scenario);
     const tokenSet = new Set(tokensFor(scenario));
+    // K2: difficulty metadata from the "Why this test matters" footer line
+    // ("… Level: 2. Complexity: Simple. …"). Additive — retrieval ignores these.
+    const level = (block.match(/\bLevel:\s*([^.]+?)\s*\./) || [])[1]?.trim() ?? null;
+    const complexity = (block.match(/\bComplexity:\s*([^.]+?)\s*\./) || [])[1]?.trim() ?? null;
 
     precedents.push({
       id,
@@ -99,6 +103,8 @@ function parseRulesGuruFile() {
       cardNames,
       cleanedScenario,
       tokens: [...tokenSet],
+      level,
+      complexity,
     });
   }
 

@@ -189,6 +189,27 @@ export function VaultIcon({ size = 64 }) {
   );
 }
 
+/* The Library — an open book. */
+export function LibraryIcon({ size = 64 }) {
+  const g = "#56d65d", dim = "#2e9a3f", hi = "#74ff86";
+  return (
+    <PixelSvg
+      size={size}
+      label="Library icon"
+      rows={[
+        [2, 2, 3, dim], [7, 2, 3, dim],
+        [1, 3, 4, g], [7, 3, 4, g],
+        [1, 4, 4, hi], [7, 4, 4, hi],
+        [1, 5, 4, g], [7, 5, 4, g],
+        [1, 6, 4, g], [7, 6, 4, g],
+        [1, 7, 4, g], [7, 7, 4, g],
+        [1, 8, 4, dim], [7, 8, 4, dim],
+        [5, 3, 2, dim], [5, 8, 2, dim],
+      ]}
+    />
+  );
+}
+
 /* ── THE REGISTRY ───────────────────────────────────────────────────── */
 
 export const AREAS = [
@@ -212,5 +233,12 @@ export const AREAS = [
     tagline: "Stacks · Ledger · Atlas · Forge",
     icon: VaultIcon,
     defaultView: "vault-home",
+  },
+  {
+    id: "library",
+    title: "The Library",
+    tagline: "Rules · rulings · engine explainers",
+    icon: LibraryIcon,
+    defaultView: "library-home",
   },
 ];
