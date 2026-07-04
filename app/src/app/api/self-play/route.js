@@ -19,7 +19,10 @@
  *       mulligan?:  boolean,    // AI-F9: default true (AI London mulligan — unkeepable dealt
  *                               // 7s are shipped); false recovers keep-every-7
  *       rotateSeats?: boolean,  // HB-5 (opt-in): rotate deck→seat across the batch
- *       podShuffle?:  boolean   // HB-6 (opt-in): re-deal deck→pod composition each cycle
+ *       podShuffle?:  boolean,  // HB-6 (opt-in): re-deal deck→pod composition each cycle
+ *       analyze?:     boolean   // P5 (opt-in): also return a per-deck "reality report"
+ *                               // (dead-turn rate / avg casts·lands / mulligan rate / avg X);
+ *                               // forces recordDecisions on for this run
  *     }
  *
  *   Response (JSON):
@@ -32,7 +35,9 @@
  *       report: string,                  // the full .txt blob (also written to disk)
  *       file:   string,                  // the written .txt filename
  *       trajectoryFile?: string,         // banked JSONL filename (only when record)
- *       trajectoryRows?: number          // labeled rows banked this run (only when record)
+ *       trajectoryRows?: number,         // labeled rows banked this run (only when record)
+ *       reality?: [{ deck, seat, games, avgDeadTurns, deadTurnRate, avgCasts, avgLands,
+ *                    mulliganRate, avgX, avgAttacks, ... }]  // P5 per-deck report (only when analyze)
  *     }
  *
  * GET — read-only Sim Center support data (selected by ?action=):
@@ -70,7 +75,9 @@ import {
   trajectoriesToJsonl,
   writeTrajectoriesJsonl,
   summarizeSeatOutcomes,
+  engineSeatsForMode,
 } from "../../../lib/learn/selfPlayRunner.js";
+import { summarizeSeatReality } from "../../../lib/learn/gameAnalysis.js"; // P5: per-deck post-game reality report
 import {
   aggregateBreakages,
   formatBreakageTxt,
@@ -127,6 +134,10 @@ export async function POST(request) {
   // the runner builds. We honour "pod" by trimming to one pod-size worth of decks
   // below, so the UI's "just the selected pod" promise is real, not cosmetic.
   const scope = body?.scope === "pod" ? "pod" : "all";
+  // P5: opt-in per-deck "reality report" — how each deck ACTUALLY played (dead-turn rate, avg
+  // casts/lands, mulligan rate, avg X, combat outcomes), mined from the recorded decision
+  // trajectory. Forces recordDecisions on (the analyzer needs the per-decision rows).
+  const analyze = body?.analyze === true;
 
   // Resolve the requested deck ids → raw deck-store entries. Cross-profile when
   // asked (the 13-deck set spans two profiles), else the active profile only.
@@ -175,7 +186,7 @@ export async function POST(request) {
   // `record` (opt-in) also captures a per-turn feature trajectory for Track-1a.
   let batch;
   try {
-    batch = runSelfPlayBatch(runnerDecks, { mode, gamesPer, record, baseSeed, mulligan, rotateSeats, podShuffle });
+    batch = runSelfPlayBatch(runnerDecks, { mode, gamesPer, record, recordDecisions: analyze, baseSeed, mulligan, rotateSeats, podShuffle });
   } catch (error) {
     return Response.json(
       { error: error?.message || "Self-play batch failed." },
@@ -202,6 +213,23 @@ export async function POST(request) {
       turns: g?.turns ?? null,
     };
   }).filter((r) => r.decks.length >= 2);
+
+  // P5 REALITY REPORT (only when analyze) — per-deck tempo/curve/combat profile from the recorded
+  // decision trajectory. Deck↔seat via the same meta.seatNames join summarizeSeatOutcomes uses
+  // (seats[k] === the engine seat id analyzeGame keys on; names[k] === the deck at that seat). The
+  // default no-rotation batch fixes a deck to one seat, so a per-seat aggregate IS that deck's
+  // profile. A seat that never appears yields a null row and is dropped — never a fabricated zero.
+  let reality = null;
+  if (analyze) {
+    const seats = engineSeatsForMode(mode);
+    const names0 = batch.games.find((g) => Array.isArray(g?.meta?.seatNames))?.meta?.seatNames || deckNames;
+    reality = seats
+      .map((seatId, k) => {
+        const r = summarizeSeatReality(batch.games, seatId);
+        return r ? { deck: names0[k] ?? `deck${k}`, seat: seatId, ...r } : null;
+      })
+      .filter(Boolean);
+  }
 
   // Bank training data (opt-in). Atomic JSONL write to the trajectories namespace;
   // a write failure here must NOT discard the completed run, so we capture the
@@ -257,6 +285,7 @@ export async function POST(request) {
       breakages: aggregate.cards,
       baseSeed,
       seatSummary,
+      ...(reality ? { reality } : {}),
       report,
       file: null,
       writeError: error?.message || String(error),
@@ -277,6 +306,7 @@ export async function POST(request) {
     breakages: aggregate.cards,
     baseSeed,
     seatSummary,
+    ...(reality ? { reality } : {}),
     report,
     file: filename,
     trajectoryFile,

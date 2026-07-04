@@ -120,6 +120,31 @@ describe("/api/self-play", () => {
     expect(body.games).toBe(1); // single pod, not two
     expect(body.deckNames).toEqual(["Deck A", "Deck B", "Deck C", "Deck D"]);
   });
+
+  it("analyze:true returns a per-deck reality report; absent otherwise (P5)", async () => {
+    const on = await runPost({ deckIds: ["a", "b", "c", "d"], mode: "commander", analyze: true });
+    expect(on.status).toBe(200);
+    const body = await on.json();
+    expect(Array.isArray(body.reality)).toBe(true);
+    expect(body.reality.length).toBeGreaterThan(0);
+    for (const r of body.reality) {
+      expect(["Deck A", "Deck B", "Deck C", "Deck D"]).toContain(r.deck);
+      expect(typeof r.games).toBe("number");
+      expect(typeof r.avgDeadTurns).toBe("number");
+      expect(typeof r.deadTurnRate).toBe("number");
+      expect(typeof r.avgCasts).toBe("number");
+      expect(typeof r.avgLands).toBe("number");
+      expect(typeof r.mulliganRate).toBe("number");
+    }
+    // seat "user" (Deck A) always takes actions → present, labeled with its deck
+    const a = body.reality.find((r) => r.seat === "user");
+    expect(a?.deck).toBe("Deck A");
+    expect(a.games).toBeGreaterThanOrEqual(1);
+
+    // no analyze flag → no reality field on the response
+    const off = await runPost({ deckIds: ["a", "b", "c", "d"], mode: "commander" });
+    expect((await off.json()).reality).toBeUndefined();
+  });
 });
 
 describe("/api/self-play GET — deck picker + history + stats", () => {
