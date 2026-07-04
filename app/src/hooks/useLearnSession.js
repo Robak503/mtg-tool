@@ -33,6 +33,7 @@ const INITIAL_STATE = {
   table: [],             // per-seat snapshot (life / zone counts / cmd damage)
   board: null,           // full board view model (hands/permanents/zones/stack) for LearnBoard
   decisionLogTail: [],
+  puzzle: null,          // P9: { id, goal, startTurn } when this session is a puzzle attempt; null otherwise
   error: null,
 };
 
@@ -821,6 +822,80 @@ export default function useLearnSession() {
     }
   }, []);
 
+  /**
+   * P9 — capture the current live position as a puzzle. The server snapshots the
+   * in-memory session (only the id crosses the wire). Returns { ok, id? , error? };
+   * does NOT change game state. `goal` defaults to "win-this-turn" server-side.
+   */
+  const saveAsPuzzle = useCallback(async ({ goal, label } = {}) => {
+    if (!state.sessionId) return { ok: false, error: "No active game to capture." };
+    try {
+      const response = await fetch("/api/puzzles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, goal, label }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return { ok: false, error: data.error || `Save failed: ${response.status}` };
+      return { ok: true, id: data.id };
+    } catch (error) {
+      return { ok: false, error: error.message || "network error" };
+    }
+  }, [state.sessionId]);
+
+  /** P9 — list saved puzzles for the active profile (newest first). */
+  const listPuzzles = useCallback(async () => {
+    try {
+      const response = await fetch("/api/puzzles", { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return [];
+      return Array.isArray(data.puzzles) ? data.puzzles : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  /** P9 — load a saved puzzle's position into a fresh attempt. Sets hook state like start(). */
+  const resumePuzzle = useCallback(async (puzzleId) => {
+    if (inFlightRef.current || !puzzleId) return null;
+    inFlightRef.current = true;
+    setState({ ...INITIAL_STATE, status: "starting" });
+    try {
+      const response = await fetch("/api/learn/resume-puzzle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ puzzleId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState({ ...INITIAL_STATE, status: "error", error: data.error || `Load failed: ${response.status}` });
+        return null;
+      }
+      const next = {
+        sessionId: data.sessionId,
+        decision: data.decision,
+        status: data.decision?.kind === "game-over" ? "ended" : "active",
+        mode: data.mode || null,
+        difficulty: data.difficulty || null,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || [],
+        board: data.board || null,
+        decisionLogTail: [],
+        puzzle: data.puzzle || null,
+        error: null,
+      };
+      setState(next);
+      return next.decision;
+    } catch (error) {
+      setState({ ...INITIAL_STATE, status: "error", error: error.message || "network error" });
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, []);
+
   return {
     ...state,
     start,
@@ -843,5 +918,8 @@ export default function useLearnSession() {
     listSaves,
     resume,
     deleteSave,
+    saveAsPuzzle,
+    listPuzzles,
+    resumePuzzle,
   };
 }
