@@ -32,6 +32,27 @@ describe("isAllowedOrigin", () => {
     expect(isAllowedOrigin("http://localhost:3000/")).toBe(false); // trailing slash is not how browsers send it
     expect(isAllowedOrigin("http://evil.example#http://127.0.0.1:3000")).toBe(false);
   });
+
+  it("dynamic same-origin: an http Origin matching the request's own loopback Host passes", () => {
+    // next dev on an auto-assigned port — same-origin by definition
+    expect(isAllowedOrigin("http://localhost:58676", "localhost:58676")).toBe(true);
+    expect(isAllowedOrigin("http://127.0.0.1:41234", "127.0.0.1:41234")).toBe(true);
+    // port-less loopback host
+    expect(isAllowedOrigin("http://localhost", "localhost")).toBe(true);
+  });
+
+  it("dynamic same-origin never widens beyond exact loopback host:port", () => {
+    // foreign origin, matching nothing
+    expect(isAllowedOrigin("https://evil.example", "localhost:58676")).toBe(false);
+    // cross-PORT local origin (another local dev server) is still cross-origin
+    expect(isAllowedOrigin("http://localhost:5500", "localhost:58676")).toBe(false);
+    // https scheme doesn't match the http rule
+    expect(isAllowedOrigin("https://localhost:58676", "localhost:58676")).toBe(false);
+    // a non-loopback Host (LAN name) must NOT enable the dynamic rule
+    expect(isAllowedOrigin("http://my-pc:8080", "my-pc:8080")).toBe(false);
+    // Host header spoofing with a non-loopback name that CONTAINS loopback
+    expect(isAllowedOrigin("http://localhost.evil.example", "localhost.evil.example")).toBe(false);
+  });
 });
 
 describe("shouldBlockOrigin", () => {
@@ -72,6 +93,18 @@ describe("middleware wrapper", () => {
   it("lets a same-origin POST continue (returns nothing)", () => {
     expect(
       middleware(new Request(url, { method: "POST", headers: { origin: "http://127.0.0.1:3000" } })),
+    ).toBeUndefined();
+  });
+
+  it("lets a same-origin POST continue on a non-3000 dev port (dynamic rule via Host)", () => {
+    const devUrl = "http://localhost:58676/api/decks";
+    expect(
+      middleware(
+        new Request(devUrl, {
+          method: "POST",
+          headers: { origin: "http://localhost:58676", host: "localhost:58676" },
+        }),
+      ),
     ).toBeUndefined();
   });
 

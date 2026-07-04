@@ -18,7 +18,12 @@
  *   - Requests WITH an Origin header must match the local allowlist exactly;
  *     anything else — a website, or "null" from a sandboxed iframe — is 403'd.
  *
- * If the server port ever changes, update the allowlist alongside it.
+ * Ports: the packaged .exe always binds 3000, but `next dev` may land on any
+ * port (e.g. --port from a tool, or 3000 being busy). Rather than pinning
+ * ports, a request whose Origin host:port EXACTLY matches the request's own
+ * Host header is same-origin by definition and passes — a foreign website's
+ * Origin can never equal the local server's Host. The static allowlist stays
+ * for the Tauri scheme.
  *
  * Dependency-free and pure so it runs in the middleware runtime unchanged and
  * is unit-testable directly (vitest imports route handlers, not the server,
@@ -38,17 +43,28 @@ const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
  * `null`/absent means "no Origin header" and passes (see policy above).
  * Comparison is exact — browsers send the header lowercased and without a
  * trailing slash, which is what the allowlist stores.
+ *
+ * `host` (optional) is the request's own Host header ("127.0.0.1:58676"):
+ * an http Origin for exactly that loopback host:port is same-origin.
  */
-export function isAllowedOrigin(origin) {
+export function isAllowedOrigin(origin, host) {
   if (origin === null || origin === undefined || origin === "") return true;
-  return ALLOWED_ORIGINS.has(origin);
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  // Dynamic same-origin: http://<host> where <host> is the server's own
+  // loopback Host header. Only loopback hosts qualify — a Host of
+  // "some-lan-name:3000" never widens the allowlist.
+  if (typeof host === "string" && /^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) {
+    return origin === `http://${host}`;
+  }
+  return false;
 }
 
 /**
- * Decide whether a request must be blocked. Pure: takes the HTTP method and
- * the Origin header value (string or null) rather than a Request object.
+ * Decide whether a request must be blocked. Pure: takes the HTTP method, the
+ * Origin header value (string or null), and optionally the request's Host
+ * header, rather than a Request object.
  */
-export function shouldBlockOrigin(method, origin) {
+export function shouldBlockOrigin(method, origin, host) {
   if (!STATE_CHANGING_METHODS.has(String(method || "").toUpperCase())) return false;
-  return !isAllowedOrigin(origin);
+  return !isAllowedOrigin(origin, host);
 }

@@ -24,6 +24,8 @@ export default function AppHeader({
   openUpdates,
   openSettings,
   appVersion,
+  showChatActions = true,
+  deckMenu = null,
   colors,
   fontFamily,
   profiles,
@@ -170,11 +172,16 @@ export default function AppHeader({
             {fastMode?"Fast":"Full"}
           </button>
         )}
-        {!mobile&&(
+        {!mobile&&deckMenu}
+        {!mobile&&showChatActions&&(
           <>
             {deckLock&&<button onClick={unlockDeck} className="btn btn-secondary btn-sm">Unlock Deck</button>}
             <button onClick={exportChat} className="btn btn-secondary btn-sm">Export Chat</button>
             <button onClick={clearChat} className="btn btn-secondary btn-sm">Clear Chat</button>
+          </>
+        )}
+        {!mobile&&(
+          <>
             {openUpdates && (
               <button
                 onClick={openUpdates}

@@ -52,10 +52,21 @@ import ProfileGate from "./mtg/ProfileGate";
 import ProfileManageModal from "./mtg/ProfileManageModal";
 import useProfiles from "../hooks/useProfiles";
 import { applyDeckChange } from "../lib/deck/deckApply";
+import { AREAS } from "./mtg/areas";
+import LandingScreen from "./mtg/LandingScreen";
+import AreaBar from "./mtg/AreaBar";
+import AgentsHome from "./mtg/AgentsHome";
+import ProvingHome from "./mtg/ProvingHome";
+import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("jace");
   const [centerView, setCenterView] = useState("chat");
+  // Kiosk IA: which top-level AREA is active. "home" = the landing screen;
+  // every other value comes from the AREAS registry (mtg/areas.jsx). The
+  // landing + bottom AreaBar both render from that registry — see the
+  // HOW-TO-ADD-AN-AREA comment there.
+  const [area, setArea] = useState("home");
 
   const [rightTab, setRightTab] = useState("search");
   const [rightOpen, setRightOpen] = useState(true);
@@ -729,7 +740,9 @@ export default function MTGAssistant() {
 
   const showLeft  =!mobile||mobileTab==="decks";
   const showCenter=!mobile||mobileTab==="chat"||mobileTab==="sessions";
-  const showRight =(!mobile&&rightOpen)||mobileTab==="search"||mobileTab==="stats";
+  // The right panel is a chat-context tool (search/stats/legal/combos) —
+  // desktop shows it only inside the Agents area; mobile keeps its tabs.
+  const showRight =(!mobile&&rightOpen&&area==="agents")||mobileTab==="search"||mobileTab==="stats";
   const showMobileSessionPicker = mobile && mobileTab === "sessions";
 
   // Active commander's art backs the whole shell. Routed through /api/art-crop
@@ -772,6 +785,28 @@ export default function MTGAssistant() {
     />
   ) : null;
 
+  // ── AREA ROUTING ──────────────────────────────────────────────────────
+  // Entering an area opens its registry-declared defaultView. The landing
+  // screen (area === "home") and the bottom AreaBar both render from the
+  // AREAS registry in mtg/areas.jsx — adding an area there is all it takes
+  // to get a landing card + a bar button; then add its centerView branch
+  // in the center switch below (search for "AREA ROUTING" again).
+  const enterArea = (id) => {
+    const target = AREAS.find((a) => a.id === id);
+    setArea(id);
+    if (target?.defaultView) setCenterView(target.defaultView);
+    if (mobile) setMobileTab("chat");
+  };
+  const goHome = () => setArea("home");
+  // The Proving Grounds' sub-surfaces (Academy / Sim / Pod Balance).
+  const pickProvingGround = (id) => setCenterView(id);
+  // Agents home → straight into that agent's chat.
+  const pickAgent = (key) => {
+    setAgent(key);
+    setCenterView("chat");
+    if (mobile) setMobileTab("chat");
+  };
+
   // Gate the shell behind the "Who's playing?" picker until a profile is chosen
   // this session (the first /api/profiles GET also ran the one-time migration).
   if (!profileChosen) {
@@ -788,6 +823,37 @@ export default function MTGAssistant() {
           error={profilesApi.error}
         />
         {manageModal}
+      </>
+    );
+  }
+
+  // The kiosk landing screen — the HOME between the profile gate and the
+  // areas. Feedback stays reachable (it floats over everything).
+  if (area === "home") {
+    return (
+      <>
+        <LandingScreen
+          appVersion={appVersion}
+          onEnterArea={enterArea}
+          fontFamily={F}
+          profiles={profilesApi.profiles}
+          activeProfile={profilesApi.activeProfile}
+          activeProfileId={profilesApi.activeId}
+          onSwitchProfile={handleSwitchProfile}
+          onManageProfiles={() => setShowProfiles(true)}
+          profileColors={profileColors}
+        />
+        {manageModal}
+        <FeedbackPanel
+          agent={agent}
+          currentSession={currentSession}
+          activeDeck={activeDeck}
+          page="landing"
+          cfg={cfg}
+          colors={{BG2, BG3, LINE, TEXT, MUTED, GOLD}}
+          fontFamily={F}
+          mobile={mobile}
+        />
       </>
     );
   }
@@ -822,6 +888,22 @@ export default function MTGAssistant() {
         openUpdates={() => setShowUpdates(true)}
         openSettings={() => setShowSettings(true)}
         appVersion={appVersion}
+        showChatActions={area === "agents"}
+        deckMenu={area === "agents" ? (
+          <DeckMenu
+            savedDecks={savedDecks}
+            activeDeckId={activeDeckId}
+            setActiveDeckId={setActiveDeckId}
+            unloadActiveDeck={unloadActiveDeck}
+            exportDeck={exportDeck}
+            exportDeckLibrary={exportDeckLibrary}
+            backupDeckLibrary={backupDeckLibrary}
+            importDeckLibrary={importDeckLibrary}
+            goImport={() => setCenterView("import")}
+            goDeckView={() => setCenterView("deck")}
+            fontFamily={F}
+          />
+        ) : null}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
         profiles={profilesApi.profiles}
@@ -1147,7 +1229,10 @@ export default function MTGAssistant() {
       {/* Body */}
       <div ref={bodyRef} style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>
 
-        {showLeft&&(
+        {/* The old desktop nav sidebar is retired (the landing + AreaBar +
+            DeckMenu cover it); it survives ONLY as the mobile "Decks" tab
+            until the mobile IA gets its own pass. */}
+        {mobile&&showLeft&&(
           <Sidebar
             agent={agent}
             activeDeckId={activeDeckId}
@@ -1174,7 +1259,7 @@ export default function MTGAssistant() {
           />
         )}
 
-        {!mobile && centerView === "chat" && (
+        {!mobile && area === "agents" && centerView === "chat" && (
           <SessionSidebar
             sessions={sessions}
             activeSessions={activeSessions}
@@ -1227,7 +1312,16 @@ export default function MTGAssistant() {
             the picker takes the center area. */}
         {showCenter&&!showMobileSessionPicker&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
-            {centerView==="import"?(
+            {/* AREA ROUTING — the center switch. Area front doors first,
+                then the individual surfaces. */}
+            {centerView==="agents-home"?(
+              <AgentsHome onPickAgent={pickAgent} fontFamily={F} />
+            ):centerView==="proving-home"?(
+              <ProvingHome
+                onPick={(id)=>{ if(id==="podbalance"){ setShowPodBalance(true); } else { pickProvingGround(id); } }}
+                fontFamily={F}
+              />
+            ):centerView==="import"?(
               <ImportDeckView
                 cfg={cfg}
                         colors={{BG, BG3, LINE, TEXT, MUTED, GOLD}}
@@ -1381,9 +1475,16 @@ export default function MTGAssistant() {
           cfg={cfg}
           mobileTab={mobileTab}
           setMobileTab={setMobileTab}
+          onHome={goHome}
           colors={{BG2, LINE, MUTED}}
           fontFamily={F}
         />
+      )}
+
+      {/* Kiosk chrome: the bottom area-switcher (desktop). Registry-driven —
+          see mtg/areas.jsx to add areas. */}
+      {!mobile&&(
+        <AreaBar area={area} onEnterArea={enterArea} onHome={goHome} fontFamily={F} />
       )}
 
       {/* In-app feedback capture. Floats over everything; writes to
