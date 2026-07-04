@@ -54,6 +54,7 @@ import { appRoot } from "../src/lib/server/paths.js";
 import { loadAllProfileDecks, toRunnerDeck } from "../src/lib/server/selfPlayDecks.js";
 import { runSelfPlayGame } from "../src/lib/learn/selfPlayRunner.js";
 import * as opponentAI from "../src/lib/learn/opponentAI.js";
+import { analyzeGame } from "../src/lib/learn/gameAnalysis.js"; // P5: the shared post-game analyzer (probe + route)
 
 // AI-F11 — derived from the ONE policy-key list opponentAI exports: a hand-copied
 // list silently dropped every new subsystem (counter) from `--legacy=all`.
@@ -173,84 +174,8 @@ function cloneDeckWithSuffix(deck, suffix) {
   };
 }
 
-const DEAD_KINDS = new Set(["pass-priority", "play-land"]);
-
-/**
- * Per-seat play-quality metrics for one finished game, mined from the recorded
- * decision trajectory (every pick, all windows) + the engine's own state.log
- * (creature-dies events). Attacker-vs-blocker death attribution joins the
- * creature-dies (turn, controller, cardName) against the names that seat declared
- * attacking/blocking that turn — name-level join (duplicates blur it slightly),
- * fine for aggregate A/B deltas.
- */
-function analyzeGame(game) {
-  const perSeat = {};
-  const seatOf = (seat) => (perSeat[seat] ??= {
-    activeTurnKinds: new Map(), // turn -> [action kinds] while this seat was the active player
-    casts: 0,
-    lands: 0,
-    xValues: [],
-    mulligans: 0,
-    attacks: new Map(), // turn -> Set(creature names declared attacking)
-    blocks: new Map(), // turn -> Set(creature names declared blocking)
-    attackerDeaths: 0,
-    blockerDeaths: 0,
-    otherCombatDeaths: 0,
-  });
-
-  for (const row of game.decisionTrajectory?.rows || []) {
-    const s = seatOf(row.seat);
-    const kind = row.action?.kind || "";
-    if (kind === "mulligan-ship") s.mulligans += 1;
-    if (row.features?.is_active_player === 1) {
-      const list = s.activeTurnKinds.get(row.turn) || [];
-      list.push(kind);
-      s.activeTurnKinds.set(row.turn, list);
-    }
-    if (kind === "cast-spell") {
-      s.casts += 1;
-      if (row.action.xValue != null) s.xValues.push(row.action.xValue);
-    } else if (kind === "play-land") {
-      s.lands += 1;
-    } else if (kind === "declare-attacker") {
-      if (!s.attacks.has(row.turn)) s.attacks.set(row.turn, new Set());
-      s.attacks.get(row.turn).add(row.action.name);
-    } else if (kind === "declare-blocker") {
-      if (!s.blocks.has(row.turn)) s.blocks.set(row.turn, new Set());
-      s.blocks.get(row.turn).add(row.action.name);
-    }
-  }
-
-  for (const ev of game.log || []) {
-    if (ev?.kind !== "creature-dies" || ev.cause !== "combat" || !perSeat[ev.controller]) continue;
-    const s = perSeat[ev.controller];
-    if (s.attacks.get(ev.turn)?.has(ev.cardName)) s.attackerDeaths += 1;
-    else if (s.blocks.get(ev.turn)?.has(ev.cardName)) s.blockerDeaths += 1;
-    else s.otherCombatDeaths += 1;
-  }
-
-  const out = {};
-  for (const [seat, s] of Object.entries(perSeat)) {
-    let dead = 0;
-    for (const kinds of s.activeTurnKinds.values()) {
-      if (kinds.length > 0 && kinds.every((k) => DEAD_KINDS.has(k))) dead += 1;
-    }
-    out[seat] = {
-      deadTurns: dead,
-      activeTurns: s.activeTurnKinds.size,
-      casts: s.casts,
-      lands: s.lands,
-      xValues: s.xValues,
-      mulligans: s.mulligans,
-      attacksDeclared: [...s.attacks.values()].reduce((n, set) => n + set.size, 0),
-      blocksDeclared: [...s.blocks.values()].reduce((n, set) => n + set.size, 0),
-      attackerDeaths: s.attackerDeaths,
-      blockerDeaths: s.blockerDeaths,
-      otherCombatDeaths: s.otherCombatDeaths,
-    };
-  }
-  return out;
-}
+// analyzeGame + DEAD_KINDS moved to src/lib/learn/gameAnalysis.js (P5) — imported at the top so the
+// probe and the self-play `analyze` route share ONE implementation and can't drift.
 
 function emptySide() {
   return {
