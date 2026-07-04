@@ -1,3 +1,5 @@
+> ✅ **EXECUTED 2026-07-01→02 → shipped v0.85.0 (engine) + v0.86.0 (harness follow-on). Do NOT re-run.** Deliverables: [OVERHAUL-PLAYBOOK.md](OVERHAUL-PLAYBOOK.md) · [OVERHAUL-SESSION-NARRATIVE.md](OVERHAUL-SESSION-NARRATIVE.md) · [overhaul-evidence.md](overhaul-evidence.md) · [PLAY-API-CONTRACT.md](PLAY-API-CONTRACT.md). The companion Omnath-side pass also completed (2026-07-03). Method index: [MASTER-GUIDE.md](MASTER-GUIDE.md). Original mission retained below for the record.
+
 # MASTER PROMPT — Clyde / Fable 5 ENGINE OVERHAUL pass (one-time, ultracode)
 
 > **Session setup:** model **Fable 5** (`/model claude-fable-5`) · **ultracode ON** · launched via the

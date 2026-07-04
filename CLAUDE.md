@@ -96,7 +96,7 @@ You must:
 Run verification after big changes or batches of small changes — not
 after every edit. Verification means:
 
-- `npm test` in `app/` passes (currently ~6,580 vitest cases)
+- `npm test` in `app/` passes (live anchor in docs/orchestration/WAKE-REPORT.md — 7,681 @ v0.88.0)
 - `cargo check --release` in `app/src-tauri/` passes
 - For UI changes: `npm run dev` in `app/` boots cleanly at
   http://localhost:3000
@@ -493,7 +493,7 @@ These are absolute. Violating any of these is a failure mode.
 
 ## 9. PROJECT STATUS (LIVING SNAPSHOT)
 
-> **Start a new chat by reading [docs/orchestration/WAKE-REPORT.md](docs/orchestration/WAKE-REPORT.md)** (the live resume anchor) plus the two architecture scaffolds — [docs/orchestration/PROJECT-SCAFFOLD.md](docs/orchestration/PROJECT-SCAFFOLD.md) (whole system) and [docs/orchestration/ENGINE-SCAFFOLD.md](docs/orchestration/ENGINE-SCAFFOLD.md) (the rules engine + how to add a mechanic). `CHANGELOG.md` is authoritative for shipped state. (The older `docs/HANDOFF.md` and `docs/project-status.md` are historical — many releases behind.)
+> **Start a new chat by reading [docs/orchestration/WAKE-REPORT.md](docs/orchestration/WAKE-REPORT.md)** (the live resume anchor) plus the two architecture scaffolds — [docs/orchestration/PROJECT-SCAFFOLD.md](docs/orchestration/PROJECT-SCAFFOLD.md) (whole system) and [docs/orchestration/ENGINE-SCAFFOLD.md](docs/orchestration/ENGINE-SCAFFOLD.md) (the rules engine + how to add a mechanic). `CHANGELOG.md` is authoritative for shipped state. (The older `docs/HANDOFF.md` and `docs/project-status.md` are historical — many releases behind.) **The method index: [docs/orchestration/MASTER-GUIDE.md](docs/orchestration/MASTER-GUIDE.md)** — boot order by work type, post-Fable model policy, the never-skip law, the doc registry, and the forward queue ([UPGRADE-BACKLOG.md](docs/orchestration/UPGRADE-BACKLOG.md)).
 
 ## 10. THE PRIME DIRECTIVE (RESTATED)
 

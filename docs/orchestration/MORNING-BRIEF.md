@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL (bannered 2026-07-04).** One-shot brief from the v0.85.0 overnight loop (2026-07-02); its decision list is resolved. Current briefing: [WAKE-REPORT.md](WAKE-REPORT.md).
+
 # ☕ MORNING BRIEF — 2026-07-02
 
 **While you slept, the completion loop finished the overhaul and shipped `v0.85.0`.**

@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL (bannered 2026-07-04).** Status frozen 2026-05-30 — dozens of releases behind. Shipped truth: CHANGELOG.md · live state: docs/orchestration/WAKE-REPORT.md · forward queue: docs/orchestration/UPGRADE-BACKLOG.md.
+
 # MTG Tool Roadmap
 
 ## Current status — 2026-05-30

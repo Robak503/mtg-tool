@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL — coverage-chat era (bannered 2026-07-04).** Pre-dates the one-owner model and the playbooks; standing directives here (e.g. release holds) are VOID. Live: `memory/orders/clyde-grind-relaunch.md` + docs/orchestration/MASTER-GUIDE.md.
+
 # Coverage Autopilot — the self-paced loop instruction
 
 The canonical instruction the Academy coverage autopilot loops on. One **cycle** = advance the

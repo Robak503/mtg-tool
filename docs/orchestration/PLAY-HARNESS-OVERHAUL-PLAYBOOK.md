@@ -11,6 +11,8 @@
 > rather than *classification of text*. Raw evidence for every number:
 > [play-harness-overhaul-log.md](play-harness-overhaul-log.md). Pilot-side evidence:
 > `omnath-tools/pilots/R11-DIAGNOSIS.md` + `pilots/README.md`.
+>
+> **Post-Fable model note (2026-07-04):** seats + orchestration policy = [MASTER-GUIDE.md](MASTER-GUIDE.md) §2 — wherever this doc says `model:"fable"`, read `opus`.
 
 ---
 
@@ -347,8 +349,7 @@ CR cites, COMMS-before-contract). On top, for harness/AI work:
 
 ## 7. FINAL NUMBERS
 
-> **TEMPLATE — the orchestrator splices measured values at pass close. Placeholders in
-> `{{…}}` are not measurements.** Every value re-runnable from §2 / OVERHAUL-PLAYBOOK §2.
+> Every value re-runnable from §2 / OVERHAUL-PLAYBOOK §2.
 
 | Metric | P0 baseline | Final | Instrument |
 |---|---|---|---|

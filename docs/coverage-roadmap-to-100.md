@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL — coverage-chat era (bannered 2026-07-04).** Pre-dates the one-owner model and the playbooks; standing directives here (e.g. release holds) are VOID. Live: `memory/orders/clyde-grind-relaunch.md` + docs/orchestration/MASTER-GUIDE.md.
+
 # Academy Engine — Roadmap to ~94% Native Coverage
 
 *Synthesized 2026-06-17 from a four-agent analysis pass (mechanism inventory, corpus

@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL (bannered 2026-07-04).** 2026-06-15-era backlog/strategy. Forward queue: docs/orchestration/UPGRADE-BACKLOG.md; live strategy lives memory-side (vision/roadmap files).
+
 # MTG Tool — Master Product Plan
 
 > **The single consolidated backlog + strategy doc for MTG Tool.** This file

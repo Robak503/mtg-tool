@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL (bannered 2026-07-04).** The 2026-06-26 locked decisions that still bind the grind were carried into `memory/orders/clyde-grind-relaunch.md` (v2) + [MASTER-GUIDE.md](MASTER-GUIDE.md); everything else here is coverage-era history. Kept for the record.
+
 # CoverageRun — the consolidated one-chat coverage build (operating spec)
 
 > **Supersedes the 4-chat faculty model.** Clyde is the **sole orchestrator + sole master-writer**;
