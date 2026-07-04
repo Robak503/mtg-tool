@@ -8,6 +8,37 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-07-04
+
+The Gallery, Table Records, and the rest of the quick-win wave.
+
+### Added
+- **The Gallery** — a fifth Vault door: your collection as an art wall, grouped
+  by the artist of the exact printing you own ("Alayna Danner — 4 pieces
+  owned"), with honest fallbacks until the artist-aware printings index from
+  v0.90.0's sync lands. The card drawer's signed editor gains one-click
+  **"Use printing artist"**.
+- **Table Records** — a fourth Proving Grounds door. Finished Academy games are
+  no longer thrown away at game over: every game keeps its result, turns,
+  decks, and the full narrated tail, browsable list → detail.
+- **Prove the Pod** — Pod Balance can now run 20 real engine games over the
+  compared decks and show the empirical win rates (with confidence intervals)
+  beside the ratings: "rated 6.8 · wins 55%".
+- **Sim Center win tables** — win rate by deck, by turn-order seat, and
+  on-the-play (the engine computed these all along; now you can see them).
+- **Post-import "deck ready" moment** — importing a deck now confirms the save,
+  streams the machine rating in as it computes, and offers next steps (view /
+  Karn plan / Tibalt roast / Pod Balance) instead of dumping you into chat.
+- **Per-message chat actions** — Copy on every reply; save THIS Karn plan /
+  Tibalt roast / Jace note (not just the newest), guarded so a locked-deck chat
+  can never write into the wrong deck.
+- **Pod Balance → Sim Center handoff** — "Run this pod in the Sim Center"
+  opens the Sim pre-loaded with the same decks.
+
+### Changed
+- The last hand-hexed palette (main shell constants) now composes from LEYLINE
+  tokens.
+
 ## [0.90.0] - 2026-07-04
 
 The Trophy Case.

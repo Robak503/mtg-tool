@@ -1,4 +1,19 @@
-# 🌅 WAKE REPORT — 2026-07-04 (VAULT wave-V core + wave Q → v0.89.0 · V5+V6 Trophy Case → v0.90.0)
+# 🌅 WAKE REPORT — 2026-07-04 (v0.89.0 wave-V+Q · v0.90.0 Trophy Case · v0.91.0 tail: Gallery + Records + Prove-the-Pod)
+
+> **v0.91.0 ("do all next best remaining", same finale session):** **V7 THE GALLERY** (5th
+> Vault door — collection by printing artist via new `/api/collection/artists`; drawer
+> "Use printing artist" autofill; honest pre-V5-index fallbacks) · **P2 CORE — TABLE
+> RECORDS** (4th Proving Grounds door; Academy games PERSIST at game over via
+> `gameRecordsStore` + `/api/records` — the step/choose terminal blocks write the record
+> before dropping the save; list→detail with the narrated tail) · **P1 Prove the Pod**
+> (20 real games from Pod Balance → empirical seatSummary + rated-vs-wins line) · **Q7**
+> SeatSummaryTables in Sim Center results · **Q3** DeckReadyView post-import moment ·
+> **Q8** per-message Copy/Save chips (locked-deck-safe) · **Q9** pod→sim handoff
+> (consume-once initialSelection) · **Q4-lite** shell hand-hex → tokens. Suite **7,696**
+> + lint 0 · fence a2a03ba8 ×2 + tier 0-diff (3rd time this session). PARKED: P2 replay
+> scrubber + self-play records + game-log merge (backlog P2 note) · Q4 full alias sweep ·
+> Q7 report-history trend · Q9 reverse link · V7 artist filter token. Dev-tree residue:
+> synthetic printings-index seed + Sol Ring trophy row (Gallery/Trophy walk demos).
 
 > **v0.90.0 (same finale session, "do your next best moves"):** **V6 THE TROPHY CASE** —
 > additive provenance fields on collection rows (`signed {artist,date,event,inPerson}`,

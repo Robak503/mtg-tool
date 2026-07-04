@@ -38,13 +38,13 @@ Q2 touches deck-memory serialization, so prove the fence, don't assume it).
   (`app/src/lib/deck/deckMemory.js:121`) emits "Machine Power Rating: 6.8/10 — Bracket 3"
   so Jace/Karn/Tibalt see it (flows via `deckContextBuilder.js`); serializer test beside
   the existing deckMemory tests. *Promotes the v0.88.0 parked item.*
-- **Q3 · Post-import "deck ready" moment** (impact 4) — after `importDeck()`
+- ✅ v0.91.0 — **Q3 · Post-import "deck ready" moment** (impact 4) — after `importDeck()`
   (`MTGAssistant.jsx` ~704) show a confirmation panel: deck name, counts, the auto-rating
   streaming in when it lands ("Power 6.8 · Bracket 3 — rated locally"), and next-step
   buttons with existing handlers (Karn plan / Tibalt roast / View deck / Pod Balance).
   Needs a small callback so the UI can await the currently fire-and-forget auto-rate
   (`useDeckStore.js:203-243`).
-- **Q4 · LEYLINE alias sweep + hand-hex fix** (impact 2, rider) — rename the ~25 legacy
+- ◐ v0.91.0 (hand-hex constants fixed — the styleguide violation; the ~25-usage alias sweep + globals block deletion still open) — **Q4 · LEYLINE alias sweep + hand-hex fix** (impact 2, rider) — rename the ~25 legacy
   Aether-token usages (DeckView 14, RightPanel 5, AppHeader 3, ProfileManageModal 2,
   DeckConfirmModal 1) to `--ley-*`, delete the alias block (`globals.css:68-104`), and fix
   the un-logged violation: `MTGAssistant.jsx:732` hand-hexes BG/BG2/LINE/GOLD constants —
@@ -56,15 +56,15 @@ Q2 touches deck-memory serialization, so prove the fence, don't assume it).
   saltiest cards to `/api/pod-balance` `summarize()` (the 11 MB `edhrec-salt.local.json`
   is already wired through `edhrecSalt.js` into deckReport/powerRanker) and a "misery
   meter" row in `PodBalanceView`.
-- **Q7 · Show the win tables the engine already saves** (impact 4) — render `seatSummary`
+- ✅ v0.91.0 (result pane; per-report history trend still open) — **Q7 · Show the win tables the engine already saves** (impact 4) — render `seatSummary`
   (win rate by seat / by deck / on-the-play with Wilson CI95 — computed and persisted per
   run at `app/src/app/api/self-play/route.js:224`, rendered NOWHERE) in SimCenter's result
   pane + saved-report history; per-deck trend via existing `Sparkline.jsx`.
-- **Q8 · Per-message chat actions** (impact 4) — Copy on every message; "Save plan/roast"
+- ✅ v0.91.0 — **Q8 · Per-message chat actions** (impact 4) — Copy on every message; "Save plan/roast"
   chips on Karn/Tibalt replies reusing `saveLatestAgentArtifact` (`MTGAssistant.jsx:643`)
   but targeting THIS message; Jace "Save to notes" via `updateAgentNote`. Locked-deck
   sessions save into the LOCKED deck's memory, not the sidebar-active deck.
-- **Q9 · Pod Balance ⇄ Sim Center round trip** (impact 3) — "Run this pod in the Sim
+- ✅ v0.91.0 (forward link; reverse sim→pod link still open) — **Q9 · Pod Balance ⇄ Sim Center round trip** (impact 3) — "Run this pod in the Sim
   Center" on a ready comparison (seed SimCenter via an `initialSelection` prop; selection
   state at `SimCenter.jsx:71`); reverse link on sim results.
 
@@ -99,7 +99,7 @@ summary here for the queue:
   route; today it's a free-text note), a Provenance section in the detail drawer, and the
   showcase surface itself: big art tiles, signature badge, artist + event caption. *The
   collector-identity feature — his signed-showpiece ledger finally lives IN the app.*
-- **V7 · The Gallery / artists shelf** (M–L, 4) — browse the collection as an art wall;
+- ✅ v0.91.0 (Gallery door + artist wall + drawer autofill; artist token in Stacks filters still open) — **V7 · The Gallery / artists shelf** (M–L, 4) — browse the collection as an art wall;
   artist pages ("you own 12 by Chase Stone"); artist search token in filters; artist in
   detail drawer + set rows. Rides V5 (or the slim art-index variant if unique_artwork is
   preferred — see the order file's data note).
@@ -121,12 +121,12 @@ summary here for the queue:
 
 ## Wave P — The Proving Grounds: records + insights (the engine dividend; closes open Q8)
 
-- **P1 · Prove the Pod — empirical win rates in Pod Balance** (M, 5) — "Prove it — run 20
+- ✅ v0.91.0 — **P1 · Prove the Pod — empirical win rates in Pod Balance** (M, 5) — "Prove it — run 20
   games" button POSTs the picked decks to the EXISTING `/api/self-play`
   (scope:'pod', allProfiles, rotateSeats) and renders `seatSummary.byDeck` (wins, %,
   Wilson CI) beside the static verdict + a calibration flag ("rated 6.8, wins 58%").
   Needs only UI + async progress affordance.
-- **P2 · The Records program — game archive + replay browser** (L, 5) — the Q8 answer,
+- ◐ v0.91.0 CORE (Academy games persist via gameRecordsStore + /api/records + the Table Records door with list→detail log view; PARKED: replay scrubber w/ turn sparklines, self-play batch records, human game-log merge, opponent fuzzy-grouping) — **P2 · The Records program — game archive + replay browser** (L, 5) — the Q8 answer,
   two data sources, one door: (a) STOP discarding finished Academy games —
   `/api/learn/step` deletes the save at terminal today (`route.js:71`); write a compact
   GameRecord {decks, result, winnerSeat, turns, structured log, per-turn features} to

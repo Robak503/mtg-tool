@@ -60,6 +60,7 @@ import ProvingHome from "./mtg/ProvingHome";
 import VaultHome from "./mtg/VaultHome";
 import DeckReadyView from "./mtg/DeckReadyView";
 import VaultGalleryView from "./mtg/VaultGalleryView";
+import RecordsView from "./mtg/RecordsView";
 import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
@@ -1327,6 +1328,8 @@ export default function MTGAssistant() {
               <AgentsHome onPickAgent={pickAgent} fontFamily={F} />
             ):centerView==="proving-home"?(
               <ProvingHome onPick={pickProvingGround} fontFamily={F} />
+            ):centerView==="records"?(
+              <RecordsView onBack={() => setCenterView("proving-home")} fontFamily={F} />
             ):centerView==="podbalance"?(
               <PodBalanceView
                 savedDecks={savedDecks}
