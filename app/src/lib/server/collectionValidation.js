@@ -33,6 +33,12 @@ export function validateStacks(stacks) {
     if (!VALID_CONDITIONS.has(cond)) {
       return "stack.condition must be NM, LP, MP, HP, DMG, or null";
     }
+    // V10 cost basis — optional; what you paid per copy in this stack.
+    if (stack.paidUsd !== undefined && stack.paidUsd !== null) {
+      if (typeof stack.paidUsd !== "number" || !Number.isFinite(stack.paidUsd) || stack.paidUsd < 0) {
+        return "stack.paidUsd must be a non-negative number";
+      }
+    }
   }
   return null;
 }

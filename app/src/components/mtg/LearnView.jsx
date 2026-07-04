@@ -119,6 +119,8 @@ function companionOf(deck) {
 
 export default function LearnView({
   savedDecks,
+  initialUserDeckId = null,
+  onConsumeInitialDeck,
   fontFamily,
   setCenterView,
 }) {
@@ -128,6 +130,15 @@ export default function LearnView({
   const [oppIds, setOppIds] = useState(["", "", ""]); // up to 3 opponents (Commander)
   const [difficulty, setDifficulty] = useState("beginner");
   const [saves, setSaves] = useState([]);
+
+  // P6: seed the user-deck picker from a DeckView "Practice" handoff, once.
+  useEffect(() => {
+    if (initialUserDeckId && savedDecks.some((d) => d.id === initialUserDeckId)) {
+      setUserDeckId(initialUserDeckId);
+      onConsumeInitialDeck?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUserDeckId]);
 
   const oppCount = mode === "commander" ? 3 : 1;
   const userDeck = savedDecks.find(d => d.id === userDeckId);

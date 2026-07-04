@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.95.0] - 2026-07-04
+
+### Added
+- **Practice this deck** — a button on the deck view opens the Academy with the
+  deck already selected, so you can jump straight into a game against the engine.
+- **Cost basis** — record what you paid per copy in the card drawer, and the
+  Ledger shows total paid vs current value with unrealized gain/loss.
+
 ## [0.94.0] - 2026-07-04
 
 ### Added

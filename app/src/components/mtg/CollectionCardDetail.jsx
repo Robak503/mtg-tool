@@ -213,6 +213,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         finish: s.finish,
         quantity: Math.max(0, Math.floor(s.quantity)),
         condition: s.condition || null,
+        ...(Number.isFinite(s.paidUsd) ? { paidUsd: s.paidUsd } : {}),
       }));
 
     // Saving with everything at 0 means "I no longer own this" → delete the row
@@ -685,6 +686,16 @@ function StackRow({ stack, onChange, onRemove, colors }) {
         ))}
       </select>
 
+      <input
+        type="number"
+        min={0}
+        step="0.01"
+        value={stack.paidUsd ?? ""}
+        onChange={(e) => onChange({ paidUsd: e.target.value === "" ? null : Math.max(0, parseFloat(e.target.value) || 0) })}
+        placeholder="paid $"
+        title="What you paid per copy (optional)"
+        style={{ ...inputStyle(colors), width: 62, textAlign: "right" }}
+      />
       <button onClick={onRemove} className="btn btn-ghost btn-sm btn-icon" aria-label="Remove stack">×</button>
     </div>
   );

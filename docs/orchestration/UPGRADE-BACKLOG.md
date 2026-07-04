@@ -109,7 +109,7 @@ summary here for the queue:
 - ✅ v0.89.0 — **V9 · Binder combos — "what can I assemble from cards I own"** (S, 4) — new
   `/api/collection/combos`: owned names → existing `spellbook.findCombos()`; complete
   combos grouped by identity + "one card away" priced via printingIndex.
-- **V10 · Cost basis** (M, 3) — optional `paidUsd` (+ `acquiredFrom/At`) per stack;
+- ✅ v0.95.0 **V10 · Cost basis** (M, 3) — optional `paidUsd` (+ `acquiredFrom/At`) per stack;
   gain/loss card in the Ledger; per-card gain in the drawer; CSV import column mapping
   later.
 - ✅ v0.92.0 **V11 · Universal shopping list** (S, 3) — merge wishlist + all-deck missing cards
@@ -152,7 +152,7 @@ summary here for the queue:
   promote `analyzeGame()` from `play-quality-probe.mjs:186` into `src/lib/learn` as a
   shared analyzer; needs the small `recordDecisions` passthrough on `/api/self-play`
   POST (additive).
-- **P6 · "Practice this deck" — DeckView → Academy handoff** (M, 4) — ribbon button
+- ✅ v0.95.0 **P6 · "Practice this deck" — DeckView → Academy handoff** (M, 4) — ribbon button
   navigates to the Academy with the deck preselected (`initialUserDeckId` prop —
   LearnView pickers start empty today) + "Suggest fair opponents" filling the pod with
   closest-powerRank saved decks.

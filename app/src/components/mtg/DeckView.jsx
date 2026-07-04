@@ -22,6 +22,7 @@ import { restoreDeckCards, isRestorable, createSnapshotEntry, relabelSnapshot, d
 
 export default function DeckView({
   onInspectCard,
+  onPractice,
   activeDeck,
   agentNotes,
   askDeckAgent,
@@ -250,6 +251,9 @@ export default function DeckView({
               </>
             )}
             <button onClick={() => setCenterView("chat")} className="btn btn-primary btn-sm">Chat</button>
+            {onPractice && activeDeck?.id && (
+              <button onClick={() => onPractice(activeDeck.id)} className="btn btn-secondary btn-sm" title="Practice this deck against the engine in the Academy">Practice</button>
+            )}
             <button onClick={exportDeck} className="btn btn-secondary btn-sm">Export</button>
           </div>
         </div>
