@@ -30,6 +30,7 @@ import VaultStatsView from "./VaultStatsView";
 import VaultSetBrowserView from "./VaultSetBrowserView";
 import VaultBuildView from "./VaultBuildView";
 import useColorTags from "../../hooks/useColorTags";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 // LEYLINE — token-backed shape consumed by every Collection/Vault child
 // component via the `colors` prop. GOLD is a legacy field name (kept so the
@@ -798,6 +799,7 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
 }
 
 function ConflictsModal({ conflicts, totalDecks, onClose, colors }) {
+  useEscapeClose(onClose);
   return (
     <div
       onClick={onClose}

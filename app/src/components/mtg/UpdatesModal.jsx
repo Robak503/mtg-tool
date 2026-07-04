@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 // Tauri plugin-updater is loaded dynamically — it only resolves inside
 // the Tauri WebView. In a regular browser tab (dev mode) the import
@@ -106,6 +107,7 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
     setAppUpdate(availableStateFrom(initialUpdate));
   }, [initialUpdate]);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
+  useEscapeClose(onClose, { disabled: appUpdateBusy });
   const [dataMsg, setDataMsg] = useState("");
   const restoreInputRef = useRef(null);
   // Autostart toggle state

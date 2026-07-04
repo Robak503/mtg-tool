@@ -10,8 +10,10 @@
  */
 
 import { useEffect, useState } from "react";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 export default function CollectionRoastModal({ onClose, colors }) {
+  useEscapeClose(onClose);
   const [state, setState] = useState({ status: "loading", roast: null, outliers: null, stats: null, error: null });
 
   useEffect(() => {

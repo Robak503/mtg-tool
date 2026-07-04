@@ -417,6 +417,16 @@ export default function PodBalanceView({ savedDecks = [], onSaveRating, onAddDec
                         {deck.gameChangers?.length ? deck.gameChangers.join(", ") : "none"}
                       </span>
                     </div>
+                    {typeof deck.saltSum === "number" && (
+                      <div style={{ fontSize: 11, marginTop: 3 }}>
+                        <span style={{ color: "var(--ley-text-faint)" }}>Salt {deck.saltSum.toFixed(1)}: </span>
+                        <span style={{ color: "var(--ley-text)" }}>
+                          {(deck.saltTop || []).length
+                            ? deck.saltTop.map((s) => `${s.name} (${s.salt})`).join(", ")
+                            : "low-salt list"}
+                        </span>
+                      </div>
+                    )}
                     {deck.massLandDenial?.length > 0 && (
                       <div style={{ fontSize: 11, color: "var(--ley-red)", marginTop: 3 }}>Mass land denial: {deck.massLandDenial.join(", ")}</div>
                     )}

@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 
 import { artCropProxySrc } from "../../lib/artCrop";
 import Sparkline from "./Sparkline";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 const FINISH_LABELS = { nonfoil: "Nonfoil", foil: "Foil", etched: "Etched" };
 const CONDITION_OPTIONS = [
@@ -28,6 +29,7 @@ const CONDITION_OPTIONS = [
 ];
 
 export default function CollectionCardDetail({ row, onClose, onSave, onDelete, tags = [], onAssignTag, colors }) {
+  useEscapeClose(onClose);
   const [stacks, setStacks] = useState(row.stacks || []);
   const [notes, setNotes] = useState(row.notes || "");
   const [busy, setBusy] = useState(false);
