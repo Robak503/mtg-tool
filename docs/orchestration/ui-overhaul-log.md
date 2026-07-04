@@ -86,4 +86,23 @@ gold (kept).
   tree (removed by the lane itself via `rmdir` before finishing), full
   suite + lint inside the lane, one commit, orchestrator cherry-picks and
   re-gates + screenshots before the next round.
+#### Lane C — the Academy (integrated 60b2cc03, lane commit 43439452, fable)
+- LearnBoard: LB_CSS rewritten onto tokens; the private GOLD/`--gold` parallel
+  color system DELETED (the `colors` prop no longer consumed); targeting/
+  playable/mana-tap = green live treatments; game-over + narration modal =
+  glass-strong; log = mono text-dim; MANA_PIPS keep real WUBRG colors
+  (identity-use, commented).
+- LearnView: all 14 decision side-sheets → `ley-glass-strong ley-glass-lit`;
+  TableStrip active seat = green border + `.ley-live` (the sanctioned
+  active-player glow); 48 buttons → `.btn` classes (17 primary / 14 secondary
+  / 16 ghost / 1 danger "Abandon game"); one-primary-per-state audited
+  (sheets suppress the bar's pass action; the game-over scrim covers the bar).
+- Lane gate: 7,661 ×2 + lint 0 inside the lane worktree; re-verified
+  visually post-cherry-pick (setup + live board screenshots
+  `p3c-academy-*.png`). Worktree swept junction-safe after integration.
+- Recovery note (lane E, same round): its first run died on a transient API
+  529 mid-file-4-of-14; verify-then-complete — worktree inspected (4 files
+  modified, junction intact, right base), agent resumed with context. An
+  agent's death is not evidence its work is bad; INSPECT then resume.
+
 - (per-lane entries appended as they integrate)
