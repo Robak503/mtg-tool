@@ -1,3 +1,28 @@
+# 🌅 WAKE REPORT — 2026-07-04 (the backlog push: v0.89.0 → v0.95.0, 8 releases, Opus at the helm)
+
+> **"Do all next best remaining" → "keep pushing through the entire backlog":** after the
+> Vault/Trophy/Records/Gallery run (v0.89-0.91), Colton swapped Fable→Opus and ordered the
+> whole backlog. Shipped **v0.92-0.95** on Opus (per MASTER-GUIDE §2 — the expected post-Fable
+> seat): **Judge Trials + The Library + formatted chat + universal shopping list + finish
+> analytics** (v0.92) · **local card inspector + command palette** (v0.93; fixed a real
+> printings-API key bug that had silently broken the v0.90 artist-autofill) · **binder view +
+> continue-strip** (v0.94) · **practice-this-deck + cost basis** (v0.95). Suite **7,703** +
+> lint 0 throughout. **ENGINE PROVABLY UNTOUCHED across all 8 releases** — zero
+> `app/src/lib/learn` deltas since v0.88.0; trajectory hash a2a03ba8 ×2 at close + tier fp
+> 0-diff.
+>
+> **What's LEFT is the evidence-heavy tail** — every remaining item is either engine-behavior-
+> changing (needs A/B probe evidence: E2/E3), a bounded engine fix that needs its own fenced
+> pass (E1 earthbend), an additive engine/harness export (P3/P4/P5/P8), a real project
+> (P7 replay/P9 puzzle), data-lands-at-sync (K4/K5/K9), a working stopgap (E4), or Colton's
+> call (E5). **All specced with reasons in [UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md) STATUS.**
+> The rapid app-side backlog is DONE; the rest is deliberately left for focused passes.
+>
+> Dev-tree residue (gitignored, harmless): seeded cards + a synthetic printings-index in the
+> Player-1 profile (used to walk Gallery/Trophy/Binder/cost-basis).
+
+# (previous report below — v0.89-0.91 wave-V + Trophy + Gallery/Records)
+
 # 🌅 WAKE REPORT — 2026-07-04 (v0.89.0 wave-V+Q · v0.90.0 Trophy Case · v0.91.0 tail: Gallery + Records + Prove-the-Pod)
 
 > **v0.91.0 ("do all next best remaining", same finale session):** **V7 THE GALLERY** (5th

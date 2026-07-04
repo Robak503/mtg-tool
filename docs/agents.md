@@ -131,16 +131,21 @@ classifies cards by archetype, plays turns 1-6 with
 archetype-specific priorities, saves game records to
 `data/games/`, summarizes insights via `gameInsights.js`.
 
-**Phase 6 Learn-to-Play Mode** (in progress, PRs 1-6 shipped):
-- Three difficulty levels: Beginner, Intermediate, Expert
+**Learn-to-Play / the Academy** (SHIPPED — lives in The Proving Grounds as
+"The Academy"; the original phase-6 spec below is historical):
+- Difficulty levels: Beginner, Intermediate, Expert
 - Beginner: explains every step, every priority window, every
   trigger, every SBA
 - Intermediate: explains key decisions and tricky interactions
 - Expert: plays at speed, explains mistakes
 - Uses Arbiter for rules accuracy
 - Uses Jace's voice for explanations
+- v0.91.0+: finished Academy games persist to Table Records
+  (`/api/records`); v0.95.0: DeckView "Practice" opens the Academy
+  preselected. Backlog: post-game debrief (P3), puzzle mode (P9) —
+  see `docs/orchestration/UPGRADE-BACKLOG.md`.
 
-See `docs/phase6-learn-to-play.md` for the full spec.
+Historical spec: `docs/phase6-learn-to-play.md`.
 
 ---
 
