@@ -264,7 +264,7 @@ export default function DeckView({
               ["Games", gameCount],
               ["Power", deckMemory.powerLevel || "Unset"],
             ].map(([label, value]) => (
-              <div key={label} className="aether-glass-hover" style={{ ...glass, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6, alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+              <div key={label} style={{ ...glass, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6, alignItems: "center", justifyContent: "center", textAlign: "center" }}>
                 <div style={dlabel}>{label}</div>
                 <div style={{ fontFamily: FD, fontSize: 30, fontWeight: 600, color: CY, lineHeight: 1 }}>{value}</div>
               </div>

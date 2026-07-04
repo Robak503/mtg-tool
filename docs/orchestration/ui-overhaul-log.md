@@ -142,4 +142,28 @@ gold (kept).
 - Kept deliberately: PodBalanceModal's `BRACKET_COLOR` 1–5 severity scale
   (data-viz, analogous to mana pips).
 
-- (per-lane entries appended as they integrate)
+#### Lane D — Sim Center (integrated a0947d60, lane commit 0a2ff0fb, sonnet)
+- SimCenter/SelfPlayPanel/Sparkline/StabilityBadge. All 7 buttons → `.btn`
+  ("Run simulation" = primary btn-lg + btn-loading + a `.ley-live` dot);
+  deck rows/format cards → green selected states; outcome coloring semantic
+  (win green / loss red / draw dim / count gold); BreakageTable mono;
+  StabilityBadge preview→blue / beta→gold tints; Sparkline strokes → tokens.
+  The two test files needed ZERO changes (they pin text, not style) — 12/12
+  green unmodified. 0 hexes remain in the estate.
+
+#### Lane F — system surfaces (integrated ad0118f3, lane commit bfdc27ae, sonnet)
+- Updates/Settings/Onboarding/ProfileGate/ProfileManage/ProfileMenu/
+  FeedbackPanel/FeedbackWindowApp (+166/−371). ~55 buttons → `.btn`; modal
+  recipe everywhere; profile tiles → `.ley-card` glass kiosk targets;
+  FeedbackWindowApp's standalone hard-coded theme now aliases tokens.
+  Bundled copy fix: SettingsModal Display tab + a ProfileGate comment still
+  described "Aether / electric-cyan" — corrected to Leyline (no test pinned
+  it). FeedbackWindowLoader + DailySnapshotTrigger verified UI-less, skipped.
+
+#### P3 close-out (orchestrator)
+- Final round-3 battery on the fully-integrated tree: **7,661 + lint 0**.
+- Legacy audit: cyan hexes 0 (non-test) · `.aether-*` usages 0 → the legacy
+  utility classes DELETED from globals.css · `pb()`/`sb()` callers remain
+  only in AppHeader/Sidebar (already LEYLINE-visual; full class conversion
+  queued for P4 polish) · non-interactive DeckView stat cards lost their
+  hover treatment (glow-discipline violation caught in audit).

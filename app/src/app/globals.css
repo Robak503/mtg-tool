@@ -359,29 +359,5 @@ select {
   }
 }
 
-/* legacy Aether utility names — same behavior, LEYLINE colors.
-   Each wave renames usages to .ley-*; delete when zero remain. */
-.aether-row {
-  border: 1px solid transparent;
-  transition: border-color 0.15s, background 0.15s;
-}
-.aether-row:hover {
-  border-color: var(--ley-line-bright);
-  background: var(--ley-green-faint);
-}
-.aether-glass-hover {
-  transition: border-color 0.2s, background 0.2s;
-}
-.aether-glass-hover:hover {
-  border-color: var(--ley-line-bright);
-  background: var(--ley-glass-strong);
-}
-.aether-card {
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
-}
-.aether-card:hover {
-  border-color: rgba(88, 214, 95, 0.45) !important;
-  box-shadow:
-    0 0 0 1px rgba(88, 214, 95, 0.15),
-    0 6px 20px -10px var(--ley-green-glow);
-}
+/* (the legacy .aether-* utility classes were deleted once zero usages
+   remained — P3 close-out; .ley-row / .ley-card are the replacements) */
