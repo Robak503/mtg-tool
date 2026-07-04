@@ -33,6 +33,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SeatSummaryTables } from "./SelfPlayPanel";
+import MatchupLedger from "./MatchupLedger";
 
 const MAX_POD = 4;
 
@@ -522,6 +523,10 @@ export default function PodBalanceView({ savedDecks = [], onSaveRating, onAddDec
               </div>
             </section>
           )}
+
+          <div style={{ marginTop: 4 }}>
+            <MatchupLedger fontFamily={fontFamily} />
+          </div>
         </div>
       </div>
     </div>

@@ -178,7 +178,7 @@ summary here for the queue:
   options) via the v1.1 `act(...opts)` instrumentation bag through `/api/learn/step` +
   `/api/learn/choose`; at the existing result scrim: W/L, turns, mulligans, dead turns,
   divergence count + the 3 costliest divergences. Ships standalone; richer with P2.
-- **P4 · Pod Matchup Ledger** (M, 4) — persist compact per-game outcome rows in the run
+- ✅ v0.97.0 **P4 · Pod Matchup Ledger** (M, 4) — persist compact per-game outcome rows in the run
   sidecar (deckNames, winnerDeck via seat→name positional map, turns, seed — all in
   memory at write time, currently dropped), aggregate across sidecars into a matchup
   heat table (A's win rate in pods containing B; true head-to-head in Standard mode)

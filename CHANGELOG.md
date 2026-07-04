@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.97.0] - 2026-07-04
+
+### Added
+- **Matchup ledger** — Pod Balance now shows deck-vs-deck records built from
+  every self-play run: overall win rates plus a head-to-head heat table (row
+  deck's win rate vs each column deck). Fills in as you run self-play.
+
 ## [0.96.0] - 2026-07-04
 
 ### Added
