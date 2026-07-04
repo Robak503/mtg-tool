@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { adjustStacks, stackTotal } from "../../lib/collectionStacks";
 import CollectionGrid from "./CollectionGrid";
+import VaultBinder from "./VaultBinder";
 import CollectionFilters, { applyFilters } from "./CollectionFilters";
 import CollectionCardDetail from "./CollectionCardDetail";
 import CollectionAddModal from "./CollectionAddModal";
@@ -90,6 +91,7 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
   // Which internal surface renders. Fixed per centerView since the kiosk IA
   // (VaultHome door-panes) replaced the old 5-tab strip.
   const mode = SURFACE_MODE[surface] || "collection";
+  const [gridMode, setGridMode] = useState("grid"); // "grid" | "binder" (V8)
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -589,6 +591,11 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
               Roast me
             </button>
           )}
+          {cards.length > 0 && (
+            <button onClick={() => setGridMode((m) => (m === "grid" ? "binder" : "grid"))} className="btn btn-secondary btn-sm" title="Toggle grid / 9-pocket binder view">
+              {gridMode === "grid" ? "Binder" : "Grid"}
+            </button>
+          )}
           <button onClick={() => setTagsOpen(true)} className="btn btn-secondary btn-sm">Color tags</button>
           {cards.length > 0 && (
             <button
@@ -714,7 +721,10 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
           {state.status === "ready" && cards.length > 0 && filteredCards.length === 0 && (
             <CenterMessage text="No cards match the current filters." color={COLORS.MUTED} />
           )}
-          {state.status === "ready" && filteredCards.length > 0 && (
+          {state.status === "ready" && filteredCards.length > 0 && gridMode === "binder" && !selectMode && (
+            <VaultBinder cards={filteredCards} onCardClick={setSelectedRow} tagMap={tagMap} />
+          )}
+          {state.status === "ready" && filteredCards.length > 0 && (gridMode === "grid" || selectMode) && (
             <CollectionGrid
               cards={filteredCards}
               onCardClick={setSelectedRow}

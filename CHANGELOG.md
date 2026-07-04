@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.94.0] - 2026-07-04
+
+### Added
+- **Binder view** — a grid/binder toggle in The Stacks flips your collection to
+  9-pocket pages of full card images, paged like a real binder.
+- **Continue where you left off** — the landing screen shows quick chips to jump
+  back into your most recent chat and your active deck.
+
 ## [0.93.0] - 2026-07-04
 
 Stop bouncing to the browser; jump anywhere.

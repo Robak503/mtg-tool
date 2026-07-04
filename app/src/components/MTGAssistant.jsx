@@ -796,6 +796,26 @@ export default function MTGAssistant() {
     return cmds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedDecks, sessions]);
+
+  // K8: "continue where you left off" chips on the landing — most recent chat
+  // + the active deck, from state (no fetch). Each deep-links via existing nav.
+  const landingResume = useMemo(() => {
+    const chips = [];
+    const recent = (sessions || []).filter((s) => !s.archived)
+      .slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+    if (recent) chips.push({
+      label: recent.name || "Recent chat",
+      sub: recent.lockedDeck?.name || recent.agent || "chat",
+      onClick: () => { pickAgent(recent.agent); setArea("agents"); switchSession(recent.id); setCenterView("chat"); },
+    });
+    if (activeDeck) chips.push({
+      label: activeDeck.name,
+      sub: "active deck",
+      onClick: () => { setArea("agents"); setCenterView("deck"); },
+    });
+    return chips;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions, activeDeck]);
   const askJaceAboutCard = (name) => {
     pickAgent("jace");
     setArea("agents");
@@ -930,6 +950,7 @@ export default function MTGAssistant() {
     return (
       <>
         <LandingScreen
+          resume={landingResume}
           appVersion={appVersion}
           onEnterArea={enterArea}
           fontFamily={F}
