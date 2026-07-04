@@ -22,11 +22,14 @@
  *     better.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
 import LearnBoard from "./LearnBoard";
 import StabilityBadge from "./StabilityBadge";
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
+import { stableActionKey } from "../../lib/learn/actionKey.js";
+import { LearnLogEntry } from "./LearnLogEntry.jsx";
+import { evaluatePuzzle, puzzleGoalLabel } from "../../lib/learn/puzzleGoal.js";
 
 /**
  * A short human-readable pip string for a KW-WARD-PR2 STRUCTURED cost descriptor
@@ -130,6 +133,35 @@ export default function LearnView({
   const [oppIds, setOppIds] = useState(["", "", ""]); // up to 3 opponents (Commander)
   const [difficulty, setDifficulty] = useState("beginner");
   const [saves, setSaves] = useState([]);
+  // P9 — puzzles: the saved list (idle screen), a transient save confirmation,
+  // and a flag to dismiss the puzzle-result overlay so the user can keep playing.
+  const [puzzles, setPuzzles] = useState([]);
+  const [puzzleMsg, setPuzzleMsg] = useState(null);
+  const [puzzleDismissed, setPuzzleDismissed] = useState(false);
+
+  // P3 — post-game debrief. Only `ask` decisions carry metadata.suggestion
+  // (decisionGate.js), and they reach the client UNSTRIPPED (ask ∉
+  // PENDING_CHOICE_KINDS in decisionWire.js — pending sub-choices carry no
+  // suggestion to compare against). We read the on-screen decision at click time
+  // through a ref (no stale closure) and record one row per answered ask; the
+  // game-over scrim in LearnBoard renders the pick-vs-suggestion summary.
+  const [debrief, setDebrief] = useState([]);
+  const latestRef = useRef({ decision: null, turn: null });
+  useEffect(() => {
+    latestRef.current = { decision: session.decision, turn: session.turn };
+  }, [session.decision, session.turn]);
+
+  const applyChoiceFn = session.applyChoice; // stable per session (useLearnSession memoizes it)
+  const trackedApplyChoice = useCallback((choice) => {
+    const { decision: d, turn } = latestRef.current;
+    // Record real strategic picks only: an `ask` with a suggestion, excluding
+    // tap-for-mana (its own priority window in beginner mode — plumbing, not a play).
+    if (d && d.kind === "ask" && d.metadata?.suggestion && choice?.kind !== "tap-for-mana") {
+      const matched = stableActionKey(choice) === stableActionKey(d.metadata.suggestion);
+      setDebrief(prev => [...prev, { turn, userAction: choice, suggestion: d.metadata.suggestion, matched }]);
+    }
+    return applyChoiceFn(choice);
+  }, [applyChoiceFn]);
 
   // P6: seed the user-deck picker from a DeckView "Practice" handoff, once.
   useEffect(() => {
@@ -149,6 +181,8 @@ export default function LearnView({
 
   const handleStart = async () => {
     if (!canStart) return;
+    setDebrief([]); // fresh game → fresh tally
+    setPuzzleMsg(null); setPuzzleDismissed(false);
     // Deck identity for the saved-game list ("Sliver Hivelord · turn 4").
     const meta = {
       userDeckId: userDeck?.id,
@@ -182,23 +216,33 @@ export default function LearnView({
     }
   };
 
-  const handleAbandon = () => session.reset();
+  const handleAbandon = () => { setDebrief([]); setPuzzleMsg(null); setPuzzleDismissed(false); session.reset(); };
 
   // Saved-game list for the "Continue a game" panel on the idle screen.
   useEffect(() => {
     let cancelled = false;
     if (session.status === "idle") {
       session.listSaves().then(list => { if (!cancelled) setSaves(list); });
+      session.listPuzzles().then(list => { if (!cancelled) setPuzzles(list); });
     }
     return () => { cancelled = true; };
-    // session.listSaves is stable (useCallback); refresh only on status change.
+    // session.listSaves/listPuzzles are stable (useCallback); refresh only on status change.
   }, [session.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleResume = (sessionId) => session.resume(sessionId);
+  const handleResume = (sessionId) => { setDebrief([]); return session.resume(sessionId); };
   const handleDeleteSave = async (sessionId) => {
     await session.deleteSave(sessionId);
     setSaves(prev => prev.filter(s => s.sessionId !== sessionId));
   };
+
+  // P9 — capture the current live position as a puzzle (win-this-turn goal for v1).
+  const handleSavePuzzle = async () => {
+    setPuzzleMsg("Saving…");
+    const res = await session.saveAsPuzzle({ goal: "win-this-turn" });
+    setPuzzleMsg(res.ok ? "✓ Saved as a puzzle" : `⚠ ${res.error}`);
+  };
+  // P9 — load a saved puzzle into a fresh attempt.
+  const handleSolvePuzzle = (puzzleId) => { setDebrief([]); setPuzzleDismissed(false); return session.resumePuzzle(puzzleId); };
 
   // ─── Idle / setup screen ──────────────────────────────────────────────────
 
@@ -264,6 +308,34 @@ export default function LearnView({
                         ✕
                       </button>
                     </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {puzzles.length > 0 && (
+              <div style={{ border: "1px solid var(--ley-line)", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ ...labelStyle(), padding: 0 }}>🧩 Puzzles — solve a saved position</div>
+                {puzzles.map(p => (
+                  <div
+                    key={p.id}
+                    className="ley-row"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                  >
+                    <span style={{ fontSize: 12, color: "var(--ley-text)" }}>
+                      {p.label || puzzleGoalLabel(p.goal)}
+                      {" · "}{p.meta?.userDeckName || "position"}
+                      {" · turn "}{p.startTurn ?? "?"}
+                      {" · "}<span style={{ color: "var(--ley-gold)" }}>{puzzleGoalLabel(p.goal)}</span>
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleSolvePuzzle(p.id)}
+                      disabled={!p.resumable || session.status === "starting"}
+                      title={p.resumable ? "Load this puzzle and try to solve it" : "Saved on an incompatible version"}
+                    >
+                      Solve
+                    </button>
                   </div>
                 ))}
               </div>
@@ -370,13 +442,32 @@ export default function LearnView({
   // The legacy two-column text view is only a fallback when there is no board.
 
   const decision = session.decision;
+  // P9 — evaluate the puzzle goal from observable session facts (pure). Drives the
+  // result overlay; null when this isn't a puzzle attempt.
+  const puzzleOutcome = session.puzzle
+    ? evaluatePuzzle({ goal: session.puzzle.goal, startTurn: session.puzzle.startTurn, status: session.status, turn: session.turn, reason: decision?.reason })
+    : null;
+  const showPuzzleResult = session.puzzle && !puzzleDismissed && (puzzleOutcome === "solved" || puzzleOutcome === "failed");
 
   return (
     <div style={containerStyle(fontFamily)}>
       <header style={{ ...headerStyle(), justifyContent: "space-between" }}>
         <span>The Academy · {session.mode === "commander" ? "Commander 4P pod" : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}</span>
-        <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>
-          Turn {session.turn} · {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`} {session.step}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+          {session.puzzle && (
+            <span style={{ fontSize: 11, color: "var(--ley-gold)", fontWeight: 700 }} title={`Puzzle goal: ${puzzleGoalLabel(session.puzzle.goal)}`}>
+              🧩 {puzzleGoalLabel(session.puzzle.goal)}
+            </span>
+          )}
+          {puzzleMsg && <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>{puzzleMsg}</span>}
+          {session.status === "active" && !session.puzzle && (
+            <button className="btn btn-ghost btn-sm" onClick={handleSavePuzzle} title="Capture this position as a puzzle to solve later">
+              🧩 Save as puzzle
+            </button>
+          )}
+          <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>
+            Turn {session.turn} · {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`} {session.step}
+          </span>
         </span>
       </header>
 
@@ -386,13 +477,14 @@ export default function LearnView({
         <LearnBoard
           board={session.board}
           decision={decision}
-          onAction={session.applyChoice}
+          onAction={trackedApplyChoice}
           logTail={session.decisionLogTail}
           turn={session.turn}
           step={session.step}
           status={session.status}
           difficulty={session.difficulty}
           onNewGame={handleAbandon}
+          debrief={debrief}
         />
       ) : (
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -400,7 +492,7 @@ export default function LearnView({
         <main style={{ flex: 2, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
           <DecisionPrompt
             decision={decision}
-            onChoose={session.applyChoice}
+            onChoose={trackedApplyChoice}
             onContinue={session.continueGame}
             onTutorChoose={session.applyTutorChoice}
             onCloneChoose={session.applyCloneChoice}
@@ -433,26 +525,7 @@ export default function LearnView({
             Recent actions
           </div>
           {(session.decisionLogTail || []).slice().reverse().map((entry, i) => (
-            <div
-              key={`${entry.ts}-${i}`}
-              style={{
-                fontSize: 11,
-                color: "var(--ley-text)",
-                lineHeight: 1.4,
-                padding: "6px 8px",
-                background: "var(--ley-surface-2)",
-                border: "1px solid var(--ley-line)",
-                borderRadius: 4,
-              }}
-            >
-              <div style={{ color: entry.actor === "user" ? "var(--ley-green)" : "var(--ley-blue)", fontWeight: 700, marginBottom: 2 }}>
-                T{entry.turn} · {entry.actor}{entry.auto ? " (auto)" : ""}
-              </div>
-              <div>
-                {entry.action.kind}
-                {entry.action.name ? ` · ${entry.action.name}` : ""}
-              </div>
-            </div>
+            <LearnLogEntry key={`${entry.ts}-${i}`} entry={entry} />
           ))}
           {!(session.decisionLogTail || []).length && (
             <div style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>No actions yet.</div>
@@ -572,6 +645,31 @@ export default function LearnView({
         </button>
         {session.error && <span style={{ fontSize: 11, color: "var(--ley-red)" }}>⚠ {session.error}</span>}
       </footer>
+
+      {showPuzzleResult && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--ley-glass-strong)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
+          onClick={() => setPuzzleDismissed(true)}
+        >
+          <div className="ley-glass-strong ley-glass-lit" style={{ textAlign: "center", maxWidth: 460, padding: "30px 34px", borderRadius: "var(--r-lg)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 30, fontWeight: 800, marginBottom: 10, color: puzzleOutcome === "solved" ? "var(--ley-green)" : "var(--ley-red)" }}>
+              {puzzleOutcome === "solved" ? "🧩 Puzzle solved!" : "Puzzle failed"}
+            </div>
+            <p style={{ fontSize: 13, color: "var(--ley-text-dim)", lineHeight: 1.55, margin: "0 0 20px" }}>
+              {puzzleOutcome === "solved"
+                ? `You hit the goal — ${puzzleGoalLabel(session.puzzle.goal)} — from the captured position. Nicely solved.`
+                : `Goal missed — ${puzzleGoalLabel(session.puzzle.goal)}. The turn passed or the game slipped away. Run the line again.`}
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              {puzzleOutcome === "failed" && (
+                <button className="btn btn-primary" onClick={() => handleSolvePuzzle(session.puzzle.id)}>Retry puzzle</button>
+              )}
+              <button className="btn btn-secondary" onClick={() => setPuzzleDismissed(true)}>Keep playing</button>
+              <button className="btn btn-ghost" onClick={handleAbandon}>Back to Academy</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AskPanel sessionId={session.sessionId} avoidSheet={!!session.board && decision?.kind === "unresolved"} />
     </div>

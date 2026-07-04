@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { LearnLogEntry, groupLogByTurn } from "./LearnLogEntry.jsx";
 
 const seatLine = (meta) => {
   if (!meta) return "—";
@@ -18,6 +19,65 @@ const seatLine = (meta) => {
 const when = (iso) => (iso ? String(iso).slice(0, 16).replace("T", " ") : "—");
 const statusColor = (s) =>
   s === "user-wins" ? "var(--ley-green)" : s === "ai-wins" ? "var(--ley-red)" : "var(--ley-text-dim)";
+
+/**
+ * RecordDetail — a single record's header + the P7 REPLAY SCRUBBER. Groups the
+ * recorded decisionLog into per-turn segments and steps through them (prev / next
+ * / jump-to-turn), rendering each entry with the SAME LearnLogEntry the live
+ * "Recent actions" feed uses — so the play-by-play reads like the live game.
+ * (Replaces the old `logTail.join("\n")` detail, which rendered structured entry
+ * objects as "[object Object]".) Mounted with key={record.id} so the scrub index
+ * resets when a different record is opened.
+ */
+function RecordDetail({ record, card }) {
+  const groups = groupLogByTurn(record.logTail);
+  const [idx, setIdx] = useState(0);
+  const clamped = Math.min(Math.max(idx, 0), Math.max(0, groups.length - 1));
+  const seg = groups[clamped] || null;
+  const turnLabel = (g) => (g && g.turn != null ? `T${g.turn}` : "—");
+
+  return (
+    <div style={card}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline", marginBottom: 10 }}>
+        <span style={{ fontSize: 15, fontWeight: 700 }}>{seatLine(record.meta)}</span>
+        <span style={{ fontSize: 12, color: statusColor(record.status), fontWeight: 600 }}>{record.status || "unknown result"}</span>
+        <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>turn {record.turns ?? "—"} · {record.difficulty || "—"} · {when(record.endedAt)}</span>
+      </div>
+
+      {groups.length === 0 ? (
+        <div style={{ fontSize: 12, color: "var(--ley-text-dim)" }}>No log lines were captured for this game.</div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setIdx(() => Math.max(0, clamped - 1))} disabled={clamped <= 0}>◂ Prev</button>
+            <span style={{ fontSize: 11, color: "var(--ley-text-dim)", fontVariantNumeric: "tabular-nums", minWidth: 120, textAlign: "center" }}>
+              {turnLabel(seg)} · segment {clamped + 1}/{groups.length}
+            </span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setIdx(() => Math.min(groups.length - 1, clamped + 1))} disabled={clamped >= groups.length - 1}>Next ▸</button>
+          </div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
+            {groups.map((g, i) => (
+              <button
+                key={i}
+                onClick={() => setIdx(i)}
+                className="btn btn-ghost btn-sm"
+                style={{ minWidth: 34, ...(i === clamped ? { background: "var(--ley-green-dim)", borderColor: "var(--ley-green)", color: "var(--ley-green)" } : {}) }}
+                title={`Jump to ${turnLabel(g)}`}
+              >
+                {turnLabel(g)}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "50vh", overflowY: "auto" }}>
+            {seg.entries.map((entry, i) => (
+              <LearnLogEntry key={i} entry={entry} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function RecordsView({ onBack, fontFamily }) {
   const [state, setState] = useState({ status: "loading", records: [], error: null });
@@ -71,16 +131,7 @@ export default function RecordsView({ onBack, fontFamily }) {
     return (
       <div style={wrap}>
         {header}
-        <div style={card}>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline", marginBottom: 10 }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>{seatLine(open.meta)}</span>
-            <span style={{ fontSize: 12, color: statusColor(open.status), fontWeight: 600 }}>{open.status || "unknown result"}</span>
-            <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>turn {open.turns ?? "—"} · {open.difficulty || "—"} · {when(open.endedAt)}</span>
-          </div>
-          <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 11, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "var(--ley-text-dim)", maxHeight: "60vh", overflowY: "auto", background: "var(--ley-surface-2)", borderRadius: "var(--r-md)", padding: 12 }}>
-            {(open.logTail || []).length ? open.logTail.join("\n") : "No log lines were captured for this game."}
-          </div>
-        </div>
+        <RecordDetail key={open.id} record={open} card={card} />
       </div>
     );
   }

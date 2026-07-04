@@ -63,7 +63,64 @@ function progressionLabel(step, stackLen, passOption) {
   }
 }
 
-export default function LearnBoard({ board, decision, onAction, logTail = [], turn, step, status, difficulty, onNewGame }) {
+/**
+ * Human label for a legal-action object — the ONE source of truth for how an
+ * action reads, shared by the fallback action buttons AND the P3 post-game
+ * debrief (so "you did X, the suggested play was Y" reads identically to the
+ * button the player clicked). Falls back to the de-kebabed kind for anything
+ * without a bespoke phrasing (pass-priority → "Pass", the rest spelled out).
+ */
+export function actionLabel(o) {
+  if (!o || !o.kind) return "—";
+  switch (o.kind) {
+    case "cast-spell": return `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}`;
+    case "play-land": return `Play ${o.name}`;
+    case "declare-attacker": return `Attack ${o.targetName || o.defenderName || BOARD_SEAT_LABELS[o.defenderId] || ""} with ${o.name}`.trim();
+    case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;
+    case "pass-priority": return "Pass";
+    case "tap-for-mana": return `Tap ${o.name || "a land"} for mana`;
+    default: return o.kind.replace(/-/g, " ");
+  }
+}
+
+/**
+ * P3 post-game debrief — how the player's own picks compared to the engine's
+ * suggested play. `debrief` is the client-side tally LearnView accumulates: one
+ * entry per answered `ask` decision, `{ turn, userAction, suggestion, matched }`
+ * (matched = the canonical action-key of the pick equals the suggestion's).
+ * Renders nothing when there were no tracked decisions (e.g. an expert autopilot
+ * game asks the user nothing).
+ */
+function DecisionDebrief({ debrief }) {
+  if (!Array.isArray(debrief) || debrief.length === 0) return null;
+  const total = debrief.length;
+  const matched = debrief.filter(d => d.matched).length;
+  const pct = Math.round((matched / total) * 100);
+  const misses = debrief.filter(d => !d.matched).slice(0, 4);
+  return (
+    <div className="lb-debrief">
+      <div className="lb-debrief-head">
+        You matched the suggested play <strong>{matched}/{total}</strong> times ({pct}%)
+      </div>
+      {misses.length > 0 && (
+        <ul className="lb-debrief-list">
+          {misses.map((d, i) => (
+            <li key={i}>
+              <span className="lb-debrief-turn">T{d.turn ?? "?"}</span>
+              {" you "}<span className="lb-debrief-you">{actionLabel(d.userAction)}</span>
+              {" · suggested "}<span className="lb-debrief-sug">{actionLabel(d.suggestion)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {debrief.length > matched + misses.length && (
+        <div className="lb-debrief-more">+{debrief.length - matched - misses.length} more differed</div>
+      )}
+    </div>
+  );
+}
+
+export default function LearnBoard({ board, decision, onAction, logTail = [], turn, step, status, difficulty, onNewGame, debrief = [] }) {
   const [focusedId, setFocusedId] = useState(null);
   const [handUp, setHandUp] = useState(true);
   const [enlarged, setEnlarged] = useState(null);
@@ -281,11 +338,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
         <div className="lb-actions">
           {options.filter(o => o.kind !== "pass-priority" && o.kind !== "tap-for-mana").slice(0, 6).map((o, i) => (
             <button key={i} className="btn btn-secondary btn-sm" onClick={() => onAction(o)} title={o.kind}>
-              {o.kind === "cast-spell" ? `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}`
-                : o.kind === "play-land" ? `Play ${o.name}`
-                  : o.kind === "declare-attacker" ? `Attack ${o.targetName || o.defenderName || BOARD_SEAT_LABELS[o.defenderId] || ""} with ${o.name}`
-                    : o.kind === "declare-blocker" ? `Block ${o.attackerName || "attacker"} with ${o.name}`
-                      : o.kind.replace(/-/g, " ")}
+              {actionLabel(o)}
             </button>
           ))}
         </div>
@@ -322,6 +375,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
           <div className="lb-resultcard ley-glass-strong ley-glass-lit">
             <h2 style={{ color: TONE_COLOR[outcome.tone] || TONE_COLOR.neutral }}>{outcome.title}</h2>
             <p>{outcome.blurb}</p>
+            <DecisionDebrief debrief={debrief} />
             <div className="lb-resultbtns">
               <button className="btn btn-primary" onClick={() => onNewGame?.()}>New game</button>
               <button className="btn btn-secondary" onClick={() => setPeek(true)}>Review board ▸</button>
@@ -469,5 +523,15 @@ const LB_CSS = `
 .lb-resultcard{text-align:center;max-width:440px;padding:30px 34px;}
 .lb-resultcard h2{font-size:30px;margin:0 0 12px;font-weight:800;}
 .lb-resultcard p{font-size:13px;color:var(--ley-text-dim);line-height:1.55;margin:0 0 20px;}
+/* P3 post-game debrief — pick-vs-suggestion tally inside the result card */
+.lb-debrief{text-align:left;border:1px solid var(--ley-line);border-radius:6px;background:var(--ley-surface-1);padding:12px 14px;margin:0 0 20px;}
+.lb-debrief-head{font-size:13px;color:var(--ley-text);margin-bottom:8px;}
+.lb-debrief-head strong{color:var(--ley-green);}
+.lb-debrief-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;}
+.lb-debrief-list li{font-size:11px;color:var(--ley-text-dim);line-height:1.4;}
+.lb-debrief-turn{display:inline-block;min-width:24px;font-weight:800;color:var(--ley-text-faint);}
+.lb-debrief-you{color:var(--ley-gold);}
+.lb-debrief-sug{color:var(--ley-green);}
+.lb-debrief-more{font-size:10px;color:var(--ley-text-faint);margin-top:7px;}
 .lb-resultbtns{display:flex;gap:10px;justify-content:center;}
 `;
