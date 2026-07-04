@@ -60,6 +60,13 @@ describe("computeCollectionBreakdowns", () => {
     expect(b.ownedRows).toBe(4); // a, b, c, d
   });
 
+  it("tallies byFinish across physical copies, skipping wishlist + zero-qty (V12)", () => {
+    const b = computeCollectionBreakdowns(collection, getMeta);
+    // 1 Sol Ring + 2 Llanowar + 4 Forest = 7 nonfoil; 1 Mana Crypt foil; the
+    // wishlist row and the 0-qty row contribute nothing.
+    expect(b.byFinish).toEqual({ nonfoil: 7, foil: 1, etched: 0 });
+  });
+
   it("breaks down by type / rarity / color", () => {
     const b = computeCollectionBreakdowns(collection, getMeta);
     expect(b.byType).toEqual({ Artifact: 2, Creature: 1, Land: 1 });

@@ -27,8 +27,16 @@ import { lookupById } from "../../../../lib/server/printingIndex.js";
 function buildBreakdowns(collection) {
   try {
     const getMeta = (row) => {
-      const oracle = lookupCard(row.name);
-      const printing = row.scryfallId ? lookupById(row.scryfallId) : null;
+      // Per-row resilience: a missing/partial card index must not sink the whole
+      // breakdown (byFinish + owned counts don't need it) — degrade this row to
+      // nulls so composition is empty but the finish/value tallies still return.
+      let oracle, printing;
+      try {
+        oracle = lookupCard(row.name);
+        printing = row.scryfallId ? lookupById(row.scryfallId) : null;
+      } catch {
+        return { typeLine: null, cmc: undefined, colors: [], rarity: null, setName: null };
+      }
       // Color identity (Commander's meaningful axis) — present in the slim
       // oracle index; fall back to cost colors / face colors for older data.
       const colors = oracle?.color_identity?.length
