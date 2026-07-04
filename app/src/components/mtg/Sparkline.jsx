@@ -18,7 +18,7 @@ export default function Sparkline({ points, width = 132, height = 30, strokeWidt
   const stepX = width / (vals.length - 1);
   const yOf = v => pad + (height - 2 * pad) * (1 - (v - min) / range);
   const d = vals.map((v, i) => `${i === 0 ? "M" : "L"}${(i * stepX).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
-  const stroke = vals[vals.length - 1] >= vals[0] ? "#6fbf73" : "#c84848";
+  const stroke = vals[vals.length - 1] >= vals[0] ? "var(--ley-green)" : "var(--ley-red)";
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }} aria-hidden="true">

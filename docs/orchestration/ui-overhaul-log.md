@@ -1,0 +1,205 @@
+# UI-OVERHAUL LOG — the LEYLINE pass (v0.86.0 → v0.87.0)
+
+> Wave-by-wave work log of the one-time Fable 5 UI/UX overhaul
+> (mission: `memory/orders/fable5-ui-overhaul.md`). Same discipline as
+> play-harness-overhaul-log.md: every wave gated (suite + lint + console-clean
+> + screenshots), engine fenced the whole way. Screenshots live in
+> [ui-overhaul/](ui-overhaul/) — before/after gallery per surface.
+
+## The theme
+
+**LEYLINE** — green energy through dark glass. True-black surfaces (#050705
+base, green-tinted grey ramp), phosphor-green accent (#56d65d / #74ff86 hot),
+glass panels (blur 14px + 1px luminous hairlines), **glow = hierarchy** (only
+primary actions, live states, and focus glow). Display face: Space Grotesk
+(was Playfair — library-serif read website, not appliance). Supersedes the
+Aether cyan theme. Emotional reference: the `/omnath` green-phosphor boot
+screen. Agent identity survives as per-agent color ONLY on identity elements
+(agent rows, bubbles, avatars): Jace cyan→**arcane blue #6ab8ff** (cyan was
+the app accent, not his), Karn silver (kept), Tibalt red (kept), Arbiter
+gold (kept).
+
+## The engine fence (proven instruments)
+
+- `app/src/lib/**` untouched except `agents.js` UI color fields (pure display
+  config consumed only by components).
+- **Trajectory-hash probe validated mid-pass**: the original play-harness
+  probe (`traj-hash.mjs`, recovered from that session's scratchpad) run twice
+  on this branch with P1+P2 in-tree, data root
+  `%APPDATA%\com.colton.mtg-tool`: `games=3 rows=8281` →
+  `a2a03ba8d94a9982…` **== the v0.86.0 anchor, both runs**.
+- Tier-fingerprint baseline captured (34,125 rows, sha256 `330567e9e167f2c0…`)
+  for the pass-end 0-diff proof.
+
+## Wave log
+
+### P0 — ground + inventory + baseline (commit 0e5c3d9b)
+- 9-reader inventory workflow over the whole UI estate (~926k tokens read):
+  **143 surfaces · 166 distinct button treatments · 219 off-token colors ·
+  98 UX issues** → [ui-overhaul/INVENTORY.md](ui-overhaul/INVENTORY.md).
+- 25 baseline screenshots of every reachable surface (`baseline/`).
+- Suite baseline 7,661 green / lint clean — matches the v0.86.0 anchor.
+- Environment: worktree + node_modules junction from the main tree; dev
+  server runs with `MTG_APP_ROOT=<main>/app` so real data renders
+  (the realism-gate pattern).
+
+### P1 — the LEYLINE design system (commit c1e1c174)
+- `globals.css` rewritten: LEYLINE token layer (surface ramp, green ramp,
+  glass recipe, glow discipline, radius + motion scales) with every legacy
+  Aether token name **aliased to LEYLINE values** — the estate re-skins at
+  the token layer; waves burn the aliases down.
+- **THE BUTTON SYSTEM**: `.btn` + `.btn-primary/-secondary/-ghost/-danger`
+  × `-sm/default/-lg` + `.btn-icon/.btn-loading` + disabled + focus-visible
+  glow ring. One primary per surface; only primary glows.
+- `/styleguide` hidden route — the living reference every wave composes from.
+- Cyan burn-down: all 41 hard-coded Aether-cyan accents flipped across 14
+  files (patch-script pattern, gotcha 19a). Jace → arcane blue.
+- Font: Playfair → Space Grotesk (display), Inter + JetBrains Mono kept.
+- Gate: 7,661 green / lint clean / screenshots (styleguide + gate + shell).
+
+### P2 — the kiosk shell (commit 36e74c86)
+- `pb()`/`sb()` style helpers re-grounded to system green (geometry mirrors
+  the `.btn` classes) — **agent-tinted chrome is dead**; identity colors now
+  live only on identity elements.
+- Sidebar: nav rows get a green "you are here" active state (there was NONE
+  before — a P0 inventory finding), agent rows active only on the chat view,
+  tracked-caps mono section labels, larger kiosk targets.
+- AppHeader: provider segmented control + freshness chips → tokens
+  (`color-mix` borders); RightPanel tabs + MobileTabBar → green actives.
+- frontend-placeholder → LEYLINE (phosphor wordmark + scan-line loader).
+- Rust: window title now `MTG Tool v{version}` at setup (`cargo check
+  --release` clean; tray/close/single-instance untouched).
+- Incident: first P2 commit claimed lint-clean while 3 `no-unused-vars`
+  warnings existed (`cfg` props orphaned by the conversion) — caught in the
+  same session, fixed, amended before push. Rule kept: read the gate output
+  BEFORE writing the commit message, not after.
+- Gate: 7,661 green / lint clean / cargo clean / shell screenshot.
+
+### P3 — surface waves (lanes, ≤2 concurrent, worktree-per-builder)
+- Lane plan (file-disjoint): C = Academy (LearnView/LearnBoard, fable) ·
+  E = Vault/collection (14 files, sonnet) · A = chat (ChatPanel/
+  SessionSidebar/GarfieldPanel, fable) · B = deck (DeckView/Import/
+  DeckConfirm/PodBalance, sonnet) · D = sim (SimCenter/SelfPlayPanel,
+  sonnet) · F = system modals (Updates/Settings/Onboarding/Profile*/
+  Feedback*, sonnet).
+- Every lane: isolated git worktree + node_modules junction to the MAIN
+  tree (removed by the lane itself via `rmdir` before finishing), full
+  suite + lint inside the lane, one commit, orchestrator cherry-picks and
+  re-gates + screenshots before the next round.
+#### Lane C — the Academy (integrated 60b2cc03, lane commit 43439452, fable)
+- LearnBoard: LB_CSS rewritten onto tokens; the private GOLD/`--gold` parallel
+  color system DELETED (the `colors` prop no longer consumed); targeting/
+  playable/mana-tap = green live treatments; game-over + narration modal =
+  glass-strong; log = mono text-dim; MANA_PIPS keep real WUBRG colors
+  (identity-use, commented).
+- LearnView: all 14 decision side-sheets → `ley-glass-strong ley-glass-lit`;
+  TableStrip active seat = green border + `.ley-live` (the sanctioned
+  active-player glow); 48 buttons → `.btn` classes (17 primary / 14 secondary
+  / 16 ghost / 1 danger "Abandon game"); one-primary-per-state audited
+  (sheets suppress the bar's pass action; the game-over scrim covers the bar).
+- Lane gate: 7,661 ×2 + lint 0 inside the lane worktree; re-verified
+  visually post-cherry-pick (setup + live board screenshots
+  `p3c-academy-*.png`). Worktree swept junction-safe after integration.
+- Recovery note (lane E, same round): its first run died on a transient API
+  529 mid-file-4-of-14; verify-then-complete — worktree inspected (4 files
+  modified, junction intact, right base), agent resumed with context. An
+  agent's death is not evidence its work is bad; INSPECT then resume.
+
+#### Lane E — Vault / collection (integrated d9527dac, lane commit 55fc5883, sonnet)
+- All 14 files, net −186 lines (dead style helpers deleted). 56 buttons →
+  `.btn` (9 primary / 15 secondary / 26 ghost / 6 danger). All 8 modals
+  unified on the recipe (0.55 scrim + blur(4px) + glass-strong-lit +
+  display-font titles + aria-labeled ghost-icon closes).
+- Per-card `backdrop-filter` removed from the grid quick-adjust pill (perf
+  rule). Empty states got their primary action ("+ Add your first card";
+  Build/Stats route to Collection). WUBRG pips/rarity dots keep real Magic
+  colors (data, not theme). `COLORS` const kept but every value now resolves
+  to a token.
+- Survived a transient API 529 mid-run: verify-then-complete (inspected
+  worktree: 4/14 files done, junction intact, right base → resumed with
+  context). Lane gate 7,661 + lint 0; round-1 integration battery re-run on
+  the orchestrator tree after both cherry-picks: **7,661 + lint 0**.
+  After-screenshot `p3e-vault.png`. Worktree swept junction-safe.
+
+#### Lane A — chat (integrated c8aa5096, lane commit ea4655b3, fable)
+- ChatPanel + SessionSidebar + GarfieldPanel, +204/−299. 17 button sites →
+  `.btn` (Send = primary + btn-loading on the existing sending flag;
+  "+ New chat with <agent>" = the session sidebar's primary; Garfield Run =
+  primary + `.ley-live` while running; Karn apply-chips add=secondary /
+  cut=danger). `ARCHETYPE_COLORS` (9 hexes) deleted; identity survives only
+  via `cfg.*` on the sanctioned spots (agent-name labels, assistant-bubble
+  border tint, thinking indicators, quick-chip tint).
+- Perf: backdrop-filter stripped from every per-message bubble (token fills);
+  blur only on the three chrome bars. After-screenshot `p3a-chat.png`.
+
+#### Lane B — deck surfaces (integrated 10f9c932, lane commit e28cba24, sonnet)
+- DeckView / ImportDeckView / DeckConfirmModal / PodBalanceModal, +78/−108.
+  31 buttons → `.btn`; the legacy `pb()` helper no longer referenced in these
+  files. Both modals on the recipe. Success/danger hexes → tokens;
+  `.aether-row` → `.ley-row` in DeckView; delete-game "x" got an aria-label;
+  DeckView gained a no-deck empty state with a "+ Import Deck" primary wired
+  to the EXISTING setCenterView prop (no new cross-file props).
+- Kept deliberately: PodBalanceModal's `BRACKET_COLOR` 1–5 severity scale
+  (data-viz, analogous to mana pips).
+
+#### Lane D — Sim Center (integrated a0947d60, lane commit 0a2ff0fb, sonnet)
+- SimCenter/SelfPlayPanel/Sparkline/StabilityBadge. All 7 buttons → `.btn`
+  ("Run simulation" = primary btn-lg + btn-loading + a `.ley-live` dot);
+  deck rows/format cards → green selected states; outcome coloring semantic
+  (win green / loss red / draw dim / count gold); BreakageTable mono;
+  StabilityBadge preview→blue / beta→gold tints; Sparkline strokes → tokens.
+  The two test files needed ZERO changes (they pin text, not style) — 12/12
+  green unmodified. 0 hexes remain in the estate.
+
+#### Lane F — system surfaces (integrated ad0118f3, lane commit bfdc27ae, sonnet)
+- Updates/Settings/Onboarding/ProfileGate/ProfileManage/ProfileMenu/
+  FeedbackPanel/FeedbackWindowApp (+166/−371). ~55 buttons → `.btn`; modal
+  recipe everywhere; profile tiles → `.ley-card` glass kiosk targets;
+  FeedbackWindowApp's standalone hard-coded theme now aliases tokens.
+  Bundled copy fix: SettingsModal Display tab + a ProfileGate comment still
+  described "Aether / electric-cyan" — corrected to Leyline (no test pinned
+  it). FeedbackWindowLoader + DailySnapshotTrigger verified UI-less, skipped.
+
+#### P3 close-out (orchestrator)
+- Final round-3 battery on the fully-integrated tree: **7,661 + lint 0**.
+- Legacy audit: cyan hexes 0 (non-test) · `.aether-*` usages 0 → the legacy
+  utility classes DELETED from globals.css · `pb()`/`sb()` callers remain
+  only in AppHeader/Sidebar (already LEYLINE-visual; full class conversion
+  queued for P4 polish) · non-interactive DeckView stat cards lost their
+  hover treatment (glow-discipline violation caught in audit).
+
+### P4 — polish + acceptance (commit 1af9e0be + close-out)
+- `pb()`/`sb()` DELETED: the last 19 call sites (AppHeader/RightPanel/Sidebar)
+  now compose from `.btn`; RightPanel loaders gained honest `btn-loading`
+  states. Zero parallel button systems remain in the app.
+- Versions bumped to 0.87.0 (package.json / tauri.conf.json / Cargo.toml).
+- **Engine fence, final proof:** tier fingerprint **0-diff** (34,125 rows,
+  before sha `330567e9…`) + trajectory hash **`a2a03ba8d94a9982…` ×2 ==
+  the v0.86.0 anchor** (games=3 rows=8281, data root = AppData).
+- **The .exe acceptance walk** (`npm run tauri:build` → 0.87.0 bundle):
+  - First build failed honestly: `next build` collided with the live dev
+    server's `.next` (both write it). Rule: STOP the dev server before any
+    tauri build. Cleaned, rebuilt green.
+  - Real-shell proofs: window title **"MTG Tool v0.87.0"** (Get-Process) ·
+    **single-instance** (2nd launch → still 1 process) · server 200 ·
+    **Job-Object teardown** (killing the shell killed the bundled node —
+    the orphan fix intact).
+  - The packaged UI walked via headless browser against the exe's own
+    server with Colton's REAL AppData (profiles Colton+Joe, 6 decks, a
+    4-day-old Jace chat): profile gate → shell → chat history → Academy,
+    all LEYLINE (`after/exe-*.png`). Interactive tray-icon clicks couldn't
+    be exercised (computer-use access denied this session) — tray/close
+    code paths are untouched this pass (only a `set_title` added in setup);
+    flagged for a 30-second eyeball on Colton's first launch.
+- Final battery on the release tree: suite + lint (recorded below at close).
+
+### Numbers (pass close)
+- Suite: 7,661 green at every integration point (×7 full batteries) + lint 0.
+- Buttons converted to the `.btn` system: **~214 sites** (48 C + 56 E + 17 A
+  + 31 B + 7 D + ~55 F) + 19 P4 pb/sb sites — from 166 distinct hand-rolled
+  treatments to 4 variants × 3 sizes.
+- Off-token colors: 219 → 0 outside sanctioned identity/data uses (agent
+  identity via `AGENTS`, WUBRG mana pips, rarity dots, bracket severity).
+- Net LOC in converted components: roughly −900 (dead style helpers deleted).
+- Engine fence: tier fp 0-diff · trajectory hash == v0.86.0 anchor ×2 (twice
+  mid-pass, twice at close).

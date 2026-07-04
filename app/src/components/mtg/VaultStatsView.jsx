@@ -24,11 +24,11 @@ const COLOR_META = {
 const COLOR_ORDER = ["W", "U", "B", "R", "G", "Multicolor", "Colorless"];
 const TYPE_ORDER = ["Creature", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker", "Battle", "Land", "Other"];
 const RARITY_ORDER = ["mythic", "rare", "uncommon", "common", "special", "bonus", "unknown"];
-const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", common: "#7d8590", special: "#a06fd8", bonus: "#a06fd8", unknown: "#555" };
+const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", common: "#7d8590", special: "#a06fd8", bonus: "#a06fd8", unknown: "var(--ley-text-faint)" };
 
 const money = (v) => (v == null || Number.isNaN(v) ? "—" : `$${Number(v).toFixed(2)}`);
 
-export default function VaultStatsView({ colors, fontFamily }) {
+export default function VaultStatsView({ colors, fontFamily, onGoToCollection }) {
   const { BG, BG2, LINE, TEXT, MUTED, GOLD } = colors;
   const F = fontFamily;
   const [state, setState] = useState({ status: "loading", data: null, error: null });
@@ -52,7 +52,7 @@ export default function VaultStatsView({ colors, fontFamily }) {
   const data = state.data;
   const b = data?.breakdowns;
   const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
-  const h = { fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12 };
+  const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (!b || b.ownedRows === 0) {
     return (
@@ -63,6 +63,11 @@ export default function VaultStatsView({ colors, fontFamily }) {
             {b ? "No owned cards yet — add cards to your Vault and the breakdowns will appear here."
                : "Card data isn't synced yet, so type/color/rarity breakdowns are unavailable. Sync from the Updates panel, then reopen this tab."}
           </div>
+          {b && onGoToCollection && (
+            <button onClick={onGoToCollection} className="btn btn-secondary btn-sm" style={{ marginTop: 12 }}>
+              + Add cards to your Vault
+            </button>
+          )}
         </div>
       </div>
     );
@@ -70,7 +75,7 @@ export default function VaultStatsView({ colors, fontFamily }) {
 
   const typeRows = TYPE_ORDER.filter((t) => b.byType[t]).map((t) => ({ key: t, label: t, count: b.byType[t] }));
   const colorRows = COLOR_ORDER.filter((c) => b.byColor[c]).map((c) => ({ key: c, label: COLOR_META[c].label, count: b.byColor[c], swatch: COLOR_META[c].swatch }));
-  const rarityRows = RARITY_ORDER.filter((r) => b.byRarity[r]).map((r) => ({ key: r, label: r[0].toUpperCase() + r.slice(1), count: b.byRarity[r], swatch: RARITY_COLOR[r] || "#555" }));
+  const rarityRows = RARITY_ORDER.filter((r) => b.byRarity[r]).map((r) => ({ key: r, label: r[0].toUpperCase() + r.slice(1), count: b.byRarity[r], swatch: RARITY_COLOR[r] || "var(--ley-text-faint)" }));
   // Rarity comes from the printings index; older bundles don't carry it, so
   // hide the card entirely rather than show a meaningless all-"Unknown" bar.
   const hasRealRarity = rarityRows.some((r) => r.key !== "unknown");
@@ -179,7 +184,7 @@ function Stat({ label, value, color }) {
   return (
     <div>
       <div style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 26, fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 2 }}>{label}</div>
+      <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 2 }}>{label}</div>
     </div>
   );
 }

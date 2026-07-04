@@ -715,14 +715,12 @@ export default function MTGAssistant() {
   //   GOLD             accent color
   //   F                serif font-family stack
   //   cfg              the active agent's theme — AGENTS[agent] (.color/.border/.dim)
-  //   sb(outline)      "select button" style object (the sidebar list buttons)
-  //   pb(primary, sm)  "primary button" style object (primary = filled, sm = small)
+  //   (the old sb()/pb() button-style helpers are gone — every button now
+  //   composes from the global .btn classes in globals.css)
   // Aether — near-black Material surfaces, electric-cyan hero accent, frosted
   // glass panels, cool off-white text. Tokens mirror globals.css :root.
-  const BG="#090a0d",BG2="rgba(18,19,24,0.8)",BG3="rgba(13,14,17,0.6)",LINE="#2c393b",TEXT="#e3e2e6",MUTED="#b9cacb",GOLD="#00dbe7";
+  const BG="#050705",BG2="rgba(10,14,10,0.8)",BG3="rgba(8,11,8,0.6)",LINE="#2a3a2c",TEXT="#e6f0e6",MUTED="#a8bfaa",GOLD="#56d65d";
   const F="var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  const sb=(outline)=>({width:"100%",padding:"7px 9px",borderRadius:8,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"rgba(255,255,255,0.02)":cfg.dim,color:outline?MUTED:cfg.color});
-  const pb=(primary,sm)=>({padding:sm?"6px 12px":"8px 16px",borderRadius:9,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:`1px solid ${primary?cfg.color:cfg.border}`,background:primary?cfg.color:"rgba(255,255,255,0.03)",color:primary?"#0c0b0a":cfg.color,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?`0 3px 12px -4px ${cfg.glow}`:"inset 0 1px 0 rgba(255,255,255,0.04)"});
   const deckActionPrompts = {
     jace: `Create a table-ready briefing for the active deck "${activeDeck?.name || "this deck"}". Explain the commander plan, early/mid/late game priorities, biggest rules or sequencing traps, and the 5 questions I should ask during a real game.\n\nDeck list:\n${serializeDeck(deckCards)}`,
     karn: `Create a commander-focused upgrade plan for the active deck "${activeDeck?.name || "this deck"}". Give me: core game plan, role balance, 10 strongest cuts, 10 strongest adds, mana/ramp fixes, interaction/protection fixes, and a short testing plan. Make it useful to save as deck memory.`,
@@ -797,12 +795,12 @@ export default function MTGAssistant() {
   return (
     <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
       {/* Near-black backdrop with a faint cyan bloom up top for depth — no commander art. */}
-      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(0,242,255,0.06) 0%, rgba(0,242,255,0.015) 32%, transparent 60%), #090a0d"}}/>
+      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(86,214,93,0.06) 0%, rgba(86,214,93,0.015) 32%, transparent 60%), #050705"}}/>
       <style>{`
         @keyframes mtgd{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:.9}}
         *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#060608}::-webkit-scrollbar-thumb{background:#2a2c46;border-radius:2px}
-        input:focus,textarea:focus{border-color:#3a3c5e!important;outline:none}button:hover{opacity:.82}
+        input:focus,textarea:focus,select:focus{border-color:rgba(88,214,95,0.45)!important;outline:none}
+        button:hover{filter:brightness(1.15)}button:active{filter:brightness(.94)}button:disabled{filter:none}
       `}</style>
 
       <AppHeader
@@ -824,7 +822,6 @@ export default function MTGAssistant() {
         openUpdates={() => setShowUpdates(true)}
         openSettings={() => setShowSettings(true)}
         appVersion={appVersion}
-        pb={pb}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
         profiles={profilesApi.profiles}
@@ -1004,7 +1001,7 @@ export default function MTGAssistant() {
               disabled={bootstrapBusy || !bootstrapSourcePath.trim()}
               style={{
                 padding: "6px 14px", borderRadius: 5,
-                border: "1px solid #00dbe7",
+                border: "1px solid #56d65d",
                 background: bootstrapBusy ? "#12132a" : "#2a2850",
                 color: "#d8d2e8", fontFamily: F, fontSize: 12,
                 cursor: bootstrapBusy ? "default" : "pointer",
@@ -1041,7 +1038,7 @@ export default function MTGAssistant() {
             model-missing → "Pull <model>" via ollama pull (streamed) */}
       {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (() => {
         const palette = ollamaHealth.status === "not-installed"
-          ? { bg: "#12132a", border: "#2a2850", text: "#b8b2d0", accent: "#2a2850", accentBorder: "#00dbe7" }
+          ? { bg: "#12132a", border: "#2a2850", text: "#b8b2d0", accent: "#2a2850", accentBorder: "#56d65d" }
           : ollamaHealth.status === "server-down"
           ? { bg: "#3a1a1a", border: "#6b3a3a", text: "#e0a89a", accent: "#3a1a1a", accentBorder: "#6b3a3a" }
           : { bg: "#3a2a14", border: "#6b5a3a", text: "#e8c285", accent: "#3a2a14", accentBorder: "#6b5a3a" };
@@ -1155,6 +1152,7 @@ export default function MTGAssistant() {
             agent={agent}
             activeDeckId={activeDeckId}
             cfg={cfg}
+            centerView={centerView}
             mobile={mobile}
             sending={sending}
             savedDecks={savedDecks}
@@ -1171,8 +1169,7 @@ export default function MTGAssistant() {
             clearChat={clearChat}
             unloadActiveDeck={unloadActiveDeck}
             openPodBalance={() => setShowPodBalance(true)}
-            sb={sb}
-            colors={{BG2, LINE, MUTED, TEXT}}
+            colors={{BG2, LINE, MUTED, TEXT, GOLD}}
             fontFamily={F}
           />
         )}
@@ -1233,8 +1230,7 @@ export default function MTGAssistant() {
             {centerView==="import"?(
               <ImportDeckView
                 cfg={cfg}
-                pb={pb}
-                colors={{BG, BG3, LINE, TEXT, MUTED, GOLD}}
+                        colors={{BG, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}
                 deckName={deckName}
                 setDeckName={setDeckName}
@@ -1276,8 +1272,7 @@ export default function MTGAssistant() {
                 loadDeckData={loadDeckData}
                 mainCount={mainCount}
                 mobile={mobile}
-                pb={pb}
-                prepArbiterQuestion={prepArbiterQuestion}
+                        prepArbiterQuestion={prepArbiterQuestion}
                 recordGame={recordGame}
                 runGoldfish={runGoldfish}
                 saveLatestAgentReply={saveLatestAgentReply}
@@ -1358,8 +1353,7 @@ export default function MTGAssistant() {
           loadCombos={loadCombos}
           loadDeckData={loadDeckData}
           mobile={mobile}
-          pb={pb}
-          previewCard={previewCard}
+            previewCard={previewCard}
           priceInfo={priceInfo}
           rightTab={rightTab}
           searchLoad={searchLoad}

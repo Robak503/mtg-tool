@@ -44,7 +44,7 @@ export default function OnboardingWizard({
   const [path, setPath] = useState(null); // "local" | "api"
   if (!open) return null;
 
-  const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors;
+  const { BG, BG3, LINE, TEXT, MUTED, GOLD } = colors;
   const F = fontFamily;
   const idx = STEPS.indexOf(step);
   const ollamaOk = ollamaHealth?.ok;
@@ -61,8 +61,8 @@ export default function OnboardingWizard({
   const back = () => setStep(STEPS[Math.max(idx - 1, 0)]);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
-      <div style={{ width: 640, maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 60px)", background: BG2, border: `1px solid ${LINE}`, borderRadius: 12, display: "flex", flexDirection: "column", color: TEXT, fontFamily: F, overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
+      <div className="ley-glass-strong ley-glass-lit" style={{ width: 640, maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 60px)", display: "flex", flexDirection: "column", color: TEXT, fontFamily: F, overflow: "hidden" }}>
         <header style={{ padding: "16px 22px", borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, fontWeight: 700, color: GOLD, letterSpacing: "-0.01em" }}>Welcome to MTG Tool</span>
           <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -71,7 +71,7 @@ export default function OnboardingWizard({
                 <span key={s} style={{ width: 7, height: 7, borderRadius: "50%", background: i <= idx ? GOLD : LINE }} />
               ))}
             </span>
-            <button onClick={onClose} title="Close (you can finish setup later)" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 20, width: 24, height: 24, lineHeight: 1 }}>×</button>
+            <button onClick={onClose} title="Close (you can finish setup later)" aria-label="Close" className="btn btn-ghost btn-icon">×</button>
           </span>
         </header>
 
@@ -98,7 +98,7 @@ export default function OnboardingWizard({
           {step === "ai" && path === "local" && (
             <Step title="Set up your local model" subtitle="You can start now via the API and let this finish in the background." muted={MUTED}>
               {ollamaOk && !missingModel ? (
-                <Banner color="#6fbf73" colors={colors}>✓ Ollama is installed and a model is ready. You&apos;re all set.</Banner>
+                <Banner color="var(--ley-green)" colors={colors}>✓ Ollama is installed and a model is ready. You&apos;re all set.</Banner>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {ollamaHealth?.status === "not-installed" && (
@@ -153,7 +153,7 @@ export default function OnboardingWizard({
                       {bootstrapBusy ? "Importing…" : "Import data"}
                     </Btn>
                     {bootstrapResult && (
-                      <span style={{ marginLeft: 10, fontSize: 12, color: bootstrapResult.ok ? "#6fbf73" : colors.RED }}>
+                      <span style={{ marginLeft: 10, fontSize: 12, color: bootstrapResult.ok ? "var(--ley-green)" : (colors.RED || "var(--ley-red)") }}>
                         {bootstrapResult.ok ? "✓ Imported — reloading…" : (bootstrapResult.error || "Import failed")}
                       </span>
                     )}
@@ -170,13 +170,13 @@ export default function OnboardingWizard({
         </div>
 
         <footer style={{ padding: "12px 18px", borderTop: `1px solid ${LINE}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <button onClick={onFinish} style={ghost(colors, F)}>Skip setup</button>
+          <button onClick={onFinish} className="btn btn-ghost">Skip setup</button>
           <span style={{ display: "flex", gap: 8 }}>
-            {idx > 0 && <button onClick={back} style={ghost(colors, F)}>Back</button>}
+            {idx > 0 && <button onClick={back} className="btn btn-ghost">Back</button>}
             {step === "decks"
-              ? <button onClick={onFinish} style={primary(colors, F)}>Finish</button>
+              ? <button onClick={onFinish} className="btn btn-primary btn-lg">Finish</button>
               : step === "ai"
-                ? <button onClick={next} style={primary(colors, F)}>Continue</button>
+                ? <button onClick={next} className="btn btn-primary btn-lg">Continue</button>
                 : null}
           </span>
         </footer>
@@ -197,9 +197,9 @@ function Step({ title, subtitle, muted, children }) {
 }
 
 function Choice({ title, body, onClick, colors, font }) {
-  const { BG3, LINE, TEXT, MUTED, GOLD } = colors;
+  const { TEXT, MUTED, GOLD } = colors;
   return (
-    <button onClick={onClick} style={{ textAlign: "left", background: BG3, border: `1px solid ${LINE}`, borderRadius: 10, padding: 16, cursor: "pointer", fontFamily: font, color: TEXT, display: "flex", flexDirection: "column", gap: 6 }}>
+    <button onClick={onClick} className="ley-glass ley-card" style={{ textAlign: "left", borderRadius: 10, padding: 16, cursor: "pointer", fontFamily: font, color: TEXT, display: "flex", flexDirection: "column", gap: 6 }}>
       <span style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>{title}</span>
       <span style={{ fontSize: 12, color: MUTED, lineHeight: 1.5 }}>{body}</span>
     </button>
@@ -223,17 +223,10 @@ function Banner({ color, colors, children }) {
   );
 }
 
-function Btn({ onClick, disabled, children, colors, font }) {
+function Btn({ onClick, disabled, children }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ background: colors.GOLD, color: "#fff", border: `1px solid ${colors.GOLD}`, borderRadius: 6, padding: "6px 13px", fontSize: 12, fontWeight: 600, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1, fontFamily: font, whiteSpace: "nowrap" }}>
+    <button onClick={onClick} disabled={disabled} className="btn btn-primary btn-sm">
       {children}
     </button>
   );
-}
-
-function ghost(colors, font) {
-  return { background: "transparent", border: `1px solid ${colors.LINE}`, color: colors.MUTED, borderRadius: 6, padding: "7px 14px", fontSize: 13, cursor: "pointer", fontFamily: font };
-}
-function primary(colors, font) {
-  return { background: colors.GOLD, color: "#fff", border: `1px solid ${colors.GOLD}`, borderRadius: 6, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font };
 }

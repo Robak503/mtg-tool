@@ -4,12 +4,13 @@
   <meta charset="utf-8" />
   <title>MTG Tool — Loading</title>
   <style>
+    /* LEYLINE: green energy through dark glass — matches app/src/app/globals.css */
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      background: #0a0a0a;
-      color: #d4d4d4;
+      background: #050705;
+      color: #a8bfaa;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     body {
@@ -17,25 +18,60 @@
       align-items: center;
       justify-content: center;
       flex-direction: column;
-      gap: 16px;
+      gap: 18px;
+      background:
+        radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86, 214, 93, 0.07) 0%, rgba(86, 214, 93, 0.015) 32%, transparent 60%),
+        #050705;
     }
-    .dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #6a6a6a;
-      animation: pulse 1.2s infinite ease-in-out;
+    .wordmark {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #56d65d;
+      text-shadow: 0 0 14px rgba(86, 214, 93, 0.5);
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
+    #status {
+      font-size: 13px;
+      color: #a8bfaa;
+    }
+    .line {
+      width: 180px;
+      height: 2px;
+      border-radius: 2px;
+      background: rgba(86, 214, 93, 0.15);
+      overflow: hidden;
+      position: relative;
+    }
+    .line::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      border-radius: 2px;
+      background: #56d65d;
+      box-shadow: 0 0 10px rgba(86, 214, 93, 0.7);
+      animation: ley-scan 1.4s infinite cubic-bezier(0.4, 0, 0.6, 1);
+    }
+    @keyframes ley-scan {
+      to { left: 100%; }
+    }
+    #hint {
+      font-size: 12px;
+      color: #6d826f;
+      max-width: 480px;
+      text-align: center;
+      padding: 0 24px;
+      line-height: 1.5;
     }
   </style>
 </head>
 <body>
-  <div id="status">MTG Tool starting</div>
-  <div class="dot"></div>
-  <div id="hint" style="font-size: 12px; color: #6a6a6a; max-width: 480px; text-align: center; padding: 0 24px;">
+  <div class="wordmark">MTG Tool</div>
+  <div id="status">Starting the engine</div>
+  <div class="line"></div>
+  <div id="hint">
     First launch can take a minute while ~1 GB of card &amp; rules data
     is seeded into AppData.
   </div>
@@ -56,7 +92,7 @@
           .catch(function () {
             if (++tries >= maxTries) {
               document.body.innerHTML =
-                "<div style='text-align:center;padding:24px;max-width:480px'>" +
+                "<div style='text-align:center;padding:24px;max-width:480px;color:#e6f0e6'>" +
                 "<strong>Could not reach local server at " + target + ".</strong><br/><br/>" +
                 "Try restarting MTG Tool. If this keeps happening, check the launch.log " +
                 "in %APPDATA%\\com.colton.mtg-tool\\ for spawn errors. Most often this " +

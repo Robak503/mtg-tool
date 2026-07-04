@@ -108,15 +108,15 @@ function SegmentedControl({ options, value, onChange, colors }) {
           key={opt.value}
           onClick={() => onChange(opt.value)}
           style={{
-            background: value === opt.value ? colors.GOLD : colors.BG,
-            color: value === opt.value ? colors.BG : colors.TEXT,
+            background: value === opt.value ? "var(--ley-green-dim)" : "transparent",
+            color: value === opt.value ? "var(--ley-green)" : colors.TEXT,
             border: "none",
             borderLeft: i > 0 ? `1px solid ${colors.LINE}` : "none",
             padding: "6px 12px",
             fontSize: 12,
             cursor: "pointer",
             fontFamily: "inherit",
-            fontWeight: value === opt.value ? 600 : 400,
+            fontWeight: value === opt.value ? 700 : 400,
           }}
         >
           {opt.label}

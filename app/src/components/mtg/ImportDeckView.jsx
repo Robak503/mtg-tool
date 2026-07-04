@@ -9,7 +9,6 @@ import { isDeckUrl } from "../../lib/deck/deckImportUrl";
 
 export default function ImportDeckView({
   cfg,
-  pb,
   colors,
   fontFamily,
   deckName,
@@ -78,7 +77,7 @@ export default function ImportDeckView({
   return (
     <div style={{flex:1,overflowY:"auto",padding:20}}>
       <div style={{maxWidth:520,margin:"0 auto"}}>
-        <div style={{fontFamily,fontSize:18,color:"#cec8e0",marginBottom:14}}>Import Deck</div>
+        <div style={{fontFamily:"var(--font-display)",fontSize:18,color:TEXT,marginBottom:14}}>Import Deck</div>
 
         <div style={{background:BG3,border:`1px solid ${cfg.border}`,borderRadius:8,padding:14,marginBottom:18}}>
           <div style={{fontSize:13,fontWeight:700,color:cfg.color,fontFamily,marginBottom:4}}>Import from Moxfield or Archidekt</div>
@@ -96,13 +95,14 @@ export default function ImportDeckView({
             <button
               onClick={fetchUrl}
               disabled={!canFetch}
-              style={{...pb(true,true),opacity:canFetch?1:.45,whiteSpace:"nowrap"}}
+              className="btn btn-secondary btn-sm"
+              style={{whiteSpace:"nowrap"}}
             >
               {urlBusy?"Fetching…":"Fetch"}
             </button>
           </div>
           {urlError&&(
-            <div style={{marginTop:10,padding:"8px 10px",borderRadius:6,background:"rgba(147,0,10,0.18)",border:"1px solid rgba(255,180,171,0.4)",color:"#ffb4ab",fontSize:12,lineHeight:1.5}}>
+            <div style={{marginTop:10,padding:"8px 10px",borderRadius:6,background:"var(--ley-red-dim)",border:"1px solid var(--ley-red)",color:"var(--ley-red)",fontSize:12,lineHeight:1.5}}>
               {urlError}
             </div>
           )}
@@ -124,8 +124,8 @@ export default function ImportDeckView({
                 </div>
               )}
               <div style={{display:"flex",gap:8,marginTop:10}}>
-                <button onClick={saveUrlDeck} style={pb(true)}>Save to library</button>
-                <button onClick={()=>setUrlPreview(null)} style={pb(false)}>Discard</button>
+                <button onClick={saveUrlDeck} className="btn btn-primary btn-sm">Save to library</button>
+                <button onClick={()=>setUrlPreview(null)} className="btn btn-ghost btn-sm">Discard</button>
               </div>
             </div>
           )}
@@ -159,8 +159,8 @@ export default function ImportDeckView({
           style={{width:"100%",minHeight:220,padding:"10px 12px",background:BG3,border:`1px solid ${LINE}`,borderRadius:6,color:TEXT,fontSize:12,fontFamily:"monospace",resize:"vertical",lineHeight:1.65}}
         />
         <div style={{display:"flex",gap:8,marginTop:10}}>
-          <button onClick={importDeck} disabled={!deckRaw.trim()} style={{...pb(true),opacity:deckRaw.trim()?1:.45}}>Import Deck</button>
-          <button onClick={()=>setCenterView("chat")} style={pb(false)}>Cancel</button>
+          <button onClick={importDeck} disabled={!deckRaw.trim()} className="btn btn-primary">Import Deck</button>
+          <button onClick={()=>setCenterView("chat")} className="btn btn-ghost">Cancel</button>
         </div>
       </div>
     </div>

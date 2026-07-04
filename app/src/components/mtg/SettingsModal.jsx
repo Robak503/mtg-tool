@@ -46,7 +46,7 @@ export default function SettingsModal({
   const [section, setSection] = useState("models");
   if (!open) return null;
 
-  const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors;
+  const { BG, BG3, LINE, TEXT, MUTED, GOLD } = colors;
   const F = fontFamily;
   const activeTier = modelProvider === "ollama" || modelProvider === "local" ? "fast"
     : modelProvider === "api" || modelProvider === "cloud" ? "anthropic"
@@ -55,19 +55,19 @@ export default function SettingsModal({
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="ley-glass-strong ley-glass-lit"
         style={{
           width: 760, maxWidth: "calc(100vw - 40px)", height: 580, maxHeight: "calc(100vh - 60px)",
-          background: BG2, border: `1px solid ${LINE}`, borderRadius: 10,
           display: "flex", flexDirection: "column", color: TEXT, fontFamily: F, overflow: "hidden",
         }}
       >
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${LINE}` }}>
           <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, fontWeight: 700, color: GOLD, letterSpacing: "-0.01em" }}>Settings</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 20, width: 24, height: 24, lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="btn btn-ghost btn-icon">×</button>
         </header>
 
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -80,8 +80,9 @@ export default function SettingsModal({
                 style={{
                   display: "block", width: "100%", textAlign: "left",
                   padding: "8px 10px", marginBottom: 2, borderRadius: 6,
-                  background: section === k ? GOLD : "transparent",
-                  color: section === k ? "#fff" : MUTED,
+                  background: section === k ? "var(--ley-green-dim)" : "transparent",
+                  color: section === k ? "var(--ley-green)" : MUTED,
+                  fontWeight: section === k ? 700 : 400,
                   border: "none", cursor: "pointer", fontFamily: F, fontSize: 13,
                 }}
               >{label}</button>
@@ -104,15 +105,16 @@ export default function SettingsModal({
                       <button
                         key={t.id}
                         onClick={() => setModelProvider(t.id)}
+                        className={on ? "ley-glass" : undefined}
                         style={{
                           textAlign: "left", padding: "11px 13px", borderRadius: 8, cursor: "pointer",
-                          background: on ? "rgba(0,242,255,0.12)" : BG3,
-                          border: `1px solid ${on ? GOLD : LINE}`, color: TEXT, fontFamily: F,
+                          background: on ? "var(--ley-green-dim)" : BG3,
+                          border: `1px solid ${on ? "var(--ley-green)" : LINE}`, color: TEXT, fontFamily: F,
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 14, fontWeight: 600, color: on ? GOLD : TEXT }}>{t.label}</span>
-                          {on && <span style={{ fontSize: 10, color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 3, padding: "1px 6px" }}>active</span>}
+                          <span style={{ fontSize: 14, fontWeight: 600, color: on ? "var(--ley-green)" : TEXT }}>{t.label}</span>
+                          {on && <span style={{ fontSize: 10, color: "var(--ley-green)", border: "1px solid var(--ley-green)", borderRadius: 3, padding: "1px 6px" }}>active</span>}
                         </div>
                         <div style={{ fontSize: 12, color: MUTED, marginTop: 4, lineHeight: 1.45 }}>{t.desc}</div>
                       </button>
@@ -131,7 +133,8 @@ export default function SettingsModal({
                       const on = (id === "fast") === Boolean(fastMode);
                       return (
                         <button key={id} onClick={() => setFastMode(id === "fast")}
-                          style={{ border: 0, background: on ? "rgba(0,242,255,0.12)" : "transparent", color: on ? GOLD : MUTED, cursor: "pointer", fontFamily: F, fontSize: 12, padding: "6px 14px" }}>
+                          className="btn btn-sm"
+                          style={{ borderRadius: 0, border: 0, background: on ? "var(--ley-green-dim)" : "transparent", color: on ? "var(--ley-green)" : MUTED, fontWeight: on ? 700 : 400 }}>
                           {label}
                         </button>
                       );
@@ -144,8 +147,8 @@ export default function SettingsModal({
             {section === "display" && (
               <Section title="Display">
                 <P muted={MUTED}>
-                  MTG Tool uses a single hand-tuned theme — <strong>Aether</strong>: near-black
-                  Material surfaces with an electric-cyan accent, frosted-glass panels, and a
+                  MTG Tool uses a single hand-tuned theme — <strong>Leyline</strong>: true-black
+                  surfaces with a phosphor-green accent, frosted-glass panels, and a
                   Playfair Display / Inter / JetBrains Mono type system.
                 </P>
                 <P muted={MUTED}>
@@ -177,7 +180,7 @@ export default function SettingsModal({
                       %APPDATA%\com.colton.mtg-tool\data
                     </code>
                   </P>
-                  <button onClick={onOpenUpdates} style={linkBtn(GOLD, LINE, F)}>Open Data &amp; Updates →</button>
+                  <button onClick={onOpenUpdates} className="btn btn-secondary btn-sm">Open Data &amp; Updates →</button>
                 </div>
               </Section>
             )}
@@ -195,7 +198,7 @@ export default function SettingsModal({
                   ["Support bundle.", " Copy a redacted diagnostics summary for bug reports (no secrets, no chat content)."],
                   ["Start with Windows.", " Toggle launching MTG Tool at sign-in."],
                 ]} />
-                <button onClick={onOpenUpdates} style={{ ...linkBtn(GOLD, LINE, F), marginTop: 14 }}>Open Data &amp; Updates →</button>
+                <button onClick={onOpenUpdates} className="btn btn-secondary btn-sm" style={{ marginTop: 14 }}>Open Data &amp; Updates →</button>
               </Section>
             )}
 
@@ -223,7 +226,7 @@ export default function SettingsModal({
                   data and dependencies retain their own licenses and terms.
                 </P>
 
-                <a href={REPO_URL} target="_blank" rel="noreferrer" style={{ ...linkBtn(GOLD, LINE, F), display: "inline-block", textDecoration: "none", marginTop: 14 }}>
+                <a href={REPO_URL} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ display: "inline-flex", textDecoration: "none", marginTop: 14 }}>
                   View source on GitHub →
                 </a>
               </Section>
@@ -238,7 +241,7 @@ export default function SettingsModal({
 function Section({ title, children }) {
   return (
     <div>
-      <h2 style={{ fontFamily: "var(--font-mono), monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--primary-fixed-dim)", margin: "0 0 12px", fontWeight: 600 }}>{title}</h2>
+      <h2 style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--ley-text-faint)", margin: "0 0 12px", fontWeight: 600 }}>{title}</h2>
       {children}
     </div>
   );
@@ -253,14 +256,10 @@ function Bullets({ items, muted, text }) {
     <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 0" }}>
       {items.map(([lead, rest], i) => (
         <li key={i} style={{ fontSize: 13, color: muted, lineHeight: 1.5, marginBottom: 9, paddingLeft: 16, position: "relative" }}>
-          <span style={{ position: "absolute", left: 0, color: "#00dbe7" }}>•</span>
+          <span style={{ position: "absolute", left: 0, color: "var(--ley-green)" }}>•</span>
           <strong style={{ color: text }}>{lead}</strong>{rest}
         </li>
       ))}
     </ul>
   );
-}
-
-function linkBtn(gold, line, font) {
-  return { background: "transparent", border: `1px solid ${line}`, color: gold, padding: "7px 14px", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: font };
 }

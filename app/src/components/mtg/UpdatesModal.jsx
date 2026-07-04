@@ -77,7 +77,7 @@ async function loadAutostartPlugin() {
 }
 
 export default function UpdatesModal({ open, onClose, initialUpdate, colors, fontFamily }) {
-  const { BG2, LINE, GOLD } = colors || {};
+  const { LINE, GOLD } = colors || {};
   const F = fontFamily;
   const [status, setStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -327,16 +327,6 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
   };
 
   // ── Your data: backup / restore / support bundle ──────────────────────────
-  const dataBtn = {
-    background: "transparent",
-    border: `1px solid ${LINE || "#3a3640"}`,
-    color: "#e0e0e0",
-    cursor: "pointer",
-    fontSize: 11,
-    padding: "4px 10px",
-    borderRadius: 4,
-    fontFamily: F,
-  };
   const flashData = (msg) => {
     setDataMsg(msg);
     window.setTimeout(() => setDataMsg(""), 6000);
@@ -394,7 +384,7 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
   if (!open) return null;
 
   const datasets = status?.datasets || [];
-  const accent = GOLD || "#e0b64a";
+  const accent = GOLD || "var(--ley-green)";
 
   return (
     <div
@@ -402,58 +392,46 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
       aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget && !busyAction) onClose?.(); }}
       style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
         zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
         fontFamily: F,
       }}
     >
       <div
+        className="ley-glass-strong ley-glass-lit"
         style={{
-          background: BG2 || "#16151a",
-          border: `1px solid ${LINE || "#3a3640"}`,
-          borderRadius: 8,
           width: "min(900px, 95vw)",
           maxHeight: "92vh",
           display: "flex",
           flexDirection: "column",
           gap: 0,
-          color: "#e0e0e0",
+          color: "var(--ley-text)",
         }}
       >
         <div
           style={{
             padding: "12px 18px",
-            borderBottom: `1px solid ${LINE || "#3a3640"}`,
+            borderBottom: `1px solid ${LINE || "var(--ley-line)"}`,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
-          <div style={{ fontSize: 15, fontWeight: 700, color: accent, letterSpacing: "0.05em" }}>
+          <div style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 15, fontWeight: 700, color: accent, letterSpacing: "0.05em" }}>
             UPDATES &amp; DATA SYNC
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={() => runSync("all")}
               disabled={!!busyAction}
-              style={{
-                background: busyAction === "all" ? "#2a3a55" : "#244a7a",
-                border: "1px solid #4a7ac4",
-                color: "#e0eaf6",
-                cursor: busyAction ? "default" : "pointer",
-                fontSize: 12, padding: "6px 14px", borderRadius: 5, fontFamily: F,
-              }}
+              className={`btn btn-sm ${busyAction === "all" ? "btn-loading" : "btn-primary"}`}
             >
               {busyAction === "all" ? "Refreshing all…" : "Refresh all"}
             </button>
             {busyAction ? (
               <button
                 onClick={cancelRunning}
-                style={{
-                  background: "transparent", border: "1px solid #6b3a3a",
-                  color: "#e0a89a", cursor: "pointer",
-                  fontSize: 12, padding: "6px 14px", borderRadius: 5, fontFamily: F,
-                }}
+                className="btn btn-danger btn-sm"
               >
                 Cancel
               </button>
@@ -461,10 +439,8 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
               <button
                 onClick={onClose}
                 title="Close"
-                style={{
-                  background: "transparent", border: "none", color: "#aaa",
-                  fontSize: 22, lineHeight: 1, padding: "0 6px", cursor: "pointer",
-                }}
+                aria-label="Close"
+                className="btn btn-ghost btn-icon"
               >
                 ×
               </button>
@@ -472,18 +448,18 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
           </div>
         </div>
 
-        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, fontSize: 11, color: "#9a9a9a" }}>
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "var(--ley-line)"}`, fontSize: 11, color: "var(--ley-text-faint)" }}>
           Refresh data from official sources. Writes land in <code style={{ color: accent }}>{status?.dataDir || "data/"}</code> — the bundled snapshot stays untouched. Long syncs (Spellbook) can take 10+ minutes; this panel can be closed and reopened, the sync keeps running on the server.
         </div>
 
         {/* App self-update section — Tauri auto-updater */}
-        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}` }}>
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "var(--ley-line)"}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 13, color: "#e0e0e0" }}>
+              <div style={{ fontSize: 13, color: "var(--ley-text)" }}>
                 MTG Tool <span style={{ color: accent, fontFamily: "Consolas, monospace" }}>v{currentVersion}</span>
               </div>
-              <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 2 }}>
+              <div className={appUpdate.status === "downloading" ? "ley-live" : undefined} style={{ fontSize: 11, color: "var(--ley-text-faint)", marginTop: 2 }}>
                 {appUpdate.status === "idle"
                   ? "Check for newer .exe releases from GitHub."
                   : appUpdate.message}
@@ -494,11 +470,7 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
                 <button
                   onClick={downloadAndInstallUpdate}
                   disabled={appUpdateBusy}
-                  style={{
-                    background: "#244a7a", border: "1px solid #4a7ac4",
-                    color: "#e0eaf6", cursor: appUpdateBusy ? "default" : "pointer",
-                    fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
-                  }}
+                  className="btn btn-primary btn-sm"
                 >
                   {appUpdateBusy ? "Installing…" : "Download & install"}
                 </button>
@@ -506,11 +478,7 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
               <button
                 onClick={checkForAppUpdate}
                 disabled={appUpdateBusy}
-                style={{
-                  background: "transparent", border: `1px solid ${LINE || "#3a3640"}`,
-                  color: "#e0e0e0", cursor: appUpdateBusy ? "default" : "pointer",
-                  fontSize: 11, padding: "4px 10px", borderRadius: 4, fontFamily: F,
-                }}
+                className="btn btn-secondary btn-sm"
               >
                 {appUpdateBusy && appUpdate.status === "checking" ? "Checking…" : "Check for updates"}
               </button>
@@ -519,12 +487,12 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
         </div>
 
         {/* Your data — backup / restore / diagnostics */}
-        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}` }}>
-          <div style={{ fontSize: 13, color: "#e0e0e0", marginBottom: 8 }}>Your data</div>
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "var(--ley-line)"}` }}>
+          <div style={{ fontSize: 13, color: "var(--ley-text)", marginBottom: 8 }}>Your data</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={backupAllData} style={dataBtn}>Back up all data</button>
-            <button onClick={() => restoreInputRef.current?.click()} style={dataBtn}>Restore from backup…</button>
-            <button onClick={copySupportInfo} style={dataBtn}>Copy support info</button>
+            <button onClick={backupAllData} className="btn btn-secondary btn-sm">Back up all data</button>
+            <button onClick={() => restoreInputRef.current?.click()} className="btn btn-secondary btn-sm">Restore from backup…</button>
+            <button onClick={copySupportInfo} className="btn btn-secondary btn-sm">Copy support info</button>
             <input
               ref={restoreInputRef}
               type="file"
@@ -533,7 +501,7 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; restoreFromBackup(f); }}
             />
           </div>
-          <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--ley-text-faint)", marginTop: 6 }}>
             {dataMsg || "Export everything (decks, chats, collection, grails, games) to one JSON, restore it on another machine, or copy redacted diagnostics for a bug report. Nothing leaves your machine unless you share the file."}
           </div>
         </div>
@@ -542,10 +510,10 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
             install on launch. Flipping this on switches back to "show
             me what's changing and let me click Install myself." */}
         {autostart.available && (
-          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "var(--ley-line)"}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 13, color: "#e0e0e0" }}>Show me updates before installing</div>
-              <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 2 }}>
+              <div style={{ fontSize: 13, color: "var(--ley-text)" }}>Show me updates before installing</div>
+              <div style={{ fontSize: 11, color: "var(--ley-text-faint)", marginTop: 2 }}>
                 {(() => {
                   let on = false;
                   try { on = localStorage.getItem("mtg-show-update-banner-first") === "1"; } catch {}
@@ -563,15 +531,10 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
                 } catch {}
                 setAppUpdate((prev) => ({ ...prev }));
               }}
-              style={{
-                background: (() => {
-                  try { return localStorage.getItem("mtg-show-update-banner-first") === "1" ? "#244a7a" : "transparent"; } catch { return "transparent"; }
-                })(),
-                border: `1px solid ${LINE || "#3a3640"}`,
-                color: "#e0e0e0", cursor: "pointer",
-                fontSize: 11, padding: "4px 14px", borderRadius: 4, fontFamily: F,
-                minWidth: 80,
-              }}
+              className={`btn btn-sm ${(() => {
+                try { return localStorage.getItem("mtg-show-update-banner-first") === "1" ? "btn-primary" : "btn-secondary"; } catch { return "btn-secondary"; }
+              })()}`}
+              style={{ minWidth: 80 }}
             >
               {(() => {
                 try { return localStorage.getItem("mtg-show-update-banner-first") === "1" ? "Enabled" : "Enable"; } catch { return "Enable"; }
@@ -582,10 +545,10 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
 
         {/* Autostart toggle — only shown when running inside Tauri */}
         {autostart.available && (
-          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "var(--ley-line)"}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 13, color: "#e0e0e0" }}>Start MTG Tool when Windows starts</div>
-              <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 2 }}>
+              <div style={{ fontSize: 13, color: "var(--ley-text)" }}>Start MTG Tool when Windows starts</div>
+              <div style={{ fontSize: 11, color: "var(--ley-text-faint)", marginTop: 2 }}>
                 {autostart.enabled
                   ? "Enabled — the app launches into the system tray on login."
                   : "Disabled — you'll need to launch the app manually."}
@@ -594,13 +557,8 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
             <button
               onClick={toggleAutostart}
               disabled={autostart.busy}
-              style={{
-                background: autostart.enabled ? "#244a7a" : "transparent",
-                border: `1px solid ${autostart.enabled ? "#4a7ac4" : (LINE || "#3a3640")}`,
-                color: "#e0e0e0", cursor: autostart.busy ? "default" : "pointer",
-                fontSize: 11, padding: "4px 14px", borderRadius: 4, fontFamily: F,
-                minWidth: 80,
-              }}
+              className={`btn btn-sm ${autostart.enabled ? "btn-primary" : "btn-secondary"}`}
+              style={{ minWidth: 80 }}
             >
               {autostart.busy ? "…" : autostart.enabled ? "Enabled" : "Enable"}
             </button>
@@ -610,16 +568,17 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
         {/* Dataset rows */}
         <div style={{ padding: "12px 0", overflowY: "auto", maxHeight: "40vh" }}>
           {datasets.length === 0 && (
-            <div style={{ padding: "8px 18px", fontSize: 12, color: "#888" }}>
+            <div style={{ padding: "8px 18px", fontSize: 12, color: "var(--ley-text-faint)" }}>
               {statusLoading ? "Loading status…" : "No dataset status available."}
             </div>
           )}
           {datasets.map((ds) => (
             <div
               key={ds.key}
+              className={busyAction === ds.key ? "ley-live" : undefined}
               style={{
                 padding: "10px 18px",
-                borderBottom: `1px solid ${LINE || "#3a3640"}33`,
+                borderBottom: `1px solid ${LINE || "var(--ley-line)"}`,
                 display: "grid",
                 gridTemplateColumns: "1fr auto auto auto",
                 gap: 12,
@@ -627,31 +586,26 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
               }}
             >
               <div>
-                <div style={{ fontSize: 13, color: "#e0e0e0" }}>
+                <div style={{ fontSize: 13, color: "var(--ley-text)" }}>
                   {DATASET_LABELS[ds.key] || ds.label}
                 </div>
-                <div style={{ fontSize: 11, color: ds.stale ? "#e8c285" : "#7a7a7a", marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: ds.stale ? "var(--ley-gold)" : "var(--ley-text-faint)", marginTop: 2 }}>
                   {ds.present
                     ? `synced ${timeAgo(ds.syncedAt)} · ${fmtBytes(ds.sizeBytes)}${ds.stale ? " · stale" : ""}`
                     : "not present locally"}
                 </div>
               </div>
-              <div style={{ fontSize: 10, color: "#666", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 10, color: "var(--ley-text-faint)", whiteSpace: "nowrap" }}>
                 {DATASET_HINTS[ds.key]}
               </div>
-              <div style={{ fontSize: 10, color: ds.present ? "#9ec59e" : "#888", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 10, color: ds.present ? "var(--ley-green-text)" : "var(--ley-text-faint)", whiteSpace: "nowrap" }}>
                 {ds.present ? "✓" : "—"}
               </div>
               <button
                 onClick={() => runSync(ds.key)}
                 disabled={!!busyAction}
-                style={{
-                  background: busyAction === ds.key ? "#2a3a55" : "transparent",
-                  border: `1px solid ${LINE || "#3a3640"}`,
-                  color: "#e0e0e0", cursor: busyAction ? "default" : "pointer",
-                  fontSize: 11, padding: "4px 10px", borderRadius: 4, fontFamily: F,
-                  minWidth: 70,
-                }}
+                className={`btn btn-secondary btn-sm ${busyAction === ds.key ? "btn-loading" : ""}`}
+                style={{ minWidth: 70 }}
               >
                 {busyAction === ds.key ? "…" : "Refresh"}
               </button>
@@ -667,17 +621,17 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
             minHeight: 200,
             maxHeight: "35vh",
             overflowY: "auto",
-            background: "#0a0a0a",
-            color: "#9ec59e",
+            background: "var(--ley-bg)",
+            color: "var(--ley-green-text)",
             fontFamily: "Consolas, Menlo, monospace",
             fontSize: 11,
             padding: "10px 18px",
             whiteSpace: "pre-wrap",
-            borderTop: `1px solid ${LINE || "#3a3640"}`,
+            borderTop: `1px solid ${LINE || "var(--ley-line)"}`,
           }}
         >
           {logLines.length === 0
-            ? <span style={{ color: "#555" }}>No activity yet. Click Refresh on any dataset above.</span>
+            ? <span style={{ color: "var(--ley-text-faint)" }}>No activity yet. Click Refresh on any dataset above.</span>
             : logLines.join("\n")}
         </div>
       </div>

@@ -8,7 +8,6 @@ import ProfileMenu from "./ProfileMenu";
 
 export default function AppHeader({
   agent,
-  cfg,
   fastMode,
   mobile,
   rightOpen,
@@ -25,7 +24,6 @@ export default function AppHeader({
   openUpdates,
   openSettings,
   appVersion,
-  pb,
   colors,
   fontFamily,
   profiles,
@@ -56,27 +54,27 @@ export default function AppHeader({
   if (knowledgeStatus) {
     const { ollama, spellbook, salt, cardData, rulesFreshness } = knowledgeStatus;
     if (ollama && !ollama.available) {
-      warnings.push({ key: "ollama-down", text: "Ollama offline", detail: "Start with: ollama serve", color: "#c2786f" });
+      warnings.push({ key: "ollama-down", text: "Ollama offline", detail: "Start with: ollama serve", color: "var(--ley-red)" });
     } else if (ollama?.missingModels?.length) {
-      warnings.push({ key: "models-missing", text: `Model missing`, detail: `Run: ollama pull ${ollama.missingModels[0]}`, color: "#c2786f" });
+      warnings.push({ key: "models-missing", text: `Model missing`, detail: `Run: ollama pull ${ollama.missingModels[0]}`, color: "var(--ley-red)" });
     }
     if (cardData?.stale) {
-      warnings.push({ key: "carddata-stale", text: `Card data ${cardData.staleDays}d old`, detail: "Open Data & Updates to refresh card data from Scryfall", color: "#b08a3e", sync: true });
+      warnings.push({ key: "carddata-stale", text: `Card data ${cardData.staleDays}d old`, detail: "Open Data & Updates to refresh card data from Scryfall", color: "var(--ley-gold)", sync: true });
     }
     if (spellbook?.stale) {
-      warnings.push({ key: "spellbook-stale", text: `Combos ${spellbook.staleDays}d old`, detail: "Open Data & Updates to refresh combos", color: "#b08a3e", sync: true });
+      warnings.push({ key: "spellbook-stale", text: `Combos ${spellbook.staleDays}d old`, detail: "Open Data & Updates to refresh combos", color: "var(--ley-gold)", sync: true });
     }
     if (salt?.stale) {
-      warnings.push({ key: "salt-stale", text: `Salt ${salt.staleDays}d old`, detail: "Open Data & Updates to refresh EDHREC salt", color: "#b08a3e", sync: true });
+      warnings.push({ key: "salt-stale", text: `Salt ${salt.staleDays}d old`, detail: "Open Data & Updates to refresh EDHREC salt", color: "var(--ley-gold)", sync: true });
     }
     if (rulesFreshness?.stale) {
-      warnings.push({ key: "rules-stale", text: `Rules ${rulesFreshness.staleDays}d old`, detail: "Open Data & Updates to refresh the Comprehensive Rules", color: "#b08a3e", sync: true });
+      warnings.push({ key: "rules-stale", text: `Rules ${rulesFreshness.staleDays}d old`, detail: "Open Data & Updates to refresh the Comprehensive Rules", color: "var(--ley-gold)", sync: true });
     }
   }
 
   return (
     <div style={{padding:"9px 16px",borderBottom:`1px solid ${LINE}`,background:BG2,backdropFilter:"blur(16px) saturate(1.2)",WebkitBackdropFilter:"blur(16px) saturate(1.2)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-      <span style={{fontFamily:"var(--font-display), Georgia, serif",fontSize:18,fontWeight:700,letterSpacing:"-0.01em",color:"transparent",background:"linear-gradient(180deg,#74f5ff 0%,#00dbe7 52%,#00a3ab 100%)",WebkitBackgroundClip:"text",backgroundClip:"text",filter:"drop-shadow(0 0 9px rgba(0,242,255,.40))"}}>
+      <span style={{fontFamily:"var(--font-display), Georgia, serif",fontSize:18,fontWeight:700,letterSpacing:"-0.01em",color:"transparent",background:"linear-gradient(180deg,#74ff86 0%,#56d65d 52%,#2e9a3f 100%)",WebkitBackgroundClip:"text",backgroundClip:"text",filter:"drop-shadow(0 0 9px rgba(86,214,93,.40))"}}>
         MTG Assistant
         {appVersion && (
           <span style={{
@@ -98,7 +96,8 @@ export default function AppHeader({
         )}
         {warnings.map(w => {
           const chipStyle = {
-            border:`1px solid ${w.color}44`,
+            // color-mix keeps the border a soft 30% tint of the (token) chip color
+            border:`1px solid color-mix(in srgb, ${w.color} 30%, transparent)`,
             borderRadius:5,
             color:w.color,
             fontFamily,
@@ -145,12 +144,13 @@ export default function AppHeader({
                   style={{
                     border:0,
                     borderRight:option.id !== providerOptions[providerOptions.length - 1].id ? `1px solid ${LINE}` : 0,
-                    background:active?cfg.dim:"transparent",
-                    color:active?cfg.color:"var(--on-surface-variant)",
+                    background:active?"var(--ley-green-dim)":"transparent",
+                    color:active?"var(--ley-green)":"var(--on-surface-variant)",
+                    fontWeight:active?700:400,
                     cursor:"pointer",
                     fontFamily,
                     fontSize:11,
-                    padding:"5px 8px",
+                    padding:"5px 9px",
                   }}
                 >
                   {option.label}
@@ -159,26 +159,27 @@ export default function AppHeader({
             })}
           </div>
         )}
-        {!mobile&&!rightOpen&&<button onClick={()=>setRightOpen(true)} style={pb(false,true)}>Show Panel</button>}
+        {!mobile&&!rightOpen&&<button onClick={()=>setRightOpen(true)} className="btn btn-secondary btn-sm">Show Panel</button>}
         {agent==="arbiter"&&(
           <button
             onClick={()=>setFastMode(!fastMode)}
             title={fastMode?"Fast: compressed prompt, lower cost, slight accuracy drop":"Full: complete engine prompt, max accuracy"}
-            style={{...pb(false,true),background:fastMode?cfg.dim:"transparent",borderColor:cfg.border,color:cfg.color}}
+            className="btn btn-secondary btn-sm"
+            style={{background:fastMode?"var(--ley-green-dim)":undefined}}
           >
             {fastMode?"Fast":"Full"}
           </button>
         )}
         {!mobile&&(
           <>
-            {deckLock&&<button onClick={unlockDeck} style={pb(false,true)}>Unlock Deck</button>}
-            <button onClick={exportChat} style={pb(false,true)}>Export Chat</button>
-            <button onClick={clearChat} style={pb(false,true)}>Clear Chat</button>
+            {deckLock&&<button onClick={unlockDeck} className="btn btn-secondary btn-sm">Unlock Deck</button>}
+            <button onClick={exportChat} className="btn btn-secondary btn-sm">Export Chat</button>
+            <button onClick={clearChat} className="btn btn-secondary btn-sm">Clear Chat</button>
             {openUpdates && (
               <button
                 onClick={openUpdates}
                 title="Refresh card data, combos, and salt scores from official sources"
-                style={pb(false,true)}
+                className="btn btn-secondary btn-sm"
               >
                 ⟳ Updates
               </button>
@@ -187,7 +188,7 @@ export default function AppHeader({
               <button
                 onClick={openSettings}
                 title="Settings — models, privacy, data, and about"
-                style={pb(false,true)}
+                className="btn btn-secondary btn-sm"
               >
                 ⚙ Settings
               </button>

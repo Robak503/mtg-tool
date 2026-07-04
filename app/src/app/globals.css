@@ -1,49 +1,110 @@
 /* ============================================================
-   AETHER design tokens — single source of truth for the theme.
-   Palette is Material-3-derived (cyan hero on near-black).
+   LEYLINE design tokens — single source of truth for the theme.
+   Green energy through dark glass: true-black surfaces, phosphor
+   green accents, glass panels, glow as hierarchy.
    Fonts come from next/font (layout.jsx) via --font-* variables.
+
+   Rules of the system:
+   - Compose from tokens. Never hand-hex a color in a component.
+   - Glow = hierarchy: primary actions, live/active states, focus.
+     Nothing else glows.
+   - One primary action per surface.
    ============================================================ */
 :root {
-  /* surfaces */
-  --bg: #090a0d;
-  --surface: #121316;
-  --surface-dim: #121316;
-  --surface-bright: #38393c;
-  --surface-container-lowest: #0d0e11;
-  --surface-container-low: #1b1b1f;
-  --surface-container: #1f1f23;
-  --surface-container-high: #292a2d;
-  --surface-container-highest: #343538;
-  --surface-variant: #343538;
+  /* ---- LEYLINE core -------------------------------------- */
+
+  /* surface ramp (true black → layered green-greys) */
+  --ley-bg: #050705;
+  --ley-surface-0: #0a0d0a;
+  --ley-surface-1: #0f130f;
+  --ley-surface-2: #141a14;
+  --ley-surface-3: #1a221a;
+  --ley-surface-4: #212a21;
+
+  /* hairlines + edges */
+  --ley-line: rgba(140, 255, 150, 0.1);
+  --ley-line-bright: rgba(88, 214, 95, 0.28);
+  --ley-line-faint: rgba(140, 255, 150, 0.05);
+
+  /* the green ramp */
+  --ley-green: #56d65d; /* phosphor — the system accent */
+  --ley-green-bright: #74ff86; /* hot: live/active highlights */
+  --ley-green-deep: #2e9a3f; /* pressed / gradients */
+  --ley-green-dim: rgba(86, 214, 93, 0.12); /* tints, active fills */
+  --ley-green-faint: rgba(86, 214, 93, 0.06); /* hover washes */
+  --ley-green-glow: rgba(86, 214, 93, 0.35); /* glow shadows */
+  --ley-green-text: #a3e7aa; /* muted green copy */
 
   /* text */
-  --on-surface: #e3e2e6;
-  --on-surface-variant: #b9cacb;
+  --ley-text: #e6f0e6;
+  --ley-text-dim: #a8bfaa;
+  --ley-text-faint: #6d826f;
+  --ley-on-green: #05130a; /* text on filled green */
 
-  /* cyan hero */
-  --primary: #e1fdff;
-  --primary-container: #00f2ff;
-  --primary-fixed-dim: #00dbe7;
-  --primary-fixed: #74f5ff;
+  /* status */
+  --ley-gold: #f2c659; /* warning / spark */
+  --ley-gold-dim: rgba(242, 198, 89, 0.12);
+  --ley-red: #ff7a6e; /* danger */
+  --ley-red-dim: rgba(255, 122, 110, 0.12);
+  --ley-blue: #6ab8ff; /* info */
 
-  /* supporting */
-  --outline: #849495;
-  --outline-variant: #3a494b;
-  --error: #ffb4ab;
-  --tertiary: #fff6e4;
-  --tertiary-container: #fed83a;
-  --tertiary-dim: #e8c423;
+  /* glass recipe */
+  --ley-glass: rgba(10, 14, 10, 0.7);
+  --ley-glass-strong: rgba(8, 11, 8, 0.88);
+  --ley-blur: 14px;
 
-  /* derived */
-  --glass: rgba(18, 19, 24, 0.8);
-  --glass-strong: rgba(18, 19, 24, 0.95);
-  --hairline: rgba(58, 73, 75, 0.3);
-  --hairline-10: rgba(58, 73, 75, 0.1);
-  --cyan-glow: rgba(0, 242, 255, 0.3);
-  --cyan-faint: rgba(0, 242, 255, 0.1);
+  /* radius scale */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* motion — fast, subtle, kiosk-snappy */
+  --t-fast: 100ms;
+  --t-snap: 160ms;
+  --ease-snap: cubic-bezier(0.2, 0.9, 0.3, 1);
+
+  /* ---- legacy Aether names (aliased to LEYLINE values) ----
+     Components still reference these; each surface wave migrates
+     them to --ley-* and this block shrinks to nothing. */
+  --bg: var(--ley-bg);
+  --surface: var(--ley-surface-1);
+  --surface-dim: var(--ley-surface-1);
+  --surface-bright: var(--ley-surface-4);
+  --surface-container-lowest: var(--ley-surface-0);
+  --surface-container-low: var(--ley-surface-2);
+  --surface-container: var(--ley-surface-2);
+  --surface-container-high: var(--ley-surface-3);
+  --surface-container-highest: var(--ley-surface-4);
+  --surface-variant: var(--ley-surface-4);
+
+  --on-surface: var(--ley-text);
+  --on-surface-variant: var(--ley-text-dim);
+
+  /* old "cyan hero" slots now carry the green ramp */
+  --primary: #dcffdf;
+  --primary-container: var(--ley-green);
+  --primary-fixed-dim: var(--ley-green-deep);
+  --primary-fixed: var(--ley-green-bright);
+
+  --outline: var(--ley-text-faint);
+  --outline-variant: #2a3a2c;
+  --error: #ff9a90;
+  --tertiary: #fdf6e0;
+  --tertiary-container: var(--ley-gold);
+  --tertiary-dim: #dcb44a;
+
+  --glass: var(--ley-glass);
+  --glass-strong: var(--ley-glass-strong);
+  --hairline: var(--ley-line);
+  --hairline-10: var(--ley-line-faint);
+  /* legacy names, green values — renamed per-wave */
+  --cyan-glow: var(--ley-green-glow);
+  --cyan-faint: var(--ley-green-faint);
 
   /* fonts (fallbacks if next/font hasn't loaded) */
-  --font-display: Georgia, "Palatino Linotype", serif;
+  --font-display: "Segoe UI", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "Consolas", "Menlo", monospace;
 }
@@ -59,13 +120,14 @@ body {
 }
 
 body {
-  background: var(--bg);
+  background: var(--ley-bg);
   font-family: var(--font-body);
+  color: var(--ley-text);
 }
 
 ::selection {
-  background: var(--primary-container);
-  color: #00363a;
+  background: var(--ley-green);
+  color: var(--ley-on-green);
 }
 
 button,
@@ -75,42 +137,227 @@ select {
   font: inherit;
 }
 
-/* Aether scrollbar */
+/* keyboard focus is part of the glow discipline */
+:focus-visible {
+  outline: 2px solid var(--ley-green);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* LEYLINE scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(58, 73, 75, 0.5);
+  background: rgba(88, 214, 95, 0.16);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--cyan-glow);
+  background: rgba(88, 214, 95, 0.34);
 }
 
-/* Aether interaction utilities (inline styles can't express :hover) */
-.aether-row {
+/* ============================================================
+   THE BUTTON SYSTEM
+   Four variants, three sizes, full state coverage. Every button
+   in the app is one of these. No one-off button styles.
+
+   variants: .btn-primary   filled green — THE action (one per surface)
+             .btn-secondary glass + green edge — supporting actions
+             .btn-ghost     borderless grey — utility / tertiary
+             .btn-danger    red edge — destructive (never glows)
+   sizes:    .btn-sm | (default) | .btn-lg
+   extras:   .btn-icon (square), .btn-loading (spinner), [disabled]
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 10px 16px;
+  border-radius: var(--r-md);
   border: 1px solid transparent;
-  transition: border-color 0.15s, background 0.15s;
+  background: transparent;
+  color: var(--ley-text);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  position: relative;
+  transition:
+    background var(--t-fast) var(--ease-snap),
+    border-color var(--t-fast) var(--ease-snap),
+    color var(--t-fast) var(--ease-snap),
+    box-shadow var(--t-snap) var(--ease-snap),
+    transform var(--t-fast) var(--ease-snap);
 }
-.aether-row:hover {
-  border-color: rgba(0, 242, 255, 0.3);
-  background: rgba(0, 242, 255, 0.04);
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
-.aether-glass-hover {
-  transition: border-color 0.2s, background 0.2s;
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
-.aether-glass-hover:hover {
-  border-color: rgba(0, 242, 255, 0.25);
-  background: var(--glass-strong);
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--ley-green) 0%, var(--ley-green-deep) 100%);
+  border-color: var(--ley-green-bright);
+  color: var(--ley-on-green);
+  box-shadow:
+    0 0 14px var(--ley-green-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
-.aether-card {
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--ley-green-bright) 0%, var(--ley-green) 100%);
+  box-shadow:
+    0 0 22px var(--ley-green-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.aether-card:hover {
-  border-color: rgba(0, 242, 255, 0.45) !important;
-  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.15), 0 6px 20px -10px rgba(0, 242, 255, 0.4);
+
+.btn-secondary {
+  background: var(--ley-glass);
+  backdrop-filter: blur(8px);
+  border-color: var(--ley-line-bright);
+  color: var(--ley-green);
 }
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--ley-green);
+  background: var(--ley-green-faint);
+  color: var(--ley-green-bright);
+}
+
+.btn-ghost {
+  color: var(--ley-text-dim);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--ley-surface-3);
+  color: var(--ley-text);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: rgba(255, 122, 110, 0.4);
+  color: var(--ley-red);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--ley-red-dim);
+  border-color: var(--ley-red);
+}
+
+.btn-sm {
+  font-size: 11px;
+  padding: 6px 11px;
+  border-radius: var(--r-sm);
+  gap: 5px;
+}
+.btn-lg {
+  font-size: 15px;
+  padding: 14px 26px;
+  border-radius: var(--r-lg);
+}
+
+.btn-icon {
+  padding: 10px;
+}
+.btn-sm.btn-icon {
+  padding: 6px;
+}
+.btn-lg.btn-icon {
+  padding: 14px;
+}
+
+/* loading: text dims, spinner overlays */
+.btn-loading {
+  pointer-events: none;
+  color: transparent !important;
+}
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(230, 240, 230, 0.25);
+  border-top-color: var(--ley-green-bright);
+  animation: ley-spin 0.6s linear infinite;
+}
+.btn-primary.btn-loading::after {
+  border-color: rgba(5, 19, 10, 0.3);
+  border-top-color: var(--ley-on-green);
+}
+@keyframes ley-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   GLASS PANELS + INTERACTION UTILITIES
+   ============================================================ */
+.ley-glass {
+  background: var(--ley-glass);
+  backdrop-filter: blur(var(--ley-blur)) saturate(1.15);
+  border: 1px solid var(--ley-line);
+  border-radius: var(--r-lg);
+}
+.ley-glass-strong {
+  background: var(--ley-glass-strong);
+  backdrop-filter: blur(var(--ley-blur)) saturate(1.15);
+  border: 1px solid var(--ley-line);
+  border-radius: var(--r-lg);
+}
+/* luminous top edge for elevated glass (modals, sheets) */
+.ley-glass-lit {
+  box-shadow:
+    inset 0 1px 0 rgba(140, 255, 150, 0.14),
+    0 18px 50px -20px rgba(0, 0, 0, 0.8);
+}
+
+/* interactive row: quiet until hovered, green edge on hover */
+.ley-row {
+  border: 1px solid transparent;
+  transition:
+    border-color var(--t-fast) var(--ease-snap),
+    background var(--t-fast) var(--ease-snap);
+}
+.ley-row:hover {
+  border-color: var(--ley-line-bright);
+  background: var(--ley-green-faint);
+}
+
+/* interactive card: lifts with a green glow edge */
+.ley-card {
+  transition:
+    border-color var(--t-fast) var(--ease-snap),
+    box-shadow var(--t-snap) var(--ease-snap),
+    transform var(--t-fast) var(--ease-snap);
+}
+.ley-card:hover {
+  border-color: var(--ley-line-bright) !important;
+  box-shadow:
+    0 0 0 1px rgba(88, 214, 95, 0.15),
+    0 6px 20px -10px var(--ley-green-glow);
+}
+
+/* live/active pulse — reserved for genuinely live states */
+.ley-live {
+  animation: ley-pulse 2.4s ease-in-out infinite;
+}
+@keyframes ley-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px var(--ley-green-glow);
+  }
+  50% {
+    box-shadow: 0 0 18px var(--ley-green-glow);
+  }
+}
+
+/* (the legacy .aether-* utility classes were deleted once zero usages
+   remained — P3 close-out; .ley-row / .ley-card are the replacements) */

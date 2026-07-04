@@ -953,7 +953,7 @@ For underspecified scenarios, REPLACE VERDICT with UNRESOLVED + what's missing.
 export const AGENTS = {
   jace: {
     name: "Jace", title: "MTG Assistant", icon: "J",
-    color: "#00dbe7", dim: "rgba(0,242,255,0.10)", border: "rgba(0,242,255,0.30)", glow: "rgba(0,242,255,0.30)",
+    color: "#6ab8ff", dim: "rgba(106,184,255,0.10)", border: "rgba(106,184,255,0.30)", glow: "rgba(106,184,255,0.30)",
     prompt: JACE_PROMPT,
     greeting: "I'm Jace - your general Magic assistant. Ask rules questions, gameplay questions, card questions, or anything that comes up at the table; when a rules answer needs precision, I'll consult Arbiter in the background and translate the ruling.",
     placeholder: "Ask any MTG question... e.g. \"Does Deathtouch work with Trample?\"",

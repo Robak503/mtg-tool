@@ -32,26 +32,22 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
       onClick={event => { if (event.target === event.currentTarget) onClose(); }}
       style={{
         position: "fixed", inset: 0, zIndex: 1100,
-        background: "rgba(0,0,0,0.62)",
-        backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
+        background: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
       }}
     >
-      <div style={{
+      <div className="ley-glass-strong ley-glass-lit" style={{
         width: "min(420px, 94vw)",
-        background: "rgba(18,19,24,0.98)",
-        border: `1px solid ${cfg.border}`,
-        borderRadius: 14,
-        boxShadow: `0 30px 80px -20px rgba(0,0,0,0.8), inset 3px 0 0 ${cfg.color}`,
         padding: "20px 22px",
         display: "flex", flexDirection: "column", gap: 14,
         fontFamily,
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: cfg.color }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: cfg.color, fontFamily: "var(--font-display)" }}>
             {isEdit ? "Edit color tag" : "Create color tag"}
           </span>
-          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="btn btn-ghost btn-icon btn-sm">×</button>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -65,7 +61,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
             placeholder="New tag name"
             style={{
               width: "100%", padding: "9px 11px",
-              background: "#1c1d24", color: TEXT,
+              background: "var(--ley-surface-2)", color: TEXT,
               border: `1px solid ${LINE}`, borderRadius: 8,
               fontSize: 13, fontFamily,
             }}
@@ -80,7 +76,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
             onChange={event => setBehavior(event.target.value)}
             style={{
               width: "100%", padding: "9px 11px",
-              background: "#1c1d24", color: TEXT,
+              background: "var(--ley-surface-2)", color: TEXT,
               border: `1px solid ${LINE}`, borderRadius: 8,
               fontSize: 13, fontFamily,
             }}
@@ -102,7 +98,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
                 prefixed
                 style={{
                   width: 110, textAlign: "center", padding: "6px 8px",
-                  background: "#1c1d24", color: TEXT,
+                  background: "var(--ley-surface-2)", color: TEXT,
                   border: `1px solid ${LINE}`, borderRadius: 7,
                   fontSize: 12, fontFamily, textTransform: "uppercase",
                 }}
@@ -121,21 +117,10 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
         `}</style>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 2 }}>
-          <button
-            onClick={onClose}
-            style={{ background: "transparent", border: `1px solid ${LINE}`, borderRadius: 8, color: MUTED, cursor: "pointer", fontSize: 12.5, padding: "8px 14px", fontFamily }}
-          >
+          <button onClick={onClose} className="btn btn-ghost btn-sm">
             Cancel
           </button>
-          <button
-            onClick={save}
-            disabled={!canSave}
-            style={{
-              background: cfg.color, border: "none", borderRadius: 8, color: "#00363a",
-              cursor: canSave ? "pointer" : "not-allowed", opacity: canSave ? 1 : 0.45,
-              fontSize: 12.5, fontWeight: 600, padding: "8px 16px", fontFamily,
-            }}
-          >
+          <button onClick={save} disabled={!canSave} className="btn btn-primary btn-sm">
             {isEdit ? "Save tag" : "+ Create color tag"}
           </button>
         </div>

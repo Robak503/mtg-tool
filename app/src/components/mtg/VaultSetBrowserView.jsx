@@ -73,7 +73,7 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
 
   const wrap = { flex: 1, overflowY: "auto", padding: "16px 20px", background: BG, color: TEXT, fontFamily: F };
   const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
-  const h = { fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12 };
+  const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (state.status === "loading") return <Centered color={MUTED}>Loading sets…</Centered>;
   if (state.status === "error") return <Centered color={RED}>{state.error}</Centered>;
@@ -83,7 +83,7 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
     return (
       <div style={wrap}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-          <button onClick={() => setActive(null)} style={pill(colors, F)}>← All sets</button>
+          <button onClick={() => setActive(null)} className="btn btn-secondary btn-sm">← All sets</button>
           <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 24, fontWeight: 700, color: TEXT }}>{active.setName}</span>
           <span style={{ fontSize: 12, color: MUTED }}>{active.setCode.toUpperCase()}</span>
           {detail.status === "ready" && (
@@ -102,8 +102,10 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
               <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
                 {[["value", "Value"], ["number", "Collector #"], ["owned", "Owned"]].map(([k, label]) => (
                   <button key={k} onClick={() => setSortBy(k)} style={{
-                    background: sortBy === k ? GOLD : "transparent", color: sortBy === k ? "#fff" : MUTED,
-                    border: `1px solid ${sortBy === k ? GOLD : LINE}`, borderRadius: 4, padding: "3px 9px",
+                    background: sortBy === k ? "var(--ley-green-dim)" : "transparent",
+                    color: sortBy === k ? "var(--ley-green)" : MUTED,
+                    fontWeight: sortBy === k ? 700 : 400,
+                    border: `1px solid ${sortBy === k ? "var(--ley-line-bright)" : LINE}`, borderRadius: 4, padding: "3px 9px",
                     fontSize: 11, cursor: "pointer", fontFamily: F,
                   }}>{label}</button>
                 ))}
@@ -131,9 +133,9 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
         />
         {filteredSets.length === 0 && <div style={{ fontSize: 12, color: MUTED }}>No sets match.</div>}
         {filteredSets.map((s) => (
-          <button key={s.setCode} onClick={() => setActive({ setCode: s.setCode, setName: s.setName })} style={{
+          <button key={s.setCode} onClick={() => setActive({ setCode: s.setCode, setName: s.setName })} className="ley-row" style={{
             display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
-            padding: "8px 6px", background: "transparent", border: "none", borderTop: `1px solid ${LINE}`,
+            padding: "8px 6px", background: "transparent", borderRadius: 6,
             cursor: "pointer", fontFamily: F, color: TEXT,
           }}>
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -157,10 +159,10 @@ const SetCardRow = memo(function SetCardRow({ c, colors }) {
   return (
     <div style={rowStyle(LINE)}>
       <span style={{ width: 46, fontSize: 11, color: MUTED, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>#{c.collectorNumber}</span>
-      {c.rarity && <span title={c.rarity} style={{ width: 8, height: 8, borderRadius: "50%", background: RARITY_COLOR[c.rarity] || "#555", flexShrink: 0 }} />}
-      <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: c.owned ? TEXT : "#b9b3cc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+      {c.rarity && <span title={c.rarity} style={{ width: 8, height: 8, borderRadius: "50%", background: RARITY_COLOR[c.rarity] || "var(--ley-text-faint)", flexShrink: 0 }} />}
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: c.owned ? TEXT : MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
       {c.owned
-        ? <span style={{ fontSize: 10, color: "#6fbf73", border: "1px solid #6fbf73", borderRadius: 3, padding: "1px 6px", flexShrink: 0 }}>✓ Owned</span>
+        ? <span style={{ fontSize: 10, color: "var(--ley-green)", border: "1px solid var(--ley-line-bright)", borderRadius: 3, padding: "1px 6px", flexShrink: 0 }}>✓ Owned</span>
         : c.ownedOtherPrinting
           ? <span title="You own a different printing of this card" style={{ fontSize: 10, color: GOLD, border: `1px solid ${LINE}`, borderRadius: 3, padding: "1px 6px", flexShrink: 0 }}>other printing</span>
           : null}
@@ -177,9 +179,6 @@ function collNum(cn) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function pill(colors, font) {
-  return { background: "transparent", border: `1px solid ${colors.LINE}`, color: colors.TEXT, padding: "5px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: font };
-}
 function rowStyle(line) {
   return { display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderTop: `1px solid ${line}` };
 }

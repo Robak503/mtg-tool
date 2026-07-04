@@ -112,14 +112,15 @@ export default function FeedbackWindowPage() {
     });
   };
 
-  // Theme — matches the main app but standalone.
-  const BG = "#090a0d";
-  const BG2 = "#121316";
-  const BG3 = "#1f1f23";
-  const LINE = "#2c393b";
-  const TEXT = "#e3e2e6";
-  const MUTED = "#b9cacb";
-  const GOLD = "#00dbe7";
+  // Theme — LEYLINE tokens (globals.css is loaded via the root layout, even
+  // though this is a standalone popup window).
+  const BG = "var(--ley-bg)";
+  const BG2 = "var(--ley-surface-1)";
+  const BG3 = "var(--ley-surface-2)";
+  const LINE = "var(--ley-line)";
+  const TEXT = "var(--ley-text)";
+  const MUTED = "var(--ley-text-dim)";
+  const GOLD = "var(--ley-green)";
   const FONT = "var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
 
   return (
@@ -140,7 +141,7 @@ export default function FeedbackWindowPage() {
         ::-webkit-scrollbar{width:4px}
         ::-webkit-scrollbar-track{background:${BG}}
         ::-webkit-scrollbar-thumb{background:${LINE};border-radius:2px}
-        input:focus,textarea:focus,select:focus{outline:none;border-color:#2a3050!important}
+        input:focus,textarea:focus,select:focus{outline:none;border-color:var(--ley-green)!important}
       `}</style>
 
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -170,7 +171,7 @@ export default function FeedbackWindowPage() {
                 padding: "5px 10px",
                 borderRadius: 999,
                 border: `1px solid ${selected ? GOLD : LINE}`,
-                background: selected ? BG2 : "transparent",
+                background: selected ? "var(--ley-green-dim)" : "transparent",
                 color: selected ? GOLD : TEXT,
                 cursor: submitting ? "not-allowed" : "pointer",
                 fontSize: 11,
@@ -242,9 +243,9 @@ export default function FeedbackWindowPage() {
         <div style={{
           padding: "6px 10px",
           borderRadius: 5,
-          background: "#0d2615",
-          border: "1px solid #2a5a3a",
-          color: "#85d18a",
+          background: "var(--ley-green-dim)",
+          border: "1px solid var(--ley-green)",
+          color: "var(--ley-green-text)",
           fontSize: 11,
         }}>
           ✓ Saved{status.success !== null ? ` · ${status.success} entr${status.success === 1 ? "y" : "ies"} in FEEDBACK.md` : ""}
@@ -254,9 +255,9 @@ export default function FeedbackWindowPage() {
         <div style={{
           padding: "6px 10px",
           borderRadius: 5,
-          background: "#2a1414",
-          border: "1px solid #6b3a3a",
-          color: "#e0a89a",
+          background: "var(--ley-red-dim)",
+          border: "1px solid var(--ley-red)",
+          color: "var(--ley-red)",
           fontSize: 11,
         }}>
           ⚠ {status.error}
@@ -270,18 +271,7 @@ export default function FeedbackWindowPage() {
         <button
           onClick={submit}
           disabled={submitting || !message.trim()}
-          style={{
-            padding: "8px 18px",
-            background: GOLD,
-            border: "none",
-            borderRadius: 5,
-            color: "#070a12",
-            fontWeight: 700,
-            cursor: submitting || !message.trim() ? "not-allowed" : "pointer",
-            fontSize: 12,
-            fontFamily: FONT,
-            opacity: submitting || !message.trim() ? 0.4 : 1,
-          }}
+          className="btn btn-primary"
         >
           {submitting ? "Saving…" : "Send (Cmd-Enter)"}
         </button>

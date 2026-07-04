@@ -68,7 +68,6 @@ export default function FeedbackPanel({
 
   const accent = cfg?.color || GOLD;
   const accentDim = cfg?.dim || BG2;
-  const accentBorder = cfg?.border || LINE;
 
   const contextPills = useMemo(() => {
     const pills = [];
@@ -546,11 +545,13 @@ export default function FeedbackPanel({
 
   return (
     <>
-      {/* Floating launcher */}
+      {/* Floating launcher — secondary weight so it never outshines a
+          surface's real primary action. */}
       <button
         onClick={() => setOpen(true)}
         title="Send feedback · Cmd/Ctrl-Shift-F pops out a small capture window"
         aria-label="Send feedback"
+        className="btn btn-secondary"
         style={{
           position: "fixed",
           right: buttonRight,
@@ -558,20 +559,8 @@ export default function FeedbackPanel({
           zIndex: 60,
           padding: mobile ? "10px 12px" : "9px 16px",
           borderRadius: 999,
-          border: `1px solid ${accentBorder}`,
-          background: accentDim,
-          color: accent,
-          cursor: "pointer",
-          fontSize: 13,
-          fontFamily,
           boxShadow: "0 6px 18px rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          transition: "transform 120ms ease, box-shadow 120ms ease",
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
       >
         <span style={{ fontSize: 14 }}>💬</span>
         {!mobile && <span>Feedback</span>}
@@ -583,11 +572,10 @@ export default function FeedbackPanel({
             ref={modalRef}
             role="dialog"
             aria-label="Send feedback"
+            className="ley-glass-strong ley-glass-lit"
             style={mobile ? {
               width: "100%",
               maxHeight: "92vh",
-              background: BG3,
-              border: `1px solid ${LINE}`,
               borderRadius: "14px 14px 0 0",
               padding: "18px 16px 22px",
               display: "flex",
@@ -604,9 +592,6 @@ export default function FeedbackPanel({
               visibility: position ? "visible" : "hidden",
               width: "min(540px, calc(100vw - 16px))",
               maxHeight: "min(720px, calc(100vh - 24px))",
-              background: BG3,
-              border: `1px solid ${LINE}`,
-              borderRadius: 12,
               padding: "18px 22px 20px",
               display: "flex",
               flexDirection: "column",
@@ -640,16 +625,7 @@ export default function FeedbackPanel({
                   <button
                     onClick={openPopout}
                     title="Open the standalone capture window (handy on a second monitor)"
-                    style={{
-                      background: "transparent",
-                      border: `1px solid ${LINE}`,
-                      borderRadius: 5,
-                      color: MUTED,
-                      cursor: "pointer",
-                      fontSize: 11,
-                      padding: "4px 9px",
-                      fontFamily,
-                    }}
+                    className="btn btn-ghost btn-sm"
                   >
                     ⧉ Pop out
                   </button>
@@ -658,15 +634,7 @@ export default function FeedbackPanel({
                   onClick={close}
                   disabled={submitting}
                   aria-label="Close"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: MUTED,
-                    cursor: submitting ? "not-allowed" : "pointer",
-                    fontSize: 20,
-                    lineHeight: 1,
-                    padding: "0 4px 4px",
-                  }}
+                  className="btn btn-ghost btn-icon"
                 >
                   ×
                 </button>
@@ -794,7 +762,7 @@ export default function FeedbackPanel({
                       gap: 9,
                       padding: "8px 10px",
                       borderRadius: 7,
-                      background: attachExchange ? "#1a1b38" : BG2,
+                      background: attachExchange ? "var(--ley-green-dim)" : BG2,
                       border: `1px solid ${attachExchange ? (cfg?.border || LINE) : LINE}`,
                       fontSize: 11,
                       color: attachExchange ? TEXT : MUTED,
@@ -809,18 +777,7 @@ export default function FeedbackPanel({
                     </span>
                     <button
                       onClick={() => setAttachExchange(v => !v)}
-                      style={{
-                        background: "transparent",
-                        border: `1px solid ${LINE}`,
-                        borderRadius: 5,
-                        color: MUTED,
-                        cursor: "pointer",
-                        fontSize: 10,
-                        padding: "2px 9px",
-                        fontFamily,
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                      }}
+                      className="btn btn-ghost btn-sm"
                     >
                       {attachExchange ? "Remove" : "Attach"}
                     </button>
@@ -832,9 +789,9 @@ export default function FeedbackPanel({
                   <div style={{
                     padding: "9px 12px",
                     borderRadius: 7,
-                    background: "#0d2615",
-                    border: "1px solid #2a5a3a",
-                    color: "#85d18a",
+                    background: "var(--ley-green-dim)",
+                    border: "1px solid var(--ley-green)",
+                    color: "var(--ley-green-text)",
                     fontSize: 12,
                     display: "flex",
                     alignItems: "center",
@@ -848,9 +805,9 @@ export default function FeedbackPanel({
                   <div style={{
                     padding: "9px 12px",
                     borderRadius: 7,
-                    background: "#2a1414",
-                    border: "1px solid #6b3a3a",
-                    color: "#e0a89a",
+                    background: "var(--ley-red-dim)",
+                    border: "1px solid var(--ley-red)",
+                    color: "var(--ley-red)",
                     fontSize: 12,
                   }}>
                     ⚠ {status.error}
@@ -877,35 +834,14 @@ export default function FeedbackPanel({
                     <button
                       onClick={close}
                       disabled={submitting}
-                      style={{
-                        padding: "9px 14px",
-                        background: "transparent",
-                        border: `1px solid ${LINE}`,
-                        borderRadius: 7,
-                        color: MUTED,
-                        cursor: submitting ? "not-allowed" : "pointer",
-                        fontSize: 12,
-                        fontFamily,
-                      }}
+                      className="btn btn-ghost btn-sm"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={submit}
                       disabled={submitting || !message.trim()}
-                      style={{
-                        padding: "9px 20px",
-                        background: accent,
-                        border: "none",
-                        borderRadius: 7,
-                        color: "#0a0c14",
-                        cursor: submitting || !message.trim() ? "not-allowed" : "pointer",
-                        fontSize: 13,
-                        fontFamily,
-                        opacity: submitting || !message.trim() ? 0.5 : 1,
-                        fontWeight: 700,
-                        letterSpacing: "0.02em",
-                      }}
+                      className="btn btn-primary btn-sm"
                     >
                       {submitting ? "Saving…" : "Send feedback"}
                     </button>
@@ -923,18 +859,7 @@ export default function FeedbackPanel({
                     onClick={copyDigest}
                     disabled={!inboxEntries || inboxEntries.length === 0}
                     title="Copy the entire FEEDBACK.md to clipboard"
-                    style={{
-                      padding: "6px 12px",
-                      background: accentDim,
-                      border: `1px solid ${accentBorder}`,
-                      borderRadius: 6,
-                      color: accent,
-                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
-                      fontSize: 12,
-                      fontFamily,
-                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
-                      fontWeight: 600,
-                    }}
+                    className="btn btn-secondary btn-sm"
                   >
                     {copyState === "copied" ? "✓ Copied" : "Copy as markdown"}
                   </button>
@@ -942,17 +867,7 @@ export default function FeedbackPanel({
                     onClick={downloadDigest}
                     disabled={!inboxEntries || inboxEntries.length === 0}
                     title="Download FEEDBACK.md"
-                    style={{
-                      padding: "6px 12px",
-                      background: "transparent",
-                      border: `1px solid ${LINE}`,
-                      borderRadius: 6,
-                      color: MUTED,
-                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
-                      fontSize: 12,
-                      fontFamily,
-                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
-                    }}
+                    className="btn btn-ghost btn-sm"
                   >
                     Download
                   </button>
@@ -960,33 +875,14 @@ export default function FeedbackPanel({
                     onClick={() => openInShell("digest")}
                     disabled={!inboxEntries || inboxEntries.length === 0}
                     title="Open FEEDBACK.md in your default markdown editor"
-                    style={{
-                      padding: "6px 12px",
-                      background: "transparent",
-                      border: `1px solid ${LINE}`,
-                      borderRadius: 6,
-                      color: MUTED,
-                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
-                      fontSize: 12,
-                      fontFamily,
-                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
-                    }}
+                    className="btn btn-ghost btn-sm"
                   >
                     {copyState === "opened-digest" ? "✓ Opened" : "Open in editor"}
                   </button>
                   <button
                     onClick={() => openInShell("dir")}
                     title="Open the feedback folder in your file manager"
-                    style={{
-                      padding: "6px 12px",
-                      background: "transparent",
-                      border: `1px solid ${LINE}`,
-                      borderRadius: 6,
-                      color: MUTED,
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontFamily,
-                    }}
+                    className="btn btn-ghost btn-sm"
                   >
                     {copyState === "opened-dir" ? "✓ Opened" : "Reveal folder"}
                   </button>
@@ -1012,17 +908,7 @@ export default function FeedbackPanel({
                     onClick={exportBundle}
                     disabled={!inboxEntries || inboxEntries.length === 0}
                     title="Save all your feedback to a single file you can email"
-                    style={{
-                      padding: "5px 11px",
-                      background: "transparent",
-                      border: `1px solid ${LINE}`,
-                      borderRadius: 6,
-                      color: MUTED,
-                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
-                      fontSize: 11,
-                      fontFamily,
-                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
-                    }}
+                    className="btn btn-ghost btn-sm"
                   >
                     {copyState === "exported" ? "✓ Saved" : "📤 Export feedback"}
                   </button>
@@ -1030,17 +916,7 @@ export default function FeedbackPanel({
                     onClick={triggerImport}
                     disabled={importBusy}
                     title="Load a feedback file someone else sent you"
-                    style={{
-                      padding: "5px 11px",
-                      background: "transparent",
-                      border: `1px solid ${LINE}`,
-                      borderRadius: 6,
-                      color: MUTED,
-                      cursor: importBusy ? "wait" : "pointer",
-                      fontSize: 11,
-                      fontFamily,
-                      opacity: importBusy ? 0.6 : 1,
-                    }}
+                    className={`btn btn-ghost btn-sm ${importBusy ? "btn-loading" : ""}`}
                   >
                     {importBusy ? "Importing…" : "📥 Import feedback"}
                   </button>
@@ -1054,12 +930,12 @@ export default function FeedbackPanel({
                 </div>
 
                 {copyState?.error && (
-                  <div style={{ fontSize: 11, color: "#c2786f" }}>
+                  <div style={{ fontSize: 11, color: "var(--ley-red)" }}>
                     ⚠ {copyState.error}
                   </div>
                 )}
                 {typeof copyState === "object" && copyState && "imported" in copyState && (
-                  <div style={{ fontSize: 11, color: "#85d18a" }}>
+                  <div style={{ fontSize: 11, color: "var(--ley-green-text)" }}>
                     ✓ Imported {copyState.imported} new entr{copyState.imported === 1 ? "y" : "ies"}
                     {copyState.skipped > 0 ? `, skipped ${copyState.skipped} duplicate${copyState.skipped === 1 ? "" : "s"}` : ""}.
                   </div>
@@ -1079,7 +955,7 @@ export default function FeedbackPanel({
                     <div style={{ fontSize: 12, color: MUTED, padding: 8 }}>Loading log…</div>
                   )}
                   {inboxError && (
-                    <div style={{ fontSize: 12, color: "#c2786f", padding: 8 }}>
+                    <div style={{ fontSize: 12, color: "var(--ley-red)", padding: 8 }}>
                       Could not load: {inboxError}
                     </div>
                   )}
@@ -1134,15 +1010,8 @@ export default function FeedbackPanel({
                             disabled={!entry.filename || deletingId === entry.filename}
                             title="Delete this entry"
                             aria-label="Delete entry"
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: MUTED,
-                              cursor: !entry.filename || deletingId === entry.filename ? "not-allowed" : "pointer",
-                              fontSize: 14,
-                              lineHeight: 1,
-                              padding: 0,
-                            }}
+                            className="btn btn-ghost btn-icon"
+                            style={{ padding: "0 4px", fontSize: 14 }}
                           >
                             ×
                           </button>
@@ -1232,8 +1101,9 @@ function PanelWrapper({ mobile, onBackdropClose, children }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(2,4,10,0.74)",
-        backdropFilter: "blur(2px)",
+        background: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
         zIndex: 100,
         display: "flex",
         alignItems: "flex-end",

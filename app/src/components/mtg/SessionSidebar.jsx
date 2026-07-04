@@ -37,12 +37,10 @@ export default function SessionSidebar({
   archiveSession,
   unarchiveSession,
   renameSession,
-  colors,
   fontFamily,
   mobile = false,
   onAfterSelect,
 }) {
-  const { BG2, LINE, MUTED, TEXT } = colors;
   const [showArchived, setShowArchived] = useState(false);
   const [renameId, setRenameId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
@@ -90,8 +88,8 @@ export default function SessionSidebar({
       style={{
         width: mobile ? "100%" : 220,
         flexShrink: 0,
-        borderRight: mobile ? "none" : `1px solid ${LINE}`,
-        background: BG2,
+        borderRight: mobile ? "none" : "1px solid var(--ley-line)",
+        background: "var(--ley-glass)",
         padding: 12,
         display: "flex",
         flexDirection: "column",
@@ -101,20 +99,13 @@ export default function SessionSidebar({
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 9, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+        <div style={{ fontSize: 10, color: "var(--ley-text-faint)", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
           {showArchived ? "Archived" : "Sessions"}
         </div>
         <button
           onClick={() => setShowArchived(prev => !prev)}
-          style={{
-            background: "none",
-            border: "none",
-            color: MUTED,
-            cursor: "pointer",
-            fontSize: 10,
-            fontFamily,
-            padding: 0,
-          }}
+          className="btn btn-ghost btn-sm"
+          style={{ padding: "2px 6px", fontSize: 10 }}
         >
           {showArchived ? "← active" : `archived (${archivedSessions.length})`}
         </button>
@@ -123,24 +114,15 @@ export default function SessionSidebar({
       {!showArchived && (
         <button
           onClick={() => createSession(agent)}
-          style={{
-            padding: "8px 10px",
-            borderRadius: 6,
-            border: `1px dashed ${AGENTS[agent]?.border || LINE}`,
-            background: "transparent",
-            color: AGENTS[agent]?.color || TEXT,
-            cursor: "pointer",
-            fontSize: 12,
-            fontFamily,
-            textAlign: "left",
-          }}
+          className="btn btn-primary btn-sm"
+          style={{ width: "100%", padding: "8px 10px" }}
         >
           + New chat with {AGENTS[agent]?.name || "agent"}
         </button>
       )}
 
       {grouped.length === 0 && (
-        <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5, padding: "8px 0" }}>
+        <div style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5, padding: "8px 0" }}>
           {showArchived ? "No archived chats yet." : "No conversations yet. Start one above."}
         </div>
       )}
@@ -149,30 +131,33 @@ export default function SessionSidebar({
         <div key={group.key}>
           <div
             style={{
-              fontSize: 9,
-              color: group.agent.color,
+              fontSize: 10,
+              color: "var(--ley-text-faint)",
+              fontFamily: "var(--font-mono)",
               textTransform: "uppercase",
               letterSpacing: "0.12em",
               marginBottom: 4,
-              opacity: 0.7,
             }}
           >
             {group.agent.icon} {group.agent.name} ({group.sessions.length})
           </div>
           {group.sessions.map(session => {
             const isCurrent = currentSession?.id === session.id;
-            const cfg = AGENTS[session.agent];
             const isRenaming = renameId === session.id;
             return (
+              // Quiet .ley-row list item: green edge on hover, green fill when
+              // it's the current session (inline style wins over the class).
               <div
                 key={session.id}
                 onClick={() => !isRenaming && handleSelect(session.id)}
+                className="ley-row"
                 style={{
                   marginBottom: 5,
                   padding: "7px 9px",
-                  borderRadius: 6,
-                  border: `1px solid ${isCurrent ? cfg.border : LINE}`,
-                  background: isCurrent ? cfg.dim : "transparent",
+                  borderRadius: "var(--r-sm)",
+                  ...(isCurrent
+                    ? { borderColor: "var(--ley-line-bright)", background: "var(--ley-green-dim)" }
+                    : {}),
                   cursor: isRenaming ? "default" : "pointer",
                   display: "flex",
                   flexDirection: "column",
@@ -194,9 +179,9 @@ export default function SessionSidebar({
                         flex: 1,
                         padding: "2px 4px",
                         background: "transparent",
-                        border: `1px solid ${cfg.border}`,
+                        border: "1px solid var(--ley-line-bright)",
                         borderRadius: 3,
-                        color: TEXT,
+                        color: "var(--ley-text)",
                         fontSize: 12,
                         fontFamily,
                       }}
@@ -211,7 +196,7 @@ export default function SessionSidebar({
                       style={{
                         flex: 1,
                         fontSize: 12,
-                        color: isCurrent ? cfg.color : TEXT,
+                        color: isCurrent ? "var(--ley-green)" : "var(--ley-text)",
                         fontWeight: isCurrent ? 700 : 400,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -229,16 +214,8 @@ export default function SessionSidebar({
                       else archiveSession(session.id);
                     }}
                     title={session.archived ? "Unarchive" : "Archive"}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: MUTED,
-                      cursor: "pointer",
-                      fontSize: 12,
-                      lineHeight: 1,
-                      padding: 0,
-                      flexShrink: 0,
-                    }}
+                    className="btn btn-ghost btn-sm btn-icon"
+                    style={{ padding: "1px 4px", fontSize: 12, lineHeight: 1, flexShrink: 0 }}
                   >
                     {session.archived ? "↶" : "×"}
                   </button>
@@ -246,7 +223,7 @@ export default function SessionSidebar({
                 {session.lockedDeck?.name && (
                   <div style={{
                     fontSize: 9,
-                    color: cfg.color,
+                    color: "var(--ley-green-text)",
                     opacity: 0.85,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -257,14 +234,14 @@ export default function SessionSidebar({
                 )}
                 <div style={{
                   fontSize: 10,
-                  color: MUTED,
+                  color: "var(--ley-text-dim)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}>
                   {sessionSummary(session)}
                 </div>
-                <div style={{ fontSize: 9, color: MUTED, opacity: 0.7 }}>
+                <div style={{ fontSize: 9, color: "var(--ley-text-faint)" }}>
                   {relativeTime(session.updatedAt)}
                 </div>
               </div>

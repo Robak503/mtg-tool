@@ -229,7 +229,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         <div style={{ fontSize: 11, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Card detail
         </div>
-        <button onClick={onClose} style={iconBtn(colors)} aria-label="Close">×</button>
+        <button onClick={onClose} className="btn btn-ghost btn-icon btn-sm" aria-label="Close">×</button>
       </div>
 
       <div style={{ padding: "16px 16px 24px", overflowY: "auto", flex: 1 }}>
@@ -278,7 +278,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         {row.prices && <PriceBlock prices={row.prices} colors={colors} />}
 
         <section style={{ marginTop: 20 }}>
-          <SectionLabel color={colors.MUTED}>Price alert</SectionLabel>
+          <SectionLabel>Price alert</SectionLabel>
           <AlertEditor
             alert={alert}
             target={alertTarget}
@@ -294,7 +294,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
 
         {onAssignTag && tags.length > 0 && (
           <section style={{ marginTop: 20 }}>
-            <SectionLabel color={colors.MUTED}>Tag</SectionLabel>
+            <SectionLabel>Tag</SectionLabel>
             <TagPicker
               tags={tags}
               activeId={row.colorTagId || null}
@@ -305,7 +305,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         )}
 
         <section style={{ marginTop: 20 }}>
-          <SectionLabel color={colors.MUTED}>Stacks</SectionLabel>
+          <SectionLabel>Stacks</SectionLabel>
           {stacks.map((stack, idx) => (
             <StackRow
               key={`${stack.finish}-${idx}`}
@@ -316,18 +316,14 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
             />
           ))}
           {stacks.length < 3 && (
-            <button onClick={addStack} style={{
-              ...textBtn(colors),
-              marginTop: 6,
-              fontSize: 12,
-            }}>
+            <button onClick={addStack} className="btn btn-ghost btn-sm" style={{ marginTop: 6, padding: "4px 0" }}>
               + Add stack
             </button>
           )}
         </section>
 
         <section style={{ marginTop: 20 }}>
-          <SectionLabel color={colors.MUTED}>Notes</SectionLabel>
+          <SectionLabel>Notes</SectionLabel>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -352,10 +348,10 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
           <div style={{
             marginTop: 16,
             padding: "8px 10px",
-            background: "#3a2020",
+            background: "var(--ley-red-dim)",
             border: `1px solid ${colors.RED}`,
             borderRadius: 4,
-            color: "#f4b8b6",
+            color: colors.RED,
             fontSize: 12,
           }}>{error}</div>
         )}
@@ -367,10 +363,10 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         display: "flex",
         gap: 8,
       }}>
-        <button onClick={remove} disabled={busy} style={dangerBtn(colors)}>Delete</button>
+        <button onClick={remove} disabled={busy} className="btn btn-danger btn-sm">Delete</button>
         <div style={{ flex: 1 }} />
-        <button onClick={onClose} disabled={busy} style={btnStyle(colors)}>Cancel</button>
-        <button onClick={save} disabled={busy} style={primaryBtn(colors)}>
+        <button onClick={onClose} disabled={busy} className="btn btn-ghost btn-sm">Cancel</button>
+        <button onClick={save} disabled={busy} className="btn btn-primary btn-sm">
           {busy ? "Saving..." : "Save"}
         </button>
       </div>
@@ -408,7 +404,7 @@ function TagPicker({ tags, activeId, onAssign, colors }) {
                 gap: 6,
                 padding: "4px 10px",
                 borderRadius: 999,
-                background: active ? "rgba(255,255,255,0.06)" : "transparent",
+                background: active ? "var(--ley-surface-3)" : "transparent",
                 border: `1px solid ${active ? (isNone ? colors.MUTED : tag.color) : colors.LINE}`,
                 color: colors.TEXT,
                 fontSize: 11,
@@ -449,8 +445,8 @@ function AlertEditor({ alert, target, direction, busy, onTarget, onDirection, on
           alignItems: "center",
           gap: 8,
           padding: "8px 10px",
-          background: alert.met ? "rgba(111,191,115,0.10)" : colors.BG,
-          border: `1px solid ${alert.met ? "#6fbf73" : colors.LINE}`,
+          background: alert.met ? "var(--ley-green-dim)" : colors.BG,
+          border: `1px solid ${alert.met ? "var(--ley-green)" : colors.LINE}`,
           borderRadius: 4,
           marginBottom: 8,
           fontSize: 12,
@@ -481,11 +477,11 @@ function AlertEditor({ alert, target, direction, busy, onTarget, onDirection, on
           placeholder="0.00"
           style={{ ...inputStyle(colors), width: 70, fontSize: 12, padding: "5px 6px" }}
         />
-        <button onClick={onSave} disabled={busy} style={{ ...primaryBtn(colors), padding: "5px 10px", fontSize: 12 }}>
+        <button onClick={onSave} disabled={busy} className="btn btn-primary btn-sm">
           {alert ? "Update" : "Set"}
         </button>
         {alert && (
-          <button onClick={onClear} disabled={busy} style={{ ...textBtn(colors), fontSize: 12 }}>Clear</button>
+          <button onClick={onClear} disabled={busy} className="btn btn-ghost btn-sm">Clear</button>
         )}
       </div>
       <div style={{ fontSize: 10.5, color: colors.MUTED, marginTop: 6, lineHeight: 1.4 }}>
@@ -549,7 +545,8 @@ function StackRow({ stack, onChange, onRemove, colors }) {
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
         <button
           onClick={() => onChange({ quantity: Math.max(0, (stack.quantity || 0) - 1) })}
-          style={qtyStepBtn(colors)}
+          className="btn btn-secondary btn-sm btn-icon"
+          style={{ width: 22, height: 24, padding: 0, flexShrink: 0 }}
           aria-label="Decrease quantity"
         >−</button>
         <input
@@ -565,7 +562,8 @@ function StackRow({ stack, onChange, onRemove, colors }) {
         />
         <button
           onClick={() => onChange({ quantity: (stack.quantity || 0) + 1 })}
-          style={qtyStepBtn(colors)}
+          className="btn btn-secondary btn-sm btn-icon"
+          style={{ width: 22, height: 24, padding: 0, flexShrink: 0 }}
           aria-label="Increase quantity"
         >+</button>
       </div>
@@ -580,62 +578,24 @@ function StackRow({ stack, onChange, onRemove, colors }) {
         ))}
       </select>
 
-      <button onClick={onRemove} style={iconBtn(colors)} aria-label="Remove stack">×</button>
+      <button onClick={onRemove} className="btn btn-ghost btn-sm btn-icon" aria-label="Remove stack">×</button>
     </div>
   );
 }
 
-function SectionLabel({ color, children }) {
+function SectionLabel({ children }) {
   return (
     <div style={{
+      fontFamily: "var(--font-mono)",
       fontSize: 10,
-      color,
+      color: "var(--ley-text-faint)",
       textTransform: "uppercase",
-      letterSpacing: "0.1em",
+      letterSpacing: "0.18em",
       marginBottom: 8,
     }}>{children}</div>
   );
 }
 
-function btnStyle(colors) {
-  return {
-    background: "transparent",
-    border: `1px solid ${colors.LINE}`,
-    color: colors.TEXT,
-    padding: "6px 12px",
-    borderRadius: 4,
-    fontSize: 12,
-    cursor: "pointer",
-    fontFamily: "inherit",
-  };
-}
-function primaryBtn(colors) { return { ...btnStyle(colors), background: colors.GOLD, color: colors.BG, borderColor: colors.GOLD, fontWeight: 600 }; }
-function dangerBtn(colors) { return { ...btnStyle(colors), borderColor: colors.RED, color: colors.RED }; }
-function textBtn(colors) {
-  return {
-    background: "none",
-    border: "none",
-    color: colors.MUTED,
-    padding: "4px 0",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    fontSize: 12,
-  };
-}
-function iconBtn(colors) {
-  return {
-    background: "none",
-    border: "none",
-    color: colors.MUTED,
-    padding: 2,
-    cursor: "pointer",
-    fontSize: 18,
-    fontFamily: "inherit",
-    width: 24,
-    height: 24,
-    lineHeight: 1,
-  };
-}
 function selectStyle(colors) {
   return {
     background: colors.BG,
@@ -658,25 +618,5 @@ function inputStyle(colors) {
     fontSize: 11,
     fontFamily: "inherit",
     boxSizing: "border-box",
-  };
-}
-function qtyStepBtn(colors) {
-  return {
-    background: colors.BG,
-    border: `1px solid ${colors.LINE}`,
-    color: colors.TEXT,
-    width: 22,
-    height: 24,
-    borderRadius: 3,
-    fontSize: 14,
-    fontWeight: 700,
-    lineHeight: 1,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 0,
-    flexShrink: 0,
   };
 }

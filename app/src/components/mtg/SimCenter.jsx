@@ -62,8 +62,7 @@ export function groupByProfile(decks) {
 }
 
 export default function SimCenter({ cfg, colors, fontFamily }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
-  const accent = cfg?.color || GOLD;
+  const accent = cfg?.color || "var(--ley-green)";
 
   // ── Cross-profile deck picker ──
   const [decks, setDecks] = useState([]);
@@ -217,24 +216,27 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
 
   // ── Shared style helpers ──
   const label = (text) => (
-    <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em" }}>{text}</span>
+    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{text}</span>
   );
   const card = (children, extra = {}) => (
-    <div style={{ background: BG3, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, ...extra }}>{children}</div>
+    <div style={{ background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", padding: 14, ...extra }}>{children}</div>
   );
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily, position: "relative" }}>
       {/* Header */}
-      <header style={{ padding: "12px 20px", borderBottom: `1px solid ${LINE}`, background: BG2, backdropFilter: "blur(16px)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, color: TEXT, display: "inline-flex", alignItems: "center", gap: 9 }}>
+      <header
+        className="ley-glass"
+        style={{ padding: "12px 20px", borderRadius: 0, borderLeft: "none", borderRight: "none", borderTop: "none", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}
+      >
+        <span style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 700, color: "var(--ley-text)", display: "inline-flex", alignItems: "center", gap: 9 }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 3v18h18" /><path d="M7 14l3-4 3 3 4-6" /><circle cx="7" cy="14" r="1" /><circle cx="17" cy="7" r="1" />
           </svg>
           Sim Center
         </span>
         <StabilityBadge level="beta" title="Beta — offline self-play stress test + training-data capture" />
-        <span style={{ marginLeft: "auto", fontSize: 11, color: MUTED }}>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ley-text-faint)" }}>
           Runs entirely offline on your machine — 0 network, 0 AI.
         </span>
       </header>
@@ -242,7 +244,7 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
       {/* Body */}
       <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
         <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
-          <p style={{ fontSize: 13.5, color: TEXT, lineHeight: 1.55, margin: 0 }}>
+          <p style={{ fontSize: 13.5, color: "var(--ley-text)", lineHeight: 1.55, margin: 0 }}>
             Run the engine against itself across your decks and pull the most data out of every game:
             a ranked list of cards the simulator can&rsquo;t fully model yet, honest non-completion
             signals, and an optional bank of per-turn training rows. Hand the report to Claude to drive
@@ -254,18 +256,18 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               {label(`Decks (${selectedIds.length} selected, across all profiles)`)}
               {decks.length > 0 && (
-                <button type="button" onClick={toggleAll} style={ghostBtn(accent, LINE, fontFamily)}>
+                <button type="button" onClick={toggleAll} className="btn btn-ghost btn-sm">
                   {allSelected ? "Clear all" : "Select all"}
                 </button>
               )}
             </div>
 
             {decksLoad ? (
-              <div style={mutedBox(MUTED, BG3, LINE)}>Loading decks from every profile…</div>
+              <div style={mutedBox()}>Loading decks from every profile…</div>
             ) : decksError ? (
               <div style={errorBox()}>⚠ {decksError}</div>
             ) : decks.length === 0 ? (
-              <div style={mutedBox(MUTED, BG3, LINE)}>
+              <div style={mutedBox()}>
                 No saved decks in any profile yet — import a deck first, then come back to stress-test it.
               </div>
             ) : (
@@ -274,12 +276,12 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
                   const ids = g.decks.map((d) => d.id);
                   const allOn = ids.every((id) => selectedSet.has(id));
                   return (
-                    <div key={g.profile} style={{ border: `1px solid ${LINE}`, borderRadius: 8, overflow: "hidden" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", background: BG2, borderBottom: `1px solid ${LINE}` }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: TEXT }}>
-                          {g.profile} <span style={{ color: MUTED, fontWeight: 400 }}>· {g.decks.length} deck{g.decks.length === 1 ? "" : "s"}</span>
+                    <div key={g.profile} style={{ border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", background: "var(--ley-surface-1)", borderBottom: "1px solid var(--ley-line)" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ley-text)" }}>
+                          {g.profile} <span style={{ color: "var(--ley-text-faint)", fontWeight: 400 }}>· {g.decks.length} deck{g.decks.length === 1 ? "" : "s"}</span>
                         </span>
-                        <button type="button" onClick={() => toggleProfile(g.decks)} style={ghostBtn(accent, LINE, fontFamily)}>
+                        <button type="button" onClick={() => toggleProfile(g.decks)} className="btn btn-ghost btn-sm">
                           {allOn ? "Clear profile" : "Select all in profile"}
                         </button>
                       </div>
@@ -289,11 +291,12 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
                           return (
                             <label
                               key={d.id}
+                              className="ley-row"
                               style={{
                                 display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
-                                border: `1px solid ${checked ? cfg?.border || accent : LINE}`,
-                                background: checked ? cfg?.dim || BG2 : "transparent",
-                                borderRadius: 6, cursor: "pointer", fontSize: 12, color: TEXT,
+                                borderColor: checked ? "var(--ley-line-bright)" : "transparent",
+                                background: checked ? "var(--ley-green-dim)" : "transparent",
+                                borderRadius: "var(--r-md)", cursor: "pointer", fontSize: 12, color: "var(--ley-text)",
                               }}
                             >
                               <input type="checkbox" checked={checked} onChange={() => toggleDeck(d.id)} />
@@ -315,12 +318,12 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
             <fieldset style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
               <legend style={{ padding: 0 }}>{label("Format")}</legend>
               {MODE_OPTIONS.map((opt) => (
-                <label key={opt.value} style={radioCard(mode === opt.value, cfg, accent, LINE, BG2)}>
+                <label key={opt.value} style={radioCard(mode === opt.value)}>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input type="radio" name="sim-mode" value={opt.value} checked={mode === opt.value} onChange={(e) => setMode(e.target.value)} />
-                    <strong style={{ color: accent, fontSize: 13 }}>{opt.label}</strong>
+                    <strong style={{ color: mode === opt.value ? "var(--ley-green)" : "var(--ley-text)", fontSize: 13 }}>{opt.label}</strong>
                   </span>
-                  <span style={{ fontSize: 11, color: MUTED, marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
+                  <span style={{ fontSize: 11, color: "var(--ley-text-faint)", marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
                 </label>
               ))}
             </fieldset>
@@ -329,12 +332,12 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
             <fieldset style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
               <legend style={{ padding: 0 }}>{label("Pairings")}</legend>
               {SCOPE_OPTIONS.map((opt) => (
-                <label key={opt.value} style={radioCard(scope === opt.value, cfg, accent, LINE, BG2)}>
+                <label key={opt.value} style={radioCard(scope === opt.value)}>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input type="radio" name="sim-scope" value={opt.value} checked={scope === opt.value} onChange={(e) => setScope(e.target.value)} />
-                    <strong style={{ color: accent, fontSize: 13 }}>{opt.label}</strong>
+                    <strong style={{ color: scope === opt.value ? "var(--ley-green)" : "var(--ley-text)", fontSize: 13 }}>{opt.label}</strong>
                   </span>
-                  <span style={{ fontSize: 11, color: MUTED, marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
+                  <span style={{ fontSize: 11, color: "var(--ley-text-faint)", marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
                 </label>
               ))}
             </fieldset>
@@ -342,7 +345,7 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
 
           {/* Games-per + bank-data */}
           <section style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: MUTED }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--ley-text-faint)" }}>
               {label("Games per pairing")}
               <input
                 type="number"
@@ -353,12 +356,12 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
                   const n = parseInt(e.target.value, 10);
                   setGamesPer(Number.isFinite(n) && n > 0 ? n : 1);
                 }}
-                style={{ width: 64, padding: "6px 8px", background: BG2, color: TEXT, border: `1px solid ${LINE}`, borderRadius: 6, fontSize: 13, fontFamily }}
+                style={{ width: 64, padding: "6px 8px", background: "var(--ley-surface-1)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", fontSize: 13, fontFamily }}
               />
             </label>
 
             {gamesPer > 1 && (
-              <span style={{ fontSize: 11, color: MUTED, lineHeight: 1.5, maxWidth: 360 }}>
+              <span style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5, maxWidth: 360 }}>
                 ⓘ Each repeat shuffles the decks with a distinct seed, so every game plays out
                 differently — more games means more coverage.
               </span>
@@ -370,15 +373,15 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                 <input type="checkbox" checked={bankData} onChange={(e) => setBankData(e.target.checked)} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>Bank training data from this run</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ley-text)" }}>Bank training data from this run</span>
               </label>
-              <span style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.5, marginLeft: 28 }}>
-                Records a per-turn <code style={{ color: TEXT }}>state → eventual-win</code> trajectory for every
+              <span style={{ fontSize: 11.5, color: "var(--ley-text-faint)", lineHeight: 1.5, marginLeft: 28 }}>
+                Records a per-turn <code style={{ color: "var(--ley-text)" }}>state → eventual-win</code> trajectory for every
                 game and saves it locally (JSONL) for the learn-to-play value model. Off by default.
               </span>
-              <div style={{ marginLeft: 28, marginTop: 2, display: "flex", gap: 18, flexWrap: "wrap", fontSize: 12, color: MUTED }}>
-                <span>Banked runs: <strong style={{ color: accent }}>{stats?.games ?? (reportsLoad ? "…" : 0)}</strong></span>
-                <span>Training rows banked: <strong style={{ color: accent }}>{stats?.rows ?? (reportsLoad ? "…" : 0)}</strong></span>
+              <div style={{ marginLeft: 28, marginTop: 2, display: "flex", gap: 18, flexWrap: "wrap", fontSize: 12, color: "var(--ley-text-faint)" }}>
+                <span>Banked runs: <strong style={{ color: "var(--ley-green)" }}>{stats?.games ?? (reportsLoad ? "…" : 0)}</strong></span>
+                <span>Training rows banked: <strong style={{ color: "var(--ley-green)" }}>{stats?.rows ?? (reportsLoad ? "…" : 0)}</strong></span>
               </div>
             </div>
           )}
@@ -389,25 +392,22 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
               type="button"
               onClick={runStressTest}
               disabled={!canRun}
-              style={{
-                padding: "11px 22px",
-                background: canRun ? accent : LINE,
-                color: canRun ? "#0c0b0a" : MUTED,
-                border: "none", borderRadius: 8,
-                cursor: canRun ? "pointer" : "not-allowed",
-                fontSize: 14, fontWeight: 700, fontFamily,
-                opacity: canRun ? 1 : 0.6,
-              }}
+              className={`btn btn-primary btn-lg${running ? " btn-loading" : ""}`}
             >
               {running ? "Running self-play…" : "Run simulation"}
             </button>
             {running && (
-              <span style={{ fontSize: 12, color: MUTED }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ley-text-faint)" }}>
+                <span
+                  className="ley-live"
+                  aria-hidden="true"
+                  style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--ley-green-bright)", flexShrink: 0 }}
+                />
                 Each game takes ~3–5s and runs offline on your machine — hang tight while the batch finishes.
               </span>
             )}
             {!running && selectedIds.length > 0 && selectedIds.length < minDecks && (
-              <span style={{ fontSize: 12, color: MUTED }}>
+              <span style={{ fontSize: 12, color: "var(--ley-text-faint)" }}>
                 Select at least {minDecks} decks for {mode === "commander" ? "a Commander pod" : "Standard pairings"}.
               </span>
             )}
@@ -427,23 +427,23 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <button type="button" onClick={() => downloadText(result.report, result.file || "self-play-report.txt")} style={outlineBtn(accent, cfg, fontFamily)}>
+                <button type="button" onClick={() => downloadText(result.report, result.file || "self-play-report.txt")} className="btn btn-secondary btn-sm">
                   Download report (.txt)
                 </button>
                 {result.file ? (
-                  <span style={{ fontSize: 11, color: MUTED }}>
+                  <span style={{ fontSize: 11, color: "var(--ley-text-faint)" }}>
                     Saved locally under AppData →{" "}
-                    <code style={{ color: TEXT, background: BG3, padding: "1px 5px", borderRadius: 3 }}>data/self-play/{result.file}</code>
+                    <code style={{ color: "var(--ley-text)", background: "var(--ley-surface-2)", padding: "1px 5px", borderRadius: 3 }}>data/self-play/{result.file}</code>
                   </span>
                 ) : result.writeError ? (
-                  <span style={{ fontSize: 11, color: "#e0a89a" }}>
+                  <span style={{ fontSize: 11, color: "var(--ley-red)" }}>
                     ⚠ Couldn&rsquo;t save the report to disk ({result.writeError}) — use Download to keep it.
                   </span>
                 ) : null}
               </div>
 
               {bankData && (
-                <div style={{ fontSize: 11.5, color: result.trajectoryError ? "#e0a89a" : MUTED, lineHeight: 1.5 }}>
+                <div style={{ fontSize: 11.5, color: result.trajectoryError ? "var(--ley-red)" : "var(--ley-text-faint)", lineHeight: 1.5 }}>
                   {result.trajectoryError
                     ? `⚠ Banking training data failed (${result.trajectoryError}).`
                     : result.trajectoryFile
@@ -455,42 +455,42 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
           )}
 
           {/* ── Saved-report history ── */}
-          <section style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: `1px solid ${LINE}`, paddingTop: 16 }}>
+          <section style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--ley-line)", paddingTop: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               {label(`Saved reports (${reports.length})`)}
-              <button type="button" onClick={refreshHistory} style={ghostBtn(accent, LINE, fontFamily)}>Refresh</button>
+              <button type="button" onClick={refreshHistory} className="btn btn-ghost btn-sm">Refresh</button>
             </div>
 
             {reportsLoad && reports.length === 0 ? (
-              <div style={mutedBox(MUTED, BG3, LINE)}>Loading saved reports…</div>
+              <div style={mutedBox()}>Loading saved reports…</div>
             ) : reports.length === 0 ? (
-              <div style={mutedBox(MUTED, BG3, LINE)}>
+              <div style={mutedBox()}>
                 No saved reports yet — run a simulation and it&rsquo;ll appear here, click-to-re-view.
               </div>
             ) : (
-              <div style={{ border: `1px solid ${LINE}`, borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
                 {reports.map((r, i) => (
                   <div
                     key={r.file}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-                      padding: "9px 12px", borderTop: i === 0 ? "none" : `1px solid ${LINE}`,
-                      background: i % 2 ? BG3 : "transparent",
+                      padding: "9px 12px", borderTop: i === 0 ? "none" : "1px solid var(--ley-line)",
+                      background: i % 2 ? "var(--ley-surface-2)" : "transparent",
                     }}
                   >
                     <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                      <span style={{ fontSize: 12, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 12, color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {r.savedAt ? new Date(r.savedAt).toLocaleString() : r.file}
-                        {r.mode ? <span style={{ color: MUTED }}> · {r.mode === "commander" ? "Commander" : "Standard"}</span> : null}
+                        {r.mode ? <span style={{ color: "var(--ley-text-faint)" }}> · {r.mode === "commander" ? "Commander" : "Standard"}</span> : null}
                       </span>
-                      <span style={{ fontSize: 11, color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 11, color: "var(--ley-text-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {r.deckNames?.length ? r.deckNames.join(", ") : "decks unknown"}
                         {r.games != null ? ` · ${r.games} game${r.games === 1 ? "" : "s"}` : ""}
                         {r.breakages != null ? ` · ${r.breakages} breakage${r.breakages === 1 ? "" : "s"}` : ""}
                       </span>
                     </div>
                     <span style={{ display: "inline-flex", gap: 6, flexShrink: 0 }}>
-                      <button type="button" onClick={() => openReport(r.file)} style={ghostBtn(accent, LINE, fontFamily)}>View</button>
+                      <button type="button" onClick={() => openReport(r.file)} className="btn btn-secondary btn-sm">View</button>
                     </span>
                   </div>
                 ))}
@@ -506,28 +506,29 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
           role="dialog"
           aria-modal="true"
           onClick={() => setViewing(null)}
-          style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+          style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(760px, 100%)", maxHeight: "100%", display: "flex", flexDirection: "column", background: BG2, border: `1px solid ${LINE}`, borderRadius: 10, overflow: "hidden" }}
+            className="ley-glass-strong ley-glass-lit"
+            style={{ width: "min(760px, 100%)", maxHeight: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: `1px solid ${LINE}` }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: accent, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewing.file}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: "1px solid var(--ley-line)" }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 12.5, fontWeight: 700, color: accent, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewing.file}</span>
               <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
                 {viewing.report && (
-                  <button type="button" onClick={() => downloadText(viewing.report, viewing.file)} style={ghostBtn(accent, LINE, fontFamily)}>Download</button>
+                  <button type="button" onClick={() => downloadText(viewing.report, viewing.file)} className="btn btn-ghost btn-sm">Download</button>
                 )}
-                <button type="button" onClick={() => setViewing(null)} aria-label="Close" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+                <button type="button" onClick={() => setViewing(null)} aria-label="Close" className="btn btn-ghost btn-icon btn-sm">×</button>
               </span>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
               {viewing.loading ? (
-                <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>Opening report…</div>
+                <div style={{ fontSize: 12, color: "var(--ley-text-faint)", fontStyle: "italic" }}>Opening report…</div>
               ) : viewing.error ? (
                 <div style={errorBox()}>⚠ {viewing.error}</div>
               ) : (
-                <pre style={{ margin: 0, fontSize: 11.5, color: TEXT, lineHeight: 1.5, whiteSpace: "pre-wrap", fontFamily: "var(--font-mono), Consolas, monospace" }}>{viewing.report}</pre>
+                <pre style={{ margin: 0, fontSize: 11.5, color: "var(--ley-text)", lineHeight: 1.5, whiteSpace: "pre-wrap", fontFamily: "var(--font-mono)" }}>{viewing.report}</pre>
               )}
             </div>
           </div>
@@ -538,23 +539,24 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
 }
 
 // ── Local style helpers (kept module-scoped so the JSX stays readable) ──
-function ghostBtn(accent, LINE, fontFamily) {
-  return { padding: "4px 10px", fontSize: 11, background: "transparent", color: accent, border: `1px solid ${LINE}`, borderRadius: 5, cursor: "pointer", fontFamily };
-}
-function outlineBtn(accent, cfg, fontFamily) {
-  return { padding: "9px 16px", background: "transparent", color: accent, border: `1px solid ${cfg?.border || accent}`, borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily };
-}
-function radioCard(on, cfg, accent, LINE, BG2) {
+function radioCard(on) {
   return {
     display: "flex", flexDirection: "column", padding: "10px 12px",
-    border: `1px solid ${on ? cfg?.border || accent : LINE}`,
-    background: on ? cfg?.dim || BG2 : "transparent",
-    borderRadius: 6, cursor: "pointer",
+    borderWidth: 1, borderStyle: "solid",
+    borderColor: on ? "var(--ley-line-bright)" : "var(--ley-line)",
+    background: on ? "var(--ley-green-dim)" : "transparent",
+    borderRadius: "var(--r-md)", cursor: "pointer",
   };
 }
-function mutedBox(MUTED, BG3, LINE) {
-  return { fontSize: 12, color: MUTED, fontStyle: "italic", padding: "8px 10px", background: BG3, border: `1px solid ${LINE}`, borderRadius: 6 };
+function mutedBox() {
+  return {
+    fontSize: 12, color: "var(--ley-text-faint)", fontStyle: "italic", padding: "8px 10px",
+    background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)",
+  };
 }
 function errorBox() {
-  return { padding: "10px 12px", background: "#2a1414", border: "1px solid #6b3a3a", color: "#e0a89a", borderRadius: 6, fontSize: 12.5, lineHeight: 1.5 };
+  return {
+    padding: "10px 12px", background: "var(--ley-red-dim)", border: "1px solid var(--ley-red)",
+    color: "var(--ley-red)", borderRadius: "var(--r-md)", fontSize: 12.5, lineHeight: 1.5,
+  };
 }
