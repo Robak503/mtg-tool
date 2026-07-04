@@ -1,3 +1,44 @@
+# 🌅 WAKE REPORT — 2026-07-04 (VAULT overhaul wave-V core + wave Q — v0.89.0)
+
+> **v0.89.0 (Colton fired orders/vault-overhaul.md + UPGRADE-BACKLOG wave Q, Fable 5 finale
+> session):** the Vault got the kiosk IA — **VaultHome** front door with four LIVE door-panes
+> (The Stacks / The Ledger / The Atlas / The Forge) + the Pulse strip; the 5-tab strip and
+> mode state are DEAD (CollectionView takes a `surface` prop; per-surface toolbars; Finance+
+> Stats merged into the scrolling Ledger; all four Vault*Views on LEYLINE glass) · **V2**
+> Ledger value area-chart (ranges + crosshair) · **V4** Atlas completion bars + % +
+> cost-to-complete · **V9** `GET /api/collection/combos` + The Forge combo shelf (owned
+> combos + one-card-away, priced) · **wave Q**: Q1 useEscapeClose across 10 overlays ·
+> Q2 powerRank on DeckView/DeckMenu + `serializeDeckMemory` "Machine Power Rating" line
+> (agents see it; +3 pins) · Q5 session filter · Q6 pod salt (saltSum/saltTop additive).
+> **Suite 7,684 + lint 0 (bare exit codes) · FENCE PROVEN: tier fp byte-identical 0-diff +
+> trajectory hash == a2a03ba8 ×2 (games=3 rows=8281, AppData root).** Preview-walked:
+> landing → all four doors → back; Escape closes Add-card live.
+
+## ⚠️ PARKED (this pass)
+1. **Vault tail (all spec'd in [UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md) wave V):** V5
+   printings-index schema pass (artist/reserved/flavor — GATES V6 autofill + V7) · **V6
+   Trophy Case (impact 5 — the collector headline; give it its own focused session)** ·
+   V7 Gallery/artists · V8 binder mode · V10 cost basis · V11 universal shopping list ·
+   V12 finish analytics.
+2. **Wave Q tail:** Q3 post-import "deck ready" moment · Q4 alias sweep + the
+   MTGAssistant:732 hand-hex fix · Q7 seatSummary tables in Sim Center · Q8 per-message
+   chat actions · Q9 pod⇄sim round trip · Q1-stretch (Escape walks up the IA, Ctrl+1/2/3).
+3. **Carried from earlier passes:** tray-click eyeball on first launch · mobile IA pass
+   (Colton: ever under 660px?) · cross-profile rating persistence (Colton call, by-design
+   today) · dev-tree art-crop 404s (cosmetic, installed exe has the cache) · legacy alias
+   block in globals.css (Q4 covers it).
+
+## 🔁 How the next session resumes
+Method index + post-Fable model policy: [MASTER-GUIDE.md](MASTER-GUIDE.md). Forward queue:
+[UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md) — next best: **V6 Trophy Case** (after V5) or wave
+Q tail or P1/P2 records. The grind resumes per memory/orders/clyde-grind-relaunch.md when no
+feature wave holds the lock. UI law: ui-overhaul-log.md §0. Engine anchors: suite 7,684 ·
+tier fp 0-diff vs main · trajectory a2a03ba8 (rows 8281).
+
+---
+
+# (previous report below — v0.88.0 wave 2)
+
 # 🌅 WAKE REPORT — 2026-07-04 (LEYLINE wave 2 — v0.88.0: kiosk IA + Proving Grounds + power-rank fixes)
 
 > **v0.88.0 (Colton-ordered wave 2, same session as v0.87.0):** the kiosk LANDING screen

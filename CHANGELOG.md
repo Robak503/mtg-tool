@@ -8,6 +8,40 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.89.0] - 2026-07-04
+
+The Vault overhaul (wave V core) + wave Q quick wins.
+
+### Added
+- **The Vault front door** — the tab strip is gone. The Vault now opens on four
+  LIVE door-panes: **The Stacks** (browse/manage; card counts + your latest
+  pickups as art tiles), **The Ledger** (owned value + 30-day movement; Finance
+  and Stats merged into one scrolling dashboard), **The Atlas** (sets, with your
+  closest-to-complete set as a progress bar), **The Forge** (buildable
+  commanders + deck costs) — plus a **Pulse strip**: cards added this week, your
+  top owned mover, price alerts hit, cross-deck conflicts, each jumping straight
+  to its surface.
+- **Ledger value chart** — a real area chart of collection value over time
+  (30d/90d/1y/all ranges, hover for exact date + value) replaces the old tiny
+  sparkline.
+- **Atlas completion** — every set row shows a completion bar and %, and a set's
+  detail view shows **~cost to complete** at current prices.
+- **The Forge combo shelf** — combos you can assemble from cards you already
+  own, plus "one card away" combos priced by their missing piece (bundled
+  Commander Spellbook data; fully offline).
+- **Machine power rating everywhere** — the auto-computed deck rating now shows
+  on the deck view's Power card and in the deck menu ("6.8 · B3"), and the
+  agents (Jace/Karn/Tibalt) see it in locked-deck context.
+- **Escape closes every modal** — one consistent behavior across Updates,
+  Settings, profiles, and all Vault dialogs (typing in a field is never
+  interrupted; the Updates modal holds while an app update runs).
+- **Chat filter** — filter your chat sessions by name or locked deck.
+- **Pod misery meter** — Pod Balance now shows each deck's EDHREC salt total and
+  its three saltiest cards.
+
+### Changed
+- All four Vault sub-views restyled from flat panels to LEYLINE glass.
+
 ## [0.88.0] - 2026-07-04
 
 ### Added

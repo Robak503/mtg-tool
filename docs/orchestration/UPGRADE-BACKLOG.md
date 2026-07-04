@@ -22,7 +22,7 @@ open Q8 answer) → K by taste → E coordinated with the grind lane → D oppor
 Gate for the wave: suite + lint + engine fence (tier fp 0-diff, trajectory hash holds —
 Q2 touches deck-memory serialization, so prove the fence, don't assume it).
 
-- **Q1 · Escape-to-close + kiosk key layer** (impact 4) — one shared `useEscapeClose` hook
+- ✅ v0.89.0 (modal layer; area-hop keys parked) — **Q1 · Escape-to-close + kiosk key layer** (impact 4) — one shared `useEscapeClose` hook
   (or a single global keydown layer in `MTGAssistant.jsx`) wired into every overlay that
   lacks it: UpdatesModal, SettingsModal, ProfileManageModal, CollectionAddModal,
   CollectionImportModal, CollectionRoastModal, CollectionDecksModal, CollectionCardDetail,
@@ -30,7 +30,7 @@ Q2 touches deck-memory serialization, so prove the fence, don't assume it).
   → landing via existing `goHome`); Ctrl+1/2/3 jump to the three doors. Guard: never
   swallow Escape from a focused input or mid-flight sync. *Promotes the v0.87.0 parked
   item.* Where: `MTGAssistant.jsx` + the listed modals.
-- **Q2 · powerRank on every deck surface + in agent prompts** (impact 5) — (a) DeckView's
+- ✅ v0.89.0 (stat card + menu meta + serializer; staleness cue/Rate button parked) — **Q2 · powerRank on every deck surface + in agent prompts** (impact 5) — (a) DeckView's
   Power stat card shows `memory.powerRank` (bracket chip via PodBalanceView's
   `bracketColor`), manual `powerLevel` text as fallback, Rate/Re-rate button (POST
   `/api/power-rank` exists); (b) `DeckMenu` rows get "6.8 · B3" meta; (c) staleness cue
@@ -49,10 +49,10 @@ Q2 touches deck-memory serialization, so prove the fence, don't assume it).
   DeckConfirmModal 1) to `--ley-*`, delete the alias block (`globals.css:68-104`), and fix
   the un-logged violation: `MTGAssistant.jsx:732` hand-hexes BG/BG2/LINE/GOLD constants —
   convert to `var(--ley-*)`.
-- **Q5 · Session search + deck filter in the chat sidebar** (impact 3) — filter input over
+- ✅ v0.89.0 (name+deck filter; group-by-deck parked) — **Q5 · Session search + deck filter in the chat sidebar** (impact 3) — filter input over
   `session.name` / `lockedDeck.name` / message content (all client-side already in
   `useChatSessions`), plus a group-by-deck alternative. Where: `SessionSidebar.jsx`.
-- **Q6 · Pod salt spread in Pod Balance** (impact 3) — add per-deck salt score + top-3
+- ✅ v0.89.0 — **Q6 · Pod salt spread in Pod Balance** (impact 3) — add per-deck salt score + top-3
   saltiest cards to `/api/pod-balance` `summarize()` (the 11 MB `edhrec-salt.local.json`
   is already wired through `edhrecSalt.js` into deckReport/powerRanker) and a "misery
   meter" row in `PodBalanceView`.
@@ -73,19 +73,19 @@ Q2 touches deck-memory serialization, so prove the fence, don't assume it).
 The one surface Colton called out as old. Full detail + phases live in the order file;
 summary here for the queue:
 
-- **V1 · Vault kiosk redesign — four live door-panes replace the tab strip** (L, 5) — new
+- ✅ v0.89.0 — **V1 · Vault kiosk redesign — four live door-panes replace the tab strip** (L, 5) — new
   `VaultHome.jsx` on the ProvingHome pattern: **The Stacks** (browse/manage; recent-adds
   art strip) · **The Ledger** (Finance+Stats merged; value big-number + 30d arrow) ·
   **The Atlas** (sets; closest-to-complete progress) · **The Forge** (build/buildable +
   deck costs; CollectionDecksModal PROMOTED to a pane). Tab strip + mode state die;
   Conflicts becomes an inline callout; ColorTagManager a slide-over. All four `Vault*View`s
   restyled from pre-LEYLINE flat boxes to `.ley-card`/glass. Zero new endpoints.
-- **V2 · Ledger value chart** (S, 4) — real SVG area chart (no dep; Sparkline proves the
+- ✅ v0.89.0 — **V2 · Ledger value chart** (S, 4) — real SVG area chart (no dep; Sparkline proves the
   pattern) over `/api/collection/stats` `value.series` + range toggles + per-grail overlay.
-- **V3 · Vault Pulse strip** (S, 4) — "since you last looked": adds this week (`addedAt`),
+- ✅ v0.89.0 (rides VaultHome) — **V3 · Vault Pulse strip** (S, 4) — "since you last looked": adds this week (`addedAt`),
   owned movers (`/api/finance` risers/fallers), alerts hit, wishlist deals, conflicts —
   each deep-linking into its surface.
-- **V4 · Atlas upgrade** (M, 4) — completion bars + % per set, cost-to-complete (fold in
+- ✅ v0.89.0 (bars + % + cost-to-complete; art-tile grid mode parked) — **V4 · Atlas upgrade** (M, 4) — completion bars + % per set, cost-to-complete (fold in
   `setBrowser.js` — per-card usd + owned flags already in the payload), art-tile grid mode
   with unowned dimmed.
 - **V5 · Printings-index schema pass** (M, 4) — extend
@@ -106,7 +106,7 @@ summary here for the queue:
 - **V8 · Binder mode** (M, 4) — 9-pocket full-card spread view in The Stacks via the
   existing `/api/card-image` AppData cache; ordered by active sort; page-flip between
   spreads.
-- **V9 · Binder combos — "what can I assemble from cards I own"** (S, 4) — new
+- ✅ v0.89.0 — **V9 · Binder combos — "what can I assemble from cards I own"** (S, 4) — new
   `/api/collection/combos`: owned names → existing `spellbook.findCombos()`; complete
   combos grouped by identity + "one card away" priced via printingIndex.
 - **V10 · Cost basis** (M, 3) — optional `paidUsd` (+ `acquiredFrom/At`) per stack;
