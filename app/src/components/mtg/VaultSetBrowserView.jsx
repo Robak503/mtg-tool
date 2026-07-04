@@ -16,7 +16,7 @@ const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", 
 const year = (iso) => (iso && /^\d{4}/.test(iso) ? iso.slice(0, 4) : "");
 
 export default function VaultSetBrowserView({ colors, fontFamily }) {
-  const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
+  const { BG, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const F = fontFamily;
 
   const [state, setState] = useState({ status: "loading", sets: null, error: null });
@@ -72,7 +72,7 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
   }, [detail.data, sortBy]);
 
   const wrap = { flex: 1, overflowY: "auto", padding: "16px 20px", background: BG, color: TEXT, fontFamily: F };
-  const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
+  const card = { background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)", padding: 16, marginBottom: 16 };
   const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (state.status === "loading") return <Centered color={MUTED}>Loading sets…</Centered>;

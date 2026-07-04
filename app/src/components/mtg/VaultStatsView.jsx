@@ -29,7 +29,7 @@ const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", 
 const money = (v) => (v == null || Number.isNaN(v) ? "—" : `$${Number(v).toFixed(2)}`);
 
 export default function VaultStatsView({ colors, fontFamily, onGoToCollection }) {
-  const { BG, BG2, LINE, TEXT, MUTED, GOLD } = colors;
+  const { BG, LINE, TEXT, MUTED, GOLD } = colors;
   const F = fontFamily;
   const [state, setState] = useState({ status: "loading", data: null, error: null });
 
@@ -51,7 +51,7 @@ export default function VaultStatsView({ colors, fontFamily, onGoToCollection })
 
   const data = state.data;
   const b = data?.breakdowns;
-  const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
+  const card = { background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)", padding: 16, marginBottom: 16 };
   const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (!b || b.ownedRows === 0) {

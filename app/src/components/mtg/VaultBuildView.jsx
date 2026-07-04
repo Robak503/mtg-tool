@@ -24,7 +24,7 @@ const PIP = {
 const PIP_ORDER = ["W", "U", "B", "R", "G"];
 
 export default function VaultBuildView({ colors, fontFamily, onBuildCommander, onGoToCollection }) {
-  const { BG, BG2, LINE, TEXT, MUTED, GOLD, RED } = colors;
+  const { BG, TEXT, MUTED, GOLD, RED } = colors;
   const F = fontFamily;
   const [state, setState] = useState({ status: "loading", data: null, error: null });
 
@@ -42,7 +42,7 @@ export default function VaultBuildView({ colors, fontFamily, onBuildCommander, o
   }, []);
 
   const wrap = { flex: 1, overflowY: "auto", padding: "16px 20px", background: BG, color: TEXT, fontFamily: F };
-  const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
+  const card = { background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)", padding: 16, marginBottom: 16 };
   const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (state.status === "loading") return <Centered color={MUTED}>Finding what you can build…</Centered>;

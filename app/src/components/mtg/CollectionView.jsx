@@ -62,7 +62,10 @@ const DEFAULT_FILTERS = {
   finish: "any",
 };
 
-export default function CollectionView({ onClose, onBuildCommander }) {
+const SURFACE_MODE = { collection: "collection", ledger: "ledger", sets: "sets", build: "build" };
+const SURFACE_LABEL = { collection: "The Stacks", ledger: "The Ledger", sets: "The Atlas", build: "The Forge" };
+
+export default function CollectionView({ surface = "collection", onNavigate, onClose, onBuildCommander }) {
   const [state, setState] = useState({
     status: "loading",
     collection: null,
@@ -83,7 +86,9 @@ export default function CollectionView({ onClose, onBuildCommander }) {
   const [tagsOpen, setTagsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
-  const [mode, setMode] = useState("collection"); // "collection" | "stats" | "finance"
+  // Which internal surface renders. Fixed per centerView since the kiosk IA
+  // (VaultHome door-panes) replaced the old 5-tab strip.
+  const mode = SURFACE_MODE[surface] || "collection";
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -500,7 +505,12 @@ export default function CollectionView({ onClose, onBuildCommander }) {
         borderBottom: `1px solid ${COLORS.LINE}`,
         background: COLORS.BG2,
       }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", minWidth: 0 }}>
+          {onNavigate && (
+            <button onClick={() => onNavigate("vault-home")} className="btn btn-ghost btn-sm" title="Back to the Vault">
+              ← Vault
+            </button>
+          )}
           <h1 style={{
             margin: 0,
             fontFamily: "var(--font-display), Georgia, serif",
@@ -512,26 +522,20 @@ export default function CollectionView({ onClose, onBuildCommander }) {
           }}>
             The Vault
           </h1>
-          <div style={{ display: "flex", borderBottom: `1px solid ${COLORS.LINE}`, alignSelf: "stretch" }}>
-            {[["collection", "Collection"], ["build", "Build"], ["stats", "Stats"], ["sets", "Sets"], ["finance", "Finance"]].map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => setMode(k)}
-                style={{
-                  padding: "9px 14px",
-                  background: mode === k ? "var(--ley-green-dim)" : "transparent",
-                  border: "none",
-                  borderBottom: mode === k ? "2px solid var(--ley-green)" : "2px solid transparent",
-                  color: mode === k ? "var(--ley-green)" : COLORS.MUTED,
-                  fontWeight: mode === k ? 700 : 400,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  fontFamily: "var(--font-mono), monospace",
-                  letterSpacing: "0.04em",
-                }}
-              >{label}</button>
-            ))}
-          </div>
+          <span style={{
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: 11,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "var(--ley-green)",
+            padding: "4px 10px",
+            border: "1px solid var(--ley-line-bright)",
+            borderRadius: 999,
+            background: "var(--ley-green-dim)",
+            whiteSpace: "nowrap",
+          }}>
+            {SURFACE_LABEL[surface] || "The Stacks"}
+          </span>
           {state.status === "ready" && (
             <span style={{ fontSize: 12, color: COLORS.MUTED }}>
               <strong style={{ color: COLORS.TEXT }}>{totalCardCount}</strong> cards cataloged · {uniqueCount} unique
@@ -584,7 +588,6 @@ export default function CollectionView({ onClose, onBuildCommander }) {
               Roast me
             </button>
           )}
-          <button onClick={() => setDecksOpen(true)} className="btn btn-secondary btn-sm">Decks</button>
           <button onClick={() => setTagsOpen(true)} className="btn btn-secondary btn-sm">Color tags</button>
           {cards.length > 0 && (
             <button
@@ -595,18 +598,25 @@ export default function CollectionView({ onClose, onBuildCommander }) {
               {selectMode ? "Done" : "Select"}
             </button>
           )}
-          <button
-            onClick={handleRefreshPrices}
-            disabled={refreshing}
-            className="btn btn-secondary btn-sm"
-            title="Re-pull live prices for cards TCGPlayer can't price"
-          >
-            {refreshing ? "Refreshing…" : "↻ Prices"}
-          </button>
           <button onClick={() => setImportOpen(true)} className="btn btn-secondary btn-sm">Import CSV</button>
           <button onClick={exportCollection} className="btn btn-secondary btn-sm">Export CSV</button>
           <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} className="btn btn-primary btn-sm">+ Add card</button>
           </>)}
+          {mode === "ledger" && (
+            <button
+              onClick={handleRefreshPrices}
+              disabled={refreshing}
+              className="btn btn-secondary btn-sm"
+              title="Re-pull live prices for cards TCGPlayer can't price"
+            >
+              {refreshing ? "Refreshing…" : "↻ Prices"}
+            </button>
+          )}
+          {mode === "build" && (
+            <button onClick={() => setDecksOpen(true)} className="btn btn-secondary btn-sm" title="What each deck still needs, priced">
+              Deck costs
+            </button>
+          )}
           {onClose && (
             <button onClick={onClose} className="btn btn-ghost btn-sm">Close</button>
           )}
@@ -625,12 +635,14 @@ export default function CollectionView({ onClose, onBuildCommander }) {
         </div>
       )}
 
-      {mode === "finance" && (
-        <VaultFinanceView colors={COLORS} fontFamily={FONT} />
-      )}
-
-      {mode === "stats" && (
-        <VaultStatsView colors={COLORS} fontFamily={FONT} onGoToCollection={() => setMode("collection")} />
+      {mode === "ledger" && (
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {/* Finance + Stats merged into one scrolling dashboard. The plain
+              wrapper divs neutralize each child's own flex/overflow root so
+              the Ledger scrolls as a single page. */}
+          <div><VaultFinanceView colors={COLORS} fontFamily={FONT} /></div>
+          <div><VaultStatsView colors={COLORS} fontFamily={FONT} onGoToCollection={() => onNavigate?.("collection")} /></div>
+        </div>
       )}
 
       {mode === "sets" && (
@@ -638,7 +650,7 @@ export default function CollectionView({ onClose, onBuildCommander }) {
       )}
 
       {mode === "build" && (
-        <VaultBuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} onGoToCollection={() => setMode("collection")} />
+        <VaultBuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} onGoToCollection={() => onNavigate?.("collection")} />
       )}
 
       {mode === "collection" && (<>
