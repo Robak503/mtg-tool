@@ -7,8 +7,8 @@
  *   Beta    — works, still being tuned (e.g. goldfish scoring, power ranking).
  */
 const PALETTE = {
-  preview: { border: "#a06fd8", text: "#c6a6f0", bg: "rgba(160,111,216,0.14)" },
-  beta: { border: "#b08a3e", text: "#e8c285", bg: "rgba(176,138,62,0.14)" },
+  preview: { border: "var(--ley-blue)", text: "var(--ley-blue)", bg: "rgba(106, 184, 255, 0.14)" },
+  beta: { border: "var(--ley-gold)", text: "var(--ley-gold)", bg: "var(--ley-gold-dim)" },
 };
 
 export default function StabilityBadge({ level, style, title }) {

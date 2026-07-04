@@ -18,13 +18,22 @@
  * panel (the panel's data comes from a live fetch). `cards` is the API's
  * `breakages` array verbatim.
  */
-export function BreakageTable({ cards, colors }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+export function BreakageTable({ cards }) {
   const list = Array.isArray(cards) ? cards : [];
 
   if (list.length === 0) {
     return (
-      <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, padding: "8px 10px", background: BG3, border: `1px solid ${LINE}`, borderRadius: 6 }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--ley-text-dim)",
+          lineHeight: 1.5,
+          padding: "8px 10px",
+          background: "var(--ley-surface-2)",
+          border: "1px solid var(--ley-line)",
+          borderRadius: "var(--r-sm)",
+        }}
+      >
         No unmodeled / broken cards — no spell-unresolved, stack-resolve-error, or
         trigger-removed entries appeared in any game&rsquo;s log. Either every card
         resolved natively, or the decks played out without reaching them.
@@ -33,17 +42,18 @@ export function BreakageTable({ cards, colors }) {
   }
 
   return (
-    <div style={{ border: `1px solid ${LINE}`, borderRadius: 6, overflow: "hidden" }}>
+    <div style={{ border: "1px solid var(--ley-line)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 56px 1fr",
           gap: 8,
           padding: "7px 10px",
-          background: BG2,
-          borderBottom: `1px solid ${LINE}`,
+          background: "var(--ley-surface-1)",
+          borderBottom: "1px solid var(--ley-line)",
+          fontFamily: "var(--font-mono)",
           fontSize: 10,
-          color: MUTED,
+          color: "var(--ley-text-faint)",
           textTransform: "uppercase",
           letterSpacing: "0.08em",
         }}
@@ -64,16 +74,17 @@ export function BreakageTable({ cards, colors }) {
               gridTemplateColumns: "1fr 56px 1fr",
               gap: 8,
               padding: "7px 10px",
-              borderTop: i === 0 ? "none" : `1px solid ${LINE}`,
-              background: i % 2 ? BG3 : "transparent",
+              borderTop: i === 0 ? "none" : "1px solid var(--ley-line)",
+              background: i % 2 ? "var(--ley-surface-2)" : "transparent",
+              fontFamily: "var(--font-mono)",
               fontSize: 11,
-              color: TEXT,
+              color: "var(--ley-text)",
               lineHeight: 1.4,
             }}
           >
             <span style={{ fontWeight: 600 }}>{c.card}</span>
-            <span style={{ textAlign: "right", color: GOLD, fontWeight: 700 }}>{c.count}</span>
-            <span style={{ color: MUTED }}>
+            <span style={{ textAlign: "right", color: "var(--ley-gold)", fontWeight: 700 }}>{c.count}</span>
+            <span style={{ color: "var(--ley-text-dim)" }}>
               {kinds}
               {c.sampleReason ? (
                 <span style={{ display: "block", marginTop: 2, opacity: 0.85 }}>
@@ -94,8 +105,7 @@ export function BreakageTable({ cards, colors }) {
  * non-completions (engine-stuck / dispatch-error / setup-error): they're shown
  * in a distinct warning row, never folded into draws.
  */
-export function OutcomeSummary({ outcomes, avgTurns, games, colors }) {
-  const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+export function OutcomeSummary({ outcomes, avgTurns, games }) {
   const o = outcomes || {};
   const nonCompletions =
     (o.engineStuck || 0) + (o.dispatchError || 0) + (o.setupError || 0) + (o.unexpected || 0) +
@@ -103,23 +113,33 @@ export function OutcomeSummary({ outcomes, avgTurns, games, colors }) {
 
   const stat = (label, value, accent) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 78 }}>
-      <span style={{ fontSize: 18, fontWeight: 700, color: accent || TEXT, lineHeight: 1.1 }}>{value}</span>
-      <span style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+      <span style={{ fontSize: 18, fontWeight: 700, color: accent || "var(--ley-text)", lineHeight: 1.1 }}>{value}</span>
+      <span style={{ fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
     </div>
   );
 
   return (
-    <div style={{ background: BG3, border: `1px solid ${LINE}`, borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div
+      style={{
+        background: "var(--ley-surface-2)",
+        border: "1px solid var(--ley-line)",
+        borderRadius: "var(--r-sm)",
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-        {stat("Games", games ?? o.total ?? 0, GOLD)}
+        {stat("Games", games ?? o.total ?? 0, "var(--ley-gold)")}
         {stat("Completed", `${o.completed ?? 0}/${o.total ?? 0}`)}
-        {stat("Seat-1 wins", o.userWins ?? 0)}
-        {stat("Opp wins", o.aiWins ?? 0)}
-        {stat("Draws", o.draws ?? 0)}
+        {stat("Seat-1 wins", o.userWins ?? 0, "var(--ley-green)")}
+        {stat("Opp wins", o.aiWins ?? 0, "var(--ley-red)")}
+        {stat("Draws", o.draws ?? 0, "var(--ley-text-dim)")}
         {stat("Avg turns", avgTurns ? Number(avgTurns).toFixed(1) : "0")}
       </div>
       {nonCompletions > 0 && (
-        <div style={{ fontSize: 11, color: "#e0a89a", lineHeight: 1.5, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
+        <div style={{ fontSize: 11, color: "var(--ley-red)", lineHeight: 1.5, borderTop: "1px solid var(--ley-line)", paddingTop: 8 }}>
           ⚠ {nonCompletions} game{nonCompletions === 1 ? "" : "s"} did not complete (reported honestly):{" "}
           {[
             o.engineStuck ? `engine-stuck ×${o.engineStuck}` : null,
