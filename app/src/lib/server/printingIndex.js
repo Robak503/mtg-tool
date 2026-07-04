@@ -12,8 +12,12 @@
  * cold-start requests cannot race the build.
  *
  * Each row has the slim fields produced by build-collection-printings-index.cjs:
- *   { id, oracleId, name, set, setName, collectorNumber, finishes, foilTypes,
- *     layout, releasedAt, artCropUrl, prices: { usd, usdFoil, usdEtched } }
+ *   { id, oracleId, name, set, setName, collectorNumber, rarity, setType,
+ *     reserved, finishes, foilTypes, layout, releasedAt, artCropUrl,
+ *     artist, fullArt, borderColor, storySpotlight,          // V5 (2026-07-04)
+ *     prices: { usd, usdFoil, usdEtched } }
+ *   Indexes built before V5 lack the artist/flag fields — consumers must
+ *   treat them as optional and feature-hide, never crash.
  *
  * Art crops are NOT bundled. artCropUrl is the Scryfall CDN URL;
  * the renderer should lazy-fetch + cache on first view.

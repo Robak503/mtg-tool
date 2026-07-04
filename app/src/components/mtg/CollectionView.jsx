@@ -655,6 +655,9 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
       )}
 
       {mode === "collection" && (<>
+      {state.status === "ready" && (
+        <TrophyStrip cards={cards} onPick={setSelectedRow} colors={COLORS} />
+      )}
       {state.status === "ready" && cards.length > 0 && (
         <CollectionFilters
           filters={filters}
@@ -946,6 +949,64 @@ function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, 
       <button onClick={onExit} disabled={busy} className="btn btn-primary btn-sm" style={{ marginLeft: 10 }}>
         Done
       </button>
+    </div>
+  );
+}
+
+// The Trophy Case (V6) — showcase-pinned rows as a hero strip at the top of
+// The Stacks: art tile, name, and the provenance caption. Hidden until the
+// user pins something (the ★ Showcase toggle in the card drawer).
+function TrophyStrip({ cards, onPick, colors }) {
+  const trophies = cards.filter((c) => c.showcase === true);
+  if (trophies.length === 0) return null;
+  const caption = (r) => {
+    const bits = [];
+    if (r.signed) {
+      bits.push(`Signed${r.signed.artist ? ` — ${r.signed.artist}` : ""}${r.signed.inPerson ? " (in person)" : ""}`);
+      if (r.signed.event) bits.push(r.signed.event);
+      if (r.signed.date) bits.push(r.signed.date);
+    }
+    if (r.artistProof) bits.push("Artist proof");
+    if (r.altered) bits.push("Altered");
+    return bits.join(" · ") || "Showcase";
+  };
+  return (
+    <div style={{ padding: "12px 20px 4px", borderBottom: `1px solid ${colors.LINE}` }}>
+      <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ley-green)", marginBottom: 8 }}>
+        ★ Trophy Case
+      </div>
+      <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 10 }}>
+        {trophies.map((r) => (
+          <button
+            key={r.scryfallId}
+            onClick={() => onPick(r)}
+            className="ley-card"
+            style={{
+              flexShrink: 0,
+              width: 190,
+              textAlign: "left",
+              cursor: "pointer",
+              background: "var(--ley-glass)",
+              border: "1px solid var(--ley-line-bright)",
+              borderRadius: "var(--r-lg)",
+              padding: 8,
+              color: colors.TEXT,
+            }}
+            title={`${r.name} — ${caption(r)}`}
+          >
+            <img
+              src={`/api/art-crop?id=${encodeURIComponent(r.scryfallId)}`}
+              alt=""
+              width={174}
+              height={96}
+              loading="lazy"
+              style={{ objectFit: "cover", borderRadius: 6, display: "block", border: `1px solid ${colors.LINE}` }}
+            />
+            <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+            <div style={{ fontSize: 10, color: "var(--ley-text-dim)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{caption(r)}</div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

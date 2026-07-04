@@ -42,7 +42,8 @@
  *     count: number of printings in the slim index,
  *     cards: [
  *       { id, oracleId, name, set, setName, collectorNumber, finishes,
- *         foilTypes, layout, releasedAt, artCropUrl,
+ *         foilTypes, layout, releasedAt, artCropUrl, artist, fullArt,
+ *         borderColor, storySpotlight, reserved,
  *         prices: { usd, usdFoil, usdEtched } }
  *     ]
  *   }
@@ -170,6 +171,15 @@ function slimPrinting(card) {
     rarity: card.rarity || null,
     setType: card.set_type || null,
     reserved: card.reserved === true,
+    // Collector/art metadata (V5, 2026-07-04): artist powers the Gallery/
+    // artist-shelf features; the flags are collector filters. Faces fall back
+    // to face[0] (front face) for artist, matching the artCropUrl policy.
+    artist: card.artist
+      || (Array.isArray(card.card_faces) && card.card_faces[0] && card.card_faces[0].artist)
+      || null,
+    fullArt: card.full_art === true,
+    borderColor: card.border_color || null,
+    storySpotlight: card.story_spotlight === true,
     finishes: Array.isArray(card.finishes) && card.finishes.length
       ? card.finishes
       : ["nonfoil"],

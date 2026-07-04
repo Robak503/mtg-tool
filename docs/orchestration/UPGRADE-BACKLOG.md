@@ -88,12 +88,12 @@ summary here for the queue:
 - ✅ v0.89.0 (bars + % + cost-to-complete; art-tile grid mode parked) — **V4 · Atlas upgrade** (M, 4) — completion bars + % per set, cost-to-complete (fold in
   `setBrowser.js` — per-card usd + owned flags already in the payload), art-tile grid mode
   with unowned dimmed.
-- **V5 · Printings-index schema pass** (M, 4) — extend
+- ✅ v0.90.0 (schema shipped; fields appear in bundles from the next CI index build — verify in the release log; flavor text deliberately dropped from scope, see K9) — **V5 · Printings-index schema pass** (M, 4) — extend
   `build-collection-printings-index.cjs` to carry `artist` (+ `fullArt`, `borderColor`,
   `reserved`, `story_spotlight`, flavor text scoped to owned/deck cards). Source data is
   already bundled (full default-cards bulk); UI degrades gracefully until the index is
   rebuilt via sync/release. **Gates V6 autofill + V7.**
-- **V6 · The Trophy Case** (M, 5) — signed/altered/artist-proof/grail provenance as
+- ✅ v0.90.0 (provenance fields + drawer section + Stacks hero strip; artist AUTOFILL from V5 index + a dedicated showcase surface parked to V7's session) — **V6 · The Trophy Case** (M, 5) — signed/altered/artist-proof/grail provenance as
   STRUCTURED fields (`signed {artist,date,inPerson,event}`, `altered`, `artistProof`,
   `showcase`) on collection rows (additive through `collectionValidation.js` + PATCH
   route; today it's a free-text note), a Provenance section in the detail drawer, and the
