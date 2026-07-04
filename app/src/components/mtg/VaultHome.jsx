@@ -168,12 +168,12 @@ export default function VaultHome({ onPick, fontFamily }) {
               {recentAdds.map((r) => (
                 <img
                   key={r.scryfallId}
-                  src={`/api/art-crop?id=${encodeURIComponent(r.scryfallId)}`}
+                  src={`/api/card-image?id=${encodeURIComponent(r.scryfallId)}`}
                   alt=""
-                  width={44}
-                  height={32}
+                  width={34}
+                  height={48}
                   loading="lazy"
-                  style={{ objectFit: "cover", borderRadius: 4, border: "1px solid var(--ley-line)", opacity: 0.9 }}
+                  style={{ objectFit: "cover", borderRadius: 3, border: "1px solid var(--ley-line)", opacity: 0.9 }}
                 />
               ))}
             </div>

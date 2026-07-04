@@ -1,26 +1,25 @@
 "use client";
 
 /**
- * CollectionGrid — virtualized grid of card thumbnails.
+ * CollectionGrid — virtualized grid of FULL card images.
  *
  * Uses @tanstack/react-virtual to render only rows in the viewport. At
  * 5,000 cards this avoids ~5,000 DOM nodes and keeps the grid at 60fps.
  *
- * Layout: art crop on top, name + qty badge below. Click → onCardClick(row).
- *
- * Art crops are fetched directly from Scryfall CDN URLs stored on each
- * row (POST /api/collection adds these from the printingIndex). For
- * fully offline operation the renderer could be swapped to lazy-cache
- * to AppData on first view — deferred to a later phase.
+ * Layout: each cell IS the card (63:88, frame + name + text box — the way it
+ * looks on the table), served by /api/card-image (local-first AppData cache,
+ * exact owned printing by scryfallId). Qty stepper, wishlist/conflict badges
+ * and the tag stripe overlay the card. Click → onCardClick(row).
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { artCropProxySrc } from "../../lib/artCrop";
+import { cardImageProxySrc } from "../../lib/cardImage";
 
 const CARD_WIDTH = 200;
-const CARD_HEIGHT = 230;
+// Real Magic card ratio (63mm × 88mm).
+const CARD_HEIGHT = Math.round(CARD_WIDTH * 88 / 63);
 const GAP = 12;
 
 export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, selectedScryfallId, conflictedOracleIds, tagMap, colors, selectMode = false, selectedIds, onToggleSelect }) {
@@ -167,7 +166,8 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
         padding: 0,
         background: colors.BG3,
         border: `1px solid ${isSelected ? colors.GOLD : colors.LINE}`,
-        borderRadius: 6,
+        // Match a real card's corner radius at this size (~4.5% of width).
+        borderRadius: 10,
         cursor: "pointer",
         overflow: "hidden",
         display: "flex",
@@ -192,7 +192,7 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
       )}
       <div style={{
         width: "100%",
-        height: 140,
+        height: "100%",
         background: colors.BG,
         position: "relative",
         overflow: "hidden",
@@ -218,19 +218,24 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
         )}
         {(card.scryfallId || card.artCropUrl) && !imgError ? (
           <img
-            src={artCropProxySrc(card)}
+            src={cardImageProxySrc(card)}
             alt=""
             loading="lazy"
             onError={() => setImgError(true)}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
         ) : (
+          // Offline + uncached: a text stand-in so the cell still names the card.
           <div style={{
             width: "100%", height: "100%",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: colors.MUTED, fontSize: 11, padding: 12, textAlign: "center",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            gap: 6, color: colors.MUTED, fontSize: 12, padding: 14, textAlign: "center",
+            boxSizing: "border-box",
           }}>
-            {card.name}
+            <span style={{ color: colors.TEXT, fontWeight: 600, lineHeight: 1.3 }}>{card.name}</span>
+            <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {card.setCode} · #{card.collectorNumber}
+            </span>
           </div>
         )}
         {wishlist && (
@@ -293,36 +298,6 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
             </button>
           </div>
         )}
-      </div>
-      <div style={{
-        padding: "8px 10px",
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-      }}>
-        <div style={{
-          fontSize: 12,
-          color: colors.TEXT,
-          fontWeight: 500,
-          lineHeight: 1.3,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}>
-          {card.name}
-        </div>
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 10,
-          color: colors.MUTED,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}>
-          <span>{card.setCode}</span>
-          <span>#{card.collectorNumber}</span>
-        </div>
       </div>
     </div>
   );

@@ -126,6 +126,24 @@ export default function DeckView({
     updateActiveDeck(deck => restoreDeckCards(deck, entry));
   };
 
+  // ── Per-card decklist editing ──
+  // Steppers write through updateActiveDeck (normalize + persist), same path
+  // Karn-applies use, so deck history/snapshots keep working. Qty 0 = remove.
+  const adjustCardQty = (name, section, delta) => {
+    updateActiveDeck(deck => ({
+      ...deck,
+      cards: (deck.cards || [])
+        .map(c => (c.name === name && c.section === section ? { ...c, qty: (c.qty || 0) + delta } : c))
+        .filter(c => (c.qty || 0) > 0),
+    }));
+  };
+  const removeCardFromDeck = (name, section) => {
+    updateActiveDeck(deck => ({
+      ...deck,
+      cards: (deck.cards || []).filter(c => !(c.name === name && c.section === section)),
+    }));
+  };
+
   // ── Compare any two versions (H2) ──
   // "current" is a sentinel for the live deck; otherwise a snapshot id. Default
   // From = newest saved version, To = current deck (i.e. "what changed since").
@@ -341,11 +359,20 @@ export default function DeckView({
                         {g} ({grp.reduce((s, c) => s + c.qty, 0)})
                       </div>
                       {grp.map((c, i) => (
-                        <div key={i} className="ley-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
+                        <div key={i} className="ley-row deck-card-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
                           onMouseEnter={e => handleChipHover(c.name, e)} onMouseLeave={() => setTooltip(null)}
                           onClick={() => (onInspectCard ? onInspectCard(c.name) : window.open(`https://scryfall.com/search?q=${encodeURIComponent('"' + c.name + '"')}`, "_blank"))}>
                           <span style={{ fontFamily: FM, color: MUTED, fontSize: 12, width: 22, textAlign: "center", flexShrink: 0 }}>{c.qty}</span>
-                          <span style={{ fontSize: 13, color: TEXT, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: TEXT, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                          {/* Hover-revealed per-card edit: − qty + and remove. Clicks must not bubble into the inspector. */}
+                          <span className="deck-card-tools" onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                            <button onClick={() => adjustCardQty(c.name, g, -1)} className="btn btn-ghost btn-sm btn-icon" style={{ width: 22, height: 22, padding: 0 }}
+                              aria-label={c.qty <= 1 ? `Remove ${c.name}` : `Decrease ${c.name} quantity`} title={c.qty <= 1 ? "Remove from deck" : "Remove one copy"}>−</button>
+                            <button onClick={() => adjustCardQty(c.name, g, +1)} className="btn btn-ghost btn-sm btn-icon" style={{ width: 22, height: 22, padding: 0 }}
+                              aria-label={`Increase ${c.name} quantity`} title="Add a copy">+</button>
+                            <button onClick={() => removeCardFromDeck(c.name, g)} className="btn btn-ghost btn-sm btn-icon" style={{ width: 22, height: 22, padding: 0 }}
+                              aria-label={`Remove all copies of ${c.name}`} title="Remove all copies">×</button>
+                          </span>
                         </div>
                       ))}
                     </div>

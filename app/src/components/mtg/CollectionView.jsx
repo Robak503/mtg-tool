@@ -1005,12 +1005,12 @@ function TrophyStrip({ cards, onPick, colors }) {
             title={`${r.name} — ${caption(r)}`}
           >
             <img
-              src={`/api/art-crop?id=${encodeURIComponent(r.scryfallId)}`}
+              src={`/api/card-image?id=${encodeURIComponent(r.scryfallId)}`}
               alt=""
               width={174}
-              height={96}
+              height={243}
               loading="lazy"
-              style={{ objectFit: "cover", borderRadius: 6, display: "block", border: `1px solid ${colors.LINE}` }}
+              style={{ objectFit: "cover", borderRadius: 9, display: "block", border: `1px solid ${colors.LINE}` }}
             />
             <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
             <div style={{ fontSize: 10, color: "var(--ley-text-dim)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{caption(r)}</div>

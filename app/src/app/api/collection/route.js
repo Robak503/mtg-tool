@@ -22,7 +22,7 @@ import {
 } from "../../../lib/server/collectionStorage.js";
 import { lookupById } from "../../../lib/server/printingIndex.js";
 import { enrichCollectionPrices } from "../../../lib/server/priceResolution.js";
-import { validateStacks } from "../../../lib/server/collectionValidation.js";
+import { validateStacks, mergeStacks } from "../../../lib/server/collectionValidation.js";
 
 function badRequest(message) {
   return Response.json({ error: message }, { status: 400 });
@@ -49,27 +49,6 @@ function tryLookupPrinting(scryfallId) {
   } catch {
     return null;
   }
-}
-
-function mergeStacks(existing, incoming) {
-  const out = existing.map(s => ({ ...s }));
-  for (const newStack of incoming) {
-    const idx = out.findIndex(s => s.finish === newStack.finish);
-    if (idx >= 0) {
-      out[idx] = {
-        ...out[idx],
-        quantity: (out[idx].quantity || 0) + newStack.quantity,
-        // Worst observed condition wins. NM > LP > MP > HP > DMG.
-        // For now keep the incoming condition if it's set, else preserve.
-        condition: newStack.condition !== undefined && newStack.condition !== null
-          ? newStack.condition
-          : out[idx].condition,
-      };
-    } else {
-      out.push({ ...newStack });
-    }
-  }
-  return out;
 }
 
 export async function GET() {
