@@ -151,6 +151,23 @@ describe("decisionViewForWire — non-pending kinds pass through unchanged", () 
     expect(decisionViewForWire(ask)).toBe(ask);
   });
 
+  it("P3 debrief: a populated `metadata.suggestion` action survives on an `ask` (the field the post-game tally compares picks against)", () => {
+    // `suggestion` lives ONLY on `ask` decisions (decisionGate.js sets it at the two
+    // ask-build sites); pending sub-choices never carry one. Because `ask` is not a
+    // PENDING_CHOICE_KIND it passes through decisionViewForWire whole — so the client
+    // debrief reads decision.metadata.suggestion directly, no wire change needed.
+    const suggestion = { kind: "cast-spell", cardId: "c1", name: "Llanowar Elves" };
+    const ask = {
+      kind: "ask",
+      prompt: "Your move.",
+      options: [suggestion, { kind: "pass-priority", playerId: "user" }],
+      metadata: { reasoning: "beginner-asks-everything", difficulty: "beginner", defaultIndex: 0, suggestion },
+    };
+    const wire = decisionViewForWire(ask);
+    expect(wire.metadata.suggestion).toEqual(suggestion);
+    expect(wire.metadata.defaultIndex).toBe(0);
+  });
+
   it("'unresolved' (the Arbiter enrichment) and terminal kinds pass through", () => {
     const unresolved = { kind: "unresolved", cardName: "Mystic Confluence", question: "?", oracle: "…", context: "…", stackObjectId: "stk-1" };
     expect(decisionViewForWire(unresolved)).toBe(unresolved);

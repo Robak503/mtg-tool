@@ -22,11 +22,12 @@
  *     better.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
 import LearnBoard from "./LearnBoard";
 import StabilityBadge from "./StabilityBadge";
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
+import { stableActionKey } from "../../lib/learn/actionKey.js";
 
 /**
  * A short human-readable pip string for a KW-WARD-PR2 STRUCTURED cost descriptor
@@ -131,6 +132,30 @@ export default function LearnView({
   const [difficulty, setDifficulty] = useState("beginner");
   const [saves, setSaves] = useState([]);
 
+  // P3 — post-game debrief. Only `ask` decisions carry metadata.suggestion
+  // (decisionGate.js), and they reach the client UNSTRIPPED (ask ∉
+  // PENDING_CHOICE_KINDS in decisionWire.js — pending sub-choices carry no
+  // suggestion to compare against). We read the on-screen decision at click time
+  // through a ref (no stale closure) and record one row per answered ask; the
+  // game-over scrim in LearnBoard renders the pick-vs-suggestion summary.
+  const [debrief, setDebrief] = useState([]);
+  const latestRef = useRef({ decision: null, turn: null });
+  useEffect(() => {
+    latestRef.current = { decision: session.decision, turn: session.turn };
+  }, [session.decision, session.turn]);
+
+  const applyChoiceFn = session.applyChoice; // stable per session (useLearnSession memoizes it)
+  const trackedApplyChoice = useCallback((choice) => {
+    const { decision: d, turn } = latestRef.current;
+    // Record real strategic picks only: an `ask` with a suggestion, excluding
+    // tap-for-mana (its own priority window in beginner mode — plumbing, not a play).
+    if (d && d.kind === "ask" && d.metadata?.suggestion && choice?.kind !== "tap-for-mana") {
+      const matched = stableActionKey(choice) === stableActionKey(d.metadata.suggestion);
+      setDebrief(prev => [...prev, { turn, userAction: choice, suggestion: d.metadata.suggestion, matched }]);
+    }
+    return applyChoiceFn(choice);
+  }, [applyChoiceFn]);
+
   // P6: seed the user-deck picker from a DeckView "Practice" handoff, once.
   useEffect(() => {
     if (initialUserDeckId && savedDecks.some((d) => d.id === initialUserDeckId)) {
@@ -149,6 +174,7 @@ export default function LearnView({
 
   const handleStart = async () => {
     if (!canStart) return;
+    setDebrief([]); // fresh game → fresh tally
     // Deck identity for the saved-game list ("Sliver Hivelord · turn 4").
     const meta = {
       userDeckId: userDeck?.id,
@@ -182,7 +208,7 @@ export default function LearnView({
     }
   };
 
-  const handleAbandon = () => session.reset();
+  const handleAbandon = () => { setDebrief([]); session.reset(); };
 
   // Saved-game list for the "Continue a game" panel on the idle screen.
   useEffect(() => {
@@ -194,7 +220,7 @@ export default function LearnView({
     // session.listSaves is stable (useCallback); refresh only on status change.
   }, [session.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleResume = (sessionId) => session.resume(sessionId);
+  const handleResume = (sessionId) => { setDebrief([]); return session.resume(sessionId); };
   const handleDeleteSave = async (sessionId) => {
     await session.deleteSave(sessionId);
     setSaves(prev => prev.filter(s => s.sessionId !== sessionId));
@@ -386,13 +412,14 @@ export default function LearnView({
         <LearnBoard
           board={session.board}
           decision={decision}
-          onAction={session.applyChoice}
+          onAction={trackedApplyChoice}
           logTail={session.decisionLogTail}
           turn={session.turn}
           step={session.step}
           status={session.status}
           difficulty={session.difficulty}
           onNewGame={handleAbandon}
+          debrief={debrief}
         />
       ) : (
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -400,7 +427,7 @@ export default function LearnView({
         <main style={{ flex: 2, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
           <DecisionPrompt
             decision={decision}
-            onChoose={session.applyChoice}
+            onChoose={trackedApplyChoice}
             onContinue={session.continueGame}
             onTutorChoose={session.applyTutorChoice}
             onCloneChoose={session.applyCloneChoice}
