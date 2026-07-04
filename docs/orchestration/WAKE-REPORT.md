@@ -1,3 +1,21 @@
+> 🚀 **v0.100.0 RELEASED — 2026-07-04 (Cindy, Opus 4.8) — the full P5→K→release run, after the engine-tail pass below.**
+> Shipped to master + PUBLISHED (signed `.exe` + `latest.json`, all 3 CI workflows green): **P5 reality report** COMPLETE
+> (route `analyze` flag `c944acd5` + DeckReport UI `73dc0f98`) · **K4 tokens/meld + K9 flavor + K5 combo steps** (`f1bbb4c0`
+> — populate at the next data sync; K4/K9 at this release's index build, K5 at the next weekly spellbook sync) ·
+> **housekeeping** (swept `_flipbase` + `friendly-golick` worktrees junction-safe, main `node_modules` verified intact;
+> CHANGELOG current) · **release** (`9b4a4cd2`, tag **v0.100.0**, bumped from 0.99.0; CI SUCCESS 23m45s — all 5 assets
+> published, auto-updater live). Health sweep: Next production build ✓ · suite **7,725** · lint 0 · ci+rust CI ✓. Nothing broken.
+>
+> **NEXT (Colton's plan, post-release):**
+> - **P3 debrief** (recon'd — moderate, NOT purely client-side): `decision.metadata.suggestion` EXISTS but is wire-STRIPPED
+>   for pending-choice kinds (`decisionWire.js` `PENDING_WIRE_FIELDS` whitelist — add `metadata`/a slimmed `suggestion`);
+>   then LearnView accumulates the user's pick vs the suggestion + shows a debrief at the result scrim (`LearnView.jsx` ~:367).
+>   `/api/learn/step`+`/choose` return `decisionViewForWire(...)`; non-pending decisions already pass metadata through.
+> - **P7 spectate + P9 puzzle** — LAY OUT WITH COLTON (P7 = a replay viewer over the Table Records data; P9 = a live-session
+>   snapshot exporter). **Roadmap planning** — with Colton. Other backlog: E4 color-tags, D archive (the `friendly-golick`
+>   orphan dir lingers locked — clears on reboot).
+>
+> ── prior pass (below) ──
 > 🔧 **ENGINE-TAIL PASS — 2026-07-04 (Cindy, Opus 4.8) — E1 + P5-analyzer SHIPPED · E2/E3 PARKED (evidence) · ENGINE-WRITE lock LIFTED.**
 > **E1 earthbend-return** (commit `a2dfdc34`, on master, UNTAGGED — releases batched with E2/E3): the CR 603.7
 > "when it dies or is exiled, return it tapped" rider is now enforced (`combat.applyEarthbend` flags the animated land →
