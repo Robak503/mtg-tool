@@ -22,9 +22,6 @@ function MessageReactions({
   agent,
   activeDeck,
   currentSession,
-  fontFamily,
-  LINE,
-  MUTED,
 }) {
   const [reaction, setReaction] = useState(null);
   const [status, setStatus] = useState(null);
@@ -75,22 +72,15 @@ function MessageReactions({
     }
   };
 
-  const btnStyle = (kind) => {
-    const active = reaction === kind;
-    return {
-      background: active ? "#0d2615" : "transparent",
-      border: `1px solid ${active ? "#2a5a3a" : LINE}`,
-      borderRadius: 999,
-      color: active ? "#85d18a" : MUTED,
-      cursor: submitting || reaction ? "default" : "pointer",
-      fontSize: 12,
-      fontFamily,
-      padding: "2px 9px",
-      lineHeight: 1.2,
-      transition: "color 100ms, border-color 100ms, background 100ms",
-      opacity: reaction && !active ? 0.3 : 1,
-    };
-  };
+  // Selected reaction reads as a quiet green .btn-secondary; everything else
+  // stays ghost. State is expressed through the variant class — no inline color.
+  const btnClass = (kind) =>
+    `btn ${reaction === kind ? "btn-secondary" : "btn-ghost"} btn-sm`;
+  const btnLayout = (kind) => ({
+    borderRadius: "var(--r-pill)",
+    padding: "2px 9px",
+    opacity: reaction && reaction !== kind ? 0.3 : 1,
+  });
 
   return (
     <div
@@ -110,7 +100,8 @@ function MessageReactions({
         disabled={submitting || !!reaction}
         title={reaction ? "Reaction logged" : "Log positive feedback for this response"}
         aria-label="Mark helpful"
-        style={btnStyle("up")}
+        className={btnClass("up")}
+        style={btnLayout("up")}
       >
         👍
       </button>
@@ -119,15 +110,16 @@ function MessageReactions({
         disabled={submitting || !!reaction}
         title={reaction ? "Reaction logged" : "Log this response as needing work"}
         aria-label="Mark needs work"
-        style={btnStyle("down")}
+        className={btnClass("down")}
+        style={btnLayout("down")}
       >
         👎
       </button>
       {status === "saved" && (
-        <span style={{ fontSize: 10, color: "#85d18a" }}>✓ saved to FEEDBACK.md</span>
+        <span style={{ fontSize: 10, color: "var(--ley-green)" }}>✓ saved to FEEDBACK.md</span>
       )}
       {status === "error" && (
-        <span style={{ fontSize: 10, color: "#c2786f" }}>⚠ not saved</span>
+        <span style={{ fontSize: 10, color: "var(--ley-red)" }}>⚠ not saved</span>
       )}
     </div>
   );
@@ -157,13 +149,13 @@ function Dots({ color }) {
 function ProviderLabel({ provider, style }) {
   if (!provider || provider === "ollama") return null;
   return (
-    <span style={{ fontSize: 10, color: "#9d98b8", marginLeft: 6, ...style }}>
+    <span style={{ fontSize: 10, color: "var(--ley-text-faint)", marginLeft: 6, ...style }}>
       [via Anthropic]
     </span>
   );
 }
 
-function TrustStrip({ msg, LINE }) {
+function TrustStrip({ msg }) {
   const r = msg.factReceipt;
   if (!r) return null;
   const cloudUsed = r.provider === "anthropic" || r.fallbackUsed;
@@ -197,19 +189,19 @@ function TrustStrip({ msg, LINE }) {
   return (
     <details
       open={typeof process !== "undefined" && process.env?.NODE_ENV === "development"}
-      style={{ marginTop: 8, fontSize: 10, color: "#9d98b8" }}
+      style={{ marginTop: 8, fontSize: 10, color: "var(--ley-text-faint)" }}
     >
       <summary style={{ cursor: "pointer", userSelect: "none", listStyle: "none", outline: "none" }}>
         ▸ Response metadata
       </summary>
-      <div style={{ paddingTop: 4, lineHeight: 1.7, borderTop: `1px solid ${LINE}`, marginTop: 4 }}>
+      <div style={{ paddingTop: 4, lineHeight: 1.7, borderTop: "1px solid var(--ley-line)", marginTop: 4 }}>
         {parts.join(" - ")}
       </div>
     </details>
   );
 }
 
-function ArbiterSources({ sources, LINE, TEXT, fontFamily }) {
+function ArbiterSources({ sources }) {
   if (!sources) return null;
   const rules = sources.ruleNumbers || [];
   const cards = sources.cards || [];
@@ -218,21 +210,21 @@ function ArbiterSources({ sources, LINE, TEXT, fontFamily }) {
   if (!rules.length && !cards.length && !precedents.length && !warnings.length) return null;
 
   return (
-    <details style={{ marginTop: 8, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
-      <summary style={{ cursor: "pointer", fontSize: 11, color: "#9d98b8" }}>
+    <details style={{ marginTop: 8, borderTop: "1px solid var(--ley-line)", paddingTop: 8 }}>
+      <summary style={{ cursor: "pointer", fontSize: 11, color: "var(--ley-text-faint)" }}>
         View Arbiter Sources
       </summary>
       <div style={{
         marginTop: 8,
         whiteSpace: "pre-wrap",
-        color: TEXT,
-        background: "#08091a",
-        border: `1px solid ${LINE}`,
-        borderRadius: 6,
+        color: "var(--ley-text-dim)",
+        background: "var(--ley-surface-0)",
+        border: "1px solid var(--ley-line)",
+        borderRadius: "var(--r-sm)",
         padding: 10,
         fontSize: 11,
         lineHeight: 1.45,
-        fontFamily,
+        fontFamily: "var(--font-mono)",
       }}>
         {rules.length > 0 && <div>CR rules: {rules.join(", ")}</div>}
         {cards.length > 0 && <div>Cards: {cards.join(", ")}</div>}
@@ -256,7 +248,7 @@ function RoastLoader({ seconds, color, muted, font }) {
         Tibalt is sharpening his knives…{" "}
         <span style={{ color: muted, fontVariantNumeric: "tabular-nums" }}>{seconds}s</span>
       </div>
-      <div style={{ position: "relative", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+      <div style={{ position: "relative", height: 6, borderRadius: 3, background: "var(--ley-surface-4)", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, bottom: 0, width: "40%", borderRadius: 3, background: color, animation: "roastbar 1.1s ease-in-out infinite" }} />
       </div>
       <style>{"@keyframes roastbar{0%{left:-40%}100%{left:100%}}"}</style>
@@ -269,7 +261,7 @@ function RoastLoader({ seconds, color, muted, font }) {
  * Parses the message with parseKarnPlan, renders an Apply chip per add/cut; each
  * click snapshots the locked deck then mutates it (reversible from DeckView).
  */
-function KarnApplyBar({ content, deckName, onApply, colors, font }) {
+function KarnApplyBar({ content, deckName, onApply }) {
   const plan = useMemo(() => parseKarnPlan(content), [content]);
   const [applied, setApplied] = useState({}); // name → "added" | "cut"
   const [ownership, setOwnership] = useState({}); // name → { status, inDecks }
@@ -313,7 +305,7 @@ function KarnApplyBar({ content, deckName, onApply, colors, font }) {
     if (!o || o.status === "missing") return null;
     const owned = o.status === "owned";
     const label = owned ? (o.inDecks > 0 ? `owned · in ${o.inDecks}` : "owned") : "wishlist";
-    const c = owned ? "#6fbf73" : "#c8a24a";
+    const c = owned ? "var(--ley-green)" : "var(--ley-gold)";
     return (
       <span
         title={owned
@@ -326,22 +318,19 @@ function KarnApplyBar({ content, deckName, onApply, colors, font }) {
     );
   };
 
+  // Adds = supporting green action, cuts = destructive red; a done chip keeps
+  // its variant and reads as applied via the disabled fade + ✓ glyph.
   const chip = (action, name) => {
     const done = applied[name];
     const isAdd = action === "add";
-    const color = done ? "#6fbf73" : isAdd ? colors.TEXT : "#c84848";
     return (
       <button
         key={`${action}-${name}`}
         onClick={() => apply(action, name)}
         disabled={!!done}
         title={done ? `${done === "added" ? "Added" : "Cut"} ${name}` : `${isAdd ? "Add" : "Cut"} ${name}`}
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 4, maxWidth: 240,
-          background: "transparent", border: `1px solid ${done ? "#6fbf73" : colors.LINE}`,
-          color, borderRadius: 999, padding: "3px 9px", fontSize: 11.5,
-          cursor: done ? "default" : "pointer", fontFamily: font,
-        }}
+        className={`btn ${isAdd ? "btn-secondary" : "btn-danger"} btn-sm`}
+        style={{ maxWidth: 240, borderRadius: "var(--r-pill)", padding: "3px 9px", gap: 4 }}
       >
         <span style={{ fontWeight: 700 }}>{done ? "✓" : isAdd ? "+" : "−"}</span>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
@@ -352,21 +341,21 @@ function KarnApplyBar({ content, deckName, onApply, colors, font }) {
 
   return (
     <div style={{
-      marginTop: 4, padding: "8px 10px", borderRadius: 8,
-      border: `1px solid ${colors.LINE}`, background: "rgba(255,255,255,0.018)", maxWidth: "82%",
+      marginTop: 4, padding: "8px 10px", borderRadius: "var(--r-md)",
+      border: "1px solid var(--ley-line)", background: "var(--ley-glass)", maxWidth: "82%",
     }}>
-      <div style={{ fontSize: 10, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 7 }}>
+      <div style={{ fontSize: 10, color: "var(--ley-text-faint)", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 7 }}>
         Apply to {deckName || "deck"} · snapshots first (undo in deck view)
       </div>
       {adds.length > 0 && (
         <div style={{ marginBottom: cuts.length ? 7 : 0 }}>
-          <span style={{ fontSize: 10, color: colors.MUTED, marginRight: 6 }}>Adds</span>
+          <span style={{ fontSize: 10, color: "var(--ley-text-faint)", marginRight: 6 }}>Adds</span>
           <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 5 }}>{adds.map((n) => chip("add", n))}</span>
         </div>
       )}
       {cuts.length > 0 && (
         <div>
-          <span style={{ fontSize: 10, color: colors.MUTED, marginRight: 6 }}>Cuts</span>
+          <span style={{ fontSize: 10, color: "var(--ley-text-faint)", marginRight: 6 }}>Cuts</span>
           <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 5 }}>{cuts.map((n) => chip("cut", n))}</span>
         </div>
       )}
@@ -386,7 +375,7 @@ function TrustBadge({ msg }) {
   if (!status && !msg.arbiterTrace) return null;
   const grounded = status === "resolved";
   const ruleCount = (msg.arbiterSources?.ruleNumbers || []).length;
-  const c = grounded ? "#6fbf73" : "#c89e6f";
+  const c = grounded ? "var(--ley-green)" : "var(--ley-gold)";
   return (
     <div
       title={grounded
@@ -396,8 +385,8 @@ function TrustBadge({ msg }) {
         marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5,
         fontSize: 10.5, fontWeight: 700, letterSpacing: "0.03em",
         color: c, border: `1px solid ${c}`,
-        background: grounded ? "rgba(111,191,115,0.10)" : "rgba(200,158,111,0.10)",
-        borderRadius: 999, padding: "2px 9px",
+        background: grounded ? "var(--ley-green-dim)" : "var(--ley-gold-dim)",
+        borderRadius: "var(--r-pill)", padding: "2px 9px",
       }}
     >
       {grounded
@@ -434,7 +423,8 @@ export default function ChatPanel({
   setActiveDeckId,
   createSession,
 }) {
-  const { BG2, BG3, LINE, TEXT, MUTED } = colors;
+  // `colors` is only forwarded to DeckConfirmModal (an unconverted surface);
+  // this panel itself composes from LEYLINE tokens.
   const quickPrompts = QUICK[agent] || [];
   const sessionMessages = currentSession?.messages || [];
   // The global `sending` flag scoped to THIS session (U-F8): the busy UI
@@ -481,10 +471,10 @@ export default function ChatPanel({
       <div
         style={{
           padding: "6px 14px",
-          background: BG2,
-          backdropFilter: "blur(16px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(16px) saturate(1.2)",
-          borderBottom: `1px solid ${LINE}`,
+          background: "var(--ley-glass)",
+          backdropFilter: "blur(14px) saturate(1.15)",
+          WebkitBackdropFilter: "blur(14px) saturate(1.15)",
+          borderBottom: "1px solid var(--ley-line)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -494,7 +484,7 @@ export default function ChatPanel({
       >
         <span style={{
           fontSize: 11,
-          color: cfg.color,
+          color: "var(--ley-text-dim)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -504,17 +494,8 @@ export default function ChatPanel({
         </span>
         <button
           onClick={() => createSession(agent)}
-          style={{
-            background: "transparent",
-            border: `1px solid ${cfg.border}`,
-            borderRadius: 5,
-            color: cfg.color,
-            cursor: "pointer",
-            fontSize: 11,
-            padding: "3px 10px",
-            fontFamily,
-            flexShrink: 0,
-          }}
+          className="btn btn-secondary btn-sm"
+          style={{ flexShrink: 0, padding: "3px 10px" }}
         >
           + New chat
         </button>
@@ -524,27 +505,29 @@ export default function ChatPanel({
         <div
           style={{
             padding: "6px 14px",
-            background: cfg.dim,
-            borderBottom: `1px solid ${cfg.border}`,
+            background: "var(--ley-green-faint)",
+            borderBottom: "1px solid var(--ley-line)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 11, color: cfg.color }}>
+          <span style={{ fontSize: 11, color: "var(--ley-green-text)" }}>
             Loaded deck: {activeDeck.name} - {mainCount} cards
           </span>
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
               onClick={() => setCenterView("deck")}
-              style={{ background: "none", border: "none", color: cfg.color, cursor: "pointer", fontSize: 11, fontFamily }}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: "3px 8px" }}
             >
               View
             </button>
             <button
               onClick={unloadDeck}
-              style={{ background: "none", border: "none", color: cfg.color, cursor: "pointer", fontSize: 11, fontFamily }}
+              className="btn btn-ghost btn-sm"
+              style={{ padding: "3px 8px" }}
             >
               Unload
             </button>
@@ -576,10 +559,10 @@ export default function ChatPanel({
         <div
           style={{
             padding: "8px 14px",
-            background: cfg.dim,
-            borderBottom: `1px solid ${cfg.border}`,
-            boxShadow: `inset 3px 0 0 ${cfg.color}`,
-            color: cfg.color,
+            background: "var(--ley-green-dim)",
+            borderBottom: "1px solid var(--ley-line-bright)",
+            boxShadow: "inset 3px 0 0 var(--ley-green)",
+            color: "var(--ley-green-text)",
             fontSize: 11.5,
             lineHeight: 1.4,
             flexShrink: 0,
@@ -590,27 +573,18 @@ export default function ChatPanel({
           }}
         >
           <span>
-            🔒 Locked to <strong style={{ fontWeight: 700 }}>{sessionLockedDeck.name}</strong>
+            🔒 Locked to <strong style={{ fontWeight: 700, color: "var(--ley-text)" }}>{sessionLockedDeck.name}</strong>
             {" "}/ {sessionLockedDeck.commander} ({sessionLockedDeck.mainCount} cards). This chat stays on this deck.
             {deckMismatch && (
-              <span style={{ display: "block", color: "#c8a24a", marginTop: 2 }}>
+              <span style={{ display: "block", color: "var(--ley-gold)", marginTop: 2 }}>
                 ⚠ Sidebar deck is &ldquo;{activeDeck.name}&rdquo; — start a new chat to talk about that one.
               </span>
             )}
           </span>
           <button
             onClick={() => unlockSessionDeck(currentSession?.id)}
-            style={{
-              background: "transparent",
-              border: `1px solid ${cfg.border}`,
-              borderRadius: 5,
-              color: cfg.color,
-              cursor: "pointer",
-              fontSize: 11,
-              padding: "3px 8px",
-              fontFamily,
-              flexShrink: 0,
-            }}
+            className="btn btn-ghost btn-sm"
+            style={{ flexShrink: 0, padding: "3px 8px" }}
           >
             Unlock
           </button>
@@ -625,21 +599,22 @@ export default function ChatPanel({
         <div
           style={{
             padding: "7px 14px",
-            background: BG3,
-            borderBottom: `1px solid ${LINE}`,
-            color: MUTED,
+            background: "var(--ley-glass)",
+            borderBottom: "1px solid var(--ley-line)",
+            color: "var(--ley-text-dim)",
             fontSize: 11,
             lineHeight: 1.4,
             flexShrink: 0,
           }}
         >
-          <span style={{ color: MUTED }}>○ No deck locked</span> — this chat answers from general knowledge.
+          <span style={{ color: "var(--ley-text-dim)" }}>○ No deck locked</span> — this chat answers from general knowledge.
           {activeDeck ? (
             <>
-              {" "}A deck (<strong style={{ color: TEXT }}>{activeDeck.name}</strong>) is loaded;{" "}
+              {" "}A deck (<strong style={{ color: "var(--ley-text)" }}>{activeDeck.name}</strong>) is loaded;{" "}
               <button
                 onClick={() => createSession(agent)}
-                style={{ background: "none", border: "none", padding: 0, color: cfg.color, cursor: "pointer", fontSize: 11, fontFamily, textDecoration: "underline" }}
+                className="btn btn-ghost btn-sm"
+                style={{ display: "inline-flex", padding: "0 2px", verticalAlign: "baseline", fontSize: 11, textDecoration: "underline" }}
               >
                 start a new chat
               </button>{" "}
@@ -669,13 +644,11 @@ export default function ChatPanel({
               maxWidth: "82%",
               padding: "12px 16px",
               borderRadius: "14px 14px 14px 5px",
-              background: "rgba(255,255,255,0.022)",
-              backdropFilter: "blur(14px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(14px) saturate(1.1)",
+              background: "var(--ley-glass)",
               border: `1px solid ${cfg.border}`,
-              boxShadow: `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
+              boxShadow: "inset 0 1px 0 var(--ley-line-faint)",
               fontSize: 14,
-              color: TEXT,
+              color: "var(--ley-text)",
               lineHeight: 1.72,
             }}
           >
@@ -708,17 +681,13 @@ export default function ChatPanel({
                 maxWidth: "82%",
                 padding: "11px 16px",
                 borderRadius: msg.role === "user" ? "14px 14px 5px 14px" : "14px 14px 14px 5px",
-                background: msg.role === "user" ? "rgba(86,214,93,0.05)" : "rgba(255,255,255,0.022)",
-                backdropFilter: "blur(14px) saturate(1.1)",
-                WebkitBackdropFilter: "blur(14px) saturate(1.1)",
+                background: msg.role === "user" ? "var(--ley-green-faint)" : "var(--ley-glass)",
                 border: msg.isError
-                  ? "1px solid rgba(255,180,171,0.5)"
-                  : `1px solid ${msg.role === "user" ? "rgba(86,214,93,0.25)" : cfg.border}`,
-                boxShadow: msg.role === "user"
-                  ? "inset 0 1px 0 rgba(255,255,255,0.03)"
-                  : `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
+                  ? "1px solid var(--ley-red)"
+                  : `1px solid ${msg.role === "user" ? "var(--ley-line-bright)" : cfg.border}`,
+                boxShadow: "inset 0 1px 0 var(--ley-line-faint)",
                 fontSize: 14,
-                color: msg.isError ? "#d08a82" : TEXT,
+                color: msg.isError ? "var(--ley-red)" : "var(--ley-text)",
                 lineHeight: 1.72,
               }}
             >
@@ -731,7 +700,7 @@ export default function ChatPanel({
                     }
                     {!msg.isError && !msg.streaming && <div><TrustBadge msg={msg} /></div>}
                     {msg.fallbackNotice && (
-                      <div style={{ marginTop: 8, fontSize: 11, color: MUTED, fontStyle: "italic" }}>
+                      <div style={{ marginTop: 8, fontSize: 11, color: "var(--ley-text-dim)", fontStyle: "italic" }}>
                         ⓘ {msg.fallbackNotice}
                       </div>
                     )}
@@ -739,10 +708,10 @@ export default function ChatPanel({
                       <div style={{
                         marginTop: 8,
                         padding: "6px 10px",
-                        borderRadius: 6,
-                        border: "1px solid #6b5a3a",
-                        background: "#1a1409",
-                        color: "#c89e6f",
+                        borderRadius: "var(--r-sm)",
+                        border: "1px solid var(--ley-gold)",
+                        background: "var(--ley-gold-dim)",
+                        color: "var(--ley-gold)",
                         fontSize: 11,
                       }}>
                         {msg.arbiterStatus === "retrieval_miss"
@@ -753,29 +722,29 @@ export default function ChatPanel({
                       </div>
                     )}
                     {msg.arbiterTrace && (
-                      <details style={{ marginTop: 10, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
-                        <summary style={{ color: cfg.color, cursor: "pointer", fontSize: 11 }}>
+                      <details style={{ marginTop: 10, borderTop: "1px solid var(--ley-line)", paddingTop: 8 }}>
+                        <summary style={{ color: "var(--ley-text-faint)", cursor: "pointer", fontSize: 11 }}>
                           View Arbiter Trace{msg.arbiterStatus ? ` (${msg.arbiterStatus})` : ""}
                         </summary>
                         <pre style={{
                           marginTop: 8,
                           whiteSpace: "pre-wrap",
-                          color: TEXT,
-                          background: "#08091a",
-                          border: `1px solid ${LINE}`,
-                          borderRadius: 6,
+                          color: "var(--ley-text-dim)",
+                          background: "var(--ley-surface-0)",
+                          border: "1px solid var(--ley-line)",
+                          borderRadius: "var(--r-sm)",
                           padding: 10,
                           fontSize: 11,
                           lineHeight: 1.45,
                           overflowX: "auto",
-                          fontFamily,
+                          fontFamily: "var(--font-mono)",
                         }}>
                           {msg.arbiterTrace}
                         </pre>
                       </details>
                     )}
-                    <ArbiterSources sources={msg.arbiterSources} LINE={LINE} TEXT={TEXT} fontFamily={fontFamily} />
-                    {!msg.isError && <TrustStrip msg={msg} LINE={LINE} />}
+                    <ArbiterSources sources={msg.arbiterSources} />
+                    {!msg.isError && <TrustStrip msg={msg} />}
                   </>
                 )
                 : <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>}
@@ -786,26 +755,14 @@ export default function ChatPanel({
                 content={msg.content}
                 deckName={sessionLockedDeck.name}
                 onApply={applyKarnChange}
-                colors={colors}
-                font={fontFamily}
               />
             )}
 
             {msg.isError && msg.fallbackAvailable && retryWithFallback && (
               <button
                 onClick={() => retryWithFallback(msg.originalPrompt, agent)}
-                style={{
-                  alignSelf: "flex-start",
-                  marginTop: 2,
-                  padding: "4px 11px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(86,214,93,0.3)",
-                  background: "rgba(86,214,93,0.08)",
-                  color: "var(--primary-fixed-dim)",
-                  cursor: "pointer",
-                  fontSize: 11,
-                  fontFamily,
-                }}
+                className="btn btn-secondary btn-sm"
+                style={{ alignSelf: "flex-start", marginTop: 2, borderRadius: "var(--r-pill)" }}
               >
                 Retry with Anthropic ↗
               </button>
@@ -820,9 +777,6 @@ export default function ChatPanel({
                 agent={agent}
                 activeDeck={activeDeck}
                 currentSession={currentSession}
-                fontFamily={fontFamily}
-                LINE={LINE}
-                MUTED={MUTED}
               />
             )}
           </div>
@@ -836,12 +790,12 @@ export default function ChatPanel({
               style={{
                 padding: "14px 16px",
                 borderRadius: "12px 12px 12px 3px",
-                background: BG3,
+                background: "var(--ley-glass)",
                 border: `1px solid ${cfg.border}`,
               }}
             >
               {agent === "tibalt" ? (
-                <RoastLoader seconds={waitSeconds} color={cfg.color} muted={MUTED} font={fontFamily} />
+                <RoastLoader seconds={waitSeconds} color={cfg.color} muted="var(--ley-text-faint)" font={fontFamily} />
               ) : (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -853,7 +807,7 @@ export default function ChatPanel({
                     )}
                   </div>
                   {waitSeconds >= 10 && (
-                    <div style={{ fontSize: 11, color: "#9d98b8", marginTop: 6 }}>
+                    <div style={{ fontSize: 11, color: "var(--ley-text-faint)", marginTop: 6 }}>
                       Still thinking… (local models can take 20–60s for long responses)
                     </div>
                   )}
@@ -869,10 +823,10 @@ export default function ChatPanel({
       <div
         style={{
           padding: "8px 14px",
-          borderTop: `1px solid ${LINE}`,
-          background: BG2,
-          backdropFilter: "blur(16px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(16px) saturate(1.2)",
+          borderTop: "1px solid var(--ley-line)",
+          background: "var(--ley-glass)",
+          backdropFilter: "blur(14px) saturate(1.15)",
+          WebkitBackdropFilter: "blur(14px) saturate(1.15)",
           display: "flex",
           gap: 5,
           flexWrap: "wrap",
@@ -880,21 +834,18 @@ export default function ChatPanel({
         }}
       >
         {quickPrompts.map(prompt => (
+          // Agent-context chips: .btn base with a subtle identity tint — the
+          // sanctioned layout-plus-identity exception for quick prompts.
           <button
             key={prompt}
             onClick={() => send(prompt)}
             disabled={deckGateOpen}
+            className="btn btn-secondary btn-sm"
             style={{
               padding: "4px 10px",
-              borderRadius: 12,
-              border: `1px solid ${cfg.border}`,
-              background: cfg.dim,
+              borderRadius: "var(--r-pill)",
+              borderColor: cfg.border,
               color: cfg.color,
-              cursor: deckGateOpen ? "not-allowed" : "pointer",
-              opacity: deckGateOpen ? 0.4 : 1,
-              fontSize: 11,
-              fontFamily,
-              whiteSpace: "nowrap",
             }}
           >
             {prompt}
@@ -905,10 +856,10 @@ export default function ChatPanel({
       <div
         style={{
           padding: "10px 14px 14px",
-          borderTop: `1px solid ${LINE}`,
-          background: BG2,
-          backdropFilter: "blur(16px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(16px) saturate(1.2)",
+          borderTop: "1px solid var(--ley-line)",
+          background: "var(--ley-glass)",
+          backdropFilter: "blur(14px) saturate(1.15)",
+          WebkitBackdropFilter: "blur(14px) saturate(1.15)",
           display: "flex",
           gap: 8,
           alignItems: "flex-end",
@@ -934,10 +885,10 @@ export default function ChatPanel({
           style={{
             flex: 1,
             padding: "10px 13px",
-            background: BG3,
-            border: `1px solid ${LINE}`,
-            borderRadius: 9,
-            color: TEXT,
+            background: "var(--ley-surface-0)",
+            border: "1px solid var(--ley-line)",
+            borderRadius: "var(--r-md)",
+            color: "var(--ley-text)",
             fontSize: 14,
             fontFamily,
             resize: "none",
@@ -948,23 +899,8 @@ export default function ChatPanel({
         <button
           onClick={() => send()}
           disabled={!input.trim() || sendingHere || deckGateOpen}
-          style={{
-            minWidth: 58,
-            height: 42,
-            padding: "0 14px",
-            borderRadius: 9,
-            border: "none",
-            background: cfg.color,
-            color: "#fff",
-            fontSize: 13,
-            cursor: deckGateOpen ? "not-allowed" : "pointer",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: !input.trim() || sendingHere || deckGateOpen ? 0.4 : 1,
-            fontFamily,
-          }}
+          className={`btn btn-primary${sendingHere ? " btn-loading" : ""}`}
+          style={{ minWidth: 58, height: 42, flexShrink: 0 }}
         >
           Send
         </button>
