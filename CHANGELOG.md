@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.95.1] - 2026-07-04
+
+Release cut at the backlog-push handoff — no app code change since 0.95.0
+(the delta is the WAKE-REPORT rotation + UPGRADE-BACKLOG STATUS handoff docs).
+Rolls up the full v0.89→v0.95 backlog push into one tagged build.
+
 ## [0.95.0] - 2026-07-04
 
 ### Added
