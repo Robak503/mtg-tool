@@ -12,9 +12,10 @@
  * have. Add in follow-up.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { artCropProxySrc } from "../../lib/artCrop";
+import { cardImageProxySrc } from "../../lib/cardImage";
+import { treatmentButtons } from "../../lib/foilTreatments";
 import Sparkline from "./Sparkline";
 import useEscapeClose from "../../hooks/useEscapeClose";
 
@@ -41,8 +42,10 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   const [altered, setAltered] = useState(row.altered === true);
   const [artistProof, setArtistProof] = useState(row.artistProof === true);
   const [showcase, setShowcase] = useState(row.showcase === true);
-  // V7: offer the owned printing's artist as a one-click fill (post-V5 index).
-  const [printingArtist, setPrintingArtist] = useState(null);
+  // Every printing of this card (for the printing switcher + artist autofill +
+  // per-printing finish constraints). null = not loaded, [] = lookup failed.
+  const [printings, setPrintings] = useState(null);
+  const [pendingPrintingId, setPendingPrintingId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [series, setSeries] = useState([]);
@@ -63,9 +66,39 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
     setAltered(row.altered === true);
     setArtistProof(row.artistProof === true);
     setShowcase(row.showcase === true);
-    setPrintingArtist(null);
+    setPendingPrintingId(null);
     setError(null);
   }, [row.scryfallId, row.stacks, row.notes, row.signed, row.altered, row.artistProof, row.showcase]);
+
+  // Load every printing of this card (feeds the printing switcher, the stack
+  // finish options, and the signed-artist autofill).
+  useEffect(() => {
+    let cancelled = false;
+    setPrintings(null);
+    if (!row.name) return;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/printings/by-name?name=${encodeURIComponent(row.name)}`);
+        if (!resp.ok) { if (!cancelled) setPrintings([]); return; }
+        const body = await resp.json();
+        if (!cancelled) setPrintings(Array.isArray(body?.results) ? body.results : []);
+      } catch {
+        if (!cancelled) setPrintings([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [row.name, row.scryfallId]);
+
+  // The printing this row currently points at, and the finishes it exists as.
+  const myPrinting = useMemo(
+    () => (printings || []).find(p => p.id === row.scryfallId) || null,
+    [printings, row.scryfallId],
+  );
+  const printingArtist = myPrinting?.artist ?? (printings === null ? null : (printings[0]?.artist ?? false));
+  const finishOptions = useMemo(() => {
+    if (!myPrinting) return ["nonfoil", "foil", "etched"].map(f => ({ finish: f, label: FINISH_LABELS[f] }));
+    return treatmentButtons(myPrinting.finishes, myPrinting.foilTypes);
+  }, [myPrinting]);
 
   // Fetch the card's local price history for the sparkline (advisory).
   useEffect(() => {
@@ -109,25 +142,6 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
     })();
     return () => { cancelled = true; };
   }, [row.scryfallId]);
-
-  useEffect(() => {
-    if (!signedOn || printingArtist !== null || !row.name) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await fetch(`/api/printings/by-name?name=${encodeURIComponent(row.name)}`);
-        if (!resp.ok) { if (!cancelled) setPrintingArtist(false); return; }
-        const body = await resp.json();
-        const list = Array.isArray(body?.results) ? body.results : [];
-        const mine = list.find((p) => p.id === row.scryfallId) || list[0];
-        if (!cancelled) setPrintingArtist(mine?.artist || false);
-      } catch {
-        if (!cancelled) setPrintingArtist(false);
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signedOn, row.scryfallId]);
 
   const saveAlert = async () => {
     const target = parseFloat(alertTarget);
@@ -178,9 +192,36 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
 
   const addStack = () => {
     const existingFinishes = new Set(stacks.map(s => s.finish));
-    const newFinish = ["nonfoil", "foil", "etched"].find(f => !existingFinishes.has(f));
+    const newFinish = finishOptions.map(o => o.finish).find(f => !existingFinishes.has(f));
     if (!newFinish) return;
     setStacks([...stacks, { finish: newFinish, quantity: 1, condition: "NM" }]);
+  };
+
+  // Re-point this row at a different printing of the same card. The server
+  // guards oracleId + real paper finishes and folds duplicate rows together.
+  const changePrinting = async () => {
+    if (!pendingPrintingId || pendingPrintingId === row.scryfallId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const resp = await fetch(`/api/collection/${encodeURIComponent(row.scryfallId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ printing: { scryfallId: pendingPrintingId } }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setError(body.error || `Printing change failed (${resp.status})`);
+        setBusy(false);
+        return;
+      }
+      setPendingPrintingId(null);
+      onSave?.(body.collection);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   // DELETE the row. Shared by the explicit Delete button and the save() path
@@ -286,15 +327,17 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
       <div style={{ padding: "16px 16px 24px", overflowY: "auto", flex: 1 }}>
         {(row.scryfallId || row.artCropUrl) && (
           <img
-            src={artCropProxySrc(row)}
+            src={cardImageProxySrc(row)}
             alt=""
             style={{
-              width: "100%",
-              height: 180,
+              width: "78%",
+              aspectRatio: "63 / 88",
               objectFit: "cover",
-              borderRadius: 4,
-              marginBottom: 12,
+              borderRadius: 12,
+              margin: "0 auto 12px",
+              display: "block",
               background: colors.BG,
+              boxShadow: "0 4px 18px rgba(0,0,0,0.5)",
             }}
           />
         )}
@@ -355,18 +398,48 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
           </section>
         )}
 
+        {printings && printings.length > 1 && (
+          <section style={{ marginTop: 20 }}>
+            <SectionLabel>Printing</SectionLabel>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <select
+                value={pendingPrintingId || row.scryfallId}
+                onChange={(e) => setPendingPrintingId(e.target.value)}
+                style={{ ...selectStyle(colors), flex: 1, minWidth: 0 }}
+                aria-label="Change printing"
+              >
+                {printings.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {(p.setName || (p.set || "").toUpperCase())} · {p.set} · #{p.collectorNumber}
+                  </option>
+                ))}
+              </select>
+              {pendingPrintingId && pendingPrintingId !== row.scryfallId && (
+                <button onClick={changePrinting} disabled={busy} className="btn btn-primary btn-sm">
+                  Apply
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: 10.5, color: colors.MUTED, marginTop: 6, lineHeight: 1.4 }}>
+              Re-points this row at the exact copy you own. Finishes are checked against
+              what that printing exists as in paper.
+            </div>
+          </section>
+        )}
+
         <section style={{ marginTop: 20 }}>
           <SectionLabel>Stacks</SectionLabel>
           {stacks.map((stack, idx) => (
             <StackRow
               key={`${stack.finish}-${idx}`}
               stack={stack}
+              finishOptions={finishOptions}
               onChange={(patch) => updateStack(idx, patch)}
               onRemove={() => removeStack(idx)}
               colors={colors}
             />
           ))}
-          {stacks.length < 3 && (
+          {stacks.length < finishOptions.length && (
             <button onClick={addStack} className="btn btn-ghost btn-sm" style={{ marginTop: 6, padding: "4px 0" }}>
               + Add stack
             </button>
@@ -628,7 +701,13 @@ function PriceBlock({ prices, colors }) {
   );
 }
 
-function StackRow({ stack, onChange, onRemove, colors }) {
+function StackRow({ stack, finishOptions, onChange, onRemove, colors }) {
+  // Only the finishes this row's printing exists as in paper — plus the
+  // stack's current finish if it somehow predates the constraint (legacy
+  // rows must stay editable, never blank out).
+  const options = finishOptions.some(o => o.finish === stack.finish)
+    ? finishOptions
+    : [...finishOptions, { finish: stack.finish, label: FINISH_LABELS[stack.finish] || stack.finish }];
   return (
     <div style={{
       display: "flex",
@@ -645,8 +724,8 @@ function StackRow({ stack, onChange, onRemove, colors }) {
         onChange={(e) => onChange({ finish: e.target.value })}
         style={selectStyle(colors)}
       >
-        {["nonfoil", "foil", "etched"].map(f => (
-          <option key={f} value={f}>{FINISH_LABELS[f]}</option>
+        {options.map(o => (
+          <option key={o.finish} value={o.finish}>{o.label}</option>
         ))}
       </select>
 

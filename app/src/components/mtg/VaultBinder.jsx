@@ -9,6 +9,8 @@
 
 import { useEffect, useState } from "react";
 
+import { cardImageProxySrc } from "../../lib/cardImage";
+
 const PER_PAGE = 9;
 
 export default function VaultBinder({ cards, onCardClick, tagMap }) {
@@ -36,7 +38,7 @@ export default function VaultBinder({ cards, onCardClick, tagMap }) {
                 title={row.name}
               >
                 <img
-                  src={`/api/card-image?name=${encodeURIComponent(row.name)}`}
+                  src={cardImageProxySrc(row)}
                   alt={row.name}
                   loading="lazy"
                   onError={(e) => { e.currentTarget.style.opacity = "0.15"; }}

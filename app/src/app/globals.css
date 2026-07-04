@@ -331,6 +331,19 @@ select {
   background: var(--ley-green-faint);
 }
 
+/* Decklist per-card tools: hidden until the row is hovered or focused,
+   so the list stays a clean read while every row remains editable. */
+.deck-card-row .deck-card-tools {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-fast) var(--ease-snap);
+}
+.deck-card-row:hover .deck-card-tools,
+.deck-card-row:focus-within .deck-card-tools {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* interactive card: lifts with a green glow edge */
 .ley-card {
   transition:

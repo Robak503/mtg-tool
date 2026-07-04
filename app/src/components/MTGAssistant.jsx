@@ -29,7 +29,6 @@ import {
   saveGameRecord,
 } from "../lib/goldfish";
 import { deckSnapshot, parseKarnPlan } from "../lib/agentArtifacts";
-import { CARD_CACHE, fetchCard } from "../lib/scryfall";
 import useDeckStore from "../hooks/useDeckStore";
 import useChatSessions from "../hooks/useChatSessions";
 import useCardSearch from "../hooks/useCardSearch";
@@ -551,14 +550,14 @@ export default function MTGAssistant() {
 
   const cfg       = AGENTS[agent];
 
-  const handleChipHover = async(name,e)=>{
+  const handleChipHover = (name,e)=>{
     if(!bodyRef.current) return;
     const br=bodyRef.current.getBoundingClientRect(), er=e.currentTarget.getBoundingClientRect();
     const x=Math.max(0,Math.min(er.right-br.left+10, br.width-230));
     const y=Math.max(0,Math.min(er.top-br.top-10,   br.height-330));
-    setTooltip({name,image:CARD_CACHE[name]?.image||null,x,y});
-    const d=await fetchCard(name);
-    setTooltip(t=>t?.name===name?{...t,image:d?.image}:t);
+    // Full card via the local-first cache proxy — works offline once seen,
+    // and shows the whole card (frame + text) like it looks on the table.
+    setTooltip({name,image:`/api/card-image?name=${encodeURIComponent(name)}`,x,y});
   };
 
   // A card chip — the exact art+hover+link treatment the chat has always used,
@@ -1621,7 +1620,7 @@ export default function MTGAssistant() {
         {/* Hover tooltip */}
         {tooltip?.image&&(
           <div style={{position:"absolute",left:tooltip.x,top:tooltip.y,zIndex:50,pointerEvents:"none",borderRadius:8,overflow:"hidden",boxShadow:"0 8px 36px rgba(0,0,0,0.85)",border:`1px solid ${LINE}`}}>
-            <img src={tooltip.image} alt={tooltip.name} style={{width:210,display:"block"}}/>
+            <img src={tooltip.image} alt={tooltip.name} onError={()=>setTooltip(null)} style={{width:210,display:"block"}}/>
           </div>
         )}
       </div>

@@ -923,7 +923,7 @@ function UnresolvedPanel({ decision, onContinue }) {
 
 /**
  * Interactive tutor search — the player browses the matching cards in their own library
- * (real art via /api/art-crop?name=) and picks one to put into their hand, or finds
+ * (real art via /api/card-image?name=) and picks one to put into their hand, or finds
  * nothing. Resumes the suspended spell via session.applyTutorChoice. The board behind
  * stays visible (non-blocking sheet), but the game is paused until the choice is made.
  */
@@ -978,10 +978,10 @@ function TutorSearchPanel({ decision, onChoose }) {
               }}
             >
               <img
-                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
               <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
@@ -1064,10 +1064,10 @@ function HandDiscardPanel({ decision, onChoose }) {
               }}
             >
               <img
-                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
               <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
@@ -1138,10 +1138,10 @@ function ImpulseDigPanel({ decision, onChoose }) {
               }}
             >
               <img
-                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
               <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
@@ -1397,10 +1397,10 @@ function SacrificeChoicePanel({ decision, onChoose }) {
               }}
             >
               <img
-                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
               <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
@@ -1473,10 +1473,10 @@ function DiscardChoicePanel({ decision, onChoose }) {
               }}
             >
               <img
-                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
               <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
@@ -1550,7 +1550,7 @@ function CommanderReturnPanel({ decision, onChoose }) {
 
 /**
  * Interactive clone copy-pick (CR 707) — the player browses the creatures on the battlefield
- * (real art via /api/art-crop?name=) and picks which one their clone enters as a copy of, or
+ * (real art via /api/card-image?name=) and picks which one their clone enters as a copy of, or
  * declines (a "you may" clone then enters as a 0/0 and dies). WI-2: the MANDATORY form
  * ("~ enters as a copy of …", optional === false) hides the decline button — the copy choice
  * must be made (a null submit is server-rejected too). Finishes the entry server-side via
@@ -1599,10 +1599,10 @@ function CloneCopyPanel({ decision, onChoose }) {
               }}
             >
               <img
-                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
                 onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
               />
               <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
@@ -1677,8 +1677,8 @@ function ScrySurveilPanel({ decision, onChoose }) {
     const i = kept.indexOf(id);
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 4, border: "1px solid var(--ley-line)", borderRadius: 8, background: where === "keep" ? "var(--ley-green-dim)" : "transparent" }}>
-        <img src={`/api/art-crop?name=${encodeURIComponent(c.name)}`} alt={c.name} loading="lazy"
-          style={{ width: 64, aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+        <img src={`/api/card-image?name=${encodeURIComponent(c.name)}`} alt={c.name} loading="lazy"
+          style={{ width: 64, aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
           onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
         <div style={{ flex: 1, fontSize: 12, color: "var(--ley-text)", fontWeight: where === "keep" ? 600 : 400 }}>{c.name}</div>
         {where === "keep" ? (

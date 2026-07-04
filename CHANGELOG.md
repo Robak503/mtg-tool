@@ -8,6 +8,40 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.99.0] - 2026-07-04
+
+Cards look like cards, and you record exactly the copy you own.
+
+### Added
+- **Finish checkboxes on add** — after picking the exact printing (set name ·
+  set code · collector number), check the finish(es) your copy is. Only
+  finishes that exist in paper for that printing are offered, with special
+  treatments named (Etched, Surge Foil, Galaxy Foil, Ripple Foil, …).
+  Checking several adds one stack per finish in a single step.
+- **Change printing** — the card drawer can re-point a row at a different
+  printing of the same card ("my Sol Ring is actually the LCI one"); guarded
+  server-side so you can never move onto a different card or a finish that
+  printing was never printed in. If you already own the target printing, the
+  rows fold together.
+- **Deck card editing** — hover a decklist row for −/+/× steppers: adjust
+  copies or remove a card without re-importing the list.
+
+### Changed
+- **Full-card frames everywhere** — The Stacks grid, card drawer, add-modal
+  search, Trophy Case, Vault door thumbnails, Academy card pickers, and the
+  chat hover preview now show the whole card (frame, name, text box) like it
+  looks on the table, not just the art crop — all through the local image
+  cache, so everything keeps working offline once seen.
+- The binder and the collection grid now render the exact printing you own
+  (by Scryfall id), not the first printing of that name.
+- Stack finish menus in the card drawer only offer finishes the row's
+  printing exists as in paper.
+
+### Fixed
+- Scryfall's image CDN began rejecting requests without a User-Agent, which
+  broke fetching any not-yet-cached card image; both image proxies now
+  identify themselves. Already-cached images were unaffected.
+
 ## [0.98.0] - 2026-07-04
 
 ### Added

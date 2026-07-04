@@ -4,18 +4,22 @@
  * CollectionAddModal — search-to-add card flow.
  *
  * Search input → live debounced search against /api/printings/search →
- * click a result → configure stack (finish/quantity/condition) → POST
- * /api/collection. On success: close modal, call onAdded with the new
- * collection so CollectionView can refresh.
+ * click a result → pick the exact printing from the printing menu (set
+ * name · SET · #collector) → check the finish(es) you own (only finishes
+ * that exist in paper for that printing; special foils named: Surge Foil,
+ * Ripple Foil, Etched…) → qty per finish + condition → POST /api/collection.
+ * On success: close modal, call onAdded with the new collection so
+ * CollectionView can refresh.
  *
- * v1 deliberately ships a quick-add flow rather than a batch editor.
- * For multiple cards in one sitting, use the Import flow (Step 9) once
- * it lands. CSV is faster than the modal for batches >5.
+ * Checking several finishes adds one stack per finish in a single POST
+ * (the route already accepts a stacks array). Card thumbnails render the
+ * FULL card via /api/card-image (local-first cache) — never a raw CDN hit.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { treatmentButtons } from "../../lib/foilTreatments";
+import { cardImageProxySrc } from "../../lib/cardImage";
 import useEscapeClose from "../../hooks/useEscapeClose";
 
 const DEBOUNCE_MS = 280;
@@ -37,6 +41,15 @@ function priceForFinish(printing, finish) {
   return p.usd ?? p.usdFoil ?? p.usdEtched ?? null;
 }
 
+// Fresh finish-selection state for a printing: first available finish
+// checked at qty 1, the rest unchecked.
+function initialFinishSel(printing) {
+  const buttons = treatmentButtons(printing?.finishes, printing?.foilTypes);
+  const sel = {};
+  buttons.forEach((b, i) => { sel[b.finish] = { checked: i === 0, qty: 1 }; });
+  return sel;
+}
+
 export default function CollectionAddModal({ onClose, onAdded, initialQuery = "", colors }) {
   useEscapeClose(onClose);
   const [query, setQuery] = useState(initialQuery);
@@ -44,7 +57,9 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [stack, setStack] = useState({ finish: "nonfoil", quantity: 1, condition: "NM" });
+  // finish → { checked, qty } for the selected printing (see initialFinishSel).
+  const [finishSel, setFinishSel] = useState({});
+  const [condition, setCondition] = useState("NM");
   const [wishlist, setWishlist] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -113,50 +128,55 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
     return () => { cancelled = true; };
   }, [selected?.oracleId, selected?.name]);
 
-  const supportedFinishes = useMemo(() => {
-    if (!selected) return ["nonfoil"];
-    const arr = Array.isArray(selected.finishes) && selected.finishes.length > 0
-      ? selected.finishes
-      : ["nonfoil"];
-    return arr;
-  }, [selected]);
-
-  // When the selected card's supported finishes change, reset finish to
-  // the first supported one so we don't try to submit a finish the
-  // printing doesn't offer.
-  useEffect(() => {
-    if (!supportedFinishes.includes(stack.finish)) {
-      setStack(s => ({ ...s, finish: supportedFinishes[0] }));
-    }
-  }, [supportedFinishes, stack.finish]);
-
   // The printings to choose from. by-name returns every printing of the card;
   // fall back to the single search-picked printing if that lookup hasn't landed.
   const printings = allPrintings.length ? allPrintings : (selected ? [selected] : []);
 
-  // Pick a specific (printing, finish/treatment) pair from a row's buttons.
-  const pickPrinting = (printing, finish) => {
+  // The finish options that exist in paper for the selected printing.
+  const finishOptions = useMemo(
+    () => (selected ? treatmentButtons(selected.finishes, selected.foilTypes) : []),
+    [selected],
+  );
+
+  // Pick a printing from the menu — reset the finish checkboxes to that
+  // printing's real finishes (never carry a finish it doesn't offer).
+  const pickPrinting = (printing) => {
     setSelected(printing);
-    setStack(s => ({ ...s, finish }));
+    setFinishSel(initialFinishSel(printing));
   };
 
+  const toggleFinish = (finish) => {
+    setFinishSel(sel => ({
+      ...sel,
+      [finish]: { checked: !sel[finish]?.checked, qty: sel[finish]?.qty || 1 },
+    }));
+  };
+
+  const setFinishQty = (finish, qty) => {
+    setFinishSel(sel => ({
+      ...sel,
+      [finish]: { ...(sel[finish] || { checked: true }), qty: Math.max(1, Math.floor(qty || 1)) },
+    }));
+  };
+
+  const checkedFinishes = finishOptions.filter(b => finishSel[b.finish]?.checked);
+
   const submit = async () => {
-    if (!selected) return;
+    if (!selected || checkedFinishes.length === 0) return;
     setBusy(true);
     setError(null);
     try {
-      const qty = wishlist ? 0 : Math.max(1, Math.floor(stack.quantity || 1));
       const payload = {
         scryfallId: selected.id,
         oracleId: selected.oracleId,
         name: selected.name,
         setCode: selected.set,
         collectorNumber: selected.collectorNumber,
-        stacks: [{
-          finish: stack.finish,
-          quantity: qty,
-          condition: wishlist ? null : (stack.condition || "NM"),
-        }],
+        stacks: checkedFinishes.map(b => ({
+          finish: b.finish,
+          quantity: wishlist ? 0 : Math.max(1, Math.floor(finishSel[b.finish]?.qty || 1)),
+          condition: wishlist ? null : (condition || "NM"),
+        })),
         wishlist,
       };
       const resp = await fetch("/api/collection", {
@@ -197,7 +217,7 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
         onClick={(e) => e.stopPropagation()}
         className="ley-glass-strong ley-glass-lit"
         style={{
-          width: 520,
+          width: 560,
           maxWidth: "calc(100vw - 40px)",
           maxHeight: "calc(100vh - 80px)",
           display: "flex",
@@ -247,22 +267,11 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
               {results.map(r => (
                 <li key={r.id}>
                   <button
-                    onClick={() => setSelected(r)}
+                    onClick={() => pickPrinting(r)}
                     className="ley-row"
                     style={resultRow(colors)}
                   >
-                    {r.artCropUrl ? (
-                      <img src={r.artCropUrl} alt="" loading="lazy" style={{
-                        width: 56, height: 40, objectFit: "cover",
-                        borderRadius: 3, flexShrink: 0, background: colors.BG,
-                      }} />
-                    ) : (
-                      <div style={{
-                        width: 56, height: 40, borderRadius: 3, flexShrink: 0,
-                        background: colors.BG, color: colors.MUTED,
-                        fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>no art</div>
-                    )}
+                    <CardThumb card={r} width={40} colors={colors} />
                     <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                       <div style={{
                         fontSize: 13, color: colors.TEXT,
@@ -306,19 +315,75 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
               {printings.length > 0 && (
                 <div style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 9, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
-                    Which printing &amp; finish do you own?{printings.length > 1 ? ` (${printings.length})` : ""}
+                    Which printing do you own?{printings.length > 1 ? ` (${printings.length})` : ""}
                   </div>
-                  <div style={{ maxHeight: 230, overflowY: "auto", border: `1px solid ${colors.LINE}`, borderRadius: 4 }}>
+                  <div style={{ maxHeight: 200, overflowY: "auto", border: `1px solid ${colors.LINE}`, borderRadius: 4 }}>
                     {printings.map(p => (
                       <PrintingRow
                         key={p.id}
                         printing={p}
-                        selectedId={selected.id}
-                        selectedFinish={stack.finish}
-                        onPick={pickPrinting}
+                        isSelected={p.id === selected.id}
+                        onPick={() => pickPrinting(p)}
                         colors={colors}
                       />
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {finishOptions.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 9, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+                    Finish — only what this printing exists as
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {finishOptions.map(b => {
+                      const sel = finishSel[b.finish] || { checked: false, qty: 1 };
+                      const price = priceForFinish(selected, b.finish);
+                      return (
+                        <div
+                          key={b.finish}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "7px 10px",
+                            background: sel.checked ? "var(--ley-green-dim)" : colors.BG3,
+                            border: `1px solid ${sel.checked ? "var(--ley-green)" : colors.LINE}`,
+                            borderRadius: 4,
+                          }}
+                        >
+                          {/* checkbox + label share a <label>; the qty input sits
+                              OUTSIDE it so clicking qty never toggles the checkbox */}
+                          <label style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: "pointer", minWidth: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={sel.checked}
+                              onChange={() => toggleFinish(b.finish)}
+                              style={{ accentColor: "var(--ley-green)" }}
+                            />
+                            <span style={{
+                              flex: 1, fontSize: 12.5,
+                              color: sel.checked ? "var(--ley-green)" : colors.TEXT,
+                              fontWeight: sel.checked ? 700 : 400,
+                            }}>
+                              {b.label}
+                            </span>
+                          </label>
+                          <span style={{ fontSize: 11, color: colors.GOLD, flexShrink: 0 }}>
+                            {price != null ? `$${price}` : ""}
+                          </span>
+                          {sel.checked && !wishlist && (
+                            <input
+                              type="number"
+                              min={1}
+                              value={sel.qty}
+                              onChange={(e) => setFinishQty(b.finish, parseInt(e.target.value, 10))}
+                              aria-label={`${b.label} quantity`}
+                              style={{ ...inputStyle(colors), width: 52, textAlign: "center", flexShrink: 0 }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -337,19 +402,10 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
 
               {!wishlist && (
                 <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                  <Field label="Qty" colors={colors}>
-                    <input
-                      type="number"
-                      min={1}
-                      value={stack.quantity}
-                      onChange={(e) => setStack(s => ({ ...s, quantity: parseInt(e.target.value, 10) || 1 }))}
-                      style={{ ...inputStyle(colors), width: 64, textAlign: "center" }}
-                    />
-                  </Field>
                   <Field label="Condition" colors={colors}>
                     <select
-                      value={stack.condition}
-                      onChange={(e) => setStack(s => ({ ...s, condition: e.target.value }))}
+                      value={condition}
+                      onChange={(e) => setCondition(e.target.value)}
                       style={selectStyle(colors)}
                     >
                       {CONDITION_OPTIONS.map(c => (
@@ -373,7 +429,7 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
           gap: 8,
         }}>
           <button onClick={onClose} disabled={busy} className="btn btn-ghost btn-sm">Cancel</button>
-          <button onClick={submit} disabled={!selected || busy} className="btn btn-primary btn-sm">
+          <button onClick={submit} disabled={!selected || checkedFinishes.length === 0 || busy} className="btn btn-primary btn-sm">
             {busy ? "Adding..." : "Add to collection"}
           </button>
         </footer>
@@ -382,20 +438,59 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
   );
 }
 
-function PrintingRow({ printing, selectedId, selectedFinish, onPick, colors }) {
-  const buttons = treatmentButtons(printing.finishes, printing.foilTypes);
-  const isSel = printing.id === selectedId;
-  const headerFinish = isSel ? selectedFinish : buttons[0]?.finish;
-  const price = priceForFinish(printing, headerFinish);
+// Small FULL-card thumbnail (63:88) routed through the local cache proxy.
+function CardThumb({ card, width, colors }) {
+  const [failed, setFailed] = useState(false);
+  const src = cardImageProxySrc(card);
+  const height = Math.round(width * 88 / 63);
+  if (!src || failed) {
+    return (
+      <div style={{
+        width, height, borderRadius: 3, flexShrink: 0,
+        background: colors.BG, color: colors.MUTED,
+        fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center",
+        textAlign: "center", padding: 2, boxSizing: "border-box",
+      }}>{failed ? card.name : "no image"}</div>
+    );
+  }
   return (
-    <div style={{
-      padding: "8px 10px",
-      borderBottom: `1px solid ${colors.LINE}`,
-      borderLeft: `3px solid ${isSel ? colors.GOLD : "transparent"}`,
-      background: isSel ? colors.BG3 : "transparent",
-    }}>
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+      style={{
+        width, height, objectFit: "cover",
+        borderRadius: Math.max(3, Math.round(width * 0.045)),
+        flexShrink: 0, background: colors.BG,
+      }}
+    />
+  );
+}
+
+function PrintingRow({ printing, isSelected, onPick, colors }) {
+  const buttons = treatmentButtons(printing.finishes, printing.foilTypes);
+  const price = priceForFinish(printing, buttons[0]?.finish);
+  return (
+    <button
+      onClick={onPick}
+      className="ley-row"
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        padding: "8px 10px",
+        background: isSelected ? colors.BG3 : "transparent",
+        border: "none",
+        borderBottom: `1px solid ${colors.LINE}`,
+        borderLeft: `3px solid ${isSelected ? colors.GOLD : "transparent"}`,
+        cursor: "pointer",
+        color: colors.TEXT,
+        fontFamily: "inherit",
+      }}
+    >
       {/* Row 1: set name · CODE #collector · price */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 7 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <span style={{
           flex: 1, minWidth: 0, fontSize: 12.5, color: colors.TEXT, fontWeight: 500,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -412,58 +507,31 @@ function PrintingRow({ printing, selectedId, selectedFinish, onPick, colors }) {
           {price != null ? `$${price}` : "—"}
         </span>
       </div>
-      {/* Row 2: treatment buttons — Normal, (special) Foil, Etched */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {buttons.map(b => (
-          <button
-            key={b.finish}
-            onClick={() => onPick(printing, b.finish)}
-            style={treatmentBtn(colors, isSel && selectedFinish === b.finish)}
-          >
-            {b.label}
-          </button>
-        ))}
+      {/* Row 2: the finishes this printing exists as (pick them below) */}
+      <div style={{ fontSize: 10, color: colors.MUTED, marginTop: 3 }}>
+        {buttons.map(b => b.label).join(" · ")}
       </div>
-    </div>
+    </button>
   );
-}
-
-function treatmentBtn(colors, active) {
-  return {
-    background: active ? "var(--ley-green-dim)" : "transparent",
-    color: active ? "var(--ley-green)" : colors.TEXT,
-    border: `1px solid ${active ? "var(--ley-green)" : colors.LINE}`,
-    borderRadius: 999,
-    padding: "4px 12px",
-    fontSize: 11.5,
-    fontWeight: active ? 700 : 400,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    lineHeight: 1.3,
-  };
 }
 
 function SelectedPreview({ card, onChange, colors }) {
   return (
     <div style={{
       display: "flex",
-      gap: 12,
+      gap: 14,
       padding: "10px 12px",
       background: colors.BG3,
       border: `1px solid ${colors.LINE}`,
       borderRadius: 4,
       alignItems: "center",
     }}>
-      {card.artCropUrl ? (
-        <img src={card.artCropUrl} alt="" style={{
-          width: 80, height: 56, objectFit: "cover",
-          borderRadius: 3, flexShrink: 0, background: colors.BG,
-        }} />
-      ) : null}
+      {/* Keyed by printing id so the image swaps when a different printing is picked. */}
+      <CardThumb key={card.id} card={card} width={110} colors={colors} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500 }}>{card.name}</div>
-        <div style={{ fontSize: 11, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          {card.set} · #{card.collectorNumber}
+        <div style={{ fontSize: 11, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 2 }}>
+          {card.setName ? `${card.setName} · ` : ""}{card.set} · #{card.collectorNumber}
         </div>
       </div>
       <button onClick={onChange} className="btn btn-ghost btn-sm">Change</button>

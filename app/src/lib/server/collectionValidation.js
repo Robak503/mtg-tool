@@ -44,6 +44,33 @@ export function validateStacks(stacks) {
 }
 
 /**
+ * Merge incoming stacks into an existing stacks array (by finish).
+ * Same-finish stacks add quantities; the incoming condition wins when set.
+ * Used by POST /api/collection (add-or-merge by scryfallId) and by the
+ * PATCH printing-move when the target printing already has a row.
+ */
+export function mergeStacks(existing, incoming) {
+  const out = existing.map(s => ({ ...s }));
+  for (const newStack of incoming) {
+    const idx = out.findIndex(s => s.finish === newStack.finish);
+    if (idx >= 0) {
+      out[idx] = {
+        ...out[idx],
+        quantity: (out[idx].quantity || 0) + newStack.quantity,
+        // Worst observed condition wins. NM > LP > MP > HP > DMG.
+        // For now keep the incoming condition if it's set, else preserve.
+        condition: newStack.condition !== undefined && newStack.condition !== null
+          ? newStack.condition
+          : out[idx].condition,
+      };
+    } else {
+      out.push({ ...newStack });
+    }
+  }
+  return out;
+}
+
+/**
  * Validate the Trophy Case provenance fields (V6, all optional + additive):
  *   signed       null | { artist?, date?, event?: string, inPerson?: boolean }
  *   altered      boolean

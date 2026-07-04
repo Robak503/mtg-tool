@@ -43,6 +43,56 @@ const SEED_COLLECTION = {
   ],
 };
 
+// Printings of Sol Ring (plus one other card for the same-card guard).
+// Written per-test to data/scryfall-bulk/printings-index.json; the route's
+// printingIndex module is re-imported fresh via vi.resetModules().
+const SEED_PRINTINGS = {
+  generatedAt: "2026-07-04T00:00:00Z",
+  cards: [
+    {
+      id: "scry-sol", oracleId: "oracle-sol", name: "Sol Ring",
+      set: "c21", setName: "Commander 2021", collectorNumber: "256",
+      finishes: ["nonfoil", "foil"], foilTypes: [],
+      artCropUrl: "https://cards.scryfall.io/art_crop/front/s/o/sol-c21.jpg",
+      prices: { usd: "1.50", usdFoil: "4.00", usdEtched: null },
+      releasedAt: "2021-04-23",
+    },
+    {
+      id: "scry-sol-lci", oracleId: "oracle-sol", name: "Sol Ring",
+      set: "lci", setName: "Lost Caverns Special Guests", collectorNumber: "12",
+      finishes: ["nonfoil", "foil"], foilTypes: [],
+      artCropUrl: "https://cards.scryfall.io/art_crop/front/s/o/sol-lci.jpg",
+      prices: { usd: "9.99", usdFoil: "30.00", usdEtched: null },
+      releasedAt: "2023-11-17",
+    },
+    {
+      id: "scry-sol-etched", oracleId: "oracle-sol", name: "Sol Ring",
+      set: "cmr", setName: "Commander Legends", collectorNumber: "700",
+      finishes: ["etched"], foilTypes: [],
+      artCropUrl: "https://cards.scryfall.io/art_crop/front/s/o/sol-cmr.jpg",
+      prices: { usd: null, usdFoil: null, usdEtched: "12.00" },
+      releasedAt: "2020-11-20",
+    },
+    {
+      id: "scry-bolt", oracleId: "oracle-bolt", name: "Lightning Bolt",
+      set: "2xm", setName: "Double Masters", collectorNumber: "117",
+      finishes: ["nonfoil", "foil"], foilTypes: [],
+      artCropUrl: "https://cards.scryfall.io/art_crop/front/b/o/bolt-2xm.jpg",
+      prices: { usd: "2.00", usdFoil: "5.00", usdEtched: null },
+      releasedAt: "2020-08-07",
+    },
+  ],
+};
+
+async function seedPrintingsIndex() {
+  await fs.mkdir(path.join(tmpDir, "data", "scryfall-bulk"), { recursive: true });
+  await fs.writeFile(
+    path.join(tmpDir, "data", "scryfall-bulk", "printings-index.json"),
+    JSON.stringify(SEED_PRINTINGS),
+    "utf8",
+  );
+}
+
 async function loadRoute() {
   vi.resetModules();
   return import("./route.js");
@@ -227,6 +277,138 @@ describe("PATCH /api/collection/[id]", () => {
       ctxWith("scry-sol"),
     );
     expect(resp.status).toBe(400);
+  });
+});
+
+describe("PATCH printing move", () => {
+  it("re-points a row at another printing of the same card", async () => {
+    await seedPrintingsIndex();
+    route = await loadRoute();
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { printing: { scryfallId: "scry-sol-lci" } }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.movedTo).toBe("scry-sol-lci");
+    const moved = body.collection.cards.find(c => c.scryfallId === "scry-sol-lci");
+    expect(moved).toBeDefined();
+    expect(moved.setCode).toBe("lci");
+    expect(moved.collectorNumber).toBe("12");
+    expect(moved.artCropUrl).toContain("sol-lci");
+    expect(moved.prices.usd).toBe("9.99");
+    expect(moved.stacks).toEqual([{ finish: "nonfoil", quantity: 4, condition: "NM" }]);
+    expect(body.collection.cards.find(c => c.scryfallId === "scry-sol")).toBeUndefined();
+  });
+
+  it("folds into an existing row when the target printing is already owned", async () => {
+    await seedPrintingsIndex();
+    // Seed a second Sol Ring row that already sits on the target printing.
+    const withDup = {
+      ...SEED_COLLECTION,
+      cards: [
+        ...SEED_COLLECTION.cards,
+        {
+          scryfallId: "scry-sol-lci", oracleId: "oracle-sol", name: "Sol Ring",
+          setCode: "lci", collectorNumber: "12",
+          stacks: [{ finish: "foil", quantity: 1, condition: "NM" }],
+          addedAt: "2026-06-01T00:00:00Z", notes: "special guests", wishlist: false,
+        },
+      ],
+    };
+    await fs.writeFile(path.join(tmpDir, "data", "collection.json"), JSON.stringify(withDup), "utf8");
+    route = await loadRoute();
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { printing: { scryfallId: "scry-sol-lci" } }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.merged).toBe(true);
+    const rows = body.collection.cards.filter(c => c.scryfallId === "scry-sol-lci");
+    expect(rows).toHaveLength(1);
+    // foil 1 (already there) + moved nonfoil 4 → two stacks on one row.
+    expect(rows[0].stacks).toEqual([
+      { finish: "foil", quantity: 1, condition: "NM" },
+      { finish: "nonfoil", quantity: 4, condition: "NM" },
+    ]);
+    expect(body.collection.cards.find(c => c.scryfallId === "scry-sol")).toBeUndefined();
+  });
+
+  it("rejects a move to a different card", async () => {
+    await seedPrintingsIndex();
+    route = await loadRoute();
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { printing: { scryfallId: "scry-bolt" } }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toMatch(/different card/i);
+  });
+
+  it("rejects a move when a stack finish doesn't exist for the target printing", async () => {
+    await seedPrintingsIndex();
+    route = await loadRoute();
+    // Row has a nonfoil stack; the CMR printing is etched-only in paper.
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { printing: { scryfallId: "scry-sol-etched" } }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toMatch(/no nonfoil/i);
+  });
+
+  it("applies stacks first, so one PATCH can fix finish and move together", async () => {
+    await seedPrintingsIndex();
+    route = await loadRoute();
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", {
+        stacks: [{ finish: "etched", quantity: 1, condition: "NM" }],
+        printing: { scryfallId: "scry-sol-etched" },
+      }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    const moved = body.collection.cards.find(c => c.scryfallId === "scry-sol-etched");
+    expect(moved.stacks).toEqual([{ finish: "etched", quantity: 1, condition: "NM" }]);
+  });
+
+  it("400s with a sync hint when the printings index is missing", async () => {
+    // No seedPrintingsIndex() — lookup throws ENOENT.
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { printing: { scryfallId: "scry-sol-lci" } }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toMatch(/index not built/i);
+  });
+
+  it("rejects a malformed printing payload", async () => {
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { printing: "scry-sol-lci" }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toMatch(/printing must be an object/i);
+  });
+
+  it("is a no-op when moving to the printing the row already has", async () => {
+    await seedPrintingsIndex();
+    route = await loadRoute();
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { printing: { scryfallId: "scry-sol" } }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    const sol = body.collection.cards.find(c => c.scryfallId === "scry-sol");
+    expect(sol.setCode).toBe("c21");
+    expect(sol.stacks).toEqual([{ finish: "nonfoil", quantity: 4, condition: "NM" }]);
   });
 });
 

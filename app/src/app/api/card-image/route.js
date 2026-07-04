@@ -113,7 +113,11 @@ export async function GET(request) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const resp = await fetch(sourceUrl, { signal: controller.signal });
+    // Scryfall's CDN 400s requests with no User-Agent (Node fetch sends none).
+    const resp = await fetch(sourceUrl, {
+      signal: controller.signal,
+      headers: { "User-Agent": "MTGTool (local-first Commander assistant)", "Accept": "image/*" },
+    });
     if (!resp.ok) return Response.json({ error: `Upstream ${resp.status}` }, { status: 404 });
     const contentType = (resp.headers?.get("content-type") || "").toLowerCase();
     if (!contentType.startsWith("image/")) return Response.json({ error: "Upstream did not return an image" }, { status: 404 });
