@@ -50,6 +50,14 @@ const ICONS = {
       <path d="M3 12h18M12 3c2.8 2.6 4 5.6 4 9s-1.2 6.4-4 9c-2.8-2.6-4-5.6-4-9s1.2-6.4 4-9z" />
     </svg>
   ),
+  gallery: (
+    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="4" width="7" height="9" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="16" width="6" height="4" rx="1" />
+      <rect x="13" y="13" width="7" height="7" rx="1" />
+    </svg>
+  ),
   forge: (
     <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M14 4l6 6-9 9H5v-6l9-9z" />
@@ -83,21 +91,23 @@ export default function VaultHome({ onPick, fontFamily }) {
   const [finance, setFinance] = useState(null);    // /api/finance
   const [collection, setCollection] = useState(null); // /api/collection (recent adds + pulse)
   const [conflicts, setConflicts] = useState(null);   // /api/collection/conflicts
+  const [gallery, setGallery] = useState(null);       // /api/collection/artists (V7)
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [st, se, bu, fi, co, cf] = await Promise.all([
+      const [st, se, bu, fi, co, cf, ga] = await Promise.all([
         fetchJson("/api/collection/stats"),
         fetchJson("/api/collection/sets"),
         fetchJson("/api/collection/buildable"),
         fetchJson("/api/finance"),
         fetchJson("/api/collection"),
         fetchJson("/api/collection/conflicts"),
+        fetchJson("/api/collection/artists"),
       ]);
       if (cancelled) return;
       setStats(st); setSets(se); setBuildable(bu); setFinance(fi);
-      setCollection(co?.collection || null); setConflicts(cf);
+      setCollection(co?.collection || null); setConflicts(cf); setGallery(ga);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -210,6 +220,22 @@ export default function VaultHome({ onPick, fontFamily }) {
             </div>
           )}
         </>
+      ),
+    },
+    {
+      id: "vault-gallery",
+      title: "The Gallery",
+      blurb: "Your collection as an art wall — by artist.",
+      icon: ICONS.gallery,
+      body: (
+        <DoorStat
+          big={gallery?.ready && gallery?.artistsAvailable ? (gallery.artists?.length ?? null) : null}
+          small={
+            gallery?.ready && gallery?.artistsAvailable && gallery.artists?.length
+              ? `artists · top: ${gallery.artists[0].artist}`
+              : gallery?.ready === false ? "sync data to unlock" : gallery && !gallery.artistsAvailable ? "resync for artist data" : null
+          }
+        />
       ),
     },
     {

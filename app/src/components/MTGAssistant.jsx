@@ -59,6 +59,7 @@ import AgentsHome from "./mtg/AgentsHome";
 import ProvingHome from "./mtg/ProvingHome";
 import VaultHome from "./mtg/VaultHome";
 import DeckReadyView from "./mtg/DeckReadyView";
+import VaultGalleryView from "./mtg/VaultGalleryView";
 import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
@@ -1432,6 +1433,8 @@ export default function MTGAssistant() {
               <VaultHome onPick={setCenterView} fontFamily={F} />
             ):centerView==="collection"?(
               <CollectionView surface="collection" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
+            ):centerView==="vault-gallery"?(
+              <VaultGalleryView onNavigate={setCenterView} fontFamily={F} />
             ):centerView==="vault-ledger"?(
               <CollectionView surface="ledger" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):centerView==="vault-atlas"?(
