@@ -1,4 +1,4 @@
-> 🔧 **ENGINE-TAIL PASS — 2026-07-04 (Cindy, Opus 4.8) — E1 SHIPPED · E2/E3 PREP DONE · one-owner ENGINE-WRITE lock held (COMMS top).**
+> 🔧 **ENGINE-TAIL PASS — 2026-07-04 (Cindy, Opus 4.8) — E1 + P5-analyzer SHIPPED · E2/E3 PARKED (evidence) · ENGINE-WRITE lock LIFTED.**
 > **E1 earthbend-return** (commit `a2dfdc34`, on master, UNTAGGED — releases batched with E2/E3): the CR 603.7
 > "when it dies or is exiled, return it tapped" rider is now enforced (`combat.applyEarthbend` flags the animated land →
 > `triggers.checkLeavesTriggers` synthesizes a delayed trigger → `zones.applyEarthbendReturn`, `enterCardFromZone` tapped,
@@ -11,10 +11,22 @@
 > too, so the change is DECK-DATA drift (Colton's profile `prof_a981996c` edited 2026-07-04; rows 8281→5706), NOT a code
 > regression. **`ab524e20` is the honest pre-E2/E3 anchor — E2/E3 re-anchors FROM it, not from the stale `a2a03ba8`.**
 >
-> **E2/E3 A/B BASELINE** (`play-quality-probe.mjs`, standard·mirror·games=4·seed=7·legacy=all, 60 games, decisive 60, reproducible ×2):
-> NEW(shipping default) **58.3%** vs OLD(v1 legacy) 41.7% (35–25 wins) · dead turns **0.00** vs 0.50 · avg X-cast **4.33** vs 1.00 ·
-> casts 10.48/11.28 · lands 6.92/6.05 · attacks 22.4/15.8 · blocks 0.78/9.08. This is the yardstick E2/E3's tuned NEW must
-> hold/beat (per-subsystem isolation via `--legacy=<key>`; `altCost` + `xSizing` legacy arms already in `opponentAI.POLICY_KEYS`).
+> **🅿️ E2/E3 AI-TUNING — PARKED ON EVIDENCE (do NOT re-anchor; `ab524e20` holds).** A/B baseline
+> (`play-quality-probe.mjs`, standard·mirror·seed=7·legacy=all, 60 games, reproducible ×2): NEW(shipping default)
+> **58.3%** vs OLD(v1) 41.7% — the AI is ALREADY strong. altCost isolated (`--legacy=altCost`, 2 seeds): standard 1v1
+> NEW **46–49%** vs OLD 51–54% (current altCost marginally net-NEGATIVE in 1v1); commander NEW 66.7% vs OLD 33.3%
+> (net-POSITIVE in the pod — the real use case). Read: the tune is marginal + noisy + needs a risky card-specific value
+> heuristic (a wrong HOLD is its own bad play), and it's already net-positive where it matters. Per "ship only if clearly
+> up + don't regress the real case," **E3 doesn't clear the bar; E2's offered-X-subset re-anchors every deck for a
+> similarly narrow gain** — both parked. The A/B harness is proven + wired for a future attempt (`--legacy=<key>`,
+> `altCost`/`xSizing` arms in `opponentAI.POLICY_KEYS`); re-open only with a decisive-signal design (bigger samples, or a
+> specific logged bad-decision to target).
+>
+> **✅ P5 (reality report) — FOUNDATION SHIPPED** (commit `e6c3379d`): the post-game analyzer promoted to a shared lib
+> `src/lib/learn/gameAnalysis.js` (`analyzeGame` + `summarizeSeatReality` — per-deck dead-turn rate / avg casts·lands /
+> mulligan rate / avg X), consumed by the A/B probe (de-drifted) + the future route. Suite 7,724 (+6), lint 0, trajectory
+> `ab524e20` ×2 (behavior-neutral). **NEXT (app-side, no engine lock):** P5 Part 2 = a self-play `analyze` route over a
+> `record:true` batch → `summarizeSeatReality`; Part 3 = the DeckView report surface. Then P3 debrief, E4 color-tags, K-items.
 >
 > ⚠️ **SYNC NOTE — 2026-07-04 post-merge:** current version is **0.99.0**; suite is now **7,718** (E1 added 7; was 7,711).
 > A parallel chat shipped collector UX + full-card frames as 0.96-0.99 (a version collision:
