@@ -79,11 +79,11 @@ export default function DeckView({
   const FM = "var(--font-mono), 'Consolas', monospace";
   const CY = GOLD;
   // shared visual helpers
-  const glass = { background: "var(--glass)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid var(--hairline)", borderRadius: 10 };
+  const glass = { background: "var(--ley-glass)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid var(--ley-line)", borderRadius: 10 };
   const panel = { ...glass, padding: 14, marginBottom: 16 };
   const dlabel = { fontFamily: FM, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: MUTED };
   const stitle = { fontFamily: FD, fontSize: 18, fontWeight: 600, color: TEXT, margin: 0 };
-  const fieldStyle = { padding: "8px 10px", background: "var(--surface-container-lowest)", border: `1px solid var(--hairline)`, borderRadius: 6, color: TEXT, fontSize: 13, fontFamily: F, textTransform: "none", letterSpacing: 0 };
+  const fieldStyle = { padding: "8px 10px", background: "var(--ley-surface-0)", border: `1px solid var(--ley-line)`, borderRadius: 6, color: TEXT, fontSize: 13, fontFamily: F, textTransform: "none", letterSpacing: 0 };
   const labelWrap = { display: "flex", flexDirection: "column", gap: 5, ...dlabel };
 
   const currentDriftCards = useMemo(
@@ -247,7 +247,7 @@ export default function DeckView({
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: mobile ? "16px 14px" : "20px 28px" }}>
       {/* ── Ribbon header ── */}
-      <div style={{ paddingBottom: 18, marginBottom: 18, borderBottom: `1px solid var(--hairline-10)` }}>
+      <div style={{ paddingBottom: 18, marginBottom: 18, borderBottom: `1px solid var(--ley-line-faint)` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontFamily: FD, fontSize: mobile ? 30 : 44, fontWeight: 700, letterSpacing: "-0.02em", color: CY, margin: 0, lineHeight: 1.1 }}>
@@ -305,7 +305,7 @@ export default function DeckView({
           )}
 
           {tokenEntries.length > 0 && (
-            <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(254,216,58,0.08)", border: "1px solid rgba(254,216,58,0.25)", color: "var(--tertiary-container)", fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>
+            <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(254,216,58,0.08)", border: "1px solid rgba(254,216,58,0.25)", color: "var(--ley-gold)", fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>
               Tokens saved separately: {tokenEntries.join(", ")}. Karn and Tibalt will ignore these for Commander deck size, curve, legality, and normal card counts.
             </div>
           )}
@@ -349,7 +349,7 @@ export default function DeckView({
 
             {/* Decklist panel (art-bleed rows) */}
             <div style={{ ...panel, padding: 0, display: "flex", flexDirection: "column", maxHeight: mobile ? "none" : 620 }}>
-              <div style={{ padding: "14px 16px", borderBottom: `1px solid var(--hairline-10)`, background: "var(--surface-dim)", borderRadius: "10px 10px 0 0" }}>
+              <div style={{ padding: "14px 16px", borderBottom: `1px solid var(--ley-line-faint)`, background: "var(--ley-surface-1)", borderRadius: "10px 10px 0 0" }}>
                 <h3 style={stitle}>Decklist <span style={{ fontFamily: F, fontSize: 13, color: MUTED, fontWeight: 400 }}>({mainCount})</span></h3>
               </div>
               <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
@@ -395,7 +395,7 @@ export default function DeckView({
                 ["jace", "Table briefing and sequencing reminders"],
                 ["arbiter", "Rules interactions to investigate"],
               ].map(([ak, placeholder]) => (
-                <div key={ak} style={{ background: "var(--surface-container-lowest)", border: `1px solid var(--hairline)`, borderRadius: 8, padding: 10 }}>
+                <div key={ak} style={{ background: "var(--ley-surface-0)", border: `1px solid var(--ley-line)`, borderRadius: 8, padding: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
                     <span style={{ fontFamily: FM, fontSize: 12, color: AGENTS[ak].color, fontWeight: 600 }}>{AGENTS[ak].name}</span>
                     <button onClick={() => saveLatestAgentReply(ak)} disabled={!histories[ak]?.some(m => m.role === "assistant")}
@@ -412,7 +412,7 @@ export default function DeckView({
                   </div>
                   <textarea value={agentNotes[ak] || ""} onChange={e => updateAgentNote(ak, e.target.value)}
                     placeholder={placeholder}
-                    style={{ width: "100%", minHeight: 92, padding: "8px 9px", background: "var(--glass)", border: `1px solid var(--hairline)`, borderRadius: 5, color: TEXT, fontSize: 11, fontFamily: F, resize: "vertical", lineHeight: 1.5 }} />
+                    style={{ width: "100%", minHeight: 92, padding: "8px 9px", background: "var(--ley-glass)", border: `1px solid var(--ley-line)`, borderRadius: 5, color: TEXT, fontSize: 11, fontFamily: F, resize: "vertical", lineHeight: 1.5 }} />
                 </div>
               ))}
             </div>
@@ -431,7 +431,7 @@ export default function DeckView({
                     const drift = artifactDrift(entry);
 
                     return (
-                      <details key={entry.id} style={{ borderTop: `1px solid var(--hairline-10)`, padding: "7px 0" }}>
+                      <details key={entry.id} style={{ borderTop: `1px solid var(--ley-line-faint)`, padding: "7px 0" }}>
                         <summary style={{ cursor: "pointer", color: TEXT, fontSize: 11, lineHeight: 1.35 }}>
                           <span style={{ color, fontWeight: 700 }}>{entry.date}</span> - {entry.summary}
                         </summary>
@@ -487,14 +487,14 @@ export default function DeckView({
               <button onClick={saveSnapshot} className="btn btn-ghost btn-sm" style={{ marginLeft: snapshots.length > 0 ? 0 : "auto" }}>Save version</button>
             </SectionHead>
             {compareOpen && snapshots.length > 0 && (
-              <div style={{ border: `1px solid var(--hairline)`, borderRadius: 6, padding: 8, marginBottom: 10, background: "var(--surface-container-lowest)" }}>
+              <div style={{ border: `1px solid var(--ley-line)`, borderRadius: 6, padding: 8, marginBottom: 10, background: "var(--ley-surface-0)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 10, color: MUTED }}>
                   <span>From</span>
-                  <select value={cmpFrom || snapshots[0]?.id || ""} onChange={e => setCmpFrom(e.target.value)} style={{ background: BG, color: TEXT, border: `1px solid var(--hairline)`, borderRadius: 4, fontSize: 10, padding: "3px 5px", fontFamily: F, maxWidth: 150 }}>
+                  <select value={cmpFrom || snapshots[0]?.id || ""} onChange={e => setCmpFrom(e.target.value)} style={{ background: BG, color: TEXT, border: `1px solid var(--ley-line)`, borderRadius: 4, fontSize: 10, padding: "3px 5px", fontFamily: F, maxWidth: 150 }}>
                     {snapshots.map(s => (<option key={s.id} value={s.id}>{versionLabel(s)}</option>))}
                   </select>
                   <span>→</span>
-                  <select value={cmpTo} onChange={e => setCmpTo(e.target.value)} style={{ background: BG, color: TEXT, border: `1px solid var(--hairline)`, borderRadius: 4, fontSize: 10, padding: "3px 5px", fontFamily: F, maxWidth: 150 }}>
+                  <select value={cmpTo} onChange={e => setCmpTo(e.target.value)} style={{ background: BG, color: TEXT, border: `1px solid var(--ley-line)`, borderRadius: 4, fontSize: 10, padding: "3px 5px", fontFamily: F, maxWidth: 150 }}>
                     <option value="current">Current deck</option>
                     {snapshots.map(s => (<option key={s.id} value={s.id}>{versionLabel(s)}</option>))}
                   </select>
@@ -515,7 +515,7 @@ export default function DeckView({
               const drift = artifactDrift(entry);
               const changed = drift && (drift.added.length > 0 || drift.removed.length > 0);
               return (
-                <details key={entry.id} style={{ borderTop: `1px solid var(--hairline-10)`, padding: "7px 0" }}>
+                <details key={entry.id} style={{ borderTop: `1px solid var(--ley-line-faint)`, padding: "7px 0" }}>
                   <summary style={{ cursor: "pointer", color: TEXT, fontSize: 11, lineHeight: 1.35, display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ color: CY, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{entry.label || entry.reason || entry.date}</span>
                     <span style={{ color: MUTED }}>{entry.snapshot?.mainCount} cards</span>
@@ -638,7 +638,7 @@ export default function DeckView({
                 className="btn btn-primary btn-sm" style={{ whiteSpace: "nowrap" }}>Log Game</button>
             </div>
             {(deckMemory.games || []).slice(0, 5).map(g => (
-              <div key={g.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 0", borderTop: `1px solid var(--hairline-10)` }}>
+              <div key={g.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 0", borderTop: `1px solid var(--ley-line-faint)` }}>
                 <div style={{ width: 58, flexShrink: 0, color: g.result === "Win" ? "var(--ley-green)" : g.result === "Loss" ? "var(--ley-red)" : CY, fontSize: 11, fontWeight: 700, fontFamily: FM }}>{g.result}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.opponents || "Unspecified matchup"} <span style={{ color: MUTED }}>- {g.date}</span></div>
@@ -692,7 +692,7 @@ export default function DeckView({
           const grp = deckCards.filter(c => c.section === g); if (!grp.length) return null;
           return (
             <div key={g} style={{ marginBottom: 16 }}>
-              <div style={{ ...dlabel, color: CY, marginBottom: 5, paddingBottom: 4, borderBottom: `1px solid var(--hairline)` }}>
+              <div style={{ ...dlabel, color: CY, marginBottom: 5, paddingBottom: 4, borderBottom: `1px solid var(--ley-line)` }}>
                 {g} ({grp.reduce((s, c) => s + c.qty, 0)})
               </div>
               {grp.map((c, i) => (

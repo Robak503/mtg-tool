@@ -23,19 +23,19 @@ function CurveChart({ curve }) {
 
         return (
           <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-            {value > 0 && <span style={{ fontSize: 9, color: "var(--on-surface-variant)", lineHeight: 1 }}>{value}</span>}
+            {value > 0 && <span style={{ fontSize: 9, color: "var(--ley-text-dim)", lineHeight: 1 }}>{value}</span>}
             <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
               <div
                 style={{
                   width: "100%",
                   height: height || 0,
-                  background: "var(--primary-fixed-dim)",
+                  background: "var(--ley-green-deep)",
                   borderRadius: "2px 2px 0 0",
                   minHeight: value > 0 ? 3 : 0,
                 }}
               />
             </div>
-            <span style={{ fontSize: 9, color: "var(--on-surface-variant)" }}>{label}</span>
+            <span style={{ fontSize: 9, color: "var(--ley-text-dim)" }}>{label}</span>
           </div>
         );
       })}
@@ -48,7 +48,7 @@ function ColorPie({ colors }) {
   const active = Object.entries(colors).filter(([, value]) => value > 0);
 
   if (!active.length) {
-    return <div style={{ fontSize: 12, color: "var(--on-surface-variant)" }}>No colored mana symbols found.</div>;
+    return <div style={{ fontSize: 12, color: "var(--ley-text-dim)" }}>No colored mana symbols found.</div>;
   }
 
   return (
@@ -73,7 +73,7 @@ function ColorPie({ colors }) {
           >
             {symbol}
           </div>
-          <span style={{ fontSize: 11, color: "var(--on-surface-variant)" }}>{Math.round((value / total) * 100)}%</span>
+          <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>{Math.round((value / total) * 100)}%</span>
         </div>
       ))}
     </div>
