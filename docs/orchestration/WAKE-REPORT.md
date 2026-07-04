@@ -1,3 +1,28 @@
+# 🌅 WAKE REPORT — 2026-07-04 (backlog tail cont. — v0.96→v0.98: E5 + P4 + P8)
+
+> After the questions (Colton: E5→owning-profile · AI-tuning→yes-with-evidence · releases→per-feature),
+> shipped three more additive wins: **v0.96 E5** cross-profile rating persistence (POST
+> /api/pod-balance/rate → writes into the owning profile; proven safe on both file shapes) · **v0.97 P4**
+> matchup ledger (per-game sidecar rows + /api/self-play?action=matchups + a head-to-head heat table in
+> Pod Balance) · **v0.98 P8** mulligan lab (seeded deal + engine-verdict compare in DeckView). Suite
+> 7,703 + lint 0; **engine untouched** (zero lib/learn deltas; trajectory a2a03ba8 holds).
+>
+> **THE CLEAN-ADDITIVE TAIL IS NOW EXHAUSTED.** What remains needs FOCUSED FENCED PASSES, not
+> marathon-tail grinding — each specced in [UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md) STATUS with recon:
+> - **E1 earthbend** (delayed dies/exile-return trigger; flips ~34 permanents incl. Toph native) —
+>   recon: tractable via the selfReturn.js template + enterCardFromZone; STRICT ORDER (build the return
+>   FIRST, THEN strip reminders in coverage.js:179 shaped-count, or the 34 flip to dropped-rider FPs —
+>   see retired-fp-ledger.md CAP). Full battery + flip-diff GAINED=the 34 named + e2e (Toph returns tapped).
+> - **E2/E3 AI tuning** (Colton GREENLIT with evidence) — re-anchors trajectory; need play-quality A/B
+>   probe (play-quality-probe.mjs --legacy=KEY) + a v1 legacy arm. Omnath re-baselines self-play data once.
+> - **P5 reality report** — promote analyzeGame (play-quality-probe.mjs:186) to a shared lib + a route
+>   analyze-flag over a record:true batch; never-cast needs recordDecisions. **P3 debrief** — thread the
+>   v1.1 act-opts bag through /api/learn/step+choose. **P7 spectate** needs the P2 replay viewer; **P9
+>   puzzle** needs a live-session snapshot exporter. **E4** color-tags server-side (rewrite risk).
+>   **K4/K5** data-at-sync. **K9** no flavor source. **D** archive move (cosmetic).
+
+# (previous report below — the v0.89→v0.95 backlog push)
+
 # 🌅 WAKE REPORT — 2026-07-04 (the backlog push: v0.89.0 → v0.95.0, 8 releases, Opus at the helm)
 
 > **"Do all next best remaining" → "keep pushing through the entire backlog":** after the
