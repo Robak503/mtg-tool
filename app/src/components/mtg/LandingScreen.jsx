@@ -10,6 +10,7 @@ import ProfileMenu from "./ProfileMenu";
 export default function LandingScreen({
   appVersion,
   onEnterArea,
+  resume = [],
   fontFamily,
   profiles,
   activeProfile,
@@ -152,6 +153,23 @@ export default function LandingScreen({
           );
         })}
       </div>
+
+      {/* continue where you left off (K8) */}
+      {resume.length > 0 && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", padding: "0 20px 14px" }}>
+          {resume.map((r, i) => (
+            <button
+              key={i}
+              onClick={r.onClick}
+              className="btn btn-ghost btn-sm"
+              style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, padding: "6px 12px", textAlign: "left" }}
+            >
+              <span style={{ fontSize: 12, color: "var(--ley-text)" }}>{r.label}</span>
+              <span style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-text-faint)", fontFamily: "var(--font-mono), monospace" }}>{r.sub}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* footer line */}
       <div

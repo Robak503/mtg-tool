@@ -103,7 +103,7 @@ summary here for the queue:
   artist pages ("you own 12 by Chase Stone"); artist search token in filters; artist in
   detail drawer + set rows. Rides V5 (or the slim art-index variant if unique_artwork is
   preferred — see the order file's data note).
-- **V8 · Binder mode** (M, 4) — 9-pocket full-card spread view in The Stacks via the
+- ✅ v0.94.0 **V8 · Binder mode** (M, 4) — 9-pocket full-card spread view in The Stacks via the
   existing `/api/card-image` AppData cache; ordered by active sort; page-flip between
   spreads.
 - ✅ v0.89.0 — **V9 · Binder combos — "what can I assemble from cards I own"** (S, 4) — new
@@ -200,7 +200,7 @@ summary here for the queue:
 - ✅ v0.92.0 **K7 · Markdown-lite chat rendering** (M, 3) — Karn's `## Cuts` / `**bold**` / lists
   render as raw glyphs today (`renderText` handles only card chips); ~80-line
   zero-dependency line-wise renderer, streaming-safe, composed with the chip splitter.
-- **K8 · Landing "continue where you left off" strip** (M, 3) — up to 3 quiet chips under
+- ✅ v0.94.0 **K8 · Landing "continue where you left off" strip** (M, 3) — up to 3 quiet chips under
   the doors: last chat, active deck, in-progress Academy save / latest sim report; all
   deep-link through existing navigation.
 - **K9 · Flavor of the day** (S, 2) — date-seeded flavor text from cards in HIS decks in
