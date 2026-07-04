@@ -80,7 +80,7 @@ export default function AppHeader({
         MTG Assistant
         {appVersion && (
           <span style={{
-            marginLeft:8,fontSize:11,fontWeight:400,color:"var(--on-surface-variant)",letterSpacing:"normal",fontFamily:"var(--font-mono), Consolas, monospace"
+            marginLeft:8,fontSize:11,fontWeight:400,color:"var(--ley-text-dim)",letterSpacing:"normal",fontFamily:"var(--font-mono), Consolas, monospace"
           }}>v{appVersion}</span>
         )}
       </span>
@@ -124,7 +124,7 @@ export default function AppHeader({
             style={{
               border:`1px solid ${LINE}`,
               borderRadius:5,
-              color:failedCalls?"#c2786f":"var(--on-surface-variant)",
+              color:failedCalls?"#c2786f":"var(--ley-text-dim)",
               fontFamily,
               fontSize:11,
               padding:"5px 8px",
@@ -147,7 +147,7 @@ export default function AppHeader({
                     border:0,
                     borderRight:option.id !== providerOptions[providerOptions.length - 1].id ? `1px solid ${LINE}` : 0,
                     background:active?"var(--ley-green-dim)":"transparent",
-                    color:active?"var(--ley-green)":"var(--on-surface-variant)",
+                    color:active?"var(--ley-green)":"var(--ley-text-dim)",
                     fontWeight:active?700:400,
                     cursor:"pointer",
                     fontFamily,

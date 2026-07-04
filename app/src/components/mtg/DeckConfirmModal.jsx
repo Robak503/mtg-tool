@@ -81,7 +81,7 @@ export default function DeckConfirmModal({
               value={activeDeckId || lock?.id || ""}
               onChange={event => onSelectDeck && onSelectDeck(event.target.value)}
               style={{
-                background: "var(--surface-container-lowest)",
+                background: "var(--ley-surface-0)",
                 color: TEXT,
                 border: `1px solid ${cfg.border}`,
                 borderRadius: 8,

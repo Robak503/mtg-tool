@@ -142,8 +142,10 @@ archetype-specific priorities, saves game records to
 - Uses Jace's voice for explanations
 - v0.91.0+: finished Academy games persist to Table Records
   (`/api/records`); v0.95.0: DeckView "Practice" opens the Academy
-  preselected. Backlog: post-game debrief (P3), puzzle mode (P9) —
-  see `docs/orchestration/UPGRADE-BACKLOG.md`.
+  preselected; v0.100.0: post-game reality report (P5); v0.101.0:
+  post-game debrief comparing your picks to the engine's suggestion (P3),
+  a turn-by-turn replay scrubber over Table Records (P7), and puzzle mode —
+  capture a position, load it, solve it (P9).
 
 Historical spec: `docs/phase6-learn-to-play.md`.
 

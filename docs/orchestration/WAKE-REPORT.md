@@ -1,4 +1,11 @@
-> 🧩 **P3 + P7 + P9 — BUILT + FENCED — 2026-07-04 (Cindy, Opus 4.8) — release-prepped as v0.101.0, landing via PR.**
+> 🧩 **v0.101.0 — 2026-07-04 (Cindy, Opus 4.8). CORE MERGED, TAIL IN A FOLLOW-UP PR.**
+> ⚠️ **STATE:** PR **#413 (P3+P7+P9) is SQUASH-MERGED to master `7f443b07`** — but **NOT yet tagged** (the
+> `v0.101.0` tag, which triggers the release build, is un-cut; version bumped to 0.101.0 in the merge). Colton
+> merged #413 mid-session, before the E4/Q4/D5 commits synced — so **E4 (durable color tags) + Q4 (LEYLINE
+> sweep) + D5 (doc refresh) were re-based onto master as a FOLLOW-UP PR** (branch `claude/e4-qhygiene-followup`,
+> commits `dcaeb220`/`626f0f9e`/`f8114ce2`). **To ship v0.101.0 as intended (everything together): merge the
+> follow-up PR, THEN tag `v0.101.0`.** If you'd rather ship the core now: tag `v0.101.0` on `7f443b07`, and the
+> tail becomes `v0.102.0`. All work is fenced (suite 7,750 · lint 0 · trajectory `ab524e20` ×2). Original detail:
 > The `orders/p3-p7-p9-backlog.md` chunk, all three additive Academy/Learn features, stacked on `d226091b`
 > (v0.100.0): **P3 post-game debrief** (`0b5bf2fe` — the Academy result scrim tallies the player's own picks vs
 > `metadata.suggestion`; the "un-strip decisionWire" premise was STALE like E1's — suggestion lives only on `ask`,
@@ -17,6 +24,18 @@
 > env). New app surfaces for Omnath tooling: `/api/puzzles` (GET list · GET ?id= · POST save-from-live-session) +
 > `/api/learn/resume-puzzle` (POST {puzzleId}); Table Records `logTail` is now a fuller narrative tail (≤160). No
 > engine/self-play/trajectory change — `ab524e20` holds; nothing to re-baseline.
+>
+> **THEN (same session, Colton "do all recs · full rights"):** folded three more into PR #413 →
+> **E4 durable color tags** (`e76da578` — definitions move to the server `/api/color-tags` →
+> `profilePath("color-tags.json")`, the U-F4 durable fix; localStorage demoted to a write-through sync cache
+> reconciled server-wins on mount; new `colorTagStore.sanitizeTags` unit-tested; +6 tests) · **Q4 LEYLINE
+> alias sweep** (`dbfe8851` — 31 legacy Aether-token usages → `--ley-*` across 5 components + the 37-line dead
+> alias block deleted; 0 refs verified before removal; MTGAssistant hand-hex was already fixed) · **D5** Garfield
+> doc refresh. Suite **7,750** · lint 0 · **still zero engine deltas** (`ab524e20` holds by construction). New
+> surface: `GET/PUT /api/color-tags`. **DEFERRED (deliberate):** D1 archive move (cosmetic + cross-doc
+> link-risk), D2 TODOS/ROADMAP delete (Colton's files), D3 mobile (parked on Colton), D4 tray-eyeball (manual
+> .exe). E2/E3 AI-tuning stays PARKED on evidence. **PR #413 now = P3+P7+P9+E4+Q4/D5 → v0.101.0 on Colton's
+> merge** (self-merge is harness-blocked; needs his click).
 >
 > ── prior release (below) ──
 > 🚀 **v0.100.0 RELEASED — 2026-07-04 (Cindy, Opus 4.8) — the full P5→K→release run, after the engine-tail pass below.**

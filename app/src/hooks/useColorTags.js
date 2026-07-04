@@ -3,20 +3,26 @@
 /**
  * useColorTags — the user's custom card color-tag set (Archidekt-style labels).
  *
- * A per-profile set of tags { id, name, color } that can be applied to cards
- * across decks and the Vault. Seeded with the familiar acquisition tags
- * (Have / Getting / Don't Have / Have wrong printing) plus an unset Default;
- * the user can create, rename, recolor, and delete their own. Persisted to
- * localStorage (local-first — no server round-trip), namespaced by the active
- * profile id (U-F4): per-card assignments live per-profile on the server, so
- * the definitions they reference must survive a profile switch too. STOPGAP —
- * the durable fix is server-side per-profile tag storage.
+ * A per-profile set of tags { id, name, color, behavior } that can be applied to
+ * cards across decks and the Vault. Seeded with the familiar acquisition tags
+ * (Have / Getting / Don't Have / Have wrong printing) plus an unset Default; the
+ * user can create, rename, recolor, and delete their own.
+ *
+ * STORAGE (E4 — the durable fix for U-F4): the SERVER is now the source of truth
+ * (`/api/color-tags` → profilePath("color-tags.json"), the same per-profile home
+ * as the per-card colorTagId assignments that reference these ids). localStorage
+ * is kept as a WRITE-THROUGH SYNC CACHE — it gives an instant, flash-free hydrate,
+ * an offline fallback, and the synchronous read `swapBehaviorTagIds()` needs. On
+ * mount we render the cache immediately, then reconcile with the server (server
+ * wins); a brand-new profile (server has nothing) migrates the local set up once.
+ * A profile switch reloads the window (useProfiles.switchTo), so this mount-time
+ * hydrate re-scopes automatically.
  *
  * Per-card assignment (which card has which tag) is stored separately on the
  * card/deck data; this hook only owns the tag definitions.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Legacy (pre-profiles) global key — kept as the migration source and as the
 // fallback namespace when no active-profile pointer exists.
@@ -86,11 +92,21 @@ function loadTags() {
   }
 }
 
+/** Write the tag set to the localStorage sync cache (best-effort; never throws). */
+function saveTagsToCache(tags) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey(), JSON.stringify(tags));
+  } catch {
+    // localStorage failures must not break the app.
+  }
+}
+
 /**
- * Ids of the user's swap-behavior tags, read straight from localStorage (no
- * hook / render needed). The chat hook calls this to tell Karn which cards the
- * user has flagged for replacement, since the server stores only colorTagId.
- * SSR-safe: returns [] when window/localStorage is unavailable.
+ * Ids of the user's swap-behavior tags, read from the localStorage sync CACHE (no
+ * hook / render / await needed). The chat hook calls this synchronously to tell
+ * Karn which cards the user flagged for replacement; the cache is kept current by
+ * the hook's write-through. SSR-safe: returns [] when localStorage is unavailable.
  */
 export function swapBehaviorTagIds() {
   return loadTags().filter(tag => tag.behavior === "swap").map(tag => tag.id);
@@ -104,22 +120,59 @@ function makeId() {
 export default function useColorTags() {
   const [tags, setTags] = useState(DEFAULT_COLOR_TAGS);
   const [loaded, setLoaded] = useState(false);
+  // Skip the very first write-through: it would just PUT the server's own tags
+  // straight back on hydrate. Real user edits (after load) always persist.
+  const skipNextPersist = useRef(false);
 
-  // Hydrate from localStorage after mount (avoids SSR/client mismatch).
+  // Hydrate: render the localStorage cache instantly (no flash), then reconcile
+  // with the server — server is the source of truth. A brand-new profile (server
+  // returns null) migrates the local set up once.
   useEffect(() => {
-    setTags(loadTags());
-    setLoaded(true);
+    const cached = loadTags();
+    setTags(cached);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/color-tags", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (Array.isArray(data.tags) && data.tags.length) {
+          // Server has this profile's tags → authoritative. Adopt + refresh cache;
+          // don't echo them straight back with a redundant PUT.
+          skipNextPersist.current = true;
+          setTags(data.tags);
+          saveTagsToCache(data.tags);
+        } else {
+          // Never saved for this profile → migrate the local/legacy/default set up.
+          // We just PUT it, so skip the persist the loaded-flip would otherwise trigger.
+          skipNextPersist.current = true;
+          fetch("/api/color-tags", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tags: cached }),
+          }).catch(() => {});
+        }
+      } catch {
+        // Offline / server down → the cache stands (local-first).
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  // Persist on change, but only after the initial hydrate so we never clobber
-  // saved tags with the defaults on first render.
+  // Persist on change (after the initial hydrate): write-through to the cache
+  // (keeps swapBehaviorTagIds current) AND to the server (durable). Both
+  // best-effort — a failed save never breaks the UI.
   useEffect(() => {
     if (!loaded) return;
-    try {
-      window.localStorage.setItem(storageKey(), JSON.stringify(tags));
-    } catch {
-      // localStorage failures must not break the app.
-    }
+    if (skipNextPersist.current) { skipNextPersist.current = false; return; }
+    saveTagsToCache(tags);
+    fetch("/api/color-tags", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags }),
+    }).catch(() => {});
   }, [tags, loaded]);
 
   const addTag = ({ name, color, behavior }) => {

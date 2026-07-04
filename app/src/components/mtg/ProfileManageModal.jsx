@@ -67,7 +67,7 @@ export default function ProfileManageModal({ profiles = [], activeId, onCreate, 
               onKeyDown={(e) => { if (e.key === "Enter") create(); }}
               placeholder="New profile name…"
               disabled={busy}
-              style={{ flex: 1, padding: "8px 10px", background: "var(--surface-container-lowest)", border: `1px solid ${LINE}`, borderRadius: 6, color: TEXT, fontFamily, fontSize: 13 }}
+              style={{ flex: 1, padding: "8px 10px", background: "var(--ley-surface-0)", border: `1px solid ${LINE}`, borderRadius: 6, color: TEXT, fontFamily, fontSize: 13 }}
             />
             <button onClick={create} disabled={busy || !name.trim()} className="btn btn-primary btn-sm">Create</button>
           </div>
@@ -80,7 +80,7 @@ export default function ProfileManageModal({ profiles = [], activeId, onCreate, 
               return (
                 <div key={p.id} style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8,
-                  background: "var(--surface-container-lowest)", border: `1px solid ${active ? "var(--ley-line-bright)" : LINE}`,
+                  background: "var(--ley-surface-0)", border: `1px solid ${active ? "var(--ley-line-bright)" : LINE}`,
                 }}>
                   <span style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: 13, fontWeight: 700, color: active ? "var(--ley-on-green)" : GOLD, background: active ? GOLD : "var(--ley-green-dim)" }}>
                     {(p.name.trim()[0] || "?").toUpperCase()}
