@@ -728,9 +728,9 @@ export default function MTGAssistant() {
   //   cfg              the active agent's theme — AGENTS[agent] (.color/.border/.dim)
   //   (the old sb()/pb() button-style helpers are gone — every button now
   //   composes from the global .btn classes in globals.css)
-  // Aether — near-black Material surfaces, electric-cyan hero accent, frosted
-  // glass panels, cool off-white text. Tokens mirror globals.css :root.
-  const BG="#050705",BG2="rgba(10,14,10,0.8)",BG3="rgba(8,11,8,0.6)",LINE="#2a3a2c",TEXT="#e6f0e6",MUTED="#a8bfaa",GOLD="#56d65d";
+  // LEYLINE tokens (fixes the last hand-hexed palette in the app — the
+  // styleguide's never-hand-hex rule; values were already the LEYLINE greens).
+  const BG="var(--ley-bg)",BG2="var(--ley-glass-strong)",BG3="var(--ley-glass)",LINE="var(--ley-line)",TEXT="var(--ley-text)",MUTED="var(--ley-text-dim)",GOLD="var(--ley-green)";
   const F="var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
   const deckActionPrompts = {
     jace: `Create a table-ready briefing for the active deck "${activeDeck?.name || "this deck"}". Explain the commander plan, early/mid/late game priorities, biggest rules or sequencing traps, and the 5 questions I should ask during a real game.\n\nDeck list:\n${serializeDeck(deckCards)}`,
@@ -800,6 +800,8 @@ export default function MTGAssistant() {
   const goHome = () => setArea("home");
   // The Proving Grounds' sub-surfaces (Academy / Sim / Pod Balance).
   const pickProvingGround = (id) => setCenterView(id);
+  // Cross-surface handoff: Pod Balance → Sim Center pre-seeded (wave Q9).
+  const [pendingSimSelection, setPendingSimSelection] = useState(null);
   // Agents home → straight into that agent's chat.
   const pickAgent = (key) => {
     setAgent(key);
@@ -1320,6 +1322,7 @@ export default function MTGAssistant() {
                   }))
                 }
                 onAddDeck={() => { setArea("agents"); setCenterView("import"); }}
+                onRunInSim={(sel) => { setPendingSimSelection(sel); setArea("proving"); setCenterView("sim"); }}
                 cfg={cfg}
                 fontFamily={F}
               />
@@ -1398,6 +1401,8 @@ export default function MTGAssistant() {
                 cfg={cfg}
                 colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}
+                initialSelection={pendingSimSelection}
+                onConsumeInitialSelection={() => setPendingSimSelection(null)}
               />
             ):centerView==="vault-home"?(
               <VaultHome onPick={setCenterView} fontFamily={F} />

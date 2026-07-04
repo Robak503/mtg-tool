@@ -32,6 +32,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { SeatSummaryTables } from "./SelfPlayPanel";
+
 const MAX_POD = 4;
 
 const AXES = [
@@ -91,7 +93,7 @@ function AxisBars({ axes }) {
   );
 }
 
-export default function PodBalanceView({ savedDecks = [], onSaveRating, onAddDeck, cfg, fontFamily }) {
+export default function PodBalanceView({ savedDecks = [], onSaveRating, onAddDeck, onRunInSim, cfg, fontFamily }) {
   const accent = cfg?.color || "var(--ley-green)";
 
   // ── Cross-profile picker list ──
@@ -108,6 +110,29 @@ export default function PodBalanceView({ savedDecks = [], onSaveRating, onAddDec
 
   // ── Comparison state ──
   const [compare, setCompare] = useState({ status: "idle", decks: [], comparison: null, error: null });
+  // P1 "Prove the Pod": real games over the compared decks via the existing
+  // /api/self-play; seatSummary (Wilson CIs) renders beside the static verdict.
+  const [prove, setProve] = useState({ status: "idle", summary: null, games: 0, error: null });
+
+  const provePod = async (deckIds) => {
+    if (!deckIds.length || prove.status === "running") return;
+    setProve({ status: "running", summary: null, games: 0, error: null });
+    try {
+      const resp = await fetch("/api/self-play", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckIds, allProfiles: true, scope: "pod", gamesPer: 20 }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setProve({ status: "error", summary: null, games: 0, error: body.error || "Self-play failed." });
+        return;
+      }
+      setProve({ status: "ready", summary: body.seatSummary || null, games: body.games ?? 0, error: null });
+    } catch (e) {
+      setProve({ status: "error", summary: null, games: 0, error: e.message });
+    }
+  };
 
   const savedById = useMemo(() => new Map(savedDecks.map((d) => [d.id, d])), [savedDecks]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -390,6 +415,50 @@ export default function PodBalanceView({ savedDecks = [], onSaveRating, onAddDec
                   <div style={{ marginTop: 4, fontSize: 10, color: "var(--ley-text-faint)" }}>
                     Bracket spread {compare.comparison.bracketSpread} · power spread {compare.comparison.powerSpread}
                   </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  onClick={() => provePod(compare.decks.map((d) => d.id).filter(Boolean))}
+                  disabled={prove.status === "running"}
+                  className="btn btn-secondary btn-sm"
+                  title="Run 20 real engine games over this pod and compare the empirical win rates to the ratings"
+                >
+                  {prove.status === "running" ? "Proving… (20 games)" : "Prove it — run 20 games"}
+                </button>
+                {onRunInSim && (
+                  <button
+                    onClick={() => onRunInSim({
+                      deckIds: compare.decks.map((d) => d.id).filter(Boolean),
+                      scope: "pod",
+                      mode: compare.decks.length === 2 ? "standard" : "commander",
+                    })}
+                    className="btn btn-ghost btn-sm"
+                    title="Open the Sim Center pre-loaded with this pod"
+                  >
+                    Run this pod in the Sim Center →
+                  </button>
+                )}
+              </div>
+              {prove.status === "error" && (
+                <div style={{ fontSize: 12, color: "var(--ley-red)" }}>{prove.error}</div>
+              )}
+              {prove.status === "ready" && (
+                <div style={{ padding: "12px 14px", borderRadius: "var(--r-md)", background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-green)", textTransform: "uppercase", letterSpacing: "0.14em" }}>
+                    Proven over {prove.games} games
+                  </div>
+                  <SeatSummaryTables summary={prove.summary} />
+                  {prove.summary?.byDeck && (
+                    <div style={{ fontSize: 11, color: "var(--ley-text-dim)", lineHeight: 1.6 }}>
+                      {compare.decks.map((d) => {
+                        const e = prove.summary.byDeck[d.name];
+                        if (!e) return null;
+                        return <span key={d.id || d.name} style={{ marginRight: 14 }}>{d.name}: rated {d.powerLevel} · wins {Math.round(e.winRate * 100)}%</span>;
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
