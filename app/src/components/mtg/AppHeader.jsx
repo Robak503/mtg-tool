@@ -24,7 +24,6 @@ export default function AppHeader({
   openUpdates,
   openSettings,
   appVersion,
-  pb,
   colors,
   fontFamily,
   profiles,
@@ -160,26 +159,27 @@ export default function AppHeader({
             })}
           </div>
         )}
-        {!mobile&&!rightOpen&&<button onClick={()=>setRightOpen(true)} style={pb(false,true)}>Show Panel</button>}
+        {!mobile&&!rightOpen&&<button onClick={()=>setRightOpen(true)} className="btn btn-secondary btn-sm">Show Panel</button>}
         {agent==="arbiter"&&(
           <button
             onClick={()=>setFastMode(!fastMode)}
             title={fastMode?"Fast: compressed prompt, lower cost, slight accuracy drop":"Full: complete engine prompt, max accuracy"}
-            style={{...pb(false,true),background:fastMode?"var(--ley-green-dim)":"transparent"}}
+            className="btn btn-secondary btn-sm"
+            style={{background:fastMode?"var(--ley-green-dim)":undefined}}
           >
             {fastMode?"Fast":"Full"}
           </button>
         )}
         {!mobile&&(
           <>
-            {deckLock&&<button onClick={unlockDeck} style={pb(false,true)}>Unlock Deck</button>}
-            <button onClick={exportChat} style={pb(false,true)}>Export Chat</button>
-            <button onClick={clearChat} style={pb(false,true)}>Clear Chat</button>
+            {deckLock&&<button onClick={unlockDeck} className="btn btn-secondary btn-sm">Unlock Deck</button>}
+            <button onClick={exportChat} className="btn btn-secondary btn-sm">Export Chat</button>
+            <button onClick={clearChat} className="btn btn-secondary btn-sm">Clear Chat</button>
             {openUpdates && (
               <button
                 onClick={openUpdates}
                 title="Refresh card data, combos, and salt scores from official sources"
-                style={pb(false,true)}
+                className="btn btn-secondary btn-sm"
               >
                 ⟳ Updates
               </button>
@@ -188,7 +188,7 @@ export default function AppHeader({
               <button
                 onClick={openSettings}
                 title="Settings — models, privacy, data, and about"
-                style={pb(false,true)}
+                className="btn btn-secondary btn-sm"
               >
                 ⚙ Settings
               </button>

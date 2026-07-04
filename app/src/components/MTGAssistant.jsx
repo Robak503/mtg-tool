@@ -715,18 +715,12 @@ export default function MTGAssistant() {
   //   GOLD             accent color
   //   F                serif font-family stack
   //   cfg              the active agent's theme — AGENTS[agent] (.color/.border/.dim)
-  //   sb(outline)      "select button" style object (the sidebar list buttons)
-  //   pb(primary, sm)  "primary button" style object (primary = filled, sm = small)
+  //   (the old sb()/pb() button-style helpers are gone — every button now
+  //   composes from the global .btn classes in globals.css)
   // Aether — near-black Material surfaces, electric-cyan hero accent, frosted
   // glass panels, cool off-white text. Tokens mirror globals.css :root.
   const BG="#050705",BG2="rgba(10,14,10,0.8)",BG3="rgba(8,11,8,0.6)",LINE="#2a3a2c",TEXT="#e6f0e6",MUTED="#a8bfaa",GOLD="#56d65d";
   const F="var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  // LEYLINE: system chrome is always green — agent identity colors live only on
-  // identity elements (agent rows, chat bubbles), never on system buttons.
-  // Geometry mirrors globals.css .btn-primary/.btn-secondary so migrating a
-  // call site to the classes is visually a no-op.
-  const sb=(outline)=>({width:"100%",padding:"9px 10px",borderRadius:8,fontFamily:F,fontSize:11,fontWeight:600,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:"var(--ley-line-bright)"}`,background:outline?"rgba(255,255,255,0.02)":"var(--ley-green-dim)",color:outline?MUTED:GOLD,transition:"border-color .1s,background .1s,color .1s"});
-  const pb=(primary,sm)=>({padding:sm?"6px 12px":"10px 16px",borderRadius:sm?6:10,fontFamily:F,fontSize:sm?11:13,fontWeight:600,cursor:"pointer",border:`1px solid ${primary?"var(--ley-green-bright)":"var(--ley-line-bright)"}`,background:primary?"linear-gradient(180deg, var(--ley-green) 0%, var(--ley-green-deep) 100%)":"rgba(255,255,255,0.03)",color:primary?"var(--ley-on-green)":GOLD,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?"0 0 14px var(--ley-green-glow), inset 0 1px 0 rgba(255,255,255,0.25)":"inset 0 1px 0 rgba(255,255,255,0.04)",transition:"border-color .1s,background .1s,color .1s,box-shadow .16s"});
   const deckActionPrompts = {
     jace: `Create a table-ready briefing for the active deck "${activeDeck?.name || "this deck"}". Explain the commander plan, early/mid/late game priorities, biggest rules or sequencing traps, and the 5 questions I should ask during a real game.\n\nDeck list:\n${serializeDeck(deckCards)}`,
     karn: `Create a commander-focused upgrade plan for the active deck "${activeDeck?.name || "this deck"}". Give me: core game plan, role balance, 10 strongest cuts, 10 strongest adds, mana/ramp fixes, interaction/protection fixes, and a short testing plan. Make it useful to save as deck memory.`,
@@ -828,7 +822,6 @@ export default function MTGAssistant() {
         openUpdates={() => setShowUpdates(true)}
         openSettings={() => setShowSettings(true)}
         appVersion={appVersion}
-        pb={pb}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
         profiles={profilesApi.profiles}
@@ -1176,7 +1169,6 @@ export default function MTGAssistant() {
             clearChat={clearChat}
             unloadActiveDeck={unloadActiveDeck}
             openPodBalance={() => setShowPodBalance(true)}
-            sb={sb}
             colors={{BG2, LINE, MUTED, TEXT, GOLD}}
             fontFamily={F}
           />
@@ -1238,8 +1230,7 @@ export default function MTGAssistant() {
             {centerView==="import"?(
               <ImportDeckView
                 cfg={cfg}
-                pb={pb}
-                colors={{BG, BG3, LINE, TEXT, MUTED, GOLD}}
+                        colors={{BG, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}
                 deckName={deckName}
                 setDeckName={setDeckName}
@@ -1281,8 +1272,7 @@ export default function MTGAssistant() {
                 loadDeckData={loadDeckData}
                 mainCount={mainCount}
                 mobile={mobile}
-                pb={pb}
-                prepArbiterQuestion={prepArbiterQuestion}
+                        prepArbiterQuestion={prepArbiterQuestion}
                 recordGame={recordGame}
                 runGoldfish={runGoldfish}
                 saveLatestAgentReply={saveLatestAgentReply}
@@ -1363,8 +1353,7 @@ export default function MTGAssistant() {
           loadCombos={loadCombos}
           loadDeckData={loadDeckData}
           mobile={mobile}
-          pb={pb}
-          previewCard={previewCard}
+            previewCard={previewCard}
           priceInfo={priceInfo}
           rightTab={rightTab}
           searchLoad={searchLoad}

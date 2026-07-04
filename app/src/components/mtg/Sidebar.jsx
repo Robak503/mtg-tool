@@ -28,7 +28,6 @@ export default function Sidebar({
   clearChat,
   unloadActiveDeck,
   openPodBalance,
-  sb,
   colors,
   fontFamily,
 }) {
@@ -201,19 +200,19 @@ export default function Sidebar({
         {!filteredDecks.length&&(
           <div style={{fontSize:11,color:MUTED,lineHeight:1.4,padding:"4px 0 8px"}}>No saved decks match that filter.</div>
         )}
-        <button style={sb(false)} onClick={()=>{setCenterView("import");if(mobile)setMobileTab("chat");}}>+ Import Deck</button>
-        <button style={sb(true)} onClick={exportDeckLibrary}>Export Library</button>
-        <button style={sb(true)} onClick={backupLibrary}>Backup Library</button>
-        <button style={sb(true)} onClick={()=>libraryImportRef.current?.click()}>Import Library</button>
+        <button className="btn btn-primary btn-sm" style={{width:"100%",marginBottom:4}} onClick={()=>{setCenterView("import");if(mobile)setMobileTab("chat");}}>+ Import Deck</button>
+        <button className="btn btn-ghost btn-sm" style={{width:"100%",marginBottom:4}} onClick={exportDeckLibrary}>Export Library</button>
+        <button className="btn btn-ghost btn-sm" style={{width:"100%",marginBottom:4}} onClick={backupLibrary}>Backup Library</button>
+        <button className="btn btn-ghost btn-sm" style={{width:"100%",marginBottom:4}} onClick={()=>libraryImportRef.current?.click()}>Import Library</button>
         <input ref={libraryImportRef} type="file" accept="application/json,.json" onChange={importLibrary} style={{display:"none"}} />
         {libraryStatus&&(
           <div style={{fontSize:10,color:MUTED,lineHeight:1.35,padding:"2px 0 6px"}}>{libraryStatus}</div>
         )}
         {activeDeckId&&(
           <>
-            <button style={sb(true)} onClick={()=>{setCenterView("deck");if(mobile)setMobileTab("chat");}}>View Deck</button>
-            <button style={sb(true)} onClick={exportDeck}>Export .txt</button>
-            <button style={sb(true)} onClick={unloadActiveDeck}>Unload Deck</button>
+            <button className="btn btn-ghost btn-sm" style={{width:"100%",marginBottom:4}} onClick={()=>{setCenterView("deck");if(mobile)setMobileTab("chat");}}>View Deck</button>
+            <button className="btn btn-ghost btn-sm" style={{width:"100%",marginBottom:4}} onClick={exportDeck}>Export .txt</button>
+            <button className="btn btn-ghost btn-sm" style={{width:"100%",marginBottom:4}} onClick={unloadActiveDeck}>Unload Deck</button>
           </>
         )}
         </>)}
@@ -221,8 +220,8 @@ export default function Sidebar({
 
       {mobile&&(
         <div style={{marginTop:"auto",display:"flex",flexDirection:"column",gap:5}}>
-          <button style={sb(true)} onClick={exportChat}>Export Chat</button>
-          <button style={sb(true)} onClick={clearChat}>Clear Chat</button>
+          <button className="btn btn-ghost btn-sm" style={{width:"100%"}} onClick={exportChat}>Export Chat</button>
+          <button className="btn btn-ghost btn-sm" style={{width:"100%"}} onClick={clearChat}>Clear Chat</button>
         </div>
       )}
     </div>

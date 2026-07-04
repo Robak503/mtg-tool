@@ -95,7 +95,6 @@ export default function RightPanel({
   loadCombos,
   loadDeckData,
   mobile,
-  pb,
   previewCard,
   priceInfo,
   rightTab,
@@ -173,7 +172,7 @@ export default function RightPanel({
                         <div style={{textAlign:"center",color:MUTED,fontSize:12,padding:20}}>Import a deck to see analytics.</div>
                       ):!hasData?(
                         <div style={{textAlign:"center",padding:20}}>
-                          <button onClick={loadDeckData} disabled={deckDataLoad} style={{...pb(true),opacity:deckDataLoad?.5:1}}>{deckDataLoad?"Loading...":"Load Analytics"}</button>
+                          <button onClick={loadDeckData} disabled={deckDataLoad} className={`btn btn-primary btn-sm${deckDataLoad?" btn-loading":""}`}>{deckDataLoad?"Loading...":"Load Analytics"}</button>
                           {deckDataLoad&&<div style={{fontSize:11,color:MUTED,marginTop:8}}>Fetching card data from Scryfall...</div>}
                         </div>
                       ):(
@@ -211,7 +210,7 @@ export default function RightPanel({
                         <div style={{color:MUTED,fontSize:12}}>Import a deck to check legality.</div>
                       ):!hasData?(
                         <div style={{textAlign:"center"}}>
-                          <button onClick={loadDeckData} disabled={deckDataLoad} style={{...pb(true),opacity:deckDataLoad?.5:1}}>{deckDataLoad?"Checking...":"Check Legality"}</button>
+                          <button onClick={loadDeckData} disabled={deckDataLoad} className={`btn btn-primary btn-sm${deckDataLoad?" btn-loading":""}`}>{deckDataLoad?"Checking...":"Check Legality"}</button>
                         </div>
                       ):legalIssues.length===0?(
                         <div style={{padding:"10px 12px",borderRadius:6,background:"rgba(74,155,106,0.1)",border:"1px solid rgba(74,155,106,0.3)",color:"#4a9b6a",fontSize:13}}>
@@ -264,7 +263,7 @@ export default function RightPanel({
                         <div style={{textAlign:"center",color:MUTED,fontSize:12,padding:20}}>Import a deck to find combos.</div>
                       ):!comboData?(
                         <div style={{textAlign:"center",padding:20}}>
-                          <button onClick={loadCombos} disabled={comboLoad} style={{...pb(true),opacity:comboLoad?.5:1}}>{comboLoad?"Finding...":"Find Combos"}</button>
+                          <button onClick={loadCombos} disabled={comboLoad} className={`btn btn-primary btn-sm${comboLoad?" btn-loading":""}`}>{comboLoad?"Finding...":"Find Combos"}</button>
                           <div style={{fontSize:11,color:MUTED,marginTop:8}}>Searches your local Commander Spellbook data.</div>
                         </div>
                       ):comboData.ready===false?(
