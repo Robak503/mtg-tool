@@ -20,11 +20,18 @@ summarizes the notable changes.
 - **Puzzle mode** — capture any live position in the Academy as a puzzle
   ("Save as puzzle"), then load it later from the Puzzles list and try to solve it.
   The v1 goal is win-this-turn — find the line before the turn passes (P9).
+- **Durable color tags** — your custom card color-tag definitions now live with your
+  profile on disk instead of only in the browser, so they survive a reinstall and
+  follow the profile (E4).
 
 ### Fixed
 - **Table Records log** — a finished game's log now renders as readable play-by-play
   (it previously showed "[object Object]"), and each record keeps the full narrated
   tail rather than only the last few lines (P7).
+
+### Changed
+- Internal: swept the last legacy Aether design-token aliases to the LEYLINE
+  `--ley-*` set and removed the dead alias block; no visual change (Q4).
 
 ## [0.100.0] - 2026-07-04
 
