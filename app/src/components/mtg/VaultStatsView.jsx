@@ -113,6 +113,17 @@ export default function VaultStatsView({ colors, fontFamily, onGoToCollection })
             <BarList rows={rarityRows.filter((r) => r.key !== "unknown")} colors={colors} useSwatch />
           </div>
         )}
+        {/* Cost basis (V10) */}
+        {b.costBasis && (
+          <div style={card}>
+            <div style={h}>Cost basis <span style={{ textTransform: "none", letterSpacing: 0, color: "var(--ley-text-faint)" }}>({b.costBasis.rows} priced buy{b.costBasis.rows === 1 ? "" : "s"})</span></div>
+            <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+              <Stat label="Paid" value={money(b.costBasis.paid)} color={TEXT} />
+              <Stat label="Now worth" value={money(b.costBasis.current)} color={GOLD} />
+              <Stat label={b.costBasis.unrealized >= 0 ? "Unrealized gain" : "Unrealized loss"} value={money(Math.abs(b.costBasis.unrealized))} color={b.costBasis.unrealized >= 0 ? "var(--ley-green)" : colors.RED} />
+            </div>
+          </div>
+        )}
         {/* By finish (V12) */}
         {b.byFinish && (b.byFinish.nonfoil + b.byFinish.foil + b.byFinish.etched) > 0 && (
           <div style={card}>

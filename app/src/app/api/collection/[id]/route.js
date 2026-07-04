@@ -109,6 +109,7 @@ export async function PATCH(request, ctx) {
           finish: s.finish,
           quantity: s.quantity,
           condition: s.condition === undefined ? null : s.condition,
+          ...(s.paidUsd != null ? { paidUsd: s.paidUsd } : {}),
         }));
       }
       if ("notes" in body) {

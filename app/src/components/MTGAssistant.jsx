@@ -753,6 +753,7 @@ export default function MTGAssistant() {
   // K1: the local card inspector — clicking any card opens this instead of
   // bouncing to scryfall.com. onAskJace prefills the composer with a question.
   const [inspectedCard, setInspectedCard] = useState(null);
+  const [pendingLearnDeckId, setPendingLearnDeckId] = useState(null); // P6 Academy handoff
   const inspectCard = (name) => { if (name) setInspectedCard(name); };
   // K6: Ctrl/⌘+K command palette.
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -1468,6 +1469,7 @@ export default function MTGAssistant() {
               <DeckView
                 activeDeck={activeDeck}
                 onInspectCard={inspectCard}
+                onPractice={(deckId) => { setActiveDeckId(deckId); setPendingLearnDeckId(deckId); setArea("proving"); setCenterView("learn"); }}
                 agentNotes={agentNotes}
                 askDeckAgent={askDeckAgent}
                 bg={BG}
@@ -1514,6 +1516,8 @@ export default function MTGAssistant() {
             ):centerView==="learn"?(
               <LearnView
                 savedDecks={savedDecks}
+                initialUserDeckId={pendingLearnDeckId}
+                onConsumeInitialDeck={() => setPendingLearnDeckId(null)}
                 cfg={cfg}
                 colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}
