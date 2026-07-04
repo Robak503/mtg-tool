@@ -45,7 +45,7 @@ function AxisBars({ axes, colors }) {
 }
 
 export default function PodBalanceModal({ onClose, decks = [], colors, fontFamily }) {
-  const { BG2, BG3, LINE, TEXT, MUTED, GOLD, RED = "#c84848" } = colors;
+  const { BG3, LINE, TEXT, MUTED, GOLD, RED = "var(--ley-red)" } = colors;
   const F = fontFamily;
   const [selected, setSelected] = useState(() => new Set());
   const [state, setState] = useState({ status: "idle", decks: [], comparison: null, error: null });
@@ -81,24 +81,25 @@ export default function PodBalanceModal({ onClose, decks = [], colors, fontFamil
   };
 
   const verdictColor = state.comparison
-    ? (state.comparison.severity === "lopsided" ? RED : state.comparison.severity === "balanced" ? "#4a9b6a" : GOLD)
+    ? (state.comparison.severity === "lopsided" ? RED : state.comparison.severity === "balanced" ? "var(--ley-green)" : GOLD)
     : MUTED;
 
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ width: 640, maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 80px)", background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, display: "flex", flexDirection: "column", color: TEXT, fontFamily: F }}
+        className="ley-glass-strong ley-glass-lit"
+        style={{ width: 640, maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 80px)", display: "flex", flexDirection: "column", color: TEXT, fontFamily: F }}
       >
         <header style={{ padding: "14px 18px", borderBottom: `1px solid ${LINE}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: GOLD }}>Pod Balance</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 600, color: GOLD }}>Pod Balance</div>
             <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Compare up to 4 decks&apos; official bracket, power, and Game Changers.</div>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="btn btn-ghost btn-icon btn-sm">×</button>
         </header>
 
         <div style={{ overflowY: "auto", padding: "12px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -118,9 +119,10 @@ export default function PodBalanceModal({ onClose, decks = [], colors, fontFamil
                     key={deck.id}
                     onClick={() => toggle(deck.id)}
                     disabled={!on && selected.size >= 4}
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 5, border: `1px solid ${on ? GOLD : LINE}`, background: on ? "rgba(204,138,56,0.12)" : "transparent", color: TEXT, cursor: (!on && selected.size >= 4) ? "default" : "pointer", textAlign: "left", fontFamily: "inherit", opacity: (!on && selected.size >= 4) ? 0.45 : 1 }}
+                    className="ley-row"
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 5, borderColor: on ? "var(--ley-green)" : "transparent", background: on ? "var(--ley-green-dim)" : "transparent", color: TEXT, cursor: (!on && selected.size >= 4) ? "default" : "pointer", textAlign: "left", fontFamily: "inherit", opacity: (!on && selected.size >= 4) ? 0.45 : 1 }}
                   >
-                    <span style={{ width: 14, height: 14, borderRadius: 3, border: `1px solid ${on ? GOLD : MUTED}`, background: on ? GOLD : "transparent", color: "#1a1626", fontSize: 11, lineHeight: "13px", textAlign: "center", flexShrink: 0 }}>{on ? "✓" : ""}</span>
+                    <span style={{ width: 14, height: 14, borderRadius: 3, border: `1px solid ${on ? "var(--ley-green)" : MUTED}`, background: on ? "var(--ley-green)" : "transparent", color: "var(--ley-on-green)", fontSize: 11, lineHeight: "13px", textAlign: "center", flexShrink: 0 }}>{on ? "✓" : ""}</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{deck.name}</span>
                       <span style={{ display: "block", fontSize: 10, color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{commander || "No commander"} · {cardCount} cards</span>
@@ -132,14 +134,15 @@ export default function PodBalanceModal({ onClose, decks = [], colors, fontFamil
             <button
               onClick={run}
               disabled={!selected.size || state.status === "loading"}
-              style={{ marginTop: 10, width: "100%", padding: "9px 0", borderRadius: 6, border: "none", background: selected.size ? GOLD : LINE, color: selected.size ? "#1a1626" : MUTED, fontWeight: 600, fontSize: 13, cursor: selected.size ? "pointer" : "default", fontFamily: "inherit" }}
+              className="btn btn-primary"
+              style={{ marginTop: 10, width: "100%" }}
             >
               {state.status === "loading" ? "Ranking…" : `Compare ${selected.size || ""}`}
             </button>
           </div>
 
           {state.status === "error" && (
-            <div style={{ padding: "10px 12px", borderRadius: 6, background: "rgba(190,50,40,0.1)", border: "1px solid rgba(190,50,40,0.3)", color: RED, fontSize: 12, lineHeight: 1.5 }}>{state.error}</div>
+            <div style={{ padding: "10px 12px", borderRadius: 6, background: "var(--ley-red-dim)", border: "1px solid var(--ley-red)", color: RED, fontSize: 12, lineHeight: 1.5 }}>{state.error}</div>
           )}
 
           {state.status === "ready" && state.comparison && (
@@ -156,7 +159,7 @@ export default function PodBalanceModal({ onClose, decks = [], colors, fontFamil
                 <span style={{ fontSize: 13, fontWeight: 600, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{deck.name}</span>
                 <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 11, color: MUTED }}>power {deck.powerLevel}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#1a1626", background: BRACKET_COLOR[deck.bracket] || GOLD, borderRadius: 4, padding: "2px 7px" }}>B{deck.bracket} · {deck.bracketLabel}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ley-on-green)", background: BRACKET_COLOR[deck.bracket] || GOLD, borderRadius: 4, padding: "2px 7px" }}>B{deck.bracket} · {deck.bracketLabel}</span>
                 </span>
               </div>
               <AxisBars axes={deck.axes} colors={colors} />

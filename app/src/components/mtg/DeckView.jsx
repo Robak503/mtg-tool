@@ -3,16 +3,17 @@
  * centerView === "deck"): the commander + 99 list, deck stats, the agent deck
  * notes, the Garfield goldfish (solo playtest) controls, and game recording.
  *
- * Aether redesign: a glass-panel dashboard — a Playfair ribbon header, stat
- * cards, a 12-col grid (deck identity + decklist), then glass module panels.
- * All handlers, props, and API calls are unchanged from the prior version;
- * only the layout/visual treatment differs.
+ * LEYLINE redesign: a glass-panel dashboard — a display-font ribbon header,
+ * stat cards, a 12-col grid (deck identity + decklist), then glass module
+ * panels. All handlers, props, and API calls are unchanged from the prior
+ * version; only the layout/visual treatment differs.
  *
  * The terse style props are the shared vocabulary documented in
  * MTGAssistant.jsx:
  *   bg / bg3   background shades        cfg          active agent theme object
  *   colors     palette object          fontFamily   body font-family (Inter)
- *   pb         primary-button style fn  setTooltip   card hover-preview setter
+ *   pb         legacy button style fn (unused here — buttons use .btn classes)
+ *   setTooltip card hover-preview setter
  */
 import { AGENTS } from "../../lib/agents";
 import { useMemo, useState, useEffect } from "react";
@@ -241,14 +242,14 @@ export default function DeckView({
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             {activeDeck && (
               <>
-                <button onClick={() => askDeckAgent("karn", deckActionPrompts.karn)} disabled={sending} style={{ ...pb(true, true), background: AGENTS.karn.color, color: "#0c0b0a" }}>Karn Upgrade Plan</button>
-                <button onClick={() => askDeckAgent("tibalt", deckActionPrompts.tibalt)} disabled={sending} style={{ ...pb(true, true), background: AGENTS.tibalt.color, color: "#0c0b0a" }}>Tibalt Roast</button>
-                <button onClick={() => askDeckAgent("jace", deckActionPrompts.jace)} disabled={sending} style={{ ...pb(true, true), background: AGENTS.jace.color, color: "#0c0b0a" }}>Jace Table Briefing</button>
-                <button onClick={prepArbiterQuestion} style={pb(false, true)}>Prep Arbiter Question</button>
+                <button onClick={() => askDeckAgent("karn", deckActionPrompts.karn)} disabled={sending} className="btn btn-secondary btn-sm" style={{ borderColor: AGENTS.karn.color, color: AGENTS.karn.color }}>Karn Upgrade Plan</button>
+                <button onClick={() => askDeckAgent("tibalt", deckActionPrompts.tibalt)} disabled={sending} className="btn btn-secondary btn-sm" style={{ borderColor: AGENTS.tibalt.color, color: AGENTS.tibalt.color }}>Tibalt Roast</button>
+                <button onClick={() => askDeckAgent("jace", deckActionPrompts.jace)} disabled={sending} className="btn btn-secondary btn-sm" style={{ borderColor: AGENTS.jace.color, color: AGENTS.jace.color }}>Jace Table Briefing</button>
+                <button onClick={prepArbiterQuestion} className="btn btn-secondary btn-sm">Prep Arbiter Question</button>
               </>
             )}
-            <button onClick={() => setCenterView("chat")} style={pb(true, true)}>Chat</button>
-            <button onClick={exportDeck} style={pb(false, true)}>Export</button>
+            <button onClick={() => setCenterView("chat")} className="btn btn-primary btn-sm">Chat</button>
+            <button onClick={exportDeck} className="btn btn-secondary btn-sm">Export</button>
           </div>
         </div>
       </div>
@@ -273,7 +274,7 @@ export default function DeckView({
           {deckCost && (
             <div style={{ fontSize: 12, color: MUTED, marginBottom: 14, lineHeight: 1.5 }}>
               {deckCost.complete
-                ? <span style={{ color: "#6fbf73" }}>✓ You own every card in this deck ({deckCost.ownedCards}/{deckCost.totalCards}).</span>
+                ? <span style={{ color: "var(--ley-green)" }}>✓ You own every card in this deck ({deckCost.ownedCards}/{deckCost.totalCards}).</span>
                 : <>From your collection: own <strong style={{ color: TEXT }}>{deckCost.ownedCards}/{deckCost.totalCards}</strong> ({deckCost.ownedPct}%) · <strong style={{ color: CY }}>${deckCost.costToFinish.toFixed(2)}</strong> to finish{deckCost.unpricedCount > 0 ? ` (+${deckCost.unpricedCount} unpriced)` : ""}</>}
             </div>
           )}
@@ -335,7 +336,7 @@ export default function DeckView({
                         {g} ({grp.reduce((s, c) => s + c.qty, 0)})
                       </div>
                       {grp.map((c, i) => (
-                        <div key={i} className="aether-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
+                        <div key={i} className="ley-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
                           onMouseEnter={e => handleChipHover(c.name, e)} onMouseLeave={() => setTooltip(null)}
                           onClick={() => window.open(`https://scryfall.com/search?q=${encodeURIComponent('"' + c.name + '"')}`, "_blank")}>
                           <span style={{ fontFamily: FM, color: MUTED, fontSize: 12, width: 22, textAlign: "center", flexShrink: 0 }}>{c.qty}</span>
@@ -364,16 +365,16 @@ export default function DeckView({
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
                     <span style={{ fontFamily: FM, fontSize: 12, color: AGENTS[ak].color, fontWeight: 600 }}>{AGENTS[ak].name}</span>
                     <button onClick={() => saveLatestAgentReply(ak)} disabled={!histories[ak]?.some(m => m.role === "assistant")}
-                      style={{ ...pb(false, true), marginLeft: "auto", fontSize: 10, padding: "4px 7px", opacity: histories[ak]?.some(m => m.role === "assistant") ? 1 : 0.45 }}>
+                      className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }}>
                       Save Latest
                     </button>
                     {(ak === "karn" || ak === "tibalt") && (
                       <button onClick={() => saveLatestAgentArtifact(ak)} disabled={!histories[ak]?.some(m => m.role === "assistant")}
-                        style={{ ...pb(false, true), fontSize: 10, padding: "4px 7px", opacity: histories[ak]?.some(m => m.role === "assistant") ? 1 : 0.45 }}>
+                        className="btn btn-ghost btn-sm">
                         Save {ak === "karn" ? "Plan" : "Roast"}
                       </button>
                     )}
-                    <button onClick={() => updateAgentNote(ak, "")} style={{ ...pb(false, true), fontSize: 10, padding: "4px 7px" }}>Clear</button>
+                    <button onClick={() => updateAgentNote(ak, "")} className="btn btn-ghost btn-sm">Clear</button>
                   </div>
                   <textarea value={agentNotes[ak] || ""} onChange={e => updateAgentNote(ak, e.target.value)}
                     placeholder={placeholder}
@@ -447,9 +448,9 @@ export default function DeckView({
           <div style={panel}>
             <SectionHead title="Version History">
               {snapshots.length > 0 && (
-                <button onClick={() => setCompareOpen(o => !o)} style={{ ...pb(false, true), marginLeft: "auto", fontSize: 10, padding: "4px 8px", ...(compareOpen ? { borderColor: CY, color: CY } : {}) }}>{compareOpen ? "Hide compare" : "Compare"}</button>
+                <button onClick={() => setCompareOpen(o => !o)} className="btn btn-ghost btn-sm" style={{ marginLeft: "auto", ...(compareOpen ? { color: CY } : {}) }}>{compareOpen ? "Hide compare" : "Compare"}</button>
               )}
-              <button onClick={saveSnapshot} style={{ ...pb(false, true), marginLeft: snapshots.length > 0 ? 0 : "auto", fontSize: 10, padding: "4px 8px" }}>Save version</button>
+              <button onClick={saveSnapshot} className="btn btn-ghost btn-sm" style={{ marginLeft: snapshots.length > 0 ? 0 : "auto" }}>Save version</button>
             </SectionHead>
             {compareOpen && snapshots.length > 0 && (
               <div style={{ border: `1px solid var(--hairline)`, borderRadius: 6, padding: 8, marginBottom: 10, background: "var(--surface-container-lowest)" }}>
@@ -466,10 +467,10 @@ export default function DeckView({
                 </div>
                 {compareDiff && (
                   (compareDiff.added.length + compareDiff.removed.length + compareDiff.changed.length === 0)
-                    ? <div style={{ fontSize: 10, color: "#4a9b6a", marginTop: 7 }}>Identical — no card differences.</div>
+                    ? <div style={{ fontSize: 10, color: "var(--ley-green)", marginTop: 7 }}>Identical — no card differences.</div>
                     : <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.5, marginTop: 7 }}>
-                      {compareDiff.added.length > 0 && <div><span style={{ color: "#4a9b6a" }}>Added:</span> {compareDiff.added.map(c => `${c.qty}× ${c.name}`).join(", ")}</div>}
-                      {compareDiff.removed.length > 0 && <div><span style={{ color: "#c84848" }}>Removed:</span> {compareDiff.removed.map(c => `${c.qty}× ${c.name}`).join(", ")}</div>}
+                      {compareDiff.added.length > 0 && <div><span style={{ color: "var(--ley-green)" }}>Added:</span> {compareDiff.added.map(c => `${c.qty}× ${c.name}`).join(", ")}</div>}
+                      {compareDiff.removed.length > 0 && <div><span style={{ color: "var(--ley-red)" }}>Removed:</span> {compareDiff.removed.map(c => `${c.qty}× ${c.name}`).join(", ")}</div>}
                       {compareDiff.changed.length > 0 && <div><span style={{ color: CY }}>Qty changed:</span> {compareDiff.changed.map(c => `${c.name} ${c.from}→${c.to}`).join(", ")}</div>}
                     </div>
                 )}
@@ -486,7 +487,7 @@ export default function DeckView({
                     <span style={{ color: MUTED }}>{entry.snapshot?.mainCount} cards</span>
                     {drift && (changed
                       ? <span style={{ color: MUTED, marginLeft: "auto" }}>+{drift.added.length} / −{drift.removed.length} since</span>
-                      : <span style={{ color: "#4a9b6a", marginLeft: "auto" }}>unchanged</span>)}
+                      : <span style={{ color: "var(--ley-green)", marginLeft: "auto" }}>unchanged</span>)}
                   </summary>
                   <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.4, marginTop: 7 }}>
                     {entry.label && entry.reason && <div style={{ color: CY, marginBottom: 3 }}>{entry.reason}</div>}
@@ -495,16 +496,16 @@ export default function DeckView({
                   </div>
                   {changed && (
                     <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.45, marginTop: 5 }}>
-                      {drift.added.length > 0 && <div><span style={{ color: "#4a9b6a" }}>Added:</span> {drift.added.slice(0, 16).join(", ")}{drift.added.length > 16 ? ` +${drift.added.length - 16} more` : ""}</div>}
-                      {drift.removed.length > 0 && <div><span style={{ color: "#c84848" }}>Removed:</span> {drift.removed.slice(0, 16).join(", ")}{drift.removed.length > 16 ? ` +${drift.removed.length - 16} more` : ""}</div>}
+                      {drift.added.length > 0 && <div><span style={{ color: "var(--ley-green)" }}>Added:</span> {drift.added.slice(0, 16).join(", ")}{drift.added.length > 16 ? ` +${drift.added.length - 16} more` : ""}</div>}
+                      {drift.removed.length > 0 && <div><span style={{ color: "var(--ley-red)" }}>Removed:</span> {drift.removed.slice(0, 16).join(", ")}{drift.removed.length > 16 ? ` +${drift.removed.length - 16} more` : ""}</div>}
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 6, marginTop: 7 }}>
                     {isRestorable(entry)
-                      ? <button onClick={() => restoreSnapshot(entry)} style={{ ...pb(false, true), fontSize: 10, padding: "3px 7px", borderColor: "#6fbf73", color: "#6fbf73" }}>Restore</button>
+                      ? <button onClick={() => restoreSnapshot(entry)} className="btn btn-ghost btn-sm" style={{ color: "var(--ley-green)" }}>Restore</button>
                       : <span style={{ fontSize: 9, color: MUTED, alignSelf: "center" }} title="This older snapshot only stored a summary, not the full card list.">view-only</span>}
-                    <button onClick={() => relabel(entry)} style={{ ...pb(false, true), fontSize: 10, padding: "3px 7px" }}>Rename</button>
-                    <button onClick={() => deleteSnapshot(entry.id)} style={{ ...pb(false, true), fontSize: 10, padding: "3px 7px" }}>Delete</button>
+                    <button onClick={() => relabel(entry)} className="btn btn-ghost btn-sm">Rename</button>
+                    <button onClick={() => deleteSnapshot(entry.id)} className="btn btn-danger btn-sm">Delete</button>
                   </div>
                 </details>
               );
@@ -514,10 +515,10 @@ export default function DeckView({
           {/* ── Recommendations ── */}
           <div style={panel}>
             <SectionHead title="Recommendations" tag="local · free">
-              <button onClick={loadRecs} disabled={recsLoading || !deckCards.length} style={{ ...pb(false, true), marginLeft: "auto", fontSize: 10, padding: "4px 8px", opacity: (recsLoading || !deckCards.length) ? 0.5 : 1 }}>{recsLoading ? "Analyzing…" : (recs ? "Refresh" : "Get recommendations")}</button>
+              <button onClick={loadRecs} disabled={recsLoading || !deckCards.length} className="btn btn-secondary btn-sm" style={{ marginLeft: "auto" }}>{recsLoading ? "Analyzing…" : (recs ? "Refresh" : "Get recommendations")}</button>
             </SectionHead>
             {!recs && !recsLoading && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.45 }}>Deterministic add/cut suggestions from your local data — role gaps filled with color-legal staples, one-card-away combos, and weak/salty cut candidates. No API cost.</div>}
-            {recs && recs.ready === false && <div style={{ fontSize: 11, color: "#c84848", lineHeight: 1.45 }}>{recs.error}</div>}
+            {recs && recs.ready === false && <div style={{ fontSize: 11, color: "var(--ley-red)", lineHeight: 1.45 }}>{recs.error}</div>}
             {recs && recs.ready && (
               <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
                 <div style={{ fontSize: 11, color: MUTED }}>Bracket {recs.bracket} · power {recs.powerLevel}{recs.colors?.length ? ` · ${recs.colors.join("")}` : ""}{recs.confidence === "low" ? " · low confidence (unresolved cards)" : ""}</div>
@@ -571,14 +572,14 @@ export default function DeckView({
             <SectionHead title="Deck Report" tag="local · free">
               {report?.ready && (
                 <>
-                  <button onClick={() => setReportMode(reportMode === "full" ? "rule0" : "full")} style={{ ...pb(false, true), fontSize: 10, padding: "4px 8px" }}>{reportMode === "full" ? "Rule 0 card" : "Full report"}</button>
-                  <button onClick={copyReport} style={{ ...pb(false, true), fontSize: 10, padding: "4px 8px" }}>Copy</button>
+                  <button onClick={() => setReportMode(reportMode === "full" ? "rule0" : "full")} className="btn btn-ghost btn-sm">{reportMode === "full" ? "Rule 0 card" : "Full report"}</button>
+                  <button onClick={copyReport} className="btn btn-ghost btn-sm">Copy</button>
                 </>
               )}
-              <button onClick={loadReport} disabled={reportLoading || !deckCards.length} style={{ ...pb(false, true), marginLeft: "auto", fontSize: 10, padding: "4px 8px", opacity: (reportLoading || !deckCards.length) ? 0.5 : 1 }}>{reportLoading ? "Building…" : (report ? "Refresh" : "Generate report")}</button>
+              <button onClick={loadReport} disabled={reportLoading || !deckCards.length} className="btn btn-secondary btn-sm" style={{ marginLeft: "auto" }}>{reportLoading ? "Building…" : (report ? "Refresh" : "Generate report")}</button>
             </SectionHead>
             {!report && !reportLoading && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.45 }}>One complete local report — power &amp; bracket, roles, legality, combos, salt, cost-to-finish — plus a copy-paste Rule 0 pitch. No API cost.</div>}
-            {report && report.ready === false && <div style={{ fontSize: 11, color: "#c84848", lineHeight: 1.45 }}>{report.error}</div>}
+            {report && report.ready === false && <div style={{ fontSize: 11, color: "var(--ley-red)", lineHeight: 1.45 }}>{report.error}</div>}
             {report && report.ready && (
               <pre style={{ fontSize: 11, color: TEXT, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: FM, maxHeight: 360, overflowY: "auto", margin: 0 }}>{reportMode === "rule0" ? report.rule0 : report.markdown}</pre>
             )}
@@ -600,16 +601,16 @@ export default function DeckView({
               <textarea value={gameNotes} onChange={e => setGameNotes(e.target.value)} placeholder="What happened? Mana issues, key turns, cards that over/underperformed..."
                 style={{ ...fieldStyle, flex: 1, minHeight: 54, fontSize: 12, resize: "vertical", lineHeight: 1.45 }} />
               <button onClick={recordGame} disabled={!gameOpponents.trim() && !gameNotes.trim()}
-                style={{ ...pb(true, true), opacity: (!gameOpponents.trim() && !gameNotes.trim()) ? 0.45 : 1, whiteSpace: "nowrap" }}>Log Game</button>
+                className="btn btn-primary btn-sm" style={{ whiteSpace: "nowrap" }}>Log Game</button>
             </div>
             {(deckMemory.games || []).slice(0, 5).map(g => (
               <div key={g.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 0", borderTop: `1px solid var(--hairline-10)` }}>
-                <div style={{ width: 58, flexShrink: 0, color: g.result === "Win" ? "#4a9b6a" : g.result === "Loss" ? "#c84848" : CY, fontSize: 11, fontWeight: 700, fontFamily: FM }}>{g.result}</div>
+                <div style={{ width: 58, flexShrink: 0, color: g.result === "Win" ? "var(--ley-green)" : g.result === "Loss" ? "var(--ley-red)" : CY, fontSize: 11, fontWeight: 700, fontFamily: FM }}>{g.result}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.opponents || "Unspecified matchup"} <span style={{ color: MUTED }}>- {g.date}</span></div>
                   {g.notes && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>{g.notes}</div>}
                 </div>
-                <button onClick={() => deleteGame(g.id)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>x</button>
+                <button onClick={() => deleteGame(g.id)} aria-label="Delete game entry" className="btn btn-ghost btn-icon btn-sm">x</button>
               </div>
             ))}
           </div>
@@ -631,6 +632,14 @@ export default function DeckView({
         </>
       )}
 
+      {/* Empty state: no active deck and no raw deck cards loaded either */}
+      {!activeDeck && deckCards.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 20px", color: MUTED, fontSize: 13 }}>
+          <div style={{ marginBottom: 14 }}>No deck loaded yet — import one to see it here.</div>
+          <button onClick={() => setCenterView("import")} className="btn btn-primary btn-sm">+ Import Deck</button>
+        </div>
+      )}
+
       {/* Decklist when there's no active deck loaded (raw groups) */}
       {!activeDeck && deckCards.length > 0 && (
         ["Commander", "Mainboard", "Sideboard", "Tokens"].map(g => {
@@ -641,7 +650,7 @@ export default function DeckView({
                 {g} ({grp.reduce((s, c) => s + c.qty, 0)})
               </div>
               {grp.map((c, i) => (
-                <div key={i} className="aether-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
+                <div key={i} className="ley-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
                   onMouseEnter={e => handleChipHover(c.name, e)} onMouseLeave={() => setTooltip(null)}
                   onClick={() => window.open(`https://scryfall.com/search?q=${encodeURIComponent('"' + c.name + '"')}`, "_blank")}>
                   <span style={{ fontFamily: FM, color: MUTED, fontSize: 12, width: 22, textAlign: "center", flexShrink: 0 }}>{c.qty}</span>

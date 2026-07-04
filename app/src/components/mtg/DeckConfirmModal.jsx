@@ -28,7 +28,7 @@ export default function DeckConfirmModal({
   fontFamily,
 }) {
   if (!open) return null;
-  const { LINE, TEXT, MUTED } = colors;
+  const { TEXT, MUTED } = colors;
   const pickMode = !lock;
   const decks = savedDecks || [];
   const hasDecks = decks.length > 0;
@@ -41,9 +41,9 @@ export default function DeckConfirmModal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.62)",
-        backdropFilter: "blur(2px)",
-        WebkitBackdropFilter: "blur(2px)",
+        background: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
         zIndex: 1000,
         display: "flex",
         alignItems: "center",
@@ -52,14 +52,9 @@ export default function DeckConfirmModal({
       }}
     >
       <div
+        className="ley-glass-strong ley-glass-lit"
         style={{
           width: "min(460px, 94vw)",
-          background: "rgba(18,19,24,0.97)",
-          backdropFilter: "blur(18px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(18px) saturate(1.2)",
-          border: `1px solid ${cfg.border}`,
-          borderRadius: 14,
-          boxShadow: `0 30px 80px -20px rgba(0,0,0,0.8), inset 3px 0 0 ${cfg.color}`,
           padding: "20px 22px",
           display: "flex",
           flexDirection: "column",
@@ -67,7 +62,7 @@ export default function DeckConfirmModal({
           fontFamily,
         }}
       >
-        <div style={{ fontSize: 16, fontWeight: 700, color: cfg.color, letterSpacing: "0.02em" }}>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 700, color: cfg.color, letterSpacing: "0.02em" }}>
           🔒 {pickMode ? "Pick a deck for this chat" : "Confirm this chat’s deck"}
         </div>
         <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
@@ -86,7 +81,7 @@ export default function DeckConfirmModal({
               value={activeDeckId || lock?.id || ""}
               onChange={event => onSelectDeck && onSelectDeck(event.target.value)}
               style={{
-                background: "#1c1d24",
+                background: "var(--surface-container-lowest)",
                 color: TEXT,
                 border: `1px solid ${cfg.border}`,
                 borderRadius: 8,
@@ -115,53 +110,16 @@ export default function DeckConfirmModal({
         )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6, flexWrap: "wrap" }}>
-          <button
-            onClick={onNoDeck}
-            style={{
-              background: "transparent",
-              border: `1px solid ${LINE}`,
-              borderRadius: 7,
-              color: MUTED,
-              cursor: "pointer",
-              fontSize: 12.5,
-              padding: "8px 14px",
-              fontFamily,
-            }}
-          >
+          <button onClick={onNoDeck} className="btn btn-ghost">
             Chat without a deck
           </button>
           {onImport && (
-            <button
-              onClick={onImport}
-              style={{
-                background: "transparent",
-                border: `1px solid ${cfg.border}`,
-                borderRadius: 7,
-                color: cfg.color,
-                cursor: "pointer",
-                fontSize: 12.5,
-                padding: "8px 14px",
-                fontFamily,
-              }}
-            >
+            <button onClick={onImport} className="btn btn-ghost" style={{ color: cfg.color }}>
               Import a deck
             </button>
           )}
           {lock && (
-            <button
-              onClick={onConfirm}
-              style={{
-                background: cfg.color,
-                border: "none",
-                borderRadius: 7,
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 12.5,
-                fontWeight: 600,
-                padding: "8px 16px",
-                fontFamily,
-              }}
-            >
+            <button onClick={onConfirm} className="btn btn-primary">
               ✓ Confirm &amp; start
             </button>
           )}
