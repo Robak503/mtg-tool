@@ -8,7 +8,7 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
-## [0.96.0] - 2026-07-04
+## [0.99.0] - 2026-07-04
 
 Cards look like cards, and you record exactly the copy you own.
 
@@ -36,6 +36,37 @@ Cards look like cards, and you record exactly the copy you own.
   (by Scryfall id), not the first printing of that name.
 - Stack finish menus in the card drawer only offer finishes the row's
   printing exists as in paper.
+
+### Fixed
+- Scryfall's image CDN began rejecting requests without a User-Agent, which
+  broke fetching any not-yet-cached card image; both image proxies now
+  identify themselves. Already-cached images were unaffected.
+
+## [0.98.0] - 2026-07-04
+
+### Added
+- **Mulligan lab** — a deck-view trainer: deal a seeded opening 7, call keep or
+  ship, then see the engine's own verdict and your running agreement rate.
+
+## [0.97.0] - 2026-07-04
+
+### Added
+- **Matchup ledger** — Pod Balance now shows deck-vs-deck records built from
+  every self-play run: overall win rates plus a head-to-head heat table (row
+  deck's win rate vs each column deck). Fills in as you run self-play.
+
+## [0.96.0] - 2026-07-04
+
+### Added
+- **Pod ratings persist for the whole pod** — a machine power rating computed for
+  another player's deck in Pod Balance now saves into that deck's owning
+  profile, so it sticks across sessions instead of recomputing each time.
+
+## [0.95.1] - 2026-07-04
+
+Release cut at the backlog-push handoff — no app code change since 0.95.0
+(the delta is the WAKE-REPORT rotation + UPGRADE-BACKLOG STATUS handoff docs).
+Rolls up the full v0.89→v0.95 backlog push into one tagged build.
 
 ## [0.95.0] - 2026-07-04
 

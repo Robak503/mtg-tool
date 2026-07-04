@@ -11,6 +11,42 @@
 > Effort: S = hours · M = a day · L = days. Impact 1–5 (5 = Colton would love it).
 > Every item is LOCAL-FIRST — zero new external calls; bundled/user data only.
 
+## STATUS — 2026-07-04 close (the backlog push: v0.89.0 → v0.95.0, 8 releases)
+
+**SHIPPED** (✅ marks inline below): the whole Vault overhaul (V1-V9, V11, V12 — kiosk IA,
+Trophy Case, Gallery, value chart, atlas, combos, shopping list, finish analytics, binder,
+cost basis) · wave Q entirely (Q1-Q9 — Escape layer, powerRank surfaces+prompts, deck-ready
+moment, session filter, pod salt, seat tables, per-message actions, pod⇄sim) · P1 Prove-the-
+Pod + P2-core Table Records + P6 practice handoff · K1 card inspector · K2 Judge Trials ·
+K3 The Library · K6 command palette · K7 formatted chat · K8 continue strip. **Engine
+untouched across all 8 releases** (zero `app/src/lib/learn` deltas; trajectory a2a03ba8 ×
+many + tier fp 0-diff).
+
+**PARKED — needs a focused, evidence-first pass (NOT a rapid batch)**, with reasons:
+- **E1 earthbend-return** (CR 603.7 delayed trigger, retired-fp-ledger CAP): a real engine
+  correctness fix, bounded + CR-backed — but engine work needs the full battery + an
+  earthbend test corpus + tier flip-diff LOST=0 + a trajectory check. The next clean engine
+  win; do it fenced, don't rush it.
+- **E2 offered-X-subset · E3 AI alt-cost completion**: both INTENTIONALLY change AI behavior,
+  so they re-anchor the trajectory hash and REQUIRE play-quality A/B probe evidence
+  (PLAY-HARNESS-OVERHAUL-PLAYBOOK §2.1-2.2). Cannot be responsibly done without that evidence.
+- **E4 server-side color tags**: the localStorage version WORKS; rewriting a live hook that
+  the whole collection tag flow depends on is a regression risk — its own careful pass.
+- **E5 cross-profile rating persistence**: Colton's call (writing into another profile's
+  data is by-design blocked today).
+- **P3 debrief · P4 matchup ledger · P5 reality report · P8 mulligan lab**: each needs a
+  small ADDITIVE engine/harness export (recordDecisions passthrough, per-game sidecar rows,
+  the v1.1 act-opts bag, banked keep-rates) — additive, but touches selfPlayRunner/
+  learnSession, so full battery + verify the export doesn't move behavior.
+- **P7 spectate · P9 puzzle**: real projects — P7 needs the P2 replay viewer (not built);
+  P9 needs a live-session snapshot exporter + an interestingness heuristic.
+- **K4 tokens table kit · K5 combo detail pages**: schema + UI are ready to write, but the
+  DATA (oracle all_parts / Spellbook description) only lands at the next CI index/spellbook
+  sync — and K4 overlaps the existing deck Tokens section. Build alongside the next data pass.
+- **K9 flavor of the day**: no flavor-text source in the index (V5 dropped flavor from
+  scope); needs a builder field first.
+- **D docs hygiene**: the archive MOVE of already-bannered faculty/coverage docs (cosmetic).
+
 **Recommended execution order:** wave Q (one session, the whole app feels newer) → wave V
 (the Vault order, `memory/orders/vault-overhaul.md`) → P1–P2 (the records program — the
 open Q8 answer) → K by taste → E coordinated with the grind lane → D opportunistic.
@@ -142,7 +178,7 @@ summary here for the queue:
   options) via the v1.1 `act(...opts)` instrumentation bag through `/api/learn/step` +
   `/api/learn/choose`; at the existing result scrim: W/L, turns, mulligans, dead turns,
   divergence count + the 3 costliest divergences. Ships standalone; richer with P2.
-- **P4 · Pod Matchup Ledger** (M, 4) — persist compact per-game outcome rows in the run
+- ✅ v0.97.0 **P4 · Pod Matchup Ledger** (M, 4) — persist compact per-game outcome rows in the run
   sidecar (deckNames, winnerDeck via seat→name positional map, turns, seed — all in
   memory at write time, currently dropped), aggregate across sidecars into a matchup
   heat table (A's win rate in pods containing B; true head-to-head in Standard mode)
@@ -159,7 +195,7 @@ summary here for the queue:
 - **P7 · Spectate My Deck** (M, 4) — run ONE recorded self-play game featuring the active
   deck, play it back turn-by-turn in the P2 replay viewer with narration — "watch the
   engine pilot it". Depends on P2.
-- **P8 · Mulligan Lab** (M, 3) — seeded opening-7 keep/ship trainer vs the exported
+- ✅ v0.98.0 (deal + engine-verdict compare; banked keep-rate stats parked) **P8 · Mulligan Lab** (M, 3) — seeded opening-7 keep/ship trainer vs the exported
   `decideMulliganForAI` heuristic (`opponentAI.js:1579`); banked keep-rates ride P5's
   passthrough.
 - **P9 · Puzzle Mode — "find the line"** (L, 4) — mine self-play for decision points
@@ -222,7 +258,7 @@ summary here for the queue:
 - **E4 · U-F4 durable fix — server-side per-profile color tags** (M, 3) — replace the
   self-labeled localStorage STOPGAP in `useColorTags.js` with a small `/api/color-tags`
   per-profile store + one-time migration.
-- **E5 · Cross-profile rating persistence** (M, 4) — **Colton call first** (current
+- ✅ v0.96.0 (persists into the owning profile, per Colton's call) **E5 · Cross-profile rating persistence** (M, 4) — **Colton call first** (current
   no-write is BY DESIGN): opt-in persist flag so ratings computed for another profile's
   deck write into that profile's store; then delete PodBalanceView's sessionRatings
   crutch.
