@@ -8,6 +8,23 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.100.0] - 2026-07-04
+
+### Added
+- **Reality report** — a "Run reality check" button in the deck view plays your
+  deck against itself locally and shows how it *actually* plays: dead-turn rate,
+  spells and lands per game, mulligan rate, and average X paid (P5).
+- **Flavor text** on the card inspector, when the local card data carries it (K9).
+- **Token & meld details** on the card inspector — the tokens a card makes and its
+  meld partners, shown as chips (K4).
+- **Combo steps** on the Forge shelf — each combo you own (or are one card away
+  from) now shows a short "how it works" description (K5).
+
+### Fixed
+- **Earthbend returns its land** — a land animated by earthbend that dies or is
+  exiled now comes back tapped, as the card says, firing landfall on the way in.
+  Toph, Earthbending Master and the other earthbend cards play correctly (E1).
+
 ## [0.99.0] - 2026-07-04
 
 Cards look like cards, and you record exactly the copy you own. Also folds in the
