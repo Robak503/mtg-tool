@@ -22,7 +22,7 @@ import {
   withCollectionLock,
   CollectionVersionMismatch,
 } from "../../../../lib/server/collectionStorage.js";
-import { validateStacks } from "../../../../lib/server/collectionValidation.js";
+import { validateProvenance, validateStacks } from "../../../../lib/server/collectionValidation.js";
 
 function badRequest(message) {
   return Response.json({ error: message }, { status: 400 });
@@ -66,10 +66,10 @@ export async function PATCH(request, ctx) {
   }
 
   // Whitelist of mutable fields
-  const allowedKeys = new Set(["stacks", "notes", "wishlist", "colorTagId"]);
+  const allowedKeys = new Set(["stacks", "notes", "wishlist", "colorTagId", "signed", "altered", "artistProof", "showcase"]);
   const updateKeys = Object.keys(body).filter(k => allowedKeys.has(k));
   if (updateKeys.length === 0) {
-    return badRequest("No mutable fields in body (allowed: stacks, notes, wishlist, colorTagId)");
+    return badRequest("No mutable fields in body (allowed: stacks, notes, wishlist, colorTagId, signed, altered, artistProof, showcase)");
   }
 
   if ("stacks" in body) {
@@ -86,6 +86,11 @@ export async function PATCH(request, ctx) {
   // we only enforce the type here — null clears the tag.
   if ("colorTagId" in body && body.colorTagId !== null && typeof body.colorTagId !== "string") {
     return badRequest("colorTagId must be a string or null");
+  }
+  // Trophy Case provenance (V6) — optional, additive; see collectionValidation.
+  {
+    const provenanceError = validateProvenance(body);
+    if (provenanceError) return badRequest(provenanceError);
   }
 
   try {
@@ -114,6 +119,17 @@ export async function PATCH(request, ctx) {
       }
       if ("colorTagId" in body) {
         updated.colorTagId = body.colorTagId;
+      }
+      if ("signed" in body) {
+        updated.signed = body.signed === null ? null : {
+          artist: body.signed.artist ?? null,
+          date: body.signed.date ?? null,
+          event: body.signed.event ?? null,
+          inPerson: body.signed.inPerson === true,
+        };
+      }
+      for (const key of ["altered", "artistProof", "showcase"]) {
+        if (key in body) updated[key] = body[key];
       }
 
       // Auto-flip wishlist → false if stacks were updated and any stack has

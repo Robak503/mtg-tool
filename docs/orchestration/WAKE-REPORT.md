@@ -1,4 +1,17 @@
-# 🌅 WAKE REPORT — 2026-07-04 (VAULT overhaul wave-V core + wave Q — v0.89.0)
+# 🌅 WAKE REPORT — 2026-07-04 (VAULT wave-V core + wave Q → v0.89.0 · V5+V6 Trophy Case → v0.90.0)
+
+> **v0.90.0 (same finale session, "do your next best moves"):** **V6 THE TROPHY CASE** —
+> additive provenance fields on collection rows (`signed {artist,date,event,inPerson}`,
+> `altered`, `artistProof`, `showcase`) through validateProvenance + the PATCH whitelist;
+> the drawer's Provenance section; the ★ showcase hero strip atop The Stacks (art tiles +
+> caption). **V5** — printings-index schema now carries artist/fullArt/borderColor/
+> storySpotlight (builder + docs + pins; fields land in bundles at the NEXT CI index build —
+> verify in the v0.90.0 release log; local dev has no bulk so no local rebuild). Suite
+> **7,693** + lint 0 · fence a2a03ba8 ×2 + tier 0-diff AGAIN · PATCH round-trip proven live
+> (400 on unknown signed field, 200 + persisted on good payload). Dev-tree residue: one
+> seeded "Sol Ring" trophy row in the dev profile (walk demo; delete from the drawer if it
+> annoys). Parked → V7 session: artist autofill in the drawer · the dedicated showcase
+> surface/door · Gallery.
 
 > **v0.89.0 (Colton fired orders/vault-overhaul.md + UPGRADE-BACKLOG wave Q, Fable 5 finale
 > session):** the Vault got the kiosk IA — **VaultHome** front door with four LIVE door-panes

@@ -46,6 +46,10 @@ describe("slimPrinting", () => {
       rarity: "uncommon",
       setType: "commander",
       reserved: false,
+      artist: null,
+      fullArt: false,
+      borderColor: null,
+      storySpotlight: false,
       finishes: ["nonfoil", "foil"],
       foilTypes: [],
       layout: "normal",
@@ -55,6 +59,22 @@ describe("slimPrinting", () => {
     });
   });
 
+  it("projects artist + collector flags; artist falls back to the front face (V5)", () => {
+    const single = slimPrinting({
+      id: "a", oracle_id: "b", name: "Serra Angel", set: "dom", collector_number: "1",
+      artist: "Douglas Shuler", full_art: true, border_color: "borderless", story_spotlight: true,
+    });
+    expect(single.artist).toBe("Douglas Shuler");
+    expect(single.fullArt).toBe(true);
+    expect(single.borderColor).toBe("borderless");
+    expect(single.storySpotlight).toBe(true);
+
+    const faced = slimPrinting({
+      id: "c", oracle_id: "d", name: "Delver of Secrets // Insectile Aberration", set: "isd", collector_number: "51",
+      card_faces: [{ artist: "Nils Hamm" }, { artist: "Other" }],
+    });
+    expect(faced.artist).toBe("Nils Hamm");
+  });
   it("keeps only foil-treatment promo_types in foilTypes (drops promo metadata)", () => {
     const out = slimPrinting({
       id: "x", oracle_id: "y", name: "Phyrexian Vindicator", set: "one",

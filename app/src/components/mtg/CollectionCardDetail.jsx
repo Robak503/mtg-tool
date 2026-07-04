@@ -32,6 +32,15 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   useEscapeClose(onClose);
   const [stacks, setStacks] = useState(row.stacks || []);
   const [notes, setNotes] = useState(row.notes || "");
+  // Trophy Case provenance (V6). signedOn=false ⇄ signed:null on save.
+  const [signedOn, setSignedOn] = useState(!!row.signed);
+  const [sigArtist, setSigArtist] = useState(row.signed?.artist || "");
+  const [sigDate, setSigDate] = useState(row.signed?.date || "");
+  const [sigEvent, setSigEvent] = useState(row.signed?.event || "");
+  const [sigInPerson, setSigInPerson] = useState(row.signed?.inPerson === true);
+  const [altered, setAltered] = useState(row.altered === true);
+  const [artistProof, setArtistProof] = useState(row.artistProof === true);
+  const [showcase, setShowcase] = useState(row.showcase === true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [series, setSeries] = useState([]);
@@ -44,8 +53,16 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   useEffect(() => {
     setStacks(row.stacks || []);
     setNotes(row.notes || "");
+    setSignedOn(!!row.signed);
+    setSigArtist(row.signed?.artist || "");
+    setSigDate(row.signed?.date || "");
+    setSigEvent(row.signed?.event || "");
+    setSigInPerson(row.signed?.inPerson === true);
+    setAltered(row.altered === true);
+    setArtistProof(row.artistProof === true);
+    setShowcase(row.showcase === true);
     setError(null);
-  }, [row.scryfallId, row.stacks, row.notes]);
+  }, [row.scryfallId, row.stacks, row.notes, row.signed, row.altered, row.artistProof, row.showcase]);
 
   // Fetch the card's local price history for the sparkline (advisory).
   useEffect(() => {
@@ -190,7 +207,16 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
       const resp = await fetch(`/api/collection/${encodeURIComponent(row.scryfallId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stacks: cleanStacks, notes }),
+        body: JSON.stringify({
+          stacks: cleanStacks,
+          notes,
+          signed: signedOn
+            ? { artist: sigArtist.trim() || null, date: sigDate.trim() || null, event: sigEvent.trim() || null, inPerson: sigInPerson }
+            : null,
+          altered,
+          artistProof,
+          showcase,
+        }),
       });
       const body = await resp.json();
       if (!resp.ok) {
@@ -322,6 +348,58 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
               + Add stack
             </button>
           )}
+        </section>
+
+        <section style={{ marginTop: 20 }}>
+          <SectionLabel>Provenance</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <input type="checkbox" checked={signedOn} onChange={(e) => setSignedOn(e.target.checked)} />
+              <span style={{ color: colors.TEXT }}>Signed</span>
+            </label>
+            {signedOn && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 22 }}>
+                <input
+                  value={sigArtist}
+                  onChange={(e) => setSigArtist(e.target.value)}
+                  placeholder="Artist (e.g. Chase Stone)"
+                  style={{ background: colors.BG, border: `1px solid ${colors.LINE}`, color: colors.TEXT, padding: "6px 8px", borderRadius: 4, fontSize: 12, fontFamily: "inherit" }}
+                />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    value={sigDate}
+                    onChange={(e) => setSigDate(e.target.value)}
+                    placeholder="Date (2026-06-25)"
+                    style={{ flex: 1, background: colors.BG, border: `1px solid ${colors.LINE}`, color: colors.TEXT, padding: "6px 8px", borderRadius: 4, fontSize: 12, fontFamily: "inherit" }}
+                  />
+                  <input
+                    value={sigEvent}
+                    onChange={(e) => setSigEvent(e.target.value)}
+                    placeholder="Event (MagicCon Vegas)"
+                    style={{ flex: 1.4, background: colors.BG, border: `1px solid ${colors.LINE}`, color: colors.TEXT, padding: "6px 8px", borderRadius: 4, fontSize: 12, fontFamily: "inherit" }}
+                  />
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: colors.MUTED }}>
+                  <input type="checkbox" checked={sigInPerson} onChange={(e) => setSigInPerson(e.target.checked)} />
+                  Signed in person
+                </label>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input type="checkbox" checked={altered} onChange={(e) => setAltered(e.target.checked)} />
+                <span style={{ color: colors.TEXT }}>Altered</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input type="checkbox" checked={artistProof} onChange={(e) => setArtistProof(e.target.checked)} />
+                <span style={{ color: colors.TEXT }}>Artist proof</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} title="Pin this card to the Trophy Case strip at the top of The Stacks">
+                <input type="checkbox" checked={showcase} onChange={(e) => setShowcase(e.target.checked)} />
+                <span style={{ color: "var(--ley-green)" }}>Showcase ★</span>
+              </label>
+            </div>
+          </div>
         </section>
 
         <section style={{ marginTop: 20 }}>

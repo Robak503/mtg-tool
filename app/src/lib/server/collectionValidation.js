@@ -36,3 +36,38 @@ export function validateStacks(stacks) {
   }
   return null;
 }
+
+/**
+ * Validate the Trophy Case provenance fields (V6, all optional + additive):
+ *   signed       null | { artist?, date?, event?: string, inPerson?: boolean }
+ *   altered      boolean
+ *   artistProof  boolean
+ *   showcase     boolean   (pin to the Trophy Case strip)
+ * Returns null when every present field is well-formed, else the first
+ * human-readable problem. Absent fields are always fine — old rows and old
+ * clients keep working untouched.
+ */
+export function validateProvenance(body) {
+  if ("signed" in body && body.signed !== null) {
+    const s = body.signed;
+    if (!s || typeof s !== "object" || Array.isArray(s)) {
+      return "signed must be an object or null";
+    }
+    for (const key of ["artist", "date", "event"]) {
+      if (key in s && s[key] !== null && typeof s[key] !== "string") {
+        return `signed.${key} must be a string`;
+      }
+    }
+    if ("inPerson" in s && typeof s.inPerson !== "boolean") {
+      return "signed.inPerson must be a boolean";
+    }
+    const unknown = Object.keys(s).filter(k => !["artist", "date", "event", "inPerson"].includes(k));
+    if (unknown.length) return `signed has unknown field: ${unknown[0]}`;
+  }
+  for (const key of ["altered", "artistProof", "showcase"]) {
+    if (key in body && typeof body[key] !== "boolean") {
+      return `${key} must be a boolean`;
+    }
+  }
+  return null;
+}

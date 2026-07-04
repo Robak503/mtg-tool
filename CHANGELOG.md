@@ -8,6 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.90.0] - 2026-07-04
+
+The Trophy Case.
+
+### Added
+- **The Trophy Case** — your signed cards, alters, artist proofs, and grails are
+  first-class now. Every collection card's drawer has a **Provenance** section:
+  mark it Signed (artist, date, event, in-person), Altered, or Artist proof, and
+  pin it with **Showcase ★** — pinned cards appear as a hero strip of art tiles
+  at the top of The Stacks with their provenance caption ("Signed — Chase Stone
+  (in person) · MagicCon Vegas"). All user data, fully local, additive — old
+  collection files load untouched.
+- **Printings index carries collector metadata** (artist, full-art, border,
+  Story Spotlight) from the next data sync onward — this powers the upcoming
+  Gallery/artist-shelf features and artist autofill.
+
 ## [0.89.0] - 2026-07-04
 
 The Vault overhaul (wave V core) + wave Q quick wins.
