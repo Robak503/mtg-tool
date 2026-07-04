@@ -105,4 +105,20 @@ gold (kept).
   modified, junction intact, right base), agent resumed with context. An
   agent's death is not evidence its work is bad; INSPECT then resume.
 
+#### Lane E — Vault / collection (integrated d9527dac, lane commit 55fc5883, sonnet)
+- All 14 files, net −186 lines (dead style helpers deleted). 56 buttons →
+  `.btn` (9 primary / 15 secondary / 26 ghost / 6 danger). All 8 modals
+  unified on the recipe (0.55 scrim + blur(4px) + glass-strong-lit +
+  display-font titles + aria-labeled ghost-icon closes).
+- Per-card `backdrop-filter` removed from the grid quick-adjust pill (perf
+  rule). Empty states got their primary action ("+ Add your first card";
+  Build/Stats route to Collection). WUBRG pips/rarity dots keep real Magic
+  colors (data, not theme). `COLORS` const kept but every value now resolves
+  to a token.
+- Survived a transient API 529 mid-run: verify-then-complete (inspected
+  worktree: 4/14 files done, junction intact, right base → resumed with
+  context). Lane gate 7,661 + lint 0; round-1 integration battery re-run on
+  the orchestrator tree after both cherry-picks: **7,661 + lint 0**.
+  After-screenshot `p3e-vault.png`. Worktree swept junction-safe.
+
 - (per-lane entries appended as they integrate)
