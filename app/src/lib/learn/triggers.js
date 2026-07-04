@@ -2700,6 +2700,15 @@ export function checkLeavesTriggers(state) {
     // The look-back carries `leftToGraveyard` so the PiG watcher scopes (graveyard-only) can distinguish a
     // graveyard exit from a bounce/exile; the LEAVES watcher (Nadier's token-leaves) ignores it (fires on any exit).
     const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard };
+    // EARTHBEND-RETURN (CR 603.7) — the animated land's "when it dies or is exiled, return it to the battlefield
+    // tapped" delayed trigger. Flag-driven (combat.applyEarthbend set `earthbendReturn`; gameState.recordLeaveEvent
+    // carried it + the destination zone onto this look-back). Fire ONLY on a graveyard (dies) or exile exit — never
+    // a bounce to hand / tuck to library. The land's own oracle has no such trigger, so it's synthesized here to ride
+    // the normal pendingTriggers flush; the marker effectClause routes to zones.applyEarthbendReturn (return tapped).
+    if (e.earthbendReturn && (e.toZone === "graveyard" || e.toZone === "exile")) {
+      const desc = { event: "earthbendReturn", scope: "self", whose: "any", optional: false, effectClause: `[earthbend-return:${e.toZone}] return it to the battlefield tapped` };
+      fired = fired.concat(makePendingTrigger(desc, lookBack, lookBack, {}));
+    }
     // SELF-PiG ("ltb") — the Aura self-PiG-return (Rancor), printed "is put INTO A GRAVEYARD from the
     // battlefield" (CR 700.4 — NOT a bounce/exile). Fire "ltb" ONLY for a graveyard exit; a bounce/exile leave
     // is recorded but not fired here (firing would WRONGLY return a bounced Aura — a false positive). The self

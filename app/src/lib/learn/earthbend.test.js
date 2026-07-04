@@ -6,11 +6,11 @@
  */
 import { describe, it, expect } from "vitest";
 import { applyEarthbend } from "./effects/effectAtoms.js";
-import { parseEffectProgram } from "./effects/parser.js";
-import { createGameState, createPermanent, addCounter } from "./gameState.js";
+import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
+import { createGameState, createPermanent, addCounter, destroyLethalCreatures, moveCardToZone } from "./gameState.js";
 import { permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword, permanentTypes } from "./layers.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
-import { checkEnterTriggers } from "./triggers.js";
+import { checkEnterTriggers, checkDiesTriggers, checkLeavesTriggers } from "./triggers.js";
 
 describe("earthbend parser", () => {
   it("'earthbend 2' → a literal-N earthbend atom", () => {
@@ -140,5 +140,111 @@ describe("The Boulder attack trigger — end-to-end powerAtLeast earthbend", () 
     expect(ld.counters?.["+1/+1"]).toBe(1);                  // only the Boulder itself (power 4) qualifies → X=1
     expect(permanentIsCreature(out, "tb-land")).toBe(true);
     expect(permanentTypes(out, "tb-land").types).toContain("Land");
+  });
+});
+
+// ── EARTHBEND-RETURN (CR 603.7) — the "When it dies or is exiled, return it to the battlefield tapped" rider ──
+// Previously a dropped safe-FN partial (the land animated + attacked but never recurred); now ENFORCED.
+// combat.applyEarthbend tags the animated land, and triggers.checkLeavesTriggers synthesizes a delayed trigger
+// (→ zones.applyEarthbendReturn) that returns the LAND tapped, as a plain land, on a graveyard (dies) or exile
+// exit — firing landfall on the re-entry. NEVER on a bounce to hand / tuck to library (CREED: dies-or-exiled only).
+describe("earthbend-return (CR 603.7) — dies/exile delayed return", () => {
+  const TOPH_LANDFALL = { name: "Toph, Earthbending Master", type: "Legendary Creature — Human Warrior Ally", power: 2, toughness: 2, oracle: "Landfall — Whenever a land you control enters, you get an experience counter." };
+  const resolveAll = (s) => {
+    let guard = 0;
+    while (((s.pendingTriggers || []).length || (s.stack || []).length) && guard++ < 40) {
+      s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+      if ((s.stack || []).length) s = resolveTopOfStack(s);
+    }
+    return s;
+  };
+  const setup = (extraPerms = []) => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const land = createPermanent({ id: "eb-forest", card: { id: "eb-forest-card", name: "Forest", type: "Basic Land — Forest", oracle: "" }, controller: "user" });
+    return { ...s, activePlayer: "user", players: { ...s.players, user: { ...s.players.user, battlefield: [land, ...extraPerms], experience: 0 } } };
+  };
+  const markLethal = (s, id) => ({ ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (p.id === id ? { ...p, damageMarked: 99 } : p)) } } });
+  const findForest = (s) => s.players.user.battlefield.find((p) => p.card?.name === "Forest");
+
+  it("the marker clause parses HIGH, non-targeted → an earthbend-return atom carrying the source zone", () => {
+    for (const z of ["graveyard", "exile"]) {
+      const p = parseEffectClause(`[earthbend-return:${z}] return it to the battlefield tapped`, "Instant");
+      expect(programConfidence(p)).toBe("high");
+      expect(p.atoms).toEqual([{ op: "earthbend-return", fromZone: z }]);
+    }
+  });
+
+  it("DIES → the animated land returns to the battlefield TAPPED, as a plain (non-creature) land, counters gone", () => {
+    let s = setup();
+    s = applyEarthbend(s, { count: 2 }, { controller: "user" });   // 2/2 animated land (survives the SBA), tagged for return
+    expect(permanentIsCreature(s, "eb-forest")).toBe(true);
+    s = markLethal(s, "eb-forest");
+    const lethal = destroyLethalCreatures(s);
+    s = checkDiesTriggers(lethal.state, lethal.dead);
+    expect((s.pendingTriggers || []).filter((t) => t.event === "earthbendReturn")).toHaveLength(1); // the delayed return is queued
+    expect(s.players.user.graveyard.map((c) => c.name)).toContain("Forest");                        // in the graveyard pre-resolution
+    s = resolveAll(s);
+    const back = findForest(s);
+    expect(back).toBeTruthy();                              // returned to the battlefield
+    expect(back.tapped).toBe(true);                        // "return it to the battlefield TAPPED"
+    expect(permanentIsCreature(s, back.id)).toBe(false);   // a plain land again (the animation left with the old object)
+    expect(back.counters?.["+1/+1"] || 0).toBe(0);         // no lingering +1/+1 counters
+    expect(s.players.user.graveyard.map((c) => c.name)).not.toContain("Forest"); // and it left the graveyard
+  });
+
+  it("the return fires LANDFALL — Toph's 'whenever a land you control enters' experience counter ticks on the re-entry", () => {
+    const toph = createPermanent({ id: "toph", card: TOPH_LANDFALL, controller: "user" });
+    let s = setup([toph]);
+    s = applyEarthbend(s, { count: 2 }, { controller: "user", sourceId: "toph" }); // animating an existing land is NOT a re-entry
+    expect(s.players.user.experience).toBe(0);                                     // → no landfall yet
+    s = markLethal(s, "eb-forest");
+    const lethal = destroyLethalCreatures(s);
+    s = checkDiesTriggers(lethal.state, lethal.dead);
+    s = resolveAll(s);
+    expect(s.players.user.experience).toBe(1);   // the returning land ENTERS → landfall fires → +1 experience (the WHOLE rider is modeled)
+    expect(findForest(s)?.tapped).toBe(true);
+  });
+
+  it("EXILE → the animated land returns from exile, tapped (the 'or is exiled' arm)", () => {
+    let s = setup();
+    s = applyEarthbend(s, { count: 2 }, { controller: "user" });
+    s = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "exile", cardId: "eb-forest" });
+    expect(s.players.user.exile.map((c) => c.name)).toContain("Forest"); // in exile pre-resolution
+    s = checkLeavesTriggers(s);                                          // a non-death exit drains at the leave chokepoint
+    s = resolveAll(s);
+    const back = findForest(s);
+    expect(back).toBeTruthy();
+    expect(back.tapped).toBe(true);
+    expect(s.players.user.exile.map((c) => c.name)).not.toContain("Forest");
+  });
+
+  it("CREED — a BOUNCE to hand does NOT return it (the rider is dies-or-exiled only, never a bare 'leaves')", () => {
+    let s = setup();
+    s = applyEarthbend(s, { count: 2 }, { controller: "user" });
+    s = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "hand", cardId: "eb-forest" });
+    s = checkLeavesTriggers(s);
+    s = resolveAll(s);
+    expect(findForest(s)).toBeFalsy();                                  // NOT returned to the battlefield
+    expect(s.players.user.hand.map((c) => c.name)).toContain("Forest"); // stayed in hand
+  });
+
+  it("CREED — a plain (unflagged) land put into the graveyard does NOT return (only the earthbend-flagged land does)", () => {
+    let s = setup();  // no earthbend → the Forest carries no earthbendReturn flag
+    s = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "eb-forest" });
+    s = checkLeavesTriggers(s);
+    s = resolveAll(s);
+    expect(findForest(s)).toBeFalsy();                                        // not returned
+    expect(s.players.user.graveyard.map((c) => c.name)).toContain("Forest");  // stays in the graveyard
+    expect((s.pendingTriggers || []).filter((t) => t.event === "earthbendReturn")).toHaveLength(0);
+  });
+
+  it("X=0 earthbend (a 0/0 that dies to the immediate SBA inside applyEarthbend) still returns the land tapped", () => {
+    let s = setup();
+    s = applyEarthbend(s, { count: 0 }, { controller: "user" }); // 0/0 → dies to the SBA in applyEarthbend → return queued
+    s = resolveAll(s);
+    const back = findForest(s);
+    expect(back).toBeTruthy();
+    expect(back.tapped).toBe(true);
+    expect(permanentIsCreature(s, back.id)).toBe(false);
   });
 });

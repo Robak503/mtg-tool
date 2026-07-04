@@ -4,7 +4,7 @@
  */
 
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage, setDoesNotUntapNext } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
@@ -288,10 +288,12 @@ export function applyAnimateEffect(state, atom, ctx) {
  * haste that's still a land. Put N +1/+1 counters on it." A PERMANENT land-animation reusing the same
  * layer machinery as applyAnimateEffect (layer-4 ADD Creature+Elemental — Land kept, "still a land"; 7b
  * SET base 0/0; 6 GRANT Haste) but `duration:permanent`, plus N +1/+1 counters applied BEFORE the lethal
- * SBA so the 0/0 survives as a real N/N attacker. The "return it when it dies or is exiled" rider is a
- * delayed trigger left to the Arbiter — a safe FN (the land animates + attacks, it just doesn't recur).
+ * SBA so the 0/0 survives as a real N/N attacker. The "return it when it dies or is exiled" rider (CR 603.7
+ * delayed triggered ability) IS enforced: the animated land is tagged `earthbendReturn` here, and
+ * triggers.checkLeavesTriggers synthesizes a delayed trigger (→ zones.applyEarthbendReturn) that returns it
+ * TAPPED as a plain land when it leaves to a graveyard (dies) or exile — firing landfall on the re-entry.
  * The sim picks a land the controller controls that isn't already a creature (it stays a land → still
- * ramps, never lost). atom.countSource uses the count engine (e.g. experience counters) at resolution.
+ * ramps). atom.countSource uses the count engine (e.g. experience counters) at resolution.
  */
 export function applyEarthbend(state, atom, ctx) {
   const me = ctx.controller;
@@ -309,6 +311,11 @@ export function applyEarthbend(state, atom, ctx) {
   next = addContinuousEffect(next, { layer: 7, sublayer: "7b", op: { layerOp: "ptSet", power: 0, toughness: 0 }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
   next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
   if (n > 0) next = addCounter(next, { permanentId: land.id, type: "+1/+1", amount: n }); // → a real N/N before the SBA
+  // EARTHBEND-RETURN (CR 603.7 delayed triggered ability) — tag the animated land so its "when it dies or is
+  // exiled, return it to the battlefield tapped" rider fires (triggers.checkLeavesTriggers synthesizes the return
+  // off this flag when the land leaves to a graveyard/exile). Set BEFORE the lethal SBA so an X=0 earthbend (a
+  // 0/0 with no counters) that dies to the immediate SBA below still returns.
+  next = updatePermanentSafe(next, land.id, (p) => ({ ...p, earthbendReturn: true }));
   const lethal = destroyLethalCreatures(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "earthbend", count: n, targets: [land.id] });

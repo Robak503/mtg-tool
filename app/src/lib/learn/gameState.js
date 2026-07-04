@@ -649,7 +649,7 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     // on it (CR 704.5n/704.5q). A blink (→ battlefield) keeps attachments out of scope here.
     // SELF-LTB: pass whether this exit is to a graveyard so detachPermanentFromAll's leave-event
     // look-back records `toGraveyard` correctly (Rancor's self-PiG-return keys on it).
-    return toZone === "battlefield" ? result : detachPermanentFromAll(result, permanent, toZone === "graveyard");
+    return toZone === "battlefield" ? result : detachPermanentFromAll(result, permanent, toZone === "graveyard", toZone);
   }
 
   // Non-battlefield source: cardId is matched against card.id (caller's
@@ -830,7 +830,7 @@ function updatePermanent(state, permanentId, updater) {
 }
 
 /** updatePermanent that NO-OPs (instead of throwing) if the permanent is gone — attach cleanup. */
-function updatePermanentSafe(state, permanentId, updater) {
+export function updatePermanentSafe(state, permanentId, updater) {
   return findPermanent(state, permanentId) ? updatePermanent(state, permanentId, updater) : state;
 }
 
@@ -863,9 +863,13 @@ export function attachPermanent(state, { equipId, targetId }) {
  * JSON so serialize→restore replays identically. `toGraveyard` distinguishes a graveyard exit (Rancor's
  * PiG) from a non-graveyard exit (bounce/exile) — the Aura self-PiG-return detector keys on the former.
  */
-function recordLeaveEvent(state, permanent, toGraveyard) {
+function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
   if (!permanent?.card) return state;
   const ev = { id: permanent.id, controller: permanent.controller, card: permanent.card, toGraveyard: !!toGraveyard };
+  // EARTHBEND-RETURN (CR 603.7): carry the animated land's flag + destination zone so triggers.checkLeavesTriggers
+  // can synthesize the "when it dies or is exiled, return it to the battlefield tapped" delayed trigger. Only a
+  // graveyard (dies) or exile exit qualifies — a bounce to hand / tuck to library does NOT (the rider is dies-or-exiled).
+  if (permanent.earthbendReturn) { ev.earthbendReturn = true; ev.toZone = toZone; }
   return { ...state, pendingLeaveEvents: [...(state.pendingLeaveEvents || []), ev] };
 }
 
@@ -878,9 +882,9 @@ function recordLeaveEvent(state, permanent, toGraveyard) {
  * (moveCardToZone calls this on any non-battlefield move). `toGy` marks whether the leaving permanent is
  * itself headed to a graveyard (passed by moveCardToZone); the orphaned Aura is always graveyard-bound.
  */
-export function detachPermanentFromAll(state, permanent, toGy = false) {
+export function detachPermanentFromAll(state, permanent, toGy = false, toZone = null) {
   if (!permanent) return state;
-  let next = recordLeaveEvent(state, permanent, toGy);
+  let next = recordLeaveEvent(state, permanent, toGy, toZone);
   if (permanent.attachedTo) {
     next = updatePermanentSafe(next, permanent.attachedTo, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== permanent.id) }));
   }

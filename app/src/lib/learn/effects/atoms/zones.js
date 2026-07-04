@@ -372,10 +372,43 @@ function parseExceptSubtypes(listStr) {
   return out;
 }
 
+/**
+ * EARTHBEND-RETURN (CR 603.7 delayed triggered ability) — the "When it dies or is exiled, return it to the
+ * battlefield tapped" rider earthbend grants the animated land. The rider is NOT in the card's own oracle (it's
+ * a keyword-action grant on an arbitrary land), so it can't be a detected trigger — combat.applyEarthbend tags
+ * the land `earthbendReturn:true`, and triggers.checkLeavesTriggers synthesizes this delayed trigger off the flag
+ * when the land leaves to a GRAVEYARD (dies) or EXILE (never a bounce to hand / tuck to library). The marker
+ * carries the source zone so the card is pulled from the right place.
+ *
+ * Returns the card as a PLAIN LAND, TAPPED: the animation was continuous effects keyed to the OLD permanent id,
+ * gone with the old object, so enterCardFromZone re-creates it as its printed land. Entering a land fires ETB +
+ * LANDFALL (a returning land IS a land-entry — e.g. Toph's own "whenever a land you control enters" experience
+ * counter), faithfully matching the printed rider's battlefield entry. CR 111.7 — a token ceased to exist, never
+ * returns (guarded via ctx.triggeringCardIsToken). CR 608.2b — a card that already left the source zone is a
+ * logged no-op (enterCardFromZone → entered:false), never a fabricated permanent.
+ */
+const EARTHBEND_RETURN_RE = /^\[earthbend-return:(graveyard|exile)\] return it to the battlefield tapped$/i;
+export function earthbendReturnClauseParser(clause) {
+  const m = EARTHBEND_RETURN_RE.exec(String(clause || "").trim());
+  return m ? { op: "earthbend-return", fromZone: m[1].toLowerCase() } : null;
+}
+export function applyEarthbendReturn(state, atom, ctx) {
+  const owner = ctx.triggeringController;
+  const cardId = ctx.triggeringCardId;
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (ctx.triggeringCardIsToken) {
+    return logEvent(state, { kind: "spell-effect", effect: "earthbend-return", returned: false, reason: "token", controller: owner });
+  }
+  const fromZone = atom.fromZone === "exile" ? "exile" : "graveyard";
+  const { state: next, entered } = enterCardFromZone(state, { playerId: owner, cardId, fromZone, tapped: true });
+  return logEvent(next, { kind: "spell-effect", effect: "earthbend-return", returned: entered, controller: owner });
+}
+
 export const zoneResolvers = {
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
   "exile-from-graveyard": applyExileFromGraveyard,
+  "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
 };

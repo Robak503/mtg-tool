@@ -69,35 +69,42 @@ scoreboard over-count. The fix is a classifier tightening, not a runtime enforce
 |---|---|---|
 | native-mana residue gate | claim native-mana only when every non-mana clause is modeled-or-keyword-only | ✅ ENFORCED #280 (−269 over-claimed; native-mana now all-or-nothing; honest 17.1%. The smaller non-mana *activated*-ability over-claim is a deliberate fragile follow-up — under-correcting is safe) |
 
-### 🔨 CAP: earthbend dies-return delayed trigger — **BACKLOG (tractable, Hans-found 2026-06-21 cycle 41)**
-**Board task:** `EARTHBEND-RETURN` (builder — Walt's earthbend lane). `applyEarthbend` (`effects/effectAtoms.js:763`)
-animates the land + applies the N counters but **drops the keyword's last reminder clause** — *"When it dies or is
-exiled, return it to the battlefield tapped."* The atom self-documents the deferral ("a delayed trigger left to the
-Arbiter — a safe FN … it just doesn't recur"). **Partial-but-honest, safe direction:** dropping the recursion makes
-the controller's position *weaker* (they lose the land instead of getting it back) — an under-delivery, never an
-over-delivery, so it's never mis-resolved in the opponent's favor. Same class as ward #305 / protection #306 PR2 →
-does NOT block release.
+### ✅ CAP: earthbend dies-return delayed trigger — **DONE (E1, engine-tail pass 2026-07-04)**
+**SHIPPED — the "When it dies or is exiled, return it to the battlefield tapped" rider (CR 603.7 delayed trigger) is
+now ENFORCED.** `applyEarthbend` (`effects/atoms/combat.js` — the `effectAtoms.js:763` cite below is stale) tags the
+animated land `earthbendReturn`; `triggers.checkLeavesTriggers` synthesizes a delayed trigger (→ `zones.applyEarthbendReturn`)
+that returns the land TAPPED, as a plain land, on a graveyard (dies) or exile exit — firing landfall on the re-entry
+(Toph's own experience counter). CREED-guarded: bounce-to-hand / tuck-to-library do NOT return; an unflagged land does
+NOT return. Tests in `earthbend.test.js`.
+
+**Correction to the original framing (verified live 2026-07-04, BEFORE building):** the "34 permanents stay body-only,
+masked by the count bug" premise below was STALE. The reminder-strip in the shaped count had already shipped
+(`coverage.js allTriggerSentencesModeled` strips reminders; `coverageReminderStrip.test.js`), so before E1 the earthbend
+permanents whose ability otherwise routed were ALREADY `native` (Toph = `native-trigger`, + Haru, Earth Village Ruffians,
+The Boulder, Badgermole, Earthbending Student, Earth Kingdom General, Solid Ground) — dropping the return as a tolerated
+safe-FN partial (under-delivery, same class as ward #305 / protection #306 PR2). E1 upgraded that partial to a FULL model
+→ **0 tier flips** (they were already native; flip-diff LOST=0/GAINED=0, trajectory byte-identical). The body-only
+earthbend cards (Aang, Kyoshi, Bumi…) stay body-only for OTHER unmodeled text (transform / ETB-dig), not the return.
 
 **Live surface (so it's not invisible):**
 - **3 earthbend SPELLS already ship `native-spell` and drop the rider today:** Earthbending Lesson, Cracked Earth
   Technique, Sandbenders' Storm (they route via `spellIsNative`, not the trigger path).
-- **All 34 earthbend PERMANENTS (incl. Toph, Earthbending Master) currently stay `body-only`** — masked by a
-  separate latent classifier bug (below), NOT by design. Completing this enforcement is what lets Toph + the
-  earthbend creatures flip *honestly*.
+- **The earthbend PERMANENTS whose ability routes were ALREADY `native` before E1** (the count-strip un-masked them —
+  see the correction above); E1 makes them play *honestly* (the return now fires) instead of as a safe-FN partial. The
+  remaining body-only earthbend cards are body-only for OTHER unmodeled text, not the return.
 
 **Enforcement (tractable):** tag the animated land with a `returnOnDeath` flag at animation time; in the dies/exile
 path (`checkDiesTriggers` already exists) fire a delayed trigger that returns it tapped (CR 603.7 delayed triggered
 ability). Engine-first, full gate, then the earthbend cards flip native correctly.
 
-> **⚠️ COUPLED latent bug (do NOT fix in isolation — Hans, cycle 41):** `allTriggerSentencesModeled`
-> (`coverage.js:179`) counts trigger-shaped sentences **without stripping reminder text first**, while
-> `detectTriggers` skips unrecognized in-reminder triggers. Earthbend's reminder embeds *"When it dies or is
-> exiled, return it…"* → `shaped` (3) ≠ `detected` (2) → every earthbend permanent is held `body-only`. This count
-> bug is **currently load-bearing**: it masks the dies-return drop on the 34 permanents. **Fixing the count strip
-> BEFORE the dies-return enforcement would un-mask the partial and flip all 34 into dropped-rider FPs.** Sequence:
-> build `EARTHBEND-RETURN` first, THEN strip reminders in the shaped count (one line, aligns it with
-> `detectTriggers`) so the earthbend permanents flip cleanly. Verified safe-by-construction otherwise (reminder
-> text is never rules-bearing, CR 207.2; the routing check still gates unmodeled effects independently).
+> **⚠️ COUPLED latent bug — RESOLVED before E1 (the strip already shipped):** `allTriggerSentencesModeled`
+> (`coverage.js`) now STRIPS reminder text before counting trigger-shaped sentences (the reminder-strip this note once
+> prescribed shipped separately — `coverageReminderStrip.test.js`), so `shaped == detected` for earthbend and the
+> permanents were no longer held `body-only`. The historical hazard ("stripping BEFORE building the return un-masks the
+> partial into dropped-rider FPs") had therefore ALREADY happened: the permanents sat as native safe-FN partials, which is
+> why E1's job was runtime return-enforcement (0 tier flips), NOT a count-strip. The prescribed "build return first, then
+> strip" ordering is moot — the strip was already in place; E1 supplied the missing return. (Reminder text is never
+> rules-bearing, CR 207.2; the routing check still gates unmodeled effects independently.)
 
 ## Corrected reclassifications (not FPs — already right)
 | Item | Fix | Note |
