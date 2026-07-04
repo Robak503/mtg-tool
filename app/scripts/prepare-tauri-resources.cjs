@@ -230,6 +230,28 @@ for (const name of syncScripts) {
   }
 }
 
+// The bundled scripts run under the portable node.exe with no node_modules
+// next to them, so any script npm dependency must be staged into
+// resources/scripts/node_modules/ or the in-app sync fails with
+// MODULE_NOT_FOUND (build-collection-printings-index needs stream-json to
+// stream the ~540 MB default_cards.json). Both packages are pure JS;
+// stream-chain is stream-json's only dependency.
+const syncScriptDeps = ["stream-chain", "stream-json"];
+for (const dep of syncScriptDeps) {
+  const src = path.join(APP_ROOT, "node_modules", dep);
+  if (fs.existsSync(src)) {
+    copyDirRecursive(src, path.join(RESOURCES, "scripts", "node_modules", dep));
+    console.log(`  + scripts/node_modules/${dep}`);
+  } else if (STRICT) {
+    throw new Error(
+      `prepare-tauri-resources: STRICT build is missing node_modules/${dep} ` +
+        "(required by the bundled sync scripts) — run npm ci first.",
+    );
+  } else {
+    console.warn(`  - scripts/node_modules/${dep} (not found — in-app printings-index rebuild will fail)`);
+  }
+}
+
 // 5. Portable node.exe. Downloaded earlier in the pipeline by
 // scripts/download-portable-node.cjs. Lets the Tauri shell spawn the
 // Next.js server without depending on the user having Node installed.
