@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL (bannered 2026-07-04).** Faculty-era pull board — the faculty model was retired 2026-06-26 (Clyde = sole builder). Numbers frozen at 17.9% corpus (2026-06-18). Forward work: [UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md) + `memory/orders/clyde-grind-relaunch.md`. Kept for history.
+
 # Coverage Task Board — the prioritized backlog the builder faculties pull from
 
 **Model:** builders **pull from this board** rather than owning a fixed mechanic — pick the highest-priority

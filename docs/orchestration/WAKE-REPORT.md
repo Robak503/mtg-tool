@@ -68,3 +68,6 @@ Engine work: read PLAY-HARNESS-OVERHAUL-PLAYBOOK §5 + OVERHAUL-PLAYBOOK §5 nev
 grind resumes per memory/orders/clyde-grind-relaunch.md (unchanged by this pass). UI work:
 compose from `/styleguide` + `--ley-*` tokens — never hand-hex, one primary per surface, glow
 = hierarchy. The button system is law: no new one-off button styles.
+Method index + post-Fable model policy: [MASTER-GUIDE.md](MASTER-GUIDE.md). Forward feature queue:
+[UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md) — flagship ready to fire: `memory/orders/vault-overhaul.md`
+(the Vault kiosk overhaul).

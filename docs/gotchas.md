@@ -117,3 +117,13 @@ pipeline or the Rust shell.
 
 ---
 
+## Session/orchestration hazards (added 2026-07-04 — full patterns: docs/orchestration/MASTER-GUIDE.md §4)
+
+- **Worktree junction deletion**: `git worktree remove` (and any recursive delete) FOLLOWS a
+  `node_modules` junction and wipes the MAIN tree's node_modules. Delete the junction first
+  (`cmd //c rmdir <wt>\app\node_modules`); recover with `npm ci` from main `app/`.
+- **Fan-out concurrency cap**: ≤2 builder lanes (~10-20 agents) at once — 4+ concurrent
+  batches hit server-side API rate limits and get workflows KILLED mid-run.
+- **`git rev-parse --show-toplevel` before any branch op**: an empty/swept worktree silently
+  falls through to the MAIN repo, and a checkout there moves the main tree's branch pointer.
+  Never trust a worktree directory you didn't just list.

@@ -1,3 +1,5 @@
+> ⚠️ **RETIRED FACULTY (bannered 2026-07-04).** The parallel-builder faculty model was retired 2026-06-26 — Clyde is sole builder (see [../MASTER-GUIDE.md](../MASTER-GUIDE.md) §1). Kept for history; the durable lessons live in memory `project_faculty_era_lessons`.
+
 # Cindy — Solo Coverage Builder · operating manual
 
 > **This is your complete, standing reference. Re-read it whenever you start a task.** You are the one and only

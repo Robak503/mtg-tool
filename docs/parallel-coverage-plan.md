@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL — coverage-chat era (bannered 2026-07-04).** Pre-dates the one-owner model and the playbooks; standing directives here (e.g. release holds) are VOID. Live: `memory/orders/clyde-grind-relaunch.md` + docs/orchestration/MASTER-GUIDE.md.
+
 # Parallel Coverage Push — 4-Chat Plan (2026-06-18)
 
 Baseline: **v0.38.0 / master `d2fb8d6`**, corpus ~16.1% native. All four chats branch from this.

@@ -5,7 +5,8 @@
 > proof-level table, and the orchestration patterns — written so a non-Fable session can run
 > the same kind of pass without rediscovering any of it. Raw evidence for every claim:
 > [overhaul-evidence.md](overhaul-evidence.md). The maps: [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md) /
-> [PROJECT-SCAFFOLD.md](PROJECT-SCAFFOLD.md). The law: CLAUDE.md + THE CREED.
+> [PROJECT-SCAFFOLD.md](PROJECT-SCAFFOLD.md). The law: CLAUDE.md + THE CREED. Post-Fable
+> model seats + orchestration policy: [MASTER-GUIDE.md](MASTER-GUIDE.md) §2.
 
 ---
 
@@ -65,7 +66,7 @@ comm -13 base.txt cand.txt   # GAINED
 
 # TRAJECTORY HASH (the overhaul's new runtime-behavior fingerprint): 3 seeded real pod games,
 # every decision hashed. Byte-identical across a refactor == the engine made the SAME decisions
-# on real games. Probe lives in the session scratchpad; recreate it from this spec: load the
+# on real games. Probe script (copy-paste) = PLAY-HARNESS-OVERHAUL-PLAYBOOK.md §2.1. The spec: load the
 # Tier-1 pod decks via loadAllProfileDecks (MTG_APP_ROOT=$MAIN/app), runSelfPlayBatch
 # {mode:"commander", gamesPer:3, timePressure:true, recordDecisions:true}, sha256 over
 # JSON({result,turns,winnerSeat}) + every trajectory row. RUN IT TWICE (must be reproducible)

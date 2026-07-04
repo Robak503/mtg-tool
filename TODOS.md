@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL (bannered 2026-07-04).** Frozen pre-.exe-era; several "open" items below shipped long ago (learn-session persistence, updater, GitHub remote). Shipped truth: CHANGELOG.md · live state: docs/orchestration/WAKE-REPORT.md · forward queue: docs/orchestration/UPGRADE-BACKLOG.md.
+
 # MTG Tool — TODOS
 
 Grouped by skill/component, then priority (P0 at top, P4 at bottom).

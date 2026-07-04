@@ -1,5 +1,25 @@
 # UI-OVERHAUL LOG — the LEYLINE pass (v0.86.0 → v0.87.0) + wave 2 (→ v0.88.0)
 
+## §0 THE UI METHOD (distilled 2026-07-04 — the law for any future UI work; waves below = frozen records)
+
+- **Compose from the system**: `--ley-*` tokens in `globals.css` + THE `.btn` system
+  (primary/secondary/ghost/danger × sm/default/lg) + the hidden `/styleguide` route (the
+  living reference). **Never hand-hex**; identity/data colors are the only exception.
+- **One glowing primary per surface.** Glow = hierarchy (primary actions, live states,
+  focus), not decoration. Mono tracked-caps system labels; Space Grotesk display; agent
+  colors only on identity elements — system chrome stays green.
+- **Kiosk IA**: Landing → area door → surface; registry-driven (`areas.jsx` +
+  docs/HOW-TO-ADD-AN-AREA.md); every surface has a back affordance; empty states lead
+  somewhere.
+- **The UI battery per wave**: suite + lint + **the engine fence PROVEN** (tier fp 0-diff +
+  trajectory hash byte-identical — probe in PLAY-HARNESS-OVERHAUL-PLAYBOOK §2.1), even when
+  "it's only CSS".
+- **Acceptance**: walk the packaged UI (dev server minimum; real .exe for shell-adjacent
+  waves — STOP the dev server first, `.next` is shared). Before/after gallery into
+  `ui-overhaul/`.
+- **Lanes**: ≤2 file-disjoint builders; orchestrator re-batteries each cherry-pick
+  (MASTER-GUIDE §4).
+
 ## WAVE 2 (2026-07-04, Colton's direct orders post-v0.87.0)
 
 ### W1 — the kiosk landing + area IA (commit 8e5d3210)

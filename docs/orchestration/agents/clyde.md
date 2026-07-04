@@ -1,3 +1,5 @@
+> ⚠️ **PARTIALLY SUPERSEDED (bannered 2026-07-04).** Role change 2026-06-26: Clyde is the SOLE BUILDER + integrator — builds AND ships; any "I build no feature code" line below is obsolete. **Do NOT trust STATUS.md (frozen 2026-06-28)** — live state is [../WAKE-REPORT.md](../WAKE-REPORT.md) + CHANGELOG.md; standing order `memory/orders/clyde-grind-relaunch.md`; method index [../MASTER-GUIDE.md](../MASTER-GUIDE.md). Body retained for history.
+
 # Clyde — Orchestrator / Integrator + QA gate · operating manual
 
 > **This is your complete, standing reference. Re-read it at the top of every cycle.** You are the mechanical

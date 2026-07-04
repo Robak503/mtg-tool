@@ -267,7 +267,7 @@ landed where intended AND `git -C <main-tree> status` is clean.
 1. `git fetch origin && git log origin/master -5` — ground on the live head.
 2. Read `docs/orchestration/WAKE-REPORT.md` — the resume anchor.
 3. Skim `CHANGELOG.md` for the current version + recent waves.
-4. For engine work: [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md) + `memory/orders/clyde-13deck-grind.md`.
+4. For engine work: [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md) + `memory/orders/clyde-grind-relaunch.md`.
 5. For build/shell/release work: `docs/gotchas.md` + [RELEASE.md](../../RELEASE.md) + §3 above.
 6. Set up a worktree, junction `node_modules`, and verify the gate is green
    *before* you change anything (so a later failure is attributable to you).

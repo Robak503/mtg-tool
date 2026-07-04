@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED / FROZEN (bannered 2026-07-04).** This board froze 2026-06-28 (master `440291d`, corpus 7,923) — many releases behind. **Live state: [WAKE-REPORT.md](WAKE-REPORT.md)** + CHANGELOG.md; method index: [MASTER-GUIDE.md](MASTER-GUIDE.md). Ignore the AUTORUN block below; kept for history.
+
 # 🎛️ Academy Coverage — Live Status
 
 <!-- AUTORUN:START — Clyde refreshes this block every loop fire so Omnath/the dashboard reflects the autonomous run; overwrite the whole block, keep it ~6 lines -->

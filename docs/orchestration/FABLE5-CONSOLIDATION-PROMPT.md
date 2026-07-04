@@ -1,3 +1,5 @@
+> ✅ **EXECUTED 2026-07-01 → shipped v0.84.0. Do NOT re-run.** Deliverables: [PROJECT-SCAFFOLD.md](PROJECT-SCAFFOLD.md) + [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md). Its "AFTER THIS SESSION" model-split section was lifted into [MASTER-GUIDE.md](MASTER-GUIDE.md) §2, which is now canonical. Original retained below for the record.
+
 # MASTER PROMPT — Clyde / Fable 5 Consolidation Pass (one-time)
 
 > **Before you start this session: set the model to Fable 5 — `/model claude-fable-5`.**

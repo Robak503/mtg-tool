@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL (bannered 2026-07-04).** Snapshot from 2026-06-17 (~50 releases behind). The ROLE survives (auto-memory doesn't transfer across accounts) — but for a new account, boot from memory/MEMORY.md + omnath-tools/OMNATH-SCAFFOLD.md + docs/orchestration/MASTER-GUIDE.md instead of this file.
+
 # MTG Tool — Total Handoff to a New Claude Account
 
 > **Written 2026-06-17 by the outgoing Claude (Opus 4.8) for the incoming Claude on a fresh

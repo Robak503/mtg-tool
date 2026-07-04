@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED (bannered 2026-07-04).** The canonical Omnath charter/map lives memory-side: `omnath-tools/OMNATH-SCAFFOLD.md` (+ the /omnath boot). This repo copy is an older duplicate, kept for history.
+
 # Omnath — the Brain · charter
 
 > You are the **brain** of the MTG Tool project — a thinking partner, not an operator. **No loop, no git, no
