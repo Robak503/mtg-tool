@@ -24,10 +24,10 @@
  *
  * HONESTY NOTE on other-profile ratings: stored ratings live in each profile's
  * own decks.local.json, and this client only holds the ACTIVE profile's decks
- * (savedDecks). Other profiles' rows therefore show "unrated" until they appear
- * in a comparison result this session — there is no Rate button on them, and
- * their session rating is NOT persisted to their profile (no cross-profile
- * write path exists client-side, by design).
+ * (savedDecks). Other profiles' rows show "unrated" until they appear in a
+ * comparison result; from v0.96.0 (E5) a rating computed for another player's
+ * deck IS persisted into that deck's owning profile via POST /api/pod-balance/
+ * rate, so it sticks across sessions for the whole pod.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -175,11 +175,20 @@ export default function PodBalanceView({ savedDecks = [], onSaveRating, onAddDec
     return sessionRatings[id] || null;
   };
 
-  /** Remember a fresh rating for the session and persist it when the deck is ours. */
+  /** Remember a fresh rating + persist it into the deck's OWNING profile (E5).
+   *  Own decks go through the deck store (keeps the client in sync); other
+   *  players' decks persist server-side into their profile's file. */
   const recordRating = useCallback((deckId, powerRank) => {
     setSessionRatings((prev) => ({ ...prev, [deckId]: powerRank }));
-    if (typeof onSaveRating === "function" && savedById.has(deckId)) {
-      onSaveRating(deckId, powerRank);
+    if (savedById.has(deckId)) {
+      if (typeof onSaveRating === "function") onSaveRating(deckId, powerRank);
+    } else {
+      // Cross-profile deck (e.g. Joe's): write the rating into its owning profile.
+      fetch("/api/pod-balance/rate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckId, powerRank }),
+      }).catch(() => { /* best-effort; the session rating still shows this run */ });
     }
   }, [onSaveRating, savedById]);
 

@@ -258,7 +258,7 @@ summary here for the queue:
 - **E4 · U-F4 durable fix — server-side per-profile color tags** (M, 3) — replace the
   self-labeled localStorage STOPGAP in `useColorTags.js` with a small `/api/color-tags`
   per-profile store + one-time migration.
-- **E5 · Cross-profile rating persistence** (M, 4) — **Colton call first** (current
+- ✅ v0.96.0 (persists into the owning profile, per Colton's call) **E5 · Cross-profile rating persistence** (M, 4) — **Colton call first** (current
   no-write is BY DESIGN): opt-in persist flag so ratings computed for another profile's
   deck write into that profile's store; then delete PodBalanceView's sessionRatings
   crutch.

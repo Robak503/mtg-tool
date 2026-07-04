@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.96.0] - 2026-07-04
+
+### Added
+- **Pod ratings persist for the whole pod** — a machine power rating computed for
+  another player's deck in Pod Balance now saves into that deck's owning
+  profile, so it sticks across sessions instead of recomputing each time.
+
 ## [0.95.1] - 2026-07-04
 
 Release cut at the backlog-push handoff — no app code change since 0.95.0
