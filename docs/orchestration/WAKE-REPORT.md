@@ -1,3 +1,24 @@
+> 🧩 **P3 + P7 + P9 — BUILT + FENCED — 2026-07-04 (Cindy, Opus 4.8) — release-prepped as v0.101.0, landing via PR.**
+> The `orders/p3-p7-p9-backlog.md` chunk, all three additive Academy/Learn features, stacked on `d226091b`
+> (v0.100.0): **P3 post-game debrief** (`0b5bf2fe` — the Academy result scrim tallies the player's own picks vs
+> `metadata.suggestion`; the "un-strip decisionWire" premise was STALE like E1's — suggestion lives only on `ask`,
+> already on the wire, so it's built off that + a pin test, no dead plumbing) · **P7 replay scrubber** (`9d7014be` —
+> Table Records detail steps a finished game per-turn via `groupLogByTurn` + the shared `LearnLogEntry`; also fixed a
+> latent P2 bug where `logTail.join("\n")` rendered `[object Object]`, and bumped record log capture 5→160 lines so
+> there's a game to scrub) · **P9 puzzle mode** (`08bffb34` — Save-as-puzzle → `/api/puzzles` (store mirrors
+> gameRecordsStore, reuses learnSaveSchema checksum/serialize guards) + `/api/learn/resume-puzzle` session-from-
+> snapshot loader (fresh id, reuses `advanceUntilDecision`, `/learn/start` untouched) + a Puzzles list & result overlay
+> driven by the pure, unit-tested `evaluatePuzzle`; v1 goal = win-this-turn).
+> **FENCE: suite 7,744 (+19) · lint 0 · trajectory `ab524e20` ×2 byte-identical to the v0.100.0 anchor** (rows 5706,
+> seed 1 — zero engine files touched; git-verifiable). Round-trip test proves serialize→restore→same board. **Verified
+> LIVE in the preview:** P7 scrubber stepped T1→T2; P9 listed an injected real snapshot → Solve loaded the board+goal
+> badge → passing the turn fired the "Puzzle failed" overlay; zero console errors throughout.
+> **LANDING (Colton's call 2026-07-04): open a PR → merge → tag ONE release v0.101.0** (master-push is gated in this
+> env). New app surfaces for Omnath tooling: `/api/puzzles` (GET list · GET ?id= · POST save-from-live-session) +
+> `/api/learn/resume-puzzle` (POST {puzzleId}); Table Records `logTail` is now a fuller narrative tail (≤160). No
+> engine/self-play/trajectory change — `ab524e20` holds; nothing to re-baseline.
+>
+> ── prior release (below) ──
 > 🚀 **v0.100.0 RELEASED — 2026-07-04 (Cindy, Opus 4.8) — the full P5→K→release run, after the engine-tail pass below.**
 > Shipped to master + PUBLISHED (signed `.exe` + `latest.json`, all 3 CI workflows green): **P5 reality report** COMPLETE
 > (route `analyze` flag `c944acd5` + DeckReport UI `73dc0f98`) · **K4 tokens/meld + K9 flavor + K5 combo steps** (`f1bbb4c0`

@@ -8,6 +8,24 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.101.0] - 2026-07-04
+
+### Added
+- **Post-game debrief** — after a game in the Academy, the result screen shows how
+  your own plays compared to the engine's suggested play ("You matched the suggested
+  play N/M times") and lists the turns where you diverged (P3).
+- **Replay scrubber** — open a finished game in Table Records and step through it
+  turn by turn (Prev / Next / jump-to-turn pills); each play renders the same way the
+  live game shows it (P7).
+- **Puzzle mode** — capture any live position in the Academy as a puzzle
+  ("Save as puzzle"), then load it later from the Puzzles list and try to solve it.
+  The v1 goal is win-this-turn — find the line before the turn passes (P9).
+
+### Fixed
+- **Table Records log** — a finished game's log now renders as readable play-by-play
+  (it previously showed "[object Object]"), and each record keeps the full narrated
+  tail rather than only the last few lines (P7).
+
 ## [0.100.0] - 2026-07-04
 
 ### Added
