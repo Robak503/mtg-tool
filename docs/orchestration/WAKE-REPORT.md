@@ -1,4 +1,19 @@
-# 🌅 WAKE REPORT — 2026-07-03 (LEYLINE UI/UX OVERHAUL pass — v0.87.0)
+# 🌅 WAKE REPORT — 2026-07-04 (LEYLINE wave 2 — v0.88.0: kiosk IA + Proving Grounds + power-rank fixes)
+
+> **v0.88.0 (Colton-ordered wave 2, same session as v0.87.0):** the kiosk LANDING screen
+> (3 registry-driven area doors + bottom AreaBar; `docs/HOW-TO-ADD-AN-AREA.md` = the no-AI
+> extension guide) · **The Agents** (3 pixel-art squares → chat; Decks ▾ header menu; desktop
+> nav sidebar retired) · **The Proving Grounds** umbrella (Academy · Sim Center · **Pod Balance
+> as a surface**: all-profile decks, compare ≤4, Rate + auto-rate-on-import →
+> `memory.powerRank`) · **power-rank X fix** (X floors at 1 in curve/ramp/cantrip/combo paths;
+> + assumedX name-only, MDFC front-face X, interaction-axis 14+→3, `Commander:` headers) ·
+> originGuard dynamic loopback same-origin. Battery **7,681** + lint 0; fence: hash
+> `a2a03ba8` + tier 0-diff AGAIN. Parked from wave 2: mobile IA pass (sidebar survives
+> mobile-only) · cross-profile rating persistence (session-only for other profiles) ·
+> powerRank not yet in agent prompt serialization · speed-axis `||` ordering (debatable,
+> documented in ui-overhaul-log W3).
+
+# (wave 1 report below) — 2026-07-03 (LEYLINE UI/UX OVERHAUL pass — v0.87.0)
 
 > **v0.87.0 = the LEYLINE UI overhaul** (the third Fable 5 pass, one-owner lock, UI-ONLY —
 > the engine is fence-proven untouched). The whole app moved from Aether cyan to **LEYLINE**:
