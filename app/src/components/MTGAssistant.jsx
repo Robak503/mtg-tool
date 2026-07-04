@@ -45,7 +45,7 @@ import LearnView from "./mtg/LearnView";
 import SimCenter from "./mtg/SimCenter";
 import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./mtg/UpdatesModal";
-import PodBalanceModal from "./mtg/PodBalanceModal";
+import PodBalanceView from "./mtg/PodBalanceView";
 import SettingsModal from "./mtg/SettingsModal";
 import OnboardingWizard from "./mtg/OnboardingWizard";
 import ProfileGate from "./mtg/ProfileGate";
@@ -95,7 +95,6 @@ export default function MTGAssistant() {
   // legacy banner; Skip/Finish writes the marker so it never returns.
   const [onboardingClosed, setOnboardingClosed] = useState(false);
   // Pod Balance modal — compare brackets/power across saved decks
-  const [showPodBalance, setShowPodBalance] = useState(false);
   // Local multi-user profiles. The launch picker (ProfileGate) gates the shell
   // until a profile is chosen this session; the active profile is already set
   // server-side, so confirming it is friction-free (no reload).
@@ -956,14 +955,6 @@ export default function MTGAssistant() {
         colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED: "#c84848"}}
         fontFamily={F}
       />
-      {showPodBalance && (
-        <PodBalanceModal
-          onClose={() => setShowPodBalance(false)}
-          decks={savedDecks}
-          colors={{BG2, BG3, LINE, TEXT, MUTED, GOLD}}
-          fontFamily={F}
-        />
-      )}
 
       {/* App-update banner — three states:
             installing (default, zero-touch flow): "Installing v0.X.Y, restarting…"
@@ -1253,7 +1244,7 @@ export default function MTGAssistant() {
             exportChat={exportChat}
             clearChat={clearChat}
             unloadActiveDeck={unloadActiveDeck}
-            openPodBalance={() => setShowPodBalance(true)}
+            openPodBalance={() => { setArea("proving"); setCenterView("podbalance"); }}
             colors={{BG2, LINE, MUTED, TEXT, GOLD}}
             fontFamily={F}
           />
@@ -1317,8 +1308,18 @@ export default function MTGAssistant() {
             {centerView==="agents-home"?(
               <AgentsHome onPickAgent={pickAgent} fontFamily={F} />
             ):centerView==="proving-home"?(
-              <ProvingHome
-                onPick={(id)=>{ if(id==="podbalance"){ setShowPodBalance(true); } else { pickProvingGround(id); } }}
+              <ProvingHome onPick={pickProvingGround} fontFamily={F} />
+            ):centerView==="podbalance"?(
+              <PodBalanceView
+                savedDecks={savedDecks}
+                onSaveRating={(deckId, powerRank) =>
+                  updateDeckById(deckId, (deck) => ({
+                    ...deck,
+                    memory: { ...deck.memory, powerRank },
+                  }))
+                }
+                onAddDeck={() => { setArea("agents"); setCenterView("import"); }}
+                cfg={cfg}
                 fontFamily={F}
               />
             ):centerView==="import"?(
