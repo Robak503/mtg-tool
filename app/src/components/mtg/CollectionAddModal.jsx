@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { treatmentButtons } from "../../lib/foilTreatments";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 const DEBOUNCE_MS = 280;
 const MIN_QUERY_CHARS = 2;
@@ -37,6 +38,7 @@ function priceForFinish(printing, finish) {
 }
 
 export default function CollectionAddModal({ onClose, onAdded, initialQuery = "", colors }) {
+  useEscapeClose(onClose);
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);

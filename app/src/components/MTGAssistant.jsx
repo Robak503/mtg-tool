@@ -57,6 +57,7 @@ import LandingScreen from "./mtg/LandingScreen";
 import AreaBar from "./mtg/AreaBar";
 import AgentsHome from "./mtg/AgentsHome";
 import ProvingHome from "./mtg/ProvingHome";
+import VaultHome from "./mtg/VaultHome";
 import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
@@ -1398,8 +1399,16 @@ export default function MTGAssistant() {
                 colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}
               />
+            ):centerView==="vault-home"?(
+              <VaultHome onPick={setCenterView} fontFamily={F} />
             ):centerView==="collection"?(
-              <CollectionView onBuildCommander={buildFromVault} />
+              <CollectionView surface="collection" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
+            ):centerView==="vault-ledger"?(
+              <CollectionView surface="ledger" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
+            ):centerView==="vault-atlas"?(
+              <CollectionView surface="sets" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
+            ):centerView==="vault-forge"?(
+              <CollectionView surface="build" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):(
               <ChatPanel
                 activeDeck={activeDeck}

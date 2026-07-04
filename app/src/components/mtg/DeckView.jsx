@@ -262,7 +262,7 @@ export default function DeckView({
               ["Cards", mainCount],
               ["Tokens", tokenCount],
               ["Games", gameCount],
-              ["Power", deckMemory.powerLevel || "Unset"],
+              ["Power", deckMemory.powerRank?.powerLevel != null ? `${deckMemory.powerRank.powerLevel} · B${deckMemory.powerRank.bracket ?? "?"}` : (deckMemory.powerLevel || "Unset")],
             ].map(([label, value]) => (
               <div key={label} style={{ ...glass, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6, alignItems: "center", justifyContent: "center", textAlign: "center" }}>
                 <div style={dlabel}>{label}</div>

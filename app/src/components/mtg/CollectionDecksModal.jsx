@@ -11,8 +11,10 @@
  */
 
 import { useEffect, useState } from "react";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
+  useEscapeClose(onClose);
   const { BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const [state, setState] = useState({ status: "loading", decks: [], error: null });
   const [expanded, setExpanded] = useState(null);

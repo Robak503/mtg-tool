@@ -14,6 +14,7 @@
  */
 
 import { useState } from "react";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 const REPO_URL = "https://github.com/Robak503/mtg-tool";
 
@@ -43,6 +44,7 @@ export default function SettingsModal({
   colors,
   fontFamily,
 }) {
+  useEscapeClose(onClose);
   const [section, setSection] = useState("models");
   if (!open) return null;
 

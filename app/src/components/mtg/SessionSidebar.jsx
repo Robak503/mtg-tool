@@ -45,7 +45,18 @@ export default function SessionSidebar({
   const [renameId, setRenameId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
 
-  const visible = showArchived ? archivedSessions : activeSessions;
+  const [query, setQuery] = useState("");
+
+  // Name + locked-deck filter over whichever list is showing. Client-side —
+  // the session objects are already fully loaded.
+  const pool = showArchived ? archivedSessions : activeSessions;
+  const visible = query.trim()
+    ? pool.filter((s) => {
+        const q = query.trim().toLowerCase();
+        return (s.name || "").toLowerCase().includes(q)
+          || (s.lockedDeck?.name || "").toLowerCase().includes(q);
+      })
+    : pool;
 
   // Group sessions by agent. The active agent's group renders first so the
   // user's own sessions are always at the top; other agents follow in the
@@ -110,6 +121,23 @@ export default function SessionSidebar({
           {showArchived ? "← active" : `archived (${archivedSessions.length})`}
         </button>
       </div>
+
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Filter by chat or deck…"
+        style={{
+          width: "100%",
+          padding: "6px 9px",
+          background: "var(--ley-surface-2)",
+          border: "1px solid var(--ley-line)",
+          borderRadius: 6,
+          color: "var(--ley-text)",
+          fontSize: 12,
+          fontFamily,
+          boxSizing: "border-box",
+        }}
+      />
 
       {!showArchived && (
         <button

@@ -137,7 +137,7 @@ export default function DeckMenu({
                   </span>
                   <span style={{ display: "block", fontSize: 10, color: "var(--ley-text-dim)", marginTop: 1 }}>
                     {d.memory?.owner || "Colton"} · {(d.cards || []).filter((c) => c.section !== "Sideboard" && c.section !== "Tokens").reduce((s, c) => s + c.qty, 0)} cards
-                    {d.memory?.powerLevel ? ` · power ${d.memory.powerLevel}` : ""}
+                    {d.memory?.powerRank?.powerLevel != null ? ` · ${d.memory.powerRank.powerLevel} · B${d.memory.powerRank.bracket ?? "?"}` : d.memory?.powerLevel ? ` · power ${d.memory.powerLevel}` : ""}
                   </span>
                 </button>
               );

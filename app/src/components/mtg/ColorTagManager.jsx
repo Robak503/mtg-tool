@@ -13,8 +13,10 @@ import { useState } from "react";
 
 import { behaviorLabel } from "../../hooks/useColorTags";
 import ColorTagModal from "./ColorTagModal";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, onClose, cfg, colors, fontFamily }) {
+  useEscapeClose(onClose);
   const { LINE, TEXT, MUTED } = colors;
   // null = closed; {} = create; { id, name, color, behavior } = edit
   const [editing, setEditing] = useState(null);

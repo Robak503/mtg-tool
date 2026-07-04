@@ -14,6 +14,7 @@
  */
 
 import { useRef, useState } from "react";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 const MODES = [
   { id: "merge", label: "Merge", blurb: "Add the imported quantities to what you already own." },
@@ -23,6 +24,7 @@ const MODES = [
 ];
 
 export default function CollectionImportModal({ onClose, onAdded, colors }) {
+  useEscapeClose(onClose);
   const fileRef = useRef(null);
   const [phase, setPhase] = useState("pick"); // pick | preview | committing | done
   const [filename, setFilename] = useState("");

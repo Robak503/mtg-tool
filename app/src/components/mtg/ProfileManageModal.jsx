@@ -8,10 +8,12 @@
  * profile (the server enforces this too). Switching reloads via the parent.
  */
 import { useState } from "react";
+import useEscapeClose from "../../hooks/useEscapeClose";
 
 const FD = "var(--font-display), Georgia, serif";
 
 export default function ProfileManageModal({ profiles = [], activeId, onCreate, onRename, onDelete, onSwitch, onClose, colors, fontFamily }) {
+  useEscapeClose(onClose);
   const { LINE, TEXT, MUTED, GOLD } = colors;
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);

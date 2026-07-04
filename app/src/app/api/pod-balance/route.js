@@ -27,11 +27,19 @@ import {
   selectDecksByIds,
 } from "../../../lib/server/selfPlayDecks.js";
 
+import { evaluateDeckSalt } from "../../../lib/server/edhrecSalt.js";
+
 const MAX_DECKS = 4;
 
 function summarize(deck) {
-  const result = rankDeckPower({ cards: Array.isArray(deck?.cards) ? deck.cards : [], maxAlmost: 0 });
+  const cards = Array.isArray(deck?.cards) ? deck.cards : [];
+  const result = rankDeckPower({ cards, maxAlmost: 0 });
+  // Misery meter — EDHREC salt over the decklist (ready:false → nulls, the
+  // client hides the row until a salt sync has run).
+  const salt = evaluateDeckSalt(cards.map((c) => c?.name).filter(Boolean));
   return {
+    saltSum: salt.ready ? salt.sum : null,
+    saltTop: salt.ready ? salt.topCards.slice(0, 3) : [],
     id: deck?.id ?? null,
     name: (deck?.name || "").trim() || result.commanderNames[0] || "Deck",
     powerLevel: result.powerLevel,

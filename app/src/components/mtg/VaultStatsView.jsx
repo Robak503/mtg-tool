@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from "react";
 
-import Sparkline from "./Sparkline";
+import VaultValueChart from "./VaultValueChart";
 
 const COLOR_META = {
   W: { label: "White", swatch: "#e9e4cf" },
@@ -29,7 +29,7 @@ const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", 
 const money = (v) => (v == null || Number.isNaN(v) ? "—" : `$${Number(v).toFixed(2)}`);
 
 export default function VaultStatsView({ colors, fontFamily, onGoToCollection }) {
-  const { BG, BG2, LINE, TEXT, MUTED, GOLD } = colors;
+  const { BG, LINE, TEXT, MUTED, GOLD } = colors;
   const F = fontFamily;
   const [state, setState] = useState({ status: "loading", data: null, error: null });
 
@@ -51,7 +51,7 @@ export default function VaultStatsView({ colors, fontFamily, onGoToCollection })
 
   const data = state.data;
   const b = data?.breakdowns;
-  const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
+  const card = { background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)", padding: 16, marginBottom: 16 };
   const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (!b || b.ownedRows === 0) {
@@ -92,20 +92,7 @@ export default function VaultStatsView({ colors, fontFamily, onGoToCollection })
           <Stat label="Owned value" value={money(data?.value?.currentUsd)} color={GOLD} />
           <Stat label="Sets represented" value={b.setCount ?? 0} color={TEXT} />
         </div>
-        {(() => {
-          const series = data?.value?.series || [];
-          if (series.length < 2) return null;
-          const first = series[0].value;
-          const last = series[series.length - 1].value;
-          return (
-            <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
-                Value over time · {money(first)} → {money(last)}
-              </div>
-              <Sparkline points={series.map((p) => p.value)} width={420} height={56} strokeWidth={2} />
-            </div>
-          );
-        })()}
+        <VaultValueChart series={data?.value?.series} colors={colors} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

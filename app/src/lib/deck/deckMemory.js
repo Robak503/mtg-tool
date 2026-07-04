@@ -126,6 +126,9 @@ export function serializeDeckMemory(deck) {
     m.owner ? `Owner: ${m.owner}` : "",
     m.tags ? `Tags: ${m.tags}` : "",
     m.powerLevel ? `Power Level: ${m.powerLevel}` : "",
+    m.powerRank && m.powerRank.powerLevel != null
+      ? `Machine Power Rating: ${m.powerRank.powerLevel}/10 — Bracket ${m.powerRank.bracket ?? "?"}${m.powerRank.bracketLabel ? ` (${m.powerRank.bracketLabel})` : ""}${m.powerRank.ratedAt ? `, rated ${String(m.powerRank.ratedAt).slice(0, 10)}` : ""}`
+      : "",
     m.notes ? `Notes: ${m.notes}` : "",
     m.boardSnapshot ? `Board Snapshot: ${m.boardSnapshot}` : "",
   ].filter(Boolean);

@@ -16,7 +16,7 @@ const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", 
 const year = (iso) => (iso && /^\d{4}/.test(iso) ? iso.slice(0, 4) : "");
 
 export default function VaultSetBrowserView({ colors, fontFamily }) {
-  const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
+  const { BG, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const F = fontFamily;
 
   const [state, setState] = useState({ status: "loading", sets: null, error: null });
@@ -72,7 +72,7 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
   }, [detail.data, sortBy]);
 
   const wrap = { flex: 1, overflowY: "auto", padding: "16px 20px", background: BG, color: TEXT, fontFamily: F };
-  const card = { background: BG2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14, marginBottom: 16 };
+  const card = { background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)", padding: 16, marginBottom: 16 };
   const h = { fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
   if (state.status === "loading") return <Centered color={MUTED}>Loading sets…</Centered>;
@@ -86,11 +86,27 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
           <button onClick={() => setActive(null)} className="btn btn-secondary btn-sm">← All sets</button>
           <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 24, fontWeight: 700, color: TEXT }}>{active.setName}</span>
           <span style={{ fontSize: 12, color: MUTED }}>{active.setCode.toUpperCase()}</span>
-          {detail.status === "ready" && (
-            <span style={{ marginLeft: "auto", fontSize: 13, color: GOLD, fontWeight: 600 }}>
-              own {detail.data.owned} / {detail.data.total}
-            </span>
-          )}
+          {detail.status === "ready" && (() => {
+            const cards = detail.data.cards || [];
+            let cost = 0, unpriced = 0, missing = 0;
+            for (const c of cards) {
+              if (c.owned) continue;
+              missing += 1;
+              const p = parseFloat(c.usd);
+              if (Number.isFinite(p)) cost += p; else unpriced += 1;
+            }
+            const pct = detail.data.total > 0 ? Math.round((detail.data.owned / detail.data.total) * 100) : 0;
+            return (
+              <span style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 12, fontSize: 13 }}>
+                <span style={{ color: GOLD, fontWeight: 600 }}>own {detail.data.owned} / {detail.data.total} · {pct}%</span>
+                {missing > 0 && (
+                  <span style={{ color: MUTED }} title={unpriced ? `${unpriced} missing card${unpriced === 1 ? " has" : "s have"} no price — true cost is higher` : "Sum of this set's unowned printings at current prices"}>
+                    ~${cost.toFixed(2)} to complete{unpriced ? ` (+${unpriced} unpriced)` : ""}
+                  </span>
+                )}
+              </span>
+            );
+          })()}
         </div>
 
         {detail.status === "loading" && <Centered color={MUTED}>Loading {active.setName}…</Centered>}
@@ -141,7 +157,16 @@ export default function VaultSetBrowserView({ colors, fontFamily }) {
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {s.setName} <span style={{ color: MUTED, fontSize: 11 }}>· {s.setCode.toUpperCase()}{year(s.releasedAt) ? ` · ${year(s.releasedAt)}` : ""}</span>
             </span>
-            <span style={{ fontSize: 12, color: s.owned > 0 ? GOLD : MUTED, flexShrink: 0 }}>own {s.owned} / {s.total}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              {s.total > 0 && s.owned > 0 && (
+                <span aria-hidden style={{ width: 72, height: 4, background: BG3, borderRadius: 2, overflow: "hidden", display: "inline-block" }}>
+                  <span style={{ display: "block", width: `${Math.min(100, Math.round((s.owned / s.total) * 100))}%`, height: "100%", background: "var(--ley-green)", boxShadow: "0 0 5px var(--ley-green-glow)" }} />
+                </span>
+              )}
+              <span style={{ fontSize: 12, color: s.owned > 0 ? GOLD : MUTED, fontVariantNumeric: "tabular-nums" }}>
+                {s.owned} / {s.total}{s.total > 0 && s.owned > 0 ? ` · ${Math.round((s.owned / s.total) * 100)}%` : ""}
+              </span>
+            </span>
           </button>
         ))}
       </div>
