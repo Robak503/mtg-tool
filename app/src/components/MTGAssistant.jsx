@@ -58,6 +58,7 @@ import AreaBar from "./mtg/AreaBar";
 import AgentsHome from "./mtg/AgentsHome";
 import ProvingHome from "./mtg/ProvingHome";
 import VaultHome from "./mtg/VaultHome";
+import DeckReadyView from "./mtg/DeckReadyView";
 import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
@@ -644,6 +645,15 @@ export default function MTGAssistant() {
   const saveLatestAgentArtifact = (key) => {
     const latest = [...(histories[key] || [])].reverse().find(m => m.role === "assistant")?.content?.trim();
     if (!latest) return;
+    saveAgentArtifactContent(key, latest);
+  };
+
+  // Q8: save a SPECIFIC message (per-message chips in chat), not just the
+  // newest reply. Writes into the ACTIVE deck's memory — the chat panel only
+  // offers the chip when the session's locked deck IS the active deck.
+  const saveAgentArtifactContent = (key, content) => {
+    const latest = (content || "").trim();
+    if (!latest) return;
 
     const entry = {
       id: `${key}-${Date.now()}`,
@@ -705,8 +715,12 @@ export default function MTGAssistant() {
   const importDeck=()=>{
     const deck = saveImportedDeck();
     if (!deck) return;
-    setCenterView("chat");
+    // Q3: land on the "deck ready" confirmation — the auto-rate is fire-and-
+    // forget in the store, so the panel streams the rating in when it lands.
+    setDeckReadyId(deck.id);
+    setCenterView("deck-ready");
   };
+  const [deckReadyId, setDeckReadyId] = useState(null);
 
   const unloadActiveDeck = () => {
     setActiveDeckId(null);
@@ -1404,6 +1418,16 @@ export default function MTGAssistant() {
                 initialSelection={pendingSimSelection}
                 onConsumeInitialSelection={() => setPendingSimSelection(null)}
               />
+            ):centerView==="deck-ready"?(
+              <DeckReadyView
+                deck={savedDecks.find((d) => d.id === deckReadyId) || activeDeck}
+                onChat={() => setCenterView("chat")}
+                onView={() => setCenterView("deck")}
+                onKarn={() => { pickAgent("karn"); setCenterView("chat"); }}
+                onTibalt={() => { pickAgent("tibalt"); setCenterView("chat"); }}
+                onPodBalance={() => { setArea("proving"); setCenterView("podbalance"); }}
+                fontFamily={F}
+              />
             ):centerView==="vault-home"?(
               <VaultHome onPick={setCenterView} fontFamily={F} />
             ):centerView==="collection"?(
@@ -1417,6 +1441,8 @@ export default function MTGAssistant() {
             ):(
               <ChatPanel
                 activeDeck={activeDeck}
+                onSaveArtifact={saveAgentArtifactContent}
+                onSaveNote={(key, content) => updateAgentNote(key, content)}
                 agent={agent}
                 applyKarnChange={applyKarnChange}
                 bottomRef={bottomRef}
