@@ -104,6 +104,7 @@ export default function VaultBuildView({ colors, fontFamily, onBuildCommander, o
         ))}
       </div>
       <ForgeCombos colors={colors} fontFamily={F} card={card} h={h} />
+      <ForgeShoppingList colors={colors} fontFamily={F} card={card} h={h} />
       <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.5, padding: "0 2px 16px" }}>
         Commanders and color identities come from the bundled card index; ownership from your
         collection. The count is how many other cards you own that are legal in that commander&apos;s
@@ -229,6 +230,70 @@ function ForgeCombos({ colors, fontFamily, card, h }) {
           ))}
         </>
       )}
+    </div>
+  );
+}
+
+// The universal buy list (V11): every card you still need — across all decks,
+// your wishlist, and price alerts — deduped, tagged with WHY, priced.
+function ForgeShoppingList({ colors, fontFamily, card, h }) {
+  const { TEXT, MUTED, GOLD, RED } = colors;
+  const [state, setState] = useState({ status: "loading", data: null, error: null });
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch("/api/collection/shopping-list");
+        const body = await resp.json();
+        if (!resp.ok) setState({ status: "error", data: null, error: body.error || "Failed to load the buy list." });
+        else setState({ status: "ready", data: body, error: null });
+      } catch (e) {
+        setState({ status: "error", data: null, error: e.message });
+      }
+    })();
+  }, []);
+
+  if (state.status === "loading") return null;
+  if (state.status === "error") {
+    return <div style={{ ...card, fontFamily }}><div style={h}>Shopping list</div><div style={{ fontSize: 12, color: RED }}>{state.error}</div></div>;
+  }
+
+  const { indexMissing, entries = [], totalCost = 0, totalCards = 0, unpriced = 0 } = state.data || {};
+  if (indexMissing) {
+    return (
+      <div style={{ ...card, fontFamily }}>
+        <div style={h}>Shopping list</div>
+        <div style={{ fontSize: 12, color: MUTED }}>Sync the printings index from the Updates panel to price your buy list.</div>
+      </div>
+    );
+  }
+  if (entries.length === 0) return null;
+
+  const copyList = async () => {
+    try {
+      await navigator.clipboard.writeText(entries.map((e) => `${e.qty} ${e.name}`).join("\n"));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard denied */ }
+  };
+
+  return (
+    <div style={{ ...card, fontFamily }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span style={{ ...h, marginBottom: 0 }}>Shopping list</span>
+        <span style={{ fontSize: 12, color: GOLD }}>{totalCards} card{totalCards === 1 ? "" : "s"} · ~${totalCost.toFixed(2)}{unpriced ? ` (+${unpriced} unpriced)` : ""}</span>
+        <button onClick={copyList} className="btn btn-ghost btn-sm" style={{ marginLeft: "auto", padding: "2px 8px", fontSize: 10 }}>{copied ? "Copied ✓" : "Copy list"}</button>
+      </div>
+      {entries.slice(0, 60).map((e) => (
+        <div key={e.name} style={{ display: "flex", alignItems: "baseline", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--ley-line)" }}>
+          <span style={{ fontSize: 13, color: TEXT, minWidth: 24, fontVariantNumeric: "tabular-nums" }}>{e.qty}×</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
+          <span style={{ fontSize: 10, color: MUTED, flexShrink: 0 }}>{(e.reasons || []).join(" · ")}</span>
+          <span style={{ fontSize: 12, color: GOLD, flexShrink: 0, minWidth: 56, textAlign: "right" }}>{e.lineCost != null ? `$${e.lineCost.toFixed(2)}` : "—"}</span>
+        </div>
+      ))}
+      {entries.length > 60 && <div style={{ fontSize: 10, color: MUTED, marginTop: 6 }}>+{entries.length - 60} more</div>}
     </div>
   );
 }

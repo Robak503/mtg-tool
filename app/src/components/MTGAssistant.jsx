@@ -19,6 +19,7 @@
 import { useState, useRef, useEffect } from "react";
 
 import { AGENTS } from "../lib/agents";
+import { parseMessage } from "../lib/chatMarkdown";
 import { serializeDeck } from "../lib/deck/deckMemory";
 import {
   formatGoldfishBatchNotes,
@@ -61,6 +62,8 @@ import VaultHome from "./mtg/VaultHome";
 import DeckReadyView from "./mtg/DeckReadyView";
 import VaultGalleryView from "./mtg/VaultGalleryView";
 import RecordsView from "./mtg/RecordsView";
+import JudgeTrialsView from "./mtg/JudgeTrialsView";
+import LibraryView from "./mtg/LibraryView";
 import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
@@ -556,18 +559,40 @@ export default function MTGAssistant() {
     setTooltip(t=>t?.name===name?{...t,image:d?.image}:t);
   };
 
-  const renderText=text=>text.split(/\[\[([^\]]+)\]\]/g).map((part,i)=>
-    i%2===1
-      ?<span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,verticalAlign:"middle"}}>
-          <img src={`/api/art-crop?name=${encodeURIComponent(part)}`} alt="" loading="lazy"
-            onError={e=>{e.currentTarget.style.display="none";}}
-            style={{width:30,height:21,objectFit:"cover",objectPosition:"center 28%",borderRadius:3,border:`1px solid ${cfg.border}`,boxShadow:`0 0 7px ${cfg.glow}`,flexShrink:0}}/>
-          <span style={{background:cfg.dim,border:`1px solid ${cfg.border}`,color:cfg.color,borderRadius:4,padding:"1px 6px",cursor:"pointer",fontStyle:"italic",fontSize:"0.87em"}}
-            onMouseEnter={e=>handleChipHover(part,e)} onMouseLeave={()=>setTooltip(null)}
-            onClick={()=>window.open(`https://scryfall.com/search?q=${encodeURIComponent('"'+part+'"')}`,"_blank")}>{part}</span>
-        </span>
-      :<span key={i} style={{whiteSpace:"pre-wrap"}}>{part}</span>
+  // A card chip — the exact art+hover+link treatment the chat has always used,
+  // factored out so the K7 markdown-lite renderer reuses it verbatim.
+  const cardChip=(name,key)=>(
+    <span key={key} style={{display:"inline-flex",alignItems:"center",gap:4,verticalAlign:"middle"}}>
+      <img src={`/api/art-crop?name=${encodeURIComponent(name)}`} alt="" loading="lazy"
+        onError={e=>{e.currentTarget.style.display="none";}}
+        style={{width:30,height:21,objectFit:"cover",objectPosition:"center 28%",borderRadius:3,border:`1px solid ${cfg.border}`,boxShadow:`0 0 7px ${cfg.glow}`,flexShrink:0}}/>
+      <span style={{background:cfg.dim,border:`1px solid ${cfg.border}`,color:cfg.color,borderRadius:4,padding:"1px 6px",cursor:"pointer",fontStyle:"italic",fontSize:"0.87em"}}
+        onMouseEnter={e=>handleChipHover(name,e)} onMouseLeave={()=>setTooltip(null)}
+        onClick={()=>window.open(`https://scryfall.com/search?q=${encodeURIComponent('"'+name+'"')}`,"_blank")}>{name}</span>
+    </span>
   );
+  // Inline tokens → JSX: card chips + bold/italic/inline-code over plain runs.
+  const renderInline=(tokens,keyBase)=>tokens.map((t,i)=>{
+    const k=`${keyBase}-${i}`;
+    if(t.kind==="card") return cardChip(t.value,k);
+    if(t.kind==="bold") return <strong key={k}>{t.value}</strong>;
+    if(t.kind==="italic") return <em key={k}>{t.value}</em>;
+    if(t.kind==="code") return <code key={k} style={{background:"var(--ley-surface-2)",borderRadius:3,padding:"0 4px",fontSize:"0.9em",fontFamily:"var(--font-mono), monospace"}}>{t.value}</code>;
+    return <span key={k} style={{whiteSpace:"pre-wrap"}}>{t.value}</span>;
+  });
+  // A full agent/user message → block-rendered JSX (markdown-lite: headings,
+  // bullets, ordered items; everything else is inline text). Card-chip behavior
+  // is byte-identical to before — only new markup was added around it.
+  const renderText=text=>parseMessage(text).map((b,i)=>{
+    const inline=renderInline(b.inline,i);
+    if(b.type==="heading"){
+      const size=b.level===1?17:b.level===2?15:13.5;
+      return <div key={i} style={{fontFamily:"var(--font-display), sans-serif",fontWeight:700,fontSize:size,margin:"8px 0 2px",color:"var(--ley-text)"}}>{inline}</div>;
+    }
+    if(b.type==="bullet") return <div key={i} style={{display:"flex",gap:7,margin:"1px 0"}}><span style={{color:cfg.color,flexShrink:0}}>•</span><span>{inline}</span></div>;
+    if(b.type==="ordered") return <div key={i} style={{display:"flex",gap:7,margin:"1px 0"}}><span style={{color:cfg.color,flexShrink:0,fontVariantNumeric:"tabular-nums"}}>{b.marker}</span><span>{inline}</span></div>;
+    return <div key={i} style={{whiteSpace:"pre-wrap"}}>{inline}</div>;
+  });
 
   // Apply a Karn-suggested add/cut to the chat's LOCKED deck, snapshotting first
   // (E1). Returns the updated deck or null (no locked deck / unknown id).
@@ -1330,6 +1355,10 @@ export default function MTGAssistant() {
               <ProvingHome onPick={pickProvingGround} fontFamily={F} />
             ):centerView==="records"?(
               <RecordsView onBack={() => setCenterView("proving-home")} fontFamily={F} />
+            ):centerView==="judge"?(
+              <JudgeTrialsView onBack={() => setCenterView("proving-home")} fontFamily={F} />
+            ):centerView==="library-home"?(
+              <LibraryView fontFamily={F} />
             ):centerView==="podbalance"?(
               <PodBalanceView
                 savedDecks={savedDecks}

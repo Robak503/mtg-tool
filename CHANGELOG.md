@@ -8,6 +8,25 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.92.0] - 2026-07-04
+
+Knowledge features + collection depth.
+
+### Added
+- **Judge Trials** — a rules quiz over ~500 verified judge questions (bundled
+  RulesGuru corpus): pick a difficulty, read the scenario, reveal the cited
+  ruling, self-grade, watch your streak. A new Proving Grounds door.
+- **The Library** — a new area: search the Comprehensive Rules and the engine
+  explainers by keyword or rule number, plus official card rulings by name.
+  All of it was already indexed locally; it was just Arbiter-only until now.
+- **Formatted chat** — Karn/Tibalt/Jace replies now render headings, bold,
+  bullets, and inline code instead of raw markdown glyphs.
+- **Universal shopping list** (The Forge) — one deduped buy list across every
+  deck you still need cards for, your wishlist, and price alerts, each tagged
+  with why and priced; copy it as a decklist.
+- **By-finish breakdown** (the Ledger) — nonfoil / foil / etched counts across
+  your physical copies.
+
 ## [0.91.0] - 2026-07-04
 
 The Gallery, Table Records, and the rest of the quick-win wave.

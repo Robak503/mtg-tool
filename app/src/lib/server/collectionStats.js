@@ -63,6 +63,7 @@ export function computeCollectionBreakdowns(collection, getMeta, { topSets = 8, 
   const byType = {};
   const byRarity = {};
   const byColor = { W: 0, U: 0, B: 0, R: 0, G: 0, Colorless: 0, Multicolor: 0 };
+  const byFinish = { nonfoil: 0, foil: 0, etched: 0 }; // V12: physical-copy counts
   const manaCurve = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7+": 0 };
   const setCounts = new Map();
   const setNames = new Map();
@@ -74,6 +75,13 @@ export function computeCollectionBreakdowns(collection, getMeta, { topSets = 8, 
     if (row.wishlist) continue;
     if (rowQuantity(row) <= 0) continue;
     ownedRows += 1;
+
+    for (const stack of row.stacks || []) {
+      const q = stack.quantity > 0 ? stack.quantity : 0;
+      if (q <= 0) continue;
+      const f = stack.finish === "foil" ? "foil" : stack.finish === "etched" ? "etched" : "nonfoil";
+      byFinish[f] += q;
+    }
 
     const meta = getMeta ? getMeta(row) : null;
 
@@ -120,5 +128,5 @@ export function computeCollectionBreakdowns(collection, getMeta, { topSets = 8, 
     .sort((a, b) => b.lineValue - a.lineValue || a.name.localeCompare(b.name))
     .slice(0, topValuable);
 
-  return { byType, byRarity, byColor, manaCurve, topSets: topSetList, mostValuable, ownedRows, pricedRows, setCount: setCounts.size };
+  return { byType, byRarity, byColor, byFinish, manaCurve, topSets: topSetList, mostValuable, ownedRows, pricedRows, setCount: setCounts.size };
 }

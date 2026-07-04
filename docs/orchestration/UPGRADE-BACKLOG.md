@@ -112,10 +112,10 @@ summary here for the queue:
 - **V10 · Cost basis** (M, 3) — optional `paidUsd` (+ `acquiredFrom/At`) per stack;
   gain/loss card in the Ledger; per-card gain in the drawer; CSV import column mapping
   later.
-- **V11 · Universal shopping list** (S, 3) — merge wishlist + all-deck missing cards
+- ✅ v0.92.0 **V11 · Universal shopping list** (S, 3) — merge wishlist + all-deck missing cards
   (`/api/collection/deck-costs` + `shoppingList.js`) + alert-hit grails into one deduped
   buy list tagged with WHY, vendor-paste export.
-- **V12 · Finish analytics + foil-upgrade radar** (S, 3) — by-finish/treatment breakdown
+- ✅ v0.92.0 **V12 · Finish analytics + foil-upgrade radar** (S, 3) — by-finish/treatment breakdown
   (via `foilTreatments.js` catalog) + flag owned nonfoils whose premium printing exists
   with price (`lookupByName`).
 
@@ -175,13 +175,13 @@ summary here for the queue:
   `rulingsFor` exist), price, legality, Printings tab (`/api/printings/by-name`).
   Also wires into CollectionCardDetail (whose header admits it "omits oracle text /
   rulings"): oracle, rulings accordion, printings timeline, "Ask Jace about this card".
-- **K2 · Judge Trials — RulesGuru quiz in the Proving Grounds** (M, 5) — ~500 bundled
+- ✅ v0.92.0 **K2 · Judge Trials — RulesGuru quiz in the Proving Grounds** (M, 5) — ~500 bundled
   verified judge Q&As with difficulty tiers + CR citations
   (`knowledge/mtg-judge/META_test_cases_rulesguru.md`; parser pattern exists in
   `rulesGuruRetrieval.js`). New quiz door: pick difficulty, read the scenario (oracle
   joined from cardIndex), self-grade against verdict + citations, streak tracking. *He
   wants to GROW as a player — this is the growth feature.*
-- **K3 · The Library — rules & rulings search area** (M, 4) — a user-facing door over
+- ✅ v0.92.0 **K3 · The Library — rules & rulings search area** (M, 4) — a user-facing door over
   `/api/rules-retrieval` (CR chunks + 92 engine explainers + RulesGuru — live + tested,
   today Arbiter-only): keyword/rule-number search with rule anchors, card-name tab for
   official rulings. Cheap shell per HOW-TO-ADD-AN-AREA.
@@ -197,7 +197,7 @@ summary here for the queue:
   chat sessions, agents, actions, and local card search (`searchLocalCards`,
   `scryfall.js:501`). Every target handler already exists in MTGAssistant. Rides Q1's key
   layer.
-- **K7 · Markdown-lite chat rendering** (M, 3) — Karn's `## Cuts` / `**bold**` / lists
+- ✅ v0.92.0 **K7 · Markdown-lite chat rendering** (M, 3) — Karn's `## Cuts` / `**bold**` / lists
   render as raw glyphs today (`renderText` handles only card chips); ~80-line
   zero-dependency line-wise renderer, streaming-safe, composed with the chip splitter.
 - **K8 · Landing "continue where you left off" strip** (M, 3) — up to 3 quiet chips under

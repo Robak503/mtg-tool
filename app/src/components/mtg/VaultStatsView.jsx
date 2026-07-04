@@ -113,6 +113,21 @@ export default function VaultStatsView({ colors, fontFamily, onGoToCollection })
             <BarList rows={rarityRows.filter((r) => r.key !== "unknown")} colors={colors} useSwatch />
           </div>
         )}
+        {/* By finish (V12) */}
+        {b.byFinish && (b.byFinish.nonfoil + b.byFinish.foil + b.byFinish.etched) > 0 && (
+          <div style={card}>
+            <div style={h}>By finish</div>
+            <BarList
+              rows={[
+                { key: "nonfoil", label: "Nonfoil", count: b.byFinish.nonfoil },
+                { key: "foil", label: "Foil", count: b.byFinish.foil },
+                { key: "etched", label: "Etched", count: b.byFinish.etched },
+              ].filter((r) => r.count > 0)}
+              colors={colors}
+              accent={GOLD}
+            />
+          </div>
+        )}
         {/* Mana curve */}
         <div style={card}>
           <div style={h}>Mana curve (non-land)</div>

@@ -55,6 +55,18 @@ const GROUNDS = [
       </svg>
     ),
   },
+  {
+    id: "judge",
+    title: "Judge Trials",
+    badge: "beta",
+    blurb: "Test your rules knowledge against ~500 verified judge questions.",
+    icon: (
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v18M5 7h14M7 7l-3 6a3 3 0 0 0 6 0zM17 7l-3 6a3 3 0 0 0 6 0z" />
+        <path d="M9 21h6" />
+      </svg>
+    ),
+  },
 ];
 
 export default function ProvingHome({ onPick, fontFamily }) {
