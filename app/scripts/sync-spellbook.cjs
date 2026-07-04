@@ -160,6 +160,10 @@ function stripVariant(v) {
     produces: (v.produces || []).map(p =>
       typeof p === "string" ? p : (p.feature?.name || p.description || "")
     ).filter(Boolean),
+    // K5: the combo's step-by-step "how it works" text. Bounded so 95k combos don't bloat the
+    // bundle unreasonably; "" when Spellbook omits it. Consumers degrade gracefully (older
+    // bundles predating this sync simply won't carry it).
+    description: (v.description || "").slice(0, 500),
     bracketTag: v.bracketTag || null,
     manaValueNeeded: v.manaValueNeeded ?? null,
     identity: v.identity || null,

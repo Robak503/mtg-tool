@@ -106,6 +106,15 @@ function slimCard(card) {
     }));
   }
 
+  // K9 flavor text + K4 all_parts (token/meld references, slimmed to the fields the inspector
+  // shows), both attached ONLY when present — the vast majority of cards have neither, so this
+  // keeps the index lean. The UI degrades gracefully when a card lacks them (a bundle predating
+  // this sync simply won't carry them).
+  if (card.flavor_text) slim.flavor_text = card.flavor_text;
+  if (Array.isArray(card.all_parts) && card.all_parts.length) {
+    slim.all_parts = card.all_parts.map((p) => ({ component: p.component, name: p.name, type_line: p.type_line || "" }));
+  }
+
   return slim;
 }
 

@@ -346,6 +346,10 @@ export function publicCard(card, rulings = [], options = {}) {
     toughness: card.toughness ?? card.card_faces?.[0]?.toughness ?? null,
     loyalty: card.loyalty ?? card.card_faces?.[0]?.loyalty ?? null,
     keywords: card.keywords || [],
+    // K9 flavor + K4 token/meld parts (display-only; "" / [] when the bundle predates the sync
+    // that adds them, so every consumer degrades gracefully).
+    flavor: card.flavor_text || card.card_faces?.[0]?.flavor_text || "",
+    allParts: Array.isArray(card.all_parts) ? card.all_parts : [],
     prices: card.prices || {},
     legalities: card.legalities || {},
     card_faces: card.card_faces || [],

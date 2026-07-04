@@ -64,6 +64,7 @@ describe("happy path", () => {
         legalities: { commander: "legal" },
         layout: "normal",
         keywords: [],
+        flavor_text: "The sparkmage shrieked, calling on the rage of the storms.",
       },
       {
         name: "Delver of Secrets // Insectile Aberration",
@@ -96,6 +97,9 @@ describe("happy path", () => {
         legalities: { commander: "legal" },
         layout: "normal",
         keywords: [],
+        all_parts: [
+          { object: "related_card", component: "token", name: "Bear Cub", type_line: "Token Creature — Bear", extra_field: "dropped" },
+        ],
       },
       {
         name: "Some Art",
@@ -142,6 +146,14 @@ describe("happy path", () => {
     expect(bears.colors).toEqual(["G"]);
     expect(bears).toHaveProperty("produced_mana");
     expect(bears).toHaveProperty("loyalty", null);
+
+    // K9 flavor + K4 all_parts: attached ONLY when present, slimmed to the display fields.
+    expect(bolt.flavor_text).toMatch(/sparkmage/);
+    expect(bolt).not.toHaveProperty("all_parts");    // no parts → omitted (keeps the index lean)
+    expect(bears).not.toHaveProperty("flavor_text"); // no flavor → omitted
+    expect(bears.all_parts).toEqual([               // slimmed: extra_field dropped
+      { component: "token", name: "Bear Cub", type_line: "Token Creature — Bear" },
+    ]);
   });
 });
 

@@ -190,6 +190,9 @@ function ForgeCombos({ colors, fontFamily, card, h }) {
       {(c.produces || []).length > 0 && (
         <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>→ {c.produces.join(" · ")}</div>
       )}
+      {c.description && (
+        <div style={{ fontSize: 10.5, color: "var(--ley-text-faint)", marginTop: 3, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.description}</div>
+      )}
     </div>
   );
 
@@ -225,6 +228,9 @@ function ForgeCombos({ colors, fontFamily, card, h }) {
               </div>
               {(c.produces || []).length > 0 && (
                 <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>→ {c.produces.join(" · ")}</div>
+              )}
+              {c.description && (
+                <div style={{ fontSize: 10.5, color: "var(--ley-text-faint)", marginTop: 3, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.description}</div>
               )}
             </div>
           ))}

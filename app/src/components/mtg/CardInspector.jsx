@@ -98,6 +98,24 @@ export default function CardInspector({ name, onClose, onAskJace }) {
               <div style={{ flex: 1, minWidth: 220 }}>
                 <div style={{ fontSize: 13, color: "var(--ley-text-dim)", marginBottom: 6 }}>{c.type}{c.mana ? ` · ${c.mana}` : ""}</div>
                 {c.oracle && <div style={{ fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 12 }}>{c.oracle}</div>}
+                {c.flavor && (
+                  <div style={{ fontSize: 12.5, fontStyle: "italic", color: "var(--ley-text-dim)", lineHeight: 1.55, marginBottom: 12, borderLeft: "2px solid var(--ley-line)", paddingLeft: 10 }}>{c.flavor}</div>
+                )}
+                {(() => {
+                  const parts = (Array.isArray(c.allParts) ? c.allParts : []).filter((p) => p.component === "token" || p.component === "meld_result" || p.component === "meld_part");
+                  if (!parts.length) return null;
+                  const kind = (p) => (p.component === "token" ? "Token: " : p.component === "meld_result" ? "Melds into: " : "Melds with: ");
+                  return (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ ...label, marginBottom: 4 }}>Related</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {parts.map((p, i) => (
+                          <span key={i} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--ley-line)", background: "var(--ley-surface-2)", color: "var(--ley-text-dim)" }}>{kind(p)}{p.name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {(c.power != null || c.loyalty != null) && (
                   <div style={{ fontSize: 13, color: "var(--ley-text-dim)", marginBottom: 10 }}>
                     {c.power != null ? `${c.power}/${c.toughness}` : ""}{c.loyalty != null ? `Loyalty ${c.loyalty}` : ""}

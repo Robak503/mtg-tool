@@ -54,6 +54,7 @@ export async function GET() {
     const complete = included.slice(0, MAX_COMPLETE).map((c) => ({
       cards: c.cards || [],
       produces: c.produces || [],
+      description: c.description || "", // K5: combo steps (empty until a spellbook sync carries it)
       bracketTag: c.bracketTag || null,
       identity: c.identity || null,
       popularity: c.popularity ?? null,
@@ -67,6 +68,7 @@ export async function GET() {
         return {
           cards: c.cards || [],
           produces: c.produces || [],
+          description: c.description || "", // K5
           bracketTag: c.bracketTag || null,
           identity: c.identity || null,
           popularity: c.popularity ?? null,
