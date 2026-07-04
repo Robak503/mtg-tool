@@ -21,6 +21,7 @@ import GarfieldPanel from "./GarfieldPanel";
 import { restoreDeckCards, isRestorable, createSnapshotEntry, relabelSnapshot, diffDeckCards, cardsFromEntry } from "../../lib/deck/deckApply";
 
 export default function DeckView({
+  onInspectCard,
   activeDeck,
   agentNotes,
   askDeckAgent,
@@ -338,7 +339,7 @@ export default function DeckView({
                       {grp.map((c, i) => (
                         <div key={i} className="ley-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
                           onMouseEnter={e => handleChipHover(c.name, e)} onMouseLeave={() => setTooltip(null)}
-                          onClick={() => window.open(`https://scryfall.com/search?q=${encodeURIComponent('"' + c.name + '"')}`, "_blank")}>
+                          onClick={() => (onInspectCard ? onInspectCard(c.name) : window.open(`https://scryfall.com/search?q=${encodeURIComponent('"' + c.name + '"')}`, "_blank"))}>
                           <span style={{ fontFamily: FM, color: MUTED, fontSize: 12, width: 22, textAlign: "center", flexShrink: 0 }}>{c.qty}</span>
                           <span style={{ fontSize: 13, color: TEXT, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
                         </div>
@@ -652,7 +653,7 @@ export default function DeckView({
               {grp.map((c, i) => (
                 <div key={i} className="ley-row" style={{ display: "flex", gap: 10, padding: "0 10px", height: 38, alignItems: "center", borderRadius: 6, cursor: "pointer" }}
                   onMouseEnter={e => handleChipHover(c.name, e)} onMouseLeave={() => setTooltip(null)}
-                  onClick={() => window.open(`https://scryfall.com/search?q=${encodeURIComponent('"' + c.name + '"')}`, "_blank")}>
+                  onClick={() => (onInspectCard ? onInspectCard(c.name) : window.open(`https://scryfall.com/search?q=${encodeURIComponent('"' + c.name + '"')}`, "_blank"))}>
                   <span style={{ fontFamily: FM, color: MUTED, fontSize: 12, width: 22, textAlign: "center", flexShrink: 0 }}>{c.qty}</span>
                   <span style={{ fontSize: 13, color: TEXT, fontWeight: 500 }}>{c.name}</span>
                 </div>

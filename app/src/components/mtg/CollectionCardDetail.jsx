@@ -118,7 +118,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         const resp = await fetch(`/api/printings/by-name?name=${encodeURIComponent(row.name)}`);
         if (!resp.ok) { if (!cancelled) setPrintingArtist(false); return; }
         const body = await resp.json();
-        const list = Array.isArray(body?.printings) ? body.printings : [];
+        const list = Array.isArray(body?.results) ? body.results : [];
         const mine = list.find((p) => p.id === row.scryfallId) || list[0];
         if (!cancelled) setPrintingArtist(mine?.artist || false);
       } catch {

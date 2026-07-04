@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.93.0] - 2026-07-04
+
+Stop bouncing to the browser; jump anywhere.
+
+### Added
+- **Local card inspector** — clicking a card (in a decklist or a chat) now opens
+  a panel right here: full image, oracle text, mana, legality, official rulings,
+  and every printing — all from local data. Scryfall is still one click away.
+- **Command palette** — press Ctrl/⌘+K to jump to any area, deck, chat, or
+  agent, run a quick action, or search a card, all from the keyboard.
+
+### Fixed
+- The card-drawer artist autofill read the wrong field from the printings API
+  and never populated; fixed (also powers the new inspector's Printings tab).
+
 ## [0.92.0] - 2026-07-04
 
 Knowledge features + collection depth.
