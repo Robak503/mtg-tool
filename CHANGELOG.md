@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.98.0] - 2026-07-04
+
+### Added
+- **Mulligan lab** — a deck-view trainer: deal a seeded opening 7, call keep or
+  ship, then see the engine's own verdict and your running agreement rate.
+
 ## [0.97.0] - 2026-07-04
 
 ### Added
