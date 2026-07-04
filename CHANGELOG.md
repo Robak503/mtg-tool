@@ -10,9 +10,17 @@ summarizes the notable changes.
 
 ## [0.99.0] - 2026-07-04
 
-Cards look like cards, and you record exactly the copy you own.
+Cards look like cards, and you record exactly the copy you own. Also folds in the
+pod-tools work that shipped in parallel (cross-profile ratings, matchup ledger,
+mulligan lab) — all present in this build.
 
 ### Added
+- **Pod ratings persist for the whole pod** — a rating computed for another
+  player's deck in Pod Balance saves into that deck's owning profile (E5).
+- **Matchup ledger** — deck-vs-deck records in Pod Balance from every self-play
+  run: overall win rates + a head-to-head heat table (P4).
+- **Mulligan lab** — deal a seeded opening 7 in the deck view, call keep/ship,
+  and see the engine's verdict + your agreement rate (P8).
 - **Finish checkboxes on add** — after picking the exact printing (set name ·
   set code · collector number), check the finish(es) your copy is. Only
   finishes that exist in paper for that printing are offered, with special

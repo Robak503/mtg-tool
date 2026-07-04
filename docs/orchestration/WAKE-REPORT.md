@@ -1,3 +1,9 @@
+> ⚠️ **SYNC NOTE — 2026-07-04 post-merge:** current version is **0.99.0**, suite **7,711**.
+> A parallel chat shipped collector UX + full-card frames as 0.96-0.99 (a version collision:
+> my tags v0.96-0.98 point at E5/P4/P8, their v0.99.0 at the collector UX). **BOTH are in
+> master** — E5/P4/P8 code all present. Engine STILL untouched since v0.88.0 (trajectory
+> a2a03ba8 holds). Numbers below that say 7,703 are pre-merge.
+
 # 🌅 WAKE REPORT — 2026-07-04 (backlog tail cont. — v0.96→v0.98: E5 + P4 + P8)
 
 > After the questions (Colton: E5→owning-profile · AI-tuning→yes-with-evidence · releases→per-feature),
