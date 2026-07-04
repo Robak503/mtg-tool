@@ -7,7 +7,7 @@
  * server-side (last-used), so picking it is friction-free (no reload); picking a
  * different one switches + reloads. Local-first multi-user — no auth.
  *
- * Styled with the runtime `colors` object (GOLD === the cyan hero in Aether) to
+ * Styled with the runtime `colors` object (GOLD === the phosphor-green accent in LEYLINE) to
  * match the shell, deck view, and modals.
  */
 const FD = "var(--font-display), Georgia, serif";
@@ -19,12 +19,12 @@ function initials(name) {
 }
 
 export default function ProfileGate({ profiles = [], activeId, onPick, onManage, colors, fontFamily, busy, error }) {
-  const { BG, LINE, TEXT, MUTED, GOLD } = colors;
+  const { LINE, TEXT, MUTED, GOLD } = colors;
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 400,
-      background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.07) 0%, rgba(86,214,93,0.015) 32%, transparent 60%), " + BG,
+      background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.07) 0%, rgba(86,214,93,0.015) 32%, transparent 60%), var(--ley-bg)",
       color: TEXT, fontFamily,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       padding: 24, overflowY: "auto",
@@ -38,7 +38,7 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
 
       {error && (
         <div style={{ marginBottom: 18, padding: "8px 14px", borderRadius: 8, fontSize: 13, lineHeight: 1.5,
-          background: "rgba(147,0,10,0.18)", border: "1px solid rgba(255,180,171,0.4)", color: "#ffb4ab" }}>
+          background: "var(--ley-red-dim)", border: "1px solid var(--ley-red)", color: "var(--ley-red)" }}>
           {error}
         </div>
       )}
@@ -60,14 +60,14 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
           return (
             <button
               key={p.id}
-              className="aether-card"
+              className="ley-glass ley-card"
               disabled={busy}
               onClick={() => onPick(p)}
               title={active ? `${p.name} (current)` : `Switch to ${p.name}`}
               style={{
                 width: 150, padding: "22px 14px 16px", cursor: busy ? "default" : "pointer",
-                background: active ? "rgba(86,214,93,0.06)" : "var(--surface-container-lowest)",
-                border: `1px solid ${active ? "rgba(86,214,93,0.45)" : LINE}`,
+                background: active ? "var(--ley-green-dim)" : "var(--ley-glass)",
+                borderColor: active ? "var(--ley-line-bright)" : LINE,
                 borderRadius: 12, color: TEXT, fontFamily,
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
                 opacity: busy ? 0.55 : 1,
@@ -77,9 +77,9 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
                 width: 72, height: 72, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontFamily: FD, fontSize: 28, fontWeight: 700,
-                color: active ? "#05130a" : GOLD,
-                background: active ? GOLD : "rgba(86,214,93,0.10)",
-                border: `1px solid ${active ? GOLD : "rgba(86,214,93,0.3)"}`,
+                color: active ? "var(--ley-on-green)" : GOLD,
+                background: active ? GOLD : "var(--ley-green-dim)",
+                border: `1px solid ${active ? GOLD : "var(--ley-line-bright)"}`,
               }}>
                 {initials(p.name)}
               </span>
@@ -92,7 +92,7 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
         })}
 
         <button
-          className="aether-card"
+          className="ley-card"
           disabled={busy}
           onClick={onManage}
           title="Create or manage profiles"
