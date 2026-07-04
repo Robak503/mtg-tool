@@ -121,4 +121,25 @@ gold (kept).
   the orchestrator tree after both cherry-picks: **7,661 + lint 0**.
   After-screenshot `p3e-vault.png`. Worktree swept junction-safe.
 
+#### Lane A — chat (integrated c8aa5096, lane commit ea4655b3, fable)
+- ChatPanel + SessionSidebar + GarfieldPanel, +204/−299. 17 button sites →
+  `.btn` (Send = primary + btn-loading on the existing sending flag;
+  "+ New chat with <agent>" = the session sidebar's primary; Garfield Run =
+  primary + `.ley-live` while running; Karn apply-chips add=secondary /
+  cut=danger). `ARCHETYPE_COLORS` (9 hexes) deleted; identity survives only
+  via `cfg.*` on the sanctioned spots (agent-name labels, assistant-bubble
+  border tint, thinking indicators, quick-chip tint).
+- Perf: backdrop-filter stripped from every per-message bubble (token fills);
+  blur only on the three chrome bars. After-screenshot `p3a-chat.png`.
+
+#### Lane B — deck surfaces (integrated 10f9c932, lane commit e28cba24, sonnet)
+- DeckView / ImportDeckView / DeckConfirmModal / PodBalanceModal, +78/−108.
+  31 buttons → `.btn`; the legacy `pb()` helper no longer referenced in these
+  files. Both modals on the recipe. Success/danger hexes → tokens;
+  `.aether-row` → `.ley-row` in DeckView; delete-game "x" got an aria-label;
+  DeckView gained a no-deck empty state with a "+ Import Deck" primary wired
+  to the EXISTING setCenterView prop (no new cross-file props).
+- Kept deliberately: PodBalanceModal's `BRACKET_COLOR` 1–5 severity scale
+  (data-viz, analogous to mana pips).
+
 - (per-lane entries appended as they integrate)
