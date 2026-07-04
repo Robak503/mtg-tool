@@ -42,6 +42,19 @@ const GROUNDS = [
       </svg>
     ),
   },
+  {
+    id: "records",
+    title: "Table Records",
+    badge: "preview",
+    blurb: "Every finished game, kept — results, turns, and the full narrated tail.",
+    icon: (
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 3h11l3 3v15H5z" />
+        <path d="M15 3v4h4" />
+        <path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" />
+      </svg>
+    ),
+  },
 ];
 
 export default function ProvingHome({ onPick, fontFamily }) {

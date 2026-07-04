@@ -156,3 +156,41 @@ export function OutcomeSummary({ outcomes, avgTurns, games }) {
     </div>
   );
 }
+
+// Win tables the runner has computed + persisted since v0.86.0 (HB-7) and no
+// component rendered (wave Q7). summary = summarizeSeatOutcomes(): games,
+// decisiveGames, bySeat/byDeck/onThePlay entries {wins, games, winRate,
+// ci95 {lo, hi}}. Wilson CIs keep small samples honest.
+export function SeatSummaryTables({ summary }) {
+  if (!summary || !summary.games) return null;
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  const line = (e) => `${e.wins}/${e.games} · ${pct(e.winRate)}${e.ci95 ? ` [${pct(e.ci95.lo)}–${pct(e.ci95.hi)}]` : ""}`;
+  const head = { fontFamily: "var(--font-mono), monospace", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 };
+  const rowStyle = { display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12, padding: "3px 0", borderBottom: "1px solid var(--ley-line)" };
+  const Table = ({ title, table }) => {
+    const rows = Object.entries(table || {});
+    if (!rows.length) return null;
+    return (
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={head}>{title}</div>
+        {rows.map(([k, e]) => (
+          <div key={k} style={rowStyle}>
+            <span style={{ color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k}</span>
+            <span style={{ color: "var(--ley-green)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{line(e)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        <Table title="Win rate by deck" table={summary.byDeck} />
+        <Table title="By turn-order seat" table={summary.bySeat} />
+      </div>
+      <div style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>
+        On the play: {summary.onThePlay?.games ? line(summary.onThePlay) : "—"} · decisive {summary.decisiveGames}/{summary.games} games
+      </div>
+    </div>
+  );
+}

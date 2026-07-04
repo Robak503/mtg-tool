@@ -41,6 +41,8 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   const [altered, setAltered] = useState(row.altered === true);
   const [artistProof, setArtistProof] = useState(row.artistProof === true);
   const [showcase, setShowcase] = useState(row.showcase === true);
+  // V7: offer the owned printing's artist as a one-click fill (post-V5 index).
+  const [printingArtist, setPrintingArtist] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [series, setSeries] = useState([]);
@@ -61,6 +63,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
     setAltered(row.altered === true);
     setArtistProof(row.artistProof === true);
     setShowcase(row.showcase === true);
+    setPrintingArtist(null);
     setError(null);
   }, [row.scryfallId, row.stacks, row.notes, row.signed, row.altered, row.artistProof, row.showcase]);
 
@@ -106,6 +109,25 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
     })();
     return () => { cancelled = true; };
   }, [row.scryfallId]);
+
+  useEffect(() => {
+    if (!signedOn || printingArtist !== null || !row.name) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/printings/by-name?name=${encodeURIComponent(row.name)}`);
+        if (!resp.ok) { if (!cancelled) setPrintingArtist(false); return; }
+        const body = await resp.json();
+        const list = Array.isArray(body?.printings) ? body.printings : [];
+        const mine = list.find((p) => p.id === row.scryfallId) || list[0];
+        if (!cancelled) setPrintingArtist(mine?.artist || false);
+      } catch {
+        if (!cancelled) setPrintingArtist(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedOn, row.scryfallId]);
 
   const saveAlert = async () => {
     const target = parseFloat(alertTarget);
@@ -365,6 +387,11 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
                   placeholder="Artist (e.g. Chase Stone)"
                   style={{ background: colors.BG, border: `1px solid ${colors.LINE}`, color: colors.TEXT, padding: "6px 8px", borderRadius: 4, fontSize: 12, fontFamily: "inherit" }}
                 />
+                {typeof printingArtist === "string" && sigArtist !== printingArtist && (
+                  <button onClick={() => setSigArtist(printingArtist)} className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: "2px 8px", fontSize: 10 }}>
+                    Use printing artist: {printingArtist}
+                  </button>
+                )}
                 <div style={{ display: "flex", gap: 6 }}>
                   <input
                     value={sigDate}

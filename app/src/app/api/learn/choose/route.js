@@ -26,6 +26,7 @@ import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
 import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
+import { appendGameRecord, recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
 
 export async function POST(request) {
   let body;
@@ -63,6 +64,7 @@ export async function POST(request) {
   putSession(stepped);
 
   if (isComplete(stepped)) {
+    try { await appendGameRecord(recordFromSession(stepped, filteredDecisionLogTail(stepped))); } catch { /* records are best-effort */ }
     deleteSession(sessionId);
     try { await deleteSave(sessionId); } catch { /* never block on cleanup */ }
   } else {

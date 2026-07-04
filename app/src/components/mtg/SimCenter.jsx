@@ -31,7 +31,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { BreakageTable, OutcomeSummary } from "./SelfPlayPanel";
+import { BreakageTable, OutcomeSummary, SeatSummaryTables } from "./SelfPlayPanel";
 import StabilityBadge from "./StabilityBadge";
 
 const MODE_OPTIONS = [
@@ -61,7 +61,7 @@ export function groupByProfile(decks) {
     .sort((a, b) => a.profile.localeCompare(b.profile));
 }
 
-export default function SimCenter({ cfg, colors, fontFamily }) {
+export default function SimCenter({ cfg, colors, fontFamily , initialSelection = null, onConsumeInitialSelection }) {
   const accent = cfg?.color || "var(--ley-green)";
 
   // ── Cross-profile deck picker ──
@@ -75,6 +75,19 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
   const [scope, setScope] = useState("all");
   const [gamesPer, setGamesPer] = useState(1);
   const [bankData, setBankData] = useState(false);
+
+  // Seed from a cross-surface handoff (Pod Balance's "Run this pod here"),
+  // consumed exactly once so later manual edits stick.
+  useEffect(() => {
+    if (!initialSelection) return;
+    if (Array.isArray(initialSelection.deckIds) && initialSelection.deckIds.length) {
+      setSelectedIds(initialSelection.deckIds);
+    }
+    if (initialSelection.scope) setScope(initialSelection.scope);
+    if (initialSelection.mode) setMode(initialSelection.mode);
+    onConsumeInitialSelection?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSelection]);
 
   // ── Run state ──
   const [running, setRunning] = useState(false);
@@ -420,6 +433,8 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
           {result && (
             <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <OutcomeSummary outcomes={result.outcomes} avgTurns={result.avgTurns} games={result.games} colors={colors} />
+
+              <SeatSummaryTables summary={result.seatSummary} />
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {label("Unmodeled / broken cards (ranked by frequency)")}

@@ -24,6 +24,7 @@ import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
 import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
+import { appendGameRecord, recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
 
 export async function POST(request) {
   let body;
@@ -65,8 +66,9 @@ export async function POST(request) {
   putSession(stepped);
 
   if (isComplete(stepped)) {
-    // Game over: free the in-memory session and drop the in-flight save (it's no
-    // longer resumable). Completed-game records are Phase 3.
+    // Game over: persist the record FIRST (P2 — finished games used to be
+    // discarded here), then free the session + drop the in-flight save.
+    try { await appendGameRecord(recordFromSession(stepped, filteredDecisionLogTail(stepped))); } catch { /* records are best-effort */ }
     deleteSession(sessionId);
     try { await deleteSave(sessionId); } catch { /* never block on cleanup */ }
   } else {

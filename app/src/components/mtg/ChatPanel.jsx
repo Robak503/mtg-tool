@@ -22,10 +22,40 @@ function MessageReactions({
   agent,
   activeDeck,
   currentSession,
+  onSaveArtifact,
+  onSaveNote,
 }) {
   const [reaction, setReaction] = useState(null);
   const [status, setStatus] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content || "");
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard denied (non-secure context) — nothing to surface loudly.
+    }
+  };
+
+  // Deck saves only when the locked deck IS the active deck — a chat locked
+  // to another deck must never write into the sidebar-active deck's memory.
+  const deckMatches = !!activeDeck
+    && (!currentSession?.lockedDeck?.name || currentSession.lockedDeck.name === activeDeck.name);
+  const saveKind = agent === "karn" ? "Save plan" : agent === "tibalt" ? "Save roast" : agent === "jace" ? "Save to notes" : null;
+  const canSave = deckMatches && !saved && saveKind
+    && ((agent === "jace" && typeof onSaveNote === "function")
+      || ((agent === "karn" || agent === "tibalt") && typeof onSaveArtifact === "function"));
+
+  const saveThis = () => {
+    if (!canSave) return;
+    if (agent === "jace") onSaveNote("jace", message.content || "");
+    else onSaveArtifact(agent, message.content || "");
+    setSaved(true);
+  };
   const appVersion = useTauriAppVersion();
 
   const submit = async (kind) => {
@@ -120,6 +150,27 @@ function MessageReactions({
       )}
       {status === "error" && (
         <span style={{ fontSize: 10, color: "var(--ley-red)" }}>⚠ not saved</span>
+      )}
+      <button
+        onClick={copyMessage}
+        className="btn btn-ghost btn-sm"
+        style={{ padding: "1px 7px", fontSize: 10 }}
+        title="Copy this reply"
+      >
+        {copied ? "Copied ✓" : "Copy"}
+      </button>
+      {canSave && (
+        <button
+          onClick={saveThis}
+          className="btn btn-ghost btn-sm"
+          style={{ padding: "1px 7px", fontSize: 10 }}
+          title={`${saveKind} — saves this reply into ${activeDeck?.name || "the deck"}'s memory`}
+        >
+          {saveKind}
+        </button>
+      )}
+      {saved && (
+        <span style={{ fontSize: 10, color: "var(--ley-green)" }}>Saved ✓</span>
       )}
     </div>
   );
@@ -398,6 +449,8 @@ function TrustBadge({ msg }) {
 
 export default function ChatPanel({
   activeDeck,
+  onSaveArtifact,
+  onSaveNote,
   agent,
   applyKarnChange,
   bottomRef,
@@ -777,6 +830,8 @@ export default function ChatPanel({
                 agent={agent}
                 activeDeck={activeDeck}
                 currentSession={currentSession}
+                onSaveArtifact={onSaveArtifact}
+                onSaveNote={onSaveNote}
               />
             )}
           </div>
