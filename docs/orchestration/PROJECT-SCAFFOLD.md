@@ -104,6 +104,15 @@ explicit `anthropic` provider.
 
 ### 2.2 Client (`app/src/components/*`, `app/src/hooks/*`)
 
+**The design system (v0.87.0): LEYLINE** — true-black surfaces, phosphor-green
+accent, glass panels, glow-as-hierarchy. Tokens are CSS variables (`--ley-*`)
+in `app/src/app/globals.css`; every button composes from the global `.btn`
+classes (`btn-primary|secondary|ghost|danger` × `btn-sm|lg` + icon/loading);
+the living reference is the hidden `/styleguide` route. Compose from tokens —
+never hand-hex; agent identity colors (Jace blue / Karn silver / Tibalt red /
+Arbiter gold, defined on `AGENTS` in `lib/agents.js`) appear only on identity
+elements. Method: [ui-overhaul-log.md](ui-overhaul-log.md).
+
 `MTGAssistant.jsx` is the shell (loaded `ssr:false` so all `window`/`localStorage`
 access is client-only). It owns cross-cutting UI state; the real data layer is in
 hooks: `useProfiles` (→ `/api/profiles`), `useDeckStore` (saved decks + Scryfall

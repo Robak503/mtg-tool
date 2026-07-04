@@ -8,6 +8,29 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.87.0] - 2026-07-03
+
+### Changed
+- **LEYLINE — a full UI/UX overhaul (the third Fable 5 pass).** The entire app moved from the
+  Aether cyan theme to LEYLINE: green energy through dark glass. True-black surfaces, phosphor-green
+  accents, glass panels, and glow-as-hierarchy (only primary actions, live states, and focus glow).
+  The whole pass is UI-only — the game engine is untouched and fence-proven (tier fingerprint
+  0-diff; trajectory hash byte-identical to the v0.86.0 anchor, twice).
+  - **One button system everywhere.** The audit found 166 distinct hand-rolled button treatments;
+    they're now four variants (primary / secondary / ghost / danger) in three sizes with real
+    disabled, loading, and keyboard-focus states. One glowing primary action per screen. Every
+    label says what happens.
+  - **Kiosk shell:** navigation now shows where you ARE (green active states — previously nothing
+    highlighted), bigger targets, tracked-caps section labels, and the window title carries the
+    running version. The loading screen got the phosphor treatment.
+  - **Every surface converted:** chat (Jace/Karn/Tibalt), the Academy game board and all 14
+    decision side-sheets, Sim Center, the Vault (collection/build/stats/sets/finance + all 8
+    modals), deck views, import, updates/settings/onboarding/profiles/feedback. Empty states now
+    lead somewhere (no dead ends).
+  - **Agent identity sharpened:** system chrome is always green; each agent's color lives only on
+    identity moments — and Jace is now arcane blue (the old cyan was the app's accent, not his).
+  - Display face: Space Grotesk (was Playfair). A hidden `/styleguide` route documents the system.
+
 ## [0.86.0] - 2026-07-03
 
 ### Improved

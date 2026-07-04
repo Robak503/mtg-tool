@@ -167,3 +167,39 @@ gold (kept).
   only in AppHeader/Sidebar (already LEYLINE-visual; full class conversion
   queued for P4 polish) · non-interactive DeckView stat cards lost their
   hover treatment (glow-discipline violation caught in audit).
+
+### P4 — polish + acceptance (commit 1af9e0be + close-out)
+- `pb()`/`sb()` DELETED: the last 19 call sites (AppHeader/RightPanel/Sidebar)
+  now compose from `.btn`; RightPanel loaders gained honest `btn-loading`
+  states. Zero parallel button systems remain in the app.
+- Versions bumped to 0.87.0 (package.json / tauri.conf.json / Cargo.toml).
+- **Engine fence, final proof:** tier fingerprint **0-diff** (34,125 rows,
+  before sha `330567e9…`) + trajectory hash **`a2a03ba8d94a9982…` ×2 ==
+  the v0.86.0 anchor** (games=3 rows=8281, data root = AppData).
+- **The .exe acceptance walk** (`npm run tauri:build` → 0.87.0 bundle):
+  - First build failed honestly: `next build` collided with the live dev
+    server's `.next` (both write it). Rule: STOP the dev server before any
+    tauri build. Cleaned, rebuilt green.
+  - Real-shell proofs: window title **"MTG Tool v0.87.0"** (Get-Process) ·
+    **single-instance** (2nd launch → still 1 process) · server 200 ·
+    **Job-Object teardown** (killing the shell killed the bundled node —
+    the orphan fix intact).
+  - The packaged UI walked via headless browser against the exe's own
+    server with Colton's REAL AppData (profiles Colton+Joe, 6 decks, a
+    4-day-old Jace chat): profile gate → shell → chat history → Academy,
+    all LEYLINE (`after/exe-*.png`). Interactive tray-icon clicks couldn't
+    be exercised (computer-use access denied this session) — tray/close
+    code paths are untouched this pass (only a `set_title` added in setup);
+    flagged for a 30-second eyeball on Colton's first launch.
+- Final battery on the release tree: suite + lint (recorded below at close).
+
+### Numbers (pass close)
+- Suite: 7,661 green at every integration point (×7 full batteries) + lint 0.
+- Buttons converted to the `.btn` system: **~214 sites** (48 C + 56 E + 17 A
+  + 31 B + 7 D + ~55 F) + 19 P4 pb/sb sites — from 166 distinct hand-rolled
+  treatments to 4 variants × 3 sizes.
+- Off-token colors: 219 → 0 outside sanctioned identity/data uses (agent
+  identity via `AGENTS`, WUBRG mana pips, rarity dots, bracket severity).
+- Net LOC in converted components: roughly −900 (dead style helpers deleted).
+- Engine fence: tier fp 0-diff · trajectory hash == v0.86.0 anchor ×2 (twice
+  mid-pass, twice at close).
