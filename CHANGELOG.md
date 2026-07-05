@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.103.0] - 2026-07-05
+
+### Added
+- **Native coverage — compound "keyword + granted trigger" lines** — an Aura or
+  Equipment line like Power Fist's *"Equipped creature has trample and 'Whenever
+  this creature deals combat damage to a player, put that many +1/+1 counters on
+  it.'"* now plays natively: the keyword/P-T half applies through the layer engine
+  while the quoted triggered ability fires on the equipped/enchanted creature.
+  Newly native: Power Fist, Web-Shooters, Take Flight, Staggering Insight,
+  Eternal Thirst, Cathar's Call, Commanding Presence. +7 native, no regressions.
+
 ## [0.102.0] - 2026-07-04
 
 ### Added

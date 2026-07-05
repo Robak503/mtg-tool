@@ -1,3 +1,32 @@
+> 🚀 **v0.103.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — granted compound-keyword line (+7 native, LOST=0).**
+> Master carries `2ce6a34a` (the slice) + the release chore; tag **`v0.103.0`** → release CI (verdict → CONTINUITY).
+> **The slice:** the "Enchanted/Equipped creature [gets +X/+Y and] has <keyword(s)> and \"<quoted trigger>\"" line
+> now models coherently across its three seams — `GRANTED_ABILITY_LINE` reaches past the keyword segment (+ strips
+> reminder text pre-anchor, an audit-caught FP: Eternal Thirst was credited while extraction returned nothing → the
+> runtime would never fire it), `parseAttachedClause` strips a validator-approved quoted tail so the keyword half
+> parses as a layer-6 grant, and coverage adds a STATIC-HALF GUARD (parseAttachedBonus must parse non-empty).
+> **Flips (7/7 CONFIRMED by refute-default skeptics w/ live runtime probes):** Power Fist [Joe-Wolverine],
+> Web-Shooters, Take Flight, Staggering Insight, Eternal Thirst, Cathar's Call, Commanding Presence (+4 benign
+> native-aura→native-trigger relabels: Consuming Fervor, Grasp of the Hieromancer, Infernal Scarring, Verdant
+> Embrace). **Fence: suite 7,766 (+9) · lint 0 · trajectory `ab524e20` ×2 (rows 5706, byte-identical — flips
+> outside the Tier-1 pod; nothing to re-baseline).** CREED guards pinned: Reaver Cleaver ("player or planeswalker"
+> object), ungrantable keyword half, activated quote, trailing rider — all stay body-only.
+> **📊 FRESH 13-deck census (2026-07-05, lands-in-denominator method — THE baseline going forward):** aggregate
+> **73.9%** (1015/1373). Colton: Slivers 98.9 · Koma 93.3 · Vihaan 92.2 · Zaxara 91.5 · Omnath 90.9 · Rograkh 76.
+> Joe: Ur-Dragon 75 · Kinnan 72 · Toph 69.1 · Pantlaza 64 · Yuriko 63.3 · Cap 63 · Mothman 57.4 · Kellan 55.3 ·
+> Wolverine 51.8 (Power Fist adds +1 post-census). ⚠️ Counts LANDS in the denominator — prior per-deck %s used a
+> different denominator; compare within-method only.
+> **NEXT (evidence-ranked, from the combat-family probe of all 51 candidates):** ① batch group combat-damage
+> detector ("one or more <filter> creatures you control deal combat damage" — runtime
+> `checkBatchCombatDamageTriggers` EXISTS; needs a with-keyword filter + the trailing-"creatures" list fix +
+> batch damage-total context + a scaled-token payload → Quartzwood Crasher [Pantlaza] + corpus; Prosperous Thief
+> still blocked by ninjutsu) · ② attack/combat-damage payload atoms (Reyav double-strike grant · Sword of War and
+> Peace hand-count damage · Sword of Feast and Famine discard+untap — each ~1 card, all on the existing
+> equippedCreature trigger scope) · ③ cost-tax static (fattest corpus yield; needs real runtime cost-INCREASE
+> enforcement) · ④ can't-be-countered + attacks-each-combat statics (Toski, corpus singles). Probe artifacts in
+> the session scratchpad: `probe-combat` output, `system-rank.json`, `census-full.json`, `tier-base.tsv`.
+>
+> ── prior release (below) ──
 > 🚀 **v0.102.0 — 2026-07-04 (Cindy, Opus 4.8). SHIPPED — Joe-shelf coverage (+6 native).**
 > Master `618731f0` (ff-pushed, no PR gate this env this time), tag **`v0.102.0`** pushed → release CI **in progress**
 > (run 28730962117; verdict → CONTINUITY). The two clean Joe-shelf slices, cherry-picked onto master `bec794d5`:
