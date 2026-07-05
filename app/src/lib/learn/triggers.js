@@ -2340,13 +2340,17 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
   };
 }
 
-// A granted quoted ability line. Two shapes, both ending in the quoted ability:
+// A granted quoted ability line. Three shapes, all ending in the quoted ability:
 //   bare:     "Enchanted creature has \"<ability>\""                          (Sixth Sense)
 //   combined: "Enchanted creature gets +2/+2 and has \"<ability>\""          (Bear Umbra, Snake Umbra)
-// The optional "gets +X/+Y and " P/T prefix is applied by the LAYER engine (parseAttachedBonus), so here we
-// only reach past it to the quoted ability. Anchored whole-line ($) — a trailing rider after the quote
-// ("… and has \"…\" and gets +1/+1") leaves residue and does NOT match, keeping such a card Arbiter (CREED).
-const GRANTED_ABILITY_LINE = /^(?:enchanted|equipped) creature\s+(?:gets?\s+[+-]\d+\/[+-]\d+\s+and\s+)?(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+//   keyword:  "Equipped creature has trample and \"<ability>\""              (Power Fist)
+// The optional "gets +X/+Y and " P/T prefix and the optional bare-keyword segment are applied by the LAYER
+// engine (parseAttachedBonus), so here we only reach past them to the quoted ability. The keyword segment is
+// EXTRACTION-only permissive: whether it is a modeled grant is judged where it matters (parseAttachedClause
+// models/rejects the static half all-or-nothing; coverage's grant classifier requires that parse to succeed
+// before crediting the card). Anchored whole-line ($) — a trailing rider after the quote ("… and has \"…\"
+// and gets +1/+1") leaves residue and does NOT match, keeping such a card Arbiter (CREED).
+const GRANTED_ABILITY_LINE = /^(?:enchanted|equipped) creature\s+(?:gets?\s+[+-]\d+\/[+-]\d+\s+and\s+)?(?:has|have)\s+(?:[a-z][a-z ,]*?\s+and\s+)?["“]([^"”]+)["”]\s*\.?$/i;
 
 /**
  * GRANTED triggered abilities (subsystem 1 phase 1c) — an Aura/Equipment that grants the enchanted/equipped
@@ -2362,7 +2366,13 @@ export function parseGrantedTriggeredAbilities(card) {
   if (!oracle.trim()) return [];
   const out = [];
   for (const rawLine of oracle.split(/\n+/)) {
-    const m = rawLine.trim().match(GRANTED_ABILITY_LINE);
+    // Strip reminder text BEFORE the whole-line anchor — a trailing parenthetical ("… counter on this
+    // creature." (Damage dealt by a creature with lifelink …) — Eternal Thirst) otherwise defeats the $
+    // anchor, so the classifier (which strips reminders) credits the grant while THIS extraction returns
+    // nothing and the runtime never fires it: a silent drop. Local copy of the stripReminder shape the
+    // other leaf modules replicate (triggers.js stays a leaf — no coverage import / cycle).
+    const line = rawLine.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+    const m = line.match(GRANTED_ABILITY_LINE);
     if (!m) continue;
     const quoted = m[1].trim();
     if (!/^(?:when|whenever|at)\b/i.test(quoted)) continue;             // only a TRIGGERED quoted ability

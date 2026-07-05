@@ -956,14 +956,30 @@ function isNativeTriggerGrantAuraOrEquipment(card) {
   const granted = parseGrantedTriggeredAbilities(card);
   if (!granted.length || !granted.every(triggerRoutesNatively)) return false;
   const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
-  const grantLineRe = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i;
+  // Accepts the pure grant line (Sixth Sense), the P/T-combined form (a "gets +X/+Y and has \"…\"" sword),
+  // and the KEYWORD-combined form (Power Fist "has trample and \"Whenever …\"") — mirroring the extended
+  // GRANTED_ABILITY_LINE in triggers.js so the two can't disagree on what counts as a grant line.
+  const grantLineRe = /^(?:enchanted|equipped) creature\s+(?:gets?\s+[+-]\d+\/[+-]\d+\s+and\s+)?(?:has|have)\s+(?:[a-z][a-z ,]*?\s+and\s+)?["“][^"”]+["”]\s*\.?$/i;
+  // A grant line carrying a STATIC half (a P/T bonus and/or a bare-keyword segment before the quote) — the
+  // pure form has the quote immediately after has/have.
+  const staticHalfRe = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“]/i;
   // COUNT GUARD (CREED, mirrors the activated-grant gates): parseGrantedTriggeredAbilities only returns the
   // TRIGGERED grants; an activated / mana / unmodeled co-grant ("Enchanted creature has \"{5}: Untap …\"")
   // is whitelisted as a grant line below yet never routed — a silently-dropped ability while claiming native
   // coverage. Require grant-line count === parsed-triggered count so any non-triggered co-grant is residue
   // (sends the card to the Arbiter; a genuinely all-modeled multi-kind grant under-counts — a SAFE FN).
-  const grantLines = oracle.split(/\n+/).filter((l) => grantLineRe.test(l.trim())).length;
-  if (grantLines !== granted.length) return false;
+  const lines = oracle.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const grantLineList = lines.filter((l) => grantLineRe.test(l));
+  if (grantLineList.length !== granted.length) return false;
+  // STATIC-HALF GUARD (CREED): a combined grant line's P/T bonus / keyword segment is applied by the layer
+  // engine via parseAttachedBonus — which is all-or-nothing and returns [] when any half is unmodeled (an
+  // ungrantable keyword, a rider). If any grant line carries a static half, that parse must have succeeded,
+  // or the card would claim native while the runtime silently drops the buff. Pure grant lines don't parse
+  // to a bonus (nothing static to apply), so the gate only arms for combined lines.
+  if (grantLineList.some((l) => !staticHalfRe.test(l))) {
+    const bonus = isEquip ? parseEquipmentBonus(card) : parseAuraBonus(card);
+    if (!bonus.length) return false;
+  }
   let sawEquip = !isEquip;                                                                  // auras need no Equip line
   for (const rawLine of oracle.split(/\n+/)) {
     const t = rawLine.trim();

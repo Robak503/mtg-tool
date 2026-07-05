@@ -2471,6 +2471,20 @@ function parseAttachedClause(c, subject) {
     }
   }
   if (rest) {
+    // COMPOUND KEYWORD + GRANT-TRIGGER TAIL (Power Fist "has trample and \"Whenever this creature deals
+    // combat damage to a player, put that many +1/+1 counters on it.\""): a trailing quoted TRIGGERED
+    // ability after a keyword segment is fired by the trigger system on the host (the keyword-form
+    // GRANTED_ABILITY_LINE → grantedTriggersForHost), NOT a static grant — strip it so the keyword half
+    // parses as a normal grant below. CREED-gated exactly like the P/T+quote branch above: only a
+    // validator-approved fully-modeled trigger body strips; an unmodeled or ACTIVATED quote ("{T}: …")
+    // stays in place → the have-tail keyword check rejects it → the whole bonus drops (safe FN).
+    const kwQuoteTail = rest.match(/^(.*?\S)\s+and\s+["“]([^"”]+)["”]\s*\.?$/);
+    if (kwQuoteTail && /^(?:when|whenever|at)\b/i.test(kwQuoteTail[2].trim())
+      && _groupTriggeredBodyValidator && _groupTriggeredBodyValidator(kwQuoteTail[2].trim())) {
+      rest = kwQuoteTail[1].trim();
+    }
+  }
+  if (rest) {
     const haveMatch = rest.match(/^(?:has|have)\s+(.+)$/);
     if (!haveMatch) return null;                       // residue that isn't a keyword/protection grant
     // EQUIP-PROTECTION: a "protection from <color>…" grant occupies the WHOLE have-tail (protection lists
