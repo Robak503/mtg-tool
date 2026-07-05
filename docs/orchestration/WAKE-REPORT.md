@@ -1,11 +1,22 @@
-> 🧩 **v0.101.0 — 2026-07-04 (Cindy, Opus 4.8). CORE MERGED, TAIL IN A FOLLOW-UP PR.**
-> ⚠️ **STATE:** PR **#413 (P3+P7+P9) is SQUASH-MERGED to master `7f443b07`** — but **NOT yet tagged** (the
-> `v0.101.0` tag, which triggers the release build, is un-cut; version bumped to 0.101.0 in the merge). Colton
-> merged #413 mid-session, before the E4/Q4/D5 commits synced — so **E4 (durable color tags) + Q4 (LEYLINE
-> sweep) + D5 (doc refresh) were re-based onto master as a FOLLOW-UP PR** (branch `claude/e4-qhygiene-followup`,
-> commits `dcaeb220`/`626f0f9e`/`f8114ce2`). **To ship v0.101.0 as intended (everything together): merge the
-> follow-up PR, THEN tag `v0.101.0`.** If you'd rather ship the core now: tag `v0.101.0` on `7f443b07`, and the
-> tail becomes `v0.102.0`. All work is fenced (suite 7,750 · lint 0 · trajectory `ab524e20` ×2). Original detail:
+> 🚀 **v0.102.0 — 2026-07-04 (Cindy, Opus 4.8). SHIPPED — Joe-shelf coverage (+6 native).**
+> Master `618731f0` (ff-pushed, no PR gate this env this time), tag **`v0.102.0`** pushed → release CI **in progress**
+> (run 28730962117; verdict → CONTINUITY). The two clean Joe-shelf slices, cherry-picked onto master `bec794d5`:
+> **LEYLINE opening-hand pre-strip** (`460cf3f6` — CR 103.6 "begin the game with it on the battlefield" stripped in
+> classifyCard; +4: Leyline Axe/Anticipation/Lifeforce/Vitality) + **Equip-legendary quality** (`95561644` — "Equip
+> legendary creature {cost}" modeled, mirror of Equip-commander; +2: Excalibur, Blackblade Reforged). **Cap 61→63,
+> Wolverine 58→59.** Fence: suite **7,757** green · lint 0 · **classification-tier ONLY → trajectory `ab524e20` holds**
+> (flipped cards outside the Tier-1 pod; pod play byte-identical; nothing to re-baseline). Spent branch
+> `claude/grind-etb-combat` = deletable (its commits are in master).
+> **⛰️ GRIND CEILING:** the clean-grind tier is EXHAUSTED — Joe's decks sit at their honest 58–75% native ceiling; the
+> rest is genuine Arbiter tail (ninjutsu / library-digs / play-from-zone / planeswalkers / crossover) + FP-prone
+> dedicated systems. Next coverage = fresh careful mini-features (cost-tax static = fattest yield; Power Fist /
+> counter-double = Wolverine; ninjutsu = Yuriko) with full adversarial verify — NOT marathon grinding.
+> **📱 PHONE PORT:** Colton "phone plan is out"; Omnath same-day logged it on-hold-until-the-Mac-box. Not building now
+> either way. Server box = Mac Studio, wait for M5 (`project_server_box_decision.md`).
+>
+> ── prior release (below) ──
+> 🧩 **v0.101.0 — 2026-07-04 (Cindy, Opus 4.8). SHIPPED (tag `v0.101.0` on `122975af`, CI success — see CONTINUITY).**
+> Landed as PR #413 (P3+P7+P9, `7f443b07`) + follow-up PR #414 (E4/Q4/D5, `122975af`), then tagged. Detail:
 > The `orders/p3-p7-p9-backlog.md` chunk, all three additive Academy/Learn features, stacked on `d226091b`
 > (v0.100.0): **P3 post-game debrief** (`0b5bf2fe` — the Academy result scrim tallies the player's own picks vs
 > `metadata.suggestion`; the "un-strip decisionWire" premise was STALE like E1's — suggestion lives only on `ask`,
