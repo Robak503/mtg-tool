@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.104.0] - 2026-07-05
+
+### Added
+- **Native coverage — "one or more creatures with <keyword>" combat triggers** —
+  Quartzwood Crasher's batch trigger now plays natively and correctly: it fires
+  once per damaged player, counts only damage dealt by matching (e.g. trampling)
+  creatures — including keyword grants from equipment — and mints the X/X token
+  at the right size. Multi-subtype batch lists ("Ninja or Rogue creatures") now
+  parse too: Prosperous Thief plays natively. +3 native, no regressions.
+
 ## [0.103.0] - 2026-07-05
 
 ### Added

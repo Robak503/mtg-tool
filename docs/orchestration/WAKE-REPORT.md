@@ -1,3 +1,20 @@
+> 🚀 **v0.104.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — with-keyword batch combat-damage (+3 native, LOST=0).**
+> Slice `8f1497cd` + release chore; tag **`v0.104.0`** → release CI (verdict → CONTINUITY). "Whenever one or
+> more creatures you control WITH <keyword> deal combat damage to a player" is modeled end to end: carved out
+> before the with-reject guard (keyword gated to FILTERABLE_ETB_KEYWORDS) · a new PER-DEFENDER pass in
+> `checkBatchCombatDamageTriggers` (fires once per damaged player per the ruling, ctx = layer-aware MATCHING
+> dealers' totals; Grim Hireling's once-per-controller semantics untouched + pinned) · the "X/X token where X =
+> that damage" payload (`ptContext:"combatDamageAmount"`, outside the hasX gate) · multi-subtype batch lists
+> ("Ninja or Rogue creatures") parse via a separator- AND qualifier-denylist-gated "creatures" strip.
+> **Flips (3/3 skeptic-CONFIRMED w/ live probes):** Quartzwood Crasher [Joe-Pantlaza], Prosperous Thief +
+> A-Prosperous Thief [Joe-Yuriko; Ninjutsu line = the documented bare-cost KW-NINJUTSU credit].
+> **Two FPs killed before ship:** the suite's own guard caught the "colorless creatures" over-strip; the skeptic
+> flagged the latent "red or green creatures" variant — both denylisted + pinned (`batchKeywordCombatDamage.test.js`).
+> **Fence: suite 7,778 (+12) · lint 0 · trajectory `ab524e20` ×2 (rows 5706, byte-identical).**
+> Prior evidence-ranked NEXT list (below, v0.103.0 block) still stands minus item ①: next = equip payload atoms
+> (Reyav / War-and-Peace / Feast-and-Famine) · cost-tax static · Toski statics.
+>
+> ── prior release (below) ──
 > 🚀 **v0.103.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — granted compound-keyword line (+7 native, LOST=0).**
 > Master carries `2ce6a34a` (the slice) + the release chore; tag **`v0.103.0`** → release CI (verdict → CONTINUITY).
 > **The slice:** the "Enchanted/Equipped creature [gets +X/+Y and] has <keyword(s)> and \"<quoted trigger>\"" line
