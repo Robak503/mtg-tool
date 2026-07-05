@@ -8,6 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.106.0] - 2026-07-05
+
+### Added
+- **Native coverage — "up to one target" returns** — Cormela, Glamour Thief,
+  Sword of Light and Shadow, Lethal Protection, True Ancestry, and Walk with
+  the Ancestors now play natively (including Walk's Discover 4). +5 native,
+  no regressions.
+
+### Fixed
+- **"Up to N target" triggered abilities now actually do something.** Every
+  such trigger previously resolved by silently choosing zero targets — Baloth
+  Null returned nothing, Gavony Silversmith countered nothing, tap effects
+  tapped nothing. The auto-chooser now picks the largest correct-side set
+  (enemy effects hit only enemies, your effects help only your side), so
+  those cards genuinely act in Academy and self-play games.
+
 ## [0.105.0] - 2026-07-05
 
 ### Added

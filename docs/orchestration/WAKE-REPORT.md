@@ -1,3 +1,22 @@
+> 🚀 **v0.106.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — subset auto-pick generalized (+5 native · ~14 natives made HONEST).**
+> Slice `2be79bc6` + chore; tag **`v0.106.0`** → CI (verdict → CONTINUITY). **The parked slice-5 mystery is
+> SOLVED — one root cause:** targetSubsets emits the EMPTY subset first and the trigger-flush chooser takes the
+> first all-correct-side candidate → every "up to N target" trigger resolved as a silent no-op (native-classified,
+> did nothing). Yao Guai's author had patched + documented it for ONE atom; the largest-first sort is now
+> generalized to all subset atoms (side-gate intact — probed mixed boards both intents; EMPTY = last resort).
+> **Effect: ~14 shipped natives now genuinely act at runtime** (Baloth Null, Gavony Silversmith, Kitesail Cleric,
+> Elder Deep-Fiend, Nefashu, The Reaper…) **+ 5 new flips** (up-to-ONE anchor): Cormela · **Sword of Light and
+> Shadow [Joe-Cap]** · Lethal Protection · True Ancestry · Walk with the Ancestors (Discover 4 runtime-verified).
+> 5/5 skeptic-CONFIRMED (side-by-side baseline corpus diff; AI cast path provably unaffected; pod hash held for a
+> verified STRUCTURAL reason). **Fence: suite 7,796 (+6) · lint 0 · trajectory `ab524e20` ×2.**
+> **Session total (2026-07-05): +20 native across v0.103–106, LOST=0 throughout · 4 latent FP generators closed**
+> (reminder-anchor drop · vacuous batch filters · restriction-dropping attacks matcher · empty-first subset pick).
+> **NEXT (in flight): cost-tax static** (runtime-first mirror of collectCostReducers/costReductionForSpell at the
+> legalChoices pricing chokepoint; taxes collect from ALL battlefields; simple shapes only — Thalia family).
+> **Menu after:** k-descending subset enumeration (skeptic-flagged 64-cap truncation) · War-and-Peace hand-count
+> metric · Toski statics · monarch.
+>
+> ── prior release (below) ──
 > 🚀 **v0.105.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — Reyav attached-only attacks + SoFF conjunct (+5 native, LOST=0).**
 > Slices `6b19a8e2` + `f60cfef7` + release chore; tag **`v0.105.0`** → release CI (verdict → CONTINUITY).
 > **Slice A (attached-only attacks + that-creature referent):** the attacks subject matcher ANCHORED (was a bare
