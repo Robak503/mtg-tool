@@ -752,7 +752,11 @@ export function combatKeywordClauseParser(clause) {
   // lands — never an opponent's land, never a non-land, no chosen target, no CREED risk). Whole-clause anchored
   // ($): a qualified form ("untap all lands" without "you control" is accepted since the resolver already scopes
   // to the controller; but "untap all Forests you control" / a target/subtype form stays LOW → Arbiter, FN-safe).
-  if (/^untap all lands(?: you control)?$/.test(t)) return { op: "untap-lands", all: true, targetType: null };
+  // The optional leading "you " is the second-conjunct form of an and-compound trigger effect ("that
+  // player discards a card and YOU untap all lands you control" — Sword of Feast and Famine): the split
+  // hands this parser "you untap all lands you control". The subject is redundant (the resolver already
+  // scopes to the controller — CR 701.20), so both forms route to the identical atom.
+  if (/^(?:you )?untap all lands(?: you control)?$/.test(t)) return { op: "untap-lands", all: true, targetType: null };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).

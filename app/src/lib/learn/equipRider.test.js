@@ -215,10 +215,12 @@ describe("coverage — clean equipment flips and CREED negatives", () => {
     expect(classifyCard(EQ("The Reaver Cleaver", "Equipped creature gets +1/+1 and has trample and \"Whenever this creature deals combat damage to a player or planeswalker, create that many Treasure tokens.\"\nEquip {3}", "Legendary Artifact — Equipment"))).toBe("body-only");
   });
   it("CREED: a Sword rider with an UNMODELED payload clause stays body-only", () => {
-    // Sword of Feast and Famine: the +2/+2 + protection static IS modeled, but the combat-damage payload
-    // "that player discards a card and you untap all lands you control" has an unmodeled half ("untap all
-    // lands you control"), so the whole payload parses LOW → the Sword stays body-only (no partial flip).
-    expect(classifyCard(EQ("Sword of Feast and Famine", "Equipped creature gets +2/+2 and has protection from black and from green.\nWhenever equipped creature deals combat damage to a player, that player discards a card and you untap all lands you control.\nEquip {2}"))).toBe("body-only");
+    // Sword of War and Peace: the +2/+2 + protection static IS modeled, but the combat-damage payload's
+    // first half ("this Equipment deals damage to that player equal to the number of cards in their hand")
+    // is unmodeled, so the whole payload parses LOW → the Sword stays body-only (no partial flip).
+    // (Feast and Famine — the original specimen — graduated to native-equipment when the untap anchor
+    // learned the second-conjunct "you " subject; swordFeastFamine.test.js pins that flip.)
+    expect(classifyCard(EQ("Sword of War and Peace", "Equipped creature gets +2/+2 and has protection from red and from white.\nWhenever equipped creature deals combat damage to a player, this Equipment deals damage to that player equal to the number of cards in their hand and you gain 1 life for each card in your hand.\nEquip {2}"))).toBe("body-only");
   });
   it("CREED: Captain America stays NON-native (his 'Throw' activated ability is unmodeled)", () => {
     const CAP = "Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among one, two, or three targets.\n... Catch — At the beginning of combat on your turn, attach up to one target Equipment you control to Captain America.";

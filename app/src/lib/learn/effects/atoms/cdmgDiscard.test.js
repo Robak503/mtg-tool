@@ -65,8 +65,17 @@ describe("CDMG-DISCARD — parser", () => {
     expect(p.atoms[1]).toMatchObject({ op: "draw", amount: 1 });
   });
 
-  it("CREED — a rider keeps its tail → LOW (Sword of Feast and Famine 'and you untap all lands you control')", () => {
+  it("Sword of Feast and Famine's compound now models WHOLE (discard + you-untap — both atoms)", () => {
+    // The original pin held this LOW while "you untap all lands you control" was unmodeled; the untap
+    // anchor learned the second-conjunct "you " subject, so the compound legitimately parses whole
+    // (swordFeastFamine.test.js carries the card-level + runtime pins).
     const p = parseEffectProgram({ type: "Instant", oracle: "That player discards a card and you untap all lands you control." });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms.map((a) => a.op).sort()).toEqual(["discard", "untap-lands"]);
+  });
+
+  it("CREED — an UNMODELED rider tail still keeps the program LOW", () => {
+    const p = parseEffectProgram({ type: "Instant", oracle: "That player discards a card and you venture into the dungeon." });
     expect(programConfidence(p)).toBe("low");
   });
 
