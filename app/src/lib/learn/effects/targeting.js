@@ -173,7 +173,9 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     // targets (all tagged atomIndex i). Push the subsets as this atom's options; the combine loop SPREADS a subset
     // (an array) into the combo. Gated on maxTargets>1 — every single-target atom takes the unchanged path below, so
     // existing casts are byte-identical (the flip-diff proves LOST=0). A multi-count atom has no secondary/pair.
-    if (atom.maxTargets > 1) {
+    // (maxTargets:1 + minTargets:0 = the "up to ONE target" form — same subset path, subsets [t] or [].
+    // A plain single-target atom carries NO maxTargets, so the unchanged path below still serves it.)
+    if (atom.maxTargets > 1 || (atom.maxTargets === 1 && (atom.minTargets ?? 1) === 0)) {
       let subsets = targetSubsets(tagged, atom.minTargets ?? 0, atom.maxTargets);
       if (subsets === null) return null;      // a required minimum can't be met → uncastable
       // COLLECTIVE-X-MV restriction (CR 601.2c — "with total mana value X or less"): keep ONLY subsets whose
@@ -188,16 +190,20 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
         const cap = Math.max(0, ctx?.xValue ?? 0);
         subsets = subsets.filter((sub) => sub.reduce((sum, t) => sum + permanentManaValue(state, t.id), 0) <= cap);
         if (subsets.length === 0) return null; // no legal subset (not even empty) → shouldn't happen (empty is MV 0 ≤ cap), but guard
-        // AUTO-PICK ORDER (this atom only — gated on totalMvXConstraint, so no other flip's enumeration moves):
-        // sort LARGEST subset first so the trigger-flush chooser (gameEngine.chooseTriggerTargets, which takes the
-        // FIRST all-correct-side candidate) picks the MAXIMAL enemy-artifact/enchantment sweep within the X budget
-        // instead of the (also-legal, but wasteful) empty subset that k-ascending order would surface first. Every
-        // candidate is still a legal in-budget subset, and the chooser only accepts an ALL-ENEMY-side one, so this
-        // is strictly a better SAFE auto-play — never a wrong or over-budget destroy (CREED). Ties (same size) keep
-        // targetSubsets' deterministic combination order → serialize-stable. The empty subset sinks to LAST (the
-        // fallback the chooser lands on only when no enemy target is legal). A human still sees every subset.
-        subsets = subsets.slice().sort((a, b) => b.length - a.length);
       }
+      // AUTO-PICK ORDER (every subset atom): sort LARGEST subset first so the trigger-flush chooser
+      // (gameEngine.chooseTriggerTargets, which takes the FIRST all-correct-side candidate) picks the
+      // MAXIMAL correct-side set instead of the (also-legal, but vacuous) empty subset that k-ascending
+      // order surfaces first. This was originally gated to the one totalMvXConstraint atom (Rampaging
+      // Yao Guai) — whose author documented exactly this empty-first hazard — leaving EVERY other
+      // subset-trigger family (Baloth Null's graveyard returns, Gavony Silversmith's counters, Kitesail
+      // Cleric's taps, …) resolving as a silent no-op at flush: classified native, fired, chose the empty
+      // subset, did nothing (live-probed). Generalizing the sort makes those cards' runtime DO what the
+      // classifier claims. Side-correctness is unchanged — the chooser still accepts only an
+      // ALL-correct-side candidate per atomTargetIntent (enemy effects hit only enemies, own-side only
+      // own), falling through smaller subsets to EMPTY only when no correct-side pick exists. Ties keep
+      // targetSubsets' deterministic combination order → serialize-stable. A human still sees every subset.
+      subsets = subsets.slice().sort((a, b) => b.length - a.length);
       perAtom.push(subsets);
       continue;
     }

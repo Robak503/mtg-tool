@@ -203,11 +203,15 @@ export function graveyardReturnClauseParser(clause) {
   // (Morbid Plunder, March of the Returned, Soul Salvage, Dutiful Return). The SAME return-from-graveyard resolver
   // (applyReturnFromGraveyard already loops over every ctx.target); `maxTargets` tells targeting.expandAtoms to
   // offer each subset of 0..N legal own-graveyard cards. `minTargets:0` — "up to" permits choosing zero (CR 601.2c).
-  const multiM = /^return up to (two|three|four|five) target (.*?)cards from your graveyard to your hand$/.exec(t);
+  // "up to ONE target … card" (Cormela's dies-trigger; single-return sorceries — Lethal Protection, True
+  // Ancestry, Walk with the Ancestors) is the N=1 member of the same family: singular "card", maxTargets:1,
+  // minTargets:0 — the subset machinery (largest-first auto-pick) returns the one card or declines only
+  // when the graveyard is empty. targeting.expandAtoms' gate admits the maxTargets:1 + minTargets:0 shape.
+  const multiM = /^return up to (one|two|three|four|five) target (.*?)cards? from your graveyard to your hand$/.exec(t);
   if (multiM) {
     const n = SMALL_NUM[multiM[1]];
     const cardFilter = parseGraveyardFilter(multiM[2]);
-    if (n >= 2 && cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, maxTargets: n, minTargets: 0 };
+    if (n >= 1 && cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, maxTargets: n, minTargets: 0 };
   }
   const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
   if (gm) {
