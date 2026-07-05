@@ -104,7 +104,7 @@ architecture explicitly closes.
 - The desktop keeps its current architecture (Node sidecar) untouched
   short-term; it gains a sync client speaking the same protocol as the
   phone (`02-data-and-sync.md`). Desktop convergence onto the client-side
-  core is deferred (D14 Part C, C2).
+  core is deferred (`14-decision-log.md` Part C, item C2).
 - The phone talks to the Mac for exactly three things: **sync**, **agent
   inference**, **Weaviate-backed retrieval**. All three degrade gracefully
   to offline behavior.

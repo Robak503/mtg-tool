@@ -18,8 +18,9 @@ deck edited, a real notification arriving.
 
 **Both layers are mandatory; neither substitutes:**
 - Suites catch regression cheaply and instantly (the desktop's
-  7,681-test baseline is a load-bearing asset — it guards the shared
-  core through M0's surgery).
+  test baseline — live count in `docs/orchestration/WAKE-REPORT.md`,
+  7,757 @ v0.102.0 at authoring — is a load-bearing asset that guards
+  the shared core through M0's surgery).
 - Live gates catch the truth suites can't see (webview quirks, radio
   states, thumbs, glare, battery, patience).
 
@@ -31,7 +32,7 @@ right instrument there. M1+ gates are live-first.
 
 | Layer | What it proves | Runs | Built at |
 |---|---|---|---|
-| **Existing vitest suite** (7,681+, `npm test`) | the shared core still behaves — engine, retrieval, storage, services | every PR (CI) | exists; guards M0 |
+| **Existing vitest suite** (`npm test`; live count in WAKE-REPORT — 7,757 @ v0.102.0 at authoring) | the shared core still behaves — engine, retrieval, storage, services | every PR (CI) | exists; guards M0 |
 | **Adapter contract suite** | every StorageAdapter impl honors the same semantics (resolution order, atomicity, torn-write behavior) | CI for Node/Memory; on-device debug harness for TauriFs (M1.3) | M0.2 |
 | **Browser-context proof suite** | services + engine run with Node builtins fenced (the isomorphism guarantee) | every PR after M0.6 | M0.6 |
 | **Two-mount parity checks** | desktop route wrapper ≡ direct service call on same inputs (H16 guard) | targeted suite, per-domain | M0.5 |

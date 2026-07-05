@@ -107,7 +107,7 @@ Agents home                        Chat
 ```
 Vault home = search-first + tiles     Grail watchlist (con mode)
 ┌────────────────────┐   ┌──────────────────────┐
-│ [search collection]│   │ big rows: card·印·max$│
+│ [search collection]│   │ big rows: card·print·$ │
 │ ◫ Binder  ◫ Grails │ → │ match badge + date    │
 │ ◫ Ledger  ◫ Brief  │   │ (2 taps from cold —   │
 │ ◫ Sets    ◫ Stats  │   │  the booth contract)  │

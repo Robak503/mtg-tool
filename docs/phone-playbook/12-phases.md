@@ -41,7 +41,8 @@ without changing desktop behavior one byte.
 | M0.7 | Data-bundle builder, tiered | CI script(s) emitting: bootstrap (~25MB), full JSON tier (~0.5GB), art packs — with tier manifest + hashes (extends the existing `tier-manifest.json` pattern + existing sync/build scripts) | artifacts build in CI; manifest hash-verifies; desktop can consume the same artifacts (no fork in the data pipeline) | — (parallel lane) |
 | M0.8 | Capability-profile flag scaffold | `field`/`full` profile resolved at build; service registry + nav honor it (D-P9) | desktop `full` build unchanged; a `field`-profile desktop dev-build renders only the six-tab surface (early smoke of the phone IA truth) | M0.5 |
 
-**EXIT GATE (live):** full suite green (7,681+ baseline — no count
+**EXIT GATE (live):** full suite green (live count anchor:
+`docs/orchestration/WAKE-REPORT.md` — 7,757 @ v0.102.0 at authoring; no count
 regression) · desktop `.exe` built from the branch behaves identically
 on a real-use smoke script (decks, chat, vault, pod) · the browser-proof
 harness passes with Node builtins fenced off · CI emits the data tiers.
