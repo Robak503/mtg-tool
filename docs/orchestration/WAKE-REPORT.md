@@ -1,3 +1,23 @@
+> 🚀 **v0.105.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — Reyav attached-only attacks + SoFF conjunct (+5 native, LOST=0).**
+> Slices `6b19a8e2` + `f60cfef7` + release chore; tag **`v0.105.0`** → release CI (verdict → CONTINUITY).
+> **Slice A (attached-only attacks + that-creature referent):** the attacks subject matcher ANCHORED (was a bare
+> substring test — any "a creature you control <restriction> attacks" silently dropped its restriction: a latent
+> over-fire generator, now closed); "that's enchanted or equipped" modeled via descriptor `attachedOnly` (≥1
+> attachment, enforced in scopeMatches); the entering/attacking pronoun rewrite accepts the spelled-out "that
+> creature gets/gains" form (etb arm + attacks/creatureYouControl arm). **Flips (4/4 skeptic-CONFIRMED, 28/28
+> runtime probes, independent full-corpus re-diff +4/LOST=0/MOVED=0):** Reyav [Joe-Cap], Ogre Battledriver,
+> Primal Forcemage, Ardoz (union scope + activated lane live-probed; Ardoz's own minted token fires the union).
+> **Slice B (the "you <verb>" second conjunct):** the untap-all-lands anchor accepts the and-compound's leading
+> subject → **Sword of Feast and Famine** [Joe-Cap] native-equipment (runtime e2e: damaged player's discard
+> pendingChoice + controller's lands untap; 4 stale FN pins re-specimened, intent preserved; skeptic verdict —
+> see CONTINUITY).
+> **Fence: suite 7,790 (+12 this release) · lint 0 · trajectory `ab524e20` ×2 (rows 5706, byte-identical).**
+> **Session running total (2026-07-05): v0.103.0 +7 · v0.104.0 +3 · v0.105.0 +5 = +15 native, LOST=0 throughout;
+> 3 latent FP generators closed** (reminder-anchor silent drop · vacuous batch filters · restriction-dropping
+> attacks matcher). **NEXT menu:** Sword of War and Peace (their-hand damage metric) · Sword of Light and Shadow
+> (GY-return conjunct) · cost-tax static (fattest corpus) · Toski statics · monarch (Pantlaza).
+>
+> ── prior release (below) ──
 > 🚀 **v0.104.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — with-keyword batch combat-damage (+3 native, LOST=0).**
 > Slice `8f1497cd` + release chore; tag **`v0.104.0`** → release CI (verdict → CONTINUITY). "Whenever one or
 > more creatures you control WITH <keyword> deal combat damage to a player" is modeled end to end: carved out

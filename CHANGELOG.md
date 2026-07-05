@@ -8,6 +8,24 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.105.0] - 2026-07-05
+
+### Added
+- **Native coverage — restricted attack triggers + spelled-out referents** —
+  Reyav, Master Smith now plays natively and honestly: his trigger fires only
+  for attackers that are actually enchanted or equipped (the engine previously
+  couldn't check that restriction at all), and "that creature gets/gains …"
+  payoffs now bind to the attacking/entering creature the same way "it" does.
+  Also newly native: Ogre Battledriver, Primal Forcemage, Ardoz, Cobbler of War.
+- **Native coverage — Sword of Feast and Famine** — the full sword now plays
+  natively: the damaged player chooses a discard and your lands untap. +5 native
+  total this release, no regressions.
+
+### Fixed
+- A loose attack-trigger matcher could silently ignore printed restrictions on
+  "a creature you control … attacks" abilities; it is now exact, so unmodeled
+  restrictions correctly route to the Arbiter instead of risking wrong fires.
+
 ## [0.104.0] - 2026-07-05
 
 ### Added
