@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.102.0] - 2026-07-04
+
+### Added
+- **Native coverage — Leyline opening-hand pre-strip** — cards with the CR 103.6
+  "you may begin the game with this on the battlefield" line now model natively
+  (Leyline Axe, Leyline of Anticipation, Leyline of Lifeforce, Leyline of Vitality).
+  +4 native, no regressions.
+- **Native coverage — Equip legendary creature** — equipment whose Equip cost is
+  restricted to legendary creatures now models natively, mirroring the existing
+  Equip-commander handling (Excalibur, Blackblade Reforged). +2 native, no regressions.
+
 ## [0.101.0] - 2026-07-04
 
 ### Added
