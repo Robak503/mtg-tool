@@ -981,6 +981,19 @@ function isNativeTriggerGrantAuraOrEquipment(card) {
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
  */
 export function classifyCard(card) {
+  // LEYLINE opening-hand pre-strip (CR 103.6): "If this card is in your opening hand, you may begin the
+  // game with it on the battlefield." is a PRE-GAME special action with ZERO in-play runtime effect — the
+  // self-play engine never starts a game from an opening hand, and the line never changes how the permanent
+  // behaves once it's on the battlefield. Strip it so an otherwise-fully-modeled permanent (Leyline Axe:
+  // equip bonus + Equip {3}) isn't dragged to body-only by rules-neutral residue. CREED-safe + LOST-safe:
+  // removing text can only let a card reach native, never demote one; every downstream check (equipment /
+  // permanent body) then sees only the text that actually plays.
+  if (/\bbegin the game with it on the battlefield\b/i.test(card?.oracle || "")) {
+    card = {
+      ...card,
+      oracle: String(card.oracle).replace(/If this card is in your opening hand, you may begin the game with it on the battlefield\.?\s*/i, "").trim(),
+    };
+  }
   const type = String(card?.type || "").toLowerCase();
   const oracle = card?.oracle || "";
   // A planeswalker (PW-1) — keyed on the FRONT face (castsAsPlaneswalker) so a creature-front DFC
