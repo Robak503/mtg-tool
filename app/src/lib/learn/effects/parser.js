@@ -741,6 +741,24 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn") ? inner : { ...inner, optional: true };
   }
 
+  // ===== TOKENS ===== T3 X/X-FROM-COMBAT-DAMAGE create-token (Quartzwood Crasher) — "Create an X/X
+  // <descriptor> creature token [with <kw>], where X is the amount of damage those creatures dealt to
+  // that player." The X here is the TRIGGER's combat-damage amount, NOT a cast {X} — so this sits
+  // OUTSIDE the hasX gate below (a trigger effect parses with hasX:false). Strip the EXACT where-tail,
+  // rewrite the X/X to the sentinel "1/1" so the FULL create-token atom parses (descriptor / keywords
+  // verbatim), then stamp ptContext:"combatDamageAmount" (the resolver reads the trigger ctx — the same
+  // key the CDMG payoffs use, set per damaged player by the batch/singular combat-damage checkers).
+  // Anchored to THIS tail only ($); any other "where X is …" P/T still falls through to the hasX ptX
+  // branch's `where` bail → null → Arbiter (never a mis-bound X).
+  {
+    const cdmgTail = s.match(/^(create an x\/x .*\bcreature token(?:s)?(?: with [a-z ,]+)?), where x is the amount of (?:combat )?damage those creatures dealt to that player(?: this combat)?\.?$/i);
+    if (cdmgTail) {
+      const sentinel = cdmgTail[1].replace(/\bx\/x\b/i, "1/1");
+      const base = parseClauseToAtom(cardType, sentinel, false);
+      if (!base || base.op !== "create-token") return null;
+      return { ...base, ptContext: "combatDamageAmount" };
+    }
+  }
   // X-amount variant (only for an {X}-cost spell). Rewrite the X in the AMOUNT slot
   // to a sentinel so the numeric clause parse models the shape, then stamp `amountX`
   // (the resolver substitutes the chosen X via ctx.xValue) and drop the sentinel

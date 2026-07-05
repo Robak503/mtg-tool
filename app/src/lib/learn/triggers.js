@@ -91,8 +91,24 @@ function parseBatchSubjectFilter(subjectRaw) {
   // here — it's matched by the dedicated regex above). Singularize a trailing 's' per word so "goblins" →
   // "Goblin"; parseSubtypeList re-capitalizes and validates. A multi-word qualifier the regex below can't shape
   // (e.g. "colorless creatures", "creature tokens", "tapped creatures") falls through to null → Arbiter.
-  if (/^[a-z]+(?:s)?(?:(?:,| or | and )[a-z]+(?:s)?)*$/.test(s)) {
-    const depluralized = s.replace(/\b([a-z]{3,})s\b/g, "$1");
+  // A trailing bare "creatures" after a MULTI-subtype list ("Ninja or Rogue creatures" — Prosperous Thief)
+  // is redundant subject noise (the subtypes are creature subtypes); strip it so the list parses. Gated to
+  // subjects that actually contain a list separator: a single qualifier + "creatures" ("colorless
+  // creatures" — Glitch Interpreter, "tapped creatures") must stay UNSTRIPPED so the space-separated shape
+  // test below rejects it exactly as before (the suite's uncheckable-filter guards pin this — a stripped
+  // "colorless" would ride the single-word path into a subtype filter that can never match a type line:
+  // a runtime-vacuous native, the forbidden FP class). AND the list words must not be color/state
+  // QUALIFIERS: parseSubtypeList validates by blacklist, so a stripped "red or green creatures" /
+  // "attacking or blocking creatures" would otherwise mint a subtype filter (["Red","Green"]) that can
+  // never match a type line — the same vacuous-filter FP, one card away (skeptic-flagged; only
+  // "Ninja or Rogue creatures" exists in the current corpus). Any qualifier word in the list → no strip
+  // → the space-separated shape test rejects the subject → Arbiter (FN-safe).
+  const NON_SUBTYPE_QUALIFIERS = /\b(?:white|blue|black|red|green|colorless|multicolored|monocolored|attacking|blocking|tapped|untapped|token|nontoken|legendary|enchanted|equipped|modified|snow|face-up|face-down)\b/;
+  const listSubject = (/,| or | and /.test(s) && !NON_SUBTYPE_QUALIFIERS.test(s))
+    ? s.replace(/\s+creatures$/, "")
+    : s;
+  if (/^[a-z]+(?:s)?(?:(?:,| or | and )[a-z]+(?:s)?)*$/.test(listSubject)) {
+    const depluralized = listSubject.replace(/\b([a-z]{3,})s\b/g, "$1");
     const filter = parseSubtypeList(depluralized);
     if (filter) return { subtypeFilter: filter };
   }
@@ -103,12 +119,16 @@ function parseBatchSubjectFilter(subjectRaw) {
 // `descriptor` carries exactly one of subtypeFilter / batchArtifact / batchEnchantment / batchNontoken (see
 // parseBatchSubjectFilter). A bare batch descriptor (none of these set) matches ANY creature — the unfiltered
 // "one or more creatures you control" form. Pure; reads only the dealer permanent's card.
-function batchDealerMatches(descriptor, dealerPerm) {
+function batchDealerMatches(descriptor, dealerPerm, state = null) {
   if (!dealerPerm?.card) return false;
   if (descriptor.subtypeFilter) return subtypeFilterMatches(dealerPerm.card, descriptor.subtypeFilter);
   if (descriptor.batchArtifact) return /Artifact/.test(typeStr(dealerPerm.card));
   if (descriptor.batchEnchantment) return /Enchantment/.test(typeStr(dealerPerm.card));
   if (descriptor.batchNontoken) return !dealerPerm.card.token;
+  // WITH-KEYWORD batch (Quartzwood) — layer-aware, so an equipment/anthem-granted keyword counts, exactly
+  // like the qualified-ETB keyword filter. Without state (defensive) the dealer can't be verified → no match
+  // (an under-fire, never an over-fire).
+  if (descriptor.batchKeyword) return state ? permanentHasKeyword(state, dealerPerm.id, descriptor.batchKeyword) : false;
   return true; // unfiltered bare batch — any connecting creature qualifies
 }
 
@@ -587,6 +607,26 @@ function classifyCondition(condRaw, cardName, cardType) {
   // mana cost" (printed-cost test) and "cast a spell with mana value N or greater/less" (CR 202.3). Exempt
   // ONLY those exact anchored shapes here so they reach the cast matchers below; everything else "with …"
   // still routes to the Arbiter (a SAFE false-negative). The shapes are re-anchored at their matchers.
+  // WITH-KEYWORD BATCH combat-damage (Quartzwood Crasher — "one or more creatures you control WITH TRAMPLE
+  // deal combat damage to a player") — carved out BEFORE the "with …" reject below, exactly like the
+  // qualified-ETB keyword filter: this "with" is a PRECISELY-checkable keyword restriction, gated to
+  // FILTERABLE_ETB_KEYWORDS (the permanentHasKeyword-checkable set — layer-aware, so an equipment-granted
+  // trample counts, matching real rules). perDefender: per the card's ruling this shape triggers once for
+  // EACH damaged player, and its payload reads "the amount of damage THOSE creatures dealt to THAT player"
+  // — checkBatchCombatDamageTriggers fires it once per (controller, defender) pair with ctx
+  // {damagedPlayerId, combatDamageAmount} summed over MATCHING dealers only (the same ctx keys the singular
+  // combat-damage path sets, so payload atoms are shared). An INADMISSIBLE keyword/quality on this exact
+  // shape returns null HERE (the guard's intent — a restriction the engine can't check → Arbiter, FN-safe).
+  {
+    const kwBatchM = c.match(/^one or more creatures you control with ([a-z' ]+) deal combat damage to (?:a player|an opponent)$/);
+    if (kwBatchM) {
+      const kw = kwBatchM[1].trim();
+      if (FILTERABLE_ETB_KEYWORDS.has(kw)) {
+        return { event: "combatDamageBatch", scope: "you", whose: "any", batchKeyword: kw, perDefender: true };
+      }
+      return null; // the batch shape with a keyword the engine can't check — Arbiter (never an over-fire)
+    }
+  }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
@@ -1877,6 +1917,8 @@ export function detectTriggers(card) {
         batchArtifact: cls.batchArtifact,     // SUBTYPE/PROPERTY BATCH combat-damage only — "artifact creatures" (Thopter Spy Network)
         batchEnchantment: cls.batchEnchantment, // SUBTYPE/PROPERTY BATCH combat-damage only — "enchantment creatures"
         batchNontoken: cls.batchNontoken,     // SUBTYPE/PROPERTY BATCH combat-damage only — "(other) nontoken creatures" (Rooftop Bypass)
+        batchKeyword: cls.batchKeyword,       // WITH-KEYWORD BATCH combat-damage only (Quartzwood — lowercase keyword; layer-aware dealer gate)
+        perDefender: cls.perDefender,         // WITH-KEYWORD BATCH only — fires once per damaged player with that pair's damage total in ctx
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
@@ -3116,10 +3158,47 @@ export function checkBatchCombatDamageTriggers(state, playerEvents) {
   for (const [pid, connecting] of connectingByPlayer) {
     // The descriptor gate: a filtered batch keeps only if SOME connecting creature matches; a bare batch (no
     // filter fields) always passes via batchDealerMatches's any-creature fall-through. detectTriggers caches
-    // descriptors, so this is cheap per watcher.
-    const descriptorFilter = (d) => connecting.some((perm) => batchDealerMatches(d, perm));
+    // descriptors, so this is cheap per watcher. perDefender descriptors are EXCLUDED here — they fire in
+    // the per-defender pass below (once per damaged player, with the pair's damage total), never twice.
+    const descriptorFilter = (d) => !d.perDefender && connecting.some((perm) => batchDealerMatches(d, perm, state));
     for (const watcher of triggerSourcesOf(state, pid)) {
       fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { batchController: pid }, descriptorFilter }));
+    }
+  }
+  // PER-DEFENDER pass (Quartzwood Crasher's ruling: the ability triggers once for EACH player dealt damage) —
+  // a perDefender batch descriptor fires once per (controller, defender) pair, and its ctx carries THAT
+  // defender's damage total summed over descriptor-MATCHING dealers only ("the amount of damage those
+  // creatures dealt to that player this combat"). The ctx keys mirror the singular combat-damage path
+  // ({damagedPlayerId, combatDamageAmount}), so payload atoms (ptContext/countContext) are shared. Keyword
+  // classes are enumerated from the DEALERS (layer-aware permanentHasKeyword), so a descriptor whose keyword
+  // no connecting dealer has simply never fires (the same no-over-fire gate as the filtered batch). A dealer
+  // that traded (already left the battlefield) was skipped at the connecting gate above — its damage is
+  // excluded from the total: an under-fire, the same accepted look-back limitation as the batch filter gate.
+  const pairHits = new Map(); // pid -> Map(defenderId -> [{ perm, amount }])
+  for (const e of hits) {
+    const lk = findPermanent(state, e.attackerId);
+    if (!lk || e.defender == null) continue;
+    if (!pairHits.has(e.attackingPlayer)) pairHits.set(e.attackingPlayer, new Map());
+    const byDef = pairHits.get(e.attackingPlayer);
+    if (!byDef.has(e.defender)) byDef.set(e.defender, []);
+    byDef.get(e.defender).push({ perm: lk.permanent, amount: e.amount });
+  }
+  for (const [pid, byDef] of pairHits) {
+    for (const [defenderId, dealerHits] of byDef) {
+      // Per keyword class present among this pair's dealers: total damage from dealers HAVING that keyword.
+      const classTotals = new Map();
+      for (const h of dealerHits) {
+        for (const kw of FILTERABLE_ETB_KEYWORDS) {
+          if (permanentHasKeyword(state, h.perm.id, kw)) classTotals.set(kw, (classTotals.get(kw) || 0) + h.amount);
+        }
+      }
+      for (const [kw, total] of classTotals) {
+        const descriptorFilter = (d) => d.perDefender === true && d.batchKeyword === kw;
+        const ctx = { batchController: pid, damagedPlayerId: defenderId, combatDamageAmount: total };
+        for (const watcher of triggerSourcesOf(state, pid)) {
+          fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: ctx, descriptorFilter }));
+        }
+      }
     }
   }
   if (!fired.length) return state;

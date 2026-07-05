@@ -111,8 +111,15 @@ export function applyCreateToken(state, atom, ctx) {
   // X/X P/T (DOUBLE-X subsystem): a token whose printed P/T is the spell's {X} (Gelatinous Genesis "X X/X",
   // Slime Molding "an X/X") mints at xValue/xValue. CR 107.3 — an X of 0 makes a 0/0 that dies to the lethal
   // SBA below (the countX path already mints zero tokens at X=0, so this only bites a fixed-count X/X token).
-  const tokPower = atom.ptX ? Math.max(0, ctx.xValue || 0) : atom.power;
-  const tokToughness = atom.ptX ? Math.max(0, ctx.xValue || 0) : atom.toughness;
+  // ptContext reads a TRIGGER-context number the same way count's countContext does (Quartzwood Crasher —
+  // "an X/X … token …, where X is the amount of damage those creatures dealt to that player this combat" →
+  // ctx.combatDamageAmount). An absent context value mints a 0/0 that dies to the same SBA — a clean
+  // under-fire, never a fabricated size.
+  const dynPt = atom.ptX ? Math.max(0, ctx.xValue || 0)
+    : atom.ptContext ? Math.max(0, ctx[atom.ptContext] || 0)
+    : null;
+  const tokPower = dynPt != null ? dynPt : atom.power;
+  const tokToughness = dynPt != null ? dynPt : atom.toughness;
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
