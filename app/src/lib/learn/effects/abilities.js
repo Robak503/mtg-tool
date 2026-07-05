@@ -394,11 +394,12 @@ export function parseActivatedAbilities(card) {
       });
       continue;
     }
-    // "Equip commander {cost}" — a RESTRICTED equip variant (CR 702.6c: "Equip [quality]"). Identical to a
-    // plain Equip EXCEPT its legal targets are narrowed to a commander you control (legalChoices enforces the
-    // restriction via `equipQuality`). Only the "commander" quality is modeled (the sole quality whose
-    // restriction the runtime can evaluate from state — isCommander travels the card, CR 903.3). Any OTHER
-    // quality ("Equip Human {1}", "Equip legendary creature {2}") is deliberately NOT matched here → body-only.
+    // "Equip [quality] {cost}" — a RESTRICTED equip variant (CR 702.6c). Identical to a plain Equip EXCEPT its
+    // legal targets are narrowed to a creature you control that HAS the stated quality (legalChoices enforces it
+    // via `equipQuality`). Two qualities are modeled — the ones the runtime can evaluate from state:
+    //   "commander" → isCommander travels the card (CR 903.3);
+    //   "legendary creature" → the target's type line is Legendary (Excalibur, Sword of Eden — Cap America deck).
+    // Any OTHER quality ("Equip Human {1}") is deliberately NOT matched here → body-only (whole-card CREED).
     const ecm = !line.includes(":") && line.match(/^equip\s+commander\s*(?:[—–-])?\s*((?:\{[^}]+\})+)$/i);
     if (ecm) {
       const cost = parseAbilityCost(ecm[1]);
@@ -407,6 +408,17 @@ export function parseActivatedAbilities(card) {
         manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
         isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
         equipQuality: "commander",
+      });
+      continue;
+    }
+    const elm = !line.includes(":") && line.match(/^equip\s+legendary\s+creature\s*(?:[—–-])?\s*((?:\{[^}]+\})+)$/i);
+    if (elm) {
+      const cost = parseAbilityCost(elm[1]);
+      out.push({
+        index: index++, raw: line, costStr: line, effectClause: "",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+        equipQuality: "legendary",
       });
       continue;
     }

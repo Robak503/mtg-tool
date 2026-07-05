@@ -784,11 +784,11 @@ export function permanentEquipmentCovered(card) {
   // self-keyword printed on the EQUIPMENT ("Indestructible"), an unmodeled equip variant
   // ("Equip Human {1}"), a non-Equip activated ability — leaves residue → body-only, so a
   // not-fully-modeled equipment is never over-claimed as native (CLAUDE.md "no silent gaps").
-  // A modeled Equip line: the plain "Equip {cost}" OR the restricted "Equip commander {cost}" variant
-  // (CR 702.6c — the sole modeled quality; parseActivatedAbilities tags it equipQuality:"commander", and
-  // legalChoices restricts its targets to a commander you control). Any OTHER "Equip <quality> …" stays
-  // residue → body-only (never over-claimed).
-  const modeledEquipLine = /^equip(?:\s+commander)?\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
+  // A modeled Equip line: the plain "Equip {cost}" OR a restricted "Equip [quality] {cost}" variant
+  // (CR 702.6c) — the two modeled qualities are "commander" (equipQuality:"commander", legalChoices restricts
+  // to a commander you control) and "legendary creature" (equipQuality:"legendary", restricted to a Legendary
+  // target — Excalibur, Sword of Eden). Any OTHER "Equip <quality> …" stays residue → body-only (never over-claimed).
+  const modeledEquipLine = /^equip(?:\s+commander|\s+legendary\s+creature)?\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
   for (const clause of equipmentAbilityClauses(stripReminder(noTrig.oracle || ""))) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;

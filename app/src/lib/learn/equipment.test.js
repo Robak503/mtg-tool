@@ -34,7 +34,9 @@ describe("parser — Equip ability + equipped bonus", () => {
     expect(parseActivatedAbilities(SWORD)).toEqual([expect.objectContaining({ isEquipAbility: true, modeled: true, manaPips: "{1}" })]);
     // A non-mana / typed equip cost is unmodeled (not detected).
     expect(parseActivatedAbilities({ oracle: "Equip {2}{W}", type: "Artifact — Equipment" })[0]).toMatchObject({ isEquipAbility: true, manaPips: "{2}{W}" });
-    expect(parseActivatedAbilities({ oracle: "Equip legendary creature {3}", type: "Artifact — Equipment" })).toEqual([]);
+    // "Equip legendary creature" is a MODELED quality (equipQuality:"legendary"); an unmodeled quality (Equip Human) is not.
+    expect(parseActivatedAbilities({ oracle: "Equip legendary creature {3}", type: "Artifact — Equipment" })).toEqual([expect.objectContaining({ isEquipAbility: true, equipQuality: "legendary", manaPips: "{3}" })]);
+    expect(parseActivatedAbilities({ oracle: "Equip Human {3}", type: "Artifact — Equipment" })).toEqual([]);
   });
   it("parses the equipped-creature bonus (P/T, keyword, combined) — all-or-nothing", () => {
     expect(parseEquipmentBonus(SWORD)).toEqual([{ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: 2, toughness: 0 }, duration: { kind: "permanent" } }]);

@@ -80,9 +80,10 @@ describe("coverage — the whole card flips native-equipment", () => {
     expect(permanentEquipmentCovered(PLATE)).toBe(true);
   });
 
-  it("CREED near-miss: a NON-commander equip quality stays body-only", () => {
-    // "Equip legendary creature {3}" is a restriction the runtime can't evaluate → residue → Arbiter.
-    expect(classifyCard({ name: "X", type: "Artifact — Equipment", oracle: "Equipped creature gets +3/+3 and has protection from each color that's not in your commander's color identity.\nEquip legendary creature {3}\nEquip {5}" })).toBe("body-only");
+  it("CREED near-miss: a NON-modeled equip quality stays body-only", () => {
+    // "Equip Human {3}" is a quality the runtime can't evaluate → residue → Arbiter. (Only "commander" and
+    // "legendary creature" — qualities readable from state — are modeled; a subtype quality like Human is not.)
+    expect(classifyCard({ name: "X", type: "Artifact — Equipment", oracle: "Equipped creature gets +3/+3 and has protection from each color that's not in your commander's color identity.\nEquip Human {3}\nEquip {5}" })).toBe("body-only");
   });
 
   it("CREED near-miss: a DIFFERENT dynamic protection phrase drops the whole card", () => {
