@@ -941,7 +941,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\battacks\b/.test(c) && /\balone\b/.test(c)) return null;
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
-    if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
+    // ANCHORED bare form (was a non-anchored substring test — any "a creature you control <restriction>
+    // attacks" matched it and silently DROPPED the restriction: a latent over-fire the moment such a card's
+    // payload parses. Now: the bare form matches exactly; the one CHECKABLE restriction below is modeled
+    // explicitly; anything else stays UNDETECTED → Arbiter, the same safe-FN posture as every other guard).
+    if (/^a creature you control attacks$/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
+    // ATTACHED-ONLY attacks (Reyav, Master Smith — "Whenever a creature you control that's enchanted or
+    // equipped attacks"): "enchanted or equipped" ⇔ the attacker has ≥1 attachment (attachments are only
+    // ever Auras/Equipment in this engine, so the OR-form reduces to a length check — scopeMatches enforces
+    // it on the triggering attacker). ONLY the or-form is modeled: a bare "that's equipped" / "that's
+    // enchanted" would need an attachment-TYPE check → stays undetected → Arbiter (safe FN).
+    if (/^a creature you control that's (?:enchanted or equipped|equipped or enchanted) attacks$/.test(c)) {
+      return { event: "attacks", scope: "creatureYouControl", whose: "any", attachedOnly: true };
+    }
     // EQUIP-RIDER attacks (WAVE 4) — "Whenever EQUIPPED CREATURE attacks, <effect>" (Argentum Armor /
     // Ultima Weapon / Mjolnir attack payloads). The watcher is the EQUIPMENT; the attacker is the
     // triggering permanent, so the scope fires ONLY when the attacker IS this equipment's attached
@@ -1450,6 +1462,12 @@ function rewriteEtbEnteringPronoun(effectClause) {
       // COMPOUND-LEADING: rewrite ONLY the leading counter referent, keep the "and <follow-up>" tail verbatim.
       if (ETB_COUNTER_ON_IT_LEADING.test(s)) return s.replace(ETB_COUNTER_ON_IT_LEADING, "$1the triggering creature$2");
       if (ETB_IT_PUMP_CLAUSE.test(s)) return s.replace(/^it /i, "the triggering creature ");
+      // "THAT CREATURE gets/gains …" — the same triggering-permanent referent spelled out (Reyav "that
+      // creature gains double strike until end of turn"; CR 608.2c). Normalize to the "it" form and reuse
+      // the SAME pump-clause gate, so exactly the shapes the "it" arm models are rewritten — nothing looser.
+      if (/^that creature (?:gets|gains)\b/i.test(s) && ETB_IT_PUMP_CLAUSE.test(s.replace(/^that creature /i, "it "))) {
+        return s.replace(/^that creature /i, "the triggering creature ");
+      }
       return s; // a clause we don't model is left verbatim → its raw "it" keeps the program LOW (CREED)
     })
     .join(". ");
@@ -1458,7 +1476,7 @@ function rewriteEtbEnteringPronoun(effectClause) {
 // take this branch when there's something to do — otherwise the chain falls through to SOURCE-STAT etc.). The
 // "counter on it" substring matches whether the counter is a standalone sentence or the leading conjunct of an
 // "and"-joined compound (The Great Henge), so this gate already admits the compound-leading form.
-const ETB_ENTERING_PRONOUN_RE = /(?:put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)|^it (?:gets|gains)\b|\.\s+it (?:gets|gains)\b)/i;
+const ETB_ENTERING_PRONOUN_RE = /(?:put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)|^(?:it|that creature) (?:gets|gains)\b|\.\s+(?:it|that creature) (?:gets|gains)\b)/i;
 
 // TRIG-PRONOUN-IT — the NON-SELF pronoun referent for the OTHER effect families (the non-self analogues of
 // the SELF "it" forms): "Whenever a creature you control attacks, IT gets/gains … until end of turn /
@@ -1869,7 +1887,11 @@ export function detectTriggers(card) {
         // CANT_REGEN_TEST on the full oracle and stamps cannotRegenerate on the destroy atom. The detector
         // gated nativeness on this exact "destroy that creature" prefix, so no other effect reaches this rewrite.
         effectClause = effectClause.replace(/^destroy that creature/i, "destroy the triggering creature");
-      } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
+      } else if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) || cls.event === "attacks" && cls.scope === "creatureYouControl") && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
+        // (The `attacks`/creatureYouControl arm — Reyav "that creature gains double strike until end of
+        // turn": on `attacks` the triggering permanent IS the attacker (checkAttackTriggers threads
+        // attackerPerm as triggeringPermanent), the same referent guarantee as the entering creature on
+        // etb, so the identical sentinel rewrite is sound. Gated to the one scope that needs it.)
         // ===== ETB-ENTERING-PRONOUN ===== an ETB enters-watcher whose effect puts a +1/+1 counter on / pumps
         // the ENTERING creature via "it" / "that creature" (Surrak and Goreclaw — "put a +1/+1 counter on it.
         // It gains haste until end of turn."; The Great Henge — "put a +1/+1 counter on it and draw a card").
@@ -1919,6 +1941,7 @@ export function detectTriggers(card) {
         batchNontoken: cls.batchNontoken,     // SUBTYPE/PROPERTY BATCH combat-damage only — "(other) nontoken creatures" (Rooftop Bypass)
         batchKeyword: cls.batchKeyword,       // WITH-KEYWORD BATCH combat-damage only (Quartzwood — lowercase keyword; layer-aware dealer gate)
         perDefender: cls.perDefender,         // WITH-KEYWORD BATCH only — fires once per damaged player with that pair's damage total in ctx
+        attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
@@ -2145,6 +2168,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // chose. Load-bearing FP guard: without it Lazotep's OWN amass-minted Sliver Army token (a Sliver, so the
   // subtypeYouControl scope would match it) dying would re-fire its amass — a confident wrong fire.
   if (descriptor.nontokenFilter && triggeringPermanent?.card?.token) return false;
+  // ATTACHED-ONLY gate (Reyav — "a creature you control that's enchanted or equipped attacks"): the
+  // triggering creature must carry ≥1 attachment (attachments are only ever Auras/Equipment here, so the
+  // or-form reduces to a length check). Runs BEFORE the scope switch so it composes with the scope the
+  // descriptor chose, like nontokenFilter. An un-attached attacker must NOT fire (the restriction the old
+  // non-anchored subject match silently dropped).
+  if (descriptor.attachedOnly && !(Array.isArray(triggeringPermanent?.attachments) && triggeringPermanent.attachments.length > 0)) return false;
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;

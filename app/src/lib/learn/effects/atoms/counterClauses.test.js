@@ -94,11 +94,20 @@ describe("detectTriggers — the NON-self triggering-referent rewrite", () => {
     expect(atomsOf(d.effectClause)).toEqual([{ op: "add-counter", counterType: "+1/+1", amount: 1, target: "self" }]);
   });
 
-  it("CREED: a rider past the referent leaves the clause untouched → LOW (no partial)", () => {
-    const d = cls("Whenever a creature you control attacks, put a +1/+1 counter on it. Draw a card.").find((x) => x.event === "attacks");
-    // not the bare sentinel (the rider broke the whole-clause anchor) → unmodeled → LOW
-    expect(d.effectClause).not.toBe(SENTINEL);
+  it("CREED: an UNPARSEABLE rider past the referent keeps the program LOW (no partial)", () => {
+    // The no-partial guard, held against a rider the engine genuinely can't model. (The original pin used
+    // "Draw a card" — since the attacks/creatureYouControl pronoun rewrite became per-sentence, the same as
+    // the etb arm, a fully-PARSEABLE follow-up legitimately models whole; the positive pin below covers it.
+    // The all-or-nothing program confidence is what enforces no-partials, not the rewrite's anchor.)
+    const d = cls("Whenever a creature you control attacks, put a +1/+1 counter on it. Exile the top card of each player's library.").find((x) => x.event === "attacks");
     expect(programConfidence(programOf(d.effectClause))).toBe("low");
+  });
+
+  it("a fully-PARSEABLE follow-up sentence models WHOLE (per-sentence rewrite — both atoms, no partial)", () => {
+    const d = cls("Whenever a creature you control attacks, put a +1/+1 counter on it. Draw a card.").find((x) => x.event === "attacks");
+    const p = programOf(d.effectClause);
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms.map((a) => a.op).sort()).toEqual(["add-counter", "draw"]);
   });
 });
 
