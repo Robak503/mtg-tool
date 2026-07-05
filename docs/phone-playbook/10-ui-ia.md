@@ -16,8 +16,9 @@
   (ley-green family), gold/red/blue status colors, Space Grotesk /
   Inter / JetBrains Mono type stack — the shipped v0.87.0 system.
   Dark-only on phone: OLED battery (true black = pixels off), brand
-  coherence, and one theme to maintain. (Re-openable if daylight
-  legibility dogfood fails — log it if so.)
+  coherence, and one theme to maintain. **Owner-confirmed (D-P12,
+  2026-07-04)**; re-open only if daylight legibility fails at a real
+  table.
 - **Field density, not kiosk density.** The desktop is a kiosk; the
   phone is a glanceable tool held in one hand at a table. Fewer
   simultaneous panes, bigger type, bigger targets.
@@ -124,7 +125,9 @@ Vault home = search-first + tiles     Grail watchlist (con mode)
 
 ### 3.6 Life
 - Layout intent in `06 §4` (2P split / 3–4P quadrants / 5–6P grid;
-  table-mode rotation; global strip for monarch·day/night·plane·die).
+  table-mode rotation; Planechase strip = plane + die, one-tap swap to
+  the full-screen plane view). Counter set is the trimmed D9 suite:
+  life · commander damage · poison.
 - This tab owns: wake-lock, biggest targets in the app, undo
   prominence, plane art display.
 

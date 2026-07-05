@@ -229,7 +229,7 @@ online, queuing offline.
 
 ---
 
-### D9. Life tracker is IN — full Commander counter suite + Planechase
+### D9. Life tracker is IN — life · commander damage · poison + full Planechase *(suite trimmed — see supersession trail)*
 
 **Decision:** A 2–6 player life tracker with the full Commander counter
 suite: life; **per-opponent commander damage with the 21-rule**; poison;
@@ -237,6 +237,18 @@ energy; experience; monarch; day/night; **planar die + Planechase
 plane-card display**. Rotatable/round table seating, big tap targets,
 fully offline. (Resolves the old "M4 nice-to-have or out of scope?" open
 call: IN, and it lands early — it's in the M1 exit gate.)
+
+**Supersession trail:**
+- *2026-07-04 (the brief):* full counter suite — life, per-opponent
+  commander damage/21-rule, poison, energy, experience, monarch,
+  day/night.
+- *2026-07-04 (later, Colton — playbook Q&A):* **TRIMMED. "We don't
+  need to track side things."** The suite is now: **life · per-opponent
+  commander damage (21-rule) · poison · full Planechase support**
+  (cards, die, plane swap, screen swap, "anything else to play that
+  game style"). Energy, experience, monarch, day/night are CUT — they
+  are cheap single-counter patterns, trivially re-addable if a real
+  game ever wants them (`06 §1.2` note).
 
 **Why:**
 - The app is a *table* tool; the single most-used app at a real pod is the
@@ -426,6 +438,33 @@ pack first, full (~5–6GB) optional. Detail: `02-data-and-sync.md
 §footprint`.
 
 ---
+
+### D-P11. Giftable builds' inference = standalone tiers only (no hub pairing v1)
+
+**Why:** the spec locked the giftable split (D12) but was silent on what
+inference a gifted phone gets — it has no Mac hub. Locked with Colton
+(2026-07-04, playbook Q&A): giftable = **T0 retrieval + T2 on-device
+(if built) + T3 with the recipient's OWN Anthropic key** entered in
+settings; no hub-pairing UI in v1. Colton's confidence note: "giftable
+is so far away — following the rec for future-proofing." **Revisit at
+M5.1** if a gifted-hub scenario (e.g. Joe on the tailnet) ever becomes
+real.
+
+### D-P12. Phone is dark-only (LEYLINE true-black) — owner-confirmed
+
+**Why:** OLED battery + brand coherence (`10 §1`). Playbook default,
+**confirmed by Colton 2026-07-04** ("dark mode then yes"). Re-open only
+if daylight-legibility dogfood fails at a real table.
+
+### D-P13. FCM is a pre-approved notification fallback (content-free ping)
+
+**Why:** V9 explores waking the phone without any public service.
+Colton pre-approved (2026-07-04, playbook Q&A): if the self-hosted/
+direct path proves unreliable against Android battery management,
+**Google's FCM relay is acceptable — carrying a content-free "check
+the app" ping only**; match/brief content always syncs device-side.
+Order of preference stands: direct/self-hosted first, FCM fallback,
+in-app badge floor (ships regardless). `13 §V9`, `07 §1.5`.
 
 ## Part C — DEFERRED (explicitly not decided; do not silently decide)
 

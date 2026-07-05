@@ -2,8 +2,9 @@
 
 > **OMNATH IN POCKET · execution playbook · doc 06 of 17**
 > NET-NEW feature (recon confirmed: no life-tracker code exists today —
-> board state lives in the sim). 2–6 players, the full Commander counter
-> suite, Planechase companion, fully offline (D9). Builds core in M1,
+> board state lives in the sim). 2–6 players, the trimmed counter suite
+> (life · commander damage · poison — D9 as superseded 2026-07-04) +
+> full Planechase companion, fully offline (D9). Builds core in M1,
 > polishes in M4 (D-P2).
 
 ---
@@ -19,18 +20,20 @@
 - Seating layout auto-suggested from count (§4), adjustable by drag.
 - "Rematch" shortcut: re-run last game's setup.
 
-### 1.2 The counter suite (D9 — the full set, no cuts)
+### 1.2 The counter suite (D9 as TRIMMED — Colton 2026-07-04: "no side things")
 
 | Counter | Scope | Behavior |
 |---|---|---|
 | **Life** | per player | primary tap targets (+1/−1), long-press/slide for fast delta; big numerals |
 | **Commander damage** | per player, **per opposing commander** (partners = 2 tracks per opponent) | grid on the player's detail sheet; incrementing commander damage auto-decrements life by the same amount (single-gesture bookkeeping — this is the fiddly bit every paper table gets wrong); hitting **21 from one commander** flags that player eliminated |
 | **Poison** | per player | counter; **10 = eliminated** flag |
-| **Energy** | per player | free counter |
-| **Experience** | per player | free counter |
-| **Monarch** | global, one holder or none | tap-to-claim on a player segment; visible crown on holder |
-| **Day/Night** | global | toggle with both-states-visible indicator; starts "neither" until first set |
 | **Elimination** | per player | manual toggle + auto-flag from 21-cmdr / poison-10 / life≤0 — always **overridable** (the tracker suggests, the table rules; Arbiter/CR edge cases like lifelink-below-zero replacements are not the tracker's job to enforce) |
+
+> **Trimmed by owner (D9 supersession, 2026-07-04):** energy,
+> experience, monarch, and day/night are OUT — "we don't need to track
+> side things." Each is a cheap single-counter/single-flag pattern;
+> re-adding any is an hours-level task if a real game ever wants it.
+> Do not build them speculatively.
 
 **CREED note:** elimination thresholds (21 commander damage, 10 poison,
 0 life) are game-rules facts surfaced as UI behavior. Any in-app rules
@@ -39,7 +42,11 @@ retrieved from the bundled CR via the rules service — **never hardcode a
 guessed CR number in UI copy.** Verify the exact citations from
 `cr_current.json` at build.
 
-### 1.3 Planechase companion (D9)
+### 1.3 Planechase companion (D9 — full support: "anything else to play that game style")
+- **One-tap screen swap** between the counters view and the full-screen
+  plane view (Colton's explicit ask: "a screen swap that's simple to
+  the Planechase cards"). Both directions instant; game state never
+  pauses.
 - **Plane display:** current plane card rendered full-width (art +
   oracle text from bundled Scryfall data — planar cards must survive the
   data-tier builders, ⚠ V14). Tap → full card inspector.
@@ -63,7 +70,7 @@ guessed CR number in UI copy.** Verify the exact citations from
   wake-lock API; fallback: instruct-user + longest-timeout). True-black
   LEYLINE render = OLED battery mercy.
 - **Table mode** (landscape/round): each player's segment rotated to
-  face them; monarch/day-night/plane visible from all seats.
+  face them; the Planechase strip (when active) visible from all seats.
 - One-hand solo mode (portrait): Colton tracking just his own board
   corner at a paper table.
 
@@ -112,8 +119,8 @@ guessed CR number in UI copy.** Verify the exact citations from
 - **3–4P**: quadrant grid, each rotated outward (table mode) or all
   upright (solo-view mode) — toggle.
 - **5–6P**: 2×3 grid, compressed counters, sheets for detail.
-- Global strip (monarch · day/night · plane · die) center or edge-docked,
-  visible in all layouts.
+- Global strip (plane · planar die — Planechase games only) center or
+  edge-docked, visible in all layouts; hidden entirely in plain games.
 
 ## 5. Data dependencies
 
@@ -135,8 +142,8 @@ not a feature dependency.
 1. **Real-game gate (M1 feed, M4 full):** track a real 4-player
    Commander game start→finish, airplane mode: life swings, commander
    damage from a partner pair (auto-life-decrement verified), poison,
-   monarch passing, day/night flip, one player eliminated at 21 cmdr →
-   flag fires; winner declared → Game record exists with correct data.
+   one player eliminated at 21 cmdr → flag fires; winner declared →
+   Game record exists with correct data.
 2. **Kill-resume drill:** force-kill the app mid-game → relaunch →
    resume banner → exact state (all counters + log + current plane).
 3. **Planechase gate (M4, spec-mandated):** full Planechase game at a

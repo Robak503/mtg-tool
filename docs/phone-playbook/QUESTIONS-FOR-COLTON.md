@@ -1,51 +1,46 @@
 # QUESTIONS FOR COLTON — running side file
 
-> Questions that surfaced during playbook writing (and later, during
-> execution) that did NOT stop the work. Each got a working default so
-> the lane keeps moving; your answer confirms or flips it. Newest
-> first. Mark answered items ✅ and fold the answer into the affected
-> doc + `14-decision-log.md`.
+> Questions that surface during playbook writing/execution that do NOT
+> stop the work. Each gets a working default so the lane keeps moving;
+> Colton's answer confirms or flips it. Newest first. Answered items
+> move below with the date + where the answer was folded in.
 
 ---
 
 ## Open
 
-### Q4 — Giftable builds: what inference do they get?
-The spec locks the giftable split (no Omnath, no owner data) but is
-silent on the inference plane for a gifted phone: they have no Mac hub.
-**Working default:** giftable = standalone tiers only — T0 retrieval +
-T2 on-device (if built) + T3 with THEIR OWN Anthropic key entered in
-settings; no hub pairing UI in the giftable flavor v1.
-**Decide by:** M5.1. *(Affects `04 §1.6`, `11 §2`, `12 §M5`.)*
-
-### Q3 — If self-hosted push proves unlivable, is opt-in FCM acceptable?
-V9 explores notification delivery without any public service. If every
-closed-system mechanism fails Android's Doze reality, the pragmatic
-fallback is Google's FCM — a third-party relay carrying "you have a
-notification" (content can stay local-fetched). That's a (small,
-metadata-only) crack in the closed-system posture, so it's your call,
-not a build decision.
-**Working default:** in-app badge inbox only (no FCM) until you say
-otherwise.
-**Decide by:** M4.2. *(Affects `07 §1.5`, V9.)*
-
-### Q2 — Initiative counter in the life tracker?
-Your spec'd counter list (life · cmdr dmg · poison · energy ·
-experience · monarch · day/night) doesn't include the initiative /
-Undercity mechanic. It's cheap to add alongside monarch (same
-single-holder pattern).
-**Working default:** OUT (spec-as-written); trivially addable at M4
-polish.
-**Decide by:** M4.4. *(Affects `06 §1.2`.)*
-
-### Q1 — Phone stays dark-only (LEYLINE true-black)?
-Chosen for OLED battery + brand coherence (`10 §1`). Re-open only if
-daylight legibility annoys you at a real table.
-**Working default:** dark-only.
-**Decide by:** whenever dogfood says otherwise; no deadline.
+*(none — all four launch questions answered 2026-07-04)*
 
 ---
 
 ## Answered
 
-*(none yet — answers land here with date + where they were folded in)*
+### ✅ Q4 — Giftable builds' inference (answered 2026-07-04)
+**Answer:** follow the rec for future-proofing (Colton: "giftable is so
+far away that I'll follow your rec"). Giftable = T0 + T2-if-built + T3
+with the recipient's own API key; no hub pairing v1.
+**Folded into:** `14-decision-log.md` D-P11 · `11-agent-tiers.md §2`.
+Revisit at M5.1.
+
+### ✅ Q3 — FCM as notification fallback (answered 2026-07-04, after plain-English re-ask)
+**Answer:** YES — FCM pre-approved as fallback if the direct/self-hosted
+path proves unreliable; content-free ping only, content stays
+device-side. Try the closed-system path first.
+**Folded into:** `14-decision-log.md` D-P13 · `13-risk-and-verify.md`
+V9 · `07-feat-vault.md §1.5`.
+
+### ✅ Q2 — Initiative counter → became the COUNTER TRIM (answered 2026-07-04)
+**Answer:** bigger than the question — "we don't need to track side
+things." Counter suite trimmed to **life · per-opponent commander
+damage (21-rule) · poison**, plus **full Planechase support** (cards,
+planar die, plane swap, one-tap screen swap, "anything else to play
+that game style"). Initiative, energy, experience, monarch, day/night
+all OUT — each trivially re-addable if ever wanted, do not build
+speculatively.
+**Folded into:** `14-decision-log.md` D9 supersession trail ·
+`06-feat-life-tracker.md` §1.2/§1.3/§4/§7 · `10-ui-ia.md §3.6`.
+
+### ✅ Q1 — Dark-only (answered 2026-07-04)
+**Answer:** "dark mode then yes" — phone stays LEYLINE true-black
+dark-only. Re-open only if daylight legibility fails at a real table.
+**Folded into:** `14-decision-log.md` D-P12 · `10-ui-ia.md §1`.

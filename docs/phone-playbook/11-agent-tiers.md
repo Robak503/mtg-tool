@@ -38,6 +38,11 @@ Per-agent tier override lives in settings (device-local); per-message
 tier switch in the chat composer overflow. Every reply carries its tier
 badge (`04 §1.2`).
 
+**Giftable builds (D-P11, Colton 2026-07-04):** no hub pairing in v1 —
+a gifted phone runs **T0 + T2 (if built) + T3 with the recipient's own
+API key** entered in settings. T1/hub UI doesn't render on the giftable
+flavor. Revisit at M5.1 if a gifted-hub scenario becomes real.
+
 ## 3. Routing mechanics
 
 ```

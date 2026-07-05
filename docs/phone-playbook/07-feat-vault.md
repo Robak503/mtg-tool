@@ -61,13 +61,15 @@
 ### 1.5 Notifications (D10)
 - **Grail match** → push notification ("Grail match: <card> @ <price>,
   <source>"). **Daily brief** → quiet notification.
-- Delivery inside a closed Tailscale system (no public push service,
-  no FCM dependency by default) is **⚠ VERIFY AT BUILD (V9)** — candidate
-  mechanisms at build time: Tauri notification plugin + foreground sync
-  pickup, a self-hosted push relay (ntfy-class) over the tailnet, or
-  FCM as an explicit *opt-in* compromise if nothing else is livable.
-  **Fallback (always ships):** in-app badge + "new since last visit"
-  inbox in Vault — notifications are an upgrade, never the only path.
+- Delivery mechanism is **⚠ VERIFY AT BUILD (V9)**, with the preference
+  order LOCKED (D-P13, Colton 2026-07-04): try the closed-system path
+  first (Tauri notification plugin + foreground pickup, or a
+  self-hosted ntfy-class relay over the tailnet); if that proves
+  unreliable against Doze, **FCM is pre-approved as the fallback —
+  content-free "check the app" ping only**, match/brief content always
+  syncs device-side. **Floor (always ships):** in-app badge + "new
+  since last visit" inbox in Vault — notifications are an upgrade,
+  never the only path.
 - Notification taps deep-link to the match / the brief.
 
 ### 1.6 Daily brief reading surface
