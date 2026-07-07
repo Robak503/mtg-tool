@@ -32,12 +32,13 @@ describe("MONARCH — recognition", () => {
     expect(classifyCard(SENTINELS)).toBe("native-trigger");
     expect(classifyCard({ name: "Feast of Succession", type: "Sorcery", oracle: "All creatures get -4/-4 until end of turn.\nYou become the monarch." })).toBe("native-spell");
   });
-  it("CREED: the targeted crown form and the still-unmodeled rider carrier stay body-only", () => {
+  it("CREED: the targeted crown form and a still-unmodeled monarch rider stay body-only", () => {
     expect(monarchClauseParser("target player becomes the monarch")).toBeNull();
-    // (Custodi Lich GRADUATED to native-trigger — its becomes-monarch edict is modeled now;
-    // monarchBecomes.test.js pins that flip.) Regal Behemoth's while-monarch tap-mana rider is still
-    // unmodeled, so it holds the body-only seat here.
-    expect(classifyCard({ name: "Regal Behemoth", type: "Creature — Dinosaur", oracle: "Trample\nWhen this creature enters, you become the monarch.\nWhenever you tap a land for mana while you're the monarch, add an additional one mana of any color." })).toBe("body-only");
+    // (Custodi Lich GRADUATED to native-trigger — its becomes-monarch edict is modeled now
+    // (monarchBecomes.test.js); Regal Behemoth GRADUATED to native-mixed — its while-monarch any-color
+    // tap-augment is modeled now (regalBehemoth.test.js).) Queen Marchesa's "if you're NOT the monarch"
+    // upkeep-token conditional is still unmodeled, so it holds the body-only seat here.
+    expect(classifyCard({ name: "Queen Marchesa", type: "Legendary Creature — Human Assassin", oracle: "Deathtouch, haste\nWhen Queen Marchesa enters, you become the monarch.\nAt the beginning of your upkeep, if you're not the monarch, create a 1/1 black Assassin creature token with deathtouch and haste." })).toBe("body-only");
   });
 });
 

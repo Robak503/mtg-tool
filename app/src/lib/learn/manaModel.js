@@ -605,6 +605,10 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
   for (const perm of player.battlefield) {
     const aug = parseGlobalTapManaAugment(perm.card);
     if (!aug) continue;
+    // MONARCH GATE (Regal Behemoth, CR 725) — a condition:"monarch" augment adds the extra mana ONLY while
+    // this player holds the crown. Not the monarch → no extra mana (no phantom production, CREED). The
+    // become-monarch event / crown-steal keep state.monarchId current, so this reads the live crown.
+    if (aug.condition === "monarch" && state.monarchId !== playerId) continue;
     if (aug.subject === "land" && !srcIsLand) continue;
     if (aug.subject === "creature" && !srcIsCreature) continue;
     out.push({ colors: [...aug.colors], amount: aug.amount });

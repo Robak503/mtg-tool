@@ -84,12 +84,18 @@ describe("classifyCard — only the whole-card-clean augment flips native (CREED
   it("Groundchuck & Dirtbag (Trample + land boost) is native-trigger", () => {
     expect(classifyCard(GROUNDCHUCK)).toBe("native-trigger");
   });
-  it("a rider-dense / subtype-gated / doubler augment stays NON-native (safe false-negative)", () => {
-    expect(classifyCard(LEYLINE)).toBe("body-only");        // opening-hand clause + activated ability
-    expect(classifyCard(BADGERMOLE)).toBe("body-only");     // earthbend ETB
-    expect(classifyCard(NIRKANA)).toBe("body-only");        // {B} pump + subtype-gated boost
-    expect(classifyCard(MIRARIS_WAKE)).toBe("body-only");   // anthem + doubler boost
+  it("an augment whose boost SHAPE isn't modeled stays NON-native (parser returns null)", () => {
+    // These fail at the PARSER (subtype-gated subject / doubler / multi-color) — the augment tier never
+    // engages, so they stay body-only regardless of remainder.
+    expect(classifyCard(NIRKANA)).toBe("body-only");        // {B} pump + subtype-gated Swamp boost
+    expect(classifyCard(MIRARIS_WAKE)).toBe("body-only");   // anthem + doubler boost ("any type that land produced")
     expect(classifyCard(MULTI)).toBe("body-only");          // multi-color boost not modeled
+  });
+  it("the augment tier COMPOSES with a genuinely-native remainder (Leyline / Badgermole graduated)", () => {
+    // The augment-stripped remainder became native since the original body-only pin (Leyline's activated
+    // pump + opening-hand pre-strip; Badgermole's earthbend ETB), so the compose flips them native-mixed.
+    expect(classifyCard(LEYLINE)).toBe("native-mixed");
+    expect(classifyCard(BADGERMOLE)).toBe("native-mixed");
   });
 });
 

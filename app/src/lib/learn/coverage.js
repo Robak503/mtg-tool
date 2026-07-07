@@ -1326,6 +1326,14 @@ function globalTapManaAugmentTier(card) {
   if (!parseGlobalTapManaAugment(card)) return null;
   const stripped = stripGlobalTapManaAugment(card);
   if (isKeywordOnly(stripped, card?.name)) return "native-trigger"; // augment + vanilla/keyword body
+  // COMPOSE (Regal Behemoth) — the augment-stripped remainder may itself be a fully-native trigger body
+  // ("Trample\nWhen this creature enters, you become the monarch."). Reclassify the remainder; if it is a
+  // native tier, the whole card is native-mixed (the tap-augment mana + the native trigger body). No
+  // recursion: parseGlobalTapManaAugment(stripped) is null (the augment line is gone), so this classifier
+  // returns null immediately for the stripped card. FP-safe — an UNMODELED remainder trigger classifies
+  // body-only, so the card does not flip.
+  const remainderTier = classifyCard({ ...card, oracle: stripped });
+  if (isNativeTier(remainderTier)) return "native-mixed";
   return null;
 }
 registerCoverageClassifier(globalTapManaAugmentTier);

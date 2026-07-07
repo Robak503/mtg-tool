@@ -2982,20 +2982,30 @@ function parseGlobalTapManaAugmentImpl(card) {
   if (isAuraCard(card)) return null;
   const oracle = String(card?.oracle || card?.oracle_text || "");
   for (const clause of abilityClauses(oracle)) {
+    // The optional " while you're the monarch" condition rides between "for mana" and ", add" (Regal
+    // Behemoth — the only monarch-gated tap-augment in the corpus). Captured as condition:"monarch"; the
+    // runtime (globalTapManaAugment) adds the extra mana ONLY while `state.monarchId === playerId`.
     const m = clause.trim().toLowerCase().match(
-      /^whenever you tap a (land|creature) for mana, add (?:an additional )?(.+)$/,
+      /^whenever you tap a (land|creature) for mana( while you're the monarch)?, add (?:an additional )?(.+)$/,
     );
     if (!m) continue;
     const subject = m[1];
-    const pipOnly = m[2].trim().replace(/\s+/g, "");
-    // Fixed colored/colorless pips ONLY ("{g}", "{g}{g}"). Any extra word ("one mana of any color",
-    // "one mana of any type that land produced", "{g} for each …") leaves residue → null (non-native).
+    const condition = m[2] ? "monarch" : null;
+    const spec = m[3].trim();
+    // ANY-COLOR: "one mana of any color" → all five colors, amount 1 (the auto-pay planner picks the pip it
+    // needs; the mana model already produces this shape for a printed "Add one mana of any color").
+    if (/^one mana of any color$/.test(spec)) {
+      return { subject, colors: ["W", "U", "B", "R", "G"], amount: 1, ...(condition ? { condition } : {}) };
+    }
+    const pipOnly = spec.replace(/\s+/g, "");
+    // Fixed colored/colorless pips ONLY ("{g}", "{g}{g}"). Any OTHER extra word ("one mana of any type that
+    // land produced", "{g} for each …") leaves residue → null (non-native).
     if (!/^(?:\{[wubrgc]\})+$/.test(pipOnly)) return null;
     const symbols = [...pipOnly.matchAll(/\{([wubrgc])\}/g)].map((x) => x[1].toUpperCase());
     const unique = [...new Set(symbols)];
     // A multi-color fixed run ("{G}{U}") isn't this slice's single-color boost model → leave non-native.
     if (unique.length !== 1 || !unique.every((c) => TAP_AUGMENT_COLOR_LETTERS.has(c))) return null;
-    return { subject, colors: unique, amount: symbols.length };
+    return { subject, colors: unique, amount: symbols.length, ...(condition ? { condition } : {}) };
   }
   return null;
 }
@@ -3013,7 +3023,7 @@ export function stripGlobalTapManaAugment(card) {
   if (!parseGlobalTapManaAugment(card)) return oracle;
   return oracle
     .split(/\n+/)
-    .filter((line) => !/^\s*whenever you tap a (?:land|creature) for mana, add /i.test(line))
+    .filter((line) => !/^\s*whenever you tap a (?:land|creature) for mana(?: while you're the monarch)?, add /i.test(line))
     .join("\n");
 }
 
