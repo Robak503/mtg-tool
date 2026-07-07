@@ -1,9 +1,9 @@
 /**
- * monarch.test.js — THE MONARCH (CR 720): the become-monarch atom + end-step draw + crown steal.
+ * monarch.test.js — THE MONARCH (CR 725): the become-monarch atom + end-step draw + crown steal.
  *
  * Three owners, tested end to end: the effect atom ("you become the monarch" — Palace Sentinels' ETB,
- * Feast of Succession's spell sentence) crowns the program's controller; CR 720.3 draws the monarch a
- * card at the beginning of THEIR end step only; CR 720.4 passes the crown when a creature deals combat
+ * Feast of Succession's spell sentence) crowns the program's controller; CR 725.3 draws the monarch a
+ * card at the beginning of THEIR end step only; CR 725.4 passes the crown when a creature deals combat
  * damage to the monarch. No monarch until an effect crowns someone (every hook no-ops); exactly one
  * monarch thereafter by construction (a single state field).
  *
@@ -39,7 +39,7 @@ describe("MONARCH — recognition", () => {
   });
 });
 
-describe("MONARCH — runtime (CR 720)", () => {
+describe("MONARCH — runtime (CR 725)", () => {
   const BASE = () => ({ ...createGameState({ userDeck: [], aiDeck: [] }), activePlayer: "user", priorityHolder: "user" });
 
   it("the ETB trigger crowns the controller (fired through the real flush)", () => {
@@ -50,7 +50,7 @@ describe("MONARCH — runtime (CR 720)", () => {
     expect(s.monarchId).toBe("user");
   });
 
-  it("CR 720.3: the monarch draws at THEIR end step only; no monarch → no draw", () => {
+  it("CR 725.3: the monarch draws at THEIR end step only; no monarch → no draw", () => {
     const base = BASE();
     const lib = [{ id: "l1", name: "A", type: "Instant" }, { id: "l2", name: "B", type: "Instant" }];
     let s = { ...base, players: { ...base.players, user: { ...base.players.user, library: lib, hand: [] } } };
@@ -61,7 +61,7 @@ describe("MONARCH — runtime (CR 720)", () => {
     expect(applyMonarchEndStepDraw(offTurn).players.user.hand).toHaveLength(0);    // an OPPONENT's end step → no draw
   });
 
-  it("CR 720.4: combat damage to the monarch steals the crown; a no-damage event does not", () => {
+  it("CR 725.4: combat damage to the monarch steals the crown; a no-damage event does not", () => {
     let s = becomeMonarch(BASE(), "user");
     s = applyMonarchCombatSteal(s, [{ kind: "combat-damage-player", attackerId: "x", attackingPlayer: "ai", defender: "user", amount: 3 }]);
     expect(s.monarchId).toBe("ai");

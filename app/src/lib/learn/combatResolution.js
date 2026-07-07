@@ -394,7 +394,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // CMD-DAMAGE (CR 903.10a): accrue 21-rule commander combat damage off the per-attacker events whose
   // attacker was a commander — read from the events (not the live board) so a commander that died trading
   // in this same step still records the damage it dealt. isPlayerDead checks the tracker for the SBA loss.
-  // MONARCH (CR 720.4) — creature combat damage to the monarch passes the crown to the dealer's
+  // MONARCH (CR 725.4) — creature combat damage to the monarch passes the crown to the dealer's
   // controller. Read from the SAME per-attacker events as commander damage (a dealer that traded and
   // died this step still stole the crown — the events carry it). No monarch on board → no-op.
   next = applyMonarchCombatSteal(next, playerEvents);

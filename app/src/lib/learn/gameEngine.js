@@ -383,7 +383,7 @@ export function runStepActions(state) {
     // checked here because the intervening-if condition isn't in the generic trigger vocabulary. No-op when
     // no armed Wolverine is on the board → byte-identical.
     next = applyWolverineEndStep(next);
-    // MONARCH (CR 720.3) — the monarch draws at the beginning of THEIR end step. No monarch → no-op.
+    // MONARCH (CR 725.3) — the monarch draws at the beginning of THEIR end step. No monarch → no-op.
     next = applyMonarchEndStepDraw(next);
   }
   // PHASE-TRIGGER-FRAMEWORK (Wave 1): emit the two phase-boundary triggers the spine detected but never
