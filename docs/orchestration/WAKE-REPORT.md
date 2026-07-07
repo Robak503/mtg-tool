@@ -1,3 +1,16 @@
+> 🚀 **v0.108.0 — 2026-07-07 (Cindy, Fable 5, OVERNIGHT GRIND). SHIPPED — Sword of War and Peace (+1 native, LOST=0).**
+> The damaged-player anaphoric damage target ("that player" + "their hand"), four seams each mirroring a shipped
+> twin (defendingPlayer / Cavern-Hoard). Skeptic-CONFIRMED: per-pair hand counts on multi-defender combats,
+> equipment-as-source threading, 13 sibling clauses correctly gated off. Sword FN pins re-specimened → Buster
+> Sword. Fence: suite 7,806 · lint 0 · `ab524e20` ×2 · flip-diff +1/LOST=0.
+> **OVERNIGHT ORDERS (Colton, 2026-07-06 bedtime):** heads-down, Joe-shelf priority, 1-2-card slices fine,
+> judgment calls → THIS morning report. **Queue:** ① Toski short-name must-attack (BOTH halves — coverage
+> isKeywordOnly + opponentAI selfMustAttack use the FULL name, so "Toski attacks…" misses; fix = pre-comma
+> short-name normalization in both) ② monarch subsystem (Pantlaza's Regal Behemoth — zero machinery today:
+> state.monarchId + become-monarch atom + end-step draw + combat-damage crown-steal) ③ Pip-Boy modal attack
+> trigger ④ Marcus, Mutant Mayor conditional counter-draw.
+>
+> ── prior release (below) ──
 > 🚀 **v0.107.0 — 2026-07-06 (Cindy, Fable 5). SHIPPED — static cost-tax, the Thalia hatebears (+10 native, LOST=0).**
 > Slice `72655a8f` + chore; tag **`v0.107.0`** → CI (verdict → CONTINUITY). The INCREASE twin of the shipped
 > cost reducers: recognizer (bare / negated-cardtype / cardtype / subtype; colors + supertypes + "for each" +

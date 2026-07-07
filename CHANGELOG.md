@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.108.0] - 2026-07-07
+
+### Added
+- **Native coverage — Sword of War and Peace** — the full sword now plays
+  natively: on connect it zaps the damaged player for their hand size and
+  gains you life for yours. +1 native, no regressions.
+
 ## [0.107.0] - 2026-07-06
 
 ### Added
