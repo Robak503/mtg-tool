@@ -228,7 +228,11 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // number of cards in that player's hand" (Sudden Impact, Gaze of Adamaro, Storm Seeker). who:"target"
   // tells countForSpec to count the target player, not the controller. Only the bare phrase; "a player's"
   // / "an opponent's" / "each player's" don't match (→ low).
-  if (allowTarget && /^cards? in that player's hand$/.test(p)) return withExclude({ kind: "cardsInHand", who: "target" });
+  // "their hand" is the combat-damage-trigger anaphor for the SAME player ("…deals damage to that player
+  // equal to the number of cards in THEIR hand" — Sword of War and Peace): countForSpec's who:"target"
+  // already falls back to ctx.damagedPlayerId when no explicit player target exists (the Cavern-Hoard
+  // Dragon path), so both spellings share one spec.
+  if (allowTarget && /^cards? in (?:that player's|their) hand$/.test(p)) return withExclude({ kind: "cardsInHand", who: "target" });
   // ===== FOR-EACH ===== cards in YOUR graveyard, optionally filtered by ONE card type. Controller-scoped
   // ("your graveyard"); "a graveyard" / "their graveyard" / "that player's graveyard" reject (→ low).
   if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {

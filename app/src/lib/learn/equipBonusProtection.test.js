@@ -258,9 +258,9 @@ describe("coverage — clean flips and pinned false-negatives (CREED)", () => {
   it("PINNED FNs: the Swords (combat-damage trigger rider), Conqueror's Flail (rider), Aettir and Priwen (dynamic base-P/T) — all body-only", () => {
     // (Sword of Feast and Famine graduated OUT of this FN list — its discard+untap payload models whole
     // since the untap anchor learned the second-conjunct "you " subject; swordFeastFamine.test.js pins the
-    // flip. War and Peace holds the Sword seat: its "deals damage equal to the number of cards in their
-    // hand" half is genuinely unmodeled.)
-    expect(classifyCard({ name: "Sword of War and Peace", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from red and from white.\nWhenever equipped creature deals combat damage to a player, this Equipment deals damage to that player equal to the number of cards in their hand and you gain 1 life for each card in your hand.\nEquip {2}" })).toBe("body-only");
+    // flip; War and Peace then graduated too (swordWarPeace.test.js). Buster Sword holds the Sword seat:
+    // its free-cast-with-MV-cap payload half is genuinely unmodeled.)
+    expect(classifyCard({ name: "Buster Sword", type: "Legendary Artifact — Equipment", oracle: "Equipped creature gets +3/+2.\nWhenever equipped creature deals combat damage to a player, draw a card, then you may cast a spell from your hand with mana value less than or equal to that damage without paying its mana cost.\nEquip {2}" })).toBe("body-only");
     expect(classifyCard({ name: "Sword of Wealth and Power", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from instants and from sorceries.\nWhenever equipped creature deals combat damage to a player, create a Treasure token.\nEquip {2}" })).toBe("body-only");
     expect(classifyCard({ name: "Conqueror's Flail", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1 for each color among permanents you control.\nAs long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.\nEquip {2}" })).toBe("body-only");
     expect(classifyCard({ name: "Aettir and Priwen", type: "Legendary Artifact — Equipment", oracle: "Equipped creature has base power and toughness X/X, where X is your life total.\nEquip {5}" })).toBe("body-only");

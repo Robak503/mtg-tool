@@ -22,6 +22,7 @@ export const NON_CHOSEN_TARGET_TYPES = new Set([
   "eachLand",                   // MASS-NC — "destroy all lands"
   "eachArtifactOrEnchantment",  // MASS-NC — "destroy all artifacts and enchantments"
   "defendingPlayer",            // ATTACKS-DAMAGE — the attacked player (ctx.defenderId), NOT a chosen target
+  "damagedPlayer",              // CDMG-DAMAGE — the just-damaged player (ctx.damagedPlayerId), NOT a chosen target
 ]);
 
 /** True iff `tt` is a mass / auto-scoped target type that needs NO chosen target. */

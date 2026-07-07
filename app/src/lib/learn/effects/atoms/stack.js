@@ -281,6 +281,13 @@ export function dealDamageScaledClauseParser(clause) {
     // event via combatDamageReferentSatisfied (on any other event ctx.defenderId is unset → the clause would
     // silently drop, a FORBIDDEN FP — so it stays on the Arbiter, a SAFE FN).
     "defending player": "defendingPlayer",
+    // DAMAGED-PLAYER (combat-damage trigger, CR 603.2) — "this Equipment deals damage to THAT PLAYER equal
+    // to the number of cards in their hand" (Sword of War and Peace). NOT a chosen target: "that player" is
+    // the player just dealt combat damage, ctx.damagedPlayerId (set by checkCombatDamageTriggers). The
+    // resolver synthesizes the player target; the who:"damagedPlayer" pin restricts this to a combat-damage
+    // event via combatDamageReferentSatisfied (elsewhere ctx.damagedPlayerId is unset -> the clause would
+    // silently drop, a FORBIDDEN FP -> it stays on the Arbiter, a SAFE FN).
+    "that player": "damagedPlayer",
   };
   const build = (targetPhrase, countPhrase) => {
     const targetType = TT[String(targetPhrase).trim()];
@@ -288,7 +295,7 @@ export function dealDamageScaledClauseParser(clause) {
     const amountCount = parseCountSource(countPhrase, { allowTarget: true, allowScopes: true });
     if (!targetType || !amountCount) return null;
     // a "that player's hand" count is only meaningful against a targeted player (CR — "that player")
-    if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker") return null;
+    if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker" && targetType !== "damagedPlayer") return null;
     // "they control" (who:"defendingPlayer") is only meaningful when the damage is aimed at the defending player
     // (the clause's own "deals damage to defending player … they control"), never at a chosen creature/player.
     if (amountCount.who === "defendingPlayer" && targetType !== "defendingPlayer") return null;
@@ -297,6 +304,7 @@ export function dealDamageScaledClauseParser(clause) {
     // path already relies on. A defendingPlayer TARGET always also needs the pin (the target itself is ctx.defenderId).
     const atom = { op: "deal-damage", targetType, amountCount };
     if (targetType === "defendingPlayer" || amountCount.who === "defendingPlayer") atom.who = "defendingPlayer";
+    if (targetType === "damagedPlayer") atom.who = "damagedPlayer"; // referent gate: combat-damage events only
     return atom;
   };
   // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== "<source> deals damage equal to the triggering creature's
@@ -997,12 +1005,17 @@ export const stackResolvers = {
     // ctx.defenderId (set by checkAttackTriggers). Synthesize the single player target here; an absent
     // defenderId (any non-attacks event) yields NO target → 0 damage dealt (a clean no-op — the referent
     // gate keeps this atom off non-attacks events anyway, so this is belt-and-braces).
+    // DAMAGED-PLAYER (Sword of War and Peace): same synthesis off ctx.damagedPlayerId (set by
+    // checkCombatDamageTriggers) — absent id (non-combat-damage event) -> no target -> 0 damage (a clean
+    // no-op; the who:"damagedPlayer" referent gate keeps the atom off those events anyway).
     const targets = atom.targetType === "defendingPlayer"
       ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
-      : ctx.targets;
-    // defendingPlayer resolves via `targets`, not the special targetType switch in applyDamageEffect — pass a
-    // bare targetType so it takes the per-target hitPlayer path (the synthesized player target above).
-    const targetType = atom.targetType === "defendingPlayer" ? "player" : atom.targetType;
+      : atom.targetType === "damagedPlayer"
+        ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
+        : ctx.targets;
+    // defendingPlayer/damagedPlayer resolve via `targets`, not the special targetType switch in
+    // applyDamageEffect — pass a bare targetType so it takes the per-target hitPlayer path.
+    const targetType = (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer") ? "player" : atom.targetType;
     return applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
   },
   "counter": applyCounter,
