@@ -1127,7 +1127,7 @@ function parseClause(clause, out, selfName, selfType) {
 
   // ── OPPONENTS-CANT-ACT (Grand Abolisher; Voice of Victory; Conqueror's Flail rider) ────────────────────
   // "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast
-  // spells or activate abilities of artifacts, creatures, or enchantments." A STATIC restriction (CR 720,
+  // spells or activate abilities of artifacts, creatures, or enchantments." A STATIC restriction (CR 604.2 static-ability continuous effect,
   // CR 116) keyed off the CONTROLLER'S turn that suppresses each OPPONENT'S actions — NOT a cost, NOT a
   // layer effect. Emitted as a coverage MARKER ({ cantCast } with NO `affects`/`op`), so the layer engine
   // ignores it (layers.effectAffects bails on a missing `affects`); legalChoices reads it at the action

@@ -2226,7 +2226,7 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
 // ─── OPPONENTS-CANT-ACT (Grand Abolisher / Voice of Victory / Conqueror's Flail) ────────────────────────
 
 /**
- * The cant-act restriction currently imposed on `playerId` by OTHER players' static abilities (CR 720 /
+ * The cant-act restriction currently imposed on `playerId` by OTHER players' static abilities (CR 604.2 static-ability continuous effect /
  * CR 116 — "your opponents can't cast spells [or activate abilities of artifacts, creatures, or
  * enchantments] during your turn"). Returns `{ cantCast }`.
  *
@@ -2308,7 +2308,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   const actions = [];
 
   // OPPONENTS-CANT-ACT: what an active opponent's static (Grand Abolisher / Voice of Victory / a fitted
-  // Conqueror's Flail) forbids THIS player from doing right now (CR 720). `cantCast` drops every cast
+  // Conqueror's Flail) forbids THIS player from doing right now (CR 604.2). `cantCast` drops every cast
   // action (spells + command-zone casts) while it is the controller's turn.
   //
   // CREED — the activated-ability half (Grand Abolisher's "or activate abilities of artifacts, creatures,

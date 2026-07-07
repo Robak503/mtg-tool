@@ -3584,7 +3584,7 @@ registerClauseParser(putFromHandClauseParser);
 // cast-free/decline decision, mirroring discover). Fixed-MV-cap forms only; a variable/relational cap or a
 // multi-cast "any number of spells" stays low → Arbiter. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(freeCastClauseParser);
-// GAIN-CONTROL (CR 720 / 702.10c) — "Gain control of target creature." / "Gain control of target <Subtype>."
+// GAIN-CONTROL (CR 613.1b layer-2 / 702.10c) — "Gain control of target creature." / "Gain control of target <Subtype>."
 // (Sliver Overlord). INDEFINITE (non-reverting) control change only — the "(This effect lasts indefinitely.)"
 // reminder is pre-stripped; a duration word ("until end of turn"), a controller/self-exclusion restriction, or
 // a non-curated word after "target" fails the anchored matcher → LOW → Arbiter (CREED). The subtype rides as a

@@ -1,7 +1,7 @@
 /**
  * effects/atoms/control.js — the CONTROL-CHANGE atom (gain-control).
  *
- * ===== GAIN-CONTROL (indefinite) ===== (CR 720 / 800.4a control-change; CR 702.10c summoning-sickness)
+ * ===== GAIN-CONTROL (indefinite) ===== (CR 613.1b layer-2 control-change / 800.4a on-leaving; CR 702.10c summoning-sickness)
  * "Gain control of target <Subtype>. (This effect lasts indefinitely.)" — Sliver Overlord's second activated
  * ability ("Gain control of target Sliver"). A ONE-SHOT, NON-reverting control change: the target permanent is
  * physically moved from its current controller's battlefield array into ctx.controller's battlefield, and its
