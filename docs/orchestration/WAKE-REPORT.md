@@ -1,3 +1,30 @@
+> ☀️ **MORNING REPORT — v0.109.0 SHIPPED (Cindy, overnight grind 2026-07-06→07). Bundle: +13 native, LOST=0.**
+> **The night's releases: v0.108.0** (Sword of War and Peace, +1) **· v0.109.0** (BUNDLED per your
+> do-more-between-releases order: legendary short-name slice +8 · THE MONARCH subsystem +5).
+> **Monarch (CR 725):** state.monarchId · become-monarch atom · end-step draw hook · combat-damage crown-steal
+> — skeptic ran it e2e in a 4P pod incl. Feast of Succession's full cast. **Short-name slice:** the first
+> skeptic REFUTED 5/8 (evasion classified-but-unenforced; Prowler's counter landed on himself) → three fixes:
+> combatEvasion.selfOracle normalization · trigger-flush sourceId threading (**a corpus-wide pre-existing FP —
+> every "another target" trigger could self-target; Roalesk/Sterling/Loxodon proven fixed vs master**) · the
+> Xantcha "can't attack" rider guard. Re-verify: 5/5 CONFIRMED, 2,715 comma-legends exhaustively swept (19
+> enforcement corrections, zero false matches), OVERALL SHIP.
+> **Fence: suite 7,820 · lint 0 · trajectory `ab524e20` ×2 (independently reproduced by two skeptics) ·
+> flip-diff exactly +13/LOST=0.**
+> **⚠️ FOR COLTON (judgment calls parked, none urgent):**
+> ① Pre-existing possibly-stale citations: gain-control + cant-act comments cite "CR 720" (= Omen cards in the
+> current CR) — comment-only sweep wanted, but each needs its REAL rule verified (I fixed only monarch's).
+> ② Monarch backlog (skeptic-flagged, safe-FN today): "whenever you become the monarch" watchers (Custodi
+> Lich, Knights of the Black Rose) need a becomes-monarch trigger event; CR 725.4 leaves-game succession
+> unmodeled (orphaned crown no-ops safely).
+> ③ Regal Behemoth [Pantlaza] still parked on its tap-mana rider ("while you're the monarch, tap a land →
+> extra mana") — wants the mana-model hook; monarch itself is now free.
+> **NEXT MENU (Joe-priority, in order):** Marcus Mutant Mayor conditional counter-draw [Mothman] · Pip-Boy
+> modal attack trigger [Wolverine] · Regal Behemoth mana rider [Pantlaza] · k-descending subset enumeration ·
+> bestow type-line projection. **OVERNIGHT TOTALS: v0.103→v0.109 = +44 native, LOST=0 throughout, 6 latent FP
+> generators closed** (reminder-anchor · vacuous batch filters · restriction-dropping attacks matcher ·
+> empty-first subsets · vacuous non-word tax filters · trigger self-targeting).
+>
+> ── prior release (below) ──
 > 🚀 **v0.108.0 — 2026-07-07 (Cindy, Fable 5, OVERNIGHT GRIND). SHIPPED — Sword of War and Peace (+1 native, LOST=0).**
 > The damaged-player anaphoric damage target ("that player" + "their hand"), four seams each mirroring a shipped
 > twin (defendingPlayer / Cavern-Hoard). Skeptic-CONFIRMED: per-pair hand counts on multi-defender combats,

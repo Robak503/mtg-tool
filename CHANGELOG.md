@@ -8,6 +8,26 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.109.0] - 2026-07-07
+
+### Added
+- **THE MONARCH (CR 725)** — "you become the monarch" now plays natively: the
+  crown changes hands on combat damage, and the monarch draws at their end
+  step. Newly native: Palace Sentinels, Crimson Fleet Commodore, Staunch
+  Throneguard, Thorn of the Black Rose, Feast of Succession.
+- **Legendary short-name self-references** — legends that refer to themselves
+  by their short name now classify AND enforce: Toski, Bearer of Secrets is
+  forced to attack, Huang Zhong's block cap holds, Red Ghost is genuinely
+  unblockable, and more (8 cards). +13 native total, no regressions.
+
+### Fixed
+- **"Another target creature" triggers no longer target their own source** —
+  a corpus-wide fix: Prowler, Roalesk, Sterling Supplier, Loxodon Battle
+  Priest and every card of this shape previously put their counters on
+  themselves when convenient.
+- Short-name evasion clauses (19 legends incl. Etrata, Bilbo, Tahngarth,
+  Norin) are now genuinely enforced at the block gates.
+
 ## [0.108.0] - 2026-07-07
 
 ### Added
