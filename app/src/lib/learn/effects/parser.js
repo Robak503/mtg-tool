@@ -3151,12 +3151,14 @@ export function atomTargetIntent(atom) {
       // targeted lose-life). Non-targeted rad (each/controller) has no targetType and already returned null.
       return "enemy";
     case "sacrifice":
-      // An edict aimed at "target opponent" is unambiguously enemy-side — the α1 flush chooser
-      // picks an opponent and that opponent (the sacrificer) chooses the victim. "target player"
-      // is AMBIGUOUS: the first-legal flush chooser could pick the CONTROLLER, self-edicting them
-      // (a confident wrong play), so it stays out of the trigger-flush allowlist → Arbiter on
-      // triggers (still native on the cast path, where the player/AI picks an opponent).
-      return tt === "opponent" ? "enemy" : "ambiguous";
+      // An edict — "target player/opponent sacrifices a creature" — is unambiguously enemy-side: you never
+      // edict yourself, and the sacrificer (the chosen player) picks their own victim, so there's no
+      // friendly-fire risk in the creature choice. The enemy-aware flush chooser (chooseTriggerTargets)
+      // picks an opponent; a chooser-less path falls back to firstLegalChoice — the SAME exposure the
+      // already-"enemy" deal-damage / lose-life "target player" ops carry, and the live flush sites all
+      // pass chooseTriggerTargets. The old "target player" = ambiguous carve-out predated that enemy-aware
+      // chooser and needlessly kept edict TRIGGERS (Custodi Lich's become-monarch payoff) on the Arbiter.
+      return "enemy";
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
     case "source-power-fanout":

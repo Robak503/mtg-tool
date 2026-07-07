@@ -15,18 +15,25 @@
  * no-ops); once crowned there is always exactly one monarch (CR 725.2), which the single-field state
  * guarantees by construction.
  *
- * CIRCULAR-IMPORT HAZARD (Wave-0): imports gameState only (a leaf); the INTEGRATOR wires
- * registerClauseParser at parser.js-bottom, the resolvers via the effectAtoms barrel, and the two hooks
- * at their turn/combat sites.
+ * CIRCULAR-IMPORT HAZARD (Wave-0): imports gameState + triggers.js (checkBecomesMonarchTriggers) — the
+ * SAME leaf→triggers shape counters.js/tokens.js use to fire mid-resolution event triggers (triggers.js
+ * does not import monarch.js back). The INTEGRATOR wires registerClauseParser at parser.js-bottom, the
+ * resolvers via the effectAtoms barrel, and the two hooks at their turn/combat sites.
  */
 
 import { logEvent, drawCards } from "../../gameState.js";
+import { checkBecomesMonarchTriggers } from "../../triggers.js";
 
 /** Crown `playerId` (CR 725.1). Idempotent for the sitting monarch (no event spam); unknown player = no-op. */
 export function becomeMonarch(state, playerId) {
   if (!playerId || !state?.players?.[playerId]) return state;
   if (state.monarchId === playerId) return state;
-  return logEvent({ ...state, monarchId: playerId }, { kind: "monarch", turn: state.turn, playerId });
+  const crowned = logEvent({ ...state, monarchId: playerId }, { kind: "monarch", turn: state.turn, playerId });
+  // CR 725 — the crown just changed hands; fire any "Whenever you become the monarch" watchers the NEW
+  // monarch controls (Custodi Lich). Enqueues to pendingTriggers, flushed at the next priority point.
+  // Mirrors counters.js firing checkCounterPlacedTriggers inline after its state change (same leaf→triggers
+  // import shape; triggers.js does not import monarch.js back, so no cycle).
+  return checkBecomesMonarchTriggers(crowned, playerId);
 }
 
 /** The effect atom: the resolving program's CONTROLLER takes the crown ("you become the monarch"). */

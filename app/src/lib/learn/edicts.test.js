@@ -160,18 +160,23 @@ describe("dies triggers — a sacrificed creature's 'when this dies' fires (shar
   });
 });
 
-describe("trigger-flush intent gate — opponent edict is enemy-routable; player edict is ambiguous → Arbiter", () => {
-  it("atomTargetIntent: opponent = enemy (routes on a trigger); player = ambiguous (Arbiter on a trigger)", () => {
+describe("trigger-flush intent gate — BOTH opponent and player edicts are enemy-routable", () => {
+  // An edict is enemy-intent for BOTH "target opponent" and "target player": you never edict yourself, and
+  // the sacrificer picks their own victim (no friendly-fire in the creature choice). The former "target
+  // player = ambiguous" carve-out predated the enemy-aware flush chooser (chooseTriggerTargets); every live
+  // flushTriggers site passes it (audited), so a player-edict trigger picks an opponent, never self-edicts.
+  // The becomes-monarch runtime pin (monarchBecomes.test.js) is the load-bearing e2e proof.
+  it("atomTargetIntent: both opponent and player edicts are enemy → trigger-resolvable", () => {
     expect(atomTargetIntent({ op: "sacrifice", targetType: "opponent" })).toBe("enemy");
-    expect(atomTargetIntent({ op: "sacrifice", targetType: "player" })).toBe("ambiguous");
-    expect(programTriggerTargetsResolvable(parseEffectProgram(CRUEL))).toBe(true);    // opponent edict
-    expect(programTriggerTargetsResolvable(parseEffectProgram(DIABOLIC))).toBe(false); // player edict
+    expect(atomTargetIntent({ op: "sacrifice", targetType: "player" })).toBe("enemy");
+    expect(programTriggerTargetsResolvable(parseEffectProgram(CRUEL))).toBe(true);     // opponent edict
+    expect(programTriggerTargetsResolvable(parseEffectProgram(DIABOLIC))).toBe(true);  // player edict
   });
-  it("a 'target opponent sacrifices' ETB trigger is native-trigger; the 'target player' form is not", () => {
+  it("both 'target opponent' and 'target player' ETB edict triggers are native-trigger", () => {
     const opp = { type: "Creature — Horror", name: "Fleshbag-ish", oracle: "When this creature enters, target opponent sacrifices a creature of their choice." };
     const ply = { type: "Creature — Horror", name: "Edict-ETB", oracle: "When this creature enters, target player sacrifices a creature of their choice." };
     expect(classifyCard(opp)).toBe("native-trigger");
-    expect(classifyCard(ply)).not.toBe("native-trigger");
+    expect(classifyCard(ply)).toBe("native-trigger");
   });
 });
 

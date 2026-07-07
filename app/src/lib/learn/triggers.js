@@ -3442,6 +3442,27 @@ export function checkCounterPlacedTriggers(state, { placingPlayerId, placedOnYou
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
+/**
+ * MONARCH (CR 725) — enqueue "Whenever you become the monarch, <effect>" triggers for the player who just
+ * took the crown. Called from monarch.becomeMonarch (the ONE crown chokepoint), so it fires for BOTH the
+ * effect-atom path (Palace Sentinels / Custodi Lich ETB, Feast of Succession) AND the combat-steal path.
+ * Scans ONLY the new monarch's own sources — the new monarch IS the "you" — mirroring
+ * checkCounterPlacedTriggers' placingPlayer scope, so no whose-gate is needed. Pure; appends to
+ * pendingTriggers (flushed at the next priority point, CR 603.3). No-op until a "you become the monarch"
+ * watcher is on that player's battlefield.
+ */
+export function checkBecomesMonarchTriggers(state, newMonarchId) {
+  if (!newMonarchId || !state.players?.[newMonarchId]) return state;
+  let fired = [];
+  for (const watcher of triggerSourcesOf(state, newMonarchId)) {
+    for (const d of detectTriggers(watcher.card).filter((x) => x.event === "becomesMonarch")) {
+      fired.push(makePendingTrigger(d, watcher, watcher, { newMonarchId }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 /** The cast spell's mana value: prefer a numeric cmc/mana_value, else 0 (a missing cost can't pass a >=N gate). */
 function spellManaValue(spellCard) {
   if (typeof spellCard?.cmc === "number") return spellCard.cmc;
@@ -3798,6 +3819,16 @@ function detectChosenTypeCast(condition) {
   return null;
 }
 registerTriggerDetector(detectChosenTypeCast);
+
+// MONARCH (CR 725) — "Whenever you become the monarch, <effect>" (Custodi Lich). The becomesMonarch event is
+// fired from monarch.becomeMonarch for the player who just took the crown; checkBecomesMonarchTriggers already
+// scopes the scan to that player's own sources, so this descriptor needs no whose-gate. A THIRD-PERSON form
+// ("whenever a player / an opponent becomes the monarch" — Knights of the Black Rose, Garland) carries an
+// intervening-if or a control-change payoff and stays unmatched → Arbiter (a SAFE false-negative).
+function detectBecomesMonarch(condition) {
+  return /^you become the monarch$/i.test(String(condition || "").trim()) ? { event: "becomesMonarch", scope: "self", whose: "you" } : null;
+}
+registerTriggerDetector(detectBecomesMonarch);
 
 // ─── SELF-CAST detector (Hydroid Krasis, Desolation Twin, the Eldrazi cast-payoffs) ──────────────
 // "When you cast THIS spell, <effect>" (CR 603.2 + 601.2 — the SPELL's OWN cast trigger). Distinct from every

@@ -68,8 +68,10 @@ describe("α1 — programTriggerTargetsResolvable (the flush allowlist)", () => 
     expect(programTriggerTargetsResolvable(parseEffectProgram(I("Draw a card.")))).toBe(true);
     // bounce is now "enemy" for bare creature targets → resolvable on the trigger path
     expect(programTriggerTargetsResolvable(parseEffectProgram(I("Return target creature to its owner's hand.")))).toBe(true);
-    // "target player sacrifices a creature" stays ambiguous (player ≠ opponent)
-    expect(programTriggerTargetsResolvable({ confidence: "high", structure: "sequence", atoms: [{ op: "sacrifice", targetType: "player" }] })).toBe(false);
+    // a genuinely two-sided atom (fight-pair needs BOTH an own fighter AND an enemy target) stays
+    // ambiguous — one intent value can't express two opposite sides (edicts.test.js now covers the
+    // player-edict = enemy case, which the enemy-aware flush chooser resolves safely).
+    expect(programTriggerTargetsResolvable({ confidence: "high", structure: "sequence", atoms: [{ op: "fight-pair", targetType: "creature" }] })).toBe(false);
     expect(programTriggerTargetsResolvable(null)).toBe(false);
   });
 });

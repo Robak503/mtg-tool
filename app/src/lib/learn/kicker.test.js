@@ -150,10 +150,12 @@ describe("KICKER coverage — CREED anti-FP: deferred shapes stay body-only / ar
     // the whole kicked-ETB creature stays body-only (never a partial that silently drops the damage rider).
     expect(classifyCard({ name: "Molten Hellkite", type: "Creature — Dragon", mana: "{4}{R}", oracle: "Kicker {R}\nWhen this creature enters, if it was kicked, destroy target nonbasic land. It deals 2 damage to that land's controller." })).toBe("body-only");
   });
-  it("a kicked ETB-TRIGGER whose target-intent is unresolvable (target player sacrifices a creature) stays body-only", () => {
-    // Gatekeeper of Malakir: the sacrifice atom parses HIGH but its chosen target isn't intent-resolvable
-    // (programTriggerTargetsResolvable false), so triggerRoutesNatively rejects it → body-only (FN-safe CREED).
-    expect(classifyCard({ name: "Gatekeeper of Malakir", type: "Creature — Vampire Warrior", mana: "{B}{B}", oracle: "Kicker {B}\nWhen this creature enters, if it was kicked, target player sacrifices a creature of their choice." })).toBe("body-only");
+  it("a kicked ETB-TRIGGER whose target-intent is unresolvable (a two-sided fight) stays body-only", () => {
+    // A fight-pair atom needs BOTH an own fighter AND an enemy target — one intent value can't express two
+    // sides (programTriggerTargetsResolvable false), so triggerRoutesNatively rejects it → body-only (FN-safe
+    // CREED). (Gatekeeper of Malakir GRADUATED: its "target player sacrifices" edict is enemy-intent now and
+    // routes — monarchBecomes.test.js / edicts.test.js pin that flip.)
+    expect(classifyCard({ name: "Fight-Kicker", type: "Creature — Beast", mana: "{2}{G}", oracle: "Kicker {G}\nWhen this creature enters, if it was kicked, this creature fights another target creature and that creature fights another target creature." })).toBe("body-only");
   });
   it("a kicker SPELL with an ADDITIVE kicked effect is now native-spell (v0.74.0 KICKED-SPELL-EFFECT slice — destroy + scry 2)", () => {
     expect(classifyCard({ name: "Runic Shot", type: "Sorcery", mana: "{W}", oracle: "Kicker {U}\nDestroy target tapped creature. If this spell was kicked, scry 2." })).toBe("native-spell");

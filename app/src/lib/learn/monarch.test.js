@@ -32,9 +32,11 @@ describe("MONARCH — recognition", () => {
     expect(classifyCard(SENTINELS)).toBe("native-trigger");
     expect(classifyCard({ name: "Feast of Succession", type: "Sorcery", oracle: "All creatures get -4/-4 until end of turn.\nYou become the monarch." })).toBe("native-spell");
   });
-  it("CREED: the targeted form and rider carriers stay body-only", () => {
+  it("CREED: the targeted crown form and the still-unmodeled rider carrier stay body-only", () => {
     expect(monarchClauseParser("target player becomes the monarch")).toBeNull();
-    expect(classifyCard({ name: "Custodi Lich", type: "Creature — Zombie Cleric", oracle: "When this creature enters, you become the monarch.\nWhenever you become the monarch, target player sacrifices a creature of their choice." })).toBe("body-only");
+    // (Custodi Lich GRADUATED to native-trigger — its becomes-monarch edict is modeled now;
+    // monarchBecomes.test.js pins that flip.) Regal Behemoth's while-monarch tap-mana rider is still
+    // unmodeled, so it holds the body-only seat here.
     expect(classifyCard({ name: "Regal Behemoth", type: "Creature — Dinosaur", oracle: "Trample\nWhen this creature enters, you become the monarch.\nWhenever you tap a land for mana while you're the monarch, add an additional one mana of any color." })).toBe("body-only");
   });
 });
