@@ -1,3 +1,24 @@
+> 🚀 **v0.107.0 — 2026-07-06 (Cindy, Fable 5). SHIPPED — static cost-tax, the Thalia hatebears (+10 native, LOST=0).**
+> Slice `72655a8f` + chore; tag **`v0.107.0`** → CI (verdict → CONTINUITY). The INCREASE twin of the shipped
+> cost reducers: recognizer (bare / negated-cardtype / cardtype / subtype; colors + supertypes + "for each" +
+> targeting-scoped deliberately dropped) · `collectCostTaxers` reads EVERY battlefield (Thalia taxes her own
+> controller) · applied at BOTH legalChoices pricing sites, increases-before-decreases (CR 601.2f), MV untouched.
+> **Flips (10/10 skeptic-CONFIRMED w/ independent parent-tree corpus diff + live pricing probes incl. the AI seat,
+> X-spells, commander-tax composition, free-cast exemption):** Thalia · Thorn · Sphere · Vryn Wingmare · Glowrider ·
+> Lodestone Golem · Feroz's Ban · Squeeze · Grand Arbiter Augustin IV (his 2 color reducers probed live too) ·
+> God-Pharaoh's Statue (native-mixed; end-step drain probed in a 4P game). Build-time FP caught + guard-pinned:
+> "Nonartifact" nearly minted a vacuous subtype filter (the Lodestone class).
+> **⚠️ KNOWN SEAM (skeptic-found, low severity, PRE-EXISTING class):** the BESTOW pricing site matches taxes AND
+> the shipped reducers against the printed type line, but a bestowed cast is an Aura enchantment spell
+> (CR 702.103c) — Thalia under-taxes a bestowed Boon Satyr; a creature-tax would over-tax one. Symmetric across
+> seats (self-play internally consistent); fix = a projected bestow type line at the pricing site (menu item).
+> **Fence: suite 7,803 (+7) · lint 0 · trajectory `ab524e20` ×2.**
+> **SESSION TOTAL (2026-07-05→06): +30 native across v0.103–v0.107, LOST=0 throughout · 5 latent FP generators
+> closed** (reminder-anchor drop · vacuous batch filters · restriction-dropping attacks matcher · empty-first
+> subset pick · vacuous non-word tax filters). **Menu:** War-and-Peace hand-count metric · Toski statics ·
+> monarch · k-descending subset enumeration (64-cap) · bestow type-line projection.
+>
+> ── prior release (below) ──
 > 🚀 **v0.106.0 — 2026-07-05 (Cindy, Fable 5). SHIPPED — subset auto-pick generalized (+5 native · ~14 natives made HONEST).**
 > Slice `2be79bc6` + chore; tag **`v0.106.0`** → CI (verdict → CONTINUITY). **The parked slice-5 mystery is
 > SOLVED — one root cause:** targetSubsets emits the EMPTY subset first and the trigger-flush chooser takes the

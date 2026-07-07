@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.107.0] - 2026-07-06
+
+### Added
+- **Native coverage — cost-tax statics (the Thalia hatebears)** — "spells cost
+  {N} more to cast" effects now genuinely raise cast prices for every player
+  at the table: Thalia, Guardian of Thraben, Thorn of Amethyst, Sphere of
+  Resistance, Vryn Wingmare, Glowrider, Lodestone Golem, Feroz's Ban, Squeeze,
+  Grand Arbiter Augustin IV, and God-Pharaoh's Statue all play natively. The
+  AI pays the tax too, and spells it can't afford under tax aren't offered.
+  +10 native, no regressions.
+
 ## [0.106.0] - 2026-07-05
 
 ### Added
