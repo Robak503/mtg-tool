@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -744,6 +744,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         ...collectCostReducers(player.battlefield || []),
         ...collectCostReducers(player.command || [], { commandZone: true }),
       ];
+  // STATIC-COST-TAX (CR 601.2f — the increase twin): taxes read EVERY battlefield (Sphere of Resistance
+  // taxes everyone; Thalia taxes her own controller too; a "your opponents cast" tax skips its controller
+  // via the stamped controller vs playerId check in costTaxForSpell). Gathered ONCE like the reducers.
+  // A free-cast pays no mana, so no tax applies (CR 601.2f adjusts a cost that is being paid).
+  const costTaxers = freeCast
+    ? []
+    : collectCostTaxers(Object.entries(state.players || {}).map(([pid, p]) => ({ controller: pid, battlefield: p.battlefield }))); 
 
   // FLASH-CAST-PERMISSION (CR 601.3e): the flash-cast statics this player controls ("You may cast <FILTER>
   // spells as though they had flash" — Yeva, Vedalken Orrery, …), gathered ONCE (invariant across the loop).
@@ -796,6 +803,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // are untouched). Applied AFTER the commander tax (both adjust the cost to pay) and BEFORE affordability +
       // the {X} branch, so an X-spell's base is reduced before {X}. printedCmc (the mana value) is untouched (CR
       // 202.3). The self-metric reads the casting player's board (creature power / artifact counts / historic MV).
+      // STATIC-COST-TAX first (CR 601.2f — cost increases apply before decreases), then the reductions
+      // floor the GENERIC at 0. The pips and the mana value are never touched (CR 202.3).
+      const staticTax = costTaxForSpell(costTaxers, card, playerId);
+      if (staticTax) cost = { ...cost, generic: (cost.generic || 0) + staticTax };
       const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
       if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
     }
@@ -1080,6 +1091,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const tax = freeCast ? 0 : (taxFn ? taxFn(card) : 0);
       if (tax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + tax };
       if (!freeCast) {
+        const staticTax = costTaxForSpell(costTaxers, card, playerId);   // increases before decreases (CR 601.2f)
+        if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
         const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
         if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
       }

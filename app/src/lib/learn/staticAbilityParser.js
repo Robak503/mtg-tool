@@ -1007,6 +1007,31 @@ function parseClause(clause, out, selfName, selfType) {
     }
     return; // a cost-reduction clause — handled (or intentionally dropped to body-only)
   }
+  // STATIC-COST-TAX (CR 601.2f — the INCREASE twin of the reducer above): "[<filter> ]spells [your
+  // opponents cast ]cost {N} more to cast". Modeled filters: bare (Sphere of Resistance — every spell),
+  // "noncreature" (Thalia, Guardian of Thraben / Thorn of Amethyst / Vryn Wingmare — a NEGATED type-line
+  // check, modelable here even though the reducer path can't use it as a positive token), a card TYPE
+  // (artifact/creature/enchantment/instant/sorcery — word-bound type-line match), or a true SUBTYPE.
+  // "your opponents cast" scopes the tax to casters other than the source's controller (stamped at
+  // collection). DELIBERATELY UNMODELED (clause stays body-only, safe FN): color filters, supertypes,
+  // "for each …" dynamic amounts, "spells that target …", per-turn ("first spell"), and activated-ability
+  // taxes — each needs machinery this recognizer can't honestly claim.
+  const ctxM = c.match(/^(?:([a-z]+) )?spells (your opponents cast )?cost \{(\d+)\} more to cast$/);
+  if (ctxM) {
+    const word = ctxM[1] || null;
+    const oppOnly = !!ctxM[2];
+    const amount = parseInt(ctxM[3], 10);
+    const negM = word && word.match(/^non(creature|artifact|enchantment|instant|sorcery)$/);
+    if (!word) out.push({ costTax: { amount, oppOnly } });
+    else if (negM) out.push({ costTax: { amount, oppOnly, notCardType: negM[1] } }); // Thalia "noncreature", Lodestone Golem "nonartifact" — a NEGATED word-bound type-line check
+    else if (COST_REDUCTION_CARDTYPE_WORDS.has(word)) out.push({ costTax: { amount, oppOnly, cardType: normalizeSubtype(word) } });
+    else if (!/^non/.test(word) && !NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word)) out.push({ costTax: { amount, oppOnly, subtype: normalizeSubtype(word) } });
+    // else: a color / supertype / category / unmodeled "non…" word → intentionally dropped (body-only —
+    // a "non<X>" that fell through to the subtype branch would mint a filter matching NO type line: a tax
+    // that never fires while the card claims native, the exact runtime-vacuous FP this guard exists for
+    // (caught live on Lodestone Golem before ship).
+    return; // a cost-tax clause — handled (or intentionally dropped to body-only)
+  }
 
   // ── EMINENCE COST-REDUCTION (The Ur-Dragon; Efteekay, Flame of the Kav) ─────────────────────────────
   // "Eminence — As long as <this> is in the command zone or on the battlefield, other <Subtype> spells you
@@ -2097,6 +2122,50 @@ export function parseStaticAbilities(card) {
  * reducer: an eminence reducer also functions on the battlefield (CR 113.6 — "command zone OR on the
  * battlefield"), so it isn't filtered out there.
  */
+/**
+ * STATIC-COST-TAX collection: the tax descriptors on EVERY battlefield — a tax names no "you", so it
+ * applies to every caster (Sphere of Resistance) or to "your opponents" relative to ITS controller
+ * (stamped here so costTaxForSpell can compare against the caster). Mirrors collectCostReducers; input is
+ * [{ controller, battlefield }] for all players.
+ */
+export function collectCostTaxers(players) {
+  const taxers = [];
+  for (const p of players || []) {
+    for (const perm of p?.battlefield || []) {
+      const card = perm?.card || perm;
+      for (const d of parseStaticAbilities(card)) {
+        if (d.costTax) taxers.push({ ...d.costTax, controller: p.controller });
+      }
+    }
+  }
+  return taxers;
+}
+
+/**
+ * STATIC-COST-TAX pricing: the total GENERIC-mana increase `taxers` impose on `spellCard` cast by
+ * `casterId` (CR 601.2f — applied with the reducers at the cast site; increases then decreases, generic
+ * floored by the caller's reduction step; the mana value is never touched, CR 202.3). A "your opponents
+ * cast" tax skips the taxer's own controller. Filter matching mirrors costReductionForSpell (word-bound
+ * type line); "noncreature" is the negated check. Pure; 0 when nothing applies.
+ */
+export function costTaxForSpell(taxers, spellCard, casterId) {
+  if (!taxers?.length || !spellCard) return 0;
+  const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
+  let total = 0;
+  for (const t of taxers) {
+    if (t.oppOnly && t.controller === casterId) continue;
+    if (t.notCardType) {
+      // NEGATED filter (Thalia "noncreature", Lodestone Golem "nonartifact"): skip when the type IS present.
+      if (new RegExp(`\\b${t.notCardType}\\b`).test(typeLine)) continue;
+    } else if (t.cardType || t.subtype) {
+      const w = String(t.cardType || t.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!typeLine || !new RegExp(`\\b${w}\\b`).test(typeLine)) continue;
+    }
+    total += t.amount || 0;
+  }
+  return total;
+}
+
 export function collectCostReducers(permanents, { commandZone = false } = {}) {
   const reducers = [];
   for (const entry of permanents || []) {
