@@ -173,6 +173,12 @@ export function isKeywordOnly(oracle, name) {
   if (name) {
     const n = String(name).toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (n) t = t.replace(new RegExp(`\\b${n}\\b`, "g"), "this creature");
+    // LEGENDARY SHORT NAME (CR 201.4b-adjacent oracle convention): a comma-carrying legend refers to
+    // itself by its PRE-COMMA short name ("Toski attacks each combat if able" on "Toski, Bearer of
+    // Secrets"), so normalize that form too. FN-safe by construction: a mangled non-self clause just
+    // fails the keyword allowlist below (body-only), never credits anything new.
+    const shortN = String(name).split(",")[0].toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (shortN && shortN !== n) t = t.replace(new RegExp(`\\b${shortN}\\b`, "g"), "this creature");
   }
   if (!t.trim()) return true; // vanilla
   // Split on SENTENCE boundaries (. ! ?) too — not just , ; \n and. Otherwise a trailing non-keyword

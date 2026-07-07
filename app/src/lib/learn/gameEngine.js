@@ -724,7 +724,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
         if (!programNeedsChosenTarget(condProgram)) {
           return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
         }
-        const candidates = expandCastChoices(state, trigger.controller, condProgram);
+        const candidates = expandCastChoices(state, trigger.controller, condProgram, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null });
         if (candidates.length === 0) return null; // no legal target → removed (CR 603.3c)
         const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program: condProgram, state }) : undefined;
         if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
@@ -776,7 +776,10 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // never offers an illegal pick. trigger.context is threaded so a who:"defendingPlayer"
       // restriction ("… defending player controls" — Kogla's attacks trigger) enumerates
       // ONLY the attacked player's permanents (ctx.defenderId, set by checkAttackTriggers).
-      const candidates = expandCastChoices(state, trigger.controller, program, [], trigger.context);
+      // SOURCE THREADING (skeptic-caught FP): excludeSource/notSource restrictions ("another target ...")
+      // were inert on the TRIGGER path — ctx carried no sourceId, so Prowler's counter landed on Prowler.
+      // Thread the trigger's source permanent (the same id baseParams carries) into the enumeration ctx.
+      const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null });
       if (candidates.length === 0) return null; // no legal target → removed from the stack (CR 603.3c)
       const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
       // NO_SAFE_TARGET: the enemy/own chooser found no correct-side target → route to the Arbiter
@@ -801,7 +804,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     if (program && programConfidence(program) === "high" && program.structure === "modal"
       && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))
       && combatDamageReferentSatisfied(program, trigger.descriptor?.event)) {
-      const candidates = expandCastChoices(state, trigger.controller, program);
+      const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null });
       // No mode is castable (every mode needs a target none of which is legal) → the ability is removed
       // from the stack (CR 603.3c / 700.2d). A non-targeted mode is always castable, so this only fires
       // when EVERY mode is fully target-gated and unsatisfiable.

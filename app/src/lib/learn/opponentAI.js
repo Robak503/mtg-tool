@@ -1455,11 +1455,22 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
 // requirement? Normalize the card name → "this creature" (so "Crazed Goblin attacks each combat if able"
 // matches), then require the bare self subject — a GROUP form ("creatures you control attack…", "each
 // creature attacks…", "attacking creatures…") is excluded (it's not a self requirement on this permanent).
-function selfMustAttack(card) {
+export function selfMustAttack(card) { // exported for the legendShortName unit pins
   const o = String(card?.oracle || card?.oracle_text || "");
   if (!/attacks each (?:combat|turn) if able/i.test(o)) return false;
+  // ATTACK-RESTRICTION RIDER (skeptic-flagged): a must-attacker that ALSO carries a "can't attack …"
+  // restriction (Xantcha "…can't attack its owner…", Alexios) would be force-declared at a target the
+  // restriction forbids — pickAttackPlan models no attack restrictions. Don't force those (the pre-slice
+  // status quo for them; an under-enforced requirement is the safe direction, a forbidden attack is not).
+  if (/can't attack/i.test(o)) return false;
   const name = String(card?.name || "").split(" //")[0].trim();
-  const t = name ? o.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "this creature") : o;
+  let t = name ? o.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "this creature") : o;
+  // LEGENDARY SHORT NAME: a comma-carrying legend self-references by its pre-comma short name ("Toski
+  // attacks each combat if able" on "Toski, Bearer of Secrets") — normalize that form too, mirroring
+  // coverage.isKeywordOnly so recognition and ENFORCEMENT flip together (the subsystem's own both-halves
+  // rule). The group forms stay excluded (plural "attack" never matches the singular anchor).
+  const shortName = name.split(",")[0].trim();
+  if (shortName && shortName !== name) t = t.replace(new RegExp(`\\b${shortName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), "this creature");
   return /\bthis creature attacks each (?:combat|turn) if able\b/i.test(t);
 }
 

@@ -86,6 +86,13 @@ function selfOracle(card) {
   let t = String(card?.oracle || "").replace(/\([^)]*\)/g, " ").toLowerCase().replace(/[’']/g, "'");
   const name = String(card?.name || "").toLowerCase().replace(/[’']/g, "'");
   if (name) t = t.replace(new RegExp(`\\b${escapeRegExp(name)}\\b`, "g"), "this creature");
+  // LEGENDARY SHORT NAME: a comma-carrying legend self-references by its pre-comma short name ("Huang
+  // Zhong can't be blocked by more than one creature" on "Huang Zhong, Shu General") — normalize that
+  // form too, mirroring coverage.isKeywordOnly. THIS is the single evasion-enforcement chokepoint
+  // (legalChoices' block gates read it), so recognition and enforcement flip together — a skeptic pass
+  // caught the classifier crediting short-name evasion clauses this function never enforced.
+  const shortName = name.split(",")[0].trim();
+  if (shortName && shortName !== name) t = t.replace(new RegExp(`\\b${escapeRegExp(shortName)}\\b`, "g"), "this creature");
   return t;
 }
 
