@@ -43,7 +43,8 @@ import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/rol
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
+import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js";
+import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 720)
 import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
@@ -3382,6 +3383,7 @@ export function programContainsFog(program) {
 // "manifest dread" and "amass <Subtype> N" clauses resolve to their KNOWN atoms everywhere.
 registerClauseParser(manifestClauseParser);
 registerClauseParser(amassClauseParser);
+registerClauseParser(monarchClauseParser);
 registerClauseParser(selfReturnClauseParser);
 registerClauseParser(earthbendReturnClauseParser); // EARTHBEND-RETURN (CR 603.7) — the [earthbend-return:zone] marker checkLeavesTriggers synthesizes for the animated land's dies/exile return
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause

@@ -51,6 +51,7 @@ import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDr
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
+import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyAnnihilatorTriggers } from "./annihilator.js";
@@ -382,6 +383,8 @@ export function runStepActions(state) {
     // checked here because the intervening-if condition isn't in the generic trigger vocabulary. No-op when
     // no armed Wolverine is on the board → byte-identical.
     next = applyWolverineEndStep(next);
+    // MONARCH (CR 720.3) — the monarch draws at the beginning of THEIR end step. No monarch → no-op.
+    next = applyMonarchEndStepDraw(next);
   }
   // PHASE-TRIGGER-FRAMEWORK (Wave 1): emit the two phase-boundary triggers the spine detected but never
   // fired. detectPhaseTrigger (registered in triggers.js) classifies them; checkStepTriggers fires any
