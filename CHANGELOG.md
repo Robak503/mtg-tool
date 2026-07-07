@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.110.0] - 2026-07-07
+
+### Added
+- **The crown completes (CR 725)** — "Whenever you become the monarch" abilities
+  now fire on both crown paths: Custodi Lich edicts an opponent the moment he
+  takes the throne, and Regal Behemoth's "while you're the monarch" bonus mana
+  genuinely flows (one of any color per land tap — only while you hold the
+  crown). Also newly native: Gatekeeper of Malakir (kicked edict), Badgermole
+  Cub, and Leyline of Abundance. +5 native, no regressions.
+
+### Fixed
+- Stale rulebook citations in engine comments (CR 720 is Omen cards) now point
+  at the real rules: control-change = CR 613.1b, cast-restriction statics =
+  CR 604.2.
+
 ## [0.109.0] - 2026-07-07
 
 ### Added

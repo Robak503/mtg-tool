@@ -1,3 +1,26 @@
+> 🚀 **v0.110.0 — 2026-07-07 (Cindy, Opus 4.8). SHIPPED — all 3 parked judgment calls CLEARED (+5 native, LOST=0).**
+> Colton's call: "do the rec that's best+cleanest for the engine on all 3." Bundle (3 commits + chore):
+> **① CR-citation integrity** (`a3e8318d`, comment-only) — the stale "CR 720" cites fixed to REAL traceable
+> rules verified against cr_current.json: control-change → **613.1b** (layer 2), cant-act static → **604.2**.
+> **② becomes-monarch trigger event** (`5ca0c555`, +2) — becomeMonarch (the ONE crown chokepoint) fires a
+> `becomesMonarch` event on BOTH crown paths (ETB atom + combat-steal). Flips **Custodi Lich** +
+> **Gatekeeper of Malakir** via the edict intent fix: "target player sacrifices" is enemy-intent now (the old
+> ambiguous carve-out predated the enemy-aware flush chooser; skeptic proved ALL 8 flush callers pass it — a
+> self-edict is structurally impossible; NO_SAFE_TARGET → Arbiter no-op when no opponent target exists).
+> **③ Regal Behemoth mana rider** (`df4fc2ff`, +3) — the monarch-gated any-color tap-augment reuses the
+> shipped GLOBAL-TAP-AUGMENT infra (parser condition + any-color; runtime monarch gate — skeptic:
+> PHANTOM-MANA CLEAN, zero production off-crown, existing augments byte-identical) + the coverage tier now
+> COMPOSES an augment with a native remainder → honest bonus flips **Badgermole Cub** (earthbend ETB) +
+> **Leyline of Abundance** (activated pump; remainders individually verified native, recursion bounded).
+> **Fence: suite 7,838 (+11) · lint 0 · trajectory `ab524e20` ×2 (structural — none of the 5 in the pod) ·
+> independent skeptic corpus diff EXACTLY +5 / LOST=0 · OVERALL SHIP.**
+> **NEXT (grinding continues, Joe-priority):** Pip-Boy modal attack trigger [Wolverine] (label-strip + "that
+> creature" referent + untap-up-to-N-target-lands — the engine has modal-trigger machinery; medium) · Marcus
+> Mutant Mayor if/else conditional [Mothman] (medium) · k-descending subset enumeration (64-cap) · bestow
+> type-line projection. Wolverine 52.9% / Mothman 57.4% re-censused — no clean multi-card lever left; the
+> tails are bespoke (the honest-ceiling read holds; progress = careful mediums from here).
+>
+> ── prior release (below) ──
 > ☀️ **MORNING REPORT — v0.109.0 SHIPPED (Cindy, overnight grind 2026-07-06→07). Bundle: +13 native, LOST=0.**
 > **The night's releases: v0.108.0** (Sword of War and Peace, +1) **· v0.109.0** (BUNDLED per your
 > do-more-between-releases order: legendary short-name slice +8 · THE MONARCH subsystem +5).
