@@ -133,11 +133,16 @@ describe("Cloud of Faeries — runtime (the ETB untaps up to two of the controll
 });
 
 describe("Cloud of Faeries — CREED near-misses (stay Arbiter / body-only)", () => {
-  it("the chosen-target form 'untap up to N target lands' does NOT match this bare-scope resolver", () => {
-    // Krosan Restorer / Pip-Boy 3000's "untap up to N target lands" is a chosen-target family this atom
-    // doesn't model — it must stay LOW → Arbiter, never mis-credited as the controller-scoped auto-untap.
-    expect(programConfidence(parseEffectClause("untap up to two target lands", "Instant"))).toBe("low");
-    expect(programConfidence(parseEffectClause("untap up to three target lands", "Instant"))).toBe("low");
+  it("the chosen-target form 'untap up to N target lands' is its OWN atom, never this bare-scope resolver", () => {
+    // GRADUATED (Pip-Boy slice): "untap up to N target lands" now parses to the chosen-target multi-count
+    // untap atom (targetType land + maxTargets) — DISTINCT from this bare-scope auto-untap (targetType null).
+    // The pin's original point survives as the shape check: the two forms must never collapse into each other.
+    const p2 = parseEffectClause("untap up to two target lands", "Instant");
+    expect(programConfidence(p2)).toBe("high");
+    expect(p2.atoms[0]).toMatchObject({ op: "untap", targetType: "land", maxTargets: 2 });
+    // the bare-scope form still parses to the auto-untap (no targetType) — no collapse in either direction
+    const bare = parseEffectClause("untap up to two lands", "Instant");
+    expect(bare.atoms[0]).toMatchObject({ op: "untap-lands" });
   });
 
   it("the 'up to N of your lands' variant is not this shape → LOW", () => {

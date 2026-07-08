@@ -778,12 +778,27 @@ export function permanentEquipmentCovered(card) {
   // trigger fails allTriggerSentencesModeled → body-only (never an over-claim).
   const oracle = String(card.oracle || "");
   if (!allTriggerSentencesModeled(card, oracle)) return false;
-  const noTrig = { ...card, oracle: oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ") };
+  // MODAL TRIGGER (Pip-Boy): the naive [^.]+ trigger-strip stops at the FIRST bullet's period, orphaning
+  // the remaining "• …" mode lines as residue. On an EQUIPMENT every bullet line belongs to its (already
+  // fully-verified, allTriggerSentencesModeled above) modal trigger — equipment carry no standalone modal
+  // statics — so drop the bullet lines with the trigger sentences.
+  const noTrig = { ...card, oracle: oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ").replace(/^\s*•[^\n]*$/gm, " ") };
   const abilities = parseActivatedAbilities(noTrig);
   if (abilities.length === 0 || !abilities.every((a) => a.isEquipAbility && a.modeled)) return false;
   // The bonus parser is all-or-nothing over every equipped-creature clause: a non-empty result
   // guarantees EVERY clause touching the creature parsed cleanly (no rider silently dropped).
-  if (parseEquipmentBonus(noTrig).length === 0) return false;
+  if (parseEquipmentBonus(noTrig).length === 0) {
+    // A BONUS-LESS equipment (Pip-Boy — a pure modal trigger + Equip {2}) is legitimate ONLY when no
+    // remaining clause touches the equipped creature at all: parseAttachedBonus returns [] both for
+    // "nothing touches" (safe) and "a touching clause failed to parse" (NOT safe — the residue loop below
+    // whitelists equipped-creature clauses on the strength of this parse, so letting a failed parse
+    // through would silently drop a rider, the forbidden partial). Distinguish the two here.
+    const anyTouch = equipmentAbilityClauses(stripReminder(noTrig.oracle || "")).some((cl) => {
+      const c = cl.toLowerCase().trim();
+      return /\bequipped creature\b/.test(c) || /^it\b/.test(c) || /^that creature\b/.test(c);
+    });
+    if (anyTouch) return false;
+  }
   // Clause-granular residue (split on . ; \n — same as the bonus parser, so a period-joined
   // rider can't be swallowed by a whole-line strip). Every clause must be a modeled Equip
   // line or an equipped-creature clause (already validated clean above). ANYTHING else — a

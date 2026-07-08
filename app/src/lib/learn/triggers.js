@@ -1721,6 +1721,31 @@ export function detectTriggers(card) {
       const modalBlock = extractModalEffectBlock(oracle, m.index, effectClause);
       if (modalBlock !== null) {
         effectClause = modalBlock;
+        // (Mode flavor labels — "• Sort Inventory — Draw a card…" — are stripped by the PARSER's own
+        // modal-mode handling; no strip here, so label handling has exactly one owner and can't drift.
+        // The pronoun REWRITE below runs on the label-carrying bullet text; the rewriter's per-sentence
+        // anchors tolerate the "<Label> — " prefix on the counter form via the leading-conjunct pattern,
+        // and any bullet it can't rewrite keeps its raw pronoun → the parser gate decides.)
+        // MODAL ENTERING/ATTACKING PRONOUN (Pip-Boy "• Put a +1/+1 counter on that creature."): a bullet's
+        // "it"/"that creature" refers to the SAME triggering permanent a non-modal clause's would — the
+        // referent guarantee lives in the trigger's (event, scope), which the parser can't see. Run each
+        // BULLET through the SAME per-sentence rewriter the non-modal arm uses, under the SAME gates (etb
+        // entering scopes; attacks on creatureYouControl/equippedCreature — the attacker IS the triggering
+        // permanent, per checkAttackTriggers / the equippedCreature scopeMatches). A bullet the anchored
+        // patterns can't rewrite keeps its raw pronoun → the parser's modal all-or-nothing gate fails →
+        // body-only (CREED — never a mis-bound referent).
+        if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope))
+          || (cls.event === "attacks" && (cls.scope === "creatureYouControl" || cls.scope === "equippedCreature"))) {
+          effectClause = effectClause.split("\n").map((l) => {
+            const t = l.trim();
+            if (!t.startsWith("•")) return l;
+            // Peel an optional "<Label> — " flavor prefix off the body FIRST (the rewriter's per-sentence
+            // anchors are ^-bound); the label is dropped from the rewritten bullet — harmless, the parser
+            // strips labels itself either way.
+            const body = t.replace(/^•\s*/, "").replace(/\.\s*$/, "").replace(/^[A-Z][\w'’!,. -]{0,30}?\s+—\s+(?=[A-Z])/, "");
+            return l.replace(t.replace(/^•\s*/, "").replace(/\.\s*$/, ""), rewriteEtbEnteringPronoun(body));
+          }).join("\n");
+        }
       } else {
       const sameLine = oracle.slice(re.lastIndex).split("\n")[0].replace(/\([^)]*\)/g, " ");
       for (const sent of sameLine.split(/\.\s+|\.\s*$|;\s+/)) {
@@ -1887,7 +1912,7 @@ export function detectTriggers(card) {
         // CANT_REGEN_TEST on the full oracle and stamps cannotRegenerate on the destroy atom. The detector
         // gated nativeness on this exact "destroy that creature" prefix, so no other effect reaches this rewrite.
         effectClause = effectClause.replace(/^destroy that creature/i, "destroy the triggering creature");
-      } else if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) || cls.event === "attacks" && cls.scope === "creatureYouControl") && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
+      } else if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) || cls.event === "attacks" && (cls.scope === "creatureYouControl" || cls.scope === "equippedCreature")) && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
         // (The `attacks`/creatureYouControl arm — Reyav "that creature gains double strike until end of
         // turn": on `attacks` the triggering permanent IS the attacker (checkAttackTriggers threads
         // attackerPerm as triggeringPermanent), the same referent guarantee as the entering creature on

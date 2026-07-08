@@ -707,6 +707,16 @@ export function combatKeywordClauseParser(clause) {
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so
   // a qualified form ("untap target land you control", "untap X target lands") stays Arbiter (a safe FN).
   if (/^untap target land$/.test(t)) return { op: "untap", targetType: "land" };
+  // UNTAP-UP-TO-N-TARGET-LANDS (Pip-Boy's "Check Map" mode — "Untap up to two target lands"): the
+  // multi-count family (CR 601.2c "up to N") on the untap-land atom. maxTargets + minTargets:0 ride the
+  // SAME subset machinery return-from-graveyard uses (targeting.expandAtoms enumerates the 0..N subsets,
+  // largest-first auto-pick; the trigger flush is subset-proven since the v0.106.0 generalization).
+  // applyTapEffect loops ctx.targets and re-verifies each LIVE permanent is a land before untapping.
+  // atomTargetIntent(untap) = "own", so the flush chooser picks the controller's own lands.
+  {
+    const upLandsM = t.match(/^untap up to (one|two|three|four|five) target lands?$/);
+    if (upLandsM) return { op: "untap", targetType: "land", maxTargets: SMALL_NUM[upLandsM[1]], minTargets: 0 };
+  }
   // UNTAP-BASIC-LAND (Earthcraft "Tap an untapped creature you control: Untap target basic land") — a single
   // chosen land carrying the Basic supertype (CR 205.4a). targetType "basicLand" routes through
   // PERMANENT_PREDICATES.basicLand in enumerateTargets (any BASIC land on any battlefield is a legal target),
