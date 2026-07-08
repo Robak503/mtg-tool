@@ -410,6 +410,11 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
+  // OPTIONAL own-side (CR 115.1b + 109.5): "on up to one target creature you control" (Essence Capture) — the
+  // creatureYouControl chosen-target atom (line 398) made optional (the caster may pick zero). Mirrors the two
+  // branches above; enumerateTargets honors optionalTarget on the creatureYouControl side.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", optionalTarget: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
   // ===== FILTERED MASS-COUNTER (the youControl team-counter, the two scope narrowings the pump path already

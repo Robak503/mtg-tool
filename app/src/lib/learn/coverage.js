@@ -1118,7 +1118,19 @@ export function classifyCard(card) {
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now
   // plays natively (it suspends on a copy-choice and enters as a snapshot). Checked before the
   // generic classifiers (its copy clause isn't a trigger/static/mana ability they'd recognize).
-  if (isCloneCard(card)) return "native-clone";
+  // COST-KEYWORD PRE-STRIP: isCloneCard reads the RAW oracle, so a "Plot {cost}" (Visage Bandit) or
+  // Convoke/Affinity line makes parseCloneSpec require the whole oracle be the copy clause and return null →
+  // body-only. Those are cost-only keywords the runtime hard-casts at full cost (CREED-safe, the Ninjutsu/
+  // Convoke precedent), so stripping them for the copy-SHAPE detection can never over-claim a non-clone.
+  const cloneCard = {
+    ...card,
+    oracle: stripCostOnlyKeywordLines(
+      parsePlotCost(card)
+        ? String(card.oracle || "").replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
+        : String(card.oracle || ""),
+    ),
+  };
+  if (isCloneCard(cloneCard)) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   // TRUNK-ENTERSCOUNTERS: the modeled "enters with N +1/+1 counters" replacement (CR 614.1c + 122.6a) is covered — the
   // resolver adds the counters on enter. Strip that one sentence from the residue (derived from the SAME
