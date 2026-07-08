@@ -2037,10 +2037,23 @@ function matchExileXControllerRider(oracle) {
  */
 function matchRevealTopConditional(oracle) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
-  if (!/^reveal the top card of your library\. if it's a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library$/.test(s)) {
-    return null;
+  // The original fused Lurking Predators shape — param-free atom, byte-identical legacy resolver branch.
+  if (/^reveal the top card of your library\. if it's a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library$/.test(s)) {
+    return { atom: { op: "reveal-top-conditional", targetType: null } };
   }
-  return { atom: { op: "reveal-top-conditional", targetType: null } };
+  // ===== TOP-CARD ROUTER (the parameterized family) ===== "Reveal the top card of your library. If it's
+  // a <TYPE> card, put it <onto the battlefield|into your hand>. Otherwise, put <it|that card> into your
+  // <graveyard|hand>." (Zoologist / Call of the Wild: creature→battlefield else graveyard; Neurok
+  // Familiar: artifact→hand else graveyard.) Exact-anchored ^…$ like every fused matcher here — a "you
+  // may" then-branch (Matter Reshaper), an MV cap, a name-match predicate (Candles of Leng), a
+  // "then shuffle" rider, or ANY other variant leaves residue → null → low → Arbiter (CREED whole-effect).
+  // A same-zone else ("into your hand" when then is also hand) is fine; then=battlefield is only emitted
+  // for permanent types (all four predicate words are permanent card types).
+  const rt = s.match(/^reveal the top card of your library\. if it's an? (creature|artifact|land|enchantment) card, put it (onto the battlefield|into your hand)\. otherwise, put (?:it|that card) into your (graveyard|hand)$/);
+  if (rt) {
+    return { atom: { op: "reveal-top-conditional", targetType: null, predicate: rt[1], thenRoute: rt[2] === "onto the battlefield" ? "battlefield" : "hand", elseRoute: rt[3] } };
+  }
+  return null;
 }
 
 /**

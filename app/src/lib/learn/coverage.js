@@ -606,6 +606,13 @@ export function permanentTriggersCovered(card) {
     // it can only consume this modeled follow-up — FN-safe (an UNmodeled reveal-conditional variant fails the HIGH
     // gate above and never reaches here). Curly apostrophe tolerated.
     .replace(/\bif it['’]s a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library\b\.?\s*/gi, " ")
+    // TOP-CARD ROUTER (the parameterized family — Neurok Familiar "If it's an artifact card, put it into
+    // your hand. Otherwise, put it into your graveyard."): the SAME residue blind spot as the Lurking shape
+    // above, generalized to exactly the combos matchRevealTopConditional's router branch models (predicate ×
+    // then-route × else-route). Anchored to those exact wordings, so it can only consume a follow-up the
+    // HIGH gate already vouched for — an UNmodeled variant (a "you may" then-branch, an MV cap, a name
+    // predicate) fails the HIGH gate and never reaches here (FN-safe).
+    .replace(/\bif it['’]s an? (?:creature|artifact|land|enchantment) card, put it (?:onto the battlefield|into your hand)\. otherwise, put (?:it|that card) into your (?:graveyard|hand)\b\.?\s*/gi, " ")
     // SELF-CAST HALF-X ROUNDING (CR 107.3) — a trailing "Round down/up each time." directive is part of the
     // self-cast trigger's effect (it governs the "half X" magnitudes the parser models via the halve flag, so
     // the WHOLE effect parses HIGH in allTriggerSentencesModeled above — proven before this residue check runs),

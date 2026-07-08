@@ -3,7 +3,7 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
@@ -916,6 +916,37 @@ export function applyRevealTopConditional(state, atom, ctx) {
     return logEvent(state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: null });
   }
   const top = lib[0];
+  // ===== TOP-CARD ROUTER (the parameterized family) ===== atom.{predicate,thenRoute,elseRoute} generalize
+  // the original fused Lurking Predators shape (whose atoms carry NO params → the legacy branch below runs
+  // byte-identically). Predicate = the revealed card's TYPE test; thenRoute/elseRoute = where it goes.
+  // CR notes: "put it into your hand" is NOT a draw (no draw triggers — moveCardToZone, never drawCards);
+  // the revealed card going "into your graveyard" is NOT a mill (CR 701.13a — mill is its own action;
+  // Zoologist's revealed-card move fires no milled watchers). battlefield rides enterCardFromZone (ETB /
+  // permanent-enters / landfall fire exactly like the legacy creature branch).
+  if (atom.predicate) {
+    const TYPE_TESTS = {
+      creature: isCreatureCard,
+      land: isLandCard,
+      // Plain substring on the type line — no other card type contains these words as substrings, and
+      // the supertype segment always spells them in full ("Artifact Creature — Golem").
+      artifact: (c) => String(c?.type || c?.type_line || "").includes("Artifact"),
+      enchantment: (c) => String(c?.type || c?.type_line || "").includes("Enchantment"),
+    };
+    const test = TYPE_TESTS[atom.predicate];
+    if (!test) return state; // unknown predicate — defensive no-op (the parser only emits the four above)
+    const route = test(top) ? atom.thenRoute : atom.elseRoute;
+    if (route === "battlefield") {
+      const r = enterCardFromZone(state, { playerId: controller, cardId: top.id, fromZone: "library" });
+      return logEvent(r.state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBattlefield: r.entered });
+    }
+    if (route === "hand" || route === "graveyard") {
+      const r = moveCardToZone(state, { playerId: controller, cardId: top.id, fromZone: "library", toZone: route });
+      return logEvent(r, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toZone: route });
+    }
+    // route === "bottom" (the may-bottom else of the Lurking shape, param form)
+    const bottomed = { ...state, players: { ...state.players, [controller]: { ...player, library: [...lib.slice(1), top] } } };
+    return logEvent(bottomed, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBottom: true });
+  }
   if (isCreatureCard(top)) {
     // The revealed creature card enters the controller's battlefield from the library, firing its ETB /
     // permanent-enters / landfall watchers (enterCardFromZone — the same put-onto-the-battlefield seam
