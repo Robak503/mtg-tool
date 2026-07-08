@@ -1007,10 +1007,10 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on each creature target player controls.",           // Practiced Offense — target player, not the controller
   "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice
   "Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.", // Felidar Retreat mode — rider clause unmodeled → whole drops (no silent partial)
-  // ===== COUNTERS ===== OPTIONAL single target ("…on up to one target creature") — only the EXACT bare
-  // form is modeled; any creature filter OR the multi-target "each of up to two" / "distribute" forms
-  // leave trailing text → must drop (deferred to a later CNT-2 sub-slice / the Arbiter). ──
-  "Put a +1/+1 counter on up to one target creature you control.",          // Essence Capture rider — "you control" filter
+  // ===== COUNTERS ===== OPTIONAL single target ("…on up to one target creature") — the bare form AND the
+  // "you control" own-side form are now modeled (addCounterClauseParser); a creature-SUBTYPE filter OR the
+  // OPPONENT-controlled form OR the multi-target "each of up to two" / "distribute" forms leave trailing text
+  // the resolver can't enforce → must still drop (deferred to a later CNT-2 sub-slice / the Arbiter). ──
   "Put a +1/+1 counter on up to one target Dinosaur you control.",          // Huatli — creature-subtype filter
   "Put a +1/+1 counter on up to one target creature an opponent controls.", // opponent-controlled filter
   // NOTE: "Put a +1/+1 counter on each of up to two target creatures" is now NATIVE (MULTI-COUNT slice C — real

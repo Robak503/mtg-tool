@@ -411,17 +411,36 @@ function fightPairRefs(state, ctx) {
  * "up to one" declined) → clean no-op (CR 701.12: nothing fights), never fabricated damage.
  */
 export function applyFightPair(state, atom, ctx) {
-  const { fighter, target } = fightPairRefs(state, ctx);
-  if (!fighter || !target) {
-    return logEvent(state, { kind: "spell-effect", effect: "fight-pair", targets: [] });
+  let base = state;
+  // FIGHTER-PUMP (Epic Confrontation / Savage Smash / Swift Kick / Wild Instincts / Ruthless Predation /
+  // Chelonian Tackle) — "Target creature you control gets +X/+Y until end of turn. It fights target creature
+  // you don't control." The chosen fighter gets +X/+Y until end of turn (CR 611.2c), applied HERE before the
+  // powers are locked, so the pumped power deals more AND the pumped toughness lets it survive the return
+  // damage. A real layer-7c ptModify (identical to applyPumpEffect) → creaturePower/destroyLethalCreatures
+  // read it layer-aware below. The buff persists to end of turn, matching the printed duration.
+  if (atom.fighterPump && (atom.fighterPump.power || atom.fighterPump.toughness)) {
+    const pre = fightPairRefs(base, ctx);
+    if (pre.fighter) {
+      base = addContinuousEffect(base, {
+        layer: 7, sublayer: "7c",
+        op: { layerOp: "ptModify", power: atom.fighterPump.power || 0, toughness: atom.fighterPump.toughness || 0 },
+        affects: { mode: "fixed", permanentIds: [pre.fighter.permanent.id] },
+        duration: { kind: "endOfTurn", turn: base.turn },
+        source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
+      }).state;
+    }
   }
-  const aPow = Math.max(0, creaturePower(fighter.permanent, state)); // CR 701.12a — read at resolution
-  const bPow = Math.max(0, creaturePower(target.permanent, state));
+  const { fighter, target } = fightPairRefs(base, ctx);
+  if (!fighter || !target) {
+    return logEvent(base, { kind: "spell-effect", effect: "fight-pair", targets: [] });
+  }
+  const aPow = Math.max(0, creaturePower(fighter.permanent, base)); // CR 701.12a — read at resolution (buffed)
+  const bPow = Math.max(0, creaturePower(target.permanent, base));
   const deathtouched = new Set();
   // Deathtouch read PRE-fight (a fighter killed by the simultaneous damage still dealt its damage); layer-aware.
-  if (permanentHasKeyword(state, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
-  if (permanentHasKeyword(state, target.permanent.id, "Deathtouch")) deathtouched.add(fighter.permanent.id);
-  let next = state;
+  if (permanentHasKeyword(base, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
+  if (permanentHasKeyword(base, target.permanent.id, "Deathtouch")) deathtouched.add(fighter.permanent.id);
+  let next = base;
   if (aPow > 0) next = markCombatDamage(next, { permanentId: target.permanent.id, amount: aPow });
   if (bPow > 0) next = markCombatDamage(next, { permanentId: fighter.permanent.id, amount: bPow });
   const lethal = destroyLethalCreatures(next, deathtouched); // SINGLE simultaneous SBA pass (CR 701.12a)

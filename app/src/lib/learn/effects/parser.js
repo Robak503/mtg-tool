@@ -2553,6 +2553,31 @@ function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
   return { atoms: [drawAtom, { ...grantAtom, requiresCounter: "+1/+1" }] };
 }
 
+// PUMP-THEN-FIGHT (Epic Confrontation / Ruthless Predation / Savage Smash / Swift Kick / Wild Instincts /
+// Chelonian Tackle) — "Target creature you control gets +X/+Y until end of turn. [Then ]It fights [up to one ]
+// target creature you don't control / an opponent controls." The chosen "target creature you control" is BOTH
+// the pump recipient AND the fighter ("It" is anaphoric to it), and the enemy is the second chosen target. The
+// two sentences shatter under the clause splitter: the standalone "It fights …" clause parses as a SOURCE-bound
+// `fight` atom (fighter = ctx.sourceId), but a spell threads no sourceId → the fight silently no-ops — the exact
+// case the fightAtomMisplaced gate deliberately forces LOW. Collapse it up front into ONE `fight-pair` atom
+// (the same two-chosen-target shape as Prey Upon, so targeting enumerates the you-control fighter + enemy
+// dealee) carrying `fighterPump {X,Y}`; applyFightPair applies the +X/+Y (until end of turn, CR 611.2c) to the
+// chosen fighter BEFORE locking powers, so the pumped power deals more and the pumped toughness survives the
+// return damage. HIGH iff the op is KNOWN (fight-pair is). A filtered ("green creature"), rider ("When excess
+// damage …"), modal, or cost-prefixed variant fails the exact anchor → falls through → LOW → Arbiter (CREED).
+function matchPumpThenFight(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^target creature you control gets \+(\d+)\/\+(\d+) until end of turn\. (?:then )?it fights (up to one )?target creature (?:you don't control|an opponent controls)$/);
+  if (!m) return null;
+  const power = parseInt(m[1], 10), toughness = parseInt(m[2], 10);
+  const upToOne = !!m[3];
+  // Reuse the canonical fight-pair (form a) shape so the targeting roles/restrictions stay in sync, then attach
+  // the fighter pump. Both enemy phrasings map to the same opponent restriction in form a.
+  const fp = fightClauseParser(`target creature you control fights ${upToOne ? "up to one " : ""}target creature you don't control`);
+  if (!fp || fp.op !== "fight-pair") return null;
+  return { atoms: [{ ...fp, fighterPump: { power, toughness } }] };
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
@@ -2676,6 +2701,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rtm = matchRevealTopDrainByMv(oracle);
   if (rtm && rtm.atoms.every(a => KNOWN.has(a.op)) && revealTopSequenceOk(rtm.atoms)) {
     return makeProgram({ confidence: "high", atoms: rtm.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== PUMP-THEN-FIGHT (Epic Confrontation / Savage Smash / Swift Kick / Wild Instincts / Ruthless
+  // Predation / Chelonian Tackle) ===== "Target creature you control gets +X/+Y until end of turn. It fights
+  // target creature you don't control." → ONE fight-pair atom carrying fighterPump {X,Y} (see matchPumpThenFight).
+  // Collapsed up front because the anaphoric "It fights" would otherwise mis-bind to a source-less spell fight
+  // (the fightAtomMisplaced park). HIGH iff the op is KNOWN (fight-pair). Not an X spell.
+  const ptf = matchPumpThenFight(oracle);
+  if (ptf && ptf.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: ptf.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== GENESIS-WAVE ===== (an {X}-cost mass permanent-drop) — "Reveal the top X cards. You may put any number
   // of <filter> cards with mana value X or less from among them onto the battlefield. Then put all cards revealed

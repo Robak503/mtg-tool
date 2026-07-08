@@ -165,15 +165,23 @@ describe("ETB-FIGHT parser", () => {
     expect(atomTargetIntent({ op: "fight", targetType: "creature" })).toBe("enemy");
   });
 
-  // FP GUARD (adversarial review): the fight atom binds its fighter to ctx.sourceId, so it is only correct as
-  // the SOLE atom. A pump-then-fight SPELL ("Target creature you control gets +X/+Y. It fights …") splits into
-  // [pump, fight] where "it" is the PUMPED target, not the source — fightAtomMisplaced forces the whole program
-  // LOW (→ Arbiter) so the spell never half-resolves (pump applies, fight silently no-ops on a sourceId-less spell).
-  it("CREED — a pump-then-fight SPELL stays LOW (fight not the sole atom)", () => {
-    // Epic Confrontation (Sorcery), Swift Kick (Instant) — real printed cards the bare matcher over-matched.
-    expect(parseEffectClause("Target creature you control gets +1/+2 until end of turn. It fights target creature you don't control.", "Sorcery").confidence).toBe("low");
-    expect(parseEffectClause("Target creature you control gets +2/+0 until end of turn. It fights target creature you don't control.", "Instant").confidence).toBe("low");
-    // …but a SOLE fight clause (the ETB/triggered-ability form) is still HIGH on the same Instant trigger cardType.
+  // PUMP-THEN-FIGHT (now MODELED — matchPumpThenFight, superseding the earlier deliberate park): a "Target
+  // creature you control gets +X/+Y until end of turn. It fights …" SPELL collapses UP FRONT into ONE fight-pair
+  // atom carrying fighterPump {X,Y} (the "It" is the chosen you-control fighter, NOT the sourceId), so it never
+  // reaches the [pump, fight] split. applyFightPair buffs that fighter before locking powers → the spell RESOLVES
+  // fully (no source-less-fight no-op). fightAtomMisplaced still guards a genuine source-bound `fight` alongside
+  // other atoms ("gets +X/+Y. It fights ANOTHER target creature", which this matcher doesn't claim). See
+  // fightPumpFight.test.js for the end-to-end runtime proof.
+  it("a pump-then-fight SPELL is HIGH as a single fighterPump-carrying fight-pair", () => {
+    const a = parseEffectClause("Target creature you control gets +1/+2 until end of turn. It fights target creature you don't control.", "Sorcery");
+    expect(a.confidence).toBe("high");
+    expect(a.atoms).toHaveLength(1);
+    expect(a.atoms[0].op).toBe("fight-pair");
+    expect(a.atoms[0].fighterPump).toEqual({ power: 1, toughness: 2 });
+    const b = parseEffectClause("Target creature you control gets +2/+0 until end of turn. It fights target creature you don't control.", "Instant");
+    expect(b.confidence).toBe("high");
+    expect(b.atoms[0].fighterPump).toEqual({ power: 2, toughness: 0 });
+    // …and a SOLE fight clause (the ETB/triggered-ability form) is still HIGH on the same Instant trigger cardType.
     expect(parseEffectClause("It fights target creature you don't control.", "Instant").confidence).toBe("high");
   });
 });
