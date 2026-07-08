@@ -464,7 +464,12 @@ export function resolveCloneChoice(state, chosenPermId) {
   // (front-face, CR 712.4a) — the resolution-time re-check (CR 707.9c) must accept an artifact source for that
   // scope, else a valid artifact pick would be treated as illegal and the clone would wrongly enter as a 0/0
   // (a forbidden FP). Scope-gated so a creature-only / PW clone still rejects an artifact source.
-  const allowArtifact = scope === "anyArtifactOrCreature";
+  // The artifact-copy scopes accept an ARTIFACT source at resolution (CR 707.9c re-check): anyArtifactOrCreature
+  // (Phyrexian Metamorph) plus the non-creature-clone scopes anyArtifact (Sculpting Steel / Copy Artifact) and
+  // anyEquipment (Masterwork of Ingenuity). Candidate enumeration already scoped Equipment for anyEquipment, so
+  // the looser Artifact re-check here can't admit an illegal source. Scope-gated so a creature/PW clone still
+  // rejects an artifact source (else a valid pick would be dropped and the clone wrongly enter as a 0/0 — an FP).
+  const allowArtifact = scope === "anyArtifactOrCreature" || scope === "anyArtifact" || scope === "anyEquipment";
   const copiable = (c) => {
     const tl = String(c?.permanent?.card?.type || c?.permanent?.card?.type_line || "").split(" // ")[0];
     return !!c && (/Creature|Planeswalker/.test(tl) || (allowArtifact && /Artifact/.test(tl)));

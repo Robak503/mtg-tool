@@ -271,8 +271,14 @@ export function parseCloneSpec(card) {
   // "it's an artifact" rider — the entering permanent is an artifact (non-creature artifacts enter without a
   // lethal-toughness SBA, so they don't die like a 0/0 clone). enterPermanent handles a non-creature card
   // (summoningSick only stamped for creatures).
+  // NON-CREATURE clone cards (Sculpting Steel = Artifact, Copy Artifact = Enchantment, Masterwork of Ingenuity =
+  // Artifact — Equipment) template "this artifact|Equipment|enchantment enter as a copy of …", so the subject
+  // noun is any permanent word, not just "this creature". The copy REPLACES the clone's characteristics with a
+  // snapshot of an ARTIFACT / EQUIPMENT (proven runtime — anyArtifactOrCreature already copies artifacts), so
+  // artifact/Equipment scopes are runtime-safe; enchantment / nonland-permanent scopes are NOT modeled yet →
+  // they don't match here → PARK (Copy Enchantment, Clever Impersonator stay Arbiter, a safe false-negative).
   const m = t.match(
-    /^(?:you may have (?:~|this creature) enter|(?:~|this creature) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment)) enter|(?:~|this (?:creature|artifact|equipment|enchantment)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return null;
 
@@ -306,7 +312,9 @@ export function parseCloneSpec(card) {
     scope: m[1] === "a creature you control" || m[1] === "another creature you control" ? "youControl"
       : m[1] === "a creature or planeswalker you control" ? "youControlCreatureOrPw"
         : m[1] === "any artifact or creature on the battlefield" ? "anyArtifactOrCreature"
-          : "any",
+          : m[1] === "any artifact on the battlefield" ? "anyArtifact"
+            : m[1] === "any equipment on the battlefield" ? "anyEquipment"
+              : "any",
     mvLimit: !!m[2],
     riders,
   };
@@ -383,7 +391,15 @@ function stripLeadingKeywords(t) {
 /** Is this card a clone the engine models (a creature whose whole text is the copy clause,
  *  optionally + modeled printed keywords + a fully-modeled "except …" rider)? */
 export function isCloneCard(card) {
-  return /Creature/.test(typeLine(card)) && parseCloneSpec(card) !== null;
+  const spec = parseCloneSpec(card);
+  if (spec === null) return false;
+  // A CREATURE clone card (Clone, Phyrexian Metamorph, Spark Double) is native for any modeled scope — unchanged.
+  if (/Creature/.test(typeLine(card))) return true;
+  // A NON-creature clone card (Sculpting Steel = Artifact, Copy Artifact = Enchantment, Masterwork of Ingenuity =
+  // Artifact — Equipment) is native ONLY for the runtime-proven artifact/Equipment copy scopes: it enters as a
+  // snapshot of an artifact (the anyArtifactOrCreature runtime already copies artifacts; enterPermanent handles a
+  // non-creature card). A creature-copy scope on a non-creature card would become a creature — not modeled → PARK.
+  return spec.scope === "anyArtifact" || spec.scope === "anyEquipment";
 }
 
 /** Mana value of a mana-cost string (CR 202.3): each `{N}` digit pip adds N; `{X}`/`{Y}`/`{Z}`
@@ -435,10 +451,17 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
   const youControlOnly = scope === "youControl" || scope === "youControlCreatureOrPw";
   const allowPw = scope === "youControlCreatureOrPw";
   const allowArtifact = scope === "anyArtifactOrCreature";
+  // ARTIFACT-ONLY / EQUIPMENT-ONLY scopes (Sculpting Steel / Copy Artifact = anyArtifact; Masterwork of
+  // Ingenuity = anyEquipment) — copy ONLY an artifact (any player's battlefield), not a plain creature. An
+  // artifact creature IS an artifact and stays a legal source; Equipment is the "Equipment" artifact subtype.
+  const artifactOnly = scope === "anyArtifact";
+  const equipmentOnly = scope === "anyEquipment";
   for (const pid of Object.keys(state.players)) {
     if (youControlOnly && pid !== controller) continue;
     for (const perm of state.players[pid].battlefield) {
-      const copiable = isCreatureCard(perm.card) || (allowPw && isPlaneswalkerCard(perm.card)) || (allowArtifact && isArtifactCard(perm.card));
+      const copiable = (artifactOnly || equipmentOnly)
+        ? (isArtifactCard(perm.card) && (!equipmentOnly || /\bEquipment\b/i.test(typeLine(perm.card))))
+        : (isCreatureCard(perm.card) || (allowPw && isPlaneswalkerCard(perm.card)) || (allowArtifact && isArtifactCard(perm.card)));
       if (!copiable) continue;
       if (mvCap != null && manaValueOfCard(perm.card) > mvCap) continue; // CR 707 head MV filter
       out.push({ id: perm.id, name: perm.card?.name });
