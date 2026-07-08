@@ -33,7 +33,12 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 // so the strip can ONLY consume a true cost-keyword line — never a sentence that merely mentions the word
 // (none exist in the corpus for these two: convoke/affinity are only ever the keyword itself). Leaves the rest
 // of the card untouched for the normal parser/classifier, which then sees a clean effect/body.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+)(?:\s*\([^)]*\))?\s*$/i;
+// SNEAK (Tarkir: Dragonstorm) is an ALTERNATIVE-COST cast keyword ("Sneak {cost}" — cast for the sneak cost if
+// you also return an unblocked attacker you control to hand). Like convoke/affinity it is RESOLUTION-INVARIANT:
+// it changes only HOW you pay (mana + return a creature), never WHAT the spell does — and its "enters tapped and
+// attacking" clause is vacuous for a non-permanent spell. The engine hard-casts at full printed cost (no sneak
+// lane), so stripping the line for the spell classifier is CREED-safe, exactly the ninjutsu/morph precedent.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+|sneak (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the

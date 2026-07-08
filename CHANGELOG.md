@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Sneak alt-cast keyword now plays natively (+8).** Foot Ninjas, Elektra, Splinter,
+  Oroku Saki, and the four "Technique" spells — "Sneak {cost}" lets you cast a card cheaper
+  by returning an attacker to hand, but it never changes what the card does, so the app
+  plays it as its normal-cost self (the same handling as Convoke, Ninjutsu, and Morph).
 - **"Whenever a creature you control is dealt damage" triggers now play natively (+1).**
   Rite of Passage — the non-self sibling of enrage. When any creature you control takes
   damage, the watcher fires on it (e.g. puts a +1/+1 counter on the damaged creature).

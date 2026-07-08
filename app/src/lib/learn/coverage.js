@@ -191,6 +191,7 @@ export function isKeywordOnly(oracle, name) {
     reCyclingCost.test(c) ||
     reWardLifeCost.test(c) ||
     reMorphCost.test(c) ||
+    reSneakCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
@@ -232,6 +233,18 @@ const reNinjutsuCost = /^(?:commander |library )?ninjutsu (?:\{[^}]+\})+$/;
 // Anchored ^…$ with a brace-cost tail, so a non-mana morph ("Morph—Reveal a … card") or a morph-referencing
 // static ("Morph abilities you activate cost {1} less") never matches → body-only (a SAFE false-negative).
 const reMorphCost = /^(?:mega)?morph (?:\{[^}]+\})+$/;
+
+// KW-SNEAK (Tarkir: Dragonstorm) — credit a clause ONLY when it's the bare "sneak {cost}" line (keyword + one
+// or more brace mana symbols), mirroring the cycling/ninjutsu/morph exact-shape discipline. Sneak is an
+// ALTERNATIVE way to cast the card (for its sneak cost, if you also return an unblocked attacker you control to
+// hand during the declare-blockers step; it enters tapped and attacking) — it is NOT offered/enforced by the
+// engine (no sneak lane in legalChoices). Every sneak card ALSO carries a normal mana cost, so the engine
+// hard-casts it normally and its body resolves CORRECTLY; the only unmodeled part is the optional sneak entry,
+// which can never mis-resolve / mis-count / drop a payoff — the SAME rationale that credits ninjutsu/morph. The
+// caller still validates all OTHER text all-or-nothing: a sneak card with an unmodeled sibling ability keeps
+// that residue and stays body-only. Anchored ^…$ with a brace-cost tail, so a sneak-referencing static never
+// matches. (Reminder text is stripped upstream by isKeywordOnly before the clause split.)
+const reSneakCost = /^sneak (?:\{[^}]+\})+$/;
 
 // KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
 // isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),
