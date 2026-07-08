@@ -8,6 +8,30 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.111.0] - 2026-07-07
+
+### Added
+- **+33 more cards play natively (overnight coverage grind, Joe's shelf).**
+  Six clean parser/tier levers, each flip-diff verified (only the intended cards
+  gained, zero regressions):
+  - **Modal equipment attack triggers** — Pip-Boy 3000 and its family: the
+    "choose one" attack trigger on equipment now resolves natively (+6).
+  - **Top-of-library router** — Zoologist / Coiling Oracle and siblings: reveal
+    the top card and route it (hand / battlefield / graveyard) with the no-else,
+    draw, OR, and scry-compose shapes all modeled (+7 across two passes).
+  - **Reveal-top-drain-by-mana-value (the "you lose" variant)** — Dark Confidant
+    and kin: reveal the top card, put it in hand, *you* lose life equal to its
+    mana value (the controller-drain sibling of Yuriko's each-opponent drain) (+4).
+  - **Clone cost-keyword pre-strip** — copy-clause creatures carrying a
+    cost-only keyword (Plot / Convoke / Affinity), e.g. Visage Bandit, now read
+    as clones (+2 of the batch).
+  - **Optional own-side +1/+1 counter** — "put a +1/+1 counter on up to one
+    target creature you control" (Essence Capture family) (+3 of the batch).
+  - **Spells-cast-this-turn intervening-if** — "if you've cast N or more spells
+    this turn" (Loan Shark) reads the per-turn spell counter, plus creature
+    bounce with a controller restriction ("return target creature you control /
+    an opponent controls," Chulane family) (+11).
+
 ## [0.110.0] - 2026-07-07
 
 ### Added
