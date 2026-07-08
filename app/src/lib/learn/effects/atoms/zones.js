@@ -270,7 +270,15 @@ export function bounceClauseParser(clause) {
     const restrictions = multiB[3] ? [{ kind: "controller", who: /^you control$/.test(multiB[3]) ? "you" : "opponent" }] : [];
     if (n >= 2) return { op: "bounce", targetType: TTm[multiB[2]], restrictions, maxTargets: n, minTargets: 0 };
   }
-  if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
+  // "return target creature[ you control | an opponent controls | you don't control] to its owner's hand"
+  // (Chulane, Teller of Tales's {3},{T} bounce). Mirrors the non-creature `bp` branch below's OPTIONAL controller
+  // restriction; the plain unrestricted form (no clause) is byte-identical to before. legalChoices' creature-target
+  // enumeration honors the { kind:"controller" } restriction exactly as it does for the nonland-permanent bounce.
+  const cb = t.match(/^return target creature(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
+  if (cb) {
+    const restrictions = cb[1] ? [{ kind: "controller", who: /^you control$/.test(cb[1]) ? "you" : "opponent" }] : [];
+    return restrictions.length ? { op: "bounce", targetType: "creature", restrictions } : { op: "bounce", targetType: "creature" };
+  }
   const bp = t.match(/^return target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
   if (bp) {
     const TT = { "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact", "enchantment": "enchantment", "land": "land" };

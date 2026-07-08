@@ -484,6 +484,18 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   // creature" qualifier, or a negated form fails the anchor → null → Arbiter (CREED — never a mis-scoped Raid read).
   if (/^you attacked this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn === true;
 
+  // ===== SPELLS-CAST-THIS-TURN (CR 700.4) ===== "you've cast [a|N or more] spell(s) this turn" — read off the
+  // controller's per-turn spellsCastThisTurn counter (bumped at the cast chokepoint, TRIG-CAST2; reset for all
+  // seats at untap — the SAME source the native "cast your second spell" triggers read). Loan Shark's ETB
+  // "if you've cast two or more spells this turn". A FILTERED ("a noncreature spell") or opponent-scoped variant
+  // fails the anchor → falls through → null → Arbiter (CREED — never a mis-scoped spell-count read).
+  m = c.match(new RegExp(`^you've cast ${NUM_RE}(?: or more)? spells? this turn$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return (state?.players?.[controllerId]?.spellsCastThisTurn || 0) >= n;
+  }
+
   // "you control another <Subtype>" — a curated creature subtype, OTHER THAN the entering permanent (CR 113.7)
   m = c.match(CTRL_ANOTHER_SUBTYPE_RE);
   if (m) {
