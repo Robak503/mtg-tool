@@ -464,15 +464,19 @@ export function resolveCloneChoice(state, chosenPermId) {
   // (front-face, CR 712.4a) — the resolution-time re-check (CR 707.9c) must accept an artifact source for that
   // scope, else a valid artifact pick would be treated as illegal and the clone would wrongly enter as a 0/0
   // (a forbidden FP). Scope-gated so a creature-only / PW clone still rejects an artifact source.
-  // The artifact-copy scopes accept an ARTIFACT source at resolution (CR 707.9c re-check): anyArtifactOrCreature
-  // (Phyrexian Metamorph) plus the non-creature-clone scopes anyArtifact (Sculpting Steel / Copy Artifact) and
-  // anyEquipment (Masterwork of Ingenuity). Candidate enumeration already scoped Equipment for anyEquipment, so
-  // the looser Artifact re-check here can't admit an illegal source. Scope-gated so a creature/PW clone still
-  // rejects an artifact source (else a valid pick would be dropped and the clone wrongly enter as a 0/0 — an FP).
-  const allowArtifact = scope === "anyArtifactOrCreature" || scope === "anyArtifact" || scope === "anyEquipment";
+  // Resolution-time source re-check (CR 707.9c), SCOPE-GATED so it exactly mirrors cloneCandidates (defense-in-
+  // depth: production callers already constrain the pick to the enumerated candidates, but a re-check looser than
+  // enumeration is a latent footgun — a future unvalidated caller could copy an illegal source). Per scope:
+  //   anyEquipment — ONLY an Equipment artifact (Masterwork of Ingenuity); a bare artifact/creature is illegal.
+  //   anyArtifact  — ONLY an artifact (Sculpting Steel / Copy Artifact); a non-artifact creature is illegal.
+  //   anyArtifactOrCreature — an artifact OR a creature (Phyrexian Metamorph).
+  //   creature / PW scopes — a creature, plus a planeswalker for the youControlCreatureOrPw scope (Spark Double).
   const copiable = (c) => {
+    if (!c) return false;
     const tl = String(c?.permanent?.card?.type || c?.permanent?.card?.type_line || "").split(" // ")[0];
-    return !!c && (/Creature|Planeswalker/.test(tl) || (allowArtifact && /Artifact/.test(tl)));
+    if (scope === "anyEquipment") return /Artifact/.test(tl) && /\bEquipment\b/.test(tl);
+    if (scope === "anyArtifact") return /Artifact/.test(tl);
+    return /Creature/.test(tl) || (scope === "youControlCreatureOrPw" && /Planeswalker/.test(tl)) || (scope === "anyArtifactOrCreature" && /Artifact/.test(tl));
   };
   let chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
   // WI-2 (CREED — CR 707.9): a MANDATORY clone ("~ enters as a copy of …", no "you may") cannot
