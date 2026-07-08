@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.116.0] - 2026-07-08
+
 ### Added
 - **The Disguise keyword now plays natively (+11).** Nightdrinker Moroii, Undercover
   Crocodelf, Museum Nightwatch, and others — the face-down-2/2 keyword (same as Morph, with
@@ -28,10 +30,6 @@ summarizes the notable changes.
   damage, the watcher fires on it (e.g. puts a +1/+1 counter on the damaged creature).
   Controller-gated (an opponent's creature taking damage doesn't fire it) and it stacks
   correctly with multiple watchers.
-
-## [0.116.0] - 2026-07-08
-
-### Added
 - **Morph and Megamorph creatures now play natively (+65).** War Behemoth, Sagu Mauler,
   Titanic Bulvox, Ponyback Brigade, and 61 others — the "Morph {cost}" / "Megamorph {cost}"
   line is now recognized. Every morph card also has a normal mana cost, so the app plays it

@@ -16,11 +16,14 @@
 > **No other blockers.** Everything committed + pushed on `claude/elated-feistel-ab8e90`.
 >
 > ── ↓ shipped releases ↓ ──
-> 🃏 **v0.116.0 — 2026-07-08 (Cindy, Opus 4.8, autonomous grind). SHIPPED — +75 native, LOST=0. MORPH + a vein of RECOGNITION levers.**
-> Cut at 75 — a big one, but honest: it's dominated by **morph recognition** (+65), a single sanctioned recognition lever (the
-> cycling/ninjutsu precedent), not 65 bespoke builds. **Correction to the last run's Q4 claim** ("clean parser/targeting levers are
-> exhausted"): that was too pessimistic — **RECOGNITION levers** (keyword-cost / alt-cast forms already enforced-or-inert but unrecognized
-> by the classifier) were a rich, untapped vein. **The bundle:**
+> 🃏 **v0.116.0 — 2026-07-08 (Cindy, Opus 4.8, autonomous grind). SHIPPED — +111 native, LOST=0. MORPH + a whole vein of RECOGNITION levers.**
+> Cut at 111 — a big one, but honest: dominated by **alt-cast / face-down keyword recognition** (morph +65, dash +16, disguise +11, sneak +8),
+> a single sanctioned lever class (the cycling/ninjutsu precedent — the card hard-casts normally; the optional alt entry is inert), NOT bespoke
+> builds. **Correction to the last run's Q4 claim** ("clean parser/targeting levers are exhausted"): dead wrong — **RECOGNITION levers**
+> (keyword-cost / alt-cast forms already enforced-or-inert but unrecognized by the classifier) were the richest untapped vein of the whole
+> project. Also this release: the **dealt-damage controller-scope trigger** (Rite of Passage, +1, a reusable non-self enrage sibling) and a
+> **latent CREED FP fix** — a pure "when turned face up, until end of turn, whenever X" delayed trigger (Mistway Spy) was mis-read as a
+> PERMANENT trigger; classifyCondition now leaves it undetected (unreachable on a hard cast). **The core bundle (morph-era):**
 > **① MORPH / MEGAMORPH** (`42e2cf73`, +65) — `isKeywordOnly` gains `reMorphCost` (brace-cost anchored, mirrors reCyclingCost/reNinjutsuCost).
 > Morph is an optional alt-cast with no engine lane; every morph card ALSO hard-casts face-up correctly, so recognizing it is honest (the
 > ninjutsu rationale). **Adversarially verified — 3 skeptics, live engine: 0 anomalies across all 65 (each offers exactly ONE face-up cast,
