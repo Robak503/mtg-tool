@@ -285,6 +285,15 @@ export function bounceClauseParser(clause) {
     const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
     return { op: "bounce", targetType: TT[bp[1]], restrictions };
   }
+  // SELF-BOUNCE (forced, own-choice) — "return a[nother] permanent|creature you control to its owner's hand"
+  // (Kor Skyfisher / Emancipation Angel / Cache Raiders ETB · Roaring Primadox / Shrieking Drake upkeep/ETB ·
+  // Yarok's Wavecrasher "another"). NON-targeted: the controller MUST return one of their OWN permanents (a real
+  // drawback), modeled scope-side (oneYouControlWorst → worstOwnBounceTarget picks the least-bad at resolution)
+  // rather than as a chosen target — so programNeedsChosenTarget is false and the ETB/upkeep TRIGGER routes
+  // natively. "another" (CR 109.5) drops the source; "creature" restricts to creatures. Disjoint anchor from the
+  // "return TARGET …" chosen-target forms above → no overlap.
+  const selfB = t.match(/^return (a|another) (permanent|creature) you control to its owner's hand$/);
+  if (selfB) return { op: "bounce", scope: "oneYouControlWorst", ...(selfB[2] === "creature" ? { creatureOnly: true } : {}), ...(selfB[1] === "another" ? { excludeSource: true } : {}) };
   if (/^return this (?:creature|permanent) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
   // SUBTYPE-CREATURE-BOUNCE (CR 205.3m) — "return target <Subtype> you control to its owner's hand" (Kogla,

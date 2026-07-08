@@ -119,6 +119,27 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
     .map((perm) => ({ type: "creature", id: perm.id, controller }));
 }
 
+// SELF-BOUNCE (forced "return a[nother] permanent|creature you control to its owner's hand" — Kor Skyfisher,
+// Emancipation Angel, Cache Raiders, Roaring Primadox, Shrieking Drake, Yarok's Wavecrasher). The controller
+// MUST return ONE of their OWN permanents (a real drawback), so the engine picks the LEAST-BAD to bounce,
+// deterministically AT RESOLUTION (CR 608.2h): a LAND first (you replay it — minimal loss), then a TAPPED
+// permanent (already spent this turn), then battlefield order (serialize-stable). `creatureOnly` restricts to
+// creatures ("return a CREATURE you control"); `excludeSource` drops the trigger source ("return ANOTHER …",
+// CR 109.5). Empty candidate set → [] (a clean no-op — "another" with no other permanent, or a board emptied
+// between trigger and resolution — never a fabricated bounce). Tagged type:"permanent" (applyZoneMove moves by
+// id regardless of card type). This is ENGINE-CORRECT (it always returns a valid own permanent, exactly as the
+// card reads); the choice is a deterministic sensible default, never an opponent's permanent, never a no-op
+// when a legal permanent exists.
+export function worstOwnBounceTarget(state, controller, { creatureOnly = false, excludeSource = false, sourceId = null } = {}) {
+  const bf = state.players?.[controller]?.battlefield || [];
+  const cands = bf.filter((p) => (!creatureOnly || isCreatureCard(p.card)) && !(excludeSource && p.id === sourceId));
+  if (cands.length === 0) return [];
+  const rank = (p) => (isLandCard(p.card) ? 0 : 2) + (p.tapped ? 0 : 1); // tapped-land 0 · untapped-land 1 · tapped-nonland 2 · untapped-nonland 3
+  let best = cands[0], bestRank = rank(best);
+  for (const p of cands.slice(1)) { const r = rank(p); if (r < bestRank) { best = p; bestRank = r; } } // strict < → first-in-order ties (stable)
+  return [{ type: "permanent", id: best.id, controller }];
+}
+
 /**
  * Every creature the controller's OPPONENTS control right now (MASS-DEBUFF scope `scope:"eachOpponentCreature"`:
  * "Creatures your opponents control get -N/-N until end of turn" — Make Obsolete / Suffocating Fumes / Cower in
@@ -195,6 +216,8 @@ export const atomTargets = (state, atom, ctx) => {
   // first two in battlefield order — deterministic + serialize-stable, matching the engine's first-legal
   // target philosophy; fewer than two creatures → buff whatever's there (a clean partial, never fabricated).
   if (atom.scope === "upToTwoYouControl") return controllerCreatureTargets(state, ctx.controller).slice(0, 2);
+  // SELF-BOUNCE forced own-choice — "return a[nother] permanent|creature you control" (Kor Skyfisher family).
+  if (atom.scope === "oneYouControlWorst") return worstOwnBounceTarget(state, ctx.controller, { creatureOnly: atom.creatureOnly, excludeSource: atom.excludeSource, sourceId: ctx.sourceId });
   if (atom.scope === "eachOpponentCreature") return opponentCreatureTargets(state, ctx.controller);
   // COMBAT-TEAM-PUMP — every ATTACKING / BLOCKING creature right now (Trumpet Blast "attacking creatures
   // get +1/+0", Hold the Line "blocking creatures get +0/+5"). The set is locked at resolution (CR 611.2c);
