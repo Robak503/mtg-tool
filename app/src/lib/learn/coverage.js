@@ -587,15 +587,16 @@ export function permanentTriggersCovered(card) {
     // other body text is the stripped Treasure reminder). Anchored to the modeled decline shape, so it can only
     // consume this modeled follow-up — FN-safe (the HIGH gate above already vouched the whole taxed-treasure effect).
     .replace(/\bif the player doesn['’]t, you create a treasure token\b\.?\s*/gi, " ")
-    // REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) — the drain sentence "Each opponent loses life
-    // equal to that card's mana value." FOLLOWS the reveal sentence in the SAME trigger's effect (detectTriggers
-    // appends it to the effectClause, which parses HIGH in allTriggerSentencesModeled above — proven before this
-    // residue check runs), but the trigger regex stops at the first period after "…put that card into your hand.",
-    // leaving the drain as apparent residue. Strip the EXACT modeled drain shape ("that card's"/"the card's"/"its"
-    // mana value) so the card reads keyword-only (leaving only the ninjutsu line, handled by isKeywordOnly).
+    // REVEAL-TOP-DRAIN-BY-MV — the drain sentence "Each opponent loses life equal to that card's mana value."
+    // (Yuriko, the Tiger's Shadow) OR "You lose life equal to its mana value." (Dark Confidant / Dark Tutelage)
+    // FOLLOWS the reveal sentence in the SAME trigger's effect (detectTriggers appends it to the effectClause,
+    // which parses HIGH in allTriggerSentencesModeled above — proven before this residue check runs, and the
+    // matchRevealTopDrainByMv collapse emits both who-variants), but the trigger regex stops at the first period
+    // after "…put that card into your hand.", leaving the drain as apparent residue. Strip the EXACT modeled drain
+    // shape (each-opponent OR you, "that card's"/"the card's"/"its" mana value) so the card reads keyword-only.
     // Anchored to the modeled wording, so it can only consume a true modeled follow-up (FN-safe — an UNmodeled
     // drain variant fails the HIGH gate above and never reaches here). Curly apostrophe tolerated.
-    .replace(/\beach opponent loses life equal to (?:that card['’]s|the card['’]s|its) mana value\b\.?\s*/gi, " ")
+    .replace(/\b(?:each opponent loses|you lose) life equal to (?:that card['’]s|the card['’]s|its) mana value\b\.?\s*/gi, " ")
     // REVEAL-TOP-CONDITIONAL (Lurking Predators) — the two follow-up sentences "If it's a creature card, put it
     // onto the battlefield. Otherwise, you may put that card on the bottom of your library." are part of the SAME
     // cast-trigger's effect (detectTriggers keeps the whole three-sentence body in the effectClause, which parses

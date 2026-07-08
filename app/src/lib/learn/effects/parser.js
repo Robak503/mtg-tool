@@ -1810,13 +1810,17 @@ function matchIteratedEdict(oracle) {
  */
 function matchRevealTopDrainByMv(oracle) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
-  // "that card" / "the card" — both printed wordings for the just-revealed card (Yuriko prints "that card").
-  if (!/^reveal the top card of your library and put (?:that card|the card|it) into your hand\. each opponent loses life equal to (?:that card's|the card's|its) mana value$/.test(s)) {
-    return null;
-  }
+  // "that card" / "the card" / "it" — the printed wordings for the just-revealed card (Yuriko prints "that
+  // card"). The drain recipient is either EACH OPPONENT (Yuriko, the Tiger's Shadow) or YOU (Dark Confidant /
+  // Dark Tutelage — "you lose life equal to its mana value" → the CONTROLLER loses, applyLoseLife's default
+  // branch). Whole-clause-anchored ^…$ like every fused matcher here — any rider ("unless you pay", an Offspring
+  // keyword line, a "then" follow-on) leaves residue → null → low → Arbiter (CREED whole-effect).
+  const m = s.match(/^reveal the top card of your library and put (?:that card|the card|it) into your hand\. (each opponent loses|you lose) life equal to (?:that card's|the card's|its) mana value$/);
+  if (!m) return null;
+  const who = m[1] === "you lose" ? "controller" : "eachOpponent";
   return { atoms: [
     { op: "reveal-top-to-hand", targetType: null },
-    { op: "lose-life", who: "eachOpponent", amountCount: { kind: "revealedCardMV", per: 1 }, targetType: null },
+    { op: "lose-life", who, amountCount: { kind: "revealedCardMV", per: 1 }, targetType: null },
   ] };
 }
 
