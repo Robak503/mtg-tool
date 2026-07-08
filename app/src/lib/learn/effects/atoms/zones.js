@@ -147,11 +147,36 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   return { state: next, entered: true };
 }
 
+// Mana value of a graveyard Card (CR 202.3) — cmc/mana_value when present (Scryfall cards carry cmc), else a
+// pip sum ({X}=0, generic-hybrid = its number, everything else = 1). Local leaf (zones.js can't import the
+// sibling library.tutorManaValue without a cycle) — mirrors it for the REANIMATE-DRAIN MV stamp.
+function reanimateCardMv(card) {
+  if (typeof card?.cmc === "number") return card.cmc;
+  if (typeof card?.mana_value === "number") return card.mana_value;
+  let mv = 0;
+  for (const sym of String(card?.mana || card?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) {
+    const s = sym[1];
+    if (/^\d+$/.test(s)) mv += parseInt(s, 10);
+    else if (/^[XYZ]$/i.test(s)) continue;
+    else { const lead = s.match(/^(\d+)/); mv += lead ? parseInt(lead[1], 10) : 1; }
+  }
+  return mv;
+}
+
 export function applyReanimate(state, atom, ctx) {
   let next = state;
   const reanimated = [];
+  let lastMv = 0;
   for (const t of ctx.targets || []) {
     if (t.type !== "graveyardCard") continue;
+    // REANIMATE-DRAIN (Reanimate): capture the reanimated card's MV BEFORE it leaves the graveyard, so a
+    // following "you lose life equal to that card's mana value" atom reads it (via state.revealedCardMV,
+    // amountCount kind:"revealedCardMV") — mirrors reveal-top-to-hand's stamp. Only when the matcher set stampMv.
+    if (atom.stampMv) {
+      const fromPid = (atom.anyGraveyard || atom.opponentGraveyard) ? (t.controller || ctx.controller) : ctx.controller;
+      const gyCard = (next.players[fromPid]?.graveyard || []).find((c) => c.id === t.id);
+      if (gyCard) lastMv = reanimateCardMv(gyCard);
+    }
     // "from your graveyard" → the card lives in (and is removed from) the CASTER's graveyard. "from a
     // graveyard" (anyGraveyard) / "from an opponent's graveyard" (opponentGraveyard) → it lives in the
     // TARGET's owner graveyard (t.controller, stamped at enumeration, possibly an opponent), but enters
@@ -163,6 +188,7 @@ export function applyReanimate(state, atom, ctx) {
     next = r.state;
     if (r.entered) reanimated.push(t.id); // skipped (entered:false) = target left the graveyard (CR 608.2b)
   }
+  if (atom.stampMv) next = { ...next, revealedCardMV: lastMv }; // for the following drain (Reanimate); 0 if no card reanimated → clean no-op drain
   return logEvent(next, { kind: "spell-effect", effect: "reanimate", controller: ctx.controller, targets: reanimated });
 }
 

@@ -326,8 +326,10 @@ function usesRevealedCardMV(atom) {
 function revealTopSequenceOk(atoms) {
   let revealed = false;
   for (const a of atoms) {
-    if (a?.op === "reveal-top-to-hand") { revealed = true; continue; }
-    if (usesRevealedCardMV(a) && !revealed) return false; // a revealedCardMV payoff with no preceding reveal → drop
+    // Both stamp state.revealedCardMV: reveal-top-to-hand (Yuriko/Dark Confidant) and reanimate+stampMv
+    // (Reanimate — the reanimated card's MV). A following lose-life reads it via amountCount revealedCardMV.
+    if (a?.op === "reveal-top-to-hand" || (a?.op === "reanimate" && a?.stampMv)) { revealed = true; continue; }
+    if (usesRevealedCardMV(a) && !revealed) return false; // a revealedCardMV payoff with no preceding stamp → drop
   }
   return true;
 }
@@ -1829,6 +1831,22 @@ function matchRevealTopDrainByMv(oracle) {
   ] };
 }
 
+// REANIMATE-DRAIN (Reanimate, Grave Researcher // Reanimate) — "Put target creature card from a graveyard onto
+// the battlefield under your control. You lose life equal to that card's mana value." The two sentences span a
+// mid-resolution value the reanimate produces (the reanimated card's MV), so they'd shatter under the clause
+// splitter — collapsed up front like the Yuriko/Dark-Confidant reveal-top-drain, reusing the SAME stamp slot:
+// the reanimate atom (stampMv) records state.revealedCardMV = the reanimated card's MV, and the lose-life reads
+// it (amountCount revealedCardMV, who:"controller" — YOU lose). HIGH iff both ops KNOWN (they are) AND the
+// reanimate precedes the drain (revealTopSequenceOk, now stamper-aware). Whole-clause anchored — any rider → LOW.
+function matchReanimateDrain(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^put target creature card from a graveyard onto the battlefield under your control\. you lose life equal to (?:that card's|the card's|its) mana value$/.test(s)) return null;
+  return { atoms: [
+    { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true, stampMv: true },
+    { op: "lose-life", who: "controller", amountCount: { kind: "revealedCardMV", per: 1 }, targetType: null },
+  ] };
+}
+
 /**
  * ===== GENESIS-WAVE (mass reveal-top-X → put-permanents-onto-battlefield → mill-the-rest) ===== the {X}-cost
  * mass permanent-drop family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards
@@ -2752,6 +2770,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rtm = matchRevealTopDrainByMv(oracle);
   if (rtm && rtm.atoms.every(a => KNOWN.has(a.op)) && revealTopSequenceOk(rtm.atoms)) {
     return makeProgram({ confidence: "high", atoms: rtm.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== REANIMATE-DRAIN (Reanimate) ===== "Put target creature card from a graveyard … under your control.
+  // You lose life equal to that card's mana value." → [reanimate(stampMv), lose-life(revealedCardMV, controller)].
+  const rd = matchReanimateDrain(oracle);
+  if (rd && rd.atoms.every(a => KNOWN.has(a.op)) && revealTopSequenceOk(rd.atoms)) {
+    return makeProgram({ confidence: "high", atoms: rd.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== PUMP-THEN-FIGHT (Epic Confrontation / Savage Smash / Swift Kick / Wild Instincts / Ruthless
   // Predation / Chelonian Tackle) ===== "Target creature you control gets +X/+Y until end of turn. It fights

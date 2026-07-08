@@ -193,7 +193,8 @@ describe("REANIMATE-FROM-ANY — \"put target creature card from a / an opponent
   // CREED anti-FP pins — every RIDER beyond the bare put clause must keep the WHOLE card on the Arbiter.
   it("CREED: a put-from-graveyard with a RIDER stays arbiter-spell (whole-card or PARK)", () => {
     const low = (oracle) => expect(classifyCard({ type: SORCERY, name: "X", mana: "{2}{B}", oracle })).toBe("arbiter-spell");
-    low("Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.");          // Reanimate — life-loss rider
+    // NOTE: "Reanimate" (reanimate + "you lose life equal to that card's mana value") now parses HIGH — the
+    // REANIMATE-DRAIN matcher models the life-loss-by-reanimated-MV rider; positive pin in reanimateDrain.test.js.
     low("Put target creature card from a graveyard onto the battlefield under your control. It gains indestructible. If it's your turn, scry 2.");      // Fated Return
     low("Put target creature card from a graveyard onto the battlefield under your control. That creature is a black Zombie in addition to its other colors and types."); // Rise from the Grave — type-change rider
     low("Put target creature card from a graveyard onto the battlefield under your control tapped.");                                                   // "tapped" rider
