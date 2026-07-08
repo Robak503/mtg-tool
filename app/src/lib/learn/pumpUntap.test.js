@@ -6,6 +6,7 @@
  * one target — "it" = the pumped creature); applyPumpEffect untaps that target after pumping.
  */
 import { describe, it, expect, beforeEach } from "vitest";
+import { applyPumpEffect } from "./effects/atoms/combat.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
@@ -60,5 +61,21 @@ describe("pump-untap — resolver e2e (the pumped creature is also untapped)", (
     expect(permanentHasKeyword(s, "bear", "Trample")).toBe(true);
     expect(s.players.user.battlefield.find((p) => p.id === "bear").tapped).toBe(false); // UNTAPPED
     expect(s.pendingArbiter).toBeUndefined();
+  });
+});
+
+// ─── Regression: a DEPARTED target must fizzle cleanly (never throw) ───────────────
+describe("pump-untap — a target that left the battlefield fizzles (CR 608.2b), never throws", () => {
+  it("applyPumpEffect with untap:true on a gone target is a clean no-op, and other creatures are untouched", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const bystander = createPermanent({ id: "bystander", card: { id: "c-b", name: "Bystander", type: "Creature — Bear", power: 2, toughness: 2 }, controller: "user", summoningSick: false, tapped: true });
+    const s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [bystander] } } };
+    const atom = { op: "pump", targetType: "creature", ptDelta: { p: 2, t: 4 }, grantKeywords: ["Trample"], untap: true };
+    // The chosen target ("gone") is NOT on the battlefield — killed in response before the trick resolved.
+    let next;
+    expect(() => { next = applyPumpEffect(s, atom, { controller: "user", targets: [{ type: "creature", id: "gone" }] }); }).not.toThrow();
+    const b = next.players.user.battlefield.find((p) => p.id === "bystander");
+    expect(b.tapped).toBe(true);                 // the bystander was not the target → untouched (still tapped)
+    expect(permanentPower(next, "bystander")).toBe(2); // and not pumped
   });
 });

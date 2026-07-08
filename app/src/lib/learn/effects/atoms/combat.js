@@ -181,7 +181,12 @@ export function applyPumpEffect(state, atom, ctx) {
   const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
   const dur = () => ({ kind: "endOfTurn", turn: next.turn });
   for (const target of targets) {
-    if (target.type !== "creature") continue;
+    // A creature that has LEFT the battlefield before this pump resolves (killed in response, an SBA, a
+    // bounce) is skipped — CR 608.2b fizzle. Without this guard the untap tail (untapPermanent → updatePermanent)
+    // THROWS "Permanent <id> not found" on a departed target of any pump-untap / untap-then-pump combat trick
+    // (Vines of the Recluse, Ornamental Courage, …). Mirrors the findPermanent(next,…) guard every sibling
+    // resolver in this file already carries (tap / regenerate / fight).
+    if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
     if (power !== 0 || toughness !== 0) {
       next = addContinuousEffect(next, {
         layer: 7, sublayer: "7c",
