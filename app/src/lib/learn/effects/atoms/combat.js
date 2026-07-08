@@ -891,6 +891,16 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pctrl[2]);
     return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ANOTHER-TARGET-YOU-CONTROL keyword grant (CR 109.5) — "another target creature you control gains KW until
+  // end of turn" (Flesh Burrower / Starling / Trained Condor / Heavenly Qilin attack/etc. triggers). The chosen
+  // own creature may NOT be the source; targetType "creatureYouControl" + excludeSource drops ctx.sourceId at
+  // enumeration (mirrors the add-counter "another … you control" shape). A pure grant (ptDelta 0/0); an
+  // un-grantable keyword → parseGrantedKeywords null → the whole clause drops (CREED — no fabricated grant).
+  const anotherKw = t.match(/^another target creature you control gains (.+) until end of turn$/);
+  if (anotherKw) {
+    const kws = parseGrantedKeywords(anotherKw[1]);
+    return kws ? { op: "pump", targetType: "creatureYouControl", excludeSource: true, ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   // ===== MULTI-COUNT PUMP (VERIFY PROTOTYPE) ===== "up to N target creatures[ you control] each get ±P/±T[ and gain KW] until end of turn"
   let mc = t.match(/^up to (two|three|four|five) target creatures(?: (you control))? each get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
   if (mc) {
