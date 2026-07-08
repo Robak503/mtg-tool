@@ -176,9 +176,18 @@ export function parseSpellEffect(card) {
   // Anchored to the whole clause so a rider/restriction variant doesn't match here;
   // the EffectProgram clean-clause gate is the second line of defense. Resolution
   // is the P2.3 `pump` atom (a CR 613.4c layer-7c effect).
-  m = oracle.match(/target creature gets ([+-]\d+)\/([+-]\d+)\s+until end of turn/i);
-  if (m) {
-    return { kind: "pump", targetType: "creature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, duration: "endOfTurn" };
+  // GUARD (TWO-TARGET PUMP/DEBUFF) — a "…gets +X/+Y … Another target creature gets -A/-B …" (Leeching Bite /
+  // Consume Strength / Schismotivate) is a pump-pair, NOT a legacy single-target pump: the unanchored regex below
+  // would otherwise grab the FIRST sentence, mark effectNeedsTarget=true, and force the LEGACY single-target
+  // enumeration — which binds ONE untagged creature and half-resolves (applyPumpPair applies only the +buff,
+  // dropping the -debuff, and can BUFF AN ENEMY — a false-positive). Returning null here (mirroring how
+  // fight-pair's non-matching text defers) lets legalChoices' isExtendedTargeted route it through
+  // expandCastChoices so BOTH the fighter/buff and target/debuff roles are enumerated + bound.
+  if (!/another target creature gets [+-]\d+\/[+-]\d+ until end of turn/i.test(oracle)) {
+    m = oracle.match(/target creature gets ([+-]\d+)\/([+-]\d+)\s+until end of turn/i);
+    if (m) {
+      return { kind: "pump", targetType: "creature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, duration: "endOfTurn" };
+    }
   }
 
   return null;

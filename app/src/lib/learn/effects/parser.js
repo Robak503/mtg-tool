@@ -2596,6 +2596,25 @@ function matchUntapThenPump(oracle) {
   return { atoms: [atom] };
 }
 
+// TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) — "Target creature gets +X/+Y until
+// end of turn. Another target creature gets -A/-B until end of turn." Two DISTINCT chosen creatures; the two
+// sentences shatter under the clause splitter (the second "Another target creature gets -A/-B" alone parses LOW
+// — an unbound cross-atom "another" referent), so it's collapsed UP FRONT into ONE pump-pair atom mirroring the
+// unrestricted fight-pair form (c): targetType "creature" (role "target" = the -debuff recipient) +
+// secondaryTargetType "creature" (role "fighter" = the +buff recipient) + distinct:true (CR 601.2c). The AI
+// two-target chooser (opponentAI) assigns fighter=OWN / target=ENEMY, so the buff lands on our board and the
+// debuff on an opponent's — never friendly-fire. HIGH iff the op is KNOWN (pump-pair). Not an X spell.
+function matchTwoTargetPump(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^target creature gets \+(\d+)\/\+(\d+) until end of turn\. another target creature gets -(\d+)\/-(\d+) until end of turn$/);
+  if (!m) return null;
+  return { atoms: [{
+    op: "pump-pair", targetType: "creature", restrictions: [], role: "target",
+    secondaryTargetType: "creature", secondaryRestrictions: [], secondaryRole: "fighter", distinct: true,
+    buffDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, debuffDelta: { p: -parseInt(m[3], 10) || 0, t: -parseInt(m[4], 10) || 0 },
+  }] };
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
@@ -2736,6 +2755,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const utp = matchUntapThenPump(oracle);
   if (utp && utp.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: utp.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
+  // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up
+  // front because the anaphoric "Another target creature" shatters the clause splitter. HIGH iff op KNOWN. Not X.
+  const ttp = matchTwoTargetPump(oracle);
+  if (ttp && ttp.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: ttp.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== GENESIS-WAVE ===== (an {X}-cost mass permanent-drop) — "Reveal the top X cards. You may put any number
   // of <filter> cards with mana value X or less from among them onto the battlefield. Then put all cards revealed
@@ -3201,7 +3227,8 @@ export function atomTargetIntent(atom) {
   switch (atom.op) {
     case "fight-pair":
     case "damage-target-power":
-      // FIGHT-PAIR / DAMAGE-TARGET-POWER (the TWO-CHOSEN-TARGET fight) — a SINGLE atom that needs BOTH an
+    case "pump-pair":
+      // FIGHT-PAIR / DAMAGE-TARGET-POWER / PUMP-PAIR (the TWO-CHOSEN-TARGET fight) — a SINGLE atom that needs BOTH an
       // "own" creature (the fighter/dealer) AND an "enemy" creature (the target). The intent model is ONE
       // value per atom, which can't express two opposite sides, so report "ambiguous" — that gates the
       // shape OUT of the auto-target paths that assume one side per atom: the trigger flush

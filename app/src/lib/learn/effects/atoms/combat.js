@@ -480,6 +480,34 @@ export function applyDamageTargetPower(state, atom, ctx) {
 }
 
 /**
+ * PUMP-PAIR (two-chosen-target buff / debuff) — "Target creature gets +X/+Y until end of turn. Another target
+ * creature gets -X/-Y until end of turn." (Leeching Bite, Consume Strength, Schismotivate). Two DISTINCT chosen
+ * creatures (CR 601.2c "another", enforced by targeting.expandAtoms' pairAtomIdx): the role-"fighter" creature
+ * gets the +buff, the role-"target" creature gets the -debuff — both endOfTurn layer-7c P/T effects, locked at
+ * resolution (CR 611.2c). The AI two-target chooser (opponentAI) assigns fighter=OWN / target=ENEMY so the buff
+ * lands on our board and the debuff on an opponent's — never friendly-fire (the CREED bar). A -toughness debuff
+ * can drop the enemy to <= 0 → the single lethal SBA below kills it (CR 704.5f), mirroring applyPumpEffect. A
+ * missing / declined half is a clean no-op.
+ */
+export function applyPumpPair(state, atom, ctx) {
+  const { fighter, target } = fightPairRefs(state, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  const buff = atom.buffDelta || { p: 0, t: 0 };
+  const debuff = atom.debuffDelta || { p: 0, t: 0 };
+  if (fighter && (buff.p || buff.t)) {
+    next = addContinuousEffect(next, { layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: buff.p, toughness: buff.t }, affects: { mode: "fixed", permanentIds: [fighter.permanent.id] }, duration: dur, source: src }).state;
+  }
+  if (target && (debuff.p || debuff.t)) {
+    next = addContinuousEffect(next, { layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: debuff.p, toughness: debuff.t }, affects: { mode: "fixed", permanentIds: [target.permanent.id] }, duration: dur, source: src }).state;
+  }
+  const lethal = destroyLethalCreatures(next); // a -toughness debuff can drop the debuffed creature to lethal
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "pump-pair", targets: [fighter?.permanent.id, target?.permanent.id].filter(Boolean) });
+}
+
+/**
  * CANT-BLOCK — "target creature can't block this turn" (Goblin Shortcutter, Crossway Vampire, Mardu
  * Roughrider, …). A layer-6 endOfTurn grant of the "cantBlock" keyword; combatEvasion.canBlockAttacker
  * reads it via permanentHasKeyword (layer-aware) and refuses the block, so it wears off at cleanup (CR
@@ -1369,4 +1397,5 @@ export const combatResolvers = {
   "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"
   "fight-pair": applyFightPair, // FIGHT-PAIR (CR 701.12) — two CHOSEN creatures (fighter + target) deal damage = power to each other, simultaneously
   "damage-target-power": applyDamageTargetPower, // DAMAGE-TARGET-POWER (CR 119) — one-way: only the chosen fighter deals damage = its power to the chosen target
+  "pump-pair": applyPumpPair, // PUMP-PAIR — two chosen creatures: fighter gets +buff, target gets -debuff (Leeching Bite / Consume Strength / Schismotivate)
 };

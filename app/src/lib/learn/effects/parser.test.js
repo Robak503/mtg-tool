@@ -970,7 +970,8 @@ const MUST_DROP_TO_LOW = [
   "Simoon deals 1 damage to each creature target opponent controls.",           // qualified — must NOT mis-route to "target player"
   "Shadowstorm deals 2 damage to each creature with shadow.",                   // qualified mass damage
   "Pyroclasm deals 3 damage to each creature an opponent controls.",            // qualified — only bare "each creature" is modeled
-  "Target creature gets +1/+1 until end of turn. Another target creature gets -1/-1 until end of turn.", // "another" = distinct target, unmodeled
+  // NOTE: "Target creature gets +X/+Y. Another target creature gets -A/-B." now parses HIGH (TWO-TARGET PUMP/
+  // DEBUFF → one pump-pair atom); positive pin in twoTargetPump.test.js. A MASS "each other creature" 2nd clause still drops.
   "Target creature gets +2/+2 until end of turn. Up to one other target creature gets +1/+1 until end of turn.", // "up to" + "other"
   // NOTE: "… deals N damage to each of up to two target creatures" is now NATIVE (MULTI-COUNT damage slice — real
   // runtime: N to EACH chosen creature via applyDamageEffect's per-target loop + targeting.expandAtoms subsets).

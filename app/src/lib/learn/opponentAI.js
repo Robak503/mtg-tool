@@ -636,6 +636,30 @@ function chooseDisciplinedVariant(state, aiPlayerId, actions) {
     }
     if (good.length === 0) return null;                            // no profitable fight → hold
     chosen = good.sort((x, y) => y.enemyPow - x.enemyPow)[0].a;    // kill the biggest threat
+  } else if ((actions[0].program?.atoms || []).some(a => a.op === "pump-pair")) {
+    // TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate): each cast carries a role-tagged
+    // pair — a `fighter` (gets the +buff, must be OURS) + a `target` (gets the -debuff, must be an ENEMY's). The
+    // generic scorer can't handle a two-target program, so pick here. Discipline (CREED — never friendly-fire):
+    // the buff lands ONLY on our creature, the debuff ONLY on an opponent's, and we cast only when the -toughness
+    // debuff is LETHAL to the enemy (its layer-aware toughness ≤ |debuff|). Among killing casts, kill the biggest
+    // enemy (buffing our biggest); if nothing dies (e.g. a -N/-0 power-only debuff), HOLD — a miss only costs a card.
+    const enemies = new Set(opponentsOf(state, aiPlayerId));
+    const lk = (id) => findPermanent(state, id)?.permanent;
+    const debuffT = (actions[0].program.atoms.find(a => a.op === "pump-pair")?.debuffDelta?.t) || 0; // ≤ 0
+    const good = [];
+    for (const a of actions) {
+      const fighterT = (a.targets || []).find(t => t.role === "fighter"); // +buff → ours
+      const targetT = (a.targets || []).find(t => t.role === "target");   // -debuff → enemy's
+      if (!fighterT || !targetT) continue;
+      if (fighterT.controller !== aiPlayerId) continue;            // the buff must land on OUR creature
+      if (!enemies.has(targetT.controller)) continue;              // the debuff must hit an ENEMY's creature
+      if (!lk(fighterT.id) || !lk(targetT.id)) continue;
+      const tTou = Math.max(0, permanentToughness(state, targetT.id));
+      if (debuffT >= 0 || tTou <= 0 || tTou > -debuffT) continue;  // the -toughness debuff must be lethal
+      good.push({ a, enemyPow: Math.max(0, permanentPower(state, targetT.id)), buffPow: Math.max(0, permanentPower(state, fighterT.id)) });
+    }
+    if (good.length === 0) return null;                            // no lethal debuff → hold
+    chosen = good.sort((x, y) => (y.enemyPow - x.enemyPow) || (y.buffPow - x.buffPow))[0].a; // kill the biggest, buff our biggest
   } else if (actions.some(a => a.targets?.length)) {
     // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
     // enemies for the scorable legacy effects (damage/destroy); for spells it can't
