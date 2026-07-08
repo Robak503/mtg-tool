@@ -35,6 +35,14 @@ describe("self-bounce — parser (scope-side, non-targeted; optionality preserve
     expect(parseEffectClause("return another creature you control to its owner's hand").atoms[0]).toMatchObject({ scope: "oneYouControlWorst", creatureOnly: true, excludeSource: true });
     expect(parseEffectClause("you may return another permanent you control to its owner's hand").atoms[0]).toMatchObject({ scope: "oneYouControlWorst", excludeSource: true, optional: true });
   });
+  it("'up to one [other] target permanent|creature you control' → optional (may bounce zero) + excludeSource", () => {
+    // "up to one" makes it optional (Stickytongue Sentinel / Exosuit Savior / Mischievous Pup / Flock Impostor).
+    expect(parseEffectClause("return up to one other target permanent you control to its owner's hand").atoms[0])
+      .toMatchObject({ op: "bounce", scope: "oneYouControlWorst", optional: true, excludeSource: true });
+    expect(parseEffectClause("return up to one other target creature you control to its owner's hand").atoms[0])
+      .toMatchObject({ scope: "oneYouControlWorst", optional: true, excludeSource: true, creatureOnly: true });
+    expect(classifyCard(C("Stickytongue Sentinel", "Reach\nWhen this creature enters, return up to one other target permanent you control to its owner's hand.", "Creature — Frog", "{3}{G}"))).toBe("native-trigger");
+  });
 });
 
 describe("self-bounce — classify (ETB / upkeep / compound / optional all native)", () => {

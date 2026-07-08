@@ -294,6 +294,13 @@ export function bounceClauseParser(clause) {
   // "return TARGET …" chosen-target forms above → no overlap.
   const selfB = t.match(/^return (a|another) (permanent|creature) you control to its owner's hand$/);
   if (selfB) return { op: "bounce", scope: "oneYouControlWorst", ...(selfB[2] === "creature" ? { creatureOnly: true } : {}), ...(selfB[1] === "another" ? { excludeSource: true } : {}) };
+  // "return up to one [other] target permanent|creature you control to its owner's hand" (Stickytongue Sentinel
+  // / Exosuit Savior / Mischievous Pup ETB). The SAME worst-pick self-bounce, but "up to one" makes it OPTIONAL
+  // (the controller may bounce ZERO — atom.optional pauses for a real yes/no at runProgram.js), and "other"
+  // (CR 109.5) drops the source. The printed "target" is auto-picked sensibly (least-bad own permanent); the
+  // "up to one" optionality is the load-bearing faithfulness (never forces a bounce the card leaves optional).
+  const uptoB = t.match(/^return up to one (other )?target (permanent|creature) you control to its owner's hand$/);
+  if (uptoB) return { op: "bounce", scope: "oneYouControlWorst", optional: true, ...(uptoB[2] === "creature" ? { creatureOnly: true } : {}), ...(uptoB[1] ? { excludeSource: true } : {}) };
   if (/^return this (?:creature|permanent) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
   // SUBTYPE-CREATURE-BOUNCE (CR 205.3m) — "return target <Subtype> you control to its owner's hand" (Kogla,
