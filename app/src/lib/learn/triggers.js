@@ -440,6 +440,19 @@ function creatureSubjectScope(subj) {
  */
 function classifyCondition(condRaw, cardName, cardType) {
   const c = condRaw.toLowerCase().trim();
+  // TURNED-FACE-UP (morph / megamorph / disguise flip, CR 707.9) — a PURE "…is turned face up" trigger fires
+  // ONLY when a FACE-DOWN permanent is turned face up, an event the engine never reaches (it hard-casts every
+  // card face UP, never face-down-then-flip). So on the engine's play the effect never happens; detecting it
+  // would MODEL an effect that can't fire. Worse, a "…is turned face up, until end of turn, whenever <X>, <Y>"
+  // DELAYED-SETUP wrapper is mis-split by splitTriggerSentence (the "turned face up" + "until end of turn"
+  // clauses carry no event verb, so the split skips past them to the INNER "<X>" event) — so the inner trigger
+  // would be read as a PERMANENT one, a CREED false positive (Mistway Spy: "…whenever a creature you control
+  // deals combat damage to a player, investigate"). Leave it UNDETECTED (return null): the shaped trigger
+  // sentence then out-runs the detected count in allTriggerSentencesModeled → the card stays body-only. The
+  // COMPOUND "enters or is turned face up" (Gadget Technician, Rakish Scoundrel) has "enters" in its lead clause
+  // and is EXCLUDED — it routes as a normal ETB, which DOES fire on the face-up hard cast (correctly modeled).
+  const firstCondClause = c.split(",")[0].trim();
+  if (/\bis turned face up$/.test(firstCondClause) && !/\benters?\b/.test(firstCondClause)) return null;
   const nameL = String(cardName || "").toLowerCase();
   // SHORT-NAME SELF-REF (CR 201.4) — a LEGENDARY card refers to itself by the portion of its name before
   // the first comma ("Pantlaza" for "Pantlaza, Sun-Favored"). The full-name match below misses that, so a

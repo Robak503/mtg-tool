@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Disguise keyword now plays natively (+11).** Nightdrinker Moroii, Undercover
+  Crocodelf, Museum Nightwatch, and others — the face-down-2/2 keyword (same as Morph, with
+  ward); the app plays the card as its normal face-up self. This also fixed a latent bug: a
+  card with a "when turned face up, until end of turn, whenever …" delayed ability (Mistway
+  Spy) was wrongly treated as if that ability were always active — it now correctly does
+  nothing on a normal cast, so it stays deferred rather than misplay.
 - **The Dash alt-cast keyword now plays natively (+16).** Lightning Berserker, Riders of
   Rohan, the Mardu and Kolaghan aggro creatures — "Dash {cost}" lets you cast a creature
   cheaper for haste (it returns to hand at end of turn), but the app plays it as its normal
