@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Four more alt-cast keywords now play natively (+25).** Foretell, Blitz, Freerunning,
+  and Prototype — like Morph/Sneak/Dash, each is just a cheaper optional way to cast a card
+  that never changes what the card does, so the app plays it as its normal-cost self.
+  (Doomskar Titan, Workshop Warchief, Merciless Harlequin, Goring Warplow, and 21 others.)
+
 ## [0.116.0] - 2026-07-08
 
 ### Added

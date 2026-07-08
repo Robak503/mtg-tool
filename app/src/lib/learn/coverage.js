@@ -194,6 +194,8 @@ export function isKeywordOnly(oracle, name) {
     reSneakCost.test(c) ||
     reDashCost.test(c) ||
     reDisguiseCost.test(c) ||
+    reAltCastKeywordCost.test(c) ||
+    rePrototypeCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
@@ -263,6 +265,22 @@ const reSneakCost = /^sneak (?:\{[^}]+\})+$/;
 // DOES fire on the face-up hard cast, so those correctly flip once disguise is recognized.
 const reDashCost = /^dash (?:\{[^}]+\})+$/;
 const reDisguiseCost = /^disguise (?:\{[^}]+\})+$/;
+
+// KW-FORETELL (CR 702.143) / KW-BLITZ (CR 702.152) / KW-FREERUNNING (Assassin's Creed) — three more brace-cost
+// ALTERNATIVE-CAST keywords credited by the SAME exact-shape discipline as morph/ninjutsu/sneak/dash. FORETELL:
+// exile face down for {2}, cast later from exile for the foretell cost. BLITZ: cast for the blitz cost → haste +
+// "when it dies, draw a card" + sacrifice at the next end step. FREERUNNING: cast for the freerunning cost if you
+// dealt combat damage this turn (Assassin/commander). All are OPTIONAL entries with NO engine lane, and every
+// such card ALSO has a normal mana cost, so the engine hard-casts it as its printed self and the body resolves
+// correctly — the only unmodeled part is the optional alt entry (the blitz haste+draw+sac / the deferred foretell
+// cast), which never applies on a hard cast. The caller still validates all OTHER text all-or-nothing.
+const reAltCastKeywordCost = /^(?:foretell|blitz|freerunning) (?:\{[^}]+\})+$/;
+// KW-PROTOTYPE (CR 702.161) — an artifact creature with a SECOND, smaller castable profile ("Prototype {cost} —
+// X/Y (…different mana cost, color, and size; keeps its abilities and types)"). Hard-casting at the printed
+// (full) cost yields the printed (full) creature — the prototype profile is the OPTIONAL cheaper entry the engine
+// never takes — so recognizing the line is CREED-safe (the ninjutsu/morph rationale). Anchored on the "{cost} —
+// X/Y" shape so it can only match a true prototype line.
+const rePrototypeCost = /^prototype (?:\{[^}]+\})+ [—–-] \d+\/\d+$/;
 
 // KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
 // isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),
