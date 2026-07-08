@@ -294,7 +294,8 @@ describe("parseEffectProgram — each-player / target-player discard (EP-2)", ()
     low("Target opponent discards half the cards in their hand, rounded up.");   // Rush of Dread — dynamic count
     low("Target opponent discards two cards, mills a card, and loses 1 life.");  // Mind Drain — unmodeled riders
     low("Each player discards a card, then loses 1 life.");                      // Strongarm-ish — life rider
-    low("Target opponent discards two cards.");                                  // opponent form deferred this slice
+    // NOTE: bare "Target opponent discards N cards." now parses HIGH (TARGET-OPPONENT discard slice) — its
+    // positive pin lives in discardOpponentCantBlock.test.js; the rider forms (294/295 above) still drop.
     // NOTE: Windfall ("… draws cards equal to the greatest number of cards a player discarded this way") now parses
     // HIGH via the WINDFALL max-discard matcher — its positive pin lives in wheelDiscardHand.test.js / windfall.test.js.
   });
@@ -1046,7 +1047,8 @@ const MUST_DROP_TO_LOW = [
   "Target player discards their hand unless they pay 7 life.",                  // Tyrannize — conditional
   "Target opponent discards two cards, mills a card, and loses 1 life.",        // Mind Drain — unmodeled riders
   "Each player discards a card, then loses 1 life.",                            // Strongarm Tactics-ish — life rider
-  "Target opponent discards two cards.",                                        // opponent form deferred this slice
+  // NOTE: bare "Target opponent discards N cards." now parses HIGH (TARGET-OPPONENT discard slice); only the
+  // rider forms (Mind Drain at 1048, dynamic/half counts) still drop. Its positive pin: discardOpponentCantBlock.test.js.
   // NOTE: Windfall ("… draws cards equal to the greatest number of cards a player discarded this way") moved OUT
   // of this drop-to-low gate — it now parses HIGH via the WINDFALL max-discard matcher (see windfall.test.js).
 ];

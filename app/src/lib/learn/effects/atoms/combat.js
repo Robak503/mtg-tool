@@ -787,6 +787,11 @@ export function combatKeywordClauseParser(clause) {
   // scopes to the controller — CR 701.20), so both forms route to the identical atom.
   if (/^(?:you )?untap all lands(?: you control)?$/.test(t)) return { op: "untap-lands", all: true, targetType: null };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // CANT-BLOCK with the printed "an opponent controls" restriction (Clamor Shaman / Plasma Jockey / Smelt-Ward
+  // Minotaur) — the same offensive layer-6 cantBlock grant, but the restriction narrows the legal targets to
+  // opponents' creatures (matching the print, and aligning with cant-block's existing enemy intent so the
+  // trigger flush already picks an opponent's blocker). applyCantBlock is targetType-agnostic → lifts the runtime.
+  if (/^target creature an opponent controls can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] };
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).
   const cbb = t.match(/^target creature( you control)? can't be blocked this turn$/);

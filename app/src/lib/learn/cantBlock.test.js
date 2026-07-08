@@ -32,8 +32,11 @@ describe("cant-block — parser + intent", () => {
     expect(atomTargetIntent({ op: "cant-block", targetType: "creature" })).toBe("enemy");
     expect(programTriggerTargetsResolvable(parseEffectProgram({ type: "Instant", oracle: "Target creature can't block this turn." }))).toBe(true);
   });
-  it("CREED: a restricted/mass/conditional variant does NOT match the bare atom", () => {
-    expect(programConfidence(parseEffectClause("target creature an opponent controls can't block this turn", "Instant"))).toBe("low");
+  it("the 'an opponent controls' restriction now parses (distinct atom); mass / 'this combat' variants still drop", () => {
+    // "an opponent controls" is modeled as cant-block + the opponent controller restriction (same enemy intent).
+    expect(parseEffectClause("target creature an opponent controls can't block this turn", "Instant").atoms[0])
+      .toMatchObject({ op: "cant-block", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] });
+    // …but a MASS ("creatures without flying") or a "this combat" duration variant still fails the exact anchor → LOW.
     expect(programConfidence(parseEffectClause("creatures without flying can't block this turn", "Instant"))).toBe("low");
     expect(programConfidence(parseEffectClause("target creature can't block this combat", "Instant"))).toBe("low");
   });

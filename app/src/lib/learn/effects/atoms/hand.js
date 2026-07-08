@@ -160,6 +160,13 @@ export function discardClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   let m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  // TARGET-OPPONENT discard (Ravenous Rats / Dirty Rat / Deadbridge Shaman ETB) — the same targeted discard as
+  // "target player", but the printed "opponent" narrows the legal targets to opponents (targetType "opponent" →
+  // atomTargetSpec enumerates opponents; the discard is already enemy-intent, so the trigger flush never picks
+  // the controller). The discarding player still chooses which card (CR 701.8). Distinct anchor from "target
+  // player"; the resolver reads the chosen victim regardless of targetType, so it lifts the "player" runtime.
+  m = t.match(/^target opponent discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "opponent" };
   m = t.match(/^each player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^each opponent discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
