@@ -246,6 +246,16 @@ const reCyclingCost = /^cycling (?:\{[^}]+\})+$/;
  * text, so stripping the reminder never drops a real rock/dork (matches the parser, which
  * strips reminders before matching).
  */
+// ENERGY-GATED MANA (CR 122.1e) — remove any mana ability whose activation cost includes "Pay {E}": energy is
+// not yet an enforced cost, so a "{T}, Pay {E}: Add one mana of any color" line is NOT free mana and must not
+// credit native-mana (Servant of the Conduit's ONLY mana ability is energy-gated → it would read as a free
+// dork). An energy-FREE line on the SAME card (Aether Hub's "{T}: Add {C}") survives the strip, so the card
+// keeps its legitimate native tier. Segment-anchored ([^.\n] cost) so it removes exactly the gated ability, not
+// a neighboring free one. (Slice-B pay enforcement will make manaProduction energy-aware and relax this.)
+function stripEnergyGatedManaLines(oracle) {
+  return String(oracle || "").replace(/[^.\n]*\bpay (?:\{e\})+[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
+}
+
 export function hasManaAbility(oracle, typeLine) {
   // Strip a created token's quoted ability before reading the card's OWN mana — a token's "…Add …"
   // belongs to the token, not the card (mirrors manaModel.manaProduction, so the classifier and runtime
@@ -255,7 +265,7 @@ export function hasManaAbility(oracle, typeLine) {
   // (stripNonSelfQuotedGrants — the Cryptolith Rite phantom-granter fix, mirrored from manaProduction so
   // the metric and the runtime mana model agree). Callers that can't supply a type line get the
   // conservative strip — an under-count, never an over-claim.
-  const t = stripNonSelfQuotedGrants(stripCreatedTokenAbilities(stripReminder(oracle)), typeLine);
+  const t = stripEnergyGatedManaLines(stripNonSelfQuotedGrants(stripCreatedTokenAbilities(stripReminder(oracle)), typeLine));
   return /\badd \{[wubrgcx]/i.test(t) ||
     /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(t);
 }

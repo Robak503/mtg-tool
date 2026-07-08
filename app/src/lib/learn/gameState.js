@@ -363,6 +363,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
   return {
     life,
     poison: 0,
+    energy: 0,                // ENERGY ({E}, CR 122.1e / 107.4c) — a player resource counter; "you get {E}" adds, "Pay {E}" spends
     commanderDamageFrom: {},  // CR 903.10a — { commanderInstanceId (fallback: cardId): combatDamage } (per-commander, 21 = a loss)
     commanderCastCount: {},   // CMD-CAST (CR 903.8): { commanderCardId: timesCastFromCommandZone } — drives the {2} tax
     manaPool: emptyManaPool(),
@@ -1152,6 +1153,26 @@ export function addExperience(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("addExperience: amount must be non-negative integer");
   return withPlayer(state, playerId, p => ({ ...p, experience: (p.experience || 0) + amount }));
+}
+
+/** ENERGY (CR 122.1e): give a player energy counters ("you get {E}"). A player-level resource counter
+ * (mirrors addExperience/addPoison) that "Pay {E}" abilities later spend. Non-negative integer amounts. */
+export function addEnergy(state, { playerId, amount }) {
+  assertPlayer(playerId);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("addEnergy: amount must be non-negative integer");
+  return withPlayer(state, playerId, p => ({ ...p, energy: (p.energy || 0) + amount }));
+}
+
+/** ENERGY spend (CR 118.8 / 122.1e): pay N energy from a player's pool. Returns the state with energy reduced;
+ * callers gate on hasEnergy(state, playerId, n) so this never drives energy negative. */
+export function spendEnergy(state, { playerId, amount }) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, p => ({ ...p, energy: Math.max(0, (p.energy || 0) - Math.max(0, amount || 0)) }));
+}
+
+/** Does a player have at least N energy? (the "Pay {E}" affordability gate) */
+export function hasEnergy(state, playerId, amount) {
+  return (state.players?.[playerId]?.energy || 0) >= (amount || 0);
 }
 
 /** RAD-COUNTERS (CR 728): give a player rad counters. A player-level counter (mirrors addPoison/addExperience).

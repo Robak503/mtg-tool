@@ -521,6 +521,12 @@ function manaProductionImpl(card) {
   // of an activated line, but still parse the WHOLE oracle so parseAddClause keeps its multi-clause selection
   // (Arbor Adherent's variable line, Prismatic Lens' any-color line, etc. — unchanged). Lands keep raw-oracle
   // parsing (intrinsic/reminder-printed mana + the colorless fallback).
+  // ENERGY-GATED MANA (CR 122.1e): a "<cost>, Pay {E}: Add …" line is NOT free repeatable mana — the sim can't
+  // yet spend energy, so crediting it would mint PHANTOM mana every turn (Servant of the Conduit / Solar
+  // Transformer read as free any-color dorks; Aether Hub's any-color line over-counted vs its real free {C}).
+  // Strip the gated ability (lands included) so parseAddClause sees only the ENERGY-FREE mana: Aether Hub keeps
+  // its {C}, and a source whose ONLY mana is energy-gated produces nothing → null → non-native, correctly.
+  oracleForAdd = oracleForAdd.replace(/[^.\n]*\bpay (?:\{e\})+[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
   const fromOracle = parseAddClause(oracleForAdd);
   // A NON-LAND activated mana ability must also be PAYABLE by the sim as a standing source. An ability whose
   // only cost is a CONSUMABLE/non-repeatable resource the sim can't spend — a non-self sacrifice (Utopia Mycon

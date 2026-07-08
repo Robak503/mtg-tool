@@ -2,7 +2,7 @@
  * effects/atoms/counters.js — counter atoms (add-counter, proliferate, gain-experience, rad).
  */
 
-import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters } from "../../gameState.js";
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
@@ -212,6 +212,28 @@ export function gainExperienceClauseParser(clause) {
   const m = t.match(/^you get (\d+|one|two|three|four|five) experience counters?$/);
   if (m) return { op: "gain-experience", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
   return null;
+}
+
+/**
+ * ADD-ENERGY (CR 122.1e) — "You get {E}" / "You get {E}{E}…" (the {E} symbol repeated once per energy counter).
+ * Increments the controller's energy pool (player.energy). Non-targeted, infallible (energy is a player resource,
+ * not a targetable object) — mirrors gain-experience exactly. The reminder text "(N energy counters)" is stripped
+ * before this runs, so the canonical clause is the bare "you get {E}…". "Pay {E}" abilities (Slice B) spend it.
+ */
+export function applyAddEnergy(state, atom, ctx) {
+  const count = Math.max(1, atom.count || 1);
+  const pid = ctx.controller;
+  if (!state.players?.[pid]) return state;
+  return addEnergy(state, { playerId: pid, amount: count });
+}
+
+/** ADD-ENERGY clause parser — "you get {E}{E}…" → add-energy(count = number of {E} pips). Pure. */
+export function gainEnergyClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^you get ((?:\{e\})+)$/);
+  if (!m) return null;
+  const count = (m[1].match(/\{e\}/g) || []).length;
+  return count > 0 ? { op: "add-energy", count, targetType: null } : null;
 }
 
 /**
@@ -591,6 +613,7 @@ export const counterResolvers = {
   "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact
   "remove-named-counter-self": applyRemoveNamedCounterSelf, // ARIXMETHES cast trigger: remove a slumber counter from the source permanent
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
+  "add-energy": applyAddEnergy, // ENERGY (CR 122.1e) — "you get {E}…" increments player.energy
   "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main
   "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks
 };
