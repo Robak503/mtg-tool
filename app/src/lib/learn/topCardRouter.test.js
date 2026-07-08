@@ -50,6 +50,40 @@ describe("TOP-CARD ROUTER — recognition", () => {
   });
 });
 
+describe("TOP-CARD ROUTER v2 — no-else / draw / OR-predicate / scry-compose", () => {
+  it("Track Down parses to [scry, router] with the OR-predicate, draw then-route, and leave else-route", () => {
+    const p = parseEffectClause("scry 3, then reveal the top card of your library. if it's a creature or land card, draw a card", "Instant", { hasX: false });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms.map((a) => a.op)).toEqual(["scry", "reveal-top-conditional"]);
+    expect(p.atoms[1]).toMatchObject({ predicates: ["creature", "land"], thenRoute: "draw", elseRoute: "leave" });
+  });
+
+  it("classification: Llanowar Empath (scry-compose ETB) + Track Down (spell) flip; Iron Lad stays (Future-Sight static)", () => {
+    expect(classifyCard({ name: "Llanowar Empath", type: "Creature — Elf Shaman", oracle: "When this creature enters, scry 2, then reveal the top card of your library. If it's a creature card, put it into your hand." })).toBe("native-trigger");
+    expect(classifyCard({ name: "Track Down", type: "Sorcery", oracle: "Scry 3, then reveal the top card of your library. If it's a creature or land card, draw a card." })).toBe("native-spell");
+    expect(classifyCard({ name: "Iron Lad", type: "Legendary Creature — Human Hero", oracle: "Flying, vigilance\nYou may look at the top card of your library any time.\n{T}: Reveal the top card of your library. If it's an artifact card, draw a card." })).toBe("body-only");
+  });
+
+  it("runtime: the no-else miss LEAVES the card on top (no zone change, no draw bump)", () => {
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    const empath = createPermanent({ id: "emp", card: { name: "Synth Empath", type: "Creature — Elf", oracle: "When this creature enters, reveal the top card of your library. If it's a creature card, put it into your hand." }, controller: "user" });
+    let s = { ...base, activePlayer: "user", players: { ...base.players, user: { ...base.players.user, battlefield: [empath], hand: [], library: [{ id: "top1", name: "NotACreature", type: "Sorcery" }] } } };
+    s = drain(flushTriggers(checkEnterTriggers(s, empath), { chooseTargets: chooseTriggerTargets }));
+    expect(s.players.user.library.map((c) => c.name)).toEqual(["NotACreature"]); // stays on top
+    expect(s.players.user.hand).toHaveLength(0);
+    expect(s.players.user.cardsDrawnThisTurn || 0).toBe(0);
+  });
+
+  it("runtime: the draw then-route is a REAL draw (count bumps — the opposite of put-into-hand)", () => {
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    const watcher = createPermanent({ id: "w", card: { name: "Synth Drawer", type: "Creature — Human", oracle: "When this creature enters, reveal the top card of your library. If it's a land card, draw a card." }, controller: "user" });
+    let s = { ...base, activePlayer: "user", players: { ...base.players, user: { ...base.players.user, battlefield: [watcher], hand: [], library: [{ id: "top1", name: "Forest", type: "Basic Land — Forest" }, { id: "lib2", name: "Under", type: "Instant" }] } } };
+    s = drain(flushTriggers(checkEnterTriggers(s, watcher), { chooseTargets: chooseTriggerTargets }));
+    expect(s.players.user.hand.map((c) => c.name)).toEqual(["Forest"]); // the revealed top IS the drawn card
+    expect(s.players.user.cardsDrawnThisTurn).toBe(1);                  // a genuine draw
+  });
+});
+
 describe("TOP-CARD ROUTER — runtime (Neurok Familiar, both arms)", () => {
   function enterNeurok(topCard) {
     const base = createGameState({ userDeck: [], aiDeck: [] });

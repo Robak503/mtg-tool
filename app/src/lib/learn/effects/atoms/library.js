@@ -18,6 +18,9 @@ import { checkMilledTriggers } from "../../triggers.js";
 // ONE-WAY atom-module edge (zones.js does NOT import library.js), so it's cycle-free — the atoms barrel must
 // not be imported here (that would TDZ-cycle, since the barrel imports library.js). Direct sibling import only.
 import { enterCardFromZone } from "./zones.js";
+// Router v2 "draw" route — the SAME applyDrawEffect edge misc.js's draw atom rides (count bump + draw
+// watchers), so the router's real-draw semantics can't drift from the draw atom's.
+import { applyDrawEffect } from "../../spellEffects.js";
 
 /**
  * P3.2 tutor (CR 701.19) — search the caster's library for a card matching the modeled
@@ -932,9 +935,11 @@ export function applyRevealTopConditional(state, atom, ctx) {
       artifact: (c) => String(c?.type || c?.type_line || "").includes("Artifact"),
       enchantment: (c) => String(c?.type || c?.type_line || "").includes("Enchantment"),
     };
-    const test = TYPE_TESTS[atom.predicate];
-    if (!test) return state; // unknown predicate — defensive no-op (the parser only emits the four above)
-    const route = test(top) ? atom.thenRoute : atom.elseRoute;
+    // Router v2: an OR-predicate list ("creature or land" — Track Down) is a union test; single
+    // predicate is the degenerate one-element case.
+    const preds = atom.predicates || [atom.predicate];
+    if (!preds.every((p) => TYPE_TESTS[p])) return state; // unknown predicate — defensive no-op
+    const route = preds.some((p) => TYPE_TESTS[p](top)) ? atom.thenRoute : atom.elseRoute;
     if (route === "battlefield") {
       const r = enterCardFromZone(state, { playerId: controller, cardId: top.id, fromZone: "library" });
       return logEvent(r.state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBattlefield: r.entered });
@@ -942,6 +947,18 @@ export function applyRevealTopConditional(state, atom, ctx) {
     if (route === "hand" || route === "graveyard") {
       const r = moveCardToZone(state, { playerId: controller, cardId: top.id, fromZone: "library", toZone: route });
       return logEvent(r, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toZone: route });
+    }
+    if (route === "draw") {
+      // "If it's a <T> card, DRAW a card" (Track Down) — a REAL draw of the just-revealed top card:
+      // applyDrawEffect owns the whole draw semantics (count bump + draw watchers — the opposite of the
+      // put-into-hand rule; the same edge misc.js's draw atom rides, so the two can't drift).
+      const drawn = applyDrawEffect(state, { controller, amount: 1 });
+      return logEvent(drawn, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, drew: true });
+    }
+    if (route === "leave") {
+      // NO-ELSE form (CR-literal): the condition failed and the card simply STAYS ON TOP — a revealed
+      // no-op, logged so the reveal is visible (never a silent disappearance).
+      return logEvent(state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, left: true });
     }
     // route === "bottom" (the may-bottom else of the Lurking shape, param form)
     const bottomed = { ...state, players: { ...state.players, [controller]: { ...player, library: [...lib.slice(1), top] } } };

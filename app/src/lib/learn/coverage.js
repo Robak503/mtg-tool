@@ -613,6 +613,10 @@ export function permanentTriggersCovered(card) {
     // HIGH gate already vouched for — an UNmodeled variant (a "you may" then-branch, an MV cap, a name
     // predicate) fails the HIGH gate and never reaches here (FN-safe).
     .replace(/\bif it['’]s an? (?:creature|artifact|land|enchantment) card, put it (?:onto the battlefield|into your hand)\. otherwise, put (?:it|that card) into your (?:graveyard|hand)\b\.?\s*/gi, " ")
+    // TOP-CARD ROUTER v2 — the NO-ELSE forms (Llanowar Empath "If it's a creature card, put it into your
+    // hand."; the draw-then form), incl. the OR-predicate (Track Down "creature or land"). Same FN-safe
+    // discipline: only a follow-up the HIGH gate already vouched for reaches this strip.
+    .replace(/\bif it['’]s an? (?:creature|artifact|land|enchantment)(?: or (?:creature|artifact|land|enchantment))? card, (?:put it into your hand|draw a card)\b\.?\s*/gi, " ")
     // SELF-CAST HALF-X ROUNDING (CR 107.3) — a trailing "Round down/up each time." directive is part of the
     // self-cast trigger's effect (it governs the "half X" magnitudes the parser models via the halve flag, so
     // the WHOLE effect parses HIGH in allTriggerSentencesModeled above — proven before this residue check runs),

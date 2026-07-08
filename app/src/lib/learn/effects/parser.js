@@ -2053,6 +2053,20 @@ function matchRevealTopConditional(oracle) {
   if (rt) {
     return { atom: { op: "reveal-top-conditional", targetType: null, predicate: rt[1], thenRoute: rt[2] === "onto the battlefield" ? "battlefield" : "hand", elseRoute: rt[3] } };
   }
+  // NO-ELSE forms (router v2): "Reveal the top card of your library. If it's a <T1>[ or <T2>] card,
+  // <put it into your hand|draw a card>." — the absent otherwise-branch is CR-literal: nothing happens,
+  // the revealed card STAYS ON TOP (elseRoute:"leave", a logged no-op). thenRoute "draw" is a REAL draw
+  // (Track Down "draw a card" — applyDrawEffect, draw triggers fire; the opposite of the put-into-hand
+  // rule). The OR-predicate ("creature or land" — Track Down) is a union test. An optional leading
+  // "Scry N, then " (Llanowar Empath / Track Down) prepends a REAL scry atom (the same pause/resume
+  // machinery any multi-atom program uses); returned as {atoms} (the Windfall multi-atom shape).
+  const rt2 = s.match(/^(?:scry (\d+), then )?reveal the top card of your library\. if it's an? (creature|artifact|land|enchantment)(?: or (creature|artifact|land|enchantment))? card, (put it into your hand|draw a card)$/);
+  if (rt2) {
+    const router = { op: "reveal-top-conditional", targetType: null, predicate: rt2[2], thenRoute: rt2[4] === "draw a card" ? "draw" : "hand", elseRoute: "leave" };
+    if (rt2[3]) router.predicates = [rt2[2], rt2[3]];
+    if (rt2[1]) return { atoms: [{ op: "scry", amount: parseInt(rt2[1], 10), targetType: null }, router] };
+    return { atom: router };
+  }
   return null;
 }
 
@@ -2724,8 +2738,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // branch would shatter under the clause splitter, so it's collapsed up front. HIGH iff the op is KNOWN (it is).
   // Not an X spell.
   const rtc = matchRevealTopConditional(oracle);
-  if (rtc && KNOWN.has(rtc.atom.op)) {
-    return makeProgram({ confidence: "high", atoms: [rtc.atom], xSpell: false, unparsedTail: null });
+  if (rtc) {
+    // Router v2 may return the multi-atom shape ({atoms: [scry, router]} — the Windfall contract);
+    // the single-atom branches keep {atom}. Every op must be KNOWN either way.
+    const rtcAtoms = rtc.atoms || [rtc.atom];
+    if (rtcAtoms.every((a) => KNOWN.has(a.op))) {
+      return makeProgram({ confidence: "high", atoms: rtcAtoms, xSpell: false, unparsedTail: null });
+    }
   }
   // ===== IMPULSE-EXILE-AND-PLAY ===== "Exile the top card of your library. You may play that card this turn."
   // → ONE impulse-exile atom (exile the top card face-up + stamp the this-turn play permission; the action
