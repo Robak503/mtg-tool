@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Reanimate's life payment now plays natively (+1).** "Put target creature card from a
+  graveyard onto the battlefield under your control. You lose life equal to that card's
+  mana value" (Reanimate) — the life loss is bound to the reanimated card's mana value,
+  captured before it leaves the graveyard.
+- **Non-creature artifact clones now play natively (+3).** Sculpting Steel ("copy of any
+  artifact"), Copy Artifact, and Masterwork of Ingenuity ("copy of any Equipment") — the
+  clone runtime already copied artifacts; this recognizes the non-creature clone *cards*.
 - **Doubling a creature's power/toughness now plays natively (+3).** "Double the power
   and toughness of each creature you control" (Unnatural Growth), "double this creature's
   power and toughness" (Reckless Amplimancer), and "double [this creature]'s power" (Tifa
