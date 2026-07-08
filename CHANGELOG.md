@@ -8,6 +8,27 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.112.0] - 2026-07-08
+
+### Added
+- **+32 more cards play natively (overnight coverage grind, part 2).** Four clean
+  parser levers on already-modeled effects, each flip-diff verified (only the
+  intended cards gained, zero regressions):
+  - **Pump-then-fight spells** — "Target creature you control gets +X/+Y until
+    end of turn. It fights target creature you don't control" (Epic Confrontation,
+    Ruthless Predation, Savage Smash, Swift Kick, Wild Instincts, Chelonian
+    Tackle, Mage Duel): the buffed creature deals more and survives the return
+    damage — a real fight, not a half-resolve. +7.
+  - **Untap-then-pump spells** — "Untap target creature. It gets +X/+Y [and gains
+    reach] until end of turn" (Ornamental Courage, Inspirit, Gerrard's Command,
+    Spidery Grasp, Aim High, Steady Aim). +6.
+  - **Target-opponent discard** — "target opponent discards N cards" (Ravenous
+    Rats, Dirty Rat, Deadbridge Shaman, Deception, Purge the Profane, Mindculling,
+    Psychic Symbiont, and more): the chosen opponent discards, you don't. +N.
+  - **"Can't block" on an opponent's creature** — "target creature an opponent
+    controls can't block this turn" (Clamor Shaman, Arena Athlete, Smelt-Ward
+    Minotaur). Combined discard + can't-block: +19.
+
 ## [0.111.0] - 2026-07-07
 
 ### Added
