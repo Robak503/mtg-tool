@@ -173,7 +173,7 @@ describe("SAC-X-SUBTYPE — runtime (legalChoices → dispatch → resolve)", ()
     const act = activateActions(s, "gr").find((a) => a.xValue === 2 && a.targets.some((t) => t.id === "vic"));
     const after = dispatchAction(s, act);
     expect(treasureCount(after, "user")).toBe(1);                   // 3 → 1 (two cracked for the sac)
-    expect(after.players.user.graveyard.filter((c) => c.name === "Treasure")).toHaveLength(2);
+    expect(after.players.user.graveyard.filter((c) => c.name === "Treasure")).toHaveLength(0); // the cracked TOKENS cease to exist (CR 111.7)
     expect(after.players.user.manaPool.B).toBe(1);                  // {B} paid (2 → 1)
     const resolved = resolveTopOfStack(after);
     const big = resolved.players.ai.battlefield.find((p) => p.id === "vic");

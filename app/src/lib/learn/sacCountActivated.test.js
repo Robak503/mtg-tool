@@ -192,7 +192,7 @@ describe("SAC-N-SUBTYPE — runtime (legalChoices → dispatch → resolve)", ()
 
     const after = dispatchAction(s, act);
     expect(treasureCount(after, "user")).toBe(1);                                    // 4 → 1 (three cracked)
-    expect(after.players.user.graveyard.filter((c) => c.name === "Treasure")).toHaveLength(3);
+    expect(after.players.user.graveyard.filter((c) => c.name === "Treasure")).toHaveLength(0); // the cracked TOKENS cease to exist (CR 111.7), never graveyard bodies
     expect(after.players.user.battlefield.find((p) => p.id === "kn")).toBeTruthy();  // the SOURCE stays
     const resolved = resolveTopOfStack(after);
     expect(resolved.players.user.hand.map((c) => c.id)).toContain("L0");             // drew

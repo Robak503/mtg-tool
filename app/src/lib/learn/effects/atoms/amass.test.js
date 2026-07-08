@@ -49,7 +49,8 @@ describe("AMASS resolver — no Army present (mint a token)", () => {
   it("a 0-amass (X=0) mints a 0/0 that dies to the lethal SBA (CR 107.3 no-op count, not forced to 1)", () => {
     const s = amass(baseState(), { subtype: "Orc", countX: true }, { xValue: 0 });
     expect(armies(s)).toHaveLength(0);                             // the 0/0 entered then died
-    expect(s.players.user.graveyard.some((c) => /\bOrc Army\b/.test(c.type || ""))).toBe(true);
+    // The Army is a TOKEN, so it CEASES to exist on leaving the battlefield (CR 111.7) — not a graveyard body.
+    expect(s.players.user.graveyard.some((c) => /\bOrc Army\b/.test(c.type || ""))).toBe(false);
   });
 });
 

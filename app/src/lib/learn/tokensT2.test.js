@@ -46,8 +46,8 @@ describe("TOK-2 — Treasure / Gold are one-shot mana (sacrificed, never reusabl
     const cast = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "spell1");
     expect(cast).toBeTruthy();
     const after = dispatchAction(s, cast);
-    expect(after.players.user.battlefield.find((p) => p.id === "treas")).toBeUndefined(); // gone
-    expect(after.players.user.graveyard.some((c) => c.name === "Treasure")).toBe(true);   // sacrificed, not tapped
+    expect(after.players.user.battlefield.find((p) => p.id === "treas")).toBeUndefined(); // sacrificed (gone from bf), not tapped
+    expect(after.players.user.graveyard.some((c) => c.name === "Treasure")).toBe(false);  // a TOKEN ceases to exist, never a graveyard body (CR 111.7)
     expect(after.stack.map((o) => o.source?.name)).toContain("Gainer");                   // spell cast
   });
 
@@ -57,7 +57,7 @@ describe("TOK-2 — Treasure / Gold are one-shot mana (sacrificed, never reusabl
     expect(tap).toMatchObject({ sacrifices: true });
     const after = dispatchAction(s, tap);
     expect(after.players.user.battlefield.find((p) => p.id === "treas")).toBeUndefined();
-    expect(after.players.user.graveyard.some((c) => c.name === "Treasure")).toBe(true);
+    expect(after.players.user.graveyard.some((c) => c.name === "Treasure")).toBe(false); // TOKEN ceases (CR 111.7), not a graveyard body
     expect(totalPool(after.players.user)).toBe(1); // one any-color mana floated
   });
 
@@ -66,7 +66,8 @@ describe("TOK-2 — Treasure / Gold are one-shot mana (sacrificed, never reusabl
     const tap = legalActionsForPlayer(s, "user").find((a) => a.kind === "tap-for-mana" && a.permanentId === "gold");
     expect(tap).toMatchObject({ sacrifices: true });
     const after = dispatchAction(s, tap);
-    expect(after.players.user.graveyard.some((c) => c.name === "Gold")).toBe(true);
+    expect(after.players.user.battlefield.find((p) => p.id === "gold")).toBeUndefined();  // sacrificed (gone from bf)
+    expect(after.players.user.graveyard.some((c) => c.name === "Gold")).toBe(false);      // TOKEN ceases (CR 111.7)
   });
 
   it("prefers a land over cracking a Treasure when both can pay the generic", () => {
@@ -96,8 +97,9 @@ describe("TOK-2 — Clue / Food activate via the stack path", () => {
     const act = legalActionsForPlayer(s, "user").find((a) => a.kind === "activate-ability" && a.permanentId === "food");
     expect(act).toMatchObject({ sacSelf: true, tapSelf: true });
     const dispatched = dispatchAction(s, act);
+    expect(dispatched.players.user.battlefield.find((p) => p.id === "food")).toBeUndefined(); // sacrificed as a cost
     const resolved = resolveTopOfStack(dispatched);
-    expect(resolved.players.user.graveyard.some((c) => c.name === "Food")).toBe(true);
+    expect(resolved.players.user.graveyard.some((c) => c.name === "Food")).toBe(false);   // TOKEN ceases (CR 111.7)
     expect(resolved.players.user.life).toBe(lifeBefore + 3);
   });
 });

@@ -635,6 +635,15 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     if (toZone === "battlefield") {
       // Permanent moves to battlefield from battlefield — weird but possible (blinks).
       nextDest = [...player[toZone], permanent];
+    } else if (card?.token) {
+      // TOKEN CEASES-TO-EXIST (CR 111.7 / 704.5d) — a token that leaves the battlefield to ANY other zone
+      // (graveyard via death, hand via bounce, exile, library via tuck) ceases to exist as a state-based
+      // action. Its death/leave EVENTS still fire (checkDiesTriggers reads the LKI `dead` list, and
+      // detachPermanentFromAll below queues the leave event), so a token's dies/LTB triggers resolve exactly
+      // as printed — we simply DON'T add the token card to the destination, so it vanishes instead of
+      // persisting as a castable card in hand or a body in the graveyard. Without this, every bounce / exile /
+      // tuck / death leaked the token into a public zone (pre-existing engine-wide gap; pollutes self-play data).
+      nextDest = player[toZone];
     } else {
       // Unwrapping: drop permanent state, keep the card. `toTop` (tuck-to-top-of-library) prepends
       // instead of appending — library index 0 is the TOP (drawCardEffect slices from the front).
