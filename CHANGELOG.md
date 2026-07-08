@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.115.0] - 2026-07-08
+
+### Added
+- **The STUN mechanic now plays natively (+11).** "Tap target creature and put a stun
+  counter on it" (Gilded Scuttler, Grappling Kraken, Rowdy Snowballers, Splash Lasher,
+  Utrom Scientists, …): the stunned creature is truly tap-locked — it skips its next
+  untap and removes a stun counter instead, enforced on *every* untap path (the untap
+  step, "untap target creature" effects, and Seedborn Muse / Murkfiend) per CR 122.1c.
+- **Energy optional-pay triggers (+5)** — "Whenever this creature attacks, you may pay
+  {E}{E}. If you do, create a 1/1 Servo" (Aether Poisoner, Swooper, Chaser, …). Completes
+  the energy mechanic (gain + pay + optional-pay).
+- **Exile from an opponent's graveyard (+5)** — Disposal Mummy, Leonin of the Lost Pride,
+  Disruptor Wanderglyph, Ruin Rat, Scavenging Harpy: the exile correctly targets an
+  opponent's graveyard, never your own.
+
 ## [0.114.0] - 2026-07-08
 
 ### Added
