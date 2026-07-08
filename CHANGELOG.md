@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Dash alt-cast keyword now plays natively (+16).** Lightning Berserker, Riders of
+  Rohan, the Mardu and Kolaghan aggro creatures — "Dash {cost}" lets you cast a creature
+  cheaper for haste (it returns to hand at end of turn), but the app plays it as its normal
+  self (the same handling as Sneak, Ninjutsu, and Morph).
 - **The Sneak alt-cast keyword now plays natively (+8).** Foot Ninjas, Elektra, Splinter,
   Oroku Saki, and the four "Technique" spells — "Sneak {cost}" lets you cast a card cheaper
   by returning an attacker to hand, but it never changes what the card does, so the app

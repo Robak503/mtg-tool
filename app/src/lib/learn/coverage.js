@@ -192,6 +192,7 @@ export function isKeywordOnly(oracle, name) {
     reWardLifeCost.test(c) ||
     reMorphCost.test(c) ||
     reSneakCost.test(c) ||
+    reDashCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
@@ -245,6 +246,21 @@ const reMorphCost = /^(?:mega)?morph (?:\{[^}]+\})+$/;
 // that residue and stays body-only. Anchored ^…$ with a brace-cost tail, so a sneak-referencing static never
 // matches. (Reminder text is stripped upstream by isKeywordOnly before the clause split.)
 const reSneakCost = /^sneak (?:\{[^}]+\})+$/;
+
+// KW-DASH (CR 702.109) — a brace-cost ALTERNATIVE-CAST creature keyword, credited by the SAME exact-shape
+// discipline as morph/ninjutsu/sneak. Cast for the dash cost → the creature gains haste and returns to hand at
+// the next end step. It is an OPTIONAL entry the engine does not offer (no dash lane in legalChoices); every
+// dash card ALSO has a normal mana cost, so the engine hard-casts it as its printed self and the body resolves
+// correctly — the only unmodeled part is the optional dash entry (haste + end-step bounce), which can never
+// mis-resolve. The caller still validates all OTHER text all-or-nothing. Anchored ^…$ with a brace-cost tail.
+//
+// DISGUISE (CR 702.168) is DEFERRED: it's the same face-down structure as morph (cast face down for {3} as a
+// 2/2 with ward {2}), BUT recognizing it EXPOSES a latent detectTriggers bug — a PURE "When this creature is
+// turned face up, until end of turn, whenever <X>, <Y>" delayed-setup trigger (Mistway Spy) is mis-parsed as a
+// PERMANENT "whenever <X>, <Y>" trigger (the turned-face-up + until-end-of-turn wrapper is dropped), so crediting
+// disguise would fire that payoff on a hard-cast when the real card does nothing = a CREED false positive.
+// Deferred until detectTriggers treats a pure turned-face-up trigger as unmodeled (unreachable on a hard cast).
+const reDashCost = /^dash (?:\{[^}]+\})+$/;
 
 // KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
 // isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),
