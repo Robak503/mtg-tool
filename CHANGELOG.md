@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **"Whenever a creature you control is dealt damage" triggers now play natively (+1).**
+  Rite of Passage — the non-self sibling of enrage. When any creature you control takes
+  damage, the watcher fires on it (e.g. puts a +1/+1 counter on the damaged creature).
+  Controller-gated (an opponent's creature taking damage doesn't fire it) and it stacks
+  correctly with multiple watchers.
+
 ## [0.116.0] - 2026-07-08
 
 ### Added

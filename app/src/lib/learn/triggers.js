@@ -1128,6 +1128,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bis dealt damage$/.test(c) && selfRef) {
     return { event: "dealtDamage", scope: "self", whose: "any" };
   }
+  // CONTROLLER-SCOPE dealt-damage (Rite of Passage — "Whenever a creature you control is dealt damage, put a
+  // +1/+1 counter on it"): the WATCHER is a DIFFERENT permanent than the damaged creature (an enchantment, not
+  // the creature that took damage). checkDealtDamageTriggers scans the damaged creature's controller's trigger
+  // sources and fires this descriptor with triggeringPermanent = the damaged creature; scopeMatches gates
+  // creatureYouControl (the damaged creature must be a creature the watcher's controller controls). The
+  // effect's "it" / "that creature" → the triggering (damaged) creature via the ETB_ENTERING_PRONOUN rewrite
+  // arm below (extended to dealtDamage). Whole-clause anchored ($) so a filtered/rider form stays Arbiter.
+  if (/^a creature you control is dealt damage$/.test(c)) return { event: "dealtDamage", scope: "creatureYouControl", whose: "any" };
 
   // HEROIC (CR 702.35) — "Whenever you cast a spell that targets this creature, <effect>".
   // Fires when the controller casts any spell that has this permanent as a chosen target. The
@@ -1919,7 +1927,11 @@ export function detectTriggers(card) {
         // CANT_REGEN_TEST on the full oracle and stamps cannotRegenerate on the destroy atom. The detector
         // gated nativeness on this exact "destroy that creature" prefix, so no other effect reaches this rewrite.
         effectClause = effectClause.replace(/^destroy that creature/i, "destroy the triggering creature");
-      } else if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) || cls.event === "attacks" && (cls.scope === "creatureYouControl" || cls.scope === "equippedCreature")) && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
+      } else if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) || cls.event === "attacks" && (cls.scope === "creatureYouControl" || cls.scope === "equippedCreature") || cls.event === "dealtDamage" && cls.scope === "creatureYouControl") && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
+        // (The `dealtDamage`/creatureYouControl arm — Rite of Passage "put a +1/+1 counter on it": on
+        // dealtDamage the triggering permanent IS the damaged creature (checkDealtDamageTriggers threads it as
+        // triggeringPermanent), the same referent guarantee as the entering creature on etb, so the identical
+        // "it" → "the triggering creature" sentinel rewrite is sound.)
         // (The `attacks`/creatureYouControl arm — Reyav "that creature gains double strike until end of
         // turn": on `attacks` the triggering permanent IS the attacker (checkAttackTriggers threads
         // attackerPerm as triggeringPermanent), the same referent guarantee as the entering creature on
@@ -3182,6 +3194,15 @@ export function checkDealtDamageTriggers(state, events) {
     const context = { dealtDamageAmount: ev.amount, combatDamageAmount: ev.amount };
     // self ("this creature is dealt damage"): the source and the triggering permanent are the same object.
     fired = fired.concat(triggersForEvent(state, { event: "dealtDamage", sourcePermanent: perm, triggeringPermanent: perm, triggeringContext: context }));
+    // WATCHER SCAN — "Whenever a creature you control is dealt damage, …" (Rite of Passage): the watcher is a
+    // DIFFERENT permanent than the damaged creature. Scan the damaged creature's controller's trigger sources
+    // and fire each creatureYouControl-scoped dealtDamage watcher (scopeMatches gates the controller + that the
+    // triggering permanent is a creature). Skip the damaged creature itself (its self trigger already fired
+    // above, so it can't double-fire). Mirrors checkAttackTriggers' per-attacker watcher scan.
+    for (const watcher of triggerSourcesOf(state, perm.controller)) {
+      if (watcher.id === perm.id) continue;
+      fired = fired.concat(triggersForEvent(state, { event: "dealtDamage", sourcePermanent: watcher, triggeringPermanent: perm, triggeringContext: context }));
+    }
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
