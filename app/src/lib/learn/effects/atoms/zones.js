@@ -242,6 +242,11 @@ export function graveyardReturnClauseParser(clause) {
   // `$` anchor rejects "from your graveyard" (the caster-only forms above), "up to N"/plural, a type-filtered
   // variant, or a trailing rider → low → Arbiter (FN-safe). cardFilter "any" matches every graveyard card.
   if (/^exile target card from a graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any" };
+  // GY-EXILE-OPPONENT — "exile target card from an opponent's graveyard" (Disposal Mummy, Leonin of the Lost
+  // Pride, Disruptor Wanderglyph). Opponent-scoped (opponentGraveyard → enumerate only opponents' graveyards),
+  // destination exile. Reuses applyExileFromGraveyard's cross-zone move (it already handles opponentGraveyard,
+  // like Ashen Powder's reanimate above) — only the parser form was missing. Same `$`-anchored FN-safe rejection.
+  if (/^exile target card from an opponent's graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", opponentGraveyard: true, cardFilter: "any" };
   return null;
 }
 
