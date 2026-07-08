@@ -2578,6 +2578,24 @@ function matchPumpThenFight(oracle) {
   return { atoms: [{ ...fp, fighterPump: { power, toughness } }] };
 }
 
+// UNTAP-THEN-PUMP (Ornamental Courage / Inspirit / Gerrard's Command / Spidery Grasp / Aim High / Steady Aim) —
+// "Untap target creature. It gets +X/+Y [and gains reach] until end of turn." The "It" is anaphoric to the
+// untap's target, so the clause splitter would shatter it into [untap, <anaphoric pump>] where the pump clause
+// alone parses LOW (no bound referent). But untap-then-pump on the SAME single creature is order-independent —
+// a pump atom already carries an `untap:true` flag (applyPumpEffect untaps its target after the buff), so this
+// collapses UP FRONT into ONE pump atom carrying that flag (identical to the shipped "…until end of turn. Untap
+// it." reverse-order form). The reach rider maps to the grantable-keyword grant (reach is grant-verified — Vines
+// of the Recluse). A different granted keyword, a second target, or any other rider fails the exact anchor →
+// falls through → LOW → Arbiter (CREED). Not an X spell.
+function matchUntapThenPump(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^untap target creature\. it gets \+(\d+)\/\+(\d+)( and gains reach)? until end of turn$/);
+  if (!m) return null;
+  const atom = { op: "pump", targetType: "creature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, untap: true };
+  if (m[3]) atom.grantKeywords = ["Reach"];
+  return { atoms: [atom] };
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
@@ -2710,6 +2728,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const ptf = matchPumpThenFight(oracle);
   if (ptf && ptf.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: ptf.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== UNTAP-THEN-PUMP (Ornamental Courage / Inspirit / Gerrard's Command / Spidery Grasp / Aim High / Steady
+  // Aim) ===== "Untap target creature. It gets +X/+Y [and gains reach] until end of turn." → ONE pump atom with
+  // untap:true (see matchUntapThenPump). Collapsed up front so the anaphoric "It" binds to the untap's target.
+  // HIGH iff the op is KNOWN (pump). Not an X spell.
+  const utp = matchUntapThenPump(oracle);
+  if (utp && utp.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: utp.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== GENESIS-WAVE ===== (an {X}-cost mass permanent-drop) — "Reveal the top X cards. You may put any number
   // of <filter> cards with mana value X or less from among them onto the battlefield. Then put all cards revealed
