@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.116.0] - 2026-07-08
+
 ### Added
 - **Morph and Megamorph creatures now play natively (+65).** War Behemoth, Sagu Mauler,
   Titanic Bulvox, Ponyback Brigade, and 61 others — the "Morph {cost}" / "Megamorph {cost}"

@@ -5,7 +5,9 @@
 > mana is "{T}, Pay {E}: Add …" stay non-native: the mana model deliberately does NOT count energy-gated mana as a free source (else the
 > AI would spend mana it can't make). Modeling them = "conditional mana gated on the energy pool," a real build (~10-15 cards). Want it?
 > **Q3 — Token-cleanup fix: DONE ✅** (CR 111.7, shipped v0.114.0). Confirm it matches what you wanted (fixes a pre-existing engine-wide gap).
-> **Q4 — Remaining tail = deep SUBSYSTEMS.** The clean parser/targeting levers are now genuinely exhausted (I built ~10 this run). What's
+> **Q4 — UPDATED v0.116.0: the "clean levers exhausted" claim was WRONG.** RECOGNITION levers (keyword-cost / alt-cast forms the classifier
+> didn't recognize but the engine already plays inert-or-enforced) were a rich vein: morph +65, ward-pay-life +3, double-P/T +3 this run.
+> Next recognition candidates: exalted (~16), flanking (~7), soulshift (~15). THEN the deep SUBSYSTEMS below. Original note preserved: what's
 > left needs real subsystem builds, each ~a session: **graft** (~9, keyword: enters-with-counters + move-a-counter trigger + AI — the
 > reminder-text counters aren't even recognized yet), **suspend / time counters** (~9, exile-with-counters + cast-when-last-removed),
 > **detain** (~3), **token-copies "create that many copies"** (~6). Also small-but-fiddly: **artifact-recursion "another artifact from GY"**
@@ -14,6 +16,25 @@
 > **No other blockers.** Everything committed + pushed on `claude/elated-feistel-ab8e90`.
 >
 > ── ↓ shipped releases ↓ ──
+> 🃏 **v0.116.0 — 2026-07-08 (Cindy, Opus 4.8, autonomous grind). SHIPPED — +75 native, LOST=0. MORPH + a vein of RECOGNITION levers.**
+> Cut at 75 — a big one, but honest: it's dominated by **morph recognition** (+65), a single sanctioned recognition lever (the
+> cycling/ninjutsu precedent), not 65 bespoke builds. **Correction to the last run's Q4 claim** ("clean parser/targeting levers are
+> exhausted"): that was too pessimistic — **RECOGNITION levers** (keyword-cost / alt-cast forms already enforced-or-inert but unrecognized
+> by the classifier) were a rich, untapped vein. **The bundle:**
+> **① MORPH / MEGAMORPH** (`42e2cf73`, +65) — `isKeywordOnly` gains `reMorphCost` (brace-cost anchored, mirrors reCyclingCost/reNinjutsuCost).
+> Morph is an optional alt-cast with no engine lane; every morph card ALSO hard-casts face-up correctly, so recognizing it is honest (the
+> ninjutsu rationale). **Adversarially verified — 3 skeptics, live engine: 0 anomalies across all 65 (each offers exactly ONE face-up cast,
+> identical to a body-only morph card; no morph/alt-cast lane fires), Ponyback ETB fires 3 goblins, megamorph ignores the face-down counter,
+> LOST=0 independently reproduced, Disguise/Cloak/non-mana-morph/statics all correctly stay body-only.** 3/3 refuted=false.
+> **② DOUBLE power/toughness** (`d432477d`, +3) — Unnatural Growth (team), Reckless Amplimancer (self), Tifa Lockhart (self power-only, via a
+> possessive self-name rewrite). A NEW per-target pump mode: each creature gains +its-own-current-P/T (CR 701.10 snapshot). **Adversarial gate
+> CAUGHT a real CR 701.10c bug** (a `Math.max(0,…)` floor under-doubled negative power) → FIXED (signed delta) + pinned.
+> **③ Ward—Pay N life** (`28b7c7e8`, +3) — Owlin Shieldmage / Sire of Seven Deaths / Dwarven Forge-Chanter. The life-tax is ALREADY enforced
+> end-to-end (proven: soft-counter fires cost-aware); only the em-dash classifier recognition was missing. Ward—Discard/Sacrifice stay
+> body-only (unenforced victim-choice, safe FN). **④ Pre-session pot** (`890716fc`+`ff81e231`, +4) — Reanimate-drain + non-creature artifact clones.
+> **Fence (every batch): flip-diff GAINED=intended/LOST=0 · lint 0 · trajectory `ab524e20` ×N (metric-only changes, zero runtime drift) ·
+> full suite 565 files / 7,955 green · doublePt/wardPayLifeCost/morphKeyword tests.** **NEXT clean vein: more recognition levers** — exalted
+> (~16, needs the attack-alone pump enforced), flanking (~7), soulshift (~15, dies-trigger); then bespoke subsystems (graft/suspend/detain).
 > 🔒 **v0.115.0 — 2026-07-08 (Cindy, Opus 4.8, 7-HR RUN). SHIPPED — +21 native, LOST=0. THE STUN MECHANIC + energy completion.**
 > Cut at 21 (a whole new mechanic + energy finished) after the clean-lever space was genuinely exhausted. **The bundle:**
 > **① STUN mechanic** (`f0f28691`, +11) — "tap target creature and put a stun counter on it" is now an ENFORCED tap-lock (CR 122.1c):
