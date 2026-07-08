@@ -1,3 +1,22 @@
+> 🔨 **v0.113.0 POT (open, NOT yet released — 9 of the ~30 bar) — 2026-07-08 (Cindy, Opus 4.8).** After v0.112.0 I kept grinding per
+> "keep working until you can't." Banked one more clean lever: **"another target creature you control gains KW"** (`9b3398ee`, +9 —
+> Flesh Burrower / Starling / Trained Condor / Heavenly Qilin / Toxic Scorpion / Void Grafter / Selfless Savior / Blooming Stinger /
+> Scourge; the "another"/excludeSource prefix on the already-native "target creature you control gains KW", runtime-proven the source
+> is excluded). Full battery green (553 files / 7,889 tests · trajectory `ab524e20` ×2 · lint 0). **Pot = 9; per your "every 30+" rule
+> I'm HOLDING — no tag yet. Cut v0.113.0 whenever you like (the 9 are verified + pushed on `claude/elated-feistel-ab8e90`), or let a
+> future session top it up to 30.**
+> **🏁 SAFE-PARSER-LEVER CEILING CONFIRMED (a second full corpus clean-miss sweep after the 5 levers):** every remaining single-clause
+> miss is now either a **SUBSYSTEM** (time-counters/suspend ~9, graft ~9, stun-counter ~11 — the tap-lock is NOT runtime-modeled, only a
+> proliferate heuristic, so flipping = partial-resolve FP; detain ~3, exile-from-hand ~3, token-copies ~6, powerstone — deliberately
+> excluded like Blood/Map, "that much"/referent drains ~3) or needs **NEW MACHINERY**: **self-bounce-your-own** "return a permanent/
+> creature you control to its owner's hand" (Kor Skyfisher / Roaring Primadox / Shrieking Drake / Emancipation Angel — ~14 cards, the
+> BIGGEST remaining lever) needs an own-permanent CHOICE heuristic (the AI must pick which permanent to bounce — a bad pick is a
+> quality FP); **return-another-artifact-from-your-GY** (Junk Diver / Myr Retriever, ~3) needs excludeSource plumbed into the
+> graveyardCard target spec; **target-player mill** (~3) stays deferred (self-mill-on-trigger risk). **Session flip total: 74** (v0.111.0
+> +33 · v0.112.0 +32 · pot +9). I've genuinely hit "can't" for SAFE parser levers — the rest is the "systems later" bucket, prioritized
+> above (self-bounce-own first = best card/effort). Holding here; nothing left I can flip WITHOUT risking a false-positive (CREED).
+>
+> ── ↓ shipped releases ↓ ──
 > 🌅 **v0.112.0 — 2026-07-08 (Cindy, Opus 4.8, OVERNIGHT GRIND part 2). SHIPPED — +32 native, LOST=0. Four clean parser levers.**
 > Second overnight release (grind continued past v0.111.0 per "keep working until you can't, even after releases"). **The 32
 > (3 commits, each full-battery'd):**
