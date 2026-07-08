@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Ward—Pay N life" now plays natively (+3).** Owlin Shieldmage, Sire of Seven Deaths,
+  and Dwarven Forge-Chanter — an opponent targeting these creatures must pay the life or
+  their spell/ability is countered (the tax was already enforced; this teaches the coverage
+  metric to recognize the em-dash cost form). Ward—Discard and Ward—Sacrifice stay deferred:
+  paying those requires choosing a card/permanent to lose, which isn't modeled yet.
 - **Reanimate's life payment now plays natively (+1).** "Put target creature card from a
   graveyard onto the battlefield under your control. You lose life equal to that card's
   mana value" (Reanimate) — the life loss is bound to the reanimated card's mana value,

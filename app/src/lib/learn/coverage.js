@@ -189,6 +189,7 @@ export function isKeywordOnly(oracle, name) {
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
     isEnforcedEvasionClause(c) ||
     reCyclingCost.test(c) ||
+    reWardLifeCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
@@ -232,6 +233,18 @@ const rePartnerBare = /^partner$/;
 // immediately after "cycling" → no match → body-only. Typecycling (landcycling/plainscycling/…) never
 // starts with "cycling " and a cycle-trigger leaves residue, so both already stay body-only.
 const reCyclingCost = /^cycling (?:\{[^}]+\})+$/;
+
+// KW-WARD-COST (CR 702.21) — the generic COVERED_KEYWORDS "ward" match above only fires on "ward {cost}" /
+// "ward N" (a SPACE after "ward"), so the em-dash "Ward—<cost>" forms miss it and read body-only. Credit ONLY
+// "ward—pay N life": its soft-counter tax is FULLY enforced today — ward.js parseWardCost returns {kind:"life"},
+// wardTaxForStackObject raises the pay-or-be-countered pause at both cast + ability chokepoints, and
+// runProgram.settleSoftCounterCost pays it via loseLife (proven end-to-end). Anchored to the SAME shape
+// parseWardCost matches (ward.js — /ward\s*[—-]\s*pay\s+\d+\s+life/) so the metric never out-runs enforcement.
+// Ward—Discard / Ward—Sacrifice deliberately do NOT match here: parseWardCost returns null for them (the binary
+// soft-counter pause can't express a "which card/permanent?" victim sub-choice — ward.js), so they stay
+// body-only (a SAFE false-negative, never a mis-resolved tax). The caller still validates all OTHER text
+// all-or-nothing, so a ward-pay-life card with an unmodeled ability keeps that residue and stays body-only.
+const reWardLifeCost = /^ward\s*[—-]\s*pay \d+ life$/;
 
 /**
  * True when a permanent's tap produces mana — the mana system taps rocks/dorks
