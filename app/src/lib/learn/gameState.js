@@ -1051,6 +1051,12 @@ export function untapAll(state, { playerId }) {
         const { doesNotUntapNext, ...rest } = p; // eslint-disable-line no-unused-vars
         return { ...rest, summoningSick: false, loyaltyActivatedThisTurn: false };
       }
+      // STUN (CR 122.1c): a TAPPED permanent with a stun counter doesn't untap — instead REMOVE one stun counter
+      // this untap step (a self-clearing tap-lock, one skipped untap per counter). It stays tapped; its non-tap
+      // flags (summoning sickness, once-per-turn loyalty) still reset like any permanent's at its controller's untap.
+      if (p.tapped && (p.counters?.stun || 0) > 0) {
+        return { ...p, counters: { ...p.counters, stun: p.counters.stun - 1 }, summoningSick: false, loyaltyActivatedThisTurn: false };
+      }
       return {
         ...p,
         tapped: false,

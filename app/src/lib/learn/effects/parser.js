@@ -626,6 +626,11 @@ function splitClauses(oracle) {
     // the tap + no-untap lockdown to the SAME single target (else the top-level split below shatters it into
     // "tap target nonland permanent an opponent controls" + an unbindable "it doesn't untap …" → low).
     if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // STUN (CR 122.1c) — keep "tap <target-creature-form> and put a stun counter on it/them" WHOLE: the internal
+    // " and " joins the stun rider to the SAME tap instruction ("it/them" = the just-tapped creature), NOT a
+    // top-level boundary. combat.tapClauseParser folds stunCounter onto the tap atom; a split would strand the
+    // unbindable "put a stun counter on it" → low. Anchored to the tap-and-stun forms (Gilded Scuttler family).
+    if (/^tap (?:up to (?:one|two|three|four|five) target creatures?|target creature(?: an opponent controls| you don't control| defending player controls)?) and put a stun counter on (?:it|them)$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TOKEN-COPY-KEYWORD (Irenicus's Vile Duplication) — "create a token that's a copy of target creature you
     // control, except the token has flying and it isn't legendary": the " and " joins the granted-keyword rider
     // to the "it isn't legendary" no-op, INTERNAL to the one copy instruction, NOT a top-level effect boundary.
