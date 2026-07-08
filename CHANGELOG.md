@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Morph and Megamorph creatures now play natively (+65).** War Behemoth, Sagu Mauler,
+  Titanic Bulvox, Ponyback Brigade, and 61 others — the "Morph {cost}" / "Megamorph {cost}"
+  line is now recognized. Every morph card also has a normal mana cost, so the app plays it
+  as its printed face-up self (the optional face-down 2/2 entry is the only unmodeled part,
+  the same way Cycling and Ninjutsu are handled). A morph card with a "when turned face up"
+  effect stays deferred until that path is modeled.
 - **"Ward—Pay N life" now plays natively (+3).** Owlin Shieldmage, Sire of Seven Deaths,
   and Dwarven Forge-Chanter — an opponent targeting these creatures must pay the life or
   their spell/ability is countered (the tax was already enforced; this teaches the coverage

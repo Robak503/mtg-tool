@@ -190,6 +190,7 @@ export function isKeywordOnly(oracle, name) {
     isEnforcedEvasionClause(c) ||
     reCyclingCost.test(c) ||
     reWardLifeCost.test(c) ||
+    reMorphCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
@@ -216,6 +217,21 @@ export function isKeywordOnly(oracle, name) {
 // ability" trigger, or Monet's "if Monet was ninjutsu'd" conditional (none end in a brace cost right after
 // "ninjutsu ").
 const reNinjutsuCost = /^(?:commander |library )?ninjutsu (?:\{[^}]+\})+$/;
+
+// KW-MORPH / KW-MEGAMORPH (CR 702.37 / 702.109) — credit a clause ONLY when it's the bare "morph {cost}" /
+// "megamorph {cost}" line (keyword + one or more brace mana symbols), mirroring the cycling/ninjutsu gate's
+// exact-shape discipline. Morph is an ALTERNATIVE way to play the card (cast face down as a vanilla 2/2 for
+// {3}, then turn it face up for its morph cost) — it is NOT offered/enforced by the engine (legalChoices has
+// no morph lane; the tier-gated alt-cast lanes there are all mechanic-specific — adventure/plot/emerge/kicker/
+// bestow — and none fire for a morph card). Every morph card ALSO carries a normal mana cost, so the engine
+// hard-casts it FACE UP and resolves its body CORRECTLY; the only unmodeled part is the optional face-down
+// entry, which can never mis-resolve / mis-count / drop a payoff / fabricate — the SAME rationale that credits
+// ninjutsu. The megamorph "+1/+1 counter when turned face up" only ever applies on that unused face-down path,
+// so it changes nothing about the face-up cast. The caller still validates all OTHER text all-or-nothing: a
+// morph card with a "When ~ is turned face up, <effect>" trigger keeps that residue and stays body-only.
+// Anchored ^…$ with a brace-cost tail, so a non-mana morph ("Morph—Reveal a … card") or a morph-referencing
+// static ("Morph abilities you activate cost {1} less") never matches → body-only (a SAFE false-negative).
+const reMorphCost = /^(?:mega)?morph (?:\{[^}]+\})+$/;
 
 // KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
 // isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),
