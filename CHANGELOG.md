@@ -8,6 +8,31 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.113.0] - 2026-07-08
+
+### Added
+- **+32 more cards play natively (overnight coverage grind, part 3).**
+  - **Self-bounce-your-own** (+19) — the "return a[nother] permanent/creature you
+    control to its owner's hand" drawbacks (Kor Skyfisher, Emancipation Angel,
+    Cache Raiders, Roaring Primadox, Shrieking Drake, Invasive Species, Yarok's
+    Wavecrasher, Time Wipe, and the "you may" / "up to one" optionals Ambrosia
+    Whiteheart, Aviary Mechanic, Loyal Gryff, Stickytongue Sentinel, Exosuit
+    Savior, Mischievous Pup, Flock Impostor, …). The engine returns the least-bad
+    own permanent (a land you replay first), respects "another" and the optional
+    "may bounce zero," and never touches an opponent's board. Verified by a
+    4-way adversarial engine audit.
+  - **"Another target creature you control gains [keyword]"** (+9) — Flesh
+    Burrower, Starling, Trained Condor, Heavenly Qilin, and kin.
+
+### Fixed
+- **Combat-trick crash** — a pump-untap / untap-then-pump trick (Vines of the
+  Recluse, Ornamental Courage, …) whose target left the battlefield before
+  resolution no longer crashes; the departed target fizzles cleanly (CR 608.2b).
+
+### Housekeeping
+- Removed a stray debug probe from the repo root and added a `.gitignore` guard;
+  dropped a stale hard-coded test count from the operating manual.
+
 ## [0.112.0] - 2026-07-08
 
 ### Added

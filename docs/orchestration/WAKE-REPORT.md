@@ -1,20 +1,32 @@
-> 🔨 **v0.113.0 POT (open, NOT yet released — 9 of the ~30 bar) — 2026-07-08 (Cindy, Opus 4.8).** After v0.112.0 I kept grinding per
-> "keep working until you can't." Banked one more clean lever: **"another target creature you control gains KW"** (`9b3398ee`, +9 —
-> Flesh Burrower / Starling / Trained Condor / Heavenly Qilin / Toxic Scorpion / Void Grafter / Selfless Savior / Blooming Stinger /
-> Scourge; the "another"/excludeSource prefix on the already-native "target creature you control gains KW", runtime-proven the source
-> is excluded). Full battery green (553 files / 7,889 tests · trajectory `ab524e20` ×2 · lint 0). **Pot = 9; per your "every 30+" rule
-> I'm HOLDING — no tag yet. Cut v0.113.0 whenever you like (the 9 are verified + pushed on `claude/elated-feistel-ab8e90`), or let a
-> future session top it up to 30.**
-> **🏁 SAFE-PARSER-LEVER CEILING CONFIRMED (a second full corpus clean-miss sweep after the 5 levers):** every remaining single-clause
-> miss is now either a **SUBSYSTEM** (time-counters/suspend ~9, graft ~9, stun-counter ~11 — the tap-lock is NOT runtime-modeled, only a
-> proliferate heuristic, so flipping = partial-resolve FP; detain ~3, exile-from-hand ~3, token-copies ~6, powerstone — deliberately
-> excluded like Blood/Map, "that much"/referent drains ~3) or needs **NEW MACHINERY**: **self-bounce-your-own** "return a permanent/
-> creature you control to its owner's hand" (Kor Skyfisher / Roaring Primadox / Shrieking Drake / Emancipation Angel — ~14 cards, the
-> BIGGEST remaining lever) needs an own-permanent CHOICE heuristic (the AI must pick which permanent to bounce — a bad pick is a
-> quality FP); **return-another-artifact-from-your-GY** (Junk Diver / Myr Retriever, ~3) needs excludeSource plumbed into the
-> graveyardCard target spec; **target-player mill** (~3) stays deferred (self-mill-on-trigger risk). **Session flip total: 74** (v0.111.0
-> +33 · v0.112.0 +32 · pot +9). I've genuinely hit "can't" for SAFE parser levers — the rest is the "systems later" bucket, prioritized
-> above (self-bounce-own first = best card/effort). Holding here; nothing left I can flip WITHOUT risking a false-positive (CREED).
+> 🚀 **v0.113.0 — 2026-07-08 (Cindy, Opus 4.8, OVERNIGHT GRIND part 3 + housekeeping). SHIPPED — +32 native, LOST=0.**
+> You said **"keep adding cards"** — so I pushed PAST the earlier "safe-parser ceiling" into the systems bucket and broke through it with
+> the biggest lever, adversarially verified. **The 32 (3 commits):**
+> **① "another target creature you control gains KW"** (`9b3398ee`, +9) — Flesh Burrower / Starling / Trained Condor / Heavenly Qilin /
+> Toxic Scorpion / Void Grafter / Selfless Savior / Blooming Stinger / Scourge (the "another"/excludeSource prefix on the already-native
+> grant; source runtime-excluded).
+> **② SELF-BOUNCE-YOUR-OWN** (`d72985a4`, +19) — "return a[nother] permanent|creature you control to its owner's hand" (Kor Skyfisher,
+> Emancipation Angel, Cache Raiders, Roaring Primadox, Shrieking Drake, Invasive Species, Yarok's Wavecrasher, Time Wipe, + the "you may"
+> optionals Ambrosia/Aviary/Loyal Gryff). The systems lever I'd earlier parked as "needs an AI choice heuristic": built it (scope
+> `oneYouControlWorst` → the least-bad own permanent, a land you replay first; "another"→excludeSource; "you may"→optional pause) and had
+> a **4-skeptic adversarial workflow run the LIVE engine** across over-match / optional-decision / heuristic+Time-Wipe-sequencing /
+> excludeSource-on-flush — **all 4 voted SHIP, no false-positive constructible.** Reframed the risk correctly: the engine's job is
+> CORRECTNESS (returns a valid own permanent, exactly as printed), not strategic optimality (the policy learns that).
+> **③ "up to one [other] target permanent|creature you control"** (`d1037825`, +4) — Stickytongue Sentinel / Exosuit Savior /
+> Mischievous Pup / Flock Impostor; same worst-pick scope, "up to one"→optional (may bounce zero). Reused the just-cleared machinery.
+> **Also this session (non-coverage):** a **HIGH crash fix** (`0d906868`) — pump-untap / untap-then-pump tricks no longer throw when the
+> target left the battlefield (missing findPermanent guard; CR 608.2b fizzle) — found by a **5-dimension housekeeping audit** (19 agents)
+> that also removed a stray root debug probe (`cntprobe.mjs`, shipped by accident in v0.112.0), added a `.gitignore` root-scratch guard,
+> and dropped a stale test-count anchor from CLAUDE.md (`30a49afe`). **Fence (every batch): flip-diff GAINED=intended/LOST=0 · lint 0 ·
+> trajectory `ab524e20` ×2 · full suite 554 files / 7,898 tests green.**
+>
+> **📌 FLAGGED FOR YOU (not touched — release/secrets/hazard):** (a) **Rust version drift** — Cargo.toml 0.99.0 / Cargo.lock 0.88.0 vs
+> app 0.113.0 (cosmetic — the release embeds tauri.conf.json's version; recommend a CI "sync Cargo.toml to tag" step). (b)
+> `scripts/finish-p0.ps1` — a consumed one-shot with a hardcoded path that uploads signing keys; left as reference (remove or make
+> `$PSScriptRoot`-relative — your call). (c) **~13 orphaned worktree dirs** under `.claude/worktrees/` (~92MB, mostly one) — the
+> junction-`node_modules` deletion HAZARD means verify-each-then-delete, so I left them. (d) **token-cleanup SBA** — a bounced/exiled
+> TOKEN wrongly persists in hand (CR 111.7); PRE-EXISTING + engine-wide (affects Man-o'-War too, not the new levers) — filed as a
+> spawned task. **Session flip total: 97** (v0.111.0 +33 · v0.112.0 +32 · v0.113.0 +32). Still grinding; the remaining tail is genuine
+> subsystems (suspend/graft/stun/detain/energy) that each need a real engine build.
 >
 > ── ↓ shipped releases ↓ ──
 > 🌅 **v0.112.0 — 2026-07-08 (Cindy, Opus 4.8, OVERNIGHT GRIND part 2). SHIPPED — +32 native, LOST=0. Four clean parser levers.**
