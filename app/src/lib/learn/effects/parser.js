@@ -2293,8 +2293,17 @@ function matchOptionalManaPayment(oracle, cardType) {
   if (!m) return null;
   const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
   if (!pips.length) return null;
-  const mana = parseFixedManaPips(pips);
-  if (!mana) return null;                                            // {X} / unknown symbol → unmodeled cost
+  // ENERGY variant (CR 122.1e) — "you may pay {E}{E}. If you do, <effect>" (Hexgold Slith, Thriving Rats,
+  // Aetherstorm Roc). All pips are {E}; the cost is a count of energy the settler spends (hasEnergy/spendEnergy),
+  // NOT mana. The optional-effect suspend + payoff gates below are cost-agnostic — only the cost shape differs.
+  let cost;
+  if (pips.every((p) => /^e$/i.test(p))) {
+    cost = { kind: "energy", amount: pips.length };
+  } else {
+    const mana = parseFixedManaPips(pips);
+    if (!mana) return null;                                          // {X} / unknown symbol → unmodeled cost
+    cost = { kind: "mana", mana };
+  }
   const payoffText = m[2].trim();
   if (/\bif you do\b/i.test(payoffText)) return null;                // a SECOND "if you do" — not modeled
   const payoff = parseEffectClauseImpl(payoffText, cardType, { hasX: false });
@@ -2311,7 +2320,7 @@ function matchOptionalManaPayment(oracle, cardType) {
   // then draw a card" would scry but never draw — a dropped-atom FP. Reject → LOW → Arbiter (SAFE
   // FN). A LAST-position pausing payoff is fine (nothing follows to drop).
   if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;
-  return { atom: { op: "optional-mana-payment", cost: { kind: "mana", mana }, effectAtoms: inner, targetType: null } };
+  return { atom: { op: "optional-mana-payment", cost, effectAtoms: inner, targetType: null } };
 }
 
 // REFLEXIVE-SAC-BY-SUBTYPE — the artifact/blood TOKEN subtypes a "you may sacrifice a <X>. If you do, …" gate

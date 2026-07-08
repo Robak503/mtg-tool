@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
@@ -884,7 +884,8 @@ export function autoPickOptionalManaPayment(state, pc) {
   const player = state.players?.[pc?.controller];
   if (!player) return false;
   const cost = pc?.cost;
-  if (cost?.kind !== "mana") return false; // only the modeled mana form pays
+  if (cost?.kind === "energy") return hasEnergy(state, pc.controller, cost.amount || 0); // pay-if-able (energy is a stored resource; spending a beneficial payoff is the sensible default)
+  if (cost?.kind !== "mana") return false; // only the modeled mana / energy forms pay
   return canAfford(player.manaPool, manaSources(state, pc.controller), cost.mana || {});
 }
 
@@ -921,6 +922,13 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
     const r = payManaCost(next, pc.controller, pc.cost.mana || {});
     next = r.state;
     paid = r.paid;
+  } else if (pay && pc.cost?.kind === "energy") {
+    // ENERGY (CR 122.1e): pay iff the controller actually has the energy — spendEnergy never drives it negative,
+    // and an unaffordable "pay" runs NO payoff (mirrors payManaCost's no-fabrication guarantee, the CREED bar).
+    if (hasEnergy(next, pc.controller, pc.cost.amount || 0)) {
+      next = spendEnergy(next, { playerId: pc.controller, amount: pc.cost.amount || 0 });
+      paid = true;
+    }
   }
   next = logEvent(next, { kind: "spell-effect", effect: "optional-mana-payment", controller: pc.controller, paid, sourceName: pc.sourceName || null });
   if (paid) {
