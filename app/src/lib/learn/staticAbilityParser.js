@@ -1255,7 +1255,7 @@ function parseClause(clause, out, selfName, selfType) {
   // be a grantable (enforced/layer-aware) keyword, else the whole clause is left unmodeled (a rider like
   // "have trample and <unmodeled>" must never drop a keyword while the card flips native). Bare form only:
   // a "During your turn," / "Unlock Ability —" prefix or a trailing qualifier won't match the ^…$ anchor → safe FN.
-  const cpKw = c.match(/^(?:each |all )?creatures? you control with (?:a )?\+1\/\+1 counters? on (?:it|them) have (.+)$/);
+  const cpKw = c.match(/^(?:each |all )?creatures? you control with (?:a )?\+1\/\+1 counters? on (?:it|them) (?:has|have) (.+)$/);
   if (cpKw) {
     // The non-alpha strip drops any numeric tail; that's safe ONLY because every GRANTABLE_KEYWORDS entry is
     // non-parameterized (flying/trample/first strike/…). If a parameterized keyword (toxic N / ward N) were

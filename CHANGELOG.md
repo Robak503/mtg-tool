@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Singular "has" counter-payoff grants now play natively (+7).** Duskshell Crawler,
+  Pridemalkin, Crowned Ceratok, Sapphire Drake, the Hagra Constrictors — "Each creature you
+  control with a +1/+1 counter on it **has** trample/…" now works (the parser previously only
+  matched the plural "have"). Uses the existing enforced counter-gated keyword grant.
 - **Four more alt-cast keywords now play natively (+25).** Foretell, Blitz, Freerunning,
   and Prototype — like Morph/Sneak/Dash, each is just a cheaper optional way to cast a card
   that never changes what the card does, so the app plays it as its normal-cost self.
