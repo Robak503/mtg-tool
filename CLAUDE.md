@@ -96,7 +96,7 @@ You must:
 Run verification after big changes or batches of small changes — not
 after every edit. Verification means:
 
-- `npm test` in `app/` passes (live anchor in docs/orchestration/WAKE-REPORT.md — 7,681 @ v0.88.0)
+- `npm test` in `app/` passes (live count in docs/orchestration/WAKE-REPORT.md — single source of truth; don't hard-code it here)
 - `cargo check --release` in `app/src-tauri/` passes
 - For UI changes: `npm run dev` in `app/` boots cleanly at
   http://localhost:3000
