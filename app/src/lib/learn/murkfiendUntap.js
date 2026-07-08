@@ -35,7 +35,7 @@
  * + one wiring line in gameEngine + one additive coverage classifier. A board with no Murkfiend-style
  * watcher is byte-identical (the watchers scan is empty → the state is returned unchanged).
  */
-import { logEvent } from "./gameState.js";
+import { logEvent, untapOrConsumeStun } from "./gameState.js";
 import { permanentColors, permanentIsCreature } from "./layers.js";
 
 // Anchored to the WHOLE Murkfiend templating so no other card false-matches. The subject must be "all
@@ -83,7 +83,7 @@ export function applyMurkfiendUntap(state, activePlayer) {
       const cols = permanentColors(next, p.id) || [];
       if (!cols.includes("G") && !cols.includes("U")) return p;
       changed = true;
-      return { ...p, tapped: false };
+      return untapOrConsumeStun(p); // STUN (CR 122.1c): a stunned creature consumes a stun counter here instead of untapping
     });
     if (!changed) continue;
     next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], battlefield: untapped } } };

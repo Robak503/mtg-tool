@@ -928,8 +928,22 @@ export function tapPermanent(state, permanentId) {
   return updatePermanent(state, permanentId, p => ({ ...p, tapped: true }));
 }
 
+/**
+ * STUN (CR 122.1c) — the single untap replacement used by EVERY untap path (untapAll's untap step, untapPermanent
+ * for "untap target …" effects, and the Seedborn Muse / Murkfiend additional-untap hooks), so the tap-lock can
+ * never be bypassed by a non-untap-step untap. If a TAPPED permanent has a stun counter, it does NOT untap —
+ * remove ONE stun counter instead. Otherwise it untaps normally. Returns the post-attempt permanent (tap/stun
+ * only; callers layer on any untap-STEP flag resets like summoning sickness themselves).
+ */
+export function untapOrConsumeStun(p) {
+  if (p.tapped && (p.counters?.stun || 0) > 0) {
+    return { ...p, counters: { ...p.counters, stun: p.counters.stun - 1 } };
+  }
+  return { ...p, tapped: false };
+}
+
 export function untapPermanent(state, permanentId) {
-  return updatePermanent(state, permanentId, p => ({ ...p, tapped: false }));
+  return updatePermanent(state, permanentId, p => untapOrConsumeStun(p));
 }
 
 // ── REGEN (CR 701.15) — regeneration shields ──────────────────────────────────────────────────────────────

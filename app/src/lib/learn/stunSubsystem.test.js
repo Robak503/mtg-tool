@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { parseEffectClause } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 import { applyTapEffect } from "./effects/atoms/combat.js";
-import { createGameState, createPermanent, untapAll, findPermanent, _resetIdsForTests } from "./gameState.js";
+import { createGameState, createPermanent, untapAll, untapPermanent, tapPermanent, addCounter, findPermanent, _resetIdsForTests } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
 const C = (name, oracle, type = "Creature — Human", mana = "{1}{U}") => ({ name, oracle, type, keywords: [], mana });
@@ -45,6 +45,25 @@ describe("STUN — untap-step enforcement (CR 122.1c)", () => {
     expect(findPermanent(s, "foe").permanent.counters.stun).toBe(0);  // one stun counter removed
     s = untapAll(s, { playerId: "ai" });                              // untap #2
     expect(findPermanent(s, "foe").permanent.tapped).toBe(false);     // untaps normally now
+  });
+
+  it("the lock is enforced for EVERY untap event — untapPermanent (an 'untap target creature' effect) can't bypass it (CR 122.1c)", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const foe = createPermanent({ id: "foe", card: { id: "c-f", name: "Foe", type: "Creature — Bear", power: 2, toughness: 2 }, controller: "ai", summoningSick: false });
+    s = { ...s, players: { ...s.players, ai: { ...s.players.ai, battlefield: [foe] } } };
+    s = tapPermanent(s, "foe");
+    s = addCounter(s, { permanentId: "foe", type: "stun", amount: 1 });
+    s = untapPermanent(s, "foe");                                      // an explicit untap effect
+    expect(findPermanent(s, "foe").permanent.tapped).toBe(true);       // STILL tapped — the replacement fired
+    expect(findPermanent(s, "foe").permanent.counters.stun).toBe(0);   // one stun counter removed instead
+  });
+
+  it("untapPermanent on a NON-stunned tapped creature untaps normally (regression)", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const p = createPermanent({ id: "p", card: { id: "c-p", name: "P", type: "Creature — Bear", power: 1, toughness: 1 }, controller: "ai", summoningSick: false });
+    s = { ...s, players: { ...s.players, ai: { ...s.players.ai, battlefield: [p] } } };
+    s = tapPermanent(s, "p");
+    expect(findPermanent(untapPermanent(s, "p"), "p").permanent.tapped).toBe(false);
   });
 });
 

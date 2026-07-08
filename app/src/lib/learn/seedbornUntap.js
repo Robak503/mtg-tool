@@ -24,7 +24,7 @@
  * + one wiring line in gameEngine + one additive coverage classifier. A board with no Seedborn-style
  * watcher is byte-identical (the watchers scan is empty → the state is returned unchanged).
  */
-import { logEvent } from "./gameState.js";
+import { logEvent, untapOrConsumeStun } from "./gameState.js";
 
 // Anchored to the WHOLE Seedborn templating so no other card false-matches. The subject must be "all
 // permanents YOU control" (the controller's own permanents) and the timing must be "during each other
@@ -62,7 +62,7 @@ export function applySeedbornUntap(state, activePlayer) {
     if (!player?.battlefield?.length) continue;
     const hasWatcher = player.battlefield.some((perm) => isSeedbornUntap(perm.card));
     if (!hasWatcher) continue;
-    const untapped = player.battlefield.map((p) => (p.tapped ? { ...p, tapped: false } : p));
+    const untapped = player.battlefield.map((p) => (p.tapped ? untapOrConsumeStun(p) : p)); // STUN (CR 122.1c): a stunned permanent consumes a stun counter here instead of untapping
     next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], battlefield: untapped } } };
     next = logEvent(next, { kind: "seedborn-untap", controller: pid, duringUntapOf: activePlayer });
   }
