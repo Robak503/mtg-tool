@@ -8,6 +8,30 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.114.0] - 2026-07-08
+
+### Added
+- **The ENERGY mechanic ({E}) now plays natively (+22 cards).** Energy is a real
+  player resource: cards that say "you get {E}" bank energy counters, and abilities
+  that cost "Pay {E}" are only usable when you actually have the energy to spend —
+  and spending it is enforced. Newly native: Attune with Aether, Glimmer of Genius,
+  Rogue Refiner, Longtusk Cub, Dynavolt Tower, Consulate Turret, Whirler Virtuoso,
+  Aether Theorist, Solstice Zealot, and more. (Energy-*gated mana* dorks like
+  Servant of the Conduit stay on the fallback for now — a follow-up.)
+- **Two-target combat tricks (+6)** — "Target creature gets +X/+Y. Another target
+  creature gets -X/-Y." (Leeching Bite, Consume Strength, Schismotivate, Rites of
+  Reaping, Steal Strength, Drooling Groodion): the buff lands on your creature and
+  the debuff on an opponent's, never friendly-fire.
+
+### Fixed
+- **Tokens now cease to exist when they leave the battlefield (CR 111.7)** — a
+  bounced or exiled token no longer lingers as a phantom card in a hand or graveyard.
+- **Combat-trick crash** — a pump-that-untaps trick whose target already left the
+  battlefield no longer throws; it fizzles cleanly.
+- **Mana accounting** — a land/rock with both a free mana ability and an energy-gated
+  one (Aether Hub) is now counted for the free mana it actually makes, not the
+  energy-gated bonus.
+
 ## [0.113.0] - 2026-07-08
 
 ### Added

@@ -1,3 +1,33 @@
+> ❓ **QUESTIONS FOR COLTON (7-hr autonomous run, 2026-07-08) — nothing blocks me; these are your calls when you're up:**
+> **Q1 — Energy Slice C?** I built + shipped (on the branch, staged for v0.114.0) the energy subsystem's GAIN (+11) and the
+> **"Pay {E}" activated-ability cost** (+11, enforced end-to-end). The 3rd piece is **optional-pay triggers** — "Whenever X, you may
+> pay {E}{E}. If you do, <effect>" (~37 cards). That needs a NEW mechanism (an optional pendingChoice whose "yes" spends energy). Worth
+> building? (I'll do it unless you say skip — flagging because it's the deepest energy piece.)
+> **Q2 — Energy-gated MANA dorks stay parked (safe).** Servant of the Conduit / Aetherworks-style cards whose ONLY mana is
+> "{T}, Pay {E}: Add …" stay non-native: the mana model deliberately does NOT count energy-gated mana as a free source (else the AI would
+> spend mana it can't make). Modeling them = "conditional mana gated on the energy pool," a real build (~10-15 cards). Do you want it, or
+> is parking them fine? (My lean: park — the FP risk outweighs the handful of cards.)
+> **Q3 — Token-cleanup fix:** you handed me the CR 111.7 task (bounced/exiled tokens must cease to exist) — DONE + shipped in the v0.114.0
+> pot. Confirm that matches what you wanted (it fixes a pre-existing engine-wide gap, not just the self-bounce lever).
+> **No other blockers.** Continuing the 7-hr grind — next is energy Slice C (Q1) toward v0.115.0. Everything committed + pushed.
+>
+> ── ↓ shipped releases ↓ ──
+> 🔋 **v0.114.0 — 2026-07-08 (Cindy, Opus 4.8, 7-HR AUTONOMOUS RUN). SHIPPED — +28 native, LOST=0. THE ENERGY MECHANIC + two-target tricks.**
+> Cut at 28 (a hair under the 30 bar) because it lands a whole MAJOR subsystem — deliberate, not a slip. **The bundle:**
+> **① ENERGY subsystem** (`882fc139`+`88cc6363`, +22) — {E} is now a player resource (`player.energy`). **Slice A (gain):** "you get {E}…"
+> → add-energy atom (mirrors gain-experience) + the mana model made ENERGY-AWARE (an energy-gated "{T}, Pay {E}: Add …" line is NOT free
+> mana → Servant of the Conduit non-native; Aether Hub credited its real free {C}, fixing a pre-existing any-color OVER-count). **Slice B
+> (pay):** "Pay {E}…" is an ENFORCED activation cost (mirrors payLife across abilities.js parse → legalChoices gate → actionDispatcher
+> spendEnergy; single deduction site). **Adversarially verified — a 4-skeptic workflow ran the LIVE pipeline: cost-bypass CLEAN (no path
+> activates without paying), all 23 flipped cards execute correctly, AI never activates unaffordable or fires damage at itself. 4/4 SHIP.**
+> **② Two-target pump/debuff** (`e8f1ccd8`, +6) — pump-pair atom; the adversarial gate CAUGHT a real enemy-buff half-resolve FP (a legacy
+> single-target route) → fixed with a parseSpellEffect guard so it routes through the role-tagged two-target path. Re-verified.
+> **③ Engine fixes:** CR 111.7 token-cleanup (`811f5a7a`, bounced/exiled tokens cease to exist — a pre-existing engine-wide gap Colton
+> handed me) + the pump-untap departed-target crash (v0.113.0 carryover fix) + the Aether Hub mana over-count.
+> **Fence: flip-diff GAINED=intended/LOST=0 each batch · lint 0 · trajectory `ab524e20` ×2 (no energy cards in the pod; non-energy abilities
+> byte-identical) · full suite 7,913 green · energyGain/energyPay/twoTargetPump/fightPumpFight/selfBounceOwn tests.**
+> **NEXT:** energy Slice C — optional-pay triggers "you may pay {E}. If you do, <effect>" (~37 cards; needs an optional-pendingChoice-with-
+> energy-cost mechanism — flagged Q1). Then the remaining tail is bespoke subsystems (suspend/graft/stun/detain/token-copies).
 > 🚀 **v0.113.0 — 2026-07-08 (Cindy, Opus 4.8, OVERNIGHT GRIND part 3 + housekeeping). SHIPPED — +32 native, LOST=0.**
 > You said **"keep adding cards"** — so I pushed PAST the earlier "safe-parser ceiling" into the systems bucket and broke through it with
 > the biggest lever, adversarially verified. **The 32 (3 commits):**
