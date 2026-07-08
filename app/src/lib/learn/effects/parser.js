@@ -527,6 +527,13 @@ function splitClauses(oracle) {
     // toughness" is INTERNAL to the one swap instruction, NOT a top-level effect boundary. Keep it whole so
     // combatKeywordClauseParser binds the layer-7d swap (else it shatters into "…power" + "toughness…" → low).
     if (/^switch (?:target creature's|this creature's|the triggering creature's) power and toughness until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // DOUBLE-PT — "double the power and toughness of <referent> until end of turn": the " and " in "power and
+    // toughness" is INTERNAL to the one doubling instruction (CR 701.10), NOT a top-level effect boundary. Keep
+    // it whole so pumpClauseParser binds the per-target double (else it shatters into "…power" + "toughness…" →
+    // low). Two self-normalized referents: "each creature you control" (Unnatural Growth / Zopandrel combat
+    // trigger) and "this creature's" (Reckless Amplimancer's activated ability). Power-only doubles have no
+    // internal " and " so they never reach this split — no guard needed for them.
+    if (/^double (?:the power and toughness of each creature you control|this creature's power and toughness) until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SELF pump + keyword grant ("This creature gets +1/+0 and gains trample until end of turn" / "This
     // creature gains flying and vigilance until end of turn") — the " and " is INTERNAL to the one
     // self-grant instruction (CR 113.7 "this creature" = the source), NOT a top-level effect boundary.

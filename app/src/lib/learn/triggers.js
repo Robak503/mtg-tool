@@ -1542,6 +1542,13 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // re-gates the rewritten form anyway (a non-modeled counter kind fails there → the card stays non-native).
     const tm = eff.match(new RegExp(`^(.+?)\\s*${esc}$`, "i"));
     if (tm && SELF_NAME_TRAILING_COUNTER_RE.test(tm[1].trim() + " ")) return `${tm[1].trim()} this creature`;
+    // POSSESSIVE self-name (Tifa Lockhart — Landfall "double <Name>'s power until end of turn"): the card
+    // names ITSELF in a mid-clause possessive. Rewrite "<Name>'s" → "this creature's" ONLY inside the exact
+    // double-own-P/T grammar (whole-clause anchored on "double … power[ and toughness] until end of turn"),
+    // so it can never consume a possessive that names a DIFFERENT permanent or any other effect (CREED). The
+    // pump parser re-gates the rewritten "double this creature's power …" form (→ doublePt self atom).
+    if (new RegExp(`^double ${esc}['’]s power(?: and toughness)? until end of turn$`, "i").test(eff))
+      return eff.replace(new RegExp(`${esc}['’]s`, "i"), "this creature's");
   }
   return effectClause;
 }

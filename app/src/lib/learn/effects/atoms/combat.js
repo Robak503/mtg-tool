@@ -4,7 +4,7 @@
  */
 
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
@@ -192,10 +192,24 @@ export function applyPumpEffect(state, atom, ctx) {
     // (Vines of the Recluse, Ornamental Courage, …). Mirrors the findPermanent(next,…) guard every sibling
     // resolver in this file already carries (tap / regenerate / fight).
     if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
-    if (power !== 0 || toughness !== 0) {
+    // DOUBLE-P/T (Unnatural Growth / Reckless Amplimancer / Tifa Lockhart) — "double the power [and toughness]"
+    // is a PER-TARGET one-shot doubling (CR 701.10b — the bonus modifies, doesn't set; X = the creature's power/
+    // toughness as the effect resolves): snapshot THIS target's current layer-aware P/T at resolution and add
+    // +that as a fixed layer-7c bonus, so the P/T becomes 2×. atom.doublePt "pt" doubles both, "p" doubles power
+    // only (toughness untouched). The bonus is the SIGNED current value — a NEGATIVE power adds that same
+    // negative (CR 701.10c — a creature with power < 0 gets -X/-0 when doubled), so NO 0-floor here (flooring
+    // under-doubled a debuffed creature: a 3/3 at -2 power must become -4, not -2). Each target gets its OWN
+    // delta (distinct from the uniform ptDelta pumps above).
+    let addP = power, addT = toughness;
+    if (atom.doublePt) {
+      const lp = findPermanent(next, target.id).permanent;
+      addP = creaturePower(lp, next);
+      addT = atom.doublePt === "p" ? 0 : creatureToughness(lp, next);
+    }
+    if (addP !== 0 || addT !== 0) {
       next = addContinuousEffect(next, {
         layer: 7, sublayer: "7c",
-        op: { layerOp: "ptModify", power, toughness },
+        op: { layerOp: "ptModify", power: addP, toughness: addT },
         affects: { mode: "fixed", permanentIds: [target.id] },
         duration: dur(), source: src,
       }).state;
@@ -1112,6 +1126,23 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(m[1]);
     return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // DOUBLE-P/T (CR 701.10 — doubling modifies a value by an amount equal to itself, it doesn't set). A PER-TARGET
+  // one-shot doubling: each affected creature gains +its-own-current-power / +its-own-current-toughness (snapshot at
+  // resolution), so its P/T becomes 2×. Modeled as a pump atom carrying doublePt ("pt" = both stats, "p" = power
+  // only); applyPumpEffect reads each target's LIVE layer-aware P/T inside its loop (distinct from the uniform
+  // ptDelta path — every target gets its own delta). Two self-normalized referents reach here cleanly:
+  //   • TEAM — "double the power and toughness of each creature you control until end of turn" (Unnatural Growth,
+  //     Zopandrel's combat trigger) → scope:"youControl" (controllerCreatureTargets, set locked at resolution).
+  //   • SELF — "double this creature's power [and toughness] until end of turn" (Reckless Amplimancer) → target:"self".
+  // Whole-clause anchored ($). A "double its …"/"double <Name>'s …" pronoun/name referent (Grunn, Tifa) is NOT
+  // self-normalized upstream yet, an "and it gains trample" rider (World War Hulk III), or an "{X} times" form
+  // (Exponential Growth) all fail the anchor → null → low → Arbiter (FN-safe, CREED — never a wrong partial).
+  if (/^double the power and toughness of each creature you control until end of turn$/.test(t))
+    return { op: "pump", scope: "youControl", doublePt: "pt" };
+  if (/^double this creature's power and toughness until end of turn$/.test(t))
+    return { op: "pump", target: "self", doublePt: "pt" };
+  if (/^double this creature's power until end of turn$/.test(t))
+    return { op: "pump", target: "self", doublePt: "p" };
   return null;
 }
 

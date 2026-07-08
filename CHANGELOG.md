@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Doubling a creature's power/toughness now plays natively (+3).** "Double the power
+  and toughness of each creature you control" (Unnatural Growth), "double this creature's
+  power and toughness" (Reckless Amplimancer), and "double [this creature]'s power" (Tifa
+  Lockhart's Landfall) each give every affected creature a one-shot bonus equal to its own
+  current power/toughness (CR 701.10), snapshotted as the effect resolves — so a later
+  +1/+1 stacks on top rather than re-doubling.
+
 ## [0.115.0] - 2026-07-08
 
 ### Added
