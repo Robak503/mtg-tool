@@ -94,6 +94,7 @@ export function parseAbilityCost(costStr) {
   let tapSelf = false;
   let costX = false;
   let payLife = 0;
+  let payEnergy = 0;
   let sacSelf = false;
   let sacOther = null;
   let sacCount = null;
@@ -128,6 +129,11 @@ export function parseAbilityCost(costStr) {
     //   "Sacrifice this[ …]"  → sacrifice the SOURCE permanent (no "which one?" choice).
     const lifeM = /^pay (\d+) life$/i.exec(item);
     if (lifeM) { payLife += parseInt(lifeM[1], 10); continue; }
+    // γ1e — "Pay {E}…" (energy, CR 122.1e): a NO-CHOICE numeric resource cost, one per {E} pip. legalChoices
+    // gates the activation on player.energy >= payEnergy; actionDispatcher deducts it via spendEnergy at activate
+    // time (CREED — never activate without paying). The energy GAIN side is modeled (add-energy, Slice A).
+    const energyM = /^pay ((?:\{e\})+)$/i.exec(item);
+    if (energyM) { payEnergy += (energyM[1].match(/\{e\}/gi) || []).length; continue; }
     if (/^sacrifice (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { sacSelf = true; continue; }
     // γ1c — two more NO-CHOICE self costs:
     //   "Exile this[ <type>]"            → exile the SOURCE from the battlefield (NOT "dies"; no dies
@@ -213,7 +219,7 @@ export function parseAbilityCost(costStr) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, costX };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, costX };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -507,6 +513,7 @@ export function parseActivatedAbilities(card) {
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
+      payEnergy: cost?.payEnergy ?? 0, // γ1e — "Pay {E}…" energy cost (legalChoices gates on player.energy; dispatcher spends it)
       sacSelf: cost?.sacSelf ?? false, // γ1 — "Sacrifice this" cost item (the runtime sacs the source)
       sacOther: cost?.sacOther ?? null, // γ1b — "Sacrifice a/another <type>": legalChoices picks the victim
       sacCount: cost?.sacCount ?? null, // γ1d — "Sacrifice N <fungible subtype>": legalChoices auto-picks N victims

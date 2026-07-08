@@ -34,6 +34,7 @@ import {
   addMana,
   MANA_COLORS,
   loseLife,
+  spendEnergy,
   removeCounter,
   addCounter,
   destroyLethalCreatures,
@@ -697,6 +698,9 @@ function applyActivateAbility(state, action) {
   // (γ1, CR 119.4), then the self-sacrifice (γ1) and/or the chosen-victim sacrifice (γ1b), then the
   // self-exile (γ1c) and/or a self counter removal (γ1c).
   if (action.payLife) working = loseLife(working, { playerId: action.playerId, amount: action.payLife });
+  // γ1e — pay a "Pay {E}…" energy cost (CR 122.1e): spend N energy from the activator's pool. legalChoices
+  // already gated on player.energy >= payEnergy, so this never drives energy negative (spendEnergy floors at 0).
+  if (action.payEnergy) working = spendEnergy(working, { playerId: action.playerId, amount: action.payEnergy });
   // γ1f — pay a "Tap an untapped creature you control" cost by TAPPING the chosen creature (CR 602.1b). The
   // victim is re-resolved against the LIVE battlefield; a missing / already-tapped victim is a hard error so we
   // never silently under-pay the cost (tapping is not a zone change, so no dies/leave triggers fire — a clean

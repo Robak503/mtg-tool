@@ -1475,6 +1475,7 @@ function actionsActivateAbility(state, playerId) {
               cmc: totalCmc(xCost),
               tapSelf: ab.tapSelf,
               payLife: ab.payLife || 0,
+              payEnergy: ab.payEnergy || 0,
               sacSelf: ab.sacSelf || false,
               exileSelf: ab.exileSelf || false,
               removeCounter: ab.removeCounter || null,
@@ -1498,6 +1499,9 @@ function actionsActivateAbility(state, playerId) {
       // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
       // unaffordable one — never hide a legal play.
       if (ab.payLife && player.life < ab.payLife) continue;
+      // γ1e — a "Pay {E}…" energy cost needs the energy to spend (CR 122.1e); never offer an activation the
+      // player can't pay for. Energy defaults to 0 (older states), so a source with energy 0 is correctly gated out.
+      if (ab.payEnergy && (player.energy || 0) < ab.payEnergy) continue;
       // γ1c — a "Remove a <type> counter from this" cost needs the source to actually HAVE such a
       // counter; otherwise it's unpayable (never offer a cost we can't pay).
       if (ab.removeCounter && !((perm.counters?.[ab.removeCounter.type] || 0) >= 1)) continue;
@@ -1718,6 +1722,7 @@ function actionsActivateAbility(state, playerId) {
                 cmc: totalCmc(cost),
                 tapSelf: ab.tapSelf,
                 payLife: ab.payLife || 0,
+                payEnergy: ab.payEnergy || 0,
                 sacSelf: ab.sacSelf || false,
                 exileSelf: ab.exileSelf || false,
                 removeCounter: ab.removeCounter || null,
@@ -1745,6 +1750,7 @@ function actionsActivateAbility(state, playerId) {
             cmc: totalCmc(cost),
             tapSelf: ab.tapSelf,
             payLife: ab.payLife || 0,
+            payEnergy: ab.payEnergy || 0,
             sacSelf: ab.sacSelf || false,
             exileSelf: ab.exileSelf || false,            // γ1c — exile the source from the battlefield
             removeCounter: ab.removeCounter || null,     // γ1c — remove a counter of this type from the source
