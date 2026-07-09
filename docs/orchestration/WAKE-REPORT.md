@@ -12,6 +12,12 @@ up (nothing lost). **⚠️ Your 6 personal decks (Vihaan/Koma/Rograkh/Slivers/Z
 re-importable, but they're not on the grind shelf right now. **The grind button will run tonight on the 9 Joe
 decks as-is; re-import your 6 if you want them in the pod.**
 
+**✅ GRIND BUTTON PROVEN END-TO-END** (real machine, exact server path): loaded the 9 recovered decks + Omnath's
+deployed `omnath.mjs` persona → `startGrind` → played **3 real commander games, all trusted**, appended to the
+data store. Inspected a written record: `engineVersion: 0.121.0` (fix confirmed), a real 31-turn game, all 4
+seats piloted on deck-native playbooks (value-control/voltron/go-wide), and **1815/1815 decision rows tagged
+with `pilotType`**. Press it tonight — it works. (Those 3 games are valid data left in the store as a head start.)
+
 **Shipped v0.121.0 (`pilotType` tag):** every recorded grind/self-play row now stamps `pilotType`
 (`specialist`|`generalist`) next to `{playbook,temperament}` — Omnath's explicit COMMS ask, so their distill
 consumer splits expert-baseline vs generalist/stress data with no lookup. Also fixed engine-version
