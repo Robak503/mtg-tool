@@ -7,9 +7,14 @@
 >    example-pilot.mjs` reference template. E2E-verified: rows tag {playbook,temperament}, byte-identical when wrapping default (seam clean).
 >    Omnath's `omnath-tools/pilots/decide.mjs` plugs in directly. **✅ replay-header** (`1a7322a7`, Omnath contract 2a): export header now carries
 >    engineVersion + pilot-map + seed → replay-reconstructable.
-> 2. ⏳ **Pilot-seam — PANEL half (Colton's own sweeps) is BLOCKED** on two things (Q-PILOT posted to Omnath): (a) Omnath's persona modules don't
->    exist yet (their deliverable), (b) a packaging call — **where do pilot personas live in the shipped .exe?** bundle a curated set into
->    `resources/pilots/` + a SimCenter dropdown (route builds the map server-side; closures can't cross JSON) vs a user path. Can't build until both resolve.
+> 2. ✅ **Pilot-seam — PANEL half BUILT** (`769a086d`, Colton needed it live for Omnath to work). Packaging call MADE: a WRITABLE
+>    `pilotsDir()` = `%APPDATA%/com.colton.mtg-tool/pilots/` (not bundled resources) so Omnath drops/edits persona .mjs files → they appear in the
+>    SimCenter dropdown with NO rebuild. `pilotLoader.js` (listPilots + buildPilotsForBatch, path-guarded) · `/api/pilots` GET (list) ·
+>    `/api/self-play` reads `body.pilot` → builds the seat→pilot map server-side (closures can't cross JSON) → injects into runSelfPlayBatch ·
+>    SimCenter "Pilot" dropdown (fetch + POST). Verified: /api/pilots 200, loader lists+builds a 4-seat map w/ tags, path-traversal blocked, app
+>    compiles no-error, lint 0. Personas are SELF-CONTAINED (decide reasons over passed {state,legalActions}; AppData modules can't import app
+>    internals). **Follow-up:** the value-JSONL banked-data pilot tag (selfPlayRunner :459/:951) so the panel's "Bank training data" rows carry
+>    {playbook,temperament} (persona PLAYS + P5 report reflects it today; the CLI already exports fully-tagged trajectories).
 > 3. ✅ **Arbiter-in-runner (#2) — ENGINE-SIDE LANE BUILT** (`ae46f8b2` foundation + `cfac49ef` pre-pass). Spec: **[[ARBITER-IN-RUNNER-SPEC.md]]**.
 >    `arbiterVerdictStore.js` (cache/determinism boundary) + `applyArbiterVerdict` (verdict→atoms via resolveAtom, ALL-OR-NOTHING CREED-safe) +
 >    default-off `resolveArbiter` hook at `learnSession.js:1016` threaded through the runner + `arbiterPrepass.warmArbiterCache` (pluggable resolver,
