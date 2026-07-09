@@ -78,6 +78,7 @@ import {
   engineSeatsForMode,
 } from "../../../lib/learn/selfPlayRunner.js";
 import { summarizeSeatReality } from "../../../lib/learn/gameAnalysis.js"; // P5: per-deck post-game reality report
+import { buildPilotsForBatch } from "../../../lib/server/pilotLoader.js"; // PILOT PANEL: inject a persona from pilotsDir() (Omnath seam)
 import {
   aggregateBreakages,
   formatBreakageTxt,
@@ -182,11 +183,24 @@ export async function POST(request) {
   const runnerDecks = playable;
   const deckNames = runnerDecks.map((d) => d.name);
 
+  // PILOT PANEL (Omnath seam): if a persona was selected, dynamic-import it from pilotsDir() and build the
+  // seat→pilot map SERVER-SIDE (the browser can't send a decide closure). Injected into every seat so self-play
+  // is persona-driven + the banked rows carry {playbook,temperament}. Absent ⇒ {} ⇒ default autopilot (unchanged).
+  const pilotFile = typeof body?.pilot === "string" && body.pilot ? body.pilot : null;
+  let pilots = {};
+  if (pilotFile) {
+    try {
+      pilots = await buildPilotsForBatch(pilotFile, mode);
+    } catch (error) {
+      return Response.json({ error: `Pilot "${pilotFile}" failed to load: ${error?.message || error}` }, { status: 400 });
+    }
+  }
+
   // Run the batch (offline, no network) and aggregate the engine's honest signals.
   // `record` (opt-in) also captures a per-turn feature trajectory for Track-1a.
   let batch;
   try {
-    batch = runSelfPlayBatch(runnerDecks, { mode, gamesPer, record, recordDecisions: analyze, baseSeed, mulligan, rotateSeats, podShuffle });
+    batch = runSelfPlayBatch(runnerDecks, { mode, gamesPer, record, recordDecisions: analyze, baseSeed, mulligan, rotateSeats, podShuffle, pilots });
   } catch (error) {
     return Response.json(
       { error: error?.message || "Self-play batch failed." },

@@ -184,6 +184,16 @@ export function profilePath(...parts) {
   return path.join(detectAppRoot(), "data", ...parts);
 }
 
+/**
+ * The writable PILOTS directory — where Omnath's persona modules (self-play `decide`/`buildPilots` .mjs files)
+ * live so they can be injected into a Sim Center batch WITHOUT a rebuild (drop a file, it appears in the panel).
+ * Global (not per-profile). In the packaged .exe this is %APPDATA%/com.colton.mtg-tool/pilots/. The route
+ * dynamic-imports a selected file from here server-side (path-guarded to a bare .mjs filename).
+ */
+export function pilotsDir(...parts) {
+  return path.join(detectAppRoot(), "pilots", ...parts);
+}
+
 /** Resolve a path inside the mtg-judge codex directory. */
 export function mtgJudgePath(...parts) {
   return path.join(detectMtgJudgeDir(), ...parts);

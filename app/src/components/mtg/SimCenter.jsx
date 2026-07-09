@@ -75,6 +75,19 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   const [scope, setScope] = useState("all");
   const [gamesPer, setGamesPer] = useState(1);
   const [bankData, setBankData] = useState(false);
+  // PILOT PANEL (Omnath seam): the selected persona filename ("" = default autopilot) + the list of persona
+  // .mjs modules in pilotsDir(), fetched from /api/pilots. Injecting a persona makes self-play persona-driven;
+  // Omnath drops/edits files in the pilots dir and they appear here — no rebuild.
+  const [pilot, setPilot] = useState("");
+  const [availablePilots, setAvailablePilots] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/pilots")
+      .then((r) => r.json())
+      .then((d) => { if (alive) setAvailablePilots(Array.isArray(d?.pilots) ? d.pilots : []); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // Seed from a cross-surface handoff (Pod Balance's "Run this pod here"),
   // consumed exactly once so later manual edits stick.
@@ -185,6 +198,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
           // "pod" scope = treat the selection as a single table. The runner pods by
           // chunks of 4 / pairs all — sending exactly the pod size yields one table.
           scope,
+          pilot: pilot || undefined, // PILOT PANEL: the selected persona filename ("" ⇒ omitted ⇒ default AI)
         }),
       });
       const data = await resp.json().catch(() => ({}));
@@ -372,6 +386,28 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 style={{ width: 64, padding: "6px 8px", background: "var(--ley-surface-1)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", fontSize: 13, fontFamily }}
               />
             </label>
+
+            {/* PILOT PANEL (Omnath seam): pick a persona from pilotsDir(); "" = default autopilot. */}
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--ley-text-faint)" }}>
+              {label("Pilot")}
+              <select
+                value={pilot}
+                onChange={(e) => setPilot(e.target.value)}
+                title="Persona modules live in the pilots/ folder of the app data dir"
+                style={{ padding: "6px 8px", background: "var(--ley-surface-1)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", fontSize: 13, fontFamily }}
+              >
+                <option value="">Default AI (no persona)</option>
+                {availablePilots.map((p) => (
+                  <option key={p} value={p}>{p.replace(/\.mjs$/, "")}</option>
+                ))}
+              </select>
+            </label>
+            {availablePilots.length === 0 && (
+              <span style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5, maxWidth: 320 }}>
+                ⓘ Drop persona <code>.mjs</code> modules in the app-data <code>pilots/</code> folder to run
+                persona-driven self-play (tags each game by playbook/temperament).
+              </span>
+            )}
 
             {gamesPer > 1 && (
               <span style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5, maxWidth: 360 }}>
