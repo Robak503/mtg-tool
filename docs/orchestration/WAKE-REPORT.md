@@ -15,8 +15,15 @@
 >    Seam: default-off `advanceOpts.resolveArbiter` hook at `learnSession.js:1016` (OFF ⇒ `ab524e20`/5706 unchanged) + a `profilePath("arbiter-
 >    verdicts.json")` cache (model on colorTagStore) + a structured-verdict→atom applier (reuse runEffectProgram, NO prose) + an async pre-pass
 >    cache-warmer. Build order (5 steps, each verifiable) in the spec. **← next build (needs fresh context; determinism-critical — build coherent, not on fumes).**
-> 4. 🔜 **Data-grounded grind (#3)** — Omnath's breakage-ranked queue, NOT joe-targets.json: **Garruk's Uprising ×307 (hits 4 decks)** first,
->    then Harmonized Crescendo 257 · Inventors' Fair 194 · Freed from the Real 174 · Aberrant 171 · Ordeal of Nylea 143 · Tervigon 139 · Kogla 131.
+> 4. ⚠️ **Data-grounded grind (#3) — REFRAMED by a scout (2026-07-08).** Omnath's breakage queue is **NOT a coverage-gap queue**: 4 of the top-5
+>    are ALREADY classifier-native — Garruk's Uprising (`native-mixed`, both draw triggers route), Harmonized Crescendo (`native-spell`), Freed
+>    from the Real (`native-activated`), Inventors' Fair (`land`). Only **Ordeal of Nylea** is genuinely `body-only` (attacks→+1/+1→conditional-
+>    sacrifice→search-2-basics chain — a real subsystem flip). So a ubiquitous native staple (Garruk's, in 4 decks) accrues "breakage" hits by
+>    PRESENCE-CORRELATION, not by being unresolved — flipping "gated" cards won't move those counts. **Reconcile with Omnath (COMMS Q-BREAKAGE):**
+>    what signal does `selfplay-report.cjs` actually count? If it's `spell-unresolved`, a native card shouldn't appear — so either the aggregator
+>    keys on card-present-during-any-breakage, or these natives have a real RUNTIME sub-interaction bug the classifier can't see (that's the
+>    Arbiter-in-runner #3 lane's concern, not a coverage flip). Until reconciled, grind the CLASSIFIER-gated cards (Ordeal of Nylea +
+>    joe-targets/census gated lists), not the raw breakage names.
 > 5. 🔜 **Rest of handoff:** slang glossary (low-pri, `omnath-tools/reference/mtg-slang/` → cardIndex nickname lookup) · trajectory sidecar 2b
 >    (snapshot decideDebug on discovery-wins / playbook-flip forks — the only piece of Omnath's contract 2 still open).
 > 6. 🔜 **Joe-shelf grind (Colton's method):** ONE DECK AT A TIME · fan out agents to analyze/build **one card or a chunk at a time** · Cindy
