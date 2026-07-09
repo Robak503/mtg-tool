@@ -178,6 +178,22 @@ export function gameStatus(state) {
     return done("ai-wins", wonOpponent, `${wonOpponent} wins the game (CR 104.2a)`);
   }
 
+  // 1.5) FFA-SOLE-SURVIVOR (state-carried rule, mirrors recordOutcomeIfChanged so the two
+  // surfaces can never drift): the game is over only at ≤1 live player; the sole survivor —
+  // whichever seat — is the winner. Under the legacy path below, a dead user ended the pod
+  // and `liveOpponents[0]` (turn-order-first survivor) was CROWNED with rivals still alive —
+  // the fabricated 52/15/6 ai-seat split the 2026-07-09 pathology hunt exposed.
+  if (state?.rules?.ffaSoleSurvivor) {
+    const live = order.filter((id) => !isPlayerDead(state, id));
+    if (live.length === 0) {
+      return done("draw", null, "all remaining players died simultaneously (CR 104.4a)");
+    }
+    if (live.length === 1) {
+      return done(live[0] === "user" ? "user-wins" : "ai-wins", live[0], "sole survivor (CR 104.3a)");
+    }
+    return { over: false, result: null, winnerSeat: null, reason: null };
+  }
+
   // 2) Death checks (CR 104.3a / 704.5a life≤0, 704.5c poison, 704.6c cmd dmg).
   const userDead = isPlayerDead(state, "user");
   const liveOpponents = opponents.filter((id) => !isPlayerDead(state, id));

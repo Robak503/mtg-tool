@@ -195,6 +195,7 @@ export function runSelfPlayGame({
   policy = null, // SD-5/PS-4 — opponentAI A/B knob (null | "v1" | per-subsystem map) threaded into advanceOpts; null ⇒ byte-identical.
   mulligan = null, // AI-F9 — null/false (single-game default, byte-identical): mulligan only for seats whose PILOT supplies decideMulligan; true: seats WITHOUT one default to decideMulliganForAI (runSelfPlayBatch turns this ON so 0-land/7-land keeps stop poisoning labels).
   resolveArbiter = null, // ARBITER-IN-RUNNER: a SYNC (pa,state)→verdict|null cache lookup; when set, gated cards resolve from the warm verdict cache instead of no-op'ing. null ⇒ byte-identical (hash preserved).
+  legacyUserPivot = false, // LEGACY PIN (HARNESS-DATA wave 1b): true recovers the pre-FFA commander semantics (user dies ⇒ pod ends, liveOpponents[0] crowned) for A/B + anchor-lineage proof. Default false ⇒ commander pods play to the SOLE SURVIVOR and recorded winners are real.
 } = {}) {
   // Per-seat pilot identity ({playbook,temperament} | null) — used by both the in-game decide
   // router/recorder below AND the pre-game mulligan config. Defined up here so the mulligan
@@ -271,6 +272,9 @@ export function runSelfPlayGame({
       // startGame stamps it as startingPlayer and the first-turn draw-skip follows it.
       ...(startSeat != null ? { activePlayer: startSeat } : {}),
       mulligan: mulliganConfig, // null ⇒ no mulligan surfaced (byte-identical game start)
+      // Commander pods play FFA to the sole survivor — recorded winners are REAL winners
+      // (wave 1b). legacyUserPivot recovers the old user-pivot semantics for A/B/lineage.
+      ffaSoleSurvivor: mode === "commander" && !legacyUserPivot,
     });
   } catch (error) {
     return {
@@ -790,7 +794,7 @@ export function summarizeSeatOutcomes(games) {
  *             { mode, deckNames, seatNames, userDeckName, startSeat } and a trainingWeight,
  *             plus an `onThePlay` field naming the seat that led (CR 103.8a)
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true, policy = null, mulligan = true, rotateSeats = false, podShuffle = false, resolveArbiter = null } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true, policy = null, mulligan = true, rotateSeats = false, podShuffle = false, resolveArbiter = null, legacyUserPivot = false } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
   // Seeded shuffle makes repeats REAL: each game gets a distinct seed, so gamesPer>1
@@ -866,6 +870,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
         policy, // SD-5/PS-4 — single knob, whole batch (null => byte-identical)
         mulligan: mulligan === false ? null : true, // AI-F9 — batch default ON; pass false to opt out
         resolveArbiter, // ARBITER-IN-RUNNER — forwarded to advanceOpts; null (default) ⇒ byte-identical
+        legacyUserPivot, // wave 1b — true recovers the pre-FFA user-pivot semantics (anchor lineage/A-B)
       });
     } else {
       const [a, b] = seatDecks;

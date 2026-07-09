@@ -103,6 +103,14 @@ export function createLearnSession({
   mode = "standard",
   seed = null, // opt-in seeded opening shuffle (default null ⇒ deck-list order, byte-identical to before)
   mulligan = null, // opt-in London mulligan (default null ⇒ keep the dealt 7, byte-identical); { decide, pilots?, recordMulligan? }
+  // FFA-SOLE-SURVIVOR (HARNESS-DATA wave 1b): when true, a 4P pod plays to the LAST PLAYER
+  // STANDING — the user seat dying is an elimination like any other, not the end of the game.
+  // Default false ⇒ the legacy user-pivot semantics stay byte-identical (the Academy's human-
+  // centric flow: the game is over for the USER when the user dies). Self-play passes true so
+  // recorded winners are real winners — the 2026-07-09 pathology hunt proved the legacy path
+  // crowned `liveOpponents[0]` (turn-order-first survivor) as "winner" in 70.7% of ai-wins
+  // while ≥2 opponents still stood, fabricating the 52%/15%/6% ai-seat "win" split.
+  ffaSoleSurvivor = false,
 } = {}) {
   if (!Array.isArray(userDeck) || userDeck.length === 0) {
     throw new Error("createLearnSession: userDeck must be a non-empty array");
@@ -150,6 +158,13 @@ export function createLearnSession({
     });
   }
   state = startGame(state, { seed, mulligan });
+
+  // Carry the FFA rule ON THE STATE so every status surface (recordOutcomeIfChanged here,
+  // gameStatus in gameApi.js) reads the same flag and can never drift — and so a serialized
+  // save replays under the semantics it was played with. Absent (legacy saves) ⇒ user-pivot.
+  if (ffaSoleSurvivor) {
+    state = { ...state, rules: { ...(state.rules || {}), ffaSoleSurvivor: true } };
+  }
 
   return {
     id: generateSessionId(),
@@ -303,6 +318,27 @@ function recordOutcomeIfChanged(session) {
   const userDead = isPlayerDead(state, "user");
   const deadOpponents = opponents.filter((id) => isPlayerDead(state, id));
   const allOpponentsDead = opponents.length > 0 && deadOpponents.length === opponents.length;
+
+  // FFA-SOLE-SURVIVOR (state-carried rule; self-play pods): the game ends only when one
+  // player remains (they win, whichever seat they are) or none remain (draw, CR 104.4a).
+  // A dead USER is an elimination like any other — the pod plays on without them. This is
+  // what makes recorded winners REAL winners instead of the legacy turn-order crown.
+  if (state.rules?.ffaSoleSurvivor) {
+    const liveSeats = order.filter((id) => !isPlayerDead(state, id));
+    if (liveSeats.length === 0) {
+      return { ...session, status: "draw", endedAt: new Date().toISOString() };
+    }
+    if (liveSeats.length === 1) {
+      return { ...session, status: liveSeats[0] === "user" ? "user-wins" : "ai-wins", endedAt: new Date().toISOString() };
+    }
+    const deadSeats = order.filter((id) => isPlayerDead(state, id));
+    if (deadSeats.length > 0) {
+      let cleaned = state;
+      for (const id of deadSeats) cleaned = removePlayerFromGame(cleaned, id);
+      return { ...session, state: cleaned };
+    }
+    return session;
+  }
 
   // Simultaneous death — the user AND every remaining opponent die in the same
   // SBA check (mutual lethal in one combat-damage step) → draw, not a user
