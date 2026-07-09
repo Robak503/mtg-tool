@@ -1,21 +1,46 @@
-> ❓ **QUESTIONS FOR COLTON (7-hr autonomous run, 2026-07-08) — nothing blocks me; these are your calls when you're up:**
-> **Q1 — Energy Slice C: DONE ✅** (shipped in v0.115.0). Optional-pay triggers "you may pay {E}. If you do, <effect>" now work — the
-> energy mechanic is COMPLETE (gain + pay + optional-pay). No action needed.
-> **Q2 — Energy-gated MANA dorks stay parked (safe, my lean = keep parked).** Servant of the Conduit / Aetherworks-style cards whose ONLY
-> mana is "{T}, Pay {E}: Add …" stay non-native: the mana model deliberately does NOT count energy-gated mana as a free source (else the
-> AI would spend mana it can't make). Modeling them = "conditional mana gated on the energy pool," a real build (~10-15 cards). Want it?
-> **Q3 — Token-cleanup fix: DONE ✅** (CR 111.7, shipped v0.114.0). Confirm it matches what you wanted (fixes a pre-existing engine-wide gap).
-> **Q4 — UPDATED v0.116.0: the "clean levers exhausted" claim was WRONG.** RECOGNITION levers (keyword-cost / alt-cast forms the classifier
-> didn't recognize but the engine already plays inert-or-enforced) were a rich vein: morph +65, ward-pay-life +3, double-P/T +3 this run.
-> Next recognition candidates: exalted (~16), flanking (~7), soulshift (~15). THEN the deep SUBSYSTEMS below. Original note preserved: what's
-> left needs real subsystem builds, each ~a session: **graft** (~9, keyword: enters-with-counters + move-a-counter trigger + AI — the
-> reminder-text counters aren't even recognized yet), **suspend / time counters** (~9, exile-with-counters + cast-when-last-removed),
-> **detain** (~3), **token-copies "create that many copies"** (~6). Also small-but-fiddly: **artifact-recursion "another artifact from GY"**
-> (~3, needs permanent-id→card-id mapping for excludeSource), **self-/that-player direct damage** (~6, needs a player-damage target). Which
-> do you want prioritized? (My lean: graft next — biggest clean-ish keyword; then suspend.)
-> **No other blockers.** Everything committed + pushed on `claude/elated-feistel-ab8e90`.
+> 🤖 **FULL-AUTO AUTONOMOUS RUN — 2026-07-08 (Cindy, Opus 4.8). Colton: "no need to stop full auto just put things for me in the wake report."**
+> Mid-session Colton re-scoped me OFF the blind Joe-frontier grind ONTO **Omnath's sim-center handoff** (COMMS top), order **"2 then 1 then 3"**
+> then the rest of the handoff, then back to a **structured Joe-shelf grind**. This block is the live progress log — I do NOT stop to check in.
+>
+> **ORDERED BACKLOG (executing top-down, full-auto):**
+> 1. ✅ **Pilot-seam #1 — CLI half** (`1a13c3e5`): `self-play.mjs --pilot=<path>` injects a persona module into every seat + `scripts/pilots/
+>    example-pilot.mjs` reference template. E2E-verified: rows tag {playbook,temperament}, byte-identical when wrapping default (seam clean).
+>    Omnath's `omnath-tools/pilots/decide.mjs` plugs in directly. **✅ replay-header** (`1a7322a7`, Omnath contract 2a): export header now carries
+>    engineVersion + pilot-map + seed → replay-reconstructable.
+> 2. ⏳ **Pilot-seam — PANEL half (Colton's own sweeps) is BLOCKED** on two things (Q-PILOT posted to Omnath): (a) Omnath's persona modules don't
+>    exist yet (their deliverable), (b) a packaging call — **where do pilot personas live in the shipped .exe?** bundle a curated set into
+>    `resources/pilots/` + a SimCenter dropdown (route builds the map server-side; closures can't cross JSON) vs a user path. Can't build until both resolve.
+> 3. 🔜 **Arbiter-in-runner (#2)** — runner intercepts `state.pendingArbiter` → Ollama → cache by card+situation-sig so gated cards stop being
+>    silent no-ops in sim. Mapping agent in flight; design Q = LLM-resolve vs the deterministic trajectory hash (lean: resolve-once → memoize a
+>    fixed per-card verdict → replay deterministically). **← next actionable.**
+> 4. 🔜 **Data-grounded grind (#3)** — Omnath's breakage-ranked queue, NOT joe-targets.json: **Garruk's Uprising ×307 (hits 4 decks)** first,
+>    then Harmonized Crescendo 257 · Inventors' Fair 194 · Freed from the Real 174 · Aberrant 171 · Ordeal of Nylea 143 · Tervigon 139 · Kogla 131.
+> 5. 🔜 **Rest of handoff:** slang glossary (low-pri, `omnath-tools/reference/mtg-slang/` → cardIndex nickname lookup) · trajectory sidecar 2b
+>    (snapshot decideDebug on discovery-wins / playbook-flip forks — the only piece of Omnath's contract 2 still open).
+> 6. 🔜 **Joe-shelf grind (Colton's method):** ONE DECK AT A TIME · fan out agents to analyze/build **one card or a chunk at a time** · Cindy
+>    RESOLVES their work + adversarially verifies each (builders over-promise — [[feedback_ultracode_builder_overpromise]]) · flip-diff LOST=0 +
+>    trajectory hold before it lands · keep moving toward ~100%. Deck order TBD from per-deck gated counts (cont.3 has 274 gated ranked).
+>
+> **RELEASE:** ✅ **v0.117.0 SHIPPED** — master FF'd `caf454b1..1a7322a7`, tag pushed → CI building (run 28991474833). **+55 native since v0.116.0**
+> (foretell/blitz +25 · has-have +7 · play-from-top +3 · monstrosity +5 · Gishath +1 · equipment +12 · misc +2), LOST=0. Suite 8006 green. Full entry ↓.
+> **Q2 (carryover, non-blocking):** energy-gated mana dorks stay parked (safe FN; my lean = keep parked unless you want the ~10-15-card build).
 >
 > ── ↓ shipped releases ↓ ──
+> 🛠️ **v0.117.0 — 2026-07-08 (Cindy, Opus 4.8). SHIPPED — +55 native, LOST=0. Coverage grind + the FIRST sim-center engine seam.**
+> Two threads. **COVERAGE (+55, all flip-diff LOST=0, trajectory `ab524e20` held byte-identical, suite 8006):** ① **foretell / blitz /
+> freerunning / prototype** alt-cast recognition (`7b10e44d`, +25 — the morph-era recognition-lever vein) · ② **singular "has" counter-payoff
+> keyword grant** (`378cbad9`, +7) · ③ **play-from-top-of-library subsystem** (`b752875b`, +3, ENFORCED — Future Sight [Kellan]/Magus/Goblin Spy;
+> staticAbilityParser marker → legalChoices lane → dispatcher, AI actually casts the top card) · ④ **Monstrosity keyword action** (`05e5dc2f`, +5,
+> once-only +1/+1 latch, CR 701.32) · ⑤ **Gishath reveal-that-many put-filtered** combat-damage trigger (`bca4910f`, +1 Joe — a genesis-wave
+> sibling, count = combatDamageAmount) · ⑥ **equipment cluster** (`0873c4d4`, +12 — ETB legendary auto-attach [Mithril Coat=Joe, via a new
+> supertype target restriction] + a self-keyword-equipment coverage FN fix → Darksteel Axe/Plate, Captain America's Shield, Vibranium daggers,
+> Stoneforged Blade…; equip bonus runtime-verified applied via CR-613 layers, NOT a recognized-but-unenforced FP) · ⑦ misc +2. Also **locked**
+> (`3febf406`, test-only): a discover/cascade FREE-cast fires the caster's cast triggers (CR 702.166b — was already correct; now guarded).
+> **SIM-CENTER (Omnath handoff #1):** `self-play.mjs --pilot=<path>` (`1a13c3e5`) injects a persona module into every seat + `scripts/pilots/
+> example-pilot.mjs` reference template — self-play is no longer persona-blind; rows tag {playbook,temperament}; determinism preserved (a
+> default-wrapping pilot plays byte-identical). **Replay-header** (`1a7322a7`, Omnath contract 2a): omnath-trajectory-v1 export now self-describes
+> engineVersion + pilot-map + seed → any decision replay-reconstructable with decideDebug (zero per-row reasoning stored). **NEXT (full-auto, see
+> top block):** Arbiter-in-runner (#2) → data-grounded grind (Garruk's Uprising ×307) → handoff rest → structured Joe-shelf grind (deck-by-deck agent fan-out).
 > 🃏 **v0.116.0 — 2026-07-08 (Cindy, Opus 4.8, autonomous grind). SHIPPED — +111 native, LOST=0. MORPH + a whole vein of RECOGNITION levers.**
 > Cut at 111 — a big one, but honest: dominated by **alt-cast / face-down keyword recognition** (morph +65, dash +16, disguise +11, sneak +8),
 > a single sanctioned lever class (the cycling/ninjutsu precedent — the card hard-casts normally; the optional alt entry is inert), NOT bespoke
