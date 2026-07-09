@@ -13,6 +13,7 @@ import { describe, it, expect } from "vitest";
 import { createGameState } from "./gameState.js";
 import { applyArbiterVerdict } from "./learnSession.js";
 import { verdictKey, getVerdict, putVerdict, verdictCacheContentHash } from "./arbiterVerdictStore.js";
+import { warmArbiterCache, verdictLooksApplyable } from "./arbiterPrepass.js";
 
 function stateWithLibrary() {
   const s = createGameState({ userDeck: [], aiDeck: [] });
@@ -88,5 +89,47 @@ describe("arbiterVerdictStore — the determinism boundary", () => {
     const b = {}; putVerdict(b, "Y", { atoms: [] }); putVerdict(b, "X", { atoms: [] });
     expect(verdictCacheContentHash(a)).toMatch(/^[0-9a-f]{16}$/);
     expect(verdictCacheContentHash(a)).toBe(verdictCacheContentHash(b)); // insertion-order independent
+  });
+});
+
+describe("warmArbiterCache — the off-loop pre-pass (pluggable verdict source)", () => {
+  it("verdictLooksApplyable: a known non-targeted op passes; targeted/optional/unknown/empty fail", () => {
+    expect(verdictLooksApplyable({ atoms: [{ op: "draw", amount: 1 }] })).toBe(true);
+    expect(verdictLooksApplyable({ atoms: [{ op: "draw", targetType: "creature" }] })).toBe(false);
+    expect(verdictLooksApplyable({ atoms: [{ op: "draw", optional: true }] })).toBe(false);
+    expect(verdictLooksApplyable({ atoms: [{ op: "totally-fake-op" }] })).toBe(false);
+    expect(verdictLooksApplyable({ atoms: [] })).toBe(false);
+    expect(verdictLooksApplyable(null)).toBe(false);
+  });
+  it("caches applyable verdicts from the injected resolver + reports counts", async () => {
+    const gated = [{ cardName: "Gated A" }, { cardName: "Gated B" }];
+    const resolve = (pa) => (pa.cardName === "Gated A" ? { atoms: [{ op: "draw", amount: 1 }] } : { atoms: [{ op: "totally-fake" }] });
+    const { cache, resolved, skipped } = await warmArbiterCache(gated, { resolve });
+    expect(resolved).toBe(1);                       // A cached
+    expect(skipped).toBe(1);                        // B's garbage verdict rejected by the validator
+    expect(getVerdict(cache, "Gated A").atoms).toEqual([{ op: "draw", amount: 1 }]);
+    expect(getVerdict(cache, "Gated B")).toBeNull(); // never cached garbage
+  });
+  it("DEDUPES by card (Garruk's Uprising ×N ⇒ ONE resolve call)", async () => {
+    let calls = 0;
+    const resolve = () => { calls += 1; return { atoms: [{ op: "draw", amount: 1 }] }; };
+    const gated = Array.from({ length: 50 }, () => ({ cardName: "Garruk's Uprising" }));
+    const { resolved } = await warmArbiterCache(gated, { resolve });
+    expect(calls).toBe(1);      // 50 occurrences → 1 query
+    expect(resolved).toBe(1);
+  });
+  it("a resolver THROW is skipped + counted, never fabricated", async () => {
+    const resolve = () => { throw new Error("ollama down"); };
+    const { resolved, errors, cache } = await warmArbiterCache([{ cardName: "X" }], { resolve });
+    expect(resolved).toBe(0);
+    expect(errors).toBe(1);
+    expect(getVerdict(cache, "X")).toBeNull();
+  });
+  it("skips a card already in the cache (reuse a prior warm, don't re-query)", async () => {
+    const cache = {}; putVerdict(cache, "Cached", { atoms: [{ op: "draw", amount: 1 }] });
+    let calls = 0;
+    const resolve = () => { calls += 1; return { atoms: [{ op: "draw", amount: 1 }] }; };
+    await warmArbiterCache([{ cardName: "Cached" }], { resolve, cache });
+    expect(calls).toBe(0); // already cached → no resolve
   });
 });
