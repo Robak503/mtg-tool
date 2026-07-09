@@ -115,6 +115,35 @@ describe("discover decision — the found card is cast FREE or put in hand (acti
   });
 });
 
+describe("discover free-cast fires the caster's cast triggers (CR 702.166b — the found card is genuinely CAST)", () => {
+  // A discover (and cascade) free-cast waives ONLY the mana cost; it routes through applyCastSpell, so
+  // recordSpellCast (storm count) + checkCastTriggers ("whenever you cast a spell", prowess, storm) fire EXACTLY
+  // like a paid cast. This locks that subtle correctness point: casting "without paying its mana cost" is still a
+  // cast (CR 702.166b / 601.2), so a "whenever you cast" watcher must trigger. Regression guard against a future
+  // refactor that shortcuts the free-cast onto the stack and silently drops cast triggers.
+  it("a 'whenever you cast a noncreature spell' watcher fires on the discover free-cast, ABOVE the spell", () => {
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    // Firebrand Archer on the battlefield — the canonical cast watcher (deals 1 to each opponent on a noncreature cast).
+    const archer = { id: "arch1", controller: "user", tapped: false, summoningSick: false,
+      card: { id: "fa", name: "Firebrand Archer", type: "Creature — Human Archer", power: 1, toughness: 2,
+              oracle: "Whenever you cast a noncreature spell, Firebrand Archer deals 1 damage to each opponent." } };
+    // A NONCREATURE spell parked in exile by discover.
+    const foundBolt = { id: "f1", name: "Found Bolt", type: "Instant", mana: "{R}", oracle: "Found Bolt deals 3 damage to any target." };
+    let st = { ...base, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...base.players, user: { ...base.players.user, battlefield: [archer], exile: [foundBolt], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } } },
+      pendingDiscover: { controller: "user", cardId: "f1", mv: 1 } };
+    const cast = filterActions(legalActionsForPlayer(st, "user"), "cast-spell").find((a) => a.freeCast && a.fromZone === "exile");
+    expect(cast).toBeTruthy();
+    st = dispatchAction(st, cast);
+    // The spell is on the stack (bottom) and the cast-watcher trigger is ABOVE it (top → resolves first, CR 603.3b).
+    expect(st.stack.map((o) => o.kind)).toEqual(["spell", "triggered-ability"]);
+    expect(st.stack[0].source?.name).toBe("Found Bolt");
+    expect(JSON.stringify(st.stack[1])).toMatch(/Firebrand Archer/);
+    // Genuinely free — no mana was paid for the cast that fired the trigger.
+    expect(st.players.user.manaPool).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
+  });
+});
+
 describe("discover — parser + coverage pins", () => {
   const atomsOf = (txt, ct = "Sorcery") => parseEffectClause(txt, ct)?.atoms;
   const isHigh = (txt, ct = "Sorcery") => programConfidence(parseEffectClause(txt, ct)) === "high";
