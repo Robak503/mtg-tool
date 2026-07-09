@@ -647,6 +647,17 @@ export function permanentTriggersCovered(card) {
     .replace(/\b(?:you )?create a number of [^.]*? equal to the result\b\.?\s*/gi, " ")
     .replace(/\b(?:you )?draw cards equal to the result\b\.?\s*/gi, " ")
     .replace(/\byou have no maximum hand size for the rest of the game\b\.?\s*/gi, " ")
+    // REVEAL-THAT-MANY-PUT-FILTERED (Gishath, Sun's Avatar) — the put/bottom sentence "Put any number of
+    // <subtype> creature cards from among them onto the battlefield and the rest on the bottom of your library in
+    // a random order." is part of the SAME combat-damage trigger's effect: detectTriggers folds it into the
+    // effectClause (after "…reveal that many cards from the top of your library."), and the WHOLE effect parses
+    // HIGH in allTriggerSentencesModeled above (the reveal-put-filtered atom — proven before this residue check
+    // runs; an UNmodeled disposition fails that gate and never reaches here). The trigger regex stops at the first
+    // period after "…top of your library.", leaving the put sentence as apparent residue. Strip the EXACT modeled
+    // wording so the card reads keyword-only (Gishath's only other body text is the Vigilance/trample/haste line).
+    // Anchored to the modeled shape (a single-word subtype + the exact put/bottom-random disposition), so it can
+    // only consume this modeled follow-up (FN-safe — a different disposition fails the HIGH gate above first).
+    .replace(/\bput any number of [a-z]+ creature cards from among them onto the battlefield and the rest on the bottom of your library in a random order\b\.?\s*/gi, " ")
     // REFLEXIVE TRIGGER (CR 603.7) — a "When you do[ this/so], <reflexive>." sentence is part of the PRECEDING
     // trigger's effect: detectTriggers folds it into that trigger's effectClause, and it parses HIGH in
     // allTriggerSentencesModeled above (proven before this residue check runs — an UNmodeled reflexive fails

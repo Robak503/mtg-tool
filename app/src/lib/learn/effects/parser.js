@@ -1957,6 +1957,33 @@ function matchGenesisWave(oracle) {
 }
 
 /**
+ * ===== GISHATH / REVEAL-THAT-MANY-PUT-FILTERED ===== a COMBAT-DAMAGE trigger's payoff (NOT an {X} spell): "reveal
+ * that many cards from the top of your library. Put any number of <SUBTYPE> creature cards from among them onto the
+ * battlefield and the rest on the bottom of your library in a random order." (Gishath, Sun's Avatar — Dinosaur;
+ * Pantlaza). "that many" = the combat damage this trigger dealt (countContext:"combatDamageAmount"); the referent
+ * gate (combatDamageReferentSatisfied) keeps this native ONLY on a combat-damage event, so a non-combat trigger
+ * can't route here and silently drop. Whole-clause anchored: any different disposition ("into your graveyard", no
+ * "random order"), a missing subtype, or a non-"creature" put fails the exact anchor → low → Arbiter (CREED FN-safe).
+ * The subtype is captured (group 1, single word) and folded into an AND-group filter with "creature" so
+ * cardMatchesTutorFilter admits a card whose front-face type line names BOTH (e.g. "Creature — Dinosaur"). The op
+ * is KNOWN (registered in libraryResolvers), so the caller emits a HIGH single-atom program. Returns { atom }.
+ */
+function matchRevealThatManyPutFiltered(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const m = s.match(
+    /^reveal that many cards from the top of your library\. put any number of ([a-z]+) creature cards from among them onto the battlefield and the rest on the bottom of your library in a random order$/,
+  );
+  if (!m) return null;
+  const subtype = m[1].trim(); // "dinosaur" — a creature subtype word
+  if (!subtype) return null;
+  // Filter = a creature card whose front-face type line names the subtype. cardMatchesTutorFilter ANDs a group's
+  // words against the type line, so ["dinosaur","creature"] requires BOTH — "Creature — Dinosaur" matches; an
+  // instant/sorcery (no "creature") never does. A bogus subtype simply matches nothing (put 0 — never fabricated).
+  const filter = { groups: [[subtype, "creature"]] };
+  return { atom: { op: "reveal-put-filtered", filter, countContext: "combatDamageAmount", filterLabel: `${subtype} creature card`, targetType: null } };
+}
+
+/**
  * ===== ANIMIST'S AWAKENING (mass reveal-top-X → put-all-LANDS-tapped → bottom-the-rest, + spell-mastery untap)
  * ===== the {X}-cost land-flood family: "Reveal the top X cards of your library. Put all land cards from among
  * them onto the battlefield tapped and the rest on the bottom of your library in a random order.\nSpell mastery
@@ -2880,6 +2907,16 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     if (rtcAtoms.every((a) => KNOWN.has(a.op))) {
       return makeProgram({ confidence: "high", atoms: rtcAtoms, xSpell: false, unparsedTail: null });
     }
+  }
+  // ===== GISHATH / REVEAL-THAT-MANY-PUT-FILTERED ===== "reveal that many cards from the top … Put any number of
+  // <subtype> creature cards … onto the battlefield and the rest on the bottom … in a random order." → ONE
+  // reveal-put-filtered atom (count = combatDamageAmount; put every matching creature; bottom the rest random).
+  // A two-sentence combat-damage payoff the clause splitter would shatter, so it's collapsed up front. The
+  // countContext:"combatDamageAmount" referent gate keeps it native ONLY on a combat-damage event. HIGH iff the op
+  // is KNOWN (it is — registered in libraryResolvers). Not an X spell.
+  const rpf = matchRevealThatManyPutFiltered(oracle);
+  if (rpf && KNOWN.has(rpf.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [rpf.atom], xSpell: false, unparsedTail: null });
   }
   // ===== IMPULSE-EXILE-AND-PLAY ===== "Exile the top card of your library. You may play that card this turn."
   // → ONE impulse-exile atom (exile the top card face-up + stamp the this-turn play permission; the action

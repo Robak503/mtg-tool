@@ -5,7 +5,7 @@
 
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
-import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard } from "./shared.js";
+import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
@@ -815,6 +815,55 @@ export function applyGenesisWave(state, atom, ctx) {
 }
 
 /**
+ * ===== REVEAL-THAT-MANY-PUT-FILTERED (Gishath, Sun's Avatar) ===== a COMBAT-DAMAGE trigger's payoff — "reveal
+ * that many cards from the top of your library. Put any number of <SUBTYPE> creature cards from among them onto
+ * the battlefield and the rest on the bottom of your library in a random order." (Gishath — Dinosaur; Pantlaza).
+ *
+ * COUNT — "that many" = ctx.combatDamageAmount, the combat damage THIS trigger dealt (resolveScaledAmount reads
+ * the atom's countContext). The referent is supplied by the combatDamageToPlayer event; combatDamageReferentSatisfied
+ * gates this atom native ONLY on a combat-damage event, so an absent amount (a non-combat trigger) can never route
+ * here. `Math.max(0, …)` so 0 damage / an absent referent reveals nothing — a clean no-op, never fabricated.
+ *
+ * THE "PUT ANY NUMBER" CHOICE — resolved deterministically (v1, the genesis-wave posture): put EVERY matching
+ * <subtype> creature onto the battlefield. Putting all of them is a LEGAL resolution of "any number" (choosing to
+ * put all) and the maximizing line — the whole clause is applied (reveal + selective put + bottom-the-rest), no
+ * clause dropped. Each put enters via enterCardFromZone (fires ETB / permanent-enters), one at a time so triggers
+ * enqueue in order — identical to the genesis-wave put loop.
+ *
+ * DISPOSITION OF THE REST — every revealed card NOT put (a non-matching card) goes to the BOTTOM of the library in
+ * a RANDOM order (CR "in a random order" — the rngSeed-threaded shuffle, serialize-stable, no Math.random). After
+ * the puts, the leftover-revealed cards are STILL the top `revealed.length - put` of the library (enterCardFromZone
+ * removed only the put ones, preserving order), so bottomTopNInRandomOrder bottoms exactly those. An empty reveal
+ * (0 damage / empty library) is a clean logged no-op. Pure — a game serialized mid-resolution restores byte-identical.
+ */
+export function applyRevealPutFiltered(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const n = Math.max(0, resolveScaledAmount(state, atom, ctx)); // "that many" = the combat damage dealt (ctx.combatDamageAmount)
+  const lib = player.library || [];
+  const revealed = lib.slice(0, Math.min(n, lib.length)); // the top N (or fewer if the library is short)
+  if (revealed.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "reveal-put-filtered", controller, count: 0, put: 0, rest: 0 });
+  }
+  const eligibleIds = new Set(revealed.filter((c) => cardMatchesTutorFilter(c, atom.filter)).map((c) => c.id));
+  // Put EVERY matching creature onto the battlefield (the deterministic "put all" resolution of "any number").
+  let next = state;
+  let put = 0;
+  for (const c of revealed) {
+    if (!eligibleIds.has(c.id)) continue;
+    const r = enterCardFromZone(next, { playerId: controller, cardId: c.id, fromZone: "library" });
+    if (r.entered) { next = r.state; put += 1; }
+  }
+  // The REST — every revealed card not put — is STILL at the top of the library (enterCardFromZone removed only
+  // the put ones, preserving relative order), so the leftover-revealed cards remain the top `revealed.length - put`.
+  // Bottom exactly that many in a random order (the rngSeed-threaded shuffle, serialize-stable).
+  const rest = revealed.length - put;
+  if (rest > 0) next = bottomTopNInRandomOrder(next, controller, rest);
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-put-filtered", controller, count: revealed.length, put, rest });
+}
+
+/**
  * ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X}-cost sorcery) — "X can't be greater than the number of
  * players in the game. Reveal cards from the top of your library until you reveal X land cards. Put those land
  * cards onto the battlefield tapped and the rest on the bottom of your library in a random order."
@@ -1387,6 +1436,7 @@ export const libraryResolvers = {
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
   "impulse-exile": applyImpulseExileAtom, // ===== IMPULSE-EXILE-AND-PLAY ===== exile top card → exile face-up, stamp `_impulse`/`_impulseTurn`; play permission offered THIS TURN at the action layer (full-cost cast / play-land from exile), cleared at cleanup. Professional Face-Breaker's sac-Treasure ability flips native-mixed.
   "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
+  "reveal-put-filtered": applyRevealPutFiltered, // ===== REVEAL-THAT-MANY-PUT-FILTERED (Gishath) ===== combat-damage trigger: reveal that many (= combatDamageAmount) → put all matching <subtype> creatures onto battlefield → bottom the rest random. Gishath/Pantlaza flip native-trigger.
   "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
