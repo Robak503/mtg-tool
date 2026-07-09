@@ -34,9 +34,26 @@
 >    (builders over-promise — [[feedback_ultracode_builder_overpromise]]) + flip-diff LOST=0 + trajectory hold before commit. **Clusters found:**
 >    (a) FIGHT / "deals damage equal to power" (Ram Through, Beastie Beatdown, Last Agni Kai, Meltstrider, Ancient Animus, Nibelheim, Berserk);
 >    (b) EQUIPMENT (Lizard Blades/Reconfigure, Brotherhood Regalia, Cori-Steel Cutter/Flurry, Conformer Shuriken — warm infra from 0873c4d4);
->    (c) +1/+1 COUNTERS (High Score=Hardened-Scales doubler?, Quilled Greatwurm="that many" combat counters?, The Ozolith, Canopy Gargantuan,
->    Warden, Sylvan Scavenging, Forgotten Ancient, Well Rested, Level Up). 3 analysis agents in flight (a/b/c); resolve their specs → build → verify.
->    Then next Joe deck (Kellan 3.6% win is the other engine-tanked one). Data-grounded gated lists per deck via joe-targets.json + census.
+>    (c) +1/+1 COUNTERS. **3 analysis agents DONE — results (adversarial catch: agents found my prompt oracle for High Score/Quilled was INCOMPLETE;
+>    the real riders are the gate — verify oracle before building):**
+>    · **THIN (build next): Lizard Blades** — Reconfigure keyword unrecognized → 2 edits: `abilities.js:393` add a reconfigure branch (mirror equip,
+>    `isEquipAbility:true`) + `coverage.js:923` widen `modeledEquipLine` to accept `reconfigure {cost}`. Enforcement REAL (attach dispatches on
+>    isEquipAbility). Flips native-equipment. RUNTIME-VERIFY the attach+bonus applies before crediting.
+>    · **REUSE (medium, one real add each):** High Score (doubler already native; needs superlative "greatest power" interveningIf @ interveningIf.js:108) ·
+>    Sylvan Scavenging (modal per-mode `if`-conditional plumbing; condition already modeled) · Canopy Gargantuan (new `perTargetToughness` add-counter,
+>    extends counterClauses per-target scaffold) · Ancient Animus + Ram Through (fight atoms exist — combat.js fight-pair/damage-target-power — + ONE
+>    bounded rider each: conditional-legendary-counter / trample-excess). ALL are FP-if-flipped-bare (drop a rider) → must enforce the rider too.
+>    · **SUBSYSTEM (defer):** Conformer Shuriken (reflexive conditional) · Brotherhood Regalia (3 grant primitives: ward-N/add-type/unblockable) ·
+>    Cori-Steel Cutter (flurry label THIN + token-with-keyword subsystem) · The Ozolith + Forgotten Ancient (counter-TRANSFER/move subsystem) ·
+>    Warden (endure keyword) · Well Rested (becomes-untapped event + once-per-turn) · Level Up (double-on-it + conditional-draw) · Nibelheim/Beastie/
+>    Last Agni Kai (fight riders: fanout-scope/declare-ref/mana) · **Berserk = KEEP ARBITER** (drops mandatory self-destruct = dangerous board FP).
+>    Next: build Lizard Blades (verify), then High Score/Sylvan/Canopy/Ancient Animus/Ram Through as bounded reuse-+-rider slices, then Kellan (3.6% win).
+>
+> 7. 🔬 **HIGHEST-VALUE NEXT (Omnath COMMS #4, my Arbiter lane):** the classifier↔runtime MISMATCH — **Harmonized Crescendo (native-spell) + Freed
+>    from the Real (native-activated)** hit `pendingArbiter` 257/174× at runtime despite being classifier-native = a native OVER-CLAIM (live FP) or a
+>    partial resolution path. Instrument WHICH resolver emits pendingArbiter for these two natives. Data-trust > coverage. **✅ Garruk's `trigger-
+>    removed-no-target` mislabel FIXED** (`fbd22c9f`, Omnath #3) — was benign (correct CR 603.4 condition-skips), now logged `trigger-condition-not-met`;
+>    Omnath to recategorize it benign in selfplay-report. **Ordeal of Nylea** = the one clean spell-unresolved coverage flip up top.
 >
 > **RELEASE:** ✅ **v0.117.0 SHIPPED** — master FF'd `caf454b1..1a7322a7`, tag pushed → CI building (run 28991474833). **+55 native since v0.116.0**
 > (foretell/blitz +25 · has-have +7 · play-from-top +3 · monstrosity +5 · Gishath +1 · equipment +12 · misc +2), LOST=0. Suite 8006 green. Full entry ↓.
