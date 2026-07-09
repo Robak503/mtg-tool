@@ -226,12 +226,12 @@ describe("mulligan — recorded into the trajectory by pilot, threaded through t
     expect(userShip).toBeTruthy();
     expect(userKeep).toBeTruthy();
     // Tagged by the seat's pilot identity.
-    expect(userShip.pilot).toEqual({ playbook: "voltron", temperament: "aggressive" });
+    expect(userShip.pilot).toEqual({ playbook: "voltron", temperament: "aggressive", pilotType: null });
     // The AI (no decideMulligan) still gets ONE keep row (it was offered keep/ship and kept).
     const aiRows = mullRows.filter((r) => r.seat === "ai");
     expect(aiRows.length).toBe(1);
     expect(aiRows[0].action.kind).toBe("mulligan-keep");
-    expect(aiRows[0].pilot).toEqual({ playbook: "control", temperament: "cautious" });
+    expect(aiRows[0].pilot).toEqual({ playbook: "control", temperament: "cautious", pilotType: null });
 
     // The game still reaches a real terminal result (the mulligan phase never strands it).
     expect(["user-wins", "ai-wins", "draw", "timeout"]).toContain(game.result);
