@@ -84,7 +84,15 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
     let alive = true;
     fetch("/api/pilots")
       .then((r) => r.json())
-      .then((d) => { if (alive) setAvailablePilots(Array.isArray(d?.pilots) ? d.pilots : []); })
+      .then((d) => {
+        if (!alive) return;
+        const list = Array.isArray(d?.pilots) ? d.pilots : [];
+        setAvailablePilots(list);
+        // Default the selection to an available persona so the walk-away Grind is persona-driven
+        // (rich playbook/temperament/pilotType data) out of the box — prefer Omnath, else the first.
+        // Only sets the initial default; the user can still switch back to "" (default autopilot).
+        setPilot((cur) => cur || list.find((p) => /omnath/i.test(p)) || list[0] || "");
+      })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
