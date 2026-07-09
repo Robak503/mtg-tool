@@ -50,6 +50,7 @@ import {
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
+import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./staticAbilityParser.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
@@ -258,7 +259,11 @@ function applyCastSpell(state, action) {
   // CLAUDE.md §1.2). `program` is hoisted here and reused for the payload below (single parse).
   // ADVENTURE: parse the FACE (castCard), not the combined card — a creature face has no program (null), so
   // the payload routes through isPermanentSpell; an adventure-spell face carries action.program already.
-  const program = action.program || parseEffectProgram(castCard);
+  // Strip cost-only keyword lines (Convoke/Affinity) before parsing the EFFECT — they carry no atom of their own,
+  // and the CLASSIFIER already strips them (coverage.spellIsNative), so without this the runtime parses a bare
+  // "Convoke" line to LOW → pendingArbiter while the classifier calls the card native (the Harmonized Crescendo
+  // mismatch, Omnath breakage #4). No-op for any card without a cost-only keyword line.
+  const program = action.program || parseEffectProgram({ ...castCard, oracle: stripCostOnlyKeywordLines(castCard?.oracle || "") });
   for (const ac of program?.additionalCosts || []) {
     if (ac.kind === "sacrifice") {
       if (!action.sacCreatureId) throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
