@@ -7,6 +7,7 @@
  */
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
+import { permanentIsCreature } from "../../layers.js"; // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -194,6 +195,15 @@ export const atomTargets = (state, atom, ctx) => {
     return opponentCreatureTargets(state, ctx.controller, { toughnessAtMost: cap });
   }
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
+  // LAND-CREATURES-YOU-CONTROL (Bumi's earthbend'd lands) — a LAYER-AWARE gather: every battlefield permanent the
+  // controller controls that IS a creature right now (permanentIsCreature, so an earthbend-animated Land counts)
+  // AND still carries the printed Land type (earthbend keeps Land, CR 613.7c). controllerCreatureTargets can't be
+  // reused (it filters on the PRINTED creature type, missing animated lands). Read at resolution (CR 611.2c).
+  if (atom.scope === "landCreaturesYouControl") {
+    return (state.players[ctx.controller]?.battlefield || [])
+      .filter((p) => permanentIsCreature(state, p.id) && /\bLand\b/.test(p.card?.type || ""))
+      .map((p) => ({ type: "creature", id: p.id, controller: ctx.controller }));
+  }
   // ONE-YOU-CONTROL — a non-targeted "a creature you control" the CONTROLLER picks ONE of (Titan of Industry's
   // shield-counter mode "Put a shield counter on a creature you control"). A shield counter is purely
   // beneficial, so the optimal + deterministic auto-pick is the controller's HIGHEST-POWER own creature (the

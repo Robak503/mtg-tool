@@ -457,6 +457,16 @@ export function addCounterClauseParser(clause) {
   if (m && (m[3] === "artifact" || m[3] === "enchantment")) {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: m[3].charAt(0).toUpperCase() + m[3].slice(1) };
   }
+  // "each LAND creature you control" (Bumi, Eclectic Earthbender — his attack trigger buffs the lands earthbend
+  // animated into creatures). "land" is a card-TYPE qualifier, NOT a COUNT_SUBTYPE, and — critically — it must
+  // NOT route through subtypeFilter:"Land"/controllerCreatureTargets, which gate on isCreatureCard(perm.card) =
+  // the PRINTED type, so an earthbend-animated Land (printed Land, layer-4 Creature) would be MISSED → pump
+  // nothing → FP. The dedicated landCreaturesYouControl scope does a LAYER-AWARE gather in atomTargets
+  // (permanentIsCreature ∧ printed-Land) so the animated lands are hit (CR 613.7c: the type layer adds Creature,
+  // keeps Land). Checked BEFORE the COUNT_SUBTYPE branch so "land" never falls through to a non-curated null.
+  if (m && m[3] === "land") {
+    return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "landCreaturesYouControl" };
+  }
   // "each <Subtype> creature you control" (Avenger of Zendikar — "each Plant creature you control") — the
   // subtype-bearing CREATURE form, distinct from the "each <Subtype> you control" form below (which has no
   // "creature" word, e.g. "each Goblin you control"). The subtype maps through the SAME curated, collision-free
