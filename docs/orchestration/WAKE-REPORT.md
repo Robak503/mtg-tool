@@ -28,9 +28,15 @@
 >    joe-targets/census gated lists), not the raw breakage names.
 > 5. 🔜 **Rest of handoff:** slang glossary (low-pri, `omnath-tools/reference/mtg-slang/` → cardIndex nickname lookup) · trajectory sidecar 2b
 >    (snapshot decideDebug on discovery-wins / playbook-flip forks — the only piece of Omnath's contract 2 still open).
-> 6. 🔜 **Joe-shelf grind (Colton's method):** ONE DECK AT A TIME · fan out agents to analyze/build **one card or a chunk at a time** · Cindy
->    RESOLVES their work + adversarially verifies each (builders over-promise — [[feedback_ultracode_builder_overpromise]]) · flip-diff LOST=0 +
->    trajectory hold before it lands · keep moving toward ~100%. Deck order TBD from per-deck gated counts (cont.3 has 274 gated ranked).
+> 6. 🏁 **Joe-shelf grind (Colton's method) — LAUNCHED on WOLVERINE** (Omnath data: worst win 1.2%, engine-tanked → flipping its ~handful of
+>    blockers reveals real strength). **36/42 gated.** Method: fan out READ-ONLY analysis agents per cluster (read-only avoids the shared-worktree
+>    build hazard — [[project_parallel_shared_worktree_hazard]]) → they return specs → Cindy BUILDS the thin flips + adversarially verifies each
+>    (builders over-promise — [[feedback_ultracode_builder_overpromise]]) + flip-diff LOST=0 + trajectory hold before commit. **Clusters found:**
+>    (a) FIGHT / "deals damage equal to power" (Ram Through, Beastie Beatdown, Last Agni Kai, Meltstrider, Ancient Animus, Nibelheim, Berserk);
+>    (b) EQUIPMENT (Lizard Blades/Reconfigure, Brotherhood Regalia, Cori-Steel Cutter/Flurry, Conformer Shuriken — warm infra from 0873c4d4);
+>    (c) +1/+1 COUNTERS (High Score=Hardened-Scales doubler?, Quilled Greatwurm="that many" combat counters?, The Ozolith, Canopy Gargantuan,
+>    Warden, Sylvan Scavenging, Forgotten Ancient, Well Rested, Level Up). 3 analysis agents in flight (a/b/c); resolve their specs → build → verify.
+>    Then next Joe deck (Kellan 3.6% win is the other engine-tanked one). Data-grounded gated lists per deck via joe-targets.json + census.
 >
 > **RELEASE:** ✅ **v0.117.0 SHIPPED** — master FF'd `caf454b1..1a7322a7`, tag pushed → CI building (run 28991474833). **+55 native since v0.116.0**
 > (foretell/blitz +25 · has-have +7 · play-from-top +3 · monstrosity +5 · Gishath +1 · equipment +12 · misc +2), LOST=0. Suite 8006 green. Full entry ↓.
