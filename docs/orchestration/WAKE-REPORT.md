@@ -10,9 +10,11 @@
 > 2. ⏳ **Pilot-seam — PANEL half (Colton's own sweeps) is BLOCKED** on two things (Q-PILOT posted to Omnath): (a) Omnath's persona modules don't
 >    exist yet (their deliverable), (b) a packaging call — **where do pilot personas live in the shipped .exe?** bundle a curated set into
 >    `resources/pilots/` + a SimCenter dropdown (route builds the map server-side; closures can't cross JSON) vs a user path. Can't build until both resolve.
-> 3. 🔜 **Arbiter-in-runner (#2)** — runner intercepts `state.pendingArbiter` → Ollama → cache by card+situation-sig so gated cards stop being
->    silent no-ops in sim. Mapping agent in flight; design Q = LLM-resolve vs the deterministic trajectory hash (lean: resolve-once → memoize a
->    fixed per-card verdict → replay deterministically). **← next actionable.**
+> 3. 📐 **Arbiter-in-runner (#2) — MAPPED + design RESOLVED, READY TO BUILD.** Full spec: **[[ARBITER-IN-RUNNER-SPEC.md]]**. Design Q answered: a
+>    LIVE LLM resolve CANNOT coexist with the deterministic hash → **resolve-once → memoize a fixed per-card verdict → replay deterministically**.
+>    Seam: default-off `advanceOpts.resolveArbiter` hook at `learnSession.js:1016` (OFF ⇒ `ab524e20`/5706 unchanged) + a `profilePath("arbiter-
+>    verdicts.json")` cache (model on colorTagStore) + a structured-verdict→atom applier (reuse runEffectProgram, NO prose) + an async pre-pass
+>    cache-warmer. Build order (5 steps, each verifiable) in the spec. **← next build (needs fresh context; determinism-critical — build coherent, not on fumes).**
 > 4. 🔜 **Data-grounded grind (#3)** — Omnath's breakage-ranked queue, NOT joe-targets.json: **Garruk's Uprising ×307 (hits 4 decks)** first,
 >    then Harmonized Crescendo 257 · Inventors' Fair 194 · Freed from the Real 174 · Aberrant 171 · Ordeal of Nylea 143 · Tervigon 139 · Kogla 131.
 > 5. 🔜 **Rest of handoff:** slang glossary (low-pri, `omnath-tools/reference/mtg-slang/` → cardIndex nickname lookup) · trajectory sidecar 2b
