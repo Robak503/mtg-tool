@@ -229,11 +229,22 @@ async function main() {
   // without re-deriving trust). Atomic write (tmp+rename). The schema is part of the Omnath seam
   // contract (docs/orchestration/PLAY-API-CONTRACT.md §4) — additive changes only within v1.
   if (args.exportTrajectories) {
+    // REPLAY-ON-DEMAND HEADER (Omnath trajectory-contract, additive within v1): each game line self-describes
+    // its ENGINE VERSION + PILOT-MAP + SEED so a decision's full reasoning is regenerable by replaying from the
+    // seed with debug on (no per-row reasoning stored). seed is already in `meta.seed` + top-level `baseSeed`;
+    // add engineVersion (the app version that produced the game) + a {seat:{playbook,temperament}} identity map
+    // (batch-constant; the pilot is seat-keyed even under --rotate-seats). Empty pilots map ⇒ default autopilot.
+    const engineVersion = JSON.parse(await fs.readFile(new URL("../package.json", import.meta.url), "utf8")).version;
+    const pilotHeader = Object.fromEntries(
+      Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null }]),
+    );
     const lines = batch.games.map((g) => JSON.stringify({
       schema: "omnath-trajectory-v1",
       generatedAt,
+      engineVersion, // REPLAY: pins the engine that produced this game (deterministic replay is version-sensitive)
       mode: args.mode,
       baseSeed, // HB-4 (additive within v1): the batch base — with meta.seed, banked duplicates are detectable
+      pilots: pilotHeader, // REPLAY: the {seat:{playbook,temperament}} identity map — with meta.seed, a game reconstructs
       result: g.result ?? null,
       winnerSeat: g.winnerSeat ?? null,
       onThePlay: g.onThePlay ?? null,
