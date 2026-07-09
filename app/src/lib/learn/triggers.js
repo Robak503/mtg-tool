@@ -453,6 +453,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   // and is EXCLUDED — it routes as a normal ETB, which DOES fire on the face-up hard cast (correctly modeled).
   const firstCondClause = c.split(",")[0].trim();
   if (/\bis turned face up$/.test(firstCondClause) && !/\benters?\b/.test(firstCondClause)) return null;
+  // BECOMES-MONSTROUS (CR 701.32d) — the "becomes monstrous" event is not yet fired (applyMonstrosity sets the
+  // flag but no becomesMonstrous trigger event exists). A trigger keyed on it — including the COMPOUND "enters
+  // or becomes monstrous" (Alpha Deathclaw) whose ETB half WOULD otherwise be detected here — must stay
+  // UNDETECTED so the shaped-sentence count out-runs the detected count → the card stays body-only. Crediting
+  // only the ETB half would silently DROP the becomes-monstrous fire (a CREED partial-fire FP). Lift this once
+  // the becomesMonstrous event + checker are built (then the compound routes as a dual-event trigger).
+  if (/\bbecomes monstrous\b/.test(c)) return null;
   const nameL = String(cardName || "").toLowerCase();
   // SHORT-NAME SELF-REF (CR 201.4) — a LEGENDARY card refers to itself by the portion of its name before
   // the first comma ("Pantlaza" for "Pantlaza, Sun-Favored"). The full-name match below misses that, so a

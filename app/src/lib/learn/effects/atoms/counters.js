@@ -2,7 +2,7 @@
  * effects/atoms/counters.js — counter atoms (add-counter, proliferate, gain-experience, rad).
  */
 
-import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe } from "../../gameState.js";
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
@@ -430,6 +430,13 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", excludeSource: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
+  // MONSTROSITY (CR 701.32) — the "Monstrosity N" activated keyword action: if the source ISN'T monstrous, put N
+  // +1/+1 counters on it and it becomes monstrous. A ONE-SHOT latch — re-activating a monstrous creature does
+  // nothing — so it needs its own atom (applyMonstrosity gates on the monstrous flag + fires the "becomes
+  // monstrous" event); a plain self add-counter would let a monstrous creature re-monstrosity for more counters
+  // (an over-count). Whole-clause anchored; reminder text is stripped upstream before the clause split.
+  m = t.match(/^monstrosity (\d+)$/);
+  if (m) return { op: "monstrosity", amount: parseInt(m[1], 10), target: "self" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
   // OPTIONAL own-side (CR 115.1b + 109.5): "on up to one target creature you control" (Essence Capture) — the
@@ -617,8 +624,26 @@ export function shieldCounterClauseParser(clause) {
   return null;
 }
 
+/**
+ * MONSTROSITY (CR 701.32) — resolve "Monstrosity N". A ONE-SHOT (CR 701.32c): ONLY if the source isn't already
+ * monstrous, put N +1/+1 counters on it and mark it monstrous; activating it again on a monstrous creature does
+ * nothing (the flag latches). The `monstrous` flag also gates the "becomes monstrous" trigger event (Alpha
+ * Deathclaw's "When ~ enters or becomes monstrous, …") — checkBecomesMonstrousTriggers reads it. Self-scoped:
+ * the activating permanent is ctx.sourceId (CR 701.32a — Monstrosity acts on its own source).
+ */
+export function applyMonstrosity(state, atom, ctx) {
+  const lk = findPermanent(state, ctx.sourceId);
+  if (!lk) return state;
+  if (lk.permanent.monstrous) return logEvent(state, { kind: "spell-effect", effect: "monstrosity", note: "already monstrous", permanentId: ctx.sourceId });
+  let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1 });
+  next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, monstrous: true }));
+  return logEvent(next, { kind: "spell-effect", effect: "monstrosity", permanentId: ctx.sourceId, amount: atom.amount || 1 });
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
+
   "shield-counter": applyShieldCounter, // SHIELD COUNTER (CR 122.1c) — a protective counter; consumed at the damage/destruction sites in gameState
   "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact
   "remove-named-counter-self": applyRemoveNamedCounterSelf, // ARIXMETHES cast trigger: remove a slumber counter from the source permanent
