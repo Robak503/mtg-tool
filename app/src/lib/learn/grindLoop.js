@@ -110,7 +110,7 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
     // still tagged). A builder throw never kills the grind — fall back to default autopilot for this game.
     let pilots = {};
     try { if (pilotBuilder) pilots = pilotBuilder(pod) || {}; } catch (e) { state.error = `pilot build ${i}: ${e?.message || e}`; }
-    const identity = Object.fromEntries(Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null }]));
+    const identity = Object.fromEntries(Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null, pilotType: p?.pilotType ?? null }]));
     let game;
     try {
       game = runSelfPlayGame(podToArgs(pod, mode, pilots, gameSeed));

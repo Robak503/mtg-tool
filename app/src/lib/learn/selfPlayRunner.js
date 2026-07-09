@@ -201,7 +201,10 @@ export function runSelfPlayGame({
   // config can be assembled before createLearnSession (the mulligan runs at game start).
   const pilotIdentity = (seat) => {
     const p = pilots?.[seat];
-    return p ? { playbook: p.playbook ?? null, temperament: p.temperament ?? null } : null;
+    // pilotType ("specialist" | "generalist") = Omnath's split of expert-baseline vs generalist/stress data.
+    // Derivable from (playbook,temperament) via their SPECIALIST_PIN, but recorded here so their distill
+    // consumer skips a lookup. null when the persona doesn't carry it (the field is optional in the contract).
+    return p ? { playbook: p.playbook ?? null, temperament: p.temperament ?? null, pilotType: p.pilotType ?? null } : null;
   };
 
   // ── Pre-game London mulligan (opt-in, CR 103.5) ──────────────────────────────
@@ -963,6 +966,8 @@ export function trajectoriesToJsonl(batch) {
           seat: s.seat,
           playbook: s.pilot?.playbook ?? null,       // PILOT TAG: persona attribution ({}/null for a default seat)
           temperament: s.pilot?.temperament ?? null,
+          pilotType: s.pilot?.pilotType ?? null,     // "specialist" | "generalist" | null — Omnath's data-split tag
+
           deckId: deckIds[si] ?? null,
           seed: traj.seed ?? null, // HB-4: the game's shuffle seed — banked duplicates are detectable
           turn: row.turn,

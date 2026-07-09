@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Grind records now tag each seat's `pilotType` + carry the real engine version.** Every
+  recorded self-play/grind row now stamps `pilotType` ("specialist" | "generalist") alongside
+  `{playbook, temperament}`, so the training data splits cleanly into expert-baseline vs
+  generalist/stress runs with no post-hoc lookup. Separately, the running server now reports
+  the actual release version (package.json is synced from the tag at build time), so every
+  grind record's `engineVersion` attributes the data to the right engine instead of a stale
+  number. Both are byte-neutral to the hashed trajectory anchor (verified via A/B).
 - **Play from the top of your library now works (+3).** Future Sight, Magus of the Future,
   Goblin Spy — "you may play lands and cast spells from the top of your library" is a real,
   enforced permission now: the app can actually cast the top card (at full cost) or play the

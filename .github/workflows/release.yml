@@ -61,13 +61,19 @@ jobs:
         working-directory: app
         run: npm test
 
-      - name: Sync tauri.conf.json version to tag
+      - name: Sync version to tag (tauri.conf.json + package.json)
         shell: pwsh
         # The Tauri build embeds tauri.conf.json's "version" field into
         # the binary. If we tag v0.1.5 but the source file still says
         # "0.1.0", the installed .exe reports 0.1.0 forever and the
         # auto-updater thinks every release is "newer than installed."
         # Rewrite the file from the tag name before building.
+        # ALSO sync app/package.json — the running server reads it for
+        # engineVersion() (stamped onto every grind/self-play record), so
+        # a stale package.json mis-attributes all recorded data to an old
+        # version. npm version (not a JSON round-trip) preserves formatting
+        # and updates package-lock.json in lockstep; --allow-same-version
+        # keeps it idempotent if the source was already bumped by hand.
         run: |
           $tag = '${{ github.ref_name }}'
           $version = $tag -replace '^v', ''
@@ -77,6 +83,8 @@ jobs:
           $conf.version = $version
           $conf | ConvertTo-Json -Depth 10 | Set-Content $confPath -Encoding utf8
           Write-Host "Wrote $confPath"
+          npm --prefix app version $version --no-git-tag-version --allow-same-version
+          Write-Host "Synced app/package.json -> $version"
 
       # RESTORE-ONLY (was actions/cache@v5). Same rationale as the cargo cache:
       # a refdata- save keyed by github.run_id was never restorable by a later

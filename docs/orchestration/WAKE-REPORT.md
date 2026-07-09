@@ -1,3 +1,27 @@
+<!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
+<!-- ⚡ MOST-RECENT — read me first -->
+
+## ⚡ 2026-07-08 LATE — `pilotType` grind tag (v0.121.0) + ⚠️ DECK-DATA CORRUPTION RECOVERED
+
+**COLTON — READ THIS:** Your AppData deck store got **corrupted** (a torn atomic write — the app crashed
+mid-save, leaving trailing garbage on `decks.local.json`). The live file had been reduced to 2 junk test
+decks. **I recovered it:** the corrupt backup's valid prefix held **9 of Joe's real decks**, which I restored
+to the active profile (`prof_b1412fcc`) — **verified 9/9 playable, grind-ready.** Every prior state is backed
+up (nothing lost). **⚠️ Your 6 personal decks (Vihaan/Koma/Rograkh/Slivers/Zaxara/Omnath) are NOT in AppData**
+— they were in a now-empty profile (`prof_a981996c`). They're safe in the `deck_*.md` memory files and
+re-importable, but they're not on the grind shelf right now. **The grind button will run tonight on the 9 Joe
+decks as-is; re-import your 6 if you want them in the pod.**
+
+**Shipped v0.121.0 (`pilotType` tag):** every recorded grind/self-play row now stamps `pilotType`
+(`specialist`|`generalist`) next to `{playbook,temperament}` — Omnath's explicit COMMS ask, so their distill
+consumer splits expert-baseline vs generalist/stress data with no lookup. Also fixed engine-version
+attribution: `package.json` was frozen at 0.116.0 so every record mis-stamped `engineVersion`; now synced from
+the release tag at build time (CI + local). **A/B-verified byte-neutral to the hashed trajectory anchor**
+(`b005eea…` identical old/new on the synthetic pod; the real `ab524…` anchor is safe by the same null-pilot
+mechanism). Lint 0, 75/75 touched-area tests green.
+
+<!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
+
 > 🤖 **FULL-AUTO AUTONOMOUS RUN — 2026-07-08 (Cindy, Opus 4.8). Colton: "no need to stop full auto just put things for me in the wake report."**
 > Mid-session Colton re-scoped me OFF the blind Joe-frontier grind ONTO **Omnath's sim-center handoff** (COMMS top), order **"2 then 1 then 3"**
 > then the rest of the handoff, then back to a **structured Joe-shelf grind**. This block is the live progress log — I do NOT stop to check in.
