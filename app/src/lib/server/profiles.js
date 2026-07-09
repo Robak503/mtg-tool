@@ -13,7 +13,8 @@
  */
 import path from "node:path";
 import {
-  existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, cpSync, readdirSync,
+  existsSync, readFileSync, mkdirSync, renameSync, rmSync, cpSync, readdirSync,
+  openSync, writeSync, fsyncSync, closeSync,
 } from "node:fs";
 import crypto from "node:crypto";
 
@@ -81,12 +82,22 @@ export function readRegistry() {
   }
 }
 
-// Atomic temp + rename (the atomicJson.js idiom, sync flavor). A torn in-place
-// write can never truncate the live file. Unique tmp name keeps two concurrent
-// writers off one temp file.
+// Atomic temp + fsync + rename (the atomicJson.js idiom, sync flavor). A torn
+// in-place write can never truncate the live file; fsync before the rename means
+// a crash right after the rename can't promote an unflushed (torn) temp. The tmp
+// name adds a monotonic counter so two writers in the same millisecond never
+// share a temp file (pid+Date.now() alone collides on sub-ms bursts — the cause
+// of the 2026-07-08 valid-JSON-plus-garbage corruption).
+let syncWriteCounter = 0;
 function atomicWriteFileSync(target, body) {
-  const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
-  writeFileSync(tmp, body);
+  const tmp = `${target}.tmp.${process.pid}.${Date.now()}.${++syncWriteCounter}`;
+  const fd = openSync(tmp, "w");
+  try {
+    writeSync(fd, body);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
   renameSync(tmp, target);
 }
 

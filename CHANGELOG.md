@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Your decks can no longer be lost to a crash mid-save.** A torn write (the app dying while
+  saving `decks.local.json`) used to leave a corrupt file, and on the next launch the store
+  served an *empty* library — which is how a real deck shelf got silently replaced with junk
+  once. Three hardenings: (1) every save now fsyncs to disk before the atomic rename, so a
+  crash can never promote a half-written file; (2) each save first rolls the current good file
+  into a bounded ring of 10 auto-backups; (3) on load, a corrupt **or** suspiciously
+  empty/placeholder deck file auto-restores from the newest good backup (preserving the bad
+  file for inspection) instead of resetting to empty. The same crash-safe write now protects
+  the profile registry, game logs, learn saves, and grind records. Regression-tested.
+
 ### Added
 - **Grind records now tag each seat's `pilotType` + carry the real engine version.** Every
   recorded self-play/grind row now stamps `pilotType` ("specialist" | "generalist") alongside

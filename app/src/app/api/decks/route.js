@@ -6,6 +6,23 @@ import path from "node:path";
 import { normalizeDeck } from "../../../lib/deck/deckMemory";
 import { profilePath } from "../../../lib/server/paths";
 import { ensureMigrated } from "../../../lib/server/profiles";
+import { atomicWriteJson } from "../../../lib/server/atomicJson";
+
+// Keep this many rolling auto-backups of the deck file (one per save) so a torn
+// write or a junk overwrite always has a recent good state to auto-restore from.
+const MAX_AUTO_BACKUPS = 10;
+let autoBackupCounter = 0; // makes same-millisecond backup filenames distinct
+// Names a *placeholder* library is made of — an empty set, or decks that are all
+// obviously-generated stubs ("new1", "Untitled 2"…). A real deck name like
+// "New Capenna Reanimator" won't match (the pattern is the WHOLE name). Used to
+// detect the junk-restore that wiped the real decks on 2026-07-08.
+const PLACEHOLDER_NAME = /^(new|untitled|test|deck|copy)\s*\d*$/i;
+function isAllPlaceholder(decks) {
+  return Array.isArray(decks) && decks.length > 0 && decks.every((d) => PLACEHOLDER_NAME.test(String(d?.name || "").trim()));
+}
+function isRealLibrary(decks) {
+  return Array.isArray(decks) && decks.length > 0 && !isAllPlaceholder(decks);
+}
 
 // Resolve paths per-call (not captured at import) so a changed MTG_APP_ROOT
 // is always honored — the packaged .exe sets it, and tests change it between
@@ -17,33 +34,135 @@ function backupDir() {
   return profilePath("backups");
 }
 
+// Preserve (rename) the current on-disk deck file out of the way before we
+// overwrite it during a recovery, so a bad file is never destroyed — the user
+// (or a later session) can still inspect the .broken-/.displaced- copy.
+async function preserveCurrent(target, suffix) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  try {
+    await fs.rename(target, profilePath(`decks.local.${suffix}-${stamp}.json`));
+  } catch {
+    // rename failed (permissions / file in use): leave the file; the caller's
+    // atomicWriteJson still replaces it with the recovered content.
+  }
+}
+
+// Scan the profile's backups/ for the NEWEST backup (by mtime) that parses AND
+// holds a real (non-empty, non-placeholder) library. Returns the decks or null.
+async function restoreFromNewestGoodBackup() {
+  const dir = backupDir();
+  let files;
+  try {
+    files = await fs.readdir(dir);
+  } catch {
+    return null; // no backups dir yet
+  }
+  const candidates = files.filter((f) => f.endsWith(".json") && (f.startsWith("decks.autobackup-") || f.startsWith("decks.local.")));
+  const stated = [];
+  for (const f of candidates) {
+    try {
+      const st = await fs.stat(path.join(dir, f));
+      stated.push({ f, mtime: st.mtimeMs });
+    } catch {
+      /* skip unreadable */
+    }
+  }
+  stated.sort((a, b) => b.mtime - a.mtime); // newest first
+  for (const { f } of stated) {
+    try {
+      const parsed = JSON.parse(await fs.readFile(path.join(dir, f), "utf8"));
+      const arr = Array.isArray(parsed) ? parsed : parsed.decks;
+      const decks = Array.isArray(arr) ? arr.map(normalizeDeck) : null;
+      if (isRealLibrary(decks)) return decks;
+    } catch {
+      /* skip a corrupt backup, keep looking */
+    }
+  }
+  return null;
+}
+
 async function readDeckFile() {
   const target = deckFile();
   let raw;
   try {
     raw = await fs.readFile(target, "utf8");
   } catch (error) {
-    if (error.code === "ENOENT") return [];
+    if (error.code === "ENOENT") return []; // genuinely absent (fresh profile), not corruption
     throw error;
   }
 
+  let decks;
   try {
     const parsed = JSON.parse(raw);
-    const decks = Array.isArray(parsed) ? parsed : parsed.decks;
-    return Array.isArray(decks) ? decks.map(normalizeDeck) : [];
+    const arr = Array.isArray(parsed) ? parsed : parsed.decks;
+    decks = Array.isArray(arr) ? arr.map(normalizeDeck) : null;
   } catch {
-    // Corrupted JSON (interrupted write, disk glitch). Back up the broken
-    // file and start empty rather than 500-ing every deck read forever.
-    // Nothing re-seeds the library (the old starter-deck seed is gone): the
-    // user recovers via the renamed .broken-* copy or a saved backup.
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    try {
-      await fs.rename(target, profilePath(`decks.local.broken-${stamp}.json`));
-    } catch {
-      // If the rename fails (permissions, file in use), leave the broken file
-      // alone — the empty list still loads and the next write replaces it.
-    }
+    decks = null; // unparseable (torn write, disk glitch)
+  }
+
+  if (isRealLibrary(decks)) return decks; // healthy — the common path
+
+  // The file is unparseable, OR it parsed to an empty/placeholder set. Rather
+  // than silently serve an empty/junk library (the 2026-07-08 incident: a torn
+  // write parse-failed -> the store returned empty -> junk "new1"/"new2" decks
+  // were written over the real ones), auto-restore from the newest GOOD backup.
+  const restored = await restoreFromNewestGoodBackup();
+  if (restored) {
+    const suffix = decks === null ? "broken" : "displaced";
+    await preserveCurrent(target, suffix); // keep the bad file for inspection; never destroy
+    await atomicWriteJson(target, { version: 1, updatedAt: new Date().toISOString(), decks: restored });
+    console.error(`[decks] RECOVERED ${restored.length} decks from backup after a ${suffix} deck file at ${target}`);
+    return restored;
+  }
+
+  // No good backup to fall back on.
+  if (decks === null) {
+    // Corrupt with nothing to restore: preserve the .broken- copy (unchanged
+    // behavior) and start empty rather than 500-ing every read forever.
+    await preserveCurrent(target, "broken");
+    console.error(`[decks] deck file was corrupt and no good backup was found — starting empty at ${target}`);
     return [];
+  }
+  // A valid empty/placeholder library with no better backup: respect it as-is
+  // (a brand-new profile legitimately has zero decks).
+  return decks;
+}
+
+// Roll the CURRENT good deck file into the backup ring BEFORE overwriting it, so
+// there is always a recent restore point. Only snapshots a parseable, non-empty
+// state (never archives junk over good history), and prunes to MAX_AUTO_BACKUPS.
+async function rotateAutoBackup(target) {
+  let raw;
+  try {
+    raw = await fs.readFile(target, "utf8");
+  } catch {
+    return; // nothing on disk yet (first-ever save)
+  }
+  let arr;
+  try {
+    const parsed = JSON.parse(raw);
+    arr = Array.isArray(parsed) ? parsed : parsed.decks;
+  } catch {
+    return; // don't ring a corrupt file (recovery reads it via preserveCurrent instead)
+  }
+  if (!Array.isArray(arr) || arr.length === 0) return; // don't archive empties over real backups
+  const dir = backupDir();
+  await fs.mkdir(dir, { recursive: true });
+  // Counter suffix so bursts of saves in the same millisecond produce DISTINCT
+  // backup files (a bare ms stamp would collide and overwrite, shrinking the ring).
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  try {
+    await fs.writeFile(path.join(dir, `decks.autobackup-${stamp}-${++autoBackupCounter}.json`), raw, "utf8");
+  } catch {
+    return; // a failed backup must never block the actual save
+  }
+  // Prune oldest auto-backups (manual reason-tagged backups are left untouched).
+  try {
+    const files = (await fs.readdir(dir)).filter((f) => f.startsWith("decks.autobackup-") && f.endsWith(".json")).sort();
+    const excess = files.slice(0, Math.max(0, files.length - MAX_AUTO_BACKUPS));
+    await Promise.all(excess.map((f) => fs.rm(path.join(dir, f), { force: true }).catch(() => {})));
+  } catch {
+    /* pruning is best-effort */
   }
 }
 
@@ -54,18 +173,17 @@ let writeChain = Promise.resolve();
 
 async function writeDeckFile(decks) {
   const run = writeChain.then(async () => {
-    await fs.mkdir(path.dirname(deckFile()), { recursive: true });
+    const target = deckFile();
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await rotateAutoBackup(target); // capture the pre-write good state first
     const payload = {
       version: 1,
       updatedAt: new Date().toISOString(),
       decks: decks.map(normalizeDeck),
     };
-    const target = deckFile();
-    // Atomic temp + rename so a crash mid-write never truncates the file.
-    // Unique tmp name avoids two concurrent writers sharing one temp file.
-    const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
-    await fs.writeFile(tmp, JSON.stringify(payload, null, 2), "utf8");
-    await fs.rename(tmp, target);
+    // Crash-safe write: temp + fsync + rename (shared atomicJson helper), so a
+    // crash mid-write never truncates the file and never promotes a torn temp.
+    await atomicWriteJson(target, payload);
     return payload.decks;
   });
   writeChain = run.then(() => {}, () => {});

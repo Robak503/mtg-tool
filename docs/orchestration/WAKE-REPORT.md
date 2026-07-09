@@ -15,8 +15,15 @@ decks. **Fully recovered — all 15 decks are back + playable:**
 **🗄️ NEW SAFE RECOVERY PLACE — `<approot>/deck-vault/`.** So this can't bite you again: a self-contained bundle
 OUTSIDE the app's write path (an app crash can't corrupt it) holding **all 15 decks + oracle text for all 942
 unique cards + a one-command restore script** (`node restore-decks.mjs`, sandbox-tested) + `RESTORE.md`. **Copy
-that folder to cloud/USB for off-machine safety.** (Follow-up for me: harden the app's deck-save to auto-keep
-last-N good backups + auto-restore on a torn write — the root fix; noted in the queue.)
+that folder to cloud/USB for off-machine safety.**
+
+**🛡️ ROOT FIX SHIPPED (v0.122.0) — the corruption class is now closed in the app itself.** Deck saves
+(1) fsync to disk before the atomic rename (a crash can't promote a half-written file), (2) roll the current
+good file into a bounded 10-deep auto-backup ring first, and (3) on load, a corrupt OR empty/placeholder deck
+file **auto-restores from the newest good backup** (preserving the bad file) instead of resetting to empty —
+which is the exact chain that wiped the shelf. The same crash-safe writer now also protects the profile
+registry, game logs, learn saves, and grind records. Full suite green (582 files / 8041 tests), 4 new regression
+tests (torn-write restore, placeholder restore, don't-fight-legit-empty, backup-ring bound).
 
 **⚠️ Persona wiring:** Omnath's v2 classifier auto-assigns a playbook to each of the 6 restored decks (they're
 "wired"), but it MISFIRES on ~4 (Omnath→go-wide should be ramp, Sliver→ramp should be tribal, Vihaan→go-wide,
