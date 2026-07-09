@@ -937,6 +937,12 @@ export function permanentEquipmentCovered(card) {
     // in enterPermanent (resolvers.js), and the equipped-creature bonus buffs the token. The bare keyword
     // (reminder text already stripped) is therefore a MODELED clause, not residue.
     if (/^living weapon$/.test(c) || /^for mirrodin!?$/.test(c)) continue;
+    // SELF-KEYWORD on the Equipment (Mithril Coat's "Flash"/"Indestructible", a hexproof/ward artifact): a
+    // keyword printed on the EQUIPMENT ITSELF is a MODELED clause, not residue. Whitelist a clause that is
+    // exactly a COVERED_KEYWORD (the SAME allowlist isKeywordOnly credits on a creature — a keyword modeled on
+    // a creature functions identically on an artifact), so an equipment can carry its own keywords and still be
+    // fully covered. Only-loosens (never over-claims: an UNmodeled keyword isn't in COVERED_KEYWORDS → residue).
+    if (COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `))) continue;
     return false; // residue the engine doesn't model → body-only
   }
   return true;

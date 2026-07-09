@@ -416,6 +416,14 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // a DFC's combined "Front // Back" line would wrongly match a back-face subtype.
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
       if (!new RegExp(`\\b${r.subtype}\\b`, "i").test(tl)) return false;
+    } else if (r.kind === "supertype") {
+      // SUPERTYPE-TARGET (CR 205.4) — "target legendary creature you control" (Mithril Coat / Mjölnir ETB
+      // auto-attach; "Equip legendary" also gates on legendary, checked inline in legalChoices). A supertype
+      // (legendary / basic / snow / world) appears verbatim in the type line, so a word-bounded case-insensitive
+      // front-face test matches exactly the creatures carrying it. Front-face only (CR 712.4a) so a DFC's
+      // back-face supertype can't wrongly qualify. Fail-closed on a missing type line (safe false-negative).
+      const stl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
+      if (!new RegExp(`\\b${r.value}\\b`, "i").test(stl)) return false;
     }
   }
   return true;

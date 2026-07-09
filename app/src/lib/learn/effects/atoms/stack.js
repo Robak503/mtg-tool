@@ -245,6 +245,12 @@ export function attachClauseParser(clause) {
   if (/^attach it to target creature you control$/.test(t)) {
     return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
   }
+  // LEGENDARY variant (Mithril Coat, Mjölnir, Storm Hammer): "attach it to target LEGENDARY creature you control".
+  // Same self-attach atom + a supertype:legendary target restriction (creatureSatisfiesRestrictions enforces it,
+  // so the trigger enumerates ONLY the controller's legendary creatures — a non-legendary board → clean no-op).
+  if (/^attach it to target legendary creature you control$/.test(t)) {
+    return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "supertype", value: "legendary" }] };
+  }
   const ats = t.match(/^attach up to one target equipment you control to (.+)$/);
   if (ats) {
     const dest = ats[1].trim();

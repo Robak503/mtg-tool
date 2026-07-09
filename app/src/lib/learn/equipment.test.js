@@ -68,16 +68,46 @@ describe("coverage — native-equipment tier", () => {
     // NOT be over-claimed as fully native — the residue keeps the unstripped equip line.
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1.\nEquip creature token {1}\nEquip {3}", name: "Team Pennant" })).toBe("body-only");
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+1.\nEquip Human {1}\nEquip {3}", name: "Dunedain Blade" })).toBe("body-only");
-    // REVIEW FIX (no silent gaps): a separate-sentence rider, a conditional, OR a self-keyword
-    // on the equipment body all keep the card body-only (never over-claimed as fully native).
+    // REVIEW FIX (no silent gaps): a separate-sentence rider on the equipped-creature bonus OR a conditional
+    // keep the card body-only (never over-claimed as fully native — the unmodeled clause survives as residue).
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2. It can't be blocked.\nEquip {2}", name: "Z" })).toBe("body-only");
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1. As long as equipped creature is legendary, it gets an additional +2/+2.\nEquip {2}", name: "Tenza" })).toBe("body-only");
-    expect(classifyCard({ type: "Artifact — Equipment", oracle: "Indestructible\nEquipped creature gets +5/+5.\nEquip {0}", name: "Stoneforged" })).toBe("body-only");
     // SAME-LINE REFLEXIVE TRIGGER (Novel Nunchaku): two triggers on one line — the ETB-attach + a reflexive
     // "When you do, equipped creature fights …". The trigger-strip regex consumes the period after the first,
     // so the count guard misses the second; it must NOT be whitelisted as an "equipped creature" clause. Its
     // fight effect is unmodeled → the whole card stays body-only (no partial flip — CREED).
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "When Novel Nunchaku enters, attach it to target creature you control. When you do, equipped creature fights up to one target creature an opponent controls.\nEquipped creature gets +1/+1.\nEquip {2}", name: "Novel Nunchaku" })).toBe("body-only");
+  });
+});
+
+describe("coverage — self-keyword equipment + legendary auto-attach (Mithril Coat family)", () => {
+  // A keyword printed on the EQUIPMENT ITSELF (Indestructible / Flash / hexproof) is a MODELED clause: the
+  // keyword functions on the artifact exactly as it would on a creature, so an equipment carrying its own
+  // keyword is still fully covered. Previously held body-only out of caution (an over-conservative FN).
+  it("a self-keyword on the equipment (Indestructible) no longer blocks native coverage", () => {
+    expect(classifyCard({ type: "Artifact — Equipment", oracle: "Indestructible\nEquipped creature gets +5/+5.\nEquip {0}", name: "Stoneforged" })).toBe("native-equipment");
+    expect(classifyCard({ type: "Artifact — Equipment", oracle: "Indestructible\nEquipped creature gets +2/+0.\nEquip {2}", name: "Darksteel Axe" })).toBe("native-equipment");
+  });
+  it("a REAL unmodeled clause still blocks it even alongside a self-keyword (no over-claim)", () => {
+    // Indestructible (modeled) + an unmodeled same-sentence evasion rider → still body-only (the rider is residue).
+    expect(classifyCard({ type: "Artifact — Equipment", oracle: "Indestructible\nEquipped creature gets +2/+2. It can't be blocked.\nEquip {2}", name: "K" })).toBe("body-only");
+  });
+  it("the Mithril Coat family (Flash + Indestructible + ETB legendary auto-attach + bonus) flips native-equipment", () => {
+    const coat = { name: "Mithril Coat", type: "Legendary Artifact — Equipment",
+      oracle: "Flash\nIndestructible\nWhen Mithril Coat enters, attach it to target legendary creature you control.\nEquipped creature has indestructible.\nEquip {3}" };
+    expect(classifyCard(coat)).toBe("native-equipment");
+    expect(permanentEquipmentCovered(coat)).toBe(true);
+  });
+  it("ENFORCEMENT: attaching a legendary-attach equipment grants its bonus to the legendary creature (CR 613 layers)", () => {
+    const coat = createPermanent({ id: "coat", controller: "user", summoningSick: false,
+      card: { name: "Mithril Coat", type: "Legendary Artifact — Equipment", oracle: "Flash\nIndestructible\nWhen Mithril Coat enters, attach it to target legendary creature you control.\nEquipped creature has indestructible.\nEquip {3}" } });
+    const legend = createPermanent({ id: "leg", controller: "user", summoningSick: false,
+      card: { name: "Legend", type: "Legendary Creature — God", power: 5, toughness: 5, oracle: "" } });
+    let st = boardState({ user: [coat, legend] });
+    expect(permanentHasKeyword(st, "leg", "indestructible")).toBe(false); // no bonus before attach
+    st = attachPermanent(st, { equipId: "coat", targetId: "leg" });
+    expect(findPermanent(st, "coat").permanent.attachedTo).toBe("leg");
+    expect(permanentHasKeyword(st, "leg", "indestructible")).toBe(true);  // the equip bonus lights up via layers
   });
 });
 
