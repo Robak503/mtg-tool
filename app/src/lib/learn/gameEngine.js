@@ -672,6 +672,13 @@ export const NO_SAFE_TARGET = Symbol("no-safe-trigger-target");
  *    unparseable) → the manual/Arbiter no-op payload the trigger already carries
  *    (W4: the naive Phase-1 vocab is deleted), never a fabricated effect (CLAUDE.md §1.2).
  */
+// Distinct sentinel for a CR 603.4 intervening-if condition-not-met removal — the ability is correctly NOT put
+// on the stack, but this is EXPECTED (a false intervening-if), NOT a CR 603.3c no-legal-target fizzle. buildTriggerStack
+// returns this instead of bare null so the caller logs `trigger-condition-not-met` (not `trigger-removed-no-target`),
+// which kept polluting the no-target breakage pile (Garruk's Uprising 307×, Inventors' Fair 194×, … — all correct
+// condition-skips, e.g. Garruk's ETB draw cast before a power-4 creature is out).
+const TRIGGER_CONDITION_NOT_MET = Object.freeze({ removed: "intervening-if-not-met" });
+
 function buildTriggerStack(state, trigger, chooseTargets) {
   const clause = trigger.descriptor?.effectClause;
 
@@ -719,7 +726,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // entering permanent (ctx.triggeringPermanentId). Board-count conditions ignore it.
       const met = evaluateInterveningIf(state, interveningIf, trigger.controller, trigger.context);
       if (met === null) return { payload: { resolver: "manual" }, targets: [] };
-      if (met !== true) return null; // CR 603.4 — condition not met → the ability never goes on the stack
+      if (met !== true) return TRIGGER_CONDITION_NOT_MET; // CR 603.4 — condition not met → the ability never goes on the stack (a correct skip, NOT a no-target fizzle)
       if (condProgram && programConfidence(condProgram) === "high" && condProgram.structure !== "modal"
         && (!programNeedsChosenTarget(condProgram) || programTriggerTargetsResolvable(condProgram))
         && combatDamageReferentSatisfied(condProgram, trigger.descriptor?.event)) {
@@ -925,6 +932,19 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   const newStackObjects = [];
   for (const trigger of ordered) {
     const built = buildTriggerStack(s, trigger, chooseTargets);
+    if (built === TRIGGER_CONDITION_NOT_MET) {
+      // CR 603.4 — the intervening-if condition was false at trigger time; the ability CORRECTLY never goes on
+      // the stack. This is EXPECTED (e.g. Garruk's Uprising's ETB "if you control a creature with power 4+, draw"
+      // cast before a power-4 creature is out), NOT a CR 603.3c no-legal-target fizzle. Log it DISTINCTLY so
+      // breakage attribution (breakageReport.js / selfplay-report) doesn't conflate a correct condition-skip with a
+      // real removal — this was mislabeled `trigger-removed-no-target` and polluted that pile (Garruk's 307×, etc.).
+      s = logEvent(s, {
+        kind: "trigger-condition-not-met",
+        source: trigger.source?.name || trigger.source,
+        controller: trigger.controller,
+      });
+      continue;
+    }
     if (!built) {
       // A targeted trigger with no legal target is removed from the stack (CR 603.3c).
       // Log it so the removal is visible to the player, never a silent disappearance.
