@@ -194,6 +194,7 @@ export function runSelfPlayGame({
   recordDecisions = false, // opt-in per-DECISION (policy) trajectory; default OFF ⇒ byte-identical.
   policy = null, // SD-5/PS-4 — opponentAI A/B knob (null | "v1" | per-subsystem map) threaded into advanceOpts; null ⇒ byte-identical.
   mulligan = null, // AI-F9 — null/false (single-game default, byte-identical): mulligan only for seats whose PILOT supplies decideMulligan; true: seats WITHOUT one default to decideMulliganForAI (runSelfPlayBatch turns this ON so 0-land/7-land keeps stop poisoning labels).
+  resolveArbiter = null, // ARBITER-IN-RUNNER: a SYNC (pa,state)→verdict|null cache lookup; when set, gated cards resolve from the warm verdict cache instead of no-op'ing. null ⇒ byte-identical (hash preserved).
 } = {}) {
   // Per-seat pilot identity ({playbook,temperament} | null) — used by both the in-game decide
   // router/recorder below AND the pre-game mulligan config. Defined up here so the mulligan
@@ -348,6 +349,7 @@ export function runSelfPlayGame({
   if (routedDecide) advanceOpts.decide = routedDecide;
   if (recordDecision) advanceOpts.recordDecision = recordDecision;
   if (policy != null) advanceOpts.policy = policy; // SD-5/PS-4 — the A/B knob for probe batches; absent ⇒ byte-identical
+  if (resolveArbiter) advanceOpts.resolveArbiter = resolveArbiter; // ARBITER-IN-RUNNER — cache-backed gated-card resolve; absent ⇒ byte-identical (hash preserved)
 
   // Drive to termination. advanceUntilDecision NEVER throws on engine bugs — it
   // returns a structured engine-stuck / dispatch-error decision — but we still
@@ -781,7 +783,7 @@ export function summarizeSeatOutcomes(games) {
  *             { mode, deckNames, seatNames, userDeckName, startSeat } and a trainingWeight,
  *             plus an `onThePlay` field naming the seat that led (CR 103.8a)
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true, policy = null, mulligan = true, rotateSeats = false, podShuffle = false } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true, policy = null, mulligan = true, rotateSeats = false, podShuffle = false, resolveArbiter = null } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
   // Seeded shuffle makes repeats REAL: each game gets a distinct seed, so gamesPer>1
@@ -856,6 +858,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
         recordDecisions,
         policy, // SD-5/PS-4 — single knob, whole batch (null => byte-identical)
         mulligan: mulligan === false ? null : true, // AI-F9 — batch default ON; pass false to opt out
+        resolveArbiter, // ARBITER-IN-RUNNER — forwarded to advanceOpts; null (default) ⇒ byte-identical
       });
     } else {
       const [a, b] = seatDecks;
@@ -876,6 +879,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
         recordDecisions,
         policy, // SD-5/PS-4 — single knob, whole batch (null => byte-identical)
         mulligan: mulligan === false ? null : true, // AI-F9 — batch default ON; pass false to opt out
+        resolveArbiter, // ARBITER-IN-RUNNER — forwarded to advanceOpts; null (default) ⇒ byte-identical
       });
     }
     // Attribute each trajectory to its decks so JSONL rows carry deck identity. The

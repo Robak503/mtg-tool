@@ -46,6 +46,7 @@ import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
 import { featurizeState } from "./gameFeatures.js";
 import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice, autoPickEdictMode, resolveEdictModeChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
@@ -458,6 +459,37 @@ function clearPendingArbiter(state) {
   if (!state.pendingArbiter) return state;
   const { pendingArbiter: _gone, ...rest } = state;
   return rest;
+}
+
+/**
+ * Apply a cached Arbiter VERDICT to resolve a gated card in the RUNNER — the Arbiter-in-runner seam
+ * (docs/orchestration/ARBITER-IN-RUNNER-SPEC.md). The verdict is a fixed, pre-resolved ruling
+ * ({ atoms:[…], source }) from arbiterVerdictStore; the LLM ran OFF-loop into the cache, so this is PURE and
+ * DETERMINISTIC (no network here). CREED-SAFE and ALL-OR-NOTHING: apply verdict.atoms via resolveAtom with a
+ * minimal ctx (controller + sourceId from the pendingArbiter, NON-targeted), and return NULL — the caller keeps
+ * today's honest no-op — unless EVERY atom resolves cleanly. A malformed / targeted / optional / choice-pausing /
+ * no-resolver atom REJECTS the whole verdict (never a partial or fabricated effect). On success: clear
+ * pendingArbiter + log `arbiter-resolved`. Returns null (reject) or the resolved state.
+ */
+export function applyArbiterVerdict(state, verdict, pa) {
+  const atoms = Array.isArray(verdict?.atoms) ? verdict.atoms : null;
+  if (!atoms || atoms.length === 0) return null;
+  const controller = pa?.controller ?? null;
+  if (!controller) return null; // no controller → can't scope the effect → honest no-op
+  const sourceId = pa?.stackObjectId ?? null;
+  const cardName = pa?.cardName ?? null;
+  let next = state;
+  for (const atom of atoms) {
+    if (!atom || typeof atom.op !== "string") return null;      // malformed atom → reject the whole verdict
+    if (atom.optional || atom.targetType) return null;          // would pause / needs a chosen target → SAFE FN (reject)
+    const ctx = { controller, targets: [], cardName, xValue: null, sourceId };
+    const after = resolveAtom(next, atom, ctx);
+    if (after == null) return null;                             // no resolver for this op → reject (never fabricate)
+    if (after.pendingChoice) return null;                       // an atom paused mid-apply → reject (verdict must resolve cleanly)
+    next = after;
+  }
+  next = clearPendingArbiter(next);
+  return logEvent(next, { kind: "arbiter-resolved", cardName, source: verdict.source || "arbiter", atomCount: atoms.length });
 }
 
 /**
@@ -921,7 +953,7 @@ function pendingEdictModeActions(pc) {
  */
 export function advanceUntilDecision(
   session,
-  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null, policy = null } = {},
+  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null, policy = null, resolveArbiter = null } = {},
 ) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
   const timeCfg = resolveTimePressure(timePressure);
@@ -1018,6 +1050,28 @@ export function advanceUntilDecision(
       const pause = pa.controller === "user" && current.difficulty !== "expert";
       if (pause) {
         return { session: current, decision: { kind: "unresolved", ...pa } };
+      }
+      // ARBITER-IN-RUNNER (default-off, docs/orchestration/ARBITER-IN-RUNNER-SPEC.md): if a `resolveArbiter`
+      // hook is supplied (self-play with a warm verdict cache), try to RESOLVE the gated card deterministically
+      // from cache instead of the honest no-op below. The hook is a SYNC in-memory lookup (no network in this
+      // loop → the trajectory hash is preserved when frozen; byte-identical when the hook is absent). The applier
+      // returns null unless every verdict atom resolves cleanly, so a cache miss / malformed verdict falls
+      // through to today's no-op — never a fabricated effect (CREED).
+      if (typeof resolveArbiter === "function") {
+        const verdict = resolveArbiter(pa, current.state);
+        const resolved = verdict ? applyArbiterVerdict(current.state, verdict, pa) : null;
+        if (resolved) {
+          current = {
+            ...current,
+            state: resolved, // pendingArbiter already cleared + `arbiter-resolved` logged by the applier
+            decisionLog: [...current.decisionLog, {
+              ts: Date.now(), turn: current.state.turn, phase: current.state.phase, step: current.state.step,
+              actor: pa.controller, action: { kind: "arbiter-resolved", name: pa.cardName }, auto: true,
+              reasoning: "resolved from Arbiter verdict cache",
+            }],
+          };
+          continue;
+        }
       }
       // Expert autopilot, or an opponent's unmodeled spell: don't block, but
       // surface it in the action feed so the player is TOLD the simulator
