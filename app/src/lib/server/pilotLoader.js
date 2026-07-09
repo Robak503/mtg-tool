@@ -57,3 +57,30 @@ export async function buildPilotsForBatch(file, mode) {
   }
   throw new Error(`pilot module ${file} exports neither buildPilots(seats,{mode}) nor a decide function`);
 }
+
+/**
+ * Load a per-GAME pilot BUILDER — returns `(decks) => { [seat]: pilot }`, so the grind loop can hand the persona
+ * the pod's decks each game (seat order) for DECK-NATIVE playbook matching (Omnath's flagged refinement: their
+ * buildPilots v2 reads decks[i] to pick each seat's deck-appropriate playbook; v1 ignores it → a temperament
+ * spread + default playbook, still varied). A bare-decide persona ignores decks (same pilot every seat). Returns
+ * null for no selection (⇒ default autopilot). Path-guarded like buildPilotsForBatch.
+ */
+export async function loadPilotBuilder(file, mode) {
+  if (!file) return null;
+  if (!SAFE_PILOT_FILE.test(file)) throw new Error(`invalid pilot filename: ${file}`);
+  const seats = engineSeatsForMode(mode);
+  const mod = await import(pathToFileURL(path.join(pilotsDir(), file)).href);
+  if (typeof mod.buildPilots === "function") {
+    return (decks) => mod.buildPilots(seats, { mode, decks }) || {};
+  }
+  if (typeof mod.decide === "function") {
+    const p = {
+      decide: mod.decide,
+      decideMulligan: typeof mod.decideMulligan === "function" ? mod.decideMulligan : undefined,
+      playbook: mod.playbook ?? null,
+      temperament: mod.temperament ?? null,
+    };
+    return () => Object.fromEntries(seats.map((s) => [s, p]));
+  }
+  throw new Error(`pilot module ${file} exports neither buildPilots(seats,{mode}) nor a decide function`);
+}

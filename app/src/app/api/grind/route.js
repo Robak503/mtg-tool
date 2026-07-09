@@ -14,7 +14,7 @@ import {
   selectDecksByIds,
   decksForActiveProfile,
 } from "../../../lib/server/selfPlayDecks.js";
-import { buildPilotsForBatch } from "../../../lib/server/pilotLoader.js";
+import { loadPilotBuilder } from "../../../lib/server/pilotLoader.js";
 import { startGrind, requestGrindCancel, grindStatus } from "../../../lib/learn/grindLoop.js";
 
 export async function GET() {
@@ -59,16 +59,17 @@ export async function POST(request) {
     return Response.json({ error: `Need at least ${podSize} playable decks for a ${mode} grind (got ${playable.length}).` }, { status: 400 });
   }
 
-  // Build the seat→persona map server-side (closures can't cross JSON), same as /api/self-play.
-  let pilots = {};
+  // Load a per-GAME pilot builder server-side (closures can't cross JSON). The grind hands it each pod's decks so
+  // the persona can pick deck-native playbooks per seat (Omnath v2); v1 ignores decks → a varied temperament spread.
+  let pilotBuilder = null;
   if (pilotFile) {
     try {
-      pilots = await buildPilotsForBatch(pilotFile, mode);
+      pilotBuilder = await loadPilotBuilder(pilotFile, mode);
     } catch (error) {
       return Response.json({ error: `Pilot "${pilotFile}" failed to load: ${error?.message || error}` }, { status: 400 });
     }
   }
 
-  const res = await startGrind({ decks: playable, mode, pilots, capBytes });
+  const res = await startGrind({ decks: playable, mode, pilotBuilder, capBytes });
   return Response.json(res, { status: res.started ? 200 : 409 });
 }

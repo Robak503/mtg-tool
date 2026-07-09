@@ -84,28 +84,33 @@ function podToArgs(pod, mode, pilots, seed) {
  * buildPilotsForBatch), `capBytes` = the disk budget (default 100GB via the store). Fire-and-forget: returns
  * immediately with { started }, the loop runs in the background until cancel/cap. Refuses a second concurrent grind.
  */
-export async function startGrind({ decks, mode = "commander", pilots = {}, capBytes = null, seed = "auto" } = {}) {
+export async function startGrind({ decks, mode = "commander", pilotBuilder = null, capBytes = null, seed = "auto" } = {}) {
   if (state.running) return { started: false, reason: "a grind is already running", ...grindStatus() };
   const podSize = mode === "commander" ? 4 : 2;
   if (!Array.isArray(decks) || decks.length < podSize) {
     return { started: false, reason: `need at least ${podSize} playable decks for ${mode}` };
   }
   state = { ...freshState(), running: true, startedAt: Date.now(), capBytes };
-  loop({ decks, mode, pilots, capBytes, seed, podSize }).catch((e) => {
+  loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }).catch((e) => {
     state.error = e?.message || String(e);
     state.running = false;
   });
   return { started: true, ...grindStatus() };
 }
 
-async function loop({ decks, mode, pilots, capBytes, seed, podSize }) {
+async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
   const base = resolveBaseSeed(seed);
   const version = await engineVersion();
-  const identity = Object.fromEntries(Object.entries(pilots || {}).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null }]));
   let i = 0;
   while (!state.cancelRequested) {
     const gameSeed = (base + Math.imul(i, 2654435761)) >>> 0;
     const pod = formPod(decks, podSize, gameSeed);
+    // Per-GAME pilots: hand the persona THIS pod's decks (seat order) so buildPilots can pick each seat's
+    // DECK-NATIVE playbook (Omnath v2). v1 ignores decks → a temperament spread + default playbook (still varied,
+    // still tagged). A builder throw never kills the grind — fall back to default autopilot for this game.
+    let pilots = {};
+    try { if (pilotBuilder) pilots = pilotBuilder(pod) || {}; } catch (e) { state.error = `pilot build ${i}: ${e?.message || e}`; }
+    const identity = Object.fromEntries(Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null }]));
     let game;
     try {
       game = runSelfPlayGame(podToArgs(pod, mode, pilots, gameSeed));
