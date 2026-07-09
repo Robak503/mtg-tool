@@ -1,0 +1,135 @@
+/**
+ * grindLoop.js — the continuous "GRIND BUTTON" loop (run-until-cancel). Press → plays games back-to-back in
+ * random balanced pods with the selected persona, appending one file PER GAME to the data-lifecycle store the
+ * whole time, until the user CANCELS (finishes the in-flight game, never a hard-kill) or the disk cap is hit.
+ *
+ * Runs as a MODULE-LEVEL SINGLETON in the persistent Next server: startGrind fires the loop (NOT awaited);
+ * requestGrindCancel sets a flag the loop checks at each GAME BOUNDARY; grindStatus is polled by the panel.
+ * The loop `await`s a macrotask between games so the event loop can service the cancel/status routes.
+ *
+ * Scheduler: a built-in seeded random-balanced pod former (deterministic per baseSeed; avoids repeating the exact
+ * previous pod). Omnath's `overnight-schedule.mjs makeScheduler().nextGame()` is a drop-in refinement (pod-freshness
+ * guarantee) — swap `formPod` for it once it's bundled/dropped; the loop shape is identical.
+ */
+
+import { readFile } from "node:fs/promises";
+
+import { runSelfPlayGame, resolveBaseSeed } from "./selfPlayRunner.js";
+import { appendGame } from "./gameLogStore.js";
+
+// One grind at a time (a persistent-server singleton). Serializable-plain so grindStatus() can be JSON'd to the panel.
+let state = freshState();
+function freshState() {
+  return { running: false, cancelRequested: false, gamesPlayed: 0, gamesTrusted: 0, startedAt: null, lastResult: null, capReached: false, error: null, totalBytes: 0, capBytes: null };
+}
+
+export function grindStatus() {
+  return { ...state, uptimeMs: state.startedAt ? Date.now() - state.startedAt : 0 };
+}
+
+/** Request a graceful stop — the loop finishes the CURRENT game, appends it, then exits (CR-safe, no torn game). */
+export function requestGrindCancel() {
+  if (state.running) state.cancelRequested = true;
+  return grindStatus();
+}
+
+let cachedVersion = null;
+async function engineVersion() {
+  if (cachedVersion) return cachedVersion;
+  try {
+    cachedVersion = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8")).version;
+  } catch {
+    cachedVersion = "unknown";
+  }
+  return cachedVersion;
+}
+
+/** mulberry32 seeded RNG — deterministic pod selection, no Math.random (a rerun of the same baseSeed reproduces). */
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffle(arr, rand) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+/** A random balanced pod of `size` runner decks (seeded). Pads by wrapping when fewer decks than the pod size. */
+function formPod(decks, size, seed) {
+  const rand = rng(seed);
+  let pod = shuffle(decks, rand).slice(0, size);
+  while (pod.length < size && decks.length) pod = pod.concat(shuffle(decks, rand)).slice(0, size);
+  return pod;
+}
+function podToArgs(pod, mode, pilots, seed) {
+  const [userDeck, ...opp] = pod;
+  return {
+    deckA: userDeck?.cards || [],
+    opponentDecks: opp.map((d) => d?.cards || []),
+    userCommanders: userDeck?.commanders || [],
+    opponentCommanders: opp.map((d) => d?.commanders || []),
+    userCompanion: userDeck?.companion || null,
+    opponentCompanions: opp.map((d) => d?.companion || null),
+    mode, seed, timePressure: true, pilots, recordDecisions: true, mulligan: true,
+  };
+}
+
+/**
+ * Start the grind. `decks` = enriched RUNNER decks (toRunnerDeck), `pilots` = the seat→persona map (from
+ * buildPilotsForBatch), `capBytes` = the disk budget (default 100GB via the store). Fire-and-forget: returns
+ * immediately with { started }, the loop runs in the background until cancel/cap. Refuses a second concurrent grind.
+ */
+export async function startGrind({ decks, mode = "commander", pilots = {}, capBytes = null, seed = "auto" } = {}) {
+  if (state.running) return { started: false, reason: "a grind is already running", ...grindStatus() };
+  const podSize = mode === "commander" ? 4 : 2;
+  if (!Array.isArray(decks) || decks.length < podSize) {
+    return { started: false, reason: `need at least ${podSize} playable decks for ${mode}` };
+  }
+  state = { ...freshState(), running: true, startedAt: Date.now(), capBytes };
+  loop({ decks, mode, pilots, capBytes, seed, podSize }).catch((e) => {
+    state.error = e?.message || String(e);
+    state.running = false;
+  });
+  return { started: true, ...grindStatus() };
+}
+
+async function loop({ decks, mode, pilots, capBytes, seed, podSize }) {
+  const base = resolveBaseSeed(seed);
+  const version = await engineVersion();
+  const identity = Object.fromEntries(Object.entries(pilots || {}).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null }]));
+  let i = 0;
+  while (!state.cancelRequested) {
+    const gameSeed = (base + Math.imul(i, 2654435761)) >>> 0;
+    const pod = formPod(decks, podSize, gameSeed);
+    let game;
+    try {
+      game = runSelfPlayGame(podToArgs(pod, mode, pilots, gameSeed));
+    } catch (e) {
+      // A single engine error never kills the grind — log it, skip the game, keep going.
+      state.error = `game ${i} error: ${e?.message || e}`;
+      i += 1;
+      await macrotask();
+      continue;
+    }
+    const record = {
+      header: { seed: gameSeed, pilots: identity, engineVersion: version, result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode },
+      rows: game?.decisionTrajectory?.rows ?? [],
+    };
+    const appended = await appendGame(record, { capBytes });
+    if (appended.capReached) { state.capReached = true; break; } // 100GB cap → pause cleanly (the in-flight game was NOT written)
+    state.gamesPlayed += 1;
+    if ((game?.trainingWeight ?? 0) > 0) state.gamesTrusted += 1;
+    state.lastResult = game?.result ?? null;
+    state.totalBytes = appended.totalBytes;
+    i += 1;
+    await macrotask(); // yield so the event loop can service the cancel/status routes between games
+  }
+  state.running = false;
+}
+
+const macrotask = () => new Promise((r) => setImmediate(r));

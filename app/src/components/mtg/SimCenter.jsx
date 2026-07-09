@@ -107,6 +107,17 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
 
+  // ── Grind (run-until-cancel) state ── polled from /api/grind (a background singleton loop).
+  const [grind, setGrind] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const poll = () => fetch("/api/grind").then((r) => r.json()).then((s) => { if (alive) setGrind(s); }).catch(() => {});
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  const grindRunning = !!grind?.running;
+
   // ── History + banked-data stat ──
   const [reports, setReports] = useState([]);
   const [reportsLoad, setReportsLoad] = useState(true);
@@ -214,6 +225,29 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
     } finally {
       setRunning(false);
     }
+  };
+
+  // GRIND (run-until-cancel): kick off the background loop; it plays random balanced pods with the selected
+  // persona, appending one file per game, until Stop (finishes the in-flight game) or the disk cap.
+  const startGrind = async () => {
+    setError(null);
+    try {
+      const resp = await fetch("/api/grind", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start", deckIds: selectedIds, mode, allProfiles: true, pilot: pilot || undefined }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data?.started === false) setError(data?.reason || data?.error || `Grind failed to start (status ${resp.status}).`);
+      setGrind(data);
+    } catch (e) {
+      setError(e?.message || "Grind request failed.");
+    }
+  };
+  const stopGrind = async () => {
+    try {
+      const resp = await fetch("/api/grind", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel" }) });
+      setGrind(await resp.json().catch(() => grind));
+    } catch { /* ignore — the poll will reconcile */ }
   };
 
   const downloadText = (body, name) => {
@@ -458,6 +492,46 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
             {!running && selectedIds.length > 0 && selectedIds.length < minDecks && (
               <span style={{ fontSize: 12, color: "var(--ley-text-faint)" }}>
                 Select at least {minDecks} decks for {mode === "commander" ? "a Commander pod" : "Standard pairings"}.
+              </span>
+            )}
+          </section>
+
+          {/* ── Grind button (run-until-cancel) — walk-away mode: plays the selected pilot in random balanced pods,
+              non-stop, appending one file per game, until Stop (finishes the in-flight game) or the disk cap. ── */}
+          <section style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            {!grindRunning ? (
+              <button
+                type="button"
+                onClick={startGrind}
+                disabled={!canRun}
+                className="btn btn-secondary btn-lg"
+                title="Play games continuously with the selected pilot until you stop"
+              >
+                ⚙ Grind (run until cancel)
+              </button>
+            ) : (
+              <button type="button" onClick={stopGrind} className="btn btn-secondary btn-lg">
+                ■ Stop grind
+              </button>
+            )}
+            {grind && (grindRunning || grind.gamesPlayed > 0) && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ley-text-faint)" }}>
+                {grindRunning && (
+                  <span className="ley-live" aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--ley-green-bright)", flexShrink: 0 }} />
+                )}
+                <span>
+                  <strong style={{ color: "var(--ley-text)" }}>{grind.gamesPlayed}</strong> games
+                  {grind.gamesTrusted != null ? ` (${grind.gamesTrusted} trusted)` : ""}
+                  {grind.lastResult ? ` · last: ${grind.lastResult}` : ""}
+                  {grindRunning ? " · grinding…" : grind.gamesPlayed > 0 ? " · stopped" : ""}
+                </span>
+                {grind.capReached && <span style={{ color: "#d0a000" }}>· disk cap reached — paused</span>}
+                {grind.error && <span style={{ color: "#d06060" }}>· {grind.error}</span>}
+              </span>
+            )}
+            {!grindRunning && (
+              <span style={{ fontSize: 11, color: "var(--ley-text-faint)", maxWidth: 340, lineHeight: 1.5 }}>
+                Walk-away mode — runs the selected pilot in random balanced pods, non-stop, logging every game. Stop anytime; it finishes the in-flight game.
               </span>
             )}
           </section>
