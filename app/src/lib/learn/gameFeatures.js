@@ -31,6 +31,14 @@ import { opponentsOf } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentIsCreature } from "./layers.js";
 
 /**
+ * The feature-vector VERSION, stamped into every recorded grind game header
+ * (`header.featuresV`) so a distill/training consumer can trust dimensionality and
+ * meaning across engine releases without inspecting rows. Bump ONLY when FEATURE_KEYS
+ * changes (append-only extensions bump it too — the vector LENGTH changed).
+ */
+export const FEATURES_VERSION = 1;
+
+/**
  * The authoritative feature ORDER. `featureVector` reads this so the numeric vector
  * is stable across releases; appending a new feature here (and to `featurizeState`)
  * extends the vector WITHOUT renumbering the existing positions. Keep these two in

@@ -562,6 +562,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 <span>
                   <strong style={{ color: "var(--ley-text)" }}>{grind.gamesPlayed}</strong> games
                   {grind.gamesTrusted != null ? ` (${grind.gamesTrusted} trusted)` : ""}
+                  {grind.gamesStuck > 0 ? ` · ${grind.gamesStuck} stuck` : ""}
                   {grind.lastResult ? ` · last: ${grind.lastResult}` : ""}
                   {grindRunning ? " · grinding…" : grind.gamesPlayed > 0 ? " · stopped" : ""}
                 </span>

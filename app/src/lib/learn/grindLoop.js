@@ -20,7 +20,7 @@ import { appendGame } from "./gameLogStore.js";
 // One grind at a time (a persistent-server singleton). Serializable-plain so grindStatus() can be JSON'd to the panel.
 let state = freshState();
 function freshState() {
-  return { running: false, cancelRequested: false, gamesPlayed: 0, gamesTrusted: 0, startedAt: null, lastResult: null, capReached: false, error: null, totalBytes: 0, capBytes: null };
+  return { running: false, cancelRequested: false, gamesPlayed: 0, gamesTrusted: 0, gamesStuck: 0, startedAt: null, lastResult: null, capReached: false, error: null, totalBytes: 0, capBytes: null };
 }
 
 export function grindStatus() {
@@ -131,9 +131,18 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
     };
     const appended = await appendGame(record, { capBytes });
     if (appended.capReached) { state.capReached = true; break; } // 100GB cap → pause cleanly (the in-flight game was NOT written)
+    if (appended.rejected) {
+      // Malformed record refused by the store — surface it, skip the counters, keep grinding.
+      state.error = `game ${i} rejected by store: ${appended.reason}`;
+      i += 1;
+      await macrotask();
+      continue;
+    }
     state.gamesPlayed += 1;
     if ((game?.trainingWeight ?? 0) > 0) state.gamesTrusted += 1;
-    state.lastResult = game?.result ?? null;
+    const res = game?.result ?? null;
+    if (!["user-wins", "ai-wins", "draw"].includes(res)) state.gamesStuck += 1; // non-decisive → triage-indexed by the store
+    state.lastResult = res;
     state.totalBytes = appended.totalBytes;
     i += 1;
     await macrotask(); // yield so the event loop can service the cancel/status routes between games

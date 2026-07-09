@@ -25,9 +25,39 @@ import path from "node:path";
 
 import { profilePath } from "../server/paths.js";
 import { atomicWriteJson, readJsonSafe } from "../server/atomicJson.js";
+import { FEATURES_VERSION } from "./gameFeatures.js";
 
 const SHARD_SIZE = 1000; // games per shard folder (NTFS-friendly)
 const DEFAULT_CAP_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB (Colton's raw-file budget)
+
+/**
+ * Store schema version, stamped into every game header at the appendGame choke point so
+ * distill/training consumers can trust record shape without sniffing. Lineage:
+ *   1 (implicit) — pre-2026-07-09 records: no stamp; header may lack `decks`.
+ *   2 — schemaVersion + featuresV stamps; `decks` seat-map present; rows validated at append.
+ */
+export const STORE_SCHEMA_VERSION = 2;
+
+// A game's result is DECISIVE when it ended by the rules of the game (a real winner or a
+// true draw). Everything else (timeout / engine-stuck / dispatch-error / setup-error /
+// unexpected) is an honest non-completion — recorded, null-labeled downstream, and indexed
+// into stuck-triage.jsonl for the engine lane to reproduce and fix.
+const DECISIVE_RESULTS = new Set(["user-wins", "ai-wins", "draw"]);
+
+/** Cheap shape validation — refuse to store junk (a malformed record poisons distill). */
+function validateRecord(record) {
+  if (!record || typeof record !== "object") return "record must be an object";
+  if (!record.header || typeof record.header !== "object") return "header must be an object";
+  if (!Array.isArray(record.rows)) return "rows must be an array";
+  for (let i = 0; i < record.rows.length; i++) {
+    const r = record.rows[i];
+    if (!r || typeof r !== "object") return `row ${i} is not an object`;
+    if (typeof r.turn !== "number") return `row ${i} has no numeric turn`;
+    if (typeof r.seat !== "string") return `row ${i} has no seat`;
+    if (!r.action || typeof r.action !== "object") return `row ${i} has no action`;
+  }
+  return null;
+}
 
 export function grindRoot() {
   return profilePath("self-play", "grind");
@@ -50,6 +80,11 @@ export async function loadGrindManifest() {
  * winnerSeat,turns,mode}, rows:[…] }; the rows are the decision path (kept compact by the recorder).
  */
 export async function appendGame(record, { capBytes = null } = {}) {
+  // Refuse malformed records outright — an unwritable reason beats silently-stored junk.
+  const invalid = validateRecord(record);
+  if (invalid) {
+    return { rejected: true, reason: invalid, capReached: false, index: null, file: null };
+  }
   const manifest = await loadGrindManifest();
   const cap = Number.isFinite(capBytes) ? capBytes : manifest.capBytes ?? DEFAULT_CAP_BYTES;
   if (manifest.totalBytes >= cap) {
@@ -60,8 +95,10 @@ export async function appendGame(record, { capBytes = null } = {}) {
   const shardDir = path.join(grindRoot(), shard);
   await fs.mkdir(shardDir, { recursive: true });
 
-  const header = { index, ...(record?.header || {}) };
-  const gameObj = { index, header: record?.header || {}, rows: Array.isArray(record?.rows) ? record.rows : [] };
+  // Stamp schema + feature-vector versions at the choke point (every writer, no exceptions).
+  const stamped = { ...record.header, schemaVersion: STORE_SCHEMA_VERSION, featuresV: FEATURES_VERSION };
+  const header = { index, ...stamped };
+  const gameObj = { index, header: stamped, rows: record.rows };
   const body = JSON.stringify(gameObj);
   const size = Buffer.byteLength(body, "utf8");
   const file = path.join(shardDir, gameFileName(index));
@@ -71,6 +108,18 @@ export async function appendGame(record, { capBytes = null } = {}) {
   await fs.rename(tmp, file);
   // Append the header line (kept forever; append is the crash-safety — lose only a torn last line, recoverable).
   await fs.appendFile(path.join(shardDir, "headers.jsonl"), JSON.stringify(header) + "\n", "utf8");
+
+  // Non-decisive game → one line in the triage index (root-level, append-only). Everything a
+  // repro needs is already in the header: seed + decks + pilots + engineVersion + mode. The
+  // game file itself is still written above — triage is an INDEX for the engine lane, not a
+  // quarantine. A triage-write failure never blocks the game append (best-effort).
+  if (!DECISIVE_RESULTS.has(header.result)) {
+    try {
+      await fs.appendFile(path.join(grindRoot(), "stuck-triage.jsonl"), JSON.stringify(header) + "\n", "utf8");
+    } catch {
+      /* best-effort index */
+    }
+  }
 
   // Update the manifest: bump nextIndex/totalBytes + the current shard's rollup.
   let shardEntry = manifest.shards.find((s) => s.shard === shard);
@@ -96,11 +145,13 @@ export async function appendGame(record, { capBytes = null } = {}) {
  */
 export async function summarizeGrind() {
   const manifest = await loadGrindManifest();
-  const perDeck = new Map(); // key(id||name) -> { id, name, games, wins }
+  const perDeck = new Map(); // key(id||name) -> { id, name, games, wins, seats }
   const winnerSeats = {};
+  const results = {};
   const personas = new Set();
   const versions = new Set();
   let games = 0;
+  let stuckGames = 0; // non-decisive results (timeout/engine-stuck/dispatch-error/…)
   let turnsSum = 0;
   let withDeckAttribution = 0;
   for (const s of manifest.shards) {
@@ -116,6 +167,9 @@ export async function summarizeGrind() {
       try { h = JSON.parse(line); } catch { continue; } // skip a torn last line
       games += 1;
       turnsSum += h.turns || 0;
+      const res = h.result || "unknown";
+      results[res] = (results[res] || 0) + 1;
+      if (!DECISIVE_RESULTS.has(res)) stuckGames += 1;
       const w = h.winnerSeat || "draw";
       winnerSeats[w] = (winnerSeats[w] || 0) + 1;
       if (h.engineVersion) versions.add(h.engineVersion);
@@ -124,8 +178,9 @@ export async function summarizeGrind() {
         withDeckAttribution += 1;
         for (const d of h.decks) {
           const key = d.id || d.name || "?";
-          const rec = perDeck.get(key) || { id: d.id ?? null, name: d.name || key, games: 0, wins: 0 };
+          const rec = perDeck.get(key) || { id: d.id ?? null, name: d.name || key, games: 0, wins: 0, seats: {} };
           rec.games += 1;
+          rec.seats[d.seat] = (rec.seats[d.seat] || 0) + 1; // seat-fairness evidence (should sit ~25% each)
           if (h.winnerSeat && d.seat === h.winnerSeat) rec.wins += 1; // seat-based → no name-collision risk
           perDeck.set(key, rec);
         }
@@ -135,11 +190,27 @@ export async function summarizeGrind() {
   const decks = [...perDeck.values()]
     .map((d) => ({ ...d, winRate: d.games ? d.wins / d.games : 0 }))
     .sort((a, b) => b.games - a.games || b.wins - a.wins);
+  // Seat-fairness topline: the worst deviation from a uniform seat share across decks with
+  // enough games to mean anything. ~0 ⇒ per-deck win rates are positionally fair (any seat
+  // win-rate skew is then an ENGINE positional property, not a sampling artifact).
+  let maxSeatSkew = 0;
+  for (const d of decks) {
+    if (d.games < 100) continue;
+    const seatNames = Object.keys(d.seats);
+    if (!seatNames.length) continue;
+    const fair = 1 / seatNames.length;
+    for (const s of seatNames) {
+      maxSeatSkew = Math.max(maxSeatSkew, Math.abs(d.seats[s] / d.games - fair));
+    }
+  }
   return {
     games,
     withDeckAttribution,
     avgTurns: games ? turnsSum / games : 0,
     winnerSeats,
+    results,
+    stuckGames,
+    maxSeatSkew,
     personas: [...personas].sort(),
     engineVersions: [...versions].sort(),
     decks,

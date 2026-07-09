@@ -121,3 +121,56 @@ describe("summarizeGrind — per-deck standings + winner split for the Sim Cente
     expect(s).toMatchObject({ games: 0, withDeckAttribution: 0, decks: [] });
   });
 });
+
+describe("schema stamps + validation + stuck-triage (HARNESS-DATA wave 1)", () => {
+  it("stamps schemaVersion + featuresV into every stored header (choke-point, caller can't opt out)", async () => {
+    await appendGame(mkGame(0));
+    const stored = JSON.parse(await fs.readFile(path.join(grindRoot(), "shard-0000", "game-000000.json"), "utf8"));
+    expect(stored.header.schemaVersion).toBe(2);
+    expect(typeof stored.header.featuresV).toBe("number");
+    const headerLine = JSON.parse((await fs.readFile(path.join(grindRoot(), "shard-0000", "headers.jsonl"), "utf8")).trim());
+    expect(headerLine.schemaVersion).toBe(2);
+  });
+
+  it("REJECTS a malformed record without writing (no junk in the store)", async () => {
+    const bad = await appendGame({ header: { seed: 1 }, rows: [{ turn: "one", seat: "user", action: {} }] });
+    expect(bad.rejected).toBe(true);
+    expect(bad.reason).toMatch(/turn/);
+    expect((await loadGrindManifest()).nextIndex).toBe(0); // nothing written
+    const noRows = await appendGame({ header: {} });
+    expect(noRows.rejected).toBe(true);
+  });
+
+  it("indexes a NON-DECISIVE game into stuck-triage.jsonl (decisive games stay out)", async () => {
+    await appendGame(mkGame(0)); // user-wins → decisive, no triage line
+    const stuck = mkGame(1);
+    stuck.header.result = "engine-stuck";
+    stuck.header.winnerSeat = null;
+    await appendGame(stuck);
+    const triage = (await fs.readFile(path.join(grindRoot(), "stuck-triage.jsonl"), "utf8")).trim().split("\n");
+    expect(triage).toHaveLength(1);
+    const t = JSON.parse(triage[0]);
+    expect(t).toMatchObject({ index: 1, result: "engine-stuck", seed: 1 });
+    expect(t.schemaVersion).toBe(2); // triage lines carry the full stamped header (repro-ready)
+  });
+
+  it("summarize reports the results histogram, stuck count, per-deck seat counts + maxSeatSkew", async () => {
+    const g = (seed, winnerSeat, result = "user-wins") => ({
+      header: {
+        seed, winnerSeat, result, turns: 10, mode: "commander", engineVersion: "0.125.0",
+        decks: ["A", "B", "C", "D"].map((name, i) => ({ seat: ["user", "ai1", "ai2", "ai3"][i], id: `d-${name}`, name })),
+      },
+      rows: [],
+    });
+    await appendGame(g(1, "user"));
+    await appendGame(g(2, "ai1", "ai-wins"));
+    const stuck = g(3, null, "engine-stuck");
+    await appendGame(stuck);
+    const s = await summarizeGrind();
+    expect(s.results).toEqual({ "user-wins": 1, "ai-wins": 1, "engine-stuck": 1 });
+    expect(s.stuckGames).toBe(1);
+    const a = s.decks.find((d) => d.name === "A");
+    expect(a.seats).toEqual({ user: 3 }); // A sat the user seat in all 3 games
+    expect(s.maxSeatSkew).toBe(0); // no deck has ≥100 games → skew reported as 0, not noise
+  });
+});
