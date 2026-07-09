@@ -54,11 +54,14 @@
 >    Last Agni Kai (fight riders: fanout-scope/declare-ref/mana) · **Berserk = KEEP ARBITER** (drops mandatory self-destruct = dangerous board FP).
 >    Next: build Lizard Blades (verify), then High Score/Sylvan/Canopy/Ancient Animus/Ram Through as bounded reuse-+-rider slices, then Kellan (3.6% win).
 >
-> 7. 🔬 **HIGHEST-VALUE NEXT (Omnath COMMS #4, my Arbiter lane):** the classifier↔runtime MISMATCH — **Harmonized Crescendo (native-spell) + Freed
->    from the Real (native-activated)** hit `pendingArbiter` 257/174× at runtime despite being classifier-native = a native OVER-CLAIM (live FP) or a
->    partial resolution path. Instrument WHICH resolver emits pendingArbiter for these two natives. Data-trust > coverage. **✅ Garruk's `trigger-
->    removed-no-target` mislabel FIXED** (`fbd22c9f`, Omnath #3) — was benign (correct CR 603.4 condition-skips), now logged `trigger-condition-not-met`;
->    Omnath to recategorize it benign in selfplay-report. **Ordeal of Nylea** = the one clean spell-unresolved coverage flip up top.
+> 7. 🔬 **Omnath COMMS #4 (classifier↔runtime MISMATCH) — CONVOKE HALF FIXED** (`2951c303`). Root cause: the classifier strips cost-only keywords
+>    (Convoke/Affinity) before parsing a spell's effect → HIGH → native, but actionDispatcher parsed the FULL oracle → the bare "Convoke" line → LOW →
+>    pendingArbiter. So **Harmonized Crescendo (257×) + the whole Convoke/Affinity spell class** were classifier-native but Arbiter-routed at runtime.
+>    Fixed: actionDispatcher now strips cost-only keyword lines before parseEffectProgram (same helper as the classifier); body was GENUINELY modeled
+>    (not an over-claim — draw amountCount:chosenTypePermanents). Hash HELD (clean, no re-baseline), suite 8025, 3 tests. **REMAINDER:** Freed from
+>    the Real (native-activated Aura "{U}: Tap/Untap enchanted creature", 174×) is a DIFFERENT mechanism — aura activated abilities on the host route
+>    to Arbiter; separate investigation, next. **✅ #3 Garruk's mislabel FIXED** (`fbd22c9f`). **Ordeal of Nylea** = the one clean spell-unresolved coverage flip.
+>    Also this stretch: pilot seam COMPLETE (CLI+panel+replay-header+value-JSONL tag `6584eac3`), Arbiter-in-runner engine lane, v0.117.0 live.
 >
 > **RELEASE:** ✅ **v0.117.0 SHIPPED** — master FF'd `caf454b1..1a7322a7`, tag pushed → CI building (run 28991474833). **+55 native since v0.116.0**
 > (foretell/blitz +25 · has-have +7 · play-from-top +3 · monstrosity +5 · Gishath +1 · equipment +12 · misc +2), LOST=0. Suite 8006 green. Full entry ↓.
