@@ -1,6 +1,27 @@
 <!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
 <!-- ⚡ MOST-RECENT — read me first -->
 
+## ⚡ 2026-07-09 — GRIND BUTTON FIXED (v0.123.0): whole-shelf, matrix-persona, one press + deck persistence HARDENED (v0.122.0)
+
+**Why the Grind button "didn't work":** it was DISABLED because it shared `canRun` with the one-shot Run
+button, which needs a manual matchup — so it greyed out until you hand-selected ≥4 decks. Backwards for a
+walk-away button. **Fixed (v0.123.0):**
+- **Enables with no selection** — as long as ≥ a pod's worth of playable decks exist. With nothing selected it
+  grinds the **whole 15-deck shelf** in random balanced pods; select a subset to narrow it. Hint says what'll run.
+- **Persona-driven by default** — the pilot dropdown now auto-selects the installed persona (`omnath.mjs`), so
+  every deck in every pod is piloted by **its matrix persona** (Omnath's `classify.mjs` v2: Vihaan→aristocrats,
+  Rograkh→combo, Omnath→ramp, Koma/Zaxara→ramp, Sliver→go-wide, all 15 native) with a specialist/generalist mix.
+  Verified: a random grind pod gives each seat its deck-matched playbook/temperament. This is the "all personas,
+  matched to the decks that make sense" behavior — press Grind and walk away.
+- E2E-proven: `/api/grind` with empty deckIds + `omnath.mjs` started and played 5 trusted commander games across
+  the full shelf, cancel finished the in-flight game.
+
+**Releases in flight:** v0.121.0 published; **v0.122.0** (persistence hardening) + **v0.123.0** (grind fix)
+building. Once v0.123.0 lands and the app auto-updates, press Grind — no setup. (Before it lands you can already
+grind by selecting 4+ decks + picking `omnath.mjs` in the pilot dropdown.)
+
+<!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
+
 ## ⚡ 2026-07-08 LATE — `pilotType` grind tag (v0.121.0) + ⚠️ DECK-DATA CORRUPTION RECOVERED
 
 **COLTON — READ THIS:** Your AppData deck store got **corrupted** (a torn atomic write — the app crashed
