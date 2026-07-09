@@ -42,7 +42,7 @@ import {
   addPoison,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers } from "./triggers.js";
-import { uncounterableSubtypesOnBattlefield } from "./staticAbilityParser.js";
+import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield } from "./staticAbilityParser.js";
 import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -481,6 +481,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     }
     return uncounterableSubtypesOnBattlefield(cards);
   })();
+  // CANT-BE-COUNTERED — CONTROLLER scope (Chimil "Spells you control can't be countered"): the set of players
+  // ALL of whose stack spells are uncounterable. Empty in the common case → zero behavior change (CR 701.5e).
+  const uncounterablePlayers = uncounterablePlayersOnBattlefield(state);
   const addStackSpells = () => {
     for (const obj of state.stack || []) {
       if (obj.kind !== "spell") continue;
@@ -501,6 +504,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
           }
           if (protectedSpell) continue;
         }
+        // CANT-BE-COUNTERED (Chimil, controller scope): a spell cast by a player who controls a "spells you
+        // control can't be countered" static is never a legal counter target.
+        if (uncounterablePlayers.has(obj.controller)) continue;
       }
       // COPY-TARGET-OWN (Double Major — "copy target creature spell YOU CONTROL"): only the controller's own
       // stack spells are legal. effect.spellController:"you" (set by the copy atom's target spec) enforces it at

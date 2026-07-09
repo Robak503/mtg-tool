@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Joe-deck grind (+2 in-deck so far).** "Spells you control can't be countered" (Chimil,
+  the Inner Sun) now plays natively — enforced: your spells can't be chosen as counter
+  targets while it's out. "Put +1/+1 counters on each land creature you control" (Bumi,
+  Eclectic Earthbender) now correctly buffs the lands his earthbend animated into creatures.
 - **Singular "has" counter-payoff grants now play natively (+7).** Duskshell Crawler,
   Pridemalkin, Crowned Ceratok, Sapphire Drake, the Hagra Constrictors — "Each creature you
   control with a +1/+1 counter on it **has** trample/…" now works (the parser previously only

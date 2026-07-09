@@ -1206,6 +1206,15 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ cantBeCountered: { scope: "self" } });
     return;
   }
+  // CONTROLLER-SCOPE (Chimil, the Inner Sun — "Spells you control can't be countered"): a board static that
+  // protects EVERY spell its controller casts (CR 701.5e), not filtered by subtype. Emitted as a coverage +
+  // enforcement marker; spellEffects.addStackSpells excludes such a controller's stack spells from counter
+  // targets (mirrors the subtype exclusion). The cbcM regex below requires a single subtype word before
+  // "spells", so this "spells you control …" form has to be its own branch.
+  if (/^spells you control can't be countered$/.test(c)) {
+    out.push({ cantBeCountered: { scope: "youControl" } });
+    return;
+  }
   const cbcM = c.match(/^([a-z]+) spells can't be countered$/);
   if (cbcM) {
     const word = cbcM[1];
@@ -2405,6 +2414,22 @@ export function uncounterableSubtypesOnBattlefield(permanentCards) {
     }
   }
   return subs;
+}
+
+/**
+ * CANT-BE-COUNTERED — the CONTROLLER-scope uncounterability (Chimil, the Inner Sun — "Spells you control can't
+ * be countered", cantBeCountered.scope==="youControl"). Returns a Set of player-ids that control at least one
+ * such battlefield permanent, so ALL of that player's stack spells are excluded from counter targets (CR
+ * 701.5e). Empty when no such static is in play → zero behavior change. Pure; hoisted once per enumeration.
+ */
+export function uncounterablePlayersOnBattlefield(state) {
+  const players = new Set();
+  for (const pid of Object.keys(state?.players || {})) {
+    for (const perm of state.players[pid]?.battlefield || []) {
+      if (perm?.card && parseStaticAbilities(perm.card).some((d) => d.cantBeCountered?.scope === "youControl")) { players.add(pid); break; }
+    }
+  }
+  return players;
 }
 
 /**
