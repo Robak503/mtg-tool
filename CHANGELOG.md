@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **The app can no longer silently attach to a stale server ("ghost registry" bug).** The shell
+  used to treat port 3000 as ready the moment *anything* answered on it — so a leftover server
+  from an older build (surviving a crash or force-kill) could squat on the port and every fresh
+  launch would silently show ITS stale data: old profiles, missing decks, an empty persona list,
+  even writes into a deleted profile. Root-caused by reproduction: a fake squatter on :3000
+  produced the exact symptoms. Three-layer fix: **(1)** every launch now generates a random
+  nonce and requires the new `/api/health` endpoint to echo it back before the port counts as
+  ready — a foreign listener is detected, logged loudly (`port 3000 server identity = Foreign`),
+  and answered by **(2)** an automatic reap-and-respawn: the stale-server sweep now matches any
+  MTG-bundled node (old installs and local builds included, not just the current install's exact
+  path), and **(3)** the loading screen only redirects once it can *read* an `ok:true` from
+  `/api/health` — old-build zombies (no health route) leave it waiting with an honest error
+  instead of rendering wrong data.
+
 ### Added
 - **Grind now has a results readout.** The walk-away Grind used to only show a live counter —
   no standings, no way to see who won. There's now a **Grind results** panel in the Sim Center:

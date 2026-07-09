@@ -87,8 +87,17 @@
       var tries = 0;
       var maxTries = 240;            // 240 * 500ms = 2 minutes
       function go() {
-        fetch(target, { mode: "no-cors" })
-          .then(function () { window.location.replace(target); })
+        // Probe /api/health and require a READABLE ok:true before redirecting.
+        // A bare connectivity probe would happily redirect into a stale orphaned
+        // server from an old build squatting on the port (no /api/health there →
+        // this fetch keeps failing → we keep waiting + finally show the error
+        // message, instead of silently rendering a zombie's stale data).
+        fetch(target + "api/health")
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j && j.ok) { window.location.replace(target); }
+            else { throw new Error("not our server"); }
+          })
           .catch(function () {
             if (++tries >= maxTries) {
               document.body.innerHTML =

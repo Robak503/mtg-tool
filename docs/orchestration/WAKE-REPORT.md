@@ -1,6 +1,32 @@
 <!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
 <!-- ⚡ MOST-RECENT — read me first -->
 
+## ⚡ 2026-07-09 — GHOST-REGISTRY ROOT CAUSE FOUND + FIXED (v0.125.0): the shell trusted ANY server on port 3000
+
+**The mystery bug that made v0.123/v0.124 "look broken" (6 decks all under Joe, empty pilot dropdown,
+writes into a deleted profile) was NOT code, data, env, or caching — all disproven by a test suite.**
+The smoking gun (T5, reproduced): a **stale orphaned server from an old build squatting on port 3000**.
+The shell's readiness check was a bare TCP connect — any listener passed it — so its own fresh server
+failed to bind while the webview silently attached to the zombie (old code ⇒ no /api/pilots; old cached
+registry ⇒ `prof_a981996c` active, "Joe"-labeled decks; it even wrote chats into the dead profile).
+T6 confirmed the CURRENT build's job-object kills its node with the exe — the squatter predated that.
+
+**Fix (3 layers, v0.125.0):** (1) per-launch **nonce** in `MTG_LAUNCH_NONCE`, echoed by the new
+`/api/health`; the shell now requires the echo before "ready" and logs `server identity = Ours/Foreign/
+Timeout`; (2) on Foreign → **broadened reap** (kills any node whose path ends `\resources\node\node.exe`
+under an "mtg" path — old installs + local builds, not just the exact current path) **+ one respawn**;
+(3) the loading placeholder redirects only after READING `ok:true` from `/api/health` — an old-build
+zombie (404) leaves the honest "could not reach server" message instead of rendering stale data.
+**If the UI ever looks stale again: check launch.log for `identity = Foreign`.**
+
+**Overnight data run:** grind #1 hit its 20 GB cap after ~3h — **6,382 games** (~6,200 trusted, 96%).
+Full-store standings (6,618 games, ~1,700/deck): **Omnath 48%** · Pantlaza 34.6 · Koma 34.5 · Ur-Dragon
+32.8 · Zaxara 31.4 · Vihaan 25.9 · Toph 25 · Sliver 20.9 · Mothman 20.5 · Wolverine 17.7 · Kinnan 17.3 ·
+Kellan 16.1 · Cap America 14.1 · **Rograkh/Thrasios 11.2 · Yuriko 10.9** (bottom two = engine
+under-models combo/ninjutsu lines — the next coverage targets, not weak decks). **Seat-order artifact:**
+ai1 won 52% of games vs ~6% for ai3 — a 4P turn-order bias worth an engine investigation. **Grind #2
+running** (pid 32744, cap 40 GB total ≈ +20 GB) for Fable's distill pass tomorrow.
+
 ## ⚡ 2026-07-09 — GRIND BUTTON FIXED (v0.123.0): whole-shelf, matrix-persona, one press + deck persistence HARDENED (v0.122.0)
 
 **Why the Grind button "didn't work":** it was DISABLED because it shared `canRun` with the one-shot Run

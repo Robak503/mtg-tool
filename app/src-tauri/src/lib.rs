@@ -35,18 +35,64 @@ fn rotate_log_if_large(path: &std::path::Path, max_bytes: u64) {
     }
 }
 
-/// Poll TCP port until it accepts connections or timeout expires.
+/// Readiness verdict for the server on the port: is it OURS, a FOREIGN
+/// squatter, or nothing (timeout)?
 #[cfg(not(debug_assertions))]
-fn wait_for_port(port: u16, timeout_secs: u64) -> bool {
+#[derive(PartialEq, Debug, Clone, Copy)]
+enum ServerIdentity {
+    Ours,
+    Foreign,
+    Timeout,
+}
+
+/// Poll the port until OUR server answers — verified by the launch nonce
+/// echoing back from /api/health — or classify the listener as foreign.
+///
+/// A bare TCP-connect check ("port 3000 ready") trusts ANY listener: the
+/// 2026-07-09 ghost-registry incident was a stale old-build node squatting on
+/// the port, serving months-old code + a dead profile registry, while every
+/// fresh launch's own server failed to bind and the webview silently attached
+/// to the zombie. The nonce round-trip makes identity explicit: no nonce match
+/// after several live HTTP responses = someone else's server (old builds also
+/// simply 404 /api/health).
+#[cfg(not(debug_assertions))]
+fn wait_for_own_server(port: u16, timeout_secs: u64, nonce: &str) -> ServerIdentity {
+    use std::io::{Read, Write};
     let addr = format!("127.0.0.1:{port}");
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    let mut foreign_responses = 0u32;
     while std::time::Instant::now() < deadline {
-        if TcpStream::connect(&addr).is_ok() {
-            return true;
+        if let Ok(mut stream) = TcpStream::connect(&addr) {
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(3)));
+            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(3)));
+            let req = format!(
+                "GET /api/health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+            );
+            if stream.write_all(req.as_bytes()).is_ok() {
+                let mut body = String::new();
+                let _ = stream.take(16 * 1024).read_to_string(&mut body);
+                if !body.is_empty() {
+                    if body.contains(nonce) {
+                        return ServerIdentity::Ours;
+                    }
+                    // A live HTTP response without our nonce. Tolerate a few
+                    // (a dying orphan mid-reap) but a consistent responder
+                    // that never echoes the nonce is definitively foreign —
+                    // our own server can't even bind while it holds the port.
+                    foreign_responses += 1;
+                    if foreign_responses >= 4 {
+                        return ServerIdentity::Foreign;
+                    }
+                }
+            }
         }
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        std::thread::sleep(std::time::Duration::from_millis(300));
     }
-    false
+    if foreign_responses > 0 {
+        ServerIdentity::Foreign
+    } else {
+        ServerIdentity::Timeout
+    }
 }
 
 /// Pin the spawned Node server to a Windows Job Object configured to kill
@@ -110,9 +156,15 @@ fn pin_child_to_job(child: &std::process::Child) -> bool {
 /// reboot.
 ///
 /// SAFETY: we only ever terminate a process named node.exe whose full image
-/// path is byte-for-byte our bundled node.exe. No other application runs
-/// that specific binary, so this can never kill an unrelated user process.
-/// Any uncertainty (can't open the process, path mismatch) means we skip it.
+/// path is either byte-for-byte our bundled node.exe, or ends with the
+/// MTG-Tool-specific bundled layout `\resources\node\node.exe` inside a path
+/// containing "mtg" — i.e. a node bundled by SOME build of this app (an old
+/// install dir or a local target/release build). The 2026-07-09 ghost-registry
+/// incident was exactly that: a stale worktree build's node squatting on port
+/// 3000 with old code + a dead registry, shadowing every fresh launch — and the
+/// exact-path match let it live. No other application runs a node.exe under
+/// that layout, so this can never kill an unrelated user process. Any
+/// uncertainty (can't open the process, path mismatch) means we skip it.
 #[cfg(all(target_os = "windows", not(debug_assertions)))]
 fn reap_orphan_servers(bundled_node: &std::path::Path) -> usize {
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
@@ -159,7 +211,10 @@ fn reap_orphan_servers(bundled_node: &std::path::Path) -> usize {
                         if ok != 0 {
                             let full =
                                 String::from_utf16_lossy(&buf[..size as usize]).to_lowercase();
-                            if full == target && TerminateProcess(handle, 1) != 0 {
+                            let ours = full == target
+                                || (full.ends_with("\\resources\\node\\node.exe")
+                                    && full.contains("mtg"));
+                            if ours && TerminateProcess(handle, 1) != 0 {
                                 killed += 1;
                             }
                         }
@@ -443,9 +498,21 @@ pub fn run() {
                     use std::os::windows::process::CommandExt;
                     cmd.creation_flags(0x08000000);
                 }
+                // Per-launch identity nonce: /api/health echoes it back, and the
+                // readiness gate below requires the match — so we can never
+                // mistake a stale orphaned server on port 3000 for our own.
+                let launch_nonce = format!(
+                    "mtg-{}-{}",
+                    std::process::id(),
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_nanos())
+                        .unwrap_or(0)
+                );
                 cmd.arg(&server_js_str)
                     .env("PORT", "3000")
                     .env("HOSTNAME", "127.0.0.1")
+                    .env("MTG_LAUNCH_NONCE", &launch_nonce)
                     .env("MTG_APP_ROOT", strip_unc(&data_dir))
                     .env("MTG_JUDGE_DIR", strip_unc(&mtg_judge_dir))
                     .env("MTG_ENGINE_DIR", strip_unc(&mtg_engine_dir))
@@ -458,24 +525,49 @@ pub fn run() {
                     cmd.stderr(std::process::Stdio::from(f));
                 }
 
-                match cmd.spawn() {
-                    Ok(child) => {
-                        logln!("spawned node, pid={}", child.id());
-                        // Pin Node to a kill-on-close Job Object so it can
-                        // never outlive this shell — even if the auto-updater
-                        // force-kills us without firing our window handlers.
-                        #[cfg(target_os = "windows")]
-                        {
-                            let pinned = pin_child_to_job(&child);
-                            logln!("pinned node to kill-on-close job = {pinned}");
+                // Spawn + identity-gated readiness, with ONE recovery pass: if a
+                // FOREIGN server answers on port 3000 (a stale orphan from an old
+                // build — our own child can't even bind while it lives), reap the
+                // stale MTG node servers and respawn, instead of silently letting
+                // the webview attach to a zombie serving old code + a dead registry.
+                let mut attempt = 0u32;
+                loop {
+                    attempt += 1;
+                    match cmd.spawn() {
+                        Ok(mut child) => {
+                            logln!("spawned node, pid={} (attempt {attempt})", child.id());
+                            // Pin Node to a kill-on-close Job Object so it can
+                            // never outlive this shell — even if the auto-updater
+                            // force-kills us without firing our window handlers.
+                            #[cfg(target_os = "windows")]
+                            {
+                                let pinned = pin_child_to_job(&child);
+                                logln!("pinned node to kill-on-close job = {pinned}");
+                            }
+                            let identity = wait_for_own_server(3000, 30, &launch_nonce);
+                            logln!("port 3000 server identity = {identity:?}");
+                            if identity == ServerIdentity::Foreign && attempt < 2 {
+                                logln!("!! FOREIGN server squatting on port 3000 — reaping stale MTG node servers and respawning");
+                                let _ = child.kill(); // our child never bound the port; don't leak it
+                                #[cfg(target_os = "windows")]
+                                if bundled_node.exists() {
+                                    let reaped = reap_orphan_servers(&bundled_node);
+                                    logln!("reaped {reaped} stale server(s)");
+                                }
+                                std::thread::sleep(std::time::Duration::from_secs(2));
+                                continue;
+                            }
+                            if identity != ServerIdentity::Ours {
+                                logln!("!! port 3000 is NOT this launch's server (identity = {identity:?}) — the UI may show stale data; check what process holds port 3000");
+                            }
+                            *server_child.lock().unwrap() = Some(child);
+                            break;
                         }
-                        let ready = wait_for_port(3000, 30);
-                        logln!("port 3000 ready = {ready}");
-                        *server_child.lock().unwrap() = Some(child);
-                    }
-                    Err(e) => {
-                        logln!("Failed to spawn node: {e}");
-                        logln!("(is Node.js on PATH? `where node` should resolve.)");
+                        Err(e) => {
+                            logln!("Failed to spawn node: {e}");
+                            logln!("(is Node.js on PATH? `where node` should resolve.)");
+                            break;
+                        }
                     }
                 }
             }
