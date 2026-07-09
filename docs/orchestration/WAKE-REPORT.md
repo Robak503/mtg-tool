@@ -10,11 +10,13 @@
 > 2. ⏳ **Pilot-seam — PANEL half (Colton's own sweeps) is BLOCKED** on two things (Q-PILOT posted to Omnath): (a) Omnath's persona modules don't
 >    exist yet (their deliverable), (b) a packaging call — **where do pilot personas live in the shipped .exe?** bundle a curated set into
 >    `resources/pilots/` + a SimCenter dropdown (route builds the map server-side; closures can't cross JSON) vs a user path. Can't build until both resolve.
-> 3. 📐 **Arbiter-in-runner (#2) — MAPPED + design RESOLVED, READY TO BUILD.** Full spec: **[[ARBITER-IN-RUNNER-SPEC.md]]**. Design Q answered: a
->    LIVE LLM resolve CANNOT coexist with the deterministic hash → **resolve-once → memoize a fixed per-card verdict → replay deterministically**.
->    Seam: default-off `advanceOpts.resolveArbiter` hook at `learnSession.js:1016` (OFF ⇒ `ab524e20`/5706 unchanged) + a `profilePath("arbiter-
->    verdicts.json")` cache (model on colorTagStore) + a structured-verdict→atom applier (reuse runEffectProgram, NO prose) + an async pre-pass
->    cache-warmer. Build order (5 steps, each verifiable) in the spec. **← next build (needs fresh context; determinism-critical — build coherent, not on fumes).**
+> 3. ✅ **Arbiter-in-runner (#2) — ENGINE-SIDE LANE BUILT** (`ae46f8b2` foundation + `cfac49ef` pre-pass). Spec: **[[ARBITER-IN-RUNNER-SPEC.md]]**.
+>    `arbiterVerdictStore.js` (cache/determinism boundary) + `applyArbiterVerdict` (verdict→atoms via resolveAtom, ALL-OR-NOTHING CREED-safe) +
+>    default-off `resolveArbiter` hook at `learnSession.js:1016` threaded through the runner + `arbiterPrepass.warmArbiterCache` (pluggable resolver,
+>    dedup, static validator). **CARDINAL GUARD HELD: hook OFF ⇒ `ab524e20`/5706 byte-identical.** 16 tests, suite 8017, lint 0. **Remainder (pluggable
+>    + iterative, mirrors --pilot):** the VERDICT SOURCE — a tuned structured-Ollama resolver OR a curated verdict set (a small local model can't
+>    emit valid atoms; Ollama here is only 7B/32B, not the 14B Arbiter) — plus the CLI `--warm-arbiter=<module>` invocation. That's Arbiter/ruling
+>    lane (Omnath-adjacent), not core engine; deferred behind the Joe-shelf grind per Colton's order.
 > 4. ⚠️ **Data-grounded grind (#3) — REFRAMED by a scout (2026-07-08).** Omnath's breakage queue is **NOT a coverage-gap queue**: 4 of the top-5
 >    are ALREADY classifier-native — Garruk's Uprising (`native-mixed`, both draw triggers route), Harmonized Crescendo (`native-spell`), Freed
 >    from the Real (`native-activated`), Inventors' Fair (`land`). Only **Ordeal of Nylea** is genuinely `body-only` (attacks→+1/+1→conditional-

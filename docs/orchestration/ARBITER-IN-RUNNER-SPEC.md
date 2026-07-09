@@ -1,6 +1,12 @@
 # Arbiter-in-runner — build spec (Omnath sim-center handoff #2)
 
-**Status:** READY TO BUILD (architecture mapped + design question resolved 2026-07-08). Not yet built.
+**Status:** ENGINE-SIDE LANE BUILT 2026-07-08 (`ae46f8b2` foundation + `cfac49ef` pre-pass). Steps 1–4 done:
+arbiterVerdictStore.js (store) + applyArbiterVerdict (applier, learnSession.js) + default-off resolveArbiter hook
+(threaded through selfPlayRunner) + arbiterPrepass.warmArbiterCache (pluggable cache warmer + validator). CARDINAL
+GUARD verified: hook OFF ⇒ ab524e20/5706 byte-identical. 16 tests, suite 8017, lint 0. **REMAINING (pluggable +
+iterative):** the VERDICT SOURCE (a tuned structured-Ollama resolver OR a curated hand-authored verdict set — a
+small local model can't emit valid MTG-Tool atoms) + the CLI `--warm-arbiter=<module>` invocation + a one-time
+ON-anchor re-baseline. That's Arbiter/ruling lane (Omnath-adjacent).
 **Goal (Colton):** *"arbiter needs to resolve always at the highest level."* Today a GATED card in headless
 self-play is a pure no-op (`spell-unresolved`) — the effect never happens. Make the RUNNER resolve gated cards
 via the Ollama Arbiter, apply the ruling, and CACHE it (the same ~30 cards repeat — Garruk's Uprising 307×).
