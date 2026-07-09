@@ -5,12 +5,23 @@
 
 **COLTON — READ THIS:** Your AppData deck store got **corrupted** (a torn atomic write — the app crashed
 mid-save, leaving trailing garbage on `decks.local.json`). The live file had been reduced to 2 junk test
-decks. **I recovered it:** the corrupt backup's valid prefix held **9 of Joe's real decks**, which I restored
-to the active profile (`prof_b1412fcc`) — **verified 9/9 playable, grind-ready.** Every prior state is backed
-up (nothing lost). **⚠️ Your 6 personal decks (Vihaan/Koma/Rograkh/Slivers/Zaxara/Omnath) are NOT in AppData**
-— they were in a now-empty profile (`prof_a981996c`). They're safe in the `deck_*.md` memory files and
-re-importable, but they're not on the grind shelf right now. **The grind button will run tonight on the 9 Joe
-decks as-is; re-import your 6 if you want them in the pod.**
+decks. **Fully recovered — all 15 decks are back + playable:**
+- **9 Joe decks** recovered from the corrupt backup's valid prefix.
+- **Your 6 personal decks** (Vihaan/Koma/Rograkh/Slivers/Zaxara/Omnath) restored from a perfect-fidelity
+  pre-migration backup (`data/.pre-profiles-backup/`, 2026-06-05, app format with correct basic-land counts) —
+  merged into the active profile. **Verified 15/15 playable (6 colton + 9 joe, 0 rejected).** Rograkh/Thrasios
+  handled as 2 commanders + 98. **Tonight's grind pool = all 15 decks.** Nothing lost; every prior state backed up.
+
+**🗄️ NEW SAFE RECOVERY PLACE — `<approot>/deck-vault/`.** So this can't bite you again: a self-contained bundle
+OUTSIDE the app's write path (an app crash can't corrupt it) holding **all 15 decks + oracle text for all 942
+unique cards + a one-command restore script** (`node restore-decks.mjs`, sandbox-tested) + `RESTORE.md`. **Copy
+that folder to cloud/USB for off-machine safety.** (Follow-up for me: harden the app's deck-save to auto-keep
+last-N good backups + auto-restore on a torn write — the root fix; noted in the queue.)
+
+**⚠️ Persona wiring:** Omnath's v2 classifier auto-assigns a playbook to each of the 6 restored decks (they're
+"wired"), but it MISFIRES on ~4 (Omnath→go-wide should be ramp, Sliver→ramp should be tribal, Vihaan→go-wide,
+Koma→go-wide). Not blocking — personas still play legally so the grind data's valid — but flagged to Omnath in
+COMMS with the full table to tune (their heuristic, their lane).
 
 **✅ GRIND BUTTON PROVEN END-TO-END** (real machine, exact server path): loaded the 9 recovered decks + Omnath's
 deployed `omnath.mjs` persona → `startGrind` → played **3 real commander games, all trusted**, appended to the
