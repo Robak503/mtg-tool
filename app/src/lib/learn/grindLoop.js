@@ -16,6 +16,7 @@ import { readFile } from "node:fs/promises";
 
 import { runSelfPlayGame, resolveBaseSeed, engineSeatsForMode } from "./selfPlayRunner.js";
 import { appendGame } from "./gameLogStore.js";
+import { formPod, podToArgs, gameSeedAt } from "./grindPod.js";
 
 // One grind at a time (a persistent-server singleton). Serializable-plain so grindStatus() can be JSON'd to the panel.
 let state = freshState();
@@ -44,40 +45,8 @@ async function engineVersion() {
   return cachedVersion;
 }
 
-/** mulberry32 seeded RNG — deterministic pod selection, no Math.random (a rerun of the same baseSeed reproduces). */
-function rng(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function shuffle(arr, rand) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-  return a;
-}
-/** A random balanced pod of `size` runner decks (seeded). Pads by wrapping when fewer decks than the pod size. */
-function formPod(decks, size, seed) {
-  const rand = rng(seed);
-  let pod = shuffle(decks, rand).slice(0, size);
-  while (pod.length < size && decks.length) pod = pod.concat(shuffle(decks, rand)).slice(0, size);
-  return pod;
-}
-function podToArgs(pod, mode, pilots, seed) {
-  const [userDeck, ...opp] = pod;
-  return {
-    deckA: userDeck?.cards || [],
-    opponentDecks: opp.map((d) => d?.cards || []),
-    userCommanders: userDeck?.commanders || [],
-    opponentCommanders: opp.map((d) => d?.commanders || []),
-    userCompanion: userDeck?.companion || null,
-    opponentCompanions: opp.map((d) => d?.companion || null),
-    mode, seed, timePressure: true, pilots, recordDecisions: true, mulligan: true,
-  };
-}
+// Pod-forming/seed math lives in grindPod.js — SHARED with the pool workers
+// (scripts/grind-worker.mjs) so both grind flavors play the identical sequence.
 
 /**
  * Start the grind. `decks` = enriched RUNNER decks (toRunnerDeck), `pilots` = the seat→persona map (from
@@ -104,7 +73,7 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
   const seatNames = engineSeatsForMode(mode); // seat order matches pod order (pod[0]=user, pod[1]=ai1, …)
   let i = 0;
   while (!state.cancelRequested) {
-    const gameSeed = (base + Math.imul(i, 2654435761)) >>> 0;
+    const gameSeed = gameSeedAt(base, i);
     const pod = formPod(decks, podSize, gameSeed);
     // Per-GAME pilots: hand the persona THIS pod's decks (seat order) so buildPilots can pick each seat's
     // DECK-NATIVE playbook (Omnath v2). v1 ignores decks → a temperament spread + default playbook (still varied,

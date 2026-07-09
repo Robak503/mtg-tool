@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-import { appendGame, loadGrindManifest, grindRoot, markShardParsed, pruneParsedShards, summarizeGrind } from "./gameLogStore.js";
+import { appendGame, loadGrindManifest, grindRoot, markShardParsed, pruneParsedShards, summarizeGrind, readGameFile, gameFilePath } from "./gameLogStore.js";
 
 let tmpDir;
 let originalCwd;
@@ -42,7 +42,7 @@ describe("gameLogStore — append-per-game sharded log + manifest (grind data li
     expect(m.shards[0]).toMatchObject({ shard: "shard-0000", firstIndex: 0, count: 3, parsed: false, pruned: false });
     expect(m.totalBytes).toBeGreaterThan(0);
     const files = await fs.readdir(path.join(grindRoot(), "shard-0000"));
-    expect(files).toContain("game-000000.json");
+    expect(files).toContain("game-000000.json.gz"); // gz per game (wave 2 — lossless)
     expect(files).toContain("headers.jsonl");
     const headers = (await fs.readFile(path.join(grindRoot(), "shard-0000", "headers.jsonl"), "utf8")).trim().split("\n");
     expect(headers).toHaveLength(3);
@@ -73,7 +73,27 @@ describe("gameLogStore — append-per-game sharded log + manifest (grind data li
     const pr = await pruneParsedShards({ capBytes: 1 });
     expect(pr.prunedShards).toHaveLength(0);
     const after = await fs.readdir(path.join(grindRoot(), "shard-0000"));
-    expect(after).toContain("game-000000.json"); // still present
+    expect(after).toContain("game-000000.json.gz"); // still present
+  });
+
+  it("gz round-trip is LOSSLESS: readGameFile returns exactly what was appended (+ stamps)", async () => {
+    const game = mkGame(7);
+    game.rows = [{ turn: 1, seat: "user", action: { kind: "cast", card: "Sol Ring" }, features: { own_life: 40 } }];
+    await appendGame(game);
+    const p = await gameFilePath(0);
+    expect(p.endsWith(".json.gz")).toBe(true);
+    const back = await readGameFile(0);
+    expect(back.rows).toEqual(game.rows); // byte-content equality of the payload
+    expect(back.header).toMatchObject({ seed: 7, result: "user-wins", schemaVersion: 2 });
+  });
+
+  it("legacy PLAIN .json games stay readable next to gz ones (mixed store)", async () => {
+    await appendGame(mkGame(0)); // written as .json.gz by current code
+    // Simulate a pre-gz record: plain .json at the next index + a manifest bump.
+    const legacy = { index: 1, header: { seed: 99, result: "ai-wins", turns: 5, mode: "commander" }, rows: [] };
+    await fs.writeFile(path.join(grindRoot(), "shard-0000", "game-000001.json"), JSON.stringify(legacy), "utf8");
+    expect((await readGameFile(1)).header.seed).toBe(99); // resolver falls back to plain
+    expect((await readGameFile(0)).header.seed).toBe(0);
   });
 });
 
@@ -125,7 +145,7 @@ describe("summarizeGrind — per-deck standings + winner split for the Sim Cente
 describe("schema stamps + validation + stuck-triage (HARNESS-DATA wave 1)", () => {
   it("stamps schemaVersion + featuresV into every stored header (choke-point, caller can't opt out)", async () => {
     await appendGame(mkGame(0));
-    const stored = JSON.parse(await fs.readFile(path.join(grindRoot(), "shard-0000", "game-000000.json"), "utf8"));
+    const stored = await readGameFile(0);
     expect(stored.header.schemaVersion).toBe(2);
     expect(typeof stored.header.featuresV).toBe("number");
     const headerLine = JSON.parse((await fs.readFile(path.join(grindRoot(), "shard-0000", "headers.jsonl"), "utf8")).trim());

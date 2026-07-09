@@ -22,6 +22,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { gzipSync, gunzipSync } from "node:zlib";
 
 import { profilePath } from "../server/paths.js";
 import { atomicWriteJson, readJsonSafe } from "../server/atomicJson.js";
@@ -99,12 +100,15 @@ export async function appendGame(record, { capBytes = null } = {}) {
   const stamped = { ...record.header, schemaVersion: STORE_SCHEMA_VERSION, featuresV: FEATURES_VERSION };
   const header = { index, ...stamped };
   const gameObj = { index, header: stamped, rows: record.rows };
-  const body = JSON.stringify(gameObj);
-  const size = Buffer.byteLength(body, "utf8");
-  const file = path.join(shardDir, gameFileName(index));
+  // Gzip the raw game payload (LOSSLESS — gunzip returns the identical bytes; readGameFile
+  // proves it round-trip in tests). ~8-10× smaller on this data shape, so the same disk cap
+  // holds ~an order of magnitude more games. Headers/manifest stay plain (tiny, greppable).
+  const body = gzipSync(JSON.stringify(gameObj), { level: 6 });
+  const size = body.byteLength; // the manifest budget tracks REAL disk, i.e. compressed bytes
+  const file = path.join(shardDir, `${gameFileName(index)}.gz`);
   // Atomic write of the raw game file (tmp+rename) so a crash never leaves a torn game.
   const tmp = `${file}.tmp.${process.pid}.${index}`;
-  await fs.writeFile(tmp, body, "utf8");
+  await fs.writeFile(tmp, body);
   await fs.rename(tmp, file);
   // Append the header line (kept forever; append is the crash-safety — lose only a torn last line, recoverable).
   await fs.appendFile(path.join(shardDir, "headers.jsonl"), JSON.stringify(header) + "\n", "utf8");
@@ -134,6 +138,37 @@ export async function appendGame(record, { capBytes = null } = {}) {
   manifest.capBytes = cap;
   await atomicWriteJson(manifestPath(), manifest);
   return { capReached: false, index, file, totalBytes: manifest.totalBytes, capBytes: cap };
+}
+
+/**
+ * Resolve a stored game's on-disk path by index — new games are `game-NNNNNN.json.gz`,
+ * pre-gz games are plain `.json`; both stay readable forever. null when the raw payload
+ * is absent (pruned; the header line still exists for replay-regeneration).
+ */
+export async function gameFilePath(index) {
+  const dir = path.join(grindRoot(), shardName(index));
+  for (const name of [`${gameFileName(index)}.gz`, gameFileName(index)]) {
+    const p = path.join(dir, name);
+    try {
+      await fs.access(p);
+      return p;
+    } catch {
+      /* try next variant */
+    }
+  }
+  return null;
+}
+
+/**
+ * Read + parse one stored game (either compression variant) — THE read path for every
+ * consumer (summaries, distill, replay, probes), so no reader ever hand-rolls gunzip.
+ */
+export async function readGameFile(fileOrIndex) {
+  const p = typeof fileOrIndex === "number" ? await gameFilePath(fileOrIndex) : fileOrIndex;
+  if (!p) return null;
+  const buf = await fs.readFile(p);
+  const text = p.endsWith(".gz") ? gunzipSync(buf).toString("utf8") : buf.toString("utf8");
+  return JSON.parse(text);
 }
 
 /**
@@ -249,7 +284,7 @@ export async function pruneParsedShards({ capBytes = null } = {}) {
     try {
       const files = await fs.readdir(shardDir);
       for (const f of files) {
-        if (!/^game-\d+\.json$/.test(f)) continue; // keep headers.jsonl
+        if (!/^game-\d+\.json(\.gz)?$/.test(f)) continue; // keep headers.jsonl; reclaim both variants
         const fp = path.join(shardDir, f);
         try {
           const st = await fs.stat(fp);
