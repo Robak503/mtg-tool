@@ -38,7 +38,23 @@ export async function atomicWriteJson(filePath, payload) {
   } finally {
     await fh.close();
   }
-  await fs.rename(tmp, filePath);
+  // Windows: rename-over-target EPERMs while ANY process holds the target open — even a
+  // reader (a summarize/distill pass reading manifest.json killed a live grind this way on
+  // 2026-07-09). The window is milliseconds; a short bounded retry outlives it. Still throws
+  // after the retries — callers must keep surfacing real failures (locked dirs, ACLs).
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await fs.rename(tmp, filePath);
+      return;
+    } catch (error) {
+      const transient = error?.code === "EPERM" || error?.code === "EBUSY" || error?.code === "EACCES";
+      if (!transient || attempt >= 4) {
+        await fs.rm(tmp, { force: true }).catch(() => {}); // never leave orphaned temps (the ghost-registry lesson)
+        throw error;
+      }
+      await new Promise((r) => setTimeout(r, 25 * (attempt + 1)));
+    }
+  }
 }
 
 /**
