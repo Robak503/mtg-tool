@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Play from the top of your library now works (+3).** Future Sight, Magus of the Future,
+  Goblin Spy — "you may play lands and cast spells from the top of your library" is a real,
+  enforced permission now: the app can actually cast the top card (at full cost) or play the
+  top land while such a permanent is out. Foundation for the filtered variants (Mystic Forge,
+  The Reality Chip, Eladamri) next.
 - **Joe-deck grind (+2 in-deck so far).** "Spells you control can't be countered" (Chimil,
   the Inner Sun) now plays natively — enforced: your spells can't be chosen as counter
   targets while it's out. "Put +1/+1 counters on each land creature you control" (Bumi,

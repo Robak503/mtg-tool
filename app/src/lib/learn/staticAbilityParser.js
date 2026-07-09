@@ -1225,6 +1225,26 @@ function parseClause(clause, out, selfName, selfType) {
     return; // a cant-be-countered clause — handled (or intentionally dropped to body-only)
   }
 
+  // PLAY-FROM-TOP-OF-LIBRARY (Future Sight / The Reality Chip / One with the Multiverse) — a static play-
+  // PERMISSION letting the controller play lands and cast spells from the TOP card of their library (CR 118.6 /
+  // 601.3e). Emitted as a coverage + enforcement MARKER ({ playFromTop }); the RUNTIME enforcement is in
+  // legalChoices.actionsPlayFromTopOfLibrary, which offers the top card as a real cast/play action — so an
+  // unmodeled permission can never be a claimed-native no-op (the Dracogenesis "does nothing" FP). "You may look
+  // at the top card of your library any time" and "Play with the top card of your library revealed" are INERT in
+  // the perfect-information sim (no hidden info) → recognized as no-op markers so a card whose only OTHER text is
+  // the permission (Future Sight) is fully covered. FILTERED variants (Mystic Forge "artifact/colorless spells",
+  // Eladamri "creature spells", Traveling Chocobo "Bird spells", Bolas's Citadel's life-cost rider) stay
+  // body-only for now — they carry a spellFilter / alt-cost this bare-form matcher intentionally doesn't credit.
+  // Only "play with the top card … revealed" is credited inert — the broader "you may look at the top card any
+  // time" is left uncredited: it's also inert in the perfect-info sim, but an existing pin (topCardRouter's Iron
+  // Lad) deliberately keeps such cards body-only, so crediting it is a conservative FN we decline. Future Sight
+  // still flips on its play-from-top permission line below (the enforced one that actually matters).
+  if (/^play with the top card of your library revealed$/.test(c)) { out.push({ inertInfo: true }); return; }
+  if (/^you may play lands and cast spells from the top of your library$/.test(c)) {
+    out.push({ playFromTop: { lands: true, spellFilter: "any" } });
+    return;
+  }
+
   // ── GROUP-BLOCK-RESTRICTION (Shifting Sliver / Serpent of Yawning Depths) — the SYMMETRIC tribal
   // "<subtypes> [you control] can't be blocked except by <same subtypes>" static (CR 509.1b). Emitted as
   // a coverage MARKER ({ blockRestriction } with NO `affects`/`op`, so the layer engine ignores it —
@@ -2430,6 +2450,20 @@ export function uncounterablePlayersOnBattlefield(state) {
     }
   }
   return players;
+}
+
+/**
+ * PLAY-FROM-TOP-OF-LIBRARY — the play-permission a player currently has (Future Sight's { playFromTop } marker),
+ * or null. Read from a battlefield permanent the player controls (a bare, non-attach-gated permission — the
+ * filtered/attach-gated variants aren't emitted by the parser). Consumed by legalChoices.actionsPlayFromTopOf-
+ * Library to offer the top library card as a real cast/play action, so the credited static is genuinely enforced.
+ */
+export function playFromTopPermission(state, playerId) {
+  for (const perm of state?.players?.[playerId]?.battlefield || []) {
+    if (!perm?.card) continue;
+    for (const d of parseStaticAbilities(perm.card)) if (d.playFromTop) return d.playFromTop;
+  }
+  return null;
 }
 
 /**

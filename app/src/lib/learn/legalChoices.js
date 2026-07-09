@@ -56,7 +56,7 @@ import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a 
 // identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
@@ -1945,6 +1945,34 @@ function actionsPlayImpulseFromExile(state, playerId) {
 }
 
 /**
+ * PLAY-FROM-TOP-OF-LIBRARY (Future Sight / Bolas's Citadel) — the enforcement of the { playFromTop } static
+ * permission (staticAbilityParser). While the player controls such a permanent, the TOP card of their library
+ * is playable/castable (CR 118.6 / 601.3e): a NONLAND is cast at FULL cost through the SAME shared builder a
+ * hand cast uses (castActionsFromZone with fromZone "library" — target/mode/X/additional-cost enumeration, the
+ * stack, cast triggers, AI all identical), and a LAND rides the play-land path (sorcery speed, own main, a land
+ * drop available) with fromZone "library" so the dispatcher splices it from the right zone. Only the TOP card is
+ * offered (library index 0), so it can't be played twice (it leaves the library onto the stack / battlefield
+ * when played). Mirrors actionsPlayImpulseFromExile exactly; the permission is the enforcement that keeps the
+ * credited static from being a no-op (CREED). Perfect-information sim → offering the known top card is faithful.
+ */
+function actionsPlayFromTopOfLibrary(state, playerId) {
+  const perm = playFromTopPermission(state, playerId);
+  if (!perm) return [];
+  const player = state.players[playerId];
+  const top = (player.library || [])[0];
+  if (!top) return [];
+  const actions = [];
+  if (!isLand(top)) {
+    // NONLAND — cast the top card at full cost (freeCast=false), same builder / timing as a hand cast.
+    actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
+  } else if (perm.lands && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
+    // LAND — play from the library top if the permission grants lands and a land drop is available.
+    actions.push({ kind: "play-land", playerId, cardId: top.id, name: top.name, fromZone: "library" });
+  }
+  return actions;
+}
+
+/**
  * ADVENTURE step 1 — cast the ADVENTURE (instant/sorcery) HALF from hand (CR 715.3). Offered ONLY for an
  * Adventure card whose BOTH halves are modeled (classifyCard returns a native tier — the metric's own
  * authority, so the runtime and coverage can't disagree; a card with an unmodeled half is body-only and is
@@ -2340,6 +2368,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
+    actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile
