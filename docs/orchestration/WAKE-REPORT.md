@@ -1,6 +1,21 @@
 <!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
 <!-- ⚡ MOST-RECENT — read me first -->
 
+## ⚡ 2026-07-09 — 📜 HARNESS-DATA PLAN FILED (Colton-approved): the harness/data/learning mission
+
+**[HARNESS-DATA-PLAN.md](HARNESS-DATA-PLAN.md)** — the executable staged plan from Colton's /goal
+(quality/speed/log-quality + interpret-the-data + learn-from-it, with his four locked calls baked in:
+staged tune→pipeline-proof→net ladder · half-core speed budget · richer rows + lossless gz · the
+3-proof acceptance bar). Waves: 1 DATA-TRUST (seat rotation — the ai1-52%-vs-ai3-6% confound —
+stuck-triage, schema stamps) → 2 SPEED (worker pool ≥5×, gz store) → 3 ROWS-v2 (decision-equality
+sub-anchor, legal-set + featuresV2, the per-card evidence table Omnath's corpus blend-ranking wants) →
+4 INTERPRET (Deck Reality Reports, matchup matrix, Colton eyeball gate) → 5 STAGE-A autopilot tuning
+(A/B ≥55/45 acceptance) → 6 STAGE-B pipeline e2e proof + clean Omnath distill handoff → 7 STAGE-C
+value net (planned only). Readiness checklists between stages. Next session: run wave 1 P0 baseline
+(re-derive the trajectory anchor on the current 15-deck root FIRST — shelf changed since `ab524e20`).
+
+<!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
+
 ## ⚡ 2026-07-09 — GHOST-REGISTRY ROOT CAUSE FOUND + FIXED (v0.125.0): the shell trusted ANY server on port 3000
 
 **The mystery bug that made v0.123/v0.124 "look broken" (6 decks all under Joe, empty pilot dropdown,
