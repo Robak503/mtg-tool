@@ -189,6 +189,7 @@ export async function summarizeGrind() {
   let stuckGames = 0; // non-decisive results (timeout/engine-stuck/dispatch-error/…)
   let turnsSum = 0;
   let withDeckAttribution = 0;
+  let legacyGames = 0; // pre-schema-2 games — fabricated ai-win labels, excluded from standings
   for (const s of manifest.shards) {
     let text;
     try {
@@ -209,7 +210,13 @@ export async function summarizeGrind() {
       winnerSeats[w] = (winnerSeats[w] || 0) + 1;
       if (h.engineVersion) versions.add(h.engineVersion);
       if (h.pilots) for (const p of Object.values(h.pilots)) if (p?.playbook) personas.add(p.playbook);
-      if (Array.isArray(h.decks) && h.decks.length) {
+      // HONESTY GATE (2026-07-09): pre-schema-2 games carry FABRICATED ai-win labels — the pod
+      // ended at user death and the turn-order-first survivor was crowned (70.7% of ai-wins had
+      // ≥2 rivals alive). Those games count in the totals above but are EXCLUDED from the
+      // standings table; only schema ≥2 games (FFA sole-survivor semantics) attribute W/L.
+      const honestWinner = (h.schemaVersion ?? 1) >= 2;
+      if (!honestWinner) legacyGames += 1;
+      if (honestWinner && Array.isArray(h.decks) && h.decks.length) {
         withDeckAttribution += 1;
         for (const d of h.decks) {
           const key = d.id || d.name || "?";
@@ -241,6 +248,7 @@ export async function summarizeGrind() {
   return {
     games,
     withDeckAttribution,
+    legacyGames,
     avgTurns: games ? turnsSum / games : 0,
     winnerSeats,
     results,

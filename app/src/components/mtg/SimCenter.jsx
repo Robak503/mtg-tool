@@ -597,6 +597,13 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 {grindResults.engineVersions?.length ? ` · engine ${grindResults.engineVersions.join(", ")}` : ""}
                 {grindResults.personas?.length ? <><br />personas: {grindResults.personas.join(", ")}</> : null}
               </div>
+              {grindResults.legacyGames > 0 && (
+                <div style={{ fontSize: 11, color: "#d0a000", lineHeight: 1.5 }}>
+                  ⚠ Standings below use <strong>{grindResults.withDeckAttribution.toLocaleString()}</strong> verified games —{" "}
+                  {grindResults.legacyGames.toLocaleString()} older games are excluded (recorded before the win-detection fix; their
+                  “winners” aren’t trustworthy).
+                </div>
+              )}
               {grindResults.decks?.length > 0 ? (
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>

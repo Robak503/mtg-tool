@@ -140,6 +140,26 @@ describe("summarizeGrind — per-deck standings + winner split for the Sim Cente
     const s = await summarizeGrind();
     expect(s).toMatchObject({ games: 0, withDeckAttribution: 0, decks: [] });
   });
+
+  it("EXCLUDES pre-schema-2 (fabricated-winner) games from the standings table — totals still count them", async () => {
+    // One honest game via the current writer (stamped schemaVersion 2)…
+    await appendGame(gameWithDecks(1, "user", ["A", "B", "C", "D"]));
+    // …and one LEGACY game: a schema-1 header line with decks + a crowned "winner" (the
+    // 2026-07-09 fabrication class), appended raw the way old writers left them.
+    const legacy = {
+      index: 1, seed: 9, winnerSeat: "ai1", result: "ai-wins", turns: 20, mode: "commander",
+      decks: ["A", "B", "C", "D"].map((name, i) => ({ seat: ["user", "ai1", "ai2", "ai3"][i], id: `d-${name}`, name })),
+    };
+    await fs.appendFile(path.join(grindRoot(), "shard-0000", "headers.jsonl"), JSON.stringify(legacy) + "\n", "utf8");
+
+    const s = await summarizeGrind();
+    expect(s.games).toBe(2); // totals count everything
+    expect(s.legacyGames).toBe(1); // …and say how much was excluded
+    expect(s.withDeckAttribution).toBe(1); // standings base = honest games only
+    const b = s.decks.find((d) => d.name === "B");
+    expect(b.games).toBe(1); // NOT 2 — the legacy game doesn't attribute
+    expect(b.wins).toBe(0); // the fabricated ai1 crown is not counted as B's win
+  });
 });
 
 describe("schema stamps + validation + stuck-triage (HARNESS-DATA wave 1)", () => {
