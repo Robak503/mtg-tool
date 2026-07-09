@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-import { appendGame, loadGrindManifest, grindRoot, markShardParsed, pruneParsedShards } from "./gameLogStore.js";
+import { appendGame, loadGrindManifest, grindRoot, markShardParsed, pruneParsedShards, summarizeGrind } from "./gameLogStore.js";
 
 let tmpDir;
 let originalCwd;
@@ -74,5 +74,50 @@ describe("gameLogStore — append-per-game sharded log + manifest (grind data li
     expect(pr.prunedShards).toHaveLength(0);
     const after = await fs.readdir(path.join(grindRoot(), "shard-0000"));
     expect(after).toContain("game-000000.json"); // still present
+  });
+});
+
+describe("summarizeGrind — per-deck standings + winner split for the Sim Center readout", () => {
+  // A game with per-seat DECK attribution (the grindLoop recorder now stamps header.decks).
+  const gameWithDecks = (seed, winnerSeat, seatDeckNames) => ({
+    header: {
+      seed, winnerSeat, turns: 10, mode: "commander", engineVersion: "0.123.0",
+      pilots: { user: { playbook: "ramp" }, ai1: { playbook: "combo" } },
+      decks: seatDeckNames.map((name, i) => ({ seat: ["user", "ai1", "ai2", "ai3"][i], id: `d-${name}`, name })),
+    },
+    rows: [],
+  });
+
+  it("attributes wins + participation per deck (seat-based, never by name collision)", async () => {
+    // 3 games, same pod: A wins twice, B wins once.
+    await appendGame(gameWithDecks(1, "user", ["A", "B", "C", "D"]));
+    await appendGame(gameWithDecks(2, "user", ["A", "B", "C", "D"]));
+    await appendGame(gameWithDecks(3, "ai1", ["A", "B", "C", "D"]));
+
+    const s = await summarizeGrind();
+    expect(s.games).toBe(3);
+    expect(s.withDeckAttribution).toBe(3);
+    expect(s.avgTurns).toBe(10);
+    expect(s.winnerSeats).toEqual({ user: 2, ai1: 1 });
+    const byName = Object.fromEntries(s.decks.map((d) => [d.name, d]));
+    expect(byName.A).toMatchObject({ games: 3, wins: 2 });
+    expect(byName.B).toMatchObject({ games: 3, wins: 1 });
+    expect(byName.C).toMatchObject({ games: 3, wins: 0 });
+    expect(byName.A.winRate).toBeCloseTo(2 / 3);
+  });
+
+  it("counts pre-attribution games in totals but not in the per-deck table", async () => {
+    await appendGame(mkGame(0)); // legacy header — no `decks`
+    await appendGame(gameWithDecks(1, "user", ["A", "B", "C", "D"]));
+    const s = await summarizeGrind();
+    expect(s.games).toBe(2);
+    expect(s.withDeckAttribution).toBe(1); // only the attributed one
+    expect(s.decks.every((d) => d.name !== undefined)).toBe(true);
+    expect(s.decks.find((d) => d.name === "A")).toBeTruthy();
+  });
+
+  it("returns zeros on an empty store (never throws)", async () => {
+    const s = await summarizeGrind();
+    expect(s).toMatchObject({ games: 0, withDeckAttribution: 0, decks: [] });
   });
 });

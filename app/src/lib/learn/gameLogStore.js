@@ -87,6 +87,65 @@ export async function appendGame(record, { capBytes = null } = {}) {
   return { capReached: false, index, file, totalBytes: manifest.totalBytes, capBytes: cap };
 }
 
+/**
+ * Aggregate the grind store into a human-readable standings summary for the Sim Center readout: total games,
+ * average turns, the winner-seat split, per-DECK games/wins/win-rate, and the personas + engine versions seen.
+ * Reads only the per-shard forever-kept headers.jsonl (one small line per game), so it stays fast + works even
+ * after the raw game files are pruned. Games recorded before deck-attribution shipped are counted in the totals
+ * but not in the per-deck table (headers without a `decks` array). Never throws — returns zeros on an empty store.
+ */
+export async function summarizeGrind() {
+  const manifest = await loadGrindManifest();
+  const perDeck = new Map(); // key(id||name) -> { id, name, games, wins }
+  const winnerSeats = {};
+  const personas = new Set();
+  const versions = new Set();
+  let games = 0;
+  let turnsSum = 0;
+  let withDeckAttribution = 0;
+  for (const s of manifest.shards) {
+    let text;
+    try {
+      text = await fs.readFile(path.join(grindRoot(), s.shard, "headers.jsonl"), "utf8");
+    } catch {
+      continue; // shard's headers gone (shouldn't happen — headers are kept forever); skip
+    }
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      let h;
+      try { h = JSON.parse(line); } catch { continue; } // skip a torn last line
+      games += 1;
+      turnsSum += h.turns || 0;
+      const w = h.winnerSeat || "draw";
+      winnerSeats[w] = (winnerSeats[w] || 0) + 1;
+      if (h.engineVersion) versions.add(h.engineVersion);
+      if (h.pilots) for (const p of Object.values(h.pilots)) if (p?.playbook) personas.add(p.playbook);
+      if (Array.isArray(h.decks) && h.decks.length) {
+        withDeckAttribution += 1;
+        for (const d of h.decks) {
+          const key = d.id || d.name || "?";
+          const rec = perDeck.get(key) || { id: d.id ?? null, name: d.name || key, games: 0, wins: 0 };
+          rec.games += 1;
+          if (h.winnerSeat && d.seat === h.winnerSeat) rec.wins += 1; // seat-based → no name-collision risk
+          perDeck.set(key, rec);
+        }
+      }
+    }
+  }
+  const decks = [...perDeck.values()]
+    .map((d) => ({ ...d, winRate: d.games ? d.wins / d.games : 0 }))
+    .sort((a, b) => b.games - a.games || b.wins - a.wins);
+  return {
+    games,
+    withDeckAttribution,
+    avgTurns: games ? turnsSum / games : 0,
+    winnerSeats,
+    personas: [...personas].sort(),
+    engineVersions: [...versions].sort(),
+    decks,
+  };
+}
+
 /** Mark a shard parsed (Omnath's consumer calls this after distilling a SEALED shard) so prune may reclaim it. */
 export async function markShardParsed(shard) {
   const manifest = await loadGrindManifest();

@@ -126,6 +126,31 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   }, []);
   const grindRunning = !!grind?.running;
 
+  // ── Grind RESULTS (standings) ── the saved-game readout: per-deck W/L, winner split, totals. Summarizing
+  // reads every header, so we fetch it on mount, on a manual refresh, and only every 8s WHILE grinding (not the
+  // 2s status cadence) — then once more right after a grind stops, to capture the final tally.
+  const [grindResults, setGrindResults] = useState(null);
+  const [grindResultsLoading, setGrindResultsLoading] = useState(false);
+  const loadGrindResults = async () => {
+    setGrindResultsLoading(true);
+    try {
+      const r = await fetch("/api/grind?results=1", { cache: "no-store" });
+      const j = await r.json();
+      setGrindResults(j?.results ?? null);
+    } catch {
+      /* leave prior results in place */
+    } finally {
+      setGrindResultsLoading(false);
+    }
+  };
+  useEffect(() => { loadGrindResults(); }, []);
+  useEffect(() => {
+    if (!grindRunning) return undefined;
+    const id = setInterval(loadGrindResults, 8000);
+    // one more refresh shortly after the loop stops (cleanup runs on the running→stopped transition)
+    return () => { clearInterval(id); setTimeout(loadGrindResults, 1500); };
+  }, [grindRunning]);
+
   // ── History + banked-data stat ──
   const [reports, setReports] = useState([]);
   const [reportsLoad, setReportsLoad] = useState(true);
@@ -554,6 +579,56 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
               </span>
             )}
           </section>
+
+          {/* ── Grind results (standings) — the saved-game readout: per-deck W/L + winner split + totals. ── */}
+          {grindResults && grindResults.games > 0 && (
+            <section style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14, border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", background: "var(--ley-surface-1)" }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ley-text)" }}>
+                  Grind results — <strong style={{ color: "var(--ley-green-bright)" }}>{grindResults.games.toLocaleString()}</strong> games logged
+                </span>
+                <button type="button" onClick={loadGrindResults} disabled={grindResultsLoading} className="btn btn-secondary" style={{ fontSize: 11, padding: "3px 10px" }}>
+                  {grindResultsLoading ? "Refreshing…" : "↻ Refresh"}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.6 }}>
+                avg {grindResults.avgTurns.toFixed(1)} turns/game · seat wins {Object.entries(grindResults.winnerSeats).map(([s, n]) => `${s} ${n}`).join(" · ")}
+                {grindResults.engineVersions?.length ? ` · engine ${grindResults.engineVersions.join(", ")}` : ""}
+                {grindResults.personas?.length ? <><br />personas: {grindResults.personas.join(", ")}</> : null}
+              </div>
+              {grindResults.decks?.length > 0 ? (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", color: "var(--ley-text-faint)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        <th style={{ padding: "4px 8px" }}>Deck</th>
+                        <th style={{ padding: "4px 8px", textAlign: "right" }}>Games</th>
+                        <th style={{ padding: "4px 8px", textAlign: "right" }}>Wins</th>
+                        <th style={{ padding: "4px 8px", textAlign: "right" }}>Win %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {grindResults.decks.map((d) => (
+                        <tr key={d.id || d.name} style={{ borderTop: "1px solid var(--ley-line)" }}>
+                          <td style={{ padding: "4px 8px", color: "var(--ley-text)" }}>{d.name || d.id}</td>
+                          <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-text-faint)" }}>{d.games}</td>
+                          <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-text-faint)" }}>{d.wins}</td>
+                          <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-green-bright)", fontWeight: 600 }}>{(d.winRate * 100).toFixed(0)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: "var(--ley-text-faint)" }}>Per-deck standings appear once games are logged with deck attribution (new games).</div>
+              )}
+              {grindResults.withDeckAttribution < grindResults.games && (
+                <div style={{ fontSize: 10, color: "var(--ley-text-faint)" }}>
+                  {grindResults.games - grindResults.withDeckAttribution} older game(s) are in the totals but predate per-deck tagging.
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Error (honest surface) */}
           {error && <div style={errorBox()}>⚠ {error}</div>}

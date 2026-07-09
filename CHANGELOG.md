@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Grind now has a results readout.** The walk-away Grind used to only show a live counter —
+  no standings, no way to see who won. There's now a **Grind results** panel in the Sim Center:
+  total games logged, average turns, the winner-seat split, personas + engine versions seen, and
+  a **per-deck table** (games / wins / win %). It refreshes automatically while grinding and on a
+  manual button. To make the per-deck table possible, each grind game now records **which deck sat
+  at each seat** (games logged before this update still count in the totals but not the per-deck
+  table). The data was always being saved (one JSON file per game under the profile's
+  `self-play/grind/` store); this just surfaces it.
+
 ### Fixed
 - **The Grind button now works without hand-picking decks, and pilots each deck by its
   matrix persona.** It was disabled unless you manually selected at least a full pod (4 decks

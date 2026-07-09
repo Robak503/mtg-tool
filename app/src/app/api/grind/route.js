@@ -16,8 +16,18 @@ import {
 } from "../../../lib/server/selfPlayDecks.js";
 import { loadPilotBuilder } from "../../../lib/server/pilotLoader.js";
 import { startGrind, requestGrindCancel, grindStatus } from "../../../lib/learn/grindLoop.js";
+import { summarizeGrind } from "../../../lib/learn/gameLogStore.js";
 
-export async function GET() {
+// GET returns live status; GET ?results=1 also returns the standings summary (per-deck W/L, winner split, totals).
+export async function GET(request) {
+  try {
+    const url = new URL(request.url);
+    if (url.searchParams.get("results")) {
+      return Response.json({ status: grindStatus(), results: await summarizeGrind() });
+    }
+  } catch {
+    /* fall through to status */
+  }
   return Response.json(grindStatus());
 }
 

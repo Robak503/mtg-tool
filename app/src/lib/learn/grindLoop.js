@@ -14,7 +14,7 @@
 
 import { readFile } from "node:fs/promises";
 
-import { runSelfPlayGame, resolveBaseSeed } from "./selfPlayRunner.js";
+import { runSelfPlayGame, resolveBaseSeed, engineSeatsForMode } from "./selfPlayRunner.js";
 import { appendGame } from "./gameLogStore.js";
 
 // One grind at a time (a persistent-server singleton). Serializable-plain so grindStatus() can be JSON'd to the panel.
@@ -101,6 +101,7 @@ export async function startGrind({ decks, mode = "commander", pilotBuilder = nul
 async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
   const base = resolveBaseSeed(seed);
   const version = await engineVersion();
+  const seatNames = engineSeatsForMode(mode); // seat order matches pod order (pod[0]=user, pod[1]=ai1, …)
   let i = 0;
   while (!state.cancelRequested) {
     const gameSeed = (base + Math.imul(i, 2654435761)) >>> 0;
@@ -121,8 +122,11 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
       await macrotask();
       continue;
     }
+    // Record which DECK sat at each seat (seat order = pod order) so the results view can attribute
+    // wins + participation per deck — winnerSeat alone can't say which deck won.
+    const seatDecks = pod.map((d, si) => ({ seat: seatNames[si] ?? `seat${si}`, id: d?.id ?? null, name: d?.name ?? null }));
     const record = {
-      header: { seed: gameSeed, pilots: identity, engineVersion: version, result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode },
+      header: { seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: version, result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode },
       rows: game?.decisionTrajectory?.rows ?? [],
     };
     const appended = await appendGame(record, { capBytes });
