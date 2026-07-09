@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **The Grind button now works without hand-picking decks.** It was disabled unless you
+  manually selected at least a full pod (4 decks for Commander) — backwards for a walk-away
+  "grind everything" button. It now enables as soon as a pod's worth of decks *exists* and,
+  with no selection, grinds the **whole shelf** in random balanced pods; selecting a subset
+  narrows it to those decks, and the hint shows exactly what will run.
 - **Your decks can no longer be lost to a crash mid-save.** A torn write (the app dying while
   saving `decks.local.json`) used to leave a corrupt file, and on the next launch the store
   served an *empty* library — which is how a real deck shelf got silently replaced with junk

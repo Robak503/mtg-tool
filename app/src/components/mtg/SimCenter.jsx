@@ -128,6 +128,12 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   const groups = useMemo(() => groupByProfile(decks), [decks]);
   const minDecks = mode === "commander" ? 4 : 2;
   const canRun = selectedIds.length >= minDecks && !running;
+  // The Grind button is walk-away "gain as much data as we can" mode — it does NOT
+  // require a manual selection. As long as at least a pod's worth of decks EXISTS it
+  // grinds the WHOLE shelf in random balanced pods; a selection of >= minDecks just
+  // narrows it to that subset. (canRun above still gates the one-shot Run button,
+  // which needs an explicit matchup.)
+  const grindReady = decks.length >= minDecks && !running;
 
   // Load the cross-profile deck list once on mount.
   useEffect(() => {
@@ -234,7 +240,8 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
     try {
       const resp = await fetch("/api/grind", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "start", deckIds: selectedIds, mode, allProfiles: true, pilot: pilot || undefined }),
+        // No explicit selection (or fewer than a pod) → grind the WHOLE shelf; a real selection narrows it.
+        body: JSON.stringify({ action: "start", deckIds: selectedIds.length >= minDecks ? selectedIds : [], mode, allProfiles: true, pilot: pilot || undefined }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || data?.started === false) setError(data?.reason || data?.error || `Grind failed to start (status ${resp.status}).`);
@@ -503,9 +510,9 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
               <button
                 type="button"
                 onClick={startGrind}
-                disabled={!canRun}
+                disabled={!grindReady}
                 className="btn btn-secondary btn-lg"
-                title="Play games continuously with the selected pilot until you stop"
+                title="Play games continuously until you stop — grinds the whole shelf (or your selection) in random pods"
               >
                 ⚙ Grind (run until cancel)
               </button>
@@ -530,8 +537,12 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
               </span>
             )}
             {!grindRunning && (
-              <span style={{ fontSize: 11, color: "var(--ley-text-faint)", maxWidth: 340, lineHeight: 1.5 }}>
-                Walk-away mode — runs the selected pilot in random balanced pods, non-stop, logging every game. Stop anytime; it finishes the in-flight game.
+              <span style={{ fontSize: 11, color: "var(--ley-text-faint)", maxWidth: 360, lineHeight: 1.5 }}>
+                {grindReady ? (
+                  <>Walk-away mode — grinds {selectedIds.length >= minDecks ? `your ${selectedIds.length} selected decks` : `all ${decks.length} decks`} in random balanced pods, non-stop, logging every game. Stop anytime; it finishes the in-flight game.</>
+                ) : (
+                  <>Load at least {minDecks} playable decks to grind (walk-away mode: random pods across the whole shelf, non-stop).</>
+                )}
               </span>
             )}
           </section>
