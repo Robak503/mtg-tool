@@ -458,7 +458,11 @@ export function runSelfPlayGame({
   const labelResult = result === "draw" && base.reason === "turn-limit" ? "turn-limit" : result;
   const seats = [];
   for (const [seat, rows] of seatRows.entries()) {
-    seats.push({ seat, outcome: outcomeLabelForSeatV2({ seat, result: labelResult, winnerSeat, state: out.state }), rows });
+    // PILOT TAG: carry the seat's {playbook,temperament}|null identity onto the VALUE trajectory too, so the
+    // panel's banked value-JSONL (trajectoriesToJsonl) is persona-attributed — matching the decision-trajectory,
+    // which already stamps it per row. null for a default (no-pilot) seat. Does NOT touch the hashed
+    // decisionTrajectory, so the trajectory anchor is unaffected.
+    seats.push({ seat, outcome: outcomeLabelForSeatV2({ seat, result: labelResult, winnerSeat, state: out.state }), rows, pilot: pilotIdentity(seat) });
   }
 
   return {
@@ -957,6 +961,8 @@ export function trajectoriesToJsonl(batch) {
           mode: traj.mode,
           result: traj.result,
           seat: s.seat,
+          playbook: s.pilot?.playbook ?? null,       // PILOT TAG: persona attribution ({}/null for a default seat)
+          temperament: s.pilot?.temperament ?? null,
           deckId: deckIds[si] ?? null,
           seed: traj.seed ?? null, // HB-4: the game's shuffle seed — banked duplicates are detectable
           turn: row.turn,
