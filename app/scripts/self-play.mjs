@@ -29,6 +29,15 @@
  *                                 pilot/deck/seat de-confound (recorded on meta.seatRotation)
  *     --pod-shuffle               HB-6: re-deal deck→pod composition each cycle (seed-derived)
  *                                 so cross-chunk matchups get sampled
+ *     --pilot=<path>              PILOT INJECTION (Omnath sim-center seam): load a pilot module and
+ *                                 route its persona decide() into every seat, so self-play is no
+ *                                 longer persona-blind. The module exports EITHER buildPilots(seats,
+ *                                 {mode}) → { [seat]: {decide,playbook,temperament} } (per-seat
+ *                                 personas) OR a bare decide (+ optional decideMulligan/playbook/
+ *                                 temperament) applied to all seats. Combine with --export-trajectories
+ *                                 to persist the pilot-tagged decision rows. See scripts/pilots/
+ *                                 example-pilot.mjs for the reference template + full contract. Omnath's
+ *                                 real personas live in external omnath-tools/pilots/ modules.
  *     --no-time-pressure          disable the opt-in "game clock" (recovers old draw-at-cap;
  *                                 default is ON so stalling games end decisively W/L)
  *     --export-trajectories=<path>  ENGINE→BRAIN DATA HOOK (Omnath seam, P3): also record every
@@ -48,14 +57,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 
 import { appRoot } from "../src/lib/server/paths.js";
 import { loadAllProfileDecks, toRunnerDeck } from "../src/lib/server/selfPlayDecks.js";
-import { runSelfPlayBatch, resolveBaseSeed, summarizeSeatOutcomes } from "../src/lib/learn/selfPlayRunner.js";
+import { runSelfPlayBatch, resolveBaseSeed, summarizeSeatOutcomes, engineSeatsForMode } from "../src/lib/learn/selfPlayRunner.js";
 import { aggregateBreakages, formatBreakageTxt } from "../src/lib/learn/breakageReport.js";
 
 function parseArgs(argv) {
-  const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true, exportTrajectories: null, seed: null, mulligan: true, rotateSeats: false, podShuffle: false };
+  const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true, exportTrajectories: null, seed: null, mulligan: true, rotateSeats: false, podShuffle: false, pilot: null };
   for (const a of argv) {
     if (a.startsWith("--mode=")) args.mode = a.slice(7) === "standard" ? "standard" : "commander";
     else if (a.startsWith("--ids=")) args.ids = a.slice(6).split(",").map((s) => s.trim()).filter(Boolean);
@@ -68,6 +78,7 @@ function parseArgs(argv) {
     else if (a === "--no-mulligan") args.mulligan = false; // AI-F9 opt-out (recovers keep-every-7)
     else if (a === "--rotate-seats") args.rotateSeats = true; // HB-5 deck↔seat de-confound
     else if (a === "--pod-shuffle") args.podShuffle = true; // HB-6 cross-chunk pod sampling
+    else if (a.startsWith("--pilot=")) args.pilot = a.slice(8); // PILOT: path to a pilot module (persona injection)
   }
   return args;
 }
@@ -115,6 +126,36 @@ async function main() {
     console.log(`[self-play]   ${d.name}: ${enriched}/${d.cards.length} mainboard cards enriched`);
   }
 
+  // PILOT INJECTION (Omnath sim-center seam): --pilot=<path> loads an external pilot module and routes
+  // its persona decide() into each engine seat, so self-play is no longer persona-blind and the exported
+  // decision rows carry the pilot's {playbook,temperament} identity (recordDecision stamps pilotIdentity
+  // per row). Without --pilot, `pilots` stays {} → every seat plays the default autopilot (unchanged).
+  // The module may export either buildPilots(seats,{mode}) → per-seat map, OR a bare decide (+ optional
+  // decideMulligan/playbook/temperament) applied to every seat. A pilot's decide that returns undefined /
+  // out-of-set defers to the default pick (selfPlayRunner), so a persona can never inject an illegal move.
+  let pilots = {};
+  if (args.pilot) {
+    const seats = engineSeatsForMode(args.mode);
+    const mod = await import(pathToFileURL(path.resolve(args.pilot)).href);
+    if (typeof mod.buildPilots === "function") {
+      pilots = mod.buildPilots(seats, { mode: args.mode }) || {};
+    } else if (typeof mod.decide === "function") {
+      const p = {
+        decide: mod.decide,
+        decideMulligan: typeof mod.decideMulligan === "function" ? mod.decideMulligan : undefined,
+        playbook: mod.playbook ?? null,
+        temperament: mod.temperament ?? null,
+      };
+      for (const s of seats) pilots[s] = p;
+    } else {
+      console.error(`[self-play] --pilot module ${args.pilot} exports neither buildPilots(seats,{mode}) nor a decide function.`);
+      process.exit(1);
+    }
+    const tags = seats.map((s) => `${s}:${pilots[s]?.playbook ?? "default"}/${pilots[s]?.temperament ?? "-"}`).join(", ");
+    console.log(`[self-play] pilot injected from ${args.pilot} → ${tags}`);
+    if (!args.exportTrajectories) console.log("[self-play]   (note: pass --export-trajectories=<path> to persist the pilot-tagged decision rows)");
+  }
+
   const t0 = Date.now();
   // HB-4: resolve the batch base seed. Default 1 (deterministic — a bare rerun
   // reproduces byte-identically); an explicit number is normalized (>>>0) so the
@@ -131,6 +172,7 @@ async function main() {
     mulligan: args.mulligan, // AI-F9: default ON (ship unkeepable 7s); --no-mulligan opts out
     rotateSeats: args.rotateSeats, // HB-5 (opt-in)
     podShuffle: args.podShuffle, // HB-6 (opt-in)
+    pilots, // PILOT: {} (default autopilot) or the seat→persona map from --pilot; the runner routes + tags per row
     recordDecisions: !!args.exportTrajectories, // the export needs the per-decision rows
   });
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
