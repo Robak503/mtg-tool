@@ -1,6 +1,34 @@
 <!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
 <!-- ⚡ MOST-RECENT — read me first -->
 
+## ⚡ 2026-07-09 LATE — HARNESS-DATA waves 1+1b+2 SHIPPED (v0.126.0): real winners, 6.4× grind, 43× smaller store
+
+**THE BIG FIND (read-only pathology hunt, reproduced + fixed):** 4P self-play winners were
+FABRICATED — the pod ended when the *user seat* died and `liveOpponents[0]` (turn-order-first
+survivor) was crowned. 70.7% of ai-wins had ≥2 rivals alive; ai3 survived MOST (81%) yet
+recorded 6% of "wins". **Fix (wave 1b): commander pods play FFA to the SOLE SURVIVOR** —
+state-carried rule, Academy untouched, `legacyUserPivot` pin reproduces the old anchor
+byte-exact. **Anchor lineage: `ab524e20…`(5,706 rows) → `53614053…`(6,629 rows) ×2**; census
+unchanged (1 entry); suite **8,061/584**; 40-game probe: seat split normalized (user 6 / ai1 7 /
+ai2 6 / ai3 21 — real positional dynamics now visible). ⚠️ **Store caveat: ai-win labels
+recorded BEFORE index ~9,136 (schemaVersion<2) are unreliable; decision rows are fine.**
+
+**Waves 1+2 shipped with it:** schema stamps + write validation + `stuck-triage.jsonl` (+ repro
+CLI — a real stuck game reproduced EXACTLY) · **parallel grind pool** (`scripts/grind-pool.mjs`,
+half-core default, parent = sole writer, 1-worker pool == in-process stream BYTE-FOR-BYTE) ·
+**gz store** (43.7× on a real game, lossless round-trip gated, mixed-store reads) · Windows
+EPERM rename-retry (a reader killed grind #2 mid-run — fixed). **Measured pool rate: 218.7
+games/min (6.4× single-process) with personas + FFA.** Deck→seat assignment verified UNIFORM
+(~25% each) — per-deck standings were never seat-confounded; they were winner-fabricated.
+
+**RUNNING TONIGHT:** overnight FFA pool (pid 17728, omnath personas, seed 20260709, 9h max,
+~200+ games/min) → Fable's morning dataset = ~100k CLEAN games (schemaVersion 2, honest
+winners, gz). Old grind #1/#2 data (schema 1) stays for decision-mining only. Next per
+[HARNESS-DATA-PLAN.md](HARNESS-DATA-PLAN.md): waves 3 (rows v2 + per-card evidence table) → 4
+(Deck Reality Reports + matchup matrix; Colton eyeball gate) → 5 (Stage-A tuning).
+
+<!-- ═══════════════════════════════════════════════════════════════════════════════════════════ -->
+
 ## ⚡ 2026-07-09 — 📜 HARNESS-DATA PLAN FILED (Colton-approved): the harness/data/learning mission
 
 **[HARNESS-DATA-PLAN.md](HARNESS-DATA-PLAN.md)** — the executable staged plan from Colton's /goal

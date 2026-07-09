@@ -9,6 +9,33 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **4-player self-play winners are now REAL winners.** A read-only pathology hunt proved the
+  old semantics fabricated them: the pod ended the instant the *user seat* died and the "win"
+  was stamped on the first *surviving seat in turn order* — 70.7% of ai-wins were crowned with
+  2–3 opponents still alive, manufacturing a 52/15/6 ai-seat split (the seat that actually
+  survived the most recorded the fewest "wins"). Commander pods now play **FFA to the sole
+  survivor**: a dead user is an elimination like any other, the pod plays on, and the last
+  player standing wins — whichever seat it is. The Academy (human play) keeps its
+  user-centric flow unchanged, and a `legacyUserPivot` pin reproduces the old behavior
+  byte-for-byte for lineage/A-B. Trajectory anchor re-anchored once, documented
+  (`ab524e20…` → `53614053…`); win-label data recorded before this fix should be treated as
+  unreliable for ai-wins (decision rows are unaffected).
+- **A stale reader can no longer kill a live grind.** On Windows, renaming the store manifest
+  while another process held it open (e.g. a standings read) threw EPERM and stopped the
+  grind loop; the atomic writer now retries transient share-violations briefly and cleans up
+  its temp file on real failures.
+
+### Added
+- **Parallel grind pool + compressed store (HARNESS-DATA waves 1–2).** `scripts/grind-pool.mjs`
+  runs the walk-away grind on half your cores (measured **218.7 games/min vs 34 single-process
+  — 6.4×**), with the parent as the store's only writer and lanes splitting one deterministic
+  seed sequence (a 1-worker pool reproduces the single-process stream byte-for-byte — gated).
+  Game files are now written gzip (**43.7× smaller on a real game**, lossless — round-trip
+  byte-equality gated); old plain-JSON games stay readable. Every stored game is stamped with
+  `schemaVersion` + feature-vector version and validated at write; non-decisive games
+  (engine-stuck/timeout) are indexed into `stuck-triage.jsonl` with a one-command repro
+  (`scripts/repro-grind-game.mjs` — a real stuck game reproduced exactly in verification), and
+  grind status/results now report stuck counts and per-deck seat-fairness evidence.
 - **The app can no longer silently attach to a stale server ("ghost registry" bug).** The shell
   used to treat port 3000 as ready the moment *anything* answered on it — so a leftover server
   from an older build (surviving a crash or force-kill) could squat on the port and every fresh
