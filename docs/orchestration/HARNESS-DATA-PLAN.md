@@ -1,5 +1,13 @@
 # HARNESS-DATA PLAN — better games, faster games, logs we can LEARN from
 
+> **STATUS (2026-07-09 late):** Waves **1, 1b, 2 SHIPPED** in v0.126.0 — wave 1's rotation item
+> was replaced by evidence (deck→seat already uniform) and the pathology hunt found the REAL
+> bug: fabricated 4P winners (user-pivot + turn-order crown) → fixed as **wave 1b: FFA
+> sole-survivor** (anchor lineage `ab524e20…` → `53614053…`; legacy pin holds the old anchor).
+> Pool measured **6.4×** (218.7 games/min); gz measured **43.7×**. Overnight FFA pool running
+> for the Stage-A dataset. **Next: wave 3** (rows v2 + per-card evidence table + Omnath's
+> sim-integrity order item 0/1), then wave 4. Live status: WAKE-REPORT top.
+
 > **LIVE mission plan** (Colton-approved 2026-07-09 via /goal Q&A). Owner: the engine/builder
 > seat (Cindy/Clyde), one wave at a time under the one-owner lock. Method authority:
 > [PLAY-HARNESS-OVERHAUL-PLAYBOOK.md](PLAY-HARNESS-OVERHAUL-PLAYBOOK.md) (gates, anchor
