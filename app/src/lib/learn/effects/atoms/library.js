@@ -664,6 +664,17 @@ export function applyMill(state, atom, ctx) {
     for (const pid of Object.keys(next.players)) next = millOnePlayer(next, pid, amount);
   } else if (atom.who === "eachOpponent") {
     for (const opp of opponentsOf(next, ctx.controller)) next = millOnePlayer(next, opp, amount);
+  } else if (atom.who === "target") {
+    // HALF-LIBRARY targeted mill (Kitsune's Technique): the CHOSEN player target(s); the amount is half
+    // THAT player's live library at resolution (CR 608.2h), with the printed rounding. A fixed-amount
+    // targeted mill would ride the same branch via `amount` (none in the corpus today). A vanished target
+    // → mill nobody (a clean no-op).
+    for (const t of ctx.targets || []) {
+      if (t.type !== "player" || !next.players?.[t.id]) continue;
+      const libLen = (next.players[t.id].library || []).length;
+      const n = atom.halfLibrary ? (atom.round === "up" ? Math.ceil(libLen / 2) : Math.floor(libLen / 2)) : amount;
+      next = millOnePlayer(next, t.id, n);
+    }
   } else if (atom.who === "damagedPlayer") {
     // CDMG-MILL (Sword of Body and Mind) — the player the equipped creature just dealt combat damage to
     // (ctx.damagedPlayerId, carried by checkCombatDamageTriggers). Absent / eliminated referent (a spell, a
@@ -1222,6 +1233,13 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
+  // HALF-LIBRARY targeted mill (Kitsune's Technique — SHELF S7): "target opponent/player mills half their
+  // library, rounded up/down". A CHOSEN player target (the cast path enumerates + picks interactively —
+  // the old first-legal trigger hazard doesn't arise on a spell, and no trigger prints this form); the
+  // amount is computed per target AT RESOLUTION off their live library size (CR 608.2h). The stated
+  // rounding is mandatory (a bare "half their library" has no corpus card and is ambiguous → unmatched).
+  m = t.match(/^target (player|opponent) mills half their library, rounded (up|down)$/);
+  if (m) return { op: "mill", who: "target", targetType: m[1], halfLibrary: true, round: m[2], amount: 0 };
   return null;
 }
 
