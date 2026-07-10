@@ -2774,6 +2774,18 @@ function matchRadOrProliferate(oracle) {
 // under the sentence splitter, so it's collapsed into ONE branch atom; the resolver reads the SOURCE's
 // layer-aware power + its live +1/+1 count at resolution (the printed condition is a trailing effect
 // condition, not an intervening-if — CR 608.2 evaluates it on resolution).
+// FREE-CAST-OR-LAND (Kellan, the Kid — SHELF S7) — "you may cast a permanent spell with equal or lesser
+// mana value from your hand without paying its mana cost. If you don't, you may put a land card from your
+// hand onto the battlefield." The RELATIONAL cap ("equal or lesser" vs the TRIGGERING cast — the
+// castNotFromHand watcher event) reads ctx.castSpellMv at resolution (stamped by checkCastTriggers); the
+// else-arm rides the parked pendingFreeCast decision (decline → the optional land put) or fires directly on
+// a whiff. Two sentences → shatters under the splitter → collapsed here into the ONE free-cast atom.
+function matchFreeCastOrLand(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (!/^(?:you may )?cast a permanent spell with equal or lesser mana value from your hand without paying its mana cost\. if you don't, you may put a land card from your hand onto the battlefield$/.test(t)) return null;
+  return { atoms: [{ op: "free-cast", capFromCastMv: true, typeFilter: "permanent", elseLandFromHand: true, targetType: null }] };
+}
+
 function matchDoubleOrResetCounters(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^double the number of \+1\/\+1 counters on this creature if its power is (\d+) or less\. otherwise, remove all but one \+1\/\+1 counter from it, then you gain 1 life for each \+1\/\+1 counter removed this way$/);
@@ -2993,6 +3005,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const dor = matchDoubleOrResetCounters(oracle);
   if (dor && dor.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dor.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== FREE-CAST-OR-LAND (Kellan, the Kid) ===== the relational-cap free cast + else-land branch → ONE
+  // free-cast atom (see matchFreeCastOrLand). HIGH iff KNOWN.
+  const fcl = matchFreeCastOrLand(oracle);
+  if (fcl && fcl.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: fcl.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up

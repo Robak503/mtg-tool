@@ -3878,7 +3878,10 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // runEffectProgram). Load-bearing for OPPONENT-PAYS-TO-DENY (taxed-payment) — the pay-decision belongs to the
   // player who cast, not the watcher's controller. Additive + inert for every existing cast trigger (no other
   // consumer reads it). See docs/orchestration/corpus-levers-buildspec.md.
-  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId };
+  // castSpellMv (KELLAN, SHELF S7): the cast spell's mana value, for a watcher payoff whose magnitude/cap is
+  // RELATIONAL to the triggering cast ("cast a permanent spell with EQUAL OR LESSER mana value" — Kellan, the
+  // Kid). Same MV reader the cascade cap uses; additive + inert for every existing cast trigger.
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard) };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {

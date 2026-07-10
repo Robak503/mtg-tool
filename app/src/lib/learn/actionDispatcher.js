@@ -65,6 +65,7 @@ import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js
 import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
+import { applyElseLandFromHand } from "./effects/atoms/freeCast.js"; // KELLAN else-arm: decline the free cast → the optional land put (CR 601.2b "If you don't, …")
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -1128,8 +1129,14 @@ function applyFreeCastDecline(state, action) {
     const { pendingFreeCast: _drop, ...rest } = state; // defensive: stale/foreign decline → just clear
     return rest;
   }
+  const elseLand = state.pendingFreeCast.elseLandFromHand === true;
   const { pendingFreeCast: _drop, ...rest } = state;
-  return logEvent(rest, { kind: "free-cast-decline", playerId: action.playerId });
+  let next = logEvent(rest, { kind: "free-cast-decline", playerId: action.playerId });
+  // ELSE-LAND arm (Kellan, the Kid — "If you don't, you may put a land card from your hand onto the
+  // battlefield"): declining the free cast IS "you don't", so the optional land put fires here (auto-taken —
+  // pure upside; applyTutor's hand-source pick, the Growth-Spiral machinery). No land in hand → clean no-op.
+  if (elseLand) next = applyElseLandFromHand(next, action.playerId);
+  return next;
 }
 // DISCOVER — put the parked (exiled) found card into the controller's hand; clear the pending decision.
 function applyDiscoverToHand(state, action) {

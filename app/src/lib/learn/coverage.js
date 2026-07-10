@@ -666,6 +666,11 @@ export function permanentTriggersCovered(card) {
     // SAME upkeep trigger's effect (the whole branch parses HIGH via matchDoubleOrResetCounters — proven by
     // allTriggerSentencesModeled). Anchored to DIRECTLY follow the exact power-gated double clause (FN-safe).
     .replace(/(counters? on [^.]+ if its power is \d+ or less)\.\s*otherwise, remove all but one \+1\/\+1 counter from it, then you gain 1 life for each \+1\/\+1 counter removed this way\b\.?\s*/gi, "$1. ")
+    // FREE-CAST-OR-LAND (Kellan, the Kid — SHELF S7) — the same follow-up-arm class: the "If you don't, you
+    // may put a land card …" else-arm belongs to the SAME cast trigger's effect (the whole branch parses
+    // HIGH via matchFreeCastOrLand — proven by allTriggerSentencesModeled). Anchored to DIRECTLY follow the
+    // exact free-cast clause (FN-safe).
+    .replace(/(without paying its mana cost)\.\s*if you don['’]t, you may put a land card from your hand onto the battlefield\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")

@@ -29,7 +29,7 @@
  */
 
 import { logEvent } from "../../gameState.js";
-import { tutorManaValue } from "./library.js";
+import { tutorManaValue, applyTutor } from "./library.js";
 
 /** A hand card is a castable spell for free-cast iff it's not a land and clears the MV cap + type filter. */
 export function freeCastEligible(card, { maxMv, typeFilter }) {
@@ -37,7 +37,21 @@ export function freeCastEligible(card, { maxMv, typeFilter }) {
   if (/\bLand\b/.test(typeLine)) return false; // CR 601.2 — lands are played, not cast
   if (typeof maxMv === "number" && tutorManaValue(card) > maxMv) return false; // CR 202.3 MV cap
   if (typeFilter === "instantSorcery" && !/\b(Instant|Sorcery)\b/.test(typeLine)) return false;
+  // PERMANENT spell (CR 111.1 — Kellan, the Kid: "cast a permanent spell"): the card must be a permanent
+  // type. Land was already excluded above, so this is exactly the castable-permanent set.
+  if (typeFilter === "permanent" && !/\b(Creature|Artifact|Enchantment|Planeswalker|Battle)\b/.test(typeLine)) return false;
   return true;
+}
+
+// The Kellan else-arm's land put ("If you don't, you may put a land card from your hand onto the
+// battlefield") — the SAME tutor atom the Growth-Spiral land-from-hand parser emits, applied through
+// applyTutor so the pick/enter machinery is shared. Exported for the decline path (actionDispatcher).
+export const ELSE_LAND_FROM_HAND_ATOM = Object.freeze({
+  op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] },
+  filterLabel: "land card from your hand", destination: "battlefield", entersTapped: false, targetType: null,
+});
+export function applyElseLandFromHand(state, controller) {
+  return applyTutor(state, ELSE_LAND_FROM_HAND_ATOM, { controller });
 }
 
 /**
@@ -51,12 +65,22 @@ export function applyFreeCastAtom(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players?.[controller];
   if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
-  const opts = { maxMv: atom.maxMv ?? null, typeFilter: atom.typeFilter || null };
-  const eligible = (player.hand || []).filter((c) => freeCastEligible(c, opts));
+  // RELATIONAL cap (Kellan, the Kid — "equal or lesser mana value" vs the TRIGGERING cast): read the cap
+  // off the trigger context (ctx.castSpellMv, stamped by checkCastTriggers at the cast event). A missing
+  // referent (never the real trigger path) makes the free-cast half UNSIZEABLE → skip it entirely (an
+  // uncapped free cast would be the FP; the else-land arm below still runs — it's the printed fallback).
+  const capMissing = atom.capFromCastMv && typeof ctx.castSpellMv !== "number";
+  const opts = { maxMv: atom.capFromCastMv ? (capMissing ? -1 : ctx.castSpellMv) : (atom.maxMv ?? null), typeFilter: atom.typeFilter || null };
+  const eligible = capMissing ? [] : (player.hand || []).filter((c) => freeCastEligible(c, opts));
   // No eligible card → the optional cast is simply not taken (CR 601.2b is a "may"). Log the whiff so
   // the decision log is honest; never park an empty decision (the action layer would offer only a no-op).
   if (eligible.length === 0) {
-    return logEvent(state, { kind: "spell-effect", effect: "free-cast", controller, found: false });
+    let next = logEvent(state, { kind: "spell-effect", effect: "free-cast", controller, found: false });
+    // ELSE-LAND arm (Kellan — "If you don't, you may put a land card from your hand onto the battlefield"):
+    // with no castable candidate the "you may cast" is definitionally not taken, so the fallback fires now
+    // (auto-taken — a free land onto the battlefield is pure upside; applyTutor's hand-source pick).
+    if (atom.elseLandFromHand) next = applyElseLandFromHand(next, controller);
+    return next;
   }
   const next = {
     ...state,
@@ -66,6 +90,9 @@ export function applyFreeCastAtom(state, atom, ctx) {
       maxMv: opts.maxMv,
       typeFilter: opts.typeFilter,
       sourceName: ctx.cardName || null,
+      // ELSE-LAND arm rides the parked decision: the DECLINE action runs the optional land put instead
+      // (actionDispatcher.applyFreeCastDecline) — the printed "If you don't, …".
+      ...(atom.elseLandFromHand && { elseLandFromHand: true }),
     },
   };
   return logEvent(next, { kind: "spell-effect", effect: "free-cast", controller, found: true, count: eligible.length });
