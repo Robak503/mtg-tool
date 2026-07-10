@@ -174,14 +174,15 @@ describe("CREED — a milled payoff with an unmodeled rider routes to Arbiter (n
     return { ...s, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
       players: { ...s.players, user: { ...s.players.user, life: 40, radCounters: rad, battlefield: [perm], library: lib, counters: {} } } };
   }
-  it("Mirelurk Queen's 'draw … once each turn' rider → no draw, no counter (whole trigger to Arbiter)", () => {
-    let s = withWatcher("Whenever one or more nonland cards are milled, draw a card, then put a +1/+1 counter on this creature. This ability triggers only once each turn.", 2, [nonland("n0"), nonland("n1")]);
+  it("Mirelurk Queen (SHELF M1a): the payoff FIRES — draw + self counter — and the once-per-turn latch is set", () => {
+    let s = withWatcher("Whenever one or more nonland cards are milled, draw a card, then put a +1/+1 counter on this creature. This ability triggers only once each turn.", 2, [nonland("n0"), nonland("n1"), nonland("n2")]);
     const handBefore = s.players.user.hand.length;
     s = runStepActions(s);
     s = resolveAll(flushTriggers(s));
-    expect(s.players.user.hand.length).toBe(handBefore); // did NOT draw (whole trigger routed to Arbiter)
+    expect(s.players.user.hand.length).toBe(handBefore + 1); // drew exactly once
     const watcher = s.players.user.battlefield.find((p) => p.id === "q");
-    expect((watcher?.counters?.["+1/+1"]) || 0).toBe(0); // and did NOT add a counter — no partial
+    expect(watcher?.counters?.["+1/+1"]).toBe(1);            // and one counter (the whole payoff, no partial)
+    expect(Object.keys(s.onceTriggersFiredThisTurn || {}).some((k) => k.startsWith("otpt_"))).toBe(true); // latched
   });
 });
 
@@ -191,8 +192,10 @@ describe("coverage — the consuming cards classify honestly", () => {
   it("Glowing One flips to native-trigger (every clause parses HIGH)", () => {
     expect(classifyCard(C("Glowing One", "Deathtouch\nWhenever this creature deals combat damage to a player, they get four rad counters.\nWhenever a player mills a nonland card, you gain 1 life."))).toBe("native-trigger");
   });
-  it("Mirelurk Queen / Screeching Scorchbeast / Wise Mothman / Infesting Radroach stay non-native (riders → Arbiter)", () => {
-    expect(classifyCard(C("Mirelurk Queen", "Vigilance\nWhen this creature enters, target player gets two rad counters.\nWhenever one or more nonland cards are milled, draw a card, then put a +1/+1 counter on this creature. This ability triggers only once each turn."))).toBe("body-only");
+  it("Mirelurk Queen FLIPS native (SHELF M1a — the once-per-turn trigger latch is runtime-enforced)", () => {
+    expect(classifyCard(C("Mirelurk Queen", "Vigilance\nWhen this creature enters, target player gets two rad counters.\nWhenever one or more nonland cards are milled, draw a card, then put a +1/+1 counter on this creature. This ability triggers only once each turn."))).toBe("native-trigger");
+  });
+  it("Screeching Scorchbeast / Wise Mothman / Infesting Radroach stay non-native (riders → Arbiter)", () => {
     expect(classifyCard(C("Screeching Scorchbeast", "Flying, menace\nWhenever this creature attacks, each player gets two rad counters.\nWhenever one or more nonland cards are milled, you may create that many 2/2 black Zombie Mutant creature tokens. Do this only once each turn."))).toBe("body-only");
     expect(classifyCard(C("The Wise Mothman", "Flying\nWhenever The Wise Mothman enters or attacks, each player gets a rad counter.\nWhenever one or more nonland cards are milled, put a +1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way."))).toBe("body-only");
     expect(classifyCard(C("Infesting Radroach", "Flying\nThis creature can't block.\nWhenever this creature deals combat damage to a player, they get that many rad counters.\nWhenever an opponent mills a nonland card, if this creature is in your graveyard, you may return it to your hand."))).toBe("body-only");

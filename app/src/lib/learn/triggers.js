@@ -1992,7 +1992,26 @@ export function detectTriggers(card) {
           .replace(/\bgain that much life\b/i, "gain that much counters-placed life");
       }
       } // end if (modalBlock === null) — modal blocks skip the leading-sentence referent rewrites
+      // ONCE-PER-TURN TRIGGER ("This ability triggers only once each turn." — Mirelurk Queen, SHELF M1a):
+      // this wording limits the TRIGGERING itself (the ability literally does not trigger a second time in
+      // a turn), unlike "Do this only once each turn" (an effect-frequency rider owned by the atom latch).
+      // Strip the sentence from the payoff and stamp the descriptor — gameEngine.flushTriggers enforces the
+      // latch (state.onceTriggersFiredThisTurn, per-source key, cleared each untap step), so the payoff can
+      // parse HIGH and the tier claim is runtime-honored. Trailing-sentence anchored: the wording anywhere
+      // else (no corpus case) leaves the clause untouched → LOW → Arbiter (CREED).
+      // COMPOUND GUARD (MACH-1 — "When … enters AND whenever you gain life, surveil 1. This ability triggers
+      // only once each turn."): a compound trigger's two split halves share ONE printed ability and therefore
+      // ONE latch, but the splitter leaves the limiter sentence on only the SECOND half's line (the first
+      // half would fire un-latched → an over-fire, the forbidden FP). Until the halves share a key, leave a
+      // compound-with-limiter card un-stripped → LOW → Arbiter (a SAFE false-negative).
+      const compoundLimiter = /\band whenever\b[^\n]*this ability triggers only once each turn/i.test(oracleOf(card));
+      let oncePerTurnTrigger = false;
+      if (!compoundLimiter && /\bThis ability triggers only once each turn\.?\s*$/i.test(effectClause)) {
+        effectClause = effectClause.replace(/\.?\s*This ability triggers only once each turn\.?\s*$/i, "").trim();
+        oncePerTurnTrigger = true;
+      }
       out.push({
+        oncePerTurnTrigger,                   // ONCE-PER-TURN TRIGGER (M1a): flushTriggers drops re-fires within a turn
         event: cls.event,
         scope: cls.scope,
         whose: cls.whose,

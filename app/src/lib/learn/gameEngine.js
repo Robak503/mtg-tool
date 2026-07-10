@@ -934,6 +934,20 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   let s = state;
   const newStackObjects = [];
   for (const trigger of ordered) {
+    // ONCE-PER-TURN TRIGGER (M1a — "This ability triggers only once each turn.", Mirelurk Queen): the
+    // ability does not trigger a second time within a turn. Enforced HERE, the universal flush chokepoint,
+    // via the SAME state.onceTriggersFiredThisTurn ledger the atom-level "Do this only once each turn"
+    // latch uses (cleared each untap step); keyed per source permanent + event so two different
+    // once-limited triggers never collide. Marked at first firing — a later same-turn event's trigger is
+    // dropped with a distinct log line (a CORRECT skip, not a fizzle).
+    if (trigger.descriptor?.oncePerTurnTrigger) {
+      const otKey = `otpt_${trigger.source?.permanentId}_${trigger.event}`;
+      if ((s.onceTriggersFiredThisTurn || {})[otKey]) {
+        s = logEvent(s, { kind: "trigger-once-per-turn-latched", source: trigger.source?.name || trigger.source, controller: trigger.controller });
+        continue;
+      }
+      s = { ...s, onceTriggersFiredThisTurn: { ...(s.onceTriggersFiredThisTurn || {}), [otKey]: true } };
+    }
     const built = buildTriggerStack(s, trigger, chooseTargets);
     if (built === TRIGGER_CONDITION_NOT_MET) {
       // CR 603.4 — the intervening-if condition was false at trigger time; the ability CORRECTLY never goes on
