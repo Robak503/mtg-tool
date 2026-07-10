@@ -374,6 +374,16 @@ function chosenTypePermanentsCount(player) {
   return best;
 }
 export function countForSpec(state, ctx, spec) {
+  // ===== TRIGGERING-CREATURE POWER (Railway Brawler — "put X +1/+1 counters on it, where X is its
+  // power") ===== the TRIGGERING permanent's LIVE layer-aware power, read at resolution (CR 608.2h — the
+  // entering creature's power as the trigger resolves, BEFORE these counters land). An absent/vanished
+  // referent or an unsizeable power → 0 (a clean no-op, never a fabricated count).
+  if (spec.kind === "triggeringCreaturePower") {
+    const lk = ctx?.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+    if (!lk) return 0;
+    const pw = creaturePower(lk.permanent, state);
+    return Number.isFinite(pw) ? Math.max(0, pw) : 0;
+  }
   // ===== TREASURE-MAKER ===== who:"opponents" sums the spec over ALL of the controller's opponents
   // ("the number of artifacts and enchantments your opponents control" — Dockside Extortionist). The
   // per-opponent count reuses the SAME spec (kind + cardType[s]/subtype) against each opponent's

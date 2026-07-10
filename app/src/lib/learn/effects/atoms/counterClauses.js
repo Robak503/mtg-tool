@@ -109,6 +109,19 @@ export function counterClausesParser(clause) {
       target: "thatCreature",
     };
   }
+  // POWER-SCALED on the triggering creature (Railway Brawler — "Whenever another creature you control
+  // enters, put X +1/+1 counters on it, where X is its power"): X = the ENTERING creature's live power,
+  // read at resolution via countForSpec's triggeringCreaturePower (CR 608.2h — before these counters land).
+  // Only the sentinel form detectTriggers writes (the "on it" → "on the triggering creature" rewrite),
+  // never a raw spell anaphor. Anchored ^…$.
+  if (/^put x \+1\/\+1 counters on the triggering creature, where x is its power$/.test(t)) {
+    return {
+      op: "add-counter",
+      counterType: "+1/+1",
+      target: "thatCreature",
+      countFor: { kind: "triggeringCreaturePower" },
+    };
+  }
   // DOUBLE-COUNTERS — net-double the source's own +1/+1 counters via a self-targeted dynamic-count add.
   const dm = t.match(DOUBLE_COUNTERS_SELF);
   if (dm) {

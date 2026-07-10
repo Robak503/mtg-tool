@@ -1509,7 +1509,9 @@ const SELF_RETURN_BF_ENCHANTMENT_RE = /^return it to the battlefield under its o
 const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
 // The NON-self scopes for which a bare "it"/"that creature" referent is the TRIGGERING permanent: the
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
-const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl", "creatureYouControlKeyword"]);
+// otherCreatureYouControl (Railway Brawler — "Whenever ANOTHER creature you control enters, put X +1/+1
+// counters on IT") joins the set: its "it" is the triggering (entering) creature exactly like the others.
+const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl", "creatureYouControlKeyword", "otherCreatureYouControl"]);
 
 // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger whose payoff MAGNITUDE is "that creature's
 // power/toughness" — the ENTERING creature's stat (CR 608.2c — the object the ability triggered on): Terror of
@@ -2005,6 +2007,13 @@ export function detectTriggers(card) {
         // phrase that ONLY the selfReturnClauseParser models → the self-return atom (graveyard → owner's hand).
         // Gated on cls.selfReturnKind (set ONLY by the two narrow detectors), so no other trigger is touched.
         effectClause = `[self-return:${cls.selfReturnKind}] ${effectClause}`;
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && /^put x \+1\/\+1 counters on it, where x is its power$/i.test(effectClause)) {
+        // POWER-SCALED triggering-creature counters (Railway Brawler — "Whenever another creature you
+        // control enters, put X +1/+1 counters on IT, where X is ITS power"): both pronouns are the
+        // TRIGGERING (entering) creature (CR 608.2c). Rewrite to the sentinel counterClauses models
+        // (target:"thatCreature" + countFor triggeringCreaturePower — X read live at resolution,
+        // CR 608.2h). Whole-clause anchored; a rider → unrewritten → LOW → Arbiter.
+        effectClause = "put x +1/+1 counters on the triggering creature, where x is its power";
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_COUNTER_REF_RE.test(effectClause)) {
         // WAVE 3b COUNTERS-ON-EVENT: a NON-self attack/combat-damage trigger's "…put a +1/+1 counter on IT
         // / on THAT CREATURE" — the referent is the TRIGGERING permanent (CR 608.2c), not the source.
