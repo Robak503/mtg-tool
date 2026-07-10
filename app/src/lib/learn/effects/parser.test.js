@@ -1006,7 +1006,11 @@ const MUST_DROP_TO_LOW = [
   // DYNAMIC-COUNT keystone — a board-count countFor via the shared countForSpec; see dynamicCount.test.js.)
   "Put a +1/+1 counter on each creature you control with toughness 3 or greater.", // toughness-filtered subset (still LOW)
   "Put a -1/-1 counter on each creature you don't control.",                // Liliana's Influence — WRONG scope ("don't control")
-  "Put a +1/+1 counter on each creature target player controls.",           // Practiced Offense — target player, not the controller
+  // (Practiced Offense's "…on each creature target player controls" is now MODELED — the chosen-player
+  // mass expansion, eachCreatureOfTargetPlayer; see eachCreatureTargetPlayer.test.js. The neighboring
+  // "target OPPONENT controls" wording and a subtype-filtered variant must still drop.)
+  "Put a +1/+1 counter on each creature target opponent controls.",         // target-OPPONENT wording — not the modeled "target player" anchor
+  "Put a -1/-1 counter on each Zombie creature target player controls.",    // subtype-filtered subset of the modeled shape
   "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice
   "Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.", // Felidar Retreat mode — rider clause unmodeled → whole drops (no silent partial)
   // ===== COUNTERS ===== OPTIONAL single target ("…on up to one target creature") — the bare form AND the

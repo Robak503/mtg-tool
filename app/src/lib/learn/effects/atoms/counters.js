@@ -482,6 +482,16 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", optionalTarget: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
+  // EACH-CREATURE-TARGET-PLAYER-CONTROLS (Contagion Engine's ETB — SHELF S7): "put N ±1/±1 counters on each
+  // creature target player controls". The CHOSEN target is a PLAYER (targetType "player" rides the existing
+  // player-target enumeration — CR 115.1; any player, self included, is a legal choice); the recipients are
+  // that player's creatures, expanded AT RESOLUTION inside atomTargets (CR 611.2c — the set is fixed as the
+  // one-shot begins) via the eachCreatureOfTargetPlayer marker. NOT a mass targetType, so the
+  // NON_CHOSEN_TARGET_TYPES registry is untouched (the drift trap doesn't apply — this IS a chosen target).
+  // The trigger-flush intent for a -1/-1 form is "enemy" (the counterType heuristic), so the ETB routes
+  // natively with the chooser aimed at an opponent. Whole-clause anchored; a filter/rider → low → Arbiter.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature target player controls$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "player", eachCreatureOfTargetPlayer: true };
   // ===== FILTERED MASS-COUNTER (the youControl team-counter, the two scope narrowings the pump path already
   // models) ===== The resolver is ALREADY built: scope:"youControl" routes through controllerCreatureTargets,
   // which honors excludeSource (CR 113.7) + subtypeFilter (word-bounded \b against the type line) — the SAME

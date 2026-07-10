@@ -195,6 +195,15 @@ export const atomTargets = (state, atom, ctx) => {
     return opponentCreatureTargets(state, ctx.controller, { toughnessAtMost: cap });
   }
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
+  // EACH-CREATURE-TARGET-PLAYER-CONTROLS (Contagion Engine — "put a -1/-1 counter on each creature target
+  // player controls"): the CHOSEN target is a PLAYER (it rides ctx.targets via the shared player-target
+  // enumeration); the effect's recipients are every creature THAT player controls, gathered AT RESOLUTION
+  // (CR 611.2c — the set is fixed as the one-shot begins). Expanded here so the consuming atom's creature
+  // loop is unchanged. A vanished/invalid player target → [] (a clean no-op, never a fabricated set).
+  if (atom.eachCreatureOfTargetPlayer) {
+    const pt = (ctx.targets || []).find((t) => t.type === "player" && state.players?.[t.id]);
+    return pt ? controllerCreatureTargets(state, pt.id) : [];
+  }
   // LAND-CREATURES-YOU-CONTROL (Bumi's earthbend'd lands) — a LAYER-AWARE gather: every battlefield permanent the
   // controller controls that IS a creature right now (permanentIsCreature, so an earthbend-animated Land counts)
   // AND still carries the printed Land type (earthbend keeps Land, CR 613.7c). controllerCreatureTargets can't be
