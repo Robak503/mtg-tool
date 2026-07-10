@@ -177,9 +177,11 @@ describe("discover — parser + coverage pins", () => {
     expect(classifyCard(c3("Sorcery", "Discover 6. If the discovered card's mana value is 6 or greater, create three Treasure tokens.", "Hit the Mother Lode"))).toBe("arbiter-spell");
     expect(classifyCard(c3("Creature — Dinosaur", "When this creature enters, discover 3, then you may cast the card.", "Weird Rider"))).toBe("body-only");
     // CREED: an effect whose resolver does NOT honor the once-per-turn gate must NOT flip native (it would
-    // over-fire). `draw` + `gain-life` now DO honor it (COUNTERS-PLACED slice — Terrasymbiosis/EKG), so the
-    // guard uses `create-token`, which is NOT in ONCE_PER_TURN_HONORED.
-    expect(classifyCard(c3("Enchantment", "At the beginning of your upkeep, create a 1/1 white Soldier creature token. Do this only once each turn.", "Bad Once"))).toBe("body-only");
+    // over-fire). `draw` + `gain-life` (COUNTERS-PLACED) and `create-token` (SHELF M1b — applyCreateToken now
+    // latches) DO honor it, so the guard uses `rad`, which is NOT in ONCE_PER_TURN_HONORED.
+    expect(classifyCard(c3("Enchantment", "At the beginning of your upkeep, each player gets a rad counter. Do this only once each turn.", "Bad Once"))).toBe("body-only");
+    // …and the now-honored create-token DOES flip (the M1b latch is real in the resolver).
+    expect(classifyCard(c3("Enchantment", "At the beginning of your upkeep, create a 1/1 white Soldier creature token. Do this only once each turn.", "Once Token"))).toBe("native-trigger");
   });
 });
 
@@ -324,9 +326,11 @@ describe("Pantlaza piece [c] — once-per-turn gate + full card classification",
     // Kingdom General "gain that much life. …") — their atoms honor `oncePerTurn` (gate key `${sourceId}_<op>`).
     expect(programConfidence(parseEffectClause("Draw a card. Do this only once each turn.", "Sorcery"))).toBe("high");
     expect(programConfidence(parseEffectClause("You gain 2 life. Do this only once each turn.", "Sorcery"))).toBe("high");
-    // A token effect's resolver does NOT honor the gate → must stay LOW (it would over-fire every turn — a
+    // `create-token` joined the honored set for SHELF M1b (Screeching Scorchbeast) — applyCreateToken latches.
+    expect(programConfidence(parseEffectClause("Create a 1/1 white Soldier creature token. Do this only once each turn.", "Sorcery"))).toBe("high");
+    // A rad effect's resolver does NOT honor the gate → must stay LOW (it would over-fire every turn — a
     // forbidden false positive).
-    expect(programConfidence(parseEffectClause("Create a 1/1 white Soldier creature token. Do this only once each turn.", "Sorcery"))).toBe("low");
+    expect(programConfidence(parseEffectClause("Each player gets a rad counter. Do this only once each turn.", "Sorcery"))).toBe("low");
   });
 
   it("a fixed 'Discover N. Do this only once each turn.' also flips HIGH with the gate", () => {

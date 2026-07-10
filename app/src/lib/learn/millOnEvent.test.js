@@ -24,7 +24,7 @@ import { detectTriggers, checkMilledTriggers } from "./triggers.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { resolveTopOfStack, flushTriggers, runStepActions } from "./gameEngine.js";
 import { parseEffectProgram } from "./effects/parser.js";
-import { runEffectProgram } from "./effects/runProgram.js";
+import { runEffectProgram, resolveOptionalChoice } from "./effects/runProgram.js";
 import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -195,9 +195,25 @@ describe("coverage — the consuming cards classify honestly", () => {
   it("Mirelurk Queen FLIPS native (SHELF M1a — the once-per-turn trigger latch is runtime-enforced)", () => {
     expect(classifyCard(C("Mirelurk Queen", "Vigilance\nWhen this creature enters, target player gets two rad counters.\nWhenever one or more nonland cards are milled, draw a card, then put a +1/+1 counter on this creature. This ability triggers only once each turn."))).toBe("native-trigger");
   });
-  it("Screeching Scorchbeast / Wise Mothman / Infesting Radroach stay non-native (riders → Arbiter)", () => {
-    expect(classifyCard(C("Screeching Scorchbeast", "Flying, menace\nWhenever this creature attacks, each player gets two rad counters.\nWhenever one or more nonland cards are milled, you may create that many 2/2 black Zombie Mutant creature tokens. Do this only once each turn."))).toBe("body-only");
+  it("Screeching Scorchbeast FLIPS native (SHELF M1b — milled-count tokens + the create-token once-per-turn latch)", () => {
+    expect(classifyCard(C("Screeching Scorchbeast", "Flying, menace\nWhenever this creature attacks, each player gets two rad counters.\nWhenever one or more nonland cards are milled, you may create that many 2/2 black Zombie Mutant creature tokens. Do this only once each turn."))).toBe("native-trigger");
+  });
+  it("Wise Mothman / Infesting Radroach stay non-native (riders → Arbiter)", () => {
     expect(classifyCard(C("The Wise Mothman", "Flying\nWhenever The Wise Mothman enters or attacks, each player gets a rad counter.\nWhenever one or more nonland cards are milled, put a +1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way."))).toBe("body-only");
     expect(classifyCard(C("Infesting Radroach", "Flying\nThis creature can't block.\nWhenever this creature deals combat damage to a player, they get that many rad counters.\nWhenever an opponent mills a nonland card, if this creature is in your graveyard, you may return it to your hand."))).toBe("body-only");
+  });
+  it("MILLED-COUNT runtime (M1b): the mill event mints tokens = nonland milled, once per turn", () => {
+    const SCORCH = { name: "Screeching Scorchbeast", type: "Creature — Mutant Bat", power: 4, toughness: 4,
+      oracle: "Whenever one or more nonland cards are milled, you may create that many 2/2 black Zombie Mutant creature tokens. Do this only once each turn." };
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const scorch = createPermanent({ id: "sb", card: SCORCH, controller: "user" });
+    let s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [scorch] } } };
+    const settleOptionals = (st) => { let g = 0; while (st.pendingChoice && st.pendingChoice.kind === "optional-effect" && g++ < 20) { st = resolveOptionalChoice(st, true); st = resolveAll(st); } return st; };
+    const mill = (st) => checkMilledTriggers(st, { milledByPlayer: "user", milledCards: [nonland("a"), nonland("b"), basicland("c")] });
+    s = settleOptionals(resolveAll(flushTriggers(mill(s))));
+    const tokens = (st) => st.players.user.battlefield.filter((p) => p.card.token);
+    expect(tokens(s)).toHaveLength(2);                        // 2 nonland milled → 2 tokens (the land doesn't count)
+    s = settleOptionals(resolveAll(flushTriggers(mill(s)))); // second event the same turn
+    expect(tokens(s)).toHaveLength(2);                        // latched — no extra tokens
   });
 });

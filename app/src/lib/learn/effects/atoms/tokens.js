@@ -73,6 +73,16 @@ export function fireTokenEnterTriggers(state, mintedIds) {
 
 export function applyCreateToken(state, atom, ctx) {
   let next = state;
+  // ONCE-PER-TURN gate (Screeching Scorchbeast — "…create that many … tokens. Do this only once each turn.",
+  // SHELF M1b): the same per-source frequency latch discover/draw/gain-life honor (parser.js
+  // ONCE_PER_TURN_HONORED). Checked before any mint; marked after the mint (below), so a second same-turn
+  // firing is a clean logged no-op. Cleared each untap step with the rest of the ledger.
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_create-token`;
+    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) {
+      return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, oncePerTurnLatched: true, controller: ctx.controller });
+    }
+  }
   const { type, name: derivedName } = tokenTypeLine(atom.descriptor);
   // NAMED-TOKEN (CR 111.4): a parsed "named X" suffix (atom.name) overrides the subtype-derived name (Koma's
   // Coil, not "Serpent"). Cosmetic to the rules — the subtype on the type line still drives every interaction.
@@ -94,7 +104,11 @@ export function applyCreateToken(state, atom, ctx) {
   // X-token spell (Secure the Wastes). ===== FOR-EACH ===== (WALT-FOREACH-TOK) `countFor` is a BOARD count
   // resolved at resolution ("a token for each creature you control" — Avenger of Zendikar). Both X=0 and a
   // 0 board count mint zero tokens (CR 107.3 — a clean no-op, NOT forced to 1); a fixed count is floored at 1.
-  const baseCount = atom.countFor
+  // MILLED-COUNT (Screeching Scorchbeast — "create that many … tokens" on a milled trigger, SHELF M1b):
+  // countContext reads a TRIGGER-context magnitude (ctx.nonlandMilledCount / ctx.milledCount, threaded by
+  // checkMilledTriggers). An absent context → 0 tokens — a clean under-fire, never a fabricated count.
+  const baseCount = atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
+    : atom.countFor
     ? Math.max(0, countForSpec(next, ctx, atom.countFor))
     : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
   // Wave-3 token doubler (CR 616 — Doubling Season / Parallel Lives / Anointed Procession / Primal Vigor /
@@ -142,6 +156,11 @@ export function applyCreateToken(state, atom, ctx) {
   // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA (after ETB enqueue).
   const r = destroyLethalCreatures(next);
   next = checkDiesTriggers(r.state, r.dead);
+  // Mark the once-per-turn latch (regardless of a 0-count whiff) — the effect ran, the gate is consumed.
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_create-token`;
+    next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
+  }
   return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
 }
 
@@ -460,6 +479,20 @@ export function createTokenClauseParser(clause) {
   // e.g. Sword of Body and Mind) carries it on the first sub-clause; strip it so the create anchors below
   // bind. Strictly a PROMOTION (can only let an already-low clause parse) — never changes a token's owner.
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/^you create /, "create ");
+  // MILLED-COUNT sentinel (Screeching Scorchbeast, SHELF M1b) — "create that many milled[-nonland] N/N <desc>
+  // creature tokens": the event-specific sentinel detectTriggers rewrites a milled trigger's "create that
+  // many …" payoff to (a phrase in ZERO printed oracle text — the milledFilter picks which context count).
+  // The count is the milled-cards magnitude threaded by checkMilledTriggers (ctx.nonlandMilledCount /
+  // ctx.milledCount). The "you may" wrapper is peeled by α2 (optional:true); keep the inline anchor too so a
+  // raw clause passed directly still stamps optional. The land-token gate mirrors the numeric form below.
+  const sm = t.match(/^(you may )?create that many (milled|milled-nonland) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?$/);
+  if (sm) {
+    const toughness = parseInt(sm[4], 10);
+    if (toughness < 1) return null;
+    const landMana = landTokenManaOracle(sm[5]);
+    if (!landMana.ok || landMana.oracle) return null; // a land token's intrinsic mana + a dynamic count is unprinted — park (CREED)
+    return { op: "create-token", countContext: sm[2] === "milled-nonland" ? "nonlandMilledCount" : "milledCount", power: parseInt(sm[3], 10), toughness, descriptor: sm[5].trim(), ...(sm[1] ? { optional: true } : {}), targetType: null };
+  }
   const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
   if (mtf) {
     const toughness = parseInt(mtf[2], 10);

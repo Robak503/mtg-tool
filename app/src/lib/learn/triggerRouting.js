@@ -63,6 +63,9 @@ export function combatDamageReferentSatisfied(program, event) {
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
     if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;
+    // MILLED-COUNT (SHELF M1b): a "that many milled[-nonland]" magnitude reads checkMilledTriggers' context —
+    // set ONLY by the milled event. Any other event leaves the referent unset (a silent 0 → dropped clause).
+    if ((a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount") && event !== "milled") return false;
   }
   return true;
 }

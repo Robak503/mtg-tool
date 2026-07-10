@@ -1399,6 +1399,14 @@ const SELF_SAC_IT_RE = /^sacrifice it$/i;
 // then discard") leaves residue → no match → no rewrite → LOW → Arbiter (a SAFE false-negative).
 const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain that much life)(?:\.\s*do this only once each turn)?\.?$/i;
 
+// MILLED "that many" TOKEN PAYOFF (Screeching Scorchbeast, SHELF M1b) — "you may create that many 2/2 black
+// Zombie Mutant creature tokens[. Do this only once each turn]" on a MILLED trigger: "that many" is the count
+// of milled cards matching the trigger's filter, so the rewrite (below) inserts the event-specific sentinel
+// ("that many milled[-nonland]") the token clause parser maps to countContext. Anchored to the bare payoff or
+// payoff + the modeled once-per-turn rider ONLY — any other trailing rider leaves residue → no rewrite → LOW
+// → Arbiter (a SAFE false-negative).
+const MILLED_TOKEN_PAYOFF_RE = /^(?:you may )?create that many \d+\/\d+ [a-z/ ]+? creature tokens?(?:\.\s*do this only once each turn)?\.?$/i;
+
 // SELF-LTB (Wave 4) — the EXACT "return it to its owner's hand" effect clause for the self-LTB family
 // (Rancor Aura PiG-return + Sword of the Realms equipped-creature-dies-return). Whole-clause anchored, so a
 // rider ("…at the beginning of the next end step" = a DELAYED return, Resurrection Orb; "…draw a card") leaves
@@ -1977,6 +1985,14 @@ export function detectTriggers(card) {
         // The replace is verb-anchored (deals damage = / gain life =) so it touches ONLY the payoff stat, never a
         // co-occurring discover-X "that creature's toughness" (Pantlaza keeps its own native exact-match parse).
         effectClause = effectClause.replace(/\b(deals? damage equal to|gain life equal to) that creature's (power|toughness)\b/gi, "$1 the triggering creature's $2");
+      } else if (cls.event === "milled" && MILLED_TOKEN_PAYOFF_RE.test(effectClause)) {
+        // ===== MILLED "that many" TOKENS (Screeching Scorchbeast, SHELF M1b) ===== the magnitude is the
+        // number of milled cards matching THIS trigger's filter (ctx.nonlandMilledCount for a nonland-filtered
+        // batch, ctx.milledCount otherwise — both threaded by checkMilledTriggers). Rewrite → the event-specific
+        // sentinel so the token parser maps countContext and it never collides with the combat-damage or
+        // counters-placed "that many" forms. The "you may" wrapper + the "Do this only once each turn." rider
+        // survive untouched (α2 peels the may; the ONCE-PER-TURN wrapper latches create-token).
+        effectClause = effectClause.replace(/\bcreate that many\b/i, cls.milledFilter === "nonland" ? "create that many milled-nonland" : "create that many milled");
       } else if (cls.event === "countersPlaced" && COUNTERS_PLACED_PAYOFF_RE.test(effectClause)) {
         // ===== COUNTERS-PLACED "that many" / "that much" ===== a "Whenever you put one or more +1/+1 counters
         // …" trigger's "you may draw that many cards" (Terrasymbiosis) / "you may gain that much life" (Earth

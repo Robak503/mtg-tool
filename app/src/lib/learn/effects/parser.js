@@ -89,7 +89,9 @@ const EXILE_IF_DIES_MASS_RE = /^if a creature dealt damage this way would die th
 // the COUNTERS-PLACED payoffs (Terrasymbiosis "draw that many cards. Do this only once each turn.", Earth
 // Kingdom General "gain that much life. Do this only once each turn."). The latch is per-SOURCE + per-OP, so
 // two different once-per-turn effects on the same source (none in the corpus today) wouldn't collide.
-const ONCE_PER_TURN_HONORED = new Set(["discover", "draw", "gain-life"]);
+// `create-token` honors it too (SHELF M1b — Screeching Scorchbeast's "create that many … tokens. Do this
+// only once each turn."; the latch lives in applyCreateToken, same per-source gate key).
+const ONCE_PER_TURN_HONORED = new Set(["discover", "draw", "gain-life", "create-token"]);
 
 function typeOf(card) {
   return String(card?.type || card?.type_line || "");
