@@ -12,6 +12,7 @@ import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
 // atoms barrel must NOT import effects/parser.js — that's the TDZ hazard; triggers.js is fine).
 import { checkMilledTriggers } from "../../triggers.js";
+import { millMultiplier } from "../../replacementEffects.js"; // MILL-DOUBLER (Bruvac, SHELF M2) — leaf, cycle-free
 // GENESIS-WAVE — the mass reveal-top-X → put-permanents-onto-battlefield atom reuses the shared
 // enterCardFromZone helper (fires ETB / landfall / permanent-enters exactly like reanimation + library ramp),
 // so a Genesis-Wave-put permanent behaves identically to a Wargate/reanimate entry. library.js → zones.js is a
@@ -634,7 +635,10 @@ export function applyCascadeAtom(state, atom, ctx) {
 function millOnePlayer(state, playerId, count) {
   const player = state.players[playerId];
   if (!player) return state;
-  const n = Math.min(Math.max(0, count || 0), (player.library || []).length);
+  // MILL-DOUBLER (Bruvac, SHELF M2 — CR 616): an opponent's mill-count replacement multiplies the INSTRUCTED
+  // count before the library bound (the replacement rewrites the event; the bound is physical reality).
+  const instructed = Math.max(0, count || 0) * millMultiplier(state, playerId);
+  const n = Math.min(instructed, (player.library || []).length);
   if (n === 0) return state;
   const milledCards = player.library.slice(0, n); // captured pre-move (top N → graveyard)
   const next = millCards(state, { playerId, count: n });

@@ -62,6 +62,7 @@ export function doublerProfile(card) {
   let counter = null;
   let token = null;
   let tokenAdd = null;
+  let mill = null;
   let halvesOpponents = false;
   for (const raw of o.split(".")) {
     const s = raw.trim();
@@ -125,9 +126,16 @@ export function doublerProfile(card) {
     if (addM && addM[1] === addM[2]) {
       tokenAdd = { filter: addM[1], additive: 1, scope: "you" };
     }
+    // ── MILL-DOUBLER (Bruvac the Grandiloquent, SHELF M2 — CR 614/616): "If an opponent would mill one or
+    // more cards, they mill twice that many cards instead." OPPONENT-scoped from the doubler's controller —
+    // millMultiplier applies it when the MILLED player is an opponent of the profile owner's. Anchored to the
+    // exact template ("that many plus one" / a you-scoped mill replacement are different cards → unmodeled).
+    if (/^if an opponent would mill one or more cards, they mill twice that many cards instead$/.test(s)) {
+      mill = { factor: 2, scope: "opponent" };
+    }
   }
-  if (!counter && !token && !tokenAdd && !halvesOpponents) return null;
-  return { counter, token, tokenAdd, halvesOpponents };
+  if (!counter && !token && !tokenAdd && !mill && !halvesOpponents) return null;
+  return { counter, token, tokenAdd, mill, halvesOpponents };
 }
 
 /**
@@ -151,7 +159,8 @@ export function isPureDoubler(card) {
       (/twice that many/.test(s) || /that many plus (one|1)/.test(s) || /half that many/.test(s));
     const tokenClause = (/(?:create|creates) one or more tokens?/.test(s) || /one or more tokens? would be created/.test(s)) &&
       /twice that many/.test(s);
-    if (!counterClause && !tokenClause) return false; // an unmodeled non-doubling sentence → not a pure doubler
+    const millClause = /^if an opponent would mill one or more cards, they mill twice that many cards instead$/.test(s); // Bruvac shape (M2)
+    if (!counterClause && !tokenClause && !millClause) return false; // an unmodeled non-doubling sentence → not a pure doubler
   }
   return true;
 }
@@ -179,6 +188,8 @@ export function isModeledDoublerSentence(s) {
   // Only the Treasure filter is modeled (Treasure is the only MODELED named token an additive can mint); a
   // hypothetical "additional Clue" is NOT matched here → its clause survives as residue → card stays non-native.
   if (/if you would create one or more treasure tokens?,? instead create those tokens plus an additional treasure token/.test(s)) return true;
+  // MILL-DOUBLER (Bruvac, SHELF M2) — the exact opponent-mill doubling the runtime applies (millMultiplier).
+  if (/^if an opponent would mill one or more cards, they mill twice that many cards instead\.?$/.test(s)) return true;
   return false;
 }
 
@@ -276,6 +287,23 @@ export function tokenMultiplier(state, recipientControllerId) {
  * profile's `filter`; a non-matching token kind (a Clue when only a Treasure-additive is out) gets 0. Two Xorns
  * stack additively (+2). Pure; a minted Treasure is never itself an additive source, so this cannot recurse.
  */
+/**
+ * MILL-COUNT multiplier (Bruvac, SHELF M2 — CR 616): the factor applied to a mill of `milledPlayerId`'s
+ * library — 2^k over the opponent-scoped mill doublers whose CONTROLLER counts `milledPlayerId` as an
+ * opponent (i.e. any other player's Bruvac doubles YOUR mills). Two Bruvacs stack multiplicatively (×4).
+ * Consumed at BOTH mill chokepoints (effects/atoms/library.millOnePlayer + gameState.applyRadiation), so
+ * every mill instruction — spell, trigger, or the inherent radiation ability — sees the same replacement.
+ * The multiplied count is bounded by the library at the mill site (never a fabricated overdraw). Pure leaf.
+ */
+export function millMultiplier(state, milledPlayerId) {
+  let mult = 1;
+  for (const { ownerId, profile } of allDoublers(state)) {
+    const m = profile.mill;
+    if (m && m.scope === "opponent" && ownerId !== milledPlayerId) mult *= m.factor;
+  }
+  return mult;
+}
+
 export function tokenAdditive(state, recipientControllerId, tokenName) {
   const kind = String(tokenName || "").toLowerCase();
   if (!kind) return 0;

@@ -29,7 +29,7 @@
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { hasKeyword } from "./keywords.js";
-import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 counter-doubler replacement (leaf, no cycle)
+import { applyCounterDoubling, millMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) replacements (leaf, no cycle)
 import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 
 // ─── ID generation ────────────────────────────────────────────────────────────
@@ -1233,7 +1233,9 @@ export function applyRadiation(state, { playerId }) {
   if (!player) return state;
   const rad = player.radCounters || 0;
   if (rad <= 0) return state;
-  const toMill = Math.min(rad, player.library.length);
+  // MILL-DOUBLER (Bruvac, SHELF M2 — CR 616): radiation's mill IS a mill, so an opponent's mill-count
+  // replacement doubles it (the doubled nonlands then cost life + rad removal below — the real synergy).
+  const toMill = Math.min(rad * millMultiplier(state, playerId), player.library.length);
   if (toMill === 0) return state;
   const nonland = player.library.slice(0, toMill).filter((c) => !/\bLand\b/.test(frontFaceTypeLine(c))).length;
   let next = millCards(state, { playerId, count: toMill });
