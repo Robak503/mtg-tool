@@ -603,6 +603,30 @@ function classifyCondition(condRaw, cardName, cardType) {
   // false-negative), mirroring the compound-event guard above. Exposed by the ED-2 each-player/each-opponent
   // edict slice (the sacrifice EFFECT became modeled, flipping these toward native). The BROADER
   // FIX-TRIG-CONDITION sub-case (scope-inexpressible restrictions) remains Rod/Erin's lane.
+  // ===== SELF-OR-ANOTHER dies (SHELF S7 — The Ghoul, Gunslinger "Whenever The Ghoul or another nontoken
+  // Zombie or Mutant you control dies"; the Zulaport-class shape "this creature or another creature you
+  // control dies") ===== The FIX-TRIG-CONDITION reject below parks the whole or-another family because the
+  // single-subject scopes drop the second half. This carve-out models the ONE clean dies shape exactly:
+  // a SELF lead ("this creature" / the full or short printed name) + "or another [nontoken]
+  // <creature|Subtype[ or Subtype]> you control dies" → the selfOrAnotherYouControl scope, whose matcher
+  // fires on (a) the SOURCE's own death unconditionally (CR 603.2 — the printed name means the source
+  // object itself, token-copy or not) OR (b) another creature of the SAME controller passing the optional
+  // nontoken + subtype gates. Any other lead / a rider / an unparseable filter falls through to the reject
+  // → Arbiter (a SAFE FN, never a dropped half).
+  {
+    const soa = c.match(/^(.+?) or another (nontoken )?(.+?) you control dies$/);
+    if (soa) {
+      const lead = soa[1].trim();
+      const leadIsSelf = lead === "this creature" || (nameL && lead === nameL) || (shortName && lead === shortName);
+      if (leadIsSelf) {
+        const filterWord = soa[3].trim();
+        const base = { event: "dies", scope: "selfOrAnotherYouControl", whose: "any", ...(soa[2] && { nontokenFilter: true }) };
+        if (filterWord === "creature") return base;
+        const filter = parseSubtypeList(filterWord);
+        if (filter) return { ...base, subtypeFilter: filter };
+      }
+    }
+  }
   if (selfRef && /\bor another\b/.test(c)) return null;
 
   // ===== FIX-TRIG-CONDITION (Rod QA #1, CREED CLAUDE.md §1.2) ===== Reject conditions whose SUBJECT or
@@ -2486,6 +2510,18 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // source's controller. A nontoken entry never matches (no over-fire); an opponent's token never matches.
       return !!triggeringPermanent && !!triggeringPermanent.card?.token
         && triggeringPermanent.controller === sourcePermanent.controller;
+    case "selfOrAnotherYouControl":
+      // SELF-OR-ANOTHER dies (The Ghoul "The Ghoul or another nontoken Zombie or Mutant you control dies";
+      // the Zulaport class "this creature or another creature you control dies"). The SELF half is
+      // unconditional (CR 603.2 — the printed name refers to the source object itself; a token copy's own
+      // death fires its own copy's trigger); the ANOTHER half gates on same-controller + not-self + the
+      // optional nontoken and subtype filters. No subtypeFilter ⇒ "another creature" (isCreaturePerm).
+      if (!triggeringPermanent || !sourcePermanent) return false;
+      if (triggeringPermanent.id === sourcePermanent.id) return true;
+      if (triggeringPermanent.controller !== sourcePermanent.controller) return false;
+      if (descriptor.nontokenFilter && triggeringPermanent.card?.token) return false;
+      if (descriptor.subtypeFilter) return subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter);
+      return isCreaturePerm(triggeringPermanent);
     case "subtypeYouControl":
       // SUBTYPE scope — shared by FOUR events: SUBTYPE-ETB-SELF ("NAME or another SUBTYPE you control
       // enters", Pantlaza — #330), SUBTYPE combat-damage (#333), and SUBTYPE attacks / dies (#335). Fires

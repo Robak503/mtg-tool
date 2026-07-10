@@ -2780,6 +2780,20 @@ function matchRadOrProliferate(oracle) {
 // castNotFromHand watcher event) reads ctx.castSpellMv at resolution (stamped by checkCastTriggers); the
 // else-arm rides the parked pendingFreeCast decision (decline → the optional land put) or fires directly on
 // a whiff. Two sentences → shatters under the splitter → collapsed here into the ONE free-cast atom.
+// RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger — SHELF S7) — "target player gets two rad counters. If
+// that player is you, create a Treasure token." A chosen-PLAYER rad (CR 115.1 — any player, self included)
+// whose anaphoric second sentence rewards self-targeting with a Treasure. Collapsed into ONE rad atom with
+// the treasureIfSelf rider (the sentence splitter would shatter the pair); applyRad's who:"target" branch
+// mints the Treasure when the chosen player IS the controller. The flush-chooser intent for a chosen-player
+// rad is "enemy" (rad is harmful; radding an opponent is always a legal, faithful play policy — the
+// self-rad-for-Treasure line is a strategy refinement, never a correctness requirement).
+function matchRadTargetOrTreasure(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^target player gets (a|an|one|two|three|four|five|\d+) rad counters?\. if that player is you, create a treasure token$/);
+  if (!m) return null;
+  return { atoms: [{ op: "rad", who: "target", targetType: "player", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), treasureIfSelf: true }] };
+}
+
 function matchFreeCastOrLand(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   if (!/^(?:you may )?cast a permanent spell with equal or lesser mana value from your hand without paying its mana cost\. if you don't, you may put a land card from your hand onto the battlefield$/.test(t)) return null;
@@ -3011,6 +3025,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const fcl = matchFreeCastOrLand(oracle);
   if (fcl && fcl.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: fcl.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger) ===== the chosen-player rad + treasure-if-self
+  // branch → ONE rad atom (see matchRadTargetOrTreasure). HIGH iff KNOWN.
+  const rtt = matchRadTargetOrTreasure(oracle);
+  if (rtt && rtt.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: rtt.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up

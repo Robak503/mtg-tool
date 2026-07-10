@@ -671,6 +671,11 @@ export function permanentTriggersCovered(card) {
     // HIGH via matchFreeCastOrLand — proven by allTriggerSentencesModeled). Anchored to DIRECTLY follow the
     // exact free-cast clause (FN-safe).
     .replace(/(without paying its mana cost)\.\s*if you don['’]t, you may put a land card from your hand onto the battlefield\b\.?\s*/gi, "$1. ")
+    // RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger — SHELF S7) — the same follow-up-arm class: "If that
+    // player is you, create a Treasure token." belongs to the SAME dies trigger's effect (the whole branch
+    // parses HIGH via matchRadTargetOrTreasure — proven by allTriggerSentencesModeled). Anchored to
+    // DIRECTLY follow the exact chosen-player rad clause (FN-safe).
+    .replace(/(target player gets (?:a|an|one|two|three|four|five|\d+) rad counters?)\.\s*if that player is you, create a treasure token\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")

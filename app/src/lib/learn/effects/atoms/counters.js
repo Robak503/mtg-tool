@@ -5,6 +5,7 @@
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
 import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
+import { applyCreateNamedToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
 import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source + curated MTG-subtype allowlist (filtered mass-counter scope)
@@ -55,7 +56,16 @@ export function applyRad(state, atom, ctx) {
     }
   } else if (atom.who === "target") {
     for (const t of ctx.targets || []) {
-      if (t.type === "player" && next.players[t.id]) next = addRadCounters(next, { playerId: t.id, amount });
+      if (t.type === "player" && next.players[t.id]) {
+        next = addRadCounters(next, { playerId: t.id, amount });
+        // TREASURE-IF-SELF rider (The Ghoul, Gunslinger — "If that player is you, create a Treasure
+        // token."): the anaphoric "that player" is THIS chosen target; when it's the effect's controller,
+        // mint ONE Treasure through the shared named-token resolver (doubler/additive replacements apply,
+        // CR 616). An opponent target mints nothing — the branch reads exactly the printed condition.
+        if (atom.treasureIfSelf && t.id === ctx.controller) {
+          next = applyCreateNamedToken(next, { op: "create-named-token", token: "treasure", count: 1 }, ctx);
+        }
+      }
     }
   } else if (atom.who === "damagedPlayer") {
     // The just-damaged player (CR — the combat-damage trigger's referent). Absent → clean no-op.
