@@ -16,7 +16,7 @@ import { readFile } from "node:fs/promises";
 
 import { runSelfPlayGame, resolveBaseSeed, engineSeatsForMode } from "./selfPlayRunner.js";
 import { appendGame } from "./gameLogStore.js";
-import { formPod, podToArgs, gameSeedAt } from "./grindPod.js";
+import { formPod, podToArgs, gameSeedAt, buildGrindHeader } from "./grindPod.js";
 
 // One grind at a time (a persistent-server singleton). Serializable-plain so grindStatus() can be JSON'd to the panel.
 let state = freshState();
@@ -99,22 +99,11 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize, pool =
     // Record which DECK sat at each seat (seat order = pod order) so the results view can attribute
     // wins + participation per deck — winnerSeat alone can't say which deck won.
     const seatDecks = pod.map((d, si) => ({ seat: seatNames[si] ?? `seat${si}`, id: d?.id ?? null, name: d?.name ?? null }));
+    // featuresV=2 fields (startSeat/turnOrder/decisionsCount/pilotV) ride the SHARED builder so the
+    // in-process grind and the pool worker can never drift (grindPod.buildGrindHeader — the drift
+    // Omnath caught live: the pool path kept writing headers without them).
     const record = {
-      header: {
-        seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: version,
-        result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null,
-        mode, pool, mulliganPolicyV: game?.mulliganPolicyV ?? null,
-        seatStats: game?.seatStats ?? null, winCondition: game?.winCondition ?? null,
-        // featuresV=2 (Omnath 2026-07-10 — headers are the only prune survivor):
-        //   startSeat/turnOrder — who was on the play + the actual rotation (seat-adjusted stats);
-        //   decisionsCount — rows.length survives the payload prune (game-depth stats);
-        //   pilotV — the persona-pack version as a first-class era marker (axis-2 handoff #2;
-        //   Omnath's builder exposes it as a property on the pilotBuilder fn — null until it does).
-        startSeat: game?.onThePlay ?? null,
-        turnOrder: game?.turnOrder ?? null,
-        decisionsCount: game?.decisionTrajectory?.rows?.length ?? null,
-        pilotV: pilotBuilder?.pilotV ?? null,
-      },
+      header: buildGrindHeader({ gameSeed, pilots: identity, decks: seatDecks, engineVersion: version, mode, pool, game, pilotV: pilotBuilder?.pilotV ?? null }),
       rows: game?.decisionTrajectory?.rows ?? [],
     };
     const appended = await appendGame(record, { capBytes });

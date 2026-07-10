@@ -35,3 +35,24 @@ export function podToArgs(pod, mode, pilots, seed) {
 export function engineSeatsFor(mode) {
   return engineSeatsForMode(mode);
 }
+
+/**
+ * THE ONE grind-store header builder (featuresV=2 drift guard — Omnath 2026-07-10): grindLoop (the
+ * in-process grind) and scripts/grind-worker.mjs (the pool lanes) BOTH assemble game headers; the
+ * featuresV=2 fields (startSeat/turnOrder/decisionsCount/pilotV) initially landed only in grindLoop
+ * and the pool kept writing headers without them. One shared builder = the two write paths cannot
+ * drift again. `game` is a runSelfPlayGame result; `pilotV` is the persona-pack era marker (read off
+ * the pilotBuilder fn by both callers; null until Omnath's builder exposes it).
+ */
+export function buildGrindHeader({ gameSeed, pilots, decks, engineVersion, mode, pool, game, pilotV = null }) {
+  return {
+    seed: gameSeed, pilots, decks, engineVersion: engineVersion ?? null,
+    result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null,
+    mode, pool, mulliganPolicyV: game?.mulliganPolicyV ?? null,
+    seatStats: game?.seatStats ?? null, winCondition: game?.winCondition ?? null,
+    startSeat: game?.onThePlay ?? null,
+    turnOrder: game?.turnOrder ?? null,
+    decisionsCount: game?.decisionTrajectory?.rows?.length ?? null,
+    pilotV,
+  };
+}

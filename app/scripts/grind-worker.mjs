@@ -25,7 +25,7 @@ const u = (rel) => pathToFileURL(path.join(APP, rel)).href;
 const { loadAllProfileDecks, toRunnerDeck, partitionPlayableRunnerDecks, selectDecksByIds } = await import(u("src/lib/server/selfPlayDecks.js"));
 const { loadPilotBuilder } = await import(u("src/lib/server/pilotLoader.js"));
 const { runSelfPlayGame } = await import(u("src/lib/learn/selfPlayRunner.js"));
-const { formPod, podToArgs, gameSeedAt, engineSeatsFor } = await import(u("src/lib/learn/grindPod.js"));
+const { formPod, podToArgs, gameSeedAt, engineSeatsFor, buildGrindHeader } = await import(u("src/lib/learn/grindPod.js"));
 
 const deckStore = await loadAllProfileDecks();
 const raw = cfg.deckIds?.length ? selectDecksByIds(deckStore, cfg.deckIds) : deckStore;
@@ -55,11 +55,11 @@ for (let i = cfg.laneIndex; cfg.maxGames == null || played < cfg.maxGames; i += 
     continue;
   }
   const seatDecks = pod.map((d, si) => ({ seat: seatNames[si] ?? `seat${si}`, id: d?.id ?? null, name: d?.name ?? null }));
+  // featuresV=2 fields ride the SHARED builder (grindPod.buildGrindHeader) so this pool path can
+  // never drift from the in-process grind again (Omnath caught the drift live: startSeat/turnOrder/
+  // decisionsCount/pilotV were absent from pool headers while grindLoop wrote them).
   const record = {
-    header: {
-      seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: cfg.engineVersion ?? null,
-      result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode: cfg.mode, pool, mulliganPolicyV: game?.mulliganPolicyV ?? null, seatStats: game?.seatStats ?? null, winCondition: game?.winCondition ?? null,
-    },
+    header: buildGrindHeader({ gameSeed, pilots: identity, decks: seatDecks, engineVersion: cfg.engineVersion ?? null, mode: cfg.mode, pool, game, pilotV: pilotBuilder?.pilotV ?? null }),
     rows: game?.decisionTrajectory?.rows ?? [],
   };
   process.stdout.write(JSON.stringify({ i, trusted: (game?.trainingWeight ?? 0) > 0, record }) + "\n");
