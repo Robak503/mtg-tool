@@ -10,6 +10,30 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.129.0] - 2026-07-10
+
+### Fixed
+- **The "my decks show under the wrong profile" bug is dead (defense in depth).** Root-caused to
+  four compounding defects: test/dev processes could silently operate on the real user data
+  (now refused loudly), a transient registry read failure could trigger a destructive registry
+  rebuild (now retried, then failed loud — never rebuilt over live data), a stale process could
+  overwrite the profile registry (writes that would drop a registered profile are now rejected),
+  and a window re-opened from the tray could show days-old profile/deck groupings as current
+  (the app now refreshes on focus). Live data was repaired and verified; a one-line boot
+  diagnostic in the server log makes any recurrence a one-line diagnosis.
+
+### Added
+- **28 more cards play natively in the simulator** (the shelf run, all verified whole-card):
+  the Snakeskin Veil "counter + protection" family (15 cards incl. Angelfire Ignition, Gaea's
+  Gift, Take Up the Shield), Plan the Heist + the sequencing-"Then" parser class (+4 more),
+  Ram Through's trample-excess, Ancient Animus, Paradise Mantle, Bruvac the Grandiloquent
+  (opponent mills are truly doubled — radiation included), Mirelurk Queen + the "only once each
+  turn" trigger class (Academy Wall, Flying Octobot), Screeching Scorchbeast's milled-count
+  Zombies, and The Wise Mothman's signature counter distribution now fires in games.
+- **Self-play headers record who was on the play** (start seat + full turn order), a per-seat
+  mulligan summary, decision counts, and per-seat mana-health windows that finally count each
+  player's OWN turns (the old global-turn read flagged nearly every seat as mana-screwed).
+
 ## [0.128.0] - 2026-07-09
 
 ### Fixed
