@@ -239,6 +239,13 @@ export function applyTutor(state, atom, ctx) {
 export function applyScrySurveilAtom(state, atom, ctx, mode) {
   const player = state.players[ctx.controller];
   if (!player) return state;
+  // CONDITIONAL SURVEIL (S6/Kellan — Plan the Heist: "Surveil 3 if you have no cards in hand."):
+  // a deterministic state read at resolution — with cards in hand the surveil part simply does
+  // not happen; the program's following atoms (the "Then draw…" clause) still resolve. Skipping
+  // IS the correct rules behavior, not a silent no-op.
+  if (atom.onlyIfHandEmpty && (player.hand || []).length > 0) {
+    return logEvent(state, { kind: "spell-effect", effect: mode, controller: ctx.controller, count: 0, conditionNotMet: "hand-not-empty" });
+  }
   const n = Math.min(Math.max(0, atom.amount || 0), player.library.length);
   if (n === 0) {
     return logEvent(state, { kind: "spell-effect", effect: mode, controller: ctx.controller, count: 0 });
@@ -1159,6 +1166,10 @@ export function libraryKeywordClauseParser(clause) {
   if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^surveil (\d+)$/);
   if (m) return { op: "surveil", amount: parseInt(m[1], 10), targetType: null };
+  // Plan-the-Heist shape (S6/Kellan): conditional surveil — the condition is enforced at the
+  // ATOM (onlyIfHandEmpty), so the whole card (surveil-if + the draw clause) models natively.
+  m = t.match(/^surveil (\d+) if you have no cards in hand$/);
+  if (m) return { op: "surveil", amount: parseInt(m[1], 10), onlyIfHandEmpty: true, targetType: null };
   return null;
 }
 

@@ -468,6 +468,12 @@ function splitClauses(oracle) {
     );
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
+    // SEQUENCING "Then" (S6/Plan-the-Heist): a sentence-leading "Then " is pure ordering
+    // (CR 608.2c — instructions resolve in written sequence), which the program's atom order
+    // already encodes — strip it so "Then draw three cards" parses as "Draw three cards".
+    // Only the bare sequencer: "Then, if …"/"Then if …" keep their conditional shape (the
+    // "if" survives and gates the match exactly as before).
+    sentence = sentence.replace(/^then\s+(?!,)(?!if\b)/i, "");
     if (!sentence) continue;
     // A sentence that STARTS with "search your library" — or a "you may search your library" optional
     // tutor (RAMP-1: Farhaven Elf's "you may search … put it onto the battlefield … then shuffle") — is
@@ -888,7 +894,7 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   // each draw a card", "that player draws") must NOT parse as a controller-draw. So
   // the draw clause must START with "draw" / "you draw" (CR 121 — "you" is the
   // controller). Otherwise the actor is unmodeled → Arbiter.
-  if (atom.op === "draw" && !/^(?:you )?draw\b/i.test(s)) return null;
+  if (atom.op === "draw" && !/^(?:then )?(?:you )?draw\b/i.test(s)) return null;
 
   if ((atom.op === "deal-damage" || atom.op === "destroy") && atom.targetType === "creature") {
     const { restrictions, clean, cleanedOracle } = parseCreatureTargetRestrictions(sub);
