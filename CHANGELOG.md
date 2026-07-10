@@ -10,6 +10,24 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.130.0] - 2026-07-10
+
+### Added
+- **32 more cards play natively — headlined by "enters or attacks" / "enters or dies" compound
+  triggers finally firing on BOTH events**: The Wise Mothman (fully native at last — rad on entry
+  AND attack, plus his counter distribution), Grave Titan, Primeval Titan, Inferno Titan, Ashen
+  Rider, Stitcher's Supplier and 22 more of those two families. Also: Mindcrank (a new
+  life-loss event — damage counts, as printed), Street Wraith's pay-2-life cycling, Shadow of
+  Mortality's life-difference discount (the 15/15 really gets cheap when you're hurt), and Bureau
+  Headmaster's equip-cost discount.
+- **Self-play pool games now carry the full v2 headers** (start seat, turn order, decision count,
+  pilot version) — the in-app grind and the pool write through one shared builder so they can't
+  drift again — and a new `swap-bench` tool measures pilot upgrades with paired-seed A/B games.
+
+### Fixed
+- A double-writer incident window in the self-play store was reconciled (11 lost-payload header
+  lines removed, evidence preserved in a sidecar).
+
 ## [0.129.0] - 2026-07-10
 
 ### Fixed
