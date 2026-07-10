@@ -244,7 +244,7 @@ summary here for the queue:
 
 ## Wave E — engine/AI promotions (grind-lane coordination; full battery per playbooks)
 
-- **E1 · EARTHBEND-RETURN delayed trigger** (M, 3) — close the last open enforcement CAP
+- ✅ SHIPPED v0.100.0 (do NOT rebuild) — **E1 · EARTHBEND-RETURN delayed trigger** (M, 3) — close the last open enforcement CAP
   in retired-fp-ledger.md: tag animated lands `returnOnDeath` at `applyEarthbend`, fire
   the CR 603.7 delayed trigger in dies/exile (`atoms/combat.js:291` documents the dropped
   rider). Engine battery: tier flip-diff LOST=0.

@@ -123,7 +123,7 @@ const ORACLE_VERBS = [
   ["mill", /\bmills?\b/],
   ["discard", /\bdiscards?\b/],
   ["sacrifice", /\bsacrifices?\b/],
-  ["counters", /\b(?:\+1\/\+1|\-1\/\-1) counter|put (?:a|one|two|three|\d+|x) [^.]*counters?\b/],
+  ["counters", /\b(?:\+1\/\+1|-1\/-1) counter|put (?:a|one|two|three|\d+|x) [^.]*counters?\b/],
   ["shuffle", /\bshuffle\b/],
   ["gainctrl", /\bgains? control\b/],
   ["copy", /\bcopy\b/],

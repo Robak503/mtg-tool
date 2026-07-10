@@ -29,7 +29,7 @@
  * no fetch.
  */
 
-import { getZone, opponentOf, opponentsOf, totalAvailableMana, findPermanent, creaturePower } from "./gameState.js";
+import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower } from "./gameState.js";
 import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
@@ -2428,7 +2428,6 @@ export const _internals = {
   manaCostOf,
   canCastSorcerySpeed,
   canCastInstantSpeed,
-  opponentOf,
   getZone,
   totalAvailableMana,
 };

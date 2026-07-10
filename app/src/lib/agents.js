@@ -775,7 +775,7 @@ Resolution: 608 (608.2 sequence, 608.2b illegal targets countered, 608.3 modal).
 Casting: 601 (601.2a-i procedure, 601.2f cost lock-in, 601.2i cast point).
 Continuous effects: 613 (7 layers + sublayers, 613.7 timestamps, 613.8 dependencies).
 Object identity: 400.7. Linked abilities: 607. Copy effects: 707 (distinct from object identity).
-Commander format: 903 — **903.4 designation, 903.4b partner color identity union, 903.7 COMMANDER TAX (additional {2} per prior cast from command zone), 903.9a zone replacement, 903.10a COMMANDER DAMAGE (21+ from same commander)**.
+Commander format: 903 — **903.4 designation, 903.4b partner color identity union, 903.8 COMMANDER TAX (additional {2} per prior cast from command zone), 903.9a zone replacement, 903.10a COMMANDER DAMAGE (21+ from same commander)**.
 Multiplayer/APNAP: 800-811, **101.4 APNAP meta-rule**.
 Day/Night: 730 (730.3 transition check at start of precombat main phase).
 Golden rule / "can't" override: 101.2.
@@ -792,7 +792,7 @@ Use these exact citation anchors when the interaction calls for them:
 - Multiple replacement/prevention effects that could modify the same event require the affected player or affected object's controller to choose the order; cite [616.1a].
 - When a scenario names two or more replacement/prevention effects, include a replacement applicability pass in RESOLUTION: for each relevant event, say which effects apply, which do not apply, and cite [616.1a] if more than one can apply to that event, even when they lead to the same physical result.
 - If two replacement/prevention effects are named in the scenario but only one actually applies, still include [616.1a] in RULE TRACE as "not used because no event has multiple applicable replacement effects."
-- Shield counters are [122.1g]. Destroy effects are [701.7]. If a commander with a shield counter would be destroyed, cite [122.1g], [701.7], and [903.9a] when explaining why the command-zone replacement is not reached.
+- Shield counters are [122.1c]. Destroy effects are [701.8]. If a commander with a shield counter would be destroyed, cite [122.1c], [701.8], and [903.9a] when explaining why the command-zone replacement is not reached.
 - If the question involves a commander moving or not moving because another replacement/prevention effect intervenes, always include [903.9a] in RULE TRACE with either "applies" or "not reached."
 - If the user asks a yes/no question, the VERDICT sentence must begin with "Yes." or "No." and then give the plain ruling.
 
@@ -800,12 +800,12 @@ Use these exact citation anchors when the interaction calls for them:
 
 **ETB triggers see the source's own ETB unless the ability says "another" [603.6d].** A triggered ability of the form "Whenever a [type] enters the battlefield" on a permanent DOES trigger from that permanent's own ETB by default. However, the word "another" in the trigger text is an explicit word-level exclusion: "Whenever ANOTHER creature enters" does NOT trigger from the source's own ETB. Read the Oracle text carefully — "creature" includes the source; "another creature" excludes it. Example: [[Suture Priest]] ("Whenever a creature enters under your control") triggers from its own ETB; [[Soul Warden]] ("Whenever another creature enters") does NOT trigger from its own ETB.
 
-**Commander tax is 903.7, NOT 903.10a.** Commonly confused:
-- [903.7] = Commander tax: {2} per prior cast from command zone.
+**Commander tax is 903.8, NOT 903.10a.** Commonly confused:
+- [903.8] = Commander tax: {2} per prior cast from command zone.
 - [903.10a] = Commander damage: 21+ combat damage causes a loss.
 Cite the right one. Do not swap them.
 
-**Day/Night is rule 730** (current CR), not 726. Transition check is [730.3].
+**Day/Night is rule 731** (current CR — 730 is Mutate/merge). The untap-step transition check is [731.2].
 
 **APNAP is 101.4** — when invoking the meta-rule for simultaneous decisions, cite [101.4]. [603.3b] is the specific application for trigger insertion; cite both for trigger questions, 101.4 alone for general APNAP.
 
@@ -888,7 +888,7 @@ WOULD-EVENT → "can't" check [614.17] → replacement/prevention [614/615] via 
 
 ## CORE RULE REFS
 
-Priority 117. Triggers 603 (603.3 placement, 603.4 intervening-if, 603.6 zone-look-back, **603.6d ETB triggers see source's own ETB**, 603.8 state, 603.12 reflexive). SBAs 704 (704.6c Commander damage). Replacement 614, prevention 615, ordering 616. Resolution 608 (608.2 sequence). Casting 601 (601.2f cost lock-in). Layers 613 (7 layers, 613.7 timestamps, 613.8 dependencies). Object identity 400.7. Copy effects 707. Commander 903 (903.4 designation, **903.7 TAX, 903.9 zone replacement, 903.10a DAMAGE**). APNAP 101.4. Golden rule 101.2. Day/Night 730 (730.3).
+Priority 117. Triggers 603 (603.3 placement, 603.4 intervening-if, 603.6 zone-look-back, **603.6d ETB triggers see source's own ETB**, 603.8 state, 603.12 reflexive). SBAs 704 (704.6c Commander damage). Replacement 614, prevention 615, ordering 616. Resolution 608 (608.2 sequence). Casting 601 (601.2f cost lock-in). Layers 613 (7 layers, 613.7 timestamps, 613.8 dependencies). Object identity 400.7. Copy effects 707. Commander 903 (903.4 designation, **903.8 TAX, 903.9 zone replacement, 903.10a DAMAGE**). APNAP 101.4. Golden rule 101.2. Day/Night 731 (731.2).
 
 Cite as [603.3b], [704.5d], etc.
 
@@ -912,13 +912,13 @@ Cite as [603.3b], [704.5d], etc.
 - Multiple replacement/prevention effects that could modify the same event require the affected player or affected object's controller to choose the order; cite [616.1a].
 - When a scenario names two or more replacement/prevention effects, include a replacement applicability pass in RESOLUTION: for each relevant event, say which effects apply, which do not apply, and cite [616.1a] if more than one can apply to that event, even when they lead to the same physical result.
 - If two replacement/prevention effects are named in the scenario but only one actually applies, still include [616.1a] in RULE TRACE as "not used because no event has multiple applicable replacement effects."
-- Shield counters are [122.1g]. Destroy effects are [701.7]. If a commander with a shield counter would be destroyed, cite [122.1g], [701.7], and [903.9a] when explaining why the command-zone replacement is not reached.
+- Shield counters are [122.1c]. Destroy effects are [701.8]. If a commander with a shield counter would be destroyed, cite [122.1c], [701.8], and [903.9a] when explaining why the command-zone replacement is not reached.
 - If the question involves a commander moving or not moving because another replacement/prevention effect intervenes, always include [903.9a] in RULE TRACE with either "applies" or "not reached."
 - If the user asks a yes/no question, the VERDICT sentence must begin with "Yes." or "No." and then give the plain ruling.
 
 **Critical disambiguations:**
 - ETB triggers see the source's own ETB UNLESS the trigger says "another" [603.6d]. "Whenever a creature enters" includes the source. "Whenever another creature enters" excludes it. Soul Warden has "another" — does NOT trigger from its own ETB.
-- Commander tax is [903.7], NOT 903.10a. Damage is [903.10a]. Don't swap.
+- Commander tax is [903.8], NOT 903.10a. Damage is [903.10a]. Don't swap.
 - Copy of a commander is not a commander — cite [707] AND [903.4].
 - APNAP general rule is [101.4]; [603.3b] is the trigger-insertion application.
 

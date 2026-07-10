@@ -38,17 +38,9 @@ async function readIndex() {
   return JSON.parse(raw);
 }
 
-function runScript() {
-  // The script uses path.resolve(__dirname, "..") to find the data dir; we
-  // override that by setting cwd. The script's __dirname is the scripts/
-  // folder it lives in (always app/scripts), so we copy it into tmpDir/scripts
-  // for the cwd switch to also realign the data dir.
-  return execFileSync(process.execPath, [SCRIPT], {
-    cwd: tmpDir,
-    env: { ...process.env, MTG_OVERRIDE_REPO_ROOT: tmpDir },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-}
+// (a dead runScript helper was removed here — R7: the suite drives the script via the
+// per-test execFileSync calls below, and the helper referenced an env override the
+// script no longer reads)
 
 describe("happy path", () => {
   it("emits the slim index with the expected fields and excludes art_series", async () => {

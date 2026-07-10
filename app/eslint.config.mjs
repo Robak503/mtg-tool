@@ -21,7 +21,9 @@ export default [
       "src-tauri/**",
       "data/**",
       "public/**",
-      "scripts/**", // CommonJS build/sync scripts — separate concern
+      "scripts/**/*.cjs", // CommonJS build/sync scripts — separate concern (the .mjs harness
+      //                     scripts below ARE linted: grind pool/worker, canaries, gates —
+      //                     ~2,300 lines of load-bearing code the old blanket ignore skipped)
       ".cto_sandbox/**", // agent scratch/sandbox dir (already gitignored per repo .gitignore; not project source)
       "**/*.cjs",
       "frontend-placeholder/**",
@@ -66,6 +68,20 @@ export default [
     files: ["**/*.test.{js,jsx}"],
     languageOptions: {
       globals: { ...globals.node },
+    },
+  },
+
+  // Harness .mjs scripts (grind pool/workers, canaries, gates, sync CLIs): plain Node ESM.
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "module",
+      globals: { ...globals.node },
+    },
+    rules: {
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
+      "no-empty": ["warn", { allowEmptyCatch: true }],
     },
   },
 

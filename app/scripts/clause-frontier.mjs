@@ -28,7 +28,7 @@ const MIN = (() => { const i = args.indexOf("--min"); return i >= 0 ? parseInt(a
 function deckCards() {
   const profilesDir = path.join("data", "profiles");
   const byName = new Map(); // name -> { type, oracle, name, decks:Set }
-  let dirs = [];
+  let dirs;
   try { dirs = fs.readdirSync(profilesDir).filter((d) => d.startsWith("prof_")); } catch { return []; }
   for (const dir of dirs) {
     const file = path.join(profilesDir, dir, "decks.local.json");

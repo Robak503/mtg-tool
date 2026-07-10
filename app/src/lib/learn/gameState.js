@@ -1138,17 +1138,8 @@ export function addMana(state, { playerId, color, amount = 1 }) {
   }));
 }
 
-export function emptyManaPoolForPlayer(state, { playerId }) {
-  assertPlayer(playerId);
-  return withPlayer(state, playerId, p => ({ ...p, manaPool: emptyManaPool() }));
-}
-
-export function emptyAllManaPools(state) {
-  return Object.keys(state.players).reduce(
-    (acc, playerId) => emptyManaPoolForPlayer(acc, { playerId }),
-    state,
-  );
-}
+// R7 (audit 2026-07-09): emptyManaPoolForPlayer/emptyAllManaPools removed — dead exports
+// that BYPASSED gameEngine.emptyManaPools' preservation hook (the one legal pool-drain path).
 
 // ─── Life / damage ────────────────────────────────────────────────────────────
 

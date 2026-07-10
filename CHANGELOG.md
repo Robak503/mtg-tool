@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+_(nothing yet)_
+
+## [0.117.0 – 0.127.0] - 2026-07-09
+
+> Eleven releases shipped across 2026-07-08/09 (the sim-center + data-trust burst); their notes below were drafted release-by-release in this section and are kept as one dated block — per-release binaries + exact notes live on the GitHub Releases page.
+
 ### Fixed
 - **4-player self-play winners are now REAL winners.** A read-only pathology hunt proved the
   old semantics fabricated them: the pod ended the instant the *user seat* died and the "win"

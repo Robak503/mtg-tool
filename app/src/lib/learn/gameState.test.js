@@ -30,8 +30,6 @@ import {
   removeCounter,
   getCounter,
   addMana,
-  emptyManaPoolForPlayer,
-  emptyAllManaPools,
   loseLife,
   gainLife,
   addCommanderDamage,
@@ -433,21 +431,6 @@ describe("mana pool", () => {
     expect(totalAvailableMana(state, "user")).toBe(4);
   });
 
-  it("emptyManaPoolForPlayer drains exactly one side", () => {
-    let state = addMana(s0(), { playerId: "user", color: "G", amount: 2 });
-    state = addMana(state, { playerId: "ai", color: "B", amount: 1 });
-    state = emptyManaPoolForPlayer(state, { playerId: "user" });
-    expect(state.players.user.manaPool.G).toBe(0);
-    expect(state.players.ai.manaPool.B).toBe(1);
-  });
-
-  it("emptyAllManaPools drains everyone", () => {
-    let state = addMana(s0(), { playerId: "user", color: "G", amount: 2 });
-    state = addMana(state, { playerId: "ai", color: "B", amount: 1 });
-    state = emptyAllManaPools(state);
-    expect(totalAvailableMana(state, "user")).toBe(0);
-    expect(totalAvailableMana(state, "ai")).toBe(0);
-  });
 
   it("rejects invalid colors", () => {
     expect(() => addMana(s0(), { playerId: "user", color: "Z", amount: 1 })).toThrow();

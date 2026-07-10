@@ -27,8 +27,8 @@ const { loadPilotBuilder } = await import(u("src/lib/server/pilotLoader.js"));
 const { runSelfPlayGame } = await import(u("src/lib/learn/selfPlayRunner.js"));
 const { formPod, podToArgs, gameSeedAt, engineSeatsFor } = await import(u("src/lib/learn/grindPod.js"));
 
-const pool = await loadAllProfileDecks();
-const raw = cfg.deckIds?.length ? selectDecksByIds(pool, cfg.deckIds) : pool;
+const deckStore = await loadAllProfileDecks();
+const raw = cfg.deckIds?.length ? selectDecksByIds(deckStore, cfg.deckIds) : deckStore;
 const { playable: allPlayable } = partitionPlayableRunnerDecks(raw.map(toRunnerDeck));
 const pool = cfg.pool === "cedh" ? "cedh" : "mixed";
 const playable = allPlayable.filter((d) => (d.pool ?? "mixed") === pool); // POOL GATE (Phase 3)

@@ -52,7 +52,7 @@ function canonical(value) {
 // The parser output + its confidence gate, canonicalized. Confidence is included because
 // a high<->low flip changes routing even when the atom list looks similar.
 function parsed(clause, type) {
-  let prog = null;
+  let prog;
   try { prog = parseEffectClause(String(clause || ""), type || ""); } catch (e) { return { err: String(e && e.message || e) }; }
   return { conf: programConfidence(prog), prog };
 }

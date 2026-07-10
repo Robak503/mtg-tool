@@ -7,7 +7,7 @@
  */
 
 import { engineSeatsForMode } from "./selfPlayRunner.js";
-import { gameSeedAt, mulberry32, seededShuffle } from "./seedMath.js";
+import { mulberry32, seededShuffle } from "./seedMath.js";
 
 // Seed/PRNG primitives live in seedMath.js (R2.6 — ONE source; the runner uses the same module).
 export { gameSeedAt, mulberry32 as rng, seededShuffle as shuffle } from "./seedMath.js";
