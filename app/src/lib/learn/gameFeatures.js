@@ -31,12 +31,20 @@ import { opponentsOf } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentIsCreature } from "./layers.js";
 
 /**
- * The feature-vector VERSION, stamped into every recorded grind game header
+ * The recorded-features VERSION, stamped into every recorded grind game header
  * (`header.featuresV`) so a distill/training consumer can trust dimensionality and
- * meaning across engine releases without inspecting rows. Bump ONLY when FEATURE_KEYS
- * changes (append-only extensions bump it too — the vector LENGTH changed).
+ * meaning across engine releases without inspecting rows. Bump when FEATURE_KEYS
+ * changes OR when a header-derivation contract changes (the consumer gates on it).
+ *
+ * 1 — FEATURE_KEYS v1/v2-era vector; manaHealth windows on GLOBAL player-turns (the
+ *     units bug — landsByT5/commanderOnlineTurn unusable; Omnath 2026-07-10).
+ * 2 — the featuresV=2 bundle (Omnath 2026-07-10, one bump, all gates in one rule):
+ *     manaHealth counts each seat's OWN turns (+ ownTurns; screw/flood null till 5 own
+ *     turns) · per-seat `mull` {ships, finalHandSize, bottomedCount} in seatStats ·
+ *     header `startSeat`/`turnOrder` · header `decisionsCount` · header `pilotV`
+ *     (persona-pack era marker, null until the builder exposes it).
  */
-export const FEATURES_VERSION = 1;
+export const FEATURES_VERSION = 2;
 
 /**
  * The authoritative feature ORDER. `featureVector` reads this so the numeric vector

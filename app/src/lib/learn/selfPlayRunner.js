@@ -468,9 +468,11 @@ export function runSelfPlayGame({
     const epoch = computeEpochStats({ state: out.state, log, result, winnerSeat, seats: engineSeatsForMode(mode), commandersBySeat: cmdBySeat });
     base.seatStats = epoch.seats;
     base.winCondition = epoch.winCondition;
+    base.turnOrder = epoch.turnOrder; // featuresV=2 — headers are the prune survivor; who-went-when lives there
   } catch {
     base.seatStats = null; // instrumentation must never abort a game result
     base.winCondition = null;
+    base.turnOrder = null;
   }
 
   // Per-DECISION (policy) trajectory (opt-in, independent of recordTrajectory). Attach the
