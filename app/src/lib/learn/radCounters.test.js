@@ -191,12 +191,12 @@ describe("RAD coverage — clean rad-grant cards classify native; Mothman stays 
   it("an ETB 'target player gets N rad counters' trigger is native-trigger", () => {
     expect(classifyCard({ type: "Creature — Mutant", name: "Ghoul", oracle: "When this creature enters, target player gets two rad counters." })).toBe("native-trigger");
   });
-  it("The Wise Mothman is NOT native — its variable-X targeted +1/+1 distribution clause is unmodeled (safe FN)", () => {
+  it("The Wise Mothman IS native (SHELF C1+M1c — the disjunction split + the milled distribute both model)", () => {
     const mothman = {
       type: "Legendary Creature — Insect Mutant", name: "The Wise Mothman",
       oracle: "Flying\nWhenever The Wise Mothman enters or attacks, each player gets a rad counter.\nWhenever one or more nonland cards are milled, put a +1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way.",
     };
-    expect(classifyCard(mothman)).not.toMatch(/^native/);
+    expect(classifyCard(mothman)).toBe("native-trigger");
   });
 });
 

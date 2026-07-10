@@ -24,7 +24,6 @@ import {
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, diesTriggerMultiplierCount } from "./layers.js";
-import { applyMothmanRadOnEnter } from "./mothmanRad.js";
 
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
@@ -1705,16 +1704,35 @@ export function registerTriggerDetector(fn) {
 // Cascade keyword bumps), so if EITHER half's event is unmodeled the detected count under-runs shaped → the whole
 // card routes to the Arbiter (a SAFE false-negative) — an unmodeled half is NEVER silently dropped (the cardinal FP).
 const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)?\\s+(.+?),\\s+(.+?\\.)";
+// ===== EVENT-DISJUNCTION SPLIT (SHELF C1 — "enters or attacks", CR 603.2b: an ability can trigger on
+// either of two events) ===== "When[ever] <subject> enters[ the battlefield] or attacks, <effect…>" →
+// TWO sentences, one per event, each carrying the WHOLE same-line effect (riders/follow-up sentences
+// included — capturing to END OF LINE is load-bearing: a first half cut at the first period would fire
+// its lead effect WITHOUT the rider, the cardinal FP). Fire-behavior is EXACT: the ability fires on
+// entry and fires on attack; each half then classifies through the normal per-sentence machinery and
+// an unmodeled half keeps the card on the Arbiter via the shaped-count reconciliation (see SAFETY above).
+// Grave Titan / The Wise Mothman / Inferno Titan / the 139-card self-subject class. EXCLUDED: the
+// "of the chosen type" form (Kindred Discovery) — it has its own dedicated compound EVENT
+// (chosenTypeEntersOrAttacks, exact-matched on the UNSPLIT sentence) which the split would break.
+const DISJUNCTION_TRIGGER_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or attacks(,\\s*[^\\n]+)";
 function splitCompoundTriggerSentences(oracle) {
   // Separate the two rewritten sentences with a NEWLINE (not ". ") — the trigger regex anchors each match on a
   // preceding [\n.;] and consumes its own trailing period, so a same-line "…card. Whenever…" would leave the second
   // sentence without a boundary. Abilities are newline-separated on real cards, so this matches the detector's grammar.
-  return String(oracle || "").replace(new RegExp(COMPOUND_TRIGGER_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nWhenever ${condB}, ${eff}`);
+  return String(oracle || "")
+    .replace(new RegExp(COMPOUND_TRIGGER_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nWhenever ${condB}, ${eff}`)
+    .replace(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi"), (m, _kw, subj, eff) =>
+      /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`);
 }
-/** Number of compound "…and whenever…" second-trigger connectives — each adds ONE extra trigger sentence when split.
- *  coverage.js adds this to its shaped-sentence count so `shaped === detected` holds for a successfully-split compound. */
+/** Number of compound second-trigger connectives ("…and whenever…" + the "enters or attacks" disjunction) —
+ *  each adds ONE extra trigger sentence when split. coverage.js adds this to its shaped-sentence count so
+ *  `shaped === detected` holds for a successfully-split compound. */
 export function compoundTriggerCount(oracle) {
-  return (String(oracle || "").match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length;
+  const s = String(oracle || "");
+  const andJoins = (s.match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length;
+  const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
+    .filter((m) => !/of the chosen type/i.test(m)).length;
+  return andJoins + disjunctions;
 }
 
 /**
@@ -2682,12 +2700,10 @@ function triggerSourcesOf(state, pid) {
  */
 export function checkEnterTriggers(state, enteredPerm) {
   if (!enteredPerm) return state;
-  // The Wise Mothman "enters or attacks → each player gets a rad counter": detectTriggers' compound-event
-  // guard Arbiter-routes this disjunction, so the rad bump is applied here at the single ETB-fire chokepoint
-  // (#319-style targeted hook in mothmanRad.js). Fires only when the ENTERED permanent itself carries the
-  // trigger — a no-op for every other card and for other creatures' entries. See mothmanRad.js for the
-  // double-fire coordination note if the guard ever learns this disjunction.
-  const s = applyMothmanRadOnEnter(state, enteredPerm);
+  // (The Wise Mothman's ETB rad hook is GONE — SHELF C1's "enters or attacks" disjunction split binds the
+  // trigger generically through detectTriggers, so both halves ride the normal etb/attacks fire paths.
+  // Keeping the hook would double-fire the rad — the coordination note mothmanRad.js carried from day one.)
+  const s = state;
   let fired = [];
   // ETB-XVALUE THREADING (HALF-X-CREATE-TOKENS): the entering permanent's own "when this enters" trigger
   // (sourcePermanent === enteredPerm) is the ONLY ETB trigger that owns the entering object's paid {X} — so

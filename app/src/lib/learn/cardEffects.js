@@ -30,7 +30,7 @@
 
 // NOTE — not every card-specific behavior lives in THIS registry. cardEffects.js owns only the
 // mana-emptying hook. Other targeted whole-card hooks live in their own modules following the #353/#356
-// pattern (urDragonAttack.js, mothmanRad.js, and — Wave-5a — wolverine.js, which owns Wolverine, Best
+// pattern (urDragonAttack.js, and — Wave-5a — wolverine.js, which owns Wolverine, Best
 // There Is: the source-scoped double-all-damage replacement via damageReplacements.js, the end-step
 // "+1/+1 if dealt damage to another creature" counter, and the {1}{G} regenerate ability).
 

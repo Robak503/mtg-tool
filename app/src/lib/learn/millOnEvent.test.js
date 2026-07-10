@@ -198,10 +198,8 @@ describe("coverage — the consuming cards classify honestly", () => {
   it("Screeching Scorchbeast FLIPS native (SHELF M1b — milled-count tokens + the create-token once-per-turn latch)", () => {
     expect(classifyCard(C("Screeching Scorchbeast", "Flying, menace\nWhenever this creature attacks, each player gets two rad counters.\nWhenever one or more nonland cards are milled, you may create that many 2/2 black Zombie Mutant creature tokens. Do this only once each turn."))).toBe("native-trigger");
   });
-  it("Wise Mothman / Infesting Radroach stay non-native (compound-event / graveyard-trigger riders → Arbiter)", () => {
-    // Mothman's TIER stays parked on the "enters or attacks" compound-event guard (mothmanRad.js is the
-    // runtime hook) — but its MILLED payoff now routes natively at runtime (SHELF M1c, tested below).
-    expect(classifyCard(C("The Wise Mothman", "Flying\nWhenever The Wise Mothman enters or attacks, each player gets a rad counter.\nWhenever one or more nonland cards are milled, put a +1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way."))).toBe("body-only");
+  it("Mothman FLIPS native (SHELF C1 disjunction split); Infesting Radroach stays parked (graveyard trigger)", () => {
+    expect(classifyCard(C("The Wise Mothman", "Flying\nWhenever The Wise Mothman enters or attacks, each player gets a rad counter.\nWhenever one or more nonland cards are milled, put a +1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way."))).toBe("native-trigger");
     expect(classifyCard(C("Infesting Radroach", "Flying\nThis creature can't block.\nWhenever this creature deals combat damage to a player, they get that many rad counters.\nWhenever an opponent mills a nonland card, if this creature is in your graveyard, you may return it to your hand."))).toBe("body-only");
   });
   it("MOTHMAN PAYOFF runtime (M1c): each of up to X own creatures gets EXACTLY ONE counter (never stacked)", () => {

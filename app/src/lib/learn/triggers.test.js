@@ -108,8 +108,9 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
   // FIX-TRIG-COMPOUND (Rod QA #1) — the original eventVerbs tally counted only enters/dies/leaves, so an
   // "enters or attacks" (Grave Titan) and the artifact "enters or is put into a graveyard" family slipped
   // through (eventVerbs==1) and fired on ETB only. attacks/blocks/put-into-graveyard are now counted too.
-  it("does NOT detect 'enters or attacks' (Grave Titan) — the attacks half would be dropped", () => {
-    expect(detectTriggers(creature("Grave Titan", "Whenever Grave Titan enters or attacks, create two 2/2 black Zombie creature tokens."))).toHaveLength(0);
+  it("'enters or attacks' (Grave Titan) SPLITS into both halves (SHELF C1 — the disjunction is modeled)", () => {
+    const ds = detectTriggers(creature("Grave Titan", "Whenever Grave Titan enters or attacks, create two 2/2 black Zombie creature tokens."));
+    expect(ds.map((d) => d.event).sort()).toEqual(["attacks", "etb"]);
   });
   it("does NOT detect 'enters or is put into a graveyard' (Ichor Wellspring / Servo Schematic) — the death half would be dropped", () => {
     expect(detectTriggers(creature("Ichor Wellspring", "When Ichor Wellspring enters or is put into a graveyard from the battlefield, draw a card.", { type: "Artifact" }))).toHaveLength(0);

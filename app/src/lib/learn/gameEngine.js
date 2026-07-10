@@ -59,7 +59,7 @@ import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applySeedbornUntap } from "./seedbornUntap.js";
 import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { applyMurkfiendUntap } from "./murkfiendUntap.js";
-import { applyMothmanRadOnAttack } from "./mothmanRad.js";
+
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle)
@@ -415,10 +415,10 @@ export function runStepActions(state) {
     // for the same flush below. Fired AFTER checkAttackTriggers so its draw lands after the normal attack-
     // trigger enqueue, and its own sub-triggers ride the line-302 flush.
     next = applyUrDragonAttackTriggers(next);
-    // The Wise Mothman "enters or attacks → each player gets a rad counter" — attack half (#319-style hook;
-    // the ETB half rides checkEnterTriggers). Grants rad synchronously for each Mothman in the attacker
-    // batch; a no-op when none is attacking. See mothmanRad.js for the compound-event-guard rationale.
-    next = applyMothmanRadOnAttack(next);
+    // (The Wise Mothman's rad hook is GONE — SHELF C1's "enters or attacks" disjunction split binds the
+    // trigger generically through detectTriggers, so the attack half now rides checkAttackTriggers like
+    // any printed attack trigger. Keeping the hook would double-fire the rad — the coordination note
+    // mothmanRad.js carried from day one.)
     // KW-ANNIHILATOR (CR 702.86a): "Whenever this creature attacks, defending player sacrifices N permanents."
     // A #319-style combat hook reusing the SHIPPED edict sacrifice chain — each attacking annihilator obligates
     // its defending player to sacrifice N permanents of their choice (pooled into one FIFO-safe chain). The
