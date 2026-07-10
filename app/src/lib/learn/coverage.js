@@ -433,7 +433,7 @@ export function spellIsNative(card) {
     // spell resolution — the clause silently no-ops. Without this, the storm branch credited native a body
     // the plain path correctly parks (verified: the same body without the Storm line returns false).
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering") return false;
       if (a?.who === "defendingPlayer") return false;
     }
     return true;
@@ -466,7 +466,7 @@ export function spellIsNative(card) {
     // Same combat-referent guard as the normal spell path (a spell never supplies the combat-damage referent).
     // Flattened via programCombatReferentAtoms so a MODAL mode-level referent can't slip through.
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.who === "defendingPlayer") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "defendingPlayer") return false;
     }
     return true;
   }
@@ -498,7 +498,7 @@ export function spellIsNative(card) {
   // damage spell (Ozai's Cruelty) — where "that player" is a back-reference to the countered-spell controller
   // / damaged target, NOT the combat referent — keeps the whole spell on the Arbiter (a SAFE false-negative).
   for (const a of programCombatReferentAtoms(program)) {
-    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer") return false;
+    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering") return false;
     // who:"defendingPlayer" (CR 509.1a) is the ATTACKS-event referent (ctx.defenderId) — a spell never supplies
     // it, so such an atom would silently drop. Keep the spell on the Arbiter (a SAFE false-negative).
     if (a?.who === "defendingPlayer") return false;
@@ -641,6 +641,11 @@ export function permanentTriggersCovered(card) {
     // rad-if-none clause, so it can only consume this modeled branch (FN-safe). Runs before the When-strip
     // (which removes the prefix this anchor needs).
     .replace(/(rad counters? if they don['’]t have any rad counters)\.\s*otherwise, proliferate\b\.?\s*/gi, "$1. ")
+    // DRAW-OR-COUNTER-TRIGGERING (Marcus, SHELF S7) — the same follow-up-arm class as Radgull above: the
+    // "If it doesn't, put a +1/+1 counter on it." else-arm belongs to the SAME trigger's effect (the whole
+    // branch parses HIGH via matchDrawOrCounterTriggering — proven by allTriggerSentencesModeled). Anchored
+    // to DIRECTLY follow the exact counter-gated draw clause (FN-safe).
+    .replace(/(draw a card if that creature has a \+1\/\+1 counter on it)\.\s*if it doesn['’]t, put a \+1\/\+1 counter on it\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")

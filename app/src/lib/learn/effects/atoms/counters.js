@@ -2,7 +2,7 @@
  * effects/atoms/counters.js — counter atoms (add-counter, proliferate, gain-experience, rad).
  */
 
-import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards } from "../../gameState.js";
 import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
@@ -676,8 +676,27 @@ export function applyMonstrosity(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "monstrosity", permanentId: ctx.sourceId, amount: atom.amount || 1 });
 }
 
+/**
+ * DRAW-OR-COUNTER-TRIGGERING (Marcus, Mutant Mayor — SHELF S7): "draw a card if that creature has a
+ * +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it." A resolution-time branch on the
+ * TRIGGERING creature (the combat-damage dealer, ctx.triggeringPermanentId — set by the batch cdmg
+ * checker; the routing gate keeps this atom off every other event). An absent referent (the dealer
+ * left the battlefield) → a clean logged no-op — never a blind draw or a mis-placed counter.
+ */
+export function applyDrawOrCounterTriggering(state, atom, ctx) {
+  const found = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+  if (!found) return logEvent(state, { kind: "spell-effect", effect: "draw-or-counter-triggering", controller: ctx.controller, referent: "absent" });
+  if ((found.permanent.counters?.["+1/+1"] || 0) > 0) {
+    const next = drawCards(state, { playerId: ctx.controller, count: 1 });
+    return logEvent(next, { kind: "spell-effect", effect: "draw-or-counter-triggering", controller: ctx.controller, branch: "draw" });
+  }
+  const next = addCounter(state, { permanentId: found.permanent.id, type: "+1/+1", amount: 1 });
+  return logEvent(next, { kind: "spell-effect", effect: "draw-or-counter-triggering", controller: ctx.controller, branch: "counter" });
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
 
   "shield-counter": applyShieldCounter, // SHIELD COUNTER (CR 122.1c) — a protective counter; consumed at the damage/destruction sites in gameState

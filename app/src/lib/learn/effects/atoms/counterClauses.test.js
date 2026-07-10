@@ -194,3 +194,42 @@ describe("engine-first — Sphere Grid's trigger fires + lands the counter on th
     expect(creaturePower(findPermanent(s, "lord").permanent, s)).toBe(1);
   });
 });
+
+// ── DRAW-OR-COUNTER-TRIGGERING (Marcus, Mutant Mayor — SHELF S7) ──
+describe("DRAW-OR-COUNTER-TRIGGERING — Marcus branch", () => {
+  const MARCUS = { name: "Marcus, Mutant Mayor", type: "Legendary Creature — Human Mutant", power: 2, toughness: 3,
+    oracle: "Vigilance, trample\nWhenever a creature you control deals combat damage to a player, draw a card if that creature has a +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it." };
+
+  it("collapses the if-else payoff to one branch atom, HIGH; the card flips native-trigger", async () => {
+    const { parseEffectClause } = await import("../parser.js");
+    const { classifyCard } = await import("../../coverage.js");
+    const p = parseEffectClause("draw a card if that creature has a +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it", "Instant");
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toEqual([{ op: "draw-or-counter-triggering", targetType: null }]);
+    expect(classifyCard(MARCUS)).toBe("native-trigger");
+  });
+
+  it("resolver: counter when the dealer is counterless, draw when it has one, no-op when it left", async () => {
+    const { resolveAtom } = await import("../effectAtoms.js");
+    const { createGameState, createPermanent } = await import("../../gameState.js");
+    const atom = { op: "draw-or-counter-triggering", targetType: null };
+    const mk = (counters) => {
+      const s0 = createGameState({ userDeck: [], aiDeck: [] });
+      const bear = createPermanent({ id: "bear", card: { name: "Bear", type: "Creature — Bear", power: 2, toughness: 2 }, controller: "user" });
+      if (counters) bear.counters = { "+1/+1": counters };
+      return { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [bear], library: [{ id: "l1", name: "Top", type: "Instant" }] } } };
+    };
+    // Counterless dealer → gets a +1/+1, no draw.
+    const a = resolveAtom(mk(0), atom, { controller: "user", triggeringPermanentId: "bear", targets: [] });
+    expect(a.players.user.battlefield[0].counters["+1/+1"]).toBe(1);
+    expect(a.players.user.hand).toHaveLength(0);
+    // Countered dealer → draw, counters unchanged.
+    const b = resolveAtom(mk(2), atom, { controller: "user", triggeringPermanentId: "bear", targets: [] });
+    expect(b.players.user.battlefield[0].counters["+1/+1"]).toBe(2);
+    expect(b.players.user.hand).toHaveLength(1);
+    // Absent referent → clean no-op.
+    const c = resolveAtom(mk(0), atom, { controller: "user", triggeringPermanentId: "ghost", targets: [] });
+    expect(c.players.user.hand).toHaveLength(0);
+    expect(c.players.user.battlefield[0].counters?.["+1/+1"] ?? 0).toBe(0);
+  });
+});

@@ -68,6 +68,8 @@ export function combatDamageReferentSatisfied(program, event) {
     if ((a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount") && event !== "milled") return false;
     // LIFE-LOSS referents (Mindcrank, SHELF M3): the loser + amount are set ONLY by checkLifeLossTriggers.
     if ((a?.who === "lifeLostPlayer" || a?.countContext === "lifeLostAmount") && event !== "lifeLost") return false;
+    // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
+    if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
   }
   return true;
 }

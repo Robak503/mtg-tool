@@ -2740,6 +2740,16 @@ function matchCounterIfLegendaryThenFight(oracle) {
 // splitter shatters it (an unbound "Otherwise, proliferate" → low). Collapsed into ONE rad atom with
 // ifNoRadElseProliferate — applyRad reads the damaged player's rad at resolution (rad when none, else a
 // controller proliferate). The who:damagedPlayer referent keeps it gated to combat-damage events.
+// DRAW-OR-COUNTER-TRIGGERING (Marcus, Mutant Mayor — SHELF S7) — "draw a card if that creature has a +1/+1
+// counter on it. If it doesn't, put a +1/+1 counter on it." The if-else pair shatters under the sentence
+// splitter. Collapsed into ONE branch atom whose resolver reads the TRIGGERING creature (the combat-damage
+// dealer) at resolution; the routing gate keeps it on cdmg events only (a spell never supplies the referent).
+function matchDrawOrCounterTriggering(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (!/^draw a card if that creature has a \+1\/\+1 counter on it\. if it doesn't, put a \+1\/\+1 counter on it$/.test(t)) return null;
+  return { atoms: [{ op: "draw-or-counter-triggering", targetType: null }] };
+}
+
 function matchRadOrProliferate(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^(?:they|that player) gets? (a|an|one|two|three|four|five|\d+) rad counters? if they don't have any rad counters\. otherwise, proliferate$/);
@@ -2947,6 +2957,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rop = matchRadOrProliferate(oracle);
   if (rop && rop.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: rop.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== DRAW-OR-COUNTER-TRIGGERING (Marcus, Mutant Mayor) ===== the counter-gated draw/counter branch on
+  // the combat-damage dealer → ONE branch atom (see matchDrawOrCounterTriggering). HIGH iff the op is KNOWN.
+  const dct = matchDrawOrCounterTriggering(oracle);
+  if (dct && dct.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: dct.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up
