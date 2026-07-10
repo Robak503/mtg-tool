@@ -462,6 +462,12 @@ function effectiveTypeIdentity(candidate, state) {
   return { types, subtypes };
 }
 
+// P/T-PREDICATE recursion guard (Tetsuko — see the powerOrToughnessAtMost branch below): permanent ids whose
+// layer-aware P/T is being read FROM INSIDE a selector evaluation right now. A nested deriveCharacteristics
+// for such an id (a) excludes the P/T-predicate grant (P/T-irrelevant — CR 613.1f vs 613.3) and (b) skips the
+// memo write, so no keyword-less entry can ever be served to a later reader.
+const _ptPredicateInProgress = new Set();
+
 function matchesSelector(selector, candidate, sourcePerm, state) {
   if (!selector) return false;
   const srcController = sourcePerm?.controller;
@@ -517,6 +523,28 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // COUNTER-PAYOFF: a per-permanent counter gate (Herald of Secret Streams — "creatures you control WITH
   // A +1/+1 COUNTER on it …"). Re-evaluated each collection, so the grant tracks the counter dynamically.
   if (selector.requiresCounter && (candidate.counters?.[selector.requiresCounter] || 0) <= 0) return false;
+  // P/T-PREDICATE (Tetsuko — "creatures you control with POWER OR TOUGHNESS N OR LESS …"): the candidate's
+  // LIVE layer-aware power/toughness (layer 7 — counters + anthems + pumps), re-read at every query so a
+  // mid-turn pump/debuff moves a creature in or out of the grant, exactly like the printed static. An
+  // unsizeable stat (NaN — a CDA the engine can't size) fails the bound (FN-safe: never a wrongly-granted
+  // evasion). RECURSION GUARD: deriveCharacteristics pre-buckets EVERY effect through effectAffects, so the
+  // P/T read here re-enters deriveCharacteristics for the SAME candidate. The nested pass finds the
+  // candidate in _ptPredicateInProgress and EXCLUDES this layer-6 grant — exact for that pass, because a
+  // layer-6 keyword grant cannot influence layer-7 P/T (CR 613.1f vs 613.3), and the OUTER pass's memo
+  // write (deriveCharacteristics tail) overwrites the nested keyword-less entry, so keyword readers always
+  // see the final, correct set. Terminates at depth 2 by construction.
+  if (selector.powerOrToughnessAtMost != null) {
+    if (_ptPredicateInProgress.has(candidate.id)) return false; // nested P/T bucketing — the grant is P/T-irrelevant
+    _ptPredicateInProgress.add(candidate.id);
+    try {
+      const pw = permanentPower(state, candidate.id);
+      const tf = permanentToughness(state, candidate.id);
+      const bound = selector.powerOrToughnessAtMost;
+      if (!(Number.isFinite(pw) && pw <= bound) && !(Number.isFinite(tf) && tf <= bound)) return false;
+    } finally {
+      _ptPredicateInProgress.delete(candidate.id);
+    }
+  }
   // CHOSEN-TYPE anthem (CR 614.12 — Banner of Kinship / Door of Destinies "Creatures you control of the
   // chosen type …"). The candidate must carry the SOURCE permanent's stored chosenType (subtype OR
   // changeling). controllerScope:"you" above already restricted to the source's controller. An unset
@@ -768,7 +796,11 @@ export function deriveCharacteristics(state, permanentId) {
     };
   }
 
-  permMemo.set(permanentId, result);
+  // P/T-PREDICATE guard: a derive that ran while THIS permanent's P/T was being read from inside a selector
+  // (the Tetsuko powerOrToughnessAtMost branch) excluded that layer-6 grant from its effect set — exact for
+  // the P/T the caller wanted, but its keyword set would be missing the grant. Don't memoize the partial
+  // entry; the next un-guarded derive computes (and caches) the complete one.
+  if (!_ptPredicateInProgress.has(permanentId)) permMemo.set(permanentId, result);
   return result;
 }
 

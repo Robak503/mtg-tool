@@ -1297,6 +1297,26 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── P/T-PREDICATE EVASION (Tetsuko Umezawa, Fugitive — SHELF S7): "Creatures you control with power or
+  // toughness N or less can't be blocked." The Herald-of-Secret-Streams unblockable grant with a LAYER-AWARE
+  // P/T predicate instead of a counter gate: the selector's powerOrToughnessAtMost is re-evaluated at every
+  // keyword query (matchesSelector reads the candidate's LIVE layer-7 power/toughness), so a creature pumped
+  // above the bound loses the evasion mid-turn and a debuffed one gains it — exactly the printed static
+  // (CR 509.1b, checked at declare-blockers). Bare form only — a trailing "by …"/"except …" qualifier
+  // doesn't match the ^…$ anchor, so a partial evasion is never claimed (CREED).
+  {
+    const ptEv = c.match(/^creatures you control with power or toughness (\d+) or less can't be blocked$/);
+    if (ptEv) {
+      out.push({
+        layer: 6,
+        op: { layerOp: "addKeyword", keyword: "unblockable" },
+        affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], powerOrToughnessAtMost: parseInt(ptEv[1], 10) } },
+        duration: { kind: "permanent" },
+      });
+      return;
+    }
+  }
+
   // ── COUNTER-PAYOFF keyword grant (Badgermole/Emil/Training Regimen — "creatures you control with +1/+1
   // counters on them have trample"): generalizes Herald's counter-gated grant to any GRANTABLE keyword(s),
   // same requiresCounter dynamic per-creature gate. ALL-OR-NOTHING — every word in the "have …" phrase must
