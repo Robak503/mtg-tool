@@ -29,7 +29,7 @@
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
 import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { hasKeyword } from "./keywords.js";
-import { applyCounterDoubling, millMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) replacements (leaf, no cycle)
+import { applyCounterDoubling, millMultiplier, playerCounterAdditive } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 
 // ─── ID generation ────────────────────────────────────────────────────────────
@@ -1187,16 +1187,24 @@ export function gainLife(state, { playerId, amount }) {
  * instead of (or in addition to) life loss; at ten or more the player loses (isPlayerDead). The poison
  * track already exists on player state (createPlayerState `poison: 0`).
  */
+// PLAYER-COUNTER ADDITIVE (Winding Constrictor clause 2, CR 122.6): the "+1 of each kind YOU get"
+// replacement, applied at these four chokepoints — the single place every energy/experience/poison/rad
+// grant flows through. A 0 base amount is NOT an event (CR 614 replaces an existing get), so no bonus.
+const withPlayerCounterAdd = (state, playerId, amount) =>
+  amount > 0 ? amount + playerCounterAdditive(state, playerId) : amount;
+
 export function addPoison(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("addPoison: amount must be non-negative integer");
-  return withPlayer(state, playerId, p => ({ ...p, poison: (p.poison || 0) + amount }));
+  const total = withPlayerCounterAdd(state, playerId, amount);
+  return withPlayer(state, playerId, p => ({ ...p, poison: (p.poison || 0) + total }));
 }
 
 export function addExperience(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("addExperience: amount must be non-negative integer");
-  return withPlayer(state, playerId, p => ({ ...p, experience: (p.experience || 0) + amount }));
+  const total = withPlayerCounterAdd(state, playerId, amount);
+  return withPlayer(state, playerId, p => ({ ...p, experience: (p.experience || 0) + total }));
 }
 
 /** ENERGY (CR 122.1e): give a player energy counters ("you get {E}"). A player-level resource counter
@@ -1204,7 +1212,8 @@ export function addExperience(state, { playerId, amount }) {
 export function addEnergy(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("addEnergy: amount must be non-negative integer");
-  return withPlayer(state, playerId, p => ({ ...p, energy: (p.energy || 0) + amount }));
+  const total = withPlayerCounterAdd(state, playerId, amount);
+  return withPlayer(state, playerId, p => ({ ...p, energy: (p.energy || 0) + total }));
 }
 
 /** ENERGY spend (CR 118.8 / 122.1e): pay N energy from a player's pool. Returns the state with energy reduced;
@@ -1225,7 +1234,8 @@ export function hasEnergy(state, playerId, amount) {
 export function addRadCounters(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("addRadCounters: amount must be non-negative integer");
-  return withPlayer(state, playerId, p => ({ ...p, radCounters: (p.radCounters || 0) + amount }));
+  const total = withPlayerCounterAdd(state, playerId, amount);
+  return withPlayer(state, playerId, p => ({ ...p, radCounters: (p.radCounters || 0) + total }));
 }
 
 /** Remove rad counters from a player, floored at 0 (the radiation ability removes one per nonland milled — CR 728.1). */

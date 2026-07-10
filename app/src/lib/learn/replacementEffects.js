@@ -64,6 +64,7 @@ export function doublerProfile(card) {
   let tokenAdd = null;
   let mill = null;
   let halvesOpponents = false;
+  let playerCounterAdd = null;
   for (const raw of o.split(".")) {
     const s = raw.trim();
     if (!s) continue;
@@ -107,6 +108,12 @@ export function doublerProfile(card) {
         if (scope) {
           if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope, ...(excludeSource && { excludeSource: true }) };
           else if (/that many plus (one|1)/.test(s)) counter = { op: "additive", factor: 1, kind, scope, ...(excludeSource && { excludeSource: true }) };
+          // RECIPIENT-TYPE UNION (Winding Constrictor — "…put on an ARTIFACT OR CREATURE you control"): the
+          // replacement applies ONLY to counters landing on those types. Stamped so applyCounterDoubling
+          // type-gates via the recipient permanent (before this, the profile applied to EVERY permanent you
+          // control — a live over-apply on lands/planeswalkers). Single-noun generic recipients stay untyped
+          // (Doubling Season's "a permanent" is genuinely universal).
+          if (counter && /\bon an artifact or creature you control\b/.test(s)) counter.recipientTypes = ["Artifact", "Creature"];
         }
       }
     }
@@ -133,9 +140,17 @@ export function doublerProfile(card) {
     if (/^if an opponent would mill one or more cards, they mill twice that many cards instead$/.test(s)) {
       mill = { factor: 2, scope: "opponent" };
     }
+    // ── PLAYER-COUNTER ADDITIVE (Winding Constrictor clause 2, CR 122.6 counters a PLAYER gets — energy /
+    // experience / poison / rad): "If you would get one or more counters, you get that many plus one of
+    // each of those kinds of counters instead." A fixed +1 per counter-kind-event on the profile OWNER's
+    // own gets ("you"), applied at the four player-counter adder chokepoints (gameState) via
+    // playerCounterAdditive. Anchored to the exact printed template.
+    if (/^if you would get one or more counters, you get that many plus one of each of those kinds of counters instead$/.test(s)) {
+      playerCounterAdd = { additive: 1 };
+    }
   }
-  if (!counter && !token && !tokenAdd && !mill && !halvesOpponents) return null;
-  return { counter, token, tokenAdd, mill, halvesOpponents };
+  if (!counter && !token && !tokenAdd && !mill && !halvesOpponents && !playerCounterAdd) return null;
+  return { counter, token, tokenAdd, mill, halvesOpponents, playerCounterAdd };
 }
 
 /**
@@ -190,6 +205,9 @@ export function isModeledDoublerSentence(s) {
   if (/if you would create one or more treasure tokens?,? instead create those tokens plus an additional treasure token/.test(s)) return true;
   // MILL-DOUBLER (Bruvac, SHELF M2) — the exact opponent-mill doubling the runtime applies (millMultiplier).
   if (/^if an opponent would mill one or more cards, they mill twice that many cards instead\.?$/.test(s)) return true;
+  // PLAYER-COUNTER ADDITIVE (Winding Constrictor clause 2) — the exact owner-scoped "+1 of each kind you
+  // get" the runtime applies (playerCounterAdditive at the four gameState adder chokepoints).
+  if (/^if you would get one or more counters, you get that many plus one of each of those kinds of counters instead\.?$/.test(s)) return true;
   return false;
 }
 
@@ -228,6 +246,34 @@ function counterDoublerApplies(d, ownerId, recipientId) {
   return d.scope === "global" || ownerId === recipientId;
 }
 
+// The recipient permanent's PRINTED type line carries one of `types` (word-bounded). A local battlefield
+// scan — this module is a LEAF gameState imports, so it cannot import findPermanent (cycle). Printed-line
+// read matches doublerProfile's own convention (the parse is printed-text too).
+function recipientTypeMatches(state, permId, types) {
+  for (const pid of Object.keys(state?.players || {})) {
+    const perm = (state.players[pid].battlefield || []).find((p) => p.id === permId);
+    if (perm) {
+      const t = String(perm.card?.type || perm.card?.type_line || "");
+      return types.some((ty) => new RegExp(`\\b${ty}\\b`).test(t));
+    }
+  }
+  return false;
+}
+
+/**
+ * PLAYER-COUNTER ADDITIVE (Winding Constrictor clause 2): the fixed bonus added when `playerId` GETS one or
+ * more counters of a kind (energy/experience/poison/rad — CR 122.6). Summed over the player's OWN
+ * battlefield profiles ("If YOU would get…" — owner-scoped only). Applied once per kind-event at the four
+ * gameState adder chokepoints. 0 on an effect-free board.
+ */
+export function playerCounterAdditive(state, playerId) {
+  let add = 0;
+  for (const { ownerId, profile } of allDoublers(state)) {
+    if (profile.playerCounterAdd && ownerId === playerId) add += profile.playerCounterAdd.additive;
+  }
+  return add;
+}
+
 /**
  * The final counter amount put on `recipientControllerId`'s permanent after all doublers, given a base amount
  * and the counter TYPE being added (e.g. "+1/+1", "loyalty", "rad"). CR 616.1e greedy-max ordering: additives
@@ -253,7 +299,13 @@ export function applyCounterDoubling(state, recipientControllerId, counterType, 
     // (an under-exclusion would be an over-fire — but the runtime add-counter path always threads the recipient
     // permanent id, so this is exact in practice, and the classifier's honesty rests on that path).
     const selfExcluded = c?.excludeSource && recipientPermId != null && permId != null && recipientPermId === permId;
-    if (c && !selfExcluded && (c.kind !== "+1/+1" || counterType === "+1/+1") && counterDoublerApplies(c, ownerId, recipientControllerId)) {
+    // RECIPIENT-TYPE gate (Winding Constrictor — "an artifact or creature you control"): a typed profile
+    // applies only when the RECIPIENT permanent's printed type line carries one of the types. An unknown
+    // recipient (recipientPermId null — no legacy caller reaches a typed profile today) skips the profile
+    // (FN-safe under-apply, never an over-fire on a land/planeswalker counter).
+    const typeGated = c?.recipientTypes
+      && !(recipientPermId != null && recipientTypeMatches(state, recipientPermId, c.recipientTypes));
+    if (c && !selfExcluded && !typeGated && (c.kind !== "+1/+1" || counterType === "+1/+1") && counterDoublerApplies(c, ownerId, recipientControllerId)) {
       if (c.op === "additive") additive += c.factor;
       else multiplier *= c.factor;
     }

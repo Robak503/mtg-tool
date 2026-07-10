@@ -58,7 +58,9 @@ describe("doubler full-card coverage — honest flips to native", () => {
 
 describe("doubler full-card coverage — CREED FN-safe non-flips (body-only)", () => {
   it("does NOT flip a doubler whose OTHER text isn't modeled", () => {
-    expect(classifyCard(card("windingConstrictor"))).toBe("body-only"); // 2nd clause = player-counter doubling (unmodeled)
+    // (Winding Constrictor's 2nd clause — the player-counter additive — is now MODELED, so it flips
+    // native-static; see windingConstrictor.test.js. The still-parked examples below hold the guard.)
+    expect(classifyCard(card("windingConstrictor"))).toBe("native-static");
     expect(classifyCard(card("highScore"))).toBe("body-only");          // end-step intervening-if draw not covered
     expect(classifyCard(card("mondrak"))).toBe("body-only");            // activated indestructible-counter ability
     expect(classifyCard(card("halvingSeason"))).toBe("body-only");      // token-HALVE not modeled (tokenMultiplier has no halve)
