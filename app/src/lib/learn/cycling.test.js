@@ -77,3 +77,30 @@ describe("KW-CYCLING — from-hand activation", () => {
     expect(filterActions(legalActionsForPlayer(cyclingState({ hand: [pure] }), "user"), "cycle")).toHaveLength(0);
   });
 });
+
+// ── LIFE-COST CYCLING (Street Wraith — "Cycling—Pay 2 life.", SHELF S7) ──
+describe("KW-CYCLING — life-cost form (Street Wraith)", () => {
+  const WRAITH = { id: "sw1", name: "Street Wraith", type: "Creature — Wraith", power: 3, toughness: 4,
+    oracle: "Swampwalk\nCycling—Pay 2 life. (Pay 2 life, Discard this card: Draw a card.)", mana: "{3}{B}{B}" };
+  const at = (life) => {
+    const s = cyclingState({ hand: [{ ...WRAITH }] });
+    return { ...s, players: { ...s.players, user: { ...s.players.user, life } } };
+  };
+
+  it("offers the cycle with lifeCost 2 and NO mana requirement; pays 2 life + draws on resolve", () => {
+    let state = at(40);
+    const cycle = filterActions(legalActionsForPlayer(state, "user"), "cycle")[0];
+    expect(cycle).toMatchObject({ kind: "cycle", cardId: "sw1", lifeCost: 2 });
+    state = dispatchAction(state, cycle);
+    expect(state.players.user.life).toBe(38);                                   // paid via loseLife (CR 118.8)
+    expect(state.players.user.battlefield.every(p => !p.tapped)).toBe(true);    // no mana touched
+    expect(state.players.user.graveyard.some(c => c.id === "sw1")).toBe(true);  // discarded
+    state = resolveTopOfStack(state);
+    expect(state.players.user.hand).toHaveLength(1);                            // drew one
+  });
+
+  it("NOT offered at life ≤ the cost (never a suicide-cycle; safe under-offer at exactly 2)", () => {
+    expect(filterActions(legalActionsForPlayer(at(2), "user"), "cycle")).toHaveLength(0);
+    expect(filterActions(legalActionsForPlayer(at(1), "user"), "cycle")).toHaveLength(0);
+  });
+});

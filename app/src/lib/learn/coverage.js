@@ -189,6 +189,7 @@ export function isKeywordOnly(oracle, name) {
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
     isEnforcedEvasionClause(c) ||
     reCyclingCost.test(c) ||
+    reCyclingLifeCost.test(c) ||
     reWardLifeCost.test(c) ||
     reMorphCost.test(c) ||
     reSneakCost.test(c) ||
@@ -298,6 +299,10 @@ const rePartnerBare = /^partner$/;
 // immediately after "cycling" → no match → body-only. Typecycling (landcycling/plainscycling/…) never
 // starts with "cycling " and a cycle-trigger leaves residue, so both already stay body-only.
 const reCyclingCost = /^cycling (?:\{[^}]+\})+$/;
+// LIFE-COST CYCLING (Street Wraith — "Cycling—Pay 2 life.", SHELF S7): credited ONLY because the
+// runtime models it end-to-end (parseCyclingLifeCost → the cycle action's lifeCost → applyCycle pays
+// via loseLife, CR 118.8). Mirrors the em-dash Ward—pay-life convention below.
+const reCyclingLifeCost = /^cycling\s*[—–-]\s*pay \d+ life$/;
 
 // KW-WARD-COST (CR 702.21) — the generic COVERED_KEYWORDS "ward" match above only fires on "ward {cost}" /
 // "ward N" (a SPACE after "ward"), so the em-dash "Ward—<cost>" forms miss it and read body-only. Credit ONLY

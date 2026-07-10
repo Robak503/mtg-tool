@@ -297,6 +297,19 @@ export function parseCyclingCost(card) {
 }
 
 /**
+ * LIFE-COST CYCLING (Street Wraith — "Cycling—Pay 2 life.", SHELF S7): the cycling cost is a LIFE
+ * payment instead of mana. Returns the integer life cost, or null. Same cycle-trigger gate as the
+ * mana form (an unmodeled cycle trigger parks the whole card). Paying life IS losing life
+ * (CR 118.8), so the dispatcher routes it through loseLife — life-loss watchers fire, as printed.
+ */
+export function parseCyclingLifeCost(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  if (/\b(?:when|whenever)\b[^.]*\bcycle/i.test(oracle)) return null;
+  const m = oracle.match(/(?:^|\n)\s*cycling\s*[—–-]\s*pay (\d+) life\b/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/**
  * PLOT (CR 702.171) — "Plot {cost}" is a special action: any time you could cast a sorcery you may pay
  * the plot cost and exile the card face-up from your hand ("plotted"); on a LATER turn you may cast it
  * from exile WITHOUT paying its mana cost (CR 702.171b). Returns the plot mana-cost STRING the caller

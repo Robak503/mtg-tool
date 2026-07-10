@@ -51,7 +51,7 @@ function parseCastProgram(card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parsePlotCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -1866,11 +1866,20 @@ function actionsCycleFromHand(state, playerId) {
   const actions = [];
   for (const card of player.hand) {
     const costStr = parseCyclingCost(card);
-    if (!costStr) continue;
-    const cost = parseManaCost(costStr);
-    if (cost.hasX) continue; // an X cycling cost would need the X-choice expansion (none in the corpus)
-    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
-    actions.push({ kind: "cycle", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
+    if (costStr) {
+      const cost = parseManaCost(costStr);
+      if (cost.hasX) continue; // an X cycling cost would need the X-choice expansion (none in the corpus)
+      if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+      actions.push({ kind: "cycle", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
+      continue;
+    }
+    // LIFE-COST CYCLING (Street Wraith, SHELF S7): offered only while the player's life STRICTLY exceeds
+    // the cost — CR 118.4 allows paying down to 0, but a suicide-cycle is never the AI's line and
+    // under-offering at exactly-N life is a safe FN. Zero mana; the dispatcher pays via loseLife.
+    const lifeCost = parseCyclingLifeCost(card);
+    if (lifeCost != null && player.life > lifeCost) {
+      actions.push({ kind: "cycle", playerId, cardId: card.id, name: card.name, cost: parseManaCost("{0}"), lifeCost, cmc: 0 });
+    }
   }
   return actions;
 }

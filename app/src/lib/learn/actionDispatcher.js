@@ -869,10 +869,19 @@ function applyCycle(state, action) {
   const card = player.hand.find(c => c.id === action.cardId);
   if (!card) throw new DispatcherError(`Cycling card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
 
-  // Pay the cycling MANA cost (CR 602.2b — before the ability is on the stack).
-  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
-  if (!plan) throw new DispatcherError("Cannot pay the cycling cost", "MANA_SHORT");
-  let working = commitPaymentPlan(state, action.playerId, plan);
+  // Pay the cycling cost (CR 602.2b — before the ability is on the stack). LIFE-COST CYCLING
+  // (Street Wraith, SHELF S7): a life cost routes through loseLife — paying life IS losing life
+  // (CR 118.8), so life-loss watchers (Mindcrank) fire exactly as printed. Never payable below the
+  // cost (CR 118.4; legalChoices additionally never offers it at ≤ the cost).
+  let working;
+  if (action.lifeCost != null) {
+    if ((player.life ?? 0) < action.lifeCost) throw new DispatcherError("Cannot pay the cycling life cost", "LIFE_SHORT");
+    working = loseLife(state, { playerId: action.playerId, amount: action.lifeCost });
+  } else {
+    const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+    if (!plan) throw new DispatcherError("Cannot pay the cycling cost", "MANA_SHORT");
+    working = commitPaymentPlan(state, action.playerId, plan);
+  }
 
   // Pay the DISCARD part of the cost — the card itself, hand → graveyard.
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
