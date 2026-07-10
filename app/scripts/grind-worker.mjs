@@ -56,7 +56,7 @@ for (let i = cfg.laneIndex; cfg.maxGames == null || played < cfg.maxGames; i += 
   const record = {
     header: {
       seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: cfg.engineVersion ?? null,
-      result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode: cfg.mode,
+      result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode: cfg.mode, mulliganPolicyV: game?.mulliganPolicyV ?? null,
     },
     rows: game?.decisionTrajectory?.rows ?? [],
   };

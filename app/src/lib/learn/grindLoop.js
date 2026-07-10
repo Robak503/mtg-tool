@@ -95,7 +95,7 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
     // wins + participation per deck — winnerSeat alone can't say which deck won.
     const seatDecks = pod.map((d, si) => ({ seat: seatNames[si] ?? `seat${si}`, id: d?.id ?? null, name: d?.name ?? null }));
     const record = {
-      header: { seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: version, result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode },
+      header: { seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: version, result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode, mulliganPolicyV: game?.mulliganPolicyV ?? null },
       rows: game?.decisionTrajectory?.rows ?? [],
     };
     const appended = await appendGame(record, { capBytes });

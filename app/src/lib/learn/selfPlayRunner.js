@@ -28,6 +28,7 @@
 
 import { createLearnSession, advanceUntilDecision, isPlayerDead, hasWonGame } from "./learnSession.js";
 import { gameSeedAt, mulberry32 } from "./seedMath.js";
+import { makeMulliganPolicy, PLAYBOOK_MULLIGAN_PARAMS } from "./mulliganPolicy.js";
 import { featurizeState } from "./gameFeatures.js";
 import { gameStatus } from "./gameApi.js";
 import { decideMulliganForAI } from "./opponentAI.js";
@@ -230,6 +231,13 @@ export function runSelfPlayGame({
         decide: ({ state, legalActions, seat, pilot }) => {
           const p = pilots?.[seat];
           if (typeof p?.decideMulligan === "function") return p.decideMulligan({ state, legalActions, seat, pilot });
+          // SIM-INTEGRITY Phase 2: a seat whose persona names a PLAYBOOK mulligans like that
+          // playbook (makeMulliganPolicy — land window, castable floor, ship floor), replacing
+          // the poison filter for every persona-driven grind seat. Playbook-less seats (the
+          // anchor probe, plain batches) keep the AI-F9 filter — byte-identical.
+          if (defaultAIMulligan && p?.playbook && PLAYBOOK_MULLIGAN_PARAMS[p.playbook]) {
+            return makeMulliganPolicy(p.playbook)({ state, legalActions, seat });
+          }
           if (defaultAIMulligan) return decideMulliganForAI({ state, legalActions, seat }); // AI-F9 default heuristic
           return { kind: "mulligan-keep" }; // no mull pilot, opt off → keep the 7
         },
@@ -437,6 +445,10 @@ export function runSelfPlayGame({
     // its own source of truth — so training/analysis can account for the position edge. "user"
     // on the default path; whatever startSeat requested otherwise.
     onThePlay: out.state?.startingPlayer ?? null,
+    // Mulligan-policy era stamp (SIM-INTEGRITY Phase 2): 2 = playbook policies + ranked
+    // bottom-picker active for this game's mulligan phase; 0 = no mulligan phase ran.
+    // NEVER pool mulligan data across policy versions (the re-anchor warning in the order).
+    mulliganPolicyV: (hasAnyMulliganPilot || defaultAIMulligan) ? 2 : 0,
   };
 
   // Per-DECISION (policy) trajectory (opt-in, independent of recordTrajectory). Attach the

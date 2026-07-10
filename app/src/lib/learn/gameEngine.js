@@ -63,6 +63,7 @@ import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle)
+import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
 import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./triggerRouting.js";
@@ -1024,7 +1025,7 @@ const STARTING_HAND_SIZE = 7;
  * over-mulligans on a garbage/learned pilot). A throw is swallowed → KEEP. Deterministic
  * given a seed (the redraw reshuffles via the threaded rngSeed).
  *
- * BOTTOM-N v1 (auto): on keep after N ships we bottom the LAST N cards drawn (the tail of
+ * BOTTOM-N v2 (SIM-INTEGRITY Phase 2): on keep after N ships we bottom the N WORST cards by
  * the hand). This is a legal, deterministic London bottom (CR 103.5 lets the player choose
  * the order/which cards — "any order"). TODO(mulligan-bottom-picker): make the bottom-N an
  * INTERACTIVE decide point (a human picker / a value-heuristic pilot choice) — a future
@@ -1076,7 +1077,11 @@ function runMulliganPhaseForSeat(state, seat, { decideMulligan, pilot = null, re
       // see TODO(mulligan-bottom-picker) above. Zero ships → no bottoming (a kept first 7).
       if (ships > 0) {
         const hand = next.players[seat]?.hand || [];
-        const bottomIds = hand.slice(Math.max(0, hand.length - ships)).map((c) => c.id);
+        // BOTTOM-PICKER (SIM-INTEGRITY Phase 2 — closes the TODO): bottom the N WORST cards by
+        // the mulligan evaluator's rank (excess lands beyond the playbook window first, then
+        // uncastable/highest-MV spells) instead of the blind tail — a smart ship-to-6 no longer
+        // bottoms semi-randomly. Deterministic; same log shape; deck-size invariant unchanged.
+        const bottomIds = rankBottomCandidates(hand, ships, pilot?.playbook ?? null);
         next = putCardsOnBottom(next, { playerId: seat, cardIds: bottomIds });
         next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: ships, bottomed: bottomIds.length });
       } else {
@@ -1092,7 +1097,7 @@ function runMulliganPhaseForSeat(state, seat, { decideMulligan, pilot = null, re
     // further mulligan is allowed. Treat a ship request at the floor as a forced KEEP.
     if (ships >= STARTING_HAND_SIZE) {
       const hand = next.players[seat]?.hand || [];
-      const bottomIds = hand.slice(Math.max(0, hand.length - ships)).map((c) => c.id);
+      const bottomIds = rankBottomCandidates(hand, ships, pilot?.playbook ?? null);
       next = putCardsOnBottom(next, { playerId: seat, cardIds: bottomIds });
       next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: ships, bottomed: bottomIds.length, forcedFloor: true });
       next = { ...next, players: { ...next.players, [seat]: { ...next.players[seat], mulligans: ships, hasMulliganed: true } } };
