@@ -1225,6 +1225,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     const op = /greater|more/.test(mvCastM[3]) ? "gte" : "lte";
     return { event: "cast", scope: "castWatcher", whose, spellFilter: { kind: "manaValue", op, value: parseInt(mvCastM[2], 10) } };
   }
+  // CAST-FROM-NONHAND (Vega, the Watcher / Kellan's cluster A — "you cast a spell from anywhere other than
+  // your hand", SHELF K1): the same cast event with a SOURCE-ZONE gate — checkCastTriggers threads the cast
+  // action's fromZone and drops the descriptor when the cast came from hand (or the zone is unknown — an
+  // unthreaded legacy path must under-fire, never over-fire). Anchored: any other zone qualifier is unmodeled.
+  if (/^you cast a spell from anywhere other than your hand$/.test(c)) {
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "any", castNotFromHand: true };
+  }
   const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z,\- ]*?)\s*spell$/);
   if (castM) {
     const whose = /you/.test(castM[1]) ? "you" : /opponent/.test(castM[1]) ? "opponent" : "any";
@@ -2067,6 +2074,7 @@ export function detectTriggers(card) {
         scope: cls.scope,
         whose: cls.whose,
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
+        castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF + SUBTYPE/outlaw BATCH combat-damage (e.g. "Dinosaur" for Pantlaza; outlaw list for Olivia)
@@ -3783,7 +3791,7 @@ function prowessDescriptor() {
  * fabricated). Context carries the cast spell's name + type for future referential
  * effects. Pure — appends to pendingTriggers and returns new state.
  */
-export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null }) {
+export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null, castFromZone = null }) {
   if (!spellCard) return state;
   // `castingPlayerId` carries the CASTER's seat into every cast-trigger's context (spread into the resolver ctx by
   // runEffectProgram). Load-bearing for OPPONENT-PAYS-TO-DENY (taxed-payment) — the pay-decision belongs to the
@@ -3797,6 +3805,9 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
       for (const d of descriptors) {
         if (d.whose === "you" && casterId !== watcher.controller) continue;
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
+        // CAST-FROM-NONHAND (Vega, SHELF K1): fires ONLY when the cast's source zone is known and isn't
+        // the hand. An unthreaded caller (castFromZone undefined) under-fires — never over-fires (CREED).
+        if (d.castNotFromHand && (!castFromZone || castFromZone === "hand")) continue;
         // CHOSEN-TYPE cast filter (Door of Destinies) — the cast spell must carry the WATCHER's stored
         // chosenType (CR 614.12). spellMatchesFilter has no watcher, so it's resolved here via
         // permHasChosenType (subtype OR changeling); an unset chosenType yields false (a SAFE no-op).

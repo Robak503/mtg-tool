@@ -100,3 +100,29 @@ describe("runtime — Mothman's rad fires ONCE per event through the generic pat
     }
   });
 });
+
+// ── CAST-FROM-NONHAND (Vega, the Watcher — Kellan cluster A infra, SHELF K1) ──
+describe("CAST-FROM-NONHAND — Vega, the Watcher", () => {
+  const VEGA = { name: "Vega, the Watcher", type: "Legendary Creature — Bird Spirit", power: 1, toughness: 3,
+    oracle: "Flying\nWhenever you cast a spell from anywhere other than your hand, draw a card." };
+
+  it("detects the zone-gated cast descriptor and classifies native-trigger", () => {
+    const d = detectTriggers(VEGA).find((x) => x.event === "cast");
+    expect(d).toMatchObject({ event: "cast", whose: "you", castNotFromHand: true });
+    expect(classifyCard(VEGA)).toBe("native-trigger");
+  });
+
+  it("fires on a non-hand cast, NOT on a hand cast, NOT on an unknown zone (under-fire safe)", async () => {
+    const { checkCastTriggers } = await import("./triggers.js");
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const vega = createPermanent({ id: "vega", card: VEGA, controller: "user" });
+    const s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [vega] } } };
+    const spell = { name: "Bolt", type: "Instant", oracle: "" };
+    const fire = (castFromZone) => (checkCastTriggers(s, { spellCard: spell, casterId: "user", castFromZone }).pendingTriggers || []).length;
+    expect(fire("graveyard")).toBe(1); // flashback-class
+    expect(fire("exile")).toBe(1);     // plot/impulse-class
+    expect(fire("command")).toBe(1);   // commander cast
+    expect(fire("hand")).toBe(0);
+    expect(fire(null)).toBe(0);        // unthreaded legacy path → under-fire, never over-fire
+  });
+});
