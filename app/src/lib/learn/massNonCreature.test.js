@@ -81,11 +81,38 @@ describe("MASS-NC — the AI holds a symmetric non-creature wipe (can't weigh nu
 
 describe("non-chosen-targetType helper (drift-trap fix)", () => {
   it("isNonChosenTargetType is the one source of truth for every mass scope", () => {
-    for (const tt of ["eachOpponent", "eachCreature", "eachCreatureAndPlayer", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment"]) {
+    for (const tt of ["eachOpponent", "eachCreature", "eachCreatureAndPlayer", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment", "eachOpponentCreature"]) {
       expect(isNonChosenTargetType(tt)).toBe(true);
     }
     expect(isNonChosenTargetType("creature")).toBe(false);
     expect(isNonChosenTargetType(null)).toBe(false);
+  });
+
+  it("EMITTER SCAN (R1.2): every `targetType: \"each…\"` the engine emits is registered in NON_CHOSEN_TARGET_TYPES", async () => {
+    // The old guard iterated a hand-copied list — it could never catch an OMISSION from the
+    // central set (exactly how eachOpponentCreature shipped emitted-but-unregistered and mass
+    // bounce was silently dropped at the trigger flush). Scan the learn tree's SOURCE for
+    // object-literal mass-targetType emissions; a new emitter that skips the registry fails
+    // here by name.
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const url = await import("node:url");
+    const learnDir = path.dirname(url.fileURLToPath(import.meta.url));
+    const emitted = new Set();
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith(".js") && !e.name.endsWith(".test.js")) {
+          for (const m of fs.readFileSync(p, "utf8").matchAll(/targetType:\s*"(each\w+)"/g)) emitted.add(m[1]);
+        }
+      }
+    };
+    walk(learnDir);
+    expect(emitted.size).toBeGreaterThan(0); // the scan actually found emitters
+    for (const tt of emitted) {
+      expect(isNonChosenTargetType(tt), `emitted mass targetType "${tt}" is missing from NON_CHOSEN_TARGET_TYPES`).toBe(true);
+    }
   });
   it("REGRESSION: 'deals N to each creature and each player' is now CASTABLE (3 of 5 lists used to miss it)", () => {
     const inferno = { id: "inf", name: "Inferno", type: "Sorcery", mana: "{5}{R}{R}", oracle: "Inferno deals 6 damage to each creature and each player." };

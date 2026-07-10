@@ -1379,7 +1379,9 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
     // a direct-damage spell) so the board-visible "a creature just died" event is never silent. `cause`
     // defaults to "sba" (the generic SBA path); combatResolution.js passes "combat" explicitly so its
     // own (now-removed) duplicate emission collapses into this one without changing the log shape.
-    next = logEvent(next, { kind: "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause });
+    // EXILE-INSTEAD gets its own kind (R1.1): an exiled creature did NOT die (CR 700.4) — labeling it
+    // "creature-dies" over-counted deaths in every log consumer (gameAnalysis combat trades included).
+    next = logEvent(next, { kind: d.exileInstead ? "creature-exiled-instead" : "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause });
   }
   for (const id of shieldSaved) next = consumeShieldCounter(next, id); // CR 122.1c — remove one shield, survive (no tap)
   for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.15a — clear damage + tap, survive

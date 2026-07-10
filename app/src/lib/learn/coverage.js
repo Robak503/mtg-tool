@@ -423,6 +423,14 @@ export function spellIsNative(card) {
     // target). Grapeshot (deal-damage → any target) + Tendrils of Agony (lose-life → target player) now flip;
     // Brain Freeze parks regardless — its targeted-mill body parses LOW (caught by the HIGH gate above).
     if (programNeedsChosenTarget(bodyProgram) && !programTriggerTargetsResolvable(bodyProgram)) return false;
+    // Same combat-referent guard as the plain-spell and cascade paths (R1.4, audit 2026-07-09): a storm
+    // BODY carrying a damagedPlayer/defendingPlayer/combatDamageAmount referent has no combat context at
+    // spell resolution — the clause silently no-ops. Without this, the storm branch credited native a body
+    // the plain path correctly parks (verified: the same body without the Storm line returns false).
+    for (const a of programCombatReferentAtoms(bodyProgram)) {
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount") return false;
+      if (a?.who === "defendingPlayer") return false;
+    }
     return true;
   }
   // CASCADE (CR 702.85): an instant/sorcery can carry the "Cascade" KEYWORD ("Cascade (When you cast this spell,

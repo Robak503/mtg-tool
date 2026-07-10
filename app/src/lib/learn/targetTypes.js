@@ -21,6 +21,11 @@ export const NON_CHOSEN_TARGET_TYPES = new Set([
   "eachEnchantment",            // MASS-NC — "destroy all enchantments"
   "eachLand",                   // MASS-NC — "destroy all lands"
   "eachArtifactOrEnchantment",  // MASS-NC — "destroy all artifacts and enchantments"
+  "eachOpponentCreature",       // R1.2 (audit 2026-07-09) — mass bounce over every OPPONENT creature
+  //                               (Scourge-of-Fleets class, zones.js). Was emitted but missing here, so
+  //                               "needs a chosen target?" checks treated it as targeted and the live
+  //                               trigger flush silently DROPPED the effect while the classifier credited
+  //                               native — the documented drift trap made real.
   "defendingPlayer",            // ATTACKS-DAMAGE — the attacked player (ctx.defenderId), NOT a chosen target
   "damagedPlayer",              // CDMG-DAMAGE — the just-damaged player (ctx.damagedPlayerId), NOT a chosen target
 ]);

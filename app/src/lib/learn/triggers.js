@@ -2748,6 +2748,13 @@ export function checkDiesTriggers(state, dead) {
   let fired = [];
   for (const d of dead) {
     if (!d?.card) continue;
+    // EXILE-INSTEAD (CR 614 replacement + CR 700.4): a creature exiled instead of being put into a
+    // graveyard never DIED — it fires NO dies-triggers (its own or any watcher's). The per-turn death
+    // tally already excluded these (recordCreatureDeaths); the trigger fire loop must too, or every
+    // Lava-Coil-class removal feeds phantom Blood-Artist drains into self-play outcomes (R1.1, audit
+    // 2026-07-09). Leaves-the-battlefield triggers still fired above via checkLeavesTriggers — exile IS
+    // an LTB event, it just isn't a death.
+    if (d.exileInstead) continue;
     // SELF-LTB (Wave 4): carry the dead creature's former `attachments` ids on the look-back so the
     // equippedCreature scope (Sword of the Realms) can match its watcher (CR 603.10a look-back).
     // DIES-TRIGGER-RESOURCE-PAYOFFS (Wave 3b): also carry the dying creature's last-known POWER (CR 603.6e),

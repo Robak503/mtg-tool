@@ -916,11 +916,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       } else if (addCost.kind === "payLife") {
         // No choice — just deduct N at cast. CR 119.4: you can't pay life you don't have (paying to exactly
         // 0 is legal, an SBA loss follows), so only a strictly-unaffordable cost is uncastable.
+        // R1.5 (audit 2026-07-09): a card admitted past the emission gate ONLY via its altSpec is
+        // mana-unaffordable at the printed cost — this branch emits PRINTED-cost casts, so re-check
+        // affordability (the sacrifice branch already does per-victim). Without it an unpayable offer
+        // reaches the dispatcher and throws MANA_SHORT if picked; the twin post-pass never twins
+        // cost-carrying actions, so the alt payment would never be offered either.
+        if (!affordable) continue;
         if ((player.life || 0) < addCost.amount) continue;
         for (const ch of combos) emit(ch, { payLifeCost: addCost.amount, payLifeName: `pay ${addCost.amount} life` });
       } else if (addCost.kind === "discard") {
         // N=1: the player picks which hand card to discard. The spell itself is being cast (on its way to
         // the stack), so it's NOT a legal discard candidate — exclude it. No legal card → uncastable.
+        if (!affordable) continue; // R1.5 — same printed-cost re-check as payLife above
         const discardable = player.hand.filter(h => h.id !== card.id);
         if (discardable.length < addCost.count) continue;
         for (const dc of discardable) for (const ch of combos) {

@@ -704,7 +704,9 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       }
       if (met !== true) {
         // CR 603.4 — condition not met at the trigger event → the ability never goes on the stack.
-        return null;
+        // Sentinel, not bare null (R1.3): bare null logs as `trigger-removed-no-target` and pollutes
+        // the breakage queue that ranks the corpus roadmap; this is a CORRECT skip (same as ~729).
+        return TRIGGER_CONDITION_NOT_MET;
       }
       // Met: route the win-game atom natively, binding the intervening-if onto it for the CR 603.4
       // resolution re-check (applyWinGame re-evaluates; if a Treasure was sac'd in response, no win).
