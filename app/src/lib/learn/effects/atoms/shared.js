@@ -608,7 +608,17 @@ function devotionPips(card, color) {
 // board count)" round correctly too — a no-op (passes the raw value) when atom.halve is unset, so every
 // existing caller is byte-identical. effectiveAmount already halves internally; halving its (already-halved)
 // output would be wrong, so the X/printed branch is NOT re-wrapped here — it's the leaf that owns the halve.
-export const resolveScaledAmount = (state, atom, ctx) =>
-  atom.countContext ? halveAmount(ctx[atom.countContext] || 0, atom.halve)
+export const resolveScaledAmount = (state, atom, ctx) => {
+  // METALCRAFT-STYLE AMOUNT UPGRADE (Galvanic Blast, SHELF S7 — CR 614: "deals 4 damage instead if you
+  // control three or more artifacts"): a deterministic board read at resolution replaces the printed amount
+  // when the threshold holds. Narrow by construction — only the artifactsYouControl kind exists; the parser
+  // emits it only from the exact two-sentence collapse, so no other amount path changes.
+  if (atom.amountUpgrade?.kind === "artifactsYouControl") {
+    const n = (state.players?.[ctx.controller]?.battlefield || [])
+      .filter((p) => /\bArtifact\b/i.test(String(p.card?.type || p.card?.type_line || ""))).length;
+    if (n >= (atom.amountUpgrade.atLeast ?? Infinity)) return atom.amountUpgrade.amount;
+  }
+  return atom.countContext ? halveAmount(ctx[atom.countContext] || 0, atom.halve)
     : atom.amountCount ? halveAmount(countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1), atom.halve)
       : effectiveAmount(atom, ctx);
+};

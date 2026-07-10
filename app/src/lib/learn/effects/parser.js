@@ -2729,6 +2729,22 @@ function matchCounterIfLegendaryThenFight(oracle) {
   return { atoms: [{ ...fp, fighterCounter: { counterType: "+1/+1", amount: 1, onlyIfLegendary: true } }] };
 }
 
+// METALCRAFT-DAMAGE (Galvanic Blast, SHELF S7) — "<name> deals 2 damage to any target. Metalcraft — <name>
+// deals 4 damage instead if you control three or more artifacts." The second sentence REWRITES the amount
+// (CR 614 "instead"), so the splitter would leave it as residue → low. Collapsed into ONE deal-damage atom
+// with amountUpgrade — resolveScaledAmount reads the artifact count at resolution. Self-names normalized
+// to a generic subject; any other wording (a different base/upgraded pair, a different threshold or target)
+// fails the exact anchor → low → Arbiter (CREED).
+function matchMetalcraftDamage(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^(.+?) deals (\d+) damage to any target\. metalcraft — \1 deals (\d+) damage instead if you control three or more artifacts$/);
+  if (!m) return null;
+  return { atoms: [{
+    op: "deal-damage", amount: parseInt(m[2], 10), targetType: "any",
+    amountUpgrade: { kind: "artifactsYouControl", atLeast: 3, amount: parseInt(m[3], 10) },
+  }] };
+}
+
 function matchCounterThenGrant(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^put (a|two|three) \+1\/\+1 counters? on target creature( you control)?\. (?:then )?it gains (.+) until end of turn$/);
@@ -2907,6 +2923,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const clf = matchCounterIfLegendaryThenFight(oracle);
   if (clf && clf.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: clf.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== METALCRAFT-DAMAGE (Galvanic Blast) ===== the base burn + the "deals N instead if you control three
+  // or more artifacts" rewrite → ONE deal-damage atom with amountUpgrade (see matchMetalcraftDamage).
+  const mcd = matchMetalcraftDamage(oracle);
+  if (mcd && mcd.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: mcd.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up

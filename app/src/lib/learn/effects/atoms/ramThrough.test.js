@@ -79,3 +79,27 @@ describe("Ram Through — resolver", () => {
     expect(next.players.ai.life).toBe(lifeBefore - 4);
   });
 });
+
+// ── METALCRAFT-DAMAGE (Galvanic Blast, SHELF S7 — same collapse-matcher family) ──
+describe("Galvanic Blast — metalcraft amount upgrade", () => {
+  const GB = { name: "Galvanic Blast", type: "Instant", oracle: "Galvanic Blast deals 2 damage to any target.\nMetalcraft — Galvanic Blast deals 4 damage instead if you control three or more artifacts." };
+
+  it("collapses to one deal-damage atom with amountUpgrade, HIGH", () => {
+    const p = parseEffectProgram(GB);
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toEqual([{ op: "deal-damage", amount: 2, targetType: "any", amountUpgrade: { kind: "artifactsYouControl", atLeast: 3, amount: 4 } }]);
+  });
+
+  it("resolver: 2 damage under 3 artifacts, 4 damage at 3+ (read at resolution)", () => {
+    const mk = (nArts) => {
+      const s0 = createGameState({ userDeck: [], aiDeck: [] });
+      const bf = Array.from({ length: nArts }, (_, i) => createPermanent({ id: "a" + i, card: { name: "Rock" + i, type: "Artifact", oracle: "" }, controller: "user" }));
+      const dummy = createPermanent({ id: "tgt", card: { name: "Ox", type: "Creature — Ox", power: 4, toughness: 5 }, controller: "ai" });
+      return { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: bf }, ai: { ...s0.players.ai, battlefield: [dummy] } } };
+    };
+    const atom = { op: "deal-damage", amount: 2, targetType: "any", amountUpgrade: { kind: "artifactsYouControl", atLeast: 3, amount: 4 } };
+    const hit = (s) => resolveAtom(s, atom, { controller: "user", targets: [{ type: "creature", id: "tgt" }] });
+    expect(findPermanent(hit(mk(2)), "tgt").permanent.damageMarked).toBe(2); // metalcraft OFF
+    expect(findPermanent(hit(mk(3)), "tgt").permanent.damageMarked).toBe(4); // metalcraft ON
+  });
+});

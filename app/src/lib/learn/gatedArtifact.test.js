@@ -66,14 +66,14 @@ describe("GATED-ARTIFACT — Metalcraft label strip (coverage flips)", () => {
   it("Metalcraft P/T prefix form flips native", () => {
     expect(classifyCard({ name: "Spiraling Duelist", type: "Creature — Human Barbarian", power: 2, toughness: 2, oracle: "Metalcraft — This creature has double strike as long as you control three or more artifacts." })).toMatch(/^native/);
   });
-  it("FP-GUARD: an INSTANT carrying the Metalcraft label is NOT flipped native by the strip (Galvanic Blast)", () => {
-    // The Metalcraft strip lives in the STATIC (permanent) parser. An instant/sorcery returns at the
-    // spell branch BEFORE the static classifiers, so the strip can never credit it native-static. Galvanic
-    // Blast's metalcraft "deals 4 instead" is an unmodeled conditional → the spell routes to the Arbiter.
+  it("an INSTANT with the Metalcraft label never flips native-STATIC; Galvanic Blast is native-SPELL now (SHELF S7 — the amount upgrade is modeled)", () => {
+    // The Metalcraft strip lives in the STATIC (permanent) parser — an instant can never be credited
+    // native-static by it. Galvanic Blast's 'deals 4 instead' is now a MODELED amountUpgrade (the
+    // metalcraft-damage collapse), so the spell classifies native-spell on its own merits.
     const tier = classifyCard({ name: "Galvanic Blast", type: "Instant", oracle: "Galvanic Blast deals 2 damage to any target.\nMetalcraft — Galvanic Blast deals 4 damage instead if you control three or more artifacts." });
     expect(tier).not.toBe("native-static");
     expect(tier).not.toBe("native-body");
-    expect(tier).toBe("arbiter-spell");
+    expect(tier).toBe("native-spell");
   });
 });
 
