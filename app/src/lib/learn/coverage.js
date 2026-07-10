@@ -661,6 +661,11 @@ export function permanentTriggersCovered(card) {
     // branch parses HIGH via matchDrawOrCounterTriggering — proven by allTriggerSentencesModeled). Anchored
     // to DIRECTLY follow the exact counter-gated draw clause (FN-safe).
     .replace(/(draw a card if that creature has a \+1\/\+1 counter on it)\.\s*if it doesn['’]t, put a \+1\/\+1 counter on it\b\.?\s*/gi, "$1. ")
+    // DOUBLE-OR-RESET-COUNTERS (Lily Bowen, SHELF S7) — the same follow-up-arm class as Radgull/Marcus: the
+    // "Otherwise, remove all but one +1/+1 counter from it, then you gain 1 life …" else-arm belongs to the
+    // SAME upkeep trigger's effect (the whole branch parses HIGH via matchDoubleOrResetCounters — proven by
+    // allTriggerSentencesModeled). Anchored to DIRECTLY follow the exact power-gated double clause (FN-safe).
+    .replace(/(counters? on [^.]+ if its power is \d+ or less)\.\s*otherwise, remove all but one \+1\/\+1 counter from it, then you gain 1 life for each \+1\/\+1 counter removed this way\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")

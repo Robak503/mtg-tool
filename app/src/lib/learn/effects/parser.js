@@ -2757,6 +2757,20 @@ function matchRadOrProliferate(oracle) {
   return { atoms: [{ op: "rad", who: "damagedPlayer", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), ifNoRadElseProliferate: true, targetType: null }] };
 }
 
+// UPKEEP DOUBLE-OR-RESET (Lily Bowen, Raging Grandma — SHELF S7) — "double the number of +1/+1 counters on
+// this creature if its power is N or less. Otherwise, remove all but one +1/+1 counter from it, then you
+// gain 1 life for each +1/+1 counter removed this way." (the self-name was normalized to "this creature"
+// upstream by triggers.rewriteSelfNameToThisCreature, whole-clause gated). The if/otherwise pair shatters
+// under the sentence splitter, so it's collapsed into ONE branch atom; the resolver reads the SOURCE's
+// layer-aware power + its live +1/+1 count at resolution (the printed condition is a trailing effect
+// condition, not an intervening-if — CR 608.2 evaluates it on resolution).
+function matchDoubleOrResetCounters(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^double the number of \+1\/\+1 counters on this creature if its power is (\d+) or less\. otherwise, remove all but one \+1\/\+1 counter from it, then you gain 1 life for each \+1\/\+1 counter removed this way$/);
+  if (!m) return null;
+  return { atoms: [{ op: "double-or-reset-counters", powerThreshold: parseInt(m[1], 10), targetType: null }] };
+}
+
 function matchMetalcraftDamage(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^(.+?) deals (\d+) damage to any target\. metalcraft — \1 deals (\d+) damage instead if you control three or more artifacts$/);
@@ -2963,6 +2977,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const dct = matchDrawOrCounterTriggering(oracle);
   if (dct && dct.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dct.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== DOUBLE-OR-RESET-COUNTERS (Lily Bowen, Raging Grandma) ===== the power-gated double / reset-and-gain
+  // branch on the SOURCE's own +1/+1 counters → ONE branch atom (see matchDoubleOrResetCounters). HIGH iff KNOWN.
+  const dor = matchDoubleOrResetCounters(oracle);
+  if (dor && dor.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: dor.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up

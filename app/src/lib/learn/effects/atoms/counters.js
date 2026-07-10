@@ -2,7 +2,7 @@
  * effects/atoms/counters.js — counter atoms (add-counter, proliferate, gain-experience, rad).
  */
 
-import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
 import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
@@ -543,6 +543,54 @@ export function applyAddNamedCounterSelf(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount: atom.amount || 1, targets: [ctx.sourceId] });
 }
 
+/**
+ * DOUBLE-OR-RESET-COUNTERS (Lily Bowen, Raging Grandma — SHELF S7, CR 122): "double the number of +1/+1
+ * counters on this creature if its power is N or less. Otherwise, remove all but one +1/+1 counter from
+ * it, then you gain 1 life for each +1/+1 counter removed this way." A trailing effect CONDITION (not an
+ * intervening-if), so BOTH the power read and the branch pick happen here at resolution:
+ *   - the power gate reads the SOURCE's LAYER-AWARE power (creaturePower — counters + anthems + pumps,
+ *     CR 613), never the printed 0/0;
+ *   - DOUBLE branch: "double the number" = ADD an equal number (CR 122 — doubling is adding), through
+ *     gameState.addCounter so a counter doubler stacks correctly (Doubling Season triples the total, the
+ *     official-ruling behavior). Zero counters double to zero (a clean no-op, logged).
+ *   - RESET branch: remove all but ONE (removeCounter, amount = count−1), then gain 1 life per counter
+ *     actually removed ("removed this way" — the pre-doubler literal count; removal has no doubler).
+ *     With 0 or 1 counters nothing is removed and no life is gained.
+ * Absent source (it left the battlefield before resolution — CR 608.2b) → a logged no-op. An unevaluable
+ * power (a CDA "*" the engine can't size) → the RESET branch is NOT safe to guess either way, so the whole
+ * atom no-ops (logged; never a wrong branch — CREED). The source is always a creature (the clause grammar
+ * says "its power"), so the reset removal needs no lethal-SBA pass (+1/+1 removal only lowers toughness —
+ * run destroyLethalCreatures anyway for the 0-toughness edge? No: Lily keeps ≥1 counter on reset, and a
+ * generic user of this atom keeps one too, so derived toughness stays ≥ printed+1; the SBA runs at the
+ * next state check regardless via the trigger-resolution pipeline).
+ */
+export function applyDoubleOrResetCounters(state, atom, ctx) {
+  const found = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!found) {
+    return logEvent(state, { kind: "spell-effect", effect: "double-or-reset-counters", controller: ctx.controller, referent: "absent" });
+  }
+  const pw = creaturePower(found.permanent, state);
+  if (!Number.isFinite(pw)) {
+    // An unsizeable power can't pick a branch honestly — logged no-op, never a guessed branch (CREED).
+    return logEvent(state, { kind: "spell-effect", effect: "double-or-reset-counters", controller: ctx.controller, branch: "unsized" });
+  }
+  const count = found.permanent.counters?.["+1/+1"] || 0;
+  if (pw <= (atom.powerThreshold ?? 0)) {
+    if (count === 0) {
+      return logEvent(state, { kind: "spell-effect", effect: "double-or-reset-counters", controller: ctx.controller, branch: "double", added: 0 });
+    }
+    const next = addCounter(state, { permanentId: found.permanent.id, type: "+1/+1", amount: count });
+    return logEvent(next, { kind: "spell-effect", effect: "double-or-reset-counters", controller: ctx.controller, branch: "double", added: count });
+  }
+  const removed = Math.max(0, count - 1);
+  let next = state;
+  if (removed > 0) {
+    next = removeCounter(next, { permanentId: found.permanent.id, type: "+1/+1", amount: removed });
+    next = gainLife(next, { playerId: ctx.controller, amount: removed });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "double-or-reset-counters", controller: ctx.controller, branch: "reset", removed });
+}
+
 // ADD-NAMED-COUNTER-SELF parser — "put a <name> counter on this (artifact|permanent|creature)". Anchored
 // end-to-end; the counter NAME must be a single bare word that is NOT a ±1/+1 form (those are owned by
 // addCounterClauseParser above and route to the creature-only self path). Numeric/spelled N supported.
@@ -701,6 +749,7 @@ export const counterResolvers = {
 
   "shield-counter": applyShieldCounter, // SHIELD COUNTER (CR 122.1c) — a protective counter; consumed at the damage/destruction sites in gameState
   "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact
+  "double-or-reset-counters": applyDoubleOrResetCounters, // UPKEEP DOUBLE-OR-RESET (Lily Bowen): power-gated double / reset-and-gain on the source's +1/+1s
   "remove-named-counter-self": applyRemoveNamedCounterSelf, // ARIXMETHES cast trigger: remove a slumber counter from the source permanent
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
   "add-energy": applyAddEnergy, // ENERGY (CR 122.1e) — "you get {E}…" increments player.energy

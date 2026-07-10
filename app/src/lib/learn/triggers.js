@@ -1626,6 +1626,14 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // pump parser re-gates the rewritten "double this creature's power …" form (→ doublePt self atom).
     if (new RegExp(`^double ${esc}['’]s power(?: and toughness)? until end of turn$`, "i").test(eff))
       return eff.replace(new RegExp(`${esc}['’]s`, "i"), "this creature's");
+    // UPKEEP DOUBLE-OR-RESET (Lily Bowen, SHELF S7 — "double the number of +1/+1 counters on <Name> if its
+    // power is N or less. Otherwise, remove all but one +1/+1 counter from it, then you gain 1 life for each
+    // +1/+1 counter removed this way"): the self-name sits MID-clause. Rewrite it to "this creature" ONLY
+    // inside this exact whole-clause grammar (both sentences anchored end-to-end), so a coincidental name or
+    // any rider variant never mis-binds (CREED). The parser re-gates the rewritten form (the
+    // double-or-reset-counters collapse matcher) anyway.
+    if (new RegExp(`^double the number of \\+1\\/\\+1 counters on ${esc} if its power is \\d+ or less\\.\\s*otherwise, remove all but one \\+1\\/\\+1 counter from it, then you gain 1 life for each \\+1\\/\\+1 counter removed this way$`, "i").test(eff))
+      return eff.replace(new RegExp(`\\b${esc}\\b`, "i"), "this creature");
   }
   return effectClause;
 }
