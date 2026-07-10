@@ -637,6 +637,9 @@ const SELF_COST_METRICS = [
   [/^this spell costs \{x\} less to cast, where x is the greatest power among creatures you control$/, { kind: "greatestPowerYouControl" }],
   [/^this spell costs \{x\} less to cast, where x is the greatest number of artifacts an opponent controls$/, { kind: "greatestArtifactsAnOpponentControls" }],
   [/^this spell costs \{x\} less to cast, where x is the total mana value of historic permanents you control$/, { kind: "totalManaValueHistoricYouControl" }],
+  // LIFE-BELOW-START (Shadow of Mortality, SHELF S7): the leading condition is REDUNDANT with the metric
+  // (X = the difference is 0 exactly when life ≥ starting), so the whole sentence reduces to one metric.
+  [/^if your life total is less than your starting life total, this spell costs \{x\} less to cast, where x is the difference$/, { kind: "lifeBelowStart" }],
 ];
 export function selfCostReductionMetric(card) {
   // Reminder text ("(Artifacts, legendaries, and Sagas are historic.)" — Excalibur) is parenthetical (CR 207.2)
@@ -644,7 +647,7 @@ export function selfCostReductionMetric(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
     const s = sentence.trim().toLowerCase().replace(/\.\s*$/, "");
-    if (!s.startsWith("this spell costs")) continue;
+    if (!s.startsWith("this spell costs") && !s.startsWith("if your life total is less than your starting life total, this spell costs")) continue;
     for (const [re, metric] of SELF_COST_METRICS) {
       if (re.test(s)) return metric;
     }

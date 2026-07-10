@@ -1773,7 +1773,7 @@ registerCoverageClassifier((card) => classifyChosenTypeFlatAnthem(card));
 // classification, but the runtime STILL reduces their cast — a safe FN on the flip, a true win at the table).
 // A targeted single-mechanism flip via the additive seam: returns null unless the metric parses AND no residue
 // remains, so it can never cause collateral. Mechanism-keyed (any future self-metric + keyword card flips too).
-const SELF_COST_SENTENCE_RE = /this spell costs \{x\} less to cast,? where x is [^.]*\.?/i;
+const SELF_COST_SENTENCE_RE = /(?:if your life total is less than your starting life total, )?this spell costs \{x\} less to cast,? where x is [^.]*\.?/i;
 function classifySelfCostReduction(card) {
   if (!selfCostReductionMetric(card)) return null; // no MODELED self-metric clause
   // Strip reminder + the self-cost sentence; the remainder must be keyword-only (Trample) with no other ability.

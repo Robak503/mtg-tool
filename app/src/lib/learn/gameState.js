@@ -362,6 +362,7 @@ export function createStackObject({ id, kind, source, controller, targets = [], 
 export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER, commanderCards = [], companionCard = null, seatId = null } = {}) {
   return {
     life,
+    startingLife: life,       // CR 119.1 — the game's starting total, read by "less than your starting life total" metrics (Shadow of Mortality)
     poison: 0,
     energy: 0,                // ENERGY ({E}, CR 122.1e / 107.4c) — a player resource counter; "you get {E}" adds, "Pay {E}" spends
     commanderDamageFrom: {},  // CR 903.10a — { commanderInstanceId (fallback: cardId): combatDamage } (per-commander, 21 = a loss)

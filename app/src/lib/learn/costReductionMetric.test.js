@@ -56,6 +56,9 @@ describe("SELF-METRIC — parser", () => {
   it("Excalibur → totalManaValueHistoricYouControl (reminder stripped before the anchor)", () => {
     expect(selfCostReductionMetric(EXCALIBUR())).toEqual({ kind: "totalManaValueHistoricYouControl" });
   });
+  it("Shadow of Mortality → lifeBelowStart (SHELF S7 — the printed condition is the metric's own floor)", () => {
+    expect(selfCostReductionMetric({ oracle: "If your life total is less than your starting life total, this spell costs {X} less to cast, where X is the difference." })).toEqual({ kind: "lifeBelowStart" });
+  });
   it("an UNMODELED metric ('where X is the number of Mountains you control') → null (safe FN, body-only)", () => {
     expect(selfCostReductionMetric({ oracle: "This spell costs {X} less to cast, where X is the number of Mountains you control." })).toBe(null);
   });
@@ -282,5 +285,24 @@ describe("ENGINE — self-metric + color + chosen-type cast actions", () => {
     expect(castActions(s, "elf1")[0].cost.generic).toBe(1); // {3} − 2
     expect(castActions(s, "elf1")[0].cost.G).toBe(1);       // CREED: the {G} pip remains
     expect(castActions(s, "gob1")[0].cost.generic).toBe(3); // off-type — untouched
+  });
+});
+
+// ── LIFE-BELOW-START cast-site evaluation (Shadow of Mortality, SHELF S7) ──
+describe("LIFE-BELOW-START — cast-site reduction", () => {
+  const SHADOW = { id: "sh1", name: "Shadow of Mortality", type: "Creature — Avatar", mana: "{13}{B}{B}", power: 7, toughness: 7,
+    oracle: "If your life total is less than your starting life total, this spell costs {X} less to cast, where X is the difference." };
+  it("at 25 life (started 40): {13} generic − 15 → floored at 0; at full life: untouched", async () => {
+    const { createGameState } = await import("./gameState.js");
+    const { legalActionsForPlayer } = await import("./legalChoices.js");
+    const mk = (life) => {
+      const s0 = createGameState({ userDeck: [], aiDeck: [] });
+      return { ...s0, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+        players: { ...s0.players, user: { ...s0.players.user, life, hand: [SHADOW], manaPool: { ...s0.players.user.manaPool, B: 99, C: 99 } } } };
+    };
+    const cast = (s) => legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "sh1");
+    expect(cast(mk(25)).cost.generic).toBe(0);  // 40−25=15 ≥ 13 → generic fully erased ({B}{B} pips remain)
+    expect(cast(mk(25)).cost.B).toBe(2);
+    expect(cast(mk(40)).cost.generic).toBe(13); // at starting life the condition is false → full price
   });
 });

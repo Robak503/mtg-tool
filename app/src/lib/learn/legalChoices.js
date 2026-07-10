@@ -529,6 +529,11 @@ function selfCostReductionForSpell(state, playerId, card) {
         .reduce((sum, p) => sum + Math.max(0, creaturePower(p, state)), 0); // CR 107.1b — a negative power contributes 0 to a "total power" count
     case "greatestPowerYouControl":
       return countForSpec(state, { controller: playerId }, { kind: "greatestPowerYouControl" });
+    case "lifeBelowStart":
+      // LIFE-BELOW-START (Shadow of Mortality, CR 119.1): X = starting life − current life, floored at 0
+      // (the printed "if less than" condition is exactly the floor). startingLife is stamped per player at
+      // game creation; a legacy state without it falls back to the current life → reduction 0 (never over-cut).
+      return Math.max(0, (player.startingLife ?? player.life) - player.life);
     case "greatestArtifactsAnOpponentControls": {
       let best = 0;
       for (const oppId of opponentsOf(state, playerId)) {
