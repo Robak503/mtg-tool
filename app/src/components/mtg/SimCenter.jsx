@@ -115,6 +115,9 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
 
+  // ── Grind pod pool (SIM-INTEGRITY Phase 3): cedh decks (Rograkh/Thrasios, Kinnan) never sit
+  // in mixed pods — pods form within ONE pool and records carry the tag.
+  const [grindPool, setGrindPool] = useState("mixed");
   // ── Grind (run-until-cancel) state ── polled from /api/grind (a background singleton loop).
   const [grind, setGrind] = useState(null);
   useEffect(() => {
@@ -274,7 +277,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
       const resp = await fetch("/api/grind", {
         method: "POST", headers: { "Content-Type": "application/json" },
         // No explicit selection (or fewer than a pod) → grind the WHOLE shelf; a real selection narrows it.
-        body: JSON.stringify({ action: "start", deckIds: selectedIds.length >= minDecks ? selectedIds : [], mode, allProfiles: true, pilot: pilot || undefined }),
+        body: JSON.stringify({ action: "start", deckIds: selectedIds.length >= minDecks ? selectedIds : [], mode, allProfiles: true, pilot: pilot || undefined, pool: grindPool }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || data?.started === false) setError(data?.reason || data?.error || `Grind failed to start (status ${resp.status}).`);
@@ -539,6 +542,17 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
           {/* ── Grind button (run-until-cancel) — walk-away mode: plays the selected pilot in random balanced pods,
               non-stop, appending one file per game, until Stop (finishes the in-flight game) or the disk cap. ── */}
           <section style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            {!grindRunning && (
+              <select
+                value={grindPool}
+                onChange={(e) => setGrindPool(e.target.value)}
+                title="Pod pool — cEDH decks (Rograkh/Thrasios, Kinnan) only ever pod with each other"
+                style={{ padding: "6px 8px", background: "var(--ley-surface-1)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-md)", fontSize: 12 }}
+              >
+                <option value="mixed">Mixed pool</option>
+                <option value="cedh">cEDH pool</option>
+              </select>
+            )}
             {!grindRunning ? (
               <button
                 type="button"
@@ -593,7 +607,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 </button>
               </div>
               <div style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.6 }}>
-                avg {grindResults.avgTurns.toFixed(1)} turns/game · seat wins {Object.entries(grindResults.winnerSeats).map(([s, n]) => `${s} ${n}`).join(" · ")}
+                avg {grindResults.avgTurns.toFixed(1)} player-turns (~{(grindResults.avgTurns / 4).toFixed(1)} rounds)/game · seat wins {Object.entries(grindResults.winnerSeats).map(([s, n]) => `${s} ${n}`).join(" · ")}
                 {grindResults.engineVersions?.length ? ` · engine ${grindResults.engineVersions.join(", ")}` : ""}
                 {grindResults.personas?.length ? <><br />personas: {grindResults.personas.join(", ")}</> : null}
               </div>
@@ -613,17 +627,35 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                         <th style={{ padding: "4px 8px", textAlign: "right" }}>Games</th>
                         <th style={{ padding: "4px 8px", textAlign: "right" }}>Wins</th>
                         <th style={{ padding: "4px 8px", textAlign: "right" }}>Win %</th>
+                        <th style={{ padding: "4px 8px", textAlign: "right" }}>95% CI</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {grindResults.decks.map((d) => (
-                        <tr key={d.id || d.name} style={{ borderTop: "1px solid var(--ley-line)" }}>
-                          <td style={{ padding: "4px 8px", color: "var(--ley-text)" }}>{d.name || d.id}</td>
-                          <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-text-faint)" }}>{d.games}</td>
-                          <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-text-faint)" }}>{d.wins}</td>
-                          <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-green-bright)", fontWeight: 600 }}>{(d.winRate * 100).toFixed(0)}%</td>
-                        </tr>
-                      ))}
+                      {grindResults.decks.map((d) => {
+                        // Seat-spread honesty flag (Phase 1): if any seat's share of this deck's WINS
+                        // deviates >15pts from its share of the deck's GAMES, the pooled number is
+                        // position-inflected — surface it instead of letting the % read as pure deck skill.
+                        const seatTotal = Object.values(d.seats || {}).reduce((a, b) => a + b, 0);
+                        const skewed = seatTotal > 0 && d.wins >= 8 && Object.keys(d.seats || {}).some((s) => {
+                          const gShare = (d.seats[s] || 0) / seatTotal;
+                          const wShare = (d.seatWins?.[s] || 0) / Math.max(1, d.wins);
+                          return Math.abs(wShare - gShare) > 0.15;
+                        });
+                        return (
+                          <tr key={d.id || d.name} style={{ borderTop: "1px solid var(--ley-line)" }}>
+                            <td style={{ padding: "4px 8px", color: "var(--ley-text)" }}>
+                              {d.name || d.id}
+                              {skewed && <span title="Seat-position skew >15pts — this deck's wins cluster in specific seats; treat the pooled % with care" style={{ color: "#d0a000", marginLeft: 4 }}>⚠</span>}
+                            </td>
+                            <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-text-faint)" }}>{d.games}</td>
+                            <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-text-faint)" }}>{d.wins}</td>
+                            <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-green-bright)", fontWeight: 600 }}>{(d.winRate * 100).toFixed(0)}%</td>
+                            <td style={{ padding: "4px 8px", textAlign: "right", color: "var(--ley-text-faint)" }}>
+                              {d.ci95 ? `${(d.ci95[0] * 100).toFixed(0)}–${(d.ci95[1] * 100).toFixed(0)}%` : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

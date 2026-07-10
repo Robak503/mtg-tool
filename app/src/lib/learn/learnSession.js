@@ -254,7 +254,18 @@ function removePlayerFromGame(state, playerId) {
     };
   }
 
-  const log = [...state.log, { turn: state.turn, kind: "player-eliminated", player: playerId }];
+  // EPOCH-2 instrumentation: carry the eliminated player's terminal vitals on the event —
+  // read PRE-removal, they're gone after this — so the runner can derive finishRank,
+  // eliminatedAtTurn, and the winCondition taxonomy without archaeology.
+  const goneVitals = _gone
+    ? {
+        life: _gone.life ?? null,
+        poison: _gone.poison ?? null,
+        decked: (_gone.library || []).length === 0,
+        commanderLethal: Object.values(_gone.commanderDamageFrom || {}).some((n) => n >= 21),
+      }
+    : {};
+  const log = [...state.log, { turn: state.turn, kind: "player-eliminated", player: playerId, ...goneVitals }];
   const base = { ...state, players, turnOrder, stack, combat, log };
 
   if (state.activePlayer === playerId) {
@@ -831,12 +842,23 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
   }
   if (typeof recordDecision === "function" && chosen) {
     try {
+      // ROWS v2 (EPOCH-2 instrumentation, schemaVersion 3): what was REJECTED matters for
+      // policy learning — record the offered set's size + kind histogram, the chosen action's
+      // rank in the engine's own ordering, the stack depth, and whether the choice was forced.
+      // (`nearTie`/scoreGap is PARKED: the seam validates against `offered` but never sees the
+      // default chooser's scores — exposing them is a deeper opponentAI change, noted in COMMS.)
+      const legalKinds = {};
+      for (const a of offered) if (a?.kind) legalKinds[a.kind] = (legalKinds[a.kind] || 0) + 1;
       recordDecision({
         turn: state.turn,
         seat,
         pilot: pilot ? { playbook: pilot.playbook ?? null, temperament: pilot.temperament ?? null } : null,
         features: featurizeState(state, seat),
         action: serializeAction(chosen),
+        legal: { n: offered.length, kinds: legalKinds },
+        rank: Math.max(0, offered.indexOf(chosen)),
+        stackDepth: state.stack?.length ?? 0,
+        forced: offered.length === 1,
       });
     } catch (err) {
       // Recording is observational — a faulty recorder can never corrupt or abort a game.

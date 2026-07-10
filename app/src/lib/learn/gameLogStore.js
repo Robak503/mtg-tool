@@ -36,8 +36,11 @@ const DEFAULT_CAP_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB (Colton's raw-file
  * distill/training consumers can trust record shape without sniffing. Lineage:
  *   1 (implicit) — pre-2026-07-09 records: no stamp; header may lack `decks`.
  *   2 — schemaVersion + featuresV stamps; `decks` seat-map present; rows validated at append.
+ *   3 — EPOCH 2 (the ONE bump, 2026-07-09): FFA sole-survivor era + playbook mulligans
+ *       (mulliganPolicyV) + pool tag + per-seat seatStats{finishRank,eliminatedAtTurn,manaHealth}
+ *       + winCondition + rows v2 (legal histogram, rank, stackDepth, forced).
  */
-export const STORE_SCHEMA_VERSION = 2;
+export const STORE_SCHEMA_VERSION = 3;
 
 // A game's result is DECISIVE when it ended by the rules of the game (a real winner or a
 // true draw). Everything else (timeout / engine-stuck / dispatch-error / setup-error /
@@ -199,6 +202,8 @@ export async function summarizeGrind() {
   let withDeckAttribution = 0;
   let legacyGames = 0; // pre-schema-2 games — fabricated ai-win labels, excluded from standings
   let duplicateHeaders = 0; // R2.3 read-side heal: repeated index (crash-window orphan) → first occurrence wins
+  const versionGames = {}; // Phase-1 cut: games per engineVersion (the only way to see a fix move win rates)
+  const poolGames = {}; // Phase-3: games per pod pool (mixed|cedh — never pooled together)
   const seenIndex = new Set();
   for (const s of manifest.shards) {
     let text;
@@ -228,7 +233,9 @@ export async function summarizeGrind() {
         winnerSeats[w] = (winnerSeats[w] || 0) + 1;
       }
       if (h.engineVersion) versions.add(h.engineVersion);
+      if (h.engineVersion) versionGames[h.engineVersion] = (versionGames[h.engineVersion] || 0) + 1;
       if (h.pilots) for (const p of Object.values(h.pilots)) if (p?.playbook) personas.add(p.playbook);
+      if (h.pool) poolGames[h.pool] = (poolGames[h.pool] || 0) + 1;
       // HONESTY GATE (2026-07-09): pre-schema-2 games carry FABRICATED ai-win labels — the pod
       // ended at user death and the turn-order-first survivor was crowned (70.7% of ai-wins had
       // ≥2 rivals alive). Those games count in the totals above but are EXCLUDED from the
@@ -239,18 +246,27 @@ export async function summarizeGrind() {
         withDeckAttribution += 1;
         for (const d of h.decks) {
           const key = d.id || d.name || "?";
-          const rec = perDeck.get(key) || { id: d.id ?? null, name: d.name || key, games: 0, decisiveGames: 0, wins: 0, seats: {} };
+          const rec = perDeck.get(key) || { id: d.id ?? null, name: d.name || key, games: 0, decisiveGames: 0, wins: 0, seats: {}, seatWins: {} };
           rec.games += 1;
           if (decisive) rec.decisiveGames += 1; // R2.1: the win-rate denominator (stuck games aren't losses)
           rec.seats[d.seat] = (rec.seats[d.seat] || 0) + 1; // seat-fairness evidence (should sit ~25% each)
-          if (decisive && h.winnerSeat && d.seat === h.winnerSeat) rec.wins += 1; // seat-based → no name-collision risk
+          if (decisive && h.winnerSeat && d.seat === h.winnerSeat) { rec.wins += 1; rec.seatWins[d.seat] = (rec.seatWins[d.seat] || 0) + 1; } // seat-based → no name-collision risk
           perDeck.set(key, rec);
         }
       }
     }
   }
+  // Wilson 95% CI on the decisive-game win rate (readout honesty — a 3-game 100% is not a 66% 1,700-game rate).
+  const wilson = (wins, n) => {
+    if (!n) return [0, 0];
+    const z = 1.96, p = wins / n, z2 = z * z;
+    const denom = 1 + z2 / n;
+    const center = (p + z2 / (2 * n)) / denom;
+    const half = (z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)) / denom;
+    return [Math.max(0, center - half), Math.min(1, center + half)];
+  };
   const decks = [...perDeck.values()]
-    .map((d) => ({ ...d, winRate: d.decisiveGames ? d.wins / d.decisiveGames : 0 }))
+    .map((d) => ({ ...d, winRate: d.decisiveGames ? d.wins / d.decisiveGames : 0, ci95: wilson(d.wins, d.decisiveGames) }))
     .sort((a, b) => b.games - a.games || b.wins - a.wins);
   // Seat-fairness topline: the worst deviation from a uniform seat share across decks with
   // enough games to mean anything. ~0 ⇒ per-deck win rates are positionally fair (any seat
@@ -273,6 +289,8 @@ export async function summarizeGrind() {
     avgTurns: games ? turnsSum / games : 0,
     winnerSeats,
     results,
+    versionGames,
+    poolGames,
     stuckGames,
     maxSeatSkew,
     personas: [...personas].sort(),

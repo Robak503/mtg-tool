@@ -84,7 +84,7 @@ describe("gameLogStore — append-per-game sharded log + manifest (grind data li
     expect(p.endsWith(".json.gz")).toBe(true);
     const back = await readGameFile(0);
     expect(back.rows).toEqual(game.rows); // byte-content equality of the payload
-    expect(back.header).toMatchObject({ seed: 7, result: "user-wins", schemaVersion: 2 });
+    expect(back.header).toMatchObject({ seed: 7, result: "user-wins", schemaVersion: 3 });
   });
 
   it("legacy PLAIN .json games stay readable next to gz ones (mixed store)", async () => {
@@ -212,10 +212,10 @@ describe("schema stamps + validation + stuck-triage (HARNESS-DATA wave 1)", () =
   it("stamps schemaVersion + featuresV into every stored header (choke-point, caller can't opt out)", async () => {
     await appendGame(mkGame(0));
     const stored = await readGameFile(0);
-    expect(stored.header.schemaVersion).toBe(2);
+    expect(stored.header.schemaVersion).toBe(3); // EPOCH-2 bump (the ONE bump, 2026-07-09)
     expect(typeof stored.header.featuresV).toBe("number");
     const headerLine = JSON.parse((await fs.readFile(path.join(grindRoot(), "shard-0000", "headers.jsonl"), "utf8")).trim());
-    expect(headerLine.schemaVersion).toBe(2);
+    expect(headerLine.schemaVersion).toBe(3);
   });
 
   it("REJECTS a malformed record without writing (no junk in the store)", async () => {
@@ -237,7 +237,7 @@ describe("schema stamps + validation + stuck-triage (HARNESS-DATA wave 1)", () =
     expect(triage).toHaveLength(1);
     const t = JSON.parse(triage[0]);
     expect(t).toMatchObject({ index: 1, result: "engine-stuck", seed: 1 });
-    expect(t.schemaVersion).toBe(2); // triage lines carry the full stamped header (repro-ready)
+    expect(t.schemaVersion).toBe(3); // triage lines carry the full stamped header (repro-ready)
   });
 
   it("summarize reports the results histogram, stuck count, per-deck seat counts + maxSeatSkew", async () => {

@@ -80,6 +80,7 @@ export async function POST(request) {
     }
   }
 
-  const res = await startGrind({ decks: playable, mode, pilotBuilder, capBytes });
+  const podPool = body?.pool === "cedh" ? "cedh" : "mixed"; // SIM-INTEGRITY Phase 3 — pods form within ONE pool
+  const res = await startGrind({ decks: playable, mode, pilotBuilder, capBytes, pool: podPool });
   return Response.json(res, { status: res.started ? 200 : 409 });
 }

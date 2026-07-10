@@ -71,7 +71,12 @@ export async function loadPilotBuilder(file, mode) {
   const seats = engineSeatsForMode(mode);
   const mod = await import(pathToFileURL(path.join(pilotsDir(), file)).href);
   if (typeof mod.buildPilots === "function") {
-    return (decks) => mod.buildPilots(seats, { mode, decks }) || {};
+    // The per-game SEED rides the opts (additive contract, 2026-07-09): a persona that derives
+    // its temperament assignment from it makes persona games REPLAY-REGENERABLE from the header
+    // (seed+decks+persona) — the property the prune lifecycle requires. Personas may ignore it
+    // (current omnath.mjs does — its games stay unprunable until it adopts the seed; the replay
+    // canary gates pruning either way).
+    return (decks, seed = null) => mod.buildPilots(seats, { mode, decks, seed }) || {};
   }
   if (typeof mod.decide === "function") {
     const p = {

@@ -21,7 +21,7 @@ import { formPod, podToArgs, gameSeedAt } from "./grindPod.js";
 // One grind at a time (a persistent-server singleton). Serializable-plain so grindStatus() can be JSON'd to the panel.
 let state = freshState();
 function freshState() {
-  return { running: false, cancelRequested: false, gamesPlayed: 0, gamesTrusted: 0, gamesStuck: 0, startedAt: null, lastResult: null, capReached: false, error: null, totalBytes: 0, capBytes: null };
+  return { running: false, cancelRequested: false, gamesPlayed: 0, gamesTrusted: 0, gamesStuck: 0, startedAt: null, lastResult: null, capReached: false, error: null, totalBytes: 0, capBytes: null, pool: null };
 }
 
 export function grindStatus() {
@@ -53,21 +53,26 @@ async function engineVersion() {
  * buildPilotsForBatch), `capBytes` = the disk budget (default 100GB via the store). Fire-and-forget: returns
  * immediately with { started }, the loop runs in the background until cancel/cap. Refuses a second concurrent grind.
  */
-export async function startGrind({ decks, mode = "commander", pilotBuilder = null, capBytes = null, seed = "auto" } = {}) {
+export async function startGrind({ decks, mode = "commander", pilotBuilder = null, capBytes = null, seed = "auto", pool = "mixed" } = {}) {
   if (state.running) return { started: false, reason: "a grind is already running", ...grindStatus() };
   const podSize = mode === "commander" ? 4 : 2;
-  if (!Array.isArray(decks) || decks.length < podSize) {
-    return { started: false, reason: `need at least ${podSize} playable decks for ${mode}` };
+  // POOL GATE (SIM-INTEGRITY Phase 3): cedh decks never sit in mixed pods and vice versa —
+  // pods only ever form within ONE pool, and the header records which (aggregation can never
+  // pool across pools). Untagged decks default to mixed via poolOfDeck at enrichment.
+  const poolDecks = (decks || []).filter((d) => (d.pool ?? "mixed") === pool);
+  if (!Array.isArray(poolDecks) || poolDecks.length < podSize) {
+    return { started: false, reason: `need at least ${podSize} playable ${pool}-pool decks for ${mode} (got ${poolDecks.length})` };
   }
-  state = { ...freshState(), running: true, startedAt: Date.now(), capBytes };
-  loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }).catch((e) => {
+  decks = poolDecks;
+  state = { ...freshState(), running: true, startedAt: Date.now(), capBytes, pool };
+  loop({ decks, mode, pilotBuilder, capBytes, seed, podSize, pool }).catch((e) => {
     state.error = e?.message || String(e);
     state.running = false;
   });
   return { started: true, ...grindStatus() };
 }
 
-async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
+async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize, pool = "mixed" }) {
   const base = resolveBaseSeed(seed);
   const version = await engineVersion();
   const seatNames = engineSeatsForMode(mode); // seat order matches pod order (pod[0]=user, pod[1]=ai1, …)
@@ -79,7 +84,7 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
     // DECK-NATIVE playbook (Omnath v2). v1 ignores decks → a temperament spread + default playbook (still varied,
     // still tagged). A builder throw never kills the grind — fall back to default autopilot for this game.
     let pilots = {};
-    try { if (pilotBuilder) pilots = pilotBuilder(pod) || {}; } catch (e) { state.error = `pilot build ${i}: ${e?.message || e}`; }
+    try { if (pilotBuilder) pilots = pilotBuilder(pod, gameSeed) || {}; } catch (e) { state.error = `pilot build ${i}: ${e?.message || e}`; }
     const identity = Object.fromEntries(Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null, pilotType: p?.pilotType ?? null }]));
     let game;
     try {
@@ -95,7 +100,7 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize }) {
     // wins + participation per deck — winnerSeat alone can't say which deck won.
     const seatDecks = pod.map((d, si) => ({ seat: seatNames[si] ?? `seat${si}`, id: d?.id ?? null, name: d?.name ?? null }));
     const record = {
-      header: { seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: version, result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode, mulliganPolicyV: game?.mulliganPolicyV ?? null },
+      header: { seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: version, result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode, pool, mulliganPolicyV: game?.mulliganPolicyV ?? null, seatStats: game?.seatStats ?? null, winCondition: game?.winCondition ?? null },
       rows: game?.decisionTrajectory?.rows ?? [],
     };
     const appended = await appendGame(record, { capBytes });

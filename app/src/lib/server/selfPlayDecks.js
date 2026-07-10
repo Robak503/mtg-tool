@@ -67,6 +67,20 @@ function companionOf(deck) {
  *   { id, name, cards: card[], commanders: card[], companion: card|null }
  * Pure aside from the local-index lookup inside enrichDeck (no network).
  */
+// POOL TAG (SIM-INTEGRITY Phase 3, Colton's call 2026-07-09): Rograkh/Thrasios + Kinnan are
+// cEDH-tuned — they never belong in mixed pods (a fast combo deck vs Slivers measures
+// nothing). The tag is data-first (deck.memory.pool wins when set); these ids are the code
+// DEFAULT so the gate holds even before the deck records carry the field. A cEDH grind later
+// is a flag flip, zero code.
+const CEDH_DEFAULT_IDS = new Set(["colton-rograkh-thrasios", "joe-kinnan-bonder-prodigy"]);
+
+/** A deck's pod pool: "mixed" (default) | "cedh". memory.pool overrides the code default. */
+export function poolOfDeck(deck) {
+  const tagged = deck?.memory?.pool;
+  if (tagged === "cedh" || tagged === "mixed") return tagged;
+  return CEDH_DEFAULT_IDS.has(deck?.id) ? "cedh" : "mixed";
+}
+
 export function toRunnerDeck(deck) {
   const enrichOne = (c) => (c ? enrichDeck([c])[0] || null : null);
   return {
@@ -75,6 +89,7 @@ export function toRunnerDeck(deck) {
     cards: enrichDeck(deckToCardArray(deck)),
     commanders: enrichDeck(commandersOf(deck)),
     companion: enrichOne(companionOf(deck)),
+    pool: poolOfDeck(deck),
   };
 }
 

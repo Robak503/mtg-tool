@@ -29,7 +29,9 @@ const { formPod, podToArgs, gameSeedAt, engineSeatsFor } = await import(u("src/l
 
 const pool = await loadAllProfileDecks();
 const raw = cfg.deckIds?.length ? selectDecksByIds(pool, cfg.deckIds) : pool;
-const { playable } = partitionPlayableRunnerDecks(raw.map(toRunnerDeck));
+const { playable: allPlayable } = partitionPlayableRunnerDecks(raw.map(toRunnerDeck));
+const pool = cfg.pool === "cedh" ? "cedh" : "mixed";
+const playable = allPlayable.filter((d) => (d.pool ?? "mixed") === pool); // POOL GATE (Phase 3)
 const podSize = cfg.mode === "standard" ? 2 : 4;
 if (playable.length < podSize) {
   process.stderr.write(`lane ${cfg.laneIndex}: only ${playable.length} playable decks\n`);
@@ -43,7 +45,7 @@ for (let i = cfg.laneIndex; cfg.maxGames == null || played < cfg.maxGames; i += 
   const gameSeed = gameSeedAt(cfg.baseSeed, i);
   const pod = formPod(playable, podSize, gameSeed);
   let pilots = {};
-  try { if (pilotBuilder) pilots = pilotBuilder(pod) || {}; } catch (e) { process.stderr.write(`lane ${cfg.laneIndex} pilot build ${i}: ${e?.message || e}\n`); }
+  try { if (pilotBuilder) pilots = pilotBuilder(pod, gameSeed) || {}; } catch (e) { process.stderr.write(`lane ${cfg.laneIndex} pilot build ${i}: ${e?.message || e}\n`); }
   const identity = Object.fromEntries(Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null, pilotType: p?.pilotType ?? null }]));
   let game;
   try {
@@ -56,7 +58,7 @@ for (let i = cfg.laneIndex; cfg.maxGames == null || played < cfg.maxGames; i += 
   const record = {
     header: {
       seed: gameSeed, pilots: identity, decks: seatDecks, engineVersion: cfg.engineVersion ?? null,
-      result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode: cfg.mode, mulliganPolicyV: game?.mulliganPolicyV ?? null,
+      result: game?.result ?? null, winnerSeat: game?.winnerSeat ?? null, turns: game?.turns ?? null, mode: cfg.mode, pool, mulliganPolicyV: game?.mulliganPolicyV ?? null, seatStats: game?.seatStats ?? null, winCondition: game?.winCondition ?? null,
     },
     rows: game?.decisionTrajectory?.rows ?? [],
   };

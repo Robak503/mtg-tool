@@ -29,6 +29,7 @@
 import { createLearnSession, advanceUntilDecision, isPlayerDead, hasWonGame } from "./learnSession.js";
 import { gameSeedAt, mulberry32 } from "./seedMath.js";
 import { makeMulliganPolicy, PLAYBOOK_MULLIGAN_PARAMS } from "./mulliganPolicy.js";
+import { computeEpochStats } from "./epochStats.js";
 import { featurizeState } from "./gameFeatures.js";
 import { gameStatus } from "./gameApi.js";
 import { decideMulliganForAI } from "./opponentAI.js";
@@ -351,6 +352,12 @@ export function runSelfPlayGame({
           pilot: pilotIdentity(row.seat), // per-seat identity (null when that seat is the default pilot)
           features: row.features,
           action: row.action,
+          // ROWS v2 (epoch-2, schemaVersion 3): the offered-set histogram, the chosen action's
+          // rank in the engine's ordering, stack depth, and the forced-choice bit.
+          legal: row.legal ?? null,
+          rank: row.rank ?? null,
+          stackDepth: row.stackDepth ?? null,
+          forced: row.forced ?? false,
         });
       }
     : null;
@@ -450,6 +457,21 @@ export function runSelfPlayGame({
     // NEVER pool mulligan data across policy versions (the re-anchor warning in the order).
     mulliganPolicyV: (hasAnyMulliganPilot || defaultAIMulligan) ? 2 : 0,
   };
+
+  // EPOCH-2 per-game instrumentation (schemaVersion 3): per-seat finish ranks +
+  // eliminatedAtTurn + mana-health, and the win-condition taxonomy — derived from the
+  // engine's own log + terminal state (pure reads; epochStats.js).
+  try {
+    const cmdBySeat = mode === "commander"
+      ? { user: (userCommanders || []).map((c) => c?.name), ai1: (opponentCommanders?.[0] || []).map((c) => c?.name), ai2: (opponentCommanders?.[1] || []).map((c) => c?.name), ai3: (opponentCommanders?.[2] || []).map((c) => c?.name) }
+      : { user: (userCommanders || []).map((c) => c?.name), ai: (opponentCommanders || []).map((c) => c?.name) };
+    const epoch = computeEpochStats({ state: out.state, log, result, winnerSeat, seats: engineSeatsForMode(mode), commandersBySeat: cmdBySeat });
+    base.seatStats = epoch.seats;
+    base.winCondition = epoch.winCondition;
+  } catch {
+    base.seatStats = null; // instrumentation must never abort a game result
+    base.winCondition = null;
+  }
 
   // Per-DECISION (policy) trajectory (opt-in, independent of recordTrajectory). Attach the
   // full row list + the FINAL game outcome the task specifies: { result, winnerSeat,

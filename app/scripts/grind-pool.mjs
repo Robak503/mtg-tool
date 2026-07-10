@@ -68,6 +68,7 @@ for (let k = 0; k < workers; k++) {
     deckIds: argv["deck-ids"] ? String(argv["deck-ids"]).split(",") : [],
     mode,
     pilotFile: argv.pilot || null,
+    pool: argv.pool === "cedh" ? "cedh" : "mixed",
     baseSeed,
     laneIndex: k,
     laneCount: workers,
