@@ -20,6 +20,7 @@ import {
   findPermanent,
   creaturePower,
   recordCreatureDeaths,
+  registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, diesTriggerMultiplierCount } from "./layers.js";
@@ -1246,6 +1247,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   // Arbiter (a SAFE false-negative; CLAUDE.md §1.2). This is the trigger BIND only — the milled-card payoffs
   // (rad/draw/counter/token) already exist; an effect that can't parse HIGH (a "once each turn"/scaling
   // rider) still routes the WHOLE trigger to the Arbiter at flush (buildTriggerStack), never a partial.
+  // LIFE-LOST (SHELF M3 — Mindcrank): "an opponent loses life" / "a player loses life". The event fires
+  // from the loseLife chokepoint (gameState registry → checkLifeLossTriggers), so DAMAGE-caused loss
+  // (CR 119.3) fires it too. `whose:"opponent"` gates the LOSING player against the watcher's controller.
+  // The amount rides ctx.lifeLostAmount; the loser rides ctx.lifeLostPlayerId. Anchored end-to-end — any
+  // qualifier ("for the first time", "2 or more life") leaves residue → null → Arbiter (CREED).
+  let lifeLostM = c.match(/^(an opponent|a player) loses life$/);
+  if (lifeLostM) return { event: "lifeLost", scope: "lifeLost", whose: /opponent/.test(lifeLostM[1]) ? "opponent" : "any" };
   let milledM = c.match(/^one or more (nonland )?cards are milled$/);
   if (milledM) return { event: "milled", scope: "milled", whose: "any", perCard: false, milledFilter: milledM[1] ? "nonland" : null };
   milledM = c.match(/^(a player|an opponent) mills (?:a|an|one) (nonland )?card$/);
@@ -2301,6 +2309,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // is a library/hand object). The whose:"opponent" gate (the drawer must be an opponent of the source's
       // controller) is applied in checkCardDrawnTriggers, which scans the drawer's opponents' watchers directly.
       // Always matches here (like "milled"/"you"): the event already proved a draw happened.
+      return true;
+    case "lifeLost":
+      // LIFE-LOSS-ON-EVENT (Mindcrank, SHELF M3) — a life-loss event has NO triggering permanent; the
+      // whose:"opponent" gate (the LOSER must be an opponent of the watcher's controller) is applied in
+      // checkLifeLossTriggers directly. Always matches here (the milled/opponentDraw precedent).
       return true;
     case "eachCreature":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
@@ -3636,6 +3649,34 @@ function isNonlandCard(card) {
  * payoff that can't parse HIGH (a "once each turn"/scaling/conditional rider) routes the WHOLE trigger to
  * the Arbiter no-op, never a partial (CLAUDE.md §1.2). No-op on an empty/missing mill (a clean library no-op).
  */
+/**
+ * LIFE-LOSS-ON-EVENT (SHELF M3, CR 118.4 — Mindcrank's "Whenever an opponent loses life, that player
+ * mills that many cards"): enqueue "lifeLost" triggers for ONE life-loss event. Fired from the loseLife
+ * chokepoint itself (gameState's registered watcher — see registerLifeLossWatcher below), so DAMAGE-caused
+ * loss (CR 119.3) fires it too — every life change routes through loseLife. `whose:"opponent"` requires the
+ * LOSING player to be an opponent of the watcher's controller. The loser + amount ride the context
+ * (ctx.lifeLostPlayerId / ctx.lifeLostAmount) for the who/countContext payoff referents. Pure — appends to
+ * pendingTriggers; the flush at the next priority checkpoint routes a HIGH payoff natively or the whole
+ * trigger to the Arbiter no-op (never a partial). A 0-amount loss never reaches here (loseLife gates >0).
+ */
+export function checkLifeLossTriggers(state, { playerId, amount } = {}) {
+  if (!playerId || !state.players?.[playerId] || !(amount > 0)) return state;
+  const fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "lifeLost")) {
+        if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(playerId)) continue;
+        fired.push(makePendingTrigger(d, watcher, null, { lifeLostPlayerId: playerId, lifeLostAmount: amount }));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+// Register at module load: gameState (a leaf) exposes the seam; every runtime path loads triggers.js
+// (via the engine), so the watcher is live wherever games actually run.
+registerLifeLossWatcher(checkLifeLossTriggers);
+
 export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {}) {
   const cards = Array.isArray(milledCards) ? milledCards : [];
   if (!milledByPlayer || !state.players?.[milledByPlayer] || cards.length === 0) return state;

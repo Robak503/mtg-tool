@@ -650,8 +650,15 @@ function millOnePlayer(state, playerId, count) {
  * Each player's mill is its OWN event (CR 701.13a), so millOnePlayer fires the milled trigger bind per seat. */
 export function applyMill(state, atom, ctx) {
   let next = state;
-  const amount = atom.amount || 0;
-  if (atom.who === "eachPlayer") {
+  // LIFE-LOSS-SCALED (Mindcrank, SHELF M3): countContext reads a trigger-context magnitude
+  // (ctx.lifeLostAmount). Absent → 0 → a clean no-op, never a fabricated mill.
+  const amount = atom.countContext ? Math.max(0, ctx[atom.countContext] || 0) : (atom.amount || 0);
+  if (atom.who === "lifeLostPlayer") {
+    // The player who just LOST life (ctx.lifeLostPlayerId, threaded by checkLifeLossTriggers).
+    // Absent/eliminated referent → mill nobody (mirrors the damagedPlayer guard below).
+    const pid = ctx.lifeLostPlayerId;
+    if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
+  } else if (atom.who === "eachPlayer") {
     // ===== EACH-PLAYER ===== (EP-3) EVERY player mills N (symmetric — Mind Funeral-adjacent / Winds of
     // Rebuke rider). Non-targeted → identical on a spell or trigger; an eliminated player isn't in the map.
     for (const pid of Object.keys(next.players)) next = millOnePlayer(next, pid, amount);

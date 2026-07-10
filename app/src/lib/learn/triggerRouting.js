@@ -66,6 +66,8 @@ export function combatDamageReferentSatisfied(program, event) {
     // MILLED-COUNT (SHELF M1b): a "that many milled[-nonland]" magnitude reads checkMilledTriggers' context —
     // set ONLY by the milled event. Any other event leaves the referent unset (a silent 0 → dropped clause).
     if ((a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount") && event !== "milled") return false;
+    // LIFE-LOSS referents (Mindcrank, SHELF M3): the loser + amount are set ONLY by checkLifeLossTriggers.
+    if ((a?.who === "lifeLostPlayer" || a?.countContext === "lifeLostAmount") && event !== "lifeLost") return false;
   }
   return true;
 }

@@ -1143,10 +1143,22 @@ export function addMana(state, { playerId, color, amount = 1 }) {
 
 // ─── Life / damage ────────────────────────────────────────────────────────────
 
+// LIFE-LOSS EVENT (SHELF M3 — Mindcrank's "Whenever an opponent loses life"): a REGISTERED watcher
+// transforms state after every life loss. A registry, not an import — triggers.js registers
+// checkLifeLossTriggers at module load (gameState is a leaf and must not import the trigger layer).
+// Null until registered → loseLife is byte-identical to before. The watcher only ENQUEUES pending
+// triggers (the flush runs at the next priority checkpoint), so no recursion happens here; a payoff
+// that itself loses life re-enters through the same append (the session resolution cap backstops any
+// pathological loop). Every life change routes through loseLife/gainLife (verified — no direct
+// `p.life` mutation elsewhere), so damage-caused loss (CR 119.3) fires the event too.
+let _lifeLossWatcher = null;
+export function registerLifeLossWatcher(fn) { _lifeLossWatcher = fn; }
+
 export function loseLife(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("loseLife: amount must be non-negative integer");
-  return withPlayer(state, playerId, p => ({ ...p, life: p.life - amount }));
+  const next = withPlayer(state, playerId, p => ({ ...p, life: p.life - amount }));
+  return _lifeLossWatcher && amount > 0 ? _lifeLossWatcher(next, { playerId, amount }) : next;
 }
 
 export function gainLife(state, { playerId, amount }) {

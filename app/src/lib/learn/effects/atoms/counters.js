@@ -344,6 +344,12 @@ export function cdmgPayoffClauseParser(clause) {
   // (c) damage-scaled rad — "they/that player gets that many rad counters"
   const cdmgRadDynM = t.match(/^(?:they|that player) gets? that many rad counters$/);
   if (cdmgRadDynM) return { op: "rad", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null };
+  // (ll) LIFE-LOSS mill (Mindcrank, SHELF M3) — "that player mills that many cards": the referent is the
+  // player who just LOST life (ctx.lifeLostPlayerId) and the count is the amount lost (ctx.lifeLostAmount),
+  // both threaded by checkLifeLossTriggers. The referent gates (triggerRouting + coverage spell guards)
+  // admit these ONLY on the lifeLost event, so an absent referent can never silently drop the clause.
+  const lifeLossMillM = t.match(/^that player mills that many cards$/);
+  if (lifeLossMillM) return { op: "mill", who: "lifeLostPlayer", countContext: "lifeLostAmount", targetType: null };
   // (dies-rad) power-scaled dies payoff — Feral Ghoul
   if (/^each opponent gets a number of rad counters equal to its power$/.test(t)) {
     return { op: "rad", who: "eachOpponent", countContext: "dyingPower", targetType: null };
