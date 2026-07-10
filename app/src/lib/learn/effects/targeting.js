@@ -302,7 +302,17 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
     // aligned. chosenMode = an ARRAY of mode indices. `upTo` ("one or both") and `atLeastOne` ("one or more")
     // both offer every subset size 1..chooseCount (chooseCount = the mode count for "one or more"); a plain
     // "Choose two" offers exactly `chooseCount`-sized combos.
-    const sizes = (program.modal?.upTo || program.modal?.atLeastOne) ? range(1, chooseCount) : [chooseCount];
+    let sizes = (program.modal?.upTo || program.modal?.atLeastOne) ? range(1, chooseCount) : [chooseCount];
+    // CONDITIONAL-BOTH (Akroma's Will — "If you control a commander as you cast this spell, you may choose
+    // both instead", CR 601.2b): the size-2 combo is legal ONLY while the caster controls a commander ON THE
+    // BATTLEFIELD (CR 109.4 — a command-zone commander is controlled by no one; the isCommander flag rides
+    // the card onto the permanent, the Fierce-Guardianship discipline). Enumeration IS cast time, so this
+    // live read is exactly the printed "as you cast" check; without a commander the card is a plain
+    // "Choose one" (size-1 combos only).
+    if (program.modal?.conditionalBothCommander
+      && !(state.players?.[controllerId]?.battlefield || []).some((p) => p.card?.isCommander === true)) {
+      sizes = sizes.filter((s) => s <= 1);
+    }
     const out = [];
     for (const size of sizes) {
       // MAX_CAST_EXPANSIONS here is a pure DoS backstop on the mode-combination count: no real card's mode

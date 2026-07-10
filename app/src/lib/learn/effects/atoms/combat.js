@@ -696,6 +696,17 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
       duration: dur, source: src,
     }).state;
   }
+  // PROTECTION-FROM-EACH-COLOR (Akroma's Will mode B, CR 702.16): ONE layer-6 addProtection carrying all
+  // five colors over the same frozen set — layers.permanentProtectionColors unions it with printed
+  // protection at the three enforcement sites (targeting/block/damage), and it wears off at cleanup with
+  // the keyword grants (same endOfTurn duration).
+  if (atom.grantProtectionAllColors && ids.length) {
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "addProtection", colors: ["W", "U", "B", "R", "G"] },
+      affects: { mode: "fixed", permanentIds: ids },
+      duration: dur, source: src,
+    }).state;
+  }
   return logEvent(next, { kind: "spell-effect", effect: "grant-keywords-group", controller: ctrl, scope: atom.scope, keywords: atom.grantKeywords, targets: ids });
 }
 
@@ -1238,9 +1249,25 @@ export function groupGrantClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   const m = t.match(/^(creatures|permanents) you control gains? (.+) until end of turn$/);
   if (!m) return null;
-  const kws = parseGroupGrantKeywords(m[2]);
+  // PROTECTION-FROM-EACH-COLOR tail (Akroma's Will mode B — "… gain lifelink, indestructible, and
+  // protection from each color until end of turn", CR 702.16 + 702.16j "each color" = all five): peel the
+  // EXACT trailing phrase, then the remaining list must still be all-grantable keywords. Granted via a
+  // layer-6 addProtection (colors WUBRG) in the resolver — the SAME live readers printed protection uses
+  // (targeting CR 702.16b · block 702.16f · damage prevention 702.16e), so the grant is enforced, not
+  // parse-only. A "protection from the chosen color"/single-color variant doesn't match the anchor →
+  // null → Arbiter (CREED).
+  let protAllColors = false;
+  let phrase = m[2];
+  const pm = phrase.match(/^(.+?),? and protection from each color$/);
+  if (pm) { protAllColors = true; phrase = pm[1]; }
+  const kws = parseGroupGrantKeywords(phrase);
   if (!kws) return null;
-  return { op: "grant-keywords-group", scope: m[1] === "permanents" ? "permanentsYouControl" : "creaturesYouControl", grantKeywords: kws };
+  return {
+    op: "grant-keywords-group",
+    scope: m[1] === "permanents" ? "permanentsYouControl" : "creaturesYouControl",
+    grantKeywords: kws,
+    ...(protAllColors && { grantProtectionAllColors: true }),
+  };
 }
 
 /**

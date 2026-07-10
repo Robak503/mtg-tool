@@ -942,12 +942,21 @@ function stripModeNamePrefix(part) {
  */
 function parseModal(cardType, oracle, hasX = false) {
   const stripped = stripReminder(oracle);
-  const m = stripped.match(MODAL_RE);
-  if (!m) return null;
-  const tail = (m[2] || "").toLowerCase();
+  // CONDITIONAL-BOTH (Akroma's Will — SHELF S7): "Choose one. If you control a commander as you cast this
+  // spell, you may choose both instead." A TWO-mode modal whose both-combo is legal ONLY when the caster
+  // controls a commander AS THEY CAST (CR 601.2b — a cast-time state read; "control" means on the
+  // BATTLEFIELD, CR 109.4 — a command-zone commander is controlled by no one, the Fierce-Guardianship
+  // discipline). The flag rides program.modal; targeting.expandCastChoices gates the size-2 combos on the
+  // live board at enumeration (= cast) time, so the metric and the cast offer can't drift. Anchored to the
+  // EXACT printed lead — any other conditional-modal wording stays un-matched → low → Arbiter (CREED).
+  const cb = stripped.match(/^choose one\.\s*if you control a commander as you cast this spell, you may choose both instead\.\s*/i);
+  const m = cb ? null : stripped.match(MODAL_RE);
+  if (!cb && !m) return null;
+  const tail = cb ? "" : (m[2] || "").toLowerCase();
   const orBoth = tail === " or both";
   const orMore = tail === " or more"; // "choose one or more" → MODAL-N (any non-empty subset, CR 700.2)
-  const rest = stripped.slice(m[0].length).trim();
+  const conditionalBothCommander = !!cb;
+  const rest = stripped.slice((cb || m)[0].length).trim();
   // "one or more" modes ARE bullet-separated in every printed case; the " or "-fallback split (used only
   // for un-bulleted two-mode charms) would wrongly shred a "one or more" mode's effect text, so require
   // bullets for the MODAL-N form (a non-bulleted "one or more" → null → low, an FN-safe park).
@@ -961,10 +970,10 @@ function parseModal(cardType, oracle, hasX = false) {
     .map(p => stripModeNamePrefix(p.replace(/^[•\s]+/, "").trim()).replace(/\.\s*$/, "").trim())
     .filter(Boolean);
   if (parts.length < 2) return null;
-  // chooseCount = the MAX modes pickable: 2 for "two"/"one or both"; ALL modes for "one or more"; else 1.
-  // (Resolved after parts is known so "one or more" can size to the actual mode count.)
-  const chooseCount = orMore ? parts.length : (orBoth || m[1].toLowerCase() === "two") ? 2 : 1;
-  const upTo = orBoth; // "one or both" → pick 1 or 2 (of exactly 2)
+  // chooseCount = the MAX modes pickable: 2 for "two"/"one or both"/the conditional-both lead; ALL modes
+  // for "one or more"; else 1. (Resolved after parts is known so "one or more" can size to the mode count.)
+  const chooseCount = orMore ? parts.length : (orBoth || conditionalBothCommander || (m && m[1].toLowerCase() === "two")) ? 2 : 1;
+  const upTo = orBoth || conditionalBothCommander; // "one or both" / conditional-both → pick 1 or 2 (of exactly 2)
   const atLeastOne = orMore; // "one or more" → pick any 1..N subset
 
   const modes = [];
@@ -984,11 +993,12 @@ function parseModal(cardType, oracle, hasX = false) {
     if (!ok) return { chooseCount, upTo, atLeastOne, modes: null }; // an unmodeled / nested-modal mode → low
     modes.push({ label: part, atoms: inner.atoms });
   }
-  // Count must be satisfiable: can't pick more modes than exist, and "one or both" is specifically a
-  // TWO-mode card (1 or 2 of exactly 2). An unsatisfiable count → modes:null → low (never a wrong pick).
+  // Count must be satisfiable: can't pick more modes than exist, and "one or both" (incl. the
+  // conditional-both lead) is specifically a TWO-mode card (1 or 2 of exactly 2). An unsatisfiable
+  // count → modes:null → low (never a wrong pick).
   if (chooseCount > modes.length) return { chooseCount, upTo, atLeastOne, modes: null };
-  if (orBoth && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
-  return { chooseCount, upTo, atLeastOne, modes };
+  if ((orBoth || conditionalBothCommander) && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
+  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), modes };
 }
 
 // δ-1 hand disruption — the filter phrase between "you choose a/an" and "card" mapped to a modeled
