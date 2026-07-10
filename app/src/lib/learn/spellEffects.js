@@ -330,7 +330,12 @@ export function parseCreatureTargetRestrictions(card) {
 /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
   for (const r of restrictions) {
-    if (r.kind === "notSource") {
+    if (r.kind === "enteredThisTurn") {
+      // ENTERED-THIS-TURN (Cathedral Acolyte's activated — "target creature that entered this turn"):
+      // the perm's enteredOnTurn stamp (written by every enter path) must equal the CURRENT turn. An
+      // unstamped permanent (a pre-stamp fixture) never qualifies — FN-safe, never a wrongly-legal target.
+      if ((perm.enteredOnTurn ?? -1) !== state.turn) return false;
+    } else if (r.kind === "notSource") {
       // "ANOTHER" (CR 109.5) — "untap another target permanent" (Formidable Speaker) may not target the
       // source permanent itself. ctx.sourceId is threaded from the activated ability's expandCastChoices; a
       // permanent whose id equals the source is excluded. FAIL-CLOSED when the source is unknown (no

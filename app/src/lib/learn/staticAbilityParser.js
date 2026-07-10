@@ -1297,6 +1297,25 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── COUNTER-GATED GROUP WARD (Cathedral Acolyte — SHELF S7, CR 702.21): "Each creature you control
+  // with a counter on it has ward {N}." A layer-6 addWard grant over the ANY-counter dynamic selector
+  // (requiresAnyCounter — any kind, re-read per query so a counter arriving/leaving moves a creature in or
+  // out live). ONLY the fixed-generic pip is emitted (a colored/{X}/life ward grant → unparsed → Arbiter);
+  // ward.js unions the granted cost with printed ward at the tax site, so the grant is ENFORCED, not
+  // parse-only. Bare form anchored ^…$.
+  {
+    const gwM = c.match(/^each creature you control with a counter on it has ward \{(\d+)\}$/);
+    if (gwM) {
+      out.push({
+        layer: 6,
+        op: { layerOp: "addWard", generic: parseInt(gwM[1], 10) },
+        affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], requiresAnyCounter: true } },
+        duration: { kind: "permanent" },
+      });
+      return;
+    }
+  }
+
   // ── P/T-PREDICATE EVASION (Tetsuko Umezawa, Fugitive — SHELF S7): "Creatures you control with power or
   // toughness N or less can't be blocked." The Herald-of-Secret-Streams unblockable grant with a LAYER-AWARE
   // P/T predicate instead of a counter gate: the selector's powerOrToughnessAtMost is re-evaluated at every

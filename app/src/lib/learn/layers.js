@@ -523,6 +523,9 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // COUNTER-PAYOFF: a per-permanent counter gate (Herald of Secret Streams — "creatures you control WITH
   // A +1/+1 COUNTER on it …"). Re-evaluated each collection, so the grant tracks the counter dynamically.
   if (selector.requiresCounter && (candidate.counters?.[selector.requiresCounter] || 0) <= 0) return false;
+  // ANY-COUNTER gate (Cathedral Acolyte — "each creature you control WITH A COUNTER ON IT …"): any kind,
+  // any amount > 0. Re-evaluated per query like requiresCounter.
+  if (selector.requiresAnyCounter && !Object.values(candidate.counters || {}).some((n) => (n || 0) > 0)) return false;
   // P/T-PREDICATE (Tetsuko — "creatures you control with POWER OR TOUGHNESS N OR LESS …"): the candidate's
   // LIVE layer-aware power/toughness (layer 7 — counters + anthems + pumps), re-read at every query so a
   // mid-turn pump/debuff moves a creature in or out of the grant, exactly like the printed static. An
@@ -593,10 +596,12 @@ function l6IndexOf(state) {
   if (idx) return idx;
   const byKeyword = new Map();
   const protection = [];
+  const ward = []; // GRANTED WARD (Cathedral Acolyte, CR 702.21) — addWard effects, read by permanentGrantedWardCosts
   for (const e of collectContinuousEffects(state)) {
     if (e.layer !== 6) continue;
     const op = e.op || {};
     if (op.layerOp === "addProtection") { protection.push(e); continue; }
+    if (op.layerOp === "addWard") { ward.push(e); continue; }
     if (op.layerOp !== "addKeyword" && op.layerOp !== "removeKeyword") continue;
     const kw = String(op.keyword || "").toLowerCase();
     if (!kw) continue;
@@ -605,9 +610,27 @@ function l6IndexOf(state) {
     list.push(e);
   }
   for (const list of byKeyword.values()) list.sort(byTimestamp);
-  idx = { byKeyword, protection };
+  idx = { byKeyword, protection, ward };
   _l6IndexMemo.set(state, idx);
   return idx;
+}
+
+/**
+ * GRANTED WARD (Cathedral Acolyte — "Each creature you control with a counter on it has ward {1}",
+ * CR 702.21): the list of ward COSTS conferred on `permanentId` by layer-6 addWard effects right now
+ * (each `{ generic }` — only fixed-generic grants are emitted today). Re-evaluated per query (the
+ * counter-gated selector moves permanents in and out live), exactly like permanentProtectionColors.
+ * ward.js unions these with the printed ward cost at the tax site.
+ */
+export function permanentGrantedWardCosts(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return [];
+  const out = [];
+  for (const e of l6IndexOf(state).ward) {
+    if (!effectAffects(e, perm, state)) continue;
+    if (typeof e.op.generic === "number") out.push({ generic: e.op.generic });
+  }
+  return out;
 }
 
 // ─── Per-permanent derive ───────────────────────────────────────────────────────

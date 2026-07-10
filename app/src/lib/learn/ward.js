@@ -37,7 +37,7 @@
  */
 
 import { findPermanent } from "./gameState.js";
-import { permanentHasKeyword } from "./layers.js";
+import { permanentHasKeyword, permanentGrantedWardCosts } from "./layers.js";
 
 const SINGLE_COLORS = new Set(["W", "U", "B", "R", "G"]);
 
@@ -112,11 +112,25 @@ export function wardTaxForStackObject(state, stackObj) {
   const wardTargets = (stackObj.targets || []).filter((t) => {
     if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker")) return false;
     const lk = findPermanent(state, t.id);
-    return lk && lk.controller !== caster && permanentHasKeyword(state, t.id, "Ward");
+    // GRANTED ward (Cathedral Acolyte, layer-6 addWard) counts alongside a printed/keyword-granted Ward.
+    return lk && lk.controller !== caster
+      && (permanentHasKeyword(state, t.id, "Ward") || permanentGrantedWardCosts(state, t.id).length > 0);
   });
   if (wardTargets.length !== 1) return null; // 0 → no ward; 2+ → separate triggers (CR 702.21c), safe FN
   const lk = findPermanent(state, wardTargets[0].id);
-  const cost = parseWardCost(lk?.permanent?.card);
+  const printed = parseWardCost(lk?.permanent?.card);
+  // GRANTED ward costs (CR 702.21c — each instance triggers separately; for all-MANA costs, "pay each or
+  // the spell is countered" is outcome-identical to one combined tax, so the generic pips are SUMMED into
+  // the soft-counter). A printed NON-mana ward (life) plus a grant can't be combined into one binary tax —
+  // fall back to the printed cost alone (an under-tax, FN-safe — never a fabricated combined cost).
+  const granted = permanentGrantedWardCosts(state, wardTargets[0].id);
+  const grantedGeneric = granted.reduce((s, g) => s + (g.generic || 0), 0);
+  let cost = printed;
+  if (grantedGeneric > 0) {
+    if (!printed) cost = { kind: "mana", mana: { generic: grantedGeneric, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } };
+    else if (printed.kind === "mana") cost = { kind: "mana", mana: { ...printed.mana, generic: (printed.mana.generic || 0) + grantedGeneric } };
+    // printed non-mana (life) + a grant → keep the printed cost alone (documented under-tax above)
+  }
   if (!cost) return null; // discard/sacrifice/{X} ward → unenforced
   return { cost, wardName: lk.permanent.card?.name || null };
 }
