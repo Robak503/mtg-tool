@@ -32,7 +32,23 @@ import { existsSync, readFileSync } from "node:fs";
 
 function detectAppRoot() {
   const envOverride = process.env.MTG_APP_ROOT;
+  // TEST ISOLATION (GHOST-REGISTRY fix, 2026-07-10): under vitest, an MTG_APP_ROOT pointing at the
+  // REAL install data root (the bundle id is unique to it) is a LEAKED env var, never a sandbox —
+  // profile tests once ran against the live %APPDATA% registry this way (the "Bob"/"Newname"
+  // pollution behind the ghost-profile incident). Fail LOUD so the leak is visible; tests that set
+  // MTG_APP_ROOT to a tmp sandbox (gameLogStore, mulligan, paths.test) are untouched.
+  if (process.env.VITEST && envOverride && /com\.colton\.mtg-tool/i.test(envOverride)) {
+    throw new Error("Refusing to run tests against the REAL app data root (MTG_APP_ROOT leaked into a vitest run) — unset it or point it at a tmp sandbox.");
+  }
   if (envOverride && envOverride.trim()) return envOverride;
+  // PACKAGED-CONTEXT GUARD (GHOST-REGISTRY fix): MTG_REFERENCE_DIR is set ONLY by the Tauri shell's
+  // spawn env (and by tests that sandbox via chdir — exempt under VITEST). If it's present but
+  // MTG_APP_ROOT is missing, this node was spawned in a broken context (an updater-relaunch env
+  // drop) — a silent cwd fallback would read/WRITE user data at an arbitrary directory (the
+  // ghost-registry class). Fail LOUD instead; the placeholder surfaces the error.
+  if (process.env.MTG_REFERENCE_DIR && !process.env.VITEST) {
+    throw new Error("MTG_APP_ROOT is not set but MTG_REFERENCE_DIR is — refusing the cwd fallback in a packaged context (user data would resolve to an arbitrary directory).");
+  }
   return process.cwd();
 }
 

@@ -174,7 +174,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   // Load the cross-profile deck list once on mount.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       setDecksLoad(true);
       setDecksError(null);
       try {
@@ -191,8 +191,19 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
       } finally {
         if (!cancelled) setDecksLoad(false);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+    load();
+    // TRAY-STALENESS fix (GHOST-REGISTRY incident, 2026-07-10): the window hides to the tray, so this
+    // panel's deck/profile groups can be DAYS old when re-shown — refresh on visibility/focus so the
+    // labels always reflect the live registry (the "my decks show under the wrong profile" report).
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, []);
 
   const refreshHistory = async () => {

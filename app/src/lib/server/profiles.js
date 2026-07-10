@@ -70,15 +70,41 @@ function newId() {
   return `prof_${crypto.randomUUID()}`;
 }
 
+// GHOST-REGISTRY armor (2026-07-10): a TRANSIENT read failure (EPERM/EBUSY while another process's
+// atomic rename swaps the file — the documented Windows reader-writer race) must never be treated as
+// "no registry": that misread used to fall through to rebuild/migration, which REWRITES the registry
+// and can orphan/relabel every profile. Bounded retry rides out the swap window; a hard parse failure
+// after retries throws REGISTRY_UNREADABLE so callers fail loud instead of rebuilding over live data.
+function readRegistryRaw(p) {
+  let lastErr = null;
+  for (let i = 0; i < 5; i++) {
+    try {
+      return readFileSync(p, "utf8");
+    } catch (e) {
+      if (e?.code === "ENOENT") return null; // genuinely missing → the migration path owns it
+      lastErr = e;
+      // Synchronous back-off (the profile API is sync end-to-end): a tiny busy-wait is acceptable
+      // for a ≤5-attempt transient window; the alternative (treating EPERM as missing) rewrote registries.
+      const until = Date.now() + 15 * (i + 1);
+      while (Date.now() < until) { /* spin ~15-75ms */ }
+    }
+  }
+  const err = new Error(`profiles registry unreadable after retries: ${lastErr?.message || lastErr}`);
+  err.code = "REGISTRY_UNREADABLE";
+  throw err;
+}
+
 export function readRegistry() {
   const p = profilesRegistryPath();
   if (!existsSync(p)) return null;
+  const raw = readRegistryRaw(p);
+  if (raw === null) return null;
   try {
-    const reg = JSON.parse(readFileSync(p, "utf8"));
-    if (!reg || !Array.isArray(reg.profiles)) return null;
+    const reg = JSON.parse(raw);
+    if (!reg || !Array.isArray(reg.profiles)) return null; // structurally wrong → corrupt path (ensureMigrated quarantines)
     return reg;
   } catch {
-    return null;
+    return null; // parse-corrupt → ensureMigrated quarantines the file before any rebuild
   }
 }
 
@@ -101,8 +127,26 @@ function atomicWriteFileSync(target, body) {
   renameSync(tmp, target);
 }
 
-function writeRegistry(reg) {
+function writeRegistry(reg, { allowRemove = false } = {}) {
   mkdirSync(dataRoot(), { recursive: true });
+  // GHOST-REGISTRY armor (2026-07-10) — STALE-WRITER GUARD: a process holding an old in-memory
+  // registry (a leaked-env test run, a long-lived dev instance) must never clobber profiles the
+  // CURRENT on-disk registry knows about. Re-read the live file just before the swap; if this write
+  // would DROP a registered profile id, refuse — unless the caller is deleteProfile (allowRemove),
+  // the only operation entitled to shrink the set. Renames/additions/active-pointer moves pass.
+  // (The 2026-07-09 "Bob" pollution was exactly this class — saved only by its rename failing.)
+  if (!allowRemove) {
+    const live = readRegistry();
+    if (live) {
+      const nextIds = new Set((reg.profiles || []).map((p) => p.id));
+      const dropped = live.profiles.filter((p) => !nextIds.has(p.id));
+      if (dropped.length) {
+        const err = new Error(`Refusing a registry write that drops registered profiles: ${dropped.map((p) => `${p.name}(${p.id})`).join(", ")} — the writer holds a stale registry.`);
+        err.code = "STALE_REGISTRY_WRITE";
+        throw err;
+      }
+    }
+  }
   // The registry is the root pointer to EVERY profile folder — a torn in-place
   // write here orphans all per-profile data at once, so it must never truncate
   // the live file.
@@ -110,9 +154,18 @@ function writeRegistry(reg) {
 }
 
 /** List profiles (running migration first if needed). */
+let bootDiagLogged = false;
 export function listProfiles() {
   ensureMigrated();
   const reg = readRegistry();
+  // BOOT DIAGNOSTIC (GHOST-REGISTRY incident, 2026-07-10): one line per server process into
+  // server.out.log stating WHICH registry this process actually resolved — the next wrong-profile
+  // report becomes a one-line diagnosis instead of a forensic dig.
+  if (!bootDiagLogged) {
+    bootDiagLogged = true;
+    const active = reg.profiles.find((p) => p.id === reg.activeProfileId);
+    console.log(`[profiles] registry=${profilesRegistryPath()} | ${reg.profiles.map((p) => `${p.name}(${p.id.slice(0, 13)})`).join(" · ")} | active=${active?.name ?? reg.activeProfileId}`);
+  }
   return { profiles: reg.profiles, activeProfileId: reg.activeProfileId };
 }
 
@@ -175,7 +228,7 @@ export function deleteProfile(id) {
   }
   reg.profiles = reg.profiles.filter(p => p.id !== id);
   if (reg.activeProfileId === id) reg.activeProfileId = reg.profiles[0].id;
-  writeRegistry(reg);
+  writeRegistry(reg, { allowRemove: true }); // deleteProfile is the ONE op entitled to shrink the set
   rmSync(profileDir(id), { recursive: true, force: true });
   return { activeProfileId: reg.activeProfileId };
 }
@@ -288,6 +341,17 @@ export function ensureMigrated() {
   if (readRegistry()) {
     cleanupLegacyFlatDecks();
     return;
+  }
+  // GHOST-REGISTRY armor (2026-07-10): a PRESENT-but-corrupt registry is quarantined (renamed aside,
+  // timestamped) BEFORE any rebuild — the rebuild then writes fresh, and the evidence survives for
+  // recovery/diagnosis instead of being silently overwritten. A TRANSIENT read failure never reaches
+  // here (readRegistry retries EPERM/EBUSY and THROWS if persistent — it can't fall through to this
+  // rewrite path anymore, which is what made a read race able to relabel every profile).
+  {
+    const p = profilesRegistryPath();
+    if (existsSync(p)) {
+      try { renameSync(p, `${p}.corrupt-${Date.now()}`); } catch { /* best-effort — rebuild still refuses to shrink via the write guard */ }
+    }
   }
   // Missing OR corrupt registry from here on. If per-profile folders already
   // exist, the original migration has run and the flat root holds nothing to

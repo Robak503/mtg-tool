@@ -44,6 +44,20 @@ export default function useProfiles() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // TRAY-STALENESS fix (GHOST-REGISTRY incident, 2026-07-10): the window close button HIDES to the
+  // tray, so a webview can live for DAYS with registry state fetched at mount — re-showing it then
+  // presents days-old profile names/active as current (the "my decks are under the wrong profile"
+  // report). Re-fetch whenever the window becomes visible/focused again; the server read is cheap.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [refresh]);
+
   const create = useCallback(async (name) => {
     const resp = await fetch("/api/profiles", {
       method: "POST",
