@@ -10,6 +10,22 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.131.0] - 2026-07-10
+
+### Fixed
+- **Every self-play/grind commander was secretly a blank 0/0 with no abilities** — a stub card
+  slipped past deck enrichment, so commanders entered play with no power, toughness, or rules text
+  (no eminence, no radiation, nothing). Commander-centric decks' win rates were partially measuring
+  "how does this deck do with a blank commander." Commanders now enter as their real cards.
+  Grind data recorded before this fix should be treated as a separate (compromised) era.
+
+### Added
+- **18 more cards play natively** since 0.130.0, including the self-counter commander class
+  (Marwyn, Yahenni, Thanos, Ishai + 10 more), Strong's radiation life-gain replacement,
+  Vexing Radgull's rad-or-proliferate branch, Galvanic Blast's metalcraft upgrade, Street
+  Wraith's pay-life cycling, Shadow of Mortality's life discount, Bureau Headmaster's equip
+  discount, and Vega, the Watcher (a new cast-from-anywhere-but-hand trigger event).
+
 ## [0.130.0] - 2026-07-10
 
 ### Added
