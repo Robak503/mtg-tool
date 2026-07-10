@@ -66,7 +66,9 @@ let pilots = {};
 if (opt("pilot")) {
   const { loadPilotBuilder } = await import(pathToFileURL(path.join(process.cwd(), "src/lib/server/pilotLoader.js")).href);
   const build = await loadPilotBuilder(opt("pilot"), header.mode || "commander");
-  if (build) pilots = build(pod) || {};
+  // Pass the RECORDED game seed: pilotV>=3 personas derive temperaments from it, so a seed-less
+  // rebuild would assign different temperaments than the original game (a silent repro mismatch).
+  if (build) pilots = build(pod, header.seed, { flags: [] }) || {};
 }
 
 // ── re-run ──

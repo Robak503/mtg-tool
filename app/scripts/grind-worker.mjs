@@ -45,7 +45,8 @@ for (let i = cfg.laneIndex; cfg.maxGames == null || played < cfg.maxGames; i += 
   const gameSeed = gameSeedAt(cfg.baseSeed, i);
   const pod = formPod(playable, podSize, gameSeed);
   let pilots = {};
-  try { if (pilotBuilder) pilots = pilotBuilder(pod, gameSeed) || {}; } catch (e) { process.stderr.write(`lane ${cfg.laneIndex} pilot build ${i}: ${e?.message || e}\n`); }
+  // RECALL-ARM plumb (M2.3): the 3rd-arg options bag carries --pilot-flags; older builders ignore it.
+  try { if (pilotBuilder) pilots = pilotBuilder(pod, gameSeed, { flags: cfg.pilotFlags || [] }) || {}; } catch (e) { process.stderr.write(`lane ${cfg.laneIndex} pilot build ${i}: ${e?.message || e}\n`); }
   const identity = Object.fromEntries(Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null, pilotType: p?.pilotType ?? null }]));
   let game;
   try {

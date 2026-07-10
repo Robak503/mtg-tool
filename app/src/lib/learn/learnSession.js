@@ -44,6 +44,7 @@ import {
 } from "./gameEngine.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
+import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
@@ -845,10 +846,17 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
       // ROWS v2 (EPOCH-2 instrumentation, schemaVersion 3): what was REJECTED matters for
       // policy learning — record the offered set's size + kind histogram, the chosen action's
       // rank in the engine's own ordering, the stack depth, and whether the choice was forced.
-      // (`nearTie`/scoreGap is PARKED: the seam validates against `offered` but never sees the
-      // default chooser's scores — exposing them is a deeper opponentAI change, noted in COMMS.)
       const legalKinds = {};
       for (const a of offered) if (a?.kind) legalKinds[a.kind] = (legalKinds[a.kind] || 0) + 1;
+      // M5.1 (featuresV=3 — the nearTie/top-k unpark, Omnath handoff): pickCastAction's ranking
+      // rides the tick-scoped side-channel (see opponentAI.takeLastCastRanking). Attached ONLY
+      // when the recorded choice IS a cast the ranking covers (kind + cardId guarded), so a
+      // pendingChoice window / a pilot's non-cast override never wears a stale ranking. Scores
+      // are the chooser's raw ascending scores: scoreGap = runnerUp − best (small gap = near-tie;
+      // the threshold is the consumer's call). Non-cast decisions stay null — the honest
+      // scored-class scope (combat plans/pending windows have no uniform score).
+      const castRanking = takeLastCastRanking();
+      const castMatch = castRanking && chosen?.kind === "cast-spell" && castRanking.some((r) => r.cardId === chosen.cardId);
       recordDecision({
         turn: state.turn,
         seat,
@@ -859,6 +867,8 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
         rank: Math.max(0, offered.indexOf(chosen)),
         stackDepth: state.stack?.length ?? 0,
         forced: offered.length === 1,
+        castScores: castMatch ? castRanking.slice(0, 3).map((r) => ({ cardId: r.cardId, name: r.name, score: +Number(r.score).toFixed(3) })) : null,
+        scoreGap: castMatch && castRanking.length > 1 ? +(castRanking[1].score - castRanking[0].score).toFixed(3) : null,
       });
     } catch (err) {
       // Recording is observational — a faulty recorder can never corrupt or abort a game.

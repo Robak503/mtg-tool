@@ -68,6 +68,9 @@ for (let k = 0; k < workers; k++) {
     deckIds: argv["deck-ids"] ? String(argv["deck-ids"]).split(",") : [],
     mode,
     pilotFile: argv.pilot || null,
+    // RECALL-ARM plumb (M2.3, Omnath handoff): --pilot-flags=recall-on[,…] reaches every
+    // pilotBuilder call as the 3rd-arg options bag ({ flags: [...] }); the persona reads it.
+    pilotFlags: argv["pilot-flags"] ? String(argv["pilot-flags"]).split(",").filter(Boolean) : [],
     pool: argv.pool === "cedh" ? "cedh" : "mixed",
     baseSeed,
     laneIndex: k,

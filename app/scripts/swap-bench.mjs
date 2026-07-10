@@ -51,6 +51,11 @@ if (playable.length < podSize) { console.error(`swap-bench: only ${playable.leng
 const baseBuilder = baselineFile === "default" ? null : await loadPilotBuilder(baselineFile, mode);
 const candBuilder = await loadPilotBuilder(candidateFile, mode);
 const seatNames = engineSeatsFor(mode);
+// RECALL-ARM per-side flags (M2.3 — the recall-ON vs OFF bench): --baseline-flags= / --candidate-flags=
+// (CSV) reach each side's builder call as the 3rd-arg options bag. Same pilot file + different flags is
+// the intended shape for benching a flag-gated arm (recall-on) against its OFF twin.
+const baselineFlags = (arg("baseline-flags", "") || "").split(",").filter(Boolean);
+const candidateFlags = (arg("candidate-flags", "") || "").split(",").filter(Boolean);
 
 // A bench game never records rows and never touches the store — throwaway evidence games.
 const gameArgs = (pod, pilots, seed) => ({ ...podToArgs(pod, mode, pilots, seed), recordDecisions: false });
@@ -64,9 +69,9 @@ for (let i = 0; i < games; i++) {
   const swapSeat = seatNames[i % podSize];
   let pilotsA = {};
   let pilotsB;
-  try { pilotsA = baseBuilder ? (baseBuilder(pod, seed) || {}) : {}; } catch { /* default autopilot */ }
+  try { pilotsA = baseBuilder ? (baseBuilder(pod, seed, { flags: baselineFlags }) || {}) : {}; } catch { /* default autopilot */ }
   try {
-    const cand = candBuilder(pod, seed) || {};
+    const cand = candBuilder(pod, seed, { flags: candidateFlags }) || {};
     pilotsB = { ...pilotsA, [swapSeat]: cand[swapSeat] };
     if (!pilotsB[swapSeat]) delete pilotsB[swapSeat]; // candidate pack has no pilot for this seat → default
   } catch { pilotsB = { ...pilotsA }; }

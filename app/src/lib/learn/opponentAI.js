@@ -821,6 +821,9 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
 
   if (scored.length === 0) return null;
   scored.sort((a, b) => a.score - b.score || a.cmc - b.cmc);
+  // M5.1 — expose the final ranking (top 5) for the decision recorder (see the side-channel note
+  // above pickAction). Raw scores, ascending = best-first; read-and-cleared by takeLastCastRanking.
+  _lastCastRanking = scored.slice(0, 5).map((s) => ({ cardId: s.action.cardId ?? null, name: s.action.name ?? null, score: s.score }));
   return scored[0].action;
 }
 
@@ -1136,7 +1139,24 @@ function pickSafeAbilityActivation(abilityActions) {
  * For attacks and blocks (which are batch decisions), use the
  * specialized pickers below.
  */
+// ===== CAST-RANKING SIDE-CHANNEL (M5.1 — nearTie/top-k in rows; Omnath handoff) =====
+// pickCastAction's scored candidate list, exposed for the decision recorder. A TICK-SCOPED slot:
+// pickAction ENTRY clears it (every auto-decide tick calls pickAction exactly once, so a stale
+// ranking can never outlive its tick), pickCastAction fills it after its final sort, and
+// learnSession's recorder TAKES it (read-and-clear) — attaching it to a row ONLY when the chosen
+// action is the cast the ranking described (kind + cardId guarded there). Scores are the raw
+// pickCastAction scores (LOWER = better; the sort is ascending): scoreGap = scored[1] − scored[0].
+// Non-cast decisions (combat plans, pending windows) have no uniform score — their rows stay null,
+// an HONEST partial (documented in the runbook as the scored-class scope).
+let _lastCastRanking = null;
+export function takeLastCastRanking() {
+  const r = _lastCastRanking;
+  _lastCastRanking = null;
+  return r;
+}
+
 export function pickAction(state, aiPlayerId, actions, { archetype = null, policy = null } = {}) {
+  _lastCastRanking = null; // tick boundary — a previous tick's cast ranking must never leak forward
   if (!Array.isArray(actions) || actions.length === 0) return null;
   const pol = normalizePolicy(policy);
 

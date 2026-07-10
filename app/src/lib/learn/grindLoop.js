@@ -53,7 +53,7 @@ async function engineVersion() {
  * buildPilotsForBatch), `capBytes` = the disk budget (default 100GB via the store). Fire-and-forget: returns
  * immediately with { started }, the loop runs in the background until cancel/cap. Refuses a second concurrent grind.
  */
-export async function startGrind({ decks, mode = "commander", pilotBuilder = null, capBytes = null, seed = "auto", pool = "mixed" } = {}) {
+export async function startGrind({ decks, mode = "commander", pilotBuilder = null, pilotFlags = [], capBytes = null, seed = "auto", pool = "mixed" } = {}) {
   if (state.running) return { started: false, reason: "a grind is already running", ...grindStatus() };
   const podSize = mode === "commander" ? 4 : 2;
   // POOL GATE (SIM-INTEGRITY Phase 3): cedh decks never sit in mixed pods and vice versa —
@@ -65,14 +65,14 @@ export async function startGrind({ decks, mode = "commander", pilotBuilder = nul
   }
   decks = poolDecks;
   state = { ...freshState(), running: true, startedAt: Date.now(), capBytes, pool };
-  loop({ decks, mode, pilotBuilder, capBytes, seed, podSize, pool }).catch((e) => {
+  loop({ decks, mode, pilotBuilder, pilotFlags, capBytes, seed, podSize, pool }).catch((e) => {
     state.error = e?.message || String(e);
     state.running = false;
   });
   return { started: true, ...grindStatus() };
 }
 
-async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize, pool = "mixed" }) {
+async function loop({ decks, mode, pilotBuilder, pilotFlags = [], capBytes, seed, podSize, pool = "mixed" }) {
   const base = resolveBaseSeed(seed);
   const version = await engineVersion();
   const seatNames = engineSeatsForMode(mode); // seat order matches pod order (pod[0]=user, pod[1]=ai1, …)
@@ -84,7 +84,8 @@ async function loop({ decks, mode, pilotBuilder, capBytes, seed, podSize, pool =
     // DECK-NATIVE playbook (Omnath v2). v1 ignores decks → a temperament spread + default playbook (still varied,
     // still tagged). A builder throw never kills the grind — fall back to default autopilot for this game.
     let pilots = {};
-    try { if (pilotBuilder) pilots = pilotBuilder(pod, gameSeed) || {}; } catch (e) { state.error = `pilot build ${i}: ${e?.message || e}`; }
+    // RECALL-ARM plumb (M2.3): the 3rd-arg options bag carries pilotFlags; older builders ignore it.
+    try { if (pilotBuilder) pilots = pilotBuilder(pod, gameSeed, { flags: pilotFlags }) || {}; } catch (e) { state.error = `pilot build ${i}: ${e?.message || e}`; }
     const identity = Object.fromEntries(Object.entries(pilots).map(([s, p]) => [s, { playbook: p?.playbook ?? null, temperament: p?.temperament ?? null, pilotType: p?.pilotType ?? null }]));
     let game;
     try {

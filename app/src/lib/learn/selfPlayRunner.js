@@ -358,6 +358,11 @@ export function runSelfPlayGame({
           rank: row.rank ?? null,
           stackDepth: row.stackDepth ?? null,
           forced: row.forced ?? false,
+          // ROWS v3 (featuresV=3, M5.1): the cast chooser's top-3 scores + the best-vs-runner-up gap
+          // (ascending scores — a SMALL gap = a near-tie fork). Null for every non-cast decision
+          // (no uniform score exists there — the honest scored-class scope).
+          castScores: row.castScores ?? null,
+          scoreGap: row.scoreGap ?? null,
         });
       }
     : null;

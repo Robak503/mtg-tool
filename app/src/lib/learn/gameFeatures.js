@@ -43,8 +43,12 @@ import { permanentPower, permanentToughness, permanentIsCreature } from "./layer
  *     turns) · per-seat `mull` {ships, finalHandSize, bottomedCount} in seatStats ·
  *     header `startSeat`/`turnOrder` · header `decisionsCount` · header `pilotV`
  *     (persona-pack era marker, null until the builder exposes it).
+ * 3 — ROWS v3 (M5.1, the nearTie/top-k unpark): rows gain `castScores` (the cast
+ *     chooser's top-3 {cardId, name, score}, ascending = best-first) + `scoreGap`
+ *     (runnerUp − best; a small gap = a near-tie fork). Null on every non-cast
+ *     decision — the scored-class scope. Headers unchanged from 2.
  */
-export const FEATURES_VERSION = 2;
+export const FEATURES_VERSION = 3;
 
 /**
  * The authoritative feature ORDER. `featureVector` reads this so the numeric vector
