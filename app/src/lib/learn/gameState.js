@@ -841,11 +841,19 @@ export function applyImpulseDig(state, { playerId, n, chosenId, restTo }) {
 export function millCards(state, { playerId, count }) {
   assertPlayer(playerId);
   if (!state.players[playerId]) return state;
-  return withPlayer(state, playerId, player => {
-    const n = Math.min(Math.max(0, count || 0), player.library.length);
-    if (n === 0) return player;
-    return { ...player, library: player.library.slice(n), graveyard: [...player.graveyard, ...player.library.slice(0, n)] };
-  });
+  const lib = state.players[playerId].library || [];
+  const n = Math.min(Math.max(0, count || 0), lib.length);
+  if (n === 0) return state;
+  const milledIds = lib.slice(0, n).map((c) => c.id);
+  const next = withPlayer(state, playerId, player => ({
+    ...player, library: player.library.slice(n), graveyard: [...player.graveyard, ...player.library.slice(0, n)],
+  }));
+  // MILLED-THIS-TURN ledger (Tato Farmer "…that was milled this turn"; the Raul cast-permission class):
+  // every milled card id → the turn it was milled, stamped HERE at the single mill primitive (the
+  // mill-effect path AND the radiation mill both flow through millCards, so the ledger can't miss a
+  // source). Readers key on `=== state.turn`, so stale entries are inert — no cleanup pass. Plain data
+  // (serialize-safe); bounded by total library sizes.
+  return { ...next, milledThisTurn: { ...(next.milledThisTurn || {}), ...Object.fromEntries(milledIds.map((id) => [id, state.turn])) } };
 }
 
 // ─── Permanent helpers ────────────────────────────────────────────────────────

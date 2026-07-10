@@ -184,7 +184,9 @@ export function applyReanimate(state, atom, ctx) {
     // caster) always gets the entering permanent.
     const crossZone = atom.anyGraveyard || atom.opponentGraveyard;
     const fromPlayerId = crossZone ? (t.controller || ctx.controller) : ctx.controller;
-    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId });
+    // entersTapped (Tato Farmer's milled-land reanimate — "…onto the battlefield under your control TAPPED"):
+    // rides enterCardFromZone's tapped param; every existing reanimate leaves it unset → false (byte-identical).
+    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId, tapped: !!atom.entersTapped });
     next = r.state;
     if (r.entered) reanimated.push(t.id); // skipped (entered:false) = target left the graveyard (CR 608.2b)
   }
@@ -254,6 +256,14 @@ export function graveyardReturnClauseParser(clause) {
   // indestructible / proliferate rider fails the exact `$` anchor → low → Arbiter (CREED whole-card).
   if (/^put target creature card from a graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true };
   if (/^put target creature card from an opponent's graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", opponentGraveyard: true };
+  // MILLED-LAND REANIMATE (Tato Farmer — SHELF S7): "put target land card in a graveyard that was milled
+  // this turn onto the battlefield under your control tapped". The SAME cross-graveyard reanimate resolver
+  // (fromPlayerId routes the removal; entersTapped rides enterCardFromZone), narrowed by the
+  // milledThisTurnOnly enumeration gate (the millCards ledger, keyed to the CURRENT turn). Exact `$` anchor
+  // — an untapped / non-land / non-milled variant → low → Arbiter (FN-safe).
+  if (/^put target land card in a graveyard that was milled this turn onto the battlefield under your control tapped$/.test(t)) {
+    return { op: "reanimate", targetType: "graveyardCard", cardFilter: "land", anyGraveyard: true, milledThisTurnOnly: true, entersTapped: true };
+  }
   // GY-TO-TOP — "put target <X> card from your graveyard on top of your library" (Reclaim, Salvage, False
   // Mourning). Same chosen-graveyard-card target + the return-from-graveyard resolver, but the destination is
   // the TOP of the library (toLibraryTop → moveCardToZone toZone:"library", toTop). A rider / "the bottom" /

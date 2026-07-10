@@ -546,6 +546,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       for (const card of state.players[pid]?.graveyard || []) {
         if (card.token) continue; // a token is not a "card" (CR 111 / 608.2b) — never a legal target
         if (!cardMatchesGraveyardFilter(card, effect.cardFilter)) continue;
+        // MILLED-THIS-TURN restriction (Tato Farmer — "target land card in a graveyard that was milled
+        // this turn"): the card must appear in the millCards ledger stamped with the CURRENT turn (stale
+        // entries are inert — the reader keys on state.turn, no cleanup pass needed).
+        if (effect.milledThisTurnOnly && state.milledThisTurn?.[card.id] !== state.turn) continue;
         out.push({ type: "graveyardCard", id: card.id, controller: pid, name: card?.name });
       }
     }

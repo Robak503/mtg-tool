@@ -173,7 +173,10 @@ describe("RAD parser — fixed-N grant forms; variable / 'may' / referent forms 
     const low = (o) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: o }))).toBe("low");
     low("Each player gets X rad counters.");                                  // variable X
     low("Each player gets a rad counter for each creature you control.");     // scaled rider
-    low("You may get two rad counters.");                                     // optional choice (unmodeled)
+    // ("You may get two rad counters." is MODELED now — SHELF S7, Tato Farmer's landfall: the α2 peel's
+    // subjectless "get N rad counters" is accepted controller-scoped, and the optional pause honors the
+    // may. The variable-amount optional stays low:)
+    low("You may get X rad counters.");                                       // variable X under a may
     // The Vexing Radgull branch is MODELED now (SHELF S7 — matchRadOrProliferate → ifNoRadElseProliferate,
     // asserted in its own describe below); the Nuka-Nuke Launcher "…whenever they cast a spell" trailing
     // form keeps its tail, fails every anchor, and stays LOW (unmodeled).

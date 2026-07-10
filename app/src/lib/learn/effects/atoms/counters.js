@@ -294,7 +294,11 @@ export function radClauseParser(clause) {
   if (radHalfXM) return { op: "rad", amountX: true, halve: radHalfXM[1] === "up" ? "ceil" : "floor", who: "controller", targetType: null };
   const radEachM = t.match(/^each (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radEachM) return { op: "rad", amount: SMALL_NUM[radEachM[2]] ?? parseInt(radEachM[2], 10), who: radEachM[1] === "opponent" ? "eachOpponent" : "eachPlayer", targetType: null };
-  const radYouM = t.match(/^you get (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  // "[you ]get N rad counters" — the SUBJECTLESS form is what parseClauseToAtom's α2 peel produces from
+  // "you may get N rad counters" (Tato Farmer's landfall — the peel takes the subject with the "may").
+  // A subjectless "get" can only arrive post-peel of a "you may" (the printed idiom is always "you/they
+  // get"), so the implied recipient IS the controller — never a mis-bound grant.
+  const radYouM = t.match(/^(?:you )?get (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radYouM) return { op: "rad", amount: SMALL_NUM[radYouM[1]] ?? parseInt(radYouM[1], 10), who: "controller", targetType: null };
   const radTgtM = t.match(/^target (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radTgtM) return { op: "rad", amount: SMALL_NUM[radTgtM[2]] ?? parseInt(radTgtM[2], 10), who: "target", targetType: radTgtM[1] };
