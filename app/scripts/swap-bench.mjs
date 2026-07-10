@@ -57,8 +57,19 @@ const seatNames = engineSeatsFor(mode);
 const baselineFlags = (arg("baseline-flags", "") || "").split(",").filter(Boolean);
 const candidateFlags = (arg("candidate-flags", "") || "").split(",").filter(Boolean);
 
+// GAME CLOCK (Omnath's hang report, 2026-07-10): podToArgs has ALWAYS set timePressure:true, so bench
+// games inherit the pool's clock (soft-cap drain + the MAX_TURNS=100 hard cap) — the clock was never the
+// missing piece. --clock=off recovers draw-at-cap behavior for a deliberate A/B; any other value (or
+// omitting it) keeps the clock ON. Kept explicit here so the guarantee is visible at the arg site.
+const clockOff = (arg("clock", "on") || "on").toLowerCase() === "off";
 // A bench game never records rows and never touches the store — throwaway evidence games.
-const gameArgs = (pod, pilots, seed) => ({ ...podToArgs(pod, mode, pilots, seed), recordDecisions: false });
+const gameArgs = (pod, pilots, seed) => ({ ...podToArgs(pod, mode, pilots, seed), recordDecisions: false, ...(clockOff && { timePressure: false }) });
+// SLOW-PAIR VISIBILITY (the other half of the hang report): the every-25 progress line means a stuck/slow
+// pair looks like SILENCE for hours. Log any single game slower than --slow-ms (default 60s) the moment it
+// finishes, with its pair index + seed + arm — so a pathological seed is immediately attributable and
+// reproducible. --verbose logs EVERY pair's timing.
+const slowMs = Math.max(1000, parseInt(arg("slow-ms", "60000"), 10) || 60000);
+const verbose = process.argv.includes("--verbose");
 
 const pairs = [];      // { i, seat, rankA, rankB, delta, winA, winB }
 const perSeat = Object.fromEntries(seatNames.map((s) => [s, { n: 0, sumDelta: 0 }]));
@@ -77,8 +88,15 @@ for (let i = 0; i < games; i++) {
   } catch { pilotsB = { ...pilotsA }; }
   let gA, gB;
   try {
+    const tA = Date.now();
     gA = runSelfPlayGame(gameArgs(pod, pilotsA, seed));
+    const msA = Date.now() - tA;
+    const tB = Date.now();
     gB = runSelfPlayGame(gameArgs(pod, pilotsB, seed));
+    const msB = Date.now() - tB;
+    if (verbose || msA > slowMs || msB > slowMs) {
+      process.stderr.write(`pair ${i} seed ${seed} seat ${swapSeat}: A=${(msA / 1000).toFixed(1)}s B=${(msB / 1000).toFixed(1)}s${msA > slowMs || msB > slowMs ? " ⚠️ SLOW" : ""}\n`);
+    }
   } catch { skipped++; continue; }
   const rankA = gA?.seatStats?.[swapSeat]?.finishRank ?? null;
   const rankB = gB?.seatStats?.[swapSeat]?.finishRank ?? null;

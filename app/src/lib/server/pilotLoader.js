@@ -65,9 +65,15 @@ export async function buildPilotsForBatch(file, mode) {
  * spread + default playbook, still varied). A bare-decide persona ignores decks (same pilot every seat). Returns
  * null for no selection (⇒ default autopilot). Path-guarded like buildPilotsForBatch.
  */
+// CLI-side pilot path: a bare filename OR one subdirectory level under pilotsDir ("omnath-v4-staged/
+// exe-persona.mjs" — the staged-pack layout swap-bench's --candidate advertises). Same character class per
+// segment (no "..", no separators inside a segment), so the joined path can never escape pilotsDir(). The
+// EXE panel's buildPilotsForBatch keeps the stricter bare-file rule (its list UI only surfaces flat files).
+const SAFE_PILOT_PATH = /^[A-Za-z0-9._-]+(?:[/\\][A-Za-z0-9._-]+)?\.mjs$/;
+
 export async function loadPilotBuilder(file, mode) {
   if (!file) return null;
-  if (!SAFE_PILOT_FILE.test(file)) throw new Error(`invalid pilot filename: ${file}`);
+  if (!SAFE_PILOT_PATH.test(file) || file.includes("..")) throw new Error(`invalid pilot filename: ${file}`);
   const seats = engineSeatsForMode(mode);
   const mod = await import(pathToFileURL(path.join(pilotsDir(), file)).href);
   if (typeof mod.buildPilots === "function") {
@@ -76,7 +82,11 @@ export async function loadPilotBuilder(file, mode) {
     // (seed+decks+persona) — the property the prune lifecycle requires. Personas may ignore it
     // (current omnath.mjs does — its games stay unprunable until it adopts the seed; the replay
     // canary gates pruning either way).
-    return (decks, seed = null) => mod.buildPilots(seats, { mode, decks, seed }) || {};
+    // The 3rd-arg OPTIONS BAG (recall-arm plumb, 2026-07-10) spreads into buildPilots' opts — this is the
+    // LAST hop of the --pilot-flags/--candidate-flags plumb (grindLoop/grind-worker/swap-bench all call
+    // pilotBuilder(pod, seed, { flags })); dropping it here silently no-op'd every flag-gated arm for a
+    // buildPilots persona (Omnath's recall-on bench). Additive: a persona that ignores opts is unchanged.
+    return (decks, seed = null, opts = {}) => mod.buildPilots(seats, { mode, decks, seed, ...opts }) || {};
   }
   if (typeof mod.decide === "function") {
     const p = {
