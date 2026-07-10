@@ -77,6 +77,8 @@ export function counterFilterMatches(card, filter, atom = null) {
   if (filter === "artifact") return /\bArtifact\b/.test(type);
   if (filter === "artifactOrEnchantment") return /\b(?:Artifact|Enchantment)\b/.test(type);
   if (filter === "creatureOrAura") return /\bCreature\b/.test(type) || /\bAura\b/.test(type);
+  // CNT-IS (Flusterstorm's soft-counter — "instant or sorcery spell") — the 2-type union (front-face).
+  if (filter === "instantSorcery") return /\b(?:Instant|Sorcery)\b/.test(type);
   // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors spellMatchesCounterFilter for enumeration).
   if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
   // CNT-ACP (WAVE 2b) — Strix Serenade's 3-way "artifact, creature, or planeswalker" union (front-face).
@@ -401,8 +403,8 @@ export function counterClauseParser(clause) {
   const col = /^counter target (non)?(white|blue|black|red|green) spell$/.exec(t);
   if (col) return { op: "counter", spellFilter: "any", targetType: "spell", colorFilter: { color: COLOR_LETTER[col[2]], negate: !!col[1] } };
   if (/^counter target artifact, creature, or planeswalker spell$/.test(t)) return { op: "counter", spellFilter: "artifactCreaturePlaneswalker", targetType: "spell" };
-  const sc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\}$/.exec(t);
-  if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
+  const sc = /^counter target (noncreature |creature |instant or sorcery )?spell unless its controller pays \{(\d+)\}$/.exec(t);
+  if (sc) return { op: "counter", spellFilter: sc[1] ? (sc[1].trim() === "instant or sorcery" ? "instantSorcery" : sc[1].trim()) : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
   const scx = /^counter target (noncreature |creature )?spell unless its controller pays \{x\}$/.exec(t);
   if (scx) return { op: "counter", spellFilter: scx[1] ? scx[1].trim() : "any", targetType: "spell", unlessPayX: true, countX: true };
   // SOFT-CNT-COUNT — "counter target spell unless its controller pays {N} for each <count source>" (Rakshasa's

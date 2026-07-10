@@ -48,7 +48,9 @@ describe("parser — soft-counter atom (fixed-{N} only)", () => {
     // NOTE: the bare-{X} soft counter (Clash of Wills) is now HIGH (WAVE 2b SOFT-CNT-X) — covered in softCounterX.test.js.
     expect(isHigh("Counter target spell unless its controller pays {2} plus an additional {2} for each card named Rune Snag in each graveyard.")).toBe(false); // Rune Snag
     expect(isHigh("Counter target spell unless its controller pays {1} and 1 life.")).toBe(false);                        // Mundungu (non-mana cost)
-    expect(isHigh("Counter target instant or sorcery spell unless its controller pays {1}.")).toBe(false);               // Disrupt (filter not in any/noncreature/creature)
+    // (The "instant or sorcery" soft-counter filter is MODELED now — SHELF Phase 2, the Flusterstorm/
+    // Disrupt class; see instantSorcerySoftCounter.test.js. The Reject line below still holds the
+    // unmodeled-filter guard.)
     expect(isHigh("Counter target creature or planeswalker spell unless its controller pays {3}.")).toBe(false);         // Reject
   });
 });
