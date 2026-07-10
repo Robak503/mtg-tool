@@ -41,17 +41,19 @@ function deckToCardArray(deck) {
   return out;
 }
 
-/** Pull the Commander section into commander card objects (mirrors commandersOf). */
+/** Pull the Commander section into commander card objects (mirrors companionOf). */
 function commandersOf(deck) {
   if (!deck?.cards) return [];
+  // P0 fix (Omnath 2026-07-10 — BLANK-COMMANDER incident): emit BARE {id, name}, exactly like
+  // companionOf below. The old stub fabricated type:"Legendary Creature" + mana:"", which satisfied
+  // learnDeckEnrich's alreadyShaped() → enrichment SKIPPED → every grind/self-play commander entered
+  // play with no power/toughness/oracle (a blank 0/0 — no eminence, no radiation, no abilities;
+  // commander-centric decks' standings partially measured blank-commander survivability). Bare
+  // {id, name} → alreadyShaped false → mergeCardData fills the REAL card from the bundled oracle
+  // index (the stable cmd-… id survives the merge's deckCard spread).
   return deck.cards
     .filter((c) => c.section === "Commander")
-    .map((c) => ({
-      id: `cmd-${deck.id || "deck"}-${c.name}`,
-      name: c.name,
-      type: c.type || "Legendary Creature",
-      mana: c.mana || "",
-    }));
+    .map((c) => ({ id: `cmd-${deck.id || "deck"}-${c.name}`, name: c.name }));
 }
 
 /** Pull the single Companion (mirrors companionOf); null when none. */
