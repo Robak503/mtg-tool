@@ -550,7 +550,12 @@ export function autoPickDistributeCounters(state, pc) {
   if (pool.length === 0 || amount <= 0) return [];
   const n = Math.max(1, Math.min(pc.maxTargets || amount, pool.length, amount));
   const dist = pool.slice(0, n).map(({ c }) => ({ id: c.id, type: "creature", amount: 0 }));
-  for (let i = 0; i < amount; i++) dist[i % n].amount += 1;    // 1 at a time — the total is exactly `amount`
+  // perTargetCap (SHELF M1c — Mothman "a counter on EACH of up to X"): each target takes at most the cap;
+  // once every eligible target is full the surplus is NOT placed ("up to" — an under-spend, never stacked).
+  const cap = pc.perTargetCap || Infinity;
+  for (let i = 0, placed = 0; placed < amount && i < n * (cap === Infinity ? amount : cap); i++) {
+    if (dist[i % n].amount < cap) { dist[i % n].amount += 1; placed++; }
+  }
   return dist.filter((d) => d.amount > 0);
 }
 
@@ -570,7 +575,8 @@ export function resolveDistributeChoice(state, distribution) {
   let spent = 0;
   for (const d of distribution || []) {
     if (!validIds.has(d.id) || spent >= (pc.amount || 0)) continue;
-    const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+    // perTargetCap (SHELF M1c): a human distribution can never stack past the printed per-target cap either.
+    const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent, pc.perTargetCap || Infinity));
     if (amt <= 0) continue;
     next = resolveAtom(next, { op: "add-counter", counterType: pc.counterType || "+1/+1", amount: amt }, { controller: pc.controller, targets: [{ type: "creature", id: d.id }] });
     spent += amt;

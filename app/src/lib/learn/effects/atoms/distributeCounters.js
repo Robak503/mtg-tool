@@ -23,7 +23,10 @@ import { setPendingDistributeChoice } from "../../pendingChoice.js";
 import { isCreatureCard } from "./shared.js";
 
 export function applyDistributeCounters(state, atom, ctx) {
-  const amount = atom.amount || 0;
+  // MILLED-COUNT (The Wise Mothman, SHELF M1c): countContext reads a TRIGGER-context magnitude
+  // (ctx.nonlandMilledCount, threaded by checkMilledTriggers). Absent → 0 → a clean logged no-op,
+  // never a fabricated count. A fixed distribution (Earth Crystal family) is unchanged.
+  const amount = atom.countContext ? Math.max(0, ctx[atom.countContext] || 0) : (atom.amount || 0);
   const counterType = atom.counterType || "+1/+1";
   if (amount <= 0) return logEvent(state, { kind: "spell-effect", effect: "distribute-counters", controller: ctx.controller, amount: 0 });
   const candidates = [];
@@ -34,7 +37,10 @@ export function applyDistributeCounters(state, atom, ctx) {
     }
   }
   if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "distribute-counters", controller: ctx.controller, amount, candidates: 0 });
-  return setPendingDistributeChoice(state, { controller: ctx.controller, amount, counterType, maxTargets: atom.maxTargets ?? null, candidates, sourceName: ctx.cardName });
+  // perTargetCap (Mothman — "a +1/+1 counter on EACH of up to X target creatures"): each chosen target gets
+  // EXACTLY that many (1), so with fewer creatures than X the surplus is simply not placed (the "up to" —
+  // a clean under-spend, never a stacked fabrication). maxTargets defaults to the amount for the capped form.
+  return setPendingDistributeChoice(state, { controller: ctx.controller, amount, counterType, maxTargets: atom.maxTargets ?? (atom.perTargetCap ? amount : null), perTargetCap: atom.perTargetCap ?? null, candidates, sourceName: ctx.cardName });
 }
 
 const DISTRIBUTE_SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -42,11 +48,21 @@ const DISTRIBUTE_SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, f
 export function distributeCountersClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
   const m = t.match(/^distribute (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? among (one or two|one, two, or three) target creatures you control$/);
-  if (!m) return null;
-  const amount = DISTRIBUTE_SMALL_NUM[m[1]] ?? parseInt(m[1], 10);
-  const maxTargets = m[2] === "one or two" ? 2 : 3;
-  if (!amount || amount > maxTargets) return null;                 // over-targeting / unparsed N → LOW (mirror divide-bounded)
-  return { op: "distribute-counters", counterType: "+1/+1", amount, maxTargets, group: "creaturesYouControl" };
+  if (m) {
+    const amount = DISTRIBUTE_SMALL_NUM[m[1]] ?? parseInt(m[1], 10);
+    const maxTargets = m[2] === "one or two" ? 2 : 3;
+    if (!amount || amount > maxTargets) return null;               // over-targeting / unparsed N → LOW (mirror divide-bounded)
+    return { op: "distribute-counters", counterType: "+1/+1", amount, maxTargets, group: "creaturesYouControl" };
+  }
+  // MILLED "each of up to X" (The Wise Mothman, SHELF M1c) — "put a +1/+1 counter on each of up to X target
+  // creatures, where X is the number of nonland cards milled this way": a milled-trigger payoff whose target
+  // COUNT is the event magnitude and each chosen creature gets exactly ONE counter. Routed through the same
+  // distribute-counters pause (perTargetCap:1) so the human picker and the auto path share one seam. The
+  // countContext referent is gated to the MILLED event on BOTH paths (triggerRouting for triggers; the
+  // coverage spell guards park any spell carrying this wording — ctx would be absent → dropped clause).
+  const mm = t.match(/^put a \+1\/\+1 counter on each of up to x target creatures, where x is the number of nonland cards milled this way$/);
+  if (mm) return { op: "distribute-counters", counterType: "+1/+1", countContext: "nonlandMilledCount", perTargetCap: 1, group: "creatures" };
+  return null;
 }
 
 export const distributeCountersResolvers = { "distribute-counters": applyDistributeCounters };

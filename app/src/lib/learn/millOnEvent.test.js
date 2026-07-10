@@ -24,7 +24,7 @@ import { detectTriggers, checkMilledTriggers } from "./triggers.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { resolveTopOfStack, flushTriggers, runStepActions } from "./gameEngine.js";
 import { parseEffectProgram } from "./effects/parser.js";
-import { runEffectProgram, resolveOptionalChoice } from "./effects/runProgram.js";
+import { runEffectProgram, resolveOptionalChoice, resolveDistributeChoice, autoPickDistributeCounters } from "./effects/runProgram.js";
 import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -198,9 +198,29 @@ describe("coverage — the consuming cards classify honestly", () => {
   it("Screeching Scorchbeast FLIPS native (SHELF M1b — milled-count tokens + the create-token once-per-turn latch)", () => {
     expect(classifyCard(C("Screeching Scorchbeast", "Flying, menace\nWhenever this creature attacks, each player gets two rad counters.\nWhenever one or more nonland cards are milled, you may create that many 2/2 black Zombie Mutant creature tokens. Do this only once each turn."))).toBe("native-trigger");
   });
-  it("Wise Mothman / Infesting Radroach stay non-native (riders → Arbiter)", () => {
+  it("Wise Mothman / Infesting Radroach stay non-native (compound-event / graveyard-trigger riders → Arbiter)", () => {
+    // Mothman's TIER stays parked on the "enters or attacks" compound-event guard (mothmanRad.js is the
+    // runtime hook) — but its MILLED payoff now routes natively at runtime (SHELF M1c, tested below).
     expect(classifyCard(C("The Wise Mothman", "Flying\nWhenever The Wise Mothman enters or attacks, each player gets a rad counter.\nWhenever one or more nonland cards are milled, put a +1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way."))).toBe("body-only");
     expect(classifyCard(C("Infesting Radroach", "Flying\nThis creature can't block.\nWhenever this creature deals combat damage to a player, they get that many rad counters.\nWhenever an opponent mills a nonland card, if this creature is in your graveyard, you may return it to your hand."))).toBe("body-only");
+  });
+  it("MOTHMAN PAYOFF runtime (M1c): each of up to X own creatures gets EXACTLY ONE counter (never stacked)", () => {
+    const MOTH = { name: "The Wise Mothman", type: "Legendary Creature — Insect Mutant", power: 3, toughness: 3,
+      oracle: "Whenever one or more nonland cards are milled, put a +1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way." };
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const moth = createPermanent({ id: "moth", card: MOTH, controller: "user" });
+    const bear = createPermanent({ id: "bear", card: { name: "Bear", type: "Creature — Bear", power: 2, toughness: 2 }, controller: "user" });
+    let s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [moth, bear] } } };
+    // 3 nonland milled but only 2 creatures → each gets exactly 1; the 3rd counter is NOT placed ("up to").
+    s = checkMilledTriggers(s, { milledByPlayer: "user", milledCards: [nonland("a"), nonland("b"), nonland("c")] });
+    s = resolveAll(flushTriggers(s));
+    if (s.pendingChoice?.kind === "distribute-counters") {
+      s = resolveDistributeChoice(s, autoPickDistributeCounters(s, s.pendingChoice));
+      s = resolveAll(s);
+    }
+    const counters = (id) => s.players.user.battlefield.find((p) => p.id === id)?.counters?.["+1/+1"] || 0;
+    expect(counters("moth")).toBe(1);
+    expect(counters("bear")).toBe(1); // one each — the surplus was under-spent, never stacked
   });
   it("MILLED-COUNT runtime (M1b): the mill event mints tokens = nonland milled, once per turn", () => {
     const SCORCH = { name: "Screeching Scorchbeast", type: "Creature — Mutant Bat", power: 4, toughness: 4,
