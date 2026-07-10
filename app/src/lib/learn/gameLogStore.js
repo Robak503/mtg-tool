@@ -91,7 +91,13 @@ export async function appendGame(record, { capBytes = null } = {}) {
   if (manifest.totalBytes >= cap) {
     return { capReached: true, index: null, file: null, totalBytes: manifest.totalBytes, capBytes: cap };
   }
-  const index = manifest.nextIndex;
+  // R2.3 (audit 2026-07-09): never reuse an index that already has a game file on disk. A crash
+  // in the window between the header append and the manifest write leaves nextIndex stale — the
+  // naive reuse overwrote that game AND duplicated its header line (summarize double-count).
+  // Skipping to the first free index self-heals the store; the orphaned header line is deduped
+  // read-side (summarizeGrind keeps the first occurrence per index).
+  let index = manifest.nextIndex;
+  while ((await gameFilePath(index)) !== null) index += 1;
   const shard = shardName(index);
   const shardDir = path.join(grindRoot(), shard);
   await fs.mkdir(shardDir, { recursive: true });
@@ -135,7 +141,9 @@ export async function appendGame(record, { capBytes = null } = {}) {
   shardEntry.sizeBytes += size;
   manifest.nextIndex = index + 1;
   manifest.totalBytes += size;
-  manifest.capBytes = cap;
+  // R2.2 (audit 2026-07-09): a CALLER's run-scoped capBytes is never persisted — one
+  // `--cap-gb=40` overnight run used to silently lower the store's 100GB budget forever.
+  // The manifest keeps its own configured budget; runs pass their cap per call.
   await atomicWriteJson(manifestPath(), manifest);
   return { capReached: false, index, file, totalBytes: manifest.totalBytes, capBytes: cap };
 }
@@ -190,6 +198,8 @@ export async function summarizeGrind() {
   let turnsSum = 0;
   let withDeckAttribution = 0;
   let legacyGames = 0; // pre-schema-2 games — fabricated ai-win labels, excluded from standings
+  let duplicateHeaders = 0; // R2.3 read-side heal: repeated index (crash-window orphan) → first occurrence wins
+  const seenIndex = new Set();
   for (const s of manifest.shards) {
     let text;
     try {
@@ -201,13 +211,22 @@ export async function summarizeGrind() {
       if (!line.trim()) continue;
       let h;
       try { h = JSON.parse(line); } catch { continue; } // skip a torn last line
+      if (h.index != null) {
+        if (seenIndex.has(h.index)) { duplicateHeaders += 1; continue; }
+        seenIndex.add(h.index);
+      }
       games += 1;
       turnsSum += h.turns || 0;
       const res = h.result || "unknown";
       results[res] = (results[res] || 0) + 1;
-      if (!DECISIVE_RESULTS.has(res)) stuckGames += 1;
-      const w = h.winnerSeat || "draw";
-      winnerSeats[w] = (winnerSeats[w] || 0) + 1;
+      const decisive = DECISIVE_RESULTS.has(res);
+      if (!decisive) stuckGames += 1;
+      // R2.1: winner attribution is DECISIVE-only — a stuck/timeout game has no winner, and
+      // bucketing its null winnerSeat as "draw" inflated draws + diluted every rate.
+      if (decisive) {
+        const w = h.winnerSeat || "draw";
+        winnerSeats[w] = (winnerSeats[w] || 0) + 1;
+      }
       if (h.engineVersion) versions.add(h.engineVersion);
       if (h.pilots) for (const p of Object.values(h.pilots)) if (p?.playbook) personas.add(p.playbook);
       // HONESTY GATE (2026-07-09): pre-schema-2 games carry FABRICATED ai-win labels — the pod
@@ -220,17 +239,18 @@ export async function summarizeGrind() {
         withDeckAttribution += 1;
         for (const d of h.decks) {
           const key = d.id || d.name || "?";
-          const rec = perDeck.get(key) || { id: d.id ?? null, name: d.name || key, games: 0, wins: 0, seats: {} };
+          const rec = perDeck.get(key) || { id: d.id ?? null, name: d.name || key, games: 0, decisiveGames: 0, wins: 0, seats: {} };
           rec.games += 1;
+          if (decisive) rec.decisiveGames += 1; // R2.1: the win-rate denominator (stuck games aren't losses)
           rec.seats[d.seat] = (rec.seats[d.seat] || 0) + 1; // seat-fairness evidence (should sit ~25% each)
-          if (h.winnerSeat && d.seat === h.winnerSeat) rec.wins += 1; // seat-based → no name-collision risk
+          if (decisive && h.winnerSeat && d.seat === h.winnerSeat) rec.wins += 1; // seat-based → no name-collision risk
           perDeck.set(key, rec);
         }
       }
     }
   }
   const decks = [...perDeck.values()]
-    .map((d) => ({ ...d, winRate: d.games ? d.wins / d.games : 0 }))
+    .map((d) => ({ ...d, winRate: d.decisiveGames ? d.wins / d.decisiveGames : 0 }))
     .sort((a, b) => b.games - a.games || b.wins - a.wins);
   // Seat-fairness topline: the worst deviation from a uniform seat share across decks with
   // enough games to mean anything. ~0 ⇒ per-deck win rates are positionally fair (any seat
@@ -249,6 +269,7 @@ export async function summarizeGrind() {
     games,
     withDeckAttribution,
     legacyGames,
+    duplicateHeaders,
     avgTurns: games ? turnsSum / games : 0,
     winnerSeats,
     results,

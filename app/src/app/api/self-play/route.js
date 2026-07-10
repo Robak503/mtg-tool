@@ -121,7 +121,10 @@ export async function POST(request) {
     );
   }
   const mode = body?.mode === "standard" ? "standard" : "commander";
-  const gamesPer = Number.isFinite(body?.gamesPer) ? body.gamesPer : 1;
+  // R2.7 (audit 2026-07-09): clamp server-side — runSelfPlayBatch is SYNCHRONOUS on the request
+  // thread, so an unbounded gamesPer (a typo'd 10000) would freeze the server for hours. Bulk
+  // data collection belongs to the grind (background loop / pool), not this one-shot route.
+  const gamesPer = Math.min(50, Math.max(1, Number.isFinite(body?.gamesPer) ? Math.floor(body.gamesPer) : 1));
   const record = body?.record === true;
   // HB-4: batch base seed. Default 1 (deterministic, as always) — but now the caller can
   // vary it, it's echoed back + stamped into the sidecar and every recorded game, so a

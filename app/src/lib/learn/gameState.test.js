@@ -248,11 +248,18 @@ describe("drawCards", () => {
 describe("shuffleLibrary", () => {
   it("preserves library size and contents", () => {
     const state = createGameState({ userDeck: makeDeck(20, "U"), aiDeck: [] });
-    const after = shuffleLibrary(state, { playerId: "user" });
+    // rng is REQUIRED (R2.5) — determinism-critical module, no Math.random fallback.
+    let x = 7;
+    const after = shuffleLibrary(state, { playerId: "user", rng: () => ((x = (x * 9301 + 49297) % 233280) / 233280) });
     expect(after.players.user.library).toHaveLength(20);
     const beforeNames = new Set(state.players.user.library.map(c => c.name));
     const afterNames = new Set(after.players.user.library.map(c => c.name));
     expect(afterNames).toEqual(beforeNames);
+  });
+
+  it("THROWS without a seeded rng (R2.5 — a Math.random fallback would break replay determinism)", () => {
+    const state = createGameState({ userDeck: makeDeck(4, "U"), aiDeck: [] });
+    expect(() => shuffleLibrary(state, { playerId: "user" })).toThrow(/seeded rng is required/);
   });
 
   it("respects a deterministic rng", () => {

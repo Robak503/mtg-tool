@@ -720,11 +720,17 @@ export function drawCards(state, { playerId, count }) {
 }
 
 /**
- * Shuffle a player's library. Takes an optional `rng` (() => float 0..1)
- * so tests can supply a deterministic shuffle.
+ * Shuffle a player's library. `rng` (() => float 0..1) is REQUIRED (R2.5, audit 2026-07-09):
+ * this module is determinism-critical — a Math.random fallback would silently break replay
+ * determinism (the property the grind store's "replay-regenerable" lifecycle rests on) the
+ * first time a caller forgot the seeded stream. The sole caller (effects/atoms/library.js)
+ * passes deterministicRng.
  */
-export function shuffleLibrary(state, { playerId, rng = Math.random }) {
+export function shuffleLibrary(state, { playerId, rng }) {
   assertPlayer(playerId);
+  if (typeof rng !== "function") {
+    throw new Error("shuffleLibrary: a seeded rng is required (determinism-critical — never Math.random)");
+  }
   return withPlayer(state, playerId, player => {
     const copy = [...player.library];
     for (let i = copy.length - 1; i > 0; i--) {

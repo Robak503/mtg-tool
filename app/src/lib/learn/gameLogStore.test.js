@@ -102,6 +102,7 @@ describe("summarizeGrind — per-deck standings + winner split for the Sim Cente
   const gameWithDecks = (seed, winnerSeat, seatDeckNames) => ({
     header: {
       seed, winnerSeat, turns: 10, mode: "commander", engineVersion: "0.123.0",
+      result: winnerSeat === "user" ? "user-wins" : winnerSeat ? "ai-wins" : "draw", // real headers always carry result
       pilots: { user: { playbook: "ramp" }, ai1: { playbook: "combo" } },
       decks: seatDeckNames.map((name, i) => ({ seat: ["user", "ai1", "ai2", "ai3"][i], id: `d-${name}`, name })),
     },
@@ -139,6 +140,51 @@ describe("summarizeGrind — per-deck standings + winner split for the Sim Cente
   it("returns zeros on an empty store (never throws)", async () => {
     const s = await summarizeGrind();
     expect(s).toMatchObject({ games: 0, withDeckAttribution: 0, decks: [] });
+  });
+
+  it("R2.1: win rates are DECISIVE-only — a stuck game is not a loss and not a draw", async () => {
+    await appendGame(gameWithDecks(1, "user", ["A", "B", "C", "D"]));
+    const stuck = gameWithDecks(2, null, ["A", "B", "C", "D"]);
+    stuck.header.result = "engine-stuck";
+    await appendGame(stuck);
+    const s = await summarizeGrind();
+    const a = s.decks.find((d) => d.name === "A");
+    expect(a.games).toBe(2); // participation counts both
+    expect(a.decisiveGames).toBe(1); // the denominator doesn't
+    expect(a.winRate).toBe(1); // 1 win / 1 decisive — NOT diluted to 0.5 by the stuck game
+    expect(s.winnerSeats.draw ?? 0).toBe(0); // the stuck game's null winner is NOT a draw
+    expect(s.results["engine-stuck"]).toBe(1);
+  });
+
+  it("R2.2: a caller's run-scoped capBytes is NOT persisted into the manifest", async () => {
+    await appendGame(mkGame(0), { capBytes: 5 * 1024 * 1024 });
+    const m = await loadGrindManifest();
+    expect(m.capBytes).toBe(100 * 1024 * 1024 * 1024); // still the store default, not 5MB
+  });
+
+  it("R2.3: a stale nextIndex (crash window) SKIPS to the first free index — never overwrites a game", async () => {
+    await appendGame(mkGame(0));
+    await appendGame(mkGame(1));
+    // Simulate the crash: manifest says nextIndex=1 but game-000001 already exists on disk.
+    const m = await loadGrindManifest();
+    m.nextIndex = 1;
+    const { atomicWriteJson } = await import("../server/atomicJson.js");
+    await atomicWriteJson(path.join(grindRoot(), "manifest.json"), m);
+    const r = await appendGame(mkGame(99));
+    expect(r.index).toBe(2); // skipped past the existing file
+    expect((await readGameFile(1)).header.seed).toBe(1); // game 1 untouched
+    expect((await readGameFile(2)).header.seed).toBe(99);
+  });
+
+  it("R2.3 read-side: a duplicated header index is deduped in summarize (first occurrence wins)", async () => {
+    await appendGame(gameWithDecks(1, "user", ["A", "B", "C", "D"]));
+    // Orphaned duplicate header line for the same index (the crash artifact).
+    const dupe = { index: 0, seed: 1, winnerSeat: "ai1", result: "ai-wins", turns: 5, mode: "commander", schemaVersion: 2 };
+    await fs.appendFile(path.join(grindRoot(), "shard-0000", "headers.jsonl"), JSON.stringify(dupe) + "\n", "utf8");
+    const s = await summarizeGrind();
+    expect(s.games).toBe(1); // not double-counted
+    expect(s.duplicateHeaders).toBe(1); // and reported
+    expect(s.winnerSeats).toEqual({ user: 1 }); // the first (real) line won
   });
 
   it("EXCLUDES pre-schema-2 (fabricated-winner) games from the standings table — totals still count them", async () => {

@@ -27,6 +27,7 @@
  */
 
 import { createLearnSession, advanceUntilDecision, isPlayerDead, hasWonGame } from "./learnSession.js";
+import { gameSeedAt, mulberry32 } from "./seedMath.js";
 import { featurizeState } from "./gameFeatures.js";
 import { gameStatus } from "./gameApi.js";
 import { decideMulliganForAI } from "./opponentAI.js";
@@ -584,18 +585,7 @@ export function resolveBaseSeed(spec, { nonce = null } = {}) {
   return Number.isFinite(n) ? n >>> 0 : 1;
 }
 
-/** The same deterministic PRNG (mulberry32) the engine's seeded shuffle uses
- *  (effects/atoms/library.js — not exported there; mirrored so the pod-shuffle
- *  permutation stream matches the engine's PRNG family). */
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+// mulberry32 lives in seedMath.js (R2.6 — one PRNG source shared with grindPod/workers/probes).
 
 /**
  * Deterministic Fisher–Yates permutation of [0..n) from a uint32 seed (HB-6).
@@ -815,9 +805,9 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
   const runOne = (pairing, r, extraMeta = null) => {
     const idx = gameIndex;
     gameIndex += 1;
-    // Distinct per-game seed. The large odd stride keeps consecutive seeds far apart in
-    // the mulberry32 stream so neighbouring games don't share near-identical opening draws.
-    const seed = ((base + Math.imul(idx, 2654435761)) >>> 0);
+    // Distinct per-game seed (seedMath.gameSeedAt — the ONE stride shared with the grind pool,
+    // R2.6; the large odd stride keeps neighbouring games' shuffle streams far apart).
+    const seed = gameSeedAt(base, idx);
     // Which seat is ON THE PLAY for this game. alternateStart (default) ⇒ a deterministic
     // round-robin over the mode's seats (balanced across the batch; game 0 leads with "user").
     // OFF ⇒ null, which runSelfPlayGame treats as "user" ⇒ BYTE-IDENTICAL to the pre-slice batch.

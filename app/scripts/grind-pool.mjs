@@ -58,10 +58,12 @@ function stopAll(why) {
   for (const c of children) { try { c.kill(); } catch { /* already gone */ } }
 }
 
+const laneConfigs = []; // cleaned up at exit (R2.4 — per-worker tmp configs used to accumulate forever)
 for (let k = 0; k < workers; k++) {
   const laneGames = totalGames == null ? null : Math.max(0, Math.ceil((totalGames - k) / workers));
   if (laneGames === 0) continue;
   const cfgPath = path.join(os.tmpdir(), `grind-lane-${process.pid}-${k}.json`);
+  laneConfigs.push(cfgPath);
   fs.writeFileSync(cfgPath, JSON.stringify({
     deckIds: argv["deck-ids"] ? String(argv["deck-ids"]).split(",") : [],
     mode,
@@ -80,18 +82,26 @@ for (let k = 0; k < workers; k++) {
   children.push(child);
   const rl = createInterface({ input: child.stdout });
   rl.on("line", async (line) => {
-    let msg;
-    try { msg = JSON.parse(line); } catch { return; }
-    if (msg.done) { console.log(`[pool] lane ${msg.lane} done (${msg.games} games)`); return; }
-    if (!msg.record) return;
-    const appended = await enqueueAppend(msg.record, { capBytes });
-    if (appended.capReached) { stopAll("disk cap reached"); return; }
-    if (appended.rejected) { stats.rejected += 1; console.error(`[pool] record rejected: ${appended.reason}`); return; }
-    stats.games += 1;
-    stats.bytes = appended.totalBytes;
-    if (msg.trusted) stats.trusted += 1;
-    if (!["user-wins", "ai-wins", "draw"].includes(msg.record.header?.result)) stats.stuck += 1;
-    if (totalGames != null && stats.games >= totalGames) stopAll("game target reached");
+    // R2.4 (audit 2026-07-09): the whole handler is guarded — an async rejection here (a disk
+    // error inside appendGame) was an UNHANDLED REJECTION that killed the parent mid-run and
+    // orphaned every lane. A store failure now logs loudly and stops the pool CLEANLY instead.
+    try {
+      let msg;
+      try { msg = JSON.parse(line); } catch { return; }
+      if (msg.done) { console.log(`[pool] lane ${msg.lane} done (${msg.games} games)`); return; }
+      if (!msg.record) return;
+      const appended = await enqueueAppend(msg.record, { capBytes });
+      if (appended.capReached) { stopAll("disk cap reached"); return; }
+      if (appended.rejected) { stats.rejected += 1; console.error(`[pool] record rejected: ${appended.reason}`); return; }
+      stats.games += 1;
+      stats.bytes = appended.totalBytes;
+      if (msg.trusted) stats.trusted += 1;
+      if (!["user-wins", "ai-wins", "draw"].includes(msg.record.header?.result)) stats.stuck += 1;
+      if (totalGames != null && stats.games >= totalGames) stopAll("game target reached");
+    } catch (error) {
+      console.error(`[pool] STORE ERROR — stopping cleanly: ${error?.message || error}`);
+      stopAll("store error");
+    }
   });
 }
 
@@ -105,5 +115,7 @@ process.on("SIGINT", () => stopAll("Ctrl-C"));
 
 await Promise.all(children.map((c) => new Promise((r) => c.on("exit", r))));
 clearInterval(tick);
+await writeChain; // drain the last enqueued append before reporting
+for (const cfg of laneConfigs) { try { fs.rmSync(cfg, { force: true }); } catch { /* best-effort */ } }
 const mins = (Date.now() - stats.start) / 60000;
 console.log(`[pool] DONE — ${stats.games} games (${stats.trusted} trusted, ${stats.stuck} stuck, ${stats.rejected} rejected) in ${mins.toFixed(1)} min = ${(stats.games / Math.max(mins, 0.1)).toFixed(1)}/min, seed=${baseSeed}, workers=${workers}`);
