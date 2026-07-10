@@ -1,5 +1,28 @@
 # WAKE REPORT — live resume anchor
 
+## ⚡ 2026-07-10 (later) — THE SHELF RUN: PHASE 1 IN FLIGHT — 28 tier flips shipped (v0.128.0 → master), all audited, LOST 0
+
+**Shipped slices (each: flip-diff audited by name · whole-card verified · suite green · lint 0 · pushed to master):**
+- **S1.1** cast-program strip (Harmonized Crescendo recurrence — root cause: unstripped `action.program` short-circuited the dispatcher fallback) — runtime fix, 0 flips.
+- **PtH + sequencing-Then strip** (`parser.js` per-sentence loop, CR 608.2c): **+5** — Plan the Heist (conditional surveil `onlyIfHandEmpty` + resolver gate), Deadly Embrace, The Crystal's Chosen, Undercity Uprising, Insidious Fungus.
+- **W1 COUNTER-THEN-GRANT collapse** (Snakeskin Veil class; add-counter gains layer-6 `grantKeywords`): **+15** — incl. Angelfire Ignition, Gaea's Gift, Take Up the Shield, 2 modal + 2 trigger carriers.
+- **W2 Ram Through** (damage-target-power + `trampleExcess` → excess to controller, CR 702.19b deathtouch math): **+1**.
+- **W3 Ancient Animus** (fight-pair + `fighterCounter{onlyIfLegendary}`, persistent counter before power lock): **+1**.
+- **W4 Paradise Mantle** (granted-mana EQUIPMENT — parse widening only; layers.js attachment path already fires for any attachedTo): **+1**.
+- **M1a ONCE-PER-TURN TRIGGER latch** ("This ability triggers only once each turn." — strip + descriptor stamp + flushTriggers latch; COMPOUND GUARD keeps MACH-1 parked): **+3** — Mirelurk Queen, Academy Wall, Flying Octobot.
+- **M1b milled-count tokens** (Scorchbeast: milled sentinel → `countContext` + create-token joins ONCE_PER_TURN_HONORED with a real resolver latch): **+1**.
+- **M1c Mothman distribute** (each-of-up-to-X via distribute-counters + `perTargetCap:1`; 3 coverage spell-guards widened): **0 flips — runtime only**; Mothman tier stays parked on the "enters or attacks" compound-event guard (mothmanRad.js coordination note).
+- **M2 MILL-DOUBLER** (Bruvac → doubler family; `millMultiplier` at BOTH chokepoints incl. radiation): **+1**.
+Tests 8,078 → **8,108**. Census/corpus republish pending the next slice batch.
+
+**⚠️ MID-FLIGHT (uncommitted in the worktree, safe-inert):** M3 Mindcrank life-loss watcher — `gameState.js` registry + loseLife hook (null-watcher = byte-identical) + `triggers.js` lifeLost condition detect are IN; still needed: `checkLifeLossTriggers` + `registerLifeLossWatcher` wiring, the "that player mills that many cards" payoff clause (who:lifeLostPlayer + countContext:lifeLostAmount in applyMill), referent gates (triggerRouting + coverage ×3), tests, flip-diff.
+
+**☀️ FOR COLTON:**
+- Named parks so far: Chain of Vapor (standing), MACH-1 (compound limiter — needs the shared-latch build), Emrakul the Promised End (control-a-turn, Yuriko ledger park-candidate). Sign-off when convenient; work continues.
+- **EXE DECK-PROFILE ISSUE RECURRED** (your screenshot: your 6 decks listed under "Joe"): queued as a PERMANENT-FIX workflow item — see the queue below. Likely the updater-relaunch ghost-registry thread (COMMS 2026-07-09 evidence note) or a mis-attributed re-import while the ghost was active. Interim: tray-Quit → manual relaunch; deck data repair + root-cause scheduled.
+
+**QUEUE (next up, in order):** ① Omnath's featuresV=2 header bundle (manaHealth per-seat units fix + startSeat/turnOrder + per-seat mulligan summary + decisionsCount) — header-derivation only, no re-anchor; ② double-writer dedupe/reconcile idx ~24230–24318 at pool end; ③ finish M3 Mindcrank; ④ EXE deck-profile permanent fix (data repair + updater-relaunch root-cause); ⑤ compound-event trigger subsystem (Grave Titan / Mothman / Alpha Deathclaw / Kindred Discovery — big corpus lever); ⑥ resume Phase-1 ledger builds (Mothman → Kellan → Wolverine → Yuriko → Cap, workflow-verified dispositions in `tasks/wlg0dw5cn.output` digest).
+
 ## ⚡ 2026-07-10 — THE SHELF RUN: PHASE 0 BASELINE PUBLISHED (all six deliverables)
 
 **1 · FRESH 15-DECK CENSUS** (lands-in-denominator; engine v0.128.0): AGGREGATE **78%**
