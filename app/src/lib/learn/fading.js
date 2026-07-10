@@ -18,7 +18,7 @@
  * Pure: regex + board reads; returns a new state.
  */
 
-import { findPermanent, moveCardToZone, removeCounter, logEvent } from "./gameState.js";
+import { findPermanent, moveCardToZone, removeCounter, logEvent, creaturePower, creatureBasePower } from "./gameState.js";
 import { checkDiesTriggers } from "./triggers.js";
 
 // Keyword-position match (line start / keyword-list) so a reminder-text or granted mention can't false-fire.
@@ -61,7 +61,10 @@ export function applyFadeVanishUpkeep(state) {
     if (!lk) continue; // already gone
     const count = lk.permanent.counters?.[fv.counterType] || 0;
     const sacrifice = () => {
-      dead.push({ controller: pid, id: snapshot.id, name: snapshot.card?.name || "permanent", card: snapshot.card, counters: { ...(lk.permanent.counters || {}) } });
+      // Power + base power captured pre-move (CR 603.6e) so a dies-payoff reading either LKI resolves.
+      const fvPw = creaturePower(lk.permanent, next);
+      const fvBpw = creatureBasePower(lk.permanent, next);
+      dead.push({ controller: pid, id: snapshot.id, name: snapshot.card?.name || "permanent", card: snapshot.card, counters: { ...(lk.permanent.counters || {}) }, power: Number.isFinite(fvPw) ? fvPw : null, basePower: Number.isFinite(fvBpw) ? fvBpw : null });
       next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: snapshot.id });
     };
     if (fv.kind === "fading") {

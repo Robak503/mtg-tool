@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect } from "../../spellEffects.js";
-import { logEvent, gainLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower } from "../../gameState.js";
+import { logEvent, gainLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureBasePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
@@ -131,9 +131,10 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   // still on the battlefield there), BEFORE the moveCardToZone below — CR 603.6e — so a SACRIFICED
   // Goldvein/Lifeblood/Feral-Ghoul still feeds its "equal to its power" dies-trigger the real on-board power.
   const sacPower = isCreatureCard(lk.permanent.card) ? creaturePower(lk.permanent, state) : null;
+  const sacBasePower = isCreatureCard(lk.permanent.card) ? creatureBasePower(lk.permanent, state) : null;
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permId });
   if (isCreatureCard(lk.permanent.card)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null, counters: { ...(lk.permanent.counters || {}) } }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null, basePower: Number.isFinite(sacBasePower) ? sacBasePower : null, counters: { ...(lk.permanent.counters || {}) } }]);
   }
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
   // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).

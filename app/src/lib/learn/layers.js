@@ -882,6 +882,13 @@ export function permanentToughness(state, permanentId) {
   return deriveCharacteristics(state, permanentId).toughness;
 }
 
+/** BASE power (CR 613.4a — printed, or the layer-7b set value): the layer-7c/7d modifications (anthems,
+ * pumps, ±1/±1 counters) are NOT included. The Jason-Bright dies intervening-if ("its power was different
+ * from its base power") compares this against the full effective power at the death look-back. */
+export function permanentBasePower(state, permanentId) {
+  return deriveCharacteristics(state, permanentId).basePower;
+}
+
 /**
  * Does the permanent have `keyword` after layer 6? Seeds from the printed
  * primitive (keywords.hasKeyword — imported, NEVER shadowed) and unions granted

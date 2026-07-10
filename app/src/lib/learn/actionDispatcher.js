@@ -35,6 +35,8 @@ import {
   MANA_COLORS,
   loseLife,
   spendEnergy,
+  creaturePower,
+  creatureBasePower,
   removeCounter,
   addCounter,
   destroyLethalCreatures,
@@ -646,9 +648,14 @@ function applyDoubleManaPool(state, action) {
  */
 function sacrificePermanentForCost(state, playerId, permObj) {
   const typeLine = String(permObj.card?.type || permObj.card?.type_line || permObj.card?.card_faces?.[0]?.type_line || permObj.card?.card_faces?.[0]?.type || "");
+  // Power + base power captured BEFORE the move (CR 603.6e — the layer-aware read needs the permanent
+  // still on the battlefield) so a dies-payoff reading either LKI (dyingPower / the Jason-Bright
+  // power-differed intervening-if) resolves off a cost-sacrifice too.
+  const sfcPw = creaturePower(permObj, state);
+  const sfcBpw = creatureBasePower(permObj, state);
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permObj.id });
   if (/Creature/.test(typeLine)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, counters: { ...(permObj.counters || {}) } }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, counters: { ...(permObj.counters || {}) }, power: Number.isFinite(sfcPw) ? sfcPw : null, basePower: Number.isFinite(sfcBpw) ? sfcBpw : null }]);
   } else {
     // LEAVE-DRAIN (CR 603.3b): a NON-creature cost sacrifice (Blood/Clue/artifact) has no dies path —
     // drain its leave event now so permanentLeaves watchers stack above the ability (the creature

@@ -284,6 +284,17 @@ const WAS_A_CREATURE_RE = /^it was a creature$/;
 // counter variant (persist et al) falls through → Arbiter (CREED).
 const HAD_NO_PLUS_COUNTERS_RE = /^it had no \+1\/\+1 counters on it$/;
 
+// ===== POWER-DIFFERED-FROM-BASE (Jason Bright — CR 603.4 + 603.6e) ===========================
+// "its power was different from its base power" — the intervening-if on Jason Bright's tribal dies trigger
+// ("Whenever a Zombie or Mutant you control dies, if its power was different from its base power, draw a
+// card."). "its" (CR 608.2c) is the dead triggering creature; both values are LAST-KNOWN-INFO reads fixed
+// at the death look-back (effective power = counters/anthems/pumps included; base power = printed or a
+// layer-7b set value, CR 613.4a) and threaded as ctx.triggeringPowerDifferedFromBase (checkDiesTriggers
+// stamps it from d.power vs d.basePower). Identical at flush AND resolution. A missing/undefined flag →
+// null (can't confirm → FN-safe, never a fail-open draw). Anchored EXACTLY (a toughness/"greater than"
+// variant falls through → Arbiter, CREED).
+const POWER_DIFFERED_RE = /^its power was different from its base power$/;
+
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
 // — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
@@ -416,6 +427,15 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const hadNone = context?.triggeringHadNoPlusCounters;
     if (typeof hadNone !== "boolean") return null; // no per-object counters snapshot → can't confirm (FN-safe)
     return hadNone === true; // "it had no +1/+1 counters on it" → true iff the LKI showed none
+  }
+
+  // POWER-DIFFERED-FROM-BASE (Jason Bright, CR 603.6e) — read the dying object's effective-vs-base power
+  // comparison off the context flag (stamped by checkDiesTriggers from the death look-back's power +
+  // basePower captures). Undefined (an unstamped death path / not a dies trigger) → null (FN-safe).
+  if (POWER_DIFFERED_RE.test(c)) {
+    const differed = context?.triggeringPowerDifferedFromBase;
+    if (typeof differed !== "boolean") return null; // no per-object power snapshot → can't confirm (FN-safe)
+    return differed === true;
   }
 
   // "you control no <filter>"  → count == 0
@@ -560,5 +580,5 @@ export function interveningIfParseable(condition) {
   // It ALSO carries a definite `triggeringHadNoPlusCounters` boolean so the KW-UNDYING shape ("it had no
   // +1/+1 counters on it") returns a boolean here (the runtime stamps it off every death look-back's
   // counters snapshot); every other shape ignores the extra field.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, xValue: 0 }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringPowerDifferedFromBase: true, xValue: 0 }) !== null;
 }

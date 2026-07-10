@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) replacements (leaf, no cycle)
 import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
@@ -184,6 +184,20 @@ export function creatureToughness(permanent, state = null) {
     return permanentToughness(state, permanent.id);
   }
   return printedToughness(permanent) + counterPtDelta(permanent);
+}
+
+/**
+ * BASE power (CR 613.4a — printed, or a layer-7b set value; NEVER includes counters/anthems/pumps, which
+ * are 7c/7d). The Jason-Bright dies-trigger intervening-if compares the death look-back's effective power
+ * against this. Same delegation contract as creaturePower: on-battlefield → the layer engine's basePower;
+ * off-battlefield/no-state → the printed value (a look-back's base can't carry board effects).
+ */
+export function creatureBasePower(permanent, state = null) {
+  if (!permanent?.card) return 0;
+  if (state && permanent.id != null && findPermanent(state, permanent.id)) {
+    return permanentBasePower(state, permanent.id);
+  }
+  return printedPower(permanent);
 }
 
 /**
@@ -1336,6 +1350,9 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
   // never a fabricated count).
   const markDead = (pid, perm) => {
     const pw = creaturePower(perm, state);
+    // BASE power too (CR 613.4a) — the Jason-Bright dies intervening-if ("its power was different from its
+    // base power") compares the two look-back values; captured here pre-move like `power`.
+    const bpw = creatureBasePower(perm, state);
     dead.push({
       controller: pid,
       id: perm.id,
@@ -1343,6 +1360,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       card: perm.card,
       attachments: [...(perm.attachments || [])],
       power: Number.isFinite(pw) ? pw : null,
+      basePower: Number.isFinite(bpw) ? bpw : null,
       // KW-UNDYING (CR 702.92a + 603.6e): snapshot the dying permanent's counters BEFORE the move loop —
       // the undying intervening-if ("if it had no +1/+1 counters on it") reads this last-known state.
       counters: { ...(perm.counters || {}) },

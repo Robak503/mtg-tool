@@ -390,7 +390,21 @@ export function foldModalBulletLines(oracle) {
 }
 
 export function parseActivatedAbilities(card) {
-  const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
+  // ABILITY-WORD LABEL on an ACTIVATED line (CR 207.2c — "Sleight of Hand — {8}: Draw two cards.", the CLB
+  // Invokers; "Come Fly With Me — {2}, Sacrifice a creature: …", Jason Bright): a TRUE ability word carries
+  // NO rules meaning, so strip a leading "<Words> — " when a BRACE COST follows the dash. CRITICAL GATE
+  // (CREED): run on the RAW oracle BEFORE stripReminder, and skip any line whose reminder text mentions
+  // "activate" — that's the signature of a RULES-BEARING dash-templated KEYWORD ability, not a flavor
+  // label: Boast (CR 702.142a — attacked-this-turn + once/turn), Exhaust (once ever), Power-up (once ever
+  // + a cost reduction), whose restrictions live ONLY in the reminder. Those lines keep their label → the
+  // cost parser fails on it → the ability stays unmodeled → body-only (a SAFE FN, never a spammable
+  // free-activation FP). A future dash-keyword with an activation restriction prints the same reminder, so
+  // the gate holds without a name list.
+  const rawOracle = String(card?.oracle || card?.oracle_text || "");
+  const labelStripped = rawOracle.split("\n").map((ln) =>
+    /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'\- ]{0,40}\s[—–]\s*(?=\{)/, "")
+  ).join("\n");
+  const oracle = stripReminder(labelStripped);
   if (!oracle.trim()) return [];
   // Card-level: would a self-sac drop a trigger? Use the RAW oracle (reminder included) so a death
   // keyword whose trigger lives in reminder text (Recover…) is caught, matching the victim path.

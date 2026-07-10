@@ -741,8 +741,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     // subtype filter reusing subtypeYouControl; checkDiesTriggers threads the dead creature as
     // triggeringPermanent. The with/while/during/named/or-another guards above already rejected the
     // restricted shapes, so this only captures the clean "a <Subtype> you control dies" form.
-    const diesSub = c.match(/^an? ([a-z]{3,}) you control dies$/);
-    if (diesSub && !NON_SUBTYPE_FILTER_WORDS.has(diesSub[1])) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: diesSub[1].charAt(0).toUpperCase() + diesSub[1].slice(1) };
+    // UNION list (Jason Bright — "a Zombie or Mutant you control dies", SHELF S7): the same
+    // parseSubtypeList the combat-damage subject uses (string for one word — byte-identical to the old
+    // single form — or an array; subtypeFilterMatches checks ANY member). A non-subtype word anywhere in
+    // the list → null → undetected → Arbiter (never an over-fire).
+    const diesSub = c.match(/^an? ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) you control dies$/);
+    if (diesSub) {
+      const filter = parseSubtypeList(diesSub[1]);
+      if (filter) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: filter };
+    }
   }
   // LANDFALL (CR 603 — landfall is an ability word, CR 207.2c, for a TRIGGERED ability; NOT a replacement
   // effect, so not CR 614) — "Landfall — Whenever a land you control enters" /
@@ -2924,6 +2931,11 @@ export function checkDiesTriggers(state, dead) {
     // one leaves the flag undefined, and interveningIf.js returns null on undefined (can't confirm → the
     // trigger drops, FN-safe — NEVER a fail-open return, which could loop a countered body forever).
     if (d.counters) diesCtx.triggeringHadNoPlusCounters = !((d.counters["+1/+1"] || 0) > 0);
+    // POWER-DIFFERED (Jason Bright, CR 603.6e LKI): the dies intervening-if "its power was different from
+    // its base power" compares the look-back's EFFECTIVE power (counters + anthems + pumps) against its
+    // BASE power (printed / 7b-set). Stamped only when BOTH were captured; a missing capture leaves the
+    // flag undefined → interveningIf.js returns null (can't confirm → FN-safe drop, never a guessed draw).
+    if (d.power != null && d.basePower != null) diesCtx.triggeringPowerDifferedFromBase = d.power !== d.basePower;
     fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     for (const pid of Object.keys(state2.players)) {
       for (const watcher of triggerSourcesOf(state2, pid)) {
