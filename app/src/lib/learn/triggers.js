@@ -2114,6 +2114,22 @@ export function detectTriggers(card) {
         effectClause = effectClause
           .replace(/\bdraw that many cards\b/i, "draw that many counters-placed cards")
           .replace(/\bgain that much life\b/i, "gain that much counters-placed life");
+      } else if (cls.event === "milled"
+        && String(split.interveningIf || "").toLowerCase().trim() === "this creature is in your graveyard"
+        && /^you may return it to your hand$/i.test(effectClause.trim())) {
+        // ===== GRAVEYARD-FUNCTIONING milled trigger (Infesting Radroach — SHELF S7; the Bloodghast-class
+        // zone shape) ===== "Whenever an opponent mills a nonland card, if this creature is in your
+        // graveyard, you may return it to your hand." The intervening-if IS the zone statement (CR 603.3d —
+        // the ability functions from the graveyard), so the descriptor is stamped functionsFromGraveyard and
+        // checkMilledTriggers' GRAVEYARD scan fires it with the graveyard card as source (sourceCardId on the
+        // context; battlefield watchers never carry this descriptor — the same detectTriggers cache serves
+        // both scans, the flag routes them). "it" (CR 608.2c) = this card in your graveyard → the kind-tagged
+        // marker ONLY selfReturnClauseParser models (graveyard → hand; optional "may" auto-taken — returning
+        // your own card is pure upside). The zone check re-evaluates at flush AND resolution (CR 603.4) via
+        // interveningIf.js's sourceCardId graveyard scan. EXACT anchors on all three pieces (condition shape
+        // already gated to milled; a rider on the return / a different zone wording → unmatched → Arbiter).
+        effectClause = "[gy-self-return:hand] return it to your hand";
+        cls.functionsFromGraveyard = true;
       }
       } // end if (modalBlock === null) — modal blocks skip the leading-sentence referent rewrites
       // ONCE-PER-TURN TRIGGER ("This ability triggers only once each turn." — Mirelurk Queen, SHELF M1a):
@@ -2163,6 +2179,7 @@ export function detectTriggers(card) {
         selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
+        functionsFromGraveyard: cls.functionsFromGraveyard, // GY-FUNCTIONING milled trigger (Radroach) — fired by checkMilledTriggers' graveyard scan, never the battlefield scan
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
@@ -3834,7 +3851,10 @@ export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {})
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
-      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "milled")) {
+      // A GY-FUNCTIONING descriptor (functionsFromGraveyard — Radroach) never fires from the battlefield:
+      // its printed zone statement (CR 603.3d) says it functions in the graveyard only. The graveyard scan
+      // below is its sole fire site.
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "milled" && !x.functionsFromGraveyard)) {
         // whose:"opponent" — the MILLING player must be an opponent of this watcher's controller.
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(milledByPlayer)) continue;
         // The filtered count this trigger cares about: nonland-only or every milled card.
@@ -3845,6 +3865,25 @@ export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {})
         // fires exactly once for the whole event. makePendingTrigger is re-called so each is a distinct object.
         const times = d.perCard ? matchCount : 1;
         for (let i = 0; i < times; i++) fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
+    // ===== GY-FUNCTIONING milled triggers (Infesting Radroach — SHELF S7, CR 603.3d) ===== scan this
+    // player's GRAVEYARD for cards whose milled trigger functions from there ("…if this creature is in your
+    // graveyard, you may return it to your hand"). The source is the graveyard CARD (the makePendingTrigger
+    // look-back precedent — a non-battlefield source object); sourceCardId rides the context so BOTH the
+    // intervening-if zone check (interveningIf.js — re-evaluated at flush AND resolution, CR 603.4) and the
+    // gy-self-return atom key on the exact card. detectTriggers' WeakMap cache serves this scan at the same
+    // cost as the battlefield one. The card just milled THIS event fires too (it IS in the graveyard as the
+    // trigger condition is checked — CR-correct for a from-the-graveyard ability).
+    for (const gyCard of state.players[pid]?.graveyard || []) {
+      for (const d of detectTriggers(gyCard).filter((x) => x.event === "milled" && x.functionsFromGraveyard)) {
+        if (d.whose === "opponent" && !opponentsOf(state, pid).includes(milledByPlayer)) continue;
+        const matchCount = d.milledFilter === "nonland" ? nonlandCount : cards.length;
+        if (matchCount === 0) continue;
+        const context = { milledByPlayer, milledCount: cards.length, nonlandMilledCount: nonlandCount, sourceCardId: gyCard.id };
+        const source = { id: `gy-${gyCard.id}`, controller: pid, card: gyCard };
+        const times = d.perCard ? matchCount : 1;
+        for (let i = 0; i < times; i++) fired.push(makePendingTrigger(d, source, null, context));
       }
     }
   }

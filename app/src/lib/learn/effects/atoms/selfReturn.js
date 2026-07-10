@@ -146,6 +146,13 @@ export function selfReturnClauseParser(clause) {
   if (/^\[undying\] return it to the battlefield under its owner's control with a \+1\/\+1 counter on it$/i.test(t)) {
     return { op: "undying-return" };
   }
+  // GY-FUNCTIONING self-return (Infesting Radroach — the Bloodghast-class zone shape): the kind-tagged
+  // sentinel detectTriggers produces for "…if this creature is in your graveyard, you may return it to
+  // your hand" (the zone gate is the descriptor's intervening-if; this atom is only the graveyard→hand
+  // move). The optional "may" is auto-taken — returning your own card is pure upside.
+  if (/^\[gy-self-return:hand\] return it to your hand$/i.test(t)) {
+    return { op: "gy-self-return-hand" };
+  }
   return null;
 }
 
@@ -264,8 +271,28 @@ export function applyUndyingReturn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "undying-return", returned: didEnter, controller: owner });
 }
 
+/**
+ * applyGySelfReturnHand — GY-FUNCTIONING self-return (Infesting Radroach, CR 603.3d): move THE SOURCE CARD
+ * (ctx.sourceCardId — the graveyard card the trigger fired from, threaded by checkMilledTriggers' graveyard
+ * scan) from its controller's graveyard to their hand. The zone intervening-if was re-checked at flush AND
+ * resolution upstream, but the CR 608.2b guard here is still load-bearing (the card can leave between the
+ * second check and this move in a multi-trigger stack): gone → a logged no-op, never a fabricated card.
+ */
+export function applyGySelfReturnHand(state, atom, ctx) {
+  const owner = ctx.controller;
+  const cardId = ctx.sourceCardId;
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  const gy = state.players[owner].graveyard || [];
+  if (!gy.some((c) => c.id === cardId)) {
+    return logEvent(state, { kind: "spell-effect", effect: "gy-self-return-hand", returned: false, controller: owner });
+  }
+  const next = moveCardToZone(state, { playerId: owner, fromZone: "graveyard", toZone: "hand", cardId });
+  return logEvent(next, { kind: "spell-effect", effect: "gy-self-return-hand", returned: true, controller: owner });
+}
+
 export const selfReturnResolvers = {
   "self-return": applySelfReturn,
   "self-return-bf-enchantment": applySelfReturnBattlefieldEnchantment,
   "undying-return": applyUndyingReturn,
+  "gy-self-return-hand": applyGySelfReturnHand,
 };

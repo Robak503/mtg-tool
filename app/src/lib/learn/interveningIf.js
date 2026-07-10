@@ -295,6 +295,16 @@ const HAD_NO_PLUS_COUNTERS_RE = /^it had no \+1\/\+1 counters on it$/;
 // variant falls through → Arbiter, CREED).
 const POWER_DIFFERED_RE = /^its power was different from its base power$/;
 
+// ===== IN-YOUR-GRAVEYARD (Infesting Radroach — CR 603.3d zone statement) ====================
+// "this creature is in your graveyard" — the intervening-if on a GRAVEYARD-FUNCTIONING trigger ("Whenever
+// an opponent mills a nonland card, if this creature is in your graveyard, you may return it to your
+// hand."). A LIVE zone check on the SOURCE CARD (ctx.sourceCardId, threaded by checkMilledTriggers'
+// graveyard scan): true iff that exact card is in the CONTROLLER's graveyard right now — re-evaluated at
+// flush AND resolution (CR 603.4 second check — the card may have been exiled/recurred in between; the
+// return then correctly doesn't happen). A missing sourceCardId (a battlefield-fired trigger / no context)
+// → null (can't confirm → FN-safe drop). Anchored EXACTLY.
+const IN_YOUR_GRAVEYARD_RE = /^this creature is in your graveyard$/;
+
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
 // — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
@@ -438,6 +448,14 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return differed === true;
   }
 
+  // IN-YOUR-GRAVEYARD (CR 603.3d) — the source card must be in the CONTROLLER's graveyard right now (a
+  // live scan, not a snapshot — the zone can change between flush and resolution, CR 603.4).
+  if (IN_YOUR_GRAVEYARD_RE.test(c)) {
+    const cardId = context?.sourceCardId;
+    if (!cardId) return null; // no source-card thread → can't confirm (FN-safe)
+    return (state.players[controllerId]?.graveyard || []).some((card) => card.id === cardId);
+  }
+
   // "you control no <filter>"  → count == 0
   let m = c.match(/^you control no (.+)$/);
   if (m) {
@@ -573,12 +591,14 @@ export function interveningIfParseable(condition) {
   // WAS-A-CREATURE shape returns a boolean here (the runtime stamps it for real off every dying object's type
   // line); every other shape ignores the extra field.
   const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" }, tributePaid: false };
-  const probe = { players: { __probe__: { battlefield: [entering], graveyard: [] } } };
+  // The probe graveyard holds the probe source card so the IN-YOUR-GRAVEYARD zone check (Radroach) returns
+  // a boolean here (the runtime threads a real sourceCardId from the graveyard scan).
+  const probe = { players: { __probe__: { battlefield: [entering], graveyard: [{ id: "__probe_gy__" }] } } };
   // The probe context ALSO carries a definite numeric `xValue` so the X-VALUE THRESHOLD shape ("x is N or
   // more") returns a boolean here (the runtime stamps a real xValue on every {X}-cost entry via
   // checkEnterTriggers); every other shape ignores the extra field.
   // It ALSO carries a definite `triggeringHadNoPlusCounters` boolean so the KW-UNDYING shape ("it had no
   // +1/+1 counters on it") returns a boolean here (the runtime stamps it off every death look-back's
   // counters snapshot); every other shape ignores the extra field.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringPowerDifferedFromBase: true, xValue: 0 }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringPowerDifferedFromBase: true, sourceCardId: "__probe_gy__", xValue: 0 }) !== null;
 }
