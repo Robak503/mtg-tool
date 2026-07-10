@@ -32,7 +32,7 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1087,6 +1087,28 @@ function isNativeActivatedGrantEquipment(card) {
   return sawEquip;                                                                            // must actually be equippable
 }
 
+// GRANTED-MANA EQUIPMENT (subsystem 1 phase 1a — Paradise Mantle, SHELF W4) — an Equipment whose ONLY body
+// is a modeled Equip cost + ONE granted tap-for-mana ability on the equipped creature ("Equipped creature
+// has \"{T}: Add one mana of any color.\""). The runtime already plays it: layers.js emits the layer-6 mana
+// grant for ANY attached permanent (parseAuraGrantedManaAbility, widened to equipped-creature clauses) and
+// grantedManaSpecsFor → manaSources offers the host the tap. All-or-nothing: the grant parses + a modeled
+// Equip line + NO other clause (any rider → residue → Arbiter, CREED).
+function isNativeManaGrantEquipment(card) {
+  if (!/\bequipment\b/i.test(String(card?.type || ""))) return false;
+  if (!parseAuraGrantedManaAbility(card)) return false;
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
+  const grantLineRe = /^equipped creature\s+(?:has|have)\s+["“][^"”]*\{t\}[^"”]*add[^"”]*["”]\s*\.?$/i;
+  let sawEquip = false, sawGrant = false;
+  for (const rawLine of oracle.split(/\n+/)) {
+    const t = rawLine.trim();
+    if (!t) continue;
+    if (/^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i.test(t)) { sawEquip = true; continue; }     // a modeled Equip cost
+    if (grantLineRe.test(t)) { sawGrant = true; continue; }                                   // the granted-mana line
+    return false;                                                                             // any other clause = residue
+  }
+  return sawEquip && sawGrant;
+}
+
 // GRANTED-TRIGGERED AURA/EQUIPMENT (subsystem 1 phase 1c) — an Aura/Equipment whose ONLY body is granting
 // the host creature a triggered ability ("Enchanted creature has \"Whenever this creature deals combat
 // damage to a player, you may draw a card.\"" — Sixth Sense; "\"At the beginning of your upkeep, create a
@@ -1353,6 +1375,7 @@ export function classifyCard(card) {
   if (permanentActivatedCovered(etCard)) return "native-activated"; // P2.9: body + only-modeled activated abilities
   if (staticAbilitiesCoverCard(etCard, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
   if (isNativeActivatedGrantEquipment(etCard)) return "native-equipment"; // 1b: Equip + a granted activated ability on the host
+  if (isNativeManaGrantEquipment(etCard)) return "native-equipment"; // 1a: Equip + a granted tap-for-mana ability on the host (Paradise Mantle)
   if (isNativeTriggerGrantAuraOrEquipment(etCard)) return "native-trigger"; // 1c: Equip + a granted triggered ability on the host
   if (permanentEquipmentCovered(etCard)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
   // ADDITIVE registry seam (WAVE 0): a future slice registers a coverage classifier instead of editing

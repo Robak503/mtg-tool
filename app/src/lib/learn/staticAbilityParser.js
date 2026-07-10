@@ -3139,6 +3139,21 @@ export function parseAuraGrantedManaAbility(card) {
 }
 
 function parseAuraGrantedManaAbilityImpl(card) {
+  // EQUIPMENT host (phase 1a — Paradise Mantle, SHELF W4): "Equipped creature has \"{T}: Add …\"" is the
+  // same granted-mana shape on an Equipment. The layers.js attachment block fires for ANY attachedTo (aura
+  // or equipment), so widening the parse here is the whole runtime change — the host gains the tap through
+  // the identical grantedManaSpecsFor → manaSources path. Coverage gates it separately
+  // (coverage.isNativeManaGrantEquipment walks the Equip-line residue; isNativeManaGrantAura stays aura-only).
+  if (/\bEquipment\b/i.test(String(card?.type || card?.type_line || ""))) {
+    const oracle = String(card?.oracle || card?.oracle_text || "");
+    for (const clause of abilityClauses(oracle)) {
+      const m = clause.trim().match(/^equipped creature (?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
+      if (!m) continue;
+      const spec = parseGrantedManaSpec(m[1]);
+      if (spec) return spec;
+    }
+    return null;
+  }
   if (!isAuraCard(card)) return null;
   const subj = auraEnchantSubject(card);
   if (subj !== "creature" && subj !== "land") return null;
