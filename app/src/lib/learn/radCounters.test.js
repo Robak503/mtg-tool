@@ -298,3 +298,26 @@ describe("RAD-OR-PROLIFERATE — Vexing Radgull", () => {
     expect(b.players.user.battlefield[0].counters["+1/+1"]).toBe(2);
   });
 });
+
+// ── RADIATION LIFE-GAIN REPLACEMENT (Strong, the Brutish Thespian — SHELF S7) ──
+describe("RADIATION LIFE-GAIN — 'You gain life rather than lose life from radiation.'", () => {
+  const STRONG = { id: "strong-c", name: "Strong, the Brutish Thespian", type: "Legendary Creature — Mutant", power: 3, toughness: 3,
+    oracle: "Ward {2}\nEnrage — Whenever Strong is dealt damage, you get three rad counters and put three +1/+1 counters on Strong.\nYou gain life rather than lose life from radiation." };
+
+  it("classifies native (the replacement + the compound enrage payoff both model)", () => {
+    expect(classifyCard(STRONG)).toMatch(/^native/);
+  });
+
+  it("radiation GAINS life for Strong's controller; rad counters still removed; others still lose", async () => {
+    const { createPermanent } = await import("./gameState.js");
+    const strong = createPermanent({ id: "strong", card: STRONG, controller: "user" });
+    let s = radState({ library: [nonland("n0"), nonland("n1")], radCounters: 2, life: 40 });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [strong] } } };
+    const after = applyRadiation(s, { playerId: "user" });
+    expect(after.players.user.life).toBe(42);           // +2 instead of −2 (CR 614 replacement)
+    expect(after.players.user.radCounters).toBe(0);     // counters still removed
+    // Control: without Strong, the same state loses life.
+    const ctrl = applyRadiation(radState({ library: [nonland("m0"), nonland("m1")], radCounters: 2, life: 40 }), { playerId: "user" });
+    expect(ctrl.players.user.life).toBe(38);
+  });
+});

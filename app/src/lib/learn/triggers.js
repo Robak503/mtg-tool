@@ -1570,7 +1570,11 @@ const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights
 // the reserved fade/time/loyalty kinds, so the only cards this newly flips are genuinely-modeled ones; a
 // broader "put … on <Name>" rewrite would let a card whose OWN mana/other ability is mis-modeled (Famous Museum
 // — a "for each art counter" scaled mana source read as a flat amount) slip through the leaky mana gate — an FP.
-const SELF_NAME_TRAILING_COUNTER_RE = /^((?:you may )?remove (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? from )$/i;
+// Two trailing-self-name head grammars: the Arixmethes remove-from form, and the Strong-class
+// "[<lead conjunct> and ]put N +1/+1 counters on <Name>" form (SHELF S7 — a self-name in the SECOND
+// conjunct of a compound payoff; CR 201.4 makes the name unambiguous, and the parser re-gates the
+// rewritten compound anyway — an unmodeled lead conjunct still drops the whole program LOW).
+const SELF_NAME_TRAILING_COUNTER_RE = /^((?:you may )?remove (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? from |(?:[^.]+ and )?put (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on )$/i;
 function rewriteSelfNameToThisCreature(effectClause, cardName) {
   const eff = String(effectClause || "");
   const fullName = String(cardName || "").trim();

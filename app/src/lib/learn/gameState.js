@@ -1253,7 +1253,13 @@ export function applyRadiation(state, { playerId }) {
   const nonland = player.library.slice(0, toMill).filter((c) => !/\bLand\b/.test(frontFaceTypeLine(c))).length;
   let next = millCards(state, { playerId, count: toMill });
   if (nonland > 0) {
-    next = loseLife(next, { playerId, amount: nonland });
+    // RADIATION LIFE-GAIN REPLACEMENT (Strong, the Brutish Thespian — "You gain life rather than lose life
+    // from radiation.", SHELF S7 / CR 614): checked by the EXACT printed phrase on the radiated player's own
+    // battlefield (gameState is a leaf — no parser import; the phrase appears on no other effect). The rad
+    // counters are still removed either way (the replacement rewrites only the life event).
+    const gains = (player.battlefield || []).some((p) =>
+      /you gain life rather than lose life from radiation/i.test(String(p?.card?.oracle || "")));
+    next = gains ? gainLife(next, { playerId, amount: nonland }) : loseLife(next, { playerId, amount: nonland });
     next = removeRadCounters(next, { playerId, amount: nonland });
   }
   return next;

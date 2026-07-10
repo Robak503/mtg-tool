@@ -1135,6 +1135,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ activatedCostReductionFloor: true });
     return;
   }
+  // RADIATION LIFE-GAIN REPLACEMENT (Strong, the Brutish Thespian — SHELF S7): the runtime lives at the ONE
+  // radiation chokepoint (gameState.applyRadiation checks the exact printed phrase on the radiated player's
+  // battlefield and gains instead of losing; rad counters still removed). This marker only tells coverage
+  // the clause is modeled (no affects/op → the layer engine ignores it).
+  if (/^you gain life rather than lose life from radiation$/.test(c)) {
+    out.push({ radiationLifeGain: true });
+    return;
+  }
 
   // ── OPPONENTS-CANT-ACT (Grand Abolisher; Voice of Victory; Conqueror's Flail rider) ────────────────────
   // "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast
