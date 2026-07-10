@@ -1,5 +1,46 @@
 # WAKE REPORT — live resume anchor
 
+## ⚡ 2026-07-10 — THE SHELF RUN: PHASE 0 BASELINE PUBLISHED (all six deliverables)
+
+**1 · FRESH 15-DECK CENSUS** (lands-in-denominator; engine v0.128.0): AGGREGATE **78%**
+(1,173/1,500; was 73.9% floor). Per deck: Slivers 99 · Koma 94 · Omnath 94 · Vihaan 93 ·
+Zaxara 93 · Toph 79 · Rograkh 77 · Ur-Dragon 75 · Kinnan 74 · Pantlaza 71 · Cap 70 ·
+Yuriko 65 · Wolverine 64 · Kellan 63 · **Mothman 62 (new worst — evidence re-ranks the
+roadmap's Wolverine-first order)**. Gap = 327 slots (235 body-only · 87 arbiter-spell · 5 pw).
+
+**2 · THE ONE CORPUS DENOMINATOR (decided): all 34,169 real bundled oracle cards**
+(isRealCard: tokens/emblems/schemes/etc. excluded — the measure-coverage headline; compare
+within-method only). **CORPUS: 27.6% native (9,415)**. Play-weighted lenses: **top-1k 66.2% ·
+top-2.5k 47.5% · top-5k 36.9%** — the four numbers every session republishes.
+
+**3 · NEWEST LIVE-FIRE BREAKAGE** (fresh 36-game 15-deck batch, v0.128.0): Veil of Summer ×4 ·
+**Harmonized Crescendo ×3 (⚠️ RUNTIME-MISMATCH RECURRENCE — the v0.117 Convoke fix claimed this
+class native; S1 must root-cause)** · Fraying Sanity ×2 · Plan the Heist ×2 · Seize the
+Spotlight ×2 · Freed from the Real · Galvanic Blast · Ordeal of Nylea · Well Rested. 20 entries/36 games.
+
+**4 · TRIGGER-LABEL RESIDUE**: R1.3 (v0.128.0) split condition-not-met from
+trigger-removed-no-target at the engine level — the named cards (Kogla, Defense of the Heart,
+Scourge of Fleets) get S7 verification during their decks' ledger closes (Scourge's DROP class
+was FIXED in R1.2).
+
+**5 · ARBITER-IN-RUNNER STATUS**: the seam exists (default-off `resolveArbiter` hook +
+verdict store + prepass, v0.117) but **no verdict SOURCE is wired** — grind-time gated cards
+still no-op (logged `spell-unresolved`, null-labeled). "Gated" in grind data = unplayed, not
+Ollama-resolved. The verdict source remains the pending piece (Omnath-adjacent).
+
+**6 · ★ THE SLICE MANIFEST** (`app/scripts/slice-manifest.json`, generator committed):
+**2,520 ladder-matched non-native cards → projected corpus 27.6% → 34.9%** if the full ladder
+lands. By size: transform-dfc 680 · tutors 417 (11 in top-1k — the most-played king) ·
+loyalty-activated 313 · counterspells 219 · token-copies 217 · target-mill 136 · suspend 110 ·
+cum-upkeep 71 · level-up 62 · venture 50 · batch-combat 44 · self-bounce 41 · cascade 33 ·
+incubate 28 · wheels 26 · the small tail (spores/initiative/bite-pw/detain/graft ≤19 each).
+INTERACTION CLASS TOTAL ≈ 662 cards — Omnath's call confirmed by data. Unmatched bespoke tail:
+22,234 (mechanismBucket groups in the JSON). Method stated in-file (pattern-proxy; flip-diff is
+truth at build time). Triage ledgers: `app/scripts/triage-ledgers.json` — 327 rows, all 15 decks.
+
+☀️ **QUESTIONS FOR COLTON**: none yet — Phase 1 building started (S1 first per the order).
+
+
 > ROTATING doc (rotation rule enforced 2026-07-09: current cycle only; history lives in
 > [archive/WAKE-REPORT-through-2026-07-09.md](archive/WAKE-REPORT-through-2026-07-09.md) + git).
 > Boot order + method: [MASTER-GUIDE.md](MASTER-GUIDE.md). The queue: `memory/orders/master-plan-2026-07-09.md`.

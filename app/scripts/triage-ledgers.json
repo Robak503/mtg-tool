@@ -1,0 +1,3184 @@
+{
+ "builtAt": "2026-07-10T03:41:51.173Z",
+ "ledgers": {
+  "Kinnan, Bonder Prodigy": {
+   "deckId": "joe-kinnan-bonder-prodigy",
+   "nonNative": 26,
+   "rows": [
+    {
+     "card": "Kinnan, Bonder Prodigy",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1349,
+     "disposition": ""
+    },
+    {
+     "card": "Transmute Artifact",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 3593,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Gilded Drake",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2580,
+     "disposition": ""
+    },
+    {
+     "card": "Thassa's Oracle",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 415,
+     "disposition": ""
+    },
+    {
+     "card": "Nezahal, Primal Tide",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1076,
+     "disposition": ""
+    },
+    {
+     "card": "Wandering Archaic // Explore the Vastlands",
+     "tier": "arbiter-spell",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1245,
+     "disposition": ""
+    },
+    {
+     "card": "Moonsilver Key",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1628,
+     "disposition": ""
+    },
+    {
+     "card": "Imposter Mech",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2183,
+     "disposition": ""
+    },
+    {
+     "card": "Veil of Summer",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 547,
+     "disposition": ""
+    },
+    {
+     "card": "Mana Vault",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 146,
+     "disposition": ""
+    },
+    {
+     "card": "Tezzeret the Seeker",
+     "tier": "arbiter-pw",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [
+      "loyalty-activated"
+     ],
+     "rank": 1677,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Copy Enchantment",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2207,
+     "disposition": ""
+    },
+    {
+     "card": "Valley Floodcaller",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 760,
+     "disposition": ""
+    },
+    {
+     "card": "Chain of Vapor",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 929,
+     "disposition": ""
+    },
+    {
+     "card": "Flusterstorm",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 307,
+     "disposition": ""
+    },
+    {
+     "card": "Clever Impersonator",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1279,
+     "disposition": ""
+    },
+    {
+     "card": "Thrasios, Triton Hero",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2485,
+     "disposition": ""
+    },
+    {
+     "card": "Mindbreak Trap",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 536,
+     "disposition": ""
+    },
+    {
+     "card": "Wan Shi Tong, Librarian",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1484,
+     "disposition": ""
+    },
+    {
+     "card": "Mana Drain",
+     "tier": "arbiter-spell",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [
+      "counterspells"
+     ],
+     "ladder": [],
+     "rank": 116,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Misdirection",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1595,
+     "disposition": ""
+    },
+    {
+     "card": "The One Ring",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 90,
+     "disposition": ""
+    },
+    {
+     "card": "Endurance",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1348,
+     "disposition": ""
+    },
+    {
+     "card": "Hullbreaker Horror",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 269,
+     "disposition": ""
+    },
+    {
+     "card": "The Unagi of Kyoshi Island",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3499,
+     "disposition": ""
+    },
+    {
+     "card": "The Cabbage Merchant",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2810,
+     "disposition": ""
+    }
+   ]
+  },
+  "Toph, Earthbending Master": {
+   "deckId": "joe-toph-earthbending-master",
+   "nonNative": 21,
+   "rows": [
+    {
+     "card": "Ordeal of Nylea",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4088,
+     "disposition": ""
+    },
+    {
+     "card": "Entish Restoration",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 438,
+     "disposition": ""
+    },
+    {
+     "card": "Amulet of Vigor",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1301,
+     "disposition": ""
+    },
+    {
+     "card": "Scapeshift",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 1272,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Scute Swarm",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 229,
+     "disposition": ""
+    },
+    {
+     "card": "Lumra, Bellow of the Woods",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1180,
+     "disposition": ""
+    },
+    {
+     "card": "Ashaya, Soul of the Wild",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 814,
+     "disposition": ""
+    },
+    {
+     "card": "The Ozolith",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 302,
+     "disposition": ""
+    },
+    {
+     "card": "Scythecat Cub",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3011,
+     "disposition": ""
+    },
+    {
+     "card": "Lotus Cobra",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 322,
+     "disposition": ""
+    },
+    {
+     "card": "Traveling Chocobo",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2048,
+     "disposition": ""
+    },
+    {
+     "card": "Ancient Greenwarden",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 679,
+     "disposition": ""
+    },
+    {
+     "card": "Icetill Explorer",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 731,
+     "disposition": ""
+    },
+    {
+     "card": "Earth Rumble",
+     "tier": "arbiter-spell",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6367,
+     "disposition": ""
+    },
+    {
+     "card": "Toph, the Blind Bandit",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3390,
+     "disposition": ""
+    },
+    {
+     "card": "The Earth King",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3306,
+     "disposition": ""
+    },
+    {
+     "card": "Earthbender Ascension",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2474,
+     "disposition": ""
+    },
+    {
+     "card": "Tale of Katara and Toph",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6605,
+     "disposition": ""
+    },
+    {
+     "card": "The Legend of Kyoshi // Avatar Kyoshi",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [
+      "transform-dfc"
+     ],
+     "rank": 3500,
+     "disposition": ""
+    },
+    {
+     "card": "Avatar Kyoshi, Earthbender",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4743,
+     "disposition": ""
+    },
+    {
+     "card": "Michelangelo, Weirdness to",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6006,
+     "disposition": ""
+    }
+   ]
+  },
+  "The Ur-Dragon": {
+   "deckId": "joe-the-ur-dragon",
+   "nonNative": 25,
+   "rows": [
+    {
+     "card": "Scion of the Ur-Dragon",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 5853,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Hellkite Courser",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1913,
+     "disposition": ""
+    },
+    {
+     "card": "Tiamat",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 2952,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Ancient Brass Dragon",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1685,
+     "disposition": ""
+    },
+    {
+     "card": "Rith, Liberated Primeval",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4762,
+     "disposition": ""
+    },
+    {
+     "card": "Rivaz of the Claw",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3007,
+     "disposition": ""
+    },
+    {
+     "card": "Invasion of Tarkir // Defiant Thundermaw",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 7847,
+     "disposition": ""
+    },
+    {
+     "card": "Sarkhan, Soul Aflame",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2053,
+     "disposition": ""
+    },
+    {
+     "card": "Deflecting Swat",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 79,
+     "disposition": ""
+    },
+    {
+     "card": "Greater Good",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 647,
+     "disposition": ""
+    },
+    {
+     "card": "Teferi's Protection",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 107,
+     "disposition": ""
+    },
+    {
+     "card": "Terror of the Peaks",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 516,
+     "disposition": ""
+    },
+    {
+     "card": "Korvold, Fae-Cursed King",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1875,
+     "disposition": ""
+    },
+    {
+     "card": "Herald's Horn",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 147,
+     "disposition": ""
+    },
+    {
+     "card": "Morophon, the Boundless",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1521,
+     "disposition": ""
+    },
+    {
+     "card": "Reality Shift",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 272,
+     "disposition": ""
+    },
+    {
+     "card": "Monster Manual // Zoological Study",
+     "tier": "arbiter-spell",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1856,
+     "disposition": ""
+    },
+    {
+     "card": "Sarkhan, Fireblood",
+     "tier": "playable-pw",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [
+      "loyalty-activated"
+     ],
+     "rank": 5796,
+     "disposition": ""
+    },
+    {
+     "card": "Stormscale Scion",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4985,
+     "disposition": ""
+    },
+    {
+     "card": "Summon: Bahamut",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1423,
+     "disposition": ""
+    },
+    {
+     "card": "Lorehold, the Historian",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 8409,
+     "disposition": ""
+    },
+    {
+     "card": "Betor, Kin to All",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3324,
+     "disposition": ""
+    },
+    {
+     "card": "Dracogenesis",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2421,
+     "disposition": ""
+    },
+    {
+     "card": "Call the Spirit Dragons",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4764,
+     "disposition": ""
+    },
+    {
+     "card": "Klauth, Unrivaled Ancient",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2211,
+     "disposition": ""
+    }
+   ]
+  },
+  "Yuriko, the Tiger's Shadow": {
+   "deckId": "joe-yuriko-the-tigers-shadow",
+   "nonNative": 35,
+   "rows": [
+    {
+     "card": "Misdirection",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1595,
+     "disposition": ""
+    },
+    {
+     "card": "Lim-Dûl's Vault",
+     "tier": "arbiter-spell",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2341,
+     "disposition": ""
+    },
+    {
+     "card": "Skullsnatcher",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6094,
+     "disposition": ""
+    },
+    {
+     "card": "Consign // Oblivion",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 10049,
+     "disposition": ""
+    },
+    {
+     "card": "Doomsday",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5434,
+     "disposition": ""
+    },
+    {
+     "card": "Mistblade Shinobi",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3187,
+     "disposition": ""
+    },
+    {
+     "card": "Wingcrafter",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 7247,
+     "disposition": ""
+    },
+    {
+     "card": "Tainted Pact",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 808,
+     "disposition": ""
+    },
+    {
+     "card": "Thousand-Faced Shadow",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2553,
+     "disposition": ""
+    },
+    {
+     "card": "Silver-Fur Master",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2765,
+     "disposition": ""
+    },
+    {
+     "card": "Moon-Circuit Hacker",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3503,
+     "disposition": ""
+    },
+    {
+     "card": "Shadow of Mortality",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4497,
+     "disposition": ""
+    },
+    {
+     "card": "Demonic Consultation",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 865,
+     "disposition": ""
+    },
+    {
+     "card": "Street Wraith",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5362,
+     "disposition": ""
+    },
+    {
+     "card": "Orcish Bowmasters",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 255,
+     "disposition": ""
+    },
+    {
+     "card": "Bloodchief Ascension",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 741,
+     "disposition": ""
+    },
+    {
+     "card": "Ingenious Prodigy",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3199,
+     "disposition": ""
+    },
+    {
+     "card": "Nanogene Conversion",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4462,
+     "disposition": ""
+    },
+    {
+     "card": "Roaming Throne",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 133,
+     "disposition": ""
+    },
+    {
+     "card": "Temporal Trespass",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2975,
+     "disposition": ""
+    },
+    {
+     "card": "Mindbreak Trap",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 536,
+     "disposition": ""
+    },
+    {
+     "card": "Commandeer",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2146,
+     "disposition": ""
+    },
+    {
+     "card": "Subtlety",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4320,
+     "disposition": ""
+    },
+    {
+     "card": "Flare of Malice",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1266,
+     "disposition": ""
+    },
+    {
+     "card": "Contagion",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 12394,
+     "disposition": ""
+    },
+    {
+     "card": "Kaito, Bane of Nightmares",
+     "tier": "arbiter-pw",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [
+      "loyalty-activated"
+     ],
+     "rank": 4899,
+     "disposition": ""
+    },
+    {
+     "card": "Force of Despair",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2417,
+     "disposition": ""
+    },
+    {
+     "card": "Temporal Mastery",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2591,
+     "disposition": ""
+    },
+    {
+     "card": "Tetsuko Umezawa, Fugitive",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1572,
+     "disposition": ""
+    },
+    {
+     "card": "Brainstorm",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 71,
+     "disposition": ""
+    },
+    {
+     "card": "Sakashima's Student",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3598,
+     "disposition": ""
+    },
+    {
+     "card": "Thassa's Oracle",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 415,
+     "disposition": ""
+    },
+    {
+     "card": "Satoru, the Infiltrator",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3101,
+     "disposition": ""
+    },
+    {
+     "card": "Flusterstorm",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 307,
+     "disposition": ""
+    },
+    {
+     "card": "Emrakul, the Promised End",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1850,
+     "disposition": ""
+    }
+   ]
+  },
+  "The Wise Mothman": {
+   "deckId": "joe-the-wise-mothman",
+   "nonNative": 38,
+   "rows": [
+    {
+     "card": "The Wise Mothman",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3612,
+     "disposition": ""
+    },
+    {
+     "card": "Bloodchief Ascension",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 741,
+     "disposition": ""
+    },
+    {
+     "card": "Syr Konrad, the Grim",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 253,
+     "disposition": ""
+    },
+    {
+     "card": "Alpha Deathclaw",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5194,
+     "disposition": ""
+    },
+    {
+     "card": "Bruvac the Grandiloquent",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2137,
+     "disposition": ""
+    },
+    {
+     "card": "Hancock, Ghoulish Mayor",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6397,
+     "disposition": ""
+    },
+    {
+     "card": "Nuclear Fallout",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2936,
+     "disposition": ""
+    },
+    {
+     "card": "Raul, Trouble Shooter",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5348,
+     "disposition": ""
+    },
+    {
+     "card": "Bloatfly Swarm",
+     "tier": "body-only",
+     "mechanism": "Enters-as/replacement",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5166,
+     "disposition": ""
+    },
+    {
+     "card": "Young Deathclaws",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 11402,
+     "disposition": ""
+    },
+    {
+     "card": "Struggle for Project Purity",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2664,
+     "disposition": ""
+    },
+    {
+     "card": "Fraying Sanity",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2878,
+     "disposition": ""
+    },
+    {
+     "card": "Harold and Bob, First Numens",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 8684,
+     "disposition": ""
+    },
+    {
+     "card": "Vexing Radgull",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4631,
+     "disposition": ""
+    },
+    {
+     "card": "Vault 12: The Necropolis",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6449,
+     "disposition": ""
+    },
+    {
+     "card": "Lily Bowen, Raging Grandma",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6867,
+     "disposition": ""
+    },
+    {
+     "card": "Nuka-Nuke Launcher",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 7081,
+     "disposition": ""
+    },
+    {
+     "card": "Jason Bright, Glowing Prophet",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 8642,
+     "disposition": ""
+    },
+    {
+     "card": "Marcus, Mutant Mayor",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6325,
+     "disposition": ""
+    },
+    {
+     "card": "Find // Finality",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5306,
+     "disposition": ""
+    },
+    {
+     "card": "Infesting Radroach",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4925,
+     "disposition": ""
+    },
+    {
+     "card": "Strong, the Brutish Thespian",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6021,
+     "disposition": ""
+    },
+    {
+     "card": "Cathedral Acolyte",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6198,
+     "disposition": ""
+    },
+    {
+     "card": "Screeching Scorchbeast",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4069,
+     "disposition": ""
+    },
+    {
+     "card": "Tato Farmer",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4211,
+     "disposition": ""
+    },
+    {
+     "card": "Watchful Radstag",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6108,
+     "disposition": ""
+    },
+    {
+     "card": "Winding Constrictor",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2045,
+     "disposition": ""
+    },
+    {
+     "card": "Mirelurk Queen",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4228,
+     "disposition": ""
+    },
+    {
+     "card": "Smuggler's Surprise",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1568,
+     "disposition": ""
+    },
+    {
+     "card": "Contagion Engine",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1813,
+     "disposition": ""
+    },
+    {
+     "card": "Railway Brawler",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2418,
+     "disposition": ""
+    },
+    {
+     "card": "The Ghoul, Gunslinger",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 13259,
+     "disposition": ""
+    },
+    {
+     "card": "Mesmeric Orb",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1090,
+     "disposition": ""
+    },
+    {
+     "card": "Mindcrank",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 967,
+     "disposition": ""
+    },
+    {
+     "card": "The Master, Transcendent",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5103,
+     "disposition": ""
+    },
+    {
+     "card": "Ripples of Potential",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 982,
+     "disposition": ""
+    },
+    {
+     "card": "Mutational Advantage",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1973,
+     "disposition": ""
+    },
+    {
+     "card": "Kitsune's Technique",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 10568,
+     "disposition": ""
+    }
+   ]
+  },
+  "Captain America, First Avenger": {
+   "deckId": "joe-captain-america-first-avenger",
+   "nonNative": 30,
+   "rows": [
+    {
+     "card": "Captain America, First Avenger",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 8110,
+     "disposition": ""
+    },
+    {
+     "card": "Illusionist's Bracers",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1588,
+     "disposition": ""
+    },
+    {
+     "card": "Stonehewer Giant",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 3732,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Sword of Hearth and Home",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 893,
+     "disposition": ""
+    },
+    {
+     "card": "Ragavan, Nimble Pilferer",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 270,
+     "disposition": ""
+    },
+    {
+     "card": "Kaldra Compleat",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1676,
+     "disposition": ""
+    },
+    {
+     "card": "Fighter Class",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [
+      "level-up"
+     ],
+     "rank": 2267,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Lizard Blades",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1352,
+     "disposition": ""
+    },
+    {
+     "card": "Zirda, the Dawnwaker",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3288,
+     "disposition": ""
+    },
+    {
+     "card": "Forge Anew",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1264,
+     "disposition": ""
+    },
+    {
+     "card": "Puresteel Paladin",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 603,
+     "disposition": ""
+    },
+    {
+     "card": "Akiri, Fearless Voyager",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2041,
+     "disposition": ""
+    },
+    {
+     "card": "Esper Sentinel",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 75,
+     "disposition": ""
+    },
+    {
+     "card": "Inventory Management",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3311,
+     "disposition": ""
+    },
+    {
+     "card": "Sword of Wealth and Power",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2185,
+     "disposition": ""
+    },
+    {
+     "card": "Mjölnir, Storm Hammer",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3097,
+     "disposition": ""
+    },
+    {
+     "card": "Bureau Headmaster",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3559,
+     "disposition": ""
+    },
+    {
+     "card": "Iron Man, Titan of Innovation",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 6437,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Jeska's Will",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 102,
+     "disposition": ""
+    },
+    {
+     "card": "Galvanic Blast",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4815,
+     "disposition": ""
+    },
+    {
+     "card": "Niv-Mizzet, Visionary",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2294,
+     "disposition": ""
+    },
+    {
+     "card": "Cloud, Midgar Mercenary",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 1776,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Buster Sword",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1046,
+     "disposition": ""
+    },
+    {
+     "card": "Aettir and Priwen",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3227,
+     "disposition": ""
+    },
+    {
+     "card": "Halvar, God of Battle // Sword of the Realms",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2370,
+     "disposition": ""
+    },
+    {
+     "card": "Stoneforge Mystic",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 1117,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Conqueror's Flail",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1419,
+     "disposition": ""
+    },
+    {
+     "card": "The Reaver Cleaver",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 570,
+     "disposition": ""
+    },
+    {
+     "card": "Hammer of Nazahn",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 779,
+     "disposition": ""
+    },
+    {
+     "card": "Silver Shroud Costume",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1816,
+     "disposition": ""
+    }
+   ]
+  },
+  "Wolverine, Best There Is": {
+   "deckId": "joe-wolverine-best-there-is",
+   "nonNative": 36,
+   "rows": [
+    {
+     "card": "Neyith of the Dire Hunt",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4221,
+     "disposition": ""
+    },
+    {
+     "card": "Kediss, Emberclaw Familiar",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1145,
+     "disposition": ""
+    },
+    {
+     "card": "Ancient Animus",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4874,
+     "disposition": ""
+    },
+    {
+     "card": "Halana and Alena, Partners",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1985,
+     "disposition": ""
+    },
+    {
+     "card": "Kodama of the West Tree",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 822,
+     "disposition": ""
+    },
+    {
+     "card": "Lizard Blades",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1352,
+     "disposition": ""
+    },
+    {
+     "card": "Ram Through",
+     "tier": "arbiter-spell",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1110,
+     "disposition": ""
+    },
+    {
+     "card": "Inscription of Abundance",
+     "tier": "arbiter-spell",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2307,
+     "disposition": ""
+    },
+    {
+     "card": "Xenagos, God of Revels",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1191,
+     "disposition": ""
+    },
+    {
+     "card": "Well Rested",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3862,
+     "disposition": ""
+    },
+    {
+     "card": "Brotherhood Regalia",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 543,
+     "disposition": ""
+    },
+    {
+     "card": "Beastie Beatdown",
+     "tier": "arbiter-spell",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 14146,
+     "disposition": ""
+    },
+    {
+     "card": "The Ozolith",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 302,
+     "disposition": ""
+    },
+    {
+     "card": "Berserk",
+     "tier": "arbiter-spell",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3697,
+     "disposition": ""
+    },
+    {
+     "card": "Rhythm of the Wild",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 210,
+     "disposition": ""
+    },
+    {
+     "card": "Sylvan Scavenging",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 7062,
+     "disposition": ""
+    },
+    {
+     "card": "Canopy Gargantuan",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3373,
+     "disposition": ""
+    },
+    {
+     "card": "Cori-Steel Cutter",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4393,
+     "disposition": ""
+    },
+    {
+     "card": "Will of the Sultai",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3108,
+     "disposition": ""
+    },
+    {
+     "card": "Warden of the Grove",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2364,
+     "disposition": ""
+    },
+    {
+     "card": "Conformer Shuriken",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4233,
+     "disposition": ""
+    },
+    {
+     "card": "Sazh Katzroy",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5392,
+     "disposition": ""
+    },
+    {
+     "card": "Nibelheim Aflame",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4158,
+     "disposition": ""
+    },
+    {
+     "card": "Meltstrider's Resolve",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 10602,
+     "disposition": ""
+    },
+    {
+     "card": "Strength of Will",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4070,
+     "disposition": ""
+    },
+    {
+     "card": "Tale of Katara and Toph",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6605,
+     "disposition": ""
+    },
+    {
+     "card": "High Score",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5945,
+     "disposition": ""
+    },
+    {
+     "card": "Level Up",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5300,
+     "disposition": ""
+    },
+    {
+     "card": "Raph & Mikey, Troublemakers",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 7837,
+     "disposition": ""
+    },
+    {
+     "card": "Super Combo",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 9884,
+     "disposition": ""
+    },
+    {
+     "card": "Raphael, the Nightwatcher",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 8323,
+     "disposition": ""
+    },
+    {
+     "card": "Forgotten Ancient",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 391,
+     "disposition": ""
+    },
+    {
+     "card": "Legolas's Quick Reflexes",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1509,
+     "disposition": ""
+    },
+    {
+     "card": "Quilled Greatwurm",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2323,
+     "disposition": ""
+    },
+    {
+     "card": "Snakeskin Veil",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 459,
+     "disposition": ""
+    },
+    {
+     "card": "The Last Agni Kai",
+     "tier": "arbiter-spell",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2377,
+     "disposition": ""
+    }
+   ]
+  },
+  "Kellan, the Kid": {
+   "deckId": "joe-kellan-the-kid",
+   "nonNative": 37,
+   "rows": [
+    {
+     "card": "Kellan, the Kid",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5394,
+     "disposition": ""
+    },
+    {
+     "card": "Akroma's Will",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 194,
+     "disposition": ""
+    },
+    {
+     "card": "Teferi's Protection",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 107,
+     "disposition": ""
+    },
+    {
+     "card": "Sensei's Divining Top",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 225,
+     "disposition": ""
+    },
+    {
+     "card": "One with the Multiverse",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1914,
+     "disposition": ""
+    },
+    {
+     "card": "Fblthp, Lost on the Range",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4776,
+     "disposition": ""
+    },
+    {
+     "card": "Plan the Heist",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 14329,
+     "disposition": ""
+    },
+    {
+     "card": "Make Your Own Luck",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 8949,
+     "disposition": ""
+    },
+    {
+     "card": "Jace Reawakened",
+     "tier": "arbiter-pw",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [
+      "loyalty-activated"
+     ],
+     "rank": 7379,
+     "disposition": ""
+    },
+    {
+     "card": "The Key to the Vault",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2126,
+     "disposition": ""
+    },
+    {
+     "card": "Bonny Pall, Clearcutter",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3257,
+     "disposition": ""
+    },
+    {
+     "card": "Step Between Worlds",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 10167,
+     "disposition": ""
+    },
+    {
+     "card": "The Legend of Yangchen // Avatar Yangchen",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [
+      "transform-dfc"
+     ],
+     "rank": 5000,
+     "disposition": ""
+    },
+    {
+     "card": "Recurring Insight",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 10877,
+     "disposition": ""
+    },
+    {
+     "card": "Unexpected Results",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 9786,
+     "disposition": ""
+    },
+    {
+     "card": "Echo of Eons",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "wheels"
+     ],
+     "ladder": [],
+     "rank": 2656,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Sakashima's Protege",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [
+      "cascade"
+     ],
+     "rank": 5849,
+     "disposition": ""
+    },
+    {
+     "card": "Vega, the Watcher",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2726,
+     "disposition": ""
+    },
+    {
+     "card": "The Reality Chip",
+     "tier": "body-only",
+     "mechanism": "Static (aura/equip)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1019,
+     "disposition": ""
+    },
+    {
+     "card": "Ellie and Alan, Paleontologists",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 14251,
+     "disposition": ""
+    },
+    {
+     "card": "Mystic Forge",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 416,
+     "disposition": ""
+    },
+    {
+     "card": "Outcaster Trailblazer",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2960,
+     "disposition": ""
+    },
+    {
+     "card": "Doc Aurlock, Grizzled Genius",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2443,
+     "disposition": ""
+    },
+    {
+     "card": "Lock and Load",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5579,
+     "disposition": ""
+    },
+    {
+     "card": "Mind's Dilation",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2692,
+     "disposition": ""
+    },
+    {
+     "card": "Savvy Trader",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4152,
+     "disposition": ""
+    },
+    {
+     "card": "Railway Brawler",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2418,
+     "disposition": ""
+    },
+    {
+     "card": "Tezzeret the Seeker",
+     "tier": "arbiter-pw",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [
+      "loyalty-activated"
+     ],
+     "rank": 1677,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Esper Sentinel",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 75,
+     "disposition": ""
+    },
+    {
+     "card": "Eladamri, Korvecdal",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2086,
+     "disposition": ""
+    },
+    {
+     "card": "Portent of Calamity",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 9444,
+     "disposition": ""
+    },
+    {
+     "card": "Abhorrent Oculus",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5638,
+     "disposition": ""
+    },
+    {
+     "card": "Rashmi, Eternities Crafter",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3493,
+     "disposition": ""
+    },
+    {
+     "card": "Voice of Victory",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 575,
+     "disposition": ""
+    },
+    {
+     "card": "Transcendent Dragon",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [
+      "counterspells"
+     ],
+     "ladder": [],
+     "rank": 7381,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Aang, Swift Savior // Aang and La, Ocean's Fury",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [
+      "transform-dfc"
+     ],
+     "rank": 4074,
+     "disposition": ""
+    },
+    {
+     "card": "Monk Gyatso",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6039,
+     "disposition": ""
+    }
+   ]
+  },
+  "Pantlaza, Sun-Favored": {
+   "deckId": "joe-pantlaza-sun-favored",
+   "nonNative": 29,
+   "rows": [
+    {
+     "card": "Ephemerate",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 440,
+     "disposition": ""
+    },
+    {
+     "card": "Monster Manual // Zoological Study",
+     "tier": "arbiter-spell",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1856,
+     "disposition": ""
+    },
+    {
+     "card": "Dinosaurs on a Spaceship",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [
+      "suspend"
+     ],
+     "rank": 5177,
+     "disposition": ""
+    },
+    {
+     "card": "Ravenous Tyrannosaurus",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5080,
+     "disposition": ""
+    },
+    {
+     "card": "Pugnacious Hammerskull",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5181,
+     "disposition": ""
+    },
+    {
+     "card": "Palani's Hatcher",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3746,
+     "disposition": ""
+    },
+    {
+     "card": "Hunting Velociraptor",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3777,
+     "disposition": ""
+    },
+    {
+     "card": "Savage Order",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 5115,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Wrathful Raptors",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2618,
+     "disposition": ""
+    },
+    {
+     "card": "Scion of Calamity",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3239,
+     "disposition": ""
+    },
+    {
+     "card": "Sunfrill Imitator",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3709,
+     "disposition": ""
+    },
+    {
+     "card": "Bronzebeak Foragers",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3976,
+     "disposition": ""
+    },
+    {
+     "card": "Descendants' Path",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2189,
+     "disposition": ""
+    },
+    {
+     "card": "Akroma's Will",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 194,
+     "disposition": ""
+    },
+    {
+     "card": "Kinjalli's Sunwing",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3204,
+     "disposition": ""
+    },
+    {
+     "card": "Marauding Raptor",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2968,
+     "disposition": ""
+    },
+    {
+     "card": "Temple Altisaur",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3020,
+     "disposition": ""
+    },
+    {
+     "card": "Wakening Sun's Avatar",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3149,
+     "disposition": ""
+    },
+    {
+     "card": "Wayward Swordtooth",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 983,
+     "disposition": ""
+    },
+    {
+     "card": "Topiary Stomper",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1207,
+     "disposition": ""
+    },
+    {
+     "card": "Zacama, Primal Calamity",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1784,
+     "disposition": ""
+    },
+    {
+     "card": "Thunderherd Migration",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5312,
+     "disposition": ""
+    },
+    {
+     "card": "Etali, Primal Storm",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 260,
+     "disposition": ""
+    },
+    {
+     "card": "Bonehoard Dracosaur",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1360,
+     "disposition": ""
+    },
+    {
+     "card": "Agonasaur Rex",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4709,
+     "disposition": ""
+    },
+    {
+     "card": "Triceraton Commander",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 15493,
+     "disposition": ""
+    },
+    {
+     "card": "Rhythm of the Wild",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 210,
+     "disposition": ""
+    },
+    {
+     "card": "Tooth and Nail",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 2807,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Trumpeting Carnosaur",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1617,
+     "disposition": ""
+    }
+   ]
+  },
+  "Sliver Hivelord": {
+   "deckId": "colton-sliver-hivelord",
+   "nonNative": 1,
+   "rows": [
+    {
+     "card": "For the Ancestors",
+     "tier": "arbiter-spell",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 7744,
+     "disposition": ""
+    }
+   ]
+  },
+  "Vihaan, Goldwaker": {
+   "deckId": "colton-vihaan-goldwaker",
+   "nonNative": 15,
+   "rows": [
+    {
+     "card": "Alchemist's Talent",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [
+      "level-up"
+     ],
+     "rank": 2283,
+     "disposition": ""
+    },
+    {
+     "card": "Coin of Mastery",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6285,
+     "disposition": ""
+    },
+    {
+     "card": "Descent into Avernus",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 894,
+     "disposition": ""
+    },
+    {
+     "card": "Hell to Pay",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2851,
+     "disposition": ""
+    },
+    {
+     "card": "Insatiable Avarice",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 1138,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Jan Jansen, Chaos Crafter",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4050,
+     "disposition": ""
+    },
+    {
+     "card": "Kellogg, Dangerous Mind",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2542,
+     "disposition": ""
+    },
+    {
+     "card": "Land Tax",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 389,
+     "disposition": ""
+    },
+    {
+     "card": "Mastermind Plum",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6697,
+     "disposition": ""
+    },
+    {
+     "card": "Mondrak, Glory Dominus",
+     "tier": "body-only",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 419,
+     "disposition": ""
+    },
+    {
+     "card": "Rain of Riches",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [
+      "cascade"
+     ],
+     "rank": 1589,
+     "disposition": ""
+    },
+    {
+     "card": "Season of the Bold",
+     "tier": "arbiter-spell",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5835,
+     "disposition": ""
+    },
+    {
+     "card": "Seize the Spotlight",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1754,
+     "disposition": ""
+    },
+    {
+     "card": "Smuggler's Share",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1699,
+     "disposition": ""
+    },
+    {
+     "card": "The Reaver Cleaver",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 570,
+     "disposition": ""
+    }
+   ]
+  },
+  "Koma, Cosmos Serpent": {
+   "deckId": "colton-koma-cosmos-serpent",
+   "nonNative": 6,
+   "rows": [
+    {
+     "card": "Arcane Denial",
+     "tier": "arbiter-spell",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [
+      "counterspells"
+     ],
+     "ladder": [],
+     "rank": 55,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Auton Soldier",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2020,
+     "disposition": ""
+    },
+    {
+     "card": "Chameleon, Master of Disguise",
+     "tier": "body-only",
+     "mechanism": "Other / unclassified",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2289,
+     "disposition": ""
+    },
+    {
+     "card": "Ember Island Production",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 7636,
+     "disposition": ""
+    },
+    {
+     "card": "Mana Drain",
+     "tier": "arbiter-spell",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [
+      "counterspells"
+     ],
+     "ladder": [],
+     "rank": 116,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Nezahal, Primal Tide",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1076,
+     "disposition": ""
+    }
+   ]
+  },
+  "Zaxara, the Exemplary": {
+   "deckId": "colton-zaxara-the-exemplary",
+   "nonNative": 7,
+   "rows": [
+    {
+     "card": "Mana Drain",
+     "tier": "arbiter-spell",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [
+      "counterspells"
+     ],
+     "ladder": [],
+     "rank": 116,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Nexos",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4955,
+     "disposition": ""
+    },
+    {
+     "card": "Nyxborn Hydra",
+     "tier": "body-only",
+     "mechanism": "Enters-as/replacement",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3278,
+     "disposition": ""
+    },
+    {
+     "card": "Tervigon",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5625,
+     "disposition": ""
+    },
+    {
+     "card": "Unbound Flourishing",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2708,
+     "disposition": ""
+    },
+    {
+     "card": "Villainous Wealth",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2330,
+     "disposition": ""
+    },
+    {
+     "card": "Wan Shi Tong, Librarian",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1484,
+     "disposition": ""
+    }
+   ]
+  },
+  "Omnath, Locus of Mana": {
+   "deckId": "colton-omnath-locus-of-mana",
+   "nonNative": 6,
+   "rows": [
+    {
+     "card": "Kozilek, Butcher of Truth",
+     "tier": "body-only",
+     "mechanism": "Dies/LTB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1111,
+     "disposition": ""
+    },
+    {
+     "card": "Old One Eye",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 6619,
+     "disposition": ""
+    },
+    {
+     "card": "Selvala, Heart of the Wilds",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 439,
+     "disposition": ""
+    },
+    {
+     "card": "Thunderfoot Baloth",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1995,
+     "disposition": ""
+    },
+    {
+     "card": "Helix Pinnacle",
+     "tier": "body-only",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4526,
+     "disposition": ""
+    },
+    {
+     "card": "Contest of Claws",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5164,
+     "disposition": ""
+    }
+   ]
+  },
+  "Rograkh / Thrasios": {
+   "deckId": "colton-rograkh-thrasios",
+   "nonNative": 23,
+   "rows": [
+    {
+     "card": "Thrasios, Triton Hero",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2485,
+     "disposition": ""
+    },
+    {
+     "card": "Paradise Mantle",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1862,
+     "disposition": ""
+    },
+    {
+     "card": "Invasion of Ikoria // Zilortha, Apex of Ikoria",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1290,
+     "disposition": ""
+    },
+    {
+     "card": "Biomancer's Familiar",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 3198,
+     "disposition": ""
+    },
+    {
+     "card": "Hexing Squelcher",
+     "tier": "body-only",
+     "mechanism": "Static anthem/buff",
+     "interaction": [],
+     "ladder": [],
+     "rank": 816,
+     "disposition": ""
+    },
+    {
+     "card": "Ragavan, Nimble Pilferer",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 270,
+     "disposition": ""
+    },
+    {
+     "card": "Sowing Mycospawn",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 2095,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Springheart Nantuko",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 682,
+     "disposition": ""
+    },
+    {
+     "card": "The Cabbage Merchant",
+     "tier": "body-only",
+     "mechanism": "Attacks/blocks trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 2810,
+     "disposition": ""
+    },
+    {
+     "card": "Valley Floodcaller",
+     "tier": "body-only",
+     "mechanism": "Cast/spell trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 760,
+     "disposition": ""
+    },
+    {
+     "card": "Vexing Shusher",
+     "tier": "body-only",
+     "mechanism": "Activated ability",
+     "interaction": [],
+     "ladder": [],
+     "rank": 5125,
+     "disposition": ""
+    },
+    {
+     "card": "Vibrance",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 9153,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Wan Shi Tong, Librarian",
+     "tier": "body-only",
+     "mechanism": "ETB trigger",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1484,
+     "disposition": ""
+    },
+    {
+     "card": "Borne Upon a Wind",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 658,
+     "disposition": ""
+    },
+    {
+     "card": "Chain of Vapor",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 929,
+     "disposition": ""
+    },
+    {
+     "card": "Deflecting Swat",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 79,
+     "disposition": ""
+    },
+    {
+     "card": "Flare of Duplication",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 1121,
+     "disposition": ""
+    },
+    {
+     "card": "Flusterstorm",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 307,
+     "disposition": ""
+    },
+    {
+     "card": "Mindbreak Trap",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 536,
+     "disposition": ""
+    },
+    {
+     "card": "Pact of Negation",
+     "tier": "arbiter-spell",
+     "mechanism": "Upkeep/phase trigger",
+     "interaction": [
+      "counterspells"
+     ],
+     "ladder": [],
+     "rank": 359,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Veil of Summer",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 547,
+     "disposition": ""
+    },
+    {
+     "card": "Gamble",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [
+      "tutors"
+     ],
+     "ladder": [],
+     "rank": 236,
+     "disposition": "INTERACTION"
+    },
+    {
+     "card": "Hidden Strings",
+     "tier": "arbiter-spell",
+     "mechanism": "Spell effect (other)",
+     "interaction": [],
+     "ladder": [],
+     "rank": 4319,
+     "disposition": ""
+    }
+   ]
+  }
+ }
+}
