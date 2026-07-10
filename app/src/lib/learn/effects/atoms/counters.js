@@ -3,6 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe } from "../../gameState.js";
+import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
@@ -124,6 +125,21 @@ export function applyAddCounter(state, atom, ctx) {
   if (atom.counterType === "-1/-1") {
     const r = destroyLethalCreatures(next);
     next = checkDiesTriggers(r.state, r.dead);
+  }
+  // COUNTER-THEN-GRANT rider (Snakeskin Veil — "Put a +1/+1 counter on target creature you control. It gains
+  // hexproof until end of turn."): the anaphoric "It" is the counter's own target, so the grant rides THIS atom —
+  // a layer-6 addKeyword with endOfTurn duration per keyword, the same shape applyPumpEffect grants (CR 613.1f;
+  // wears off at cleanup, CR 514.2). Counters persist; only the keyword grant is temporary.
+  for (const kw of atom.grantKeywords || []) {
+    for (const t of targets) {
+      next = addContinuousEffect(next, {
+        layer: 6,
+        op: { layerOp: "addKeyword", keyword: kw },
+        affects: { mode: "fixed", permanentIds: [t.id] },
+        duration: { kind: "endOfTurn", turn: next.turn },
+        source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
+      }).state;
+    }
   }
   next = logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.perTargetDouble ? "perTargetDouble" : amount, targets: targets.map(t => t.id) });
   // Fire the placer's "Whenever you put one or more +1/+1 counters on a creature [you control]" triggers

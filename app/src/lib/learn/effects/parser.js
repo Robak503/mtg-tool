@@ -50,7 +50,7 @@ import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { parseTutorFilter, parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); SMALL_NUM for MULTI-COUNT damage count words
+import { parseTutorFilter, parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT); SMALL_NUM for MULTI-COUNT damage count words
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
@@ -2687,6 +2687,26 @@ function matchTwoTargetPump(oracle) {
   }] };
 }
 
+// COUNTER-THEN-GRANT (Snakeskin Veil) — "Put a/two/three +1/+1 counter[s] on target creature [you control].
+// [Then ]It gains <grantable keyword[s]> until end of turn." The "It" is anaphoric to the counter's target, so
+// the two sentences shatter under the clause splitter (the bare "It gains …" has no bound referent → low).
+// Collapsed UP FRONT into ONE add-counter atom carrying `grantKeywords` — applyAddCounter grants each keyword
+// via a layer-6 endOfTurn continuous effect on the same targets (the applyPumpEffect grant shape, CR 613.1f).
+// Keywords are ALL-OR-NOTHING via parseGrantedKeywords (an ungrantable keyword → null → low → Arbiter, CREED);
+// any other rider, a second target, or a non-counter lead fails the exact anchor → falls through → low.
+function matchCounterThenGrant(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^put (a|two|three) \+1\/\+1 counters? on target creature( you control)?\. (?:then )?it gains (.+) until end of turn$/);
+  if (!m) return null;
+  const kws = parseGrantedKeywords(m[3]);
+  if (!kws) return null;
+  return { atoms: [{
+    op: "add-counter", counterType: "+1/+1", amount: m[1] === "a" ? 1 : SMALL_NUM[m[1]],
+    targetType: "creature", ...(m[2] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}),
+    grantKeywords: kws,
+  }] };
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
@@ -2833,6 +2853,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const utp = matchUntapThenPump(oracle);
   if (utp && utp.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: utp.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== COUNTER-THEN-GRANT (Snakeskin Veil) ===== "Put a +1/+1 counter on target creature you control. It
+  // gains hexproof until end of turn." → ONE add-counter atom carrying grantKeywords (see matchCounterThenGrant).
+  // Collapsed up front so the anaphoric "It" binds to the counter's target. HIGH iff the op is KNOWN. Not X.
+  const ctg = matchCounterThenGrant(oracle);
+  if (ctg && ctg.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: ctg.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up
