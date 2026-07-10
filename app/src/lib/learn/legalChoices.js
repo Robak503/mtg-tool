@@ -38,7 +38,17 @@ import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxF
 import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
+
+// S1.1 (shelf run, 2026-07-10): parse a card's CAST program from the cost-only-keyword-STRIPPED
+// oracle — the same strip the classifier (coverage.js) and the dispatcher's fallback use. The
+// unstripped parse returned a LOW/empty (but truthy) program for Convoke/Affinity carriers
+// (Harmonized Crescendo ×3 in the Phase-0 live-fire), which short-circuited the dispatcher's
+// stripped fallback via `action.program ||` and no-opped the resolution. One strip, no drift.
+function parseCastProgram(card) {
+  return parseEffectProgram({ ...card, oracle: stripCostOnlyKeywordLines(card?.oracle ?? card?.oracle_text ?? "") });
+}
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
 import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parsePlotCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
@@ -706,7 +716,7 @@ function altCastName(alt, pay) {
 // Vigor, …) attach metadata but their BODIES are unmodeled (Arbiter-routed); offering would cast an
 // Arbiter-routed spell for an engine-paid cost. Returns { alt, payments } or null.
 function computeAltCastSpec(state, playerId, card) {
-  const program = parseEffectProgram(card);
+  const program = parseCastProgram(card); // S1.1 — stripped parse (a Convoke+altCost carrier gated on the raw LOW parse)
   const alt = program?.altCost;
   if (!alt || !OFFERED_ALT_COST_KINDS.has(alt.kind)) return null;
   if (!program || programConfidence(program) !== "high") return null;
@@ -834,7 +844,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     if (!affordable && !emergeSpec && !altSpec) continue;
 
     const effect = parseSpellEffect(card);
-    const program = parseEffectProgram(card);
+    const program = parseCastProgram(card); // S1.1 — stripped parse; matches the classifier + the dispatcher fallback
     const base = {
       kind: "cast-spell",
       playerId,
