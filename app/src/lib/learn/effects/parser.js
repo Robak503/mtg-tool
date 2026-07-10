@@ -2780,6 +2780,16 @@ function matchRadOrProliferate(oracle) {
 // castNotFromHand watcher event) reads ctx.castSpellMv at resolution (stamped by checkCastTriggers); the
 // else-arm rides the parked pendingFreeCast decision (decline → the optional land put) or fires directly on
 // a whiff. Two sentences → shatters under the splitter → collapsed here into the ONE free-cast atom.
+// TIMETWISTER WHEEL (Echo of Eons / Timetwister — SHELF Phase 2): "Each player shuffles their hand and
+// graveyard into their library, then draws seven cards." The ", then" would shatter under the clause
+// splitter, so it's collapsed here into ONE atom (per player: fold hand+GY into the library, ONE
+// deterministic shuffle, draw 7 — see applyTimetwisterWheel). Exact printed sentence only.
+function matchTimetwisterWheel(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (!/^each player shuffles their hand and graveyard into their library, then draws seven cards$/.test(t)) return null;
+  return { atoms: [{ op: "timetwister-wheel", draw: 7, targetType: null }] };
+}
+
 // RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger — SHELF S7) — "target player gets two rad counters. If
 // that player is you, create a Treasure token." A chosen-PLAYER rad (CR 115.1 — any player, self included)
 // whose anaphoric second sentence rewards self-targeting with a Treasure. Collapsed into ONE rad atom with
@@ -3031,6 +3041,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rtt = matchRadTargetOrTreasure(oracle);
   if (rtt && rtt.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: rtt.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== TIMETWISTER WHEEL (Echo of Eons / Timetwister) ===== the shuffle-in + draw-7 pair → ONE atom
+  // (see matchTimetwisterWheel). HIGH iff KNOWN.
+  const ttw = matchTimetwisterWheel(oracle);
+  if (ttw && ttw.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: ttw.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up

@@ -1223,6 +1223,30 @@ export function cascadeClauseParser(clause) {
  * damagedPlayer branch mills nobody). A FIXED-N count only (a variable "mills X" stays low → Arbiter).
  * Pure (no parser.js import — cycle-safe); uses the shared NUM_WORD leaf map.
  */
+/**
+ * TIMETWISTER WHEEL (Echo of Eons / Timetwister — SHELF Phase 2): "Each player shuffles their hand and
+ * graveyard into their library, then draws seven cards." Per player: hand + graveyard fold into the
+ * library, ONE deterministic shuffle (the threaded rngSeed — advanced per player so a serialized game
+ * restores byte-identical), then draw 7 (bounded by the shuffled library — CR 120.3 an over-draw on a
+ * short pile draws what exists; the empty-draw loss is the runner's SBA concern, not this atom's).
+ * Tokens can't exist in hand/graveyard-as-cards (the store excludes token rows), so no token filtering
+ * is needed. Non-targeted; identical on a spell or a trigger.
+ */
+export function applyTimetwisterWheel(state, atom, ctx) {
+  let next = state;
+  for (const pid of Object.keys(next.players)) {
+    const p = next.players[pid];
+    if (!p) continue;
+    const pool = [...(p.library || []), ...(p.hand || []), ...(p.graveyard || [])];
+    next = { ...next, players: { ...next.players, [pid]: { ...p, library: pool, hand: [], graveyard: [] } } };
+    next = shuffleControllerLibrary(next, pid);
+    const lib = next.players[pid].library || [];
+    const n = Math.min(atom.draw || 7, lib.length);
+    next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], hand: lib.slice(0, n), library: lib.slice(n) } } };
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "timetwister-wheel", controller: ctx.controller, draw: atom.draw || 7 });
+}
+
 export function millClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   let m = t.match(/^(?:you )?mill (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
@@ -1472,6 +1496,7 @@ export const libraryResolvers = {
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.
   "mill": applyMill,
+  "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
   "impulse-exile": applyImpulseExileAtom, // ===== IMPULSE-EXILE-AND-PLAY ===== exile top card → exile face-up, stamp `_impulse`/`_impulseTurn`; play permission offered THIS TURN at the action layer (full-cost cast / play-land from exile), cleared at cleanup. Professional Face-Breaker's sac-Treasure ability flips native-mixed.

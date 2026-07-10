@@ -38,7 +38,10 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 // it changes only HOW you pay (mana + return a creature), never WHAT the spell does — and its "enters tapped and
 // attacking" clause is vacuous for a non-permanent spell. The engine hard-casts at full printed cost (no sneak
 // lane), so stripping the line for the spell classifier is CREED-safe, exactly the ninjutsu/morph precedent.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+|sneak (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
+// FLASHBACK (CR 702.34, SHELF Phase 2 — Echo of Eons) joins the class: it changes only WHERE the card may be
+// cast from (the graveyard — an option the engine never offers, a safe FN), and its "Then exile it" rider
+// applies ONLY to a flashback cast; the normal hard cast + resolution are byte-identical to the printed body.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the
