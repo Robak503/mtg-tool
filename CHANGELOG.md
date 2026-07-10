@@ -10,6 +10,48 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.128.0] - 2026-07-09
+
+### Fixed
+- **Five engine correctness bugs from the full-codebase audit (2 HIGH).** A creature exiled
+  instead of dying no longer fires "dies" triggers (no more phantom Blood Artist drains in
+  self-play; exile-removals get their own log event) · mass "each opponent's creatures" effects
+  (Scourge of Fleets class) actually resolve at the trigger flush instead of being silently
+  dropped · conditional upkeep-win triggers whose condition isn't met no longer pollute the
+  engine's breakage queue · a storm spell with combat-referent text is no longer over-claimed
+  as natively playable · two additional-cost cast paths re-check mana affordability.
+- **Grind data-trust cluster (7 fixes).** Win rates count only decisive games (a stuck game is
+  neither a loss nor a draw) · a run's disk cap no longer silently becomes the store's
+  permanent budget · a crash can no longer duplicate a game index (self-healing writes +
+  read-side dedupe) · the parallel pool survives store errors cleanly · mid-game shuffles
+  require the seeded rng (replay determinism) · one shared source for all seed math ·
+  server-side clamp on one-shot batch sizes.
+- **The Arbiter no longer teaches wrong rules.** Four CR citations fixed against the bundled
+  Comprehensive Rules (commander tax 903.8, shield counters 122.1c, destroy 701.8, Day/Night
+  731) with a permanent test that verifies every prompt citation against the bundled CR.
+
+### Added
+- **Every deck now mulligans like a player.** Playbook-parameterized keep/ship policies (land
+  windows, color-aware "can I cast anything by turn 3", interaction/threat/line requirements,
+  per-playbook mulligan floors — combo digs to 4) replace the old land-count-only filter for
+  all persona seats, and London bottoming now bottoms the WORST cards (excess lands first)
+  instead of the last ones drawn. Policy version stamped on every recorded game.
+- **cEDH pool gate.** Rograkh/Thrasios and Kinnan are tagged cedh and never sit in mixed
+  pods; a pool selector next to the Grind button (records carry the pool; a future cEDH grind
+  is a flag flip).
+- **Epoch-2 recorded-game instrumentation (schema v3).** Per-seat finish ranks (1–4) +
+  elimination turns + mana-health telemetry, a win-condition taxonomy per game, richer decision
+  rows (the offered action set, choice rank, stack depth, forced-choice flag), a per-card
+  cast×outcome evidence table, a replay-determinism canary (which immediately caught that
+  persona temperament assignment was random — the per-game seed is now provided so personas
+  can become fully replayable), and readout honesty: Wilson 95% CIs, seat-skew flags, and a
+  correct "player-turns (~rounds)" label.
+
+### Removed
+- Dead weight, all verified unreferenced: pre-Tauri launcher scripts, the html-export
+  snapshots, formatDetection, artCrop, generate-card-names, dead mana-pool helpers and npm
+  aliases ("lean and clean; waste destroys haste").
+
 ## [0.117.0 – 0.127.0] - 2026-07-09
 
 > Eleven releases shipped across 2026-07-08/09 (the sim-center + data-trust burst); their notes below were drafted release-by-release in this section and are kept as one dated block — per-release binaries + exact notes live on the GitHub Releases page.
