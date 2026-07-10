@@ -58,6 +58,20 @@ describe("detection — the disjunction splits into two independently-classified
     expect(classifyCard(MOTHMAN)).toBe("native-trigger");
     expect(classifyCard(GRAVE_TITAN)).toBe("native-trigger");
   });
+
+  it("'enters or dies' (Vinereap Mentor class) splits too — etb + dies halves, tier flips", () => {
+    const c = { name: "Stitcher's Supplier", type: "Creature — Zombie", power: 1, toughness: 1, oracle: "When this creature enters or dies, mill three cards." };
+    const ds = detectTriggers(c);
+    expect(ds.map((d) => d.event).sort()).toEqual(["dies", "etb"]);
+    expect(classifyCard(c)).toBe("native-trigger");
+    expect(compoundTriggerCount(c.oracle)).toBe(1);
+  });
+
+  it("the ARTIFACT 'is put into a graveyard' wording is NOT split (its dies-half never dispatches — parked)", () => {
+    const c = { name: "Ichor Wellspring", type: "Artifact", oracle: "When Ichor Wellspring enters or is put into a graveyard from the battlefield, draw a card." };
+    expect(detectTriggers(c)).toHaveLength(0);
+    expect(compoundTriggerCount(c.oracle)).toBe(0);
+  });
 });
 
 describe("runtime — Mothman's rad fires ONCE per event through the generic paths (hook removed)", () => {

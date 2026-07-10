@@ -1715,6 +1715,12 @@ const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)
 // "of the chosen type" form (Kindred Discovery) — it has its own dedicated compound EVENT
 // (chosenTypeEntersOrAttacks, exact-matched on the UNSPLIT sentence) which the split would break.
 const DISJUNCTION_TRIGGER_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or attacks(,\\s*[^\\n]+)";
+// "enters or dies" (Vinereap Mentor class) — the SAME split, second event pair. The dies-half phrasing
+// ("<subject> dies") classifies standalone (dies/self — verified); the ARTIFACT wording ("is put into a
+// graveyard from the battlefield") does NOT classify and is NOT split — the Ichor Wellspring family
+// stays under the compound guard (splitting it would detect an ETB half while the dies-half never
+// dispatches; the triggers.test guards still assert it).
+const DISJUNCTION_DIES_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or dies(,\\s*[^\\n]+)";
 function splitCompoundTriggerSentences(oracle) {
   // Separate the two rewritten sentences with a NEWLINE (not ". ") — the trigger regex anchors each match on a
   // preceding [\n.;] and consumes its own trailing period, so a same-line "…card. Whenever…" would leave the second
@@ -1722,17 +1728,20 @@ function splitCompoundTriggerSentences(oracle) {
   return String(oracle || "")
     .replace(new RegExp(COMPOUND_TRIGGER_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nWhenever ${condB}, ${eff}`)
     .replace(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi"), (m, _kw, subj, eff) =>
-      /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`);
+      /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`)
+    .replace(new RegExp(DISJUNCTION_DIES_SRC, "gi"), (_m, _kw, subj, eff) =>
+      `Whenever ${subj} enters${eff}\nWhenever ${subj} dies${eff}`);
 }
-/** Number of compound second-trigger connectives ("…and whenever…" + the "enters or attacks" disjunction) —
- *  each adds ONE extra trigger sentence when split. coverage.js adds this to its shaped-sentence count so
- *  `shaped === detected` holds for a successfully-split compound. */
+/** Number of compound second-trigger connectives ("…and whenever…" + the "enters or attacks"/"enters or
+ *  dies" disjunctions) — each adds ONE extra trigger sentence when split. coverage.js adds this to its
+ *  shaped-sentence count so `shaped === detected` holds for a successfully-split compound. */
 export function compoundTriggerCount(oracle) {
   const s = String(oracle || "");
   const andJoins = (s.match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length;
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
-  return andJoins + disjunctions;
+  const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
+  return andJoins + disjunctions + diesDisjunctions;
 }
 
 /**

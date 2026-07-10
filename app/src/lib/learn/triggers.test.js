@@ -102,8 +102,9 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
   it("does NOT detect 'enters or leaves the battlefield' (Brandywine Farmer) — the LTB half would be dropped", () => {
     expect(detectTriggers(creature("Brandywine Farmer", "When this creature enters or leaves the battlefield, create a Food token."))).toHaveLength(0);
   });
-  it("does NOT detect 'enters or dies' (Vinereap Mentor) — the dies half would be dropped", () => {
-    expect(detectTriggers(creature("Vinereap Mentor", "When this creature enters or dies, create a Food token."))).toHaveLength(0);
+  it("'enters or dies' (Vinereap Mentor) SPLITS into both halves (SHELF C2 — the disjunction is modeled)", () => {
+    const ds = detectTriggers(creature("Vinereap Mentor", "When this creature enters or dies, create a Food token."));
+    expect(ds.map((d) => d.event).sort()).toEqual(["dies", "etb"]);
   });
   // FIX-TRIG-COMPOUND (Rod QA #1) — the original eventVerbs tally counted only enters/dies/leaves, so an
   // "enters or attacks" (Grave Titan) and the artifact "enters or is put into a graveyard" family slipped
