@@ -1120,6 +1120,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ activatedCostReduction: { amount: parseInt(aacrM[1], 10) } });
     return;
   }
+  // EQUIP-ONLY variant (Bureau Headmaster — "Equip abilities you activate cost {1} less to activate.",
+  // SHELF S7): same marker family with `equipOnly` — the apply site gates it to isEquipAbility instead
+  // of isCreaturePerm (an Equipment isn't a creature, so the Training-Grounds gate would never fire).
+  const eqcrM = c.match(/^equip abilities you activate cost \{(\d+)\} less to activate$/);
+  if (eqcrM) {
+    out.push({ activatedCostReduction: { amount: parseInt(eqcrM[1], 10), equipOnly: true } });
+    return;
+  }
   // The floor rider that accompanies every activated-ability cost-reducer in this family — a modeled no-op
   // (the one-mana floor is inherent to activatedCostReductionForCost). Recognized so it doesn't read as
   // unmodeled residue on Training Grounds / Biomancer's Familiar. Emits a benign marker; carries no runtime.

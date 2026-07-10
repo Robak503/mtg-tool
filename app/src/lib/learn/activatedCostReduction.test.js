@@ -236,3 +236,30 @@ describe("ACTIVATED-COST-REDUCTION — engine integration", () => {
     expect(draw.cost.generic).toBe(1); // floored at one mana (not {0})
   });
 });
+
+// ── EQUIP-ONLY variant (Bureau Headmaster — "Equip abilities you activate cost {1} less to activate.", SHELF S7) ──
+describe("ACTIVATED-COST-REDUCTION — equipOnly (Bureau Headmaster)", () => {
+  const BUREAU = () => ({ id: "card-bh", name: "Bureau Headmaster", type: "Creature — Vedalken Advisor", power: 1, toughness: 3,
+    oracle: "Equipment spells you cast cost {1} less to cast.\nEquip abilities you activate cost {1} less to activate." });
+  const SWORD = () => ({ id: "card-sw", name: "Shortsword", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+0.\nEquip {2}" });
+
+  it("classifies native-static (both halves modeled) and shaves the Equip cost {2} → {1}", () => {
+    expect(classifyCard(BUREAU())).toBe("native-static");
+    const bh = createPermanent({ id: "perm-bh", card: BUREAU(), controller: "user", summoningSick: false });
+    const sword = createPermanent({ id: "perm-sw", card: SWORD(), controller: "user", summoningSick: false });
+    const bear = createPermanent({ id: "perm-bear", card: { id: "card-bear", name: "Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [bh, sword, bear]);
+    s = withPool(s, "user", { C: 1 }); // exactly {1}
+    const equip = activateActions(s).find((a) => a.permanentId === "perm-sw");
+    expect(equip).toBeTruthy();          // {2} − 1 = {1}, payable
+    expect(equip.cost.generic).toBe(1);
+  });
+
+  it("CREED near-miss: the equipOnly reducer does NOT discount a creature's normal activated ability", () => {
+    const bh = createPermanent({ id: "perm-bh", card: BUREAU(), controller: "user", summoningSick: false });
+    const drawer = createPermanent({ id: "perm-d", card: { id: "card-d", name: "Drawer", type: "Creature — Wizard", power: 1, toughness: 1, oracle: "{3}: Draw a card." }, controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [bh, drawer]);
+    s = withPool(s, "user", { C: 2 }); // {2} < the unreduced {3}
+    expect(activateActions(s).find((a) => a.permanentId === "perm-d")).toBeFalsy();
+  });
+});

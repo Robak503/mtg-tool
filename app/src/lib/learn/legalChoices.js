@@ -1460,7 +1460,13 @@ function actionsActivateAbility(state, playerId) {
       // Applied BEFORE the affordability gate + the equip branch so the reduced cost is what canAfford judges
       // and what the dispatcher is handed. Mana abilities never reach here (isManaEffect excludes them); an
       // X-cost ability is deferred just below, so the reduced generic never mixes with an unresolved {X}.
-      if (isCreaturePerm && activatedReducers.length) cost = activatedCostReductionForCost(activatedReducers, cost);
+      if (activatedReducers.length) {
+        // Per-reducer subject gate: the Training-Grounds family applies to a CREATURE's abilities; the
+        // equipOnly variant (Bureau Headmaster, SHELF S7) applies to EQUIP activations regardless of the
+        // (non-creature) Equipment host. A reducer whose subject doesn't match this ability contributes 0.
+        const applicable = activatedReducers.filter((r) => (r.equipOnly ? !!ab.isEquipAbility : isCreaturePerm));
+        if (applicable.length) cost = activatedCostReductionForCost(applicable, cost);
+      }
       // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a bare mana-{X} cost whose
       // effect's TARGET COUNT is the paid X (a targetCountX atom → program.xSpell). The PLAYER chooses X at
       // activation, so — exactly like the cast path's X-spell branch — enumerate every affordable X and, per X,
