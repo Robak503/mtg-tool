@@ -4,6 +4,7 @@
  */
 
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
+import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
@@ -454,6 +455,18 @@ export function applyFightPair(state, atom, ctx) {
       }).state;
     }
   }
+  // FIGHTER-COUNTER (Ancient Animus — SHELF W3) — "Put a +1/+1 counter on target creature you control if it's
+  // legendary. Then it fights target creature an opponent controls." The chosen fighter gets a PERSISTENT
+  // +1/+1 counter BEFORE the powers are locked (the counter raises the locked power, exactly the fighterPump
+  // ordering), gated by the printed condition: onlyIfLegendary reads the fighter's live type line at
+  // resolution — a non-legendary fighter just fights, no counter (a deterministic state read, not a no-op).
+  if (atom.fighterCounter) {
+    const pre = fightPairRefs(base, ctx);
+    const legendaryOk = !atom.fighterCounter.onlyIfLegendary || /\bLegendary\b/i.test(typeLineStr(pre.fighter?.permanent?.card));
+    if (pre.fighter && legendaryOk) {
+      base = addCounter(base, { permanentId: pre.fighter.permanent.id, type: atom.fighterCounter.counterType || "+1/+1", amount: atom.fighterCounter.amount || 1 });
+    }
+  }
   const { fighter, target } = fightPairRefs(base, ctx);
   if (!fighter || !target) {
     return logEvent(base, { kind: "spell-effect", effect: "fight-pair", targets: [] });
@@ -479,7 +492,14 @@ export function applyFightPair(state, atom, ctx) {
  * Lock the dealer's layer-aware power at resolution (floored at 0), mark that much on the dealee (non-combat
  * damage — markCombatDamage only adds damageMarked, fires no combat triggers), then a lethal SBA + dies once.
  * Deathtouch from the dealer makes any nonzero damage lethal (CR 702.2c). A 0-power dealer / a missing half →
- * clean no-op. (The trample-excess rider of Ram Through is NOT modeled here — that card stays Arbiter.)
+ * clean no-op.
+ *
+ * TRAMPLE-EXCESS rider (Ram Through — SHELF W2): "If the creature you control has trample, excess damage is
+ * dealt to that creature's controller instead." With atom.trampleExcess and a TRAMPLING dealer (layer-aware,
+ * read at resolution), the dealee is assigned only LETHAL damage — its remaining toughness, or 1 if the dealer
+ * has deathtouch (CR 702.19b) — and the excess goes to the dealee's CONTROLLER through the shared
+ * applyDamageEffect player path (prevention/replacement/watchers all apply). A non-trampling dealer deals the
+ * whole amount to the creature exactly as before — the rider simply doesn't apply.
  */
 export function applyDamageTargetPower(state, atom, ctx) {
   const { fighter, target } = fightPairRefs(state, ctx);
@@ -492,9 +512,19 @@ export function applyDamageTargetPower(state, atom, ctx) {
   }
   const deathtouched = new Set();
   if (permanentHasKeyword(state, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
-  let next = markCombatDamage(state, { permanentId: target.permanent.id, amount: pow });
+  let toCreature = pow, excess = 0;
+  if (atom.trampleExcess && permanentHasKeyword(state, fighter.permanent.id, "Trample")) {
+    const remaining = Math.max(0, creatureToughness(target.permanent, state) - (target.permanent.damageMarked || 0));
+    const lethalNeed = deathtouched.has(target.permanent.id) ? Math.min(1, remaining) : remaining; // CR 702.19b
+    excess = Math.max(0, pow - lethalNeed);
+    toCreature = pow - excess;
+  }
+  let next = toCreature > 0 ? markCombatDamage(state, { permanentId: target.permanent.id, amount: toCreature }) : state;
   const lethal = destroyLethalCreatures(next, deathtouched);
   next = checkDiesTriggers(lethal.state, lethal.dead);
+  if (excess > 0) {
+    next = applyDamageEffect(next, { controller: ctx.controller, amount: excess, targets: [{ type: "player", id: target.controller }], source: { id: ctx.sourceId } });
+  }
   return logEvent(next, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
 }
 

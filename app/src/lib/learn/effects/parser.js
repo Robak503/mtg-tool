@@ -2694,6 +2694,39 @@ function matchTwoTargetPump(oracle) {
 // via a layer-6 endOfTurn continuous effect on the same targets (the applyPumpEffect grant shape, CR 613.1f).
 // Keywords are ALL-OR-NOTHING via parseGrantedKeywords (an ungrantable keyword → null → low → Arbiter, CREED);
 // any other rider, a second target, or a non-counter lead fails the exact anchor → falls through → low.
+// DAMAGE-POWER-TRAMPLE-EXCESS (Ram Through — SHELF W2) — "Target creature you control deals damage equal to
+// its power to target creature you don't control. If the creature you control has trample, excess damage is
+// dealt to that creature's controller instead." The second sentence is a RIDER on the one-way fight (it
+// rewrites where the damage lands, CR 615 prevention-adjacent redirect), so the clause splitter would leave it
+// as unmatched residue → low. Collapsed up front into the existing damage-target-power atom + trampleExcess:
+// applyDamageTargetPower assigns lethal to the dealee and routes the excess to its controller only when the
+// dealer ACTUALLY has trample at resolution. Any other wording fails the exact anchor → low → Arbiter (CREED).
+function matchDamagePowerTrampleExcess(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^target creature you control deals damage equal to its power to target creature you don't control\. if the creature you control has trample, excess damage is dealt to that creature's controller instead$/);
+  if (!m) return null;
+  return { atoms: [{
+    op: "damage-target-power", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+    secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+    trampleExcess: true,
+  }] };
+}
+
+// COUNTER-IF-LEGENDARY-THEN-FIGHT (Ancient Animus — SHELF W3) — "Put a +1/+1 counter on target creature you
+// control if it's legendary. Then it fights target creature an opponent controls." The "it" chains BOTH
+// sentences to the same chosen fighter, so the splitter shatters it (a conditional counter + an unbound
+// anaphoric fight). Collapsed up front into ONE fight-pair atom carrying `fighterCounter` with
+// onlyIfLegendary — applyFightPair places the persistent counter (fighter legendary at resolution) BEFORE
+// locking powers, the exact fighterPump ordering. Any other wording → fails the anchor → low → Arbiter.
+function matchCounterIfLegendaryThenFight(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^put a \+1\/\+1 counter on target creature you control if it's legendary\. then it fights target creature (?:an opponent controls|you don't control)$/);
+  if (!m) return null;
+  const fp = fightClauseParser("target creature you control fights target creature you don't control");
+  if (!fp || fp.op !== "fight-pair") return null;
+  return { atoms: [{ ...fp, fighterCounter: { counterType: "+1/+1", amount: 1, onlyIfLegendary: true } }] };
+}
+
 function matchCounterThenGrant(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^put (a|two|three) \+1\/\+1 counters? on target creature( you control)?\. (?:then )?it gains (.+) until end of turn$/);
@@ -2860,6 +2893,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const ctg = matchCounterThenGrant(oracle);
   if (ctg && ctg.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: ctg.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== DAMAGE-POWER-TRAMPLE-EXCESS (Ram Through) ===== the one-way fight + the trample-excess-to-controller
+  // rider → ONE damage-target-power atom with trampleExcess (see matchDamagePowerTrampleExcess). HIGH iff KNOWN.
+  const dte = matchDamagePowerTrampleExcess(oracle);
+  if (dte && dte.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: dte.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== COUNTER-IF-LEGENDARY-THEN-FIGHT (Ancient Animus) ===== conditional counter + anaphoric fight → ONE
+  // fight-pair atom carrying fighterCounter (see matchCounterIfLegendaryThenFight). HIGH iff the op is KNOWN.
+  const clf = matchCounterIfLegendaryThenFight(oracle);
+  if (clf && clf.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: clf.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up

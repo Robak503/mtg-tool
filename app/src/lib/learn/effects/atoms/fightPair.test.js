@@ -182,10 +182,15 @@ describe("FIGHT-PAIR / DAMAGE-TARGET-POWER parser — the named cards classify H
     expect(p.atoms[0]).toMatchObject({ op: "fight-pair", distinct: true });
   });
 
-  it("CREED — a RIDER ('or planeswalker', trample-excess) leaves the clause LOW (→ Arbiter)", () => {
-    // Bite Down (creature OR planeswalker) and Ram Through (trample-excess) must NOT match — whole-clause `$`.
+  it("CREED — an unmodeled RIDER ('or planeswalker') leaves the clause LOW (→ Arbiter)", () => {
+    // Bite Down (creature OR planeswalker) must NOT match — whole-clause `$`.
     expect(parseEffectClause("Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.", "Instant").confidence).toBe("low");
-    expect(parseEffectProgram({ type: "Instant", oracle: "Target creature you control deals damage equal to its power to target creature you don't control. If the creature you control has trample, excess damage is dealt to that creature's controller instead." }).confidence).toBe("low");
+  });
+
+  it("Ram Through (SHELF W2) — the trample-excess rider collapses to damage-target-power + trampleExcess, HIGH", () => {
+    const p = parseEffectProgram({ type: "Instant", oracle: "Target creature you control deals damage equal to its power to target creature you don't control. If the creature you control has trample, excess damage is dealt to that creature's controller instead." });
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "damage-target-power", trampleExcess: true });
   });
 
   it("atomTargetIntent is 'ambiguous' for both ops — gates them OUT of the trigger flush + loyalty-AI (CREED)", () => {
