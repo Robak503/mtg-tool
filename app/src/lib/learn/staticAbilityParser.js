@@ -1576,6 +1576,26 @@ function parseClause(clause, out, selfName, selfType) {
   // count-anthem (whose parseCreatureSelector/parseSelfCountSource don't recognize the chosen-type subject
   // or the counter-on-source magnitude). The card-name was normalized to "this artifact" only if it equals
   // the printed name; the printed text already says "this artifact", so the literal anchor is correct.
+  // ── HANCOCK-CLASS dynamic anthem (SHELF S7): "each other creature you control that's a <A> or <B>
+  // gets +X/+X, where X is the number of counters on this creature" — a subtype-UNION anthem whose
+  // magnitude is the TOTAL counters on the SOURCE (any kind — countersOnSource with counterType null),
+  // re-read every P/T computation so the buff tracks the counters live. excludeSelf per the printed
+  // "other". The self-name was normalized to "this creature" upstream (selfNormalizeOracle). Whole-
+  // clause anchored; any other subject/magnitude shape falls through → body-only (CREED).
+  {
+    const huM = c.match(/^each other creature you control that's an? ([a-z]+) or (?:an? )?([a-z]+) gets \+x\/\+x, where x is the number of counters on this creature$/);
+    if (huM) {
+      out.push({
+        layer: 7,
+        sublayer: "7c",
+        op: { layerOp: "ptModifyDynamicCount", countSpec: { kind: "countersOnSource", counterType: null }, perPower: 1, perToughness: 1 },
+        affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], subtypes: [huM[1], huM[2]], excludeSelf: true } },
+        duration: { kind: "permanent" },
+      });
+      return;
+    }
+  }
+
   {
     const ctM = c.match(/^creatures you control of the chosen type get \+(\d+)\/\+(\d+) for each ([a-z]+) counter on this artifact$/);
     if (ctM) {

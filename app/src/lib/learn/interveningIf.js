@@ -272,6 +272,18 @@ const NOT_A_TOKEN_RE = /^it(?:'s| is)? ?not a token$|^it isn['’]t a token$/;
 // type/color variant falls through → Arbiter, CREED — never a mis-read designation).
 const WAS_A_CREATURE_RE = /^it was a creature$/;
 
+// ===== HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.92a + 603.6e) ===============================
+// "it had no +1/+1 counters on it" — the intervening-if on the synthesized UNDYING dies-return trigger.
+// "it" (CR 608.2c) is the dead source itself; "had" is a per-PERMANENT last-known-info read (the object is
+// in a graveyard by now, counters don't travel to it), so the faithful value is the death look-back's
+// counters snapshot, threaded as ctx.triggeringHadNoPlusCounters (checkDiesTriggers stamps it from
+// d.counters). Identical at flush AND resolution (CR 603.4 second check — the snapshot is fixed). This is
+// what terminates the undying loop: the returned body carries a +1/+1 counter, so its NEXT death reads
+// false → no second return. A missing/undefined flag → null (can't confirm → FN-safe drop, never a
+// fail-open return — fail-open would loop a countered body forever). Anchored EXACTLY; a "-1/-1"/named-
+// counter variant (persist et al) falls through → Arbiter (CREED).
+const HAD_NO_PLUS_COUNTERS_RE = /^it had no \+1\/\+1 counters on it$/;
+
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
 // — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
@@ -393,6 +405,17 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const wasCreature = context?.triggeringWasCreature;
     if (typeof wasCreature !== "boolean") return null; // no per-object was-creature flag → can't confirm (FN-safe)
     return wasCreature === true; // "it was a creature" → true iff the dying object was a creature
+  }
+
+  // HAD-NO-+1/+1-COUNTERS (KW-UNDYING, CR 702.92a + 603.6e) — read the dying object's counter-lessness off
+  // the context flag (ctx.triggeringHadNoPlusCounters, stamped by checkDiesTriggers from the death
+  // look-back's counters snapshot). NOT a board scan — the object is in a graveyard by now. A definite
+  // boolean once the dies trigger fires from a stamped look-back; undefined (no snapshot / not a dies
+  // trigger) → null (can't confirm → FN-safe drop, never a fail-open return).
+  if (HAD_NO_PLUS_COUNTERS_RE.test(c)) {
+    const hadNone = context?.triggeringHadNoPlusCounters;
+    if (typeof hadNone !== "boolean") return null; // no per-object counters snapshot → can't confirm (FN-safe)
+    return hadNone === true; // "it had no +1/+1 counters on it" → true iff the LKI showed none
   }
 
   // "you control no <filter>"  → count == 0
@@ -534,5 +557,8 @@ export function interveningIfParseable(condition) {
   // The probe context ALSO carries a definite numeric `xValue` so the X-VALUE THRESHOLD shape ("x is N or
   // more") returns a boolean here (the runtime stamps a real xValue on every {X}-cost entry via
   // checkEnterTriggers); every other shape ignores the extra field.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, xValue: 0 }) !== null;
+  // It ALSO carries a definite `triggeringHadNoPlusCounters` boolean so the KW-UNDYING shape ("it had no
+  // +1/+1 counters on it") returns a boolean here (the runtime stamps it off every death look-back's
+  // counters snapshot); every other shape ignores the extra field.
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, xValue: 0 }) !== null;
 }

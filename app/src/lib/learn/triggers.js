@@ -1363,6 +1363,29 @@ export function cascadeInstanceCount(oracle) {
 }
 
 /**
+ * KW-UNDYING (CR 702.92a, SHELF S7) — is the PRINTED undying keyword on this card? 1/0 (multiple printed
+ * instances don't exist; a hypothetical double would still return 1 — each extra instance's trigger is a
+ * strict-superset no-op after the first returns the card, so 1 is the honest count). The keyword line is
+ * matched STRUCTURALLY, not by word-lookbehind: after reminder-strip, split each oracle LINE on commas and
+ * require a whole segment to be exactly "undying" — the shape of a printed keyword list ("Undying",
+ * "Haste\nUndying", "Vigilance, trample, undying"). This excludes, by construction:
+ *   - GRANTS ("target creature gains undying until end of turn" — Undying Evil; "…you control has undying"
+ *     — Mikaeus): the segment carries the grant verb, never bare "undying".
+ *   - OLD-WORDING SELF-NAMES ("When Undying Beast dies, put it on top …"): the name rides inside a longer
+ *     segment. No lookbehind list to maintain, no false self-synthesis (CREED).
+ * Shared by detectTriggers (synthesizes the dies-return descriptor) and coverage.allTriggerSentencesModeled
+ * (bumps the shaped count so shaped === detected holds — the keyword's trigger sentence lives in stripped
+ * reminder text and never counts as a shaped sentence, the bushido/afflict/cascade precedent exactly).
+ */
+export function undyingKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    if (line.split(",").some((seg) => seg.trim().toLowerCase() === "undying")) return 1;
+  }
+  return 0;
+}
+
+/**
  * TRIG-PUMP-1 (the trigger-effect compiler pilot) — a SELF-scope trigger states the pump on its OWN
  * source with the pronoun "it": "Whenever this creature attacks, IT gets +2/+0 until end of turn"
  * (Brazen Wolves), "…, IT gains trample until end of turn" (the combat-buff family). The modeled
@@ -2203,6 +2226,34 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Cumulative upkeep ${cumUpkeep[1]}`,
     });
   }
+  // KW-UNDYING (CR 702.92a, SHELF S7) — KEYWORD→TRIGGER synthesis, the BUSHIDO/AFFLICT precedent. "Undying"
+  // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, if it
+  // had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter
+  // on it.)"), which the boundary-anchored When/Whenever/At regex above can't reach. Synthesize the SELF-DIES
+  // descriptor off the keyword so the runtime fires it (checkDiesTriggers — the Enduring-cycle dies-return
+  // pipeline exactly) and coverage counts it (allTriggerSentencesModeled bumps the shaped count via
+  // undyingKeywordCount). Three CR-honest pieces ride the existing machinery:
+  //   - the intervening-if "it had no +1/+1 counters on it" (CR 603.4 — checked at flush AND resolution)
+  //     reads the dying object's LAST-KNOWN counters (CR 603.6e) off ctx.triggeringHadNoPlusCounters, stamped
+  //     by checkDiesTriggers from the death look-back's `counters` snapshot — so the loop terminates (the
+  //     returned body carries a +1/+1 counter; its NEXT death reads "had counters" → no second return).
+  //   - the effectClause is the kind-tagged sentinel ONLY selfReturnClauseParser models → the undying-return
+  //     atom (graveyard → battlefield under owner's control + one +1/+1 counter through the doubling
+  //     replacement, CR 614.1c/702.92a — Doubling Season doubles it per the official ruling).
+  //   - a TOKEN never returns (CR 111.7 — it ceases to exist; guarded in the resolver via
+  //     ctx.triggeringCardIsToken, the applySelfReturn precedent).
+  // Matched STRUCTURALLY (undyingKeywordCount — a whole comma-segment of a line must be exactly "undying"),
+  // so a GRANT ("target creature gains undying" — Undying Evil; Mikaeus) or an old-wording self-NAME ("When
+  // Undying Beast dies, …") NEVER self-synthesizes here (CREED — those stay body-only/Arbiter, a safe FN).
+  if (undyingKeywordCount(oracle) > 0) {
+    out.push({
+      event: "dies", scope: "self", whose: "any",
+      effect: null,
+      effectClause: "[undying] return it to the battlefield under its owner's control with a +1/+1 counter on it",
+      interveningIf: "it had no +1/+1 counters on it",
+      optional: false, sourceText: "Undying",
+    });
+  }
   // STORM (CR 702.40) — KEYWORD→TRIGGER synthesis. "Storm" is a keyword whose triggered ability lives in
   // REMINDER parens ("(When you cast this spell, copy it for each spell cast before it this turn. …)"), which
   // the boundary-anchored When/Whenever/At regex above can't match (the "(" before "When" isn't a sentence
@@ -2859,6 +2910,12 @@ export function checkDiesTriggers(state, dead) {
     // creature-front DFC / an Enchantment Creature both read true; a non-creature look-back reads false.
     const diesCtx = { triggeringWasCreature: /\bCreature\b/i.test(String(d.card?.type || d.card?.type_line || "")) };
     if (d.power != null) diesCtx.dyingPower = d.power;
+    // KW-UNDYING (CR 702.92a + 603.6e last-known-info): the undying intervening-if reads whether the DYING
+    // object had any +1/+1 counters AS IT LAST EXISTED on the battlefield. Stamped ONLY when the death
+    // look-back carried its `counters` snapshot (every modeled death constructor does) — an entry without
+    // one leaves the flag undefined, and interveningIf.js returns null on undefined (can't confirm → the
+    // trigger drops, FN-safe — NEVER a fail-open return, which could loop a countered body forever).
+    if (d.counters) diesCtx.triggeringHadNoPlusCounters = !((d.counters["+1/+1"] || 0) > 0);
     fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     for (const pid of Object.keys(state2.players)) {
       for (const watcher of triggerSourcesOf(state2, pid)) {

@@ -865,7 +865,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       // BEFORE the moveCardToZone below removes it from the battlefield, so a destroy-spell kill still feeds
       // a "<payoff> equal to its power" dies-trigger the real on-board power (mirrors destroyLethalCreatures).
       const pw = creaturePower(lk.permanent, next);
-      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, power: Number.isFinite(pw) ? pw : null });
+      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, power: Number.isFinite(pw) ? pw : null, counters: { ...(lk.permanent.counters || {}) } });
     } else if (isPlaneswalker(lk.permanent.card)) {
       // A destroyed planeswalker "dies" (CR 700.4); capture its look-back (no power — the only modeled
       // PW-death watcher is Cruel Celebrant's flat creature-or-planeswalker drain).

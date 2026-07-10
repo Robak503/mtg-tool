@@ -133,7 +133,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   const sacPower = isCreatureCard(lk.permanent.card) ? creaturePower(lk.permanent, state) : null;
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permId });
   if (isCreatureCard(lk.permanent.card)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null, counters: { ...(lk.permanent.counters || {}) } }]);
   }
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
   // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).

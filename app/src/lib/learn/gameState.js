@@ -1343,6 +1343,9 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       card: perm.card,
       attachments: [...(perm.attachments || [])],
       power: Number.isFinite(pw) ? pw : null,
+      // KW-UNDYING (CR 702.92a + 603.6e): snapshot the dying permanent's counters BEFORE the move loop —
+      // the undying intervening-if ("if it had no +1/+1 counters on it") reads this last-known state.
+      counters: { ...(perm.counters || {}) },
       // EXILE-IF-DIES (subsystem 3): a creature flagged "if it would die this turn, exile it instead" goes
       // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
       // it self-expires; a stale flag from a prior turn is ignored).

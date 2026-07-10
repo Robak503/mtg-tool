@@ -37,7 +37,7 @@
  * atoms module could race a direct `import triggers` + detectTriggers call and miss the WeakMap-cached card).
  */
 
-import { logEvent, moveCardToZone } from "../../gameState.js";
+import { addCounter, logEvent, moveCardToZone } from "../../gameState.js";
 import { enterCardFromZone } from "./zones.js";
 
 /**
@@ -139,6 +139,13 @@ export function selfReturnClauseParser(clause) {
   if (/^\[self-return-bf:enchantment\] return it to the battlefield under its owner's control as an enchantment$/i.test(t)) {
     return { op: "self-return-bf-enchantment" };
   }
+  // KW-UNDYING (CR 702.92a) — the kind-tagged sentinel triggers.detectTriggers synthesizes from the printed
+  // "Undying" keyword line (undyingKeywordCount). The intervening-if half ("if it had no +1/+1 counters on
+  // it") rides the DESCRIPTOR, enforced by interveningIf.js at flush + resolution — this atom is only the
+  // return+counter half. Anchored ^…$; the marker never occurs in real oracle text, so a spell can't reach it.
+  if (/^\[undying\] return it to the battlefield under its owner's control with a \+1\/\+1 counter on it$/i.test(t)) {
+    return { op: "undying-return" };
+  }
   return null;
 }
 
@@ -216,7 +223,49 @@ export function applySelfReturnBattlefieldEnchantment(state, atom, ctx) {
   return logEvent(entered, { kind: "spell-effect", effect: "self-return-bf-enchantment", returned: didEnter, controller: owner });
 }
 
+/**
+ * applyUndyingReturn — KW-UNDYING (CR 702.92a): return the dead source (its card now in its owner's
+ * graveyard) to the battlefield under its owner's control WITH a +1/+1 counter on it.
+ *
+ * The "if it had no +1/+1 counters on it" intervening-if is enforced UPSTREAM (interveningIf.js reads
+ * ctx.triggeringHadNoPlusCounters at flush AND resolution — CR 603.4), so this resolver only ever runs when
+ * the dying object's last-known state showed no +1/+1 counters. It mirrors applySelfReturnBattlefield-
+ * Enchantment's zone mechanics (same dies pipeline, same look-back ids) minus the type strip, plus the
+ * counter: enterCardFromZone (graveyard → battlefield under the owner, firing ETB/landfall/permanent-enters
+ * watchers — the return IS an enters event, CR 603), then ONE +1/+1 counter via gameState.addCounter, which
+ * routes through applyCounterDoubling (CR 614 — Doubling Season doubles undying's counter per the official
+ * ruling). KNOWN APPROXIMATION: the counter lands immediately AFTER the enter-triggers fire rather than
+ * being on the body as they fire (CR 614.1c would have it enter with the counter); no modeled ETB watcher
+ * reads the entering body's counters, so no observable difference today — the post-resolution state is exact.
+ *
+ * Fail-safes: CR 608.2b — the card already left the graveyard → logged no-op, never a fabricated permanent.
+ * CR 111.7 — a token ceases to exist and never returns (ctx.triggeringCardIsToken guard).
+ */
+export function applyUndyingReturn(state, atom, ctx) {
+  const owner = ctx.triggeringController;
+  const cardId = ctx.triggeringCardId;
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (ctx.triggeringCardIsToken) {
+    return logEvent(state, { kind: "spell-effect", effect: "undying-return", returned: false, reason: "token", controller: owner });
+  }
+  const gy = state.players[owner].graveyard || [];
+  if (!gy.some((c) => c.id === cardId)) {
+    // CR 608.2b — the object left the graveyard before this resolved: a logged no-op.
+    return logEvent(state, { kind: "spell-effect", effect: "undying-return", returned: false, controller: owner });
+  }
+  const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard" });
+  let next = entered;
+  if (didEnter) {
+    // The new permanent's id was minted inside enterCardFromZone; recover it by the returned CARD id (unique
+    // per physical card, so the battlefield holds exactly one permanent wrapping it).
+    const perm = (next.players[owner].battlefield || []).find((p) => p.card?.id === cardId);
+    if (perm) next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1 });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "undying-return", returned: didEnter, controller: owner });
+}
+
 export const selfReturnResolvers = {
   "self-return": applySelfReturn,
   "self-return-bf-enchantment": applySelfReturnBattlefieldEnchantment,
+  "undying-return": applyUndyingReturn,
 };

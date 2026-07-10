@@ -648,7 +648,7 @@ function sacrificePermanentForCost(state, playerId, permObj) {
   const typeLine = String(permObj.card?.type || permObj.card?.type_line || permObj.card?.card_faces?.[0]?.type_line || permObj.card?.card_faces?.[0]?.type || "");
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permObj.id });
   if (/Creature/.test(typeLine)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, counters: { ...(permObj.counters || {}) } }]);
   } else {
     // LEAVE-DRAIN (CR 603.3b): a NON-creature cost sacrifice (Blood/Clue/artifact) has no dies path —
     // drain its leave event now so permanentLeaves watchers stack above the ability (the creature

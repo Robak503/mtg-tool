@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -139,6 +139,16 @@ export const COVERED_KEYWORDS = [
   // afflict creature (Khenra Eternal — "Afflict 1") read keyword-only after its synthesized trigger sentence
   // is stripped, exactly like bushido.
   "afflict",
+  // KW-UNDYING (CR 702.92a, SHELF S7) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
+  // return trigger from the printed keyword (undyingKeywordCount — structural line-segment match, so grants
+  // like Undying Evil / Mikaeus never self-synthesize); checkDiesTriggers fires it with the death look-back's
+  // counters snapshot (CR 603.6e LKI); the intervening-if "it had no +1/+1 counters on it" is enforced by
+  // interveningIf.js at flush + resolution (CR 603.4 — this terminates the loop: the returned body carries a
+  // counter, so its next death reads false); the undying-return atom (selfReturn.js) re-enters the card from
+  // the graveyard under its owner + adds the +1/+1 counter through the doubling replacement. A TOKEN never
+  // returns (CR 111.7). The bare "undying" residue matches via the exact === check; allTriggerSentencesModeled
+  // bumps the shaped count (undyingShaped) so the synthesized trigger balances, exactly like bushido/afflict.
+  "undying",
   // CASCADE (CR 702.85) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers (a selfCast
   // `cascade` trigger) + fired by checkCastTriggers (dig the library to a cheaper nonland, park the free-cast/
   // decline decision at the action layer). A SINGLE "cascade" line matches via the `=== "cascade"` check; the
@@ -576,9 +586,14 @@ function allTriggerSentencesModeled(card, oracle) {
   // appears as a When/Whenever/At sentence. Bump the count by 1 for the keyword so shaped === detected holds
   // (mirrors cascadeKw). Keyed on the RAW oracle (the reminder signature is gone after stripReminder).
   const ravenousShaped = ravenousTriggerCount(oracle);
+  // KW-UNDYING (CR 702.92a) — like bushido/afflict, the printed "Undying" keyword's triggered ability lives
+  // entirely in stripped reminder text, so it never counts as a shaped sentence. detectTriggers synthesizes
+  // a self-dies descriptor from the keyword (undyingKeywordCount — the SAME structural matcher, so grant
+  // forms contribute 0 to both counts); bump the shaped count by 1 so shaped === detected holds.
+  const undyingShaped = undyingKeywordCount(oracle);
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + ravenousShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + ravenousShaped + undyingShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

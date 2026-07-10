@@ -663,7 +663,11 @@ function applyLayer7(state, perm, l7Effects) {
       let n;
       if (e.op.countSpec?.kind === "countersOnSource") {
         const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
-        n = src ? (src.counters?.[e.op.countSpec.counterType] || 0) : 0;
+        // counterType null = ALL counters on the source, any kind (Hancock — "the number of counters
+        // on Hancock", SHELF S7); a named counterType stays the exact-kind read (fellowship/charge).
+        n = !src ? 0
+          : e.op.countSpec.counterType ? (src.counters?.[e.op.countSpec.counterType] || 0)
+          : Object.values(src.counters || {}).reduce((s, v) => s + (v || 0), 0);
       } else {
         // TRUNK-SELFBUFF: magnitude = a live board count × per-unit ("gets +X/+Y for each <countsource>").
         // The count is read for THIS permanent (its controller / its type line for the excludeSelf case),

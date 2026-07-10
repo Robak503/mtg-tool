@@ -61,7 +61,7 @@ export function applyFadeVanishUpkeep(state) {
     if (!lk) continue; // already gone
     const count = lk.permanent.counters?.[fv.counterType] || 0;
     const sacrifice = () => {
-      dead.push({ controller: pid, id: snapshot.id, name: snapshot.card?.name || "permanent", card: snapshot.card });
+      dead.push({ controller: pid, id: snapshot.id, name: snapshot.card?.name || "permanent", card: snapshot.card, counters: { ...(lk.permanent.counters || {}) } });
       next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: snapshot.id });
     };
     if (fv.kind === "fading") {
