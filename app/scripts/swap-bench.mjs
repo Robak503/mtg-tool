@@ -62,7 +62,8 @@ for (let i = 0; i < games; i++) {
   const seed = gameSeedAt(baseSeed, i);
   const pod = formPod(playable, podSize, seed);
   const swapSeat = seatNames[i % podSize];
-  let pilotsA = {}, pilotsB = {};
+  let pilotsA = {};
+  let pilotsB;
   try { pilotsA = baseBuilder ? (baseBuilder(pod, seed) || {}) : {}; } catch { /* default autopilot */ }
   try {
     const cand = candBuilder(pod, seed) || {};
