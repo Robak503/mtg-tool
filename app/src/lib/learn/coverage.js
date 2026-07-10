@@ -634,6 +634,13 @@ export function permanentTriggersCovered(card) {
     // the When/Whenever strip removes the "counter on it." prefix this anchor needs); the remaining "…counter on
     // it." stays inside the trigger sentence and is removed by the trigger-sentence strip below.
     .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
+    // RAD-OR-PROLIFERATE (Vexing Radgull, SHELF S7) — the "Otherwise, proliferate." else-arm is part of the
+    // SAME combat-damage trigger's effect (folded into effectClause; the whole branch parses HIGH via
+    // matchRadOrProliferate — proven by allTriggerSentencesModeled above). The trigger strip stops at the
+    // first period, leaving the else-arm as apparent residue. Anchored to DIRECTLY follow the exact
+    // rad-if-none clause, so it can only consume this modeled branch (FN-safe). Runs before the When-strip
+    // (which removes the prefix this anchor needs).
+    .replace(/(rad counters? if they don['’]t have any rad counters)\.\s*otherwise, proliferate\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")

@@ -174,10 +174,10 @@ describe("RAD parser — fixed-N grant forms; variable / 'may' / referent forms 
     low("Each player gets X rad counters.");                                  // variable X
     low("Each player gets a rad counter for each creature you control.");     // scaled rider
     low("You may get two rad counters.");                                     // optional choice (unmodeled)
-    // CDMG-PLAYER-PAYOFF leaves a CONDITIONAL/trailing "that player gets N rad counters …" branch LOW: the
-    // Vexing Radgull "…if they don't have any rad counters. Otherwise, proliferate." and Nuka-Nuke Launcher
-    // "…whenever they cast a spell" forms keep their tail and fail the `$` anchor (the branch stays unmodeled).
-    low("That player gets two rad counters if they don't have any rad counters. Otherwise, proliferate.");
+    // The Vexing Radgull branch is MODELED now (SHELF S7 — matchRadOrProliferate → ifNoRadElseProliferate,
+    // asserted in its own describe below); the Nuka-Nuke Launcher "…whenever they cast a spell" trailing
+    // form keeps its tail, fails every anchor, and stays LOW (unmodeled).
+    low("That player gets two rad counters whenever they cast a spell this turn.");
     low("That player gets two rad counters whenever they cast a spell.");
   });
 });
@@ -264,5 +264,37 @@ describe("RAD proliferate — adds a rad counter to an opponent who has one; lea
     const after = applyProliferate(seeded, { op: "proliferate" }, { controller: "user" });
     expect(after.players.ai.radCounters).toBe(3);   // opponent rad proliferated (good for me)
     expect(after.players.user.radCounters).toBe(2); // my own rad untouched (bad for me)
+  });
+});
+
+// ── RAD-OR-PROLIFERATE branch (Vexing Radgull, SHELF S7) ──
+describe("RAD-OR-PROLIFERATE — Vexing Radgull", () => {
+  const GULL = {
+    name: "Vexing Radgull", type: "Creature — Bird Mutant", power: 2, toughness: 2,
+    oracle: "Flying\nWhenever this creature deals combat damage to a player, that player gets two rad counters if they don't have any rad counters. Otherwise, proliferate.",
+  };
+  it("classifies native-trigger (the branch payoff models whole)", () => {
+    expect(classifyCard(GULL)).toBe("native-trigger");
+  });
+  it("resolver: rad when the damaged player has NONE; proliferate (controller-driven) when they have some", async () => {
+    const { resolveAtom } = await import("./effects/effectAtoms.js");
+    const { createGameState, createPermanent } = await import("./gameState.js");
+    const atom = { op: "rad", who: "damagedPlayer", amount: 2, ifNoRadElseProliferate: true, targetType: null };
+    const mk = (aiRad) => {
+      const s0 = createGameState({ userDeck: [], aiDeck: [] });
+      const bear = createPermanent({ id: "bear", card: { name: "Bear", type: "Creature — Bear", power: 2, toughness: 2 }, controller: "user" });
+      bear.counters = { "+1/+1": 1 }; // a proliferate target for the else-arm
+      return { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [bear] }, ai: { ...s0.players.ai, radCounters: aiRad } } };
+    };
+    // No rad → +2 rad, no proliferate.
+    const a = resolveAtom(mk(0), atom, { controller: "user", damagedPlayerId: "ai", targets: [] });
+    expect(a.players.ai.radCounters).toBe(2);
+    expect(a.players.user.battlefield[0].counters["+1/+1"]).toBe(1);
+    // Has rad → the else-arm proliferates for the CONTROLLER: the bear's +1/+1 grows AND the opponent's
+    // existing rad grows too (CR 701.34a — proliferate adds one of EACH kind already there; rad on an
+    // opponent is a benefit, so the auto-chooser correctly includes them).
+    const b = resolveAtom(mk(3), atom, { controller: "user", damagedPlayerId: "ai", targets: [] });
+    expect(b.players.ai.radCounters).toBe(4);
+    expect(b.players.user.battlefield[0].counters["+1/+1"]).toBe(2);
   });
 });

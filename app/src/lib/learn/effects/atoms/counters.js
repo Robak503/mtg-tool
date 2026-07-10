@@ -60,6 +60,15 @@ export function applyRad(state, atom, ctx) {
   } else if (atom.who === "damagedPlayer") {
     // The just-damaged player (CR — the combat-damage trigger's referent). Absent → clean no-op.
     const pid = ctx.damagedPlayerId;
+    // RAD-OR-PROLIFERATE branch (Vexing Radgull, SHELF S7 — "that player gets two rad counters if they
+    // don't have any rad counters. Otherwise, proliferate."): a deterministic state read at resolution —
+    // rad only when the player has NONE; otherwise the whole payoff is a proliferate for the CONTROLLER.
+    if (atom.ifNoRadElseProliferate) {
+      if (!pid || !next.players[pid]) return next; // absent referent → clean no-op (never a blind proliferate)
+      if ((next.players[pid].radCounters || 0) > 0) return applyProliferate(next, { op: "proliferate" }, ctx);
+      next = addRadCounters(next, { playerId: pid, amount });
+      return logEvent(next, { kind: "spell-effect", effect: "rad", who: "damagedPlayer", amount, branch: "no-rad" });
+    }
     if (pid && next.players[pid]) next = addRadCounters(next, { playerId: pid, amount });
   } else {
     next = addRadCounters(next, { playerId: ctx.controller, amount });
@@ -344,6 +353,11 @@ export function cdmgPayoffClauseParser(clause) {
   // (c) damage-scaled rad — "they/that player gets that many rad counters"
   const cdmgRadDynM = t.match(/^(?:they|that player) gets? that many rad counters$/);
   if (cdmgRadDynM) return { op: "rad", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null };
+  // (rb) RAD-OR-PROLIFERATE (Vexing Radgull, SHELF S7) — the two-sentence branch payoff arrives as one
+  // clause ("…if they don't have any rad counters. Otherwise, proliferate"); resolved as ONE atom whose
+  // resolver reads the damaged player's rad at resolution (rad when none, else a controller proliferate).
+  const radBranchM = t.match(/^(?:they|that player) gets? (\d+|a|an|one|two|three|four|five) rad counters? if they don't have any rad counters\.\s*otherwise, proliferate$/);
+  if (radBranchM) return { op: "rad", who: "damagedPlayer", amount: SMALL_NUM[radBranchM[1]] ?? parseInt(radBranchM[1], 10), ifNoRadElseProliferate: true, targetType: null };
   // (ll) LIFE-LOSS mill (Mindcrank, SHELF M3) — "that player mills that many cards": the referent is the
   // player who just LOST life (ctx.lifeLostPlayerId) and the count is the amount lost (ctx.lifeLostAmount),
   // both threaded by checkLifeLossTriggers. The referent gates (triggerRouting + coverage spell guards)

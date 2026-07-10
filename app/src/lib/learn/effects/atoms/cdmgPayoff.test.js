@@ -87,9 +87,10 @@ describe("CDMG-PLAYER-PAYOFF — parser", () => {
     expect(p.atoms[1]).toMatchObject({ op: "discard", amount: 1 });
   });
 
-  it("Vexing Radgull's conditional 'that player gets two rad counters if they don't have any…' stays LOW", () => {
+  it("Vexing Radgull's rad-or-proliferate branch is MODELED (SHELF S7 — one atom, HIGH)", () => {
     const p = parseEffectProgram({ type: "Instant", oracle: "That player gets two rad counters if they don't have any rad counters. Otherwise, proliferate." });
-    expect(programConfidence(p)).toBe("low");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([{ op: "rad", who: "damagedPlayer", amount: 2, ifNoRadElseProliferate: true, targetType: null }]);
   });
 });
 

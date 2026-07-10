@@ -2735,6 +2735,18 @@ function matchCounterIfLegendaryThenFight(oracle) {
 // with amountUpgrade — resolveScaledAmount reads the artifact count at resolution. Self-names normalized
 // to a generic subject; any other wording (a different base/upgraded pair, a different threshold or target)
 // fails the exact anchor → low → Arbiter (CREED).
+// RAD-OR-PROLIFERATE (Vexing Radgull, SHELF S7) — "that player gets two rad counters if they don't have any
+// rad counters. Otherwise, proliferate." The "Otherwise" sentence is the branch's else-arm, so the sentence
+// splitter shatters it (an unbound "Otherwise, proliferate" → low). Collapsed into ONE rad atom with
+// ifNoRadElseProliferate — applyRad reads the damaged player's rad at resolution (rad when none, else a
+// controller proliferate). The who:damagedPlayer referent keeps it gated to combat-damage events.
+function matchRadOrProliferate(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^(?:they|that player) gets? (a|an|one|two|three|four|five|\d+) rad counters? if they don't have any rad counters\. otherwise, proliferate$/);
+  if (!m) return null;
+  return { atoms: [{ op: "rad", who: "damagedPlayer", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), ifNoRadElseProliferate: true, targetType: null }] };
+}
+
 function matchMetalcraftDamage(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^(.+?) deals (\d+) damage to any target\. metalcraft — \1 deals (\d+) damage instead if you control three or more artifacts$/);
@@ -2929,6 +2941,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const mcd = matchMetalcraftDamage(oracle);
   if (mcd && mcd.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: mcd.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== RAD-OR-PROLIFERATE (Vexing Radgull) ===== the rad-if-none / else-proliferate branch → ONE rad atom
+  // with ifNoRadElseProliferate (see matchRadOrProliferate). HIGH iff the op is KNOWN.
+  const rop = matchRadOrProliferate(oracle);
+  if (rop && rop.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: rop.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TWO-TARGET PUMP/DEBUFF (Leeching Bite / Consume Strength / Schismotivate) ===== "Target creature gets
   // +X/+Y … Another target creature gets -A/-B …" → ONE pump-pair atom (see matchTwoTargetPump). Collapsed up
