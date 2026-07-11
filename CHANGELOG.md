@@ -10,6 +10,22 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.133.0] - 2026-07-10
+
+### Fixed
+- **The recurring "decks under the wrong profile" screen — final root cause found and armored.**
+  The auto-updater had been replacing the app shell while silently leaving the bundled server
+  months out of date, so every prior fix never actually reached the installed app. The app now
+  verifies at every launch that its server payload matches the shell version; a half-applied
+  update raises an unmissable warning with one-minute repair instructions instead of silently
+  running ancient code. (If you ever see that warning: download and run the latest installer
+  from the Releases page once — a full install rewrites everything.)
+
+### Added
+- Raul, Trouble Shooter plays natively (cast a spell milled this turn from your graveyard,
+  once per turn), and Mesmeric Orb is fully live (a new becomes-untapped engine event —
+  every untap, including Seedborn-style extra untaps, now mills correctly).
+
 ## [0.132.0] - 2026-07-10
 
 ### Added
