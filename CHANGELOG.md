@@ -10,6 +10,39 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.132.0] - 2026-07-10
+
+### Added
+- **60 more cards play natively** since 0.131.0, headlined by five new engine subsystems:
+  - **Undying** (Butcher Ghoul, Young Wolf, Geralf's Messenger, Strangleroot Geist, Vorapede + 8 more) —
+    dies-with-no-counters returns the creature with a +1/+1 counter, loop-terminating and
+    Doubling-Season-aware.
+  - **The "or another ... dies" aristocrats class** (The Ghoul, Headless Rider, Undead Augur,
+    Omnath Locus of Rage, Pashalik Mons, Midnight Entourage) — self-or-another death watchers
+    with token/subtype filters.
+  - **Graveyard-functioning triggers** (Infesting Radroach — the Bloodghast-style zone shape) —
+    triggers that fire while the card sits in the graveyard.
+  - **Wheels and big mill** — Timetwister/Echo of Eons (shuffle-in, draw 7) and
+    Kitsune's Technique/Traumatize (mill half the library).
+  - **The instant-or-sorcery counterspell family** (Flusterstorm, Muddle the Mixture, Disrupt,
+    Miscast, Cursecatcher, Judge's Familiar + more) plus flashback/transmute/sneak cast lines
+    no longer blocking otherwise-modeled cards.
+- Ledger commanders now fully native: Hancock (counter-keyed anthem), Lily Bowen
+  (upkeep double-or-reset), Jason Bright (power-changed death draws), Kellan the Kid
+  (free-cast chains), Tetsuko (small-creature unblockable), Contagion Engine, Akroma's Will
+  (commander-gated choose-both), Cathedral Acolyte (counter-gated ward grants — enforced as a
+  real targeting tax), Winding Constrictor (counter additives, including counters YOU get),
+  Tato Farmer (recurring lands milled this turn), Railway Brawler (power-scaled counters).
+
+### Fixed
+- Winding Constrictor's permanent-counter bonus no longer over-applies to lands/planeswalkers
+  (it is now correctly artifact/creature-only).
+- Boast, Exhaust and Power-up abilities are correctly parked (never offered as free repeatable
+  activations); flavor-word labels (the CLB Invokers, Jason Bright) no longer block their cards.
+- Self-play tooling: swap-bench logs slow pairs the moment they finish (--slow-ms, --verbose,
+  --clock=off), pilot flag arms (--candidate-flags=recall-on) now actually reach
+  buildPilots-style personas, and staged-pack pilot paths (omnath-v4-staged/...) load.
+
 ## [0.131.0] - 2026-07-10
 
 ### Fixed
