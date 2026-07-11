@@ -47,6 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
 import { featurizeState } from "./gameFeatures.js";
 import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice, autoPickEdictMode, resolveEdictModeChoice } from "./effects/runProgram.js";
@@ -1114,7 +1115,11 @@ export function advanceUntilDecision(
       }
     }
 
-    // SBA check before every priority window.
+    // SBA check before every priority window. CR 704.3 (CR-remediation B2): first the comprehensive
+    // PERMANENT-level fixpoint (lethal/0-toughness, 0-loyalty, legend rule, attachment legality,
+    // counter annihilation — each firing its owed triggers), THEN the player-loss read below —
+    // so an elimination caused by a chain-reaction SBA is seen at this same checkpoint, not a turn late.
+    current = { ...current, state: checkAllStateBasedActions(current.state) };
     current = recordOutcomeIfChanged(current);
     if (current.status !== "active") {
       return {

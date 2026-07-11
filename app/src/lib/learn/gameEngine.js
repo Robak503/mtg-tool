@@ -48,6 +48,7 @@ import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkGraveyardEventTriggers } from "./triggers.js";
+import { checkAllStateBasedActions } from "./sba.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -304,6 +305,11 @@ export function runStepActions(state) {
       // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
       // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
       next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });
+      // CR 514.3a (CR-remediation B2) — expiring UEOT effects can themselves cause SBAs (a creature whose
+      // toughness the expired pump was propping up is now ≤0; an Equipment on a man-land whose animation
+      // just ended sits on a non-creature). Checked and applied HERE, per the rule, not left for the next
+      // turn's first mutation to stumble over.
+      next = checkAllStateBasedActions(next);
       // Discard-to-hand-size is deferred to a later PR (the engine needs hand max).
       next = logEvent(next, { kind: "step", phase: "ending", step: "cleanup", player: state.activePlayer });
       break;
@@ -583,11 +589,16 @@ export function resolveTopOfStack(state) {
  * trigger) would sit unflushed past the next priority window.
  */
 export function finalizeStackResolution(state) {
+  // CR 704.3 (CR-remediation B2) — the comprehensive SBA fixpoint runs BEFORE triggered abilities go on
+  // the stack: a resolution's chain reactions (an anthem source dying dropping another creature to 0
+  // toughness, a legend-rule duplicate, an orphaned Aura, +1/+1 / -1/-1 annihilation) settle here,
+  // enqueueing their own triggers, which the flush below then stacks APNAP with the resolution's own.
+  let next = checkAllStateBasedActions(state);
   // SELF-LTB (Wave 4) — drain any LTB/leave events a resolution queued (gameState.detachPermanentFromAll
   // records them; the death paths drain via checkDiesTriggers, but a non-death battlefield exit — an Aura
   // bounced/exiled, or a direct Disenchant on an Aura whose effect path skipped checkDiesTriggers — reaches
   // here unflushed). Idempotent: a no-op when the queue is already empty, so it never double-fires.
-  let next = checkLeavesTriggers(state);
+  next = checkLeavesTriggers(next);
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   if (grantsPriority(next.step)) {
     next = resetPriorityLoop(next);

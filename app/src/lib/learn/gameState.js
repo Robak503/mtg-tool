@@ -1525,6 +1525,72 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
 }
 
 /**
+ * State-based action: the LEGEND RULE (CR 704.5j, CR-remediation B2). If a player controls two or more
+ * legendary permanents with the same name, that player chooses one and the rest are put into their
+ * owners' graveyards ("put into", NOT "destroyed" — indestructible/regeneration/shield/totem-armor do
+ * not apply, exactly like the 0-toughness SBA). v1 keep-policy (a deterministic legal choice — the CR
+ * lets the controller pick either): keep the permanent with the HIGHEST timestamp (the most recent
+ * arrival — matches the intent of casting/cloning a fresh copy). Legendary-ness and the name are read
+ * off the permanent's CURRENT card (perm.card), so a clone that copied a legendary participates as the
+ * copy it is. Returns `{ state, dead }` where `dead` carries the same look-back shape
+ * destroyLethalCreatures emits — CREATURE entries only (feed to checkDiesTriggers); a non-creature
+ * legend's graveyard trip still queues its leave events via moveCardToZone.
+ */
+export function applyLegendRule(state) {
+  const dead = [];
+  const moves = []; // {controller, id, toZone} — non-creature legends move without a dies entry
+  for (const [pid, player] of Object.entries(state.players)) {
+    const byName = new Map();
+    for (const perm of player.battlefield) {
+      const type = String(perm.card?.type || perm.card?.type_line || "");
+      if (!/\bLegendary\b/.test(type)) continue;
+      const name = perm.card?.name;
+      if (!name) continue;
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name).push(perm);
+    }
+    for (const group of byName.values()) {
+      if (group.length < 2) continue;
+      const keep = group.reduce((a, b) => ((b.timestamp || 0) >= (a.timestamp || 0) ? b : a));
+      for (const perm of group) {
+        if (perm.id === keep.id) continue;
+        const isCreature = /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || ""));
+        if (isCreature) {
+          // Same look-back capture as destroyLethalCreatures.markDead — power/counters read BEFORE the move.
+          const pw = creaturePower(perm, state);
+          const bpw = creatureBasePower(perm, state);
+          dead.push({
+            controller: pid,
+            id: perm.id,
+            name: perm.card?.name || "creature",
+            card: perm.card,
+            attachments: [...(perm.attachments || [])],
+            power: Number.isFinite(pw) ? pw : null,
+            basePower: Number.isFinite(bpw) ? bpw : null,
+            counters: { ...(perm.counters || {}) },
+            // EXILE-IF-DIES: "if it would die this turn, exile it instead" applies to ANY death,
+            // legend-rule included (CR 700.4 — this IS a death).
+            exileInstead: perm.exileIfDiesTurn === state.turn,
+          });
+        } else {
+          moves.push({ controller: pid, id: perm.id });
+        }
+      }
+    }
+  }
+  let next = state;
+  for (const d of dead) {
+    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: d.exileInstead ? "exile" : "graveyard", cardId: d.id });
+    next = logEvent(next, { kind: d.exileInstead ? "creature-exiled-instead" : "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "legend-rule" });
+  }
+  for (const m of moves) {
+    next = moveCardToZone(next, { playerId: m.controller, fromZone: "battlefield", toZone: "graveyard", cardId: m.id });
+    next = logEvent(next, { kind: "legend-rule", turn: next.turn, controller: m.controller });
+  }
+  return { state: next, dead };
+}
+
+/**
  * Track commander combat damage to a player, keyed PER-COMMANDER (by the source commander's card id) —
  * CR 903.10a is "21+ combat damage from a SINGLE commander", so a player with two partner commanders
  * (different cards) tracks each separately. `isPlayerDead` reads `commanderDamageFrom` for the 21-loss SBA.
