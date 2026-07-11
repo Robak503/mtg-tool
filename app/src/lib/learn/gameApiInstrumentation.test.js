@@ -139,10 +139,15 @@ describe("SD-2 — the turn boundary fires once per turn across re-entrant advan
 describe("PS-3 — createGame honors the contract-documented pilots option", () => {
   it("pilots[seat].decide drives that seat with no per-call opts (contract §1.1 verbatim)", () => {
     let aiDecides = 0;
+    let featuresSeen = 0;
     const pilots = {
       ai: {
-        decide: ({ legalActions }) => {
+        decide: ({ legalActions, features }) => {
           aiDecides += 1;
+          // ENGINE-COMPUTED FEATURES (Omnath's eval-net seam, 2026-07-10): every decide call carries
+          // the featurizeState snapshot — the SAME object the recorder row would carry, so a persona
+          // consuming it can never drift from the training substrate.
+          if (features && typeof features === "object") featuresSeen += 1;
           return legalActions?.[0];
         },
         playbook: "test-playbook",
@@ -158,6 +163,7 @@ describe("PS-3 — createGame honors the contract-documented pilots option", () 
     // THE PIN: pre-fix, createLearnSession's destructure silently discarded `pilots`
     // and every seat ran the default AI (aiDecides stayed 0) — the silent mislabel.
     expect(aiDecides).toBeGreaterThan(0);
+    expect(featuresSeen).toBe(aiDecides); // features arrive on EVERY decide call
   });
 
   it("pilots[seat].decideMulligan runs at game start (mulligan config auto-built)", () => {

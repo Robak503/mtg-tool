@@ -5,7 +5,10 @@
  * This is the ONE seam Omnath's pilots plug into to play a game. A pilot's
  * decision function has the locked shape:
  *
- *     decide({ state, legalActions, seat, pilot }) -> action
+ *     decide({ state, legalActions, seat, pilot, features }) -> action
+ *
+ * (`features` — the ENGINE-computed featurizeState snapshot, identical to the recorder
+ * row's; additive 2026-07-10 for the eval-net integration — older pilots ignore it.)
  *
  * and the self-play LOOP drives the game like this:
  *
@@ -442,10 +445,12 @@ function buildPilotRouter(pilots) {
   // to the default autopilot pick (byte-identical for that seat).
   const hasAnyPilot = Object.values(pilots).some((p) => typeof p?.decide === "function");
   const decide = hasAnyPilot
-    ? ({ state, legalActions, seat }) => {
+    ? ({ state, legalActions, seat, features }) => {
         const p = pilots?.[seat];
         if (typeof p?.decide !== "function") return undefined;
-        return p.decide({ state, legalActions, seat, pilot: pilotIdentity(seat) });
+        // `features` — the ENGINE-computed featurizeState object (Omnath's eval-net seam, 2026-07-10)
+        // — forwards verbatim so a PLAY-API pilot sees exactly what a runner pilot sees.
+        return p.decide({ state, legalActions, seat, pilot: pilotIdentity(seat), features });
       }
     : null;
 

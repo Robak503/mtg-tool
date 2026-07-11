@@ -774,8 +774,10 @@ function settleDiscardChoice(state, cardId) {
 // X-cost, modal; and the resolution-time DISCOVER choice), then asks a `decide`
 // callback to pick ONE of them:
 //
-//     decide({ state, legalActions, seat, pilot }) -> action   (∈ legalActions)
+//     decide({ state, legalActions, seat, pilot, features }) -> action   (∈ legalActions)
 //
+// (`features` — the ENGINE-computed featurizeState object, the same one the recorder row
+// carries; added 2026-07-10 for the eval-net integration. Older pilots ignore the key.)
 // This is the ONE place an external "pilot" module (Omnath's omnath-tools/pilots/
 // decide.mjs, NOT in this repo) plugs in. The caller injects it via runSelfPlayGame's
 // `decide` option (the documented adapter point); the loop never imports it.
@@ -827,10 +829,18 @@ function actionInOfferedSet(action, offered) {
  */
 function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackAction, recordDecision }) {
   let chosen = fallbackAction;
+  // ENGINE-COMPUTED FEATURES to the pilot (Omnath's eval-net seam ask, 2026-07-10): the SAME
+  // featurizeState object the recorder row carries is passed INTO decide — a persona consuming
+  // engine-computed features instead of re-deriving them from raw state can't drift from the
+  // training substrate (the digest-saga lesson). Computed ONCE per decision and shared with the
+  // recorder below (pure read); older pilots ignore the extra key (the additive-options pattern).
+  const features = (typeof decide === "function" || typeof recordDecision === "function")
+    ? featurizeState(state, seat)
+    : null;
   if (typeof decide === "function") {
     let candidate;
     try {
-      candidate = decide({ state, legalActions: offered, seat, pilot });
+      candidate = decide({ state, legalActions: offered, seat, pilot, features });
     } catch (err) {
       // A throwing pilot must never abort a real game — fall back to the default pick.
       if (typeof console !== "undefined" && console.warn) {
@@ -861,7 +871,8 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
         turn: state.turn,
         seat,
         pilot: pilot ? { playbook: pilot.playbook ?? null, temperament: pilot.temperament ?? null } : null,
-        features: featurizeState(state, seat),
+        features, // the SAME object decide() received — pilot view and training row can't diverge
+
         action: serializeAction(chosen),
         legal: { n: offered.length, kinds: legalKinds },
         rank: Math.max(0, offered.indexOf(chosen)),
@@ -998,7 +1009,7 @@ function pendingEdictModeActions(pc) {
  * PLUGGABLE DECIDE (`decide`, default null ⇒ the pre-refactor pick — Learn-to-Play item
  * #3, the pilot seam): at every auto-decided priority window (and the resolution-time
  * DISCOVER choice), the loop enumerates `legalActions` and calls
- *   decide({ state, legalActions, seat, pilot }) -> action   (∈ legalActions)
+ *   decide({ state, legalActions, seat, pilot, features }) -> action   (∈ legalActions)
  * to pick ONE. NULL ⇒ the loop uses the action makeDecision/pickAction already chose, so
  * play is BYTE-IDENTICAL. An out-of-set / throwing return falls back to that default pick
  * (never an illegal/fabricated move, never a crash). `pilot` (default null) is opaque
