@@ -79,6 +79,7 @@ import {
 } from "../../../lib/learn/selfPlayRunner.js";
 import { summarizeSeatReality } from "../../../lib/learn/gameAnalysis.js"; // P5: per-deck post-game reality report
 import { buildPilotsForBatch } from "../../../lib/server/pilotLoader.js"; // PILOT PANEL: inject a persona from pilotsDir() (Omnath seam)
+import { loadGrindManifest } from "../../../lib/learn/gameLogStore.js"; // C2: the grind store's game count for the banked-stats tile
 import {
   aggregateBreakages,
   formatBreakageTxt,
@@ -408,13 +409,22 @@ async function listSavedReports() {
   return reports;
 }
 
-/** Cumulative banked-trajectory totals: JSONL files + their labeled-row count. */
+/**
+ * Cumulative banked totals across BOTH stores (C2 diagnostic fix, road-to-1.0 roadmap): the Sim
+ * Center's "Games banked" tile used to read ONLY the trajectory-export JSONLs
+ * (self-play/trajectories — the --export-trajectories lane), so a 40k-game GRIND STORE
+ * (self-play/grind, written by every pool/grind run) displayed as "banked: 0" — correct for what it
+ * measured, misleading for what it means. `grindGames` now reports the grind store's real game count
+ * (manifest shard rollups — cheap; no header scan), and the tile leads with it.
+ */
 async function trajectoryStats() {
+  const grindManifest = await loadGrindManifest(); // never throws; fresh default when absent
+  const grindGames = (grindManifest.shards || []).reduce((n, s) => n + (s.count || 0), 0);
   let files;
   try {
     files = await fs.readdir(TRAJECTORY_DIR());
   } catch (error) {
-    if (error.code === "ENOENT") return { games: 0, rows: 0, files: 0 };
+    if (error.code === "ENOENT") return { games: 0, rows: 0, files: 0, grindGames };
     throw error;
   }
   const jsonls = files.filter((f) => f.endsWith(".jsonl") && !f.endsWith(".tmp.jsonl"));
@@ -428,7 +438,7 @@ async function trajectoryStats() {
     }
   }
   // One JSONL file = one banked run (the writer emits one file per recorded batch).
-  return { games: jsonls.length, rows, files: jsonls.length };
+  return { games: jsonls.length, rows, files: jsonls.length, grindGames };
 }
 
 export async function GET(request) {

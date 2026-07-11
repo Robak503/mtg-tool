@@ -511,7 +511,9 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
               {tile("Decks", decksLoad ? "…" : decks.length, `${groups.length} profile${groups.length === 1 ? "" : "s"}`)}
               {tile("Selected", selectedIds.length, `min ${minDecks} for ${mode === "commander" ? "a pod" : "a pairing"}`)}
-              {tile("Games banked", stats?.games ?? (reportsLoad ? "…" : 0), `${stats?.rows ?? 0} training rows`)}
+              {/* C2 (road-to-1.0): lead with the GRIND STORE's real game count — this tile used to read
+                  only trajectory-export files, so a 40k-game grind honestly-but-misleadingly showed 0. */}
+              {tile("Games banked", stats?.grindGames ?? (reportsLoad ? "…" : 0), `${stats?.rows ?? 0} training rows · ${stats?.files ?? 0} exports`)}
               {tile(
                 "Grind",
                 grindRunning ? "LIVE" : grindReady ? "READY" : "—",

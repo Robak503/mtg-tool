@@ -196,11 +196,13 @@ describe("/api/self-play GET — deck picker + history + stats", () => {
     expect(resp.status).toBe(404);
   });
 
-  it("reports zero banked-trajectory stats before any record run", async () => {
+  it("reports zero banked stats before any record run — including the grind store's count (C2)", async () => {
     const resp = await route.GET(getReq("?action=stats"));
     expect(resp.status).toBe(200);
     const body = await resp.json();
-    expect(body).toEqual({ games: 0, rows: 0, files: 0 });
+    // `grindGames` (C2) reads the GRIND STORE manifest — the count the "Games banked" tile leads
+    // with, so a pool-filled store can never again display as "banked: 0".
+    expect(body).toEqual({ games: 0, rows: 0, files: 0, grindGames: 0 });
   });
 
   it("banks a trajectory JSONL when record:true and counts it in stats", async () => {
