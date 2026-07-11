@@ -66,13 +66,15 @@ describe("advanceStep — phase/step walk", () => {
     expect(state.step).toBe("main");
   });
 
-  it("walks every combat step in order", () => {
+  it("walks every combat step in order (an attacker is declared — CR 508.8 skips them otherwise)", () => {
     let state = baseState();
     // Advance to first combat step.
     while (!(state.phase === "combat" && state.step === "beginning-of-combat")) {
       state = advanceStep(state);
     }
     expect(state.step).toBe("beginning-of-combat");
+    // CR 508.8 (B3): declare-blockers/combat-damage only happen when an attacker was declared.
+    state = { ...state, combat: { attackers: [{ permanentId: "a1", attackingPlayer: state.activePlayer, defender: "ai" }], blockers: [] } };
 
     const expected = STEPS.combat;
     let i = 0;
@@ -82,6 +84,15 @@ describe("advanceStep — phase/step walk", () => {
       i += 1;
     }
     expect(i).toBe(expected.length);
+  });
+
+  it("a NO-attackers combat skips declare-blockers and combat-damage (CR 508.8)", () => {
+    let state = baseState();
+    while (!(state.phase === "combat" && state.step === "declare-attackers")) {
+      state = advanceStep(state);
+    }
+    const after = advanceStep(state); // no attackers declared
+    expect(after.step).toBe("end-of-combat");
   });
 
   it("wraps to next turn after cleanup, swaps active player, increments turn", () => {

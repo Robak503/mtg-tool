@@ -43,7 +43,9 @@ import {
   mintId,
   opponentsOf,
   applyRadiation,
+  moveCardToZone,
 } from "./gameState.js";
+import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
@@ -209,7 +211,16 @@ export function advanceStep(state) {
   const emptied = emptyManaPools(state);
 
   if (index + 1 < TURN_SEQUENCE.length) {
-    const next = TURN_SEQUENCE[index + 1];
+    let next = TURN_SEQUENCE[index + 1];
+    // CR 508.8 / 511.1 (CR-remediation B3) — a combat with NO declared attackers skips the
+    // declare-blockers and combat-damage steps entirely (they never begin: no step triggers, no
+    // priority windows there). Leaving declare-attackers with an empty attacker set jumps straight
+    // to end-of-combat. Besides matching the real turn shape, this stops every non-attacking turn
+    // from burning two empty priority laps across the whole table.
+    if (state.step === "declare-attackers" && (state.combat?.attackers || []).length === 0) {
+      const eoc = TURN_SEQUENCE.findIndex((e) => e.step === "end-of-combat");
+      if (eoc !== -1) next = TURN_SEQUENCE[eoc];
+    }
     return {
       ...emptied,
       phase: next.phase,
@@ -298,20 +309,13 @@ export function runStepActions(state) {
       break;
 
     case "cleanup":
-      next = emptyManaPools(next);
-      next = clearCombatDamage(next); // combat damage wears off at end of turn
-      next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
-      next = clearImpulsePlayPermissions(next); // IMPULSE-EXILE (CR 118.10): the "play that card this turn" permission lapses; strip the _impulse markers so the card stays inert in exile
-      // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
-      // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
-      next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });
-      // CR 514.3a (CR-remediation B2) — expiring UEOT effects can themselves cause SBAs (a creature whose
-      // toughness the expired pump was propping up is now ≤0; an Equipment on a man-land whose animation
-      // just ended sits on a non-creature). Checked and applied HERE, per the rule, not left for the next
-      // turn's first mutation to stumble over.
-      next = checkAllStateBasedActions(next);
-      // Discard-to-hand-size is deferred to a later PR (the engine needs hand max).
-      next = logEvent(next, { kind: "step", phase: "ending", step: "cleanup", player: state.activePlayer });
+      // CR 514.1 (CR-remediation B3) — the FIRST cleanup action, mandatory, no stack: the active player
+      // discards down to their maximum hand size. When over the max this raises the "cleanup-discard"
+      // pendingChoice (the session driver settles it — human picker / AI lowest-value autopick) and the
+      // settler (settleCleanupDiscardChoice) re-raises until the hand is legal, THEN runs the deferred
+      // 514.2 tail (finishCleanupActions). At/under the max, the tail runs inline — byte-identical to
+      // the pre-B3 flow.
+      next = beginCleanupStep(next);
       break;
 
     case "beginning-of-combat":
@@ -448,6 +452,96 @@ export function runStepActions(state) {
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
 
   return next;
+}
+
+// ─── Cleanup step (CR 514, CR-remediation B3) ────────────────────────────────
+
+const NO_MAX_HAND_RE = /you have no maximum hand size/i;
+const MAX_HAND_RE = /maximum hand size/i;
+
+/**
+ * How many cards the player must discard at cleanup (CR 514.1). 0 when at/under the max. The maximum
+ * is 7 unless a permanent the player controls prints "You have no maximum hand size." (Reliquary
+ * Tower / Spellbook / Kruphix — the anchored-phrase leaf idiom, same as Strong's radiation
+ * replacement). CONSERVATIVE GUARD (CREED): any OTHER "maximum hand size"-modifying text on ANY
+ * battlefield (Cursed Rack's "is 4", reductions — shapes the engine can't attribute faithfully)
+ * suspends enforcement for everyone rather than risk forcing a discard the real rules don't require —
+ * a missed mandatory discard is the pre-B3 status quo; a wrong forced discard is a misplay.
+ */
+export function cleanupDiscardExcess(state, playerId) {
+  const player = state.players?.[playerId];
+  if (!player) return 0;
+  const oracleOf = (p) => String(p?.card?.oracle || p?.card?.oracle_text || "");
+  if ((player.battlefield || []).some((p) => NO_MAX_HAND_RE.test(oracleOf(p)))) return 0;
+  for (const pl of Object.values(state.players)) {
+    for (const p of pl.battlefield || []) {
+      const o = oracleOf(p);
+      if (MAX_HAND_RE.test(o) && !NO_MAX_HAND_RE.test(o)) return 0;
+    }
+  }
+  return Math.max(0, (player.hand || []).length - 7);
+}
+
+/**
+ * The CR 514.2/514.3a cleanup tail — everything cleanup does AFTER the 514.1 hand-size discard:
+ * damage wears off, per-turn flags reset, "until end of turn" effects expire, and the SBA fixpoint
+ * re-checks the post-expiry board. Deferred behind the discard pendingChoice when one is raised;
+ * run inline when the hand is already legal.
+ */
+export function finishCleanupActions(state) {
+  let next = emptyManaPools(state);
+  next = clearCombatDamage(next); // combat damage wears off at end of turn
+  next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
+  next = clearImpulsePlayPermissions(next); // IMPULSE-EXILE (CR 118.10): the "play that card this turn" permission lapses
+  // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
+  // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
+  next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });
+  // CR 514.3a (CR-remediation B2) — expiring UEOT effects can themselves cause SBAs (a creature whose
+  // toughness the expired pump was propping up is now ≤0; an Equipment on a man-land whose animation
+  // just ended sits on a non-creature). Checked and applied HERE, per the rule.
+  next = checkAllStateBasedActions(next);
+  return logEvent(next, { kind: "step", phase: "ending", step: "cleanup", player: next.activePlayer });
+}
+
+/** Cleanup entry: the 514.1 discard check first, then the 514.2 tail (deferred when a choice is raised). */
+function beginCleanupStep(state) {
+  const excess = cleanupDiscardExcess(state, state.activePlayer);
+  if (excess > 0) {
+    const hand = state.players[state.activePlayer].hand || [];
+    return setPendingCleanupDiscardChoice(state, {
+      controller: state.activePlayer,
+      candidates: hand.map((c) => ({ id: c.id, name: c.name })),
+      count: excess,
+    });
+  }
+  return finishCleanupActions(state);
+}
+
+/**
+ * Settle one cleanup-discard pick: move the chosen card hand → graveyard, then either re-raise (still
+ * over the max — CR 514.1 discards to the max, one pick at a time through the same seam) or run the
+ * deferred cleanup tail. A stale id (card left the hand) discards nothing and re-derives from the live
+ * hand — the mandatory discard can neither be skipped nor wedge.
+ */
+export function settleCleanupDiscardChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "cleanup-discard") return state;
+  const { pendingChoice: _drop, ...cleared } = state;
+  let next = cleared;
+  if ((next.players[pc.controller]?.hand || []).some((c) => c.id === cardId)) {
+    next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "graveyard", cardId });
+    next = logEvent(next, { kind: "cleanup-discard", controller: pc.controller, turn: next.turn });
+  }
+  const excess = cleanupDiscardExcess(next, pc.controller);
+  if (excess > 0) {
+    const hand = next.players[pc.controller].hand || [];
+    return setPendingCleanupDiscardChoice(next, {
+      controller: pc.controller,
+      candidates: hand.map((c) => ({ id: c.id, name: c.name })),
+      count: excess,
+    });
+  }
+  return finishCleanupActions(next);
 }
 
 /**

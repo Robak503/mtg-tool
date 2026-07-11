@@ -39,6 +39,7 @@ import {
   setPendingTaxedPaymentChoice,
   setPendingEdictModeChoice,
   setPendingCommanderReturnChoice,
+  setPendingCleanupDiscardChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -99,6 +100,10 @@ const FIXTURES = {
   // autoPickEdictMode returns { mode: "life" }; resolveEdictModeChoice applies the 3-life loss, then advances
   // the (empty) queue → chain done → the spell finishes (no resume) → pendingChoice cleared. One-tick settle.
   "edict-mode": (s) => setPendingEdictModeChoice(s, { controller: "ai", modes: ["life"], sac: [], disc: [], queue: [{ playerId: "ai" }] }),
+  // CR 514.1 cleanup hand-size discard (CR-remediation B3) — an empty hand settles in one tick: the
+  // autopick returns null, nothing discards, the excess recomputes to 0, and the deferred 514.2
+  // cleanup tail runs (settleCleanupDiscardChoice → finishCleanupActions) → pendingChoice cleared.
+  "cleanup-discard": (s) => setPendingCleanupDiscardChoice(s, { controller: "ai", candidates: [], count: 1 }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

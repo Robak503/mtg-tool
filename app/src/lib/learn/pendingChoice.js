@@ -46,7 +46,30 @@ export const PENDING_CHOICE_KINDS = [
   "sac-unless-pay",
   "taxed-payment",
   "edict-mode",
+  "cleanup-discard",
 ];
+
+/**
+ * Flag the CR 514.1 cleanup-step hand-size discard (CR-remediation B3): the active player's hand
+ * exceeds their maximum hand size at cleanup, and they must choose a card to discard — no stack, no
+ * priority, mandatory (no decline). `candidates` is the player's OWN full hand as `{ id, name }`
+ * (hidden-info safe — it's their hand). `count` is how many discards remain INCLUDING this one; the
+ * settler (gameEngine.settleCleanupDiscardChoice) re-raises until the hand is at the maximum, then
+ * runs the deferred 514.2 cleanup tail. FIFO like every kind.
+ */
+export function setPendingCleanupDiscardChoice(state, { controller, candidates, count }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "cleanup-discard-pending", controller, count });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "cleanup-discard",
+      controller,
+      candidates,
+      count,
+    },
+  };
+}
 
 /**
  * Flag a tutor search awaiting a card choice. `candidates` is the list of legal

@@ -41,6 +41,8 @@ import {
   nextStep,
   runStepActions,
   finalizeStackResolution,
+  settleCleanupDiscardChoice,
+  finishCleanupActions,
 } from "./gameEngine.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
@@ -284,6 +286,18 @@ function removePlayerFromGame(state, playerId) {
     // Active player left mid-turn: end the turn and start the next
     // surviving seat's turn from untap, rather than splicing a survivor
     // into the dead player's phase/step.
+    //
+    // CR 800.4j (CR-remediation B3, bounded): the rule actually says the turn CONTINUES to completion
+    // without an active player. The full null-active-player machinery (priority rotation, step
+    // automatics, legality — all anchored on activePlayer today) is a deep rebuild the narrow gap
+    // doesn't justify yet; what IS closed here is the truncated turn's END-OF-TURN HOUSEKEEPING:
+    // before this fix the jump skipped cleanup outright, so marked damage and "until end of turn"
+    // effects LEAKED into the next player's whole turn (creatures dying to stale damage, pumps
+    // outliving their turn — wrong-play grade). finishCleanupActions runs damage wear-off, UEOT
+    // expiry, and the SBA fixpoint at the truncation point. The 514.1 hand-size discard is correctly
+    // NOT run (it belongs to the active player, who is gone). Residual, documented gap vs the full
+    // rule: surviving seats still lose their remaining priority windows / end-step triggers of the
+    // truncated turn — parked pending the 104.4b loop-detection state-machine work it composes with.
     const idx = oldOrder.indexOf(playerId);
     let nextActive = turnOrder[0] || null;
     for (let k = 1; k <= oldOrder.length; k++) {
@@ -291,7 +305,7 @@ function removePlayerFromGame(state, playerId) {
       if (cand !== playerId && players[cand]) { nextActive = cand; break; }
     }
     return runStepActions({
-      ...base,
+      ...finishCleanupActions(base),
       activePlayer: nextActive,
       turn: state.turn + 1,
       phase: "beginning",
@@ -730,6 +744,17 @@ export function settleCommanderReturnChoice(state, doReturn) {
  */
 function settleHandDiscardChoice(state, cardId) {
   const next = resolveHandDiscardChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
+ * Settle one CR 514.1 cleanup-discard pick (CR-remediation B3): gameEngine.settleCleanupDiscardChoice
+ * discards the chosen card and either re-raises (still over the max) or runs the deferred 514.2 cleanup
+ * tail. When the chain completes, finalizeStackResolution drains/flushes anything the discard(s) woke
+ * (graveyard-event watchers like Bloodchief Ascension see the discarded card at cleanup, per CR 514.3a).
+ */
+function settleCleanupDiscardStep(state, cardId) {
+  const next = settleCleanupDiscardChoice(state, cardId);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1305,6 +1330,22 @@ export function advanceUntilDecision(
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickHandDiscardCandidate(current.state, pc) },
         });
         current = { ...current, state: settleHandDiscardChoice(current.state, picked.candidateId) };
+        continue;
+      }
+      // CR 514.1 (CR-remediation B3) — the cleanup-step hand-size discard: the ACTIVE player picks a card
+      // to discard down to their maximum. Mandatory (no decline); the settler re-raises until the hand is
+      // legal, then runs the deferred 514.2 cleanup tail. Human seats get the picker; AI/Expert seats
+      // auto-discard their LOWEST-value card (autoPickDiscardCandidate — keep the best, shed the least).
+      if (pc.kind === "cleanup-discard") {
+        if (pause) {
+          return { session: current, decision: { kind: "cleanup-discard", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickDiscardCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleCleanupDiscardStep(current.state, picked.candidateId) };
         continue;
       }
       // δ-2 — impulse-dig (Anticipate / Strategic Planning): the player's OWN dig surfaces a pick-one
@@ -2467,6 +2508,50 @@ export function applyHandDiscardChoice(session, choice, opts = {}) {
 }
 
 /**
+ * The player picked which card to discard for the CR 514.1 cleanup hand-size discard (CR-remediation
+ * B3). Validates the pick against the pending candidates (their own hand), discards it, and either the
+ * settler re-raises (still over the max) or the deferred 514.2 cleanup tail runs. `choice.cardId` is the
+ * chosen hand-card id. Mandatory — an illegal/stale pick re-surfaces the picker, never skips the discard.
+ */
+export function applyCleanupDiscardChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "cleanup-discard") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session, opts); // mandatory, no decline — an illegal pick re-surfaces the picker.
+  }
+
+  let newState;
+  try {
+    newState = settleCleanupDiscardStep(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "cleanup-discard-choice" },
+    auto: false,
+    reasoning: "user-chose-cleanup-discard",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  }, opts);
+}
+
+/**
  * The player picked which looked-at card to keep from an `impulse-dig` decision (δ-2). Validates the
  * pick against the revealed candidates, keeps it (→ hand) + disposes the rest, resumes the program,
  * then re-derives the next decision. `choice.cardId` is the chosen library card id. A null/illegal pick
@@ -2674,6 +2759,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "optional-effect") return applyOptionalChoice(session, choice, opts);
   if (kind === "commander-return") return applyCommanderReturnChoice(session, choice, opts);
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice, opts);
+  if (kind === "cleanup-discard") return applyCleanupDiscardChoice(session, choice, opts);
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice, opts);
   if (kind === "dig-land-to-battlefield") return applyDigLandChoice(session, choice, opts);
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice, opts);
