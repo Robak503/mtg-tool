@@ -188,10 +188,11 @@ function applyPlayLand(state, action) {
     // watcher. An unmodeled land ETB still routes to the Arbiter via buildTriggerStack (never fabricated).
     next = checkEnterTriggers(next, enteredLand);
   }
-  // Sorcery-speed action restarts the priority loop at the active player.
+  // CR 117.3c (CR-remediation B4): the ACTOR retains priority after taking an action (a land play is
+  // active-player-only, so actor === activePlayer here — stated in the uniform actor form regardless).
   return {
     ...next,
-    priorityHolder: state.activePlayer,
+    priorityHolder: action.playerId,
     consecutivePasses: 0,
   };
 }
@@ -560,11 +561,13 @@ function applyCastSpell(state, action) {
   // fizzles harmlessly on the missing stack id (counterSpellById logs counter-fizzle). No-op when no Kira is in
   // play / the spell targets no eligible-and-fresh creature.
   next = applyKiraTargetCounter(next, stackObject);
-  // Restart priority loop at active player after the spell goes on
-  // the stack (per CR 117.1c).
+  // CR 117.3c (CR-remediation B4): after casting, the CASTER retains priority — a non-active player
+  // casting an instant in response keeps the window to act again (a second spell, another response)
+  // instead of priority snapping back to the turn player. (The old code cited 117.1c, which governs
+  // who gets priority after a spell RESOLVES — not the moment of casting.)
   return {
     ...next,
-    priorityHolder: state.activePlayer,
+    priorityHolder: action.playerId,
     consecutivePasses: 0,
   };
 }
@@ -870,9 +873,9 @@ function applyActivateAbility(state, action) {
   // outright too (CR 603.2 — "a spell or ability"; an ability off the stack has no zone change on counter). Same
   // last-placement / rare-overlap reasoning as the cast path. No-op when no Kira source is in play.
   next = applyKiraTargetCounter(next, stackObject);
-  // Activating a (non-mana) ability uses the stack — restart the priority loop at the
-  // active player (CR 117.1c), exactly like casting a spell.
-  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+  // CR 117.3c (B4): the ACTIVATOR retains priority after the ability goes on the stack,
+  // exactly like casting a spell.
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 /**
@@ -917,8 +920,8 @@ function applyCycle(state, action) {
   });
   let next = { ...working2, stack: [...working2.stack, stackObject] };
   next = logEvent(next, { kind: "cycle", playerId: action.playerId, cardName: card.name });
-  // Cycling uses the stack — restart priority at the active player (CR 117.1c), like an activated ability.
-  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+  // Cycling uses the stack — the CYCLER retains priority (CR 117.3c, B4), like any activated ability.
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 /**
@@ -1003,8 +1006,9 @@ function applyActivateLoyalty(state, action) {
   // so a creature-or-planeswalker drain (Cruel Celebrant) fires. creatureOrPwYouControl is the only scope that
   // responds; creature-only scopes skip a PW death.
   next = checkPlaneswalkerDiesTriggers(next, pwSba.dead);
-  // A loyalty ability uses the stack — restart the priority loop at the active player (CR 117.1c).
-  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+  // A loyalty ability uses the stack — the ACTIVATOR retains priority (CR 117.3c, B4; loyalty is
+  // sorcery-speed so actor === activePlayer today, stated in the uniform actor form).
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 function applyDeclareAttacker(state, action) {
@@ -1110,7 +1114,7 @@ function applyCompanionToHand(state, action) {
   // The actor keeps priority and the pass-in-succession chain resets: a special action doesn't pass
   // priority (CR 116.2g / 117.3c), so a stale consecutivePasses must not end the step early. This mirrors
   // every sibling active-window handler (applyPlayLand / applyCastSpell / applyActivateAbility / -Loyalty).
-  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 // DISCOVER (LCI) — resolve the cast-or-hand decision for a card found by discover (parked in exile,
@@ -1234,7 +1238,7 @@ function applyPlot(state, action) {
   // A special action doesn't use the stack or pass priority (CR 116.2g / 117.3c) — the actor keeps priority
   // and the pass-in-succession chain resets (a stale consecutivePasses must not end the step early). Mirrors
   // applyCompanionToHand / applyPlayLand (the other non-stack active-window actions).
-  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
 const HANDLERS = {

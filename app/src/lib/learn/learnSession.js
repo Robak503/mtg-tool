@@ -107,14 +107,15 @@ export function createLearnSession({
   mode = "standard",
   seed = null, // opt-in seeded opening shuffle (default null ⇒ deck-list order, byte-identical to before)
   mulligan = null, // opt-in London mulligan (default null ⇒ keep the dealt 7, byte-identical); { decide, pilots?, recordMulligan? }
-  // FFA-SOLE-SURVIVOR (HARNESS-DATA wave 1b): when true, a 4P pod plays to the LAST PLAYER
-  // STANDING — the user seat dying is an elimination like any other, not the end of the game.
-  // Default false ⇒ the legacy user-pivot semantics stay byte-identical (the Academy's human-
-  // centric flow: the game is over for the USER when the user dies). Self-play passes true so
-  // recorded winners are real winners — the 2026-07-09 pathology hunt proved the legacy path
-  // crowned `liveOpponents[0]` (turn-order-first survivor) as "winner" in 70.7% of ai-wins
-  // while ≥2 opponents still stood, fabricating the 52%/15%/6% ai-seat "win" split.
-  ffaSoleSurvivor = false,
+  // FFA-SOLE-SURVIVOR (HARNESS-DATA wave 1b; default fixed in CR-remediation B4): when true, a 4P
+  // pod plays to the LAST PLAYER STANDING — the user seat dying is an elimination like any other,
+  // not the end of the game. DEFAULT (null): resolved to `mode === "commander"` — CR 104.2a says a
+  // player wins only when ALL opponents have left, so a HUMAN Academy pod now correctly keeps
+  // playing after the user dies instead of ending instantly against an arbitrary "winner" (the
+  // /api/learn/start route never passed this flag and was live with the legacy behavior). Standard
+  // (1v1) keeps the user-pivot semantics, where they are CR-equivalent anyway. Pass an explicit
+  // false to opt a commander session back into the legacy flow (determinism pins).
+  ffaSoleSurvivor = null,
 } = {}) {
   if (!Array.isArray(userDeck) || userDeck.length === 0) {
     throw new Error("createLearnSession: userDeck must be a non-empty array");
@@ -166,7 +167,8 @@ export function createLearnSession({
   // Carry the FFA rule ON THE STATE so every status surface (recordOutcomeIfChanged here,
   // gameStatus in gameApi.js) reads the same flag and can never drift — and so a serialized
   // save replays under the semantics it was played with. Absent (legacy saves) ⇒ user-pivot.
-  if (ffaSoleSurvivor) {
+  // B4: null (the default) resolves to the mode — commander pods play sole-survivor per CR 104.2a.
+  if (ffaSoleSurvivor ?? (mode === "commander")) {
     state = { ...state, rules: { ...(state.rules || {}), ffaSoleSurvivor: true } };
   }
 
@@ -340,15 +342,16 @@ function recordOutcomeIfChanged(session) {
   const order = state.turnOrder || Object.keys(state.players);
   const opponents = order.filter((id) => id !== "user");
 
-  // UPKEEP-WIN (CR 104.2a) — a player who has WON ends the game immediately, BEFORE the life/poison/
-  // elimination death checks below (a card can win you the game even while you're also at lethal — the
-  // win is checked first). The user winning → "user-wins"; ANY opponent winning → "ai-wins" (the user
-  // lost). Checked here so the win-game atom's `wonGame` flag becomes a real game end via the SAME SBA
-  // path every other outcome flows through.
-  if (hasWonGame(state, "user")) {
+  // UPKEEP-WIN (CR 104.2a), gated by CR 104.3f (CR-remediation B4): "If a player would both win and
+  // lose the game simultaneously, that player LOSES." A win-game effect resolving while its controller
+  // is also at lethal is a LOSS — the wonGame flag ends the game only for a player who is not
+  // simultaneously dead; a dead "winner" falls through to the death/elimination logic below (their
+  // loss, or the 104.4a draw when the table empties). The old code checked the flag first
+  // unconditionally and one legacy test encoded that backwards behavior — both fixed in B4.
+  if (hasWonGame(state, "user") && !isPlayerDead(state, "user")) {
     return { ...session, status: "user-wins", endedAt: new Date().toISOString() };
   }
-  if (opponents.some((id) => hasWonGame(state, id))) {
+  if (opponents.some((id) => hasWonGame(state, id) && !isPlayerDead(state, id))) {
     return { ...session, status: "ai-wins", endedAt: new Date().toISOString() };
   }
 

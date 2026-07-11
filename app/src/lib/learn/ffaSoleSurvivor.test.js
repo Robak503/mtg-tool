@@ -45,9 +45,12 @@ describe("gameStatus — FFA sole-survivor rule (state-carried)", () => {
     expect(s).toMatchObject({ over: true, result: "draw", winnerSeat: null });
   });
 
-  it("LEGACY (no rule): user dead ends the game, turn-order-first survivor crowned — the pinned old behavior", () => {
+  it("LEGACY (no rule): user dead ends the game — but NO winner is crowned with 2+ opponents alive (CR 104.2a, B4)", () => {
+    // B4 removed the fabricated turn-order-first `winnerSeat` crown: the legacy user-pivot RESULT
+    // stands (the game is over for the user), but a specific winner is named only when exactly one
+    // opponent survives — with three alive the pod never determined one.
     const s = gameStatus(mkState([0, 20, 20, 20], false));
-    expect(s).toMatchObject({ over: true, result: "ai-wins", winnerSeat: "ai1" });
+    expect(s).toMatchObject({ over: true, result: "ai-wins", winnerSeat: null });
   });
 });
 

@@ -120,16 +120,17 @@ describe("runtime — Dream Fracture's draws happen for BOTH players (CNT-DRAW-R
 });
 
 describe("CREED — a counter that FIZZLES (target gone) fires no rider, no redirect", () => {
-  it("Remand on an empty stack: no draw, no zone move (a logged fizzle)", () => {
+  it("Remand on an empty stack: the WHOLE spell fizzles (CR 608.2b) — no draw, no zone move", () => {
     const empty = { ...counterState(), stack: [] };
     const st = runProg(empty, ORACLE.remand, "user");
-    expect(st.players.user.hand).toHaveLength(0); // caster did NOT draw — wait: the caster-draw clause is a
-    // SEPARATE atom that runs unconditionally after the counter atom. The counter fizzles (logged), but the
-    // draw atom still runs (it is the caster's own draw, not gated on the counter). Assert the COUNTER side only.
+    // CR 608.2b (CR-remediation B4): Remand's sole target is gone → the spell doesn't resolve AT ALL.
+    // The trailing "Draw a card." correctly does NOT run — the official Remand ruling. (Before B4 the
+    // counter atom fizzled alone and this test's own comment documented the draw leaking through.)
+    expect(st.players.user.hand).toHaveLength(0);
     expect(st.stack).toHaveLength(0);
     expect(st.players.ai.hand).toHaveLength(0);       // nothing tucked to ai's hand (the counter found no target)
     expect(st.players.ai.graveyard).toHaveLength(0);
-    expect(st.log.some((l) => l.effect === "counter-fizzle")).toBe(true);
+    expect(st.log.some((l) => l.kind === "spell-fizzle" && /608\.2b/.test(l.reason || ""))).toBe(true);
   });
 });
 

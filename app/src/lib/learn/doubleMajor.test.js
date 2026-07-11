@@ -182,9 +182,10 @@ describe("resolution — the copy is a real playable token creature", () => {
     };
     let s = responseState({ stack: [dmObj] });
     s = resolveTopOfStack(s);
-    // No token entered; a fizzle was logged.
+    // No token entered; the WHOLE spell fizzled at entry (CR 608.2b, B4 — its sole spell target is
+    // gone, so no atom runs; before B4 the copy atom logged its own per-atom fizzle instead).
     const tokens = s.players.user.battlefield.filter((p) => p.card?.token);
     expect(tokens).toHaveLength(0);
-    expect(s.log.some((e) => e.effect === "copy-creature-spell-fizzle")).toBe(true);
+    expect(s.log.some((e) => e.kind === "spell-fizzle" && /608\.2b/.test(e.reason || ""))).toBe(true);
   });
 });

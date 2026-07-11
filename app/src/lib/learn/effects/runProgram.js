@@ -120,6 +120,34 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
 
   let next = state;
   const cardName = stackObject?.source?.name || null;
+  // CR 608.2b (CR-remediation B4) — if EVERY target the spell/ability had when it was put on the
+  // stack is now ABSENT, it doesn't resolve at all: no atom runs. Before this gate, only the
+  // per-atom missing-target no-op existed, so a trailing NON-targeted rider ("Destroy target
+  // creature. You gain 2 life.") still executed on a fully-fizzled spell — a wrong play. Checked at
+  // ENTRY only (startIndex 0; a resumed program already began resolving legally). Existence-based:
+  // the target left its zone (battlefield / stack / that graveyard) or the game. A target that still
+  // EXISTS but is now untargetable (gained protection/hexproof) keeps today's per-atom handling —
+  // under-enforcing the fizzle is the safe direction; over-fizzling a legal spell is not (CREED).
+  // Per the rule, SOME targets still present ⇒ the spell resolves and does as much as it can.
+  if (startIndex === 0 && targets.length > 0) {
+    const checkable = targets.filter((t) => t && typeof t === "object" && t.id != null && typeof t.type === "string");
+    const stillPresent = (t) => {
+      if (t.type === "creature" || t.type === "permanent") return !!findPermanent(state, t.id)?.permanent;
+      if (t.type === "player") return !!state.players?.[t.id];
+      if (t.type === "spell") return (state.stack || []).some((o) => o.id === t.id);
+      if (t.type === "graveyardCard") {
+        const owners = t.controller ? [t.controller] : Object.keys(state.players || {});
+        return owners.some((pid) => (state.players?.[pid]?.graveyard || []).some((c) => c.id === t.id));
+      }
+      return true; // an unrecognized target shape is never grounds to fizzle (CREED)
+    };
+    if (checkable.length > 0 && !checkable.some(stillPresent)) {
+      const fizzled = logEvent(state, { kind: "spell-fizzle", source: cardName, reason: "all targets illegal (CR 608.2b)", controller });
+      // The fizzled card reaches its owner's graveyard (CR 608.2b) — printed self-exile/self-shuffle
+      // dispositions are resolution effects and a fizzled spell never resolves, so they do NOT apply.
+      return finishSpellResolution(fizzled, params.spellToGraveyard);
+    }
+  }
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
     // KICKED-SPELL-EFFECT (CR 702.33e) — a `kickedOnly` atom (the "If this spell was kicked, <extra>" payoff)

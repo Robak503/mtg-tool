@@ -172,11 +172,15 @@ export function gameStatus(state) {
   const seats = order.filter((id) => players[id] !== undefined || id === "user");
   const opponents = order.filter((id) => id !== "user");
 
-  // 1) WIN flags first (CR 104.2a) — a win ends the game before the death checks.
-  if (hasWonGame(state, "user")) {
+  // 1) WIN flags (CR 104.2a) — gated by CR 104.3f (CR-remediation B4): "If a player would both win
+  // and lose the game simultaneously, that player LOSES." A win-game effect resolving while its
+  // controller is also at lethal (life/poison/21+ commander damage) is a LOSS — the win flag ends the
+  // game only for a player who isn't simultaneously dead; otherwise fall through to the death checks,
+  // which produce the loss (or the CR 104.4a draw when it empties the table).
+  if (hasWonGame(state, "user") && !isPlayerDead(state, "user")) {
     return done("user-wins", "user", "you win the game (CR 104.2a)");
   }
-  const wonOpponent = opponents.find((id) => hasWonGame(state, id));
+  const wonOpponent = opponents.find((id) => hasWonGame(state, id) && !isPlayerDead(state, id));
   if (wonOpponent) {
     return done("ai-wins", wonOpponent, `${wonOpponent} wins the game (CR 104.2a)`);
   }
@@ -208,7 +212,10 @@ export function gameStatus(state) {
     return done("draw", null, "all remaining players died simultaneously (CR 104.4a)");
   }
   if (userDead) {
-    return done("ai-wins", liveOpponents[0] ?? null, "you lost (CR 704.5)");
+    // CR 104.2a (B4): with 2+ opponents alive the pod has NOT determined a winner — the legacy
+    // user-pivot result stands ("the game is over for the USER"), but the fabricated turn-order-first
+    // `winnerSeat` crown is gone: a specific winner is named only when exactly one opponent survives.
+    return done("ai-wins", liveOpponents.length === 1 ? liveOpponents[0] : null, "you lost (CR 704.5)");
   }
   if (allOpponentsDead) {
     return done("user-wins", "user", "all opponents lost (CR 704.5)");

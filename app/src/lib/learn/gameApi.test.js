@@ -213,10 +213,21 @@ describe("gameStatus", () => {
     expect(status.winnerSeat).toBe("user");
   });
 
-  it("reports a win-flag (CR 104.2a) before any death check", () => {
+  it("a simultaneous win-and-death is a LOSS (CR 104.3f) — the win flag does not save a dead player", () => {
+    // This test used to encode the BACKWARDS behavior (win-flag checked unconditionally before the
+    // death check, asserting user-wins) — updated in CR-remediation B4 to the printed rule: "If a
+    // player would both win and lose the game simultaneously, that player loses the game."
     const state = freshState();
-    state.players.user.life = 0;      // also at lethal…
-    state.players.user.wonGame = true; // …but the win flag is checked first
+    state.players.user.life = 0;      // at lethal…
+    state.players.user.wonGame = true; // …AND holding a win-game effect → the player LOSES
+    const status = gameStatus(state);
+    expect(status.over).toBe(true);
+    expect(status.result).toBe("ai-wins");
+  });
+
+  it("a win-flag on a LIVE player still ends the game before death checks (CR 104.2a)", () => {
+    const state = freshState();
+    state.players.user.wonGame = true;
     const status = gameStatus(state);
     expect(status.over).toBe(true);
     expect(status.result).toBe("user-wins");

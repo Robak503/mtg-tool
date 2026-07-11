@@ -351,7 +351,8 @@ describe("P3.1 counter target spell — resolution (stack-removal mechanic)", ()
 
   it("fizzles (logged no-op, never an error) when the target already left the stack", () => {
     const out = runEffectProgram(freshState({ stack: [] }), counterObj("any", "gone"));
-    expect(out.log.some(l => l.effect === "counter-fizzle")).toBe(true);
+    // CR 608.2b (B4): the sole spell target is gone → the WHOLE spell fizzles at entry now.
+    expect(out.log.some(l => l.kind === "spell-fizzle" && /608\.2b/.test(l.reason || ""))).toBe(true);
     expect(out.players.ai.graveyard).toHaveLength(0);
   });
 
