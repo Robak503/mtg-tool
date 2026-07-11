@@ -21,7 +21,8 @@
  */
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf } from "./gameState.js";
-import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkSagaChapterTriggers } from "./triggers.js";
+import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHELF S7): entry lore counter + sagaFinal stamp; a pure leaf
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
@@ -276,6 +277,16 @@ export function enterPermanent(state, card, controller, opts = {}) {
   if (opts.xValue > 0 && entersWithXCounters(card)) {
     perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", opts.xValue) };
   }
+  // SAGA (CR 714.3a — Vault 12, SHELF S7): a Saga enters with a lore counter (through the doubler — a
+  // Doubling Season entry correctly fires chapters I AND II via the transition range below). `sagaFinal`
+  // is stamped durably so the draw-step lore hook + the finished-Saga sweep (CR 714.4) key on it without
+  // re-parsing. Only a FULLY-parsed Saga stamps (parseSagaChapters is all-or-nothing) — an unmodeled Saga
+  // enters as an inert enchantment exactly as before (its chapters are Arbiter territory, never half-fired).
+  const sagaParse = parseSagaChapters(card);
+  if (sagaParse) {
+    perm.sagaFinal = sagaParse.final;
+    perm.counters = { ...perm.counters, lore: (perm.counters.lore || 0) + applyCounterDoubling(state, controller, "lore", 1) };
+  }
   // KW-FADING (CR 702.32a) / KW-VANISHING (CR 702.63a): enters with N fade / time counters; the upkeep
   // remove-or-sacrifice runs in gameEngine (applyFadeVanishUpkeep).
   const fade = entersWithFadeCounters(card);
@@ -408,6 +419,11 @@ export function enterPermanent(state, card, controller, opts = {}) {
   if (lwTokenId) {
     const tok = findPermanent(afterEtb, lwTokenId);
     if (tok?.permanent) afterEtb = checkEnterTriggers(afterEtb, tok.permanent);
+  }
+  // SAGA (CR 714.3a): the entry lore counter(s) fire every chapter crossed from 0 — chapter I normally;
+  // I AND II under a Doubling Season entry (the counter write above routed through the doubler).
+  if (perm.sagaFinal) {
+    afterEtb = checkSagaChapterTriggers(afterEtb, perm.id, 0, perm.counters?.lore || 0);
   }
   return checkPermanentEntersTriggers(afterEtb, perm);
 }

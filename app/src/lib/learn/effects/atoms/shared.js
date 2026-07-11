@@ -106,7 +106,11 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   //     subtype, word-bounded (\b) so "Elf" matches "Creature — Elf Warrior" but never a substring.
   //     The subtype comes from the curated COUNT_SUBTYPE allowlist (parser-side), so it's a real,
   //     collision-free MTG subtype — the \b match credits exactly the subtyped creatures (CREED).
-  const subRe = opts.subtypeFilter ? new RegExp(`\\b${opts.subtypeFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) : null;
+  //     UNION (Vault 12's chapter III "each creature you control that's a Zombie or Mutant" — SHELF S7):
+  //     an ARRAY matches ANY listed subtype (the massCreatureTargets subList pattern exactly); a single
+  //     string keeps its original one-subtype behavior byte-for-byte.
+  const subFilters = opts.subtypeFilter == null ? null : (Array.isArray(opts.subtypeFilter) ? opts.subtypeFilter : [opts.subtypeFilter]);
+  const subRes = subFilters ? subFilters.map((s) => new RegExp(`\\b${String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`)) : null;
   // TYPE-NEGATED team scope (Return of the Wildspeaker "Non-Human creatures you control get +3/+3") — subtypeNegate
   // keeps only creatures NOT of that subtype. Word-bounded, case-insensitive front-face read (CR 712.4a), and a
   // CHANGELING (CR 702.73a — IS every creature type) is excluded too, mirroring greatestPtAmong's notSubtype. The
@@ -115,7 +119,7 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   return player.battlefield
     .filter((perm) => isCreatureCard(perm.card))
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
-    .filter((perm) => !subRe || subRe.test(typeLineStr(perm.card)))
+    .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card))))
     .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
     .map((perm) => ({ type: "creature", id: perm.id, controller }));
 }
@@ -411,6 +415,11 @@ export function countForSpec(state, ctx, spec) {
       }
     }
     return total;
+  }
+  // ===== RAD-AMONG-PLAYERS (Vault 12 chapter II — SHELF S7) ===== "the total number of rad counters among
+  // players": every seat's radCounters summed live at resolution. An untallied seat → 0 (safe floor).
+  if (spec.kind === "radAmongPlayers") {
+    return Object.values(state?.players || {}).reduce((sum, pl) => sum + (pl?.radCounters || 0), 0);
   }
   // ===== DEATHS-THIS-TURN (CR 700.4), all-seats ===== "the number of creatures that died this turn" (Mahadi)
   // sums EVERY player's per-turn creature-death tally (creaturesDiedThisTurn, bumped at the death chokepoint),

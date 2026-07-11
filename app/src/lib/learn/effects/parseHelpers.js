@@ -99,7 +99,7 @@ export const COUNT_SUBTYPE = {
   dog: "Dog", dogs: "Dog", elemental: "Elemental", elementals: "Elemental", rat: "Rat", rats: "Rat",
   pirate: "Pirate", pirates: "Pirate", dinosaur: "Dinosaur", dinosaurs: "Dinosaur", faerie: "Faerie", faeries: "Faerie",
   giant: "Giant", giants: "Giant", saproling: "Saproling", saprolings: "Saproling", insect: "Insect", insects: "Insect",
-  boar: "Boar", boars: "Boar", sliver: "Sliver", slivers: "Sliver",
+  boar: "Boar", boars: "Boar", sliver: "Sliver", slivers: "Sliver", mutant: "Mutant", mutants: "Mutant",
   plant: "Plant", plants: "Plant",
   // artifact subtypes (incl. the named tokens)
   treasure: "Treasure", treasures: "Treasure", clue: "Clue", clues: "Clue", food: "Food", foods: "Food",
@@ -159,6 +159,9 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
   const withExclude = (spec) => spec; // "other" exclusion is handled by the parseCountSource wrapper (excludeSelf)
+  // ===== RAD-AMONG-PLAYERS (Vault 12 chapter II — SHELF S7) ===== "rad counters among players" — the
+  // TOTAL radCounters across every seat, summed live at resolution (countForSpec).
+  if (/^rad counters among players$/.test(p)) return withExclude({ kind: "radAmongPlayers" });
   // ===== SUBTYPE-ON-BATTLEFIELD (all seats) ===== "<Subtype>s on the battlefield" — the count of EVERY
   // permanent of one curated creature subtype across ALL players' battlefields, NOT just the controller's
   // (Magma Sliver's granted firebreathing "+X/+0 … where X is the number of Slivers on the battlefield").
