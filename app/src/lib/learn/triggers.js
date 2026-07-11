@@ -775,6 +775,25 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (filter) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: filter };
     }
   }
+  // ===== GY-EVENT conditions (Syr Konrad / Bloodchief Ascension — SHELF S7) ===== card-scoped graveyard
+  // traffic watchers, fired per moved card by checkGraveyardEventTriggers off the gameState
+  // pendingGraveyardEvents queue. ANCHORED EXACT — a filter this vocabulary can't express ("from your
+  // library", "creature card leaves an OPPONENT'S graveyard", "one or more … leave" batch shapes) stays
+  // undetected → Arbiter (SAFE FN; the batch form ESPECIALLY must never map to a per-card fire).
+  // Konrad clause 2: any player's graveyard, creature cards only, every origin EXCEPT the battlefield
+  // (his "another creature dies" clause covers those — the printed union is disjoint by construction).
+  if (/^a creature card is put into a graveyard from anywhere other than the battlefield$/.test(c)) {
+    return { event: "gyEnter", scope: "gyWatcher", whose: "any", gyCardType: "Creature", gyOwnerScope: "any", excludeFromBattlefield: true };
+  }
+  // Konrad clause 3: a creature card leaving YOUR graveyard (cast out / reanimated / shuffled in / exiled).
+  if (/^a creature card leaves your graveyard$/.test(c)) {
+    return { event: "gyLeave", scope: "gyWatcher", whose: "any", gyCardType: "Creature", gyOwnerScope: "you" };
+  }
+  // Bloodchief Ascension trigger 2: ANY card entering an OPPONENT's graveyard from ANY zone (battlefield
+  // included — "from anywhere" has no exclusion).
+  if (/^a card is put into an opponent's graveyard from anywhere$/.test(c)) {
+    return { event: "gyEnter", scope: "gyWatcher", whose: "any", gyCardType: null, gyOwnerScope: "opponent" };
+  }
   // BECOMES-UNTAPPED (Mesmeric Orb — SHELF S6): "a permanent becomes untapped". ANY player's permanent,
   // fired per transition by checkUntapTriggers off the gameState pendingUntapEvents queue (tapped→untapped
   // only; a stun/no-untap skip never fires). The bare form only — a filtered subject ("a Forest", "a
@@ -1803,6 +1822,14 @@ const DISJUNCTION_TRIGGER_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: 
 // stays under the compound guard (splitting it would detect an ETB half while the dies-half never
 // dispatches; the triggers.test guards still assert it).
 const DISJUNCTION_DIES_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or dies(,\\s*[^\\n]+)";
+// GY-TRAFFIC TRIPLE (Syr Konrad, the Grim — SHELF S7, CR 603.2b): the printed three-event disjunction
+// "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than
+// the battlefield, or a creature card leaves your graveyard, <effect>" → THREE sentences, one per event,
+// each carrying the whole same-line effect. The three event sets are DISJOINT by construction (dies =
+// from the battlefield; clause 2 excludes the battlefield; clause 3 is exits), so the split fires exactly
+// as printed — never twice for one event. ANCHORED to the exact printed phrase triple (subject variations
+// stay under the compound-event guard → Arbiter).
+const DISJUNCTION_GY_TRIPLE_SRC = "\\b(When|Whenever)\\s+another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard(,\\s*[^\\n]+)";
 function splitCompoundTriggerSentences(oracle) {
   // Separate the two rewritten sentences with a NEWLINE (not ". ") — the trigger regex anchors each match on a
   // preceding [\n.;] and consumes its own trailing period, so a same-line "…card. Whenever…" would leave the second
@@ -1812,7 +1839,9 @@ function splitCompoundTriggerSentences(oracle) {
     .replace(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi"), (m, _kw, subj, eff) =>
       /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`)
     .replace(new RegExp(DISJUNCTION_DIES_SRC, "gi"), (_m, _kw, subj, eff) =>
-      `Whenever ${subj} enters${eff}\nWhenever ${subj} dies${eff}`);
+      `Whenever ${subj} enters${eff}\nWhenever ${subj} dies${eff}`)
+    .replace(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi"), (_m, _kw, eff) =>
+      `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`);
 }
 /** Number of compound second-trigger connectives ("…and whenever…" + the "enters or attacks"/"enters or
  *  dies" disjunctions) — each adds ONE extra trigger sentence when split. coverage.js adds this to its
@@ -1823,7 +1852,9 @@ export function compoundTriggerCount(oracle) {
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
   const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
-  return andJoins + disjunctions + diesDisjunctions;
+  // The GY-traffic triple adds TWO extra sentences per match (1 → 3).
+  const gyTriples = (s.match(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi")) || []).length;
+  return andJoins + disjunctions + diesDisjunctions + gyTriples * 2;
 }
 
 /**
@@ -2196,6 +2227,9 @@ export function detectTriggers(card) {
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         functionsFromGraveyard: cls.functionsFromGraveyard, // GY-FUNCTIONING milled trigger (Radroach) — fired by checkMilledTriggers' graveyard scan, never the battlefield scan
+        gyCardType: cls.gyCardType,           // GY-EVENT (SHELF S7): front-face type gate on the moved card ("Creature" | null = any)
+        gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
+        excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
@@ -3888,6 +3922,52 @@ export function checkUntapTriggers(state) {
           event: "untapped", sourcePermanent: watcher, triggeringPermanent: trig,
           triggeringContext: { untappedControllerId: ev.controller },
         }));
+      }
+    }
+  }
+  if (!fired.length) return cleared;
+  return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * GY-EVENT triggers (Syr Konrad, the Grim / Bloodchief Ascension — SHELF S7): drain
+ * `state.pendingGraveyardEvents` (recorded by every graveyard-array write site — gameState.
+ * recordGraveyardEvents documents the inventory) and fire the battlefield watchers whose descriptor
+ * matches each event:
+ *   event "gyEnter"  — "a … card is put into a graveyard from …" (dir:"enter"; ev.zone = the FROM zone)
+ *   event "gyLeave"  — "a … card leaves your graveyard"          (dir:"leave"; ev.zone = the TO zone)
+ * Descriptor gates (ALL must pass — each is a closed check, never a fail-open):
+ *   gyCardType   — the moved card's FRONT-face type line must contain it (CR 712.8a; null = any card)
+ *   gyOwnerScope — whose graveyard: "you" (the watcher's controller's), "opponent" (an opponent-of-the-
+ *                  watcher's), "any"
+ *   excludeFromBattlefield — enter-only: skip events whose from-zone is the battlefield (Syr Konrad's
+ *                  second clause — his dies clause covers those, so the union never double-fires)
+ * Fires PER CARD (CR 603.2 — each moved card is a distinct event; a "one or more" batch shape is NOT
+ * emitted by detection, so no batch collapse exists here). ALWAYS clears the queue (idempotent). Fired
+ * at the gameEngine.flushTriggers funnel — every settlement path (action dispatch, stack resolution,
+ * step automatics) flushes there, so a recorded event is converted before its flush. Tokens never reach
+ * the queue (recordGraveyardEvents filters them — a token is not a card, CR 111.1).
+ */
+export function checkGraveyardEventTriggers(state) {
+  const events = state.pendingGraveyardEvents || [];
+  if (!events.length) return state;
+  const { pendingGraveyardEvents: _drop, ...cleared } = state;
+  let fired = [];
+  for (const ev of events) {
+    const evEvent = ev.dir === "leave" ? "gyLeave" : "gyEnter";
+    for (const pid of Object.keys(cleared.players)) {
+      for (const watcher of triggerSourcesOf(cleared, pid)) {
+        for (const d of detectTriggers(watcher.card).filter((x) => x.event === evEvent)) {
+          if (d.gyCardType && !new RegExp(`\\b${d.gyCardType}\\b`).test(frontFaceType(ev.card))) continue;
+          if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) continue;
+          if (d.gyOwnerScope === "opponent" && !opponentsOf(cleared, watcher.controller).includes(ev.gyOwner)) continue;
+          if (d.excludeFromBattlefield && ev.zone === "battlefield") continue;
+          // gyOwnerId rides the context so a "that player" payoff (Bloodchief Ascension's drain) can bind
+          // the graveyard's owner at resolution; the card trio mirrors the milled-trigger context shape.
+          fired.push(makePendingTrigger(d, watcher, null, {
+            gyCardId: ev.card?.id, gyCardName: ev.card?.name, gyOwnerId: ev.gyOwner, gyZone: ev.zone, gyDir: ev.dir,
+          }));
+        }
       }
     }
   }

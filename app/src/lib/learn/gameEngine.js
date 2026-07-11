@@ -47,7 +47,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkGraveyardEventTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -925,6 +925,10 @@ export function chooseTriggerTargets(candidates, info) {
  * is dropped (logged, not silent).
  */
 export function flushTriggers(state, { chooseTargets } = {}) {
+  // GY-EVENT drain (SHELF S7): convert queued graveyard enter/leave events into pending triggers FIRST —
+  // every settlement path funnels through this flush, so a recorded event always fires here (BEFORE the
+  // empty-pending early return, which would otherwise strand a queue with no other pending triggers).
+  state = checkGraveyardEventTriggers(state);
   const pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
 

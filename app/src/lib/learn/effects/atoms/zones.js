@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone } from "../../gameState.js";
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
@@ -126,6 +126,12 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
     timestampCounter: ts + 1,
     players: { ...s2.players, ...playersPatch },
   };
+  // GY-EVENT (SHELF S7): a reanimated card LEAVES its owner's graveyard for the battlefield (a library
+  // ramp entry touches no graveyard). gyOwner is the zone HOLDER (fromPlayerId — cross-player reanimation
+  // leaves the OPPONENT's graveyard).
+  if (fromZone === "graveyard") {
+    next = recordGraveyardEvents(next, [{ dir: "leave", card, gyOwner: fromPlayerId, zone: "battlefield" }]);
+  }
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
   // ETB fires for any entry; LANDFALL (CR 603 — a triggered ability, ability word CR 207.2c) ALSO fires
   // when the entering permanent is a LAND — a

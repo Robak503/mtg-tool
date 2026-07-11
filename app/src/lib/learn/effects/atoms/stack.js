@@ -4,7 +4,7 @@
  */
 
 import { applyDamageEffect } from "../../spellEffects.js";
-import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter } from "../../gameState.js";
+import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
@@ -124,13 +124,18 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
   const player = state.players[controller];
   const dest = counterDest || (exileInstead ? "exile" : "graveyard"); // exileInstead → counterDest:"exile" alias
-  const next = {
+  let next = {
     ...state,
     stack: newStack,
     players: (isSpell && player)
       ? { ...state.players, [controller]: placeCounteredCard(player, card, dest) }
       : state.players,
   };
+  // GY-EVENT (SHELF S7): a countered SPELL whose disposition is the default graveyard enters it from the
+  // stack (CR 701.5a). A redirected disposition (exile / hand / library-top) never touches a graveyard.
+  if (isSpell && player && dest === "graveyard" && card) {
+    next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: controller, zone: "stack" }]);
+  }
   // Log the destination (`dest`) for any non-graveyard zone; keep the legacy `exiled:true` flag for the exile
   // case so existing log assertions stay green (back-compat with CNT-EXILE-INSTEAD's original log shape).
   return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(dest !== "graveyard" && { dest }), ...(dest === "exile" && { exiled: true }), ...(via && { via }) });

@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
@@ -98,10 +98,12 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
     const shuffled = shuffleControllerLibrary(withCard, playerId);
     return logEvent(shuffled, { kind: "spell-to-library-shuffled", playerId, cardName: card.name || null });
   }
-  const next = {
+  let next = {
     ...state,
     players: { ...state.players, [playerId]: { ...player, graveyard: [...(player.graveyard || []), card] } },
   };
+  // GY-EVENT (SHELF S7): the resolved spell card enters its owner's graveyard from the stack (CR 608.2m).
+  next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: playerId, zone: "stack" }]);
   return logEvent(next, { kind: "spell-to-graveyard", playerId, cardName: card.name || null });
 }
 

@@ -665,11 +665,17 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
       // instead of appending — library index 0 is the TOP (drawCardEffect slices from the front).
       nextDest = toTop ? [card, ...player[toZone]] : [...player[toZone], card];
     }
-    const result = withPlayer(state, playerId, p => ({
+    let result = withPlayer(state, playerId, p => ({
       ...p,
       [fromZone]: nextSource,
       [toZone]: nextDest,
     }));
+    // GY-EVENT (SHELF S7): a battlefield→graveyard move puts the unwrapped CARD into the graveyard (dies /
+    // destroyed / sacrificed / aura falls off). A token never lands (the vanish branch above) and is not a
+    // card — recordGraveyardEvents' token filter makes that structural.
+    if (toZone === "graveyard") {
+      result = recordGraveyardEvents(result, [{ dir: "enter", card, gyOwner: playerId, zone: "battlefield" }]);
+    }
     // Leaving the battlefield: detach this permanent from its host and unattach anything
     // on it (CR 704.5n/704.5q). A blink (→ battlefield) keeps attachments out of scope here.
     // SELF-LTB: pass whether this exit is to a graveyard so detachPermanentFromAll's leave-event
@@ -691,25 +697,35 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     card = rest;
   }
   const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
+  // GY-EVENT (SHELF S7): a card leaving/entering a graveyard through the generic single-card move —
+  // graveyard→hand (Raise Dead), graveyard→library (Reclaim), graveyard→exile, graveyard→command
+  // (CR 903.9a), graveyard→battlefield (becomePermanent), hand→graveyard (every discard), etc.
+  // fromZone===toZone can't reach here (the same card can't be removed and re-added meaningfully),
+  // so at most ONE of the two records.
+  const gyEvent = fromZone === "graveyard" ? [{ dir: "leave", card, gyOwner: playerId, zone: toZone }]
+    : toZone === "graveyard" ? [{ dir: "enter", card, gyOwner: playerId, zone: fromZone }]
+    : null;
   if (toZone === "battlefield" && becomePermanent) {
     // Mint a deterministic permanent id from state.idSeq and build the result
     // from the advanced state (s2) so the counter persists — the single
     // production path that creates a permanent from a card (Phase-7 PR-0).
     const { id: permId, state: s2 } = mintId(state, "perm");
     const nextDest = [...player[toZone], createPermanent({ id: permId, card, controller: playerId })];
-    return withPlayer(s2, playerId, p => ({
+    const moved = withPlayer(s2, playerId, p => ({
       ...p,
       [fromZone]: nextSource,
       [toZone]: nextDest,
     }));
+    return gyEvent ? recordGraveyardEvents(moved, gyEvent) : moved;
   }
 
   const nextDest = toTop ? [card, ...player[toZone]] : [...player[toZone], card];
-  return withPlayer(state, playerId, p => ({
+  const moved = withPlayer(state, playerId, p => ({
     ...p,
     [fromZone]: nextSource,
     [toZone]: nextDest,
   }));
+  return gyEvent ? recordGraveyardEvents(moved, gyEvent) : moved;
 }
 
 /**
@@ -794,7 +810,8 @@ export function putCardsOnBottom(state, { playerId, cardIds }) {
 export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
   assertPlayer(playerId);
   if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
-  return withPlayer(state, playerId, player => {
+  let surveilled = []; // the cards a surveil puts into the graveyard — GY-EVENT (SHELF S7)
+  const next = withPlayer(state, playerId, player => {
     const top = player.library.slice(0, n);
     const rest = player.library.slice(n);
     const byId = new Map(top.map(c => [c.id, c]));
@@ -804,10 +821,12 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
       if (byId.has(id) && !seen.has(id)) { kept.push(byId.get(id)); seen.add(id); }
     }
     const moved = top.filter(c => !seen.has(c.id)); // not kept → bottom (scry) / graveyard (surveil)
+    if (mode === "surveil") surveilled = moved;
     return mode === "surveil"
       ? { ...player, library: [...kept, ...rest], graveyard: [...player.graveyard, ...moved] }
       : { ...player, library: [...kept, ...rest, ...moved] };
   });
+  return recordGraveyardEvents(next, surveilled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
 }
 
 /**
@@ -821,16 +840,19 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
 export function applyImpulseDig(state, { playerId, n, chosenId, restTo }) {
   assertPlayer(playerId);
   if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
-  return withPlayer(state, playerId, player => {
+  let discarded = []; // the non-chosen cards a graveyard-disposing dig puts into the GY — GY-EVENT (SHELF S7)
+  const next = withPlayer(state, playerId, player => {
     const top = player.library.slice(0, n);
     const rest = player.library.slice(n);
     const chosen = top.find(c => c.id === chosenId);
     const others = top.filter(c => c.id !== chosenId); // every non-chosen looked-at card → bottom / graveyard
     const hand = chosen ? [...player.hand, chosen] : player.hand;
+    if (restTo === "graveyard") discarded = others;
     return restTo === "graveyard"
       ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...others] }
       : { ...player, hand, library: [...rest, ...others] };
   });
+  return recordGraveyardEvents(next, discarded.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
 }
 
 /**
@@ -844,10 +866,13 @@ export function millCards(state, { playerId, count }) {
   const lib = state.players[playerId].library || [];
   const n = Math.min(Math.max(0, count || 0), lib.length);
   if (n === 0) return state;
-  const milledIds = lib.slice(0, n).map((c) => c.id);
-  const next = withPlayer(state, playerId, player => ({
+  const milled = lib.slice(0, n);
+  const milledIds = milled.map((c) => c.id);
+  let next = withPlayer(state, playerId, player => ({
     ...player, library: player.library.slice(n), graveyard: [...player.graveyard, ...player.library.slice(0, n)],
   }));
+  // GY-EVENT (SHELF S7): every milled card enters its owner's graveyard from the library.
+  next = recordGraveyardEvents(next, milled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
   // MILLED-THIS-TURN ledger (Tato Farmer "…that was milled this turn"; the Raul cast-permission class):
   // every milled card id → the turn it was milled, stamped HERE at the single mill primitive (the
   // mill-effect path AND the radiation mill both flow through millCards, so the ledger can't miss a
@@ -891,6 +916,25 @@ export function attachPermanent(state, { equipId, targetId }) {
   next = updatePermanentSafe(next, equipId, p => ({ ...p, attachedTo: targetId }));
   next = updatePermanentSafe(next, targetId, p => ({ ...p, attachments: [...(p.attachments || []).filter(id => id !== equipId), equipId] }));
   return next;
+}
+
+/**
+ * GY-EVENT queue (Syr Konrad / Bloodchief Ascension — SHELF S7, CR 603.6c/603.10a look-back): record a card
+ * ENTERING a graveyard ({dir:"enter", zone: the zone it came FROM}) or LEAVING one ({dir:"leave", zone: the
+ * zone it went TO}) on `state.pendingGraveyardEvents`. The pendingLeaveEvents/pendingUntapEvents pattern —
+ * gameState can't import triggers.js, so a triggers-side drain (checkGraveyardEventTriggers, fired at the
+ * flushTriggers funnel) converts events into pending triggers. TOKENS never record: a token is not a CARD
+ * (CR 111.1), and "a card is put into / leaves a graveyard" watchers are card-scoped by definition — the
+ * battlefield token-vanish branch in moveCardToZone also never lands one in the array. Events are plain
+ * JSON (card snapshot + owner + zone) so serialize→restore replays identically. Every write site that
+ * touches a graveyard array records here — the colocated diff tripwire test (graveyardEvents.test.js)
+ * asserts recorded events match the actual graveyard-array delta across engine transforms, so a future
+ * write site that forgets to record fails the suite instead of silently starving the watchers.
+ */
+export function recordGraveyardEvents(state, events) {
+  const evs = (events || []).filter((e) => e && e.card && !e.card.token);
+  if (!evs.length) return state;
+  return { ...state, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs] };
 }
 
 /**

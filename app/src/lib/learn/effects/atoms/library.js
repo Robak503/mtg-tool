@@ -3,7 +3,7 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
@@ -1101,13 +1101,15 @@ export function applyShuffleGraveyardIntoLibrary(state, atom, ctx) {
     return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: 0 });
   }
   // Move all graveyard cards into the library (order is irrelevant — the shuffle randomizes), empty the GY.
-  const merged = {
+  let merged = {
     ...state,
     players: {
       ...state.players,
       [controller]: { ...player, library: [...(player.library || []), ...graveyard], graveyard: [] },
     },
   };
+  // GY-EVENT (SHELF S7): every folded card LEAVES the controller's graveyard for the library.
+  merged = recordGraveyardEvents(merged, graveyard.map((card) => ({ dir: "leave", card, gyOwner: controller, zone: "library" })));
   const shuffled = shuffleControllerLibrary(merged, controller);
   return logEvent(shuffled, { kind: "spell-effect", effect: "shuffle-graveyard-into-library", controller, moved: graveyard.length });
 }
@@ -1245,6 +1247,8 @@ export function applyTimetwisterWheel(state, atom, ctx) {
     if (!p) continue;
     const pool = [...(p.library || []), ...(p.hand || []), ...(p.graveyard || [])];
     next = { ...next, players: { ...next.players, [pid]: { ...p, library: pool, hand: [], graveyard: [] } } };
+    // GY-EVENT (SHELF S7): each player's graveyard cards LEAVE for the library in the fold.
+    next = recordGraveyardEvents(next, (p.graveyard || []).map((card) => ({ dir: "leave", card, gyOwner: pid, zone: "library" })));
     next = shuffleControllerLibrary(next, pid);
     const lib = next.players[pid].library || [];
     const n = Math.min(atom.draw || 7, lib.length);

@@ -48,6 +48,7 @@ import {
   destroyZeroLoyaltyPlaneswalkers,
   recordSpellCast,
   clearRemovedFromCombatFlags,
+  recordGraveyardEvents,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap } from "./manaModel.js";
@@ -475,6 +476,11 @@ function applyCastSpell(state, action) {
     },
     stack: [...working2.stack, stackObject],
   };
+  // GY-EVENT (SHELF S7): a spell cast FROM the graveyard (flashback / the Raul milled-GY permission /
+  // any graveyard cast lane) LEAVES it for the stack (CR 601.2a).
+  if (fromZone === "graveyard") {
+    next = recordGraveyardEvents(next, [{ dir: "leave", card, gyOwner: action.playerId, zone: "stack" }]);
+  }
   next = logEvent(next, {
     kind: "cast-spell",
     playerId: action.playerId,
