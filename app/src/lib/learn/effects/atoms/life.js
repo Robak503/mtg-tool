@@ -197,8 +197,31 @@ export function applyDrainEachOpponent(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "drain-each-opponent", controller: ctx.controller, per, lost });
 }
 
+/**
+ * ===== GY-OWNER-DRAIN (Bloodchief Ascension trigger 2 — SHELF S7) ===== "you may have that player lose N
+ * life. If you do, you gain N2 life." on a gyEnter trigger — "that player" is the graveyard's owner
+ * (ctx.gyOwnerId, threaded by checkGraveyardEventTriggers; the detectTriggers sentinel rewrite delivers
+ * "the graveyard's owner" here, event-gated so no other referent reaches this atom). ONE composite atom:
+ * the optional yes/no covers the whole drain, so the reflexive "If you do" is both-or-neither by
+ * construction (never a lose without the gain). A missing/eliminated referent → logged no-op (never a
+ * fabricated drain; the routing gate pins this atom to the one event whose context carries gyOwnerId).
+ */
+export function applyGyOwnerDrain(state, atom, ctx) {
+  const pid = ctx.gyOwnerId;
+  if (!pid || !state.players[pid]) {
+    return logEvent(state, { kind: "spell-effect", effect: "gy-owner-drain-noop", controller: ctx.controller, reason: "no graveyard owner in context" });
+  }
+  let next = loseLife(state, { playerId: pid, amount: atom.lose || 0 });
+  if ((atom.gain || 0) > 0 && next.players[ctx.controller]) {
+    next = gainLife(next, { playerId: ctx.controller, amount: atom.gain });
+    next = checkLifegainTriggers(next, ctx.controller, atom.gain); // CR 119.3 — the controller's "whenever you gain life"
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "gy-owner-drain", controller: ctx.controller, target: pid, lose: atom.lose || 0, gain: atom.gain || 0 });
+}
+
 export const lifeResolvers = {
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,
   "drain-each-opponent": applyDrainEachOpponent, // DRAIN-X (Exsanguinate) — each opp loses X, you gain the total drained
+  "gy-owner-drain": applyGyOwnerDrain, // GY-OWNER-DRAIN (Bloodchief Ascension) — the graveyard's owner loses N, you gain N2
 };

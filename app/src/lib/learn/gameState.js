@@ -1242,7 +1242,14 @@ export function registerLifeLossWatcher(fn) { _lifeLossWatcher = fn; }
 export function loseLife(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("loseLife: amount must be non-negative integer");
-  const next = withPlayer(state, playerId, p => ({ ...p, life: p.life - amount }));
+  // LIFE-LOST-THIS-TURN ledger (Bloodchief Ascension "if an opponent lost 2 or more life this turn" —
+  // SHELF S7, CR 603.4): tallied HERE at the single life-loss chokepoint (damage + pay-life + drains all
+  // flow through loseLife — the same funnel the lifeLost watcher rides), reset for all seats at untap
+  // alongside creaturesDiedThisTurn. Absence of a tally IS "no life lost" (fail-closed).
+  const next = withPlayer(state, playerId, p => ({
+    ...p, life: p.life - amount,
+    ...(amount > 0 && { lifeLostThisTurn: (p.lifeLostThisTurn || 0) + amount }),
+  }));
   return _lifeLossWatcher && amount > 0 ? _lifeLossWatcher(next, { playerId, amount }) : next;
 }
 
@@ -1632,7 +1639,9 @@ export function recordCreatureDeaths(state, dead) {
 export function resetCreatureDeathsAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0 };
+    // lifeLostThisTurn resets on the SAME per-game-turn cadence (Bloodchief Ascension's end-step check —
+    // life can be lost on any player's turn, so every seat's tally clears at each untap).
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0 };
   }
   return { ...state, players };
 }

@@ -349,6 +349,16 @@ function stripEnergyGatedManaLines(oracle) {
   return String(oracle || "").replace(/[^.\n]*\bpay (?:\{e\})+[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
 }
 
+// COUNTER-COST MANA (Druids' Repository — SHELF S7 audit catch): remove any mana ability whose activation
+// cost includes "Remove a/N <type> counter(s)": the runtime produces mana ONLY through manaProduction
+// (which returns null for these — a counter-removal cost is not a standing source) and the activated lane
+// excludes isManaEffect abilities from the stack path, so such a line is DEAD at runtime and must not
+// credit native-mana (the exact energy-gate precedent above; a counter-free mana line on the same card
+// survives the strip). When a counter-cost mana subsystem lands in manaProduction, relax this with it.
+function stripCounterCostManaLines(oracle) {
+  return String(oracle || "").replace(/[^.\n]*\bremove (?:a|an|one|two|three|\d+|x) [a-z+\-/0-9]+ counters?[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
+}
+
 export function hasManaAbility(oracle, typeLine) {
   // Strip a created token's quoted ability before reading the card's OWN mana — a token's "…Add …"
   // belongs to the token, not the card (mirrors manaModel.manaProduction, so the classifier and runtime
@@ -358,7 +368,7 @@ export function hasManaAbility(oracle, typeLine) {
   // (stripNonSelfQuotedGrants — the Cryptolith Rite phantom-granter fix, mirrored from manaProduction so
   // the metric and the runtime mana model agree). Callers that can't supply a type line get the
   // conservative strip — an under-count, never an over-claim.
-  const t = stripEnergyGatedManaLines(stripNonSelfQuotedGrants(stripCreatedTokenAbilities(stripReminder(oracle)), typeLine));
+  const t = stripCounterCostManaLines(stripEnergyGatedManaLines(stripNonSelfQuotedGrants(stripCreatedTokenAbilities(stripReminder(oracle)), typeLine)));
   return /\badd \{[wubrgcx]/i.test(t) ||
     /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(t);
 }
@@ -443,7 +453,7 @@ export function spellIsNative(card) {
     // spell resolution — the clause silently no-ops. Without this, the storm branch credited native a body
     // the plain path correctly parks (verified: the same body without the Storm line returns false).
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner") return false;
       if (a?.who === "defendingPlayer") return false;
     }
     return true;
@@ -476,7 +486,7 @@ export function spellIsNative(card) {
     // Same combat-referent guard as the normal spell path (a spell never supplies the combat-damage referent).
     // Flattened via programCombatReferentAtoms so a MODAL mode-level referent can't slip through.
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "defendingPlayer") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || a?.who === "defendingPlayer") return false;
     }
     return true;
   }
@@ -508,7 +518,7 @@ export function spellIsNative(card) {
   // damage spell (Ozai's Cruelty) — where "that player" is a back-reference to the countered-spell controller
   // / damaged target, NOT the combat referent — keeps the whole spell on the Arbiter (a SAFE false-negative).
   for (const a of programCombatReferentAtoms(program)) {
-    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController") return false;
+    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner") return false;
     // who:"defendingPlayer" (CR 509.1a) is the ATTACKS-event referent (ctx.defenderId) — a spell never supplies
     // it, so such an atom would silently drop. Keep the spell on the Arbiter (a SAFE false-negative).
     if (a?.who === "defendingPlayer") return false;

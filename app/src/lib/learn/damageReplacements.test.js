@@ -361,6 +361,7 @@ describe("byte-identical negative (the CREED proof)", () => {
     const out = resolveCombatDamage(s);
     const expected = structuredClone(before.players);
     expected.ai.life = 38; // 40 - 2, un-doubled
+    expected.ai.lifeLostThisTurn = 2; // the loseLife-chokepoint ledger (Bloodchief Ascension — SHELF S7) stamps combat damage too
     expect(out.players).toStrictEqual(expected);
     expect(out.log.some((e) => /wolverine|double|replace/i.test(String(e.kind)))).toBe(false);
   });

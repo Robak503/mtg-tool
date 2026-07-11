@@ -73,6 +73,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // UNTAPPED-CONTROLLER (Mesmeric Orb, SHELF S6): the mill's referent is the just-untapped permanent's
     // controller — set ONLY by checkUntapTriggers' untapped event.
     if (a?.who === "untappedController" && event !== "untapped") return false;
+    // GY-OWNER (Bloodchief Ascension, SHELF S7): the drain's referent is the graveyard's owner — set ONLY
+    // by checkGraveyardEventTriggers' gyEnter event (the detectTriggers sentinel rewrite is gyEnter-gated
+    // too; this pin is the belt on top of it).
+    if (a?.who === "gyOwner" && event !== "gyEnter") return false;
   }
   return true;
 }

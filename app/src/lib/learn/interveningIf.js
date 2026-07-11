@@ -317,6 +317,19 @@ const IN_YOUR_GRAVEYARD_RE = /^this creature is in your graveyard$/;
 // (checkEnterTriggers threads enteredPerm), resolved against the controller's battlefield.
 const SAME_NAME_ETB_RE = /^it doesn't have the same name as another creature you control or a creature card in your graveyard$/;
 
+// ===== OPPONENT-LOST-LIFE (Bloodchief Ascension trigger 1 — SHELF S7) ========================
+// "an opponent lost N or more life this turn" — read the per-seat lifeLostThisTurn ledger (stamped at the
+// gameState.loseLife chokepoint, reset for all seats at untap). An absent tally IS zero (fail-closed: the
+// ledger can't miss a loss — every life-loss path funnels through loseLife). Boolean always, never null.
+const OPP_LOST_LIFE_RE = new RegExp(`^an opponent lost ${NUM_RE} or more life this turn$`);
+
+// ===== SOURCE-COUNTER-THRESHOLD (Bloodchief Ascension trigger 2 — SHELF S7, CR 603.4) ========
+// "this <noun> has N or more <type> counters on it" — a LIVE read of the SOURCE permanent's counters
+// (ctx.sourcePermanentId, threaded by makePendingTrigger), re-evaluated at flush AND resolution. The
+// source gone from the battlefield → null (can't confirm → FN-safe drop, the engine convention for a
+// vanished source). Anchored; the counter type is a bare word matched against the counters map key.
+const SOURCE_COUNTER_THRESHOLD_RE = new RegExp(`^this (?:enchantment|artifact|creature|permanent) has ${NUM_RE} or more ([a-z]+) counters on it$`);
+
 function isCreatureCard(card) {
   return /\bcreature\b/i.test(typeStr(card));
 }
@@ -340,6 +353,27 @@ function isCreaturePermLocal(perm) {
 export function evaluateInterveningIf(state, condition, controllerId, context = null) {
   const c = String(condition || "").toLowerCase().trim();
   if (!state?.players?.[controllerId]) return false; // controller gone → condition unmet
+
+  // OPPONENT-LOST-LIFE (Bloodchief Ascension) — the per-seat lifeLostThisTurn ledger; absent = 0 (fail-closed).
+  {
+    const m = c.match(OPP_LOST_LIFE_RE);
+    if (m) {
+      const n = parseCount(m[1]);
+      return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.lifeLostThisTurn || 0) >= n);
+    }
+  }
+
+  // SOURCE-COUNTER-THRESHOLD (Bloodchief Ascension) — live read of the SOURCE permanent's counters.
+  {
+    const m = c.match(SOURCE_COUNTER_THRESHOLD_RE);
+    if (m) {
+      const srcId = context?.sourcePermanentId;
+      if (!srcId) return null; // no source in context → can't confirm (FN-safe; never fail-open)
+      const src = controllerBoard(state, controllerId).find((p) => p.id === srcId);
+      if (!src) return null;   // source left the battlefield → can't confirm (FN-safe drop)
+      return (src.counters?.[m[2]] || 0) >= parseCount(m[1]);
+    }
+  }
 
   // SAME-NAME ETB (Guardian Project) — needs the entering permanent from the trigger context.
   if (SAME_NAME_ETB_RE.test(c)) {
@@ -600,5 +634,8 @@ export function interveningIfParseable(condition) {
   // It ALSO carries a definite `triggeringHadNoPlusCounters` boolean so the KW-UNDYING shape ("it had no
   // +1/+1 counters on it") returns a boolean here (the runtime stamps it off every death look-back's
   // counters snapshot); every other shape ignores the extra field.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringPowerDifferedFromBase: true, sourceCardId: "__probe_gy__", xValue: 0 }) !== null;
+  // It ALSO carries `sourcePermanentId` pointing at the probe permanent so the SOURCE-COUNTER-THRESHOLD
+  // shape returns a boolean here (the runtime threads the real source id via makePendingTrigger's context);
+  // the probe permanent has no counters → false, still a definite boolean.
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringPowerDifferedFromBase: true, sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
 }

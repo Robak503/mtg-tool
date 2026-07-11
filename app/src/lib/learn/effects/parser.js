@@ -2810,6 +2810,19 @@ function matchFreeCastOrLand(oracle) {
   return { atoms: [{ op: "free-cast", capFromCastMv: true, typeFilter: "permanent", elseLandFromHand: true, targetType: null }] };
 }
 
+// GY-OWNER-DRAIN (Bloodchief Ascension — SHELF S7): "you may have the graveyard's owner lose N life. if you
+// do, you gain N2 life" — the SENTINEL "the graveyard's owner" is delivered ONLY by detectTriggers' gyEnter
+// referent rewrite (a spell's / another event's anaphoric "that player" never reaches this matcher), and the
+// who:"gyOwner" pin keeps the routing gate event-locked on top. ONE composite atom, optional:true — the
+// yes/no covers the whole drain, so the reflexive "If you do" payoff is both-or-neither by construction
+// (the sentence splitter would shatter the pair; collapsing mirrors matchRadTargetOrTreasure).
+function matchGyOwnerDrain(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^you may have the graveyard's owner lose (\d+) life\. if you do, you gain (\d+) life$/);
+  if (!m) return null;
+  return { atoms: [{ op: "gy-owner-drain", who: "gyOwner", lose: parseInt(m[1], 10), gain: parseInt(m[2], 10), optional: true, targetType: null }] };
+}
+
 function matchDoubleOrResetCounters(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^double the number of \+1\/\+1 counters on this creature if its power is (\d+) or less\. otherwise, remove all but one \+1\/\+1 counter from it, then you gain 1 life for each \+1\/\+1 counter removed this way$/);
@@ -3041,6 +3054,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rtt = matchRadTargetOrTreasure(oracle);
   if (rtt && rtt.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: rtt.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== GY-OWNER-DRAIN (Bloodchief Ascension) ===== the optional referent drain + reflexive gain →
+  // ONE composite atom (see matchGyOwnerDrain). HIGH iff KNOWN.
+  const god = matchGyOwnerDrain(oracle);
+  if (god && god.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: god.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== TIMETWISTER WHEEL (Echo of Eons / Timetwister) ===== the shuffle-in + draw-7 pair → ONE atom
   // (see matchTimetwisterWheel). HIGH iff KNOWN.

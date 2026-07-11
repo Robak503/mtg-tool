@@ -1984,6 +1984,15 @@ export function detectTriggers(card) {
       // leads with the source's name + a modeled self-effect verb). Run BEFORE the "it" chain — a name and "it"
       // are different leading tokens, so they never conflict. The parser re-gates the effect (LOW → Arbiter).
       effectClause = rewriteSelfNameToThisCreature(effectClause, card.name);
+      // GY-OWNER REFERENT (Bloodchief Ascension — SHELF S7, CR 603.2): on a gyEnter trigger, "that player"
+      // is the player whose graveyard received the card (ctx.gyOwnerId, threaded by
+      // checkGraveyardEventTriggers). Rewrite to the SENTINEL "the graveyard's owner" so the parser's
+      // gy-owner atoms bind it — and so a spell's / another event's anaphoric "that player" (a DIFFERENT
+      // referent — damagedPlayer on combat damage, a chosen target elsewhere) never reaches those matchers.
+      // The triggering-power sentinel precedent, event-gated exactly.
+      if (cls.event === "gyEnter") {
+        effectClause = effectClause.replace(/\bthat player\b/gi, "the graveyard's owner");
+      }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       }
@@ -2712,6 +2721,10 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     // last controller (the ability's controller, already threaded as the trigger controller); carried for
     // parity with the id/name/token trio.
     triggeringPermanentController: triggeringPermanent?.controller,
+    // The SOURCE permanent (the watcher itself) — a per-SOURCE intervening-if (Bloodchief Ascension's
+    // "this enchantment has three or more quest counters on it") reads its live counters at flush AND
+    // resolution (CR 603.4) via this id. Additive plain data; every other consumer ignores it.
+    sourcePermanentId: sourcePermanent?.id,
     ...triggeringContext,
   };
   return {

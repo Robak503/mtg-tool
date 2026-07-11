@@ -82,8 +82,8 @@ describe("DOUBLE-X — enters-with-X permanents flip native AND pay 2X (the CREE
   it("Walking Ballista ({X}{X}) → native-activated", () => {
     expect(classifyCard(BALLISTA)).toBe("native-activated");
   });
-  it("Cryptic Trilobite ({X}{X}) → native-mana", () => {
-    expect(classifyCard(TRILOBITE)).toBe("native-mana");
+  it("Cryptic Trilobite ({X}{X}) → body-only (SHELF S7 audit: its ONLY mana line is remove-counter-gated — the runtime never produced it, so native-mana was an over-claim; the metric now mirrors manaProduction's phantom gate)", () => {
+    expect(classifyCard(TRILOBITE)).toBe("body-only");
   });
   it("Walking Ballista cast for X=3 pays 6 mana (2X) and enters as a real 3/3 with 3 counters", () => {
     const { s, spent, costGeneric } = castForX(BALLISTA, 3, { C: 20 });

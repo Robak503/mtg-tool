@@ -637,7 +637,9 @@ export function applyDoubleOrResetCounters(state, atom, ctx) {
 // this creature" (Thallid) — and Door of Destinies' charge-counter cast trigger — resolve natively.
 export function addNamedCounterSelfClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  const m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on this (?:artifact|permanent|creature)$/);
+  // "this enchantment" joins the noun list (Bloodchief Ascension's quest counter — SHELF S7); the resolver
+  // is already permanent-type-agnostic, so the noun only widens which self-references route here.
+  const m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on this (?:artifact|permanent|creature|enchantment)$/);
   if (!m) return null;
   // ±1/+1 forms are spelled with digits + slash and never match [a-z]+; this guard is belt-and-suspenders.
   if (/^[+-]?1\/[+-]?1$/.test(m[2])) return null;

@@ -226,8 +226,8 @@ describe("CREED — recognized event, unmodeled payoff → body-only (no partial
   it("Casey Jones ('deals that much damage to target opponent') stays body-only", () => {
     expect(classifyCard({ name: "Casey Jones, Back Alley Brute", type: "Legendary Creature — Human Berserker", oracle: "Menace\nWhenever Casey Jones attacks, put a +1/+1 counter on target attacking creature.\nWhenever you put one or more +1/+1 counters on a creature you control, Casey Jones deals that much damage to target opponent." })).toBe("body-only");
   });
-  it("Stocking the Pantry ('put a supply counter on this enchantment') stays body-only", () => {
-    expect(classifyCard({ name: "Stocking the Pantry", type: "Enchantment", oracle: "Whenever you put one or more +1/+1 counters on a creature you control, put a supply counter on this enchantment.\n{2}, Remove a supply counter from this enchantment: Draw a card." })).toBe("body-only");
+  it("Stocking the Pantry flips native-mixed (SHELF S7: the named self-counter noun covers 'this enchantment'; the γ1c remove-counter draw was already modeled)", () => {
+    expect(classifyCard({ name: "Stocking the Pantry", type: "Enchantment", oracle: "Whenever you put one or more +1/+1 counters on a creature you control, put a supply counter on this enchantment.\n{2}, Remove a supply counter from this enchantment: Draw a card." })).toBe("native-mixed");
   });
   it("Ant-Man (singular 'a +1/+1 counter' + token payoff) stays body-only — not in scope", () => {
     expect(classifyCard({ name: "Ant-Man, Colony Commander", type: "Legendary Creature — Human Rogue Hero", oracle: "Whenever Ant-Man attacks, you may pay {1}. When you do, put a +1/+1 counter on target creature.\nWhenever you put a +1/+1 counter on a creature, create a 1/1 green Insect creature token. This ability triggers only once each turn." })).toBe("body-only");

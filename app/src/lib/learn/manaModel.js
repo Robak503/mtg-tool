@@ -299,7 +299,15 @@ function activatedManaCosts(oracle) {
 // costs the mana subsystem models — everything else (a non-self sacrifice, pay-life, discard, remove-counter,
 // exile, tap-OTHER-permanents, return-to-hand) is a resource the sim doesn't spend.
 function manaCostModelable(cost) {
-  if (/\{t\}/i.test(cost)) return true;                    // {T}: a tap dork (summoning-sickness gated)
+  if (/\{t\}/i.test(cost)) {
+    // COMPOUND-COST GUARD (SHELF S7 audit catch — Sphere of the Suns / Channeler Initiate / Spell Satchel /
+    // Springleaf Drum): "{T}, Remove a charge counter …" / "{T}, Tap an untapped creature …" is NOT a plain
+    // tap dork — riding the {T} half alone minted PHANTOM mana every turn (the consumable half was never
+    // spent, never even required). A {T} line is modelable only when the rest of the cost is mana symbols,
+    // separators, or a SELF-sacrifice (the Treasure/Gold compound "{T}, Sacrifice this artifact" — the
+    // production parse flags `sacrifices` and the commit path cracks it, so that pair stays fully modeled).
+    return cost.replace(/\{[^}]*\}/g, " ").replace(/\bsacrifice (?:this|~)[^,:]*/gi, " ").replace(/[\s,]/g, "") === "";
+  }
   if (/\bsacrifice (?:this|~)\b/i.test(cost)) return true; // self-sac one-shot (Treasure/Gold) — cracked on use
   return cost.replace(/\{[^}]*\}/g, "").replace(/[\s,]/g, "") === ""; // pure-mana / {Q} filter (payable from pool)
 }
@@ -312,8 +320,11 @@ function manaCostModelable(cost) {
 // TAP-OTHER permanents (Heritage Druid convoke-style — the sim doesn't tap the other Elves), or RETURN-to-hand
 // (Grinning Ignus). Excludes self-sac (the Treasure case, handled by `sacrifices`) and a {T} cost (a real dork).
 function manaCostConsumable(cost) {
-  if (/\{t\}/i.test(cost)) return false;
-  if (/\bsacrifice (?:this|~)\b/i.test(cost)) return false;
+  // A modelable line (plain {T} / pure-mana / self-sac — incl. the Treasure "{T}, Sacrifice this" compound)
+  // is never consumable. The old blanket {T} exemption let a COMPOUND "{T}, Remove a counter / Tap another /
+  // Discard …" cost ride its tap half straight past this gate (the SHELF S7 phantom-mana audit catch) —
+  // deferring to manaCostModelable keeps the two checks pairwise-consistent by construction.
+  if (manaCostModelable(cost)) return false;
   return (
     /\bsacrifice\b/i.test(cost) ||
     /\bpay\b[^]*\blife\b/i.test(cost) ||
