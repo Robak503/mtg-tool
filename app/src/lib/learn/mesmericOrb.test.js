@@ -13,7 +13,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { _resetIdsForTests, createGameState, createPermanent, untapAll, untapPermanent, addCounter } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent, untapAll, untapPermanent } from "./gameState.js";
 import { detectTriggers, checkUntapTriggers } from "./triggers.js";
 import { triggerRoutesNatively } from "./triggerRouting.js";
 import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
