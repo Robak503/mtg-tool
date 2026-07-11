@@ -305,7 +305,10 @@ describe("declare-attacker", () => {
 describe("declare-blocker", () => {
   it("adds the blocker + attackerId pairing to state.combat.blockers", () => {
     const blocker = perm("Wall", { id: "perm-wall" });
-    const state = withBattlefield(stateWith({ phase: "combat", step: "declare-blockers", activePlayer: "ai" }), [blocker]);
+    const base = withBattlefield(stateWith({ phase: "combat", step: "declare-blockers", activePlayer: "ai" }), [blocker]);
+    // CR 509.1a (B1) — a block is legal only against a DECLARED attacker aimed at the blocking seat,
+    // so the attacker entry (with its defender identity) must exist before the block dispatches.
+    const state = { ...base, combat: { attackers: [{ permanentId: "perm-attacker-1", attackingPlayer: "ai", defender: "user" }], blockers: [] } };
     const after = dispatchAction(state, {
       kind: "declare-blocker",
       playerId: "user",

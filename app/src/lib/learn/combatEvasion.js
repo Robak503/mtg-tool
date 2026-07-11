@@ -322,6 +322,14 @@ function defenderControlsLandType(state, defenderId, subtype) {
  * constraint handled at resolution. Permissive on a missing permanent (never wedges resolution).
  */
 export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
+  // DEFENDER-IDENTITY GATE (CR 509.1a) — a creature may block only an attacker "attacking THAT player"
+  // (or a planeswalker/battle they control — the entry's `defender` is that permanent's controller, so
+  // the same identity check covers all three). In a 4-seat pod, seat C's creatures must never block an
+  // attacker aimed at seat D. Enforced ONLY when the attacker has a declared combat entry: the attack-
+  // planning model (opponentAI.eligibleBlockersFor) probes hypothetical not-yet-declared attacks, where
+  // there is no entry and defenderId already IS the seat being evaluated.
+  const combatEntry = (state.combat?.attackers || []).find((a) => a.permanentId === attackerId);
+  if (combatEntry && combatEntry.defender !== defenderId) return false;
   const aLook = findPermanent(state, attackerId);
   const bLook = findPermanent(state, blockerId);
   if (!aLook?.permanent || !bLook?.permanent) return true;

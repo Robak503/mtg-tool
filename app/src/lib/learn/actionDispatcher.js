@@ -1054,6 +1054,19 @@ function applyDeclareAttacker(state, action) {
 function applyDeclareBlocker(state, action) {
   const blocker = findCreatureOnBattlefield(state, action.playerId, action.permanentId);
   if (!blocker) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
+  // DEFENDER-IDENTITY GATE (CR 509.1a) — hard check mirroring canBlockAttacker's enumeration gate: the
+  // blocking player must BE the seat this attacker was declared against (covers the planeswalker/battle
+  // cases too — the entry's `defender` is that permanent's controller). A stray or replayed action from
+  // another seat must never slip a cross-seat block past enumeration. Blocking a creature with no combat
+  // entry at all is equally illegal (there is nothing attacking to block).
+  const attackerEntry = (state.combat?.attackers || []).find((a) => a.permanentId === action.attackerId);
+  if (!attackerEntry) throw new DispatcherError(`Attacker ${action.attackerId} is not in combat`, "ATTACKER_NOT_IN_COMBAT");
+  if (attackerEntry.defender !== action.playerId) {
+    throw new DispatcherError(
+      `${action.playerId} cannot block attacker ${action.attackerId} — it attacks ${attackerEntry.defender} (CR 509.1a)`,
+      "CROSS_SEAT_BLOCK",
+    );
+  }
 
   const withCombat = ensureCombat(state);
   const blockerEntry = {
