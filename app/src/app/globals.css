@@ -11,47 +11,60 @@
    - One primary action per surface.
    ============================================================ */
 :root {
-  /* ---- LEYLINE core -------------------------------------- */
+  /* ---- LEYLINE core (v5.3 "aura" — 2026-07-11) ------------ */
+  /* Near-pure-black void; panes are black glass; THE GREEN LIVES
+     AT THE EDGES as an aura glow, not in the fills. Locked with
+     Colton against the Sim Center mock (artifact 8340a1d2). */
 
-  /* surface ramp (true black → layered green-greys) */
-  --ley-bg: #050705;
-  --ley-surface-0: #0a0d0a;
-  --ley-surface-1: #0f130f;
-  --ley-surface-2: #141a14;
-  --ley-surface-3: #1a221a;
-  --ley-surface-4: #212a21;
+  /* surface ramp (void → layered near-black greens) */
+  --ley-bg: #010202;
+  --ley-surface-0: #030604;
+  --ley-surface-1: #050a07;
+  --ley-surface-2: #081009;
+  --ley-surface-3: #0b150d;
+  --ley-surface-4: #101c12;
 
   /* hairlines + edges */
-  --ley-line: rgba(140, 255, 150, 0.1);
-  --ley-line-bright: rgba(88, 214, 95, 0.28);
-  --ley-line-faint: rgba(140, 255, 150, 0.05);
+  --ley-line: rgba(167, 243, 208, 0.12);
+  --ley-line-bright: rgba(57, 245, 126, 0.34);
+  --ley-line-faint: rgba(167, 243, 208, 0.05);
 
-  /* the green ramp */
-  --ley-green: #56d65d; /* phosphor — the system accent */
-  --ley-green-bright: #74ff86; /* hot: live/active highlights */
-  --ley-green-deep: #2e9a3f; /* pressed / gradients */
-  --ley-green-dim: rgba(86, 214, 93, 0.12); /* tints, active fills */
-  --ley-green-faint: rgba(86, 214, 93, 0.06); /* hover washes */
-  --ley-green-glow: rgba(86, 214, 93, 0.35); /* glow shadows */
-  --ley-green-text: #a3e7aa; /* muted green copy */
+  /* the green ramp (v5.1: two clicks more electric) */
+  --ley-green: #39f57e; /* phosphor — the system accent */
+  --ley-green-bright: #6dffa1; /* hot: live/active highlights */
+  --ley-green-deep: #21b45f; /* pressed / gradients */
+  --ley-green-dim: rgba(57, 245, 126, 0.14); /* tints, active fills */
+  --ley-green-faint: rgba(57, 245, 126, 0.06); /* hover washes */
+  --ley-green-glow: rgba(57, 245, 126, 0.35); /* glow shadows */
+  --ley-green-text: #a7f3d0; /* mint — numerals + muted green copy */
 
-  /* text */
-  --ley-text: #e6f0e6;
-  --ley-text-dim: #a8bfaa;
-  --ley-text-faint: #6d826f;
-  --ley-on-green: #05130a; /* text on filled green */
+  /* text (all pairs AA+ on the surface ramp — measured) */
+  --ley-text: #eaf7f0;
+  --ley-text-dim: #8fb29d;
+  --ley-text-faint: #74977f;
+  --ley-on-green: #03140a; /* text on filled green */
 
   /* status */
-  --ley-gold: #f2c659; /* warning / spark */
-  --ley-gold-dim: rgba(242, 198, 89, 0.12);
-  --ley-red: #ff7a6e; /* danger */
-  --ley-red-dim: rgba(255, 122, 110, 0.12);
+  --ley-gold: #f5b04b; /* warning / stale / spark */
+  --ley-gold-dim: rgba(245, 176, 75, 0.12);
+  --ley-red: #f87171; /* danger */
+  --ley-red-dim: rgba(248, 113, 113, 0.12);
   --ley-blue: #6ab8ff; /* info */
 
-  /* glass recipe */
-  --ley-glass: rgba(10, 14, 10, 0.7);
-  --ley-glass-strong: rgba(8, 11, 8, 0.88);
-  --ley-blur: 14px;
+  /* glass recipe — black pane + green aura (see .ley-glass) */
+  --ley-glass: rgba(2, 6, 4, 0.72);
+  --ley-glass-strong: rgba(1, 4, 2, 0.9);
+  --ley-blur: 18px;
+
+  /* the aura — green lives here now, not in fills */
+  --ley-aura:
+    0 0 0 1px rgba(57, 245, 126, 0.14),
+    0 0 22px rgba(57, 245, 126, 0.13),
+    0 0 70px rgba(57, 245, 126, 0.06);
+  --ley-aura-soft:
+    0 0 14px rgba(57, 245, 126, 0.1),
+    0 0 2px rgba(57, 245, 126, 0.2);
+  --ley-top-edge: inset 0 1px 0 rgba(214, 255, 236, 0.12);
 
   /* radius scale */
   --r-sm: 6px;
@@ -64,6 +77,12 @@
   --t-fast: 100ms;
   --t-snap: 160ms;
   --ease-snap: cubic-bezier(0.2, 0.9, 0.3, 1);
+  /* the spring — magnetic elements (nav lens, segmented toggles) */
+  --spring: linear(
+    0, 0.008 1.1%, 0.031 2.2%, 0.129 4.8%, 0.257 7.2%, 0.671 14.2%,
+    0.789 16.5%, 0.881 18.6%, 0.957 20.7%, 1.019 22.9%, 1.063 25.1%,
+    1.094 27.4%, 1.114 30.7%, 1.112 34.5%, 1.018 49.9%, 0.99 59.1%, 1
+  );
 
   /* fonts (fallbacks if next/font hasn't loaded) */
   --font-display: "Segoe UI", system-ui, sans-serif;
@@ -115,11 +134,11 @@ select {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(88, 214, 95, 0.16);
+  background: rgba(57, 245, 126, 0.16);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(88, 214, 95, 0.34);
+  background: rgba(57, 245, 126, 0.34);
 }
 
 /* ============================================================
@@ -167,19 +186,22 @@ select {
   cursor: not-allowed;
 }
 
+/* v5.3: gel finish — bottom inner light makes the fill read as liquid */
 .btn-primary {
   background: linear-gradient(180deg, var(--ley-green) 0%, var(--ley-green-deep) 100%);
   border-color: var(--ley-green-bright);
   color: var(--ley-on-green);
   box-shadow:
-    0 0 14px var(--ley-green-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    0 0 16px var(--ley-green-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -7px 12px -6px rgba(255, 255, 255, 0.35);
 }
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(180deg, var(--ley-green-bright) 0%, var(--ley-green) 100%);
   box-shadow:
-    0 0 22px var(--ley-green-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 0 24px var(--ley-green-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -7px 12px -6px rgba(255, 255, 255, 0.4);
 }
 
 .btn-secondary {
@@ -262,23 +284,38 @@ select {
 /* ============================================================
    GLASS PANELS + INTERACTION UTILITIES
    ============================================================ */
+/* v5.3 aura recipe: black pane, whisper of green in the fill,
+   the green itself rings the edge as a soft aura + lit top edge. */
 .ley-glass {
-  background: var(--ley-glass);
-  backdrop-filter: blur(var(--ley-blur)) saturate(1.15);
-  border: 1px solid var(--ley-line);
+  background:
+    linear-gradient(155deg, rgba(57, 245, 126, 0.045), transparent 45%),
+    var(--ley-glass);
+  backdrop-filter: blur(var(--ley-blur)) saturate(1.4);
+  border: 1px solid rgba(57, 245, 126, 0.2);
   border-radius: var(--r-lg);
+  box-shadow:
+    var(--ley-aura-soft),
+    var(--ley-top-edge),
+    inset 0 0 22px rgba(57, 245, 126, 0.04);
 }
 .ley-glass-strong {
-  background: var(--ley-glass-strong);
-  backdrop-filter: blur(var(--ley-blur)) saturate(1.15);
-  border: 1px solid var(--ley-line);
+  background:
+    linear-gradient(155deg, rgba(57, 245, 126, 0.035), transparent 45%),
+    var(--ley-glass-strong);
+  backdrop-filter: blur(var(--ley-blur)) saturate(1.4);
+  border: 1px solid rgba(57, 245, 126, 0.2);
   border-radius: var(--r-lg);
+  box-shadow:
+    var(--ley-aura),
+    var(--ley-top-edge),
+    inset 0 0 24px rgba(57, 245, 126, 0.04);
 }
 /* luminous top edge for elevated glass (modals, sheets) */
 .ley-glass-lit {
   box-shadow:
-    inset 0 1px 0 rgba(140, 255, 150, 0.14),
-    0 18px 50px -20px rgba(0, 0, 0, 0.8);
+    var(--ley-aura),
+    inset 0 1px 0 rgba(214, 255, 236, 0.16),
+    0 18px 50px -20px rgba(0, 0, 0, 0.85);
 }
 
 /* interactive row: quiet until hovered, green edge on hover */
@@ -316,7 +353,8 @@ select {
 .ley-card:hover {
   border-color: var(--ley-line-bright) !important;
   box-shadow:
-    0 0 0 1px rgba(88, 214, 95, 0.15),
+    0 0 0 1px rgba(57, 245, 126, 0.16),
+    0 0 18px rgba(57, 245, 126, 0.14),
     0 6px 20px -10px var(--ley-green-glow);
 }
 
