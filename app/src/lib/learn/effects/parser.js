@@ -239,6 +239,9 @@ function rewriteAmountX(clause) {
   // "-1/-1" so the numeric pump clause parses, and reports xSign:-1 so the caller stamps amountXNeg — the
   // resolver then applies -X/-X (both pips = -ctx.xValue) and the lethal SBA drops a creature to <=0 toughness.
   const pumpSymNeg = /(\bgets\s+)-X\/-X\b/i;
+  // DOUBLED NEGATIVE X-pump (Nuclear Fallout — SHELF S7): "gets twice -X/-X" — both pips subtract 2·X.
+  // Rewrites to the same "-1/-1" sentinel; xTimes:2 rides out so the caller stamps amountXTimes.
+  const pumpSymNegTwice = /(\bgets\s+)twice -X\/-X\b/i;
   // ASYMMETRIC X-pump (X-PUMP-ASYM): ONE pip is +X, the other a printed value — "+X/+0" / "+X/+2"
   // (slot "p") and "+0/+X" / "+2/+X" (slot "t"). The non-X pip MUST be a digit (so these can never
   // match the symmetric +X/+X handled above). The caller carries the printed ptDelta + amountXSlot so
@@ -248,6 +251,7 @@ function rewriteAmountX(clause) {
   if (damage.test(clause)) return { clause: clause.replace(damage, (_, a, b) => `${a}1${b}`), xSlot: null };
   if (draw.test(clause)) return { clause: clause.replace(draw, (_, a, b) => `${a}1${b}`), xSlot: null };
   if (pumpSym.test(clause)) return { clause: clause.replace(pumpSym, (_, a) => `${a}+1/+1`), xSlot: null };
+  if (pumpSymNegTwice.test(clause)) return { clause: clause.replace(pumpSymNegTwice, (_, a) => `${a}-1/-1`), xSlot: null, xSign: -1, xTimes: 2 };
   if (pumpSymNeg.test(clause)) return { clause: clause.replace(pumpSymNeg, (_, a) => `${a}-1/-1`), xSlot: null, xSign: -1 };
   if (pumpXP.test(clause)) return { clause: clause.replace(pumpXP, (_, a, b) => `${a}1${b}`), xSlot: "p" };
   if (pumpXT.test(clause)) return { clause: clause.replace(pumpXT, (_, a) => `${a}1`), xSlot: "t" };
@@ -852,6 +856,8 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       // NEGATIVE symmetric X-pump ("-X/-X", Grim Hireling) — the sentinel parsed to a -1/-1 pump; mark the atom
       // so applyPumpEffect subtracts ctx.xValue on BOTH pips (a debuff, lethal-SBA-checked) instead of adding it.
       if (rw.xSign === -1 && base.op === "pump") atom.amountXNeg = true;
+      // MULTIPLIED X-pump ("twice -X/-X", Nuclear Fallout) — both pips scale by N·X in applyPumpEffect.
+      if (rw.xTimes && base.op === "pump") atom.amountXTimes = rw.xTimes;
       return atom;
     }
   }

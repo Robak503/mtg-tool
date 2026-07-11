@@ -282,7 +282,7 @@ export function gainEnergyClauseParser(clause) {
  * cdmgPayoffClauseParser below (seam batch S2 — the whole CDMG-PLAYER-PAYOFF family lifted together; disjoint
  * they/that-player anchors, so the two parsers can never both match a clause). Pure; SMALL_NUM leaf map.
  */
-export function radClauseParser(clause) {
+export function radClauseParser(clause, ctx) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   // ===== HALF-X (CR 107.3) ===== "you get half X rad counters, rounded up/down" — the count is HALF the cast
   // {X} with CR-correct rounding (Contaminated Drink: "Draw X cards, then you get half X rad counters, rounded
@@ -294,6 +294,12 @@ export function radClauseParser(clause) {
   if (radHalfXM) return { op: "rad", amountX: true, halve: radHalfXM[1] === "up" ? "ceil" : "floor", who: "controller", targetType: null };
   const radEachM = t.match(/^each (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radEachM) return { op: "rad", amount: SMALL_NUM[radEachM[2]] ?? parseInt(radEachM[2], 10), who: radEachM[1] === "opponent" ? "eachOpponent" : "eachPlayer", targetType: null };
+  // ===== EACH-PLAYER X (Nuclear Fallout — SHELF S7) ===== "each player/opponent gets X rad counters" —
+  // the cast {X} (amountX → applyRad's resolveScaledAmount reads ctx.xValue). GATED on ctx.hasX: an X
+  // clause on a card with no {X} in its cost has no binder (ctx.xValue would read 0 — a silent no-op
+  // where the card means SOMETHING) → unmatched → LOW → Arbiter (CREED, the rewriteAmountX discipline).
+  const radEachXM = ctx?.hasX ? t.match(/^each (player|opponent) gets x rad counters?$/) : null;
+  if (radEachXM) return { op: "rad", amountX: true, who: radEachXM[1] === "opponent" ? "eachOpponent" : "eachPlayer", targetType: null };
   // "[you ]get N rad counters" — the SUBJECTLESS form is what parseClauseToAtom's α2 peel produces from
   // "you may get N rad counters" (Tato Farmer's landfall — the peel takes the subject with the "may").
   // A subjectless "get" can only arrive post-peel of a "you may" (the printed idiom is always "you/they

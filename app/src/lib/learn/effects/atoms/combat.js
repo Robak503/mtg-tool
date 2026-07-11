@@ -169,7 +169,8 @@ export function applyPumpEffect(state, atom, ctx) {
   // +X for an ASYMMETRIC X-pump ("+X/+0" → slot "p", "+0/+X" → slot "t"); the OTHER stat reads its
   // printed ptDelta. An absent slot = symmetric +X/+X (both stats = X) — the original behavior.
   // amountXNeg → a NEGATIVE symmetric X-pump ("-X/-X", Grim Hireling's sac-X debuff): both pips subtract X.
-  const xSigned = atom.amountXNeg ? -x : x;
+  // amountXTimes → a MULTIPLIED X-pump ("twice -X/-X", Nuclear Fallout — SHELF S7): both pips scale by N·X.
+  const xSigned = (atom.amountXNeg ? -x : x) * (atom.amountXTimes || 1);
   const xP = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "p");
   const xT = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "t");
   // COUNT-SCALED SLOT (Magma Sliver's granted "+X/+0 … where X is the number of Slivers on the battlefield"):
