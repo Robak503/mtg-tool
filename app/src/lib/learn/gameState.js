@@ -972,7 +972,15 @@ export function untapOrConsumeStun(p) {
 }
 
 export function untapPermanent(state, permanentId) {
-  return updatePermanent(state, permanentId, p => untapOrConsumeStun(p));
+  // BECOMES-UNTAPPED event (Mesmeric Orb): record the transition ONLY when the permanent was TAPPED and no
+  // stun counter replaces the untap (untapOrConsumeStun keeps it tapped in that case — it never "became"
+  // untapped). Recorded, not fired (gameState can't import triggers — the pendingLeaveEvents pattern);
+  // triggers.checkUntapTriggers drains the queue at the engine/atom fire sites.
+  const lk = findPermanent(state, permanentId);
+  const transitions = !!lk?.permanent?.tapped && !((lk.permanent.counters?.stun || 0) > 0);
+  const next = updatePermanent(state, permanentId, p => untapOrConsumeStun(p));
+  if (!transitions) return next;
+  return { ...next, pendingUntapEvents: [...(next.pendingUntapEvents || []), { id: permanentId, controller: lk.controller }] };
 }
 
 // ── REGEN (CR 701.15) — regeneration shields ──────────────────────────────────────────────────────────────
@@ -1081,7 +1089,15 @@ export function consumeShieldCounter(state, permanentId) {
  */
 export function untapAll(state, { playerId }) {
   assertPlayer(playerId);
-  return withPlayer(state, playerId, player => ({
+  // BECOMES-UNTAPPED events (Mesmeric Orb — CR 613.10a-style look-back list): record every permanent that
+  // actually TRANSITIONS tapped→untapped this step (the doesNotUntapNext / stun skips below stay tapped and
+  // must NOT fire; an already-untapped permanent doesn't "become" untapped). gameState can't import
+  // triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
+  // pendingLeaveEvents pattern exactly). Computed BEFORE the map so the skip conditions are read unmutated.
+  const becameUntapped = (state.players[playerId]?.battlefield || [])
+    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0))
+    .map((p) => ({ id: p.id, controller: playerId }));
+  const untapped = withPlayer(state, playerId, player => ({
     ...player,
     battlefield: player.battlefield.map(p => {
       // NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): a
@@ -1110,6 +1126,8 @@ export function untapAll(state, { playerId }) {
       };
     }),
   }));
+  if (!becameUntapped.length) return untapped;
+  return { ...untapped, pendingUntapEvents: [...(untapped.pendingUntapEvents || []), ...becameUntapped] };
 }
 
 export function addCounter(state, { permanentId, type, amount = 1 }) {

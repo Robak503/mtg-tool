@@ -47,7 +47,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -270,6 +270,10 @@ export function runStepActions(state) {
       // watcher-controller's green/blue CREATURES (layer-aware color+type), not all permanents. A no-op
       // when no Murkfiend-style watcher is on any non-active player's board (murkfiendUntap.js).
       next = applyMurkfiendUntap(next, state.activePlayer);
+      // BECOMES-UNTAPPED triggers (Mesmeric Orb — CR 502.4): drain the untap events recorded by untapAll +
+      // the Seedborn/Murkfiend hooks into pending triggers HERE; they naturally wait for the upkeep's
+      // priority to go on the stack (no priority exists during the untap step — CR-correct).
+      next = checkUntapTriggers(next);
       next = logEvent(next, { kind: "step", phase: "beginning", step: "untap", player: state.activePlayer });
       break;
 

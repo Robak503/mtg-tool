@@ -6,7 +6,7 @@
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe } from "../../gameState.js";
-import { checkDiesTriggers } from "../../triggers.js";
+import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
@@ -83,6 +83,7 @@ export function applyTapEffect(state, atom, ctx, tap) {
       next = addCounter(next, { permanentId: t.id, type: "stun", amount: atom.stunCounter });
     }
   }
+  if (!tap) next = checkUntapTriggers(next); // BECOMES-UNTAPPED (Mesmeric Orb): drain the recorded transitions
   return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: list.map(t => t.id) });
 }
 
@@ -121,6 +122,7 @@ export function applyUntapLands(state, atom, ctx) {
   }
   let next = state;
   for (const id of ids) next = untapPermanent(next, id);
+  next = checkUntapTriggers(next); // BECOMES-UNTAPPED (Mesmeric Orb): drain the recorded transitions
   return logEvent(next, { kind: "spell-effect", effect: "untap", targets: ids });
 }
 
@@ -229,7 +231,10 @@ export function applyPumpEffect(state, atom, ctx) {
     // PUMP-UNTAP — a combat trick that also untaps its target ("…until end of turn. Untap it." — Vines of
     // the Recluse, Acrobatic Leap, ambush tricks). The untap is part of the SAME single-target atom (no
     // second target), so it lands on the pumped creature; a one-shot untap, not a continuous effect.
-    if (atom.untap) next = untapPermanent(next, target.id);
+    if (atom.untap) {
+      next = untapPermanent(next, target.id);
+      next = checkUntapTriggers(next); // BECOMES-UNTAPPED (Mesmeric Orb): drain the recorded transition
+    }
   }
   // A negative pump (-X/-Y, e.g. Disfigure / Last Gasp / Dismember) can drop a
   // creature's DERIVED toughness to <= 0 — run the lethal SBA so it dies at

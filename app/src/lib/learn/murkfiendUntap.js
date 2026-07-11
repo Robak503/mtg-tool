@@ -75,6 +75,7 @@ export function applyMurkfiendUntap(state, activePlayer) {
     const hasWatcher = player.battlefield.some((perm) => isMurkfiendUntap(perm.card));
     if (!hasWatcher) continue;
     let changed = false;
+    const becameUntapped = []; // BECOMES-UNTAPPED events (Mesmeric Orb) — real tapped→untapped transitions only
     const untapped = player.battlefield.map((p) => {
       if (!p.tapped) return p;
       // Layer-aware green/blue creature check — the SAME derived characteristics the anthems on this card
@@ -83,10 +84,12 @@ export function applyMurkfiendUntap(state, activePlayer) {
       const cols = permanentColors(next, p.id) || [];
       if (!cols.includes("G") && !cols.includes("U")) return p;
       changed = true;
+      if (!((p.counters?.stun || 0) > 0)) becameUntapped.push({ id: p.id, controller: pid }); // a stun-consume stays tapped
       return untapOrConsumeStun(p); // STUN (CR 122.1c): a stunned creature consumes a stun counter here instead of untapping
     });
     if (!changed) continue;
     next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], battlefield: untapped } } };
+    if (becameUntapped.length) next = { ...next, pendingUntapEvents: [...(next.pendingUntapEvents || []), ...becameUntapped] };
     next = logEvent(next, { kind: "murkfiend-untap", controller: pid, duringUntapOf: activePlayer });
   }
   return next;

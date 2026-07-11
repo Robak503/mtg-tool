@@ -62,8 +62,14 @@ export function applySeedbornUntap(state, activePlayer) {
     if (!player?.battlefield?.length) continue;
     const hasWatcher = player.battlefield.some((perm) => isSeedbornUntap(perm.card));
     if (!hasWatcher) continue;
+    // BECOMES-UNTAPPED events (Mesmeric Orb + Seedborn = the classic mill engine): record every real
+    // tapped→untapped transition (a stun-consume stays tapped and never fires), the untapAll pattern.
+    const becameUntapped = player.battlefield
+      .filter((p) => p.tapped && !((p.counters?.stun || 0) > 0))
+      .map((p) => ({ id: p.id, controller: pid }));
     const untapped = player.battlefield.map((p) => (p.tapped ? untapOrConsumeStun(p) : p)); // STUN (CR 122.1c): a stunned permanent consumes a stun counter here instead of untapping
     next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], battlefield: untapped } } };
+    if (becameUntapped.length) next = { ...next, pendingUntapEvents: [...(next.pendingUntapEvents || []), ...becameUntapped] };
     next = logEvent(next, { kind: "seedborn-untap", controller: pid, duringUntapOf: activePlayer });
   }
   return next;

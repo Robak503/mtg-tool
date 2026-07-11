@@ -775,6 +775,13 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (filter) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: filter };
     }
   }
+  // BECOMES-UNTAPPED (Mesmeric Orb — SHELF S6): "a permanent becomes untapped". ANY player's permanent,
+  // fired per transition by checkUntapTriggers off the gameState pendingUntapEvents queue (tapped→untapped
+  // only; a stun/no-untap skip never fires). The bare form only — a filtered subject ("a Forest", "a
+  // permanent you control") stays undetected → Arbiter (never a mis-scoped fire).
+  if (/^a permanent becomes untapped$/.test(c)) {
+    return { event: "untapped", scope: "anyPermanent", whose: "any" };
+  }
   // LANDFALL (CR 603 — landfall is an ability word, CR 207.2c, for a TRIGGERED ability; NOT a replacement
   // effect, so not CR 614) — "Landfall — Whenever a land you control enters" /
   // "… a land enters the battlefield under your control" (Tatyova, Lotus Cobra, Rampaging Baloths, Jaddi
@@ -2536,6 +2543,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // source's controller. A nontoken entry never matches (no over-fire); an opponent's token never matches.
       return !!triggeringPermanent && !!triggeringPermanent.card?.token
         && triggeringPermanent.controller === sourcePermanent.controller;
+    case "anyPermanent":
+      // BECOMES-UNTAPPED (Mesmeric Orb) — ANY permanent's transition fires the watcher; the triggering
+      // permanent is the one that untapped (checkUntapTriggers threads it). No controller/type gate — the
+      // printed subject is the bare "a permanent".
+      return !!triggeringPermanent;
     case "selfOrAnotherYouControl":
       // SELF-OR-ANOTHER dies (The Ghoul "The Ghoul or another nontoken Zombie or Mutant you control dies";
       // the Zulaport class "this creature or another creature you control dies"). The SELF half is
@@ -3852,6 +3864,36 @@ export function checkLifeLossTriggers(state, { playerId, amount } = {}) {
 // Register at module load: gameState (a leaf) exposes the seam; every runtime path loads triggers.js
 // (via the engine), so the watcher is live wherever games actually run.
 registerLifeLossWatcher(checkLifeLossTriggers);
+
+/**
+ * BECOMES-UNTAPPED triggers (Mesmeric Orb — SHELF S6): drain `state.pendingUntapEvents` (recorded by
+ * gameState.untapAll / untapPermanent for every real tapped→untapped transition — the pendingLeaveEvents
+ * pattern) and fire each event's watchers ("Whenever a permanent becomes untapped, …"). The untapped
+ * permanent is threaded as triggeringPermanent (still on the battlefield) with ctx.untappedControllerId for
+ * the "that permanent's controller" payoff referent. ALWAYS clears the queue (idempotent — a second call
+ * sees an empty list). Fired by gameEngine after the untap step and by the untap atoms after their
+ * untapPermanent calls. A board with no untapped-watcher exits after the (cheap) descriptor scan.
+ */
+export function checkUntapTriggers(state) {
+  const events = state.pendingUntapEvents || [];
+  if (!events.length) return state;
+  const { pendingUntapEvents: _drop, ...cleared } = state;
+  let fired = [];
+  for (const ev of events) {
+    const lk = findPermanent(cleared, ev.id);
+    const trig = lk ? { id: ev.id, controller: lk.controller, card: lk.permanent.card } : { id: ev.id, controller: ev.controller, card: null };
+    for (const pid of Object.keys(cleared.players)) {
+      for (const watcher of triggerSourcesOf(cleared, pid)) {
+        fired = fired.concat(triggersForEvent(cleared, {
+          event: "untapped", sourcePermanent: watcher, triggeringPermanent: trig,
+          triggeringContext: { untappedControllerId: ev.controller },
+        }));
+      }
+    }
+  }
+  if (!fired.length) return cleared;
+  return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
 
 export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {}) {
   const cards = Array.isArray(milledCards) ? milledCards : [];

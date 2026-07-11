@@ -70,6 +70,9 @@ export function combatDamageReferentSatisfied(program, event) {
     if ((a?.who === "lifeLostPlayer" || a?.countContext === "lifeLostAmount") && event !== "lifeLost") return false;
     // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
     if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
+    // UNTAPPED-CONTROLLER (Mesmeric Orb, SHELF S6): the mill's referent is the just-untapped permanent's
+    // controller — set ONLY by checkUntapTriggers' untapped event.
+    if (a?.who === "untappedController" && event !== "untapped") return false;
   }
   return true;
 }

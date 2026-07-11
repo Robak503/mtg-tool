@@ -11,7 +11,7 @@ import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
 // atoms barrel must NOT import effects/parser.js — that's the TDZ hazard; triggers.js is fine).
-import { checkMilledTriggers } from "../../triggers.js";
+import { checkMilledTriggers, checkUntapTriggers } from "../../triggers.js";
 import { millMultiplier } from "../../replacementEffects.js"; // MILL-DOUBLER (Bruvac, SHELF M2) — leaf, cycle-free
 // GENESIS-WAVE — the mass reveal-top-X → put-permanents-onto-battlefield atom reuses the shared
 // enterCardFromZone helper (fires ETB / landfall / permanent-enters exactly like reanimation + library ramp),
@@ -487,6 +487,7 @@ export function applyAnimistAwakening(state, atom, ctx) {
   const spellMastery = isCount >= 2;
   if (spellMastery) {
     for (const permId of enteredLandPermIds) next = untapPermanent(next, permId);
+    next = checkUntapTriggers(next); // BECOMES-UNTAPPED (Mesmeric Orb): drain the events these untaps recorded
   }
   return logEvent(next, { kind: "spell-effect", effect: "animist-awakening", controller, x, lands: enteredLandPermIds.length, bottomed: restIds.length, spellMastery });
 }
@@ -681,6 +682,11 @@ export function applyMill(state, atom, ctx) {
     // non-combat trigger, a player who left the game) → mill nobody (a clean no-op, never a fabrication —
     // mirrors the rad damagedPlayer resolver's guard).
     const pid = ctx.damagedPlayerId;
+    if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
+  } else if (atom.who === "untappedController") {
+    // BECOMES-UNTAPPED (Mesmeric Orb) — the just-untapped permanent's controller (ctx.untappedControllerId,
+    // threaded by checkUntapTriggers). Absent/eliminated → mill nobody.
+    const pid = ctx.untappedControllerId;
     if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
   } else {
     next = millOnePlayer(next, ctx.controller, amount);
@@ -1257,6 +1263,11 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
+  // BECOMES-UNTAPPED payoff (Mesmeric Orb — "that permanent's controller mills a card"): the referent is
+  // the just-untapped permanent's controller (ctx.untappedControllerId, threaded by checkUntapTriggers).
+  // Gated to the untapped event by combatDamageReferentSatisfied; absent referent → mill nobody.
+  m = t.match(/^that permanent's controller mills (\d+|a|an|one|two|three|four|five) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "untappedController", targetType: null };
   // HALF-LIBRARY targeted mill (Kitsune's Technique — SHELF S7): "target opponent/player mills half their
   // library, rounded up/down". A CHOSEN player target (the cast path enumerates + picks interactively —
   // the old first-legal trigger hazard doesn't arise on a spell, and no trigger prints this form); the
