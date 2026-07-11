@@ -30,14 +30,31 @@
 export const runtime = "nodejs";
 
 import crypto from "node:crypto";
+import { statSync } from "node:fs";
 
 import pkg from "../../../../package.json";
 import { listProfiles } from "../../../lib/server/profiles.js";
+import { appRoot, profilesRegistryPath } from "../../../lib/server/paths.js";
 
 export async function GET() {
   let registryId = null;
   let activeProfile = null;
   let registryError = null;
+  // WORLD IDENTITY (MSIX-virtualization armor, 2026-07-11 — ghost-registry root cause #6):
+  // Windows containerizes MSIX-packaged tooling (Claude Desktop et al) and copy-on-write
+  // virtualizes its %APPDATA% access — a helper process can read/write a PRIVATE MIRROR of
+  // this app's data at the same path and never know it. dataRoot + the registry file's inode
+  // let any outside process prove which world it shares with the server in one comparison:
+  // stat the same path yourself; a different ino means you are in a mirror, not on the disk
+  // this server reads. (scripts/check-data-world.mjs automates the check.)
+  let dataRoot = null;
+  let registryIno = null;
+  try {
+    dataRoot = appRoot();
+    registryIno = String(statSync(profilesRegistryPath()).ino);
+  } catch {
+    // identity extras are best-effort; the readiness gate must never break on them
+  }
   try {
     // listProfiles runs the one-time migration, so even a fresh install reports a
     // real registry identity (the same call path /api/profiles serves the picker from).
@@ -62,6 +79,8 @@ export async function GET() {
       registryId,
       activeProfile,
       registryError,
+      dataRoot,
+      registryIno,
       now: Date.now(),
     },
     {
