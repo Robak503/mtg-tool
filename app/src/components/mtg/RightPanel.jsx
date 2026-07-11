@@ -213,18 +213,18 @@ export default function RightPanel({
                           <button onClick={loadDeckData} disabled={deckDataLoad} className={`btn btn-primary btn-sm${deckDataLoad?" btn-loading":""}`}>{deckDataLoad?"Checking...":"Check Legality"}</button>
                         </div>
                       ):legalIssues.length===0?(
-                        <div style={{padding:"10px 12px",borderRadius:6,background:"rgba(74,155,106,0.1)",border:"1px solid rgba(74,155,106,0.3)",color:"#4a9b6a",fontSize:13}}>
+                        <div style={{padding:"10px 12px",borderRadius:6,background:"var(--ley-green-faint)",border:"1px solid var(--ley-line-bright)",color:"var(--ley-green)",fontSize:13}}>
                           All cards appear Commander legal.
                         </div>
                       ):(
                         <div>
-                          <div style={{padding:"8px 12px",borderRadius:6,background:"rgba(190,50,40,0.1)",border:"1px solid rgba(190,50,40,0.3)",color:"#c84848",fontSize:12,marginBottom:12}}>
+                          <div style={{padding:"8px 12px",borderRadius:6,background:"var(--ley-red-dim)",border:"1px solid rgba(248,113,113,0.4)",color:"var(--ley-red)",fontSize:12,marginBottom:12}}>
                             {legalIssues.length} card{legalIssues.length>1?"s":""} flagged
                           </div>
                           {legalIssues.map((c,i)=>(
                             <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:12,borderBottom:`1px solid ${LINE}`}}>
                               <span style={{color:TEXT}}>{c.name}</span>
-                              <span style={{color:"#c84848",textTransform:"capitalize"}}>{c.status?.replace("_"," ")}</span>
+                              <span style={{color:"var(--ley-red)",textTransform:"capitalize"}}>{c.status?.replace("_"," ")}</span>
                             </div>
                           ))}
                         </div>
@@ -235,18 +235,18 @@ export default function RightPanel({
                           {!commanderArtName?(
                             <div style={{fontSize:12,color:MUTED}}>Set a commander to check color identity.</div>
                           ):colorIssues.length===0?(
-                            <div style={{padding:"10px 12px",borderRadius:6,background:"rgba(74,155,106,0.1)",border:"1px solid rgba(74,155,106,0.3)",color:"#4a9b6a",fontSize:13}}>
+                            <div style={{padding:"10px 12px",borderRadius:6,background:"var(--ley-green-faint)",border:"1px solid var(--ley-line-bright)",color:"var(--ley-green)",fontSize:13}}>
                               Every card fits the commander's color identity.
                             </div>
                           ):(
                             <div>
-                              <div style={{padding:"8px 12px",borderRadius:6,background:"rgba(190,50,40,0.1)",border:"1px solid rgba(190,50,40,0.3)",color:"#c84848",fontSize:12,marginBottom:12}}>
+                              <div style={{padding:"8px 12px",borderRadius:6,background:"var(--ley-red-dim)",border:"1px solid rgba(248,113,113,0.4)",color:"var(--ley-red)",fontSize:12,marginBottom:12}}>
                                 {colorIssues.length} off-color card{colorIssues.length>1?"s":""} (illegal in this deck)
                               </div>
                               {colorIssues.map((c,i)=>(
                                 <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:12,borderBottom:`1px solid ${LINE}`}}>
                                   <span style={{color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"74%"}}>{c.name}</span>
-                                  <span style={{color:"#c84848",flexShrink:0}}>off: {c.offColors.join("")}</span>
+                                  <span style={{color:"var(--ley-red)",flexShrink:0}}>off: {c.offColors.join("")}</span>
                                 </div>
                               ))}
                             </div>

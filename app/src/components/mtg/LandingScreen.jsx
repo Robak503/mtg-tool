@@ -41,7 +41,7 @@ export default function LandingScreen({
             fontSize: 18,
             fontWeight: 700,
             color: "transparent",
-            background: "linear-gradient(180deg,#74ff86 0%,#56d65d 52%,#2e9a3f 100%)",
+            background: "linear-gradient(180deg,var(--ley-green-bright) 0%,var(--ley-green) 52%,var(--ley-green-deep) 100%)",
             WebkitBackgroundClip: "text",
             backgroundClip: "text",
             filter: "drop-shadow(0 0 9px rgba(86,214,93,.40))",

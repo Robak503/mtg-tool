@@ -74,7 +74,7 @@ export default function DeckView({
   const BG = bg;
   const BG3 = bg3;
   const F = fontFamily;
-  // LEYLINE type + accent. GOLD token resolves to the phosphor green (#56d65d).
+  // LEYLINE type + accent. GOLD token resolves to the phosphor green (--ley-green).
   const FD = "var(--font-display), Georgia, 'Palatino Linotype', serif";
   const FM = "var(--font-mono), 'Consolas', monospace";
   const CY = GOLD;
