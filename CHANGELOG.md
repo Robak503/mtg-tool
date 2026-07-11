@@ -10,6 +10,36 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.136.0] - 2026-07-11
+
+### Fixed
+- **Rules-correctness wave (the CR-first remediation project, batches B1-B4).** A whole-engine audit
+  against the Comprehensive Rules closed fifteen confirmed gaps; the headline fixes:
+  - **Blocking is seat-correct in multiplayer** (CR 509.1a): in a 4-player pod, your creatures can no
+    longer block an attacker that isn't attacking you — previously any seat could block any attacker.
+  - **Dying in a 4-player Academy game no longer ends the game** (CR 104.2a): the pod correctly plays
+    on to a real winner instead of instantly declaring an arbitrary opponent "the winner".
+  - **Winning and dying at the same moment is a loss** (CR 104.3f), as the rules require — win-the-game
+    cards no longer save a player who is simultaneously at lethal.
+  - **Responding at instant speed keeps your priority** (CR 117.3c): after you cast a spell in response,
+    you keep the window to act again instead of priority snapping back to the turn player.
+  - **A spell whose every target disappeared now fizzles entirely** (CR 608.2b) — trailing riders like
+    "…you gain 2 life" no longer execute on a fizzled spell.
+- **Sim Center "Games banked" now shows the real number.** The tile read a different (empty) data lane
+  and could show 0 next to a store holding 50,000+ games; it now reads the grind store itself.
+
+### Added
+- **The legend rule** (CR 704.5j — previously unimplemented), a **comprehensive state-based-action
+  sweep** run as the rules' own repeat-until-stable fixpoint (CR 704.3) covering chain-reaction deaths,
+  attachment legality and +1/+1//-1/-1 counter annihilation, **maximum hand size** (CR 514.1 — players
+  now discard to 7 at cleanup; Reliquary Tower-style effects exempt), and correct skipping of the
+  blocker/damage steps on no-attack turns (CR 508.8).
+- **Sagas are natively playable** (CR 714): lore counters at entry and each draw step, chapters firing
+  exactly on their crossed numbers (Doubling Season correctly skips ahead), and the finished Saga
+  sacrificing itself — Vault 12: The Necropolis, History of Benalia, Binding the Old Gods and more play
+  whole; 13 sagas the old metric wrongly counted as "mana sources" are now honestly routed to the
+  Arbiter instead.
+
 ## [0.135.1] - 2026-07-11
 
 ### Fixed
