@@ -452,12 +452,13 @@ function buildPilotRouter(pilots) {
   // to the default autopilot pick (byte-identical for that seat).
   const hasAnyPilot = Object.values(pilots).some((p) => typeof p?.decide === "function");
   const decide = hasAnyPilot
-    ? ({ state, legalActions, seat, features }) => {
+    ? ({ state, legalActions, seat, features, previewFeatures }) => {
         const p = pilots?.[seat];
         if (typeof p?.decide !== "function") return undefined;
         // `features` — the ENGINE-computed featurizeState object (Omnath's eval-net seam, 2026-07-10)
-        // — forwards verbatim so a PLAY-API pilot sees exactly what a runner pilot sees.
-        return p.decide({ state, legalActions, seat, pilot: pilotIdentity(seat), features });
+        // — and `previewFeatures` — the lazy per-action lookahead closure (O1 seam, 2026-07-11) —
+        // forward verbatim so a PLAY-API pilot sees exactly what a runner pilot sees.
+        return p.decide({ state, legalActions, seat, pilot: pilotIdentity(seat), features, previewFeatures });
       }
     : null;
 

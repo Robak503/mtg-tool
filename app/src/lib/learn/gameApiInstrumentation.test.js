@@ -166,6 +166,41 @@ describe("PS-3 — createGame honors the contract-documented pilots option", () 
     expect(featuresSeen).toBe(aiDecides); // features arrive on EVERY decide call
   });
 
+  it("previewFeatures (O1 seam) — a lazy per-action lookahead closure arrives on every decide call; failures return null (fail-closed)", () => {
+    let closurePresent = 0; // decide calls carrying previewFeatures
+    let previewedOk = 0;
+    const nullKinds = new Set(); // action kinds whose preview fail-closed to null
+    let badActionNull = false;
+    const pilots = {
+      ai: {
+        decide: ({ legalActions, features, previewFeatures }) => {
+          if (typeof previewFeatures === "function" && legalActions?.length) {
+            closurePresent += 1;
+            // The preview of a REAL offered action is an engine-computed feature object of the
+            // POST-action state — same shape as `features` (a one-dispatch lookahead).
+            const pv = previewFeatures(legalActions[0]);
+            if (pv && typeof pv === "object" && typeof features === "object") previewedOk += 1;
+            else nullKinds.add(legalActions[0].kind);
+            // A malformed candidate must NEVER throw out of the closure — null, fail-closed.
+            if (previewFeatures({ kind: "no-such-action-kind", playerId: "ai" }) === null) badActionNull = true;
+          }
+          return legalActions?.[0];
+        },
+      },
+    };
+    const session = createGame({
+      userDeck: deck("u"), opponentDeck: deck("a"), difficulty: "expert", mode: "standard", pilots,
+    });
+    const { decision } = nextDecision(session);
+    expect(decision.kind).toBe("game-over");
+    expect(closurePresent).toBeGreaterThan(0);
+    expect(previewedOk).toBeGreaterThan(0); // the dispatchable classes (cast/pass/…) preview cleanly
+    // THE CONTRACT PIN: the ONLY fail-closed class is `pending-choice` (settled by per-kind settlers,
+    // not dispatchAction — the documented known-null class). Any other kind failing = a real gap.
+    expect([...nullKinds].filter((k) => k !== "pending-choice")).toEqual([]);
+    expect(badActionNull).toBe(true);
+  });
+
   it("pilots[seat].decideMulligan runs at game start (mulligan config auto-built)", () => {
     let mullCalls = 0;
     const pilots = {

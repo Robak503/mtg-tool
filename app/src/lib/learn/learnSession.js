@@ -876,10 +876,30 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
   const features = (typeof decide === "function" || typeof recordDecision === "function")
     ? featurizeState(state, seat)
     : null;
+  // PREVIEW-FEATURES (O1 seam, Omnath's eval-net lookahead ask 2026-07-11): a LAZY closure the pilot
+  // may call per candidate action — the engine-computed feature vector of the state AFTER applying
+  // that action (dispatchAction is pure; nothing here mutates the live state). HONEST SEMANTICS: this
+  // is a ONE-DISPATCH preview. A cast lands ON THE STACK un-resolved (the preview sees stack depth,
+  // not the spell's outcome); pass-priority MAY resolve the top object (that IS its real effect);
+  // combat declarations preview the declaration, not the damage. Any dispatch failure returns null —
+  // the caller treats null as a 0-nudge (fail-closed, per the ask). KNOWN-NULL CLASS: `pending-choice`
+  // candidates (tutor picks, discard picks, …) are settled by their per-kind settlers, not
+  // dispatchAction — previewing one always returns null; the cast/attack/block/activate/pass classes
+  // (the decisions the eval net actually nudges) preview cleanly. Cost is caller-controlled: nothing
+  // is computed unless invoked.
+  const previewFeatures = (typeof decide === "function")
+    ? (action) => {
+        try {
+          return featurizeState(dispatchAction(state, action), seat);
+        } catch {
+          return null;
+        }
+      }
+    : null;
   if (typeof decide === "function") {
     let candidate;
     try {
-      candidate = decide({ state, legalActions: offered, seat, pilot, features });
+      candidate = decide({ state, legalActions: offered, seat, pilot, features, previewFeatures });
     } catch (err) {
       // A throwing pilot must never abort a real game — fall back to the default pick.
       if (typeof console !== "undefined" && console.warn) {
