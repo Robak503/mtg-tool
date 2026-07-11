@@ -63,6 +63,7 @@ import { isMurkfiendUntap } from "./murkfiendUntap.js"; // MURKFIEND-UNTAP — r
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
+import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic
 import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
 import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.96) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
@@ -1277,6 +1278,16 @@ export function classifyCard(card) {
     // plays; the unmodeled half routes to the Arbiter at cast). parseAdventureCard is the gate.
     if (parseAdventureCard(card)) return "body-only";
   }
+  // SPLIT CARDS (CR 709) — intercepted here for the same reason as adventure: the combined "Sorcery // Sorcery"
+  // type line would mis-route to spellIsNative on the mashed oracle. classifySplit credits native-spell iff BOTH
+  // halves' effects are modeled; a split card that DIDN'T flip (an unmodeled half, or fuse/aftermath) must NOT
+  // fall into the instant/sorcery branch below (which parses the combined oracle) — it's an instant/sorcery
+  // whose whole cast routes to the Arbiter → arbiter-spell. parseSplitCard is the gate.
+  {
+    const splitTier = classifySplit(card);
+    if (splitTier) return splitTier;
+    if (parseSplitCard(card)) return "arbiter-spell";
+  }
   if (/\bland\b/.test(type)) return "land";
   // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
   // enters as its front at runtime; its transform + back face are unmodeled, so it's NEVER native.
@@ -2295,6 +2306,26 @@ function classifyAdventure(card) {
   if (!isNativeTier(classifyCard(creature))) return null;         // the creature half's body/abilities must be modeled
   if (!spellIsNative(adventure)) return null;                     // the adventure half's spell effect must be modeled
   return "native-mixed";                                          // both halves modeled — the engine plays the whole card
+}
+
+// SPLIT CARDS (CR 709) — Find // Finality, Flesh // Blood, the 58-card plain-split class. Like classifyAdventure
+// this MUST be intercepted at the TOP of classifyCard (before the instant/sorcery branch): a split card's
+// COMBINED type line is "Sorcery // Sorcery", so `/\b(instant|sorcery)\b/.test(type)` would match and route the
+// whole card to spellIsNative on the COMBINED oracle (both faces' header + text mashed together → LOW →
+// arbiter-spell). The splitCard.js shape module parses the two halves; a split card is native iff spellIsNative
+// holds for BOTH face views (each parses HIGH with no combat-referent atom). All-or-nothing: either half
+// unmodeled → null → the whole card stays an Arbiter spell (a SAFE false-negative, never a dropped half — THE
+// CREED). FUSE + AFTERMATH are parked inside parseSplitCard (an unmodeled cast option / zone). The runtime plays
+// the whole flow: legalChoices.actionsCastSplitFromHand offers BOTH halves' casts, each resolving through the
+// EFFECT_PROGRAM interpreter with the card landing in the graveyard (the dispatcher's faceCard path, reused from
+// adventure — no new dispatch code). Returns "native-spell" (both halves are spells) or null.
+function classifySplit(card) {
+  const parsed = parseSplitCard(card);
+  if (!parsed) return null;
+  const { left, right } = splitFaceViews(parsed);
+  if (!spellIsNative(left)) return null;
+  if (!spellIsNative(right)) return null;
+  return "native-spell";
 }
 
 // ─── KW-ANNIHILATOR (CR 702.86a) — the Eldrazi forced-mass-sacrifice attack keyword ─────────────────────────

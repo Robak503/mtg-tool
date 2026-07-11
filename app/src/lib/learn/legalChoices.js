@@ -69,6 +69,7 @@ import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAb
 import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, parseStaticAbilities } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
+import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -786,6 +787,15 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // zone this builder serves (hand / command / exile / free-cast): a missing offer is a safe FN; the
     // combined-card cast is a false positive.
     if (isAdventureCard(card)) continue;
+
+    // SPLIT CARDS (CR 709): the COMBINED card is never castable as-is — its "{B/G}{B/G} // {4}{B}{G}" cost and
+    // its two-face combined oracle would parse to a malformed cost + LOW program. Each half is cast separately
+    // via actionsCastSplitFromHand, which projects a single face (no "//" in the projected type/mana, so the
+    // face re-enters this builder cleanly). Skipping the combined card is CREED-safe (a missing combined offer
+    // is a safe FN; casting the combined card at a summed/malformed cost is a false positive). Fuse/aftermath
+    // splits (parseSplitCard returns null for them) are NOT skipped here — they stay Arbiter spells whose
+    // combined cast the generic path routes to the Arbiter, unchanged.
+    if (isSplitCard(card)) continue;
 
     // FLASH-CAST-PERMISSION (CR 601.3e): a sorcery-speed card the player has flash permission for (Yeva → a
     // green creature; Vedalken Orrery → any spell) may be cast whenever the player has priority (instant
@@ -2101,6 +2111,34 @@ function actionsCastCreatureFromHand(state, playerId) {
 }
 
 /**
+ * SPLIT CARDS (CR 709.4) — cast EITHER half from hand. Offered ONLY for a plain split card whose BOTH halves
+ * are modeled (classifyCard returns a native tier — the metric's own authority, so runtime and coverage can't
+ * disagree; a split with an unmodeled half is arbiter-spell and is NEVER offered here, so we never silently
+ * drop the unmodeled half — THE CREED). Each half is projected onto its own face-view (same id, that half's
+ * name/type/oracle/mana) and run through the shared cast builder, so cost / X / modal / targets / additional
+ * costs / instant-vs-sorcery timing are enumerated EXACTLY like any instant/sorcery. Each emitted action
+ * carries the projected `faceCard` (the dispatcher resolves that half's program) but NOT `adventureCast`, so
+ * the resolved half's card goes to the GRAVEYARD like a normal spell (CR 709.4 — no exile dance). The real
+ * combined card is spliced out of hand by id, so it can't be double-cast.
+ */
+function actionsCastSplitFromHand(state, playerId) {
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    if (!isSplitCard(card)) continue;
+    if (!isNativeTier(classifyCard(card))) continue;            // CREED: both halves modeled, else never offer
+    const faces = splitFaceCards(card);                         // [left, right] projected face-views (same id)
+    if (!faces) continue;
+    for (const face of faces) {
+      for (const a of castActionsFromZone(state, playerId, [face], "hand", null)) {
+        actions.push({ ...a, faceCard: face });
+      }
+    }
+  }
+  return actions;
+}
+
+/**
  * ADVENTURE step 2 — cast the CREATURE HALF from adventure-exile (CR 715.3e). After the adventure spell
  * resolved, the card sits in exile flagged `_onAdventure`; while it's there the owner may cast the creature
  * half at its OWN mana cost (NOT free — unlike plot/discover). We project the card onto its CREATURE face
@@ -2444,6 +2482,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
+    actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile
