@@ -1,0 +1,24 @@
+<!-- @dsCard group="Foundations" name="The Six Laws" subtitle="Design principles every LEYLINE surface obeys" -->
+<style>
+:root{color-scheme:dark;--ground:#071009;--phos:#4ade80;--mint:#a7f3d0;--teal:#2dd4bf;--ink:#eaf7f0;--mut:#8fb29d;--faint:#587a66;--amber:#f5b04b;
+--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.13),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(74,222,128,.11),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);line-height:1.5;padding:28px}
+h1{font-family:var(--disp);font-size:22px;font-weight:650;letter-spacing:-.01em;margin:0 0 4px}
+.k{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:var(--phos);text-transform:uppercase}
+ol{margin:18px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;max-width:70ch}
+li{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start}
+li .n{font-family:var(--mono);font-size:12px;color:var(--phos);border:1px solid var(--line2);border-radius:8px;width:30px;height:30px;display:grid;place-items:center}
+li b{color:var(--mint);font-weight:600}
+li p{margin:2px 0 0;font-size:13.5px;color:var(--mut)}
+</style>
+<div class="k">LEYLINE · design law</div>
+<h1>The Six Laws</h1>
+<ol>
+  <li><span class="n">1</span><div><b>Glass needs light behind it.</b><p>Every page sits on the aurora ground — soft mint/teal orbs on near-black. Frosted panels are invisible over flat darkness; the blur must have something to chew.</p></div></li>
+  <li><span class="n">2</span><div><b>One accent. Green is the star.</b><p>Phosphor green carries identity; teal is the only sibling (secondary profiles, second data series). Amber and red exist solely as semantic states — warning and stop — never as decoration.</p></div></li>
+  <li><span class="n">3</span><div><b>Peer items dress identically.</b><p>Deck cards, rows, tiles of the same kind share one finish. Data (names, pips, numbers) differentiates; decoration never does. A color difference must MEAN something.</p></div></li>
+  <li><span class="n">4</span><div><b>The page tells on itself.</b><p>Every screen renders its own freshness — server version, registry identity, fetch age. Any mismatch flips the green box amber and disables launch. Stale can render; it cannot pretend.</p></div></li>
+  <li><span class="n">5</span><div><b>Desktop spreads, phone stacks — same parts.</b><p>One component tree, two arrangements: rails around a canvas on desktop; glance-first stack with a fixed thumb dock on phone. Very like, never mirrors.</p></div></li>
+  <li><span class="n">6</span><div><b>Motion is transform and opacity only.</b><p>Stripes slide, sheens sweep, buttons lift — all on the compositor. Never animate blur, layout, or color; respect prefers-reduced-motion always.</p></div></li>
+</ol>

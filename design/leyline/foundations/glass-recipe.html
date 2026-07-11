@@ -1,0 +1,41 @@
+<!-- @dsCard group="Foundations" name="The glass recipe" subtitle="Six layers: aurora · frost · border · top edge · sheen · noise" -->
+<style>
+:root{color-scheme:dark;--ground:#071009;--phos:#4ade80;--mint:#a7f3d0;--ink:#eaf7f0;--mut:#8fb29d;--faint:#587a66;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(620px 340px at 20% -8%,rgba(45,212,191,.16),transparent 55%),radial-gradient(560px 320px at 88% 12%,rgba(74,222,128,.14),transparent 58%),radial-gradient(700px 460px at 55% 115%,rgba(22,101,52,.22),transparent 62%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 4px}
+.k{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:var(--phos);text-transform:uppercase}
+.demo{display:grid;grid-template-columns:300px 1fr;gap:22px;margin-top:18px;align-items:start}
+.glass{position:relative;border-radius:18px;min-height:170px;padding:18px 20px;
+ background:linear-gradient(155deg,rgba(126,206,166,.13),rgba(15,36,26,.48));
+ backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+ border:1px solid rgba(180,240,210,.16);
+ box-shadow:0 18px 44px rgba(0,0,0,.38),inset 0 1px 0 rgba(214,255,236,.13)}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:
+ linear-gradient(90deg,transparent 10%,rgba(214,255,236,.35) 50%,transparent 90%) top/100% 1px no-repeat,
+ linear-gradient(118deg,rgba(224,255,240,.10) 0%,rgba(224,255,240,.02) 28%,transparent 42%)}
+.glass::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.05;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass{background:rgba(13,28,20,.94)}}
+.glass h2{font-family:var(--disp);font-size:15px;font-weight:650;margin:0 0 6px}
+.glass p{margin:0;font-size:12.5px;color:var(--mut)}
+.layers{display:flex;flex-direction:column;gap:8px}
+.layer{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:baseline;font-size:12.5px;color:var(--mut)}
+.layer .n{font-family:var(--mono);font-size:11px;color:var(--phos)}
+.layer b{color:var(--mint);font-weight:600}
+.layer code{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+</style>
+<div class="k">LEYLINE · the frost</div>
+<h1>The glass recipe — six layers</h1>
+<div class="demo">
+  <div class="glass"><h2>Live specimen</h2><p>This panel is the full stack: frost, lit top edge, diagonal sheen, and grain, floating on the aurora ground behind it.</p></div>
+  <div class="layers">
+    <div class="layer"><span class="n">L0</span><div><b>Aurora ground.</b> Mint/teal radial orbs on near-black — the light the blur feeds on. <code>radial-gradient(...rgba(45,212,191,.13)...) on #071009</code></div></div>
+    <div class="layer"><span class="n">L1</span><div><b>Frost.</b> Translucent green-tinted fill + heavy blur with saturation lift. <code>backdrop-filter: blur(18px) saturate(150%)</code></div></div>
+    <div class="layer"><span class="n">L2</span><div><b>Border.</b> One mint hairline, alpha .16 — precise, never neon. <code>border: 1px solid rgba(180,240,210,.16)</code></div></div>
+    <div class="layer"><span class="n">L3</span><div><b>Lit top edge.</b> A 1px gradient line fading at both ends — the light source is above. <code>::before layer 1</code></div></div>
+    <div class="layer"><span class="n">L4</span><div><b>Sheen.</b> Diagonal specular streak, gone by 42%. <code>::before layer 2, 118deg</code></div></div>
+    <div class="layer"><span class="n">L5</span><div><b>Grain.</b> SVG turbulence at 5% kills banding, adds material. <code>::after, feTurbulence data-URI</code></div></div>
+  </div>
+</div>
+<p style="margin-top:16px;font-size:12.5px;color:var(--mut);max-width:70ch">Fallback: <code style="font-family:var(--mono);font-size:11px;color:var(--faint)">@supports not (backdrop-filter…)</code> swaps the frost for solid <code style="font-family:var(--mono);font-size:11px;color:var(--faint)">rgba(13,28,20,.94)</code>. Blur is expensive — glass is for panels, never for every row; and the blur radius itself is never animated.</p>

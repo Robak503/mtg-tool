@@ -1,0 +1,58 @@
+<!-- @dsCard group="Progress & Telemetry" name="Grind telemetry" subtitle="Watch the grind without stopping it — live panel + session tiles + graceful stop" -->
+<style>
+:root{color-scheme:dark;--ground:#071009;--phos:#4ade80;--phos-dim:#2f9d5c;--mint:#a7f3d0;--deep:#166534;--ink:#eaf7f0;--mut:#8fb29d;--faint:#587a66;--red:#f87171;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);--glow:0 0 18px rgba(74,222,128,.16),0 0 2px rgba(74,222,128,.4);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(74,222,128,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 14px}
+.g{position:relative;border-radius:18px;background:linear-gradient(155deg,rgba(126,206,166,.13),rgba(15,36,26,.48));backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);border:1px solid rgba(180,240,210,.16);box-shadow:0 18px 44px rgba(0,0,0,.38),inset 0 1px 0 rgba(214,255,236,.13)}
+.g::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(90deg,transparent 10%,rgba(214,255,236,.35) 50%,transparent 90%) top/100% 1px no-repeat,linear-gradient(118deg,rgba(224,255,240,.10),rgba(224,255,240,.02) 28%,transparent 42%)}
+@supports not ((backdrop-filter:blur(1px))){.g{background:rgba(13,28,20,.94)}}
+.wrap{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
+.ghead{display:flex;align-items:center;gap:10px;padding:13px 17px 0;font-family:var(--disp);font-size:13.5px;font-weight:650}
+.ghead .r{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--phos);font-weight:400}
+.gbody{padding:10px 17px 15px}
+.qrow{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);padding:2.5px 0}
+.qrow b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.gbar{height:6px;border-radius:3px;background:rgba(12,28,19,.9);overflow:hidden;position:relative;margin-top:9px;box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}
+.gbar i{position:absolute;inset:0;width:100%;background:repeating-linear-gradient(90deg,var(--deep) 0 14px,var(--phos-dim) 14px 28px)}
+@media (prefers-reduced-motion: no-preference){.gbar i{animation:slide 1.2s linear infinite}@keyframes slide{to{transform:translateX(28px)}}}
+.btnstop{font-family:var(--disp);font-weight:650;background:rgba(30,12,12,.3);color:var(--red);border:1px solid rgba(248,113,113,.4);border-radius:12px;padding:11px 15px;font-size:12.5px;cursor:pointer;width:100%;margin-top:11px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px 15px 6px}
+.tile{padding:4px 6px}
+.tile .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase}
+.tile .val{font-family:var(--disp);font-size:23px;font-weight:650;color:var(--mint);font-variant-numeric:tabular-nums}
+.tile .val small{font-size:11px;color:var(--phos);font-weight:600}
+.spark{display:block;padding:0 15px 14px;width:calc(100% - 30px)}
+.foot{font-size:12px;color:var(--faint);padding:0 17px 14px}
+p.note{margin:14px 0 0;font-size:12.5px;color:var(--mut);max-width:74ch}
+p.note b{color:var(--mint)}
+</style>
+<h1>Grind telemetry — the watch-without-stopping screen</h1>
+<div class="wrap">
+  <div class="g" style="border-color:rgba(74,222,128,.45)">
+    <div class="ghead">Live Grind<span class="r">● LIVE · 52m</span></div>
+    <div class="gbody">
+      <div class="qrow"><span>game</span><b>218 · turn 24</b></div>
+      <div class="qrow"><span>pod</span><b>Koma·Yuriko·Atraxa·Edgar</b></div>
+      <div class="qrow"><span>throughput</span><b>4.2 g/min</b></div>
+      <div class="qrow"><span>arbiter hits</span><b>3 this game</b></div>
+      <div class="gbar"><i></i></div>
+      <button class="btnstop">■ Stop after this game</button>
+    </div>
+  </div>
+  <div class="g">
+    <div class="ghead">Session<span class="r" style="color:var(--faint)">training rows ON</span></div>
+    <div class="tiles">
+      <div class="tile"><div class="lab">Games</div><div class="val">217</div></div>
+      <div class="tile"><div class="lab">Rows</div><div class="val">14.1<small>K</small></div></div>
+      <div class="tile"><div class="lab">Torn</div><div class="val" style="color:var(--phos)">0</div></div>
+      <div class="tile"><div class="lab">Top W/R</div><div class="val">32<small>%</small></div></div>
+    </div>
+    <svg class="spark" height="44" viewBox="0 0 220 46" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points="0,40 20,36 40,37 60,30 80,31 100,24 120,25 140,17 160,18 180,10 200,11 220,5" fill="none" stroke="#4ade80" stroke-width="2"/>
+      <circle cx="220" cy="5" r="3" fill="#a7f3d0"/>
+    </svg>
+    <div class="foot">Counters tick live off the grind poll; the roster stays browsable behind this — watching never blocks playing.</div>
+  </div>
+</div>
+<p class="note"><b>The contract:</b> the grind is never interrupted to be observed. The live panel polls read-only state; <b>Stop is graceful</b> — it finishes the in-flight game so the log never holds a torn record. On phone, these two panels stack full-width with the stop control pinned in the thumb dock.</p>

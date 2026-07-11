@@ -1,0 +1,48 @@
+<!-- @dsCard group="Components" name="Deck card & row" subtitle="Uniform finish · idle/selected · grid card + list row" -->
+<style>
+:root{color-scheme:dark;--ground:#071009;--phos:#4ade80;--mint:#a7f3d0;--ink:#eaf7f0;--mut:#8fb29d;--faint:#587a66;--deep:#166534;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);--glow:0 0 18px rgba(74,222,128,.16),0 0 2px rgba(74,222,128,.4);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(74,222,128,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
+.cap{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.08em;margin:16px 2px 8px}
+.pips{display:inline-flex;gap:3px;vertical-align:middle}
+.pip{width:9px;height:9px;border-radius:50%;border:1px solid rgba(0,0,0,.35)}
+.pW{background:#f5f1d8}.pU{background:#4aa3e0}.pB{background:#6b5f8f}.pR{background:#e06a4a}.pG{background:#4ade80}
+.cbx{width:16px;height:16px;border:1.5px solid var(--line2);border-radius:5px;display:inline-block;flex:none;background:rgba(8,17,11,.5)}
+.cbx.on{background:var(--phos);border-color:var(--phos);box-shadow:var(--glow);position:relative}
+.cbx.on::after{content:"";position:absolute;inset:3.5px 3.5px 5.5px 3.5px;border:solid #04140a;border-width:0 0 2px 2px;transform:rotate(-45deg)}
+.covbar{height:3px;border-radius:2px;background:rgba(12,28,19,.9);overflow:hidden}
+.covbar i{display:block;height:100%;background:linear-gradient(90deg,var(--deep),var(--phos))}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px;max-width:600px}
+.dcard{position:relative;border:1px solid var(--line);border-radius:14px;background:linear-gradient(155deg,rgba(126,206,166,.09),rgba(12,28,20,.62));backdrop-filter:blur(10px);cursor:pointer;box-shadow:inset 0 1px 0 rgba(214,255,236,.10)}
+.dcard .art{height:56px;border-radius:13px 13px 0 0;background:linear-gradient(130deg,rgba(21,92,57,.55),rgba(13,63,42,.65) 60%,rgba(10,38,26,.7));border-bottom:1px solid var(--line)}
+.dcard.on{border-color:rgba(74,222,128,.55);box-shadow:var(--glow),inset 0 1px 0 rgba(214,255,236,.10)}
+.dcard .prof{position:absolute;top:7px;right:8px;font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--mint);background:rgba(8,17,11,.6);border:1px solid var(--line2);border-radius:5px;padding:2px 6px}
+.dcard .cbx{position:absolute;top:8px;left:8px}
+.dcard .body{padding:9px 11px 11px}
+.dcard .nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dcard .meta{display:flex;justify-content:space-between;align-items:center;margin-top:5px;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+.dcard .covbar{margin-top:8px}
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden;max-width:600px;background:rgba(10,22,15,.35)}
+.lrow{display:grid;grid-template-columns:auto 1fr 84px 60px;gap:12px;align-items:center;padding:9px 13px;border-bottom:1px solid var(--line);font-size:12.5px}
+.lrow:last-child{border-bottom:none}
+.lrow.on{background:rgba(74,222,128,.09);box-shadow:inset 2px 0 0 var(--phos)}
+.lrow .lsub{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.lrow .num{font-family:var(--mono);font-size:11.5px;color:var(--mint);text-align:right;font-variant-numeric:tabular-nums}
+p.note{margin:16px 0 0;font-size:12.5px;color:var(--mut);max-width:70ch}
+p.note b{color:var(--mint)}
+</style>
+<h1>Deck card &amp; row</h1>
+<div class="cap">GRID CARD — idle / selected (uniform finish, law 3)</div>
+<div class="grid">
+  <div class="dcard"><span class="cbx"></span><span class="prof">COLTON</span><div class="art"></div><div class="body"><div class="nm">Omnath, Locus of Mana</div><div class="meta"><span class="pips"><i class="pip pG"></i></span><span>94%</span></div><div class="covbar"><i style="width:94%"></i></div></div></div>
+  <div class="dcard on"><span class="cbx on"></span><span class="prof">COLTON</span><div class="art"></div><div class="body"><div class="nm">Koma, Cosmos Serpent</div><div class="meta"><span class="pips"><i class="pip pU"></i><i class="pip pG"></i></span><span>94%</span></div><div class="covbar"><i style="width:94%"></i></div></div></div>
+  <div class="dcard on"><span class="cbx on"></span><span class="prof">JOE</span><div class="art"></div><div class="body"><div class="nm">Yuriko, Tiger's Shadow</div><div class="meta"><span class="pips"><i class="pip pU"></i><i class="pip pB"></i></span><span>69%</span></div><div class="covbar"><i style="width:69%"></i></div></div></div>
+</div>
+<div class="cap">LIST ROW — the scale gear (desktop List view + the phone default)</div>
+<div class="list">
+  <div class="lrow on"><span class="cbx on"></span><div>Sliver Hivelord <span class="lsub">· Colton</span></div><span class="pips"><i class="pip pW"></i><i class="pip pU"></i><i class="pip pB"></i><i class="pip pR"></i><i class="pip pG"></i></span><span class="num">99%</span></div>
+  <div class="lrow"><span class="cbx"></span><div>The Wise Mothman <span class="lsub">· Joe</span></div><span class="pips"><i class="pip pW"></i><i class="pip pB"></i><i class="pip pG"></i></span><span class="num">83%</span></div>
+  <div class="lrow"><span class="cbx"></span><div>Atraxa, Praetors' Voice <span class="lsub">· Meta</span></div><span class="pips"><i class="pip pW"></i><i class="pip pU"></i><i class="pip pB"></i><i class="pip pG"></i></span><span class="num">64%</span></div>
+</div>
+<p class="note"><b>Uniform by law:</b> every card wears the identical green-glass finish and art tint — no per-deck colors. Identity comes from the name, the color-identity pips, and the profile tag. Selection reads ONLY as the lit checkbox + soft green ring (grid) or the left phosphor rule (list). Real card art, when it lands, replaces the art tint for every card at once.</p>

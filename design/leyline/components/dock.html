@@ -1,0 +1,58 @@
+<!-- @dsCard group="Components" name="Run dock" subtitle="Desktop floating dock · phone thumb dock — idle & grinding" -->
+<style>
+:root{color-scheme:dark;--ground:#071009;--phos:#4ade80;--phos-dim:#2f9d5c;--mint:#a7f3d0;--deep:#166534;--ink:#eaf7f0;--mut:#8fb29d;--faint:#587a66;--red:#f87171;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);--glow:0 0 18px rgba(74,222,128,.16),0 0 2px rgba(74,222,128,.4);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(74,222,128,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
+.cap{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.08em;margin:16px 2px 8px}
+.dock{display:flex;align-items:center;gap:14px;border:1px solid rgba(74,222,128,.24);border-radius:18px;background:linear-gradient(160deg,rgba(18,35,25,.92),rgba(8,15,11,.95));backdrop-filter:blur(14px);padding:12px 18px;box-shadow:0 18px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(214,255,236,.1);max-width:860px}
+.dock .cnt{font-family:var(--mono);font-size:12px;color:var(--mut);white-space:nowrap}
+.dock .cnt b{color:var(--phos)}
+.dock .spacer{flex:1}
+.dock .est{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:11px;overflow:hidden;font-size:12px;background:rgba(12,26,18,.4)}
+.seg span{padding:7px 12px;color:var(--mut)}
+.seg .on{background:rgba(74,222,128,.16);color:var(--phos);font-weight:600}
+.btnrun{font-family:var(--disp);font-weight:650;background:linear-gradient(160deg,#3fd47a,#1f9e53);color:#03140a;border:none;border-radius:11px;padding:11px 22px;font-size:14px;box-shadow:var(--glow);cursor:pointer}
+.btnghost{background:rgba(14,30,21,.42);color:var(--mut);border:1px solid var(--line2);border-radius:11px;padding:10px 15px;font-size:13px;cursor:pointer}
+.gprog{flex:1;display:flex;flex-direction:column;gap:6px;min-width:180px}
+.gbar{height:6px;border-radius:3px;background:rgba(12,28,19,.9);overflow:hidden;position:relative;box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}
+.gbar i{position:absolute;inset:0;width:100%;background:repeating-linear-gradient(90deg,var(--deep) 0 14px,var(--phos-dim) 14px 28px)}
+@media (prefers-reduced-motion: no-preference){.gbar i{animation:slide 1.2s linear infinite}@keyframes slide{to{transform:translateX(28px)}}}
+.gline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+.gline b{color:var(--mint)}
+.btnstop{font-family:var(--disp);font-weight:650;background:rgba(30,12,12,.3);color:var(--red);border:1px solid rgba(248,113,113,.4);border-radius:11px;padding:10px 16px;font-size:12.5px;cursor:pointer}
+.pdock{width:300px;border-radius:18px;padding:11px 13px;display:flex;align-items:center;gap:10px;border:1px solid rgba(74,222,128,.3);background:linear-gradient(160deg,rgba(20,42,29,.92),rgba(9,18,13,.95));backdrop-filter:blur(14px);box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(214,255,236,.1)}
+.pdock .cnt{font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+.pdock .cnt b{color:var(--phos)}
+.pdock .spacer{flex:1}
+.pbtn{font-family:var(--disp);font-weight:650;background:linear-gradient(160deg,#3fd47a,#1f9e53);color:#03140a;border:none;border-radius:11px;padding:10px 18px;font-size:13px;box-shadow:var(--glow)}
+.pbtn.ghost{background:rgba(14,30,21,.6);color:var(--mut);border:1px solid var(--line2);box-shadow:none}
+p.note{margin:16px 0 0;font-size:12.5px;color:var(--mut);max-width:72ch}
+p.note b{color:var(--mint)}
+</style>
+<h1>Run dock</h1>
+<div class="cap">DESKTOP · IDLE — floats bottom-center over the roster; owns every run control</div>
+<div class="dock">
+  <span class="cnt"><b>4 decks</b> · 1 pod</span>
+  <div class="seg"><span class="on">4P</span><span>1v1</span></div>
+  <div class="seg"><span>×1</span><span class="on">×5</span><span>×25</span></div>
+  <span class="spacer"></span>
+  <span class="est">est ~2 min</span>
+  <button class="btnghost">⚙ Grind</button>
+  <button class="btnrun">▶ Run</button>
+</div>
+<div class="cap">DESKTOP · GRINDING — the dock morphs into the live console; no page change</div>
+<div class="dock" style="border-color:rgba(74,222,128,.42)">
+  <div class="gprog">
+    <div class="gbar"><i></i></div>
+    <div class="gline"><span>game <b>218</b> · turn 24 · Koma vs Yuriko vs Atraxa vs Edgar</span><span>4.2 g/min · <b>52m</b></span></div>
+  </div>
+  <button class="btnstop">■ Stop after this game</button>
+</div>
+<div class="cap">PHONE · THUMB DOCK — fixed to the bottom, always in reach</div>
+<div style="display:flex;gap:14px;flex-wrap:wrap">
+  <div class="pdock"><span class="cnt"><b>4</b> selected<br>4P · ×5 · AI</span><span class="spacer"></span><button class="pbtn ghost">⚙</button><button class="pbtn">▶ Run</button></div>
+  <div class="pdock" style="border-color:rgba(248,113,113,.35)"><span class="cnt">grinding <b>52m</b></span><span class="spacer"></span><button class="pbtn ghost" style="color:var(--red);border-color:rgba(248,113,113,.4)">■ Stop after game</button></div>
+</div>
+<p class="note"><b>One dock, three states:</b> idle (configure + launch), grinding (stripe + live line + graceful stop), and disabled (when freshness is amber the Run button greys out). It is the single place launch decisions live on every screen size — nothing else on the page starts or stops the engine.</p>
