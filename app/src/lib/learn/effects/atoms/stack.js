@@ -384,6 +384,9 @@ export function counterClauseParser(clause) {
   // the SAME two-sided discipline as the existing creature/noncreature/3-way filters. Anchored `$` — any tail
   // (rider/mode/unless-pay) fails → low → Arbiter (FN-safe).
   if (/^counter target instant spell$/.test(t)) return { op: "counter", spellFilter: "instant", targetType: "spell" };
+  // CNT-IS union HARD counter (Muddle the Mixture / Spell Stutter class) — the same instantSorcery filter
+  // the Flusterstorm soft form uses, no rider.
+  if (/^counter target instant or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "instantSorcery", targetType: "spell" };
   if (/^counter target sorcery spell$/.test(t)) return { op: "counter", spellFilter: "sorcery", targetType: "spell" };
   if (/^counter target artifact spell$/.test(t)) return { op: "counter", spellFilter: "artifact", targetType: "spell" };
   if (/^counter target artifact or enchantment spell$/.test(t)) return { op: "counter", spellFilter: "artifactOrEnchantment", targetType: "spell" };

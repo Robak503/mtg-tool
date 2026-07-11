@@ -41,7 +41,9 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 // FLASHBACK (CR 702.34, SHELF Phase 2 — Echo of Eons) joins the class: it changes only WHERE the card may be
 // cast from (the graveyard — an option the engine never offers, a safe FN), and its "Then exile it" rider
 // applies ONLY to a flashback cast; the normal hard cast + resolution are byte-identical to the printed body.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
+// TRANSMUTE (CR 702.53, Muddle the Mixture) likewise: a hand-only activated ability (discard this card →
+// tutor same-MV) the engine never offers — the normal cast + resolution are untouched.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the

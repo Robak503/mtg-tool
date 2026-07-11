@@ -61,7 +61,9 @@ describe("CROSS-COUNTER parser — new spell-filters parse HIGH to a counter ato
   });
 
   it("CREED — riddered / alt-cost / modal counters stay LOW → Arbiter (never a confidently-wrong partial)", () => {
-    expect(isHigh("Counter target instant or sorcery spell.")).toBe(false);                 // not a modeled type-union (Quash / Test of Talents)
+    // (The "instant or sorcery" union is MODELED now — SHELF Phase 2, the Muddle/Quash class; see
+    // transmuteStrip.test.js. A 3-type union holds the unmodeled-union guard:)
+    expect(isHigh("Counter target artifact, instant, or sorcery spell.")).toBe(false);      // an unmodeled 3-type union
     expect(isHigh("Counter target instant spell unless its controller pays {1}.")).toBe(false); // soft rider on a type filter (Disrupt-shape)
     expect(isHigh("Counter target spell with mana value 4 or greater unless its controller pays {1}.")).toBe(false); // soft rider on the MV-cmp filter
     // NOTE: "Its controller draws a card" IS now a modeled counter-rider (Dream Fracture, COUNTER-RIDER slice);
@@ -88,7 +90,7 @@ describe("CROSS-COUNTER native coverage — the clean cards flip native-spell, r
     expect(I("Counter target multicolored spell.")).toBe("native-spell");                     // Neutralizing Blast
   });
   it("CREED — counters with an UNMODELED rider/filter in these families stay arbiter-spell", () => {
-    expect(I("Counter target instant or sorcery spell.")).toBe("arbiter-spell");              // Quash (unmodeled type-union)
+    expect(I("Counter target instant or sorcery spell.")).toBe("native-spell");               // Quash-class union — MODELED now (SHELF Phase 2)
     expect(I("Counter target instant spell. Its controller loses 2 life.")).toBe("arbiter-spell"); // controller-rider unmodeled
     expect(I("Counter target blue spell. Its controller discards a card.")).toBe("arbiter-spell"); // controller-rider unmodeled (draw IS modeled — Dream Fracture)
     // NOTE: "Counter target spell with mana value 4 or greater. Draw a card." is correctly native-spell — BOTH
