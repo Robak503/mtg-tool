@@ -436,6 +436,46 @@ pub fn run() {
                     reference_data_dir.exists()
                 );
 
+                // ── UPDATE-SKEW GATE (ghost-registry root cause #5, 2026-07-10) ─────────────────
+                // The NSIS auto-updater has been observed replacing the SHELL exe while leaving the
+                // resources/server payload STALE (months old) — the app then runs ancient server code
+                // under a current version banner, silently resurrecting long-fixed bugs (the recurring
+                // "decks under the wrong profile" sightings). The shell is provably always fresh after
+                // an update, so IT is the trustworthy side: compare our CARGO_PKG_VERSION against the
+                // staged server payload's package.json version. Log the verdict on every launch (the
+                // one-line diagnosis), and on a MISMATCH show an unmissable native warning telling the
+                // user exactly how to repair (run the full installer once). We still launch — a stale
+                // but working app plus a loud warning beats a dead one — but the skew can never be
+                // silent again.
+                // The shell's version comes from tauri.conf.json (package_info), NOT CARGO_PKG_VERSION —
+                // the Rust crate version is static (0.99.0) while the app version is bumped per release.
+                let shell_version = app.package_info().version.to_string();
+                let payload_version = std::fs::read_to_string(staged.join("server").join("package.json"))
+                    .ok()
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                    .and_then(|v| v.get("version").and_then(|x| x.as_str()).map(String::from))
+                    .unwrap_or_else(|| "unreadable".to_string());
+                let skew = payload_version != shell_version;
+                logln!(
+                    "server payload version = {} | shell = {} | {}",
+                    payload_version,
+                    shell_version,
+                    if skew { "STALE — UPDATE DID NOT FULLY APPLY" } else { "match" }
+                );
+                #[cfg(windows)]
+                if skew {
+                    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONWARNING, MB_OK};
+                    let text: Vec<u16> = format!(
+                        "MTG Tool's last auto-update did not fully apply.\n\n\
+                         Shell version: {shell_version}\nServer payload: {payload_version}\n\n\
+                         The app will still run, but with OUTDATED behavior.\n\n\
+                         To repair (1 minute): download and run the latest installer from\n\
+                         github.com/Robak503/mtg-tool/releases — a full install rewrites everything.\0"
+                    ).encode_utf16().collect();
+                    let caption: Vec<u16> = "MTG Tool — update incomplete\0".encode_utf16().collect();
+                    unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), MB_OK | MB_ICONWARNING); }
+                }
+
                 // Always make sure the writable data dir exists so the
                 // server can write user files (decks/chats/feedback/etc).
                 // We DON'T copy the bundled reference data here anymore —
