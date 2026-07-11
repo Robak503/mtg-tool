@@ -10,7 +10,19 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
-## [0.136.0] - 2026-07-11
+## [0.137.0] - 2026-07-11
+
+### Added
+- **Split cards play natively** (CR 709) — Fire // Ice, Dead // Gone, Wax // Wane and the rest of the
+  plain-split class: cast either half from your hand at that half's own cost, with the whole card going to
+  the graveyard. Fuse and Aftermath splits (which have extra casting rules) remain deferred to the Arbiter
+  rather than played half-right.
+- **Flashback cards with a non-mana flashback cost** — Dread Return, Lava Dart, Battle Screech, Deep
+  Analysis and more now play natively when cast from hand (the graveyard flashback re-cast, like other
+  alternate casting options, isn't offered but nothing is lost — the from-hand cast does the whole card).
+
+### Changed
+- Coverage grew by ~19 more cards, all verified against the rules with no regressions.
 
 ### Fixed
 - **Rules-correctness wave (the CR-first remediation project, batches B1-B4).** A whole-engine audit
