@@ -10,6 +10,18 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.134.0] - 2026-07-10
+
+### Fixed
+- **Auto-updates now relaunch the app.** The Windows updater could rewrite the installed files while
+  the open window kept running the old code — you'd see the new version number in the banner but old
+  behavior (including the recurring "decks under the wrong profile" screen, whose data on disk was
+  actually fine). Updates now restart the app the moment they finish installing. One note: the update
+  INTO this version can show the old behavior one last time — just close and reopen the app after it.
+
+### Added
+- Syr Konrad, the Grim and Vulturous Zombie play natively (the new graveyard-event watcher subsystem).
+
 ## [0.133.0] - 2026-07-10
 
 ### Fixed
