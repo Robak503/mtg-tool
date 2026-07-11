@@ -52,7 +52,7 @@
  * (monarch, city's blessing) — each a future increment.
  */
 
-import { creaturePower } from "./gameState.js"; // layer-aware power reader (counters + anthems) — one-way edge, no cycle
+import { creaturePower, creatureToughness } from "./gameState.js"; // layer-aware P/T readers (counters + anthems) — one-way edge, no cycle
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
 const NUM_WORD = {
@@ -317,6 +317,14 @@ const IN_YOUR_GRAVEYARD_RE = /^this creature is in your graveyard$/;
 // (checkEnterTriggers threads enteredPerm), resolved against the controller's battlefield.
 const SAME_NAME_ETB_RE = /^it doesn't have the same name as another creature you control or a creature card in your graveyard$/;
 
+// ===== EVOLVE-COMPARE (KW-EVOLVE, CR 702.100a/d — SHELF S7) ==================================
+// "that creature has greater power or toughness than this creature" — the synthesized evolve trigger's
+// intervening-if: LAYER-AWARE P/T of the ENTERING creature (ctx.triggeringPermanentId) vs the SOURCE
+// (ctx.sourcePermanentId), re-read live at flush AND resolution (CR 702.100d — the comparison uses
+// current values both times). Either permanent gone → null (can't confirm → FN-safe drop, the engine's
+// vanished-referent convention).
+const EVOLVE_COMPARE_RE = /^that creature has greater power or toughness than this creature$/;
+
 // ===== OPPONENT-LOST-LIFE (Bloodchief Ascension trigger 1 — SHELF S7) ========================
 // "an opponent lost N or more life this turn" — read the per-seat lifeLostThisTurn ledger (stamped at the
 // gameState.loseLife chokepoint, reset for all seats at untap). An absent tally IS zero (fail-closed: the
@@ -353,6 +361,23 @@ function isCreaturePermLocal(perm) {
 export function evaluateInterveningIf(state, condition, controllerId, context = null) {
   const c = String(condition || "").toLowerCase().trim();
   if (!state?.players?.[controllerId]) return false; // controller gone → condition unmet
+
+  // EVOLVE-COMPARE (KW-EVOLVE) — layer-aware P/T of the entering creature vs the source, read live.
+  if (EVOLVE_COMPARE_RE.test(c)) {
+    const enteringId = context?.triggeringPermanentId;
+    const sourceId = context?.sourcePermanentId;
+    if (!enteringId || !sourceId) return null; // referents missing → can't confirm (FN-safe)
+    let entering = null, source = null;
+    for (const pid of Object.keys(state.players || {})) {
+      for (const p of state.players[pid]?.battlefield || []) {
+        if (p.id === enteringId) entering = p;
+        if (p.id === sourceId) source = p;
+      }
+    }
+    if (!entering || !source) return null;     // a referent left the battlefield → can't confirm (FN-safe)
+    return creaturePower(entering, state) > creaturePower(source, state)
+      || creatureToughness(entering, state) > creatureToughness(source, state);
+  }
 
   // OPPONENT-LOST-LIFE (Bloodchief Ascension) — the per-seat lifeLostThisTurn ledger; absent = 0 (fail-closed).
   {

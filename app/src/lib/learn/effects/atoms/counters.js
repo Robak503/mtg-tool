@@ -4,7 +4,7 @@
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
 import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
-import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
+import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers } from "../../triggers.js";
 import { applyCreateNamedToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
@@ -774,8 +774,30 @@ export function applyDrawOrCounterTriggering(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "draw-or-counter-triggering", controller: ctx.controller, branch: "counter" });
 }
 
+/**
+ * KW-EVOLVE counter placement (CR 702.100a/f — SHELF S7): the synthesized evolve trigger's effect. The
+ * kind-tagged sentinel "[evolve] put a +1/+1 counter on this creature" is emitted ONLY by detectTriggers'
+ * evolve synthesis, so no printed clause routes here. Delegates the placement to applyAddCounter
+ * (target:"self" — the standard doubling / counters-placed-watcher / lethal-SBA path), then fires the
+ * SOURCE's own "Whenever this creature evolves" watchers (checkEvolvesTriggers — CR 702.100f: a creature
+ * evolves exactly when this ability's counter is placed on it). A vanished source no-ops inside both.
+ */
+export function applyEvolveCounterSelf(state, atom, ctx) {
+  const next = applyAddCounter(state, { op: "add-counter", target: "self", counterType: "+1/+1", amount: 1 }, ctx);
+  if (next === state) return next; // source gone → no placement → it did not evolve
+  return checkEvolvesTriggers(logEvent(next, { kind: "spell-effect", effect: "evolve", sourceId: ctx.sourceId, controller: ctx.controller }), ctx.sourceId);
+}
+
+// The evolve sentinel — parses ONLY the synthesized kind-tagged clause (never printed oracle text).
+export function evolveCounterSelfClauseParser(clause) {
+  return /^\[evolve\] put a \+1\/\+1 counter on this creature$/i.test(String(clause || "").trim())
+    ? { op: "evolve-counter-self", targetType: null }
+    : null;
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
 

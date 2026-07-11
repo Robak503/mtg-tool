@@ -794,6 +794,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a card is put into an opponent's graveyard from anywhere$/.test(c)) {
     return { event: "gyEnter", scope: "gyWatcher", whose: "any", gyCardType: null, gyOwnerScope: "opponent" };
   }
+  // EVOLVES-EVENT (Watchful Radstag — SHELF S7, CR 702.100f): "this creature evolves" — fires exactly when
+  // the SOURCE's own evolve ability places its +1/+1 counter (the evolve-counter-self resolver calls
+  // checkEvolvesTriggers). Self-scope only — the printed form is always the evolving creature's own rider.
+  if (selfRef && /\bevolves\s*$/.test(c) && /^(?:this creature|[a-z0-9',. -]+?) evolves$/.test(c)) {
+    return { event: "evolves", scope: "self", whose: "any" };
+  }
   // BECOMES-UNTAPPED (Mesmeric Orb — SHELF S6): "a permanent becomes untapped". ANY player's permanent,
   // fired per transition by checkUntapTriggers off the gameState pendingUntapEvents queue (tapped→untapped
   // only; a stun/no-untap skip never fires). The bare form only — a filtered subject ("a Forest", "a
@@ -1434,6 +1440,20 @@ export function cascadeInstanceCount(oracle) {
  * (bumps the shaped count so shaped === detected holds — the keyword's trigger sentence lives in stripped
  * reminder text and never counts as a shaped sentence, the bushido/afflict/cascade precedent exactly).
  */
+/**
+ * KW-EVOLVE (CR 702.100, SHELF S7) — is the PRINTED evolve keyword on this card? 1/0. STRUCTURAL like
+ * undyingKeywordCount: a whole comma-segment of a line must be exactly "evolve", so a GRANT ("…creatures
+ * you control have evolve" — Vorel-adjacent grants) or a sentence merely containing the word never
+ * self-synthesizes (CREED — those stay body-only/Arbiter, a safe FN).
+ */
+export function evolveKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " "); // reminder text off (the undying idiom)
+  for (const line of stripped.split("\n")) {
+    if (line.split(",").some((seg) => seg.trim().toLowerCase() === "evolve")) return 1;
+  }
+  return 0;
+}
+
 export function undyingKeywordCount(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -2367,6 +2387,26 @@ export function detectTriggers(card) {
       effectClause: "[undying] return it to the battlefield under its owner's control with a +1/+1 counter on it",
       interveningIf: "it had no +1/+1 counters on it",
       optional: false, sourceText: "Undying",
+    });
+  }
+  // KW-EVOLVE (CR 702.100a, SHELF S7) — KEYWORD→TRIGGER synthesis, the UNDYING precedent exactly. "Evolve"
+  // is a keyword whose triggered ability lives entirely in REMINDER parens ("(Whenever a creature you
+  // control enters, if that creature has greater power or toughness than this creature, put a +1/+1
+  // counter on this creature.)"), unreachable by the boundary-anchored trigger regex. Synthesize the
+  // creature-you-control ETB descriptor: checkEnterTriggers fires it (the source's OWN entry included —
+  // CR-faithful: comparing itself to itself is never greater, so it correctly never evolves off itself);
+  // the comparative intervening-if (LAYER-AWARE P/T of the entering creature vs the source, re-read at
+  // flush AND resolution per CR 603.4 / 702.100d) is enforced by interveningIf.js; the effectClause is the
+  // kind-tagged sentinel ONLY evolveCounterSelfClauseParser models → the evolve-counter-self atom places
+  // the +1/+1 counter through the standard doubling/watcher path AND fires the "this creature evolves"
+  // watchers (CR 702.100f — a creature evolves exactly when the evolve ability's counter is placed).
+  if (evolveKeywordCount(oracle) > 0) {
+    out.push({
+      event: "etb", scope: "creatureYouControl", whose: "any",
+      effect: null,
+      effectClause: "[evolve] put a +1/+1 counter on this creature",
+      interveningIf: "that creature has greater power or toughness than this creature",
+      optional: false, sourceText: "Evolve",
     });
   }
   // STORM (CR 702.40) — KEYWORD→TRIGGER synthesis. "Storm" is a keyword whose triggered ability lives in
@@ -3986,6 +4026,23 @@ export function checkGraveyardEventTriggers(state) {
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * EVOLVES triggers (Watchful Radstag — SHELF S7, CR 702.100f): fire the SOURCE permanent's own
+ * "Whenever this creature evolves, …" watchers the moment its evolve counter is placed (called by the
+ * evolve-counter-self resolver, after the counter lands). The evolving permanent is threaded as
+ * triggeringPermanent so a copy payoff's "it" (create-token-copy → ctx.triggeringPermanentId, the
+ * DIES-COPY binding) resolves to the evolved creature. Self-scope only; a vanished source no-ops.
+ */
+export function checkEvolvesTriggers(state, permanentId) {
+  const lk = findPermanent(state, permanentId);
+  if (!lk) return state;
+  const fired = detectTriggers(lk.permanent.card)
+    .filter((d) => d.event === "evolves")
+    .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
 export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {}) {

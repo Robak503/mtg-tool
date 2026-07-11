@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -149,6 +149,15 @@ export const COVERED_KEYWORDS = [
   // returns (CR 111.7). The bare "undying" residue matches via the exact === check; allTriggerSentencesModeled
   // bumps the shaped count (undyingShaped) so the synthesized trigger balances, exactly like bushido/afflict.
   "undying",
+  // KW-EVOLVE (CR 702.100, SHELF S7) — ENFORCED end-to-end, the undying pattern exactly: detectTriggers
+  // synthesizes the creature-you-control ETB descriptor from the printed keyword (evolveKeywordCount —
+  // structural line-segment match, grants never self-synthesize); the comparative intervening-if
+  // ("that creature has greater power or toughness than this creature") is enforced LAYER-AWARE by
+  // interveningIf.js at flush + resolution (CR 702.100d); the evolve-counter-self atom places the +1/+1
+  // through the standard doubling/watcher path and fires the "this creature evolves" watchers
+  // (CR 702.100f — Watchful Radstag's copy rider). The bare "evolve" residue matches via the exact ===
+  // check; allTriggerSentencesModeled bumps the shaped count (evolveShaped).
+  "evolve",
   // CASCADE (CR 702.85) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers (a selfCast
   // `cascade` trigger) + fired by checkCastTriggers (dig the library to a cheaper nonland, park the free-cast/
   // decline decision at the action layer). A SINGLE "cascade" line matches via the `=== "cascade"` check; the
@@ -601,9 +610,11 @@ function allTriggerSentencesModeled(card, oracle) {
   // a self-dies descriptor from the keyword (undyingKeywordCount — the SAME structural matcher, so grant
   // forms contribute 0 to both counts); bump the shaped count by 1 so shaped === detected holds.
   const undyingShaped = undyingKeywordCount(oracle);
+  // KW-EVOLVE — the same reminder-text keyword synthesis; bump by 1 so shaped === detected holds.
+  const evolveShaped = evolveKeywordCount(oracle);
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + ravenousShaped + undyingShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + ravenousShaped + undyingShaped + evolveShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
