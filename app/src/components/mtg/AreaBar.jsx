@@ -6,31 +6,21 @@
 import { AREAS } from "./areas";
 
 export default function AreaBar({ area, onEnterArea, onHome, fontFamily }) {
+  // Layout only — the visual states (idle/hover/active + the magnetic lens
+  // that springs between buttons) live on .ley-area-btn in globals.css.
   const baseBtn = {
     display: "flex",
     alignItems: "center",
     gap: 8,
     padding: "10px 22px",
-    borderRadius: "var(--r-pill)",
-    border: "1px solid transparent",
-    background: "transparent",
-    color: "var(--ley-text-dim)",
-    cursor: "pointer",
     fontFamily,
     fontSize: 13,
     fontWeight: 600,
-    transition: "border-color .1s, background .1s, color .1s, box-shadow .16s",
-  };
-  const activeBtn = {
-    ...baseBtn,
-    border: "1px solid var(--ley-line-bright)",
-    background: "var(--ley-green-dim)",
-    color: "var(--ley-green)",
-    boxShadow: "0 0 12px var(--ley-green-glow)",
   };
 
   return (
     <div
+      className="ley-areabar"
       style={{
         flexShrink: 0,
         display: "flex",
@@ -44,7 +34,7 @@ export default function AreaBar({ area, onEnterArea, onHome, fontFamily }) {
         WebkitBackdropFilter: "blur(14px) saturate(1.15)",
       }}
     >
-      <button onClick={onHome} style={baseBtn} title="Back to the landing screen">
+      <button onClick={onHome} className="ley-area-btn" style={baseBtn} title="Back to the landing screen">
         <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>⌂</span>
         Home
       </button>
@@ -53,7 +43,8 @@ export default function AreaBar({ area, onEnterArea, onHome, fontFamily }) {
         <button
           key={a.id}
           onClick={() => onEnterArea(a.id)}
-          style={area === a.id ? activeBtn : baseBtn}
+          className={area === a.id ? "ley-area-btn act" : "ley-area-btn"}
+          style={baseBtn}
           aria-current={area === a.id ? "page" : undefined}
         >
           {a.title}

@@ -372,5 +372,252 @@ select {
   }
 }
 
+/* ============================================================
+   GEL METERS (v5.3) — native <progress> as a luminous gel bar.
+   .ley-gel on a <progress>. Determinate = value/max toward a
+   target; indeterminate (no value attr) = "engine playing now",
+   THE only looping bar in the app. Wrap in .ley-gel-live to run
+   the indeterminate scroll (Chrome can't animate the pseudo
+   directly, so the wrapper drives --ley-bgpos).
+   ============================================================ */
+@property --ley-bgpos {
+  syntax: "<percentage>";
+  initial-value: 0%;
+  inherits: true;
+}
+@keyframes ley-gel-scroll {
+  0%,
+  100% {
+    --ley-bgpos: 0%;
+  }
+  99.99% {
+    --ley-bgpos: -100%;
+  }
+}
+.ley-gel-live {
+  display: block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ley-gel-live {
+    animation: ley-gel-scroll 1.7s linear infinite;
+  }
+}
+progress.ley-gel {
+  appearance: none;
+  width: 100%;
+  height: 1.75em;
+  border-radius: var(--r-pill);
+  border: none;
+  padding: 0.16em;
+  font-size: 12px;
+  container-type: inline-size;
+  display: block;
+  background: linear-gradient(
+    to bottom,
+    oklch(0.12 0.02 160 / 0.95),
+    oklch(0.19 0.03 160 / 0.9) 66%
+  );
+  box-shadow:
+    inset 0 0 0 1px oklch(0.34 0.04 160 / 0.5),
+    inset 0 2px 4px rgba(0, 0, 0, 0.55);
+}
+progress.ley-gel::-webkit-progress-bar {
+  background: none;
+}
+progress.ley-gel::-webkit-progress-value {
+  border-radius: var(--r-pill);
+  border: 0.09em solid transparent;
+  min-width: 1.6em;
+  background:
+    radial-gradient(
+        70% 1.9em at center 118%,
+        oklch(0.98 0.045 155 / 1) 0%,
+        oklch(0.98 0.045 155 / 0.72) 30%,
+        oklch(0.98 0.045 155 / 0.38) 55%,
+        oklch(0.98 0.045 155 / 0) 100%
+      )
+      padding-box,
+    linear-gradient(
+        to right,
+        oklch(0.5 0.11 152 / 0.92) 5%,
+        oklch(0.45 0.09 158 / 0.92),
+        oklch(0.85 0.2 151 / 0.95) 50%,
+        oklch(0.55 0.11 160 / 0.92)
+      )
+      padding-box,
+    linear-gradient(
+        to bottom,
+        oklch(0.6 0.08 155 / 0.5),
+        oklch(0.35 0.06 155 / 0.3) 33%,
+        oklch(0.7 0.1 155 / 0.4)
+      )
+      padding-box,
+    linear-gradient(165deg, oklch(0.75 0.1 155 / 0.5) 25%, oklch(0.9 0.06 155 / 0.4))
+      border-box;
+  background-blend-mode: normal, overlay, normal, normal;
+  background-size:
+    cover,
+    100cqw 100%,
+    cover,
+    cover;
+  box-shadow:
+    inset 0.14em 0.14em 0.22em -0.08em oklch(0.9 0.05 155 / 0.45),
+    inset -0.14em -0.14em 0.22em -0.08em oklch(0.95 0.05 155 / 0.55),
+    0 0 14px oklch(0.8 0.17 152 / 0.32),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+}
+progress.ley-gel:indeterminate::-webkit-progress-value {
+  inline-size: 100% !important;
+  background:
+    radial-gradient(
+        70% 1.9em at center 118%,
+        oklch(0.98 0.045 155 / 1) 0%,
+        oklch(0.98 0.045 155 / 0.72) 30%,
+        oklch(0.98 0.045 155 / 0.38) 55%,
+        oklch(0.98 0.045 155 / 0) 100%
+      )
+      padding-box,
+    linear-gradient(
+        to right,
+        oklch(0.5 0.13 152 / 0) 0%,
+        oklch(0.5 0.13 152 / 1) 12%,
+        oklch(0.5 0.13 152 / 1) 14%,
+        oklch(0.78 0.19 160 / 0) 25%,
+        oklch(0.78 0.19 160 / 1) 37%,
+        oklch(0.78 0.19 160 / 1) 39%,
+        oklch(0.78 0.19 160 / 0) 50%,
+        oklch(0.5 0.13 152 / 1) 62%,
+        oklch(0.5 0.13 152 / 1) 64%,
+        oklch(0.5 0.13 152 / 0) 75%,
+        oklch(0.78 0.19 160 / 1) 87%,
+        oklch(0.78 0.19 160 / 1) 89%,
+        oklch(0.78 0.19 160 / 0) 100%
+      )
+      repeat padding-box,
+    linear-gradient(
+        to bottom,
+        oklch(0.6 0.08 155 / 0.5),
+        oklch(0.35 0.06 155 / 0.3) 33%,
+        oklch(0.7 0.1 155 / 0.4)
+      )
+      padding-box,
+    linear-gradient(165deg, oklch(0.75 0.1 155 / 0.5) 25%, oklch(0.9 0.06 155 / 0.4))
+      border-box;
+  background-blend-mode: normal, overlay, normal, normal;
+  background-size:
+    cover,
+    200% 100%,
+    cover,
+    cover;
+  background-position:
+    center,
+    var(--ley-bgpos, 0%),
+    center,
+    center;
+}
+
+/* segmented control (v5.3) — .ley-seg wraps .ley-seg-opt spans;
+   the .on option carries the green fill (the lens upgrade rides
+   the same markup later via anchor positioning) */
+.ley-seg {
+  display: inline-flex;
+  border: 1px solid var(--ley-line-bright);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  background: rgba(3, 8, 5, 0.6);
+}
+.ley-seg-opt {
+  padding: 6px 11px;
+  color: var(--ley-text-dim);
+  cursor: pointer;
+  border-radius: calc(var(--r-md) - 2px);
+  border: none;
+  background: transparent;
+  font: inherit;
+}
+.ley-seg-opt.on {
+  color: var(--ley-green);
+  font-weight: 600;
+  background: var(--ley-green-dim);
+  box-shadow: inset 0 1px 0 rgba(214, 255, 236, 0.2);
+}
+.ley-seg-opt:hover:not(.on) {
+  color: var(--ley-green-text);
+}
+
+/* ============================================================
+   THE MAGNETIC NAV LENS (v5.3) — one glass pill, physically
+   tethered to the active nav button via CSS anchor positioning;
+   it springs to whatever you hover and snaps home on leave.
+   Markup: container .ley-areabar, buttons .ley-area-btn (+ .act).
+   Falls back to a static active pill where anchors are missing.
+   ============================================================ */
+.ley-areabar {
+  position: relative;
+}
+.ley-area-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ley-text-dim);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  transition:
+    color var(--t-fast) var(--ease-snap),
+    border-color var(--t-fast) var(--ease-snap),
+    background var(--t-fast) var(--ease-snap);
+}
+.ley-area-btn:hover {
+  color: var(--ley-green-text);
+}
+/* fallback active pill (replaced by the lens when anchors exist) */
+.ley-area-btn.act {
+  border-color: var(--ley-line-bright);
+  background: var(--ley-green-dim);
+  color: var(--ley-green);
+  box-shadow: 0 0 12px var(--ley-green-glow);
+}
+@supports (anchor-name: --ley-nav) {
+  .ley-area-btn.act {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+  .ley-areabar:not(:has(.ley-area-btn:hover)) .ley-area-btn.act {
+    anchor-name: --ley-nav;
+  }
+  .ley-areabar .ley-area-btn:hover {
+    anchor-name: --ley-nav;
+  }
+  .ley-areabar::after {
+    content: none;
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    position-anchor: --ley-nav;
+    top: anchor(top);
+    left: anchor(left);
+    right: anchor(right);
+    bottom: anchor(bottom);
+    border-radius: var(--r-pill);
+    border: 1px solid var(--ley-line-bright);
+    background: linear-gradient(155deg, var(--ley-green-dim), rgba(45, 212, 191, 0.06));
+    box-shadow:
+      0 0 12px var(--ley-green-glow),
+      inset 0 1px 0 rgba(214, 255, 236, 0.3),
+      inset 0 -6px 12px -8px rgba(57, 245, 126, 0.5);
+    transition: all 0.55s var(--spring);
+  }
+  .ley-areabar:has(.ley-area-btn.act)::after {
+    content: "";
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ley-areabar::after {
+    transition: none;
+  }
+}
+
 /* (the legacy .aether-* utility classes were deleted once zero usages
    remained — P3 close-out; .ley-row / .ley-card are the replacements) */
