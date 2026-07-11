@@ -1,11 +1,11 @@
 <!-- @dsCard group="Components" name="Stat tiles" subtitle="Desktop 4-up · phone 2×2 — same tile, two arrangements" -->
 <style>
-:root{color-scheme:dark;--ground:#071009;--phos:#4ade80;--mint:#a7f3d0;--ink:#eaf7f0;--mut:#8fb29d;--faint:#587a66;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);
+:root{color-scheme:dark;--ground:#010202;--phos:#39f57e;--mint:#a7f3d0;--ink:#eaf7f0;--mut:#8fb29d;--faint:#74977f;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);
 --mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
-body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(74,222,128,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(57,245,126,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
 h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
 .cap{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.08em;margin:0 2px 8px}
-.g{position:relative;border-radius:16px;background:linear-gradient(155deg,rgba(126,206,166,.13),rgba(15,36,26,.48));backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(180,240,210,.16);box-shadow:0 14px 34px rgba(0,0,0,.34),inset 0 1px 0 rgba(214,255,236,.13)}
+.g{position:relative;border-radius:16px;background:linear-gradient(155deg,rgba(57,245,126,.045),rgba(4,10,7,.72));backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(180,240,210,.16);box-shadow:0 14px 34px rgba(0,0,0,.34),inset 0 1px 0 rgba(214,255,236,.13)}
 .g::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(90deg,transparent 10%,rgba(214,255,236,.3) 50%,transparent 90%) top/100% 1px no-repeat,linear-gradient(118deg,rgba(224,255,240,.09),transparent 40%)}
 @supports not ((backdrop-filter:blur(1px))){.g{background:rgba(13,28,20,.94)}}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:860px}
@@ -14,7 +14,7 @@ h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
 .tile .big{font-family:var(--disp);font-size:30px;font-weight:650;letter-spacing:-.02em;color:var(--mint);margin-top:3px;font-variant-numeric:tabular-nums}
 .tile .big small{font-size:13px;color:var(--phos);font-weight:600;margin-left:3px}
 .tile .sub{font-size:11.5px;color:var(--faint);margin-top:2px}
-.tile.fresh{border-color:rgba(74,222,128,.34)}
+.tile.fresh{border-color:rgba(57,245,126,.34)}
 .tile.fresh .big{font-size:19px;padding-top:7px}
 .ph{width:300px;margin-top:6px}
 .ptiles{display:grid;grid-template-columns:1fr 1fr;gap:9px}
