@@ -1118,6 +1118,16 @@ function applyCastSpellMaybeDiscover(state, action) {
     const { pendingCascade: _drop, ...rest } = next;
     return rest;
   }
+  // MILLED-GY CAST (Raul, Trouble Shooter — "Once during each of your turns…"): a cast offered by
+  // actionsCastMilledFromGraveyard carries the permission SOURCE's id; latch it in
+  // onceTriggersFiredThisTurn (per source, cleared at the untap step like every once-latch) so the
+  // printed "once" is enforced — no second offer this turn.
+  if (action.milledGyCastSourceId) {
+    return {
+      ...next,
+      onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.milledGyCastSourceId}_milledGyCast`]: true },
+    };
+  }
   return next;
 }
 

@@ -66,7 +66,7 @@ import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a 
 // identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, parseStaticAbilities } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
@@ -1992,6 +1992,31 @@ function actionsPlayImpulseFromExile(state, playerId) {
  * when played). Mirrors actionsPlayImpulseFromExile exactly; the permission is the enforcement that keeps the
  * credited static from being a no-op (CREED). Perfect-information sim → offering the known top card is faithful.
  */
+/**
+ * MILLED-THIS-TURN GRAVEYARD CAST (Raul, Trouble Shooter — SHELF S6, CR 601.3e): "Once during each of your
+ * turns, you may cast a spell from among cards in your graveyard that were milled this turn." While the
+ * player controls a permanent carrying the castMilledGraveyardPermission static AND it's THEIR turn AND the
+ * per-source once-latch is unused, every NONLAND graveyard card stamped in the millCards ledger with the
+ * CURRENT turn is castable at FULL cost through the shared builder (fromZone "graveyard" — target/mode/X/
+ * additional-cost enumeration, the stack, cast triggers, AI all identical to a hand cast; applyCastSpell
+ * splices from the right zone generically). The dispatcher latches `${sourceId}_milledGyCast` in
+ * onceTriggersFiredThisTurn on the cast (cleared at the untap step like every once-latch), enforcing the
+ * printed "once". Mirrors actionsPlayFromTopOfLibrary — the enforcement that keeps the credited static
+ * from being a no-op (CREED). "Cast a spell" — lands are never castable (CR 601.2), so they're excluded.
+ */
+function actionsCastMilledFromGraveyard(state, playerId) {
+  const player = state.players[playerId];
+  if (state.activePlayer !== playerId) return []; // "during each of YOUR turns"
+  const source = (player.battlefield || []).find((p) =>
+    parseStaticAbilities(p.card).some((d) => d.castMilledGraveyardPermission)
+    && !state.onceTriggersFiredThisTurn?.[`${p.id}_milledGyCast`]);
+  if (!source) return [];
+  const eligible = (player.graveyard || []).filter((c) => c && !isLand(c) && state.milledThisTurn?.[c.id] === state.turn);
+  if (!eligible.length) return [];
+  return castActionsFromZone(state, playerId, eligible, "graveyard", null, false)
+    .map((a) => ({ ...a, milledGyCastSourceId: source.id }));
+}
+
 function actionsPlayFromTopOfLibrary(state, playerId) {
   const perm = playFromTopPermission(state, playerId);
   if (!perm) return [];
@@ -2406,6 +2431,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
+    actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile

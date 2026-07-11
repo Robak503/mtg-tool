@@ -1297,6 +1297,16 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── MILLED-THIS-TURN GRAVEYARD CAST PERMISSION (Raul, Trouble Shooter — SHELF S6, CR 601.3e): "Once
+  // during each of your turns, you may cast a spell from among cards in your graveyard that were milled
+  // this turn." A coverage MARKER (no affects/op — the layer engine ignores it); legalChoices'
+  // actionsCastMilledFromGraveyard enforces it (once-per-your-turn latch + the millCards ledger gate), so
+  // crediting it native is honest. Exact printed sentence only.
+  if (/^once during each of your turns, you may cast a spell from among cards in your graveyard that were milled this turn$/.test(c)) {
+    out.push({ castMilledGraveyardPermission: true });
+    return;
+  }
+
   // ── COUNTER-GATED GROUP WARD (Cathedral Acolyte — SHELF S7, CR 702.21): "Each creature you control
   // with a counter on it has ward {N}." A layer-6 addWard grant over the ANY-counter dynamic selector
   // (requiresAnyCounter — any kind, re-read per query so a counter arriving/leaving moves a creature in or
