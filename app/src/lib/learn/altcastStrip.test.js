@@ -37,6 +37,13 @@ describe("altcast-strip — a modeled body flips native once the alt-cast line i
     expect(classifyCard(S("Glimpse of Freedom", "Draw a card.\nEscape—{2}{U}, Exile five other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)", "Instant", "{U}"))).toBe("native-spell");
     expect(classifyCard(S("Fruit of Tizerus", "Target player loses 2 life.\nEscape—{3}{B}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)", "Sorcery", "{B}"))).toBe("native-spell");
   });
+  it("flashback with a NON-MANA (em-dash) cost flips native — 'Flashback—Sacrifice…' is the SAME pure alt-cast keyword as 'Flashback {mana}'", () => {
+    // The graveyard re-cast is never offered (a SAFE FN, exactly like the already-stripped mana-cost
+    // flashback); the from-hand cast resolves the printed body identically. Real bundled cards.
+    expect(classifyCard(S("Dread Return", "Return target creature card from your graveyard to the battlefield.\nFlashback—Sacrifice three creatures. (You may cast this card from your graveyard for its flashback cost. Then exile it.)", "Sorcery", "{2}{B}"))).toBe("native-spell");
+    expect(classifyCard(S("Lava Dart", "Lava Dart deals 1 damage to any target.\nFlashback—Sacrifice a Mountain. (You may cast this card from your graveyard for its flashback cost. Then exile it.)", "Instant", "{R}"))).toBe("native-spell");
+    expect(classifyCard(S("Battle Screech", "Create two 1/1 white Bird creature tokens with flying.\nFlashback—Tap three untapped white creatures you control. (You may cast this card from your graveyard for its flashback cost. Then exile it.)", "Sorcery", "{2}{W}{W}"))).toBe("native-spell");
+  });
 });
 
 describe("altcast-strip — CREED: a kept/payoff rider keeps the card on the Arbiter", () => {

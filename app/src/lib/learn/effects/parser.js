@@ -208,7 +208,14 @@ function stripNoMaxHandSizeRider(text) {
 // alternative-cost trade as spectacle/prowl). Anchored to a line-leading "overload {", so a prose mention or an
 // "overload" TRIGGER (never line-leading with a brace cost) is untouched. Damn ("Destroy target creature. …"),
 // Cyclonic Rift, Mizzium Mortars, Vandalblast, Electrickery, etc. flip native-spell on their printed mode.
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|freerunning\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|overload\s*\{|awaken\s+\d+\s*[—–-])[^\n]*$/gim;
+// FLASHBACK NON-MANA COST (Dread Return "Flashback—Sacrifice three creatures", Deep Analysis, Lava Dart,
+// Battle Screech): flashback's cost may be a NON-MANA cost written with an em-dash ("Flashback—<cost>")
+// instead of a brace mana cost ("Flashback {cost}"). Both are the SAME pure alternate-cast keyword (cast the
+// card from the GRAVEYARD for the flashback cost, then exile it, CR 702.34) — vacuous for the from-hand cast,
+// which resolves the printed body identically and goes to the graveyard. The runtime never offers the
+// graveyard re-cast (a SAFE false-negative, exactly like the already-stripped mana-cost flashback), so
+// stripping the line lets the base body parse. `flashback\s*(?:\{|[—–-])` covers both cost shapes.
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|freerunning\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*(?:\{|[—–-])|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|overload\s*\{|awaken\s+\d+\s*[—–-])[^\n]*$/gim;
 // MADNESS_LINE needs a TIGHTER anchor than the others: a madness line can be COMPOUND
 // ("Madness {R}, cycling {1}{R}, kicker {2}{R}, buyback {4}{R}" — Blast from the Past), and buyback's
 // kept "return to hand as it resolves" effect lives ONLY on that line. A greedy `[^\n]*$` strip would drop
