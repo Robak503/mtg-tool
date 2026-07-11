@@ -86,7 +86,12 @@ export async function loadPilotBuilder(file, mode) {
     // LAST hop of the --pilot-flags/--candidate-flags plumb (grindLoop/grind-worker/swap-bench all call
     // pilotBuilder(pod, seed, { flags })); dropping it here silently no-op'd every flag-gated arm for a
     // buildPilots persona (Omnath's recall-on bench). Additive: a persona that ignores opts is unchanged.
-    return (decks, seed = null, opts = {}) => mod.buildPilots(seats, { mode, decks, seed, ...opts }) || {};
+    const wrapped = (decks, seed = null, opts = {}) => mod.buildPilots(seats, { mode, decks, seed, ...opts }) || {};
+    // PILOT-V STAMP PASSTHROUGH (Omnath's epoch-4 defect report, 2026-07-10): the grind header reads
+    // `pilotV` off the BUILDER FUNCTION it holds — this wrapper — so a persona's `buildPilots.pilotV = N`
+    // must be copied through or every pool header stamps pilotV:null and the era loses pilot attribution.
+    if (mod.buildPilots.pilotV !== undefined) wrapped.pilotV = mod.buildPilots.pilotV;
+    return wrapped;
   }
   if (typeof mod.decide === "function") {
     const p = {
