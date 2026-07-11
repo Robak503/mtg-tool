@@ -493,6 +493,19 @@ export function createTokenClauseParser(clause) {
     if (!landMana.ok || landMana.oracle) return null; // a land token's intrinsic mana + a dynamic count is unprinted — park (CREED)
     return { op: "create-token", countContext: sm[2] === "milled-nonland" ? "nonlandMilledCount" : "milledCount", power: parseInt(sm[3], 10), toughness, descriptor: sm[5].trim(), ...(sm[1] ? { optional: true } : {}), targetType: null };
   }
+  // ===== X-WHERE (Vault 12 chapter II — SHELF S7) ===== "create X <P>/<T> <desc> creature tokens, where
+  // X is [equal to] <count phrase>" — the count is a BOARD tally resolved at resolution (countForSpec),
+  // never a cast {X}. The count phrase drops its "the [total] number of" lead and must map through
+  // parseCountSource (an unmodeled source → null → Arbiter, never a fabricated count — CREED).
+  const mxw = t.match(/^create x (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?,? where x is (?:equal to )?(.+)$/);
+  if (mxw) {
+    const toughness = parseInt(mxw[2], 10);
+    if (toughness < 1) return null;
+    const landMana = landTokenManaOracle(mxw[3]);
+    if (!landMana.ok || landMana.oracle) return null; // a land token's intrinsic mana + a dynamic count is unprinted — park (CREED)
+    const countFor = parseCountSource(mxw[4].replace(/^the (?:total )?number of /, ""));
+    return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, targetType: null } : null;
+  }
   const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
   if (mtf) {
     const toughness = parseInt(mtf[2], 10);

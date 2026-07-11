@@ -24,6 +24,7 @@ import {
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, diesTriggerMultiplierCount } from "./layers.js";
+import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
@@ -2426,6 +2427,24 @@ export function detectTriggers(card) {
       optional: false, sourceText: "Evolve",
     });
   }
+  // SAGA CHAPTERS (CR 714 — Vault 12, SHELF S7): a Saga's numbered chapters are triggered abilities that
+  // fire as the lore count crosses each number. Synthesize ONE descriptor per chapter (the keyword-synthesis
+  // precedent) — coverage and the runtime read the SAME parse: classifyCard requires every chapter to route
+  // natively; checkSagaChapterTriggers fires exactly the crossed range (transitions only, CR 714.3 — a
+  // chapter can never re-fire). parseSagaChapters is all-or-nothing (any non-chapter residue → null → no
+  // descriptors → body-only), so a partially-modeled Saga never half-fires.
+  {
+    const sagaParse = parseSagaChapters(card);
+    if (sagaParse) {
+      for (const ch of sagaParse.chapters) {
+        out.push({
+          event: "sagaChapter", chapter: ch.n, scope: "self", whose: "any",
+          effect: null, effectClause: ch.effect.replace(/\.\s*$/, ""),
+          optional: /\byou may\b/i.test(ch.effect), sourceText: `Chapter ${ch.n}`,
+        });
+      }
+    }
+  }
   // STORM (CR 702.40) — KEYWORD→TRIGGER synthesis. "Storm" is a keyword whose triggered ability lives in
   // REMINDER parens ("(When you cast this spell, copy it for each spell cast before it this turn. …)"), which
   // the boundary-anchored When/Whenever/At regex above can't match (the "(" before "When" isn't a sentence
@@ -4073,6 +4092,23 @@ export function checkBecomesMonstrousTriggers(state, permanentId) {
   if (!lk) return state;
   const fired = detectTriggers(lk.permanent.card)
     .filter((d) => d.event === "becomesMonstrous")
+    .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * SAGA CHAPTER triggers (CR 714.3 — Vault 12, SHELF S7): fire every chapter the lore count just CROSSED
+ * — chapter n fires iff from < n ≤ to. Called by resolvers.enterPermanent (0 → the entry count; Doubling
+ * Season doubling the entry lore counter correctly fires I AND II — the famous interaction) and by
+ * gameEngine's draw-step lore addition. Transitions only, so a chapter can never re-fire. A vanished
+ * source no-ops.
+ */
+export function checkSagaChapterTriggers(state, permanentId, from, to) {
+  const lk = findPermanent(state, permanentId);
+  if (!lk) return state;
+  const fired = detectTriggers(lk.permanent.card)
+    .filter((d) => d.event === "sagaChapter" && d.chapter > from && d.chapter <= to)
     .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };

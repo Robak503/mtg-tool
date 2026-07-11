@@ -532,6 +532,17 @@ export function addCounterClauseParser(clause) {
   //     "Fractal", "tapped"/"attacking"/"colorless"/"land creature") returns null and stays on the Arbiter (CREED).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each other creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", excludeSource: true };
+  // ===== THAT'S-A SUBTYPE-UNION mass counter (Vault 12 chapter III — SHELF S7) ===== "put N +1/+1
+  // counters on each creature you control that's a <Subtype>[ or <Subtype>]" — the relative-clause form
+  // of the subtype-filtered team counter. Every listed word must map through the curated COUNT_SUBTYPE
+  // allowlist (an un-curated word → null → Arbiter, never a silent zero-match — CREED); the union rides
+  // controllerCreatureTargets' array subtypeFilter (ANY listed subtype matches, word-bounded).
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control that's an? ([a-z]+(?: or [a-z]+)*)$/);
+  if (m) {
+    const subs = m[3].split(/\s+or\s+/).map((w) => COUNT_SUBTYPE[w]);
+    if (!subs.every(Boolean)) return null;
+    return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: subs };
+  }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each ([a-z]+) creature you control$/);
   if (m && (m[3] === "artifact" || m[3] === "enchantment")) {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: m[3].charAt(0).toUpperCase() + m[3].slice(1) };

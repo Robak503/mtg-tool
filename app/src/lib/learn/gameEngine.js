@@ -43,11 +43,13 @@ import {
   mintId,
   opponentsOf,
   applyRadiation,
+  addCounter,
+  moveCardToZone,
 } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkGraveyardEventTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkGraveyardEventTriggers, checkSagaChapterTriggers, checkSacrificeTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -293,6 +295,21 @@ export function runStepActions(state) {
           next = checkCardDrawnTriggers(next, state.activePlayer, 1);
         }
         next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer });
+      }
+      // SAGA (CR 714.3b — Vault 12, SHELF S7): after the active player's draw step, each of their Sagas
+      // gets a lore counter (through the doubler, CR 616 — Doubling Season can skip a chapter, correctly
+      // firing every crossed number via the transition range). Runs on the SKIPPED first-turn draw too
+      // (the rule keys on the step occurring, not on a card being drawn). The finished-Saga sweep does
+      // NOT run here — the crossed chapter is pending, so CR 714.4's "no chapter ability on the stack or
+      // pending" clause correctly defers the sacrifice to after it resolves.
+      for (const sperm of [...(next.players[state.activePlayer]?.battlefield || [])]) {
+        if (!sperm.sagaFinal) continue;
+        const from = sperm.counters?.lore || 0;
+        // addCounter applies the doubler INTERNALLY (the central counter chokepoint) — read the real
+        // post-placement count back for the transition range, never pre-compute (a double-double FP).
+        next = addCounter(next, { permanentId: sperm.id, type: "lore", amount: 1 });
+        const after = (next.players[state.activePlayer]?.battlefield || []).find((p) => p.id === sperm.id);
+        next = checkSagaChapterTriggers(next, sperm.id, from, after?.counters?.lore ?? from);
       }
       break;
 
@@ -588,9 +605,37 @@ export function finalizeStackResolution(state) {
   // bounced/exiled, or a direct Disenchant on an Aura whose effect path skipped checkDiesTriggers — reaches
   // here unflushed). Idempotent: a no-op when the queue is already empty, so it never double-fires.
   let next = checkLeavesTriggers(state);
+  // SAGA sweep (CR 714.4 — Vault 12, SHELF S7): a Saga whose lore count has reached its final chapter
+  // and whose chapter abilities are ALL resolved (none pending, none on the stack) is SACRIFICED — run
+  // BEFORE the flush so the sacrifice's own watchers ride this same flush. A Saga whose final chapter
+  // is still pending/on the stack is correctly skipped here and swept after THAT resolution finalizes.
+  next = sweepFinishedSagas(next);
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   if (grantsPriority(next.step)) {
     next = resetPriorityLoop(next);
+  }
+  return next;
+}
+
+/**
+ * CR 714.4 — sacrifice each finished Saga: lore ≥ sagaFinal AND none of its chapter abilities pending or
+ * on the stack. The sacrifice mirrors the dispatcher's non-creature cost-sacrifice flow exactly
+ * (moveCardToZone → checkLeavesTriggers → checkSacrificeTriggers), so LTB + "you sacrifice" watchers fire
+ * like any other sacrifice. Pure; a board with no finished Saga is a no-op.
+ */
+function sweepFinishedSagas(state) {
+  let next = state;
+  for (const pid of Object.keys(next.players || {})) {
+    for (const perm of [...(next.players[pid]?.battlefield || [])]) {
+      if (!perm.sagaFinal || (perm.counters?.lore || 0) < perm.sagaFinal) continue;
+      const pendingOwn = (next.pendingTriggers || []).some((t) => t.event === "sagaChapter" && t.source?.permanentId === perm.id);
+      const stackOwn = (next.stack || []).some((o) => o.payload?.params?.sourceId === perm.id || o.payload?.params?.sourcePermanentId === perm.id);
+      if (pendingOwn || stackOwn) continue;
+      next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+      next = checkLeavesTriggers(next);
+      next = checkSacrificeTriggers(next, pid, { id: perm.id, controller: pid, card: perm.card });
+      next = logEvent(next, { kind: "saga-sacrificed", cardName: perm.card?.name, controller: pid });
+    }
   }
   return next;
 }
