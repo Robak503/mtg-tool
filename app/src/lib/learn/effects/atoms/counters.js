@@ -4,7 +4,7 @@
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
 import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
-import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers } from "../../triggers.js";
+import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
 import { applyCreateNamedToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
@@ -753,6 +753,9 @@ export function applyMonstrosity(state, atom, ctx) {
   if (lk.permanent.monstrous) return logEvent(state, { kind: "spell-effect", effect: "monstrosity", note: "already monstrous", permanentId: ctx.sourceId });
   let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1 });
   next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, monstrous: true }));
+  // BECOMES-MONSTROUS (CR 701.32d — SHELF S7): the real transition just happened (the already-monstrous
+  // branch returned above), so the source's own becomes-monstrous watchers fire exactly once.
+  next = checkBecomesMonstrousTriggers(next, ctx.sourceId);
   return logEvent(next, { kind: "spell-effect", effect: "monstrosity", permanentId: ctx.sourceId, amount: atom.amount || 1 });
 }
 

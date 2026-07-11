@@ -453,13 +453,11 @@ function classifyCondition(condRaw, cardName, cardType) {
   // and is EXCLUDED — it routes as a normal ETB, which DOES fire on the face-up hard cast (correctly modeled).
   const firstCondClause = c.split(",")[0].trim();
   if (/\bis turned face up$/.test(firstCondClause) && !/\benters?\b/.test(firstCondClause)) return null;
-  // BECOMES-MONSTROUS (CR 701.32d) — the "becomes monstrous" event is not yet fired (applyMonstrosity sets the
-  // flag but no becomesMonstrous trigger event exists). A trigger keyed on it — including the COMPOUND "enters
-  // or becomes monstrous" (Alpha Deathclaw) whose ETB half WOULD otherwise be detected here — must stay
-  // UNDETECTED so the shaped-sentence count out-runs the detected count → the card stays body-only. Crediting
-  // only the ETB half would silently DROP the becomes-monstrous fire (a CREED partial-fire FP). Lift this once
-  // the becomesMonstrous event + checker are built (then the compound routes as a dual-event trigger).
-  if (/\bbecomes monstrous\b/.test(c)) return null;
+  // BECOMES-MONSTROUS (CR 701.32d — SHELF S7, the Alpha Deathclaw lift): the event now EXISTS —
+  // applyMonstrosity fires checkBecomesMonstrousTriggers on the real transition, and the compound
+  // "enters or becomes monstrous" splits via DISJUNCTION_MONSTROUS into two sentences pre-detection.
+  // Handled below (after selfRef is computed): the SELF form detects; every other monstrous shape
+  // (another-creature watchers etc.) still parks via the explicit null there.
   const nameL = String(cardName || "").toLowerCase();
   // SHORT-NAME SELF-REF (CR 201.4) — a LEGENDARY card refers to itself by the portion of its name before
   // the first comma ("Pantlaza" for "Pantlaza, Sun-Favored"). The full-name match below misses that, so a
@@ -484,6 +482,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   const firstWordRef = firstWord.length >= 4 && firstWord !== nameL && !FIRST_WORD_SELF_STOPWORDS.has(firstWord)
     && new RegExp(`\\b${firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
+
+  // ===== BECOMES-MONSTROUS (CR 701.32d — SHELF S7) ===== the SELF form only ("this creature / <name>
+  // becomes monstrous", incl. the split half of "enters or becomes monstrous" — Alpha Deathclaw).
+  // applyMonstrosity fires checkBecomesMonstrousTriggers exactly once, on the not-yet-monstrous
+  // transition. ANY other monstrous shape (a watcher scoped to other creatures, a restricted subject)
+  // stays UNDETECTED → Arbiter (a SAFE FN, never a partial fire).
+  if (/\bbecomes monstrous\b/.test(c)) {
+    const subj = c.replace(/\s+becomes monstrous\s*$/, "").trim();
+    const isSelfSubj = subj === "this creature" || (nameL && subj === nameL)
+      || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+    if (selfRef && isSelfSubj) return { event: "becomesMonstrous", scope: "self", whose: "any" };
+    return null;
+  }
 
   // ===== COMPOUND self-event guard (CREED, CLAUDE.md §1.2) ===== A condition that names TWO trigger
   // events — "enters or leaves the battlefield" (Brandywine Farmer), "enters or dies" (Vinereap Mentor),
@@ -1842,6 +1853,9 @@ const DISJUNCTION_TRIGGER_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: 
 // stays under the compound guard (splitting it would detect an ETB half while the dies-half never
 // dispatches; the triggers.test guards still assert it).
 const DISJUNCTION_DIES_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or dies(,\\s*[^\\n]+)";
+// "enters or becomes monstrous" (Alpha Deathclaw — SHELF S7): the SAME split, third event pair. The
+// monstrous half classifies standalone (becomesMonstrous/self — fired by applyMonstrosity's transition).
+const DISJUNCTION_MONSTROUS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or becomes monstrous(,\\s*[^\\n]+)";
 // GY-TRAFFIC TRIPLE (Syr Konrad, the Grim — SHELF S7, CR 603.2b): the printed three-event disjunction
 // "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than
 // the battlefield, or a creature card leaves your graveyard, <effect>" → THREE sentences, one per event,
@@ -1860,6 +1874,8 @@ function splitCompoundTriggerSentences(oracle) {
       /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`)
     .replace(new RegExp(DISJUNCTION_DIES_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} dies${eff}`)
+    .replace(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi"), (_m, _kw, subj, eff) =>
+      `Whenever ${subj} enters${eff}\nWhenever ${subj} becomes monstrous${eff}`)
     .replace(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi"), (_m, _kw, eff) =>
       `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`);
 }
@@ -1872,9 +1888,10 @@ export function compoundTriggerCount(oracle) {
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
   const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
+  const monstrousDisjunctions = (s.match(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi")) || []).length;
   // The GY-traffic triple adds TWO extra sentences per match (1 → 3).
   const gyTriples = (s.match(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi")) || []).length;
-  return andJoins + disjunctions + diesDisjunctions + gyTriples * 2;
+  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + gyTriples * 2;
 }
 
 /**
@@ -4040,6 +4057,22 @@ export function checkEvolvesTriggers(state, permanentId) {
   if (!lk) return state;
   const fired = detectTriggers(lk.permanent.card)
     .filter((d) => d.event === "evolves")
+    .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * BECOMES-MONSTROUS triggers (Alpha Deathclaw — SHELF S7, CR 701.32d): fire the SOURCE permanent's own
+ * "when this creature becomes monstrous" watchers the moment applyMonstrosity performs the real
+ * not-yet-monstrous transition (an already-monstrous re-activation never calls this). Self-scope only
+ * (the checkEvolvesTriggers pattern); a vanished source no-ops.
+ */
+export function checkBecomesMonstrousTriggers(state, permanentId) {
+  const lk = findPermanent(state, permanentId);
+  if (!lk) return state;
+  const fired = detectTriggers(lk.permanent.card)
+    .filter((d) => d.event === "becomesMonstrous")
     .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };

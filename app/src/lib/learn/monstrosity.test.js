@@ -22,8 +22,11 @@ describe("monstrosity — classification", () => {
   it("activated-only Monstrosity creatures flip native", () => {
     expect(classifyCard({ name: "Nessian Asp", type: "Creature — Snake", mana: "{4}{G}", power: 3, toughness: 3, oracle: "{6}{G}: Monstrosity 4. (If this creature isn't monstrous, put four +1/+1 counters on it and it becomes monstrous.)" })).toMatch(/^native/);
   });
-  it("CREED: a card with a real 'becomes monstrous' trigger stays body-only (partial-fire FP avoided)", () => {
-    expect(classifyCard({ name: "Alpha Deathclaw", type: "Creature — Beast", mana: "{4}{B}{G}", power: 6, toughness: 6, oracle: "Menace, trample\nWhen this creature enters or becomes monstrous, destroy target permanent.\n{5}{B}{G}: Monstrosity 4. (If this creature isn't monstrous, put four +1/+1 counters on it and it becomes monstrous.)" })).not.toMatch(/^native/);
+  it("Alpha Deathclaw flips native (SHELF S7: the becomesMonstrous event now fires — see becomesMonstrous.test.js)", () => {
+    expect(classifyCard({ name: "Alpha Deathclaw", type: "Creature — Beast", mana: "{4}{B}{G}", power: 6, toughness: 6, oracle: "Menace, trample\nWhen this creature enters or becomes monstrous, destroy target permanent.\n{5}{B}{G}: Monstrosity 4. (If this creature isn't monstrous, put four +1/+1 counters on it and it becomes monstrous.)" })).toBe("native-mixed");
+  });
+  it("CREED: a non-self monstrous WATCHER still stays body-only (the event fires self-scope only)", () => {
+    expect(classifyCard({ name: "Monstrous Watcher", type: "Creature — Human", mana: "{2}", power: 1, toughness: 1, oracle: "Whenever a creature you control becomes monstrous, draw a card." })).toBe("body-only");
   });
 });
 
