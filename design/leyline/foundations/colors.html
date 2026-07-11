@@ -1,0 +1,41 @@
+<!-- @dsCard group="Foundations" name="Color tokens" subtitle="Ground · greens · ink · semantic" -->
+<style>
+:root{color-scheme:dark;--ground:#010202;--panel2:#050a07;--phos:#39f57e;--phos-dim:#2cbf63;--mint:#a7f3d0;--teal:#2dd4bf;--deep:#166534;--ink:#eaf7f0;--mut:#8fb29d;--faint:#74977f;--amber:#f5b04b;--red:#f87171;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.13),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(57,245,126,.11),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 14px}
+.grp{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase;margin:16px 0 8px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:132px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel2)}
+.sw .c{height:52px}
+.sw .m{padding:7px 10px 9px;font-family:var(--mono);font-size:10px;color:var(--mut)}
+.sw .m b{display:block;color:var(--ink);font-weight:600;font-size:11px}
+.note{margin-top:16px;font-size:12.5px;color:var(--mut);max-width:64ch}
+.note b{color:var(--mint)}
+</style>
+<h1>Color tokens</h1>
+<div class="grp">Ground</div>
+<div class="row">
+  <div class="sw"><div class="c" style="background:#010202"></div><div class="m"><b>--ground</b>#010202 · page base</div></div>
+  <div class="sw"><div class="c" style="background:#050a07"></div><div class="m"><b>--panel2</b>#050a07 · solid card base</div></div>
+</div>
+<div class="grp">Greens — the identity</div>
+<div class="row">
+  <div class="sw"><div class="c" style="background:#39f57e"></div><div class="m"><b>--phos</b>#39f57e · primary accent</div></div>
+  <div class="sw"><div class="c" style="background:#2cbf63"></div><div class="m"><b>--phos-dim</b>#2cbf63 · borders on accent</div></div>
+  <div class="sw"><div class="c" style="background:#a7f3d0"></div><div class="m"><b>--mint</b>#a7f3d0 · big numerals</div></div>
+  <div class="sw"><div class="c" style="background:#2dd4bf"></div><div class="m"><b>--teal</b>#2dd4bf · sibling accent</div></div>
+  <div class="sw"><div class="c" style="background:#166534"></div><div class="m"><b>--deep</b>#166534 · bar tails</div></div>
+</div>
+<div class="grp">Ink</div>
+<div class="row">
+  <div class="sw"><div class="c" style="background:#eaf7f0"></div><div class="m"><b>--ink</b>#eaf7f0 · body text</div></div>
+  <div class="sw"><div class="c" style="background:#8fb29d"></div><div class="m"><b>--mut</b>#8fb29d · secondary</div></div>
+  <div class="sw"><div class="c" style="background:#74977f"></div><div class="m"><b>--faint</b>#74977f · labels/meta</div></div>
+</div>
+<div class="grp">Semantic only — never decorative</div>
+<div class="row">
+  <div class="sw"><div class="c" style="background:#f5b04b"></div><div class="m"><b>--amber</b>#f5b04b · stale/warning</div></div>
+  <div class="sw"><div class="c" style="background:#f87171"></div><div class="m"><b>--red</b>#f87171 · stop/destructive</div></div>
+</div>
+<p class="note">Hairlines come from the mint ramp at low alpha: <b>--line</b> rgba(167,243,208,.10) and <b>--line2</b> rgba(167,243,208,.20). Neutrals are green-biased on purpose — nothing in LEYLINE is a pure grey.</p>

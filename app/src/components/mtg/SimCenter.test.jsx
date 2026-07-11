@@ -14,6 +14,11 @@
  * cross-profile grouping is pure, so we exercise the exported `groupByProfile`
  * helper directly with mocked picker rows — the same { id, name, profile } shape
  * the GET endpoint returns. CREED: nothing about the engine's signals is faked.
+ *
+ * The LEYLINE glass pass added the run-control segs (games / format / pairings),
+ * the grid⇄list roster toggle, and the /api/health freshness confession — the
+ * static shell of each is asserted below (health hasn't fetched under SSR, so
+ * the confession renders its honest "checking" state, never a green claim).
  */
 
 import { describe, it, expect } from "vitest";
@@ -84,6 +89,34 @@ describe("SimCenter", () => {
     expect(html).toContain("Standard 1v1");
     expect(html).toContain("Run all pairings");
     expect(html).toContain("Just the selected pod");
+  });
+
+  it("offers the games presets up to the server clamp, plus the endless (grind) stop", () => {
+    const html = renderToStaticMarkup(
+      <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
+    );
+    expect(html).toContain("Games / pairing");
+    expect(html).toContain("×25");
+    expect(html).toContain("×50"); // the one-shot route clamps gamesPer at 50 (R2.7)
+    expect(html).not.toContain("×100"); // no fabricated ×100/×1000 stops — bulk data is the grind's job
+    expect(html).toContain("∞");
+  });
+
+  it("renders the roster grid⇄list toggle", () => {
+    const html = renderToStaticMarkup(
+      <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
+    );
+    expect(html).toContain("Grid");
+    expect(html).toContain("List");
+  });
+
+  it("renders the freshness confession in its honest pre-fetch state (no green claim before /api/health answers)", () => {
+    const html = renderToStaticMarkup(
+      <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
+    );
+    expect(html).toContain("Checking server freshness");
+    expect(html).not.toContain("All Systems Green");
+    expect(html).not.toContain("Stale data detected");
   });
 });
 

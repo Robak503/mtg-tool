@@ -1,0 +1,48 @@
+<!-- @dsCard group="Components" name="Status bar" subtitle="Desktop kiosk header · phone compact — logo, LED, clock, search" -->
+<style>
+:root{color-scheme:dark;--ground:#010202;--phos:#39f57e;--mint:#a7f3d0;--ink:#eaf7f0;--mut:#8fb29d;--faint:#74977f;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);--glow:0 0 18px rgba(57,245,126,.16),0 0 2px rgba(57,245,126,.4);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(57,245,126,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
+.cap{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.08em;margin:16px 2px 8px}
+.ok{width:7px;height:7px;border-radius:50%;background:var(--phos);box-shadow:var(--glow);display:inline-block;flex:none}
+.ktop{display:flex;align-items:center;gap:16px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:rgba(10,21,14,.5);backdrop-filter:blur(10px);max-width:900px}
+.klogo{display:flex;align-items:center;gap:11px}
+.klogo .word{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:.05em}
+.klogo .word small{display:block;font-family:var(--mono);font-weight:400;font-size:9px;letter-spacing:.32em;color:var(--phos);margin-top:1px}
+.spacer{flex:1}
+.kstat{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11.5px;color:var(--mut)}
+.kstat .clock{font-size:16px;color:var(--ink);font-weight:600;letter-spacing:.04em}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);border-radius:999px;padding:5px 12px;background:rgba(16,34,24,.4);font-family:var(--mono);font-size:11px;color:var(--mut)}
+.chip b{color:var(--phos);font-weight:600}
+.ksearch{display:flex;align-items:center;gap:8px;border:1px solid var(--line2);border-radius:999px;padding:8px 15px;font-family:var(--mono);font-size:11.5px;color:var(--faint);min-width:170px;background:rgba(14,30,21,.5)}
+.ptop{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(10,21,14,.5);backdrop-filter:blur(10px);width:300px}
+.ptop .word{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:.04em}
+.ptop .clock{font-family:var(--mono);font-size:12px;color:var(--ink);font-weight:600}
+p.note{margin:16px 0 0;font-size:12.5px;color:var(--mut);max-width:70ch}
+p.note b{color:var(--mint)}
+</style>
+<h1>Status bar</h1>
+<div class="cap">DESKTOP — page header, kiosk style</div>
+<div class="ktop">
+  <div class="klogo">
+    <svg width="28" height="28" viewBox="0 0 30 30" fill="none" aria-hidden="true"><path d="M15 2 L27 24 H3 Z" stroke="#39f57e" stroke-width="2.2" stroke-linejoin="round"/><path d="M15 9 L21.5 21 H8.5 Z" stroke="#2dd4bf" stroke-width="1.6" stroke-linejoin="round" opacity=".6"/></svg>
+    <div class="word">SIM CENTER<small>PROVING GROUNDS</small></div>
+  </div>
+  <span class="spacer"></span>
+  <div class="kstat">
+    <span class="chip"><span class="ok"></span> <b>0.134.0</b> = shell</span>
+    <span class="chip">⌁ offline</span>
+    <span class="clock">18:15</span>
+  </div>
+  <div class="ksearch">⌕&nbsp; search decks…</div>
+</div>
+<div class="cap">PHONE — compact: glyph, name, LED, clock (search moves into the page)</div>
+<div class="ptop">
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" aria-hidden="true"><path d="M15 2 L27 24 H3 Z" stroke="#39f57e" stroke-width="2.4" stroke-linejoin="round"/></svg>
+  <span class="word">SIM CENTER</span>
+  <span class="spacer"></span>
+  <span class="ok"></span>
+  <span class="clock">18:15</span>
+</div>
+<p class="note">The LED is the freshness verdict at a glance — <b>green dot = server, registry, and fetch age all clean</b>; it goes amber with the confession box. Page identity (wordmark + mono sub-brand) lives here so the panel headers below stay short. The triangle glyph is the LEYLINE mark: phosphor outer, teal inner.</p>

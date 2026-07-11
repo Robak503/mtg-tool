@@ -985,8 +985,8 @@ export default function MTGAssistant() {
 
   return (
     <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
-      {/* Near-black backdrop with a faint cyan bloom up top for depth — no commander art. */}
-      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(86,214,93,0.06) 0%, rgba(86,214,93,0.015) 32%, transparent 60%), #050705"}}/>
+      {/* v5.3 aura ground: faint dot grid + two whisper orbs on the void — the light the glass panes feed on. */}
+      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(rgba(167,243,208,0.02) 1px, transparent 1.5px) 0 0/26px 26px, radial-gradient(720px 400px at 14% -8%, rgba(45,212,191,0.032), transparent 60%), radial-gradient(660px 380px at 92% 2%, rgba(57,245,126,0.028), transparent 60%), var(--ley-bg)"}}/>
       <style>{`
         @keyframes mtgd{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:.9}}
         *{box-sizing:border-box;margin:0;padding:0}
@@ -1078,7 +1078,7 @@ export default function MTGAssistant() {
         bootstrapResult={bootstrapResult}
         onGoImport={() => { dismissBootstrap(); setCenterView("import"); }}
         onFinish={dismissBootstrap}
-        colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED: "#c84848"}}
+        colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED: "var(--ley-red)"}}
         fontFamily={F}
       />
 
@@ -1091,9 +1091,9 @@ export default function MTGAssistant() {
           role="status"
           style={{
             padding: "10px 16px",
-            background: appUpdateInfo.installFailed ? "#3a1a1a" : "#1a3826",
-            borderBottom: `1px solid ${appUpdateInfo.installFailed ? "#6b3a3a" : "#346b48"}`,
-            color: appUpdateInfo.installFailed ? "#e0a89a" : "#9ec59e",
+            background: appUpdateInfo.installFailed ? "var(--ley-red-dim)" : "var(--ley-green-dim)",
+            borderBottom: `1px solid ${appUpdateInfo.installFailed ? "rgba(248,113,113,0.4)" : "var(--ley-line-bright)"}`,
+            color: appUpdateInfo.installFailed ? "var(--ley-red)" : "var(--ley-green-text)",
             fontSize: 12,
             fontFamily: F,
             display: "flex",
@@ -1125,9 +1125,9 @@ export default function MTGAssistant() {
               <button
                 onClick={() => setShowUpdates(true)}
                 style={{
-                  background: appUpdateInfo.installFailed ? "#5a3a3a" : "#346b48",
-                  border: `1px solid ${appUpdateInfo.installFailed ? "#8a5a5a" : "#5a9a72"}`,
-                  color: "#d8d2e8", cursor: "pointer",
+                  background: appUpdateInfo.installFailed ? "var(--ley-red-dim)" : "var(--ley-green-dim)",
+                  border: `1px solid ${appUpdateInfo.installFailed ? "rgba(248,113,113,0.5)" : "var(--ley-line-bright)"}`,
+                  color: "var(--ley-text)", cursor: "pointer",
                   fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
                 }}
               >
@@ -1157,9 +1157,9 @@ export default function MTGAssistant() {
           role="status"
           style={{
             padding: "10px 16px",
-            background: "#12132a",
-            borderBottom: "1px solid #2a2850",
-            color: "#b8b2d0",
+            background: "var(--ley-surface-1)",
+            borderBottom: "1px solid var(--ley-line)",
+            color: "var(--ley-text-dim)",
             fontSize: 12,
             fontFamily: F,
             display: "flex",
@@ -1191,8 +1191,8 @@ export default function MTGAssistant() {
               disabled={bootstrapBusy}
               style={{
                 flex: 1, padding: "6px 10px", borderRadius: 5,
-                border: "1px solid #2a2850", background: "#0a0807",
-                color: "#d8d2e8", fontFamily: F, fontSize: 12,
+                border: "1px solid var(--ley-line)", background: "var(--ley-surface-0)",
+                color: "var(--ley-text)", fontFamily: F, fontSize: 12,
               }}
             />
             <button
@@ -1200,9 +1200,9 @@ export default function MTGAssistant() {
               disabled={bootstrapBusy || !bootstrapSourcePath.trim()}
               style={{
                 padding: "6px 14px", borderRadius: 5,
-                border: "1px solid #56d65d",
-                background: bootstrapBusy ? "#12132a" : "#2a2850",
-                color: "#d8d2e8", fontFamily: F, fontSize: 12,
+                border: "1px solid var(--ley-green)",
+                background: bootstrapBusy ? "var(--ley-surface-1)" : "var(--ley-line)",
+                color: "var(--ley-text)", fontFamily: F, fontSize: 12,
                 cursor: bootstrapBusy ? "default" : "pointer",
               }}
             >
@@ -1213,7 +1213,7 @@ export default function MTGAssistant() {
             <div
               style={{
                 fontSize: 11,
-                color: bootstrapResult.ok ? "#9ec59e" : "#e0a89a",
+                color: bootstrapResult.ok ? "var(--ley-green-text)" : "var(--ley-red)",
                 padding: "4px 0",
               }}
             >
@@ -1237,10 +1237,10 @@ export default function MTGAssistant() {
             model-missing → "Pull <model>" via ollama pull (streamed) */}
       {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (() => {
         const palette = ollamaHealth.status === "not-installed"
-          ? { bg: "#12132a", border: "#2a2850", text: "#b8b2d0", accent: "#2a2850", accentBorder: "#56d65d" }
+          ? { bg: "var(--ley-surface-1)", border: "var(--ley-line)", text: "var(--ley-text-dim)", accent: "var(--ley-line)", accentBorder: "var(--ley-green)" }
           : ollamaHealth.status === "server-down"
-          ? { bg: "#3a1a1a", border: "#6b3a3a", text: "#e0a89a", accent: "#3a1a1a", accentBorder: "#6b3a3a" }
-          : { bg: "#3a2a14", border: "#6b5a3a", text: "#e8c285", accent: "#3a2a14", accentBorder: "#6b5a3a" };
+          ? { bg: "var(--ley-red-dim)", border: "rgba(248,113,113,0.4)", text: "var(--ley-red)", accent: "var(--ley-red-dim)", accentBorder: "rgba(248,113,113,0.4)" }
+          : { bg: "var(--ley-gold-dim)", border: "rgba(245,176,75,0.4)", text: "var(--ley-gold)", accent: "var(--ley-gold-dim)", accentBorder: "rgba(245,176,75,0.4)" };
         const title =
           ollamaHealth.status === "not-installed" ? "👋 Ollama not installed" :
           ollamaHealth.status === "server-down" ? "⚠ Ollama not running" :

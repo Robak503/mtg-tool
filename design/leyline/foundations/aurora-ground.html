@@ -1,0 +1,32 @@
+<!-- @dsCard group="Foundations" name="Aurora ground" subtitle="The light behind the glass — page backdrop recipe" -->
+<style>
+:root{color-scheme:dark;--ground:#010202;--phos:#39f57e;--mint:#a7f3d0;--teal:#2dd4bf;--ink:#eaf7f0;--mut:#8fb29d;--faint:#74977f;--line:rgba(167,243,208,.10);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 4px}
+.k{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:var(--phos);text-transform:uppercase}
+.stage{margin-top:16px;border:1px solid var(--line);border-radius:16px;overflow:hidden;height:250px;position:relative;background:
+ radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.16),transparent 55%),
+ radial-gradient(520px 300px at 85% 8%,rgba(57,245,126,.14),transparent 58%),
+ radial-gradient(640px 420px at 55% 115%,rgba(22,101,52,.24),transparent 62%),var(--ground)}
+.tag{position:absolute;font-family:var(--mono);font-size:10px;color:var(--mint);background:rgba(7,16,9,.7);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:14px}
+.leg{border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:12px;color:var(--mut);background:#030604}
+.leg b{color:var(--mint);font-weight:600;display:block;margin-bottom:2px}
+.leg code{font-family:var(--mono);font-size:10px;color:var(--faint)}
+p.note{margin:14px 0 0;font-size:12.5px;color:var(--mut);max-width:70ch}
+p.note b{color:var(--mint)}
+</style>
+<div class="k">LEYLINE · law 1</div>
+<h1>Aurora ground</h1>
+<div class="stage">
+  <span class="tag" style="top:14px;left:16px">teal orb · top-left · off-canvas center</span>
+  <span class="tag" style="top:44px;right:16px">phosphor orb · top-right</span>
+  <span class="tag" style="bottom:14px;left:34%">deep-green wash · rises from below the fold</span>
+</div>
+<div class="legend">
+  <div class="leg"><b>Orb 1 — teal</b><code>radial-gradient(560px 300px at 18% -6%, rgba(45,212,191,.13→.16), transparent 55%)</code></div>
+  <div class="leg"><b>Orb 2 — phosphor</b><code>radial-gradient(520px 300px at 85% 8%, rgba(57,245,126,.11→.14), transparent 58%)</code></div>
+  <div class="leg"><b>Wash — deep</b><code>radial-gradient(640px 420px at 55% 115%, rgba(22,101,52,.20), transparent 62%)</code></div>
+</div>
+<p class="note">Orbs anchor <b>off-canvas</b> (negative or &gt;100% positions) so only their falloff is visible — glow without a visible hotspot. Alphas stay under .17; the ground must remain near-black for the phosphor accent to matter. Scale the orb radii with the viewport (phone gets one orb + wash) and never animate them faster than a slow drift.</p>

@@ -10,6 +10,29 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.135.0] - 2026-07-11
+
+### Changed
+- **LEYLINE v5.3 — the whole app re-skinned.** Near-pure-black background, black glass panels ringed
+  by a green aura glow, and a more electric phosphor green everywhere. Designed live with mockups
+  and rolled out through the token system so every screen changed together. All text/contrast pairs
+  are WCAG-AA verified.
+- **Sim Center rebuilt.** Live Standings while a grind runs (games / wins / win % per deck with
+  confidence intervals, sorted, scrollable for big pools), a games selector (×1–×50 plus **∞ endless**,
+  which turns the main button into "Grind endless"), luminous gel progress meters, and spacing that
+  holds at every window size.
+- **The page now tells on itself.** A green "All Systems" pill checks the server version, profile
+  registry, and data freshness every 30 seconds; any mismatch turns it amber, says "Stale data
+  detected — restart to repair", and disables launching sims — stale data can render but can't run.
+- **The bottom navigation glows alive.** The active-area pill now physically springs between buttons
+  as you hover (CSS anchor positioning with a spring curve; quiet fallback on older engines).
+- **Jace, Karn, and Tibalt got real pixel-art portraits** (24×24 busts — glowing eyes, Urza-red
+  tabard, toothed grin and fur coat) replacing the old 12×12 marks.
+
+### Added
+- `/api/health` now reports version + profile-registry identity for the freshness check (the old
+  readiness contract is unchanged).
+
 ## [0.134.0] - 2026-07-10
 
 ### Fixed

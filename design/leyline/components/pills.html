@@ -1,0 +1,43 @@
+<!-- @dsCard group="Components" name="Pills & chips" subtitle="Profile line-pills · status chips · freshness pill (green/amber)" -->
+<style>
+:root{color-scheme:dark;--ground:#010202;--phos:#39f57e;--mint:#a7f3d0;--teal:#2dd4bf;--ink:#eaf7f0;--mut:#8fb29d;--faint:#74977f;--amber:#f5b04b;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);--glow:0 0 18px rgba(57,245,126,.16),0 0 2px rgba(57,245,126,.4);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(57,245,126,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
+.spec{border-top:1px solid var(--line);padding:15px 0;display:grid;grid-template-columns:220px 1fr;gap:8px 22px;align-items:center}
+.spec .m{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.spec .m b{display:block;color:var(--phos);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
+.rowset{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lpill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);border-radius:999px;padding:6px 14px;font-size:12px;color:var(--mut);cursor:pointer;background:rgba(12,26,18,.4);backdrop-filter:blur(6px)}
+.lpill i{width:8px;height:8px;border-radius:50%;font-style:normal}
+.lpill.c1{border-color:rgba(57,245,126,.45);color:var(--mint)}.lpill.c1 i{background:var(--phos);box-shadow:0 0 8px rgba(57,245,126,.55)}
+.lpill.c2{border-color:rgba(45,212,191,.4);color:#bff5ec}.lpill.c2 i{background:var(--teal);box-shadow:0 0 8px rgba(45,212,191,.45)}
+.lpill.c3 i{background:var(--faint)}
+.lpill.dim{opacity:.55}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);border-radius:999px;padding:5px 12px;background:rgba(16,34,24,.4);font-family:var(--mono);font-size:11px;color:var(--mut);backdrop-filter:blur(6px)}
+.chip b{color:var(--phos);font-weight:600}
+.ok{width:7px;height:7px;border-radius:50%;background:var(--phos);box-shadow:var(--glow);display:inline-block}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:11px;overflow:hidden;font-size:12px;background:rgba(12,26,18,.4)}
+.seg span{padding:7px 12px;color:var(--mut);cursor:pointer}
+.seg .on{background:rgba(57,245,126,.16);color:var(--phos);font-weight:600}
+.pfresh{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--faint);border:1px solid rgba(57,245,126,.35);border-radius:999px;padding:6px 13px;background:linear-gradient(155deg,rgba(52,140,88,.2),rgba(14,34,22,.45))}
+.pfresh b{color:var(--phos)}
+.pfresh.amber{border-color:rgba(245,176,75,.5);background:linear-gradient(155deg,rgba(120,84,26,.24),rgba(34,24,8,.5))}
+.pfresh.amber,.pfresh.amber b{color:var(--amber)}
+</style>
+<h1>Pills &amp; chips</h1>
+<div class="spec"><div class="m"><b>Profile line-pills</b>glowing dot = profile identity · Colton phosphor, Joe teal, others neutral · dimmed = filtered out</div><div class="rowset">
+  <span class="lpill c1"><i></i> Colton · 6</span><span class="lpill c2"><i></i> Joe · 9</span><span class="lpill c3 dim"><i></i> Meta · 19</span>
+</div></div>
+<div class="spec"><div class="m"><b>Status chips</b>header cluster · mono, LED dot for live states</div><div class="rowset">
+  <span class="chip"><span class="ok"></span> <b>0.134.0</b> = shell</span><span class="chip">⌁ offline · 0 net</span><span class="chip">epoch <b>3</b></span>
+</div></div>
+<div class="spec"><div class="m"><b>Segmented control</b>config switches · one .on per group</div><div class="rowset">
+  <div class="seg"><span class="on">4P</span><span>1v1</span></div>
+  <div class="seg"><span>×1</span><span class="on">×5</span><span>×25</span></div>
+  <div class="seg"><span class="on">▦ Grid</span><span>☰ List</span></div>
+</div></div>
+<div class="spec"><div class="m"><b>Freshness pill</b>phone-first freshness · green OK / amber confession</div><div class="rowset" style="flex-direction:column;align-items:flex-start">
+  <span class="pfresh"><span class="ok"></span><span><b>0.134.0</b> = shell · registry ✓ · 2s ago</span></span>
+  <span class="pfresh amber"><span>⚠ server <b>0.128.0</b> ≠ app · restart to repair</span></span>
+</div></div>

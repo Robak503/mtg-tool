@@ -1,0 +1,28 @@
+<!-- @dsCard group="Foundations" name="Typography" subtitle="Display · body · mono roles and scale" -->
+<style>
+:root{color-scheme:dark;--ground:#010202;--phos:#39f57e;--mint:#a7f3d0;--ink:#eaf7f0;--mut:#8fb29d;--faint:#74977f;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.13),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(57,245,126,.11),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
+.spec{display:grid;grid-template-columns:210px 1fr;gap:10px 20px;align-items:baseline;border-top:1px solid var(--line);padding:13px 0}
+.spec .m{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.04em}
+.spec .m b{display:block;color:var(--phos);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
+.d1{font-family:var(--disp);font-size:32px;font-weight:650;letter-spacing:-.02em}
+.d2{font-family:var(--disp);font-size:20px;font-weight:650;letter-spacing:-.01em}
+.d3{font-family:var(--disp);font-size:14px;font-weight:650;letter-spacing:.02em}
+.b1{font-size:14.5px;color:var(--ink)}
+.b2{font-size:12.5px;color:var(--mut)}
+.m1{font-family:var(--mono);font-size:12px;color:var(--mint);font-variant-numeric:tabular-nums}
+.m2{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase}
+.note{margin-top:14px;font-size:12.5px;color:var(--mut);max-width:66ch}
+.note b{color:var(--mint)}
+</style>
+<h1>Typography</h1>
+<div class="spec"><div class="m"><b>Display / hero</b>Space Grotesk 650 · 32/-0.02em</div><div class="d1">Sim Center 12.4K</div></div>
+<div class="spec"><div class="m"><b>Display / panel title</b>Space Grotesk 650 · 20</div><div class="d2">Deck Roster</div></div>
+<div class="spec"><div class="m"><b>Display / control</b>Space Grotesk 650 · 14 · buttons</div><div class="d3">▶ Run simulation</div></div>
+<div class="spec"><div class="m"><b>Body</b>Inter 400 · 14.5</div><div class="b1">The grind finishes the in-flight game so the log never holds a torn record.</div></div>
+<div class="spec"><div class="m"><b>Body / secondary</b>Inter 400 · 12.5 · --mut</div><div class="b2">selected decks: 87% · epoch 3 · clean era</div></div>
+<div class="spec"><div class="m"><b>Mono / data</b>Cascadia Code · 12 · tabular-nums</div><div class="m1">4.2 g/min · 1,213 / 1,500 · 81%</div></div>
+<div class="spec"><div class="m"><b>Mono / label</b>Cascadia Code · 10 · .2em caps</div><div class="m2">Games banked · Coverage · Freshness</div></div>
+<p class="note">Three roles, never mixed: <b>Space Grotesk</b> speaks (titles, controls), <b>Inter</b> explains (sentences), <b>Cascadia/mono</b> measures (numbers, labels, stamps). Numbers that align vertically always get <b>tabular-nums</b>. Windows fallbacks are wired in: Segoe UI Variable and Consolas.</p>

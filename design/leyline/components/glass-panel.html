@@ -1,0 +1,48 @@
+<!-- @dsCard group="Components" name="Glass panel" subtitle="Default · status-green · confession-amber" -->
+<style>
+:root{color-scheme:dark;--ground:#010202;--phos:#39f57e;--mint:#a7f3d0;--ink:#eaf7f0;--mut:#8fb29d;--faint:#74977f;--amber:#f5b04b;--line:rgba(167,243,208,.10);--line2:rgba(167,243,208,.20);--glow:0 0 18px rgba(57,245,126,.16),0 0 2px rgba(57,245,126,.4);
+--mono:"Cascadia Code","Consolas",ui-monospace,monospace;--disp:"Space Grotesk","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--body:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+body{margin:0;background:radial-gradient(560px 300px at 18% -6%,rgba(45,212,191,.14),transparent 55%),radial-gradient(520px 300px at 85% 8%,rgba(57,245,126,.12),transparent 58%),var(--ground);color:var(--ink);font-family:var(--body);padding:26px}
+h1{font-family:var(--disp);font-size:20px;font-weight:650;margin:0 0 16px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.g{position:relative;border-radius:18px;background:linear-gradient(155deg,rgba(57,245,126,.045),rgba(4,10,7,.72));backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);border:1px solid rgba(180,240,210,.16);box-shadow:0 18px 44px rgba(0,0,0,.38),inset 0 1px 0 rgba(214,255,236,.13)}
+.g::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(90deg,transparent 10%,rgba(214,255,236,.35) 50%,transparent 90%) top/100% 1px no-repeat,linear-gradient(118deg,rgba(224,255,240,.10),rgba(224,255,240,.02) 28%,transparent 42%)}
+@supports not ((backdrop-filter:blur(1px))){.g{background:rgba(13,28,20,.94)}}
+.ghead{display:flex;align-items:center;gap:10px;padding:13px 17px 0;font-family:var(--disp);font-size:13.5px;font-weight:650}
+.ghead .r{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint);font-weight:400}
+.gbody{padding:10px 17px 15px}
+.qrow{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);padding:2.5px 0}
+.qrow b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.g.green{border-color:rgba(57,245,126,.4);background:linear-gradient(155deg,rgba(52,140,88,.22),rgba(14,34,22,.5))}
+.g.green .ghead{color:var(--phos)}
+.g.amber{border-color:rgba(245,176,75,.5);background:linear-gradient(155deg,rgba(120,84,26,.24),rgba(34,24,8,.5))}
+.g.amber .ghead{color:var(--amber)}
+.stamp{display:inline-flex;gap:10px;align-items:center;font-family:var(--mono);font-size:10px;color:var(--faint);flex-wrap:wrap}
+.stamp b{color:var(--phos)}
+.amb,.amb b{color:var(--amber)!important}
+.ok{width:7px;height:7px;border-radius:50%;background:var(--phos);box-shadow:var(--glow);display:inline-block}
+.cap{font-family:var(--mono);font-size:10px;color:var(--faint);margin:8px 2px 0;letter-spacing:.08em}
+</style>
+<h1>Glass panel</h1>
+<div class="row">
+  <div>
+    <div class="g"><div class="ghead">Live Grind<span class="r">idle</span></div><div class="gbody">
+      <div class="qrow"><span>state</span><b style="color:var(--phos)">READY</b></div>
+      <div class="qrow"><span>last session</span><b>1,206 games</b></div>
+      <div class="qrow"><span>throughput</span><b>4.2 g/min</b></div>
+    </div></div>
+    <div class="cap">default — telemetry, config, lists</div>
+  </div>
+  <div>
+    <div class="g green"><div class="ghead">◉ All Systems Green</div><div class="gbody">
+      <span class="stamp"><span class="ok"></span><span>server <b>0.134.0</b> = shell</span><span>registry <b>b1412fcc</b> ✓</span><span>2s ago</span></span>
+    </div></div>
+    <div class="cap">status-green — freshness OK, one per page</div>
+  </div>
+  <div>
+    <div class="g amber"><div class="ghead">⚠ Stale Data Detected</div><div class="gbody">
+      <span class="stamp amb"><span>server <b>0.128.0</b> ≠ app 0.134.0</span><span>fetched 6d ago</span><span style="text-decoration:underline">Restart app to repair</span></span>
+    </div></div>
+    <div class="cap">confession-amber — replaces green box, disables Run</div>
+  </div>
+</div>
