@@ -10,6 +10,21 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.135.1] - 2026-07-11
+
+### Fixed
+- **The "decks under the wrong profile" screen — actually fixed, at the source.** The final root cause
+  was outside the app: Windows silently gives containerized helper tooling a private copy-on-write
+  mirror of the app data folder, so past repairs kept landing in a mirror while the installed app read
+  the real disk. The real on-disk profile registry has been repaired (Colton and Joe correctly mapped,
+  all 15 decks visible under the right names) with a timestamped backup left beside it.
+
+### Added
+- **World-identity armor.** `/api/health` now reports the data root and the registry file identity,
+  and a new `scripts/check-data-world.mjs` lets any helper process verify in one command whether it
+  sees the same filesystem as the running app — mirrored tooling can never silently "fix" the wrong
+  world again.
+
 ## [0.135.0] - 2026-07-11
 
 ### Changed
