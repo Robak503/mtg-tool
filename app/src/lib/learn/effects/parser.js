@@ -2849,14 +2849,31 @@ function matchMetalcraftDamage(oracle) {
 function matchCounterThenGrant(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^put (a|two|three) \+1\/\+1 counters? on target creature( you control)?\. (?:then )?it gains (.+) until end of turn$/);
-  if (!m) return null;
-  const kws = parseGrantedKeywords(m[3]);
-  if (!kws) return null;
-  return { atoms: [{
-    op: "add-counter", counterType: "+1/+1", amount: m[1] === "a" ? 1 : SMALL_NUM[m[1]],
-    targetType: "creature", ...(m[2] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}),
-    grantKeywords: kws,
-  }] };
+  if (m) {
+    const kws = parseGrantedKeywords(m[3]);
+    if (!kws) return null;
+    return { atoms: [{
+      op: "add-counter", counterType: "+1/+1", amount: m[1] === "a" ? 1 : SMALL_NUM[m[1]],
+      targetType: "creature", ...(m[2] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}),
+      grantKeywords: kws,
+    }] };
+  }
+  // MASS form (Vault 12 chapter I — SAGA, SHELF S7): "Put a +1/+1 counter on EACH creature you control.
+  // They gain <keywords> until end of turn." The anaphoric "They" is the same resolution-time set —
+  // applyAddCounter expands scope:"youControl" via controllerCreatureTargets (atomTargets) and its
+  // grantKeywords loop rides the IDENTICAL `targets` array, so the counter recipients and the keyword
+  // recipients cannot diverge. Keywords stay all-or-nothing via parseGrantedKeywords (CREED).
+  const mm = t.match(/^put (a|two|three) \+1\/\+1 counters? on each creature you control\. (?:then )?they gain (.+) until end of turn$/);
+  if (mm) {
+    const kws = parseGrantedKeywords(mm[2]);
+    if (!kws) return null;
+    return { atoms: [{
+      op: "add-counter", counterType: "+1/+1", amount: mm[1] === "a" ? 1 : SMALL_NUM[mm[1]],
+      scope: "youControl",
+      grantKeywords: kws,
+    }] };
+  }
+  return null;
 }
 
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {

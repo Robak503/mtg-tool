@@ -31,6 +31,7 @@
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
+import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -1297,6 +1298,23 @@ export function classifyCard(card) {
   // taps (manaModel.landAuraManaBonus). Checked before the creature-aura gate (single source of truth
   // — isNativeManaAura), so the metric credits EXACTLY the cards the runtime plays natively, no
   // over-claim: an Aura that is neither a clean creature-aura nor a clean mana-aura stays body-only.
+  // SAGA (CR 714 — SHELF S7, Vault 12): a Saga is native ONLY when its chapter list parses
+  // all-or-nothing (parseSagaChapters — any residue line/gap/unknown numeral ⇒ null) AND detectTriggers
+  // synthesized exactly one descriptor per chapter AND every chapter's effect routes natively (the SAME
+  // shared gate the runtime flush uses, so the metric can't claim a chapter the engine would drop).
+  // Checked BEFORE the Aura block (a Saga is an enchantment; a Saga that is ALSO an Aura stays in this
+  // gate's all-or-nothing hands, never half-read as a plain Aura). Any failure ⇒ body-only (Arbiter).
+  if (isSagaCard(card)) {
+    const parsed = parseSagaChapters(card);
+    if (!parsed) return "body-only";
+    const descs = detectTriggers(card);
+    const chapterDescs = descs.filter((d) => d.event === "sagaChapter");
+    return descs.length === chapterDescs.length
+      && chapterDescs.length === parsed.chapters.length
+      && chapterDescs.every((d) => triggerRoutesNatively(d))
+      ? "native-trigger"
+      : "body-only";
+  }
   if (isAuraCard(card)) {
     if (isNativeManaAura(card)) return "native-mana-aura";
     // GRANTED-MANA-ABILITY (creature OR land host): "Enchanted creature/land has \"{T}: Add …\"" (Multani's

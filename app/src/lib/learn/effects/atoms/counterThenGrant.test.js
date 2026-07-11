@@ -41,6 +41,17 @@ describe("COUNTER-THEN-GRANT — parse", () => {
     expect(prog.atoms[0].grantKeywords).toEqual(["Reach", "Trample", "hexproof", "indestructible"]);
   });
 
+  it("MASS form (SAGA S7): 'each creature you control … They gain' → scope youControl + grantKeywords", () => {
+    // The anaphoric "They" is the same resolution-time set — applyAddCounter expands scope:"youControl"
+    // via controllerCreatureTargets and its grantKeywords loop rides the IDENTICAL targets array, so
+    // the counter recipients and the keyword recipients cannot diverge.
+    const prog = spell("Put a +1/+1 counter on each creature you control. They gain deathtouch until end of turn.");
+    expect(prog.confidence).toBe("high");
+    expect(prog.atoms).toEqual([{
+      op: "add-counter", counterType: "+1/+1", amount: 1, scope: "youControl", grantKeywords: ["Deathtouch"],
+    }]);
+  });
+
   it("an ungrantable keyword falls through to low (CREED)", () => {
     const prog = spell("Put a +1/+1 counter on target creature you control. It gains shroudiness until end of turn.");
     expect(prog.confidence).toBe("low");
