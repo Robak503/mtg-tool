@@ -934,7 +934,16 @@ export function attachPermanent(state, { equipId, targetId }) {
 export function recordGraveyardEvents(state, events) {
   const evs = (events || []).filter((e) => e && e.card && !e.card.token);
   if (!evs.length) return state;
-  return { ...state, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs] };
+  // GY-ENTERED-THIS-TURN tally (Fraying Sanity — SHELF S7): per-player count of CARDS that entered that
+  // player's graveyard this turn, stamped here at the single recording chokepoint (every entry site
+  // already routes through this fn — the same can't-miss argument as milledThisTurn). Reset for all
+  // seats at untap alongside creaturesDiedThisTurn. Tokens never count (filtered above — not cards).
+  let players = state.players;
+  for (const e of evs) {
+    if (e.dir !== "enter" || !players[e.gyOwner]) continue;
+    players = { ...players, [e.gyOwner]: { ...players[e.gyOwner], gyEnteredThisTurn: (players[e.gyOwner].gyEnteredThisTurn || 0) + 1 } };
+  }
+  return { ...state, players, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs] };
 }
 
 /**
@@ -1639,9 +1648,9 @@ export function recordCreatureDeaths(state, dead) {
 export function resetCreatureDeathsAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
-    // lifeLostThisTurn resets on the SAME per-game-turn cadence (Bloodchief Ascension's end-step check —
-    // life can be lost on any player's turn, so every seat's tally clears at each untap).
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0 };
+    // lifeLostThisTurn + gyEnteredThisTurn reset on the SAME per-game-turn cadence (Bloodchief Ascension's
+    // end-step check / Fraying Sanity's end-step mill — either can accrue on any player's turn).
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, gyEnteredThisTurn: 0 };
   }
   return { ...state, players };
 }

@@ -66,7 +66,7 @@ import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a 
 // identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, parseStaticAbilities } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, parseStaticAbilities } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
@@ -1090,6 +1090,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
+      }
+      continue;
+    }
+
+    // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): an "Enchant player" Aura
+    // targets a PLAYER at cast — one action per living player. Gated on the SAME native-aura tier the
+    // metric awards (classifyCard — legalChoices already consults it), so the offer and the claim can't
+    // drift: a player-aura with unmodeled residue is body-only → falls through → the Arbiter seam.
+    if (isPlayerAuraCard(card) && classifyCard(card) === "native-aura") {
+      for (const pid of Object.keys(state.players || {})) {
+        if (!state.players[pid]) continue;
+        actions.push({ ...base, targets: [{ type: "player", id: pid }], targetName: pid, needsTargets: true, isAuraSpell: true, enchantsPlayer: true });
       }
       continue;
     }

@@ -267,7 +267,17 @@ function removePlayerFromGame(state, playerId) {
       }
     : {};
   const log = [...state.log, { turn: state.turn, kind: "player-eliminated", player: playerId, ...goneVitals }];
-  const base = { ...state, players, turnOrder, stack, combat, log };
+  let base = { ...state, players, turnOrder, stack, combat, log };
+  // PLAYER-AURA sweep (Fraying Sanity / the Curse class — SHELF S7, CR 704.5n analog): an Aura enchanting
+  // the departed player has nothing legal to enchant — it's put into its controller's graveyard. Routed
+  // through moveCardToZone so the leave/GY events record normally.
+  for (const pid of Object.keys(base.players)) {
+    for (const perm of [...(base.players[pid]?.battlefield || [])]) {
+      if (perm.enchantedPlayerId === playerId) {
+        base = moveCardToZone(base, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+      }
+    }
+  }
 
   if (state.activePlayer === playerId) {
     // Active player left mid-turn: end the turn and start the next

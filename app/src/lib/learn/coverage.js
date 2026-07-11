@@ -32,7 +32,7 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1316,6 +1316,15 @@ export function classifyCard(card) {
     // GRANTED-TRIGGERED (1c): "Enchanted creature has \"Whenever/At …\"" (Sixth Sense, Commander's Authority)
     // — the host gains a triggered ability the runtime fires on the host's event (triggers.triggersForEvent).
     if (isNativeTriggerGrantAuraOrEquipment(card)) return "native-trigger";
+    // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): an "Enchant player" Aura whose
+    // whole body (the Enchant line aside) is natively-routed TRIGGERS. The runtime lane: legalChoices
+    // offers the cast per living player target (gated on THIS tier, so metric and offer can't drift),
+    // AURA_ETB enters it with enchantedPlayerId stamped, the elimination sweep moves it to the graveyard
+    // when its player leaves. All-or-nothing: any non-trigger residue keeps it body-only (Arbiter).
+    if (isPlayerAuraCard(card)) {
+      const stripped = String(card.oracle || card.oracle_text || "").replace(/(?:^|\n)\s*Enchant player\s*(?=\n|$)/i, "\n");
+      return permanentTriggersCovered({ ...card, oracle: stripped }) ? "native-aura" : "body-only";
+    }
     return isNativeAura(card) ? "native-aura" : "body-only";
   }
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now

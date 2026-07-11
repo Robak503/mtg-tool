@@ -2812,6 +2812,17 @@ export function isAuraCard(card) {
 }
 
 /**
+ * PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4 + 702.5): an Aura whose Enchant
+ * subject is exactly "player". Cast targeting a PLAYER; the permanent enters with `enchantedPlayerId`
+ * stamped (no host permanent — the attachments machinery is untouched); the enchanted player's
+ * elimination sweeps it to its owner's graveyard (CR 704.5n analog). The bare subject only — an
+ * "enchant opponent" / restricted subject stays unmodeled → Arbiter (FN-safe).
+ */
+export function isPlayerAuraCard(card) {
+  return isAuraCard(card) && auraEnchantSubject(card) === "player";
+}
+
+/**
  * The subject of an Aura's "Enchant <subject>" keyword ability (CR 702.5), lowercased —
  * "creature", "permanent", "creature you control", "land", "player", … — or null if the
  * card has no Enchant line. The modeled subset is EXACTLY "creature" (any creature, no

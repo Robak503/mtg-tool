@@ -1272,6 +1272,13 @@ export function millClauseParser(clause) {
   // Gated to the untapped event by combatDamageReferentSatisfied; absent referent → mill nobody.
   m = t.match(/^that permanent's controller mills (\d+|a|an|one|two|three|four|five) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "untappedController", targetType: null };
+  // ENCHANTED-PLAYER GY-COUNT mill (Fraying Sanity — SHELF S7): the SOURCE Aura's enchanted player mills
+  // X where X = the cards that entered THEIR graveyard this turn (the gyEnteredThisTurn per-player tally,
+  // stamped at the recordGraveyardEvents chokepoint). The exact printed phrase only — the where-clause
+  // defines its own X (no cast binder), so no hasX gate. Resolver = applyEnchantedGyMill.
+  if (/^enchanted player mills x cards, where x is the number of cards put into their graveyard from anywhere this turn$/.test(t)) {
+    return { op: "enchanted-gy-mill", targetType: null };
+  }
   // HALF-LIBRARY targeted mill (Kitsune's Technique — SHELF S7): "target opponent/player mills half their
   // library, rounded up/down". A CHOSEN player target (the cast path enumerates + picks interactively —
   // the old first-legal trigger hazard doesn't arise on a spell, and no trigger prints this form); the
@@ -1499,9 +1506,31 @@ export function tutorClauseParser(clause, ctx = {}) {
   return null;
 }
 
+/**
+ * ENCHANTED-PLAYER GY-COUNT mill (Fraying Sanity — SHELF S7): the SOURCE Aura's enchanted player mills
+ * X = the number of cards that entered THEIR graveyard this turn (players[pid].gyEnteredThisTurn — the
+ * recordGraveyardEvents chokepoint tally, reset all-seats at untap). Referent chain: ctx.sourceId → the
+ * Aura permanent → enchantedPlayerId. A vanished Aura / unstamped id / eliminated player → a clean
+ * logged no-op (never a mis-aimed mill). A 0 count mills nothing (millOnePlayer no-ops). The mill routes
+ * through millOnePlayer so the milled triggers + the Bruvac doubler + the milledThisTurn ledger all
+ * apply exactly as any other mill — and the milled cards re-feed the tally for a LATER end step
+ * (CR-correct: they entered the graveyard this turn).
+ */
+function applyEnchantedGyMill(state, atom, ctx) {
+  const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const pid = lk?.permanent?.enchantedPlayerId;
+  if (!pid || !state.players[pid]) {
+    return logEvent(state, { kind: "spell-effect", effect: "enchanted-gy-mill-noop", controller: ctx.controller, reason: "no enchanted player" });
+  }
+  const amount = Math.max(0, state.players[pid].gyEnteredThisTurn || 0);
+  const next = millOnePlayer(state, pid, amount);
+  return logEvent(next, { kind: "spell-effect", effect: "enchanted-gy-mill", controller: ctx.controller, target: pid, amount });
+}
+
 export const libraryResolvers = {
   "tutor": applyTutor,
   "shuffle": applyShuffle,
+  "enchanted-gy-mill": applyEnchantedGyMill, // ENCHANTED-PLAYER GY-COUNT mill (Fraying Sanity — SHELF S7)
   "shuffle-graveyard-into-library": applyShuffleGraveyardIntoLibrary, // SHUFFLE-GY-INTO-LIBRARY (Finale of Revelation) — move controller's whole GY into library, then shuffle; condX-gated
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),

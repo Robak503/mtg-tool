@@ -55,7 +55,7 @@ import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentP
 import { parseEffectProgram } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
-import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped } from "./staticAbilityParser.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
@@ -377,6 +377,12 @@ function applyCastSpell(state, action) {
     // to the targeted creature. The target id is the battlefield permanent chosen at cast.
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId } };
+  } else if (action.enchantsPlayer && isPlayerAuraCard(castCard)) {
+    // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER id;
+    // AURA_ETB's player branch re-checks the player is still in the game at resolution and enters the
+    // permanent with enchantedPlayerId stamped (no host permanent, attachments untouched).
+    const targetId = targets[0]?.id;
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, enchantsPlayer: true } };
   } else if (isNativeManaAura(castCard)) {
     // AURA-LAND-MANA-BOOST (Wild Growth / Overgrowth / Fertile Ground): an Aura enchanting a LAND. Same
     // AURA_ETB resolver, but the target is a LAND (the resolver re-checks the type per the card). Once
