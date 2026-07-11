@@ -256,6 +256,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init()) // RELAUNCH-AFTER-UPDATE (ghost-registry #5 follow-up): the JS updater paths call relaunch() explicitly
         // Autostart with Windows is opt-in via the UI — registered here
         // so the JS plugin can enable/disable it without privilege.
         .plugin(tauri_plugin_autostart::init(

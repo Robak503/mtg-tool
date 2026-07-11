@@ -26,6 +26,7 @@ tauri = { version = "2.11.2", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-process = "2"
 tauri-plugin-autostart = "2"
 
 # Windows-only. Used by src/lib.rs to (1) pin the bundled Node server to a

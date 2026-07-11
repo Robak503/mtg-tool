@@ -454,6 +454,13 @@ export default function MTGAssistant() {
         });
         try {
           await update.downloadAndInstall();
+          // RELAUNCH-AFTER-UPDATE (ghost-registry root cause #5 follow-up, 2026-07-10): on Windows the
+          // NSIS install does NOT reliably kill + relaunch the running app — observed live: the update
+          // rewrote the disk at 20:21 while the pre-update instance stayed on screen serving OLD code
+          // under a NEW version banner (the zombie window). Relaunch EXPLICITLY so the running process
+          // always matches the installed payload; the update-skew gate (lib.rs) remains the backstop.
+          const { relaunch } = await import('@tauri-apps/plugin-process');
+          await relaunch();
         } catch {
           // Install failed — leave the banner up so the user can retry manually
           setAppUpdateInfo((prev) => prev ? { ...prev, installing: false, installFailed: true } : prev);

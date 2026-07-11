@@ -318,8 +318,14 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
           setAppUpdate((prev) => ({ ...prev, message: "Installing… the app will relaunch in a moment." }));
         }
       });
-      // downloadAndInstall already triggers relaunch on Windows; this code
-      // is only reached if Tauri's API changes in a future version.
+      // RELAUNCH-AFTER-UPDATE (ghost-registry #5 follow-up, 2026-07-10): the old assumption here
+      // ("downloadAndInstall already triggers relaunch on Windows") was DISPROVEN live — the NSIS install
+      // rewrote the disk while the running instance stayed up serving OLD code under a NEW version banner
+      // (the zombie window). Relaunch EXPLICITLY so the running process always matches the installed
+      // payload; the status line below only renders if relaunch itself fails (then the update-skew gate
+      // in lib.rs is the backstop on the next manual start).
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
       setAppUpdate({ status: "done", message: "Update installed. Restart to apply." });
     } catch (e) {
       setAppUpdate({ status: "error", message: `Install failed: ${e?.message || e}` });
