@@ -63,4 +63,13 @@ describe("collectionToJson", () => {
     // Wishlist + tags + stacks are preserved (lossless).
     expect(json.cards.find(c => c.name === "Future Pickup").wishlist).toBe(true);
   });
+
+  it("carries color-tag definitions when supplied, so a JSON backup restores whole (C5-P1.1)", () => {
+    const tags = [{ id: "t1", name: "Grail", color: "#ffd700", behavior: "marker" }];
+    const json = JSON.parse(collectionToJson(COLLECTION, "2026-05-31T00:00:00.000Z", tags));
+    expect(json.colorTags).toEqual(tags);
+    // Omitted (not null) when the profile has no custom tags — an older reader never sees an empty key.
+    expect(JSON.parse(collectionToJson(COLLECTION)).colorTags).toBeUndefined();
+    expect(JSON.parse(collectionToJson(COLLECTION, undefined, [])).colorTags).toBeUndefined();
+  });
 });

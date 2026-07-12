@@ -45,4 +45,12 @@ describe("selectRestoreSections", () => {
   it("returns nothing for an empty bundle", () => {
     expect(selectRestoreSections({ sections: {} })).toEqual([]);
   });
+
+  it("restores color-tag defs into color-tags.json (C5-P1.1)", () => {
+    const withTags = { kind: "mtg-tool-backup", sections: { colorTags: [{ id: "t1", name: "Grail" }] } };
+    const sel = selectRestoreSections(withTags);
+    expect(sel).toHaveLength(1);
+    expect(sel[0]).toMatchObject({ section: "colorTags", file: "color-tags.json" });
+    expect(sel[0].data).toEqual([{ id: "t1", name: "Grail" }]);
+  });
 });

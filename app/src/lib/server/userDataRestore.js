@@ -14,6 +14,12 @@ const RESTORE_SECTION_FILES = {
   watchlist: "watchlist.json",
   priceAlerts: "price-alerts.json",
   agentNotes: "agent-notes.local.json",
+  // C5-P1.1 (data-hygiene keystone): the color-tag DEFINITIONS. Without this, a restore/reinstall brought
+  // back every collection row's `colorTagId` while the definitions those ids point at were lost — the row's
+  // stripe rendered against a tag the data layer had never seen. Restoring color-tags.json alongside
+  // collection.json makes a backup whole. Additive: an older backup with no `colorTags` section simply
+  // isn't restored here (selectRestoreSections skips null sections), so old bundles load unchanged.
+  colorTags: "color-tags.json",
 };
 
 export function validateBackupBundle(bundle) {

@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { collectionToJson, collectionToCsv } from "../../../../lib/server/collectionExport.js";
+import { readColorTags } from "../../../../lib/server/colorTagStore.js";
 
 export async function GET(request) {
   try {
@@ -30,7 +31,9 @@ export async function GET(request) {
       });
     }
     if (format === "json") {
-      return new Response(collectionToJson(collection), {
+      // C5-P1.1: carry the color-tag defs so the JSON backup restores whole (the rows' colorTagIds resolve).
+      const colorTags = await readColorTags();
+      return new Response(collectionToJson(collection, new Date().toISOString(), colorTags), {
         status: 200,
         headers: {
           "Content-Type": "application/json; charset=utf-8",

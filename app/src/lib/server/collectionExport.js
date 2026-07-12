@@ -27,7 +27,7 @@ function finishToFoil(finish) {
 /**
  * Lossless JSON backup. `exportedAt` lets the caller stamp it; defaults to now.
  */
-export function collectionToJson(collection, exportedAt = new Date().toISOString()) {
+export function collectionToJson(collection, exportedAt = new Date().toISOString(), colorTags = null) {
   return JSON.stringify(
     {
       kind: "mtg-tool-collection",
@@ -35,6 +35,10 @@ export function collectionToJson(collection, exportedAt = new Date().toISOString
       exportedAt,
       cardCount: (collection?.cards || []).length,
       cards: collection?.cards || [],
+      // C5-P1.1: the color-tag DEFINITIONS the rows' colorTagIds reference, so a collection-only backup is
+      // self-contained (the row stripes resolve after a restore). Only present when the profile has tags —
+      // omitted (undefined → dropped by JSON.stringify) for a profile that never saved a custom set.
+      ...(Array.isArray(colorTags) && colorTags.length ? { colorTags } : {}),
     },
     null,
     2,

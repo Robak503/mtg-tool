@@ -58,13 +58,14 @@ async function readJsonDir(rel, resolve = dataPath) {
 
 export async function GET() {
   try {
-    const [decks, chats, collection, watchlist, priceAlerts, agentNotes, feedback, games] = await Promise.all([
+    const [decks, chats, collection, watchlist, priceAlerts, agentNotes, colorTags, feedback, games] = await Promise.all([
       readJsonFile("decks.local.json"),
       readJsonFile("chats.local.json"),
       readJsonFile("collection.json"),
       readJsonFile("watchlist.json"),
       readJsonFile("price-alerts.json"),
       readJsonFile("agent-notes.local.json"),
+      readJsonFile("color-tags.json"), // C5-P1.1: the tag defs the collection's colorTagIds reference
       readJsonDir("feedback"),
       readJsonDir("games", profilePath),
     ]);
@@ -76,6 +77,7 @@ export async function GET() {
       watchlist: watchlist.data,
       priceAlerts: priceAlerts.data,
       agentNotes: agentNotes.data,
+      colorTags: colorTags.data,
       feedback: feedback.data,
       games: games.data,
     });
@@ -88,6 +90,7 @@ export async function GET() {
       watchlist: watchlist.status,
       priceAlerts: priceAlerts.status,
       agentNotes: agentNotes.status,
+      colorTags: colorTags.status,
       feedback: feedback.status,
       games: games.status,
     };
