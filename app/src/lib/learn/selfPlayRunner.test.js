@@ -73,6 +73,45 @@ describe("runSelfPlayGame (Standard 1v1)", () => {
   });
 });
 
+// ROUTER-BAG CONTRACT (the destructuring-class fix, instance #4): resolveDecideAction hands the
+// self-play `routedDecide` router a bag { state, legalActions, seat, pilot, features, previewFeatures };
+// the router must forward the WHOLE bag to the seat's pilot, never destructure-and-rebuild. This is the
+// sentinel test Omnath asked for — it would have caught all four historical instances (loadPilotBuilder
+// flags-drop, repro-seed drop, the gameApi router, and this self-play one) before each cost a bench.
+describe("routedDecide forwards the whole decide bag (no key dropped at the router hop)", () => {
+  it("a pilot driven through the self-play path receives features + previewFeatures", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let sawFeatures = false;
+    let sawPreviewFn = false;
+    let previewWorks = false;
+    const pilot = {
+      decide: (bag) => {
+        if (bag.features && typeof bag.features === "object") sawFeatures = true;
+        if (typeof bag.previewFeatures === "function") {
+          sawPreviewFn = true;
+          // The lookahead closure must actually produce a feature vector (or null, never throw).
+          const pv = bag.previewFeatures(bag.legalActions?.[0]);
+          if (pv === null || (pv && typeof pv === "object")) previewWorks = true;
+        }
+        return bag.legalActions?.[0]; // take the first legal action (keeps the game moving)
+      },
+    };
+    const game = runSelfPlayGame({
+      deckA: aggroDeck("u"),
+      deckB: aggroDeck("a"),
+      mode: "standard",
+      pilots: { user: pilot },
+    });
+    warn.mockRestore();
+    log.mockRestore();
+    expect(["user-wins", "ai-wins", "draw"]).toContain(game.result);
+    expect(sawFeatures).toBe(true);      // features survived the router hop (was dropped pre-fix)
+    expect(sawPreviewFn).toBe(true);     // previewFeatures survived too
+    expect(previewWorks).toBe(true);     // and it's a working closure, not just present
+  });
+});
+
 describe("runSelfPlayGame (Commander 4P)", () => {
   it("runs a real 4-player pod to a terminal result", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

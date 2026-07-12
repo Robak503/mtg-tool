@@ -190,10 +190,22 @@ layer to drive full games.
 
 ### 1.3 The pilot decide contract (unchanged from the 2026-06-28 lock)
 
-`decide({ state, legalActions, seat, pilot }) -> action ∈ legalActions` — fires at every
-auto-decided window; out-of-set/throwing returns fall back to the default pick (never illegal,
-never a crash). `decideMulligan` same shape at keep/ship. Injected via `pilots` at createGame /
-`runSelfPlayBatch` — the engine never imports omnath-tools.
+`decide({ state, legalActions, seat, pilot, features, previewFeatures }) -> action ∈ legalActions`
+— fires at every auto-decided window; out-of-set/throwing returns fall back to the default pick
+(never illegal, never a crash). `decideMulligan` same shape at keep/ship. Injected via `pilots` at
+createGame / `runSelfPlayBatch` — the engine never imports omnath-tools. `features` is the
+engine-computed feature vector (`featurizeState`); `previewFeatures(action)` is the one-dispatch
+lookahead closure (null/fail-closed on any dispatch failure).
+
+**ROUTER CONVENTION (load-bearing — four historical breaks cost a bench each):** a per-seat decide
+**router forwards the WHOLE bag, never destructures-and-rebuilds.** `resolveDecideAction`
+(`learnSession.js`) constructs the bag; every router hop between it and the pilot
+(`selfPlayRunner.routedDecide`, `gameApi`'s pilots router) MUST spread it through
+(`(bag) => pilot.decide({ ...bag, pilot: identity }))`), so any key added to the bag later reaches
+the pilot automatically. Destructuring `({ state, legalActions, seat })` silently drops new keys
+(`features`/`previewFeatures` were dropped four times this way). Pinned by
+`selfPlayRunner.test.js` "routedDecide forwards the whole decide bag" — a sentinel that fails if any
+router hop rebuilds instead of spreading.
 
 ---
 

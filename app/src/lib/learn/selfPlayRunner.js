@@ -331,11 +331,19 @@ export function runSelfPlayGame({
   // byte-identical to the pre-refactor loop.
   const hasAnyPilot = pilots && Object.values(pilots).some((p) => typeof p?.decide === "function");
   // pilotIdentity is defined once above (the mulligan config needs it before session build).
+  // ROUTER CONVENTION (the destructuring-class fix, instance #4): forward the WHOLE bag, never
+  // destructure-and-rebuild. resolveDecideAction hands this router `{ state, legalActions, seat, pilot,
+  // features, previewFeatures }`; the old `({ state, legalActions, seat })` signature silently DROPPED
+  // `features` + `previewFeatures` on the floor, so a pilot driven through the SELF-PLAY path (swap-bench +
+  // the grind pool both route through here) got neither the engine-computed feature vector nor the
+  // lookahead closure — Omnath's eval-net Bench D read a false null. Spreading the bag through means any
+  // key resolveDecideAction adds in future reaches the pilot automatically. `pilotIdentity(seat)` overrides
+  // the incoming `pilot` with the per-seat identity (advanceUntilDecision's single `pilot` can't carry it).
   const routedDecide = hasAnyPilot
-    ? ({ state, legalActions, seat }) => {
-        const p = pilots?.[seat];
+    ? (bag) => {
+        const p = pilots?.[bag.seat];
         if (typeof p?.decide !== "function") return undefined; // no pilot for this seat → default pick
-        return p.decide({ state, legalActions, seat, pilot: pilotIdentity(seat) });
+        return p.decide({ ...bag, pilot: pilotIdentity(bag.seat) });
       }
     : null;
 
