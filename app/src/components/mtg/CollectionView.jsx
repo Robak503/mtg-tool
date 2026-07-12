@@ -429,6 +429,71 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
     }
   };
 
+  // C5-P1.5 — bulk CONDITION set: stamp the chosen condition on EVERY stack of each selected owned row.
+  // Wishlist rows (no owned copies) are skipped — condition is a property of a physical copy. Preserves
+  // finish/quantity/paidUsd/acquiredAt (only condition changes). Loops the tested PATCH like the others.
+  const bulkSetCondition = async (condition) => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      for (const scryfallId of ids) {
+        const row = collectionRef.current?.cards.find(c => c.scryfallId === scryfallId);
+        const stacks = (row?.stacks || []).filter(s => (s.quantity || 0) > 0);
+        if (!stacks.length) continue; // nothing physical to condition (a pure wishlist row)
+        const patchStacks = stacks.map(s => ({
+          finish: s.finish,
+          quantity: s.quantity,
+          condition,
+          ...(Number.isFinite(s.paidUsd) ? { paidUsd: s.paidUsd } : {}),
+          ...(s.acquiredAt ? { acquiredAt: s.acquiredAt } : {}),
+        }));
+        try {
+          await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stacks: patchStacks }),
+          });
+        } catch { /* best-effort per card; reconcile reflects what stuck */ }
+      }
+      await reconcileCollection();
+    } finally {
+      setBulkBusy(false);
+      exitSelectMode();
+    }
+  };
+
+  // C5-P1.5 — bulk WISHLIST → OWNED: flip each selected wishlist row to owned (mirrors buildTagPatch's
+  // "collection" behavior — clear the wishlist flag and, if the row has no physical copies yet, seed one
+  // nonfoil NM). An already-owned row is left untouched (nothing to flip). No confirm — it's non-destructive.
+  const bulkMarkOwned = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      for (const scryfallId of ids) {
+        const row = collectionRef.current?.cards.find(c => c.scryfallId === scryfallId);
+        if (!row?.wishlist) continue; // already owned — nothing to flip
+        const patch = { wishlist: false };
+        if (stackTotal(row.stacks) === 0) {
+          const finish = row.stacks?.[0]?.finish || "nonfoil";
+          patch.stacks = [{ finish, quantity: 1, condition: "NM" }];
+        }
+        try {
+          await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(patch),
+          });
+        } catch { /* best-effort per card; reconcile reflects what stuck */ }
+      }
+      await reconcileCollection();
+    } finally {
+      setBulkBusy(false);
+      exitSelectMode();
+    }
+  };
+
   // Grid quick +/- — bump a row's owned count by one. Optimistic, with the
   // server response only applied when it's the latest request for that row.
   // A decrement past the last copy deletes the row (delete-at-zero).
@@ -701,6 +766,8 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
           tags={colorTags.tags}
           busy={bulkBusy}
           onAssignTag={bulkAssignTag}
+          onSetCondition={bulkSetCondition}
+          onMarkOwned={bulkMarkOwned}
           onDelete={bulkDelete}
           onSelectAll={selectAllVisible}
           onClear={() => setSelectedIds(new Set())}
@@ -911,7 +978,7 @@ function EmptyState({ color, onAddCard }) {
   );
 }
 
-function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, onClear, onExit, visibleCount, colors, font }) {
+function BulkActionBar({ count, tags, busy, onAssignTag, onSetCondition, onMarkOwned, onDelete, onSelectAll, onClear, onExit, visibleCount, colors, font }) {
   const has = count > 0;
   const selectStyle = {
     background: "transparent", border: `1px solid ${colors.LINE}`, color: colors.TEXT,
@@ -947,6 +1014,25 @@ function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, 
         ))}
         <option value="__none">— Clear tag —</option>
       </select>
+
+      {/* C5-P1.5 — bulk CONDITION set: stamps the chosen grade on every physical stack of the selection. */}
+      <select
+        defaultValue=""
+        disabled={busy || !has}
+        onChange={(e) => { const v = e.target.value; e.target.value = ""; if (v) onSetCondition(v); }}
+        style={selectStyle}
+        title="Set the condition of the selected cards"
+      >
+        <option value="" disabled>Set condition ▾</option>
+        {["NM", "LP", "MP", "HP", "DMG"].map(c => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
+
+      {/* C5-P1.5 — bulk WISHLIST → OWNED: flips selected wishlist rows to owned (seeds a copy if none). */}
+      <button onClick={onMarkOwned} disabled={busy || !has} className="btn btn-secondary btn-sm" title="Mark selected wishlist cards as owned">
+        Mark owned
+      </button>
 
       <button
         onClick={onDelete}
