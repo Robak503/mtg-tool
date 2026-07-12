@@ -34,8 +34,38 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
   const [diff, setDiff] = useState(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [stats, setStats] = useState(null);
+  const [pastedText, setPastedText] = useState(""); // C5-P1.2 paste-a-list
 
   const pickFile = () => fileRef.current?.click();
+
+  // C5-P1.2 — preview a pasted decklist. Mirrors onFileChange exactly (same preview→diff flow), but POSTs
+  // `{ text }` so the server runs the paste-a-list parser instead of the CSV parser. The matched rows carry
+  // `pickedLatest` marks the PreviewPanel surfaces as "picked latest — tap to fix".
+  const previewText = async () => {
+    const text = pastedText.trim();
+    if (!text) return;
+    setFilename("pasted list");
+    setError(null);
+    setPhase("preview");
+    try {
+      const resp = await fetch("/api/collection/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setError(body.error || `Preview failed (${resp.status})`);
+        setPhase("pick");
+        return;
+      }
+      setPreview(body);
+      loadDiff((body.matched || []).map(m => m.row), mode);
+    } catch (e) {
+      setError(e.message);
+      setPhase("pick");
+    }
+  };
 
   // Dry-run: ask the server what the chosen mode would change (no writes).
   const loadDiff = async (rows, m) => {
@@ -162,7 +192,7 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
 
         <div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
           {phase === "pick" && (
-            <PickPanel onPickFile={pickFile} colors={colors} />
+            <PickPanel onPickFile={pickFile} colors={colors} pastedText={pastedText} onPasteChange={setPastedText} onPreviewText={previewText} />
           )}
 
           {phase === "preview" && !preview && (
@@ -236,20 +266,49 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
   );
 }
 
-function PickPanel({ onPickFile, colors }) {
+function PickPanel({ onPickFile, colors, pastedText, onPasteChange, onPreviewText }) {
   return (
-    <div style={{ textAlign: "center", padding: "20px 0" }}>
-      <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.4 }}>📥</div>
-      <div style={{ fontSize: 14, color: colors.TEXT, marginBottom: 8 }}>
-        Import a CSV from Deckbox or Moxfield
+    <div style={{ padding: "12px 0" }}>
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.4 }}>📥</div>
+        <div style={{ fontSize: 14, color: colors.TEXT, marginBottom: 8 }}>
+          Import a CSV from Deckbox or Moxfield
+        </div>
+        <div style={{ fontSize: 12, color: colors.MUTED, marginBottom: 14, lineHeight: 1.5, maxWidth: 400, margin: "0 auto 14px" }}>
+          Both export formats are auto-detected. Cards matched to the bundled
+          Scryfall data import directly; unmatched cards are listed for review.
+        </div>
+        <button onClick={onPickFile} className="btn btn-primary">
+          Choose CSV file
+        </button>
       </div>
-      <div style={{ fontSize: 12, color: colors.MUTED, marginBottom: 16, lineHeight: 1.5, maxWidth: 400, margin: "0 auto 16px" }}>
-        Both export formats are auto-detected. Cards matched to the bundled
-        Scryfall data import directly; unmatched cards are listed for review.
+
+      {/* C5-P1.2 — PASTE A LIST: a collector entering a prerelease haul or a box of pulls types
+          decklist lines instead of building a CSV elsewhere. Rides the same preview → review flow. */}
+      <div style={{ borderTop: `1px solid ${colors.LINE}`, paddingTop: 16 }}>
+        <div style={{ fontSize: 13, color: colors.TEXT, marginBottom: 6, fontWeight: 600 }}>…or paste a list</div>
+        <div style={{ fontSize: 11, color: colors.MUTED, marginBottom: 8, lineHeight: 1.5 }}>
+          One card per line: <code>4 Sol Ring (C21) 263 *F*</code> — quantity, name, then optional
+          (set), collector number, and <code>*F*</code> for foil. Missing a set? We pick a printing and
+          flag it so you can fix it.
+        </div>
+        <textarea
+          value={pastedText}
+          onChange={(e) => onPasteChange(e.target.value)}
+          placeholder={"4 Sol Ring (C21) 263 *F*\n2 Lightning Bolt\nArcane Signet"}
+          rows={6}
+          style={{
+            width: "100%", background: colors.BG, border: `1px solid ${colors.LINE}`, color: colors.TEXT,
+            padding: "8px 10px", borderRadius: 4, fontSize: 12, fontFamily: "var(--font-mono)",
+            resize: "vertical", boxSizing: "border-box",
+          }}
+        />
+        <div style={{ textAlign: "right", marginTop: 8 }}>
+          <button onClick={onPreviewText} disabled={!pastedText.trim()} className="btn btn-secondary btn-sm">
+            Preview list
+          </button>
+        </div>
       </div>
-      <button onClick={onPickFile} className="btn btn-primary">
-        Choose CSV file
-      </button>
     </div>
   );
 }
@@ -294,6 +353,22 @@ function PreviewPanel({ preview, filename, colors, mode, onChangeMode, diff, dif
           ⚠ {preview.warning}
         </div>
       )}
+
+      {/* C5-P1.2 honest-ambiguity note: rows resolved to a DEFAULT printing (no set given, or the set had
+          no exact match) — surfaced so a paste-a-list never silently lands on the wrong printing. The user
+          fixes the printing in the card's edit drawer after import (the printing switcher). */}
+      {(() => {
+        const picked = matched.filter(m => m.pickedLatest);
+        if (picked.length === 0) return null;
+        return (
+          <div style={{ padding: "10px 14px", background: "var(--ley-gold-dim)", color: "var(--ley-gold)", borderRadius: 4, fontSize: 12, marginBottom: 16, lineHeight: 1.5 }}>
+            ⚠ {picked.length} card{picked.length === 1 ? "" : "s"} matched to a default printing (no exact set) — after import, open the card and use the printing switcher to fix any that are wrong:{" "}
+            <span style={{ color: colors.TEXT }}>
+              {picked.slice(0, 8).map(m => m.sourceName).join(", ")}{picked.length > 8 ? ` +${picked.length - 8} more` : ""}
+            </span>
+          </div>
+        );
+      })()}
 
       {matched.length > 0 && (
         <div style={{ marginBottom: 16 }}>

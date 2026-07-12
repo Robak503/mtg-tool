@@ -189,9 +189,15 @@ export function matchEntries(entries) {
       unmatched.push(entry);
       continue;
     }
+    // C5-P1.2 honest-ambiguity mark: the resolution FELL BACK to a default printing (no set given, or the
+    // given set had no exact printing of this card) rather than matching an exact set. The preview surfaces
+    // this as "picked latest — tap to fix" so a paste-a-list / CSV row never SILENTLY lands on the wrong
+    // printing. Additive: an exact set match leaves it false (byte-identical to the pre-P1.2 shape).
+    const pickedLatest = !entry.setCode || printing.set !== String(entry.setCode).toLowerCase();
     matched.push({
       entry,
       printing,
+      pickedLatest,
       row: {
         scryfallId: printing.id,
         oracleId: printing.oracleId,

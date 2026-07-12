@@ -10,10 +10,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import CollectionCardDetail from "./CollectionCardDetail.jsx";
 import { BulkActionBar } from "./CollectionView.jsx";
+import CollectionImportModal from "./CollectionImportModal.jsx";
 
 const COLORS = {
   BG: "#090a0d", BG2: "#12131c", BG3: "#181922", LINE: "#2c393b",
-  TEXT: "#e3e2e6", MUTED: "#b9cacb", GOLD: "#00dbe7",
+  TEXT: "#e3e2e6", MUTED: "#b9cacb", GOLD: "#00dbe7", RED: "#e5484d",
 };
 
 describe("C5-P1.4 — CollectionCardDetail drawer acquisition fields", () => {
@@ -79,5 +80,17 @@ describe("C5-P1.5 — BulkActionBar condition-set + mark-owned controls", () => 
     const html = renderToStaticMarkup(<BulkActionBar {...baseProps} count={0} />);
     expect(html).toContain("Select cards…");
     expect(html).toContain("disabled");
+  });
+});
+
+describe("C5-P1.2 — CollectionImportModal paste-a-list pane", () => {
+  it("renders the paste-a-list textarea + Preview button alongside the CSV picker (pick phase)", () => {
+    const html = renderToStaticMarkup(<CollectionImportModal onClose={() => {}} onAdded={() => {}} colors={COLORS} />);
+    expect(html).toContain("Choose CSV file");     // the existing CSV path is still there
+    expect(html).toContain("or paste a list");     // the new pane
+    expect(html).toContain("Preview list");        // its action button
+    expect(html).toContain("<textarea");           // the paste box
+    // The grammar hint shows the example line so the user knows the format.
+    expect(html).toContain("Sol Ring");
   });
 });

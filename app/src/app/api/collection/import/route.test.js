@@ -128,6 +128,49 @@ describe("POST preview ({ csv })", () => {
   });
 });
 
+describe("POST preview ({ text }) — paste-a-list (C5-P1.2)", () => {
+  function textRequest(text) {
+    return new Request("http://localhost/api/collection/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  it("parses a pasted list into matched + unmatched, same shape as CSV", async () => {
+    const resp = await route.POST(textRequest("4 Sol Ring (c21) 263\nMade Up Card\n"));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.format).toBe("text");
+    expect(body.matched).toHaveLength(1);
+    expect(body.matched[0].row.name).toBe("Sol Ring");
+    expect(body.matched[0].row.stacks[0].quantity).toBe(4);
+    expect(body.matched[0].pickedLatest).toBe(false); // exact set given
+    expect(body.unmatched.map(u => u.name)).toContain("Made Up Card");
+  });
+
+  it("a foil token + no set resolves foil and flags pickedLatest (honest ambiguity)", async () => {
+    const resp = await route.POST(textRequest("Counterspell *F*"));
+    const body = await resp.json();
+    expect(body.matched[0].row.stacks[0].finish).toBe("foil");
+    expect(body.matched[0].pickedLatest).toBe(true); // no set → picked a default printing
+  });
+
+  it("a wrong set falls back to a printing AND flags pickedLatest", async () => {
+    const resp = await route.POST(textRequest("1 Sol Ring (zzz)"));
+    const body = await resp.json();
+    expect(body.matched).toHaveLength(1);
+    expect(body.matched[0].pickedLatest).toBe(true); // "zzz" had no exact printing → fell back
+  });
+
+  it("text preview writes nothing (no collection file created)", async () => {
+    await route.POST(textRequest("4 Sol Ring (c21)"));
+    const collectionFile = path.join(tmpDir, "data", "collection.json");
+    const exists = await fs.stat(collectionFile).then(() => true).catch(() => false);
+    expect(exists).toBe(false);
+  });
+});
+
 describe("POST commit ({ rows })", () => {
   function commitRequest(rows) {
     return new Request("http://localhost/api/collection/import", {
