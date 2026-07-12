@@ -23,6 +23,7 @@
 import { runSelfPlayGame, resolveBaseSeed, engineSeatsForMode } from "./selfPlayRunner.js";
 import { formPod, podToArgs, gameSeedAt } from "./grindPod.js";
 import { aggregateBreakages } from "./breakageReport.js";
+import { mineHighlights } from "./highlightsMiner.js";
 
 const DECISIVE = new Set(["user-wins", "ai-wins"]); // a real winner; "draw" is decisive-but-winnerless (≈0 in practice)
 const RECENT_CAP = 12; // live synopsis ring buffer shown streaming in the modal
@@ -230,7 +231,7 @@ export function crucibleResults() {
   const mostWins = rows.reduce((best, r) => (best == null || r.wins > best.wins ? r : best), null);
   const breakages = aggregateBreakages(state.breakageEntries.length ? [{ log: state.breakageEntries }] : []);
 
-  return {
+  const results = {
     mode: state.mode,
     pilot: state.pilot,
     target: state.target,
@@ -243,8 +244,9 @@ export function crucibleResults() {
     mostWins: mostWins ? { name: mostWins.name, id: mostWins.id, wins: mostWins.wins, winRate: mostWins.winRate } : null,
     perGame: state.perGame, // lightweight per-game finish log
     breakages: breakages.cards, // [] when clean → the box does not render
-    // highlights: filled by highlightsMiner (C1 follow-on)
   };
+  results.highlights = mineHighlights(results); // honest big-moment facts for the reel (highlightsMiner)
+  return results;
 }
 
 /** Reset to idle (used by tests + a fresh session). Never called mid-run. */
