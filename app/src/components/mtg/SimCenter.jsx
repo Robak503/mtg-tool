@@ -118,10 +118,9 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
         if (!alive) return;
         const list = Array.isArray(d?.pilots) ? d.pilots : [];
         setAvailablePilots(list);
-        // Default the selection to an available persona so the walk-away Grind is persona-driven
-        // (rich playbook/temperament/pilotType data) out of the box — prefer Omnath, else the first.
-        // Only sets the initial default; the user can still switch back to "" (default autopilot).
-        setPilot((cur) => cur || list.find((p) => /omnath/i.test(p)) || list[0] || "");
+        // Selection defaults to "" = Default AI (no persona); the user opts INTO a shipped persona
+        // explicitly. (Was: auto-prefer a pilot literally named "omnath" — Colton's call is no omnath
+        // default and no silent auto-persona on the walk-away grind.)
       })
       .catch(() => {});
     return () => { alive = false; };
