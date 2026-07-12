@@ -978,7 +978,7 @@ function EmptyState({ color, onAddCard }) {
   );
 }
 
-function BulkActionBar({ count, tags, busy, onAssignTag, onSetCondition, onMarkOwned, onDelete, onSelectAll, onClear, onExit, visibleCount, colors, font }) {
+export function BulkActionBar({ count, tags, busy, onAssignTag, onSetCondition, onMarkOwned, onDelete, onSelectAll, onClear, onExit, visibleCount, colors, font }) {
   const has = count > 0;
   const selectStyle = {
     background: "transparent", border: `1px solid ${colors.LINE}`, color: colors.TEXT,
