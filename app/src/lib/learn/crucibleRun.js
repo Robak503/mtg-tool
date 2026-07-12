@@ -24,6 +24,7 @@ import { runSelfPlayGame, resolveBaseSeed, engineSeatsForMode } from "./selfPlay
 import { formPod, podToArgs, gameSeedAt } from "./grindPod.js";
 import { aggregateBreakages } from "./breakageReport.js";
 import { mineHighlights } from "./highlightsMiner.js";
+import { classifyComboWin, loadComboData } from "./winClassifier.js";
 
 const DECISIVE = new Set(["user-wins", "ai-wins"]); // a real winner; "draw" is decisive-but-winnerless (≈0 in practice)
 const RECENT_CAP = 12; // live synopsis ring buffer shown streaming in the modal
@@ -62,24 +63,33 @@ function deckKey(d) {
 }
 
 /** One-line synopsis of a finished game (who won, how, how long) — the streaming feed line. */
-function synopsis(game) {
+function synopsis(game, winConLabel) {
   const turn = Number.isFinite(game.turns) ? `turn ${game.turns}` : "—";
   if (DECISIVE.has(game.result)) {
     const who = game.winnerName || game.winnerSeat || "A deck";
-    return `${who} won by ${game.winCondition || "damage"} (${turn})`;
+    return `${who} won by ${winConLabel || game.winCondition || "damage"} (${turn})`;
   }
   if (game.result === "draw") return `Draw — no winner (${turn})`;
   return `No result — ${game.result || "unknown"} (${turn})`;
 }
 
 /** Fold one finished game into the running aggregates. Pure bookkeeping over real fields. */
-function foldGame(game, pod, seats) {
+function foldGame(game, pod, seats, comboData) {
   state.played += 1;
   state.lastResult = game.result ?? null;
   if (Number.isFinite(game.turns)) state.turnsSum += game.turns;
   const decisive = DECISIVE.has(game.result);
   if (decisive) state.decisive += 1;
   else if (game.result !== "draw") state.stuck += 1;
+
+  // Honest combo tag (winClassifier): fires only when the winner cast every piece of a catalogued combo
+  // whose result matches the win-con. comboData is null in dev (no bundled snapshot) → coarse win-con, no faking.
+  let winConCategory = game.winCondition || "damage";
+  let comboName = null;
+  if (comboData && decisive) {
+    const combo = classifyComboWin({ comboData, log: game.log, winnerSeat: game.winnerSeat, winCondition: game.winCondition });
+    if (combo.isCombo) { winConCategory = "combo"; comboName = combo.name; }
+  }
 
   // First-elimination turn (kill-turn) — the earliest non-null eliminatedAtTurn across seats.
   let killTurn = null;
@@ -106,13 +116,12 @@ function foldGame(game, pod, seats) {
     }
     if (decisive && game.winnerSeat === seat) {
       rec.wins += 1;
-      const wc = game.winCondition || "damage";
-      rec.winCons[wc] = (rec.winCons[wc] || 0) + 1;
+      rec.winCons[winConCategory] = (rec.winCons[winConCategory] || 0) + 1;
     }
   });
 
   // Streaming synopsis (ring buffer) + lightweight per-game row for the log.
-  const line = synopsis(game);
+  const line = synopsis(game, comboName ? `combo (${comboName})` : winConCategory);
   state.recent.push(line);
   if (state.recent.length > RECENT_CAP) state.recent.shift();
   state.perGame.push({ i: state.perGame.length, result: game.result ?? null, winner: game.winnerName ?? null, winCon: game.winCondition ?? null, turns: game.turns ?? null, order: order.filter(Boolean) });
@@ -153,6 +162,7 @@ export function startCrucibleRun({ decks, mode = "commander", target = 100, pilo
 async function loop({ decks, mode, target, pilotBuilder, seed, podSize }) {
   const base = resolveBaseSeed(seed);
   const seats = engineSeatsForMode(mode);
+  const comboData = await loadComboData().catch(() => null); // bundled Spellbook combos; null in dev → coarse win-con
   let i = 0;
   while (!state.cancelRequested && state.played < target) {
     const gameSeed = gameSeedAt(base, i);
@@ -168,7 +178,7 @@ async function loop({ decks, mode, target, pilotBuilder, seed, podSize }) {
       state.stuck += 1; state.played += 1; state.error = `game ${i}: ${e?.message || e}`;
       i += 1; if (i % CHUNK === 0) await macrotask(); continue;
     }
-    foldGame(game, pod, seats);
+    foldGame(game, pod, seats, comboData);
     i += 1;
     if (i % CHUNK === 0) await macrotask(); // yield so status/cancel routes are serviced
   }
