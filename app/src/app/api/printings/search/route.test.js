@@ -132,7 +132,7 @@ describe("GET /api/printings/search", () => {
     expect(body.results.length).toBeLessThanOrEqual(1);
   });
 
-  it("returns 503 when printings index is missing", async () => {
+  it("returns 503 with a USER-facing sync affordance when the index is missing (C5-P1.6)", async () => {
     await fs.rm(
       path.join(tmpDir, "data", "scryfall-bulk", "printings-index.json"),
       { force: true },
@@ -140,5 +140,11 @@ describe("GET /api/printings/search", () => {
     const fresh = await loadRoute();
     const resp = await fresh.GET(new Request("http://localhost/api/printings/search?q=sol"));
     expect(resp.status).toBe(503);
+    const body = await resp.json();
+    // The message the Add modal renders verbatim — user-facing, no `npm run` dev noise, and the
+    // `indexUnavailable` flag lets the client style it as the distinct "sync" affordance.
+    expect(body.indexUnavailable).toBe(true);
+    expect(body.error).toMatch(/Updates panel/);
+    expect(body.error).not.toMatch(/npm run/);
   });
 });

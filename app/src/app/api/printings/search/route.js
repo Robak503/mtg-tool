@@ -25,11 +25,14 @@ export async function GET(request) {
     return Response.json({ results, query: q, count: results.length });
   } catch (error) {
     if (error.code === "ENOENT") {
+      // C5-P1.6: the card index isn't synced yet. A USER-facing, actionable message (the dev
+      // `npm run build:printings-index` path is noise for the app user) — the Add modal renders this
+      // verbatim as `searchError`, so the search never silently "goes quiet". `indexUnavailable` lets
+      // the client style it as the distinct sync affordance rather than a generic search failure.
       return Response.json(
         {
-          error:
-            "Printings index missing. Run `npm run build:printings-index` " +
-            "or trigger a data sync from the Updates panel.",
+          error: "Card index not synced yet — open the Updates panel and run a sync, then search again.",
+          indexUnavailable: true,
         },
         { status: 503 },
       );
