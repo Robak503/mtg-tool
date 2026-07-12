@@ -26,7 +26,7 @@ import {
   withCollectionLock,
   CollectionVersionMismatch,
 } from "../../../../lib/server/collectionStorage.js";
-import { validateProvenance, validateStacks, mergeStacks } from "../../../../lib/server/collectionValidation.js";
+import { validateProvenance, validateStacks, validateLanguage, mergeStacks } from "../../../../lib/server/collectionValidation.js";
 import { lookupById } from "../../../../lib/server/printingIndex.js";
 
 function badRequest(message) {
@@ -70,11 +70,11 @@ export async function PATCH(request, ctx) {
     return badRequest("Request body must be an object");
   }
 
-  // Whitelist of mutable fields
-  const allowedKeys = new Set(["stacks", "notes", "wishlist", "colorTagId", "signed", "altered", "artistProof", "showcase", "printing"]);
+  // Whitelist of mutable fields (C5-P1.4 adds `language`, a per-row printing language).
+  const allowedKeys = new Set(["stacks", "notes", "wishlist", "colorTagId", "signed", "altered", "artistProof", "showcase", "printing", "language"]);
   const updateKeys = Object.keys(body).filter(k => allowedKeys.has(k));
   if (updateKeys.length === 0) {
-    return badRequest("No mutable fields in body (allowed: stacks, notes, wishlist, colorTagId, signed, altered, artistProof, showcase, printing)");
+    return badRequest("No mutable fields in body (allowed: stacks, notes, wishlist, colorTagId, signed, altered, artistProof, showcase, printing, language)");
   }
 
   if ("stacks" in body) {
@@ -91,6 +91,11 @@ export async function PATCH(request, ctx) {
   // we only enforce the type here — null clears the tag.
   if ("colorTagId" in body && body.colorTagId !== null && typeof body.colorTagId !== "string") {
     return badRequest("colorTagId must be a string or null");
+  }
+  // C5-P1.4 per-row language (the printing's language, default "en" at read time).
+  if ("language" in body) {
+    const languageError = validateLanguage(body.language);
+    if (languageError) return badRequest(languageError);
   }
   // Trophy Case provenance (V6) — optional, additive; see collectionValidation.
   {
@@ -122,6 +127,9 @@ export async function PATCH(request, ctx) {
           quantity: s.quantity,
           condition: s.condition === undefined ? null : s.condition,
           ...(s.paidUsd != null ? { paidUsd: s.paidUsd } : {}),
+          // C5-P1.4: carry the acquisition date through the rebuild (this map is the explicit stack
+          // allowlist — a field not listed here is silently dropped on every edit).
+          ...(s.acquiredAt != null && s.acquiredAt !== "" ? { acquiredAt: s.acquiredAt } : {}),
         }));
       }
       if ("notes" in body) {
@@ -132,6 +140,11 @@ export async function PATCH(request, ctx) {
       }
       if ("colorTagId" in body) {
         updated.colorTagId = body.colorTagId;
+      }
+      if ("language" in body) {
+        // C5-P1.4: null/"" clears the field (reader falls back to "en"); a string sets it.
+        if (body.language == null || body.language === "") delete updated.language;
+        else updated.language = body.language;
       }
       if ("signed" in body) {
         updated.signed = body.signed === null ? null : {

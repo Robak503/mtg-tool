@@ -33,6 +33,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   useEscapeClose(onClose);
   const [stacks, setStacks] = useState(row.stacks || []);
   const [notes, setNotes] = useState(row.notes || "");
+  const [language, setLanguage] = useState(row.language || ""); // C5-P1.4 — per-row printing language ("" = default en)
   // Trophy Case provenance (V6). signedOn=false ⇄ signed:null on save.
   const [signedOn, setSignedOn] = useState(!!row.signed);
   const [sigArtist, setSigArtist] = useState(row.signed?.artist || "");
@@ -58,6 +59,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   useEffect(() => {
     setStacks(row.stacks || []);
     setNotes(row.notes || "");
+    setLanguage(row.language || ""); // C5-P1.4
     setSignedOn(!!row.signed);
     setSigArtist(row.signed?.artist || "");
     setSigDate(row.signed?.date || "");
@@ -68,7 +70,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
     setShowcase(row.showcase === true);
     setPendingPrintingId(null);
     setError(null);
-  }, [row.scryfallId, row.stacks, row.notes, row.signed, row.altered, row.artistProof, row.showcase]);
+  }, [row.scryfallId, row.stacks, row.notes, row.language, row.signed, row.altered, row.artistProof, row.showcase]);
 
   // Load every printing of this card (feeds the printing switcher, the stack
   // finish options, and the signed-artist autofill).
@@ -255,6 +257,8 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         quantity: Math.max(0, Math.floor(s.quantity)),
         condition: s.condition || null,
         ...(Number.isFinite(s.paidUsd) ? { paidUsd: s.paidUsd } : {}),
+        // C5-P1.4: carry the acquisition date to the PATCH (this map is the drawer's save allowlist).
+        ...(s.acquiredAt ? { acquiredAt: s.acquiredAt } : {}),
       }));
 
     // Saving with everything at 0 means "I no longer own this" → delete the row
@@ -274,6 +278,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         body: JSON.stringify({
           stacks: cleanStacks,
           notes,
+          language: language.trim() || null, // C5-P1.4 — null clears it (reader falls back to "en")
           signed: signedOn
             ? { artist: sigArtist.trim() || null, date: sigDate.trim() || null, event: sigEvent.trim() || null, inPerson: sigInPerson }
             : null,
@@ -501,6 +506,20 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
               </label>
             </div>
           </div>
+        </section>
+
+        {/* C5-P1.4 — per-row printing LANGUAGE (default English). A foreign-language printing is a real
+            collection distinction; kept a compact optional text field beside the notes. */}
+        <section style={{ marginTop: 20 }}>
+          <SectionLabel>Language</SectionLabel>
+          <input
+            type="text"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            placeholder="en"
+            title="Printing language (blank = English)"
+            style={{ ...inputStyle(colors), width: 120 }}
+          />
         </section>
 
         <section style={{ marginTop: 20 }}>
@@ -774,6 +793,14 @@ function StackRow({ stack, finishOptions, onChange, onRemove, colors }) {
         placeholder="paid $"
         title="What you paid per copy (optional)"
         style={{ ...inputStyle(colors), width: 62, textAlign: "right" }}
+      />
+      {/* C5-P1.4 — WHEN this copy was acquired (optional). Sits beside paid $, the cost-basis's date half. */}
+      <input
+        type="date"
+        value={stack.acquiredAt || ""}
+        onChange={(e) => onChange({ acquiredAt: e.target.value || null })}
+        title="When you acquired these (optional)"
+        style={{ ...inputStyle(colors), width: 130 }}
       />
       <button onClick={onRemove} className="btn btn-ghost btn-sm btn-icon" aria-label="Remove stack">×</button>
     </div>

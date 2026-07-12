@@ -143,6 +143,34 @@ describe("module load", () => {
   });
 });
 
+describe("PATCH /api/collection/[id] — C5-P1.4 acquisition fields", () => {
+  it("persists a per-stack acquiredAt and a per-row language, and round-trips them", async () => {
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", {
+        stacks: [{ finish: "nonfoil", quantity: 1, condition: "NM", paidUsd: 12.5, acquiredAt: "2026-03-14" }],
+        language: "ja",
+      }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(200);
+    const sol = (await resp.json()).collection.cards.find(c => c.scryfallId === "scry-sol");
+    expect(sol.stacks[0]).toMatchObject({ finish: "nonfoil", quantity: 1, paidUsd: 12.5, acquiredAt: "2026-03-14" });
+    expect(sol.language).toBe("ja");
+  });
+
+  it("clearing language (null) drops the field so the reader falls back to English", async () => {
+    await route.PATCH(patchRequest("scry-sol", { language: "de" }), ctxWith("scry-sol"));
+    const resp = await route.PATCH(patchRequest("scry-sol", { language: null }), ctxWith("scry-sol"));
+    const sol = (await resp.json()).collection.cards.find(c => c.scryfallId === "scry-sol");
+    expect("language" in sol).toBe(false);
+  });
+
+  it("rejects a non-string language", async () => {
+    const resp = await route.PATCH(patchRequest("scry-sol", { language: 42 }), ctxWith("scry-sol"));
+    expect(resp.status).toBe(400);
+  });
+});
+
 describe("PATCH /api/collection/[id]", () => {
   it("updates stacks (replace, not merge)", async () => {
     const resp = await route.PATCH(

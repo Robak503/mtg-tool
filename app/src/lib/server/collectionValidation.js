@@ -39,6 +39,26 @@ export function validateStacks(stacks) {
         return "stack.paidUsd must be a non-negative number";
       }
     }
+    // C5-P1.4 acquisition date — optional; WHEN this stack was acquired. A date-input string
+    // ("YYYY-MM-DD") or a full ISO timestamp; stored verbatim. Additive: absent is always fine (old
+    // rows + old clients unchanged, the paidUsd precedent). Only the type + a sane non-empty shape is
+    // enforced — the client's <input type="date"> already constrains the format.
+    if (stack.acquiredAt !== undefined && stack.acquiredAt !== null) {
+      if (typeof stack.acquiredAt !== "string" || stack.acquiredAt.length > 40) {
+        return "stack.acquiredAt must be a date string";
+      }
+    }
+  }
+  return null;
+}
+
+// C5-P1.4 language — a per-ROW field (the printing's language, default "en"). Optional + additive; a
+// short language code/name string. Absent → the reader treats it as "en". Validated at the row level
+// (POST/PATCH), not per-stack, since a printing has one language across its finishes.
+export function validateLanguage(language) {
+  if (language === undefined || language === null) return null;
+  if (typeof language !== "string" || language.length > 24) {
+    return "language must be a short string";
   }
   return null;
 }
@@ -62,6 +82,10 @@ export function mergeStacks(existing, incoming) {
         condition: newStack.condition !== undefined && newStack.condition !== null
           ? newStack.condition
           : out[idx].condition,
+        // C5-P1.4: the incoming acquisition date wins when set, else preserve the existing stack's.
+        ...(newStack.acquiredAt != null
+          ? { acquiredAt: newStack.acquiredAt }
+          : (out[idx].acquiredAt != null ? { acquiredAt: out[idx].acquiredAt } : {})),
       };
     } else {
       out.push({ ...newStack });
