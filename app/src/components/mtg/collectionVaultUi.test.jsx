@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import CollectionCardDetail from "./CollectionCardDetail.jsx";
 import { BulkActionBar } from "./CollectionView.jsx";
 import CollectionImportModal from "./CollectionImportModal.jsx";
+import CollectionAddModal, { quickAddKeyAction } from "./CollectionAddModal.jsx";
 
 const COLORS = {
   BG: "#090a0d", BG2: "#12131c", BG3: "#181922", LINE: "#2c393b",
@@ -92,5 +93,26 @@ describe("C5-P1.2 — CollectionImportModal paste-a-list pane", () => {
     expect(html).toContain("<textarea");           // the paste box
     // The grammar hint shows the example line so the user knows the format.
     expect(html).toContain("Sol Ring");
+  });
+});
+
+describe("C5-P1.3 — quick-add two-keystroke decision", () => {
+  it("1st Enter (results, nothing picked) → pick the top result", () => {
+    expect(quickAddKeyAction({ key: "Enter", hasSelection: false, hasResults: true, hasCheckedFinish: false, busy: false })).toBe("pick-first");
+  });
+  it("2nd Enter (a card picked, a finish checked, idle) → submit", () => {
+    expect(quickAddKeyAction({ key: "Enter", hasSelection: true, hasResults: true, hasCheckedFinish: true, busy: false })).toBe("submit");
+  });
+  it("does nothing mid-request (busy) or with no finish checked", () => {
+    expect(quickAddKeyAction({ key: "Enter", hasSelection: true, hasCheckedFinish: true, busy: true })).toBeNull();
+    expect(quickAddKeyAction({ key: "Enter", hasSelection: true, hasCheckedFinish: false, busy: false })).toBeNull();
+  });
+  it("only Enter acts; other keys pass through", () => {
+    expect(quickAddKeyAction({ key: "a", hasSelection: false, hasResults: true })).toBeNull();
+    expect(quickAddKeyAction({ key: "Enter", hasSelection: false, hasResults: false })).toBeNull();
+  });
+  it("the Add modal still mounts with the search input (regression)", () => {
+    const html = renderToStaticMarkup(<CollectionAddModal onClose={() => {}} onAdded={() => {}} colors={COLORS} />);
+    expect(html).toContain('type="search"');
   });
 });

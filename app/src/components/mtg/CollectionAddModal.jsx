@@ -41,6 +41,16 @@ function priceForFinish(printing, finish) {
   return p.usd ?? p.usdFoil ?? p.usdEtched ?? null;
 }
 
+// C5-P1.3 quick-add decision (pure, exported for test): what a keydown should do in the search box.
+// "pick-first" = commit the top search result (nothing picked yet); "submit" = add the picked card
+// (a finish is checked and we're not mid-request); null = let the keystroke pass through. Only Enter acts.
+export function quickAddKeyAction({ key, hasSelection, hasResults, hasCheckedFinish, busy }) {
+  if (key !== "Enter") return null;
+  if (!hasSelection && hasResults) return "pick-first";
+  if (hasSelection && hasCheckedFinish && !busy) return "submit";
+  return null;
+}
+
 // Fresh finish-selection state for a printing: first available finish
 // checked at qty 1, the rest unchecked.
 function initialFinishSel(printing) {
@@ -244,6 +254,19 @@ export default function CollectionAddModal({ onClose, onAdded, initialQuery = ""
             placeholder='Search by name, set, or collector ("sol ring c21")'
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelected(null); }}
+            onKeyDown={(e) => {
+              // C5-P1.3 quick-add: Enter-Enter adds a card in two keystrokes without leaving the keyboard.
+              // 1st Enter (no card picked yet) → pick the TOP search result (it already defaults to
+              // nonfoil ×1 via initialFinishSel). 2nd Enter (a card is picked, a finish checked) → submit.
+              // Deliberate picks (a different printing / foil / higher qty) still use the mouse; this only
+              // greases the common "one nonfoil, next card" path. Decision is the pure quickAddKeyAction.
+              const act = quickAddKeyAction({
+                key: e.key, hasSelection: !!selected, hasResults: results.length > 0,
+                hasCheckedFinish: checkedFinishes.length > 0, busy,
+              });
+              if (act === "pick-first") { e.preventDefault(); pickPrinting(results[0]); }
+              else if (act === "submit") { e.preventDefault(); submit(); }
+            }}
             style={{
               width: "100%",
               background: colors.BG,
