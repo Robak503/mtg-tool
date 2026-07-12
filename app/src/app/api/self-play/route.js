@@ -219,18 +219,15 @@ export async function POST(request) {
   const report = formatBreakageTxt(aggregate, { deckNames, mode, generatedAt });
 
   // P4 matchup ledger: compact per-game outcome rows (deck-vs-deck records).
-  // Additive to the sidecar (app-internal); winnerDeck maps winnerSeat →
-  // meta.seatNames positionally, honest null when the game was undecided.
-  const perGameOutcomes = batch.games.map((g) => {
-    const seats = g?.meta?.seatNames || [];
-    const w = g?.winnerSeat;
-    return {
-      decks: seats,
-      winnerDeck: (w != null && seats[w]) ? seats[w] : null,
-      result: g?.result ?? null,
-      turns: g?.turns ?? null,
-    };
-  }).filter((r) => r.decks.length >= 2);
+  // Additive to the sidecar (app-internal). winnerDeck reads the runner's already-
+  // resolved winnerName (seat id → deck-at-that-seat) — the old `seats[winnerSeat]`
+  // indexed a name array by a seat-id STRING and returned null on every decisive game.
+  const perGameOutcomes = batch.games.map((g) => ({
+    decks: g?.meta?.seatNames || [],
+    winnerDeck: g?.winnerName ?? null,
+    result: g?.result ?? null,
+    turns: g?.turns ?? null,
+  })).filter((r) => r.decks.length >= 2);
 
   // P5 REALITY REPORT (only when analyze) — per-deck tempo/curve/combat profile from the recorded
   // decision trajectory. Deck↔seat via the same meta.seatNames join summarizeSeatOutcomes uses

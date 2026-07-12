@@ -21,6 +21,7 @@ import {
   writeTrajectoriesJsonl,
   startSeatForGame,
   engineSeatsForMode,
+  winnerDeckName,
   resolveBaseSeed,
   permutedDeckIndices,
   dedupeSeatDecks,
@@ -484,22 +485,38 @@ describe("runSelfPlayGame startSeat (CR 103.7a — who is on the play)", () => {
     expect(firstDraw.skipped).toBeUndefined();
   });
 
-  it("exposes winnerSeat at the top level, consistent with decisionTrajectory (Omnath FYI #1)", () => {
+  it("exposes winnerSeat + winnerName at the top level, consistent with decisionTrajectory (Omnath FYI #1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const game = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard", seed: 7, timePressure: true, recordDecisions: true });
+    const game = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard", seed: 7, timePressure: true, recordDecisions: true, meta: { seatNames: ["User Deck", "AI Deck"] } });
     warn.mockRestore();
     log.mockRestore();
     // winnerSeat is now a first-class field on the result (was absent → surfaced as "(none)").
     expect("winnerSeat" in game).toBe(true);
     // …and never drifts from the decisionTrajectory summary (single source).
     expect(game.winnerSeat).toBe(game.decisionTrajectory.winnerSeat);
-    // a decisive result names a seat; a draw/timeout is null.
+    // a decisive result names a seat AND resolves that seat to its deck name; a draw/timeout is null.
     if (game.result === "user-wins" || game.result === "ai-wins") {
       expect(game.winnerSeat).not.toBeNull();
+      expect(game.winnerName).toBe(["User Deck", "AI Deck"][["user", "ai"].indexOf(game.winnerSeat)]);
     } else {
       expect(game.winnerSeat).toBeNull();
+      expect(game.winnerName).toBeNull();
     }
+  });
+
+  it("winnerDeckName maps a seat id → the deck at that seat (regression: the seatNames[winnerSeat] string-index bug)", () => {
+    const pod = ["Sliver Hivelord", "Vihaan", "Koma", "Zaxara, the Exemplary"];
+    // Every commander seat resolves to the deck sitting there — the old array[string] returned undefined.
+    expect(winnerDeckName("commander", pod, "user")).toBe("Sliver Hivelord");
+    expect(winnerDeckName("commander", pod, "ai1")).toBe("Vihaan");
+    expect(winnerDeckName("commander", pod, "ai2")).toBe("Koma");
+    expect(winnerDeckName("commander", pod, "ai3")).toBe("Zaxara, the Exemplary");
+    // Standard's two seats, plus the honest-null cases (no winner / unknown seat / no names).
+    expect(winnerDeckName("standard", ["A", "B"], "ai")).toBe("B");
+    expect(winnerDeckName("standard", ["A", "B"], null)).toBeNull();
+    expect(winnerDeckName("commander", pod, "ai9")).toBeNull();
+    expect(winnerDeckName("commander", null, "user")).toBeNull();
   });
 });
 

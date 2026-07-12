@@ -129,17 +129,59 @@ function col(value, width) {
   return s + " ".repeat(width - s.length);
 }
 
-/** One-line per-game summary, e.g. "Vihaan vs Koma, Kellan, Omnath — ai-wins (turn 12)". */
+/** Humanise the engine's winCondition token (epochStats.js) for the per-game line. */
+function winConditionPhrase(wc) {
+  switch (wc) {
+    case "commander-damage": return "commander damage";
+    case "poison": return "poison";
+    case "decking": return "decking an opponent out";
+    case "damage": return "damage";
+    case "win-game-effect": return "a win-the-game effect";
+    default: return wc || "damage"; // an unseen token prints verbatim — never a fabricated cause
+  }
+}
+
+/**
+ * One-line per-game summary that leads with WHO won and HOW, e.g.
+ *   "Koma won by commander damage (turn 39) — pod: Sliver Hivelord · Vihaan · Koma · Zaxara"
+ * A non-decisive game (draw / turn-limit stalemate / engine error) says so honestly
+ * rather than printing an opaque "ai-wins".
+ *
+ * The pod is joined with " · " because commander names contain commas
+ * ("Zaxara, the Exemplary") — a comma-join makes a 4-deck pod read as 7 tokens.
+ */
 function gameOneLiner(game) {
   const seats = game.meta?.seatNames || game.meta?.deckNames || [];
-  let label;
-  if (seats.length >= 2) {
-    label = `${seats[0]} vs ${seats.slice(1).join(", ")}`;
-  } else {
-    label = game.meta?.userDeckName || "game";
+  const pod = seats.length ? ` — pod: ${seats.join(" · ")}` : "";
+  const turn = Number.isFinite(game.turns) ? ` (turn ${game.turns})` : "";
+
+  // Decisive game: name the winner (its deck name; fall back to the seat id, then a
+  // generic) and the win condition.
+  if (game.result === "user-wins" || game.result === "ai-wins") {
+    const who = game.winnerName || game.winnerSeat || "A player";
+    return `  ${who} won by ${winConditionPhrase(game.winCondition)}${turn}${pod}`;
   }
-  const reason = game.reason ? ` [${game.reason}]` : "";
-  return `  ${label} — ${game.result} (turn ${game.turns})${reason}`;
+
+  // No winner — describe the honest non-decisive ending. A `draw` result splits by
+  // reason: the engine emits result "draw" + reason "turn-limit" for a cap-hit stalemate
+  // (timePressure off), vs a genuine simultaneous-loss draw. Batches default timePressure
+  // ON, where a cap-hit is its own result "timeout" (learnSession.js:1641).
+  let ending;
+  if (game.result === "draw") {
+    ending = game.reason === "turn-limit"
+      ? "No winner — stalemate at the turn limit"
+      : "Draw — every remaining player left the game at once";
+  } else {
+    switch (game.result) {
+      case "turn-limit": // defensive: never a literal result, but map it honestly if it is
+      case "timeout": ending = "No winner — stalemate at the turn limit"; break;
+      case "engine-stuck": ending = "No winner — the engine got stuck"; break;
+      case "dispatch-error": ending = "No winner — dispatch error"; break;
+      case "setup-error": ending = "No winner — setup error"; break;
+      default: ending = `No winner — ${game.result || "unknown"}`; break;
+    }
+  }
+  return `  ${ending}${turn}${pod}`;
 }
 
 /**

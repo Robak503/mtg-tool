@@ -461,6 +461,11 @@ export function runSelfPlayGame({
     trainingWeight,
     // The winning engine seat (or null) — top-level so callers don't have to dig into decisionTrajectory.
     winnerSeat,
+    // The winning DECK's display name, resolved from winnerSeat via the mode's seat order.
+    // The breakage-report one-liners and the sidecar's perGameOutcomes/matchup ledger read
+    // this instead of re-deriving (and mis-deriving) the seat→name map. null on a draw/
+    // timeout/non-completion, or when meta carries no seatNames (a bare direct call).
+    winnerName: winnerDeckName(mode, meta?.seatNames, winnerSeat),
     // The seat that was ON THE PLAY (CR 103.8a). Read off the engine's stamped startingPlayer —
     // its own source of truth — so training/analysis can account for the position edge. "user"
     // on the default path; whatever startSeat requested otherwise.
@@ -591,6 +596,25 @@ export function buildPairings(deckCount, mode = "commander") {
  */
 export function engineSeatsForMode(mode) {
   return mode === "commander" ? ["user", "ai1", "ai2", "ai3"] : ["user", "ai"];
+}
+
+/**
+ * Resolve a winning seat id → the display name of the deck sitting at that seat.
+ *
+ * `seatNames[k]` is the deck at engine seat k (the batch builds seatNames in seat
+ * order, and it stays seat-aligned under HB-5 rotation). `winnerSeat` is a seat-id
+ * STRING ("user"/"ai1"/… ), so the mapping is `seatNames[seats.indexOf(winnerSeat)]`.
+ *
+ * Centralised + exported because the ad-hoc `seatNames[winnerSeat]` — indexing a name
+ * ARRAY by a seat-id STRING — silently returned `undefined` every time, which is why
+ * the breakage report never named a winner and the matchup ledger's winnerDeck was
+ * always null. Returns null when there's no winner or the seat can't be located.
+ */
+export function winnerDeckName(mode, seatNames, winnerSeat) {
+  if (winnerSeat == null) return null;
+  const names = Array.isArray(seatNames) ? seatNames : [];
+  const i = engineSeatsForMode(mode).indexOf(winnerSeat);
+  return i >= 0 && names[i] != null ? names[i] : null;
 }
 
 /**

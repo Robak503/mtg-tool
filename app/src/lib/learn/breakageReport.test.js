@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import { aggregateBreakages, formatBreakageTxt } from "./breakageReport.js";
 
 // A game result shaped like runSelfPlayGame's output.
-function game({ result = "draw", turns = 10, reason = null, log = [], meta = {} }) {
-  return { result, status: result, reason, turns, ticks: null, log, meta };
+function game({ result = "draw", turns = 10, reason = null, log = [], meta = {}, winnerSeat = null, winnerName = null, winCondition = null }) {
+  return { result, status: result, reason, turns, ticks: null, log, meta, winnerSeat, winnerName, winCondition };
 }
 
 describe("aggregateBreakages", () => {
@@ -106,6 +106,9 @@ describe("formatBreakageTxt", () => {
         result: "ai-wins",
         turns: 12,
         reason: "ai-wins",
+        winnerSeat: "ai2",
+        winnerName: "Deck C",
+        winCondition: "commander-damage",
         meta: { seatNames: ["Deck A", "Deck B", "Deck C", "Deck D"] },
         log: [
           { turn: 3, kind: "spell-unresolved", cardName: "Akroma's Will", controller: "user", reason: "unmodeled effect" },
@@ -126,8 +129,10 @@ describe("formatBreakageTxt", () => {
     expect(txt).toContain("unmodeled effect");
     expect(txt).toContain("spell-unresolved×1");
 
-    // The per-game one-liner shows the matchup + result.
-    expect(txt).toContain("Deck A vs Deck B, Deck C, Deck D — ai-wins (turn 12)");
+    // The per-game one-liner NAMES the winner + HOW they won, and joins the pod with
+    // " · " so a comma-bearing commander name doesn't read as extra decks.
+    expect(txt).toContain("Deck C won by commander damage (turn 12)");
+    expect(txt).toContain("pod: Deck A · Deck B · Deck C · Deck D");
 
     // Decks header reflects the roster.
     expect(txt).toContain("Decks (4):");
