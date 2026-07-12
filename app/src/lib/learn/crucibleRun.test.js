@@ -11,6 +11,8 @@ import {
   crucibleStatus,
   crucibleResults,
   requestCrucibleCancel,
+  crucibleReportText,
+  bankCrucibleRun,
   _resetCrucibleForTests,
 } from "./crucibleRun.js";
 
@@ -122,5 +124,33 @@ describe("startCrucibleRun — bounded pod power-read", () => {
     const res = startCrucibleRun({ decks: [deck("Solo"), deck("Duo")], mode: "commander", target: 5 });
     expect(res.started).toBe(false);
     expect(res.reason).toMatch(/need 4 decks/);
+  });
+});
+
+describe("crucibleReportText + bank guard", () => {
+  it("formats a results object into the report sections", () => {
+    const txt = crucibleReportText(
+      {
+        mode: "commander", played: 100, decisive: 98, stuck: 2,
+        standings: [{ name: "Ur-Dragon", winRate: 0.46, avgFinish: 1.9, finish: [46, 20, 18, 16], topWinCon: "damage" }],
+        mostWins: { name: "Zaxara", wins: 52, winRate: 0.52 },
+        highlights: [{ title: "The crown", detail: "Ur-Dragon topped the pod." }],
+        breakages: [],
+      },
+      { pilotLabel: "Specialist" },
+    );
+    expect(txt).toContain("The Crucible · Pod Read");
+    expect(txt).toContain("POWER RANKING");
+    expect(txt).toContain("Ur-Dragon");
+    expect(txt).toContain("Most wins: Zaxara");
+    expect(txt).toContain("Specialist");
+    expect(txt).toContain("The crown");
+  });
+
+  it("bankCrucibleRun refuses (no write) when nothing has been played", async () => {
+    _resetCrucibleForTests();
+    const res = await bankCrucibleRun();
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/nothing to bank/);
   });
 });

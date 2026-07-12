@@ -249,6 +249,77 @@ export function crucibleResults() {
   return results;
 }
 
+/** Right-pad a value to a fixed width for the plaintext report table. */
+function padCol(v, w) { const s = String(v ?? ""); return s.length >= w ? s.slice(0, w) : s + " ".repeat(w - s.length); }
+
+/**
+ * Format a finished pod's results into a shareable plaintext report — the same "honest signals"
+ * spirit as the self-play .txt, so it lists in Saved Reports and Colton can paste it anywhere.
+ * Pure string construction over crucibleResults() output.
+ */
+export function crucibleReportText(results, { pilotLabel = null, generatedAt = new Date().toISOString() } = {}) {
+  const r = results || {};
+  const rows = r.standings || [];
+  const L = [];
+  L.push("=".repeat(64));
+  L.push("MTG Tool — The Crucible · Pod Read");
+  L.push("=".repeat(64));
+  L.push(`Generated:  ${generatedAt}`);
+  L.push(`Pilot:      ${pilotLabel || r.pilot || "Default AI"}`);
+  L.push(`Mode:       ${r.mode || "commander"}`);
+  L.push(`Games:      ${r.played ?? 0} (${r.decisive ?? 0} decisive, ${r.stuck ?? 0} engine-stuck)`);
+  L.push("");
+  L.push("POWER RANKING (by average finish)");
+  L.push("-".repeat(64));
+  L.push(`  ${padCol("DECK", 26)}${padCol("WIN%", 7)}${padCol("AVG", 7)}${padCol("1/2/3/4", 14)}WIN-CON`);
+  for (const d of rows) {
+    L.push(`  ${padCol(d.name, 26)}${padCol(`${(d.winRate * 100).toFixed(0)}%`, 7)}${padCol(d.avgFinish != null ? d.avgFinish.toFixed(2) : "—", 7)}${padCol((d.finish || []).join("/"), 14)}${d.topWinCon || "—"}`);
+  }
+  if (r.mostWins) { L.push(""); L.push(`  Most wins: ${r.mostWins.name} — ${r.mostWins.wins} (${(r.mostWins.winRate * 100).toFixed(0)}%)  [best-average ≠ most-wins]`); }
+  L.push("");
+  L.push("HIGHLIGHTS");
+  L.push("-".repeat(64));
+  for (const h of (r.highlights || [])) L.push(`  • ${h.title} — ${h.detail}`);
+  if (Array.isArray(r.breakages) && r.breakages.length) {
+    L.push(""); L.push("UNMODELED / BROKEN CARDS"); L.push("-".repeat(64));
+    for (const c of r.breakages) L.push(`  ${c.card} ×${c.count}`);
+  }
+  L.push("");
+  L.push("=".repeat(64));
+  return L.join("\n");
+}
+
+/**
+ * Bank the finished pod: write the report .txt (+ JSON sidecar) into the self-play dir so it appears
+ * in Saved Reports (fixes the "grind data didn't show" gap for pod runs). The training-trajectory
+ * feed (value-model JSONL via deterministic replay) is a documented follow-on — see the order file.
+ * Returns { ok, file } or { ok:false, error }.
+ */
+export async function bankCrucibleRun({ pilotLabel = null } = {}) {
+  if (state.running) return { ok: false, error: "the run is still going" };
+  if (!state.played) return { ok: false, error: "nothing to bank yet" };
+  const results = crucibleResults();
+  const generatedAt = new Date().toISOString();
+  const report = crucibleReportText(results, { pilotLabel, generatedAt });
+  try {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const { profilePath } = await import("../server/paths.js");
+    const { sanitiseId } = await import("../server/sanitiseId.js");
+    const dir = profilePath("self-play");
+    const safeTs = generatedAt.replace(/:/g, "-").replace(/\..+Z$/, "Z");
+    const short = (globalThis.crypto?.randomUUID?.() || "crucible").slice(0, 8);
+    const filename = `crucible-${sanitiseId(safeTs)}-${short}.txt`;
+    await fs.mkdir(dir, { recursive: true });
+    const tmp = path.join(dir, `${filename}.tmp.${process.pid}`);
+    await fs.writeFile(tmp, report, "utf8");
+    await fs.rename(tmp, path.join(dir, filename));
+    return { ok: true, file: filename };
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) };
+  }
+}
+
 /** Reset to idle (used by tests + a fresh session). Never called mid-run. */
 export function _resetCrucibleForTests() {
   state = freshState();

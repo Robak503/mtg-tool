@@ -38,6 +38,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import CrucibleRunModal from "./CrucibleRunModal";
 
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
 import { BreakageTable, OutcomeSummary, SeatSummaryTables } from "./SelfPlayPanel";
@@ -110,6 +111,9 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   // Omnath drops/edits files in the pilots dir and they appear here — no rebuild.
   const [pilot, setPilot] = useState("");
   const [availablePilots, setAvailablePilots] = useState([]);
+  // C2 (additive): the bounded Crucible pod power-read modal — opens when a pod's worth of decks is selected.
+  const [crucibleOpen, setCrucibleOpen] = useState(false);
+  const [podGames, setPodGames] = useState(100);
   useEffect(() => {
     let alive = true;
     fetch("/api/pilots")
@@ -847,6 +851,38 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 <span style={{ fontSize: 11, color: "var(--ley-gold)", lineHeight: 1.5 }}>
                   Launch disabled — stale data detected. Restart the app to repair.
                 </span>
+              )}
+
+              {/* CRUCIBLE POD (C2, additive): exactly a pod's worth of decks → the bounded power-read modal. */}
+              {selectedIds.length === (mode === "commander" ? 4 : 2) && !endless && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 10, background: "var(--ley-surface-1)", border: "1px solid var(--ley-line-bright)", borderRadius: "var(--r-md)" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-green-text)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Crucible pod · power read</span>
+                  <div className="ley-seg">
+                    {[10, 100, 1000].map((n) => (
+                      <button key={n} type="button" className={`ley-seg-opt${podGames === n ? " on" : ""}`} onClick={() => setPodGames(n)}>{n}</button>
+                    ))}
+                    <input
+                      type="number" min={1} max={100000} value={podGames}
+                      onChange={(e) => setPodGames(Math.max(1, Math.min(100000, Number(e.target.value) || 1)))}
+                      style={{ width: 74, background: "var(--ley-surface-0)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: 6, fontSize: 12, padding: "4px 6px", fontFamily: "var(--font-mono)" }}
+                    />
+                  </div>
+                  <button type="button" className="btn btn-primary" style={{ width: "100%" }} disabled={stale} onClick={() => setCrucibleOpen(true)}>
+                    ⚔ Run Crucible Pod ({podGames})
+                  </button>
+                </div>
+              )}
+              {crucibleOpen && (
+                <CrucibleRunModal
+                  open={crucibleOpen}
+                  deckIds={selectedIds}
+                  mode={mode}
+                  target={podGames}
+                  pilot={pilot}
+                  pilotLabel={availablePilots.find((p) => p.file === pilot)?.label || "Default AI"}
+                  onClose={() => setCrucibleOpen(false)}
+                  onBanked={() => refreshHistory()}
+                />
               )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

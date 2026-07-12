@@ -25,6 +25,7 @@ import {
   crucibleStatus,
   crucibleResults,
   requestCrucibleCancel,
+  bankCrucibleRun,
 } from "../../../lib/learn/crucibleRun.js";
 
 export async function GET(request) {
@@ -47,8 +48,9 @@ export async function POST(request) {
   if (action === "cancel") return Response.json(requestCrucibleCancel());
   if (action === "status") return Response.json(crucibleStatus());
   if (action === "results") return Response.json(crucibleResults());
+  if (action === "bank") return Response.json(await bankCrucibleRun());
   if (action !== "start") {
-    return Response.json({ error: 'action must be "start", "cancel", "status", or "results".' }, { status: 400 });
+    return Response.json({ error: 'action must be "start", "cancel", "status", "results", or "bank".' }, { status: 400 });
   }
 
   const mode = body?.mode === "standard" ? "standard" : "commander";
