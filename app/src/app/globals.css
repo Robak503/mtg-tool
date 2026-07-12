@@ -525,15 +525,21 @@ progress.ley-gel:indeterminate::-webkit-progress-value {
   border-radius: var(--r-md);
   font-size: 12px;
   background: rgba(3, 8, 5, 0.6);
+  padding: 2px; /* inset track so the selected pill floats cleanly to its segment edges */
+  gap: 2px;
 }
 .ley-seg-opt {
-  padding: 6px 11px;
+  flex: 1 1 0; /* equal-width segments — the green fill spans the WHOLE half, not just the text */
+  text-align: center;
+  white-space: nowrap;
+  padding: 6px 12px;
   color: var(--ley-text-dim);
   cursor: pointer;
-  border-radius: calc(var(--r-md) - 2px);
+  border-radius: calc(var(--r-md) - 3px);
   border: none;
   background: transparent;
   font: inherit;
+  transition: background 120ms ease, color 120ms ease, transform 90ms ease; /* reactive, not flat */
 }
 .ley-seg-opt.on {
   color: var(--ley-green);
@@ -543,6 +549,10 @@ progress.ley-gel:indeterminate::-webkit-progress-value {
 }
 .ley-seg-opt:hover:not(.on) {
   color: var(--ley-green-text);
+  background: rgba(60, 214, 130, 0.07); /* subtle hover fill so the control answers the cursor */
+}
+.ley-seg-opt:active {
+  transform: translateY(0.5px); /* press feedback */
 }
 
 /* ============================================================
