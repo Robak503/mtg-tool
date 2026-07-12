@@ -7,11 +7,14 @@
 
 export const runtime = "nodejs";
 
-import { listPilots } from "../../../lib/server/pilotLoader.js";
+import { listPilotProfiles } from "../../../lib/server/pilotLoader.js";
 
 export async function GET() {
   try {
-    return Response.json({ pilots: await listPilots() });
+    // Selectable Crucible profiles: [{ file, label, description, pilotType }] — the SimCenter renders
+    // `label` and submits `file`. Only label-declaring modules surface (Generalist/Specialist/Mix), so
+    // the raw persona-core files stay out of the picker.
+    return Response.json({ pilots: await listPilotProfiles() });
   } catch (error) {
     return Response.json({ pilots: [], error: error?.message || "Could not list pilots." }, { status: 500 });
   }

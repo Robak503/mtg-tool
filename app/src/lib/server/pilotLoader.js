@@ -32,6 +32,43 @@ export async function listPilots() {
   }
 }
 
+/** Prettify a bare filename into a display label (fallback when the module declares none). */
+function prettyPilotName(file) {
+  return file.replace(/\.mjs$/, "").replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * List the SELECTABLE Crucible pilot profiles: each persona module's { file, label, description,
+ * pilotType }, read STATICALLY from the file text (a regex over `export const label = "…"`) — never
+ * by importing/executing the module, so listing is cheap and can't run persona code or fail on a
+ * missing transitive dep. Only modules that DECLARE a `label` are surfaced, so the raw persona-core
+ * files (omnath.mjs / omnath-v4.mjs) stay out of the picker — the picker shows the intended
+ * Generalist / Specialist / Mix profiles only. [] when the dir is absent.
+ */
+export async function listPilotProfiles() {
+  const files = await listPilots();
+  const profiles = [];
+  for (const file of files) {
+    let text;
+    try {
+      text = await fs.readFile(path.join(pilotsDir(), file), "utf8");
+    } catch {
+      continue; // unreadable → skip (never a broken picker entry)
+    }
+    const label = text.match(/export\s+const\s+label\s*=\s*["'`]([^"'`]+)["'`]/);
+    if (!label) continue; // no declared label ⇒ not a Crucible-facing profile ⇒ hidden
+    const description = text.match(/export\s+const\s+description\s*=\s*["'`]([^"'`]+)["'`]/);
+    const pilotType = text.match(/export\s+const\s+pilotType\s*=\s*["'`]([^"'`]+)["'`]/);
+    profiles.push({
+      file,
+      label: label[1] || prettyPilotName(file),
+      description: description ? description[1] : null,
+      pilotType: pilotType ? pilotType[1] : null,
+    });
+  }
+  return profiles;
+}
+
 /**
  * Build the seat→pilot map for a batch by dynamic-importing the selected persona file from pilotsDir(). Returns
  * {} for a null/empty selection (⇒ default autopilot). Throws on an invalid filename or a module that exports

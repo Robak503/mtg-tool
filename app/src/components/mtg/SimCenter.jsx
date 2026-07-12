@@ -887,7 +887,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 >
                   <option value="">Default AI (no persona)</option>
                   {availablePilots.map((p) => (
-                    <option key={p} value={p}>{p.replace(/\.mjs$/, "")}</option>
+                    <option key={p.file} value={p.file} title={p.description || undefined}>{p.label}</option>
                   ))}
                 </select>
                 {availablePilots.length === 0 && (
