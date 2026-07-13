@@ -9,6 +9,7 @@ import { mineHighlights } from "./highlightsMiner.js";
 const results = {
   played: 100,
   decisive: 98,
+  winConMix: { damage: 70, "commander-damage": 20, combo: 8 },
   tiles: { cleanFinishPct: 100 },
   standings: [
     { name: "Ur-Dragon", games: 100, wins: 46, winRate: 0.46, avgFinish: 1.9, finish: [46, 20, 18, 16], topWinCon: "damage" },
@@ -33,6 +34,16 @@ describe("mineHighlights", () => {
     expect(gap).toBeTruthy();
     expect(gap.detail).toContain("Zaxara");
     expect(gap.detail).toContain("Ur-Dragon");
+  });
+
+  it("summarizes how the pod closes from the win-con mix", () => {
+    const h = mineHighlights(results);
+    const close = h.find((c) => c.title === "How the pod closes");
+    expect(close).toBeTruthy();
+    // Damage is the plurality (70 of 98) → leads, ~71%, with the runners-up named.
+    expect(close.detail).toMatch(/71% of wins came via damage/);
+    expect(close.detail).toContain("commander damage");
+    expect(close.detail).toContain("a combo");
   });
 
   it("reports the fastest close from real per-game turns", () => {

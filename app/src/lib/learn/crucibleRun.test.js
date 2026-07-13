@@ -59,6 +59,8 @@ describe("startCrucibleRun — bounded pod power-read", () => {
     // Exactly one winner per DECISIVE game → total wins === decisive count (honest, no fabricated wins).
     const totalWins = res.standings.reduce((n, r) => n + r.wins, 0);
     expect(totalWins).toBe(res.decisive);
+    // The pod-wide win-con mix sums to the decisive-game count (every win contributes exactly one tag).
+    expect(Object.values(res.winConMix).reduce((a, b) => a + b, 0)).toBe(res.decisive);
     // Each deck's finish-rank counts never exceed its games (a stuck game yields no rank).
     for (const row of res.standings) {
       const finishTotal = row.finish.reduce((a, b) => a + b, 0);

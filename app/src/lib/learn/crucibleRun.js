@@ -241,6 +241,13 @@ export function crucibleResults() {
   const mostWins = rows.reduce((best, r) => (best == null || r.wins > best.wins ? r : best), null);
   const breakages = aggregateBreakages(state.breakageEntries.length ? [{ log: state.breakageEntries }] : []);
 
+  // Pod-wide win-condition mix — how the whole table closed, summed across every deck's wins (so the
+  // combo/commander-damage/etc. tags aggregate). Sums to the decisive-game count.
+  const winConMix = {};
+  for (const r of state.standings.values()) {
+    for (const [wc, n] of Object.entries(r.winCons)) winConMix[wc] = (winConMix[wc] || 0) + n;
+  }
+
   const results = {
     mode: state.mode,
     pilot: state.pilot,
@@ -248,6 +255,7 @@ export function crucibleResults() {
     played: state.played,
     decisive: state.decisive,
     stuck: state.stuck,
+    winConMix,
     tiles: crucibleStatus().tiles,
     podium: rows.slice(0, 4), // 1st → 4th by avg finish
     standings: rows, // full leaderboard, same order

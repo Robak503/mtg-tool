@@ -20,6 +20,7 @@ function wcPhrase(wc) {
     case "win-game-effect": return "a win-the-game effect";
     case "decking": return "decking an opponent out";
     case "poison": return "poison";
+    case "combo": return "a combo";
     default: return wc || "damage";
   }
 }
@@ -55,6 +56,16 @@ export function mineHighlights(results) {
       title: "Signature line",
       detail: `When ${crown.name} won, it most often closed with ${wcPhrase(crown.topWinCon)}.`,
     });
+  }
+
+  // How the POD closes — the win-condition mix across every win at the table.
+  const mix = results.winConMix || {};
+  const mixEntries = Object.entries(mix).sort((a, b) => b[1] - a[1]);
+  const totalWins = mixEntries.reduce((s, [, n]) => s + n, 0);
+  if (totalWins > 0) {
+    const [topWc, topN] = mixEntries[0];
+    const rest = mixEntries.slice(1, 3).filter(([, n]) => n > 0).map(([wc, n]) => `${wcPhrase(wc)} ×${n}`).join(", ");
+    out.push({ title: "How the pod closes", detail: `${Math.round((100 * topN) / totalWins)}% of wins came via ${wcPhrase(topWc)}${rest ? ` — then ${rest}` : ""}.` });
   }
 
   // Fastest close + longest grind.
