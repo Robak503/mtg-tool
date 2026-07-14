@@ -45,9 +45,21 @@ describe("win condition taxonomy", () => {
     const { winCondition } = computeEpochStats({ ...base, log: [elim("ai3", 12, { decked: true, life: 20 })], result: "user-wins" });
     expect(winCondition).toBe("decking");
   });
-  it("plain damage (combat/burn undistinguished v1)", () => {
+  it("plain damage — a life<=0 finish with no stamped source (drain/pay-life/legacy) stays generic", () => {
     const { winCondition } = computeEpochStats({ ...base, log: [elim("ai3", 12)], result: "user-wins" });
     expect(winCondition).toBe("damage");
+  });
+  it("combat — the lethal blow was combat damage", () => {
+    const { winCondition } = computeEpochStats({ ...base, log: [elim("ai3", 12, { lethalByCombat: true })], result: "user-wins" });
+    expect(winCondition).toBe("combat");
+  });
+  it("burn — the lethal blow was non-combat (spell/ability) damage", () => {
+    const { winCondition } = computeEpochStats({ ...base, log: [elim("ai3", 12, { lethalByCombat: false })], result: "user-wins" });
+    expect(winCondition).toBe("burn");
+  });
+  it("commander damage outranks a combat stamp (a commander's combat hit is commander-damage, not combat)", () => {
+    const { winCondition } = computeEpochStats({ ...base, log: [elim("ai3", 12, { commanderLethal: true, lethalByCombat: true })], result: "user-wins" });
+    expect(winCondition).toBe("commander-damage");
   });
   it("clock / stuck / draw map from the result token", () => {
     expect(computeEpochStats({ ...base, log: [], result: "timeout" }).winCondition).toBe("clock");

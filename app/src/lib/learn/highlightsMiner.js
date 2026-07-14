@@ -17,6 +17,8 @@ const CAP = 6;
 function wcPhrase(wc) {
   switch (wc) {
     case "commander-damage": return "commander damage";
+    case "combat": return "combat damage";
+    case "burn": return "noncombat damage";
     case "win-game-effect": return "a win-the-game effect";
     case "decking": return "decking an opponent out";
     case "poison": return "poison";

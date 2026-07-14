@@ -133,6 +133,8 @@ function col(value, width) {
 function winConditionPhrase(wc) {
   switch (wc) {
     case "commander-damage": return "commander damage";
+    case "combat": return "combat damage";
+    case "burn": return "noncombat damage";
     case "poison": return "poison";
     case "decking": return "decking an opponent out";
     case "damage": return "damage";

@@ -1248,17 +1248,28 @@ export function addMana(state, { playerId, color, amount = 1 }) {
 let _lifeLossWatcher = null;
 export function registerLifeLossWatcher(fn) { _lifeLossWatcher = fn; }
 
-export function loseLife(state, { playerId, amount }) {
+export function loseLife(state, { playerId, amount, combatDamage }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("loseLife: amount must be non-negative integer");
   // LIFE-LOST-THIS-TURN ledger (Bloodchief Ascension "if an opponent lost 2 or more life this turn" —
   // SHELF S7, CR 603.4): tallied HERE at the single life-loss chokepoint (damage + pay-life + drains all
   // flow through loseLife — the same funnel the lifeLost watcher rides), reset for all seats at untap
   // alongside creaturesDiedThisTurn. Absence of a tally IS "no life lost" (fail-closed).
-  const next = withPlayer(state, playerId, p => ({
-    ...p, life: p.life - amount,
-    ...(amount > 0 && { lifeLostThisTurn: (p.lifeLostThisTurn || 0) + amount }),
-  }));
+  //
+  // WIN-CON ATTRIBUTION (combat vs burn): `combatDamage` is passed ONLY by the two damage callers —
+  // true from combat resolution, false from the burn/ability damage atom — and is undefined for every
+  // non-damage loss (pay-life, drains). We stamp `lethalDamageCombat` on the player ONLY when THIS loss
+  // is the killing blow (newLife <= 0) and it came from damage, so removePlayerFromGame can split the
+  // "damage" win-con into combat / burn. Stamping only on the lethal blow means it can never go stale (a
+  // player at <=0 is removed by the very next SBA) and a drain/pay-life finish never mislabels as either.
+  const next = withPlayer(state, playerId, p => {
+    const newLife = p.life - amount;
+    return {
+      ...p, life: newLife,
+      ...(amount > 0 && { lifeLostThisTurn: (p.lifeLostThisTurn || 0) + amount }),
+      ...(combatDamage !== undefined && amount > 0 && newLife <= 0 && { lethalDamageCombat: combatDamage }),
+    };
+  });
   return _lifeLossWatcher && amount > 0 ? _lifeLossWatcher(next, { playerId, amount }) : next;
 }
 

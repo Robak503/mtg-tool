@@ -921,7 +921,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     if (dealt <= 0) return s;
     return sourceInfect
       ? addPoison(s, { playerId: pid, amount: dealt })
-      : loseLife(s, { playerId: pid, amount: dealt });
+      : loseLife(s, { playerId: pid, amount: dealt, combatDamage: false }); // non-combat (spell/ability) damage → burn win-con
   };
   // ENRAGE / DAMAGE-RECEIVED (CR 603.2): tally the FINAL amount dealt to each creature this effect so a
   // dealtDamage trigger fires ONCE per creature with its total (CR 120.8 — only > 0 entries). One entry per

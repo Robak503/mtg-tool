@@ -269,6 +269,10 @@ function removePlayerFromGame(state, playerId) {
         poison: _gone.poison ?? null,
         decked: (_gone.library || []).length === 0,
         commanderLethal: Object.values(_gone.commanderDamageFrom || {}).some((n) => n >= 21),
+        // Source of the lethal blow (loseLife stamped it on the killing damage): true = combat, false =
+        // non-combat (burn/ability), null = a non-damage finish (drain/pay-life) → the "damage" win-con
+        // stays generic. Lets epochStats split "damage" into combat / burn honestly (CREED — never guessed).
+        lethalByCombat: _gone.lethalDamageCombat ?? null,
       }
     : {};
   const log = [...state.log, { turn: state.turn, kind: "player-eliminated", player: playerId, ...goneVitals }];

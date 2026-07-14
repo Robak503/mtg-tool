@@ -21,14 +21,17 @@ import { dataPath } from "../server/paths.js";
  * Only results that DIRECTLY end a game map; enabling results (counters/tokens/mana/ETB loops) return
  * nothing, so a combo that merely built a board never gets credited with the kill. Returns a Set.
  *
- * Engine win-cons (epochStats): "damage" (combat OR burn OR life-loss/drain), "decking", "poison",
- * "win-game-effect", "commander-damage".
+ * Engine win-cons (epochStats): "combat" / "burn" (the life≤0 kill split by source), "damage" (a
+ * life-loss/drain finish, or legacy), "decking", "poison", "win-game-effect", "commander-damage".
  */
 export function producesToWincons(produces) {
   const text = (Array.isArray(produces) ? produces.join(" · ") : String(produces || "")).toLowerCase();
   const wincons = new Set();
   if (/\bwins? the game\b|\bwin the game\b/.test(text)) wincons.add("win-game-effect");
-  if (/infinite damage|deals? .*infinite|infinite .*damage|infinite burn/.test(text)) wincons.add("damage");
+  // Infinite DAMAGE can close as either combat or non-combat, and legacy records tag it "damage" —
+  // accept all three so the combo-consistency check (classifyComboWin) still matches a real damage kill.
+  if (/infinite damage|deals? .*infinite|infinite .*damage|infinite burn/.test(text)) { wincons.add("damage"); wincons.add("combat"); wincons.add("burn"); }
+  // Drain / life-loss brings life ≤ 0 from a NON-damage source → the engine tags it generic "damage".
   if (/infinite (life ?loss|drain)|lose(s)? .*life|life ?loss|infinite drain|drain .*life/.test(text)) wincons.add("damage");
   if (/infinite mill|mill .*(library|cards)|empt(y|ies) .*library|deck(s|ing) out/.test(text)) wincons.add("decking");
   if (/poison|infect|toxic|\bproliferate\b.*poison/.test(text)) wincons.add("poison");

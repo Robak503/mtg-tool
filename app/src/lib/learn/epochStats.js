@@ -11,9 +11,10 @@
  *   order (first out = last place). eliminatedAtTurn = the elimination event's turn.
  *
  * WIN CONDITION (v1 enum — shapes per the addendum, one honest deviation):
- *   win-game-effect | commander-damage | poison | decking | damage | clock | draw | stuck
- *   "damage" = the final elimination was life≤0 — combat vs burn is NOT distinguished in v1
- *   (the log's death events don't carry the source class; noted in COMMS). "concession-cascade"
+ *   win-game-effect | commander-damage | poison | decking | combat | burn | damage | clock | draw | stuck
+ *   combat / burn = the life≤0 killing blow was combat vs non-combat (spell/ability) damage — loseLife
+ *   stamps the source on the lethal hit (CR 119). "damage" = a life≤0 finish from a NON-damage source
+ *   (drain / pay-life) or a legacy record with no source class. "concession-cascade"
  *   can't occur in self-play (no concessions).
  *
  * MANA HEALTH (per seat — featuresV=2 UNITS FIX, Omnath 2026-07-10): every window counts the
@@ -85,7 +86,9 @@ export function computeEpochStats({ state, log = [], result, winnerSeat = null, 
     else if (last.commanderLethal) winCondition = "commander-damage";
     else if ((last.poison ?? 0) >= 10) winCondition = "poison";
     else if (last.decked) winCondition = "decking";
-    else winCondition = "damage";
+    else if (last.lethalByCombat === true) winCondition = "combat";
+    else if (last.lethalByCombat === false) winCondition = "burn";
+    else winCondition = "damage"; // life<=0 from a non-damage finish (drain/pay-life) or a pre-split legacy record
   }
 
   // ── turn-owner map (the featuresV=2 units backbone) ──

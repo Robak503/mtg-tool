@@ -378,7 +378,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     if (findPermanent(next, id)) next = markCombatDamage(next, { permanentId: id, amount });
   }
   for (const [pid, amount] of Object.entries(lifeLoss)) {
-    if (amount > 0) next = loseLife(next, { playerId: pid, amount });
+    if (amount > 0) next = loseLife(next, { playerId: pid, amount, combatDamage: true });
   }
   // KW-POISON (CR 702.90b infect / 702.79b wither): infect/wither combat damage to a creature is dealt
   // as -1/-1 counters. Applied BEFORE the lethal SBA below so a creature dropped to 0 toughness is
