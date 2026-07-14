@@ -1,22 +1,12 @@
 /**
- * ProvingHome — The Proving Grounds' front door: everything about PLAY.
- * The Academy (learn against the engine), the Sim Center (self-play at
- * scale), and Pod Balance (how your decks stack up against each other).
+ * ProvingHome — The Crucible's front door: run your decks and read the results.
+ * The Sim Center (self-play at scale + bounded pod power-reads), Pod Balance (how
+ * your decks stack up), and Table Records (every finished game, kept). Learn-to-play
+ * and Judge Trials moved to The Academy.
  */
 import StabilityBadge from "./StabilityBadge";
 
 const GROUNDS = [
-  {
-    id: "learn",
-    title: "The Academy",
-    badge: "preview",
-    blurb: "Learn to play against the engine — 1v1 and Commander 4P, every decision narrated.",
-    icon: (
-      <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M12 3 1 8.5 12 14l9-4.5V15h2V8.5L12 3zM5 13.2V17c0 1.7 3.1 3 7 3s7-1.3 7-3v-3.8l-7 3.5-7-3.5z" />
-      </svg>
-    ),
-  },
   {
     id: "sim",
     title: "Sim Center",
@@ -55,18 +45,6 @@ const GROUNDS = [
       </svg>
     ),
   },
-  {
-    id: "judge",
-    title: "Judge Trials",
-    badge: "beta",
-    blurb: "Test your rules knowledge against ~500 verified judge questions.",
-    icon: (
-      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3v18M5 7h14M7 7l-3 6a3 3 0 0 0 6 0zM17 7l-3 6a3 3 0 0 0 6 0z" />
-        <path d="M9 21h6" />
-      </svg>
-    ),
-  },
 ];
 
 export default function ProvingHome({ onPick, fontFamily }) {
@@ -92,10 +70,10 @@ export default function ProvingHome({ onPick, fontFamily }) {
             color: "var(--ley-text)",
           }}
         >
-          The Proving Grounds
+          The Crucible
         </h1>
         <div style={{ fontSize: 13, color: "var(--ley-text-dim)", marginTop: 6 }}>
-          Learn it. Run it. Balance it.
+          Run it. Rank it. Record it.
         </div>
       </div>
 

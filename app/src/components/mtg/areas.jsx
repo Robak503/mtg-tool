@@ -228,11 +228,20 @@ export const AREAS = [
     defaultView: "agents-home",
   },
   {
+    // id stays "proving" internally (all routing/saved-state keys on it); the USER sees "The Crucible".
     id: "proving",
-    title: "The Proving Grounds",
-    tagline: "The Academy · Sim Center · Pod Balance",
+    title: "The Crucible",
+    tagline: "Sim Center · Pod Balance · Records",
     icon: ProvingIcon,
     defaultView: "proving-home",
+  },
+  {
+    // The Academy absorbs the old Library — learn-to-play, Judge Trials, and the rules/rulings explainers.
+    id: "academy",
+    title: "The Academy",
+    tagline: "Learn to play · Judge Trials · Rules",
+    icon: LibraryIcon,
+    defaultView: "academy-home",
   },
   {
     id: "vault",
@@ -240,12 +249,5 @@ export const AREAS = [
     tagline: "Stacks · Ledger · Atlas · Forge",
     icon: VaultIcon,
     defaultView: "vault-home",
-  },
-  {
-    id: "library",
-    title: "The Library",
-    tagline: "Rules · rulings · engine explainers",
-    icon: LibraryIcon,
-    defaultView: "library-home",
   },
 ];

@@ -57,6 +57,7 @@ import LandingScreen from "./mtg/LandingScreen";
 import AreaBar from "./mtg/AreaBar";
 import AgentsHome from "./mtg/AgentsHome";
 import ProvingHome from "./mtg/ProvingHome";
+import AcademyHome from "./mtg/AcademyHome";
 import VaultHome from "./mtg/VaultHome";
 import DeckReadyView from "./mtg/DeckReadyView";
 import VaultGalleryView from "./mtg/VaultGalleryView";
@@ -785,11 +786,12 @@ export default function MTGAssistant() {
     const cmds = [];
     for (const a of AREAS) cmds.push({ label: a.title, hint: "area", group: "Go to", run: () => enterArea(a.id) });
     cmds.push(
-      { label: "Judge Trials", hint: "quiz", group: "Go to", run: () => { setArea("proving"); setCenterView("judge"); } },
+      { label: "Judge Trials", hint: "quiz", group: "Go to", run: () => { setArea("academy"); setCenterView("judge"); } },
       { label: "Table Records", hint: "records", group: "Go to", run: () => { setArea("proving"); setCenterView("records"); } },
       { label: "Pod Balance", hint: "pods", group: "Go to", run: () => { setArea("proving"); setCenterView("podbalance"); } },
       { label: "Sim Center", hint: "self-play", group: "Go to", run: () => { setArea("proving"); setCenterView("sim"); } },
-      { label: "The Academy", hint: "learn", group: "Go to", run: () => { setArea("proving"); setCenterView("learn"); } },
+      { label: "Learn to Play", hint: "learn", group: "Go to", run: () => { setArea("academy"); setCenterView("learn"); } },
+      { label: "Rules & Rulings", hint: "library", group: "Go to", run: () => { setArea("academy"); setCenterView("library-home"); } },
     );
     cmds.push(
       { label: "New chat with Karn", group: "Action", run: () => { pickAgent("karn"); setArea("agents"); setCenterView("chat"); } },
@@ -922,6 +924,8 @@ export default function MTGAssistant() {
   const goHome = () => setArea("home");
   // The Proving Grounds' sub-surfaces (Academy / Sim / Pod Balance).
   const pickProvingGround = (id) => setCenterView(id);
+  // The Academy front-door pick (learn / judge / library); library reuses the LibraryView centerView.
+  const pickAcademy = (id) => setCenterView(id === "library" ? "library-home" : id);
   // Cross-surface handoff: Pod Balance → Sim Center pre-seeded (wave Q9).
   const [pendingSimSelection, setPendingSimSelection] = useState(null);
   // Agents home → straight into that agent's chat.
@@ -1435,10 +1439,12 @@ export default function MTGAssistant() {
               <AgentsHome onPickAgent={pickAgent} fontFamily={F} />
             ):centerView==="proving-home"?(
               <ProvingHome onPick={pickProvingGround} fontFamily={F} />
+            ):centerView==="academy-home"?(
+              <AcademyHome onPick={pickAcademy} fontFamily={F} />
             ):centerView==="records"?(
               <RecordsView onBack={() => setCenterView("proving-home")} fontFamily={F} />
             ):centerView==="judge"?(
-              <JudgeTrialsView onBack={() => setCenterView("proving-home")} fontFamily={F} />
+              <JudgeTrialsView onBack={() => setCenterView("academy-home")} fontFamily={F} />
             ):centerView==="library-home"?(
               <LibraryView fontFamily={F} />
             ):centerView==="podbalance"?(
@@ -1475,7 +1481,7 @@ export default function MTGAssistant() {
               <DeckView
                 activeDeck={activeDeck}
                 onInspectCard={inspectCard}
-                onPractice={(deckId) => { setActiveDeckId(deckId); setPendingLearnDeckId(deckId); setArea("proving"); setCenterView("learn"); }}
+                onPractice={(deckId) => { setActiveDeckId(deckId); setPendingLearnDeckId(deckId); setArea("academy"); setCenterView("learn"); }}
                 agentNotes={agentNotes}
                 askDeckAgent={askDeckAgent}
                 bg={BG}
