@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { cardImageProxySrc } from "../../lib/cardImage";
 
 const TILE = [
   { key: "turnsPerGame", label: "turns / game", fmt: (v) => v.toFixed(1) },
@@ -189,7 +190,8 @@ function Podium({ results }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {podium.map((d, i) => (
           <div key={d.id || d.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--ley-surface-1)", border: "1px solid var(--ley-line)", borderRadius: 8 }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: i === 0 ? "var(--ley-green)" : "var(--ley-text-dim)", width: 34 }}>{RANK_LABEL[i]}</span>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: i === 0 ? "var(--ley-green)" : "var(--ley-text-dim)", width: 30 }}>{RANK_LABEL[i]}</span>
+            <CommanderCards commanders={d.commanders} companion={d.companion} />
             <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "var(--ley-text)" }}>{d.name}</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ley-text-dim)" }}>{(d.winRate * 100).toFixed(0)}% · avg {d.avgFinish != null ? d.avgFinish.toFixed(2) : "—"}</span>
           </div>
@@ -263,6 +265,28 @@ function Board({ results }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Commander card art for a podium row — the deck's commander(s) as real card frames (resolved by name
+// via the local /api/card-image cache-proxy). Partners overlap; a partner+companion set stacks to three.
+// (Foil shimmer is a follow-on — the run results don't yet carry each commander's printing/foil status.)
+function CommanderCards({ commanders = [], companion }) {
+  const cards = [...(commanders || []).map((name) => ({ name })), ...(companion ? [{ name: companion }] : [])];
+  if (!cards.length) return null;
+  const W = 40, H = 56, OVERLAP = 15;
+  return (
+    <div style={{ position: "relative", width: W + (cards.length - 1) * OVERLAP, height: H, flexShrink: 0 }} title={cards.map((c) => c.name).join(" + ")}>
+      {cards.map((c, i) => (
+        <img
+          key={i}
+          src={cardImageProxySrc(c) || undefined}
+          alt={c.name}
+          loading="lazy"
+          style={{ position: "absolute", left: i * OVERLAP, top: 0, width: W, height: H, objectFit: "cover", objectPosition: "top center", borderRadius: 4, border: "1px solid var(--ley-line-bright)", boxShadow: "0 2px 8px rgba(0,0,0,0.55)", background: "var(--ley-surface-2)", zIndex: i }}
+        />
+      ))}
     </div>
   );
 }

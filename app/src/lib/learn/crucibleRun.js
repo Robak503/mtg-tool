@@ -107,7 +107,18 @@ function foldGame(game, pod, seats, comboData) {
     const rank = seatStats[seat]?.finishRank;
     const key = deckKey(deck);
     let rec = state.standings.get(key);
-    if (!rec) { rec = { id: deck?.id ?? null, name: deck?.name || key, games: 0, wins: 0, finishSum: 0, finish: [0, 0, 0, 0], winCons: {} }; state.standings.set(key, rec); }
+    if (!rec) {
+      rec = {
+        id: deck?.id ?? null,
+        name: deck?.name || key,
+        // Commander name(s) + companion for the results podium's card art (resolved by name via
+        // cardImageProxySrc). Partners → 2 names (overlapped); partner + companion → a 3-card stack.
+        commanders: (deck?.commanders || []).map((c) => c?.name).filter(Boolean),
+        companion: deck?.companion?.name || null,
+        games: 0, wins: 0, finishSum: 0, finish: [0, 0, 0, 0], winCons: {},
+      };
+      state.standings.set(key, rec);
+    }
     rec.games += 1;
     if (Number.isFinite(rank)) {
       rec.finishSum += rank;
@@ -228,6 +239,8 @@ export function crucibleResults() {
     return {
       id: r.id,
       name: r.name,
+      commanders: r.commanders || [],
+      companion: r.companion || null,
       games: r.games,
       wins: r.wins,
       winRate: r.games ? r.wins / r.games : 0,
