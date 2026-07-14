@@ -1091,7 +1091,7 @@ function pendingEdictModeActions(pc) {
  */
 export function advanceUntilDecision(
   session,
-  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null, policy = null, resolveArbiter = null } = {},
+  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null, policy = null, resolveArbiter = null, turnTickBudget = 2000 } = {},
 ) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
   const timeCfg = resolveTimePressure(timePressure);
@@ -1105,10 +1105,25 @@ export function advanceUntilDecision(
   // High cap = a true-infinite-loop backstop only. Normal termination is the
   // game ending or the turn limit; an Expert full-game runs to completion in a
   // single call (it never stops for a user decision), so the cap must clear a
-  // long game. The anti-loop latch below is the primary guard.
+  // long game. The anti-loop latch below + the per-turn budget are the primary guards.
   const SAFETY_CAP = 50000;
+  // PER-TURN TICK BUDGET (grind server-hang root fix, 2026-07-14). The anti-loop latch
+  // (progressSignature) only force-passes an action that changes NOTHING — a loop that
+  // produces mana/tokens each pass (poolTotal/bfCount move) slips past it and grinds a
+  // single turn to SAFETY_CAP: ~tens of seconds of blocked event loop + an O(n²)
+  // decisionLog balloon that OOM'd the machine. No legit game exceeds 70 turns and no
+  // legit TURN comes near this budget, so a turn that burns this many ticks without
+  // advancing is definitionally a non-terminating loop → end it engine-stuck at once.
+  // `turnTickBudget` (default 2000, injectable for tests) = 6× the busiest legit turn ever
+  // measured (max 333 ticks over 80 real games; a whole legit GAME totals <2900 ticks across all
+  // ~50 turns), so no real turn approaches it — but it bails a spin ~25× sooner than the 50000
+  // backstop. A false trip costs one discarded game (engine-stuck already is); a miss costs a
+  // minutes-long hang + an OOM, so the margin is deliberately asymmetric toward catching spins.
   let current = session;
   let ticks = 0;
+  let turnForTicks = null; // the state.turn we're counting ticks within
+  let ticksThisTurn = 0;
+  let maxTurnTicks = 0; // observability: the busiest single turn (recorded on the result)
 
   // Turn-boundary state (opt-in observer + opt-in time-pressure clock). Starts at null
   // so the FIRST loop iteration fires for the opening turn, then once per subsequent
@@ -1129,6 +1144,20 @@ export function advanceUntilDecision(
 
   while (ticks < SAFETY_CAP) {
     ticks += 1;
+
+    // Per-turn tick budget — the primary spin guard (see TURN_TICK_BUDGET above). Reset the
+    // counter whenever state.turn advances; a turn that never advances but keeps ticking is a
+    // stall. Ending it here (not at SAFETY_CAP) bounds the event-loop block + decisionLog size.
+    const curTurnForTicks = current.state?.turn ?? null;
+    if (curTurnForTicks !== turnForTicks) { turnForTicks = curTurnForTicks; ticksThisTurn = 0; }
+    ticksThisTurn += 1;
+    if (ticksThisTurn > maxTurnTicks) maxTurnTicks = ticksThisTurn;
+    if (ticksThisTurn > turnTickBudget) {
+      return {
+        session: current,
+        decision: { kind: "engine-stuck", reason: `turn stall (${ticksThisTurn} ticks in a single turn — non-terminating loop)`, ticks, maxTurnTicks },
+      };
+    }
 
     // Turn boundary — fires when state.turn first reaches a new value (turn-start,
     // before this turn's actions). Used for BOTH the opt-in observer snapshot AND the
@@ -1172,7 +1201,7 @@ export function advanceUntilDecision(
     if (current.status !== "active") {
       return {
         session: current,
-        decision: { kind: "game-over", reason: current.status },
+        decision: { kind: "game-over", reason: current.status, ticks, maxTurnTicks },
       };
     }
 
@@ -1696,7 +1725,7 @@ export function advanceUntilDecision(
       } catch {
         return {
           session: current,
-          decision: { kind: "engine-stuck", reason: "no legal action and no pass available" },
+          decision: { kind: "engine-stuck", reason: "no legal action and no pass available", ticks, maxTurnTicks },
         };
       }
       continue;
@@ -1754,7 +1783,7 @@ export function advanceUntilDecision(
 
   return {
     session: current,
-    decision: { kind: "engine-stuck", reason: `safety cap (${SAFETY_CAP} ticks) hit` },
+    decision: { kind: "engine-stuck", reason: `safety cap (${SAFETY_CAP} ticks) hit`, ticks, maxTurnTicks },
   };
 }
 

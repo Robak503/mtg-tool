@@ -1,6 +1,6 @@
 {
   "name": "mtg-tool",
-  "version": "0.138.0",
+  "version": "0.138.1",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",

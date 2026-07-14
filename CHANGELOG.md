@@ -10,6 +10,21 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.138.1] - 2026-07-14
+
+### Fixed
+- **The grind no longer freezes the app — or runs the machine out of memory.** A small fraction of
+  self-play games reached a state where the AI loops an action that *produces* something each pass
+  (mana, a token) without ever advancing toward a win. Because that changes the board, it slipped
+  past the existing anti-loop guard and ground a single turn all the way to the engine's 50000-tick
+  backstop — which, running on the app's main process, meant tens of seconds (up to minutes) of a
+  frozen window plus a runaway memory balloon that could crash the machine. A **per-turn tick
+  budget** now catches such a stall in a fraction of a second: no real turn was ever measured over
+  ~400 ticks (a whole game totals under 3000), so a turn that burns 2000 without advancing is by
+  definition a non-terminating loop. It ends that one game as "engine-stuck" — exactly as before,
+  just immediately — while every real game plays out completely untouched (verified against the full
+  test suite and 24k recorded games).
+
 ## [0.138.0] - 2026-07-13
 
 ### Added

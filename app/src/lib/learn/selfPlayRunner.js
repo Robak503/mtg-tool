@@ -412,6 +412,7 @@ export function runSelfPlayGame({
   const log = out.state?.log || [];
   const turns = out.state?.turn ?? 0;
   const ticks = decision?.ticks ?? null;
+  const maxTurnTicks = decision?.maxTurnTicks ?? null; // busiest single turn (spin-detector observability)
 
   // Map the terminal decision to a single result token. game-over → the win-detection
   // status (user-wins/ai-wins/draw, or timeout when the opt-in clock was on and the game
@@ -456,6 +457,7 @@ export function runSelfPlayGame({
     reason: decision.reason ?? null,
     turns,
     ticks,
+    maxTurnTicks,
     log,
     meta,
     trainingWeight,
