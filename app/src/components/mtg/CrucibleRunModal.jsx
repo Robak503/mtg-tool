@@ -30,6 +30,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   const [error, setError] = useState(null);
   const [banking, setBanking] = useState(false);
   const [banked, setBanked] = useState(null);
+  const [trainingBank, setTrainingBank] = useState(false); // opt-in: also feed the learning value-model (Q4)
   const startedRef = useRef(false);
 
   // Start the run once when the modal opens.
@@ -80,7 +81,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   const bank = async () => {
     setBanking(true);
     try {
-      const resp = await fetch("/api/crucible", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "bank" }) });
+      const resp = await fetch("/api/crucible", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "bank", trainingBank }) });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || data?.ok === false) setError(data?.error || "Banking failed.");
       else { setBanked(data); onBanked?.(data); }
@@ -147,8 +148,18 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
           </>)}
           {results && screen === "board" && (<>
             <button type="button" style={ghostBtn} onClick={() => setScreen("highlights")}>← Highlights</button>
+            {!banked && (
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--ley-text-dim)", cursor: "pointer" }} title="Deterministically replays this pod to feed the learn-to-play value model">
+                <input type="checkbox" checked={trainingBank} onChange={(e) => setTrainingBank(e.target.checked)} />
+                also feed the learning model
+              </label>
+            )}
             {banked ? (
-              <span style={{ fontSize: 12, color: "var(--ley-green)" }}>✓ Saved{banked.file ? ` → ${banked.file}` : ""}</span>
+              <span style={{ fontSize: 12, color: "var(--ley-green)" }}>
+                ✓ Saved{banked.file ? ` → ${banked.file}` : ""}
+                {banked.trainingFile ? ` · ${banked.trainingRows} training rows banked` : ""}
+                {banked.trainingError ? " · ⚠ training bank failed" : ""}
+              </span>
             ) : (
               <button type="button" style={nextBtn} onClick={bank} disabled={banking} title={clean ? "Clean run — save this read's report to Saved Reports" : "Save this read's report (it had some unmodeled cards)"}>
                 {banking ? "Saving…" : clean ? "Save this read ✓" : "Save this read"}

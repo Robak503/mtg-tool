@@ -48,7 +48,7 @@ export async function POST(request) {
   if (action === "cancel") return Response.json(requestCrucibleCancel());
   if (action === "status") return Response.json(crucibleStatus());
   if (action === "results") return Response.json(crucibleResults());
-  if (action === "bank") return Response.json(await bankCrucibleRun());
+  if (action === "bank") return Response.json(await bankCrucibleRun({ trainingBank: body?.trainingBank === true }));
   if (action !== "start") {
     return Response.json({ error: 'action must be "start", "cancel", "status", "results", or "bank".' }, { status: 400 });
   }

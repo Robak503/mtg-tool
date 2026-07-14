@@ -54,6 +54,7 @@ function freshState() {
     recent: [], // ring buffer of the last RECENT_CAP one-line synopses
     breakageEntries: [], // real per-card breakage log entries (rare — most games are clean native)
     perGame: [], // lightweight per-game rows for the leaderboard's per-game log
+    replayCtx: null, // { decks, mode, target, pilotBuilder, baseSeed, podSize } — for the opt-in training bank (deterministic replay-on-bank)
   };
 }
 
@@ -172,6 +173,9 @@ export function startCrucibleRun({ decks, mode = "commander", target = 100, pilo
 
 async function loop({ decks, mode, target, pilotBuilder, seed, podSize }) {
   const base = resolveBaseSeed(seed);
+  // Record the deterministic replay context so a post-run "bank to training" can re-run the EXACT
+  // same games with trajectory recording on (the fast read itself doesn't record, for speed).
+  state.replayCtx = { decks, mode, target, pilotBuilder, baseSeed: base, podSize };
   const seats = engineSeatsForMode(mode);
   const comboData = await loadComboData().catch(() => null); // bundled Spellbook combos; null in dev → coarse win-con
   let i = 0;
@@ -326,7 +330,51 @@ export function crucibleReportText(results, { pilotLabel = null, generatedAt = n
  * feed (value-model JSONL via deterministic replay) is a documented follow-on — see the order file.
  * Returns { ok, file } or { ok:false, error }.
  */
-export async function bankCrucibleRun({ pilotLabel = null } = {}) {
+/**
+ * Deterministically REPLAY the finished pod with trajectory recording ON, writing the per-turn
+ * state→eventual-win trajectories to the training JSONL (the value-model's food). The fast read never
+ * records (for speed), so an opt-in "bank to training" re-runs the EXACT same games (same base seed)
+ * once. Returns { trainingFile, trainingRows }. Throws if there's no replay context.
+ */
+async function replayTrainingBank(safeTs, short) {
+  const ctx = state.replayCtx;
+  if (!ctx || !Array.isArray(ctx.decks)) throw new Error("no replay context to bank");
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  const { profilePath } = await import("../server/paths.js");
+  const { trajectoriesToJsonl } = await import("./selfPlayRunner.js");
+  const lines = [];
+  for (let i = 0; i < ctx.target; i++) {
+    const gameSeed = gameSeedAt(ctx.baseSeed, i);
+    const pod = formPod(ctx.decks, ctx.podSize, gameSeed);
+    let pilots = {};
+    try { if (ctx.pilotBuilder) pilots = ctx.pilotBuilder(pod, gameSeed) || {}; } catch { /* default AI */ }
+    const meta = { mode: ctx.mode, seatNames: pod.map((d) => d?.name || d?.id || "Unknown deck"), seed: gameSeed };
+    let game;
+    try { game = runSelfPlayGame({ ...podToArgs(pod, ctx.mode, pilots, gameSeed), meta, recordTrajectory: true }); }
+    catch { continue; } // a single replay error never aborts the whole bank
+    if (game.trajectory) { game.trajectory.deckIds = pod.map((d) => d?.id ?? null); game.trajectory.seatNames = meta.seatNames; game.trajectory.seed = gameSeed; }
+    const jsonl = trajectoriesToJsonl({ games: [game] });
+    if (jsonl) lines.push(jsonl);
+    if (i % 16 === 0) await macrotask(); // keep the event loop breathing during the replay
+  }
+  const dir = profilePath("self-play", "trajectories");
+  await fs.mkdir(dir, { recursive: true });
+  const file = `crucible-${safeTs}-${short}.jsonl`;
+  const fp = path.join(dir, file);
+  const body = lines.length ? lines.join("\n") + "\n" : "";
+  const tmp = `${fp}.tmp.${process.pid}`;
+  await fs.writeFile(tmp, body, "utf8");
+  await fs.rename(tmp, fp);
+  return { trainingFile: file, trainingRows: lines.reduce((n, l) => n + l.split("\n").filter(Boolean).length, 0) };
+}
+
+/**
+ * Bank the finished pod: always write the report .txt (→ Saved Reports). With `trainingBank`, ALSO
+ * deterministically replay the pod to feed the learning value-model (Q4 — opt-in, report-only default).
+ * Returns { ok, file, trainingFile?, trainingRows?, trainingError? } or { ok:false, error }.
+ */
+export async function bankCrucibleRun({ pilotLabel = null, trainingBank = false } = {}) {
   if (state.running) return { ok: false, error: "the run is still going" };
   if (!state.played) return { ok: false, error: "nothing to bank yet" };
   const results = crucibleResults();
@@ -338,14 +386,20 @@ export async function bankCrucibleRun({ pilotLabel = null } = {}) {
     const { profilePath } = await import("../server/paths.js");
     const { sanitiseId } = await import("../server/sanitiseId.js");
     const dir = profilePath("self-play");
-    const safeTs = generatedAt.replace(/:/g, "-").replace(/\..+Z$/, "Z");
+    const safeTs = sanitiseId(generatedAt.replace(/:/g, "-").replace(/\..+Z$/, "Z"));
     const short = (globalThis.crypto?.randomUUID?.() || "crucible").slice(0, 8);
-    const filename = `crucible-${sanitiseId(safeTs)}-${short}.txt`;
+    const filename = `crucible-${safeTs}-${short}.txt`;
     await fs.mkdir(dir, { recursive: true });
     const tmp = path.join(dir, `${filename}.tmp.${process.pid}`);
     await fs.writeFile(tmp, report, "utf8");
     await fs.rename(tmp, path.join(dir, filename));
-    return { ok: true, file: filename };
+
+    let trainingFile = null, trainingRows = 0, trainingError = null;
+    if (trainingBank) {
+      try { ({ trainingFile, trainingRows } = await replayTrainingBank(safeTs, short)); }
+      catch (e) { trainingError = e?.message || String(e); } // a bank-to-training failure never loses the report
+    }
+    return { ok: true, file: filename, trainingFile, trainingRows, ...(trainingError ? { trainingError } : {}) };
   } catch (error) {
     return { ok: false, error: error?.message || String(error) };
   }
