@@ -58,6 +58,13 @@ function freshState() {
   };
 }
 
+// The opt-in training bank REPLAYS every game with trajectory recording on — a second full pass over the
+// pod (~0.7s/game; recording itself adds ~0 overhead), so a big pod is tens of seconds. It runs
+// FIRE-AND-FORGET on the persistent server so banking the report returns INSTANTLY; this job carries the
+// replay's progress for the modal. One replay at a time; a fresh run never clobbers it (ctx captured at kickoff).
+let trainingJob = { running: false, done: 0, target: 0, file: null, rows: 0, error: null };
+export function crucibleTrainingStatus() { return { ...trainingJob }; }
+
 /** A deck's stable key for the standings map (id first, name fallback). */
 function deckKey(d) {
   return d?.id || d?.name || "unknown";
@@ -228,6 +235,7 @@ export function crucibleStatus() {
       avgKillTurn: state.killTurnN ? state.killTurnSum / state.killTurnN : 0,
     },
     recent: [...state.recent],
+    training: { ...trainingJob }, // opt-in training-bank replay progress (fire-and-forget; running:false when idle/done)
   };
 }
 
@@ -336,9 +344,7 @@ export function crucibleReportText(results, { pilotLabel = null, generatedAt = n
  * records (for speed), so an opt-in "bank to training" re-runs the EXACT same games (same base seed)
  * once. Returns { trainingFile, trainingRows }. Throws if there's no replay context.
  */
-async function replayTrainingBank(safeTs, short) {
-  const ctx = state.replayCtx;
-  if (!ctx || !Array.isArray(ctx.decks)) throw new Error("no replay context to bank");
+async function replayTrainingBank(ctx, safeTs, short) {
   const fs = await import("node:fs/promises");
   const path = await import("node:path");
   const { profilePath } = await import("../server/paths.js");
@@ -356,7 +362,8 @@ async function replayTrainingBank(safeTs, short) {
     if (game.trajectory) { game.trajectory.deckIds = pod.map((d) => d?.id ?? null); game.trajectory.seatNames = meta.seatNames; game.trajectory.seed = gameSeed; }
     const jsonl = trajectoriesToJsonl({ games: [game] });
     if (jsonl) lines.push(jsonl);
-    if (i % 16 === 0) await macrotask(); // keep the event loop breathing during the replay
+    trainingJob.done = i + 1; // progress for the modal's poll
+    await macrotask(); // yield EVERY game (~670ms) like the live run — never block the app in 16-game (~11s) chunks
   }
   const dir = profilePath("self-play", "trajectories");
   await fs.mkdir(dir, { recursive: true });
@@ -394,12 +401,25 @@ export async function bankCrucibleRun({ pilotLabel = null, trainingBank = false 
     await fs.writeFile(tmp, report, "utf8");
     await fs.rename(tmp, path.join(dir, filename));
 
-    let trainingFile = null, trainingRows = 0, trainingError = null;
+    // Opt-in training bank: kick off the SLOW trajectory replay FIRE-AND-FORGET (the persistent server
+    // runs it to completion) so saving the report returns INSTANTLY instead of blocking for minutes.
+    // crucibleStatus().training carries its live progress; a replay failure is logged, never silent.
+    let training = null;
     if (trainingBank) {
-      try { ({ trainingFile, trainingRows } = await replayTrainingBank(safeTs, short)); }
-      catch (e) { trainingError = e?.message || String(e); } // a bank-to-training failure never loses the report
+      const ctx = state.replayCtx;
+      if (!ctx || !Array.isArray(ctx.decks)) {
+        training = { running: false, error: "no replay context to bank" };
+      } else if (trainingJob.running) {
+        training = { ...trainingJob }; // one replay at a time — hand back the in-flight one
+      } else {
+        trainingJob = { running: true, done: 0, target: ctx.target, file: null, rows: 0, error: null };
+        replayTrainingBank(ctx, safeTs, short)
+          .then(({ trainingFile, trainingRows }) => { trainingJob = { running: false, done: ctx.target, target: ctx.target, file: trainingFile, rows: trainingRows, error: null }; })
+          .catch((e) => { console.error("[crucible] training-bank replay failed:", e); trainingJob = { ...trainingJob, running: false, error: e?.message || String(e) }; });
+        training = { running: true, done: 0, target: ctx.target };
+      }
     }
-    return { ok: true, file: filename, trainingFile, trainingRows, ...(trainingError ? { trainingError } : {}) };
+    return { ok: true, file: filename, training };
   } catch (error) {
     return { ok: false, error: error?.message || String(error) };
   }

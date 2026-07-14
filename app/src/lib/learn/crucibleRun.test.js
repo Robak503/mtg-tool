@@ -13,6 +13,7 @@ import {
   requestCrucibleCancel,
   crucibleReportText,
   bankCrucibleRun,
+  crucibleTrainingStatus,
   _resetCrucibleForTests,
 } from "./crucibleRun.js";
 
@@ -154,5 +155,31 @@ describe("crucibleReportText + bank guard", () => {
     const res = await bankCrucibleRun();
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/nothing to bank/);
+  });
+
+  it("training bank is FIRE-AND-FORGET — the report saves instantly, the replay finishes in the background", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    startCrucibleRun({ decks: POD(), mode: "commander", target: 3, seed: 11 });
+    await awaitDone();
+
+    const res = await bankCrucibleRun({ trainingBank: true, pilotLabel: "Specialist" });
+    expect(res.ok).toBe(true);
+    expect(res.file).toBeTruthy();
+    // The bank returned BEFORE the replay finished (non-blocking) — it's still running in the background.
+    expect(res.training?.running).toBe(true);
+    expect(res.training?.target).toBe(3);
+    expect(crucibleTrainingStatus().running).toBe(true);
+
+    // …and the background replay completes on its own, writing real trajectory rows.
+    const t0 = Date.now();
+    while (crucibleTrainingStatus().running && Date.now() - t0 < 60000) await new Promise((r) => setTimeout(r, 20));
+    const done = crucibleTrainingStatus();
+    warn.mockRestore();
+    log.mockRestore();
+    expect(done.running).toBe(false);
+    expect(done.error).toBeNull();
+    expect(done.rows).toBeGreaterThan(0);
+    expect(done.file).toBeTruthy();
   });
 });

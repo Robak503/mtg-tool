@@ -31,6 +31,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   const [error, setError] = useState(null);
   const [banking, setBanking] = useState(false);
   const [banked, setBanked] = useState(null);
+  const [trainStatus, setTrainStatus] = useState(null); // live progress of the fire-and-forget training replay
   const [trainingBank, setTrainingBank] = useState(false); // opt-in: also feed the learning value-model (Q4)
   const startedRef = useRef(false);
 
@@ -38,7 +39,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   useEffect(() => {
     if (!open || startedRef.current) return;
     startedRef.current = true;
-    setScreen("live"); setStatus(null); setResults(null); setError(null); setBanked(null);
+    setScreen("live"); setStatus(null); setResults(null); setError(null); setBanked(null); setTrainStatus(null);
     (async () => {
       try {
         const resp = await fetch("/api/crucible", {
@@ -78,6 +79,24 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
 
   // Reset the "started" latch when closed so a re-open starts fresh.
   useEffect(() => { if (!open) startedRef.current = false; }, [open]);
+
+  // Poll the fire-and-forget training-bank replay's progress — only while it's still running, so the
+  // report save stays instant and this just narrates the background job. Stops when done/errored.
+  useEffect(() => {
+    if (!open || !banked?.training?.running) return;
+    if (trainStatus && !trainStatus.running) return; // already finished — nothing more to poll
+    let alive = true;
+    const poll = async () => {
+      try {
+        const r = await fetch("/api/crucible", { cache: "no-store" });
+        const s = await r.json().catch(() => null);
+        if (alive && s?.training) setTrainStatus(s.training);
+      } catch { /* transient — the next tick reconciles */ }
+    };
+    poll();
+    const id = setInterval(poll, 1000);
+    return () => { alive = false; clearInterval(id); };
+  }, [open, banked, trainStatus]);
 
   const stop = () => { fetch("/api/crucible", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel" }) }).catch(() => {}); };
 
@@ -160,8 +179,13 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
             {banked ? (
               <span style={{ fontSize: 12, color: "var(--ley-green)" }}>
                 ✓ Saved{banked.file ? ` → ${banked.file}` : ""}
-                {banked.trainingFile ? ` · ${banked.trainingRows} training rows banked` : ""}
-                {banked.trainingError ? " · ⚠ training bank failed" : ""}
+                {(() => {
+                  const t = trainStatus || banked.training;
+                  if (!t) return "";
+                  if (t.error) return ` · ⚠ training: ${t.error}`;
+                  if (t.running) return ` · feeding the model in the background… ${t.done}/${t.target} (safe to close)`;
+                  return ` · ${t.rows ?? 0} training rows banked`;
+                })()}
               </span>
             ) : (
               <button type="button" style={nextBtn} onClick={bank} disabled={banking} title={clean ? "Clean run — save this read's report to Saved Reports" : "Save this read's report (it had some unmodeled cards)"}>
