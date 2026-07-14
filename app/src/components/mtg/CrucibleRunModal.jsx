@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cardImageProxySrc } from "../../lib/cardImage";
 
 const TILE = [
@@ -52,8 +53,10 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   }, [open]);
 
   // Poll status while the modal is open; fetch results once the run is done.
+  // Stop once results are captured — the podium/board read `results`, not `status`,
+  // so continued polling only churns re-renders (and hammers the route needlessly).
   useEffect(() => {
-    if (!open) return;
+    if (!open || results) return;
     let alive = true;
     const poll = async () => {
       try {
@@ -97,7 +100,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   const tiles = (results?.tiles || status?.tiles) ?? {};
   const clean = results && Array.isArray(results.breakages) && results.breakages.length === 0;
 
-  return (
+  const modal = (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget && !running) onClose?.(); }}>
       <div style={panel}>
         {/* Header */}
@@ -172,6 +175,10 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
       </div>
     </div>
   );
+
+  // Portal to <body> so the overlay centres on the whole window, not inside SimCenter's
+  // transformed/filtered box (a filtered ancestor captures position:fixed otherwise).
+  return typeof document === "undefined" ? null : createPortal(modal, document.body);
 }
 
 function LiveFeed({ status }) {
