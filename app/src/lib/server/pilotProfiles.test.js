@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { listPilotProfiles } from "./pilotLoader.js";
+import { listPilotProfiles, loadRotatingPilotBuilder } from "./pilotLoader.js";
 
 let tmp;
 let orig;
@@ -50,5 +50,25 @@ describe("listPilotProfiles", () => {
   it("returns [] when the pilots dir is absent", async () => {
     await fs.rm(path.join(tmp, "pilots"), { recursive: true, force: true });
     expect(await listPilotProfiles()).toEqual([]);
+  });
+});
+
+describe("loadRotatingPilotBuilder (∞ grind — every persona)", () => {
+  it("cycles the shipped personas deterministically by seed", async () => {
+    const dir = path.join(tmp, "pilots");
+    // Two fixtures (sorted: generalist, specialist), each stamps its pilotType onto every seat.
+    await fs.writeFile(path.join(dir, "generalist.mjs"), 'export const label="Generalist";export const pilotType="generalist";export function buildPilots(seats){return Object.fromEntries(seats.map(s=>[s,{pilotType:"generalist",decide:()=>null}]));}\n');
+    await fs.writeFile(path.join(dir, "specialist.mjs"), 'export const label="Specialist";export const pilotType="specialist";export function buildPilots(seats){return Object.fromEntries(seats.map(s=>[s,{pilotType:"specialist",decide:()=>null}]));}\n');
+    const rot = await loadRotatingPilotBuilder("commander");
+    expect(rot).toBeTruthy();
+    expect(rot([], 0).user.pilotType).toBe("generalist"); // seed 0 → builders[0]
+    expect(rot([], 1).user.pilotType).toBe("specialist"); // seed 1 → builders[1]
+    expect(rot([], 2).user.pilotType).toBe("generalist"); // wraps
+  });
+
+  it("returns null when no personas are present (⇒ default autopilot)", async () => {
+    await fs.rm(path.join(tmp, "pilots"), { recursive: true, force: true });
+    await fs.mkdir(path.join(tmp, "pilots"), { recursive: true });
+    expect(await loadRotatingPilotBuilder("commander")).toBeNull();
   });
 });

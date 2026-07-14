@@ -14,7 +14,7 @@ import {
   selectDecksByIds,
   decksForActiveProfile,
 } from "../../../lib/server/selfPlayDecks.js";
-import { loadPilotBuilder } from "../../../lib/server/pilotLoader.js";
+import { loadPilotBuilder, loadRotatingPilotBuilder } from "../../../lib/server/pilotLoader.js";
 import { startGrind, requestGrindCancel, grindStatus } from "../../../lib/learn/grindLoop.js";
 import { summarizeGrind } from "../../../lib/learn/gameLogStore.js";
 
@@ -69,15 +69,16 @@ export async function POST(request) {
     return Response.json({ error: `Need at least ${podSize} playable decks for a ${mode} grind (got ${playable.length}).` }, { status: 400 });
   }
 
-  // Load a per-GAME pilot builder server-side (closures can't cross JSON). The grind hands it each pod's decks so
-  // the persona can pick deck-native playbooks per seat (Omnath v2); v1 ignores decks → a varied temperament spread.
+  // Load a per-GAME pilot builder server-side (closures can't cross JSON). ROTATE-PERSONAS (∞ grind
+  // "every persona", Colton 2026-07-12): the grind cycles ALL shipped personas across its pods for varied
+  // training data; a single explicit pilot still works when rotatePersonas isn't set. null ⇒ default AI.
+  const rotatePersonas = body?.rotatePersonas === true;
   let pilotBuilder = null;
-  if (pilotFile) {
-    try {
-      pilotBuilder = await loadPilotBuilder(pilotFile, mode);
-    } catch (error) {
-      return Response.json({ error: `Pilot "${pilotFile}" failed to load: ${error?.message || error}` }, { status: 400 });
-    }
+  try {
+    if (rotatePersonas) pilotBuilder = await loadRotatingPilotBuilder(mode);
+    else if (pilotFile) pilotBuilder = await loadPilotBuilder(pilotFile, mode);
+  } catch (error) {
+    return Response.json({ error: `Pilot load failed: ${error?.message || error}` }, { status: 400 });
   }
 
   const podPool = body?.pool === "cedh" ? "cedh" : "mixed"; // SIM-INTEGRITY Phase 3 — pods form within ONE pool

@@ -41,23 +41,7 @@ import { useEffect, useMemo, useState } from "react";
 import CrucibleRunModal from "./CrucibleRunModal";
 
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
-import { BreakageTable, OutcomeSummary, SeatSummaryTables } from "./SelfPlayPanel";
 import StabilityBadge from "./StabilityBadge";
-
-const MODE_OPTIONS = [
-  { value: "commander", label: "Commander 4P", blurb: "4-player pods (needs ≥4 decks; pads + flags otherwise)." },
-  { value: "standard", label: "Standard 1v1", blurb: "Head-to-head pairings between the selected decks." },
-];
-
-const SCOPE_OPTIONS = [
-  { value: "all", label: "Run all pairings", blurb: "Every pod / head-to-head across the selected decks." },
-  { value: "pod", label: "Just the selected pod", blurb: "Treat the picked decks as one table (a single pod)." },
-];
-
-// Games-per-pairing presets. The server clamps gamesPer at 50 (R2.7: the one-shot
-// route is synchronous on the request thread), so the mock's ×100/×1000 stops are
-// NOT offered — they'd silently run 50. Bulk collection is the ∞ grind's job.
-const GAMES_OPTIONS = [1, 5, 25, 50];
 
 /**
  * Group a flat [{id,name,profile}] picker list into [{ profile, decks[] }], ordered
@@ -86,7 +70,7 @@ function fmtDuration(ms) {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-export default function SimCenter({ cfg, colors, fontFamily , initialSelection = null, onConsumeInitialSelection }) {
+export default function SimCenter({ cfg, fontFamily , initialSelection = null, onConsumeInitialSelection }) {
   const accent = cfg?.color || "var(--ley-green)";
 
   // ── Cross-profile deck picker ──
@@ -102,10 +86,6 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
 
   // ── Run config ──
   const [mode, setMode] = useState("commander");
-  const [scope, setScope] = useState("all");
-  const [gamesPer, setGamesPer] = useState(1);
-  const [endless, setEndless] = useState(false); // the GAMES seg's ∞ stop — Run becomes the grind
-  const [bankData, setBankData] = useState(false);
   // PILOT PANEL (Omnath seam): the selected persona filename ("" = default autopilot) + the list of persona
   // .mjs modules in pilotsDir(), fetched from /api/pilots. Injecting a persona makes self-play persona-driven;
   // Omnath drops/edits files in the pilots dir and they appear here — no rebuild.
@@ -122,9 +102,10 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
         if (!alive) return;
         const list = Array.isArray(d?.pilots) ? d.pilots : [];
         setAvailablePilots(list);
-        // Selection defaults to "" = Default AI (no persona); the user opts INTO a shipped persona
-        // explicitly. (Was: auto-prefer a pilot literally named "omnath" — Colton's call is no omnath
-        // default and no silent auto-persona on the walk-away grind.)
+        // Pods default to the SPECIALIST pilot (Colton's call — truest power read: each deck at its
+        // expert line); the user can still switch to Generalist/Mix/Default AI. Falls back to "" when
+        // no Specialist profile is present. (The ∞ grind rotates all three personas regardless of this.)
+        setPilot((cur) => cur || list.find((p) => p.pilotType === "specialist")?.file || "");
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -137,16 +118,13 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
     if (Array.isArray(initialSelection.deckIds) && initialSelection.deckIds.length) {
       setSelectedIds(initialSelection.deckIds);
     }
-    if (initialSelection.scope) setScope(initialSelection.scope);
     if (initialSelection.mode) setMode(initialSelection.mode);
     onConsumeInitialSelection?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSelection]);
 
   // ── Run state ──
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState(null);
-  const [result, setResult] = useState(null);
 
   // ── Freshness confession (/api/health) ── the page keeps two snapshots: the LATEST
   // health payload, and the BASELINE captured when the deck list last loaded. Any drift
@@ -239,13 +217,9 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const groups = useMemo(() => groupByProfile(decks), [decks]);
   const minDecks = mode === "commander" ? 4 : 2;
-  const canRun = selectedIds.length >= minDecks && !running;
-  // The Grind button is walk-away "gain as much data as we can" mode — it does NOT
-  // require a manual selection. As long as at least a pod's worth of decks EXISTS it
-  // grinds the WHOLE shelf in random balanced pods; a selection of >= minDecks just
-  // narrows it to that subset. (canRun above still gates the one-shot Run button,
-  // which needs an explicit matchup.)
-  const grindReady = decks.length >= minDecks && !running;
+  // The ∞ grind is walk-away mode — no manual selection needed: as long as a pod's worth of decks
+  // EXISTS it grinds the whole shelf (a 5+ selection just narrows it to that subset).
+  const grindReady = decks.length >= minDecks;
 
   // Roster filter: search over name + profile, then the profile pills.
   const visibleDecks = useMemo(() => {
@@ -336,41 +310,6 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
   const toggleProfileFilter = (profile) =>
     setProfileFilter((prev) => (prev.includes(profile) ? prev.filter((p) => p !== profile) : [...prev, profile]));
 
-  const runStressTest = async () => {
-    if (!canRun || stale) return; // stale can render, not launch
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    try {
-      const resp = await fetch("/api/self-play", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deckIds: selectedIds,
-          mode,
-          gamesPer,
-          allProfiles: true, // the picker spans every profile, so resolve ids broadly
-          record: bankData,
-          // "pod" scope = treat the selection as a single table. The runner pods by
-          // chunks of 4 / pairs all — sending exactly the pod size yields one table.
-          scope,
-          pilot: pilot || undefined, // PILOT PANEL: the selected persona filename ("" ⇒ omitted ⇒ default AI)
-        }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || data?.ok === false) {
-        setError(data?.error || `Stress test failed (status ${resp.status}).`);
-        return;
-      }
-      setResult(data);
-      // A completed run wrote a new .txt (+ maybe a JSONL) — refresh both lists.
-      refreshHistory();
-    } catch (e) {
-      setError(e?.message || "Stress test request failed.");
-    } finally {
-      setRunning(false);
-    }
-  };
 
   // GRIND (run-until-cancel): kick off the background loop; it plays random balanced pods with the selected
   // persona, appending one file per game, until Stop (finishes the in-flight game) or the disk cap.
@@ -381,7 +320,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
       const resp = await fetch("/api/grind", {
         method: "POST", headers: { "Content-Type": "application/json" },
         // No explicit selection (or fewer than a pod) → grind the WHOLE shelf; a real selection narrows it.
-        body: JSON.stringify({ action: "start", deckIds: selectedIds.length >= minDecks ? selectedIds : [], mode, allProfiles: true, pilot: pilot || undefined, pool: grindPool }),
+        body: JSON.stringify({ action: "start", deckIds: selectedIds.length >= minDecks ? selectedIds : [], mode, allProfiles: true, rotatePersonas: true, pool: grindPool }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || data?.started === false) setError(data?.reason || data?.error || `Grind failed to start (status ${resp.status}).`);
@@ -749,45 +688,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
             {/* Error (honest surface) */}
             {error && <div style={errorBox()}>⚠ {error}</div>}
 
-            {/* ── One-shot result ── */}
-            {result && (
-              <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <OutcomeSummary outcomes={result.outcomes} avgTurns={result.avgTurns} games={result.games} colors={colors} />
-
-                <SeatSummaryTables summary={result.seatSummary} />
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {label("Unmodeled / broken cards (ranked by frequency)")}
-                  <BreakageTable cards={result.breakages} colors={colors} />
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <button type="button" onClick={() => downloadText(result.report, result.file || "self-play-report.txt")} className="btn btn-secondary btn-sm">
-                    Download report (.txt)
-                  </button>
-                  {result.file ? (
-                    <span style={{ fontSize: 11, color: "var(--ley-text-faint)" }}>
-                      Saved locally under AppData →{" "}
-                      <code style={{ color: "var(--ley-text)", background: "var(--ley-surface-2)", padding: "1px 5px", borderRadius: 3 }}>data/self-play/{result.file}</code>
-                    </span>
-                  ) : result.writeError ? (
-                    <span style={{ fontSize: 11, color: "var(--ley-red)" }}>
-                      ⚠ Couldn&rsquo;t save the report to disk ({result.writeError}) — use Download to keep it.
-                    </span>
-                  ) : null}
-                </div>
-
-                {bankData && (
-                  <div style={{ fontSize: 11.5, color: result.trajectoryError ? "var(--ley-red)" : "var(--ley-text-faint)", lineHeight: 1.5 }}>
-                    {result.trajectoryError
-                      ? `⚠ Banking training data failed (${result.trajectoryError}).`
-                      : result.trajectoryFile
-                      ? `✓ Banked ${result.trajectoryRows ?? 0} training row${result.trajectoryRows === 1 ? "" : "s"} → data/self-play/trajectories/${result.trajectoryFile}.`
-                      : "No labeled training rows to bank from this run (only completed games produce labels)."}
-                  </div>
-                )}
-              </section>
-            )}
+            {/* one-shot result panel removed — a 4-deck pod now runs through CrucibleRunModal */}
 
             {/* ── Freshness confession — green when server identity matches what the page loaded under ── */}
             <section
@@ -836,42 +737,50 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
             <section className="ley-glass" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
               <span style={{ fontFamily: "var(--font-display)", fontSize: 13.5, fontWeight: 650, color: "var(--ley-text)" }}>Run Control</span>
 
-              <button
-                type="button"
-                onClick={endless ? startGrind : runStressTest}
-                disabled={stale || (endless ? !grindReady || grindRunning : !canRun)}
-                className={`btn btn-primary btn-lg${running ? " btn-loading" : ""}`}
-                style={{ width: "100%" }}
-              >
-                {endless
-                  ? grindRunning ? "Grinding…" : "▶ Grind endless"
-                  : running ? "Running self-play…" : "▶ Run simulation"}
-              </button>
-              {stale && (
-                <span style={{ fontSize: 11, color: "var(--ley-gold)", lineHeight: 1.5 }}>
-                  Launch disabled — stale data detected. Restart the app to repair.
-                </span>
-              )}
-
-              {/* CRUCIBLE POD (C2, additive): exactly a pod's worth of decks → the bounded power-read modal. */}
-              {selectedIds.length === (mode === "commander" ? 4 : 2) && !endless && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 10, background: "var(--ley-surface-1)", border: "1px solid var(--ley-line-bright)", borderRadius: "var(--r-md)" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ley-green-text)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Crucible pod · power read</span>
-                  <div className="ley-seg">
-                    {[10, 100, 1000].map((n) => (
-                      <button key={n} type="button" className={`ley-seg-opt${podGames === n ? " on" : ""}`} onClick={() => setPodGames(n)}>{n}</button>
-                    ))}
-                    <input
-                      type="number" min={1} max={100000} value={podGames}
-                      onChange={(e) => setPodGames(Math.max(1, Math.min(100000, Number(e.target.value) || 1)))}
-                      style={{ width: 74, background: "var(--ley-surface-0)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: 6, fontSize: 12, padding: "4px 6px", fontFamily: "var(--font-mono)" }}
-                    />
-                  </div>
-                  <button type="button" className="btn btn-primary" style={{ width: "100%" }} disabled={stale} onClick={() => setCrucibleOpen(true)}>
-                    ⚔ Run Crucible Pod ({podGames})
-                  </button>
-                </div>
-              )}
+              {/* Deck-count drives the mode: exactly 4 = a pod (bounded power-read) · 5+ or 0 = the ∞ grind ·
+                  1–3 = not enough for a pod. ONE button that becomes what the selection implies. */}
+              {(() => {
+                const n = selectedIds.length;
+                const isPod = n === 4;
+                const isGrind = n === 0 || n >= 5;
+                const blocked = n >= 1 && n <= 3;
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { if (grindRunning || blocked || stale) return; if (isPod) setCrucibleOpen(true); else if (isGrind && grindReady) startGrind(); }}
+                      disabled={stale || blocked || grindRunning || (isGrind && !grindReady)}
+                      className="btn btn-primary btn-lg"
+                      style={{ width: "100%" }}
+                    >
+                      {grindRunning ? "Grinding…" : isPod ? `⚔ Run Pod (${podGames})` : isGrind ? (n === 0 ? "∞ Grind — all decks" : `∞ Grind — ${n} decks`) : "Select 4 decks for a pod"}
+                    </button>
+                    {blocked && (
+                      <span style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
+                        Pick exactly <strong style={{ color: "var(--ley-text)" }}>4</strong> decks for a pod power-read — or 5+ (or none) to run the ∞ grind. <em>({n} selected)</em>
+                      </span>
+                    )}
+                    {stale && (
+                      <span style={{ fontSize: 11, color: "var(--ley-gold)", lineHeight: 1.5 }}>Launch disabled — stale data detected. Restart the app to repair.</span>
+                    )}
+                    {isPod && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {label("Games")}
+                        <div className="ley-seg">
+                          {[10, 100, 1000].map((g) => (
+                            <button key={g} type="button" className={`ley-seg-opt${podGames === g ? " on" : ""}`} onClick={() => setPodGames(g)}>{g}</button>
+                          ))}
+                          <input
+                            type="number" min={1} max={100000} value={podGames}
+                            onChange={(e) => setPodGames(Math.max(1, Math.min(100000, Number(e.target.value) || 1)))}
+                            style={{ width: 74, background: "var(--ley-surface-0)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: 6, fontSize: 12, padding: "4px 6px", fontFamily: "var(--font-mono)" }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               {crucibleOpen && (
                 <CrucibleRunModal
                   open={crucibleOpen}
@@ -885,34 +794,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 />
               )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {label("Games / pairing")}
-                {seg(
-                  [
-                    ...GAMES_OPTIONS.map((n) => ({ value: n, label: `×${n}` })),
-                    { value: "inf", label: "∞", blurb: "Endless — the grind loop plays random balanced pods until you stop it" },
-                  ],
-                  (v) => (v === "inf" ? endless : !endless && gamesPer === v),
-                  (v) => {
-                    if (v === "inf") { setEndless(true); return; }
-                    setEndless(false);
-                    setGamesPer(v);
-                  },
-                )}
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {label("Format")}
-                {seg(MODE_OPTIONS, (v) => mode === v, setMode)}
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {label("Pairings")}
-                {seg(SCOPE_OPTIONS, (v) => scope === v, setScope)}
-              </div>
-
-              {/* PILOT PANEL (Omnath seam): one persona for the whole batch — the API has no per-deck
-                  pilot assignment, so no per-deck control is faked here. */}
+              {/* PILOT — a pod picks one persona (defaults to Specialist); the ∞ grind rotates all three. */}
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {label("Pilot")}
                 <select
@@ -934,7 +816,7 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 )}
               </div>
 
-              {endless && !grindRunning && (
+              {(selectedIds.length === 0 || selectedIds.length >= 5) && !grindRunning && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {label("Pod pool")}
                   <select
@@ -946,28 +828,10 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                     <option value="mixed">Mixed pool</option>
                     <option value="cedh">cEDH pool</option>
                   </select>
+                  <span style={{ fontSize: 10.5, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
+                    ∞ grind — {selectedIds.length >= 5 ? `your ${selectedIds.length} selected decks` : `all ${decks.length} decks`} in random balanced pods, rotating all personas, non-stop. Stop anytime; it finishes the in-flight game.
+                  </span>
                 </div>
-              )}
-
-              {!endless && !running && selectedIds.length > 0 && selectedIds.length < minDecks && (
-                <span style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
-                  Select at least {minDecks} decks for {mode === "commander" ? "a Commander pod" : "Standard pairings"}.
-                </span>
-              )}
-              {!endless && gamesPer > 1 && (
-                <span style={{ fontSize: 10.5, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
-                  ⓘ Each repeat shuffles the decks with a distinct seed, so every game plays out
-                  differently — more games means more coverage.
-                </span>
-              )}
-              {endless && !grindRunning && (
-                <span style={{ fontSize: 10.5, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
-                  {grindReady ? (
-                    <>Walk-away mode — grinds {selectedIds.length >= minDecks ? `your ${selectedIds.length} selected decks` : `all ${decks.length} decks`} in random balanced pods, non-stop, logging every game. Stop anytime; it finishes the in-flight game.</>
-                  ) : (
-                    <>Load at least {minDecks} playable decks to grind (walk-away mode: random pods across the whole shelf, non-stop).</>
-                  )}
-                </span>
               )}
               {!grindRunning && grind && grind.gamesPlayed > 0 && (
                 <span style={{ fontSize: 10.5, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
@@ -980,39 +844,8 @@ export default function SimCenter({ cfg, colors, fontFamily , initialSelection =
                 </span>
               )}
 
-              {/* Bank training data toggle (one-shot runs) */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--ley-line)", paddingTop: 10 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input type="checkbox" checked={bankData} onChange={(e) => setBankData(e.target.checked)} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ley-text)" }}>Bank training data from this run</span>
-                </label>
-                <span style={{ fontSize: 10.5, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
-                  Records a per-turn <code style={{ color: "var(--ley-text)" }}>state → eventual-win</code> trajectory for every
-                  game and saves it locally (JSONL) for the learn-to-play value model. Off by default.
-                </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11.5, color: "var(--ley-text-faint)" }}>
-                  <span>Banked runs: <strong style={{ color: "var(--ley-green)" }}>{stats?.games ?? (reportsLoad ? "…" : 0)}</strong></span>
-                  <span>Training rows banked: <strong style={{ color: "var(--ley-green)" }}>{stats?.rows ?? (reportsLoad ? "…" : 0)}</strong></span>
-                </div>
-              </div>
             </section>
 
-            {/* ── Session (only while a one-shot batch runs — the POST has no live progress feed,
-                so the meter is honestly indeterminate) ── */}
-            {running && (
-              <section className="ley-glass" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="ley-live" aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--ley-green-bright)", flexShrink: 0 }} />
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 650, color: "var(--ley-text)" }}>Session</span>
-                </div>
-                <span className="ley-gel-live">
-                  <progress className="ley-gel" aria-label="Self-play batch running" />
-                </span>
-                <span style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5 }}>
-                  Each game takes ~3–5s and runs offline on your machine — hang tight while the batch finishes.
-                </span>
-              </section>
-            )}
 
             {/* ── Saved-report history ── */}
             <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>

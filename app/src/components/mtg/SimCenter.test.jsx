@@ -56,22 +56,12 @@ describe("SimCenter", () => {
     expect(html).toContain("Loading decks from every profile");
   });
 
-  it("renders the run button disabled in the initial (no decks selected) state", () => {
+  it("renders the deck-count-driven run button (0 decks → ∞ grind, disabled until a pod's worth is loaded)", () => {
     const html = renderToStaticMarkup(
-      <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
+      <SimCenter cfg={CFG} fontFamily="Inter" />
     );
-    expect(html).toContain("Run simulation");
-    expect(html).toMatch(/Run simulation<\/button>/);
-    expect(html).toContain("disabled");
-  });
-
-  it("renders the bank-training-data toggle and the cumulative banked stat", () => {
-    const html = renderToStaticMarkup(
-      <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
-    );
-    expect(html).toContain("Bank training data from this run");
-    expect(html).toContain("Banked runs:");
-    expect(html).toContain("Training rows banked:");
+    expect(html).toContain("∞ Grind"); // 0 decks selected ⇒ grind mode, deck-count driven
+    expect(html).toContain("disabled"); // no decks loaded yet ⇒ grindReady false
   });
 
   it("renders the saved-report history section", () => {
@@ -79,27 +69,6 @@ describe("SimCenter", () => {
       <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
     );
     expect(html).toContain("Saved reports");
-  });
-
-  it("offers the format + pairings (run-all vs single-pod) choices", () => {
-    const html = renderToStaticMarkup(
-      <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
-    );
-    expect(html).toContain("Commander 4P");
-    expect(html).toContain("Standard 1v1");
-    expect(html).toContain("Run all pairings");
-    expect(html).toContain("Just the selected pod");
-  });
-
-  it("offers the games presets up to the server clamp, plus the endless (grind) stop", () => {
-    const html = renderToStaticMarkup(
-      <SimCenter cfg={CFG} colors={COLORS} fontFamily="Inter" />
-    );
-    expect(html).toContain("Games / pairing");
-    expect(html).toContain("×25");
-    expect(html).toContain("×50"); // the one-shot route clamps gamesPer at 50 (R2.7)
-    expect(html).not.toContain("×100"); // no fabricated ×100/×1000 stops — bulk data is the grind's job
-    expect(html).toContain("∞");
   });
 
   it("renders the roster grid⇄list toggle", () => {

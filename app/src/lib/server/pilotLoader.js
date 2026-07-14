@@ -141,3 +141,25 @@ export async function loadPilotBuilder(file, mode) {
   }
   throw new Error(`pilot module ${file} exports neither buildPilots(seats,{mode}) nor a decide function`);
 }
+
+/**
+ * Load a ROTATING pilot builder over ALL selectable persona profiles (Generalist/Specialist/Mix) — the
+ * ∞ grind's "every persona" mode (Colton 2026-07-12). Each game picks one persona DETERMINISTICALLY by
+ * its seed, so the grind's pods hold a spread of pilots for varied training data. Returns null when no
+ * labelled personas are present (⇒ the grind falls back to the default autopilot). Reuses loadPilotBuilder
+ * per profile, so per-game deck-native playbook selection + the flags plumb still apply.
+ */
+export async function loadRotatingPilotBuilder(mode) {
+  const profiles = await listPilotProfiles();
+  const builders = [];
+  for (const p of profiles) {
+    try {
+      const b = await loadPilotBuilder(p.file, mode);
+      if (b) builders.push(b);
+    } catch { /* a broken persona never breaks the grind */ }
+  }
+  if (!builders.length) return null;
+  const rotating = (decks, seed = 0, opts = {}) => builders[Math.abs(Number(seed) | 0) % builders.length](decks, seed, opts);
+  rotating.pilotV = builders[0]?.pilotV; // header pilotV stamp — the profiles share the core's version
+  return rotating;
+}
