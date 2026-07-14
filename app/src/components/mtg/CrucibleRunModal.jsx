@@ -32,6 +32,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   const [banking, setBanking] = useState(false);
   const [banked, setBanked] = useState(null);
   const [trainStatus, setTrainStatus] = useState(null); // live progress of the fire-and-forget training replay
+  const [foilSet, setFoilSet] = useState(null); // lowercased names of podium commanders the active profile owns FOIL
   const [trainingBank, setTrainingBank] = useState(false); // opt-in: also feed the learning value-model (Q4)
   const startedRef = useRef(false);
 
@@ -39,7 +40,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   useEffect(() => {
     if (!open || startedRef.current) return;
     startedRef.current = true;
-    setScreen("live"); setStatus(null); setResults(null); setError(null); setBanked(null); setTrainStatus(null);
+    setScreen("live"); setStatus(null); setResults(null); setError(null); setBanked(null); setTrainStatus(null); setFoilSet(null);
     (async () => {
       try {
         const resp = await fetch("/api/crucible", {
@@ -68,7 +69,11 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
         if (s.done && !results) {
           const rr = await fetch("/api/crucible?results=1", { cache: "no-store" });
           const rd = await rr.json().catch(() => null);
-          if (alive && rd?.results) { setResults(rd.results); setScreen((cur) => (cur === "live" ? "podium" : cur)); }
+          if (alive && rd?.results) {
+            setResults(rd.results);
+            setFoilSet(new Set((rd.foilCommanders || []).map((n) => String(n).toLowerCase())));
+            setScreen((cur) => (cur === "live" ? "podium" : cur));
+          }
         }
       } catch { /* transient — the next tick reconciles */ }
     };
@@ -122,6 +127,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
   const modal = (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget && !running) onClose?.(); }}>
       <div style={panel}>
+        <style>{FOIL_SHEEN_CSS}</style>
         {/* Header */}
         <div style={headRow}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -155,7 +161,7 @@ export default function CrucibleRunModal({ open, deckIds, mode = "commander", ta
         {/* Body switches by screen */}
         <div style={body}>
           {(!results || screen === "live") && <LiveFeed status={status} />}
-          {results && screen === "podium" && <Podium results={results} />}
+          {results && screen === "podium" && <Podium results={results} foilSet={foilSet} />}
           {results && screen === "highlights" && <Highlights results={results} />}
           {results && screen === "board" && <Board results={results} />}
         </div>
@@ -223,7 +229,7 @@ function LiveFeed({ status }) {
   );
 }
 
-function Podium({ results }) {
+function Podium({ results, foilSet }) {
   const podium = results.podium || [];
   const mostWins = results.mostWins;
   return (
@@ -233,7 +239,7 @@ function Podium({ results }) {
         {podium.map((d, i) => (
           <div key={d.id || d.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--ley-surface-1)", border: "1px solid var(--ley-line)", borderRadius: 8 }}>
             <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: i === 0 ? "var(--ley-green)" : "var(--ley-text-dim)", width: 30 }}>{RANK_LABEL[i]}</span>
-            <CommanderCards commanders={d.commanders} companion={d.companion} />
+            <CommanderCards commanders={d.commanders} companion={d.companion} foilSet={foilSet} />
             <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "var(--ley-text)" }}>{d.name}</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ley-text-dim)" }}>{(d.winRate * 100).toFixed(0)}% · avg {d.avgFinish != null ? d.avgFinish.toFixed(2) : "—"}</span>
           </div>
@@ -313,21 +319,31 @@ function Board({ results }) {
 
 // Commander card art for a podium row — the deck's commander(s) as real card frames (resolved by name
 // via the local /api/card-image cache-proxy). Partners overlap; a partner+companion set stacks to three.
-// (Foil shimmer is a follow-on — the run results don't yet carry each commander's printing/foil status.)
-function CommanderCards({ commanders = [], companion }) {
-  const cards = [...(commanders || []).map((name) => ({ name })), ...(companion ? [{ name: companion }] : [])];
+// A commander the ACTIVE profile owns in FOIL (foilSet, resolved from the Vault by the results route) gets
+// the rainbow sheen + a cool halo — the same bling cue Colton likes in the Vault, only for cards he owns foil.
+function CommanderCards({ commanders = [], companion, foilSet }) {
+  const isFoil = (name) => !!foilSet?.has(String(name).toLowerCase());
+  const cards = [
+    ...(commanders || []).map((name) => ({ name, foil: isFoil(name) })),
+    ...(companion ? [{ name: companion, foil: isFoil(companion) }] : []),
+  ];
   if (!cards.length) return null;
   const W = 40, H = 56, OVERLAP = 15;
   return (
-    <div style={{ position: "relative", width: W + (cards.length - 1) * OVERLAP, height: H, flexShrink: 0 }} title={cards.map((c) => c.name).join(" + ")}>
+    <div style={{ position: "relative", width: W + (cards.length - 1) * OVERLAP, height: H, flexShrink: 0 }} title={cards.map((c) => c.name + (c.foil ? " ✦ foil" : "")).join(" + ")}>
       {cards.map((c, i) => (
-        <img
+        <div
           key={i}
-          src={cardImageProxySrc(c) || undefined}
-          alt={c.name}
-          loading="lazy"
-          style={{ position: "absolute", left: i * OVERLAP, top: 0, width: W, height: H, objectFit: "cover", objectPosition: "top center", borderRadius: 4, border: "1px solid var(--ley-line-bright)", boxShadow: "0 2px 8px rgba(0,0,0,0.55)", background: "var(--ley-surface-2)", zIndex: i }}
-        />
+          style={{
+            position: "absolute", left: i * OVERLAP, top: 0, width: W, height: H, borderRadius: 4, overflow: "hidden",
+            border: c.foil ? "1px solid rgba(150,220,255,0.9)" : "1px solid var(--ley-line-bright)",
+            boxShadow: c.foil ? "0 0 10px rgba(90,180,255,0.5), 0 2px 8px rgba(0,0,0,0.5)" : "0 2px 8px rgba(0,0,0,0.55)",
+            background: "var(--ley-surface-2)", zIndex: i,
+          }}
+        >
+          <img src={cardImageProxySrc(c) || undefined} alt={c.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }} />
+          {c.foil && <span aria-hidden style={foilShine} />}
+        </div>
       ))}
     </div>
   );
@@ -336,6 +352,14 @@ function CommanderCards({ commanders = [], companion }) {
 /* ── styles (LEYLINE tokens) ── */
 const overlay = { position: "fixed", inset: 0, zIndex: 200, background: "rgba(2,4,3,0.72)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
 const panel = { width: "min(680px, 96vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", background: "var(--ley-surface-0)", border: "1px solid var(--ley-line-bright)", borderRadius: "var(--r-lg, 14px)", boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(60,214,130,0.06)", padding: 16 };
+// Foil sheen for an owned-foil commander — a rainbow band that sweeps across the card art (color-dodge so
+// it reads as light on the print, not a flat overlay). Keyframes injected once via <style> in the modal.
+const FOIL_SHEEN_CSS = "@keyframes crucibleFoilSheen{0%{background-position:0% 50%}100%{background-position:200% 50%}}";
+const foilShine = {
+  position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 4,
+  background: "linear-gradient(115deg, transparent 22%, rgba(255,80,190,0.5) 38%, rgba(90,220,255,0.5) 50%, rgba(180,255,100,0.5) 62%, transparent 78%)",
+  backgroundSize: "220% 100%", mixBlendMode: "screen", animation: "crucibleFoilSheen 3.2s linear infinite", opacity: 0.85,
+};
 const headRow = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 };
 const pillTag = { fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ley-green-text)", padding: "2px 8px", border: "1px solid var(--ley-line-bright)", borderRadius: 999 };
 const xBtn = { background: "transparent", border: "none", color: "var(--ley-text-dim)", fontSize: 16, cursor: "pointer", padding: 4 };

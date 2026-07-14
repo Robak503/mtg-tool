@@ -27,11 +27,44 @@ import {
   requestCrucibleCancel,
   bankCrucibleRun,
 } from "../../../lib/learn/crucibleRun.js";
+import { loadCollection } from "../../../lib/server/collectionStorage.js";
+
+// Which of the podium's commanders the ACTIVE profile owns in FOIL (or etched) — powers the results
+// shimmer. PURE + exported for tests. CREED: a name is returned only if a foil/etched stack has qty > 0
+// AND the row isn't a wishlist, so the shine reflects a card Colton actually owns foil, never a foil
+// printing that merely exists or a want-list entry. Scoped to the ≤8 podium commanders, so it's cheap.
+export function foilCommandersFromCollection(results, cards) {
+  const want = new Set();
+  for (const r of results?.podium || []) {
+    for (const n of r.commanders || []) want.add(String(n).toLowerCase());
+    if (r.companion) want.add(String(r.companion).toLowerCase());
+  }
+  if (!want.size) return [];
+  const foil = [];
+  for (const card of cards || []) {
+    if (card?.wishlist) continue; // a wishlist foil is NOT owned
+    const nm = String(card?.name || "").toLowerCase();
+    if (!want.has(nm)) continue;
+    if ((card.stacks || []).some((s) => (s.quantity || 0) > 0 && (s.finish === "foil" || s.finish === "etched"))) foil.push(nm);
+  }
+  return foil;
+}
+
+// Async wrapper: load the active profile's collection, then run the pure filter over its `cards` array
+// (loadCollection returns { collection: { version, updatedAt, cards } }). Fail-closed — an unreadable or
+// empty collection yields no shimmer, never a fabricated one.
+async function foilAmongCommanders(results) {
+  try {
+    const { collection } = await loadCollection();
+    return foilCommandersFromCollection(results, collection?.cards);
+  } catch { return []; }
+}
 
 export async function GET(request) {
   const url = new URL(request.url);
   if (url.searchParams.get("results")) {
-    return Response.json({ status: crucibleStatus(), results: crucibleResults() });
+    const results = crucibleResults();
+    return Response.json({ status: crucibleStatus(), results, foilCommanders: await foilAmongCommanders(results) });
   }
   return Response.json(crucibleStatus());
 }
