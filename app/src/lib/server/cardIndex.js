@@ -267,6 +267,23 @@ function commanderLegal(card) {
   return card.legalities?.commander === "legal";
 }
 
+/**
+ * Banlist / legality guardrail for the A/B card bench (and any deck-edit path): given a card NAME, is it
+ * legal to run in Commander? Reads the bundled Scryfall `legalities.commander` — the authoritative, local,
+ * per-sync-current source (e.g. Mana Crypt / Dockside Extortionist / Jeweled Lotus = banned). EXACT name
+ * match only (a swap picks a specific card), so a banned card can never fuzzy-match its way in. Returns
+ * { ok, reason?, card?, message }. CREED: the banlist is NEVER hand-authored here — it's Scryfall's data.
+ */
+export function commanderLegality(name) {
+  const repo = getCardIndex();
+  const card = repo.byName.get(normalizeName(name));
+  if (!card) return { ok: false, reason: "unknown", message: `"${name}" isn't a card I recognize.` };
+  const status = card.legalities?.commander || "not_legal";
+  if (status === "legal") return { ok: true, card, message: `${card.name} is Commander-legal.` };
+  if (status === "banned") return { ok: false, reason: "banned", card, message: `${card.name} is banned in Commander — can't bench it.` };
+  return { ok: false, reason: "not-legal", card, message: `${card.name} isn't Commander-legal.` };
+}
+
 function withinColorIdentity(card, allowedColors) {
   if (!allowedColors?.size) return true;
   return (card.color_identity || []).every(color => allowedColors.has(color));
