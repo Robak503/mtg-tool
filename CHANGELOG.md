@@ -10,6 +10,23 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.139.0] - 2026-07-14
+
+### Added
+- **The pod results tell you HOW each deck wins.** The Crucible's highlights reel and per-game log now split a
+  life-total kill into **combat damage** vs **noncombat (spell/ability) damage** — so a line reads "won most
+  often by combat damage" instead of a flat "damage." Commander damage, poison, decking, and assembled combos
+  stay their own categories, and a kill from a drain or paid life honestly stays generic rather than being
+  guessed as combat or burn.
+- **Foil shimmer on the podium.** A commander you own in **foil** (or etched) gets a rainbow sheen and a cool
+  halo on the results podium — the same bling cue as the Vault, drawn only for cards you actually own foil
+  (never a foil printing that merely exists, never a wishlist entry).
+
+### Changed
+- **Saving a pod read is instant.** Ticking "also feed the learning model" used to make the save wait out a
+  full replay of the whole pod; the report now saves immediately and the model-feed replay runs in the
+  background with live progress ("feeding the model… 34/100 — safe to close").
+
 ## [0.138.1] - 2026-07-14
 
 ### Fixed
