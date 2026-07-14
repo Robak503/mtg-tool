@@ -10,6 +10,46 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.138.0] - 2026-07-13
+
+### Added
+- **The Crucible — the Sim Center, reborn.** The number of decks you select now drives everything: pick
+  exactly four and one button runs a **pod** (a fixed batch, fast and in-memory); pick five or more — or
+  none — and it runs an **endless grind** until you stop it. A pod opens a single live window that streams
+  each game as it resolves, with running average tiles (turns per game, games per minute, clean-finish rate,
+  average kill-turn) and a filling progress bar, then lands on results: a **podium ranked by average finish**
+  (each deck's commander shown in full card art, partners overlaid), a separate **most-wins** callout (best
+  average and most wins aren't always the same deck), a **highlights reel** of real mined moments, and the
+  full **leaderboard + per-game logs** — with one-click "save this read."
+- **Honest combo win-condition tags.** When a pod game is won by assembling a known Commander Spellbook
+  combo, the result names it — but only when the winner actually cast every piece *and* the combo's output
+  matches how the game ended. Anything ambiguous stays untagged rather than guessed.
+- **Persona pilots — Generalist, Specialist, and Mix.** Run your decks under a chosen playstyle; a fresh
+  pod defaults to Specialist (each deck piloted at its expert line, for the truest power read), and the
+  endless grind rotates all three.
+- **Pod opt-in training bank.** "Save this read" writes a report by default; feeding the games to the
+  learning model is a separate, explicit tick — so a four-fixed-deck pod never biases the model by accident.
+- **The Academy — a new room for learning.** Learn to Play (against the engine), Judge Trials (the rules
+  quiz), and Rules & Rulings (the former Library, folded in) now live together.
+- **Vault import + acquisition tracking.** Paste or type a decklist to import instead of building a CSV, a
+  two-keystroke quick-add in search, per-stack acquisition date and per-row language, and bulk
+  condition-set / wishlist→owned actions.
+
+### Changed
+- **Navigation is now four rooms — Agents · The Crucible · The Academy · The Vault.** (The Proving Grounds
+  became The Crucible; the Library moved into the Academy.)
+- Segmented controls are reactive and equal-width (LEYLINE polish).
+
+### Fixed
+- **Pod and self-play reports name the winner and how they won.** A report used to say "ai-wins" without
+  naming the winning deck or its win condition; every game now names both.
+- **The pod results window centers on the whole window** instead of rendering trapped inside the Sim Center
+  panel.
+- **The account dropdown renders on top** of page content again (a glass backdrop had created a stacking
+  context that let content cover the menu).
+- **Vault backups carry their color-tag definitions,** so restoring a backup no longer orphans every row's
+  tag.
+
 ## [0.137.0] - 2026-07-11
 
 ### Added
