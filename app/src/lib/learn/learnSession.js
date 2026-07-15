@@ -49,6 +49,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { isLandCard } from "./effects/atoms/shared.js"; // death capture: count lands stuck in the eliminated player's hand
 import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
 import { featurizeState } from "./gameFeatures.js";
@@ -273,6 +274,9 @@ function removePlayerFromGame(state, playerId) {
         // non-combat (burn/ability), null = a non-damage finish (drain/pay-life) → the "damage" win-con
         // stays generic. Lets epochStats split "damage" into combat / burn honestly (CREED — never guessed).
         lethalByCombat: _gone.lethalDamageCombat ?? null,
+        // Lands stranded in hand at death — a "true flood" signal (a full grip of lands you never got to use),
+        // richer than the by-turn-5 landsByT5 count. Read PRE-removal like the rest of goneVitals.
+        landsInHand: (_gone.hand || []).filter(isLandCard).length,
       }
     : {};
   const log = [...state.log, { turn: state.turn, kind: "player-eliminated", player: playerId, ...goneVitals }];

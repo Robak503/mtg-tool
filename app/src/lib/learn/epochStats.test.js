@@ -135,3 +135,25 @@ describe("featuresV=2 — turnOrder + per-seat mulligan summary", () => {
     expect(seats.ai2.mull).toBeNull(); // no keep event recorded → absent, never fabricated
   });
 });
+
+describe("per-seat cause of death (Tier-2 forward capture)", () => {
+  it("attributes a cause to EVERY eliminated seat (not just the last); the winner gets none", () => {
+    const log = [
+      elim("ai2", 6, { lethalByCombat: true }),                   // combat, first out
+      elim("user", 10, { poison: 10 }),                           // poisoned out
+      elim("ai1", 14, { commanderLethal: true, landsInHand: 4 }), // commander damage, 4 lands stranded in hand
+    ];
+    const { seats } = computeEpochStats({ state: { players: { ai3: {} } }, log, result: "ai-wins", winnerSeat: "ai3", seats: SEATS });
+    expect(seats.ai2.death).toEqual({ cause: "combat", byCombat: true, landsInHand: null });
+    expect(seats.user.death.cause).toBe("poison");
+    expect(seats.ai1.death).toEqual({ cause: "commander-damage", byCombat: null, landsInHand: 4 });
+    expect(seats.ai3.death).toBeUndefined(); // the winner never died — no death record fabricated
+  });
+
+  it("death.cause of the LAST-eliminated seat matches the game winCondition (shared taxonomy)", () => {
+    const log = [elim("ai1", 8), elim("ai2", 9), elim("ai3", 12, { lethalByCombat: false })];
+    const r = computeEpochStats({ state: { players: { user: {} } }, log, result: "user-wins", winnerSeat: "user", seats: SEATS });
+    expect(r.winCondition).toBe("burn");
+    expect(r.seats.ai3.death.cause).toBe("burn");
+  });
+});

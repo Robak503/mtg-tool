@@ -44,6 +44,19 @@ import { hasWonGame } from "./learnSession.js";
 
 const NON_DECISIVE = new Set(["timeout", "engine-stuck", "dispatch-error", "setup-error", "unexpected"]);
 
+// The elimination-cause taxonomy, shared by the game-level winCondition (the LAST elimination) and the
+// per-seat death record (EVERY elimination). `e` = a player-eliminated log event; null → the generic "damage".
+// Mirrors the winCondition enum exactly (CR 119 damage source split — never guessed; loseLife stamped it).
+function causeOfElimination(e) {
+  if (!e) return "damage";
+  if (e.commanderLethal) return "commander-damage";
+  if ((e.poison ?? 0) >= 10) return "poison";
+  if (e.decked) return "decking";
+  if (e.lethalByCombat === true) return "combat";
+  if (e.lethalByCombat === false) return "burn";
+  return "damage"; // life<=0 from a non-damage finish (drain/pay-life) or a pre-split legacy record
+}
+
 /**
  * @param {object} args
  * @param {object} args.state    terminal game state
@@ -64,7 +77,14 @@ export function computeEpochStats({ state, log = [], result, winnerSeat = null, 
   const perSeat = {};
   // Eliminated seats: first out = rank n, next = n-1, …
   eliminatedOrder.forEach((seat, i) => {
-    perSeat[seat] = { finishRank: n - i, eliminatedAtTurn: eliminatedAt.get(seat) };
+    const e = eliminations[i]; // parallel to eliminatedOrder (both derived from `eliminations` in order)
+    perSeat[seat] = {
+      finishRank: n - i,
+      eliminatedAtTurn: eliminatedAt.get(seat),
+      // Per-seat cause of death — attributes EVERY elimination, not just the last, so the loss-miner can name
+      // a real cause for a deck that placed 3rd/4th too. landsInHand = lands stranded at death (true flood).
+      death: { cause: causeOfElimination(e), byCombat: e?.lethalByCombat ?? null, landsInHand: e?.landsInHand ?? null },
+    };
   });
   // Survivors: winner = 1; the rest tie at the best remaining rank.
   const survivors = seats.filter((s) => !(s in perSeat));
@@ -80,16 +100,7 @@ export function computeEpochStats({ state, log = [], result, winnerSeat = null, 
   if (NON_DECISIVE.has(result)) winCondition = result === "timeout" ? "clock" : "stuck";
   else if (result === "draw" || result === "turn-limit") winCondition = result === "turn-limit" ? "clock" : "draw";
   else if (winnerSeat && hasWonGame(state, winnerSeat)) winCondition = "win-game-effect";
-  else {
-    const last = eliminations[eliminations.length - 1];
-    if (!last) winCondition = "damage"; // decisive with no elimination event — legacy path safety
-    else if (last.commanderLethal) winCondition = "commander-damage";
-    else if ((last.poison ?? 0) >= 10) winCondition = "poison";
-    else if (last.decked) winCondition = "decking";
-    else if (last.lethalByCombat === true) winCondition = "combat";
-    else if (last.lethalByCombat === false) winCondition = "burn";
-    else winCondition = "damage"; // life<=0 from a non-damage finish (drain/pay-life) or a pre-split legacy record
-  }
+  else winCondition = causeOfElimination(eliminations[eliminations.length - 1]); // the last elimination's cause (null → "damage")
 
   // ── turn-owner map (the featuresV=2 units backbone) ──
   // Each turn's untap step logs {kind:"step", step:"untap", player} with the global turn stamped
