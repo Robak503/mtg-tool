@@ -24,23 +24,28 @@ export default function AbBenchModal({ open, deckIds = [], onClose }) {
     setDecks(null); setTargetId(null); setRemove(""); setAdd(""); setAddCheck(null); setError(null); setStatus(null);
     (async () => {
       try {
-        const r = await fetch("/api/decks");
+        // Resolve the pod decks CROSS-PROFILE (a pod can span Colton + Joe) with their card lists.
+        const r = await fetch("/api/ab-bench?decks=" + encodeURIComponent(deckIds.join(",")));
         const d = await r.json().catch(() => null);
         const all = Array.isArray(d?.decks) ? d.decks : [];
         const picked = deckIds.map((id) => all.find((x) => x.id === id)).filter(Boolean);
         setDecks(picked);
         setTargetId(picked[0]?.id ?? null);
-      } catch { setError("Couldn't load the pod decks."); }
+      } catch { setError("Couldn't load the pod decks."); return; }
+      // Sync to an A/B run already in flight on the server (own try — a status hiccup must NOT read as
+      // "couldn't load decks", which we just did successfully).
+      try {
+        const sr = await fetch("/api/ab-bench", { cache: "no-store" });
+        const s = await sr.json().catch(() => null);
+        if (s?.running) setStatus(s);
+      } catch { /* no in-flight sync — harmless */ }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const target = useMemo(() => (decks || []).find((d) => d.id === targetId) || null, [decks, targetId]);
-  const targetCards = useMemo(() => {
-    const names = new Set();
-    for (const c of target?.cards || []) if (c?.name) names.add(c.name);
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [target]);
+  // The route returns each deck's cards as a sorted, deduped array of NAMES.
+  const targetCards = useMemo(() => (Array.isArray(target?.cards) ? target.cards : []), [target]);
 
   // Live banlist/legality check on the "bench in" card (debounced) — the guardrail made visible.
   useEffect(() => {
@@ -93,7 +98,14 @@ export default function AbBenchModal({ open, deckIds = [], onClose }) {
   const pct = (x) => `${(100 * (x || 0)).toFixed(0)}%`;
   const ci = status?.ci || [0, 0];
   const canRun = Boolean(target && remove && add.trim() && addCheck?.ok && !running);
-  const noEffect = done && (status.flipToWin + status.flipToLoss) === 0;
+  const played = status?.played || 0;
+  const noData = done && played === 0; // every paired game errored — never a fabricated "no effect"
+  const noEffect = done && played > 0 && (status.flipToWin + status.flipToLoss) === 0;
+  // Significant only if the 95% band clears 0 AND there's enough data — a tiny run where every game
+  // happened to flip the same way makes a zero-variance (0-width) CI that would falsely read "real".
+  const significant = done && played >= 15 && (ci[0] > 0 || ci[1] < 0);
+  // Colour the delta by SIGNIFICANCE, not sign: green/gold only when the whole 95% band clears 0.
+  const deltaColor = ci[0] > 0 ? "var(--ley-green)" : ci[1] < 0 ? "var(--ley-gold)" : "var(--ley-text-dim)";
 
   const modal = (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget && !running) onClose?.(); }}>
@@ -152,25 +164,37 @@ export default function AbBenchModal({ open, deckIds = [], onClose }) {
               <div style={{ height: "100%", width: `${status.target ? Math.round((100 * status.played) / status.target) : 0}%`, background: "linear-gradient(90deg, var(--ley-green-dim), var(--ley-green))", transition: "width 300ms ease" }} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", fontFamily: "var(--font-mono)" }}>{status.played} / {status.target} games each way {running ? "…" : "✓"}</div>
+            {status.error && <div style={errBox}>Run error: {status.error}</div>}
 
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", padding: "10px 12px", background: "var(--ley-surface-1)", border: "1px solid var(--ley-line)", borderRadius: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ley-text)" }}>{status.targetName}</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--ley-text-dim)" }}>{pct(status.baseWinRate)} → {pct(status.varWinRate)}</span>
-              <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: status.delta > 0.0005 ? "var(--ley-green)" : status.delta < -0.0005 ? "var(--ley-gold)" : "var(--ley-text-dim)" }}>
-                {status.delta > 0 ? "+" : ""}{(100 * status.delta).toFixed(1)}%
-              </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ley-text-faint)" }}>95% CI {(100 * ci[0]).toFixed(1)}…{(100 * ci[1]).toFixed(1)}%</span>
-            </div>
+            {noData ? (
+              <div style={caveat}>No games completed — every paired game hit an engine error (see above). No result to show.</div>
+            ) : (<>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", padding: "10px 12px", background: "var(--ley-surface-1)", border: "1px solid var(--ley-line)", borderRadius: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ley-text)" }}>{status.targetName}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--ley-text-dim)" }}>{pct(status.baseWinRate)} → {pct(status.varWinRate)}</span>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: deltaColor }}>
+                  {status.delta > 0 ? "+" : ""}{(100 * status.delta).toFixed(1)}%
+                </span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ley-text-faint)" }}>95% CI {(100 * ci[0]).toFixed(1)}…{(100 * ci[1]).toFixed(1)}%</span>
+              </div>
 
-            <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)" }}>
-              {status.flipToWin} games flipped to a win · {status.flipToLoss} to a loss.
-            </div>
-            {done && noEffect && (
-              <div style={caveat}>Zero flips — the swap changed nothing the sim AI actually played. That&apos;s honest, not &quot;identical&quot;: the bench measures what the AI does, so a card it never casts reads ~0% (it may still matter at a real table).</div>
-            )}
-            {done && !noEffect && (
-              <div style={caveat}>The bench measures what the sim AI plays on the same seeds — a real read on this pod, tightest where the AI actively uses the card.</div>
-            )}
+              <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)" }}>
+                {status.flipToWin} games flipped to a win · {status.flipToLoss} to a loss.
+              </div>
+              {done && (
+                <div style={{ fontSize: 12, fontWeight: 600, color: significant ? deltaColor : "var(--ley-text-dim)" }}>
+                  {significant
+                    ? (status.delta > 0 ? "A real gain — the 95% band stays above 0." : "A real loss — the 95% band stays below 0.")
+                    : "Within noise — the 95% band still includes 0. Run more games to tighten it."}
+                </div>
+              )}
+              {done && noEffect && (
+                <div style={caveat}>Zero flips — the swap changed nothing the sim AI actually played. That&apos;s honest, not &quot;identical&quot;: the bench measures what the AI does, so a card it never casts reads ~0% (it may still matter at a real table).</div>
+              )}
+              {done && !noEffect && (
+                <div style={caveat}>The bench measures what the sim AI plays on the same seeds — a real read on this pod, tightest where the AI actively uses the card.</div>
+              )}
+            </>)}
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               {running

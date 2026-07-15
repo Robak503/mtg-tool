@@ -14,15 +14,20 @@
  * CREED: the banlist + color identity come from Scryfall's bundled data, never hand-authored here.
  */
 
-import { commanderLegality, lookupCard } from "./cardIndex.js";
+import { commanderLegality } from "./cardIndex.js";
 import { enrichDeck } from "./learnDeckEnrich.js";
 
-/** Union of the deck's commander color identities (Scryfall color_identity, from the local index). */
+/**
+ * Union of the deck's commander color identities (Scryfall color_identity, from the local index). Uses
+ * commanderLegality's EXACT-match lookup (not the fuzzy one) so a commander name never resolves to a
+ * different card's colors — consistent with the banlist check, and fail-closed on an unknown commander
+ * (empty set ⇒ only colorless adds pass, never a wrongly-widened identity).
+ */
 function deckColorIdentity(runnerDeck) {
   const colors = new Set();
   for (const cmd of runnerDeck?.commanders || []) {
-    const c = lookupCard(cmd?.name);
-    for (const col of c?.color_identity || []) colors.add(col);
+    const card = commanderLegality(cmd?.name)?.card;
+    for (const col of card?.color_identity || []) colors.add(col);
   }
   return colors;
 }
