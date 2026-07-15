@@ -218,13 +218,13 @@ export function PostMortemBoard({ decks, totalGames }) {
             <button
               key={id}
               onClick={() => setPickedId(id)}
-              className="btn btn-sm"
+              // btn-secondary carries the LEYLINE hover response (border→green, bg→green-faint) so an
+              // unselected chip visibly answers the cursor; the selected chip overrides it inline.
+              className="btn btn-sm btn-secondary"
               style={{
                 display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, padding: "7px 12px",
-                background: isSel ? "var(--ley-green-dim)" : "var(--ley-glass)",
-                border: `1px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
                 borderRadius: "var(--r-md)", cursor: "pointer",
-                boxShadow: isSel ? "0 0 10px var(--ley-green-glow)" : "none",
+                ...(isSel ? { background: "var(--ley-green-dim)", borderColor: "var(--ley-green)", boxShadow: "0 0 10px var(--ley-green-glow)" } : {}),
               }}
             >
               <span style={{ fontSize: 12.5, fontWeight: 700, color: isSel ? "var(--ley-green)" : "var(--ley-text)" }}>{d.deckName || d.deckId}</span>
