@@ -43,6 +43,10 @@ function deckSeatInHeader(h, deck) {
 // so those causes are structurally discriminative (winShare 0). Earlier per-seat deaths await the forward
 // seatStats.death capture; until then we under-claim rather than mis-attribute.
 const diedLast = (r) => r.finishRank === 2 && r.eliminatedAtTurn != null;
+// Prefer the per-seat death.cause (Tier-2 forward capture — precise for ANY eliminated rank). Older headers
+// carry no death field, so fall back to the game-level winCondition, which names only the LAST elimination —
+// the diedLast gate keeps that fallback honest (a survivor never died to it).
+const causeIs = (r, cause) => (r.death?.cause != null ? r.death.cause === cause : (diedLast(r) && r.winCondition === cause));
 const PATTERN_CATALOG = [
   { key: "no-commander", label: "Commander never came down", pred: (r) => r.commanderOnlineTurn == null && r.ownTurns != null && r.ownTurns >= 3 },
   { key: "died-fast", label: `Died early — gone by turn ${FAST_LOSS_TURN}`, pred: (r) => r.eliminatedAtTurn != null && r.eliminatedAtTurn <= FAST_LOSS_TURN },
@@ -50,12 +54,12 @@ const PATTERN_CATALOG = [
   { key: "flood", label: "Flooded — too many lands", pred: (r) => r.flood === true },
   // Mulligan tax — kept a hand of 5 or fewer (London: finalHandSize = 7 − bottomed, so ≤5 ⇒ mulliganed twice+).
   { key: "mulligan-tax", label: "Mulliganed to 5 or fewer — started down cards", pred: (r) => r.finalHandSize != null && r.finalHandSize <= 5 },
-  // Cause of death — only the last-eliminated seat; the game winCondition names that elimination.
-  { key: "killed-commander-damage", label: "Killed by commander damage", pred: (r) => diedLast(r) && r.winCondition === "commander-damage" },
-  { key: "killed-combat", label: "Beaten down in combat", pred: (r) => diedLast(r) && r.winCondition === "combat" },
-  { key: "killed-burn-drain", label: "Burned or drained out", pred: (r) => diedLast(r) && (r.winCondition === "burn" || r.winCondition === "damage") },
-  { key: "killed-poison", label: "Poisoned out", pred: (r) => diedLast(r) && r.winCondition === "poison" },
-  { key: "killed-decking", label: "Milled out (decked)", pred: (r) => diedLast(r) && r.winCondition === "decking" },
+  // Cause of death — per-seat death.cause when present (any rank), else the game winCondition@last-eliminated.
+  { key: "killed-commander-damage", label: "Killed by commander damage", pred: (r) => causeIs(r, "commander-damage") },
+  { key: "killed-combat", label: "Beaten down in combat", pred: (r) => causeIs(r, "combat") },
+  { key: "killed-burn-drain", label: "Burned or drained out", pred: (r) => causeIs(r, "burn") || causeIs(r, "damage") },
+  { key: "killed-poison", label: "Poisoned out", pred: (r) => causeIs(r, "poison") },
+  { key: "killed-decking", label: "Milled out (decked)", pred: (r) => causeIs(r, "decking") },
 ];
 
 // Flatten a header's seat entry into the record every predicate reads. Used for BOTH wins and losses.
@@ -70,6 +74,7 @@ function recordOf(h, stats) {
     eliminatedAtTurn: stats?.eliminatedAtTurn ?? null,
     winCondition: h.winCondition ?? null,
     finalHandSize: stats?.mull?.finalHandSize ?? null, // London: 7 − bottomed (null on a mulligan-off/legacy game)
+    death: stats?.death ?? null, // Tier-2 per-seat {cause, byCombat, landsInHand}; null on pre-Tier-2 headers
   };
 }
 

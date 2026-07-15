@@ -18,14 +18,15 @@ const DECKS4 = [
 ];
 const KOMA = { id: "koma", name: "Koma" };
 
-// A Koma LOSS header (ai1 lost; a rival won). Override any state field.
-function loss({ screw = false, flood = false, cmdrOnline = 4, ownTurns = 6, finishRank = 3, elimTurn = 10, winCondition = "combat", finalHandSize = 7 } = {}) {
+// A Koma LOSS header (ai1 lost; a rival won). Override any state field. `death` = a Tier-2 per-seat record.
+function loss({ screw = false, flood = false, cmdrOnline = 4, ownTurns = 6, finishRank = 3, elimTurn = 10, winCondition = "combat", finalHandSize = 7, death = null } = {}) {
   return {
     result: "ai-wins", winnerSeat: "user", decks: DECKS4, winCondition,
     seatStats: { ai1: {
       finishRank, eliminatedAtTurn: elimTurn,
       manaHealth: { screw, flood, commanderOnlineTurn: cmdrOnline, ownTurns },
       mull: { ships: 7 - finalHandSize, finalHandSize, bottomedCount: 7 - finalHandSize },
+      ...(death ? { death } : {}),
     } },
   };
 }
@@ -106,6 +107,20 @@ describe("mineDeckLosses — honest loss-pattern mining", () => {
     expect(combat.count).toBe(6);            // the 8 survivors are NOT counted — they never died
     expect(combat.lossShare).toBeCloseTo(6 / 20, 5);
     expect(poison.count).toBe(6);
+  });
+
+  it("uses per-seat death.cause (Tier-2) for ANY rank — a deck that died 3rd/4th still gets its cause", () => {
+    // 20 losses: 12 died 4th to POISON carrying a per-seat death record (winCondition says 'combat' — the
+    // LAST elimination — so the old winCondition@rank-2 gate would miss them entirely); 8 clean rank-2.
+    const headers = [
+      ...rep(12, () => loss({ finishRank: 4, elimTurn: 8, winCondition: "combat", death: { cause: "poison", byCombat: null, landsInHand: 1 } })),
+      ...rep(8, () => loss({ finishRank: 2, elimTurn: null })), // survived to 2nd (out-raced) — no death, no cause
+    ];
+    const r = mineDeckLosses(headers, KOMA);
+    const poison = r.patterns.find((p) => p.key === "killed-poison");
+    expect(poison).toBeTruthy();
+    expect(poison.count).toBe(12); // caught by death.cause despite rank 4 + a 'combat' winCondition
+    expect(r.patterns.find((p) => p.key === "killed-combat")).toBeUndefined(); // winCondition is NOT used when death.cause exists
   });
 
   it("merges non-combat lethal (burn + drain/damage) into one 'burned or drained' cause", () => {
