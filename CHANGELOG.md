@@ -10,6 +10,17 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.141.0] — 2026-07-15
+
+### Added
+- **The Post-Mortem** (a new room in The Crucible) — reads your grind history and tells you,
+  per deck, *why* it loses: the recurring patterns that show up more in your losses than your
+  wins, each with a plain-English tip for fixing it. Honest by design — a reason only appears
+  when it's genuinely more common in losses than in wins (so a deck that mulligans a lot in its
+  wins too won't get "you mulligan too much" pinned on it), it shows both rates side by side,
+  and a deck with no clear pattern says so rather than inventing one. Live on your real grind
+  history; sharpens as the model trains.
+
 ## [0.140.0] - 2026-07-14
 
 ### Added
