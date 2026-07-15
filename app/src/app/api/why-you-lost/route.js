@@ -32,7 +32,7 @@ export async function GET(request) {
   }
 
   // Shelf-wide: mine every active-profile deck against the same headers.
-  let pool = [];
+  let pool;
   try {
     pool = await decksForActiveProfile();
   } catch (error) {
