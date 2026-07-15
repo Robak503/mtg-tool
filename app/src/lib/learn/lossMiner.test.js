@@ -1,7 +1,8 @@
 /**
- * lossMiner.test.js — "Why you lost" pure miner. Fixture headers exercise the honest gating: too-few-losses
- * silence, null-flag conservatism, the finishRank-2 attribution guard on cause-of-death, and the LIFT gate
- * (a pattern as common in wins as losses is dropped) + lift ranking.
+ * lossMiner.test.js — the Reflecting Pool dossier miner. Fixture headers exercise the honest gating:
+ * too-few-losses silence, null-flag conservatism, the finishRank-2 attribution guard on cause-of-death,
+ * the LIFT gate (a pattern as common in wins as losses is dropped) + lift ranking — and the R1 win side
+ * (the same lift machine, sign flipped) + the dossier facts row.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
@@ -31,8 +32,8 @@ function loss({ screw = false, flood = false, cmdrOnline = 4, ownTurns = 6, fini
   };
 }
 // A Koma WIN header (ai1 won). Override any state field (mirrors loss(), for building win baselines).
-function win({ cmdrOnline = 3, ownTurns = 9, finalHandSize = 7, screw = false, flood = false } = {}) {
-  return { result: "ai-wins", winnerSeat: "ai1", decks: DECKS4, winCondition: "combat",
+function win({ cmdrOnline = 3, ownTurns = 9, finalHandSize = 7, screw = false, flood = false, winCondition = "combat", turns = null } = {}) {
+  return { result: "ai-wins", winnerSeat: "ai1", decks: DECKS4, winCondition, turns,
     seatStats: { ai1: {
       finishRank: 1, eliminatedAtTurn: null,
       manaHealth: { screw, flood, commanderOnlineTurn: cmdrOnline, ownTurns },
@@ -180,6 +181,72 @@ describe("mineDeckLosses — honest loss-pattern mining", () => {
     expect(mineDeckLosses([], KOMA)).toBeNull();
     const r = mineDeckLosses(rep(10, () => loss({ elimTurn: 9 })), KOMA);
     expect(r.avgLossTurn).toBeCloseTo(9, 5);
+  });
+});
+
+describe("mineDeckLosses — the R1 win side ('why you win') + the dossier facts row", () => {
+  it("surfaces a winning line by lift and drops an endemic one (kept-seven equal on both sides)", () => {
+    // Wins: commander online by 3 in 16/20; kept-seven in 20/20. Losses: commander early in 2/20; kept-seven 20/20.
+    const W = [...rep(16, () => win({ cmdrOnline: 3 })), ...rep(4, () => win({ cmdrOnline: null }))];
+    const L = [...rep(2, () => loss({ cmdrOnline: 3 })), ...rep(18, () => loss({ cmdrOnline: 6 }))];
+    const r = mineDeckLosses([...W, ...L], KOMA);
+    const keys = r.winPatterns.map((p) => p.key);
+    expect(keys).toContain("commander-early");
+    expect(keys).not.toContain("kept-seven"); // 100% of wins AND 100% of losses → lift 0 → dropped
+    const ce = r.winPatterns.find((p) => p.key === "commander-early");
+    expect(ce.winShare).toBeCloseTo(16 / 20, 5);
+    expect(ce.lossShare).toBeCloseTo(2 / 20, 5);
+    expect(ce.lift).toBeCloseTo(0.7, 5);
+    expect(r.winNote).toMatch(/more common in this deck's wins/);
+  });
+
+  it("won-by-X reads the winning game's finish (structurally absent from losses) and closed-fast reads turns", () => {
+    const W = [
+      ...rep(9, () => win({ winCondition: "commander-damage", turns: 20 })), // fast cmdr-damage closes
+      ...rep(3, () => win({ winCondition: "poison", turns: 40 })),
+    ];
+    const L = rep(12, () => loss({}));
+    const r = mineDeckLosses([...W, ...L], KOMA);
+    const wc = r.winPatterns.find((p) => p.key === "won-commander-damage");
+    expect(wc).toBeTruthy();
+    expect(wc.winShare).toBeCloseTo(9 / 12, 5);
+    expect(wc.lossShare).toBe(0);              // a loser is never finishRank 1
+    const cf = r.winPatterns.find((p) => p.key === "closed-fast");
+    expect(cf.count).toBe(9);                  // only the turn-20 games clear FAST_WIN_TURN
+    expect(r.winPatterns.find((p) => p.key === "won-poison")).toBeTruthy(); // 3/12 = .25 ≥ share floor, count 3
+  });
+
+  it("stays silent on the win side under the min-wins floor (win floor independent of the loss floor)", () => {
+    const r = mineDeckLosses([...rep(4, () => win()), ...rep(15, () => loss({ screw: true }))], KOMA);
+    expect(r.winPatterns).toEqual([]);
+    expect(r.winNote).toMatch(/Only 4 recorded wins/);
+    expect(r.patterns.length).toBeGreaterThan(0); // the loss side still mines
+  });
+
+  it("computes the facts row honestly: avg turns, win-con mix, commander-online rate over stateful games only", () => {
+    const W = [
+      ...rep(6, () => win({ winCondition: "combat", turns: 30, cmdrOnline: 3 })),
+      ...rep(2, () => win({ winCondition: "poison", turns: 50, cmdrOnline: null })),
+    ];
+    const L = rep(4, () => loss({ elimTurn: 20, cmdrOnline: 4 })); // loss() has no turns → excluded from turn averages
+    const r = mineDeckLosses([...W, ...L], KOMA);
+    expect(r.facts.avgWinTurn).toBeCloseTo((6 * 30 + 2 * 50) / 8, 5);
+    expect(r.facts.avgGameTurns).toBeCloseTo((6 * 30 + 2 * 50) / 8, 5); // losses carry no turns here
+    expect(r.facts.winConMix[0]).toMatchObject({ key: "combat", count: 6 });
+    expect(r.facts.winConMix[0].share).toBeCloseTo(0.75, 5);
+    expect(r.facts.winConMix[1]).toMatchObject({ key: "poison", count: 2 });
+    expect(r.facts.commanderOnline.n).toBe(12);                 // every fixture game carries seatStats
+    expect(r.facts.commanderOnline.rate).toBeCloseTo(10 / 12, 5); // 2 wins never landed the commander
+    expect(r.facts.commanderOnline.avgTurn).toBeCloseTo((6 * 3 + 4 * 4) / 10, 5);
+  });
+
+  it("nulls each fact below its floor instead of averaging noise", () => {
+    // 2 games total: under MIN_FACT_N for every fact.
+    const r = mineDeckLosses([win({ turns: 20 }), loss({})], KOMA);
+    expect(r.facts.avgWinTurn).toBeNull();
+    expect(r.facts.avgGameTurns).toBeNull();
+    expect(r.facts.winConMix).toBeNull();
+    expect(r.facts.commanderOnline).toBeNull();
   });
 });
 

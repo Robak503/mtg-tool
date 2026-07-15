@@ -1,17 +1,22 @@
 /**
- * lossMiner.js — "Why you lost" (Crucible dream feature, 2026-07-14). Mines a deck's decisive grind games
- * from the forever-kept headers (gameLogStore) and surfaces the patterns that show up MORE in its LOSSES
- * than its WINS — the honest definition of "why you lost" — so the Crucible can coach off them.
+ * lossMiner.js — the per-deck dossier miner behind "The Reflecting Pool" (Crucible dream feature,
+ * 2026-07-14/15). Mines a deck's decisive grind games from the forever-kept headers (gameLogStore) and
+ * surfaces BOTH sides of the mirror: the patterns that show up MORE in its LOSSES than its wins ("why you
+ * lost") and the patterns that show up MORE in its WINS than its losses ("why you win" — the R1 negative-
+ * lift insight: a winning line is just a loss pattern with the sign flipped). Plus the dossier facts row
+ * (avg win turn, win-con mix, commander-online rate, typical game length) so the Pool can show a deck's
+ * whole record at a glance.
  *
- * HONEST BAR (CREED): this is the sim AI piloting the deck — a proxy for how the deck loses, sharpening as
- * the model trains, NOT "how you personally lose". A pattern is surfaced only when (1) its signal is
- * DEFINITIVELY present (screw/flood/commander/mull flags are null when the game couldn't tell — never
- * counted), (2) it clears a concrete-count + loss-share floor, and (3) it has real LIFT — it's meaningfully
- * more common in losses than wins. Raw loss-share alone LIES: a deck that mulligans aggressively mulligans
+ * HONEST BAR (CREED): this is the sim AI piloting the deck — a proxy for how the deck wins/loses,
+ * sharpening as the model trains, NOT "how you personally play". A pattern is surfaced only when (1) its
+ * signal is DEFINITIVELY present (screw/flood/commander/mull flags are null when the game couldn't tell —
+ * never counted), (2) it clears a concrete-count + share floor, and (3) it has real LIFT — it's meaningfully
+ * more common on its side than the other. Raw share alone LIES: a deck that mulligans aggressively mulligans
  * just as much when it WINS, so "mulliganed in 50% of losses" is a reason only if it isn't also 50% of wins.
- * We gate + rank by lift and report BOTH rates. Cause-of-death is attributed only to the seat that was LAST
- * eliminated (the header's winCondition names that elimination); earlier per-seat deaths await the forward
- * seatStats.death capture. Conservative by construction: under-claim rather than fabricate.
+ * We gate + rank by lift and report BOTH rates. Cause-of-death is attributed only when the header can name
+ * it (per-seat death.cause, else the LAST-eliminated seat's winCondition). Win-con "patterns" describe how
+ * the winning GAME ended (the last elimination's cause) — the header never records who dealt it, so the copy
+ * never claims the kill. Conservative by construction: under-claim rather than fabricate.
  *
  * Reads only the ~100-byte-per-game headers.jsonl (kept forever, survives raw-file pruning), so it stays
  * fast and works on the whole history. schemaVersion-3 headers carry decks[]/winnerSeat/seatStats/
@@ -22,12 +27,16 @@ import path from "node:path";
 import { grindRoot, loadGrindManifest } from "./gameLogStore.js";
 
 const DECISIVE = new Set(["user-wins", "ai-wins", "draw"]);
-const FAST_LOSS_TURN = 8;      // eliminated by this turn = died early, not ground out
-const MIN_LOSSES = 10;         // fewer than this and we don't name patterns (too few to be honest)
-const MIN_PATTERN_COUNT = 3;   // a pattern needs at least this many concrete losing games
-const MIN_LOSS_SHARE = 0.10;   // …and this share of losses, to be worth mentioning at all
-const MIN_LIFT = 0.10;         // …and it must be at least this much more common in losses than wins (the real gate)
-const MIN_WINS_FOR_BASELINE = 10; // fewer wins than this and the win-baseline is too noisy — fall back to share-only
+const FAST_LOSS_TURN = 8;      // eliminated by this global turn = died early, not ground out
+const FAST_WIN_TURN = 32;      // game over by this global turn with this deck on top = a fast close (p10 of real win turns, 24k-game probe 2026-07-15 — quiet unless a deck genuinely races)
+const EARLY_COMMANDER_TURN = 4; // commander cast by the seat's OWN turn 4 = online early
+const MIN_LOSSES = 10;         // fewer than this and we don't name loss patterns (too few to be honest)
+const MIN_WINS = 10;           // …same floor for naming win patterns
+const MIN_PATTERN_COUNT = 3;   // a pattern needs at least this many concrete games on its side
+const MIN_SHARE = 0.10;        // …and this share of its side, to be worth mentioning at all
+const MIN_LIFT = 0.10;         // …and it must be at least this much more common on its side (the real gate)
+const MIN_BASELINE = 10;       // fewer games on the OTHER side than this and the lift baseline is too noisy — fall back to share-only
+const MIN_FACT_N = 3;          // an averaged fact (avg win turn, mix, …) needs at least this many games behind it
 
 function deckSeatInHeader(h, deck) {
   if (!Array.isArray(h?.decks)) return null;
@@ -35,19 +44,16 @@ function deckSeatInHeader(h, deck) {
   return e?.seat ?? null;
 }
 
-// The pattern catalog — one predicate over a per-game record (both wins and losses share the shape).
-// A cause of death (killed-*) is attributable only to the seat LAST eliminated: the header's game-level
-// winCondition records THAT elimination's cause (epochStats). A finishRank-2 SURVIVOR (someone else comboed
-// off with the deck still alive) never died, so the honest gate is "died AND placed 2nd" — eliminatedAtTurn
-// != null, not finishRank === 2 alone. Winners never match a killed-* pred (finishRank 1 / not eliminated),
-// so those causes are structurally discriminative (winShare 0). Earlier per-seat deaths await the forward
-// seatStats.death capture; until then we under-claim rather than mis-attribute.
+// ── the LOSS catalog ──────────────────────────────────────────────────────────────────────────────
+// One predicate over a per-game record (wins and losses share the shape). A cause of death (killed-*)
+// is attributable only when the header can name it: prefer the per-seat death.cause (Tier-2 forward
+// capture — precise for ANY eliminated rank); older headers carry no death field, so fall back to the
+// game-level winCondition, which names only the LAST elimination — the diedLast gate keeps that
+// fallback honest (a finishRank-2 SURVIVOR never died, so eliminatedAtTurn must be real). Winners never
+// match a killed-* pred, so those causes are structurally discriminative (winShare 0).
 const diedLast = (r) => r.finishRank === 2 && r.eliminatedAtTurn != null;
-// Prefer the per-seat death.cause (Tier-2 forward capture — precise for ANY eliminated rank). Older headers
-// carry no death field, so fall back to the game-level winCondition, which names only the LAST elimination —
-// the diedLast gate keeps that fallback honest (a survivor never died to it).
 const causeIs = (r, cause) => (r.death?.cause != null ? r.death.cause === cause : (diedLast(r) && r.winCondition === cause));
-const PATTERN_CATALOG = [
+const LOSS_CATALOG = [
   { key: "no-commander", label: "Commander never came down", pred: (r) => r.commanderOnlineTurn == null && r.ownTurns != null && r.ownTurns >= 3 },
   { key: "died-fast", label: `Died early — gone by turn ${FAST_LOSS_TURN}`, pred: (r) => r.eliminatedAtTurn != null && r.eliminatedAtTurn <= FAST_LOSS_TURN },
   { key: "mana-screw", label: "Stuck on too few lands (mana screw)", pred: (r) => r.screw === true },
@@ -62,6 +68,38 @@ const PATTERN_CATALOG = [
   { key: "killed-decking", label: "Milled out (decked)", pred: (r) => causeIs(r, "decking") },
 ];
 
+// ── the WIN catalog (R1 — "why you win") ──────────────────────────────────────────────────────────
+// The same lift machine with the sign flipped: a pattern more common in WINS than losses is a winning
+// line. State patterns (commander early / healthy mana / full seven) fire on either side, so their lift
+// is a real comparison. The won-* family describes how the winning GAME ended — winCondition names the
+// LAST elimination's cause, and this seat won, so it's the finish that sealed its win (the header never
+// records who dealt the blow, so the labels describe the finish, not claim the kill). A loser is never
+// finishRank 1, so won-* preds are structurally discriminative (lossShare 0), mirroring killed-*.
+// The GENERIC "damage" bucket is deliberately NOT a win pattern (24k-probe finding, 2026-07-15): it means
+// drain/pay-life OR an unstamped kill, dominates 80-97% of every deck's wins on real data, and a bucket
+// that can mean anything can't coach anything — it lives in the facts-row win-con mix instead, honestly
+// labeled. Only SPECIFICALLY stamped finishes earn a pattern here.
+const wonBy = (r, cause) => r.finishRank === 1 && r.winCondition === cause;
+const WIN_CATALOG = [
+  { key: "commander-early", label: `Commander online early — by your turn ${EARLY_COMMANDER_TURN}`, pred: (r) => r.commanderOnlineTurn != null && r.commanderOnlineTurn <= EARLY_COMMANDER_TURN },
+  { key: "mana-healthy", label: "Healthy mana — no screw, no flood", pred: (r) => r.screw === false && r.flood === false },
+  { key: "kept-seven", label: "Kept a full seven-card hand", pred: (r) => r.finalHandSize === 7 },
+  { key: "closed-fast", label: `Closed fast — game over by turn ${FAST_WIN_TURN}`, pred: (r) => r.finishRank === 1 && r.turns != null && r.turns <= FAST_WIN_TURN },
+  { key: "won-combat", label: "Wins end in combat damage", pred: (r) => wonBy(r, "combat") },
+  { key: "won-commander-damage", label: "Wins end in commander damage", pred: (r) => wonBy(r, "commander-damage") },
+  { key: "won-burn", label: "Wins end in burn (noncombat damage)", pred: (r) => wonBy(r, "burn") },
+  { key: "won-poison", label: "Wins end in poison", pred: (r) => wonBy(r, "poison") },
+  { key: "won-decking", label: "Wins end in decking", pred: (r) => wonBy(r, "decking") },
+  { key: "won-effect", label: "Wins end on a win-the-game effect", pred: (r) => wonBy(r, "win-game-effect") },
+];
+
+// Human labels for the facts-row win-con mix (the same winCondition taxonomy as epochStats). "damage"
+// is the generic bucket — drain/pay-life or an unstamped kill — so its label claims no specific source.
+const WINCON_LABELS = {
+  "combat": "combat damage", "commander-damage": "commander damage", "burn": "burn",
+  "damage": "damage / drains", "poison": "poison", "decking": "decking", "win-game-effect": "a win-the-game effect",
+};
+
 // Flatten a header's seat entry into the record every predicate reads. Used for BOTH wins and losses.
 function recordOf(h, stats) {
   const mh = stats?.manaHealth || null;
@@ -73,16 +111,69 @@ function recordOf(h, stats) {
     finishRank: stats?.finishRank ?? null,
     eliminatedAtTurn: stats?.eliminatedAtTurn ?? null,
     winCondition: h.winCondition ?? null,
+    turns: h.turns ?? null, // global game length (the closed-fast + facts-row signal)
     finalHandSize: stats?.mull?.finalHandSize ?? null, // London: 7 − bottomed (null on a mulligan-off/legacy game)
     death: stats?.death ?? null, // Tier-2 per-seat {cause, byCombat, landsInHand}; null on pre-Tier-2 headers
+    hasState: stats != null, // header carried seatStats for this seat at all (schema-3+)
+  };
+}
+
+// The ONE lift engine, both directions. `primary` = the side the pattern characterizes (losses for the
+// loss catalog, wins for the win catalog); `baseline` = the other side. Returns { share, baseShare, lift }
+// per surfaced pattern; the callers map those onto the loss/win field names. Gates: concrete count, share
+// floor, and lift ≥ MIN_LIFT — waived (lift null) when the baseline side is too thin to be honest about.
+function minePatterns(catalog, primary, baseline) {
+  const n = primary.length, nBase = baseline.length;
+  const haveBaseline = nBase >= MIN_BASELINE;
+  return catalog
+    .map(({ key, label, pred }) => {
+      const count = primary.filter(pred).length;
+      const share = count / n;
+      const baseShare = haveBaseline ? baseline.filter(pred).length / nBase : null;
+      const lift = baseShare == null ? null : share - baseShare;
+      return { key, label, count, share, baseShare, lift };
+    })
+    .filter((p) => p.count >= MIN_PATTERN_COUNT && p.share >= MIN_SHARE && (p.lift == null || p.lift >= MIN_LIFT))
+    .sort((a, b) => (b.lift ?? b.share) - (a.lift ?? a.share));
+}
+
+const avg = (xs) => (xs.length >= MIN_FACT_N ? xs.reduce((s, x) => s + x, 0) / xs.length : null);
+
+// The dossier facts row: computed over whatever the headers can honestly support, null otherwise.
+// commanderOnline is measured only over games that carried seatStats (schema-3) — on those, a null
+// commanderOnlineTurn means "never cast", so the rate is real, not a data artifact.
+function computeFacts(wins, losses) {
+  const all = wins.concat(losses);
+  const withState = all.filter((r) => r.hasState);
+  const online = withState.filter((r) => r.commanderOnlineTurn != null);
+  const winTurns = wins.map((r) => r.turns).filter((t) => t != null);
+  const allTurns = all.map((r) => r.turns).filter((t) => t != null);
+  const mixCounts = {};
+  for (const r of wins) if (r.winCondition && WINCON_LABELS[r.winCondition]) mixCounts[r.winCondition] = (mixCounts[r.winCondition] || 0) + 1;
+  const mixN = Object.values(mixCounts).reduce((s, c) => s + c, 0);
+  const winConMix = mixN >= MIN_FACT_N
+    ? Object.entries(mixCounts)
+        .map(([key, count]) => ({ key, label: WINCON_LABELS[key], count, share: count / mixN }))
+        .sort((a, b) => b.count - a.count)
+    : null;
+  return {
+    avgWinTurn: avg(winTurns),      // when this deck wins, the global turn the game ends
+    avgGameTurns: avg(allTurns),    // typical game length across all its decisive games
+    winConMix,                      // how its wins end, most common first (null under the fact floor)
+    commanderOnline: withState.length >= MIN_FACT_N
+      ? { rate: online.length / withState.length, avgTurn: avg(online.map((r) => r.commanderOnlineTurn)), n: withState.length }
+      : null,
   };
 }
 
 /**
- * PURE miner. `headers` = grind header objects (schemaVersion 3+); `deck` = {id?, name?}. Returns a per-deck
- * loss-pattern summary, or null if the deck never appears / no input. Never throws. Each surfaced pattern:
- * { key, label, count, lossShare, winShare|null, lift|null } — count/lossShare over losses, winShare the
- * same rate over wins, lift = lossShare − winShare (the "why you lost" signal). Ranked by lift, high first.
+ * PURE miner. `headers` = grind header objects (schemaVersion 3+); `deck` = {id?, name?}. Returns the
+ * deck's full dossier, or null if the deck never appears / no input. Never throws.
+ *  - patterns:    loss side — { key, label, count, lossShare, winShare|null, lift|null }, lift = lossShare − winShare, high first
+ *  - winPatterns: win side  — { key, label, count, winShare, lossShare|null, lift|null }, lift = winShare − lossShare, high first
+ *  - facts:       { avgWinTurn, avgGameTurns, winConMix, commanderOnline } (each null when too thin to be honest)
+ * (Named mineDeckLosses for lineage — the internal id stays, like the `postmortem` view id, while the
+ * surface is "The Reflecting Pool".)
  */
 export function mineDeckLosses(headers, deck) {
   if (!deck || (!deck.id && !deck.name) || !Array.isArray(headers)) return null;
@@ -98,32 +189,37 @@ export function mineDeckLosses(headers, deck) {
   }
   if (games === 0) return null;
   const base = { deckId: deck.id ?? null, deckName: deck.name ?? null, games, wins: wins.length, losses: losses.length, winRate: wins.length / games };
+  const facts = computeFacts(wins, losses);
+
+  // ── loss side ──
+  let patterns = [], avgLossTurn = null, note;
   if (losses.length < MIN_LOSSES) {
     const s = losses.length === 1 ? "" : "es";
-    return { ...base, patterns: [], avgLossTurn: null, note: `Only ${losses.length} recorded loss${s} so far — not enough to name a pattern honestly.` };
+    note = `Only ${losses.length} recorded loss${s} so far — not enough to name a pattern honestly.`;
+  } else {
+    patterns = minePatterns(LOSS_CATALOG, losses, wins)
+      .map(({ key, label, count, share, baseShare, lift }) => ({ key, label, count, lossShare: share, winShare: baseShare, lift }));
+    const elimTurns = losses.map((l) => l.eliminatedAtTurn).filter((t) => t != null);
+    avgLossTurn = elimTurns.length ? elimTurns.reduce((s, t) => s + t, 0) / elimTurns.length : null;
+    note = wins.length >= MIN_BASELINE
+      ? "Patterns more common in this deck's losses than its wins, when the sim AI pilots it — a proxy that sharpens as the model trains."
+      : "Too few wins to compare against — these are just the most common patterns in the losses so far (a weak signal).";
   }
 
-  const nLoss = losses.length, nWin = wins.length;
-  const haveBaseline = nWin >= MIN_WINS_FOR_BASELINE; // too few wins → the lift baseline is noise; fall back to share-only
-  const patterns = PATTERN_CATALOG
-    .map(({ key, label, pred }) => {
-      const count = losses.filter(pred).length;
-      const lossShare = count / nLoss;
-      const winShare = haveBaseline ? wins.filter(pred).length / nWin : null;
-      const lift = winShare == null ? null : lossShare - winShare;
-      return { key, label, count, lossShare, winShare, lift };
-    })
-    // Real "why you lost": enough concrete games, a meaningful slice of losses, AND more common in losses
-    // than wins (lift). Without a win baseline the lift gate is waived (best-effort on a barely-played deck).
-    .filter((p) => p.count >= MIN_PATTERN_COUNT && p.lossShare >= MIN_LOSS_SHARE && (p.lift == null || p.lift >= MIN_LIFT))
-    .sort((a, b) => (b.lift ?? b.lossShare) - (a.lift ?? a.lossShare));
+  // ── win side (R1) ──
+  let winPatterns = [], winNote;
+  if (wins.length < MIN_WINS) {
+    const s = wins.length === 1 ? "" : "s";
+    winNote = `Only ${wins.length} recorded win${s} so far — not enough to name a winning line honestly.`;
+  } else {
+    winPatterns = minePatterns(WIN_CATALOG, wins, losses)
+      .map(({ key, label, count, share, baseShare, lift }) => ({ key, label, count, winShare: share, lossShare: baseShare, lift }));
+    winNote = losses.length >= MIN_BASELINE
+      ? "Patterns more common in this deck's wins than its losses — the lines worth leaning into."
+      : "Too few losses to compare against — these are just the most common patterns in the wins so far (a weak signal).";
+  }
 
-  const elimTurns = losses.map((l) => l.eliminatedAtTurn).filter((t) => t != null);
-  const avgLossTurn = elimTurns.length ? elimTurns.reduce((s, t) => s + t, 0) / elimTurns.length : null;
-  const note = haveBaseline
-    ? "Patterns more common in this deck's losses than its wins, when the sim AI pilots it — a proxy that sharpens as the model trains."
-    : "Too few wins to compare against — these are just the most common patterns in the losses so far (a weak signal).";
-  return { ...base, patterns, avgLossTurn, note };
+  return { ...base, patterns, avgLossTurn, note, winPatterns, winNote, facts };
 }
 
 /** Read every forever-kept header line across all grind shards. Never throws — [] on an empty/absent store. */
@@ -144,9 +240,9 @@ export async function readAllGrindHeaders() {
   return out;
 }
 
-/** Glue: mine one deck's losses straight from the grind store. */
+/** Glue: mine one deck's dossier straight from the grind store. */
 export async function mineDeckLossesFromStore(deck) {
   return mineDeckLosses(await readAllGrindHeaders(), deck);
 }
 
-export const _internals = { FAST_LOSS_TURN, MIN_LOSSES, MIN_PATTERN_COUNT, MIN_LOSS_SHARE, MIN_LIFT, MIN_WINS_FOR_BASELINE };
+export const _internals = { FAST_LOSS_TURN, FAST_WIN_TURN, EARLY_COMMANDER_TURN, MIN_LOSSES, MIN_WINS, MIN_PATTERN_COUNT, MIN_SHARE, MIN_LIFT, MIN_BASELINE, MIN_FACT_N };

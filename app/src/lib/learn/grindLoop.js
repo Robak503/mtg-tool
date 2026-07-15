@@ -97,14 +97,12 @@ async function loop({ decks, mode, pilotBuilder, pilotFlags = [], capBytes, seed
       await macrotask();
       continue;
     }
-    // Record which DECK sat at each seat (seat order = pod order) so the results view can attribute
-    // wins + participation per deck — winnerSeat alone can't say which deck won.
-    const seatDecks = pod.map((d, si) => ({ seat: seatNames[si] ?? `seat${si}`, id: d?.id ?? null, name: d?.name ?? null }));
-    // featuresV=2 fields (startSeat/turnOrder/decisionsCount/pilotV) ride the SHARED builder so the
-    // in-process grind and the pool worker can never drift (grindPod.buildGrindHeader — the drift
-    // Omnath caught live: the pool path kept writing headers without them).
+    // The SHARED builder (grindPod.buildGrindHeader) assembles decks[] (per-seat deck attribution +
+    // the R3 deckV version stamp) AND the featuresV=2 fields (startSeat/turnOrder/decisionsCount/
+    // pilotV) so the in-process grind and the pool worker can never drift (the drift Omnath caught
+    // live: the pool path kept writing headers without them).
     const record = {
-      header: buildGrindHeader({ gameSeed, pilots: identity, decks: seatDecks, engineVersion: version, mode, pool, game, pilotV: pilotBuilder?.pilotV ?? null }),
+      header: buildGrindHeader({ gameSeed, pilots: identity, pod, seatNames, engineVersion: version, mode, pool, game, pilotV: pilotBuilder?.pilotV ?? null }),
       rows: game?.decisionTrajectory?.rows ?? [],
     };
     const appended = await appendGame(record, { capBytes });

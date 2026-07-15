@@ -46,10 +46,11 @@ const GROUNDS = [
     ),
   },
   {
+    // id stays "postmortem" internally (routing/palette key on it); the USER sees "The Reflecting Pool".
     id: "postmortem",
-    title: "The Post-Mortem",
+    title: "The Reflecting Pool",
     badge: "preview",
-    blurb: "Why your decks lose — the recurring patterns, and how to stop them.",
+    blurb: "Every deck's dossier — the record, what wins you games, and what loses them.",
     icon: (
       <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M3 6l4 4 3-3 4 4" />

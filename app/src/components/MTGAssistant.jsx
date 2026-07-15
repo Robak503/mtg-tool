@@ -789,7 +789,7 @@ export default function MTGAssistant() {
     cmds.push(
       { label: "Judge Trials", hint: "quiz", group: "Go to", run: () => { setArea("academy"); setCenterView("judge"); } },
       { label: "Table Records", hint: "records", group: "Go to", run: () => { setArea("proving"); setCenterView("records"); } },
-      { label: "The Post-Mortem", hint: "why you lost", group: "Go to", run: () => { setArea("proving"); setCenterView("postmortem"); } },
+      { label: "The Reflecting Pool", hint: "deck dossiers", group: "Go to", run: () => { setArea("proving"); setCenterView("postmortem"); } },
       { label: "Pod Balance", hint: "pods", group: "Go to", run: () => { setArea("proving"); setCenterView("podbalance"); } },
       { label: "Sim Center", hint: "self-play", group: "Go to", run: () => { setArea("proving"); setCenterView("sim"); } },
       { label: "Learn to Play", hint: "learn", group: "Go to", run: () => { setArea("academy"); setCenterView("learn"); } },

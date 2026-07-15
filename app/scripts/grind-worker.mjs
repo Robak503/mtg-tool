@@ -55,12 +55,12 @@ for (let i = cfg.laneIndex; cfg.maxGames == null || played < cfg.maxGames; i += 
     process.stderr.write(`lane ${cfg.laneIndex} game ${i} error: ${e?.message || e}\n`);
     continue;
   }
-  const seatDecks = pod.map((d, si) => ({ seat: seatNames[si] ?? `seat${si}`, id: d?.id ?? null, name: d?.name ?? null }));
-  // featuresV=2 fields ride the SHARED builder (grindPod.buildGrindHeader) so this pool path can
-  // never drift from the in-process grind again (Omnath caught the drift live: startSeat/turnOrder/
-  // decisionsCount/pilotV were absent from pool headers while grindLoop wrote them).
+  // The SHARED builder (grindPod.buildGrindHeader) assembles decks[] (per-seat attribution + the R3
+  // deckV version stamp) and the featuresV=2 fields, so this pool path can never drift from the
+  // in-process grind again (Omnath caught the drift live: startSeat/turnOrder/decisionsCount/pilotV
+  // were absent from pool headers while grindLoop wrote them).
   const record = {
-    header: buildGrindHeader({ gameSeed, pilots: identity, decks: seatDecks, engineVersion: cfg.engineVersion ?? null, mode: cfg.mode, pool, game, pilotV: pilotBuilder?.pilotV ?? null }),
+    header: buildGrindHeader({ gameSeed, pilots: identity, pod, seatNames, engineVersion: cfg.engineVersion ?? null, mode: cfg.mode, pool, game, pilotV: pilotBuilder?.pilotV ?? null }),
     rows: game?.decisionTrajectory?.rows ?? [],
   };
   process.stdout.write(JSON.stringify({ i, trusted: (game?.trainingWeight ?? 0) > 0, record }) + "\n");

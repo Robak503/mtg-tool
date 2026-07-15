@@ -39,6 +39,9 @@ const DEFAULT_CAP_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB (Colton's raw-file
  *   3 — EPOCH 2 (the ONE bump, 2026-07-09): FFA sole-survivor era + playbook mulligans
  *       (mulliganPolicyV) + pool tag + per-seat seatStats{finishRank,eliminatedAtTurn,manaHealth}
  *       + winCondition + rows v2 (legal histogram, rank, stackDepth, forced).
+ *       Additive within 3 (no bump — nullable, consumers `?? null`): seatStats.death +
+ *       manaHealth landsInHand (Tier-2, 2026-07-15) · decks[].deckV exact-list version stamp
+ *       (R3, 2026-07-15 — grindPod.deckVersionHash; absent on pre-R3 headers).
  */
 export const STORE_SCHEMA_VERSION = 3;
 

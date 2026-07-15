@@ -8,7 +8,26 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
-_(nothing yet)_
+### Added
+- **The Reflecting Pool** — The Post-Mortem grew into the full per-deck review dossier and took
+  its true name. Pick a deck off the shelf and read its whole story on one card: the record up
+  top, a key-facts strip (typical game length, what turn its wins end, what turn it dies, how it
+  usually closes, how often the commander comes down), and two honest mirrors side by side —
+  **what wins you games** and **what loses you games**. The win side is new: the same lift
+  honesty as the loss miner, sign flipped (a pattern genuinely more common in wins than losses
+  is a winning line worth leaning into — commander down early, a kept seven, a fast close, a
+  signature finish). Both rates shown on every bar; a column with no clear pattern says so
+  instead of inventing one. Live on the full grind history.
+- **Deck-version stamp in the grind record** (foundation for living deck history). Every new
+  grind game now records an exact-to-the-card fingerprint of each deck in the pod — every copy,
+  basics included, commanders and companion — so a future update can show how a deck's results
+  changed after you swapped a card. Forward-only: old games simply carry no stamp.
+
+### Changed
+- Generic "damage" finishes no longer masquerade as a win pattern: the real data showed the
+  unspecified-damage bucket topping every deck at 80–97%, which coaches nothing. It now lives
+  honestly in the facts row ("damage / drains"); only specifically-stamped finishes (commander
+  damage, poison, decking, a win-the-game effect, burn, combat) can earn a pattern line.
 
 ## [0.141.0] — 2026-07-15
 

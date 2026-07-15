@@ -231,7 +231,7 @@ export const AREAS = [
     // id stays "proving" internally (all routing/saved-state keys on it); the USER sees "The Crucible".
     id: "proving",
     title: "The Crucible",
-    tagline: "Sim Center · Records · Post-Mortem",
+    tagline: "Sim Center · Records · Reflecting Pool",
     icon: ProvingIcon,
     defaultView: "proving-home",
   },

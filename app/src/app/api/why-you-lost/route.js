@@ -1,12 +1,13 @@
 /**
- * /api/why-you-lost — "Why you lost". Mines the grind history for a deck's recurring LOSS patterns so the
- * Academy can coach off them. GET ?deck=<id|name> returns one deck's summary; GET with no param returns a
- * summary for every deck in the active profile (the shelf-wide ledger). Reads the forever-kept headers ONCE
- * and mines each deck against them, so the all-decks call is one store read, not one-per-deck.
+ * /api/why-you-lost — the Reflecting Pool dossier feed (route path stays for lineage, like the `postmortem`
+ * view id). Mines the grind history for a deck's recurring LOSS patterns, its WIN patterns (R1), and the
+ * dossier facts row. GET ?deck=<id|name> returns one deck's dossier; GET with no param returns one for
+ * every deck in the active profile (the shelf-wide ledger). Reads the forever-kept headers ONCE and mines
+ * each deck against them, so the all-decks call is one store read, not one-per-deck.
  *
- * Honest by construction (lossMiner.js): patterns are shares of REAL recorded losses, a cause of death is
- * claimed only when attributable, and the whole thing is framed as "losses when the sim AI pilots the deck"
- * — a proxy that sharpens as the model trains. Fully offline.
+ * Honest by construction (lossMiner.js): patterns are shares of REAL recorded games gated by lift, a cause
+ * of death is claimed only when attributable, and the whole thing is framed as "games where the sim AI
+ * pilots the deck" — a proxy that sharpens as the model trains. Fully offline.
  */
 export const runtime = "nodejs";
 
