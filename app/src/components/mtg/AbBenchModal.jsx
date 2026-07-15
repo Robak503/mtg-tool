@@ -188,6 +188,15 @@ export default function AbBenchModal({ open, deckIds = [], onClose }) {
                     : "Within noise — the 95% band still includes 0. Run more games to tighten it."}
                 </div>
               )}
+              {done && !noEffect && status.whySentences?.length > 0 && (
+                <div style={whyBox}>
+                  <div style={whyHead}>Why {status.delta > 0 ? "it helped" : status.delta < 0 ? "it hurt" : "it landed flat"}</div>
+                  {status.whySentences.map((s, i) => <div key={i} style={whyLine}>• {s}</div>)}
+                </div>
+              )}
+              {done && !noEffect && significant && !(status.whySentences?.length) && (
+                <div style={caveat}>The win rate moved for real, but the recorded game-state (mana, speed, win-con) didn&apos;t shift enough to pin a single cause — likely a play-level effect. Card-by-card cast tracing is coming to sharpen this.</div>
+              )}
               {done && noEffect && (
                 <div style={caveat}>Zero flips — the swap changed nothing the sim AI actually played. That&apos;s honest, not &quot;identical&quot;: the bench measures what the AI does, so a card it never casts reads ~0% (it may still matter at a real table).</div>
               )}
@@ -224,3 +233,6 @@ const inputStyle = { background: "var(--ley-surface-0)", color: "var(--ley-text)
 const runBtn = { background: "var(--ley-green-dim)", color: "var(--ley-green)", border: "1px solid var(--ley-line-bright)", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700, marginTop: 4 };
 const ghostBtn = { background: "transparent", color: "var(--ley-text-dim)", border: "1px solid var(--ley-line)", borderRadius: 8, padding: "7px 12px", fontSize: 12.5, cursor: "pointer" };
 const caveat = { fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.55, background: "var(--ley-surface-0)", border: "1px dashed var(--ley-line)", borderRadius: 8, padding: "8px 10px" };
+const whyBox = { display: "flex", flexDirection: "column", gap: 5, padding: "10px 12px", background: "var(--ley-surface-1)", border: "1px solid var(--ley-line)", borderRadius: 8 };
+const whyHead = { fontFamily: "var(--font-mono)", fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ley-green-text)" };
+const whyLine = { fontSize: 12, color: "var(--ley-text)", lineHeight: 1.5 };
