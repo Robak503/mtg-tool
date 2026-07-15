@@ -1,5 +1,26 @@
 # WAKE REPORT — live resume anchor
 
+## 🪞 2026-07-15 — THE REFLECTING POOL: R1-R3 on master (6c043009), UNRELEASED pending Colton's look-check
+
+The Post-Mortem grew into **The Reflecting Pool** (Colton's locked name) — the per-deck review dossier:
+record · facts row (typical game / wins-end-by / dies-around / usually-closes-by / commander-online) ·
+two lift-mined mirrors (what WINS you games — new R1 win catalog — / what LOSES you games), deck-shelf
+chips browsing one dossier at a time. Internal `postmortem` view id + `/api/why-you-lost` route kept.
+**R3**: every new grind header stamps `decks[].deckV` (grindPod.deckVersionHash — sha1/12 exact-to-the-card
+incl. basics/commanders/companion) via the ONE shared builder on both write paths; forward-only; R4
+(living history) parks until versioned games accrue. Suite **8,475** · lint 0 · walked live on the real
+24,102 headers (seeded read-only into the dev tree).
+
+**Honesty catches off the real-data probe (both fixed pre-push):** the generic "damage" winCondition
+topped EVERY deck's wins at 80-97% → excluded from win patterns (facts-row mix only, "damage / drains");
+closed-fast threshold set from real p10 (32), not a guess.
+
+**⚠️ QUEUE — engine finding:** combat wins ≈ ZERO across all 24,102 games (Slivers closes 80%
+generic-"damage" + 20% commander-damage, ~0 combat — a Sliver deck cannot honestly do that).
+`lethalByCombat` likely unstamped at (most) combat eliminations → everything falls to the generic
+bucket. Root-cause before any surface leans on combat-vs-burn splits. Also open: Colton's dossier
+look-check → cut the release.
+
 ## ⚡ 2026-07-10 (later) — THE SHELF RUN: PHASE 1 IN FLIGHT — 28 tier flips shipped (v0.128.0 → master), all audited, LOST 0
 
 **Shipped slices (each: flip-diff audited by name · whole-card verified · suite green · lint 0 · pushed to master):**
