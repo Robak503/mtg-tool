@@ -45,6 +45,19 @@ const GROUNDS = [
       </svg>
     ),
   },
+  {
+    id: "postmortem",
+    title: "The Post-Mortem",
+    badge: "preview",
+    blurb: "Why your decks lose — the recurring patterns, and how to stop them.",
+    icon: (
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 6l4 4 3-3 4 4" />
+        <circle cx="16" cy="15" r="4" />
+        <path d="M19 18l2.5 2.5" />
+      </svg>
+    ),
+  },
 ];
 
 export default function ProvingHome({ onPick, fontFamily }) {

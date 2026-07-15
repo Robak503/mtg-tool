@@ -62,6 +62,7 @@ import VaultHome from "./mtg/VaultHome";
 import DeckReadyView from "./mtg/DeckReadyView";
 import VaultGalleryView from "./mtg/VaultGalleryView";
 import RecordsView from "./mtg/RecordsView";
+import PostMortemView from "./mtg/PostMortemView";
 import JudgeTrialsView from "./mtg/JudgeTrialsView";
 import LibraryView from "./mtg/LibraryView";
 import CardInspector from "./mtg/CardInspector";
@@ -788,6 +789,7 @@ export default function MTGAssistant() {
     cmds.push(
       { label: "Judge Trials", hint: "quiz", group: "Go to", run: () => { setArea("academy"); setCenterView("judge"); } },
       { label: "Table Records", hint: "records", group: "Go to", run: () => { setArea("proving"); setCenterView("records"); } },
+      { label: "The Post-Mortem", hint: "why you lost", group: "Go to", run: () => { setArea("proving"); setCenterView("postmortem"); } },
       { label: "Pod Balance", hint: "pods", group: "Go to", run: () => { setArea("proving"); setCenterView("podbalance"); } },
       { label: "Sim Center", hint: "self-play", group: "Go to", run: () => { setArea("proving"); setCenterView("sim"); } },
       { label: "Learn to Play", hint: "learn", group: "Go to", run: () => { setArea("academy"); setCenterView("learn"); } },
@@ -1443,6 +1445,8 @@ export default function MTGAssistant() {
               <AcademyHome onPick={pickAcademy} fontFamily={F} />
             ):centerView==="records"?(
               <RecordsView onBack={() => setCenterView("proving-home")} fontFamily={F} />
+            ):centerView==="postmortem"?(
+              <PostMortemView onBack={() => setCenterView("proving-home")} fontFamily={F} />
             ):centerView==="judge"?(
               <JudgeTrialsView onBack={() => setCenterView("academy-home")} fontFamily={F} />
             ):centerView==="library-home"?(
