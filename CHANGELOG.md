@@ -10,6 +10,21 @@ summarizes the notable changes.
 
 _(nothing yet)_
 
+## [0.140.0] - 2026-07-14
+
+### Added
+- **A/B a card — bench one swap and see if it actually helps.** In the Sim Center, pick a 4-deck pod and hit
+  **⚗ A/B a card**: choose a deck, pull one card, bench a replacement in, and the pod runs *both ways on the
+  same seeds* so draw and seat luck cancel out. You get the target deck's win-rate change with a 95% confidence
+  band — a real read, not a vibe. A live legality check on the "bench in" field means the bench can never test
+  an illegal swap: banned cards, off-color-identity cards, and cards already in the deck are refused as you type.
+- **The bench tells you WHY, in plain English — not just a percentage.** A finished run reads out the reasons,
+  drawn only from what the games actually recorded: whether the deck hit mana screw less often, landed its
+  commander sooner, closed games faster, and how the games that flipped to wins were actually won. Each line
+  only appears when the shift is real — a big enough sample, and enough games that genuinely differed — so it
+  never dresses up noise as a reason. When a swap changes nothing the sim ever casts, it says so honestly
+  instead of inventing an effect.
+
 ## [0.139.0] - 2026-07-14
 
 ### Added
