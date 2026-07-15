@@ -17,9 +17,16 @@ import {
   decksForActiveProfile,
 } from "../../../lib/server/selfPlayDecks.js";
 import { buildSwappedDeck } from "../../../lib/server/cardSwap.js";
+import { commanderLegality } from "../../../lib/server/cardIndex.js";
 import { startAbBench, abBenchStatus, requestAbBenchCancel } from "../../../lib/learn/abBench.js";
 
-export async function GET() {
+export async function GET(request) {
+  // ?check=<name> — live banlist/legality check for the "bench in" field (the guardrail, made visible as
+  // the user types). Color-identity + singleton are still enforced at start (they need the target deck).
+  try {
+    const check = new URL(request.url).searchParams.get("check");
+    if (check != null) return Response.json(commanderLegality(check));
+  } catch { /* fall through to status */ }
   return Response.json(abBenchStatus());
 }
 

@@ -39,6 +39,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import CrucibleRunModal from "./CrucibleRunModal";
+import AbBenchModal from "./AbBenchModal";
 
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
 import StabilityBadge from "./StabilityBadge";
@@ -93,6 +94,7 @@ export default function SimCenter({ cfg, fontFamily , initialSelection = null, o
   const [availablePilots, setAvailablePilots] = useState([]);
   // C2 (additive): the bounded Crucible pod power-read modal — opens when a pod's worth of decks is selected.
   const [crucibleOpen, setCrucibleOpen] = useState(false);
+  const [abBenchOpen, setAbBenchOpen] = useState(false);
   const [podGames, setPodGames] = useState(100);
   useEffect(() => {
     let alive = true;
@@ -778,6 +780,16 @@ export default function SimCenter({ cfg, fontFamily , initialSelection = null, o
                         </div>
                       </div>
                     )}
+                    {isPod && (
+                      <button
+                        type="button"
+                        onClick={() => setAbBenchOpen(true)}
+                        title="Test one card swap — run this pod both ways on the same seeds and read the win-rate delta"
+                        style={{ background: "transparent", color: "var(--ley-green-text)", border: "1px solid var(--ley-line-bright)", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}
+                      >
+                        ⚗ A/B a card
+                      </button>
+                    )}
                   </>
                 );
               })()}
@@ -792,6 +804,9 @@ export default function SimCenter({ cfg, fontFamily , initialSelection = null, o
                   onClose={() => setCrucibleOpen(false)}
                   onBanked={() => refreshHistory()}
                 />
+              )}
+              {abBenchOpen && (
+                <AbBenchModal open={abBenchOpen} deckIds={selectedIds} onClose={() => setAbBenchOpen(false)} />
               )}
 
               {/* PILOT — a pod picks one persona (defaults to Specialist); the ∞ grind rotates all three. */}
