@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const fs=require('fs');const p='C:/Users/colto/.claude/projects/C--Users-colto-Documents-Claude-Projects-MTG-TOOL/memory/COMMS.md';let t;try{t=fs.readFileSync(p,'utf8')}catch(e){t=''}const i=t.indexOf('## LOG');const body=(i>=0?t.slice(i):t).slice(0,3500);process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:'Omnath COMMS — newest entries (reconcile against any open requests to keep up):  '+(body||'(COMMS.md not found or empty)')}}))\"",
+            "timeout": 10,
+            "statusMessage": "Checking Omnath COMMS"
+          }
+        ]
+      }
+    ]
+  }
+}

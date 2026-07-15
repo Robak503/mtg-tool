@@ -7,9 +7,11 @@ node_modules/
 # state). Not project config — kept local so it can't be committed by accident.
 # EXCEPTION: .claude/commands/ holds shared project slash commands (e.g. /omnath)
 # that must be committed so they load in Claude Code web/phone sessions, which
-# only see repo content.
+# only see repo content. .claude/settings.json is also committed (shared hooks +
+# permissions); machine-specific overrides + secrets stay in settings.local.json.
 .claude/*
 !.claude/commands/
+!.claude/settings.json
 
 # Agent scratch / sandbox dirs (auto-created by /cso, /codex, CTO-review runs and
 # similar — duplicate-source scratch + debug scripts). NEVER commit (a stray
