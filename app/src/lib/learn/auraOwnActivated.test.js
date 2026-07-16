@@ -59,10 +59,15 @@ describe("AURA-OWN-ACTIVATED — recognition (classifyCard)", () => {
   it("CREED: an unmodeled co-ability keeps the whole card Arbiter (all-or-nothing)", () => {
     expect(classifyCard(aura("Enchant creature\n{U}: Tap enchanted creature.\n{5}: Untap this creature."))).toBe("body-only");
   });
-  it("CREED: every rider (ETB trigger / restriction / P/T bonus) keeps the card Arbiter", () => {
-    expect(classifyCard(aura("Enchant creature\nWhen this Aura enters, draw a card.\n{U}: Tap enchanted creature."))).toBe("body-only");
-    expect(classifyCard(aura("Enchant creature\nEnchanted creature can't attack.\n{U}: Tap enchanted creature."))).toBe("body-only");
-    expect(classifyCard(aura("Enchant creature\nEnchanted creature gets +1/+1.\n{U}: Tap enchanted creature."))).toBe("body-only");
+  it("CREED: an unmodeled rider keeps the card Arbiter; MODELED composites now flip (AF-1 graduation)", () => {
+    // (The can't-attack and +1/+1 composites sat here as riders until BLITZ AF-1's injected aura-own-
+    // activated validator — both halves are genuinely modeled now: the static via parseAttachedClause,
+    // the tap enumerated on the Aura and resolved on the host. Pinned POSITIVELY below; the rider intent
+    // lives on via the ETB-without-static form and a genuinely-unmodeled restriction.)
+    expect(classifyCard(aura("Enchant creature\nWhen this Aura enters, draw a card.\n{U}: Tap enchanted creature."))).toBe("body-only"); // no static half → the activated-only gate rejects the extra ETB
+    expect(classifyCard(aura("Enchant creature\nEnchanted creature can't attack.\n{U}: Tap enchanted creature."))).toBe("native-aura");
+    expect(classifyCard(aura("Enchant creature\nEnchanted creature gets +1/+1.\n{U}: Tap enchanted creature."))).toBe("native-aura");
+    expect(classifyCard(aura("Enchant creature\nEnchanted creature can't have counters put on it.\n{U}: Tap enchanted creature."))).toBe("body-only"); // an unmodeled restriction still parks
   });
   it("CREED: Pemmin's Aura (a REAL sibling with extra unmodeled abilities) stays Arbiter", () => {
     // Pemmin's Aura also grants flying/shroud and a ±1/∓1 pump — those aren't modeled here, so the card

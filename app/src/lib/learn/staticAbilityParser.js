@@ -2873,6 +2873,11 @@ export function parseAttachedBonus(card, subjectOverride) {
     // PZ-1: the attached tap-lock line is enforced in gameState.untapAll, not as a layer bonus — skip it
     // (the AP-1 wall-skip pattern) so a compound aura keeps its other half.
     if (subject === "enchanted" && ATT_NO_UNTAP_CLAUSE_RE.test(c.trim())) continue;
+    // AF-1: a validator-approved AURA-OWN ACTIVATED line ("{W}: Enchanted creature gets +0/+3 until end of
+    // turn") is the runtime's (legalChoices enumerates it on the Aura; the pump resolves onto the host via
+    // the enchanted referent) — skip it so the compound carrier keeps its static half.
+    if (subject === "enchanted" && /^[^:\n]*\{[^}]+\}[^:\n]*:/.test(c.trim())
+      && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
     if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
     // AP-1 (CR 615): a modeled prevention wall ("Prevent all [combat] damage that would be dealt to /
     // and dealt by / by enchanted creature") is enforced at the DAMAGE PATHS (attachedDamagePrevention),
@@ -3098,6 +3103,12 @@ export function impositionEntersTapped(state, card, controller) {
 // non-residue in auraResidueClauses — the runtime fires it through the enterPermanent chokepoint.
 let _auraOwnEtbValidator = null;
 export function registerAuraOwnEtbValidator(fn) { _auraOwnEtbValidator = fn; }
+// AURA-OWN-ACTIVATED validator (BLITZ AF-1 — the same injection pattern): whether a "{cost}: <effect>"
+// line PRINTED ON THE AURA is a fully-modeled ability whose program is exclusively enchanted-referent
+// atoms (tap/untap/pump target:"enchanted" — Armor of Faith's "{W}: Enchanted creature gets +0/+3 until
+// end of turn"). Registered from coverage; unregistered → the line stays residue (a safe FN).
+let _auraOwnActivatedValidator = null;
+export function registerAuraOwnActivatedValidator(fn) { _auraOwnActivatedValidator = fn; }
 /** The prevention walls one AURA CARD prints: { to: "all"|"combat"|null, by: "all"|"combat"|null }. */
 export function attachedPreventionOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
@@ -3150,6 +3161,9 @@ function auraTouchClausesAllModeled(card) {
     if (ATT_PREV_CLAUSE_RE.test(c)) continue;                 // AP-1 wall — enforced at the damage paths
     if (ATT_NO_UNTAP_CLAUSE_RE.test(c)) continue;             // PZ-1 tap-lock — enforced in untapAll
     if (isTotemArmorClause(c)) continue;                      // totem armor — enforced at destruction
+    // AF-1: a validator-approved aura-own activated line — enumerated on the Aura, resolved on the host.
+    if (/^[^:\n]*\{[^}]+\}[^:\n]*:/.test(c)
+      && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
     if (!touchesAttachedCreature(c, "enchanted")) continue;   // non-touch residue → auraResidueClauses catches it
     if (!(c.startsWith("enchanted creature") && parseAttachedClause(c, "enchanted"))) return false;
   }

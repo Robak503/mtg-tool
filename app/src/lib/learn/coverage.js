@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1190,7 +1190,9 @@ function isNativeOwnActivatedAura(card) {
   const isEnchantedTapProgram = (prog) =>
     !!prog && Array.isArray(prog.atoms) && prog.atoms.length > 0 &&
     prog.structure !== "modal" &&
-    prog.atoms.every((a) => (a.op === "tap" || a.op === "untap") && a.target === "enchanted");
+    // AF-1 widens the trio: the aura-own PUMP ("{R}: Enchanted creature gets +1/+0 until end of turn" —
+    // Firebreathing) rides the same fixed enchanted referent as the tap/untap pair.
+    prog.atoms.every((a) => (a.op === "tap" || a.op === "untap" || a.op === "pump") && a.target === "enchanted");
   if (!abilities.every((a) => a.modeled && !a.isManaEffect && !a.isEquipAbility && isEnchantedTapProgram(a.program))) return false;
   // No body clause other than the Enchant keyword line and the printed activated-ability lines. An activated
   // ability line contains a colon whose cost is symbol/word-bearing (the same shape parseActivatedAbilities
@@ -1738,6 +1740,23 @@ registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
 // and bonus walk admit "When this Aura enters, <natively-routing effect>" lines (tap enchanted
 // creature / draw a card / you gain 3 life), fired at the enterPermanent chokepoint like any ETB.
 registerAuraOwnEtbValidator(isModeledAuraOwnEtbLine);
+
+// AURA-OWN-ACTIVATED validator (BLITZ AF-1 — Armor of Faith / Stonehands / the Firebreathing kin):
+// a "{cost}: <effect>" line printed ON THE AURA is admitted (bonus-walk skip + strict-fn pass) only when
+// it parses as EXACTLY ONE fully-modeled, non-mana activated ability whose program is exclusively
+// enchanted-referent atoms (tap / untap / pump target:"enchanted") — the isNativeOwnActivatedAura
+// discipline, per line. The runtime side is already whole: legalChoices enumerates the Aura's printed
+// ability on the Aura permanent, and the atom resolves onto the host via the enchanted referent.
+function isModeledAuraOwnActivatedLine(line) {
+  const abs = parseActivatedAbilities({ name: "AuraOwnActProbe", type: "Enchantment — Aura", oracle: String(line || "") });
+  if (abs.length !== 1) return false;
+  const a = abs[0];
+  if (!a.modeled || a.isManaEffect) return false;
+  const prog = a.program;
+  return !!prog && Array.isArray(prog.atoms) && prog.atoms.length > 0 && prog.structure !== "modal"
+    && prog.atoms.every((at) => (at.op === "tap" || at.op === "untap" || at.op === "pump") && at.target === "enchanted");
+}
+registerAuraOwnActivatedValidator(isModeledAuraOwnActivatedLine);
 
 // DIFFUSION SLIVER (group-ward analogue) — a card whose whole text is the modeled group-ward trigger
 // ("Whenever a Sliver creature you control becomes the target of a spell or ability an opponent controls,

@@ -847,6 +847,14 @@ export function combatKeywordClauseParser(clause) {
   // through atomTargets. Whole-clause anchored ($) so any qualified/rider form falls through → low → Arbiter.
   if (/^tap enchanted creature$/.test(t)) return { op: "tap", target: "enchanted" };
   if (/^untap enchanted creature$/.test(t)) return { op: "untap", target: "enchanted" };
+  // AURA-OWN PUMP (BLITZ AF-1 — Armor of Faith / Stonehands / Firebreathing kin: "{M}: Enchanted creature
+  // gets +N/+M until end of turn."): the enchanted host as a FIXED referent (atomTargets target:"enchanted"
+  // → the Aura's attachedTo at resolution), an until-EOT pump — DISJOINT from the layer-engine static bonus
+  // ("Enchanted creature gets +N/+M" with NO tail, parseAttachedClause's), which never carries the EOT tail.
+  {
+    const aep = t.match(/^enchanted creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+    if (aep) return { op: "pump", target: "enchanted", ptDelta: { p: parseInt(aep[1], 10), t: parseInt(aep[2], 10) } };
+  }
   // GRANTED-SELF-UNTAP (BLITZ UT-1 — Singing Bell Strike / Ringing Strike Mastery / Immobilizing Ink /
   // Sinking Feeling: the tap-lock escape valve 'Enchanted creature has "{cost}: Untap this creature."').
   // "This creature" is the SOURCE the granted ability is enumerated on (the host — CR 113.7), the same
