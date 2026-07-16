@@ -2334,6 +2334,31 @@ function matchCumulativeUpkeep(oracle) {
 }
 
 /**
+ * ===== ECHO (BLITZ EC-1, CR 702.30) ===== the SENTINEL "echo {cost}" detectTriggers synthesizes off the
+ * keyword (whose triggered ability — "At the beginning of your upkeep, if this came under your control since
+ * the beginning of your most recent upkeep, sacrifice it unless you pay its echo cost." — lives entirely in
+ * reminder parens, the cumulative-upkeep precedent). Maps to the single `echo` pausing atom: the resolver
+ * fires the pay-or-sacrifice ONCE (the permanent's echoDone flag replaces the came-under-control-since
+ * intervening-if — for a permanent that stays under one controller, "first of your upkeeps since it entered"
+ * ⟺ "echoDone not yet stamped", exactly CR 702.30c's one-payment semantics) and every later upkeep no-ops.
+ * A hybrid cost DOES pay faithfully here (no per-counter scaling — the fixed printed cost), but the shared
+ * sac-unless-pay payer treats mana as fixed pips, so keep the SAME pure-cost gate as cumulative upkeep:
+ * {X}/snow/hybrid → null → LOW → the whole card stays body-only (a SAFE FN). Only recognizes the sentinel
+ * detectTriggers itself produces.
+ */
+function matchEcho(oracle) {
+  const s = stripReminder(oracle).trim().replace(/\.$/, "");
+  const m = s.match(/^echo\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null;
+  if (Array.isArray(mana.hybrid) && mana.hybrid.length) return null;
+  return { atom: { op: "echo", cost: { kind: "mana", mana }, targetType: null } };
+}
+
+/**
  * ===== OPPONENT-PAYS-TO-DENY (taxed-draw, CR 603.7c) ===== the effect clause of a "Whenever an opponent casts a
  * spell, you may draw a card unless that player pays {N}." trigger (Rhystic Study; Mystic Remora's draw half). The
  * PAYER is the opponent who cast (bound at resolution from ctx.castingPlayerId, threaded by checkCastTriggers); the
@@ -3301,6 +3326,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const cuk = matchCumulativeUpkeep(oracle);
   if (cuk && KNOWN.has(cuk.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [cuk.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== ECHO (BLITZ EC-1, CR 702.30) ===== the sentinel "echo {cost}" detectTriggers synthesizes off the
+  // keyword → ONE echo atom (first-your-upkeep pay-or-sacrifice, echoDone-stamped). Disjoint anchor.
+  const ech = matchEcho(oracle);
+  if (ech && KNOWN.has(ech.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [ech.atom], xSpell: false, unparsedTail: null });
   }
   // ===== OPPONENT-PAYS-TO-DENY ===== "you may draw a card unless that player pays {N}" (Rhystic Study's trigger
   // effect) → ONE taxed-draw atom (the payer = the opponent who cast, from ctx.castingPlayerId; the beneficiary =

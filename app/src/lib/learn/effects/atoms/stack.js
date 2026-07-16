@@ -4,7 +4,7 @@
  */
 
 import { applyDamageEffect } from "../../spellEffects.js";
-import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents } from "../../gameState.js";
+import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
@@ -699,6 +699,28 @@ function applyUpkeepSacUnlessPay(state, atom, ctx) {
 // new behavior is the age-counter placement + the per-counter cost scaling done here at fire time. A stale/
 // absent sourceId (the permanent already left the battlefield before the trigger resolved) is a clean no-op:
 // findPermanent returns null → no counter, no pending choice, the trigger fizzles (CR 603.4-adjacent).
+// ECHO (BLITZ EC-1, CR 702.30) — the ONE-TIME pay-or-sacrifice: at the FIRST of the controller's upkeeps
+// after the permanent entered, pay the printed echo cost or sacrifice it; every later upkeep is a clean
+// no-op (the echoDone stamp — for a permanent that stays under one controller this is exactly CR 702.30c's
+// "came under your control since your most recent upkeep" single payment). Reuses the SHARED sac-unless-pay
+// pending choice (the same resolve/settle/auto-pick chain cumulative upkeep inherits), fixed printed cost —
+// no scaling. A stale/absent sourceId (the permanent left before the trigger resolved) is a clean no-op.
+function applyEcho(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const sourceId = ctx.sourceId ?? null;
+  const lk = sourceId ? findPermanent(state, sourceId) : null;
+  if (!lk) return state;
+  if (lk.permanent.echoDone) return state; // the single echo payment already happened (CR 702.30c)
+  let next = updatePermanentSafe(state, sourceId, (p) => ({ ...p, echoDone: true }));
+  next = logEvent(next, { kind: "spell-effect", effect: "echo", controller: ctx.controller, sourceName: ctx.cardName || null });
+  return setPendingSacUnlessPayChoice(next, {
+    controller: ctx.controller,
+    cost: atom.cost,
+    sourceId,
+    sourceName: ctx.cardName || null,
+  });
+}
+
 function applyCumulativeUpkeep(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time
   const sourceId = ctx.sourceId ?? null;
@@ -1011,6 +1033,7 @@ export const stackResolvers = {
   "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
   "sac-unless-pay": applyUpkeepSacUnlessPay, // UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword) — "sacrifice this <noun> unless you pay {cost}"
   "cumulative-upkeep": applyCumulativeUpkeep, // CUMULATIVE UPKEEP (CR 702.24) — add age counter, pay {cost}×age-counters or sacrifice (Mystic Remora)
+  "echo": applyEcho, // ECHO (EC-1, CR 702.30) — the one-time first-upkeep pay-or-sacrifice (echoDone-stamped)
   "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
   "taxed-treasure": applyTaxedTreasure, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "an opponent draws → that player may pay {N}, else you create a Treasure" (Smothering Tithe)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent

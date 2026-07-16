@@ -108,6 +108,7 @@ const PAUSING_OPS_LIST = [
   "optional-discard-payment", // stack.js applyOptionalDiscardPayment → setPendingOptionalDiscardPaymentChoice (the cost-discard pause; payoff is non-pausing)
   "sac-unless-pay", // stack.js applyUpkeepSacUnlessPay → setPendingSacUnlessPayChoice (upkeep pay-or-sacrifice)
   "cumulative-upkeep", // stack.js applyCumulativeUpkeep → setPendingSacUnlessPayChoice (age counter + scaled pay-or-sacrifice — CR 702.24)
+  "echo", // stack.js applyEcho → setPendingSacUnlessPayChoice (the one-time first-upkeep pay-or-sacrifice — CR 702.30)
   "taxed-draw", // stack.js applyTaxedDraw → setPendingTaxedPaymentChoice (opponent pays or you draw — Rhystic Study)
   "taxed-treasure", // stack.js applyTaxedTreasure → setPendingTaxedPaymentChoice (opponent pays or you create a Treasure — Smothering Tithe)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)

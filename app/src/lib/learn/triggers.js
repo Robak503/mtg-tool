@@ -2435,6 +2435,20 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Cumulative upkeep ${cumUpkeep[1]}`,
     });
   }
+  // ECHO (BLITZ EC-1, CR 702.30) — KEYWORD→TRIGGER synthesis, the cumulative-upkeep precedent exactly. "Echo
+  // {cost}"'s triggered ability lives entirely in reminder parens. Synthesize the "your upkeep" descriptor with
+  // the "echo {cost}" sentinel (parser.matchEcho → the `echo` pausing atom: a ONE-TIME pay-or-sacrifice at the
+  // first of your upkeeps after it entered, echoDone-stamped so later upkeeps no-op — CR 702.30c's single
+  // payment). LINE-anchored (the printed keyword line, never a mid-sentence "echo" word); the brace cost is
+  // captured verbatim — an {X}/hybrid cost is rejected by the parser matcher (→ LOW → body-only, a SAFE FN).
+  const echoKw = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;])\s*echo\s+(\{[^}]+\}(?:\{[^}]+\})*)/i);
+  if (echoKw) {
+    out.push({
+      event: "upkeep", scope: "you", whose: "yours",
+      effect: null, effectClause: `echo ${echoKw[1]}`,
+      optional: false, sourceText: `Echo ${echoKw[1]}`,
+    });
+  }
   // SOULSHIFT (CR 702.46a — BLITZ SS-1) — KEYWORD→TRIGGER synthesis, the CU/BUSHIDO precedent. "Soulshift N"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, you
   // may return target Spirit card with mana value N or less from your graveyard to your hand.)"). Synthesize

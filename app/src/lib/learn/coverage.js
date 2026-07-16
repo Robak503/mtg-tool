@@ -113,6 +113,13 @@ export const COVERED_KEYWORDS = [
   // shaped count. Only the EXACT modeled cost shape flips — a hybrid/{X} cost is rejected by the parser matcher
   // (matchCumulativeUpkeep → the synthesized trigger routes LOW → the whole card stays body-only, a SAFE FN).
   "cumulative upkeep",
+  // ECHO (BLITZ EC-1, CR 702.30) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers
+  // (a "your upkeep" descriptor whose sentinel effectClause parses to the `echo` atom) and fired by
+  // checkStepTriggers — the FIRST of the controller's upkeeps after it entered suspends on the shared
+  // pay-or-sacrifice choice (echoDone-stamped, so later upkeeps no-op — CR 702.30c's single payment).
+  // "echo {cost}" matches via the startsWith check exactly like cumulative upkeep; only the pure-mana cost
+  // shape flips (matchEcho rejects {X}/hybrid → LOW → body-only, a SAFE FN).
+  "echo",
   // KW-FABRICATE (CR 702.111a) — ENFORCED: the ETB choice (N +1/+1 counters OR N 1/1 Servo tokens) resolves in
   // enterPermanent (resolvers.js) via fabricate.js — the counters branch adds them AS the creature enters
   // (through applyCounterDoubling), the Servo branch mints the tokens + fires their ETB watchers. "fabricate N"
@@ -614,6 +621,9 @@ function allTriggerSentencesModeled(card, oracle) {
   // detectTriggers synthesizes a "your upkeep" descriptor from the keyword; bump the shaped count by 1 so
   // shaped === detected holds. Keyed on the bare keyword surviving in the reminder-stripped text.
   const cumUpkeepShaped = /\bcumulative upkeep\s+\{/i.test(stripReminder(oracle)) ? 1 : 0;
+  // ECHO (BLITZ EC-1, CR 702.30) — the same reminder-parens keyword synthesis; bump the shaped count by 1
+  // so shaped === detected holds (line-anchored, matching the detectTriggers synthesis exactly).
+  const echoShaped = /(?:^|[\n.;])\s*echo\s+\{/i.test(stripReminder(oracle)) ? 1 : 0;
   // RAVENOUS (Edge of Eternities) — the synthesized "If X is 5 or more, draw a card when it enters" ETB draw
   // trigger lives in REMINDER parens, so stripReminder removes it before the shaped-sentence count — it never
   // appears as a When/Whenever/At sentence. Bump the count by 1 for the keyword so shaped === detected holds
@@ -628,7 +638,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const evolveShaped = evolveKeywordCount(oracle);
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + ravenousShaped + undyingShaped + evolveShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
