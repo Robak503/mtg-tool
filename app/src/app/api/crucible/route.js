@@ -26,6 +26,7 @@ import {
   crucibleResults,
   requestCrucibleCancel,
   bankCrucibleRun,
+  replayCrucibleGame,
 } from "../../../lib/learn/crucibleRun.js";
 import { loadCollection } from "../../../lib/server/collectionStorage.js";
 
@@ -82,8 +83,14 @@ export async function POST(request) {
   if (action === "status") return Response.json(crucibleStatus());
   if (action === "results") return Response.json(crucibleResults());
   if (action === "bank") return Response.json(await bankCrucibleRun({ trainingBank: body?.trainingBank === true }));
+  // Feature C — "watch the highlight": deterministically re-run ONE game of the finished pod and
+  // return its narrated log (crucibleRun.replayCrucibleGame guards context/range/mid-run honestly).
+  if (action === "replay") {
+    const res = await replayCrucibleGame(Number(body?.game));
+    return Response.json(res, { status: res.ok ? 200 : 400 });
+  }
   if (action !== "start") {
-    return Response.json({ error: 'action must be "start", "cancel", "status", "results", or "bank".' }, { status: 400 });
+    return Response.json({ error: 'action must be "start", "cancel", "status", "results", "bank", or "replay".' }, { status: 400 });
   }
 
   const mode = body?.mode === "standard" ? "standard" : "commander";

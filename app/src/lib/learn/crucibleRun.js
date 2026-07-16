@@ -24,6 +24,7 @@ import { runSelfPlayGame, resolveBaseSeed, engineSeatsForMode } from "./selfPlay
 import { formPod, podToArgs, gameSeedAt } from "./grindPod.js";
 import { aggregateBreakages } from "./breakageReport.js";
 import { mineHighlights } from "./highlightsMiner.js";
+import { narrateEngineLog } from "./engineLogNarrator.js";
 import { classifyComboWin, loadComboData } from "./winClassifier.js";
 
 const DECISIVE = new Set(["user-wins", "ai-wins"]); // a real winner; "draw" is decisive-but-winnerless (≈0 in practice)
@@ -81,8 +82,11 @@ function synopsis(game, winConLabel) {
   return `No result — ${game.result || "unknown"} (${turn})`;
 }
 
-/** Fold one finished game into the running aggregates. Pure bookkeeping over real fields. */
-function foldGame(game, pod, seats, comboData) {
+/** Fold one finished game into the running aggregates. Pure bookkeeping over real fields.
+ *  `seedIndex` = the LOOP's game index (the gameSeedAt argument) — recorded on the per-game row so a
+ *  replay can re-run this EXACT game. Distinct from the row's display index: an engine-throw skips
+ *  foldGame but still consumes a seed index, so the two drift apart on a stuck run. */
+function foldGame(game, pod, seats, comboData, seedIndex = null) {
   state.played += 1;
   state.lastResult = game.result ?? null;
   if (Number.isFinite(game.turns)) state.turnsSum += game.turns;
@@ -143,7 +147,7 @@ function foldGame(game, pod, seats, comboData) {
   const line = synopsis(game, comboName ? `combo (${comboName})` : winConCategory);
   state.recent.push(line);
   if (state.recent.length > RECENT_CAP) state.recent.shift();
-  state.perGame.push({ i: state.perGame.length, result: game.result ?? null, winner: game.winnerName ?? null, winCon: game.winCondition ?? null, turns: game.turns ?? null, order: order.filter(Boolean) });
+  state.perGame.push({ i: state.perGame.length, seedIndex, result: game.result ?? null, winner: game.winnerName ?? null, winCon: game.winCondition ?? null, turns: game.turns ?? null, order: order.filter(Boolean) });
 
   // Mine real breakage log entries (unmodeled/broken cards) — rare; fed to aggregateBreakages at results time.
   const log = Array.isArray(game.log) ? game.log : [];
@@ -200,12 +204,60 @@ async function loop({ decks, mode, target, pilotBuilder, seed, podSize }) {
       state.stuck += 1; state.played += 1; state.error = `game ${i}: ${e?.message || e}`;
       i += 1; if (i % CHUNK === 0) await macrotask(); continue;
     }
-    foldGame(game, pod, seats, comboData);
+    foldGame(game, pod, seats, comboData, i);
     i += 1;
     if (i % CHUNK === 0) await macrotask(); // yield so status/cancel routes are serviced
   }
   state.running = false;
   state.finishedAt = Date.now();
+}
+
+/**
+ * "Watch the highlight" (Crucible dream feature C): deterministically RE-RUN one game of the current
+ * run and hand back its full narrated log. Nothing is stored — same base seed + seed index ⇒ same
+ * shuffle ⇒ the identical game (the training-bank replay above rests on the same guarantee). Honest by
+ * construction: needs the run's in-memory replay context (server restart / a new run ⇒ a plain "can't
+ * replay" instead of a wrong game), and the result is cross-checked against the recorded per-game row —
+ * a mismatch is REPORTED, never papered over.
+ */
+export async function replayCrucibleGame(seedIndex) {
+  const ctx = state.replayCtx;
+  if (!ctx) return { ok: false, error: "No pod run in memory to replay — highlights can be watched right after their run finishes." };
+  if (state.running) return { ok: false, error: "The run is still going — watch a highlight once it finishes." };
+  if (!Number.isInteger(seedIndex) || seedIndex < 0 || seedIndex >= ctx.target) {
+    return { ok: false, error: `No game #${seedIndex} in this run.` };
+  }
+  const gameSeed = gameSeedAt(ctx.baseSeed, seedIndex);
+  const pod = formPod(ctx.decks, ctx.podSize, gameSeed);
+  let pilots = {};
+  try { if (ctx.pilotBuilder) pilots = ctx.pilotBuilder(pod, gameSeed) || {}; } catch { /* default AI — same fallback as the run */ }
+  const meta = { mode: ctx.mode, seatNames: pod.map((d) => d?.name || d?.id || "Unknown deck"), seed: gameSeed };
+  let game;
+  try {
+    game = runSelfPlayGame({ ...podToArgs(pod, ctx.mode, pilots, gameSeed), meta });
+  } catch (e) {
+    return { ok: false, error: `The replay hit an engine error: ${e?.message || e}` };
+  }
+  // Determinism cross-check vs the recorded row (when this seed index produced one).
+  const row = state.perGame.find((g) => g.seedIndex === seedIndex) || null;
+  const replayVerified = row ? (row.winner === (game.winnerName ?? null) && row.turns === (game.turns ?? null)) : null;
+  // Narrate server-side (engineLogNarrator): the client renders plain per-turn strings — deck names,
+  // noise filtered, unknown kinds silent — instead of shipping ~500 raw engine events over the wire.
+  const seats = engineSeatsForMode(ctx.mode);
+  const seatNameMap = Object.fromEntries(seats.map((s, k) => [s, meta.seatNames[k] || s]));
+  return {
+    ok: true,
+    replayVerified, // true = matches the recorded result · false = drifted (report it) · null = no recorded row
+    game: {
+      seedIndex,
+      seats: meta.seatNames,
+      result: game.result ?? null,
+      winner: game.winnerName ?? null,
+      winCon: game.winCondition ?? null,
+      turns: game.turns ?? null,
+      playByPlay: narrateEngineLog(Array.isArray(game.log) ? game.log : [], seatNameMap),
+    },
+  };
 }
 
 /** Request a graceful stop — the loop exits at the next game boundary. */

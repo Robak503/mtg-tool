@@ -70,13 +70,15 @@ export function mineHighlights(results) {
     out.push({ title: "How the pod closes", detail: `${Math.round((100 * topN) / totalWins)}% of wins came via ${wcPhrase(topWc)}${rest ? ` — then ${rest}` : ""}.` });
   }
 
-  // Fastest close + longest grind.
+  // Fastest close + longest grind — GAME-anchored facts: they carry the game's seed index so the
+  // results screen can offer "▶ watch it" (feature C — a deterministic replay of that exact game).
+  // Aggregate facts (crown, mixes) have no single game behind them, so they never carry one.
   if (decisiveGames.length) {
     const fastest = decisiveGames.reduce((a, b) => (b.turns < a.turns ? b : a));
-    out.push({ title: "Fastest close", detail: `${fastest.winner} closed a game out by turn ${fastest.turns} — the quickest kill of the run.` });
+    out.push({ title: "Fastest close", detail: `${fastest.winner} closed a game out by turn ${fastest.turns} — the quickest kill of the run.`, gameIndex: fastest.seedIndex ?? null });
     const longest = perGame.reduce((a, b) => ((b.turns ?? 0) > (a.turns ?? 0) ? b : a), perGame[0]);
     if (longest && Number.isFinite(longest.turns) && longest.turns !== fastest.turns) {
-      out.push({ title: "The long grind", detail: `The longest game ran ${longest.turns} turns before it broke${longest.winner ? ` for ${longest.winner}` : ""}.` });
+      out.push({ title: "The long grind", detail: `The longest game ran ${longest.turns} turns before it broke${longest.winner ? ` for ${longest.winner}` : ""}.`, gameIndex: longest.seedIndex ?? null });
     }
   }
 

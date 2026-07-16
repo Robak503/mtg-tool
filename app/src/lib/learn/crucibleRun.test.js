@@ -14,6 +14,7 @@ import {
   crucibleReportText,
   bankCrucibleRun,
   crucibleTrainingStatus,
+  replayCrucibleGame,
   _resetCrucibleForTests,
 } from "./crucibleRun.js";
 
@@ -181,5 +182,58 @@ describe("crucibleReportText + bank guard", () => {
     expect(done.error).toBeNull();
     expect(done.rows).toBeGreaterThan(0);
     expect(done.file).toBeTruthy();
+  });
+});
+
+describe("replayCrucibleGame — feature C: deterministic watch-it replay", () => {
+  it("re-runs a recorded game byte-identical (winner/turns match the per-game row) with a full log", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    startCrucibleRun({ decks: POD(), mode: "commander", target: 3, seed: 11 });
+    await awaitDone();
+    warn.mockRestore();
+    log.mockRestore();
+
+    const rows = crucibleResults().perGame;
+    expect(rows.length).toBeGreaterThan(0);
+    // Every folded row carries its SEED index (the replay anchor; drifts past the array index on throws).
+    for (const r of rows) expect(Number.isInteger(r.seedIndex)).toBe(true);
+
+    const row = rows[rows.length - 1];
+    const warn2 = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log2 = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await replayCrucibleGame(row.seedIndex);
+    warn2.mockRestore();
+    log2.mockRestore();
+    expect(res.ok).toBe(true);
+    expect(res.replayVerified).toBe(true); // same seed → the identical game, cross-checked, not assumed
+    expect(res.game.winner).toBe(row.winner);
+    expect(res.game.turns).toBe(row.turns);
+    expect(res.game.seats).toHaveLength(4);
+    // Pre-narrated play-by-play: per-turn groups of plain strings with the DECK names in them.
+    expect(Array.isArray(res.game.playByPlay)).toBe(true);
+    expect(res.game.playByPlay.length).toBeGreaterThan(0); // the scrubber has something to play
+    const allLines = res.game.playByPlay.flatMap((g) => g.lines);
+    expect(allLines.length).toBeGreaterThan(0);
+    expect(allLines.some((l) => /Alpha|Bravo|Charlie|Delta/.test(l))).toBe(true); // seat ids humanized to deck names
+    expect(allLines.some((l) => l.includes("?"))).toBe(false);                     // no un-narrated residue
+  });
+
+  it("refuses honestly: no run in memory, and an out-of-range game index", async () => {
+    const none = await replayCrucibleGame(0);
+    expect(none.ok).toBe(false);
+    expect(none.error).toMatch(/No pod run in memory/);
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    startCrucibleRun({ decks: POD(), mode: "commander", target: 2, seed: 11 });
+    await awaitDone();
+    warn.mockRestore();
+    log.mockRestore();
+    const out = await replayCrucibleGame(99);
+    expect(out.ok).toBe(false);
+    expect(out.error).toMatch(/No game #99/);
+    const bad = await replayCrucibleGame(-1);
+    expect(bad.ok).toBe(false);
   });
 });

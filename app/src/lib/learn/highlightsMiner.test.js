@@ -18,9 +18,9 @@ const results = {
   ],
   mostWins: { name: "Zaxara", wins: 52, winRate: 0.52 },
   perGame: [
-    { winner: "Ur-Dragon", turns: 8, result: "ai-wins" },
-    { winner: "Zaxara", turns: 22, result: "ai-wins" },
-    { winner: "Ur-Dragon", turns: 14, result: "user-wins" },
+    { winner: "Ur-Dragon", turns: 8, result: "ai-wins", seedIndex: 0 },
+    { winner: "Zaxara", turns: 22, result: "ai-wins", seedIndex: 2 }, // seedIndex ≠ array index (a throw consumed seed 1)
+    { winner: "Ur-Dragon", turns: 14, result: "user-wins", seedIndex: 3 },
   ],
 };
 
@@ -52,6 +52,23 @@ describe("mineHighlights", () => {
     expect(fast).toBeTruthy();
     expect(fast.detail).toContain("turn 8"); // the min-turns decisive game
     expect(fast.detail).toContain("Ur-Dragon");
+  });
+
+  it("game-anchored facts carry the game's SEED index for ▶ watch-it; aggregate facts never do (feature C)", () => {
+    const h = mineHighlights(results);
+    const fast = h.find((c) => c.title === "Fastest close");
+    const grind = h.find((c) => c.title === "The long grind");
+    expect(fast.gameIndex).toBe(0);   // the row's seedIndex, NOT its array position
+    expect(grind.gameIndex).toBe(2);  // longest game (22 turns) sits at seedIndex 2
+    for (const c of h) {
+      if (c.title !== "Fastest close" && c.title !== "The long grind") expect(c.gameIndex ?? null).toBeNull();
+    }
+  });
+
+  it("a legacy row without seedIndex yields gameIndex null — the ▶ never points at a guessed game", () => {
+    const legacy = { ...results, perGame: results.perGame.map(({ seedIndex: _s, ...g }) => g) };
+    const h = mineHighlights(legacy);
+    expect(h.find((c) => c.title === "Fastest close").gameIndex).toBeNull();
   });
 
   it("caps the reel and returns nothing for empty results", () => {

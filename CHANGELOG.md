@@ -22,6 +22,13 @@ summarizes the notable changes.
   grind game now records an exact-to-the-card fingerprint of each deck in the pod — every copy,
   basics included, commanders and companion — so a future update can show how a deck's results
   changed after you swapped a card. Forward-only: old games simply carry no stamp.
+- **▶ Watch the highlight.** The Crucible's post-run highlight reel grew a play button: facts tied
+  to one specific game — the fastest close, the longest grind — now carry **▶ Watch it**, which
+  re-runs that exact game (same seeds, so it's the identical game, cross-checked against the
+  recorded result) and opens a turn-by-turn play-by-play you can step through: mulligans, land
+  drops, casts, the 25-creature alpha strike, who died to what. The narration filters the
+  bookkeeping and names decks, not seat numbers. Aggregate facts (the crown, the win-con mix)
+  have no single game behind them, so they honestly don't get a button.
 - **The Living History** — the payoff of the version stamp, live in each Reflecting Pool dossier.
   Every version of your deck the grind has seen becomes an era: its exact card changes by name
   ("+ Last March of the Ents · − Noxious Newt"), its record, and — only when the numbers can
@@ -36,6 +43,14 @@ summarizes the notable changes.
   unspecified-damage bucket topping every deck at 80–97%, which coaches nothing. It now lives
   honestly in the facts row ("damage / drains"); only specifically-stamped finishes (commander
   damage, poison, decking, a win-the-game effect, burn, combat) can earn a pattern line.
+- **The A/B bench now tells you when a card isn't fully modeled.** A card the sim can't fully
+  play (its rules text never fires — it still attacks and blocks as a body) used to read as
+  "no effect", which looked like a verdict on the card. The bench now checks both cards up
+  front and shows a plain warning naming the not-fully-modeled one, framing the result as a
+  partial read instead of letting the silence lie.
+- Grind-store hardening: the pattern miners now collapse a double-written game record
+  (a rare concurrent-writer race) instead of counting it twice. An audit found zero such
+  records in the existing history — this is insurance, not a repair.
 
 ## [0.141.0] — 2026-07-15
 

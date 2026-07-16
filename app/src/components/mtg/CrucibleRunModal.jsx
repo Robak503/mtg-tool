@@ -254,18 +254,108 @@ function Podium({ results, foilSet }) {
   );
 }
 
+/**
+ * ReplayViewer — feature C's scrubber: the deterministic re-run of ONE game behind a highlight,
+ * stepped turn by turn like the Table Records scrubber. The play-by-play arrives pre-narrated from
+ * the server (engineLogNarrator — deck names, noise filtered), so each entry is a plain string.
+ * Pure props: { replay: {game, replayVerified}, onClose }.
+ */
+function ReplayViewer({ replay, onClose }) {
+  const groups = replay.game.playByPlay || [];
+  const [idx, setIdx] = useState(0);
+  const clamped = Math.min(Math.max(idx, 0), Math.max(0, groups.length - 1));
+  const seg = groups[clamped] || null;
+  const turnLabel = (g) => (g && g.turn != null ? `T${g.turn}` : "—");
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={sectionLbl}>Watching game #{replay.game.seedIndex + 1}</div>
+        <span style={{ fontSize: 11.5, color: "var(--ley-text-dim)" }}>
+          {replay.game.seats.join(" vs ")} · {replay.game.winner ? `${replay.game.winner} won` : replay.game.result} · turn {replay.game.turns ?? "—"}
+        </span>
+        <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={onClose}>✕ Back to highlights</button>
+      </div>
+      {replay.replayVerified === false && (
+        <div style={{ fontSize: 11, color: "var(--ley-gold)", marginBottom: 8 }}>
+          ⚠ This replay didn&apos;t exactly match the recorded result — showing it anyway, but treat it with care.
+        </div>
+      )}
+      {groups.length === 0 ? (
+        <div style={{ color: "var(--ley-text-faint)", fontSize: 12 }}>The replay produced no log lines.</div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIdx(Math.max(0, clamped - 1))} disabled={clamped <= 0}>◂ Prev</button>
+            <span style={{ fontSize: 11, color: "var(--ley-text-dim)", fontVariantNumeric: "tabular-nums", minWidth: 110, textAlign: "center" }}>
+              {turnLabel(seg)} · segment {clamped + 1}/{groups.length}
+            </span>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIdx(Math.min(groups.length - 1, clamped + 1))} disabled={clamped >= groups.length - 1}>Next ▸</button>
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10, maxHeight: 74, overflowY: "auto" }}>
+            {groups.map((g, i) => (
+              <button key={i} type="button" className="btn btn-ghost btn-sm" onClick={() => setIdx(i)}
+                style={{ minWidth: 32, ...(i === clamped ? { background: "var(--ley-green-dim)", borderColor: "var(--ley-green)", color: "var(--ley-green)" } : {}) }}
+                title={`Jump to ${turnLabel(g)}`}>
+                {turnLabel(g)}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: "38vh", overflowY: "auto" }}>
+            {seg.lines.map((line, i) => (
+              <div key={i} style={{ fontSize: 11.5, color: "var(--ley-text)", lineHeight: 1.45, padding: "5px 8px", background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: 4 }}>
+                {line}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Highlights({ results }) {
   const h = results.highlights || [];
+  // Feature C — "watch the highlight": game-anchored facts (gameIndex != null) carry a ▶ that
+  // deterministically re-runs that exact game server-side and opens the scrubber over its log.
+  const [replay, setReplay] = useState(null);          // { game, replayVerified } | null
+  const [replayBusy, setReplayBusy] = useState(null);  // the gameIndex being fetched
+  const [replayErr, setReplayErr] = useState(null);
+  const watch = async (gameIndex) => {
+    if (replayBusy != null) return;
+    setReplayBusy(gameIndex);
+    setReplayErr(null);
+    try {
+      const resp = await fetch("/api/crucible", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "replay", game: gameIndex }) });
+      const body = await resp.json();
+      if (!resp.ok || !body.ok) setReplayErr(body.error || "Couldn't replay that game.");
+      else setReplay(body);
+    } catch (e) {
+      setReplayErr(e.message);
+    } finally {
+      setReplayBusy(null);
+    }
+  };
+  if (replay) return <ReplayViewer replay={replay} onClose={() => setReplay(null)} />;
   return (
     <div>
       <div style={sectionLbl}>Highlights</div>
+      {replayErr && <div style={{ fontSize: 11.5, color: "var(--ley-gold)", marginBottom: 8 }}>⚠ {replayErr}</div>}
       {h.length === 0 ? (
         <div style={{ color: "var(--ley-text-faint)", fontSize: 12 }}>No standout facts this run.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {h.map((c, i) => (
             <div key={i} style={{ padding: "8px 10px", background: "var(--ley-surface-1)", border: "1px solid var(--ley-line)", borderRadius: 8 }}>
-              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ley-green-text)", fontFamily: "var(--font-mono)" }}>{c.title}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ley-green-text)", fontFamily: "var(--font-mono)" }}>{c.title}</div>
+                {c.gameIndex != null && (
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: "auto", color: "var(--ley-green)" }}
+                    onClick={() => watch(c.gameIndex)} disabled={replayBusy != null}
+                    title="Re-run this exact game and watch it play out">
+                    {replayBusy === c.gameIndex ? "replaying…" : "▶ Watch it"}
+                  </button>
+                )}
+              </div>
               <div style={{ fontSize: 12.5, color: "var(--ley-text)", marginTop: 2 }}>{c.detail}</div>
             </div>
           ))}
