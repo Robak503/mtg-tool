@@ -1,11 +1,20 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +429 more (campaign +637), 32 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +430 more (campaign +638), 33 slices, LOST=0
 
 > Latest: **SC-1** cant-be-blocked SELF + the life-comparison intervening-if (16d80461, +15) — the
 > unblockable-activation class (Gearseeker Serpent kin) + Sword Coast Sailor; the Tar Pit pin caught a
-> real layer-blindness in selfTargets (now permanentIsCreature-aware). The exact-30% line (10,248) is
-> 28 cards out; baseline scratchpad cand45.txt (10,220).
+> real layer-blindness in selfTargets (now permanentIsCreature-aware) · **the JB-1 widening**
+> (14cf09a0, +1) — "this PERMANENT deals N damage to you" → Plague Sliver's group drain flips.
+> The exact-30% line (10,248) is 27 cards out; baseline scratchpad cand46.txt (10,221).
+>
+> ENCHANT-LAND SEVEN probed and PARKED with reasons: Chamber (control-until-EOT duration unmodeled) ·
+> Farmstead (upkeep pay-offer) · Equinox (conditional counter) · Urban Burgeoning (other-players'
+> untap-step modifier) · Tin Street Market + friends (the "{T}, Discard a card:" COST — a cost-vocabulary
+> + activation-pause extension, the likeliest medium build next) · Animal Boneyard (sac cost + dynamic
+> toughness lifegain). Sunken Field already native. The big remaining machinery lanes: until-EOT quoted
+> TEMP-GRANTS (13 across three tails — needs a grant-vehicle continuous effect + enumeration read) and
+> the 20 enchant-creature grant interiors (one-by-one).
 
 > **THE +600 MILESTONE**: campaign native+land 9,583 → 10,200 name-dedup (~29.9% of 34,161 — one slice
 > from 30%). Latest: **LV-1** the leavesSelf event + the LTB disjunction (a4b8c521, +20) — THRAGTUSK
