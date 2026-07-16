@@ -96,6 +96,22 @@ export function parseGraveyardFilter(phrase) {
 function cardMatchesGraveyardFilter(card, cardFilter) {
   if (!cardFilter || cardFilter === "any") return true;
   const front = String(card?.type || card?.type_line || "").split(" // ")[0];
+  // STRUCTURED subtype+MV filter (BLITZ SS-1 — the soulshift recursion "target Spirit card with mana
+  // value N or less"): front-face subtype containment (word-bounded, CR 712.4a discipline) AND the
+  // card's mana value within the cap (the same `cmc ?? mana_value ?? 0` read the Despark-class MV
+  // gates use — CR 202.3, an absent cost reads 0). Object filters and string tokens share this ONE
+  // chokepoint, so cast-time enumeration and the trigger-flush chooser can't drift.
+  if (typeof cardFilter === "object") {
+    if (cardFilter.subtype) {
+      const re = new RegExp(`\\b${String(cardFilter.subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (!re.test(front)) return false;
+    }
+    if (typeof cardFilter.mvMax === "number") {
+      const mv = card?.cmc ?? card?.mana_value ?? 0; // CR 202.3 — an absent cost reads MV 0
+      if (mv > cardFilter.mvMax) return false;
+    }
+    return true;
+  }
   if (cardFilter === "permanent") return /\b(?:Creature|Artifact|Enchantment|Land|Planeswalker|Battle)\b/.test(front);
   return cardFilter.split("|").some((tok) => GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok]));
 }

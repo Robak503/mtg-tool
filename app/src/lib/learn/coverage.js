@@ -120,11 +120,18 @@ export const COVERED_KEYWORDS = [
   // by stripReminder before the keyword-only split), exactly like "fading N" / "bushido N".
   "fabricate",
   // BUSHIDO / RAMPAGE (subsystem 2) — ENFORCED: the keyword's triggered ability is synthesized in
-  // detectTriggers + fired by checkBlockTriggers. Bushido (CR 702.46a — "blocks or becomes blocked → +N/+N
+  // detectTriggers + fired by checkBlockTriggers. Bushido (CR 702.45 — "blocks or becomes blocked → +N/+N
   // this turn") + Rampage (CR 702.23a — "becomes blocked → +N/+N for each blocker beyond the first", a
   // DYNAMIC amount computed at fire time). "bushido N" / "rampage N" match via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count for each.
   "bushido", "rampage",
+  // SOULSHIFT (CR 702.46a — BLITZ SS-1) — ENFORCED: the keyword's dies-trigger is synthesized in
+  // detectTriggers ("you may return target spirit card with mana value N or less from your graveyard to
+  // your hand" — the printed reminder wording) and fired by the normal dies flush; the clause parses to
+  // the return-from-graveyard atom with a STRUCTURED {subtype:"spirit", mvMax:N} filter enforced at the
+  // cardMatchesGraveyardFilter chokepoint (enumeration + flush chooser). "soulshift N" matches via the
+  // startsWith check; a double soulshift synthesizes two descriptors (CR 702.46b).
+  "soulshift",
   // KW-RAVENOUS (Edge of Eternities / Warhammer 40k) — ENFORCED end-to-end: the keyword's ability lives in
   // REMINDER parens (stripped by isKeywordOnly before the keyword-only split, leaving the bare "Ravenous"
   // word, exactly like bushido/afflict). Its TWO halves are both modeled: (1) enters-with-X +1/+1 counters —

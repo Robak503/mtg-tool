@@ -247,6 +247,19 @@ export function graveyardReturnClauseParser(clause) {
     const cardFilter = parseGraveyardFilter(multiM[2]);
     if (n >= 1 && cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, maxTargets: n, minTargets: 0 };
   }
+  // SOULSHIFT-CLASS subtype+MV recursion (BLITZ SS-1, CR 702.46a): "return target Spirit card with mana
+  // value N or less from your graveyard to your hand" — the synthesized soulshift trigger's effect clause.
+  // A STRUCTURED cardFilter {subtype, mvMax} rides the SAME return-from-graveyard resolver + the ONE
+  // cardMatchesGraveyardFilter chokepoint (enumeration + flush chooser can't drift). The subtype word is
+  // allowlisted (spirit only — the only word the soulshift reminder prints; "Spirit" appears in corpus
+  // type lines exclusively as a creature subtype). An unlisted word falls through → LOW → Arbiter.
+  const ssm = /^return target ([a-z]+) card with mana value (\d+) or less from your graveyard to your hand$/.exec(t);
+  if (ssm) {
+    if (ssm[1] === "spirit") {
+      return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: { subtype: "spirit", mvMax: parseInt(ssm[2], 10) } };
+    }
+    return null; // an unlisted subtype/word → the whole clause stays unmodeled (never a mis-match)
+  }
   const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
   if (gm) {
     const cardFilter = parseGraveyardFilter(gm[1]);

@@ -2384,6 +2384,22 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Cumulative upkeep ${cumUpkeep[1]}`,
     });
   }
+  // SOULSHIFT (CR 702.46a — BLITZ SS-1) — KEYWORD→TRIGGER synthesis, the CU/BUSHIDO precedent. "Soulshift N"
+  // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, you
+  // may return target Spirit card with mana value N or less from your graveyard to your hand.)"). Synthesize
+  // the dies descriptor with the printed reminder wording as its effectClause — the "you may" rides the α2
+  // optional-effect wrapper exactly like printed text (the atom pauses for its yes/no), and the target (a
+  // Spirit MV≤N in the CONTROLLER'S OWN graveyard) is own-side for the flush chooser (return-from-graveyard
+  // → atomTargetIntent "own"). matchAll: a DOUBLE soulshift (Forked-Branch Garami "Soulshift 4, soulshift 4")
+  // synthesizes TWO descriptors — two separate dies triggers, each returning a card (CR 702.46b).
+  for (const ss of oracle.replace(/\([^)]*\)/g, " ").matchAll(/\bsoulshift\s+(\d+)\b/gi)) {
+    const n = parseInt(ss[1], 10);
+    out.push({
+      event: "dies", scope: "self", whose: "any",
+      effect: null, effectClause: `you may return target spirit card with mana value ${n} or less from your graveyard to your hand`,
+      optional: false, sourceText: `Soulshift ${n}`,
+    });
+  }
   // KW-UNDYING (CR 702.92a, SHELF S7) — KEYWORD→TRIGGER synthesis, the BUSHIDO/AFFLICT precedent. "Undying"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, if it
   // had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter
