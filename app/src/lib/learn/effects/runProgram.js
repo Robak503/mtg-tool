@@ -903,7 +903,9 @@ export function resolveSoftCounterChoice(state, pay) {
   if (paid) {
     next = logEvent(next, { kind: "spell-effect", effect: "soft-counter-paid", controller: pc.controller, amount: pc.amount, cost: pc.cost || null, spellName: pc.spellName });
   } else {
-    next = counterSpellById(next, pc.spellId, { via: "soft-counter" });
+    // CS-1: a soft counter with a zone redirect (Syncopate / No More Lies) exiles on the decline —
+    // pc.counterDest rides the choice from applyCounter so the redirect survives the suspend.
+    next = counterSpellById(next, pc.spellId, { via: "soft-counter", counterDest: pc.counterDest || null });
   }
   return resumeAfterChoice(next, pc);
 }

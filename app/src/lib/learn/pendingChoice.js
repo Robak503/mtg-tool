@@ -374,12 +374,13 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
  * (and can afford it), the spell SURVIVES; otherwise it's countered. The caster's continuation rides on
  * `pendingChoice.resume` (attached by runProgram). FIFO: one choice at a time.
  */
-export function setPendingSoftCounterChoice(state, { controller, amount, cost = null, spellId, spellName = null, sourceName = null }) {
+export function setPendingSoftCounterChoice(state, { controller, amount, cost = null, spellId, spellName = null, sourceName = null, counterDest = null }) {
   if (state.pendingChoice) return state;
   // `amount` is the legacy FIXED-GENERIC cost (Force Spike / Mana Leak / generic-mana ward). `cost` is the
   // KW-WARD-PR2 STRUCTURED cost descriptor ({kind:"mana",mana} | {kind:"life",life}) — when present it
-  // overrides `amount` at settle (resolveSoftCounterChoice branches on it). For logging, surface the
-  // headline number either way so the banner reads sensibly.
+  // overrides `amount` at settle (resolveSoftCounterChoice branches on it). `counterDest` (CS-1 —
+  // Syncopate / No More Lies) is the decline path's zone redirect ("exile"), threaded through to
+  // counterSpellById so the suspend can't drop it. For logging, surface the headline number either way.
   const logAmount = cost ? wardCostHeadline(cost) : amount;
   const next = logEvent(state, { kind: "soft-counter-pending", controller, amount: logAmount, spellName, sourceName });
   return {
@@ -389,6 +390,7 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
       controller,
       amount,
       ...(cost ? { cost } : {}),
+      ...(counterDest ? { counterDest } : {}),
       spellId,
       spellName,
       sourceName,

@@ -178,6 +178,9 @@ function applyCounter(state, atom, ctx) {
         spellId: t.id,
         spellName: card?.name || null,
         sourceName: ctx.cardName || null,
+        // CS-1 (Syncopate / No More Lies): a soft counter with a zone redirect carries the destination
+        // ONTO the choice, so the decline path (resolveSoftCounterChoice → counterSpellById) can't drop it.
+        counterDest: atom.exileInstead ? "exile" : (atom.counterDest || null),
       });
     }
     // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it (CNT-ZONE-REDIRECT routes it to

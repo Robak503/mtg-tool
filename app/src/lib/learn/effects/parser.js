@@ -1098,6 +1098,12 @@ function parseControllerRider(t) {
   // the optional "may" is the tutor's find-nothing (identical to how Farhaven Elf's "you may search" models).
   m = t.match(/^may search their library for a basic land card, put (?:it|that card) onto the battlefield( tapped)?, then shuffle$/);
   if (m) return { kind: "rampBasic", entersTapped: !!m[1] };
+  // CNT-MILL-RIDER (BLITZ CS-1 — Thought Collapse / Didn't Say Please) — "mills N cards" (the COUNTERED
+  // spell's controller mills, applied to the captured controller via library.millOnePlayer so the
+  // mill-doubler + milled-trigger binds fire exactly like any other mill). Fixed count only; a scaled/
+  // conditional form leaves the anchor unmatched → null → low → Arbiter.
+  m = t.match(/^mills (a|two|three|four|five|six|seven|eight|\d+) cards?$/);
+  if (m) return { kind: "mill", count: RIDER_COUNT[m[1]] ?? parseInt(m[1], 10) };
   return null; // an unmodeled controller rider → low → Arbiter
 }
 function matchRemovalControllerRider(oracle) {
@@ -1171,18 +1177,21 @@ function matchCounterControllerRider(oracle) {
   if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
   return { atom: { ...lead, controllerRider: rider }, rest: (m[3] || "").trim() };
 }
-// CNT-EXILE-INSTEAD (WAVE 2b) — "Counter target <filter> spell. If that spell is countered this way, exile it
-// instead of putting it into its owner's graveyard." (Deny Existence "creature", Dissipate-style). The lead
-// reuses the counter grammar (so a lead filter the grammar doesn't model — Deny the Divine's "creature or
-// enchantment", Faerie Trickery's "non-Faerie" — fails the lead parse → null → low → Arbiter, ALL-OR-NOTHING).
-// The countered spell goes to EXILE not the graveyard (applyCounter reads atom.exileInstead). Spans two
-// sentences (the "If that spell …" rider would be shattered by splitClauses), so it's matched up front as ONE
-// collapsed atom. ANCHORED — a hard-counter lead only; the soft-counter path's pay-decision isn't composed here.
+// CNT-EXILE-INSTEAD (WAVE 2b + BLITZ CS-1) — "Counter target <filter> spell[ unless its controller pays
+// {N}/{X}]. If that spell is countered this way, exile it instead of putting it into its owner's graveyard."
+// (Deny Existence "creature" — hard; Syncopate "{X}" / No More Lies "{3}" — SOFT: the pay-decision suspends
+// first, and the DECLINE path exiles instead — setPendingSoftCounterChoice carries counterDest through to
+// resolveSoftCounterChoice, so the redirect can't be dropped on the suspend). The lead reuses the counter
+// grammar (a lead filter the grammar doesn't model — Deny the Divine's "creature or enchantment", Faerie
+// Trickery's "non-Faerie" — fails the lead parse → null → low → Arbiter, ALL-OR-NOTHING). Spans two
+// sentences (the "If that spell …" rider would be shattered by splitClauses), so it's matched up front as
+// ONE collapsed atom. The optional unless-pays span rides INSIDE the lead capture (the sc/scx grammar
+// parses it); an unmodeled soft form (pay-count, pay-life) isn't in the span → no match → Arbiter.
 function matchCounterExileInstead(oracle) {
-  const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
+  const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell(?: unless its controller pays \{[\dx]+\})?)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
   if (!m) return null;
   const lead = counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
-  if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
+  if (!lead || lead.op !== "counter") return null; // soft leads OK (CS-1): the choice carries the dest
   return { atom: { ...lead, exileInstead: true }, rest: "" };
 }
 // CNT-ZONE-REDIRECT (CROSS-COUNTER) — "Counter target <filter> spell. If that spell is countered this way, put

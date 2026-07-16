@@ -11,7 +11,7 @@ import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
-import { applyTutor } from "./library.js";
+import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove } from "./zones.js";
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
@@ -111,6 +111,14 @@ export function applyControllerRider(state, rider, cap, ctx) {
     // library, their pick; the "may" is the tutor's find-nothing. Suspends the program (pending-choice).
     const tutorAtom = { op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: !!rider.entersTapped, targetType: null };
     return applyTutor(state, tutorAtom, { ...ctx, controller: cap.controller });
+  }
+  if (rider.kind === "mill") {
+    // CNT-MILL-RIDER (BLITZ CS-1 — Thought Collapse / Didn't Say Please): the COUNTERED spell's controller
+    // mills N. Routes through the SHARED millOnePlayer chokepoint, so the mill-doubler (CR 616) and the
+    // milled-trigger binds fire exactly like every other mill instruction (CR 701.13a).
+    const n = Math.max(0, rider.count || 0);
+    const next = millOnePlayer(state, cap.controller, n);
+    return logEvent(next, { kind: "spell-effect", effect: "rider-mill", controller: cap.controller, amount: n });
   }
   return state;
 }

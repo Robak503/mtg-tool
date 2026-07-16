@@ -633,7 +633,7 @@ export function applyCascadeAtom(state, atom, ctx) {
  * mill (CR 701.13a — one event per mill instruction). Captures the ACTUAL milled cards (top N, bounded by
  * library size) BEFORE the move so checkMilledTriggers can read their front-face types. A no-op mill (empty
  * library) mills nothing → no trigger (checkMilledTriggers no-ops on an empty batch). Pure. */
-function millOnePlayer(state, playerId, count) {
+export function millOnePlayer(state, playerId, count) {
   const player = state.players[playerId];
   if (!player) return state;
   // MILL-DOUBLER (Bruvac, SHELF M2 — CR 616): an opponent's mill-count replacement multiplies the INSTRUCTED

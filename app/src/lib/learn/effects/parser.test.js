@@ -834,8 +834,8 @@ const MUST_DROP_TO_LOW = [
   "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider — the SHORT form (no "of putting it into its owner's graveyard") stays low
   // ── P3.1 corpus-confirmed riders (REAL Scryfall cards the sweep verified stay LOW) ──
   // (Annul "artifact or enchantment" is now HIGH — CNT-TYPE, pinned in counterSpellFilters.test.js)
-  "Counter target spell. Its controller mills four cards.",            // Countermand — unmodeled mill rider
-  "Counter target noncreature spell. Its controller loses 2 life.",    // Countersquall — "its controller" subject unmodeled
+  // (Countermand's "Its controller mills four cards." is now HIGH — CNT-MILL-RIDER, BLITZ CS-1, pinned in counterSoftRiders.test.js)
+  "Counter target noncreature spell. Its controller loses 2 life.",    // Countersquall — "its controller" lose-life rider unmodeled
   "Choose up to two —\n• Draw a card.\n• You gain 3 life.",            // MODAL-2 models "choose two"/"one or both"; "up to N" count stays low
   "Choose two —\n• Draw a card.\n• Untap all lands you control, then add {G} for each.", // a choose-two with an UNMODELED mode → whole card low (all-or-nothing across modes)
   "Counter target spell you don't control.",                           // Counterflux — "you don't control" unmodeled
