@@ -370,7 +370,7 @@ describe("coverageSummary", () => {
     C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // native-trigger (P2.8)
     C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // native-static (P2.10)
     C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest.", { qty: 1 }), // body-only (conditional static — unmodeled)
-    C("Sorcery", "Target player mills four cards.", { qty: 1 }), // arbiter-spell (mill — unmodeled)
+    C("Sorcery", "Target player mills half their library.", { qty: 1 }), // arbiter-spell (bare half-library mill, no rounding — deliberately unmatched)
   ];
   it("counts tiers weighted by qty and computes native %", () => {
     const s = coverageSummary(DECK);

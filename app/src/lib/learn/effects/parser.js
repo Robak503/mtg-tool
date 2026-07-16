@@ -3705,6 +3705,16 @@ export function atomTargetIntent(atom) {
       // The controller never targets themselves with a discard trigger.
       if (tt === "player" || tt === "opponent") return "enemy";
       return "ambiguous";
+    case "mill":
+      // TARGET-MILL (BLITZ TM-1 — Tome Scour / Millstone / Returned Centaur class): "target player/
+      // opponent mills N cards" is harmful, enemy-side like targeted discard — the flush chooser always
+      // picks an opponent, which structurally closes the self-mill data-poisoning hazard this class was
+      // deferred over. (Milling YOURSELF for graveyard synergy is a play-quality refinement for the
+      // pilots, never a correctness requirement — the enemy pick is always legal, never fabricated.
+      // The half-library form shares this atom shape; no half-library TRIGGER exists in the corpus, so
+      // the case only tightens its intent from ambiguous → enemy, correct if one is ever printed.)
+      if (tt === "player" || tt === "opponent") return "enemy";
+      return "ambiguous";
     case "gain-life":
       // "target player gains N life" (Titan of Industry's ETB mode, Perrie, various charms) — life gain is
       // purely BENEFICIAL, so the controller always targets THEMSELVES on a trigger flush (targeting an opponent

@@ -87,8 +87,10 @@ describe("parseEffectProgram — multi-clause sequences (P2.5)", () => {
     ]);
   });
   it("ALL-OR-NOTHING: a multi-clause program with ANY unmodeled clause stays low + zero atoms", () => {
-    // clause 1 (damage) is modeled; clause 2 (mill) is not (no atom yet) → whole low.
-    const p = parseEffectProgram(I("Deal 2 damage to target creature. Target player mills three cards."));
+    // clause 1 (damage) is modeled; clause 2 (bare half-library mill, NO stated rounding — deliberately
+    // unmatched, see millClauseParser) is not → whole low. (The fixed-amount targeted mill that held this
+    // slot went native in BLITZ TM-1.)
+    const p = parseEffectProgram(I("Deal 2 damage to target creature. Target player mills half their library."));
     expect(programConfidence(p)).toBe("low");
     expect(p.atoms).toHaveLength(0);
   });
@@ -114,8 +116,8 @@ describe("parseEffectProgram — modal 'Choose one —' (P2.5)", () => {
     expect(p.modal.modes[1].atoms[0].op).toBe("destroy");
   });
   it("ALL-OR-NOTHING across modes: an unmodeled mode forces the whole modal low", () => {
-    // mode 2 ("mill three cards") has no atom yet → whole modal low, zero atoms.
-    const p = parseEffectProgram(I("Choose one —\n• Draw a card.\n• Target player mills three cards."));
+    // mode 2 (bare half-library mill, no rounding — deliberately unmatched) → whole modal low, zero atoms.
+    const p = parseEffectProgram(I("Choose one —\n• Draw a card.\n• Target player mills half their library."));
     expect(programConfidence(p)).toBe("low");
     expect(p.atoms).toHaveLength(0);
   });

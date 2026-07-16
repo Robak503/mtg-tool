@@ -24,8 +24,10 @@
  * opponent (the enemy-side chooser), so N copies of Grapeshot = N separate 1-damage instances each to a chosen
  * target. The body flips ONLY when every chosen-target atom is intent-resolvable (programTriggerTargetsResolvable).
  *
- * CREED anti-FP pins: a targeted-body storm spell whose body parses LOW (Brain Freeze — "target player mills
- * three cards" isn't a modeled atom) stays on the Arbiter (the HIGH-body gate catches it BEFORE the target gate).
+ * CREED anti-FP pins: a targeted-body storm spell whose body parses LOW (Wing Shards — "target player
+ * sacrifices an ATTACKING creature" isn't a modeled edict restriction) stays on the Arbiter (the HIGH-body
+ * gate catches it BEFORE the target gate). (Brain Freeze held this pin until its targeted mill went native
+ * in BLITZ TM-1.)
  * A creature storm spell with an unmodeled anthem (Stormscale Scion / Stormscale Wurm — the Ur-Dragon card) stays
  * body-only. A LOW-body storm spell (Crow Storm — a named token; Dragonstorm — a tutor-to-battlefield) stays
  * Arbiter. Real oracle text (verified vs the bundled local index), verbatim.
@@ -115,11 +117,12 @@ describe("STORM — targeted-body storm spells classify native-spell (copies cho
 // ── classification: CREED anti-FP (parked) ───────────────────────────────────────
 describe("STORM — PARKED: storm spells whose whole card isn't modeled stay non-native", () => {
   const parked = {
-    // LOW body — "target player mills three cards" isn't a modeled atom, so the HIGH-body gate parks it BEFORE
-    // the target gate is ever consulted (a targeted-mill atom is a separate, larger build). CREED whole-card.
-    "Brain Freeze (LOW targeted-mill body)": {
-      name: "Brain Freeze", type: "Instant", mana: "{1}{U}",
-      oracle: "Target player mills three cards.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    // LOW body — "target player sacrifices an ATTACKING creature of their choice" isn't a modeled edict
+    // restriction, so the HIGH-body gate parks it BEFORE the target gate is ever consulted. (Brain Freeze
+    // held this slot until BLITZ TM-1 made its targeted mill native.) CREED whole-card.
+    "Wing Shards (LOW targeted-edict body)": {
+      name: "Wing Shards", type: "Instant", mana: "{1}{W}{W}",
+      oracle: "Target player sacrifices an attacking creature of their choice.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
     },
     // Creature storm spell with an UNMODELED anthem (the Ur-Dragon card) — body-only.
     "Stormscale Scion (anthem unmodeled)": {

@@ -1279,6 +1279,15 @@ export function millClauseParser(clause) {
   if (/^enchanted player mills x cards, where x is the number of cards put into their graveyard from anywhere this turn$/.test(t)) {
     return { op: "enchanted-gy-mill", targetType: null };
   }
+  // FIXED-AMOUNT targeted mill (BLITZ TM-1 — Tome Scour / Millstone / Returned Centaur class): "target
+  // player/opponent mills N cards". Rides the SAME who:"target" applyMill branch the half-library form
+  // shipped (the resolver loops ctx.targets with the printed amount; doubler + milled-trigger binds fire
+  // through millOnePlayer like every other mill). Trigger carriers (ETB "target player mills four") route
+  // natively because atomTargetIntent reports mill target player/opponent as "enemy" — the flush chooser
+  // always picks an opponent, which structurally closes the self-mill data-poisoning hazard this class
+  // was deferred over. Anchored ^…$: any rider ("for each…", "that many", "twice that many") falls through.
+  m = t.match(/^target (player|opponent) mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[2]] ?? parseInt(m[2], 10), who: "target", targetType: m[1] };
   // HALF-LIBRARY targeted mill (Kitsune's Technique — SHELF S7): "target opponent/player mills half their
   // library, rounded up/down". A CHOSEN player target (the cast path enumerates + picks interactively —
   // the old first-legal trigger hazard doesn't arise on a spell, and no trigger prints this form); the

@@ -14,7 +14,7 @@ import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.j
 export const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
 // Spelled cardinals up to ten — mill amounts ("Mill three cards", "Mill ten cards") are spelled out.
-export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };
 
 // ===== COST-ONLY KEYWORD LINES (CONVOKE / AFFINITY) — strip-before-parse, mirroring the Ninjutsu/Cycling
 // metric rationale (coverage.js) =====================================================================

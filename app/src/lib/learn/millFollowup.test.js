@@ -25,10 +25,13 @@ const land = (id, name) => ({ id, name, type: "Land", oracle: "" });
 const resolveAll = (s) => { while (s.stack.length) s = resolveTopOfStack(s); return s; };
 
 describe("parser — mill (non-targeted); targeted deferred", () => {
-  it("you-mill / each-opponent-mill parse; target-player stays low", () => {
+  it("you-mill / each-opponent-mill / target-player parse; context riders stay low", () => {
     expect(parseEffectProgram(I("You mill three cards.")).atoms).toEqual([{ op: "mill", amount: 3, who: "controller", targetType: null }]);
     expect(parseEffectProgram(I("Each opponent mills two cards.")).atoms).toEqual([{ op: "mill", amount: 2, who: "eachOpponent", targetType: null }]);
-    expect(programConfidence(parseEffectProgram(I("Target player mills ten cards.")))).toBe("low");
+    // BLITZ TM-1 — the fixed-amount targeted form parses now (Tome Scour class); the context-scaled
+    // rider ("that many") stays parked LOW.
+    expect(parseEffectProgram(I("Target player mills ten cards.")).atoms).toEqual([{ op: "mill", amount: 10, who: "target", targetType: "player" }]);
+    expect(programConfidence(parseEffectProgram(I("Target player mills that many cards.")))).toBe("low");
   });
 });
 

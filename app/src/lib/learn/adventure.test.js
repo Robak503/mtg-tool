@@ -54,11 +54,13 @@ const MURDEROUS = {
   id: "mur1", name: "Murderous Rider // Swift End", type: "Creature — Zombie Knight // Instant — Adventure", mana: "{1}{B}{B} // {1}{B}{B}",
   oracle: "Murderous Rider - Creature — Zombie Knight {1}{B}{B}\nLifelink\nWhen this creature dies, put it on the bottom of its owner's library.\n//\nSwift End - Instant — Adventure {1}{B}{B}\nDestroy target creature or planeswalker. You lose 2 life. (Then exile this card. You may cast the creature later from exile.)",
 };
-// Merfolk Secretkeeper // Venture Deeper — CREATURE half is modeled (vanilla), but the ADVENTURE half
-// ("Target player mills four cards") is unmodeled → whole card body-only (the OTHER-half anti-FP pin).
-const MERFOLK = {
-  id: "mer1", name: "Merfolk Secretkeeper // Venture Deeper", type: "Creature — Merfolk Wizard // Sorcery — Adventure", mana: "{U} // {U}",
-  oracle: "Merfolk Secretkeeper - Creature — Merfolk Wizard {U}\n//\nVenture Deeper - Sorcery — Adventure {U}\nTarget player mills four cards. (Then exile this card. You may cast the creature later from exile.)",
+// Picklock Prankster // Free the Fae — CREATURE half is modeled (keyword-only: flying, vigilance), but the
+// ADVENTURE half's follow-up ("put an instant, sorcery, or Faerie card from among the milled cards into your
+// hand") is unmodeled → whole card body-only (the OTHER-half anti-FP pin). (Merfolk Secretkeeper held this
+// pin until BLITZ TM-1 made its fixed-amount targeted mill native.)
+const PICKLOCK = {
+  id: "pick1", name: "Picklock Prankster // Free the Fae", type: "Creature — Faerie Rogue // Instant — Adventure", mana: "{1}{U} // {1}{U}",
+  oracle: "Picklock Prankster - Creature — Faerie Rogue {1}{U}\nFlying, vigilance\n//\nFree the Fae - Instant — Adventure {1}{U}\nMill four cards. Then put an instant, sorcery, or Faerie card from among the milled cards into your hand.",
 };
 
 const plains = (id) => createPermanent({ id, card: { name: "Plains", type: "Basic Land — Plains", oracle: "{T}: Add {W}." }, controller: "user", summoningSick: false });
@@ -93,14 +95,14 @@ describe("ADVENTURE — the metric (classifyCard: a clean card flips native-mixe
   it("CREED: Murderous Rider (CREATURE half unmodeled, adventure modeled) stays body-only", () => {
     expect(classifyCard(MURDEROUS)).toBe("body-only");
   });
-  it("CREED: Merfolk Secretkeeper (ADVENTURE half unmodeled, creature modeled) stays body-only", () => {
-    expect(classifyCard(MERFOLK)).toBe("body-only");
+  it("CREED: Picklock Prankster (ADVENTURE half unmodeled, creature modeled) stays body-only", () => {
+    expect(classifyCard(PICKLOCK)).toBe("body-only");
   });
   it("an adventure card is NEVER mis-routed to the instant/sorcery tier (arbiter-spell) by its combined type", () => {
     // The combined type line contains 'Sorcery'/'Instant' — without the early adventure interception it would
     // mis-classify as arbiter-spell. A parked adventure card is body-only (a permanent), never *-spell.
-    expect(["native-mixed", "body-only"]).toContain(classifyCard(MERFOLK));
-    expect(classifyCard(MERFOLK)).not.toBe("arbiter-spell");
+    expect(["native-mixed", "body-only"]).toContain(classifyCard(PICKLOCK));
+    expect(classifyCard(PICKLOCK)).not.toBe("arbiter-spell");
   });
 });
 
@@ -137,8 +139,11 @@ describe("ADVENTURE step 1 — cast the adventure (instant/sorcery) half from ha
     expect(adv[0]).toMatchObject({ kind: "cast-spell", cardId: "fae1", name: "Gift of the Fae", fromZone: "hand" });
   });
 
-  it("does NOT offer the adventure cast for a card with an unmodeled half (CREED — Merfolk Secretkeeper)", () => {
-    const s = advState({ hand: [MERFOLK], battlefield: [createPermanent({ id: "i1", card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false })] });
+  it("does NOT offer the adventure cast for a card with an unmodeled half (CREED — Picklock Prankster)", () => {
+    // TWO islands: the {1}{U} adventure half is fully AFFORDABLE, so the CREED gate is the only thing
+    // keeping it off the offer list.
+    const isl = (id) => createPermanent({ id, card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false });
+    const s = advState({ hand: [PICKLOCK], battlefield: [isl("i1"), isl("i2")] });
     expect(filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.adventureCast)).toHaveLength(0);
   });
 
@@ -199,15 +204,16 @@ describe("ADVENTURE — the COMBINED card is never offered (CR 715.2b); each hal
   });
 
   it("a card with an UNMODELED adventure half is still castable as its CREATURE body (trunk posture)", () => {
-    // MERFOLK: adventure half (mill) unmodeled → no adventureCast (CREED-gated), but the vanilla 0/4
-    // creature half is exactly a body-only trunk creature — offered at {U}, entering as the Merfolk.
-    const island = createPermanent({ id: "i1", card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false });
-    let s = advState({ hand: [MERFOLK], battlefield: [island] });
-    const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "mer1");
-    expect(casts.map(a => a.name)).toEqual(["Merfolk Secretkeeper"]);    // creature half only, no combined, no adventure
+    // PICKLOCK: adventure half (mill + from-among retrieval) unmodeled → no adventureCast (CREED-gated),
+    // but the keyword-only creature half is exactly a body-only trunk creature — offered at {1}{U},
+    // entering as the Faerie.
+    const isl = (id) => createPermanent({ id, card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false });
+    let s = advState({ hand: [PICKLOCK], battlefield: [isl("i1"), isl("i2")] });
+    const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "pick1");
+    expect(casts.map(a => a.name)).toEqual(["Picklock Prankster"]);    // creature half only, no combined, no adventure
     s = dispatchAction(s, casts[0]);
     s = resolveTopOfStack(s);
-    expect(s.players.user.battlefield.some(p => p.card.name === "Merfolk Secretkeeper")).toBe(true);
+    expect(s.players.user.battlefield.some(p => p.card.name === "Picklock Prankster")).toBe(true);
   });
 });
 
@@ -349,10 +355,10 @@ describe("ADVENTURE commander — each half casts from the COMMAND zone (CR 715.
   });
 
   it("CREED: an adventure commander with an unmodeled adventure half offers ONLY the creature half from command", () => {
-    const island = createPermanent({ id: "i1", card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false });
-    const casts = filterActions(legalActionsForPlayer(cmdState({ commander: MERFOLK, battlefield: [island] }), "user"), "cast-spell")
+    const isl = (id) => createPermanent({ id, card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false });
+    const casts = filterActions(legalActionsForPlayer(cmdState({ commander: PICKLOCK, battlefield: [isl("i1"), isl("i2")] }), "user"), "cast-spell")
       .filter(a => a.fromZone === "command");
-    expect(casts.map(a => a.name)).toEqual(["Merfolk Secretkeeper"]);     // creature body only
+    expect(casts.map(a => a.name)).toEqual(["Picklock Prankster"]);       // creature body only
     expect(casts[0].adventureCast).toBeUndefined();                       // the unmodeled half is never offered
   });
 });
