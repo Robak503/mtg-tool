@@ -1,6 +1,19 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.2% — THE 30% LINE FALLS**: +526 more (campaign +734), 34 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.3%**: +569 more (campaign +777), 36 slices, LOST=0
+
+> Census **10,360 of 34,161 (30.33%)**, baseline scratchpad cand50.txt. Post-30% slices:
+> **FA-1/AB-1** (a6546592, +31) — FLASH admitted as aura residue (26 flash auras cascade: Rancor-kin
+> timing was never a modeling gap, just an unadmitted clause) + the type-conditional unblockable
+> gate (artifact/enchantment/untapped-land defender checks in canBlockAttacker) ·
+> **SL-1** the dealt-by lifegain links (5f0edf91, +12) — "Whenever this creature deals [combat]
+> damage, you gain that much life": a new dealtBy event fired with per-source totals at BOTH damage
+> paths (CR 510.2 combat totals; per-resolution spell totals), the ATTACHED form gaining for the
+> AURA's controller (Spirit Link on their fatty feeds YOU), combat-only honored, "dealtBy" admitted
+> to the combatDamageAmount referent gate, and isNativeAura widened so a TRIGGER-ONLY aura (Spirit
+> Link / Spirit Loop / Vampiric Link — no bonus line) qualifies. Zebra Unicorn, Armadillo Cloak,
+> Exalted Angel, Sunhome Enforcer live. Suite 8,682 green · lint 0. Housekeeping: app/data/self-play/
+> (the crucible harness's local logs) gitignored — a day's batch nearly rode into the SL-1 commit.
 
 > **DC-1, the Discard-a-card cost (84d200f2, +96)** — the single biggest slice of the campaign took the
 > census from 10,221 to **10,317 (30.2% of 34,161)**, straight through the 10,248 line. One cost-vocabulary
