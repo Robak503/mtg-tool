@@ -2017,6 +2017,25 @@ function parseCreatureSelector(c) {
     };
   }
 
+  // COMMANDER-qualified creature selector (BLITZ BG-1 — Bastion Protector "Commander creatures you
+  // control get +2/+2 and have indestructible"; the Background cycle "Commander creatures you own
+  // have \"…\""). "Commander" is neither a card type nor a subtype — it's a game-STATE quality
+  // (card.isCommander, stamped at seat build), so it gets its own selector field (commanderOnly),
+  // gated at the matchesSelector chokepoint. OWN vs CONTROL: this engine has no native
+  // control-changing effect and permanents carry no owner field — controller IS owner, an engine
+  // invariant — so both printed scopes map to controllerScope "you". If native theft ever ships,
+  // this equivalence must be revisited (grep commanderOnly).
+  m = c.match(/^commander creatures?\s+you (?:own|control)\s+(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], commanderOnly: true } };
+  }
+  // Bare "Commanders you own/control …" (Guardian Augmenter's hexproof line): NO creature restriction —
+  // a planeswalker commander is a commander too (cardTypes []), the commanderOnly gate does the work.
+  m = c.match(/^commanders\s+you (?:own|control)\s+(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: [], commanderOnly: true } };
+  }
+
   // No-determiner CARD-TYPE creature anthem: "<Artifact|Enchantment|Land> creatures you control
   // get|gain|has|have …" — the bare card-type-qualified anthem ("Land creatures you control have vigilance"
   // — Earthbending Student; "Artifact creatures you control get +1/+1" — Tempered Steel). The qualifier is a

@@ -226,17 +226,22 @@ describe("parseStaticAbilities — NO-DETERMINER tribal anthem ('<Subtype> creat
   });
   // CARD-TYPE words read on the LEFT of the em-dash → a card-TYPE filter, NOT a subtype. The modeled card
   // types (Artifact/Enchantment/Land) now emit a cardTypes:["Creature", X] selector (AND-semantics in
-  // matchesSelector) — they select exactly the permanents that are BOTH a Creature and an X, never zero. A
-  // word that is NEITHER a subtype NOR a modeled card type ("Commander") still selects nobody, so it stays
-  // unmodeled (a SAFE false-negative — flipping it native would be a CREED FP).
+  // matchesSelector) — they select exactly the permanents that are BOTH a Creature and an X, never zero.
   it("models a CARD-TYPE anthem as a cardTypes selector ('Artifact creatures you control get +2/+2' — Tempered Steel)", () => {
     const d = parseStaticAbilities(card("Tempered Steel", "Artifact creatures you control get +2/+2.", "Enchantment"));
     expect(d).toHaveLength(1);
     expect(d[0].affects.selector.cardTypes).toEqual(["Creature", "Artifact"]);
     expect(d[0].affects.selector.subtypes).toBeUndefined();
   });
-  it("does NOT model a non-card-type, non-subtype qualifier ('Commander creatures …' — Bastion Protector)", () => {
-    expect(parseStaticAbilities(card("Bastion Protector", "Commander creatures you control get +2/+2 and have indestructible.", "Creature — Human Soldier"))).toHaveLength(0);
+  it("models the COMMANDER qualifier as commanderOnly ('Commander creatures …' — Bastion Protector; BLITZ BG-1)", () => {
+    // Held the "selects nobody → stays unmodeled" pin until BG-1 gave the quality its own gated
+    // selector field (card.isCommander at the matchesSelector chokepoint).
+    const d = parseStaticAbilities(card("Bastion Protector", "Commander creatures you control get +2/+2 and have indestructible.", "Creature — Human Soldier"));
+    expect(d.length).toBeGreaterThanOrEqual(1);
+    for (const desc of d) {
+      expect(desc.affects.selector.commanderOnly).toBe(true);
+      expect(desc.affects.selector.cardTypes).toEqual(["Creature"]);
+    }
   });
 });
 

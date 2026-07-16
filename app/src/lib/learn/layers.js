@@ -520,6 +520,12 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // nontoken creature is skipped, so the anthem confers vigilance/lifelink to exactly the controller's
   // creature tokens. Re-read each collection, so a token entering/leaving updates the grant live.
   if (selector.token && !candidate.card?.token) return false;
+  // COMMANDER gate (BLITZ BG-1 — Bastion Protector "Commander creatures you control get +2/+2 and have
+  // indestructible"; the Background cycle "Commander creatures you own have …"). "Commander" is a
+  // game-STATE quality, not a type-line word: the flag rides card.isCommander, stamped at seat build
+  // (the same flag the conditional-both-commander cast gate reads). A non-commander candidate is
+  // skipped; re-read each collection, so a commander leaving/re-entering the battlefield tracks live.
+  if (selector.commanderOnly && candidate.card?.isCommander !== true) return false;
   // COUNTER-PAYOFF: a per-permanent counter gate (Herald of Secret Streams — "creatures you control WITH
   // A +1/+1 COUNTER on it …"). Re-evaluated each collection, so the grant tracks the counter dynamically.
   if (selector.requiresCounter && (candidate.counters?.[selector.requiresCounter] || 0) <= 0) return false;
