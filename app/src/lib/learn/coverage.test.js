@@ -273,14 +273,13 @@ describe("classifyCard — tiers", () => {
 
   it("does NOT over-claim a card with an UNMODELED trigger beside a modeled one (count guard)", () => {
     // The residue strips ALL When/Whenever sentences — but detectTriggers only recognizes
-    // some events. A modeled ETB next to an UNDETECTED trigger (a leaves-the-battlefield event
-    // we never fire) must stay body-only, not be silently credited. This also pins the latent
-    // over-claim the composite work surfaced. (Both a you-control dies drain — #8b — AND a
-    // lifegain event — TRIG-LIFEGAIN — ARE modeled now, so the undetected example here uses LTB,
-    // which is intentionally never fired → still unrecognized. The old second example — a cast
-    // self-untap, the Thermo-Alchemist frame — graduated in UT-1; the Wizard now carries a
-    // rider'd untap that parses LOW, pinning the detected-but-UNROUTABLE flavor of the guard.)
-    expect(classifyCard(C("Creature — Cleric", "When this creature enters, draw a card.\nWhen this creature leaves the battlefield, each opponent loses 1 life."))).toBe("body-only");
+    // some events. A modeled ETB next to an UNDETECTED trigger must stay body-only, not be silently
+    // credited. This also pins the latent over-claim the composite work surfaced. (The example events
+    // keep graduating as the engine grows — dies drains, lifegain, the cast self-untap (UT-1), and the
+    // LTB event itself (LV-1's leavesSelf, fired on any exit — the old Cleric example is native now).
+    // The guard's current examples: an UNDETECTED "you discard this card" event beside a modeled ETB,
+    // and the detected-but-UNROUTABLE rider'd untap from UT-1.)
+    expect(classifyCard(C("Creature — Cleric", "When this creature enters, draw a card.\nWhen you discard this card, each opponent loses 1 life."))).toBe("body-only");
     expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target.\nWhenever you cast an instant or sorcery spell, untap this creature and it gains flying until end of turn."))).toBe("body-only");
   });
 

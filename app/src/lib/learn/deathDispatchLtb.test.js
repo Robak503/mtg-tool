@@ -103,8 +103,12 @@ describe("LTB/PiG — detection + classification", () => {
     expect(detectTriggers(card).map((t) => t.scope)).toEqual(["creatureOrArtifactYouControlPiG"]);
     expect(classifyCard(card)).toMatch(/^native/);
   });
-  it("CREED: a SELF-LTB ('When this leaves the battlefield, …') stays UNDETECTED (City Pigeon)", () => {
-    expect(detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."))).toHaveLength(0);
+  it("SELF-LTB now detects as leavesSelf (BLITZ LV-1 graduation — the engine fires it on ANY exit)", () => {
+    // (City Pigeon sat here as the never-fires-LTB pin until LV-1 added the leavesSelf event, fired by
+    // checkLeavesTriggers off the leave look-back for every exit — pinned end-to-end in leavesSelf.test.js.)
+    const d = detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."));
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ event: "leavesSelf", scope: "self" });
   });
   it("CREED: an OPPONENT-controlled / un-scoped PiG stays UNDETECTED", () => {
     expect(detectTriggers(creature("X", "Whenever a creature an opponent controls is put into a graveyard from the battlefield, draw a card."))).toHaveLength(0);

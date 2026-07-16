@@ -99,8 +99,11 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
     expect(events("When this creature enters, create a Food token.")).toEqual(["etb"]);
     expect(events("When this creature dies, create a Food token.")).toEqual(["dies"]);
   });
-  it("does NOT detect 'enters or leaves the battlefield' (Brandywine Farmer) — the LTB half would be dropped", () => {
-    expect(detectTriggers(creature("Brandywine Farmer", "When this creature enters or leaves the battlefield, create a Food token."))).toHaveLength(0);
+  it("'enters or leaves the battlefield' SPLITS into etb + leavesSelf (BLITZ LV-1 graduation)", () => {
+    // (Brandywine Farmer sat here as the dropped-half guard until LV-1 split the disjunction and gave
+    // the LTB half its own any-exit event — neither half drops; both fire.)
+    const ds = detectTriggers(creature("Brandywine Farmer", "When this creature enters or leaves the battlefield, create a Food token."));
+    expect(ds.map((d) => d.event).sort()).toEqual(["etb", "leavesSelf"]);
   });
   it("'enters or dies' (Vinereap Mentor) SPLITS into both halves (SHELF C2 — the disjunction is modeled)", () => {
     const ds = detectTriggers(creature("Vinereap Mentor", "When this creature enters or dies, create a Food token."));
@@ -134,8 +137,9 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
     // is never silently claimed native — CREED). Contrast the "or" compounds above, which stay wholly undetected.
     expect(detectTriggers(creature("Bartered Cow", "When this creature dies and when you discard this card, create a Food token.")).map((t) => t.event)).toEqual(["dies"]);
   });
-  it("does NOT detect a 'leaves the battlefield' trigger (City Pigeon) — the engine never fires LTB", () => {
-    expect(detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."))).toHaveLength(0);
+  it("SELF-LTB detects as leavesSelf (BLITZ LV-1 graduation — fired on ANY exit by checkLeavesTriggers)", () => {
+    const d = detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."));
+    expect(d.map((t) => t.event)).toEqual(["leavesSelf"]);
   });
   // ATTACKS-OR-BECOMES-TARGET compound event (CR 603.2 / CR 115.1) — the UNRESTRICTED bare self form is now
   // MODELED as a single event that fires on BOTH the attack declaration AND becoming the target of ANY spell

@@ -489,6 +489,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     && new RegExp(`\\b${firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
 
+  // ===== LEAVES-SELF (BLITZ LV-1, CR 603.6c "leaves the battlefield" — ANY exit) ===== the SELF form
+  // only ("this creature/artifact/enchantment/permanent leaves the battlefield" — the split half of
+  // "enters or leaves the battlefield"). Fired by checkLeavesTriggers off the leave look-back for EVERY
+  // exit (graveyard, exile, bounce, tuck) — unlike the graveyard-gated "ltb" self-PiG event. A watcher
+  // form ("another creature you control leaves …") or a restricted subject stays UNDETECTED → Arbiter.
+  if (/^this (?:creature|artifact|enchantment|permanent) leaves the battlefield$/.test(c)) {
+    return { event: "leavesSelf", scope: "self", whose: "any" };
+  }
+
   // ===== BECOMES-MONSTROUS (CR 701.32d — SHELF S7) ===== the SELF form only ("this creature / <name>
   // becomes monstrous", incl. the split half of "enters or becomes monstrous" — Alpha Deathclaw).
   // applyMonstrosity fires checkBecomesMonstrousTriggers exactly once, on the not-yet-monstrous
@@ -1909,6 +1918,11 @@ const DISJUNCTION_MONSTROUS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?
 // the split itself can never over-fire a restricted form). This retires the old blanket attacks+blocks
 // null guard for the split shape; the guard below still catches any unsplit compound leak (belt).
 const DISJUNCTION_BLOCKS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+attacks or blocks(,\\s*[^\\n]+)";
+// "enters or leaves the battlefield" (BLITZ LV-1 — Brandywine Farmer / Experimental Synthesizer /
+// Aven Riftwatcher, CR 603.2b): the SAME split, fifth event pair. The enters half rides the normal etb;
+// the leaves half detects as the leavesSelf event (ANY exit — graveyard, exile, bounce, tuck), fired by
+// checkLeavesTriggers off the same look-back every leave already records.
+const DISJUNCTION_LTB_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or leaves the battlefield(,\\s*[^\\n]+)";
 // GY-TRAFFIC TRIPLE (Syr Konrad, the Grim — SHELF S7, CR 603.2b): the printed three-event disjunction
 // "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than
 // the battlefield, or a creature card leaves your graveyard, <effect>" → THREE sentences, one per event,
@@ -1931,6 +1945,8 @@ function splitCompoundTriggerSentences(oracle) {
       `Whenever ${subj} enters${eff}\nWhenever ${subj} becomes monstrous${eff}`)
     .replace(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} attacks${eff}\nWhenever ${subj} blocks${eff}`)
+    .replace(new RegExp(DISJUNCTION_LTB_SRC, "gi"), (_m, _kw, subj, eff) =>
+      `Whenever ${subj} enters${eff}\nWhenever ${subj} leaves the battlefield${eff}`)
     .replace(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi"), (_m, _kw, eff) =>
       `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`);
 }
@@ -1945,9 +1961,10 @@ export function compoundTriggerCount(oracle) {
   const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
   const monstrousDisjunctions = (s.match(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi")) || []).length;
   const blocksDisjunctions = (s.match(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi")) || []).length; // OR-1 "attacks or blocks"
+  const ltbDisjunctions = (s.match(new RegExp(DISJUNCTION_LTB_SRC, "gi")) || []).length; // LV-1 "enters or leaves the battlefield"
   // The GY-traffic triple adds TWO extra sentences per match (1 → 3).
   const gyTriples = (s.match(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi")) || []).length;
-  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + blocksDisjunctions + gyTriples * 2;
+  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + blocksDisjunctions + ltbDisjunctions + gyTriples * 2;
 }
 
 /**
@@ -1962,7 +1979,15 @@ export function detectTriggers(card) {
   // control enters …". Without this, "Landfall — Whenever …" puts "Whenever" mid-line and never matches.
   // Then split compound "When A and whenever B, E" → two sentences (see COMPOUND TRIGGER above), so each half is
   // detected independently. SHARED with coverage.js (the trigger-sentence count + residue strip see the same text).
-  const oracle = splitCompoundTriggerSentences(stripTriggerAbilityLabel(oracleOf(card)));
+  // FADING/VANISHING reminder strip (BLITZ LV-1): the keyword's reminder parens carry REAL trigger
+  // sentences ("At the beginning of your upkeep, remove a time counter…"), which would parse as phantom
+  // UNROUTABLE descriptors and park every vanishing+trigger card (Aven Riftwatcher) — while the keyword
+  // itself is engine-enforced (fading.applyFadeVanishUpkeep) and keyword-credited. Strip EXACTLY that
+  // reminder shape before detection; every other reminder is left as-is (Ravenous deliberately keys on its
+  // reminder signature — see the KW-RAVENOUS synthesis).
+  const oracle = splitCompoundTriggerSentences(stripTriggerAbilityLabel(
+    String(oracleOf(card) || "").replace(/\((?:this (?:creature|permanent) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, ""),
+  ));
   const out = [];
   if (oracle) {
     // Anchored at start / after a sentence boundary, like keywords.js — so a
@@ -3424,6 +3449,11 @@ export function checkLeavesTriggers(state) {
     if (e.toGraveyard) {
       fired = fired.concat(triggersForEvent(cleared, { event: "ltb", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
     }
+    // LEAVES-SELF (BLITZ LV-1) — the leaving permanent's OWN "enters or leaves the battlefield" half:
+    // fired on EVERY exit (graveyard, exile, bounce, tuck — CR 603.6c "leaves the battlefield" has no
+    // zone gate, unlike the graveyard-only "ltb" self-PiG above). The look-back rides as BOTH source and
+    // triggering (the self pattern), so scope "self" matches the permanent that just left.
+    fired = fired.concat(triggersForEvent(cleared, { event: "leavesSelf", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
     // WATCHER LTB / PiG ("permanentLeaves") — the aristocrats LTB drains (Marionette Apprentice/Master,
     // Nadier's Nightblade, Tablet of Epityr). scopeMatches' permanentLeaves scopes gate on the leaving
     // permanent's type / controller / token-ness / graveyard-ness. A bounce/exile leave is passed too — only
