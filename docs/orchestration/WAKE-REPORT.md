@@ -22,11 +22,9 @@
 > PARKED WITH REASONS: bloodrush (needs a combat-step activation window the engine's action surface
 > lacks — native-but-unusable would be an FP by uselessness) · block-additional (the multi-block
 > damage-DIVISION choice is unmodeled — an over-deal trap) · lure (needs a block-requirements
-> subsystem; half-enforcement = FP) · SC-1 Sword Coast Sailor (4 backgrounds: needs the cant-be-blocked
-> SELF anchor + resolver referent + a "no opponent has more life than that player" intervening-if
-> vocabulary entry + an attacks-PLAYER-only gate so pw attacks don't over-fire — scoped, four
-> touchpoints, next session's opener) · "sac unless discard at random" (needs a random primitive —
-> check house policy). FRESH FRONTIER (post-31-slice census): enchant-creature grant interiors 20 ·
+> subsystem; half-enforcement = FP) · (SC-1 SHIPPED 16d80461 — see the top entry) · "sac unless
+> discard at random" (needs a random primitive — check house policy). FRESH FRONTIER
+> (post-31-slice census): enchant-creature grant interiors 20 ·
 > backgrounds 17 · enchant-land interiors 7 · slivers 6 · until-EOT +N/+N-and-gains quoted grants 5 ·
 > the "trample-tail" suspend carriers 5 · until-EOT team/target quoted grants 4+4 · lure 4 · Zelyon
 > Sword 4 — the ≥3 trunk is long-tail interiors + temp-grant machinery from here. Baseline tier file:
