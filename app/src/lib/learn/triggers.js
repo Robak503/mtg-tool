@@ -1940,11 +1940,27 @@ const DISJUNCTION_LTB_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the 
 // as printed — never twice for one event. ANCHORED to the exact printed phrase triple (subject variations
 // stay under the compound-event guard → Arbiter).
 const DISJUNCTION_GY_TRIPLE_SRC = "\\b(When|Whenever)\\s+another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard(,\\s*[^\\n]+)";
+// QUOTE MASK (BLITZ BG-2 — Candlekeep Sage's "Commander creatures you own have \"When this creature
+// enters or leaves the battlefield, draw a card.\""): a QUOTED granted ability is NOT the granter's own
+// trigger — it fires on the RECIPIENT via grantedTriggersForGroup, which re-runs detection on the bare
+// quoted body. The compound/disjunction rewrites' \b anchors match INSIDE quotes, and the newline a
+// rewrite inserts PROMOTES the quoted tail past the sentence-boundary anchor — minting a phantom
+// self-trigger on the GRANTER (the Sage drew a card on its own leave). Mask quoted spans (straight or
+// curly) with index placeholders before rewriting, restore verbatim after — quoted text can never be
+// split, and text OUTSIDE quotes rewrites exactly as before. compoundTriggerCount applies the SAME mask,
+// so the shaped===detected reconciliation counts what detection sees (one mask, no drift).
+const QUOTE_MASK_NUL = String.fromCharCode(0); // placeholder delimiter: NUL cannot appear in oracle text
+function maskQuotedSpans(s) {
+  const spans = [];
+  const masked = String(s || "").replace(/"[^"]*"|“[^”]*”/g, (q) => { spans.push(q); return QUOTE_MASK_NUL + (spans.length - 1) + QUOTE_MASK_NUL; });
+  return { masked, restore: (t) => t.replace(new RegExp(QUOTE_MASK_NUL + "(\\d+)" + QUOTE_MASK_NUL, "g"), (_, i) => spans[+i]) };
+}
 function splitCompoundTriggerSentences(oracle) {
   // Separate the two rewritten sentences with a NEWLINE (not ". ") — the trigger regex anchors each match on a
   // preceding [\n.;] and consumes its own trailing period, so a same-line "…card. Whenever…" would leave the second
   // sentence without a boundary. Abilities are newline-separated on real cards, so this matches the detector's grammar.
-  return String(oracle || "")
+  const { masked, restore } = maskQuotedSpans(oracle);
+  return restore(masked
     .replace(new RegExp(COMPOUND_TRIGGER_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nWhenever ${condB}, ${eff}`)
     .replace(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi"), (m, _kw, subj, eff) =>
       /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`)
@@ -1957,13 +1973,16 @@ function splitCompoundTriggerSentences(oracle) {
     .replace(new RegExp(DISJUNCTION_LTB_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} leaves the battlefield${eff}`)
     .replace(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi"), (_m, _kw, eff) =>
-      `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`);
+      `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`));
 }
 /** Number of compound second-trigger connectives ("…and whenever…" + the "enters or attacks"/"enters or
  *  dies" disjunctions) — each adds ONE extra trigger sentence when split. coverage.js adds this to its
  *  shaped-sentence count so `shaped === detected` holds for a successfully-split compound. */
 export function compoundTriggerCount(oracle) {
-  const s = String(oracle || "");
+  // QUOTE MASK: count on the SAME masked text splitCompoundTriggerSentences rewrites — a disjunction
+  // inside a quoted grant is neither split nor detected, so it must not be counted either (else the
+  // shaped===detected reconciliation would park every granter of a quoted compound body).
+  const s = maskQuotedSpans(String(oracle || "")).masked;
   const andJoins = (s.match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length;
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
@@ -3137,7 +3156,12 @@ function grantedTriggersForHost(state, hostPerm) {
 // are identical. Fired on the RECIPIENT (sourcePermanent) — "this creature"/source bind to it, never the
 // granter. Empty when no group grant applies (the common case). Mirrors grantedTriggersForHost.
 function grantedTriggersForGroup(state, perm) {
-  const quoted = grantedTriggeredQuotedFor(state, perm.id);
+  // `perm` doubles as the DEAD-LOOK-BACK candidate (BLITZ BG-2, CR 603.10a): on the leave/dies paths the
+  // checkers pass the departed permanent's look-back { id, card, controller }, which findPerm can't resolve
+  // — the third argument lets the layers walk evaluate a DYNAMIC grant's selector against last-known
+  // information, so a granted "…or leaves the battlefield" half fires like a printed one. Live permanents
+  // resolve by id exactly as before (the extra argument is unread on that path).
+  const quoted = grantedTriggeredQuotedFor(state, perm.id, perm);
   if (!quoted.length) return [];
   const out = [];
   for (const q of quoted) {

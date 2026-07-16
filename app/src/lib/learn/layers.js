@@ -1138,7 +1138,7 @@ export function grantedActivatedQuotedFor(state, permanentId) {
  * so "this creature"/source bind to the RECIPIENT, exactly like a printed trigger. Returns [] when no grant
  * applies. Pure. Kept HERE (not triggers.js) because only this module owns effectAffects/matchesSelector.
  */
-export function grantedTriggeredQuotedFor(state, permanentId) {
+export function grantedTriggeredQuotedFor(state, permanentId, lookBack = null) {
   const perm = findPerm(state, permanentId);
   if (!perm) {
     // DEAD-LOOK-BACK (BLITZ TG-1, CR 603.6e/603.10a): a permanent that just LEFT the battlefield still
@@ -1154,6 +1154,24 @@ export function grantedTriggeredQuotedFor(state, permanentId) {
       if (e.op.grant?.kind !== "triggered" || !e.op.grant.quoted) continue;
       if (e.affects?.mode !== "fixed" || !e.affects.permanentIds?.includes(permanentId)) continue;
       out.push(e.op.grant.quoted);
+    }
+    // DYNAMIC DEAD-LOOK-BACK (BLITZ BG-2, CR 603.6c/603.10a — Candlekeep Sage's "When this creature
+    // enters or LEAVES the battlefield, draw a card" granted to commanders): a DYNAMIC selector grant
+    // (a board static — the Background cycle, a Sliver lord) can't be matched by id alone, but the
+    // leave/dies checkers hold the departed permanent's look-back { id, card, controller } — exactly the
+    // candidate shape effectAffects/matchesSelector evaluate (type line, isCommander, controllerScope).
+    // Passing it here lets the LEAVE half of a granted trigger fire off last-known information, exactly
+    // like a printed trigger fires off the look-back's card. The dynamic-source rule in effectAffects
+    // still requires the GRANTER on the battlefield at check time, so a carrier that left SIMULTANEOUSLY
+    // with the recipient under-fires this half (a rare board-wipe corner, never a fabricated fire — the
+    // versioned trade-off, mirroring the OWN≡CONTROL note at the selector parse site).
+    if (lookBack?.card) {
+      for (const e of collectContinuousEffects(state)) {
+        if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
+        if (e.op.grant?.kind !== "triggered" || !e.op.grant.quoted) continue;
+        if (e.affects?.mode !== "dynamic" || !effectAffects(e, lookBack, state)) continue;
+        out.push(e.op.grant.quoted);
+      }
     }
     return out;
   }
