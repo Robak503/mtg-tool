@@ -1,5 +1,29 @@
 # WAKE REPORT — live resume anchor
 
+## 🪞 2026-07-15 (later) — R4 THE LIVING HISTORY on master (600768d6): the Pool is COMPLETE R1-R4; combat-stamp finding RESOLVED (data age, not a bug)
+
+R4 un-parked and finished per Colton's standing order (autonomous session — he authorized working
+around parks). **mineDeckHistory** slices a deck's games into chronological eras by `decks[].deckV`;
+the **deck-versions registry** (`<profile>/self-play/deck-versions.json`, written at grind start by
+BOTH paths via grindPod.deckVersionEntry — the same hash fn as the header stamp) names each version's
+exact list, so the dossier shows real card diffs ("+ Last March of the Ents · − Noxious Newt").
+HONESTY IS STRUCTURAL: the pre-tracking era never anchors a comparison (mixed engines/pilots/stamps —
+live probe proof: 'combat 0%→93%' was the STAMP era changing); deltas need 100 games both sides,
+shifts 30-a-side + 5pt, and everything clears a two-proportion 2σ noise gate. UI: era timeline at the
+dossier's foot, hidden under 2 eras.
+
+**Combat-stamp finding RESOLVED:** fresh games stamp winCondition 24/24 'combat' — the mechanism
+(loseLife combatDamage flag → lethalDamageCombat → epochStats) is live and correct; the 24k games
+simply predate v0.140.0's split. Legacy 'damage' inflation self-heals as new-era games accrue.
+
+**Dev-tree data note:** the worktree app/data copy grew to 25,334 headers (two 600-game pool batches:
+pre-swap + post-swap) and its Omnath deck copy carries the Colton-sanctioned Newt→Last March swap
+(matches his verified-100 target; his REAL AppData deck is untouched and still awaits his own
+reconciliation). Suite **8,487** · lint 0 · walked live in-browser.
+
+**OPEN:** Colton's dossier look-check → cut the release (his gate). The Rograkh-in-the-grind-pool
+question is still his to answer.
+
 ## 🪞 2026-07-15 — THE REFLECTING POOL: R1-R3 on master (6c043009), UNRELEASED pending Colton's look-check
 
 The Post-Mortem grew into **The Reflecting Pool** (Colton's locked name) — the per-deck review dossier:
