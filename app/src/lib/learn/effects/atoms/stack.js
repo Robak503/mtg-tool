@@ -456,7 +456,7 @@ export function massFilteredDamageClauseParser(clause) {
   // your upkeep, this creature deals N damage to YOU."): the recipient is the CONTROLLER — a fixed referent,
   // never a chosen target (targetType:null → routes on confidence). Real DAMAGE, not life loss (replacement
   // effects / damage watchers apply through the shared per-target hitPlayer path). Whole-clause anchored.
-  const sd = t.match(/^(?:this creature|it) deals (\d+) damage to you$/);
+  const sd = t.match(/^(?:this creature|this permanent|it) deals (\d+) damage to you$/);
   if (sd) return { op: "deal-damage", amount: parseInt(sd[1], 10), target: "you", targetType: null };
   return null;
 }
