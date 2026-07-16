@@ -9,6 +9,18 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **+208 cards join native rules coverage** (corpus 28.05% → 28.7%) across 14 engine
+  mechanics shipped in one overnight pass: targeted mill (Tome Scour / Millstone / Jace
+  Beleren's ultimate), the Rebel/Mercenary recruiter tutors + Zur the Enchanter,
+  Background grants to commanders (+ Bastion Protector), soulshift, Syncopate-style
+  soft-counter-with-exile + counterspell mill riders, the sea-monster "can't attack
+  unless defending player controls an Island" restriction, Goblin Tunneler-style
+  power-capped unblockability, Orcish Artillery self-hit pingers, Rabid Elephant
+  per-blocker pumps, the Pacifism aura class, the modern "Activate only once each turn"
+  limiter (Rootwalla frame), exalted, graveyard-activated self-recursion (Reassembling
+  Skeleton class — the engine's first graveyard-zone activated ability), and
+  "During your turn" self-buffs. Every addition passed a by-name audited flip-diff with
+  zero coverage regressions.
 - **The Showpiece Shelf** — The Stacks finally feels like a vault. A shelf of your treasure
   opens the surface: every provenance-flagged card (signed, artist proof, altered, or
   showcase-pinned) plus your top few cards by value, rendered large under the glow. In the
