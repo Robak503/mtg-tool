@@ -1,10 +1,16 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +332 more (campaign +540), 20 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +361 more (campaign +569), 24 slices, LOST=0
 
-> Numbers audited against the tier-census files (9,791 → 10,123 name-dedup native+land): the running
-> "+358/20 slices" line pushed earlier in the day OVER-COUNTED by a drifted slice tally — the census
-> delta is authoritative. (The ledger doesn't care how ya feel.)
+> Numbers audited against the tier-census files (9,791 → 10,152 name-dedup native+land, ~29.7% of
+> 34,161): the running "+358/20 slices" line pushed earlier in the day OVER-COUNTED by a drifted slice
+> tally — the census delta is authoritative. (The ledger doesn't care how ya feel.)
+>
+> Post-correction slices, each gated + audited + pushed: **PS-1** KW-PERSIST (a11e1eb4, +12) — undying's
+> -1/-1 mirror + the immediate 0/0 SBA; Kitchen Finks / Glen Elendra / Woodfall Primus live · **RL-1**
+> the one-spell-per-turn law (1a2c5757, +4) — Rule of Law rides the existing cantCast gate ·
+> **AT-1** the ATTACKING anthem (25ed02ff, +13) — a real combat-state selector in layers; both
+> Oriflammes, War Horn, Berserkers' Onslaught, Windbrisk Raptor. Suite at 8,658 · lint 0 throughout.
 
 Colton's standing order (morning): the Vault walk became a future full overhaul (parked); the corpus
 grind resumes uninterrupted — full trust, no check-ins. Day-2 slices, each gated (suite+lint+audited
