@@ -23,7 +23,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, diesTriggerMultiplierCount } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentColors, diesTriggerMultiplierCount } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 
 function oracleOf(card) {
@@ -2581,6 +2581,23 @@ export function detectTriggers(card) {
       optional: false, sourceText: `blocks-or-blocked contact damage ${ie[1]}`,
     });
   }
+  // BASILISK TOUCH (BLITZ DG-1 — Deathgazer / Dread Specter / Gorgon Recluse: "Whenever this creature
+  // blocks or becomes blocked by a nonblack creature, destroy that creature at end of combat.") The
+  // IE-1 contact family with TWO twists enforced at the fire site: the NONBLACK filter on the contact
+  // partner (layer-aware permanentColors) and the CR 511 DELAY (the sentinel routes to the
+  // destroy-at-end-of-combat atom, whose resolver enqueues onto state.endOfCombatEffects —
+  // combatResolution drains it after the last damage sub-step). Coverage-only descriptor like IE-1
+  // (checkBlockTriggers fires per pair, both directions, the OTHER creature as the triggering
+  // permanent); the normal When/Whenever path nulls this compound condition, so no twin to evict.
+  // SENTENCE-END anchored: any rider after "at end of combat" fails the lookahead (CREED, FN-safe).
+  const dg = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by a nonblack creature, destroy that creature at end of combat(?=\s*(?:\.|\n|$))/i);
+  if (dg) {
+    out.push({
+      event: "blocksOrBlockedByCreature", scope: "self", whose: "any",
+      effect: null, effectClause: "destroy the triggering creature at end of combat",
+      optional: false, sourceText: "blocks-or-blocked nonblack delayed destroy",
+    });
+  }
   // SOULSHIFT (CR 702.46a — BLITZ SS-1) — KEYWORD→TRIGGER synthesis, the CU/BUSHIDO precedent. "Soulshift N"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, you
   // may return target Spirit card with mana value N or less from your graveyard to your hand.)"). Synthesize
@@ -3714,6 +3731,31 @@ export function checkBlockTriggers(state) {
         const n = contactOf(me.permanent);
         if (n == null) continue;
         const descriptor = { event: "blocksOrBlockedByCreature", scope: "self", whose: "any", effect: null, effectClause: `this creature deals ${n} damage to the triggering creature`, optional: false, sourceText: `blocks-or-blocked contact damage ${n}` };
+        fired.push(makePendingTrigger(descriptor, me.permanent, other.permanent, {}));
+      }
+    }
+  }
+  // BASILISK TOUCH (BLITZ DG-1 — Deathgazer class): per block PAIR, BOTH directions like IE-1 contact
+  // damage — a creature printing the basilisk line marks the OTHER creature of the pair for destruction
+  // at end of combat, whether it blocks or is blocked (once per pair partner, CR 603.2). The NONBLACK
+  // gate is enforced HERE at fire time on the CONTACT PARTNER's colors, read LAYER-AWARE through
+  // permanentColors (deriveCharacteristics — whatever the engine's live color truth is, exactly the
+  // read the protection enforcement uses): a black partner never fires (CR 603.2 — the event doesn't
+  // match the trigger condition). The OTHER creature rides as the triggering permanent; the sentinel
+  // effectClause's thatCreature referent enqueues IT (the destroy-at-end-of-combat atom). Coverage-only
+  // descriptor in detectTriggers; this is the sole fire site.
+  {
+    const BASILISK_RE = /(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by a nonblack creature, destroy that creature at end of combat(?=\s*(?:\.|\n|$))/i;
+    const printsBasilisk = (perm) => BASILISK_RE.test(String(perm.card?.oracle || perm.card?.oracle_text || "").replace(/\([^)]*\)/g, " "));
+    for (const b of blockers) {
+      if (!b?.blockerId || !b?.attackerId) continue;
+      const blk = findPermanent(state, b.blockerId);
+      const att = findPermanent(state, b.attackerId);
+      if (!blk || !att) continue;
+      for (const [me, other] of [[blk, att], [att, blk]]) {
+        if (!printsBasilisk(me.permanent)) continue;
+        if ((permanentColors(state, other.permanent.id) || []).some((c) => String(c).toUpperCase() === "B")) continue; // a BLACK partner never triggers
+        const descriptor = { event: "blocksOrBlockedByCreature", scope: "self", whose: "any", effect: null, effectClause: "destroy the triggering creature at end of combat", optional: false, sourceText: "blocks-or-blocked nonblack delayed destroy" };
         fired.push(makePendingTrigger(descriptor, me.permanent, other.permanent, {}));
       }
     }

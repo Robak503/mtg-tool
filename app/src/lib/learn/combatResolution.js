@@ -50,6 +50,7 @@ import {
   preventionShieldsFor,
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
+import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { selfDamagePrevention, attachedDamagePrevention, mayAssignAsUnblocked } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
@@ -65,6 +66,44 @@ import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTrig
 function toxicValue(card) {
   const m = String(card?.oracle ?? card?.oracle_text ?? "").match(/\btoxic\s+(\d+)/i);
   return m ? parseInt(m[1], 10) : 0;
+}
+
+/**
+ * END-OF-COMBAT delayed effects (BLITZ DG-1 — the Deathgazer basilisk touch, CR 511): drain
+ * state.endOfCombatEffects. Each entry ({op:"destroy", permanentId, turn}) was enqueued by the
+ * destroy-at-end-of-combat atom when its "blocks or becomes blocked" trigger RESOLVED (at declare-
+ * blockers); the destroy itself belongs to the end-of-combat step (CR 511.1 — the delayed trigger
+ * fires there, AFTER combat damage).
+ *
+ * THE BOUNDARY: this engine's step machine runs first-strike-damage → combat-damage → end-of-combat,
+ * and the end-of-combat case in gameEngine only CLEARS combat state — no game actions run there. The
+ * regular (firstStrikeStep=false) resolveCombatDamage call is therefore the LAST game action of every
+ * combat, so its end — after damage, the lethal SBA, and the dies-trigger look-backs — IS the
+ * end-of-combat boundary, and the drain lives HERE (this file owns combat resolution; gameEngine
+ * stays untouched). Called from the regular step's exits only (never the first-strike sub-step —
+ * destroying between the two damage sub-steps would be early, CR 511 comes after CR 510).
+ *
+ * SELF-LIMITING (the stale guard): each entry is stamped with the turn it was enqueued; an entry
+ * whose turn isn't the CURRENT turn is DROPPED unfired — a stale delayed destroy firing in a later
+ * combat would be a forbidden FP, a dropped one is FN-safe. The queue empties on every drain either
+ * way, so nothing survives past its combat. Destroys run through the SHARED applyDestroyEffect, so
+ * indestructible (CR 702.12b), shield counters (CR 122.1c), regeneration (CR 701.15), totem armor
+ * (CR 702.116) and dies-triggers behave exactly like any other destroy; an entry whose creature
+ * already left (died to combat damage) is a clean skip.
+ */
+function drainEndOfCombatEffects(state) {
+  const queue = state.endOfCombatEffects || [];
+  if (queue.length === 0) return state;
+  let next = { ...state, endOfCombatEffects: [] };
+  for (const e of queue) {
+    if (e?.op !== "destroy") continue;                 // unknown entry kinds never fire (FN-safe)
+    if (e.turn !== next.turn) continue;                // STALE (an earlier turn's leftover) → dropped, never fired
+    const lk = findPermanent(next, e.permanentId);
+    if (!lk) continue;                                 // already dead / gone → nothing to destroy
+    next = logEvent(next, { kind: "end-of-combat-destroy", turn: next.turn, target: e.permanentId, cardName: lk.permanent.card?.name, source: e.sourceCardName || null });
+    next = applyDestroyEffect(next, { controller: lk.controller, targets: [{ type: "creature", id: e.permanentId }] });
+  }
+  return next;
 }
 
 // Combat keyword checks go through the layer engine (permanentHasKeyword) so a
@@ -99,7 +138,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // lifelink, no lethal SBA from combat — the step is a logged no-op. Self-expires: next turn's number
   // differs. (Non-combat damage is unaffected; this hook is only the combat-damage step.)
   if (state.preventCombatDamageTurn === state.turn) {
-    return logEvent(state, { kind: "combat-damage-prevented", turn: state.turn, firstStrikeStep });
+    const fogged = logEvent(state, { kind: "combat-damage-prevented", turn: state.turn, firstStrikeStep });
+    // DG-1: a fog prevents combat DAMAGE (CR 615.6) — a delayed end-of-combat DESTROY is not damage
+    // and still happens (CR 511). Drain at the regular step's exit, the end-of-combat boundary.
+    return firstStrikeStep ? fogged : drainEndOfCombatEffects(fogged);
   }
   // The first combat-damage step only happens if a creature has first/double
   // strike (CR 510.4) — otherwise skip it entirely (the regular step does all).
@@ -550,6 +592,11 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // dies-watchers off the deadPw look-back so a creature-or-planeswalker drain (Cruel Celebrant) fires. Only
   // the creatureOrPwYouControl scope responds to a PW death; creature-only scopes skip it (see the function).
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
+
+  // DG-1 — the end-of-combat boundary (see drainEndOfCombatEffects): the regular step is this combat's
+  // LAST damage sub-step, so after its damage + lethal SBA + dies look-backs the delayed end-of-combat
+  // destroys fire. Never on the first-strike sub-step (CR 511 comes after ALL of CR 510).
+  if (!firstStrikeStep) next = drainEndOfCombatEffects(next);
 
   return next;
 }

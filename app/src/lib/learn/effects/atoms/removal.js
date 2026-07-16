@@ -354,6 +354,13 @@ export function destroyExileClauseParser(clause) {
   // matches "that creature can't be regenerated"). Only the detectTriggers sentinel produces this clause, so a
   // spell anaphor never reaches it; an absent id is a clean no-op (applyDestroyEffect over an empty target list).
   if (/^destroy the triggering creature$/.test(t)) return { op: "destroy", target: "thatCreature" };
+  // BASILISK TOUCH (BLITZ DG-1, CR 511) — the DELAYED twin of the sentinel above: "destroy the triggering
+  // creature at end of combat" (Deathgazer's "destroy that creature at end of combat", rewritten to the
+  // sentinel by the DG-1 fire site in checkBlockTriggers). The resolver does NOT destroy now — it enqueues
+  // a turn-stamped entry on state.endOfCombatEffects, which combatResolution drains at the end-of-combat
+  // boundary (after the last damage sub-step's SBA + dies triggers). Only the trigger synthesis produces
+  // this phrase — it appears in zero printed oracle text, so a spell anaphor can never reach it.
+  if (/^destroy the triggering creature at end of combat$/.test(t)) return { op: "destroy-at-end-of-combat", target: "thatCreature" };
   // DETAIN (BLITZ DT-1, CR 610.3 — the Banishing Light / Banisher Priest / Oblivion-Ring-modern frame):
   // "exile <target …> until this <enchantment|creature|artifact|permanent> leaves the battlefield." The
   // TARGET vocabulary is delegated to THIS parser recursively (strip the until-tail, parse the bare exile) so
@@ -556,8 +563,27 @@ function applyMassDestroyTreasurePerNontoken(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "mass-destroy-treasure-per-nontoken", controller: ctx.controller, treasures: destroyedNontoken });
 }
 
+/**
+ * BASILISK TOUCH enqueue (BLITZ DG-1, CR 511) — the destroy-at-end-of-combat resolver does NOT destroy:
+ * it pushes a TURN-STAMPED entry onto state.endOfCombatEffects for the triggering creature (the contact
+ * partner — ctx.triggeringPermanentId, the thatCreature referent). combatResolution.drainEndOfCombatEffects
+ * performs the actual destroy at the end-of-combat boundary through the SHARED applyDestroyEffect (so
+ * indestructible / shield counter / regeneration / totem armor / dies-triggers behave exactly like any
+ * destroy), and DROPS any entry stamped with an earlier turn (a stale delayed destroy firing in a LATER
+ * combat would be a forbidden FP; a dropped one is FN-safe). A vanished / absent referent enqueues nothing
+ * (a clean no-op — the creature already left, CR 603.10a look-backs don't resurrect it for a destroy).
+ */
+function applyDestroyAtEndOfCombat(state, atom, ctx) {
+  const id = ctx.triggeringPermanentId;
+  if (!id || !findPermanent(state, id)) return state;
+  const entry = { op: "destroy", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
+  const next = { ...state, endOfCombatEffects: [...(state.endOfCombatEffects || []), entry] };
+  return logEvent(next, { kind: "spell-effect", effect: "destroy-at-end-of-combat-enqueued", target: id, source: ctx.cardName || null });
+}
+
 export const removalResolvers = {
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
+  "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it
   "destroy": (state, atom, ctx) =>
     (atom.controllerRider || atom.damageRider)
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy / Smash to Smithereens / Molten Rain
