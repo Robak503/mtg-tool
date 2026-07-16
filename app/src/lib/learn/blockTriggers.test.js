@@ -124,10 +124,11 @@ describe("BUSHIDO keyword (subsystem 2) — synthesis + firing", () => {
     expect(classifyCard(cr("Devoted Retainer", "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)"))).toBe("native-body");
     expect(classifyCard(cr("Numai Outcast", BUSHIDO2 + "\n{B}, Pay 5 life: Regenerate this creature."))).toBe("native-activated");
   });
-  it("FN boundary: a still-unmodeled combat keyword (flanking) stays Arbiter", () => {
-    // (RAMPAGE is now modeled — see the RAMPAGE describe block; flanking's "blocked by a creature without
-    // flanking → -1/-1" restricted form is NOT modeled, so it stays a meaningful pin.)
-    expect(classifyCard(cr("Flanker", "Flanking (Whenever a creature without flanking blocks this creature, that creature gets -1/-1 until end of turn.)"))).toBe("body-only");
+  it("FN boundary: a still-unmodeled combat keyword (banding) stays Arbiter", () => {
+    // (RAMPAGE is modeled — see the RAMPAGE describe block. FLANKING graduated in BLITZ FL-1 — the
+    // fire-time -1/-1 onto each non-flanking blocker, pinned in selfHitAndPerBlockerPump.test.js.
+    // BANDING's attack-band / damage-assignment rules (CR 702.22) remain genuinely unmodeled.)
+    expect(classifyCard(cr("Bander", "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group.)"))).toBe("body-only");
   });
   it("runtime: a bushido ATTACKER that becomes blocked gets +N/+N", () => {
     let s = combatState(BUSHIDO2);
