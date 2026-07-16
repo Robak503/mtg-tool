@@ -2255,6 +2255,9 @@ function actionsDeclareAttacker(state, playerId) {
     .filter(p => !declared.has(p.id))
     // Defender (CR 702.3b) can't attack — layer-aware so a granted/removed Defender counts (EVADE).
     .filter(p => !permanentHasKeyword(state, p.id, "Defender"))
+    // PACIFISM CLASS (BLITZ PA-1): the cantAttack pseudo-keyword (an attached "can't attack [or block]"
+    // aura grant) — layer-aware, so the restriction lifts the moment the aura leaves.
+    .filter(p => !permanentHasKeyword(state, p.id, "cantAttack"))
     // Granted Haste (Concordant Crossroads, sliver) counts, not just printed.
     .filter(p => !p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
 

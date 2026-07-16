@@ -2636,6 +2636,19 @@ function parseAttachedClause(c, subject) {
   let rest = c.replace(new RegExp(`^${subject} creature\\s+`), "").trim();
   const out = [];
 
+  // PACIFISM CLASS (BLITZ PA-1): "can't attack or block" / "can't attack" / "can't block" — layer-6
+  // grants of the cantAttack/cantBlock pseudo-keywords, permanent for as long as the attachment holds
+  // (the layer engine scopes attached bonuses to the host). Block-side enforcement is the SAME
+  // canBlockAttacker read the until-EOT cant-block atom uses; attack-side is actionsDeclareAttacker's
+  // cantAttack gate (added with this class). Anchored whole-clause: a compound tail (Arrest's "and its
+  // activated abilities can't be activated") fails the match → the whole bonus drops (safe FN).
+  const cantM = rest.match(/^can't (attack or block|attack|block)\.?$/);
+  if (cantM) {
+    if (cantM[1] !== "block") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantAttack" }, duration: { kind: "permanent" } });
+    if (cantM[1] !== "attack") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantBlock" }, duration: { kind: "permanent" } });
+    return out;
+  }
+
   // EQUIP-BASE-PT-SET (layer 7b): "has base power and toughness N/N" (literal), OPTIONALLY composed with a
   // trailing "and has <grantable keyword>…" list (Super State "…9/9 and has flying, first strike, trample,
   // and haste"; Almost Perfect "…9/10 and has indestructible"; Gigantiform "…8/8 and has trample"). The
