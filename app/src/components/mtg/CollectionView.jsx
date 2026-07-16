@@ -64,8 +64,8 @@ const DEFAULT_FILTERS = {
   finish: "any",
 };
 
-const SURFACE_MODE = { collection: "collection", ledger: "ledger", sets: "sets", build: "build" };
-const SURFACE_LABEL = { collection: "The Stacks", ledger: "The Ledger", sets: "The Atlas", build: "The Forge" };
+const SURFACE_MODE = { collection: "collection", ledger: "ledger", census: "census", sets: "sets", build: "build" };
+const SURFACE_LABEL = { collection: "The Stacks", ledger: "The Ledger", census: "The Census", sets: "The Atlas", build: "The Forge" };
 
 export default function CollectionView({ surface = "collection", onNavigate, onClose, onBuildCommander }) {
   const [state, setState] = useState({
@@ -709,12 +709,19 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
         </div>
       )}
 
+      {/* C5-P2.3 — the Ledger split: the Ledger keeps the finance dashboard;
+          the stats dashboard (composition/curve/top-sets/most-valuable/value
+          chart) is its own door, The Census. Pure IA — no content changes
+          inside either dashboard. The plain wrapper divs neutralize each
+          child's own flex/overflow root so each surface scrolls as a page. */}
       {mode === "ledger" && (
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {/* Finance + Stats merged into one scrolling dashboard. The plain
-              wrapper divs neutralize each child's own flex/overflow root so
-              the Ledger scrolls as a single page. */}
           <div><VaultFinanceView colors={COLORS} fontFamily={FONT} /></div>
+        </div>
+      )}
+
+      {mode === "census" && (
+        <div style={{ flex: 1, overflowY: "auto" }}>
           <div><VaultStatsView colors={COLORS} fontFamily={FONT} onGoToCollection={() => onNavigate?.("collection")} /></div>
         </div>
       )}

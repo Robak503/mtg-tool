@@ -246,7 +246,7 @@ export const AREAS = [
   {
     id: "vault",
     title: "The Vault",
-    tagline: "Stacks · Ledger · Atlas · Forge",
+    tagline: "Stacks · Ledger · Census · Atlas · Forge",
     icon: VaultIcon,
     defaultView: "vault-home",
   },

@@ -1565,6 +1565,8 @@ export default function MTGAssistant() {
               <VaultGalleryView onNavigate={setCenterView} fontFamily={F} />
             ):centerView==="vault-ledger"?(
               <CollectionView surface="ledger" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
+            ):centerView==="vault-census"?(
+              <CollectionView surface="census" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):centerView==="vault-atlas"?(
               <CollectionView surface="sets" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):centerView==="vault-forge"?(

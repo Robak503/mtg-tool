@@ -44,6 +44,12 @@ const ICONS = {
       <path d="M12 5.8v2.4M10.9 7h2.2" opacity="0.55" />
     </svg>
   ),
+  census: (
+    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 4v16M9 4v16M13 4v16M17 4v16" />
+      <path d="M3 17.5L20 6.5" opacity="0.7" />
+    </svg>
+  ),
   atlas: (
     <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
@@ -142,6 +148,22 @@ export default function VaultHome({ onPick, fontFamily }) {
     }).length;
   }, [collection]);
 
+  // C5-P2.3 — the Census door's at-a-glance: the collection's biggest color
+  // share (owned rows by color, from the stats route the door already pulls).
+  const topColor = useMemo(() => {
+    const byColor = stats?.breakdowns?.byColor;
+    if (!byColor) return null;
+    let total = 0;
+    let best = null;
+    for (const [key, count] of Object.entries(byColor)) {
+      total += count;
+      if (!best || count > best.count) best = { key, count };
+    }
+    if (!best || !total) return null;
+    const names = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green" };
+    return { label: names[best.key] || best.key, pct: Math.round((best.count / total) * 100) };
+  }, [stats]);
+
   const topMover = finance?.owned?.risers?.[0] || null;
   const alertsMet = Array.isArray(finance?.alerts) ? finance.alerts.length : 0;
   const conflictCount = conflicts?.conflicts?.length || 0;
@@ -184,7 +206,7 @@ export default function VaultHome({ onPick, fontFamily }) {
     {
       id: "vault-ledger",
       title: "The Ledger",
-      blurb: "Value, movers, alerts, and every stat.",
+      blurb: "Value, movement, movers, and alerts.",
       icon: ICONS.ledger,
       body: (
         <DoorStat
@@ -194,6 +216,24 @@ export default function VaultHome({ onPick, fontFamily }) {
             d30 && d30.delta !== 0
               ? `${d30.delta > 0 ? "▲" : "▼"} $${Math.abs(d30.delta).toFixed(2)} · 30d`
               : currentUsd != null ? "owned value" : null
+          }
+        />
+      ),
+    },
+    {
+      // C5-P2.3 — the Ledger split: stats get their own door. Pure IA — the
+      // dashboard itself is unchanged, it just stops sharing a page with finance.
+      id: "vault-census",
+      title: "The Census",
+      blurb: "Your collection, counted — composition, curve, rarity.",
+      icon: ICONS.census,
+      body: (
+        <DoorStat
+          big={topColor ? `${topColor.pct}% ${topColor.label}` : null}
+          small={
+            topColor
+              ? uniqueRows != null ? `biggest share · ${uniqueRows} unique` : "biggest color share"
+              : uniqueRows != null ? `${uniqueRows} unique cards` : null
           }
         />
       ),

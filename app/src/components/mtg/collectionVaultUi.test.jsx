@@ -9,9 +9,10 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import CollectionCardDetail from "./CollectionCardDetail.jsx";
-import { BulkActionBar, HeaderOverflowMenu } from "./CollectionView.jsx";
+import CollectionView, { BulkActionBar, HeaderOverflowMenu } from "./CollectionView.jsx";
 import CollectionImportModal from "./CollectionImportModal.jsx";
 import CollectionAddModal, { quickAddKeyAction } from "./CollectionAddModal.jsx";
+import VaultHome from "./VaultHome.jsx";
 
 const COLORS = {
   BG: "#090a0d", BG2: "#12131c", BG3: "#181922", LINE: "#2c393b",
@@ -103,6 +104,26 @@ describe("C5-P2.2 — HeaderOverflowMenu (the Stacks header strip)", () => {
     const html = renderToStaticMarkup(<HeaderOverflowMenu items={items} colors={COLORS} initialOpen />);
     for (const item of items) expect(html).toContain(item.label.replace("…", ""));
     expect(html).toContain("var(--ley-red)");
+  });
+});
+
+describe("C5-P2.3 — the Ledger split (The Census surface + kiosk door)", () => {
+  it("surface='census' renders the Census chip (its own surface exists)", () => {
+    const html = renderToStaticMarkup(<CollectionView surface="census" />);
+    expect(html).toContain("The Census");
+  });
+
+  it("surface='ledger' keeps the Ledger chip and no longer carries the Census", () => {
+    const html = renderToStaticMarkup(<CollectionView surface="ledger" />);
+    expect(html).toContain("The Ledger");
+    expect(html).not.toContain("The Census");
+  });
+
+  it("the kiosk renders six doors including The Census", () => {
+    const html = renderToStaticMarkup(<VaultHome onPick={() => {}} fontFamily="Inter" />);
+    for (const door of ["The Stacks", "The Ledger", "The Census", "The Atlas", "The Gallery", "The Forge"]) {
+      expect(html).toContain(door);
+    }
   });
 });
 
