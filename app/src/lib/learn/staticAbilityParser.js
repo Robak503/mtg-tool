@@ -1982,6 +1982,15 @@ function parseCreatureSelector(c) {
     return { mode: "dynamic", selector: { controllerScope: youControl ? "you" : "each", cardTypes: ["Creature"], attacking: true } };
   }
 
+  // OPPONENT-DEBUFF anthem (BLITZ OD-1 — Cumber Stone / Haunter of Nightveil / Elesh Norn's second line /
+  // Ethereal Absolution: "Creatures your opponents control get -N/-M"): matchesSelector's "opponents"
+  // scope (candidate.controller !== the source's) — the exact mirror of the you-control anthem. The
+  // negative P/T rides the same 7c ptModify; the lethal SBA reads layer-aware toughness, so a -2/-2
+  // Elesh Norn board genuinely kills opposing X/2s.
+  if (/^creatures your opponents control (?:gets?|gains?|has|have)\b/.test(c)) {
+    return { mode: "dynamic", selector: { controllerScope: "opponents", cardTypes: ["Creature"] } };
+  }
+
   // Tribal / determiner anthem: "(all|other|each) <word> [creatures] [you control] get…"
   let m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:gets?|gains?|has|have)\b/);
   if (m) {
