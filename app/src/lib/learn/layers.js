@@ -487,6 +487,10 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
       break;
   }
   if (selector.excludeSelf && sourcePerm && candidate.id === sourcePerm.id) return false;
+  // ATTACKING gate (BLITZ AT-1 — Orcish/Goblin Oriflamme, War Horn): the candidate must be a DECLARED
+  // attacker right now. Reads state.combat.attackers — NON-layered state (the requiresCounter class, no
+  // recursion) — re-evaluated per query, so the anthem tracks combat exactly (CR 611.2c continuous).
+  if (selector.attacking && !((state?.combat?.attackers || []).some((a) => a?.permanentId === candidate.id))) return false;
   // LAYER-AWARE type identity (printed ∪ fixed layer-4 grants) — computed once for both the cardTypes and the
   // subtypes gates so an ANIMATED permanent (Vihaan's Treasure → "Construct Assassin artifact creature") is
   // seen as the Creature/outlaw it has BECOME (CR 613's layer-4-before-layer-6 dependency). Lazily — only when

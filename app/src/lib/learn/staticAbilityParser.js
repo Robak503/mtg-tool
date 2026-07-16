@@ -1966,6 +1966,14 @@ function parseCreatureSelector(c) {
   // SUBJECT of the clause. This is what stops a comma-joined effect body (e.g. the
   // tail of a trigger after the static guard) from matching as an anthem.
 
+  // ATTACKING anthem (BLITZ AT-1 — Orcish/Goblin Oriflamme, War Horn: "Attacking creatures you control
+  // get +1/+0"): a combat-state-scoped anthem. The selector's `attacking` gate reads state.combat.attackers
+  // — NON-layered state (the requiresCounter class, no layer recursion) — re-evaluated per query, so the
+  // pump appears the moment a creature is declared and vanishes when combat clears.
+  if (/^attacking creatures?\s+(?:you control\s+)?(?:gets?|gains?|has|have)\b/.test(c)) {
+    return { mode: "dynamic", selector: { controllerScope: youControl ? "you" : "each", cardTypes: ["Creature"], attacking: true } };
+  }
+
   // Tribal / determiner anthem: "(all|other|each) <word> [creatures] [you control] get…"
   let m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:gets?|gains?|has|have)\b/);
   if (m) {

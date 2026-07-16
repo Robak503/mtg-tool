@@ -66,8 +66,10 @@ describe("card-type creature anthem — classification", () => {
 
 // ── 2. CREED anti-FP pins: board-state / quality qualifiers STAY body-only ────────
 describe("card-type creature anthem — anti-FP (these are NOT card types, must stay body-only)", () => {
+  // ("Attacking creatures you control get +1/+0" sat here until BLITZ AT-1 modeled it with a REAL
+  // combat-state selector (layers gates on state.combat.attackers) — see attackingAnthem.test.js.
+  // The remaining qualifiers stay genuinely unmodeled parks.)
   for (const oracle of [
-    "Attacking creatures you control get +1/+0",
     "Tapped creatures you control have vigilance",
     "Token creatures you control get +1/+1",
     "Enchanted creatures you control have flying",

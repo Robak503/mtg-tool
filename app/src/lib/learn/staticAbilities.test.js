@@ -215,9 +215,13 @@ describe("parseStaticAbilities — NO-DETERMINER tribal anthem ('<Subtype> creat
   });
 
   // CREED FP guard — a board-STATE/quality qualifier is NOT a subtype: it must grant to nobody, not
-  // flip the card native while selecting an empty set.
-  it("does NOT treat a state qualifier as a subtype ('Attacking creatures you control get +1/+0')", () => {
-    expect(parseStaticAbilities(card("Lovisa-like", "Attacking creatures you control get +1/+0.", "Creature"))).toHaveLength(0);
+  // flip the card native while selecting an empty set. ("Attacking …" graduated in BLITZ AT-1 with a
+  // REAL combat-state selector — pinned below; the fear here was a fabricated empty-set subtype.)
+  it("the ATTACKING anthem (AT-1) emits the combat-state selector, never a fabricated subtype", () => {
+    const d = parseStaticAbilities(card("Oriflamme-like", "Attacking creatures you control get +1/+0.", "Enchantment"));
+    expect(d).toHaveLength(1);
+    expect(d[0].affects.selector).toMatchObject({ controllerScope: "you", cardTypes: ["Creature"], attacking: true });
+    expect(d[0].affects.selector.subtypes).toBeUndefined();
   });
   it("does NOT grant for tapped / nontoken / colorless qualifiers", () => {
     expect(parseStaticAbilities(card("A", "Tapped creatures you control have vigilance.", "Enchantment"))).toHaveLength(0);
