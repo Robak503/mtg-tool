@@ -471,6 +471,7 @@ function effectiveTypeIdentity(candidate, state) {
 // for such an id (a) excludes the P/T-predicate grant (P/T-irrelevant — CR 613.1f vs 613.3) and (b) skips the
 // memo write, so no keyword-less entry can ever be served to a later reader.
 const _ptPredicateInProgress = new Set();
+const _withKeywordInProgress = new Set(); // WD-1 — the withKeyword selector's re-entry guard (see matchesSelector)
 
 function matchesSelector(selector, candidate, sourcePerm, state) {
   if (!selector) return false;
@@ -567,6 +568,25 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // changeling). controllerScope:"you" above already restricted to the source's controller. An unset
   // chosenType (malformed source) yields false → the anthem touches nobody (a SAFE no-op).
   if (selector.chosenTypeOfSource && !permHasChosenTypeLayer(candidate.card, sourcePerm?.chosenType)) return false;
+  // WITH-KEYWORD gate (BLITZ WD-1 — Windstorm Drake / Empyrean Eagle / Spirit of the Spires: "Other
+  // creatures you control WITH FLYING get +N/+M"): the candidate must HAVE the keyword right now,
+  // LAYER-AWARE (permanentHasKeyword — printed ∪ keyword counter ∪ layer-6 grants), so an aura-granted
+  // flyer is buffed exactly like a printed one and drops out the moment the grant expires (CR 613 —
+  // layer 6 resolves before the 7c pump carrying this selector). RECURSION: permanentHasKeyword walks
+  // ONLY the byKeyword-indexed grants of the QUERIED keyword, so a pump effect never re-enters itself;
+  // the guard set below makes even a pathological CR 613.5 keyword-reads-keyword PAIR ("with flying
+  // have vigilance" + "with vigilance have flying" — unprinted) terminate: the nested re-entry treats
+  // the candidate as unselected for that pass (an FN-safe bail, never a stack overflow).
+  if (selector.withKeyword) {
+    const kwKey = candidate.id + "|" + selector.withKeyword;
+    if (_withKeywordInProgress.has(kwKey)) return false;
+    _withKeywordInProgress.add(kwKey);
+    try {
+      if (!permanentHasKeyword(state, candidate.id, selector.withKeyword)) return false;
+    } finally {
+      _withKeywordInProgress.delete(kwKey);
+    }
+  }
   return true;
 }
 

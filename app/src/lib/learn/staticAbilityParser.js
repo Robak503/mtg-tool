@@ -1991,6 +1991,19 @@ function parseCreatureSelector(c) {
     return { mode: "dynamic", selector: { controllerScope: "opponents", cardTypes: ["Creature"] } };
   }
 
+  // WITH-KEYWORD anthem (BLITZ WD-1 — Windstorm Drake / Empyrean Eagle / Spirit of the Spires: "Other
+  // creatures you control with flying get +N/+M"): a keyword-property-filtered anthem. The selector's
+  // withKeyword gate is enforced LAYER-AWARE in layers.matchesSelector (permanentHasKeyword — printed ∪
+  // counter ∪ layer-6 grants), so an aura-granted flyer is buffed exactly like a printed one and drops
+  // out when its grant expires. CURATED keyword (flying — the only ≥3-carrier evidence) and "you control"
+  // scope only; any other property word falls through unmodeled (FN-safe). The verb anchor accepts the
+  // anthem verbs, but a keyword-granting tail rides the SAME all-or-nothing machinery as every anthem —
+  // matchesSelector's re-entry guard makes even a pathological keyword-reads-keyword pair terminate.
+  const withKwM = c.match(/^(all|other|each)?\s*creatures? you control with (flying) (?:gets?|gains?|has|have)\b/);
+  if (withKwM) {
+    return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], withKeyword: withKwM[2], excludeSelf: withKwM[1] === "other" } };
+  }
+
   // Tribal / determiner anthem: "(all|other|each) <word> [creatures] [you control] get…"
   let m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:gets?|gains?|has|have)\b/);
   if (m) {
