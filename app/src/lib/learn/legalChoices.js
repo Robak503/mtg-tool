@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackOrBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -2590,7 +2590,13 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // strict subset of a restriction the engine already imposes; honoring it needs only the cast suppression
   // here, and both clauses of the card are respected. (`includeActivated` on the descriptor remains the
   // record of the modeled scope and gates the coverage flip.)
-  const { cantCast } = opponentsCantActAgainst(state, playerId);
+  // CAST-LIMIT (BLITZ RL-1, CR 604.2 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric): while ANY
+  // battlefield carries the symmetric one-spell-per-turn static, a player who already cast this turn is
+  // offered NO cast-family actions (spellsCastThisTurn is stamped at the cast chokepoint and reset at
+  // untap). Lands / activations / special actions are untouched — casting alone is limited (CR 601).
+  const castLimited = (state.players[playerId]?.spellsCastThisTurn || 0) >= 1
+    && Object.values(state.players).some((pl) => (pl.battlefield || []).some((perm) => castsPerTurnLimitOf(perm.card) != null));
+  const cantCast = opponentsCantActAgainst(state, playerId).cantCast || castLimited;
 
   // Pass priority — always available IF the player has priority.
   if (state.priorityHolder === playerId) {

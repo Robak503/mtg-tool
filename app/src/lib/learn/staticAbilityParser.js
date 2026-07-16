@@ -1283,6 +1283,18 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
+  // ── CAST-LIMIT (BLITZ RL-1 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric, CR 604.2):
+  // "Each player can't cast more than one spell each turn." Emitted as a coverage MARKER (the
+  // blockRestriction pattern — no `affects`/`op`, the layer engine ignores it). The RUNTIME enforcement
+  // lives in legalChoices (the cantCast gate consults castsPerTurnLimitOf across all battlefields and the
+  // acting player's spellsCastThisTurn), reading the SAME line via castsPerTurnLimitOf — one parser, no
+  // drift. Only the EXACT symmetric one-spell form; any variant (per-player asymmetric, "two spells",
+  // "only one spell during your own turn") leaves residue → body-only (a safe FN).
+  if (/^each player can't cast more than one spell each turn$/.test(c)) {
+    out.push({ castLimit: 1 });
+    return;
+  }
+
   // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
   // on it/them can't be blocked" → a layer-6 unblockable grant, gated PER-CREATURE (dynamic) on having a
   // +1/+1 counter via the selector's requiresCounter; combat reads the granted "unblockable". Only the bare
@@ -3029,6 +3041,14 @@ export function attachedNoUntapOf(card) {
 /** Single-LINE form of the tap-lock check (UT-1) — for coverage residue walks over oracle lines. */
 export function isAttachedNoUntapLine(line) {
   return ATT_NO_UNTAP_CLAUSE_RE.test(String(line || "").trim());
+}
+
+/** CAST-LIMIT (BLITZ RL-1) — does this card print the exact symmetric one-spell-per-turn line?
+ * Returns 1 (the limit) or null. The legalChoices cantCast gate and the parseStaticAbilities marker
+ * both key on this one reader (no drift). */
+export function castsPerTurnLimitOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*each player can't cast more than one spell each turn\s*(?:\.|$)/i.test(o) ? 1 : null;
 }
 // AURA-OWN-ETB validator (BLITZ PZ-1/LA-1 — injected from coverage, the group-validator pattern:
 // this module can't import detectTriggers without a load cycle). When registered, an aura-own
