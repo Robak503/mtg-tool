@@ -647,33 +647,34 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {mode === "collection" && (<>
-          {cards.length > 0 && (
-            <button
-              onClick={() => setRoastOpen(true)}
-              className="btn btn-danger btn-sm"
-              title="Have Tibalt roast your collection"
-            >
-              Roast me
-            </button>
-          )}
-          {cards.length > 0 && (
-            <button onClick={() => setGridMode((m) => (m === "grid" ? "binder" : "grid"))} className="btn btn-secondary btn-sm" title="Toggle grid / 9-pocket binder view">
-              {gridMode === "grid" ? "Binder" : "Grid"}
-            </button>
-          )}
-          <button onClick={() => setTagsOpen(true)} className="btn btn-secondary btn-sm">Color tags</button>
-          {cards.length > 0 && (
-            <button
-              onClick={() => { if (selectMode) { exitSelectMode(); } else { setSelectedRow(null); setSelectMode(true); } }}
-              className={selectMode ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-              title="Select multiple cards to tag or remove at once"
-            >
-              {selectMode ? "Done" : "Select"}
-            </button>
-          )}
+          {/* C5-P2.2 — the header strip: only the two everyday actions stay top-level;
+              everything else lives in the ⋯ overflow menu. Reversible by design —
+              usage decides what earns its way back to the strip. */}
           <button onClick={() => setImportOpen(true)} className="btn btn-secondary btn-sm">Import CSV</button>
-          <button onClick={exportCollection} className="btn btn-secondary btn-sm">Export CSV</button>
           <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} className="btn btn-primary btn-sm">+ Add card</button>
+          <HeaderOverflowMenu
+            items={[
+              cards.length > 0 && {
+                label: gridMode === "grid" ? "Binder view" : "Grid view",
+                title: "Toggle grid / 9-pocket binder view",
+                onClick: () => setGridMode((m) => (m === "grid" ? "binder" : "grid")),
+              },
+              cards.length > 0 && {
+                label: selectMode ? "Done selecting" : "Select cards…",
+                title: "Select multiple cards to tag or remove at once",
+                onClick: () => { if (selectMode) { exitSelectMode(); } else { setSelectedRow(null); setSelectMode(true); } },
+              },
+              { label: "Color tags…", onClick: () => setTagsOpen(true) },
+              { label: "Export CSV", title: "Download your collection as a Deckbox-style CSV", onClick: exportCollection },
+              cards.length > 0 && {
+                label: "Roast me",
+                title: "Have Tibalt roast your collection",
+                danger: true,
+                onClick: () => setRoastOpen(true),
+              },
+            ].filter(Boolean)}
+            colors={COLORS}
+          />
           </>)}
           {mode === "ledger" && (
             <button
@@ -1045,6 +1046,78 @@ export function BulkActionBar({ count, tags, busy, onAssignTag, onSetCondition, 
       <button onClick={onExit} disabled={busy} className="btn btn-primary btn-sm" style={{ marginLeft: 10 }}>
         Done
       </button>
+    </div>
+  );
+}
+
+// C5-P2.2 — the Stacks header's ⋯ overflow menu. Holds every action that isn't
+// an everyday one (Add / Import stay on the strip). Plain popover: closes on
+// outside click or Escape. `initialOpen` exists for SSR render tests only.
+export function HeaderOverflowMenu({ items, colors, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={open ? "btn btn-primary btn-sm btn-icon" : "btn btn-secondary btn-sm btn-icon"}
+        title="More actions"
+        aria-label="More actions"
+        aria-expanded={open}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          className="ley-glass-strong"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 60,
+            minWidth: 180,
+            padding: 6,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            border: `1px solid ${colors.LINE}`,
+            borderRadius: "var(--r-lg)",
+          }}
+        >
+          {items.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => { setOpen(false); item.onClick(); }}
+              className="btn btn-ghost btn-sm"
+              title={item.title}
+              style={{
+                justifyContent: "flex-start",
+                textAlign: "left",
+                width: "100%",
+                whiteSpace: "nowrap",
+                color: item.danger ? "var(--ley-red)" : undefined,
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

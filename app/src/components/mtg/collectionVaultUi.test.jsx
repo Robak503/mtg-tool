@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import CollectionCardDetail from "./CollectionCardDetail.jsx";
-import { BulkActionBar } from "./CollectionView.jsx";
+import { BulkActionBar, HeaderOverflowMenu } from "./CollectionView.jsx";
 import CollectionImportModal from "./CollectionImportModal.jsx";
 import CollectionAddModal, { quickAddKeyAction } from "./CollectionAddModal.jsx";
 
@@ -81,6 +81,28 @@ describe("C5-P1.5 — BulkActionBar condition-set + mark-owned controls", () => 
     const html = renderToStaticMarkup(<BulkActionBar {...baseProps} count={0} />);
     expect(html).toContain("Select cards…");
     expect(html).toContain("disabled");
+  });
+});
+
+describe("C5-P2.2 — HeaderOverflowMenu (the Stacks header strip)", () => {
+  const items = [
+    { label: "Binder view", onClick: () => {} },
+    { label: "Color tags…", onClick: () => {} },
+    { label: "Export CSV", onClick: () => {} },
+    { label: "Roast me", danger: true, onClick: () => {} },
+  ];
+
+  it("closed by default: renders only the ⋯ trigger, no menu items", () => {
+    const html = renderToStaticMarkup(<HeaderOverflowMenu items={items} colors={COLORS} />);
+    expect(html).toContain("More actions");
+    expect(html).not.toContain("Binder view");
+    expect(html).not.toContain("Roast me");
+  });
+
+  it("open: renders every item, with the danger item in the red", () => {
+    const html = renderToStaticMarkup(<HeaderOverflowMenu items={items} colors={COLORS} initialOpen />);
+    for (const item of items) expect(html).toContain(item.label.replace("…", ""));
+    expect(html).toContain("var(--ley-red)");
   });
 });
 
