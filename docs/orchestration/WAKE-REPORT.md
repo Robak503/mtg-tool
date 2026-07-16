@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +276 more (campaign +444), 13 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +358 more (campaign +526), 20 slices, LOST=0
 
 Colton's standing order (morning): the Vault walk became a future full overhaul (parked); the corpus
 grind resumes uninterrupted — full trust, no check-ins. Day-2 slices, each gated (suite+lint+audited
@@ -25,10 +25,16 @@ Vehicles animate: actionsCrewVehicle (sick-first auto tap-set) + a layer-4 endOf
 CR 302.6 same-turn sickness + the classify crew-line strip (audit catch: the first strip regex ate
 Imposter Mech's clone rider — re-anchored line-start) · **OR-1** the attacks-or-blocks disjunction
 split (159536b6, +8) — both halves fire; Smuggler's Copter crews AND loots (a same-day VH-1+OR-1
-compound flip). Suite 8,588 → 8,630 · lint 0 throughout · NO release tag (the unreleased train now
-carries C5 + both blitz days). Prevention is now a real subsystem: next-N shields, fogs (all +
-players scopes), self walls, attached walls — each new prevention wording from here is a clause, not
-a build. Running census after day-2 so far: native+land 9,791 → 10,027 by name-dedup.
+compound flip) · **TP-1** the tap-freeze fold (f893ae90, +7) — Frost Breath class, the plural Junk
+Winder fold · **SM-2** can't attack or block alone (f7b533b4, +5) — Mogg Flunkies at both declare
+gates · **TE-1** assign-as-unblocked (053ec13a, +8) — Thorn Elemental's full power through blockers ·
+**BF-1** the blocks-a-flyer pump (cf0df1af, +6) — Netcaster Spider, the rampage fire-time family ·
+**EC-1** KW-ECHO (5b063ead, +37) — the one-time first-upkeep pay-or-sacrifice on the cumulative-upkeep
+chassis; Karmic Guide / Avalanche Riders / Goblin Marshal ride their already-modeled ETBs. Suite
+8,588 → 8,645 · lint 0 throughout · NO release tag (the unreleased train now carries C5 + both blitz
+days). Prevention is now a real subsystem: next-N shields, fogs (all + players scopes), self walls,
+attached walls — each new prevention wording from here is a clause, not a build. Running census after
+day-2 so far: native+land 9,791 → 10,090 by name-dedup (~29.5% of 34,161).
 
 ## 🌙 2026-07-16 (overnight) — THE CORPUS BLITZ: +208 audited native adds, 14 slices, LOST=0 everywhere
 
