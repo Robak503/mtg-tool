@@ -3763,11 +3763,17 @@ export function atomTargetIntent(atom) {
       if (atom.targetType === "creatureYouControl") return "own";
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
+      return "own";
     case "return-from-graveyard":
-      // The target is a card in the CASTER'S OWN graveyard — always own-side, so a recursion TRIGGER
+      // The target is a card in the CASTER'S OWN graveyard — own-side, so a recursion TRIGGER
       // ("When this enters, return target creature card from your graveyard to your hand") routes
       // natively (programTriggerTargetsResolvable → true; the chooser's only candidates are own-gy cards).
-      return "own";
+      // GY-TO-BOTTOM (AR-1): the anyGraveyard form ("put target card from a graveyard on the bottom of
+      // its owner's library") enumerates across EVERY player's graveyard — the one-value-per-atom intent
+      // model can't promise the flush chooser a provably-correct side, so report "ambiguous" → such a
+      // TRIGGER (Nantuko Tracer / Vessel of Endless Rest ETBs) routes to the Arbiter (a SAFE FN) —
+      // exactly the reanimate / exile-from-graveyard discipline below. Activated/cast paths unaffected.
+      return (atom.anyGraveyard || atom.opponentGraveyard) ? "ambiguous" : "own";
     case "reanimate":
       // OWN-graveyard reanimate ("from your graveyard") is own-side, so a reanimation TRIGGER routes
       // natively. But the REANIMATE-FROM-ANY forms ("from a graveyard" / "from an opponent's graveyard")

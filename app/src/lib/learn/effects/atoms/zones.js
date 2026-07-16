@@ -35,21 +35,33 @@ export function applyZoneMove(state, atom, ctx, toZone, toTop = false) {
 /**
  * Graveyard recursion (CR 608) — move the targeted card(s) from the CASTER'S graveyard to their
  * hand (Raise Dead / Regrowth). The target was chosen at cast time from the caster's own
- * graveyard (a public zone). Fail-safe (CR 608.2b): if the targeted card already left the
- * graveyard, that target does nothing — a logged no-op, never a throw. Hidden-info safe: the
- * card was already visible in the graveyard, so logging the move reveals nothing new.
+ * graveyard (a public zone). GY-TO-BOTTOM (AR-1): the anyGraveyard form ("put target card from a
+ * graveyard on the bottom of its owner's library") instead reads the ZONE HOLDER off the target
+ * (t.controller) and moves within THAT player — graveyard → bottom of their library. Fail-safe
+ * (CR 608.2b): if the targeted card already left the graveyard, that target does nothing — a
+ * logged no-op, never a throw. Hidden-info safe: the card was already visible in the graveyard,
+ * so logging the move reveals nothing new.
  */
 export function applyReturnFromGraveyard(state, atom, ctx) {
   let next = state;
   const returned = [];
   for (const t of ctx.targets || []) {
     if (t.type !== "graveyardCard") continue;
-    const gy = next.players[ctx.controller]?.graveyard || [];
+    // GY-TO-BOTTOM (AR-1): "from a graveyard" (anyGraveyard) — the card lives in the TARGET's owner
+    // graveyard (t.controller, stamped at enumeration — the applyExileFromGraveyard/applyReanimate cross-zone
+    // routing), and the destination zone belongs to THAT player ("its owner's library"). Every own-graveyard
+    // form leaves anyGraveyard unset → holder === ctx.controller (byte-identical to before).
+    const holder = atom.anyGraveyard ? (t.controller || ctx.controller) : ctx.controller;
+    const gy = next.players[holder]?.graveyard || [];
     if (!gy.some((c) => c.id === t.id)) continue; // target left the graveyard — no-op (CR 608.2b)
-    // GY-TO-TOP: toLibraryTop routes graveyard → TOP of library (Reclaim), else → hand (Raise Dead).
+    // GY-TO-TOP: toLibraryTop routes graveyard → TOP of library (Reclaim); GY-TO-BOTTOM (AR-1):
+    // toLibraryBottom → library WITHOUT toTop = append = the bottom (library index 0 is the top);
+    // else → hand (Raise Dead).
     next = atom.toLibraryTop
-      ? moveCardToZone(next, { playerId: ctx.controller, fromZone: "graveyard", toZone: "library", cardId: t.id, toTop: true })
-      : moveCardToZone(next, { playerId: ctx.controller, fromZone: "graveyard", toZone: "hand", cardId: t.id });
+      ? moveCardToZone(next, { playerId: holder, fromZone: "graveyard", toZone: "library", cardId: t.id, toTop: true })
+      : atom.toLibraryBottom
+        ? moveCardToZone(next, { playerId: holder, fromZone: "graveyard", toZone: "library", cardId: t.id })
+        : moveCardToZone(next, { playerId: holder, fromZone: "graveyard", toZone: "hand", cardId: t.id });
     returned.push(t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard", controller: ctx.controller, targets: returned });
@@ -307,6 +319,20 @@ export function graveyardReturnClauseParser(clause) {
   if (topM) {
     const cf = parseGraveyardFilter(topM[1]);
     if (cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true };
+  }
+  // GY-TO-BOTTOM (BLITZ AR-1 — Cogwork Archivist / Jade-Cast Sentinel / Phyrexian Archivist / Junktroller /
+  // Reito Lantern class, 14 corpus carriers): "put target card from a graveyard on the bottom of its owner's
+  // library". ANY player's graveyard (anyGraveyard — the GY-EXILE scope), destination = the BOTTOM of the
+  // ZONE HOLDER's library ("its owner's" — the engine's controller-as-owner proxy; t.controller is stamped at
+  // enumeration, and applyReturnFromGraveyard routes both the removal and the library by it). Bottom = a plain
+  // library append (moveCardToZone without toTop — library index 0 is the top). UNFILTERED "card" only: the
+  // exact `$` anchor rejects a type-filtered form ("target artifact, instant, or sorcery card" — Keeper of the
+  // Cadence), an "up to one [other] target" count (Swiftgear Drake / Hoarding Recluse), "your graveyard", a
+  // top/hand destination, or any rider → null → LOW → Arbiter (FN-safe). NOTE atomTargetIntent: the
+  // anyGraveyard flag makes a TRIGGER carrying this clause "ambiguous" → Arbiter (the reanimate-from-any
+  // discipline) — only the player-driven activated/cast paths run it natively.
+  if (/^put target card from a graveyard on the bottom of its owner's library$/.test(t)) {
+    return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any", anyGraveyard: true, toLibraryBottom: true };
   }
   // GY-EXILE — "exile target card from a graveyard" (Coffin Purge, Cremate, Purify the Grave, Fade from
   // Memory). ANY player's graveyard (anyGraveyard → enumerate every graveyard), destination exile. The exact
