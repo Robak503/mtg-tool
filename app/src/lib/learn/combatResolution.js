@@ -51,7 +51,7 @@ import {
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
-import { selfDamagePrevention, attachedDamagePrevention } from "./combatEvasion.js";
+import { selfDamagePrevention, attachedDamagePrevention, mayAssignAsUnblocked } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
@@ -331,7 +331,14 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     };
 
     let dealt = 0;
-    if (liveBlockers.length > 0) {
+    // ASSIGN-AS-UNBLOCKED (BLITZ TE-1, CR 508.1h — Thorn Elemental class): a BLOCKED attacker printing
+    // "You may have this creature assign its combat damage as though it weren't blocked" assigns its FULL
+    // power straight to the defending player (the deterministic take of the printed MAY — always legal,
+    // and the entire point of the card). Its blockers still deal back normally in the blocker loop below;
+    // trample is irrelevant on this path (nothing is assigned to blockers, so nothing "spills").
+    if ((liveBlockers.length > 0 || wasBlocked) && mayAssignAsUnblocked(lookup.permanent.card)) {
+      dealt += spillToDefender(power, false);
+    } else if (liveBlockers.length > 0) {
       let remaining = power;
       for (const blk of liveBlockers) {
         const already = blk.permanent.damageMarked || 0;
