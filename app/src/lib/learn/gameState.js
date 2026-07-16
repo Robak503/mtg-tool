@@ -1185,19 +1185,39 @@ export function consumePreventionShields(state, { targetKind, targetId, amount }
  * sickness from creatures that started the turn under their control.
  * Standard untap step behavior.
  */
+// PARALYZE-CLASS attached tap-lock (BLITZ PZ-1, CR 302 — Waterknot / Capture Sphere / Bonds of
+// Quicksilver: "Enchanted creature doesn't untap during its controller's untap step."): a CONTINUOUS
+// attached static, read off the permanent's ATTACHMENTS per untap step so the lock lifts the moment
+// the Aura leaves. gameState can't import staticAbilityParser (cycle), so the exact printed line is
+// matched locally — the same text the aura-side gates admit (staticAbilityParser.ATT_NO_UNTAP shapes).
+const RE_ATTACHED_NO_UNTAP = /(?:^|[\n.;])\s*enchanted (?:creature|permanent) doesn't untap during its controller's untap step\s*(?:\.|$)/i;
+function attachmentPreventsUntap(state, perm) {
+  if (!perm?.attachments?.length) return false;
+  for (const attId of perm.attachments) {
+    const lk = findPermanent(state, attId);
+    if (lk?.permanent?.card && RE_ATTACHED_NO_UNTAP.test(String(lk.permanent.card.oracle || lk.permanent.card.oracle_text || ""))) return true;
+  }
+  return false;
+}
+
 export function untapAll(state, { playerId }) {
   assertPlayer(playerId);
-  // BECOMES-UNTAPPED events (Mesmeric Orb — CR 613.10a-style look-back list): record every permanent that
-  // actually TRANSITIONS tapped→untapped this step (the doesNotUntapNext / stun skips below stay tapped and
-  // must NOT fire; an already-untapped permanent doesn't "become" untapped). gameState can't import
-  // triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
+  // BECAME-UNTAPPED events (Mesmeric Orb — CR 613.10a-style look-back list): record every permanent that
+  // actually TRANSITIONS tapped→untapped this step (the doesNotUntapNext / stun / attached-lock skips below
+  // stay tapped and must NOT fire; an already-untapped permanent doesn't "become" untapped). gameState can't
+  // import triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
   // pendingLeaveEvents pattern exactly). Computed BEFORE the map so the skip conditions are read unmutated.
   const becameUntapped = (state.players[playerId]?.battlefield || [])
-    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0))
+    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p))
     .map((p) => ({ id: p.id, controller: playerId }));
   const untapped = withPlayer(state, playerId, player => ({
     ...player,
     battlefield: player.battlefield.map(p => {
+      // PZ-1 (Waterknot class): an attached "doesn't untap during its controller's untap step" lock —
+      // stays tapped while the Aura holds; non-tap flags reset like every skip branch here.
+      if (p.tapped && attachmentPreventsUntap(state, p)) {
+        return { ...p, summoningSick: false, loyaltyActivatedThisTurn: false };
+      }
       // NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): a
       // permanent flagged doesNotUntapNext (setDoesNotUntapNext) is SKIPPED for the tap-clear this untap
       // step; the flag is CLEARED here so only THIS (the next) untap step is affected — the permanent stays

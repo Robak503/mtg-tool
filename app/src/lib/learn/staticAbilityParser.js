@@ -2838,11 +2838,17 @@ export function parseAttachedBonus(card, subjectOverride) {
     // native, never a silent drop). Mirrors the equipment trigger-skip, gated to the modeled shape for auras.
     if (subject === "enchanted" && /^(?:when|whenever|at)\b/.test(c.trim())) {
       if (isModeledAuraOwnTrigger(c)) continue;
+      // PZ-1/LA-1: a validator-approved aura-own ETB (fires at enterPermanent) isn't a bonus clause —
+      // skip it so a compound aura keeps its P/T/keyword half (mirrors the residue admission).
+      if (_auraOwnEtbValidator && _auraOwnEtbValidator(c)) continue;
     }
+    // PZ-1: the attached tap-lock line is enforced in gameState.untapAll, not as a layer bonus — skip it
+    // (the AP-1 wall-skip pattern) so a compound aura keeps its other half.
+    if (subject === "enchanted" && ATT_NO_UNTAP_CLAUSE_RE.test(c.trim())) continue;
     if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
     // AP-1 (CR 615): a modeled prevention wall ("Prevent all [combat] damage that would be dealt to /
     // and dealt by / by enchanted creature") is enforced at the DAMAGE PATHS (attachedDamagePrevention),
-    // not as a layer bonus — skip it so a compound aura (Candletrap's defender + wall) keeps its
+    // not as a layer bonus — skip it so a compound aura (Ghostly Possession's flying + wall) keeps its
     // keyword half instead of dropping the whole bonus.
     if (subject === "enchanted" && ATT_PREV_CLAUSE_RE.test(c.trim())) continue;
     const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
@@ -2928,6 +2934,10 @@ function auraResidueClauses(card) {
     if (/^(?:when|whenever|at)\b/.test(c)) {
       if (isModeledAuraOwnTrigger(c)) continue;               // AURA-OWN-TRIGGER: modeled combat-damage relay (Super State)
       if (isSelfPigReturnClause(c)) continue;                 // SELF-LTB: the modeled Aura self-PiG-return trigger
+      // PZ-1/LA-1: an aura-own ETB whose effect routes natively (injected validator — "When this Aura
+      // enters, tap enchanted creature / draw a card / you gain 3 life"): fired at the enterPermanent
+      // chokepoint like any permanent's ETB, so it is NOT residue. Unregistered → residue (safe FN).
+      if (_auraOwnEtbValidator && _auraOwnEtbValidator(clause)) continue;
       out.push(clause);                                       // any other aura-own trigger → residue → non-native
       continue;
     }
@@ -3006,6 +3016,22 @@ const reAttPrevToAll = /(?:^|[\n.;])\s*prevent all damage that would be dealt to
 const reAttPrevByCombat = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt by enchanted creature\s*(?:\.|$)/i;
 const reAttPrevByAll = /(?:^|[\n.;])\s*prevent all damage that would be dealt by enchanted creature\s*(?:\.|$)/i;
 const ATT_PREV_CLAUSE_RE = /^prevent all (?:combat )?damage that would be dealt (?:to(?: and dealt by)?|by) enchanted creature\.?$/i;
+// PARALYZE-CLASS attached tap-lock (BLITZ PZ-1 — Waterknot / Bonds of Quicksilver): "Enchanted
+// creature doesn't untap during its controller's untap step." Enforced continuously in
+// gameState.untapAll (the attachment read); admitted here so the aura gates treat the line as a
+// modeled attached static, exactly like the AP-1 walls.
+const ATT_NO_UNTAP_CLAUSE_RE = /^enchanted creature doesn't untap during its controller's untap step\.?$/i;
+/** Does this Aura print the modeled attached tap-lock line? (gameState.untapAll enforces it.) */
+export function attachedNoUntapOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*enchanted creature doesn't untap during its controller's untap step\s*(?:\.|$)/i.test(o);
+}
+// AURA-OWN-ETB validator (BLITZ PZ-1/LA-1 — injected from coverage, the group-validator pattern:
+// this module can't import detectTriggers without a load cycle). When registered, an aura-own
+// "When this Aura enters, <effect>" line whose single descriptor routes natively is admitted as
+// non-residue in auraResidueClauses — the runtime fires it through the enterPermanent chokepoint.
+let _auraOwnEtbValidator = null;
+export function registerAuraOwnEtbValidator(fn) { _auraOwnEtbValidator = fn; }
 /** The prevention walls one AURA CARD prints: { to: "all"|"combat"|null, by: "all"|"combat"|null }. */
 export function attachedPreventionOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
@@ -3034,8 +3060,34 @@ export function isNativeAura(card) {
   if (!isAuraCard(card)) return false;
   if (!auraEnchantRestrictions(card)) return false;         // "creature" or "creature you control" only
   const prev = attachedPreventionOf(card);
-  if (!parseAuraBonus(card).length && !prev.to && !prev.by) return false;
+  if (!parseAuraBonus(card).length && !prev.to && !prev.by && !attachedNoUntapOf(card)) return false;
+  if (!auraTouchClausesAllModeled(card)) return false;       // PZ-1 hardening — see below
   return auraResidueClauses(card).length === 0;
+}
+
+/**
+ * PZ-1 HARDENING (the Bind-the-Monster catch): every clause that "touches" the enchanted creature —
+ * which the residue walk SKIPS as presumed-bonus text — must actually be one of the explicitly-modeled
+ * shapes or PARSE as an attached bonus clause. Without this, a pronoun-referencing follow-up sentence
+ * ("It deals damage to you equal to its power" — glued to the ETB's descriptor at runtime, routing the
+ * whole trigger LOW) would slip the walk on the touch heuristic while the runtime Arbiters the trigger:
+ * the exact metric-over-claims-runtime FP the CREED forbids. The pre-widening gate was implicitly
+ * backstopped by parseAuraBonus nulling on such a clause; the wall/no-untap bypass removed that
+ * backstop, so the strictness is restored here explicitly.
+ */
+function auraTouchClausesAllModeled(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const clause of abilityClauses(oracle)) {
+    const c = clause.toLowerCase().trim();
+    if (/^enchant\b/.test(c)) continue;
+    if (/^(?:when|whenever|at)\b/.test(c)) continue;          // trigger lines gate in auraResidueClauses
+    if (ATT_PREV_CLAUSE_RE.test(c)) continue;                 // AP-1 wall — enforced at the damage paths
+    if (ATT_NO_UNTAP_CLAUSE_RE.test(c)) continue;             // PZ-1 tap-lock — enforced in untapAll
+    if (isTotemArmorClause(c)) continue;                      // totem armor — enforced at destruction
+    if (!touchesAttachedCreature(c, "enchanted")) continue;   // non-touch residue → auraResidueClauses catches it
+    if (!(c.startsWith("enchanted creature") && parseAttachedClause(c, "enchanted"))) return false;
+  }
+  return true;
 }
 
 /**

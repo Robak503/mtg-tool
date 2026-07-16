@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1686,6 +1686,12 @@ registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 // player, put a +1/+1 counter on it.\"") classifies native-static via staticAbilitiesCoverCard, and
 // triggers.triggersForEvent fires the granted trigger on every affected permanent (layers.grantedTriggeredQuotedFor).
 registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
+
+// PZ-1: inject the aura-own-ETB validator into staticAbilityParser (the group-validator pattern — it
+// can't import detectTriggers without a load cycle). With this registered, isNativeAura's residue walk
+// and bonus walk admit "When this Aura enters, <natively-routing effect>" lines (tap enchanted
+// creature / draw a card / you gain 3 life), fired at the enterPermanent chokepoint like any ETB.
+registerAuraOwnEtbValidator(isModeledAuraOwnEtbLine);
 
 // DIFFUSION SLIVER (group-ward analogue) — a card whose whole text is the modeled group-ward trigger
 // ("Whenever a Sliver creature you control becomes the target of a spell or ability an opponent controls,
