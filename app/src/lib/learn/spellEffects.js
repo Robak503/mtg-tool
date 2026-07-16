@@ -49,7 +49,7 @@ import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
-import { selfDamagePrevention } from "./combatEvasion.js"; // FOG-1 — the printed self prevent-all wall (leaf-safe: combatEvasion never imports this module)
+import { selfDamagePrevention, attachedDamagePrevention } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
 import { armDamageToCreatureFlag } from "./wolverine.js";
 import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
 
@@ -931,6 +931,10 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // false-negative, never an FP). Gated on the keyword, so every ordinary burn source is byte-for-byte.
   const sourceInfect = source?.id ? permanentHasKeyword(next, source.id, "Infect") : false;
   const sourceWither = source?.id ? permanentHasKeyword(next, source.id, "Wither") : false;
+  // AP-1 (Defang / Muzzle): the SOURCE permanent's attached "…dealt BY enchanted creature" ALL wall
+  // zeroes every non-combat deal it makes (its ability pings included); the combat-only form binds
+  // only at the combat funnel. Read once — the source is constant for the whole effect.
+  const sourceBySilenced = source?.id ? attachedDamagePrevention(next, source.id).by === "all" : false;
   const hitPlayer = (s, pid) => {
     // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —
     // the doubled magnitude becomes that many poison counters (CR 614 doubles the amount; CR 702.90a changes
@@ -964,6 +968,9 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     // non-combat damage too (Dawn Elemental shrugs off a Bolt); the combat-only form does NOT (Gomazoa
     // takes the Bolt), handled at the combat funnel instead.
     if (lk && selfDamagePrevention(lk.permanent.card) === "all") return s;
+    // AP-1 (Inviolability / Heart of Light): an attached "…dealt TO enchanted creature" ALL wall blocks
+    // non-combat damage too; the combat-only forms (Gaseous Form) bind only at the combat funnel.
+    if (lk && attachedDamagePrevention(s, permId).to === "all") return s;
     // PV-1 (CR 615): floating prevent-next-N shields (Samite Healer on a creature) consume before the hit.
     const pv = consumePreventionShields(s, { targetKind: "creature", targetId: permId, amount: dealt });
     s = pv.state; dealt = pv.amount;
@@ -979,7 +986,8 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   };
   // A 0-damage effect deals no damage (no marks, no counters, no poison — CR 120.8); guard so an infect
   // source can't stamp a stray "-1/-1": 0 counter. The lethal SBA + log below still run for parity.
-  if (amount > 0) {
+  // AP-1: a by-silenced source deals nothing at all (every hit zeroed) — same parity flow as amount 0.
+  if (amount > 0 && !sourceBySilenced) {
     if (targetType === "eachOpponent") {
       for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = hitPlayer(next, opp);
     } else if (targetType === "eachCreature") {

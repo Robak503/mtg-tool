@@ -2840,6 +2840,11 @@ export function parseAttachedBonus(card, subjectOverride) {
       if (isModeledAuraOwnTrigger(c)) continue;
     }
     if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
+    // AP-1 (CR 615): a modeled prevention wall ("Prevent all [combat] damage that would be dealt to /
+    // and dealt by / by enchanted creature") is enforced at the DAMAGE PATHS (attachedDamagePrevention),
+    // not as a layer bonus — skip it so a compound aura (Candletrap's defender + wall) keeps its
+    // keyword half instead of dropping the whole bonus.
+    if (subject === "enchanted" && ATT_PREV_CLAUSE_RE.test(c.trim())) continue;
     const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
     if (!parsed) { if (slot) slot[slotKey] = []; return []; }     // a creature clause we can't fully model
     out.push(...parsed);
@@ -2988,11 +2993,38 @@ function isModeledAuraOwnTrigger(clause) {
   return AURA_OWN_MODELED_TRIGGER_RE.test(String(clause || "").trim());
 }
 
+// ATTACHED DAMAGE-PREVENTION (BLITZ AP-1, CR 615 — Gaseous Form / Sandskin / Inviolability / Defang):
+// the four exact printed wall shapes on a creature Aura. "to" walls zero damage the HOST would take;
+// "by" walls zero damage the host would deal; the combat forms bind only combat damage. Lives HERE so
+// the aura NATIVE gate below (which the CAST paths consult directly) and the runtime damage paths
+// (combatEvasion.attachedDamagePrevention) read the SAME shapes — metric, cast, and enforcement can't
+// drift. Conditional / cost-bearing variants never match (residue → body-only, a safe FN).
+const reAttPrevToAndByCombat = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt to and dealt by enchanted creature\s*(?:\.|$)/i;
+const reAttPrevToAndByAll = /(?:^|[\n.;])\s*prevent all damage that would be dealt to and dealt by enchanted creature\s*(?:\.|$)/i;
+const reAttPrevToCombat = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt to enchanted creature\s*(?:\.|$)/i;
+const reAttPrevToAll = /(?:^|[\n.;])\s*prevent all damage that would be dealt to enchanted creature\s*(?:\.|$)/i;
+const reAttPrevByCombat = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt by enchanted creature\s*(?:\.|$)/i;
+const reAttPrevByAll = /(?:^|[\n.;])\s*prevent all damage that would be dealt by enchanted creature\s*(?:\.|$)/i;
+const ATT_PREV_CLAUSE_RE = /^prevent all (?:combat )?damage that would be dealt (?:to(?: and dealt by)?|by) enchanted creature\.?$/i;
+/** The prevention walls one AURA CARD prints: { to: "all"|"combat"|null, by: "all"|"combat"|null }. */
+export function attachedPreventionOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  let to = null, by = null;
+  if (reAttPrevToAndByAll.test(o)) { to = "all"; by = "all"; }
+  else if (reAttPrevToAndByCombat.test(o)) { to = "combat"; by = "combat"; }
+  if (!to && reAttPrevToAll.test(o)) to = "all";
+  if (!to && reAttPrevToCombat.test(o)) to = "combat";
+  if (!by && reAttPrevByAll.test(o)) by = "all";
+  if (!by && reAttPrevByCombat.test(o)) by = "combat";
+  return { to, by };
+}
+
 /**
  * Is this Aura one the engine can play END-TO-END natively? ALL of (no silent gaps):
  *   1. type line is an Aura,
  *   2. it enchants EXACTLY "creature" (no controller/zone restriction, not a non-creature),
- *   3. `parseAuraBonus` yields a non-empty all-or-nothing P/T + keyword bonus, AND
+ *   3. `parseAuraBonus` yields a non-empty all-or-nothing P/T + keyword bonus — OR the card prints a
+ *      modeled PREVENTION wall (AP-1: attachedPreventionOf; enforced at both damage paths), AND
  *   4. there is NO residual clause (no triggered/activated/controller-static text we'd drop).
  * When any fails, the Aura is NOT native — the cast path routes it to the Arbiter seam
  * rather than entering a do-nothing permanent. Single source of truth for the runtime
@@ -3001,7 +3033,8 @@ function isModeledAuraOwnTrigger(clause) {
 export function isNativeAura(card) {
   if (!isAuraCard(card)) return false;
   if (!auraEnchantRestrictions(card)) return false;         // "creature" or "creature you control" only
-  if (!parseAuraBonus(card).length) return false;
+  const prev = attachedPreventionOf(card);
+  if (!parseAuraBonus(card).length && !prev.to && !prev.by) return false;
   return auraResidueClauses(card).length === 0;
 }
 

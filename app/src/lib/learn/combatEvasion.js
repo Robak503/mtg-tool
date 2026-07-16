@@ -44,7 +44,7 @@
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
-import { parseGroupBlockRestriction } from "./staticAbilityParser.js";
+import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
 
 // ── EVASION-QUALIFIER constants ──
 // Color words → WUBRG letters (for "can't be blocked by white creatures").
@@ -265,6 +265,26 @@ export function selfDamagePrevention(card) {
   if (reSelfPreventAllDmg.test(o)) return "all";
   if (reSelfPreventCombatDmg.test(o)) return "combat";
   return null;
+}
+
+// ATTACHED DAMAGE-PREVENTION (BLITZ AP-1, CR 615 — the Gaseous Form / Defang class). The per-card
+// reader (attachedPreventionOf) lives in staticAbilityParser — the aura NATIVE gate (isNativeAura,
+// which the CAST paths consult directly) must see the same read, and this module already imports from
+// there (cycle-free). Here: the per-PERMANENT aggregation the damage paths consult.
+/** Aggregate the walls across a permanent's ATTACHMENTS: { to, by } with "all" dominating "combat". */
+export function attachedDamagePrevention(state, permId) {
+  const lk = findPermanent(state, permId);
+  if (!lk?.permanent?.attachments?.length) return { to: null, by: null };
+  let to = null, by = null;
+  const stronger = (a, b) => (a === "all" || b === "all") ? "all" : (a || b);
+  for (const attId of lk.permanent.attachments) {
+    const att = findPermanent(state, attId);
+    if (!att?.permanent?.card) continue;
+    const p = attachedPreventionOf(att.permanent.card);
+    if (p.to) to = stronger(to, p.to);
+    if (p.by) by = stronger(by, p.by);
+  }
+  return { to, by };
 }
 
 /** ISLANDHOME (SM-1) — the land type the DEFENDING player must control for this creature to attack them

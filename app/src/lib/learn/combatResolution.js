@@ -51,7 +51,7 @@ import {
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
-import { selfDamagePrevention } from "./combatEvasion.js";
+import { selfDamagePrevention, attachedDamagePrevention } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
@@ -233,7 +233,12 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (amt > 0 && targetKind === "creature") {
       const lk = findPermanent(state, targetId);
       if (lk && selfDamagePrevention(lk.permanent.card)) return 0;
+      // AP-1 (Gaseous Form / Sandskin): an attached "…dealt TO enchanted creature" wall zeroes the deal.
+      if (lk && attachedDamagePrevention(state, targetId).to) return 0;
     }
+    // AP-1 (Gaseous Form / Defang): the DEALER's attached "…dealt BY enchanted creature" wall zeroes
+    // every combat deal it makes ("all" and "combat" both bind here — this IS combat damage).
+    if (amt > 0 && sourcePerm?.id && attachedDamagePrevention(state, sourcePerm.id).by) return 0;
     if (hasReplacement && amt > 0) {
       amt = consultDamageAmount(state, {
         sourceId: sourcePerm?.id ?? null,
