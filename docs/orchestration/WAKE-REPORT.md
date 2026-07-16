@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +162 more (campaign +370), 9 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +276 more (campaign +444), 13 slices, LOST=0
 
 Colton's standing order (morning): the Vault walk became a future full overhaul (parked); the corpus
 grind resumes uninterrupted — full trust, no check-ins. Day-2 slices, each gated (suite+lint+audited
@@ -17,11 +17,18 @@ Bind-the-Monster shape (a pronoun follow-up sentence riding the runtime descript
 heuristic ate it — 7 would-be FPs evicted pre-commit, and it retro-caught AP-1's Candletrap classify
 hole) · **UT-1** the untap-self atom (2f847746, +28) — one anchor, three families: the tap-lock
 escape grants (Singing Bell Strike returns WITH runtime support), printed untappers (Morphling wakes
-up), cast/ETB-watcher self-untap triggers (Thermo-Alchemist). Suite 8,588 → 8,619 · lint 0 throughout ·
-NO release tag (the unreleased train now carries C5 + both blitz days). Prevention is now a real
-subsystem: next-N shields, fogs (all + players scopes), self walls, attached walls — each new
-prevention wording from here is a clause, not a build. Running census after day-2 so far: native+land
-9,791 → 9,953 by name-dedup.
+up), cast/ETB-watcher self-untap triggers (Thermo-Alchemist) · **DT-1** the DETAIN frame (c2eb4906,
++26) — "exile … until this <word> leaves the battlefield" (Banishing Light / Banisher Priest / Seal
+Away / Trapjaw's enrage): linked exile on the source permanent, [detain-return] one-shot on ANY exit,
+CR 610.3b + token-vanish guards, v1 aura exclusion at enumeration · **VH-1** CREW (f1c8c74f, +40) —
+Vehicles animate: actionsCrewVehicle (sick-first auto tap-set) + a layer-4 endOfTurn type-add +
+CR 302.6 same-turn sickness + the classify crew-line strip (audit catch: the first strip regex ate
+Imposter Mech's clone rider — re-anchored line-start) · **OR-1** the attacks-or-blocks disjunction
+split (159536b6, +8) — both halves fire; Smuggler's Copter crews AND loots (a same-day VH-1+OR-1
+compound flip). Suite 8,588 → 8,630 · lint 0 throughout · NO release tag (the unreleased train now
+carries C5 + both blitz days). Prevention is now a real subsystem: next-N shields, fogs (all +
+players scopes), self walls, attached walls — each new prevention wording from here is a clause, not
+a build. Running census after day-2 so far: native+land 9,791 → 10,027 by name-dedup.
 
 ## 🌙 2026-07-16 (overnight) — THE CORPUS BLITZ: +208 audited native adds, 14 slices, LOST=0 everywhere
 
