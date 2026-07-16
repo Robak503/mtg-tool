@@ -1,16 +1,20 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +370 more (campaign +578), 26 slices, LOST=0
-> Latest: **KM-1** the Kismet imposition (61024daf, +3) — one reader at every entry path (cast, land
-> drop, reanimate/ramp/detain-return) · **GX-1** up-to-three single-graveyard exile (7fc54227, +6) —
-> the singleGraveyard subset constraint in targeting (the totalMvX pattern); Decompose / Carrion
-> Beetles / Ebony Charm.
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +389 more (campaign +597), 29 slices, LOST=0
+> Latest: **KM-1** Kismet imposition (61024daf, +3) · **GX-1** up-to-three single-graveyard exile
+> (7fc54227, +6) · **TW-1** the whole-hand cycle (260db308, +3) — Tolarian Winds as ONE composite atom,
+> disarming the bare "draw that many cards" combat-damage mis-bind for the known wordings · **BC-1**
+> KW-BATTLE CRY (2323c7d7, +7) — per-instance attacks synthesis over the Trumpet-Blast scope with
+> excludeSource · **AF-1** the aura-own activated pump (a2f11b6f, +9) — Armor of Faith compounds +
+> Firebreathing kin via the injected aura-own-activated validator (the PZ-1 pattern).
 >
-> NEXT QUEUE (evidence standing, smallest-first): discard-hand-draw-that-many (3, Tolarian Winds) ·
-> bloodrush (3) · block-additional (3, Spike-Tailed Ceratops) · enters-or-LTB split (12, needs a
-> leavesSelf any-exit event) · Sword Coast Sailor's life-comparison intervening-if (4 backgrounds) ·
-> the enchant-land Class B interiors (7). Fresh clause-frontier after a few more. Baseline tier file:
-> scratchpad cand38.txt (10,161 native+land names).
+> PARKED WITH REASONS: bloodrush (needs a combat-step activation window the engine's action surface
+> lacks — native-but-unusable would be an FP by uselessness) · block-additional (the multi-block
+> damage-DIVISION choice is unmodeled — an over-deal trap) · lure (needs a block-requirements
+> subsystem; half-enforcement = FP). NEXT QUEUE: enters-or-LTB split (12, a leavesSelf any-exit
+> event) · Sword Coast Sailor's life-comparison intervening-if (4) · enchant-land Class B interiors
+> (7) · the "sac unless discard at random" trio (needs a random primitive — check house policy first).
+> Fresh clause-frontier next. Baseline tier file: scratchpad cand41.txt (10,180 native+land names).
 
 > Numbers audited against the tier-census files (9,791 → 10,152 name-dedup native+land, ~29.7% of
 > 34,161): the running "+358/20 slices" line pushed earlier in the day OVER-COUNTED by a drifted slice
