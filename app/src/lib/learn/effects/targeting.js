@@ -18,6 +18,7 @@
 import { enumerateTargets } from "../spellEffects.js";
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { findPermanent } from "../gameState.js";
+import { hasKeyword } from "../keywords.js"; // MG-1: changeling (CR 702.73a) for the shared-creature-type subset gate — keywords.js is a pure leaf (no cycle)
 
 // A permanent's mana value (CR 202.3), read off the live battlefield permanent by id. Used by the
 // COLLECTIVE-X-MV restriction ("with total mana value X or less") to sum the chosen subset's MVs. Reads the
@@ -27,6 +28,99 @@ import { findPermanent } from "../gameState.js";
 function permanentManaValue(state, permanentId) {
   const lk = findPermanent(state, permanentId);
   return lk?.permanent?.card?.cmc ?? 0;
+}
+
+// ─── SHARED-CREATURE-TYPE subset constraint (BLITZ MG-1) ─────────────────────────────────────────
+// The complete CR 205.3m creature-type vocabulary (transcribed from knowledge/mtg-judge/data/cr/
+// cr_current.json; lowercase, curly apostrophe normalized — "c'tan"). REQUIRED as an ALLOWLIST because a
+// creature card's after-dash type-line words are NOT all creature types: artifact/enchantment/land subtypes
+// ride the same dash on artifact/enchantment/land creature cards (corpus-probed: Gingerbrute "Artifact
+// Creature — Food Golem", Bronzeplate Boar "Artifact Creature — Equipment Boar", Go-Shintai "Enchantment
+// Creature — Shrine", Dryad Arbor "Land Creature — Forest Dryad"), so a bare word intersection would offer
+// an ILLEGAL pair sharing only "Food"/"Equipment"/"Shrine" — a forbidden FP. Allowlist direction per the
+// CREED: a word NOT listed here is never treated as a creature type, so an unlisted (future set / Universes
+// Beyond) type can only SUPPRESS a legal pair (FN, safe), never admit an illegal one.
+const CR_CREATURE_TYPES = new Set([
+  "advisor", "aetherborn", "alien", "ally", "angel", "antelope", "ape", "archer", "archon",
+  "armadillo", "army", "artificer", "assassin", "assembly-worker", "astartes", "atog", "aurochs",
+  "avatar", "azra", "badger", "balloon", "barbarian", "bard", "basilisk", "bat", "bear", "beast",
+  "beaver", "beeble", "beholder", "berserker", "bird", "bison", "blinkmoth", "boar", "bringer",
+  "brushwagg", "c'tan", "camarid", "camel", "capybara", "caribou", "carrier", "cat", "centaur",
+  "child", "chimera", "citizen", "cleric", "clown", "cockatrice", "construct", "coward", "coyote",
+  "crab", "crocodile", "custodes", "cyberman", "cyclops", "dalek", "dauthi", "demigod", "demon",
+  "deserter", "detective", "devil", "dinosaur", "djinn", "doctor", "dog", "dragon", "drake",
+  "dreadnought", "drix", "drone", "druid", "dryad", "dwarf", "echidna", "efreet", "egg", "elder",
+  "eldrazi", "elemental", "elephant", "elf", "elk", "employee", "eye", "faerie", "ferret", "fish",
+  "flagbearer", "fox", "fractal", "frog", "fungus", "gamer", "gargoyle", "germ", "giant", "giraffe",
+  "gith", "glimmer", "gnoll", "gnome", "goat", "goblin", "god", "golem", "gorgon", "graveborn",
+  "gremlin", "griffin", "guest", "hag", "halfling", "hamster", "harpy", "hedgehog", "hellion",
+  "hero", "hippo", "hippogriff", "homarid", "homunculus", "horror", "horse", "human", "hydra",
+  "hyena", "illusion", "imp", "incarnation", "inkling", "inquisitor", "insect", "jackal",
+  "jellyfish", "juggernaut", "kangaroo", "kavu", "kirin", "kithkin", "knight", "kobold", "kor",
+  "kraken", "lamia", "lammasu", "leech", "lemur", "leviathan", "lhurgoyf", "licid", "lizard",
+  "llama", "lobster", "manticore", "masticore", "mercenary", "merfolk", "metathran", "minion",
+  "minotaur", "mite", "mole", "monger", "mongoose", "monk", "monkey", "moogle", "moonfolk", "mount",
+  "mouse", "mutant", "myr", "mystic", "nautilus", "necron", "nephilim", "nightmare", "nightstalker",
+  "ninja", "noble", "noggle", "nomad", "nymph", "octopus", "ogre", "ooze", "orb", "orc", "orgg",
+  "otter", "ouphe", "ox", "oyster", "pangolin", "peasant", "pegasus", "pentavite", "performer",
+  "pest", "phelddagrif", "phoenix", "phyrexian", "pilot", "pincher", "pirate", "plant", "platypus",
+  "porcupine", "possum", "praetor", "primarch", "prism", "processor", "qu", "rabbit", "raccoon",
+  "ranger", "rat", "rebel", "reflection", "rhino", "rigger", "robot", "rogue", "sable", "salamander",
+  "samurai", "sand", "saproling", "satyr", "scarecrow", "scientist", "scion", "scorpion", "scout",
+  "sculpture", "seal", "serf", "serpent", "servo", "shade", "shaman", "shapeshifter", "shark",
+  "sheep", "siren", "skeleton", "skunk", "slith", "sliver", "sloth", "slug", "snail", "snake",
+  "soldier", "soltari", "sorcerer", "spawn", "specter", "spellshaper", "sphinx", "spider", "spike",
+  "spirit", "splinter", "sponge", "squid", "squirrel", "starfish", "surrakar", "survivor",
+  "symbiote", "synth", "tentacle", "tetravite", "thalakos", "thopter", "thrull", "tiefling",
+  "time lord", "toy", "treefolk", "trilobite", "triskelavite", "troll", "turtle", "tyranid",
+  "unicorn", "utrom", "vampire", "varmint", "vedalken", "villain", "volver", "wall", "walrus",
+  "warlock", "warrior", "weasel", "weird", "werewolf", "whale", "wizard", "wolf", "wolverine",
+  "wombat", "worm", "wraith", "wurm", "yeti", "zombie", "zubera",
+]);
+
+// The graveyard CARD behind a graveyardCard target (`t.controller` = the zone HOLDER, stamped at
+// enumeration by spellEffects.addGraveyardCards; for an own-graveyard return it is the caster). null when
+// the card isn't in that graveyard — the caller REJECTS such a subset (never a blind offer).
+function graveyardCardOf(state, t) {
+  return (state.players?.[t.controller]?.graveyard || []).find((c) => c.id === t.id) || null;
+}
+
+// The REAL creature types on a graveyard card, per its FRONT face (CR 712.4a — outside the battlefield a
+// card has only its front-face characteristics; the " // " split mirrors shared.js's typeLineStr front-face
+// discipline, without which a DFC's combined line would leak "creature"/"//" junk into the word set): the
+// type-line words after the em-dash, admitted only through CR_CREATURE_TYPES (see above). "Time Lord" is
+// the one TWO-word creature type (CR 205.3m), invisible to the whitespace split — probed as a bigram.
+function creatureTypesOfGraveyardCard(card) {
+  const front = String(card?.type || card?.type_line || "").split(" // ")[0];
+  const dash = front.indexOf("—");
+  if (dash === -1) return new Set();
+  const subs = front.slice(dash + 1).replace(/[’]/g, "'").toLowerCase();
+  const out = new Set();
+  for (const w of subs.trim().split(/\s+/)) if (CR_CREATURE_TYPES.has(w)) out.add(w);
+  if (/\btime lord\b/.test(subs)) out.add("time lord");
+  return out;
+}
+
+// Do the chosen graveyard cards SHARE at least one creature type (CR 601.2c — the chosen set must satisfy
+// the printed restriction)? A CHANGELING (CR 702.73a — every creature type; hasKeyword, mirroring
+// layers.matchesSelector's changeling gate) constrains nothing; the remaining cards' type sets must have a
+// non-empty intersection. A card that vanished from its stamped graveyard, or a non-changeling with NO real
+// creature type (an un-set oddity like B.F.M.), can never certify a share → reject (FP-forbidden — the pair
+// is simply not offered). Fewer than two cards have nothing to share — vacuously legal (unreachable for the
+// mandatory-2 MG-1 atom, but keeps a future "up to two … that share" empty/singleton subset honest).
+function subsetSharesCreatureType(state, sub) {
+  if (sub.length < 2) return true;
+  let inter = null; // null = unconstrained so far (only changelings seen)
+  for (const t of sub) {
+    const card = graveyardCardOf(state, t);
+    if (!card) return false;
+    if (hasKeyword(card, "changeling")) continue;
+    const types = creatureTypesOfGraveyardCard(card);
+    if (types.size === 0) return false;
+    inter = inter === null ? types : new Set([...inter].filter((x) => types.has(x)));
+    if (inter.size === 0) return false;
+  }
+  return true; // all changelings (inter still null) or a non-empty shared-type intersection
 }
 
 // Bounds the cartesian blow-up of a multi-target spell (CR-spirit: a "deal 4
@@ -197,6 +291,18 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
       // never offered, so the resolver exiles exactly a legal set.
       if (atom.singleGraveyard) {
         subsets = subsets.filter((sub) => new Set(sub.map((t) => t.controller)).size <= 1);
+      }
+      // SHARED-CREATURE-TYPE subset constraint (BLITZ MG-1 — "return two target creature cards that share
+      // a creature type …", Return from Extinction / Raise the Draugr / Unbury mode 2; CR 601.2c): keep
+      // only subsets whose cards share ≥1 real CR 205.3m creature type (changeling = every type, CR
+      // 702.73a). Enforced AT ENUMERATION like singleGraveyard/totalMvX — an off-type pair is never
+      // offered, so the resolver returns exactly a legal set. When NO sharing pair exists this mandatory-2
+      // atom has no legal subset at all → null → uncastable; for a MODAL carrier expandCastChoices gates
+      // per mode, so the sibling single-return mode stays castable. (A min-0 subset atom can never empty
+      // here — its size<2 subsets pass the filter vacuously — so null fires only for a mandatory pair.)
+      if (atom.sharesCreatureType) {
+        subsets = subsets.filter((sub) => subsetSharesCreatureType(state, sub));
+        if (subsets.length === 0) return null;
       }
       // AUTO-PICK ORDER (every subset atom): sort LARGEST subset first so the trigger-flush chooser
       // (gameEngine.chooseTriggerTargets, which takes the FIRST all-correct-side candidate) picks the

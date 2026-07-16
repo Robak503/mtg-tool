@@ -251,6 +251,18 @@ export function graveyardReturnClauseParser(clause) {
     const cardFilter = parseGraveyardFilter(multiM[2]);
     if (n >= 1 && cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, maxTargets: n, minTargets: 0 };
   }
+  // MODAL-GY-PAIR (BLITZ MG-1 — Return from Extinction / Raise the Draugr / Unbury, mode 2): "return two
+  // target creature cards that share a creature type from your graveyard to your hand". A MANDATORY pair
+  // (no "up to" — CR 601.2c requires both targets), riding the SAME return-from-graveyard resolver
+  // (applyReturnFromGraveyard already loops every ctx.target). minTargets:2/maxTargets:2 →
+  // targeting.expandAtoms offers ONLY size-2 subsets, and the sharesCreatureType SUBSET constraint
+  // (enforced at ENUMERATION, the singleGraveyard pattern) keeps only pairs sharing a real CR 205.3m
+  // creature type (a changeling is every type, CR 702.73a) — an off-type pair is never offered. The exact
+  // `$` anchor rejects a different count ("three target"), a different shared property ("share a card
+  // type"), another zone/destination, or any rider → null → LOW → Arbiter (FN-safe).
+  if (/^return two target creature cards that share a creature type from your graveyard to your hand$/.test(t)) {
+    return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature", maxTargets: 2, minTargets: 2, sharesCreatureType: true };
+  }
   // SOULSHIFT-CLASS subtype+MV recursion (BLITZ SS-1, CR 702.46a): "return target Spirit card with mana
   // value N or less from your graveyard to your hand" — the synthesized soulshift trigger's effect clause.
   // A STRUCTURED cardFilter {subtype, mvMax} rides the SAME return-from-graveyard resolver + the ONE
