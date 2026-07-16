@@ -38,7 +38,9 @@ describe("ACT-KW-GRANT — classification (the allowlist is the FP guard)", () =
     expect(classifyCard(creature("Y", "{R}: This creature gains shadow until end of turn."))).not.toBe("native-activated"); // shadow un-grantable (indestructible now IS — PUMP-STATIC-GRANT)
   });
   it("NOT native: an activation-limit trailer the engine can't enforce sinks the ability", () => {
-    expect(classifyCard(creature("Z", "{R}: This creature gains flying until end of turn. Activate this ability only once each turn."))).not.toBe("native-activated");
+    // "only once each turn" graduated in BLITZ ONCE-1 (ledger-enforced — pinned in
+    // activateOncePerTurn.test.js); "only twice each turn" is still unenforced and holds this pin.
+    expect(classifyCard(creature("Z", "{R}: This creature gains flying until end of turn. Activate this ability only twice each turn."))).not.toBe("native-activated");
   });
 });
 

@@ -820,6 +820,11 @@ function applyActivateAbility(state, action) {
   });
 
   let next = { ...working2, stack: [...working2.stack, stackObject] };
+  // ONCE-PER-TURN (BLITZ ONCE-1): stamp the activation ledger the moment the ability is on the stack —
+  // keyed permId:rawLine against the CURRENT turn (self-expiring; legalChoices' offer gate reads it).
+  if (action.oncePerTurnKey) {
+    next = { ...next, activatedOncePerTurn: { ...(next.activatedOncePerTurn || {}), [action.oncePerTurnKey]: next.turn } };
+  }
   next = logEvent(next, {
     kind: "activate-ability",
     playerId: action.playerId,

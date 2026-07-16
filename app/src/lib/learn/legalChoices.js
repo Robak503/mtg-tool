@@ -1469,6 +1469,10 @@ function actionsActivateAbility(state, playerId) {
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {
       if (!ab.modeled) continue;
+      // ONCE-PER-TURN (BLITZ ONCE-1): an "Activate only once each turn." ability already activated this
+      // turn is not offered again. Keyed permId:rawLine (raw is unique per ability, printed OR granted —
+      // an index would collide across the two lists) against state.turn, so the ledger self-expires.
+      if (ab.oncePerTurn && state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`] === state.turn) continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).
@@ -1533,6 +1537,7 @@ function actionsActivateAbility(state, playerId) {
               sacCreatureName: null,
               sacCountIds: null,
               xValue: x,                                  // γ1f — the chosen X threads into the effect (ctx.xValue)
+              ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
               program: ab.program,
               targets: ch.targets,
               chosenMode: ch.chosenMode ?? null,
@@ -1780,6 +1785,7 @@ function actionsActivateAbility(state, playerId) {
                 sacCreatureName: null,
                 sacCountIds: sacXIds,                       // γ1e — the X fungible victims to sacrifice (cost)
                 xValue: x,                                  // γ1e — the chosen X threads into the effect (ctx.xValue)
+                ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
                 program: ab.program,
                 targets: ch.targets,
                 chosenMode: ch.chosenMode ?? null,
@@ -1811,6 +1817,7 @@ function actionsActivateAbility(state, playerId) {
             tapCreatureName: tapVictim?.card?.name ?? null,
             returnLandId: returnLandVictim?.id ?? null,  // γ1g — the chosen land to return to owner's hand (cost)
             returnLandName: returnLandVictim?.card?.name ?? null,
+            ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
             targets: ch.targets,
             chosenMode: ch.chosenMode ?? null,

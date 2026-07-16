@@ -473,7 +473,15 @@ export function parseActivatedAbilities(card) {
     // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5i) — a WHEN restriction the runtime
     // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the
     // effect parses on its real payload instead of being dragged LOW by the trailing sentence.
-    const effectClause = stripSorcerySpeedRider(line.slice(ci + 1).trim());
+    // ONCE-PER-TURN ACTIVATION (BLITZ ONCE-1 — the modern "Activate only once each turn." frame, Hollow
+    // Scavenger / Drillworks Mole class): a FREQUENCY restriction. Strippable for the effect parse ONLY
+    // because the runtime enforces it — legalChoices' per-turn ledger gate (state.activatedOncePerTurn,
+    // keyed permId:rawLine against state.turn) + the dispatcher stamp. Stripping without that enforcement
+    // would be a spammable FP; the flag rides the ability so both sites key off THIS parse.
+    const rawEffect = line.slice(ci + 1).trim();
+    const ONCE_RIDER = /\.?\s*Activate (?:this ability )?only once each turn\.?\s*$/i;
+    const oncePerTurn = ONCE_RIDER.test(rawEffect);
+    const effectClause = stripSorcerySpeedRider(oncePerTurn ? rawEffect.replace(ONCE_RIDER, "").trim() : rawEffect);
     if (!costStr || !effectClause) continue;
 
     const cost = parseAbilityCost(costStr);
@@ -537,6 +545,7 @@ export function parseActivatedAbilities(card) {
       raw: line,
       costStr,
       effectClause,
+      oncePerTurn, // ONCE-1 — "Activate only once each turn." (runtime-enforced frequency restriction)
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
