@@ -135,3 +135,40 @@ describe("FL-1 — flanking", () => {
     expect((vsRival.pendingTriggers || []).filter((t) => t.descriptor?.event === "flanking")).toHaveLength(0);
   });
 });
+
+// BLITZ IE-1 — CONTACT DAMAGE (Inferno Elemental class): "Whenever this creature blocks or becomes
+// blocked by a creature, this creature deals N damage to that creature." Fires per PAIR in both roles;
+// the pair partner rides as the triggering permanent and the sentinel's thatCreature referent lands the hit.
+const INFERNO_ELEMENTAL = { id: "ie", name: "Inferno Elemental", type: "Creature — Elemental", mana: "{4}{R}{R}",
+  power: "4", toughness: "4", oracle: "Whenever this creature blocks or becomes blocked by a creature, this creature deals 3 damage to that creature." };
+
+describe("IE-1 — contact damage", () => {
+  it("the sentinel parses to a thatCreature deal-damage; the card flips; the resolver lands the hit on the partner", () => {
+    const p = parseEffectClause("this creature deals 3 damage to the triggering creature");
+    expect(p.atoms).toEqual([{ op: "deal-damage", amount: 3, target: "thatCreature", targetType: null }]);
+    expect(classifyCard(INFERNO_ELEMENTAL)).toBe("native-trigger");
+    let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const inferno = createPermanent({ id: "ie", card: INFERNO_ELEMENTAL, controller: "user", summoningSick: false });
+    const bear = createPermanent({ id: "br", card: { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "ai1", summoningSick: false });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [inferno] }, ai1: { ...s.players.ai1, battlefield: [bear] } } };
+    // The bear blocks Inferno: Inferno's contact trigger fires with the BEAR as the triggering permanent.
+    const fired = checkBlockTriggers({ ...s, combat: { attackers: [{ permanentId: "ie", attackingPlayer: "user", defender: "ai1" }], blockers: [{ blockerId: "br", attackerId: "ie" }] } });
+    const ct = (fired.pendingTriggers || []).filter((t) => t.descriptor?.event === "blocksOrBlockedByCreature");
+    expect(ct).toHaveLength(1);
+    expect(ct[0].context.triggeringPermanentId).toBe("br");
+    // The resolver lands 3 on the partner (2-toughness bear dies to the marked damage via the SBA downstream).
+    const resolved = runEffectProgram(s, { source: { name: "Inferno Elemental" }, payload: { params: { program: { atoms: [{ op: "deal-damage", amount: 3, target: "thatCreature", targetType: null }] }, controller: "user", targets: [], sourceId: "ie", context: { triggeringPermanentId: "br" } } } });
+    const brAfter = resolved.players.ai1.battlefield.find((x) => x.id === "br");
+    expect(brAfter ? brAfter.damageMarked : 3).toBeGreaterThanOrEqual(3); // marked (or already swept dead)
+  });
+  it("CREED — a trailing rider is never eaten (the audit catch): controller-damage and end-of-combat forms park", () => {
+    const alphas = { type: "Creature — Wolf", name: "Assembled Alphas",
+      oracle: "Whenever this creature blocks or becomes blocked by a creature, this creature deals 3 damage to that creature and 3 damage to that creature's controller." };
+    const sawtooth = { type: "Creature — Ogre", name: "Sawtooth Ogre",
+      oracle: "Whenever this creature blocks or becomes blocked by a creature, this creature deals 1 damage to that creature at end of combat." };
+    expect(detectTriggers(alphas).filter((t) => t.event === "blocksOrBlockedByCreature")).toHaveLength(0);
+    expect(detectTriggers(sawtooth).filter((t) => t.event === "blocksOrBlockedByCreature")).toHaveLength(0);
+    expect(classifyCard(alphas)).toBe("body-only");
+    expect(classifyCard(sawtooth)).toBe("body-only");
+  });
+});

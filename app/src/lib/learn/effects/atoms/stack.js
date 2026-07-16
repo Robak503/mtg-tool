@@ -445,6 +445,13 @@ export function massFilteredDamageClauseParser(clause) {
   if (m) return { op: "deal-damage", amount: parseInt(m[1], 10), targetType: "eachCreature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: m[2] === "without" }] };
   const cm = t.match(/^.+? deals? (\d+) damage to each creature (you control|your opponents control)$/);
   if (cm) return { op: "deal-damage", amount: parseInt(cm[1], 10), targetType: "eachCreature", restrictions: [{ kind: "controller", who: cm[2] === "you control" ? "you" : "opponent" }] };
+  // TRIG-PRONOUN damage (BLITZ IE-1 — Inferno Elemental / Ornery Goblin / Ashmouth Hound: "…this creature
+  // deals N damage to THAT CREATURE", the blocked/blocking pair partner). detectTriggers rewrites the
+  // non-self pronoun to this sentinel (the Toxin-Sliver destroy precedent); the referent is the trigger's
+  // OTHER creature (ctx.triggeringPermanentId), never a chosen target — targetType:null routes it on
+  // confidence alone, and the deal-damage resolver synthesizes the single creature target from ctx.
+  const tp = t.match(/^.+? deals? (\d+) damage to the triggering creature$/);
+  if (tp) return { op: "deal-damage", amount: parseInt(tp[1], 10), target: "thatCreature", targetType: null };
   return null;
 }
 
@@ -1050,14 +1057,20 @@ export const stackResolvers = {
     // DAMAGED-PLAYER (Sword of War and Peace): same synthesis off ctx.damagedPlayerId (set by
     // checkCombatDamageTriggers) — absent id (non-combat-damage event) -> no target -> 0 damage (a clean
     // no-op; the who:"damagedPlayer" referent gate keeps the atom off those events anyway).
-    const targets = atom.targetType === "defendingPlayer"
-      ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
-      : atom.targetType === "damagedPlayer"
-        ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
-        : ctx.targets;
-    // defendingPlayer/damagedPlayer resolve via `targets`, not the special targetType switch in
-    // applyDamageEffect — pass a bare targetType so it takes the per-target hitPlayer path.
-    const targetType = (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer") ? "player" : atom.targetType;
+    // TRIG-PRONOUN damage (BLITZ IE-1 — "deals N damage to that creature"): the referent is the trigger's
+    // OTHER creature (ctx.triggeringPermanentId — the pair partner checkBlockTriggers threads), never a
+    // chosen target. Gone by resolution → no target → 0 dealt (a clean no-op, CR 608.2b-adjacent).
+    const targets = atom.target === "thatCreature"
+      ? (ctx.triggeringPermanentId && findPermanent(state, ctx.triggeringPermanentId) ? [{ type: "creature", id: ctx.triggeringPermanentId }] : [])
+      : atom.targetType === "defendingPlayer"
+        ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
+        : atom.targetType === "damagedPlayer"
+          ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
+          : ctx.targets;
+    // defendingPlayer/damagedPlayer/thatCreature resolve via `targets`, not the special targetType switch in
+    // applyDamageEffect — pass a bare targetType so each takes the per-target hitPlayer/hitCreature path.
+    const targetType = atom.target === "thatCreature" ? "creature"
+      : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer") ? "player" : atom.targetType;
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // SELF-HIT (BLITZ OA-1 — Orcish Artillery "and M damage to you"): the printed self-hit lands on the
     // CONTROLLER through the same primitive, after the target damage (one sentence, resolved in print

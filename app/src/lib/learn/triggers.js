@@ -2480,6 +2480,23 @@ export function detectTriggers(card) {
       optional: false, sourceText: "Flanking",
     });
   }
+  // CONTACT DAMAGE (BLITZ IE-1 — Inferno Elemental / Ornery Goblin / Ashmouth Hound: "Whenever this
+  // creature blocks or becomes blocked by a creature, this creature deals N damage to that creature.")
+  // Fires once PER CREATURE in either role (unlike bushido's once-per-event "blocks or becomes blocked"),
+  // so like rampage this descriptor is COVERAGE-ONLY: checkBlockTriggers fires per block PAIR in both
+  // directions with the OTHER creature as the triggering permanent; the sentinel effectClause routes the
+  // damage through the deal-damage thatCreature referent. The normal When/Whenever path NULLS this
+  // condition (the becomes-blocked compound guard), so there is no twin to evict.
+  // SENTENCE-END anchored (the audit catch): a trailing rider ("… and 3 damage to that creature's
+  // controller" — Assembled Alphas; "… at end of combat" — Sawtooth Ogre) must NOT be silently eaten.
+  const ie = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by a creature, (?:it|this creature) deals (\d+) damage to that creature(?=\s*(?:\.|\n|$))/i);
+  if (ie) {
+    out.push({
+      event: "blocksOrBlockedByCreature", scope: "self", whose: "any",
+      effect: null, effectClause: `this creature deals ${ie[1]} damage to the triggering creature`,
+      optional: false, sourceText: `blocks-or-blocked contact damage ${ie[1]}`,
+    });
+  }
   // SOULSHIFT (CR 702.46a — BLITZ SS-1) — KEYWORD→TRIGGER synthesis, the CU/BUSHIDO precedent. "Soulshift N"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, you
   // may return target Spirit card with mana value N or less from your graveyard to your hand.)"). Synthesize
@@ -3566,6 +3583,30 @@ export function checkBlockTriggers(state) {
     for (let i = 0; i < instances; i++) {
       const descriptor = { event: "flanking", scope: "self", whose: "any", effect: null, effectClause: "the triggering creature gets -1/-1 until end of turn", optional: false, sourceText: "Flanking" };
       fired.push(makePendingTrigger(descriptor, att.permanent, blk.permanent, {}));
+    }
+  }
+  // CONTACT DAMAGE (BLITZ IE-1 — Inferno Elemental class): per block PAIR, BOTH directions — a creature
+  // printing the contact line deals its N to the OTHER creature of the pair whether it blocks or is
+  // blocked (once per pair partner, CR 603.2 — the "by a creature" wording is per-creature, unlike
+  // bushido's once-per-event). The OTHER creature rides as the triggering permanent; the sentinel
+  // effectClause's thatCreature referent lands the damage on it. Coverage-only descriptor; sole fire site.
+  {
+    const CONTACT_RE = /(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by a creature, (?:it|this creature) deals (\d+) damage to that creature(?=\s*(?:\.|\n|$))/i;
+    const contactOf = (perm) => {
+      const m = String(perm.card?.oracle || perm.card?.oracle_text || "").replace(/\([^)]*\)/g, " ").match(CONTACT_RE);
+      return m ? parseInt(m[1], 10) : null;
+    };
+    for (const b of blockers) {
+      if (!b?.blockerId || !b?.attackerId) continue;
+      const blk = findPermanent(state, b.blockerId);
+      const att = findPermanent(state, b.attackerId);
+      if (!blk || !att) continue;
+      for (const [me, other] of [[blk, att], [att, blk]]) {
+        const n = contactOf(me.permanent);
+        if (n == null) continue;
+        const descriptor = { event: "blocksOrBlockedByCreature", scope: "self", whose: "any", effect: null, effectClause: `this creature deals ${n} damage to the triggering creature`, optional: false, sourceText: `blocks-or-blocked contact damage ${n}` };
+        fired.push(makePendingTrigger(descriptor, me.permanent, other.permanent, {}));
+      }
     }
   }
   // BLOCKS-A-FLYER PUMP (BLITZ BF-1 — the rampage-family fire-time pattern): per block PAIR, a blocker
