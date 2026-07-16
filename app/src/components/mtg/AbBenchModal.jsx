@@ -160,6 +160,17 @@ export default function AbBenchModal({ open, deckIds = [], onClose }) {
               <span style={{ color: "var(--ley-text-dim)" }}>on {status.targetName}</span>
             </div>
 
+            {/* Coverage trust banner: a body-only card's abilities never fire in the sim, so its side of
+                the A/B under-reads — say so up front instead of letting "no effect" read as a verdict. */}
+            {status.swap?.trust && !status.swap.trust.trustworthy && (
+              <div style={{ fontSize: 11.5, color: "var(--ley-gold)", lineHeight: 1.55, padding: "8px 10px", border: "1px solid var(--ley-gold-dim)", borderRadius: 8, background: "var(--ley-surface-1)" }}>
+                ⚠ {[status.swap.trust.removed, status.swap.trust.added].filter((t) => !t.native).map((t) => t.name).join(" and ")}
+                {" "}isn&apos;t fully modeled by the sim yet — the card&apos;s rules text won&apos;t fire (a creature still
+                attacks and blocks as a body). This A/B reads only what the sim can actually play, so treat the
+                result as a partial read, not a verdict on the card.
+              </div>
+            )}
+
             <div style={{ height: 8, background: "var(--ley-surface-2)", borderRadius: 4, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${status.target ? Math.round((100 * status.played) / status.target) : 0}%`, background: "linear-gradient(90deg, var(--ley-green-dim), var(--ley-green))", transition: "width 300ms ease" }} />
             </div>

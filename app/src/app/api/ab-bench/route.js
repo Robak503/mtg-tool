@@ -18,6 +18,7 @@ import {
 } from "../../../lib/server/selfPlayDecks.js";
 import { buildSwappedDeck } from "../../../lib/server/cardSwap.js";
 import { commanderLegality } from "../../../lib/server/cardIndex.js";
+import { classifyCard, isNativeTier } from "../../../lib/learn/coverage.js";
 import { startAbBench, abBenchStatus, requestAbBenchCancel } from "../../../lib/learn/abBench.js";
 
 export async function GET(request) {
@@ -105,11 +106,29 @@ export async function POST(request) {
   const swapped = buildSwappedDeck(target, { remove, add });
   if (!swapped.ok) return Response.json({ error: swapped.error, reason: swapped.reason }, { status: 400 });
 
+  // TRUST GATE (Omnath's card-A/B feasibility rule, COMMS 2026-07-15): an A/B is only fully
+  // trustworthy when BOTH cards are natively modeled — a body-only card's abilities silently never
+  // fire, so its side of the comparison under-reads and "no effect" can be a coverage artifact, not
+  // a verdict on the card. Not a refusal (a body still attacks/blocks — a partial read is still a
+  // read): classify both cards and ride the verdict on the swap so the modal shows an honest banner.
+  const trustOf = (cardObj) => {
+    if (!cardObj) return { tier: null, native: false };
+    const tier = classifyCard({ name: cardObj.name, type: cardObj.type, oracle: cardObj.oracle, mana: cardObj.mana });
+    return { tier, native: isNativeTier(tier) };
+  };
+  const removedCard = (target.cards || []).find((c) => c?.name === swapped.removed) || null;
+  const addedCard = (swapped.deck.cards || []).find((c) => c?.name === swapped.added) || null;
+  const trust = {
+    removed: { name: swapped.removed, ...trustOf(removedCard) },
+    added: { name: swapped.added, ...trustOf(addedCard) },
+  };
+  trust.trustworthy = trust.removed.native && trust.added.native;
+
   const res = startAbBench({
     decks: playable,
     targetId: targetDeckId,
     variantDeck: swapped.deck,
-    swap: { removed: swapped.removed, added: swapped.added },
+    swap: { removed: swapped.removed, added: swapped.added, trust },
     mode,
     games,
   });
