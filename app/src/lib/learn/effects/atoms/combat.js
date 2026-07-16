@@ -757,10 +757,14 @@ export function combatKeywordClauseParser(clause) {
   // already loops ctx.targets). Same tap resolver + a maxTargets count → targeting.expandAtoms offers each 0..N
   // subset. BARE forms only — a per-target restriction ("… you control") stays LOW → Arbiter (FN-safe; the
   // restriction would need wiring the single-target path has but this slice keeps minimal). minTargets:0.
-  const multiTapM = t.match(/^tap up to (two|three|four|five) target (creatures|permanents)$/);
+  // TAP-FREEZE rider (BLITZ TP-1 — Frost Breath class): splitClauses folds "Those creatures don't untap
+  // during their controller('s|s') next untap step(s)." onto the multi-tap sentence in the canonical joined
+  // form matched here; noUntapNext rides the SAME atom, so applyTapEffect flags EACH tapped creature and
+  // untapAll skips each one's next untap step once (CR 302.6, self-clearing — the Junk Winder machinery).
+  const multiTapM = t.match(/^tap up to (two|three|four|five) target (creatures|permanents)( and they don't untap during their controllers' next untap step)?$/);
   if (multiTapM) {
     const n = SMALL_NUM[multiTapM[1]];
-    if (n >= 2) return { op: "tap", targetType: multiTapM[2] === "creatures" ? "creature" : "permanent", restrictions: [], maxTargets: n, minTargets: 0 };
+    if (n >= 2) return { op: "tap", targetType: multiTapM[2] === "creatures" ? "creature" : "permanent", restrictions: [], maxTargets: n, minTargets: 0, ...(multiTapM[3] ? { noUntapNext: true } : {}) };
   }
   const tapPermM = t.match(/^tap target permanent( and its activated abilities can't be activated this turn)?\.?$/);
   if (tapPermM) {

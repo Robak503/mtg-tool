@@ -315,6 +315,22 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
     expect(parseEffectProgram(I("Put a +1/+1 counter on target creature.")).atoms).toEqual([{ op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature" }]);
     expect(parseEffectProgram(I("Put two -1/-1 counters on target creature.")).atoms).toEqual([{ op: "add-counter", counterType: "-1/-1", amount: 2, targetType: "creature" }]);
   });
+  it("TAP-FREEZE (TP-1): the two-sentence up-to-two tap + no-untap rider folds onto ONE atom; a tail sentence still splits", () => {
+    // Frost Breath / Decision Paralysis — both printed possessives normalize to the same folded form.
+    expect(parseEffectProgram(I("Tap up to two target creatures. Those creatures don't untap during their controller's next untap step.")).atoms)
+      .toEqual([{ op: "tap", targetType: "creature", restrictions: [], maxTargets: 2, minTargets: 0, noUntapNext: true }]);
+    // Sudden Storm — the plural-possessive variant + a trailing "Scry 1." keeps its own clause (the fold's
+    // lookahead leaves the sentence boundary in place).
+    const storm = parseEffectProgram(I("Tap up to two target creatures. Those creatures don't untap during their controllers' next untap steps. Scry 1."));
+    expect(storm.confidence).toBe("high");
+    expect(storm.atoms).toEqual([
+      { op: "tap", targetType: "creature", restrictions: [], maxTargets: 2, minTargets: 0, noUntapNext: true },
+      { op: "scry", amount: 1, targetType: null },
+    ]);
+    // CREED — an unfolded count ("up to three") has no printed pairing in the corpus; the rider sentence
+    // strands unbound → the whole clause stays LOW (never a tap that silently drops its lockdown).
+    expect(parseEffectProgram(I("Tap up to three target creatures. Those creatures don't untap during their controller's next untap step.")).confidence).toBe("low");
+  });
   it("recognizes targeted NON-CREATURE permanent removal (Disenchant/Stone Rain class)", () => {
     expect(parseEffectProgram(I("Destroy target artifact.")).atoms).toEqual([{ op: "destroy", targetType: "artifact", restrictions: [] }]);
     expect(parseEffectProgram(I("Destroy target enchantment.")).atoms).toEqual([{ op: "destroy", targetType: "enchantment", restrictions: [] }]);

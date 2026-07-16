@@ -424,6 +424,16 @@ function splitClauses(oracle) {
     // clause (the same fold as TAP-PERMANENT-LOCK / PUMP-UNTAP above). Anchored to the exact tap-nonland +
     // rider pair, so it can only PROMOTE this already-low shape, never regress another card.
     .replace(/(tap target nonland permanent an opponent controls)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step")
+    // TAP-FREEZE (BLITZ TP-1 — Frost Breath / Sudden Storm / Decision Paralysis / Snow Day class): fold the
+    // separate "Those creatures don't untap during their controller's next untap step[s]." sentence that
+    // follows "Tap up to two target creatures." into the tap sentence, normalizing BOTH printed possessives
+    // ("their controller's … step" / "their controllers' … steps") to one canonical joined form so the
+    // multi-tap anchor binds the one-shot no-untap lockdown to the SAME tapped set ("those creatures" = the
+    // up-to-two just-tapped — the Junk Winder fold, plural). Anchored to the exact pair — it can only
+    // PROMOTE this already-low shape, never regress another card.
+    // (Lookahead keeps the sentence-final period OUT of the match, so a following sentence — Sudden
+    // Storm's "Scry 1." — still splits into its own clause instead of gluing onto the folded one.)
+    .replace(/(tap up to two target creatures)\.\s+those creatures don[’']t untap during their controllers?[’']s? next untap steps?(?=\.|$)/gi, "$1 and they don't untap during their controllers' next untap step")
     // DRAW-LOSE-SUBJECT — "Target player draws N cards and loses M life" (Sign in Blood, Blood Pact, Painful
     // Lesson, Harrowing Journey) shares ONE subject across the conjunction; the top-level " and " split would
     // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse
@@ -654,6 +664,12 @@ function splitClauses(oracle) {
     // the tap + no-untap lockdown to the SAME single target (else the top-level split below shatters it into
     // "tap target nonland permanent an opponent controls" + an unbindable "it doesn't untap …" → low).
     if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TAP-FREEZE (BLITZ TP-1 — Frost Breath class) — the normalize fold above joined "Tap up to two target
+    // creatures. Those creatures don't untap during their controller('s|s') next untap step(s)." into one
+    // sentence with an internal " and "; that " and " is INTERNAL to the one tap+lockdown instruction
+    // ("they" = the just-tapped set), NOT a top-level effect boundary. Keep it whole so the multi-tap anchor
+    // binds tap + noUntapNext to the SAME up-to-two targets (else the split strands "they don't untap …" → low).
+    if (/^tap up to two target creatures and they don't untap during their controllers' next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
     // STUN (CR 122.1c) — keep "tap <target-creature-form> and put a stun counter on it/them" WHOLE: the internal
     // " and " joins the stun rider to the SAME tap instruction ("it/them" = the just-tapped creature), NOT a
     // top-level boundary. combat.tapClauseParser folds stunCounter onto the tap atom; a split would strand the
