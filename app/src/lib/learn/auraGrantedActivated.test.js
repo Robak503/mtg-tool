@@ -62,7 +62,9 @@ describe("GRANTED-ACTIVATED (1b) — recognition", () => {
     expect(classifyCard(aura("Grasp", 'Enchant creature\nEnchanted creature has "{T}: This creature deals 1 damage to any target."\n{1}{U}: Return this Aura to its owner\'s hand.'))).toBe("body-only");
   });
   it("an UNMODELED granted effect stays Arbiter (FN-safe boundary)", () => {
-    expect(N("Untapper", "{5}: Untap this creature.")).toBe("body-only");           // untap-self not a modeled effect
+    // ("{5}: Untap this creature." sat here until UT-1 modeled the self-untap — Singing Bell Strike
+    // is pinned native in auraTapLock.test.js; the boundary now uses a still-unmodeled mass form.)
+    expect(N("Untapper", "{5}: Untap all creatures you control.")).toBe("body-only"); // mass untap not a modeled effect
     expect(N("Variable", "{T}: This creature deals X damage to any target, where X is its power.")).toBe("body-only"); // X-effect
   });
 });

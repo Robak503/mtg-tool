@@ -3026,6 +3026,10 @@ export function attachedNoUntapOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
   return /(?:^|[\n.;])\s*enchanted creature doesn't untap during its controller's untap step\s*(?:\.|$)/i.test(o);
 }
+/** Single-LINE form of the tap-lock check (UT-1) — for coverage residue walks over oracle lines. */
+export function isAttachedNoUntapLine(line) {
+  return ATT_NO_UNTAP_CLAUSE_RE.test(String(line || "").trim());
+}
 // AURA-OWN-ETB validator (BLITZ PZ-1/LA-1 — injected from coverage, the group-validator pattern:
 // this module can't import detectTriggers without a load cycle). When registered, an aura-own
 // "When this Aura enters, <effect>" line whose single descriptor routes natively is admitted as

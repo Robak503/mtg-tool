@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1133,6 +1133,7 @@ function isNativeActivatedGrantAura(card) {
     if (/^enchant\b/i.test(t)) continue;                                                  // the Enchant keyword line
     if (grantLineRe.test(t)) continue;                                                     // a granted-ability line
     if (isModeledAuraOwnEtbLine(stripReminder(t))) continue;                               // LA-1: a modeled aura-own ETB rider
+    if (isAttachedNoUntapLine(t)) continue;                                                // UT-1: the PZ-1 tap-lock line (untapAll enforces it)
     return false;                                                                          // any other clause = residue
   }
   return true;

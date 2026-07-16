@@ -17,6 +17,10 @@ import { createGameState, createPermanent, untapAll, _resetIdsForTests } from ".
 import { enterPermanent } from "./resolvers.js";
 import { attachedNoUntapOf, parseAuraBonus } from "./staticAbilityParser.js";
 import { classifyCard } from "./coverage.js";
+import { parseEffectClause } from "./effects/parser.js";
+import { legalActionsForPlayer } from "./legalChoices.js";
+import { dispatchAction } from "./actionDispatcher.js";
+import { resolveTopOfStack } from "./gameEngine.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -58,8 +62,9 @@ describe("reader + classify", () => {
     // The hardening catch: the pronoun follow-up sentence rides the runtime descriptor (routes LOW),
     // so the touch heuristic may NOT silently eat it.
     expect(classifyCard(BIND_THE_MONSTER)).toBe("body-only");
-    // Unmodeled granted untap escape ("{6}: Untap this creature") — parks the card, never half-models it.
-    expect(classifyCard(SINGING_BELL_STRIKE)).toBe("body-only");
+    // (Singing Bell Strike sat here as a near-miss until UT-1 modeled the granted untap escape —
+    // it's pinned native-activated below; the unmodeled-clause intent is carried by Immobilizing
+    // Ink's discard COST and Paralyze/Narcolepsy's triggers.)
     // The {4} upkeep untap offer is an unmodeled aura-own trigger.
     expect(classifyCard(PARALYZE)).toBe("body-only");
     // At-each-upkeep tap is NOT the modeled self-ETB shape.
@@ -110,5 +115,55 @@ describe("runtime — the ETB tap fires through the shared enter chokepoint", ()
     const etb = (after.pendingTriggers || []).filter((t) => t.descriptor?.event === "etb");
     expect(etb.length).toBe(1);
     expect(etb[0].descriptor.effectClause).toMatch(/tap enchanted creature/i);
+  });
+});
+
+// ————————————————————————————— BLITZ UT-1: the untap-self escape valve —————————————————————————————
+// "Untap this creature" (op:"untap", target:"self" — the pump/regenerate fixed self referent, resolved
+// via ctx.sourceId). One anchor unlocks three families at once: the tap-lock escape grants
+// ('Enchanted creature has "{6}: Untap this creature."' — Singing Bell Strike), printed activated
+// untappers ({U}: Untap this creature — Morphling, Horseshoe Crab), and cast/ETB-watcher untap
+// triggers (Thermo-Alchemist). CREED: a rider'd form stays LOW; an unmodeled COST keeps the card parked.
+
+const IMMOBILIZING_INK = { id: "ink", name: "Immobilizing Ink", type: "Enchantment — Aura", mana: "{1}{U}",
+  oracle: "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nEnchanted creature has \"{1}, Discard a card: Untap this creature.\"" };
+const HORSESHOE_CRAB = { id: "hc", name: "Horseshoe Crab", type: "Creature — Crab", mana: "{2}{U}",
+  power: "1", toughness: "3", oracle: "{U}: Untap this creature." };
+
+describe("UT-1 — parse + classify", () => {
+  it("the bare self-untap parses; a rider'd form stays LOW (safe FN)", () => {
+    expect(parseEffectClause("untap this creature").atoms).toEqual([{ op: "untap", target: "self" }]);
+    expect(parseEffectClause("untap this creature and it gains flying until end of turn").confidence).toBe("low");
+  });
+  it("the escape-valve grant + printed untappers flip; an unmodeled grant COST stays parked", () => {
+    expect(classifyCard(SINGING_BELL_STRIKE)).toBe("native-activated");
+    expect(classifyCard(HORSESHOE_CRAB)).toBe("native-activated");
+    // "{1}, Discard a card:" — the discard cost is outside the granted cost vocabulary → modeled:false
+    // → the whole card stays body-only (never a grant whose cost the runtime can't charge).
+    expect(classifyCard(IMMOBILIZING_INK)).toBe("body-only");
+  });
+});
+
+describe("UT-1 — runtime: pay the granted cost, untap the locked host", () => {
+  it("the Singing-Bell'd host is offered the granted {6}; dispatching it untaps the host (the lock only guards the untap STEP)", () => {
+    let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const host = createPermanent({ id: "host", card: { id: "hb", name: "Host Bear", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "user", summoningSick: false });
+    const aura = createPermanent({ id: "aura", card: SINGING_BELL_STRIKE, controller: "user", summoningSick: false });
+    aura.attachedTo = "host"; host.attachments = ["aura"];
+    host.tapped = true; // the ETB tap already resolved; the lock holds it through untap steps
+    s = {
+      ...s,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", turn: 4,
+      players: { ...s.players, user: { ...s.players.user, battlefield: [host, aura], manaPool: { W: 0, U: 6, B: 0, R: 0, G: 0, C: 0 } } },
+    };
+    // Still locked at the untap step…
+    expect(untapAll(s, { playerId: "user" }).players.user.battlefield.find((p) => p.id === "host").tapped).toBe(true);
+    // …but the granted escape valve is offered on the HOST, and paying {6} untaps it.
+    const offers = legalActionsForPlayer(s, "user").filter((a) => a.kind === "activate-ability" && a.permanentId === "host");
+    expect(offers.length).toBe(1);
+    const paid = dispatchAction(s, offers[0]);       // pays {6} from the pool, puts the ability on the stack
+    expect(paid.players.user.manaPool.U).toBe(0);
+    const after = resolveTopOfStack(paid);           // the untap-self program resolves on the host
+    expect(after.players.user.battlefield.find((p) => p.id === "host").tapped).toBe(false);
   });
 });

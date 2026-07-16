@@ -836,6 +836,13 @@ export function combatKeywordClauseParser(clause) {
   // through atomTargets. Whole-clause anchored ($) so any qualified/rider form falls through → low → Arbiter.
   if (/^tap enchanted creature$/.test(t)) return { op: "tap", target: "enchanted" };
   if (/^untap enchanted creature$/.test(t)) return { op: "untap", target: "enchanted" };
+  // GRANTED-SELF-UNTAP (BLITZ UT-1 — Singing Bell Strike / Ringing Strike Mastery / Immobilizing Ink /
+  // Sinking Feeling: the tap-lock escape valve 'Enchanted creature has "{cost}: Untap this creature."').
+  // "This creature" is the SOURCE the granted ability is enumerated on (the host — CR 113.7), the same
+  // fixed self referent the pump/regenerate atoms use: atomTargets' target:"self" case resolves
+  // ctx.sourceId at resolution (live creature verified; gone → [] no-op). Whole-clause anchored ($) so
+  // any rider stays LOW → Arbiter (a safe FN).
+  if (/^untap this creature$/.test(t)) return { op: "untap", target: "self" };
   // UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") — a single chosen land. targetType "land" routes
   // through PERMANENT_PREDICATES.land in enumerateTargets (so any land on any battlefield is a legal target),
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so
