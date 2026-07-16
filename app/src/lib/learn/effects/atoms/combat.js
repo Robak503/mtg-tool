@@ -917,6 +917,13 @@ export function combatKeywordClauseParser(clause) {
   if (pvd) return { op: "prevent-next-damage", amount: NUM_WORD[pvd[1]] ?? parseInt(pvd[1], 10), targetType: "any" };
   const pvy = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to you this turn$/);
   if (pvy) return { op: "prevent-next-damage", amount: NUM_WORD[pvy[1]] ?? parseInt(pvy[1], 10), who: "you", targetType: null };
+  // PLAYERS-ONLY FOG (BLITZ FOG-1b — Defend the Hearth / Commencement of Festivities): "prevent all
+  // combat damage that would be dealt to players this turn". Rides the incumbent "fog" op (misc.applyFog
+  // owns the family — so programContainsFog + the AI-F5 fog hold policy cover this form automatically)
+  // with scope:"players": the resolver stamps preventCombatPlayersTurn and the combat funnel zeroes only
+  // the player-directed deals (creature-vs-creature combat still lands). The bare whole-turn form is
+  // misc's, untouched. Anchored; any rider falls through.
+  if (/^prevent all combat damage that would be dealt to players this turn$/.test(t)) return { op: "fog", scope: "players", targetType: null };
   // CANT-BE-BLOCKED, POWER-CAPPED (BLITZ GT-1 — Goblin Tunneler / Dwarven Warriors class): "target
   // creature with power N or less can't be blocked this turn". The SAME layer-6 endOfTurn unblockable
   // grant, with the printed power cap as a target restriction (creatureSatisfiesRestrictions' existing

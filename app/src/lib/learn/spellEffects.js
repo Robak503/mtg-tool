@@ -49,6 +49,7 @@ import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
+import { selfDamagePrevention } from "./combatEvasion.js"; // FOG-1 — the printed self prevent-all wall (leaf-safe: combatEvasion never imports this module)
 import { armDamageToCreatureFlag } from "./wolverine.js";
 import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
 
@@ -959,6 +960,10 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     // effect hits each creature at most once). Gated on the counter, so an unshielded creature is byte-identical.
     const lk = findPermanent(s, permId);
     if (lk && hasShieldCounter(lk.permanent)) return consumeShieldCounter(s, permId);
+    // FOG-1 (CR 615): the creature's own printed "Prevent all damage …" wall — the ALL form blocks
+    // non-combat damage too (Dawn Elemental shrugs off a Bolt); the combat-only form does NOT (Gomazoa
+    // takes the Bolt), handled at the combat funnel instead.
+    if (lk && selfDamagePrevention(lk.permanent.card) === "all") return s;
     // PV-1 (CR 615): floating prevent-next-N shields (Samite Healer on a creature) consume before the hit.
     const pv = consumePreventionShields(s, { targetKind: "creature", targetId: permId, amount: dealt });
     s = pv.state; dealt = pv.amount;

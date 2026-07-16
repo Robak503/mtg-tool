@@ -251,6 +251,22 @@ const reRadConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't b
 // sacrifice …") is NOT this shape — its second sentence is a separate, unmodeled state trigger, so those
 // cards stay body-only (a safe FN). Anchored at a sentence boundary; a qualifier tail fails the match.
 const reAttackNeedsDefenderLand = /(?:^|[\n.;])\s*(?:this creature|it) can't attack unless defending player controls an? (island|swamp|mountain|forest|plains|snow land)\s*(?:\.|$)/i;
+// SELF DAMAGE-PREVENTION statics (BLITZ FOG-1, CR 615 — Guard Gomazoa / Everdawn Champion "Prevent all
+// combat damage that would be dealt to this creature."; Dawn Elemental / Glittering Lion "Prevent all
+// damage that would be dealt to this creature."): a printed, unconditional, self-scoped prevention wall.
+// "all" blocks BOTH damage paths; "combat" blocks only combat damage (a Bolt still lands on Gomazoa).
+// Anchored at sentence boundaries; a conditional / cost-bearing variant ("unless", "{1}: …") never matches
+// → residue → body-only (safe FN). Consulted at the combat funnel + applyDamageEffect's creature hit.
+const reSelfPreventAllDmg = /(?:^|[\n.;])\s*prevent all damage that would be dealt to (?:this creature|it)\s*(?:\.|$)/i;
+const reSelfPreventCombatDmg = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt to (?:this creature|it)\s*(?:\.|$)/i;
+/** "all" | "combat" | null — the printed self damage-prevention wall on this card. */
+export function selfDamagePrevention(card) {
+  const o = selfOracle(card);
+  if (reSelfPreventAllDmg.test(o)) return "all";
+  if (reSelfPreventCombatDmg.test(o)) return "combat";
+  return null;
+}
+
 /** ISLANDHOME (SM-1) — the land type the DEFENDING player must control for this creature to attack them
  * ("island" / "swamp" / … / "snow land"), or null when unrestricted. Read off the card (printed static). */
 export function attackDefenderLandRequirement(card) {

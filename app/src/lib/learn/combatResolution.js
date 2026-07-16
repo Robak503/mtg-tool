@@ -51,6 +51,7 @@ import {
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
+import { selfDamagePrevention } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
@@ -220,8 +221,19 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // Finalize a combat damage amount for one source→target event. `targetKind` is "creature" | "player" |
   // "planeswalker"; `targetId` is the receiving permanent/player. 120.8 zero-guard is re-checked by the
   // callers (addDmg's `n > 0`, spillToDefender's `amount <= 0`) AFTER this returns.
+  // PLAYERS-ONLY FOG (BLITZ FOG-1b, CR 615 — Defend the Hearth): the players-scoped fog flag zeroes only
+  // player-directed deals (the bare whole-turn fog short-circuits the whole step above, untouched).
+  const fogPlayers = state.preventCombatPlayersTurn === state.turn;
   const consultCombat = (rawAmount, sourcePerm, targetKind, targetId) => {
     let amt = rawAmount;
+    if (amt > 0 && fogPlayers && targetKind === "player") return 0;
+    // FOG-1 self statics: the damaged CREATURE's own printed prevent-all wall (Guard Gomazoa's combat
+    // form and Dawn Elemental's all form both zero a combat deal). Read per hit, layer-free (a printed
+    // static — no granted form is modeled, so the card read is exact).
+    if (amt > 0 && targetKind === "creature") {
+      const lk = findPermanent(state, targetId);
+      if (lk && selfDamagePrevention(lk.permanent.card)) return 0;
+    }
     if (hasReplacement && amt > 0) {
       amt = consultDamageAmount(state, {
         sourceId: sourcePerm?.id ?? null,

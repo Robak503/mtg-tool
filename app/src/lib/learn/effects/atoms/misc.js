@@ -67,8 +67,13 @@ function applyDrawAtom(state, atom, ctx) {
  * is a plain number so a mid-combat serialize/restore is byte-identical.
  */
 function applyFog(state, atom, ctx) {
-  const next = { ...state, preventCombatDamageTurn: state.turn };
-  return logEvent(next, { kind: "spell-effect", effect: "fog", controller: ctx.controller, turn: state.turn });
+  // PLAYERS-ONLY scope (BLITZ FOG-1b — Defend the Hearth): stamp the players-fog flag instead; the
+  // combat funnel zeroes only player-directed deals (creature-vs-creature combat still lands). The
+  // bare whole-turn form keeps the incumbent flag + resolveCombatDamage's whole-step short-circuit.
+  const next = atom.scope === "players"
+    ? { ...state, preventCombatPlayersTurn: state.turn }
+    : { ...state, preventCombatDamageTurn: state.turn };
+  return logEvent(next, { kind: "spell-effect", effect: "fog", controller: ctx.controller, turn: state.turn, ...(atom.scope === "players" ? { scope: "players" } : {}) });
 }
 
 /**

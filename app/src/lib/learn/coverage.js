@@ -42,7 +42,7 @@ import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
 import { isNativeGroupWard } from "./groupWard.js";
 import { isNativeKira } from "./kiraTargetCounter.js";
-import { isEnforcedEvasionClause } from "./combatEvasion.js";
+import { isEnforcedEvasionClause, selfDamagePrevention } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
@@ -1718,6 +1718,22 @@ registerCoverageClassifier((card) => {
     .split("\n").map((l) => l.trim()).filter((l) => l && l !== rec.raw).join("\n");
   if (!residue) return "native-activated";
   return isKeywordOnly(residue, card?.name) ? "native-activated" : null;
+});
+
+// SELF DAMAGE-PREVENTION statics (BLITZ FOG-1, CR 615 — Guard Gomazoa / Dawn Elemental class): a
+// creature whose only non-keyword text is the printed self prevent-all wall classifies native-static —
+// the SAME selfDamagePrevention read both damage paths consult (the combat funnel zeroes both forms;
+// applyDamageEffect zeroes the ALL form), so the metric can't claim a wall the runtime doesn't enforce.
+// All-or-nothing: any residue beyond keywords → null → body-only.
+const SELF_PREVENT_LINE_RE = /^prevent all (?:combat )?damage that would be dealt to (?:this creature|it)\.?$/i;
+registerCoverageClassifier((card) => {
+  if (!selfDamagePrevention(card)) return null;
+  const type = String(card?.type ?? card?.type_line ?? "");
+  if (!/creature/i.test(type)) return null;
+  const residue = stripReminder(String(card?.oracle || card?.oracle_text || ""))
+    .split("\n").map((l) => l.trim()).filter((l) => l && !SELF_PREVENT_LINE_RE.test(l)).join("\n");
+  if (!residue) return "native-static";
+  return isKeywordOnly(residue, card?.name) ? "native-static" : null;
 });
 
 // GY EXILE-COST ABILITY (BLITZ GY-2, CR 602.2 — Seasoned Pyromancer / Runehorn Hellkite / the Soul
