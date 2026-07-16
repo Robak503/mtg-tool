@@ -84,3 +84,27 @@ describe("RE-1 — synthesis + fire-time dynamics", () => {
     expect(pump1?.descriptor?.effectClause).toBe("this creature gets +2/+2 until end of turn");
   });
 });
+
+// BLITZ BF-1 — the blocks-a-flyer pump (Netcaster Spider class), the same fire-time family.
+const NETCASTER_SPIDER = { id: "ns", name: "Netcaster Spider", type: "Creature — Spider", mana: "{2}{G}",
+  power: "2", toughness: "3", oracle: "Reach (This creature can block creatures with flying.)\nWhenever this creature blocks a creature with flying, this creature gets +2/+0 until end of turn." };
+
+describe("BF-1 — blocks-a-flyer pump", () => {
+  it("synthesizes the coverage-only descriptor; the card flips native-trigger", () => {
+    const trigs = detectTriggers(NETCASTER_SPIDER);
+    expect(trigs.filter((t) => t.event === "blocksFlyerPump")).toHaveLength(1);
+    expect(classifyCard(NETCASTER_SPIDER)).toBe("native-trigger");
+  });
+  it("fires ONLY when the blocked attacker has flying (layer-aware at fire time)", () => {
+    let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const spider = createPermanent({ id: "sp", card: NETCASTER_SPIDER, controller: "user", summoningSick: false });
+    const flyer = createPermanent({ id: "fl", card: { name: "Wind Drake", type: "Creature — Drake", power: "2", toughness: "2", oracle: "Flying" }, controller: "ai1", summoningSick: false });
+    const ground = createPermanent({ id: "gr", card: { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "ai1", summoningSick: false });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [spider] }, ai1: { ...s.players.ai1, battlefield: [flyer, ground] } } };
+    const vsFlyer = checkBlockTriggers({ ...s, combat: { attackers: [{ permanentId: "fl", attackingPlayer: "ai1", defender: "user" }], blockers: [{ blockerId: "sp", attackerId: "fl" }] } });
+    const pump = (vsFlyer.pendingTriggers || []).find((t) => t.descriptor?.event === "blocksFlyerPump");
+    expect(pump?.descriptor?.effectClause).toBe("this creature gets +2/+0 until end of turn");
+    const vsGround = checkBlockTriggers({ ...s, combat: { attackers: [{ permanentId: "gr", attackingPlayer: "ai1", defender: "user" }], blockers: [{ blockerId: "sp", attackerId: "gr" }] } });
+    expect((vsGround.pendingTriggers || []).some((t) => t.descriptor?.event === "blocksFlyerPump")).toBe(false);
+  });
+});

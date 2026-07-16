@@ -2399,6 +2399,21 @@ export function detectTriggers(card) {
       optional: false, sourceText: `becomes blocked per-blocker pump +${pbp[1]}/+${pbp[2]}`,
     });
   }
+  // BLOCKS-A-FLYER PUMP (BLITZ BF-1 — Netcaster Spider / Woolly Spider / High-Rise Sawjack / Ezuri's
+  // Archers, the reach-wall payoff): "Whenever this creature blocks a creature with flying, it/this
+  // creature gets +N/+M until end of turn." The FILTER (the blocked attacker has flying) is unenforceable
+  // through the generic blocks event, so like rampage this descriptor is COVERAGE-ONLY — checkBlockTriggers
+  // checks the blocked attacker's LIVE flying (layer-aware) per block pair at fire time and pushes the
+  // parsed self-pump directly. No twin eviction needed: the filtered-blocks guard already leaves the raw
+  // sentence UNDETECTED through the normal path (this synthesis owns it; the shaped count reconciles).
+  const bfp = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;]\s*)whenever this creature blocks a creature with flying, (?:it|this creature) gets \+(\d+)\/\+(\d+) until end of turn\b/i);
+  if (bfp) {
+    out.push({
+      event: "blocksFlyerPump", scope: "self", whose: "any",
+      effect: null, effectClause: `this creature gets +${bfp[1]}/+${bfp[2]} until end of turn`,
+      optional: false, sourceText: `blocks-a-flyer pump +${bfp[1]}/+${bfp[2]}`,
+    });
+  }
   // CUMULATIVE UPKEEP (CR 702.24) — KEYWORD→TRIGGER synthesis, the BUSHIDO/AFFLICT precedent. "Cumulative upkeep
   // {cost}" is a keyword whose triggered ability lives entirely in REMINDER parens ("(At the beginning of your
   // upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age
@@ -3488,6 +3503,22 @@ export function checkBlockTriggers(state) {
     if (p <= 0 && tf <= 0) continue;
     const descriptor = { event: "perBlockerPump", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${p}/+${tf} until end of turn`, optional: false, sourceText: `becomes blocked per-blocker pump ×${count}` };
     fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
+  }
+  // BLOCKS-A-FLYER PUMP (BLITZ BF-1 — the rampage-family fire-time pattern): per block PAIR, a blocker
+  // printing "Whenever this creature blocks a creature with flying, it gets +N/+M until end of turn"
+  // fires ONLY when its blocked attacker has flying RIGHT NOW (layer-aware — a granted flying counts,
+  // a removed one doesn't; CR 509.1a reads the block event's object). The detectTriggers
+  // "blocksFlyerPump" descriptor is coverage-only; this is the sole firing site (no double-fire).
+  for (const b of blockers) {
+    if (!b?.blockerId || !b?.attackerId) continue;
+    const blk = findPermanent(state, b.blockerId);
+    if (!blk) continue;
+    const m = String(blk.permanent.card?.oracle || blk.permanent.card?.oracle_text || "").replace(/\([^)]*\)/g, " ")
+      .match(/(?:^|[\n.;]\s*)whenever this creature blocks a creature with flying, (?:it|this creature) gets \+(\d+)\/\+(\d+) until end of turn\b/i);
+    if (!m) continue;
+    if (!permanentHasKeyword(state, b.attackerId, "Flying")) continue;
+    const descriptor = { event: "blocksFlyerPump", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${m[1]}/+${m[2]} until end of turn`, optional: false, sourceText: `blocks-a-flyer pump +${m[1]}/+${m[2]}` };
+    fired.push(makePendingTrigger(descriptor, blk.permanent, blk.permanent, {}));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
