@@ -60,7 +60,6 @@ import ProvingHome from "./mtg/ProvingHome";
 import AcademyHome from "./mtg/AcademyHome";
 import VaultHome from "./mtg/VaultHome";
 import DeckReadyView from "./mtg/DeckReadyView";
-import VaultGalleryView from "./mtg/VaultGalleryView";
 import RecordsView from "./mtg/RecordsView";
 import PostMortemView from "./mtg/PostMortemView";
 import JudgeTrialsView from "./mtg/JudgeTrialsView";
@@ -1562,7 +1561,7 @@ export default function MTGAssistant() {
             ):centerView==="collection"?(
               <CollectionView surface="collection" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):centerView==="vault-gallery"?(
-              <VaultGalleryView onNavigate={setCenterView} fontFamily={F} />
+              <CollectionView surface="gallery" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):centerView==="vault-ledger"?(
               <CollectionView surface="ledger" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):centerView==="vault-census"?(

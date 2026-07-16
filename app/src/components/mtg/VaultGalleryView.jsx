@@ -9,7 +9,10 @@
 
 import { useEffect, useState } from "react";
 
-export default function VaultGalleryView({ onNavigate, fontFamily }) {
+// C5-P2.5 — `embedded`: rendered inside the CollectionView shell (which owns
+// the Vault header + back affordance), so this view drops its own standalone
+// header and becomes a consistent surface like every other door.
+export default function VaultGalleryView({ onNavigate, fontFamily, embedded = false }) {
   const [state, setState] = useState({ status: "loading", data: null, error: null });
 
   useEffect(() => {
@@ -29,7 +32,7 @@ export default function VaultGalleryView({ onNavigate, fontFamily }) {
   const card = { background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)", padding: 16, marginBottom: 16 };
   const h = { fontFamily: "var(--font-mono), monospace", fontSize: 10, color: "var(--ley-text-faint)", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 12 };
 
-  const header = (
+  const header = embedded ? null : (
     <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
       {onNavigate && (
         <button onClick={() => onNavigate("vault-home")} className="btn btn-ghost btn-sm">← Vault</button>

@@ -203,6 +203,21 @@ describe("C5-P2.4 — VaultTrophyPage (full-page view for showpieces)", () => {
   });
 });
 
+describe("C5-P2.5 — the Gallery rides the shared Vault shell", () => {
+  it("surface='gallery' renders the shell with the Gallery chip", () => {
+    const html = renderToStaticMarkup(<CollectionView surface="gallery" />);
+    expect(html).toContain("The Gallery");
+    expect(html).toContain("The Vault"); // the shared shell header
+  });
+
+  it("embedded gallery drops its own standalone header (no duplicate title)", () => {
+    const html = renderToStaticMarkup(<CollectionView surface="gallery" />);
+    // The standalone view's own h1 + strapline must NOT render inside the shell.
+    expect(html).not.toContain("your collection, by artist");
+    expect(html).not.toContain("← Vault</button><h1"); // no second back button + title pair
+  });
+});
+
 describe("C5-P1.2 — CollectionImportModal paste-a-list pane", () => {
   it("renders the paste-a-list textarea + Preview button alongside the CSV picker (pick phase)", () => {
     const html = renderToStaticMarkup(<CollectionImportModal onClose={() => {}} onAdded={() => {}} colors={COLORS} />);

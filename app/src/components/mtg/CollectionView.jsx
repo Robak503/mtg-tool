@@ -31,6 +31,7 @@ import ColorTagManager from "./ColorTagManager";
 import VaultFinanceView from "./VaultFinanceView";
 import VaultStatsView from "./VaultStatsView";
 import VaultSetBrowserView from "./VaultSetBrowserView";
+import VaultGalleryView from "./VaultGalleryView";
 import VaultBuildView from "./VaultBuildView";
 import useColorTags from "../../hooks/useColorTags";
 import useEscapeClose from "../../hooks/useEscapeClose";
@@ -66,8 +67,8 @@ const DEFAULT_FILTERS = {
   finish: "any",
 };
 
-const SURFACE_MODE = { collection: "collection", ledger: "ledger", census: "census", sets: "sets", build: "build" };
-const SURFACE_LABEL = { collection: "The Stacks", ledger: "The Ledger", census: "The Census", sets: "The Atlas", build: "The Forge" };
+const SURFACE_MODE = { collection: "collection", ledger: "ledger", census: "census", sets: "sets", gallery: "gallery", build: "build" };
+const SURFACE_LABEL = { collection: "The Stacks", ledger: "The Ledger", census: "The Census", sets: "The Atlas", gallery: "The Gallery", build: "The Forge" };
 
 export default function CollectionView({ surface = "collection", onNavigate, onClose, onBuildCommander }) {
   const [state, setState] = useState({
@@ -736,6 +737,12 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
 
       {mode === "sets" && (
         <VaultSetBrowserView colors={COLORS} fontFamily={FONT} />
+      )}
+
+      {/* C5-P2.5 — the Gallery rides the same shell as every other door
+          (header, chip, counts, back affordance) instead of standing alone. */}
+      {mode === "gallery" && (
+        <VaultGalleryView embedded fontFamily={FONT} />
       )}
 
       {mode === "build" && (
