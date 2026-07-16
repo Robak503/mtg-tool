@@ -1,15 +1,29 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.4%, campaign +800**: 39 slices, LOST=0 — and the desk became a TEAM
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.4%, campaign +813**: 42 slices, LOST=0 — the TEAM's first batch landed
 
-> Census **10,383 of 34,161 (30.39%)**, baseline scratchpad cand53.txt. Colton's order (evening): three
-> Fable build agents fanned out under the director (me) — each in an isolated worktree with its own
-> baseline, each gating locally (suite+lint+audited flip-diff), NONE push; every diff is audited at the
-> director's desk, re-gated against the live census here, and integrated serially to master. Lanes out:
-> **MG-1** the modal shared-type graveyard pair (Return from Extinction kin) · **NR-1** the artifact
-> activation lock (Null Rod / Stony Silence / Collector Ouphe — close every enumeration site incl. mana
-> and crew, or park with the site list) · **FT-1** the Falter-class mass block lock ("creatures without
-> flying can't block this turn" — the withoutKeyword dynamic selector on WD-1's machinery).
+> Census **10,396 of 34,161 (30.43%)**, baseline scratchpad cand56.txt. Colton's order (evening): three
+> Fable build agents under the director (me) — isolated worktrees, local gates, NONE push; every diff is
+> audited at the director's desk, re-gated against the live census, integrated serially to master.
+>
+> **TEAM BATCH 1 — all three landed, +13**: **MG-1** the modal shared-type graveyard pair (1d1583a1, +3)
+> — Return from Extinction / Raise the Draugr / Unbury; the sharesCreatureType subset constraint runs
+> through a CR 205.3m ALLOWLIST (a bare after-dash intersection would certify Gingerbrute "Food" shares —
+> the agent caught it), DFC front-face split, Time Lord bigram, changeling unconstrained ·
+> **FT-1** the Falter-class mass block lock (f67d9447, +7) — ONE dynamic-selector layer-6 endOfTurn
+> cantBlock rule (CR 611.2c rules-modification license verified); withoutKeyword joins WD-1's withKeyword
+> with the shared re-entry guard; Falter / Magmatic Chasm / Seismic Stomp / Fire of Orthanc / Tectonic
+> Rift / Destructive Tampering / Seismic Elemental; parked-with-evidence: opponent-scoped (no resolution-
+> controller plumbing), color-pair (selector colors not layer-5-aware — refused the half-enforcement) ·
+> **NR-1** the artifact activation lock (da0ee5fa, +3) — Null Rod / Stony Silence / Collector Ouphe;
+> SIX enumeration sites gated on one reader (manaSources the affordability/payment chokepoint, tap-for-
+> mana, double-mana-pool, activate-ability incl. granted+equip, crew CR 702.122a, loyalty), layer-aware
+> Artifact reads, cycling/gy-zone correctly NOT locked (CR 109.2).
+>
+> BATCH 2 out: **AR-1** gy-to-bottom (Cogwork Archivist kin) + **BW-1** the Broken Wings triple union
+> (one seat) · **BG-2** the Background family ("Commander creatures you own have «…»" — 26 carriers,
+> 6 bodies pass today's validators; the selector is the lock) · **DG-1** the basilisk-touch delayed
+> destroy (Deathgazer kin — needs the first end-of-combat queue; park-if-dirty clause).
 >
 > Post-30% solo slices since the last entry: **TG-1** UNTIL-EOT QUOTED GRANTS (4a928a44, +12) — the
 > Feign Death machinery: one fixed-ids layer-6 addAbility vehicle (CR 611.2c set-lock) riding the
