@@ -1,6 +1,108 @@
 # WAKE REPORT — live resume anchor
 
-## 🏛️ 2026-07-15 (night, latest) — VAULT PHASE 2 COMPLETE on master: C5 is DONE end-to-end (awaiting Colton's taste walk)
+## 🌙 2026-07-16 (overnight, latest) — THE CORPUS BLITZ: +208 audited native adds, 14 slices, LOST=0 everywhere
+
+**The one-night autonomous order ([[overnight-corpus-blitz-2026-07-16]], now archived) ran 01:00–03:30.**
+
+### 1 · THE HEADLINE
+**Corpus native: 28.05% → 28.7%** (tier-fingerprint name-dedup 9,583 → 9,791 = **+208 audited GAINED,
+LOST=0 on every slice**; measure-coverage headline 9,798/34,196). Suite **8,519 → 8,588** (+69 tests) ·
+lint 0 throughout · every push individually gated green. Data root: the fresh 2026-07-15 Scryfall
+snapshot (main tree), before/after measured against the same root. NO release tag (the order's hard
+bound — C5's taste walk is still the open gate).
+
+Slices shipped (each: flip-diff audited by name · full suite · lint 0 · pushed):
+- **TM-1** fixed-amount targeted mill (da30e80f) — **+46** (incl. Jace Beleren → native-planeswalker)
+- **TUT-1** fixed-MV battlefield tutors, the Rebel/Mercenary chains + Zur (e7d64e88) — **+20**
+- **BG-1** commander-qualified group selector, Backgrounds + Bastion Protector (5890e7ff) — **+7**
+- **SS-1** KW-soulshift, keyword→trigger synthesis + subtype+MV gy filter (d939192f) — **+19**
+- **CS-1** counter riders: soft+exile-instead (Syncopate) + the mill rider (51800d9d) — **+6**
+- **SM-1** islandhome attack restriction, per-defender gate (2fc1c6ef) — **+12**
+- **GT-1** power-capped cant-be-blocked, Goblin Tunneler class (7365980c) — **+11**
+- **OA-1+RE-1** self-hit damage + per-blocker pump (e0e67f20) — **+15**
+- **PA-1** the Pacifism class, attached can't-attack/block (39899c62) — **+6**
+- **ONCE-1** "Activate only once each turn" ledger, the Rootwalla frame (08975c7f) — **+31**
+- **EX-1** KW-exalted, the attacks-alone fire (e333de59) — **+22**
+- **GY-1** graveyard-activated self-recursion, the engine's first gy-zone ability (99edc84a) — **+10**
+- **DT-1** "During your turn" gated self-buff (8738c917) — **+3**
+- Chores: card-names.json refresh committed (78da0245) · slice manifest regenerated (867cef4a).
+
+### 2 · PLAY-WEIGHTED LENSES (before → after)
+top-1k **67.1 → 67.4%** · top-2.5k **48.7 → 48.9%** · top-5k **37.9 → 38.2%** · top-10k **30.3 → 30.6%**.
+
+### 3 · ARBITER-ROUTED / HONESTLY-HELD (each verified still-gated, with its blocker)
+- **General Marhault Elsdragon · Berserk Murlodont** — GROUP per-blocker-pump watchers; the runtime fire
+  reads the blocked attacker's own card, so a group form would pump on the wrong scope. Needs a
+  group-watcher fire lane.
+- **Lin Sivvi, Defiant Hero** — {X}-cost activated recruiting (the activated-X tutor lane is unbuilt).
+- **Woodland Bellower** (nonlegendary+color tutor filter) · **Guardian Sunmare** (nonland filter + saddle).
+- **Soul of Mirrodin** — its second ability activates from the graveyard with an EXILE-self cost
+  (GY-1 modeled the mana-only return shape; the cost-zone-exile shape is the natural GY-2).
+- **Captain America, Liberator** — the for-each-Equipment token attack trigger.
+- **Arrest** — the compound "…and its activated abilities can't be activated" tail (PA-1 took the clean class).
+- **The two-line sea monsters** (Sea Serpent, Dandân, Bog Serpent, Gorilla Pack…) — "When you control no
+  Islands, sacrifice…" is an unmodeled STATE trigger; SM-1 took the one-line class.
+- **The Backgrounds with unmodeled interiors** (Inspiring Leader's quoted static anthem, Scion of
+  Halaster's replacement, the attacks-a-player intervening-if family) — BG-1's selector waits under them;
+  each interior that ever parses flips its card for free.
+- **The healer class** ("{T}: Prevent the next N damage…", 9 cards) — needs a prevention-shield system
+  (floating replacement with a decrementing counter). The biggest named leave-behind.
+- **"Activate only twice each turn"** — the ONCE-1 ledger counts one activation; a counted variant is a
+  small extension.
+
+### 4 · ☀️ DECISIONS I MADE FOR YOU (one line each)
+- The main tree's dirty `card-names.json` was a REAL data refresh (Scryfall 07-15) — committed, not reverted.
+- Slice manifest regenerated against v0.142.0 + fresh data and committed as the night's map.
+- Per-slice proof = the order's own 3-part law (suite + lint + name-audited flip-diff); the deeper
+  program/runtime fingerprints were reserved for parser-seam-only changes (none tonight qualified).
+- The trajectory-hash anchor is UNRUNNABLE on this box (no profile decks in the main tree — the app isn't
+  installed here); the suite's determinism pins carried behavior coverage. Flagged, not silently skipped.
+- BG-1 models "commander creatures you OWN" as controller-scoped — an engine invariant (no native
+  control-theft, no owner field); documented at the parse site with a revisit marker.
+- OA-1/RE-1 + PA-1 rode one gate and one push (the intermediate commit was never pushed alone).
+- No release tag, per the order — see NEEDS COLTON.
+
+### 5 · ☀️ NEEDS COLTON (ranked)
+1. **The C5 taste walk** (carried) — and with it the release call: tonight's +208 rides the same
+   unreleased train as the Vault Phase 2 + Crucible batch. One walk → one fat release.
+2. **Rograkh in the grind pool?** (carried from 07-15.)
+3. **Real Omnath-deck reconciliation** (Newt→Last March — dev copy done, your AppData deck awaits you).
+4. **Golden-hands review** (120 mulligan hands, ~20 min, carried).
+
+### 6 · PARKED WITH ANALYSIS (the written next step for each)
+- **Prevention shields (healers, 9)** — design: a `preventNextDamage` floating replacement keyed
+  source→target-scope with an amount counter, consulted at the damage chokepoint; AI value is low but
+  legality is what matters. Medium build.
+- **GY-2 (exile-self-cost graveyard abilities)** — extend parseGraveyardSelfRecursion's cost grammar +
+  the dispatcher's cost items; Soul of Mirrodin + siblings flip.
+- **Group per-blocker watchers (Marhault)** — a `perBlockerPumpGroup` descriptor whose fire loop scans
+  the CONTROLLER's watchers per blocked attacker; reuse RE-1's amount math.
+- **Aura compound "gets +N/+N and has '<activated>'"** (Lunarch Mantle class, 8) — parseAttachedClause
+  already folds quoted-TRIGGERED tails; the quoted-ACTIVATED fold + grantedActivatedForHost surfacing is
+  the missing half.
+- **Enchant-land quoted grants** (Farmstead/Urban Burgeoning class, 8) — the granted-ability machinery
+  wants a land-host acceptance pass.
+
+### 7 · THE SELF-ASSESSMENT (the real read, not a highlight reel)
+**What worked:** recon-instruments-first (clause-frontier + the family probe) made every slice
+evidence-picked — the manifest's static priors would have sent me at cumulative upkeep (already built,
+a mirage) and underweighted the Rootwalla frame (+31 from a bucket the ladder never named). The
+audit-every-GAINED-row law caught TWO real would-be FP classes before they shipped (RE-1's group-scope
+regex — Marhault would have pumped the wrong creature — and the OA/RE double-descriptor twin). The
+CREED pins did their job in reverse too: five stale must-stay-LOW pins graduated tonight, each
+repointed at a still-unmodeled example rather than deleted.
+**What I'd do differently:** (1) the BG-1 commit message states suite 8,556 — the true count was 8,546;
+caught one commit later, correction recorded here and in SS-1's message (can't amend a pushed commit).
+(2) Two early gate runs piped through `tail`, which masked exit codes — one suite failure surfaced a
+run later than it should have; switched to explicit exit-code capture mid-night. (3) One gate ran while
+I was mid-edit on the next slice, making its verdict ambiguous — re-gated the final tree and pushed both
+commits under the one verified state; cleaner is to not touch the tree while a gate runs. (4) I spent
+~25 minutes on cumulative upkeep before probing whether it was already built — probe FIRST, always.
+
+**Carried items unchanged:** Feature B (Omnath's persona narration) · the mirrored-pod targeting
+re-anchor (needs scheduling) · everything in §5.
+
+## 🏛️ 2026-07-15 (night) — VAULT PHASE 2 COMPLETE on master: C5 is DONE end-to-end (awaiting Colton's taste walk)
 
 Colton fired the parked C5 Phase-2 layout batch ("fire it up and let'er rip"). All five items
 shipped in spec order, each suite-green + lint-0, then live-walked in the dev server (kiosk → Census
