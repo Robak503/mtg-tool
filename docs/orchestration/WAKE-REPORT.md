@@ -1,6 +1,8 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +361 more (campaign +569), 24 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +364 more (campaign +572), 25 slices, LOST=0
+> Latest: **KM-1** the Kismet imposition (61024daf, +3) — one reader at every entry path (cast, land
+> drop, reanimate/ramp/detain-return).
 
 > Numbers audited against the tier-census files (9,791 → 10,152 name-dedup native+land, ~29.7% of
 > 34,161): the running "+358/20 slices" line pushed earlier in the day OVER-COUNTED by a drifted slice
