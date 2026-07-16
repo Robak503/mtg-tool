@@ -2359,6 +2359,22 @@ function matchEcho(oracle) {
 }
 
 /**
+ * ===== TOLARIAN WINDS (BLITZ TW-1) ===== "Discard [all the cards in] your hand, then draw that many
+ * cards." — the whole-hand cycle as ONE composite atom (hand.applyDiscardHandDrawSame). Matched up front
+ * on the WHOLE stripped oracle (the ", then" span would be shattered by splitClauses, and the bare "draw
+ * that many cards" tail would mis-bind to the combat-damage countContext — the exact latent gun this
+ * composite disarms for the known wordings). Any extra line (flashback / retrace / a rider) breaks the
+ * whole-oracle match → LOW → Arbiter (a safe FN).
+ */
+function matchDiscardHandDrawSame(oracle) {
+  const s = stripReminder(oracle).trim().replace(/\.$/, "");
+  if (/^discard (?:all the cards in )?your hand, then draw that many cards$/i.test(s)) {
+    return { atom: { op: "discard-hand-draw-same", targetType: null } };
+  }
+  return null;
+}
+
+/**
  * ===== OPPONENT-PAYS-TO-DENY (taxed-draw, CR 603.7c) ===== the effect clause of a "Whenever an opponent casts a
  * spell, you may draw a card unless that player pays {N}." trigger (Rhystic Study; Mystic Remora's draw half). The
  * PAYER is the opponent who cast (bound at resolution from ctx.castingPlayerId, threaded by checkCastTriggers); the
@@ -3332,6 +3348,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const ech = matchEcho(oracle);
   if (ech && KNOWN.has(ech.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [ech.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== TOLARIAN WINDS (BLITZ TW-1) ===== the whole-hand cycle, matched up front (see matchDiscardHandDrawSame).
+  const dhd = matchDiscardHandDrawSame(oracle);
+  if (dhd && KNOWN.has(dhd.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [dhd.atom], xSpell: false, unparsedTail: null });
   }
   // ===== OPPONENT-PAYS-TO-DENY ===== "you may draw a card unless that player pays {N}" (Rhystic Study's trigger
   // effect) → ONE taxed-draw atom (the payer = the opponent who cast, from ctx.castingPlayerId; the beneficiary =

@@ -3,7 +3,7 @@
  */
 
 import { handCardMatches } from "../../spellEffects.js";
-import { logEvent, opponentsOf, moveCardToZone } from "../../gameState.js";
+import { logEvent, opponentsOf, moveCardToZone, drawCards } from "../../gameState.js";
 import { setPendingHandDiscardChoice, setPendingDiscardChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount } from "./shared.js";
 import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the discard family
@@ -206,7 +206,25 @@ export function discardClauseParser(clause) {
   return null;
 }
 
+/**
+ * TOLARIAN WINDS (BLITZ TW-1): "Discard [all the cards in] your hand, then draw that many cards." —
+ * ONE composite atom (count the hand BEFORE the discard, pitch it all through the shared discard-all
+ * path so discard watchers fire, then draw exactly that count). A composite because "that many" is the
+ * DISCARDED count — binding it cross-atom would ride the combat-damage countContext (the wrong referent,
+ * a latent mis-draw); one atom needs no bridge. Matched UP FRONT on the whole (reminder-stripped) oracle
+ * (parser.matchDiscardHandDrawSame — the cumulative-upkeep dispatch pattern), so a flashback/retrace line
+ * (Shattered Perception / Decaying Time Loop) breaks the match and the card stays parked (those alt-cost
+ * keywords are unmodeled — a safe FN). An empty hand → discard nothing, draw nothing (a logged no-op).
+ */
+export function applyDiscardHandDrawSame(state, atom, ctx) {
+  const n = (state.players?.[ctx.controller]?.hand || []).length;
+  let next = applyDiscard(state, { op: "discard", who: "controller", targetType: null, all: true }, ctx);
+  if (n > 0) next = drawCards(next, { playerId: ctx.controller, count: n });
+  return logEvent(next, { kind: "spell-effect", effect: "discard-hand-draw-same", controller: ctx.controller, amount: n });
+}
+
 export const handResolvers = {
   "discard-chosen": applyDiscardChosen,
   "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
+  "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
 };
