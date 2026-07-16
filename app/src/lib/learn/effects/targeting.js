@@ -191,6 +191,13 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
         subsets = subsets.filter((sub) => sub.reduce((sum, t) => sum + permanentManaValue(state, t.id), 0) <= cap);
         if (subsets.length === 0) return null; // no legal subset (not even empty) → shouldn't happen (empty is MV 0 ≤ cap), but guard
       }
+      // SINGLE-GRAVEYARD subset constraint (BLITZ GX-1 — Decompose "from a single graveyard", CR 601.2c):
+      // every chosen card must share ONE graveyard owner (graveyardCard targets carry `.controller` = the
+      // zone holder, stamped at enumeration). Enforced AT ENUMERATION like totalMvX — a mixed pick is
+      // never offered, so the resolver exiles exactly a legal set.
+      if (atom.singleGraveyard) {
+        subsets = subsets.filter((sub) => new Set(sub.map((t) => t.controller)).size <= 1);
+      }
       // AUTO-PICK ORDER (every subset atom): sort LARGEST subset first so the trigger-flush chooser
       // (gameEngine.chooseTriggerTargets, which takes the FIRST all-correct-side candidate) picks the
       // MAXIMAL correct-side set instead of the (also-legal, but vacuous) empty subset that k-ascending

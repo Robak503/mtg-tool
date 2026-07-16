@@ -301,6 +301,13 @@ export function graveyardReturnClauseParser(clause) {
   // `$` anchor rejects "from your graveyard" (the caster-only forms above), "up to N"/plural, a type-filtered
   // variant, or a trailing rider → low → Arbiter (FN-safe). cardFilter "any" matches every graveyard card.
   if (/^exile target card from a graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any" };
+  // GY-EXILE-UP-TO-THREE (BLITZ GX-1 — Decompose / Rapid Decay / Scarab Feast): "exile up to three target
+  // cards from a single graveyard." The up-to-N subset machinery + the singleGraveyard SUBSET constraint
+  // (targeting.expandAtoms filters to subsets whose cards share ONE owner — the totalMvX pattern), so a
+  // mixed-graveyard pick is never offered (CR 601.2c — the chosen set must satisfy the restriction).
+  if (/^exile up to three target cards from a single graveyard$/.test(t)) {
+    return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any", maxTargets: 3, minTargets: 0, singleGraveyard: true };
+  }
   // GY-EXILE-OPPONENT — "exile target card from an opponent's graveyard" (Disposal Mummy, Leonin of the Lost
   // Pride, Disruptor Wanderglyph). Opponent-scoped (opponentGraveyard → enumerate only opponents' graveyards),
   // destination exile. Reuses applyExileFromGraveyard's cross-zone move (it already handles opponentGraveyard,
