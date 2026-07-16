@@ -1295,6 +1295,14 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── KISMET (BLITZ KM-1, CR 614.1c) — the opponents-enter-tapped imposition, a coverage MARKER (the
+  // castLimit pattern): the RUNTIME lives at every entry chokepoint via impositionEntersTapped. Only the
+  // exact three-type line; any variant leaves residue → body-only (a safe FN).
+  if (/^artifacts, creatures, and lands your opponents control enter (?:the battlefield )?tapped$/.test(c)) {
+    out.push({ entersTappedImposition: true });
+    return;
+  }
+
   // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
   // on it/them can't be blocked" → a layer-6 unblockable grant, gated PER-CREATURE (dynamic) on having a
   // +1/+1 counter via the selector's requiresCounter; combat reads the granted "unblockable". Only the bare
@@ -3057,6 +3065,32 @@ export function isAttachedNoUntapLine(line) {
 export function castsPerTurnLimitOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
   return /(?:^|[\n.;])\s*each player can't cast more than one spell each turn\s*(?:\.|$)/i.test(o) ? 1 : null;
+}
+
+// ── KISMET (BLITZ KM-1, CR 614.1c — Kismet / Frozen Aether / Loxodon Gatekeeper): "Artifacts,
+// creatures, and lands your opponents control enter [the battlefield] tapped." ──────────────────────
+const RE_OPP_ENTER_TAPPED = /(?:^|[\n.;])\s*artifacts, creatures, and lands your opponents control enter (?:the battlefield )?tapped\s*(?:\.|$)/i;
+/** Does this card print the Kismet imposition? (The exact three-type symmetric line only.) */
+export function opponentsEnterTappedOf(card) {
+  return RE_OPP_ENTER_TAPPED.test(String(card?.oracle || card?.oracle_text || ""));
+}
+/**
+ * Does an opposing Kismet-class static force this entering card in TAPPED? Scans every OTHER player's
+ * battlefield for the imposition and matches the entering card's type line against the printed
+ * artifact/creature/land triple (CR 614.1c — the replacement applies as the permanent enters). ALL
+ * entry paths consult this one reader (cast/enter, play-land, reanimate/ramp/detain-return), so the
+ * imposition can't be dodged through a side door.
+ */
+export function impositionEntersTapped(state, card, controller) {
+  const tl = String(card?.type || card?.type_line || "");
+  if (!/\b(?:Artifact|Creature|Land)\b/i.test(tl)) return false;
+  for (const [pid, pl] of Object.entries(state?.players || {})) {
+    if (pid === controller) continue; // "your opponents" — the controller's own Kismet never taxes them
+    for (const perm of (pl.battlefield || [])) {
+      if (opponentsEnterTappedOf(perm.card)) return true;
+    }
+  }
+  return false;
 }
 // AURA-OWN-ETB validator (BLITZ PZ-1/LA-1 — injected from coverage, the group-validator pattern:
 // this module can't import detectTriggers without a load cycle). When registered, an aura-own

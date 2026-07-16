@@ -57,7 +57,7 @@ import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentP
 import { parseEffectProgram } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
-import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped } from "./staticAbilityParser.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
@@ -145,7 +145,7 @@ function applyPlayLand(state, action) {
   // tapped, so it can't be tapped for mana the turn it's played. The freshly-minted land is the last
   // permanent on the battlefield (moveCardToZone pushes it). Only the BARE, unconditional form (entersTapped)
   // — a check/fast/reveal/shock land's gated tap is left untapped (the gate isn't evaluated; CREED-safe).
-  if (entersTapped(card)) {
+  if (entersTapped(card) || impositionEntersTapped(next, card, action.playerId)) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
     if (entered) next = tapPermanent(next, entered.id);

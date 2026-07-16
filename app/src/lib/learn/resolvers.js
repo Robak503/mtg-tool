@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, isNativeManaAura, auraChoosesColorOnEnter } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl)
+import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl)
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
 import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) — "If this creature was kicked, it enters with N +1/+1 counters"; added only when opts.kicked
@@ -205,7 +205,7 @@ export function enterPermanent(state, card, controller, opts = {}) {
   const s3 = { ...s2, timestampCounter: ts + 1 };
   const typeStr = String(card?.type || card?.type_line || "");
   const perm = {
-    ...createPermanent({ id: permId, card, controller, tapped: entersTapped(card), summoningSick: /Creature/.test(typeStr) }),
+    ...createPermanent({ id: permId, card, controller, tapped: entersTapped(card) || impositionEntersTapped(s3, card, controller), summoningSick: /Creature/.test(typeStr) }), // KM-1: an opposing Kismet forces the entry tapped (CR 614.1c)
     enteredOnTurn: s3.turn,
     timestamp: ts,
     // A clone enters carrying a `card` that's the COPIED creature's copiable values, while its

@@ -4,6 +4,7 @@
  */
 
 import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
+import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
@@ -108,7 +109,10 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;
   const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
-  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts };
+  // KM-1 (CR 614.1c): an opposing Kismet-class static forces this non-cast entry (reanimate / ramp /
+  // detain-return / earthbend-return) in tapped too — every entry path consults the one reader.
+  const forcedTapped = tapped || impositionEntersTapped(s2, card, playerId);
+  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped: forcedTapped }), enteredOnTurn: s2.turn, timestamp: ts };
   // Remove the card from its OWNER's source zone (fromPlayerId), then add the new permanent to the
   // CONTROLLER's battlefield (playerId). Build both player updates from s2 so a same-player move (the
   // common case, fromPlayerId === playerId) composes into one object and a cross-player move (reanimation
