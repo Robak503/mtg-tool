@@ -239,6 +239,26 @@ export function advanceStep(state) {
     };
   }
 
+  // EXTRA TURN (BLITZ XT-1, CR 500.7): if any extra turns are queued, the MOST RECENTLY created one is
+  // taken next (a LIFO pop — CR 500.7's "taken … in the reverse of the order they were created") instead
+  // of rotating. The extra turn is a full normal turn (turn counter still advances — CR: it IS a turn);
+  // once the stack drains, the pop-less branch below rotates from the LAST taker, which lands on the
+  // normally-scheduled seat with no extra bookkeeping.
+  const xt = state.extraTurns || [];
+  if (xt.length > 0) {
+    const taker = xt[xt.length - 1];
+    return {
+      ...emptied,
+      extraTurns: xt.slice(0, -1),
+      activePlayer: taker.player,
+      turn: state.turn + 1,
+      phase: "beginning",
+      step: "untap",
+      priorityHolder: null,
+      consecutivePasses: 0,
+    };
+  }
+
   // End of turn — next player's turn begins at (beginning, untap).
   const nextActive = nextInTurnOrder(state, state.activePlayer);
   return {

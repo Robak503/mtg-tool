@@ -180,6 +180,15 @@ export function applyDivideDamage(state, atom, ctx) {
 export function miscClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  // EXTRA-TURN (BLITZ XT-1, CR 500.7 — Time Walk / Temporal Manipulation / Capture of Jingzhou / Time
+  // Warp): "Take an extra turn after this one." The resolver pushes the CONTROLLER onto state.extraTurns;
+  // gameEngine.advanceStep's end-of-turn branch POPS the stack (most-recently-created first, CR 500.7)
+  // instead of rotating, so the extra turn is a full normal turn and rotation resumes with the normally-
+  // scheduled player afterward. Whole-clause anchored ($): a rider in the SAME sentence ("… after this
+  // one. Exile ~" is a separate sentence and gates via the whole-card rule; "target player takes an
+  // extra turn" / "take two extra turns" / a skip-step rider never matches) → low → Arbiter (FN-safe —
+  // an extra turn credited to the wrong player would be a catastrophic FP).
+  if (/^take an extra turn after this one$/.test(t)) return { op: "extra-turn", targetType: null };
   // FORCED-ATTACK (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able."
   // (Bident of Thassa). A turn-scoped combat REQUIREMENT on every creature the activator's opponents control:
   // the force-attack atom stamps forcedToAttackTurn[opponentId] and opponentAI.pickAttackPlan force-declares
@@ -344,8 +353,22 @@ export function applyAddMana(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: atom.mana });
 }
 
+/**
+ * EXTRA-TURN (BLITZ XT-1, CR 500.7) — push the controller onto the extra-turn STACK. CR 500.7: extra
+ * turns are taken one at a time, and when multiple have been created the MOST RECENTLY created is taken
+ * first — so this is a LIFO stack, popped by gameEngine.advanceStep's end-of-turn branch in place of the
+ * normal rotation. Rotation then resumes from the extra turn's taker (nextInTurnOrder of the SAME seat),
+ * which is exactly the normally-scheduled turn — no bookkeeping of the "skipped" seat is needed. The
+ * entry carries only the player id; the extra turn itself is a full normal turn (untap → cleanup).
+ */
+export function applyExtraTurn(state, atom, ctx) {
+  const next = { ...state, extraTurns: [...(state.extraTurns || []), { player: ctx.controller }] };
+  return logEvent(next, { kind: "spell-effect", effect: "extra-turn", controller: ctx.controller, queued: next.extraTurns.length });
+}
+
 export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
+  "extra-turn": applyExtraTurn, // ===== EXTRA-TURN ===== (XT-1, CR 500.7) — "Take an extra turn after this one": a LIFO stack popped at advanceStep's end-of-turn branch
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "force-attack": applyForceAttack, // ===== FORCED-ATTACK ===== (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able" (Bident): a turn-scoped attack requirement enforced in opponentAI.pickAttackPlan

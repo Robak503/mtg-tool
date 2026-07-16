@@ -1,0 +1,136 @@
+{
+  "generatedAt": "2026-07-16T23:09:45.044Z",
+  "mode": "commander",
+  "deckNames": [
+    "Deck A",
+    "Deck B",
+    "Deck C",
+    "Deck D"
+  ],
+  "deckIds": [
+    "a",
+    "b",
+    "c",
+    "d"
+  ],
+  "baseSeed": 1,
+  "seatSummary": {
+    "games": 1,
+    "decisiveGames": 1,
+    "bySeat": {
+      "user": {
+        "wins": 0,
+        "games": 1,
+        "winRate": 0,
+        "ci95": {
+          "lo": 0,
+          "hi": 0.7934567085261071
+        }
+      },
+      "ai1": {
+        "wins": 1,
+        "games": 1,
+        "winRate": 1,
+        "ci95": {
+          "lo": 0.20654329147389294,
+          "hi": 1
+        }
+      },
+      "ai2": {
+        "wins": 0,
+        "games": 1,
+        "winRate": 0,
+        "ci95": {
+          "lo": 0,
+          "hi": 0.7934567085261071
+        }
+      },
+      "ai3": {
+        "wins": 0,
+        "games": 1,
+        "winRate": 0,
+        "ci95": {
+          "lo": 0,
+          "hi": 0.7934567085261071
+        }
+      }
+    },
+    "byDeck": {
+      "Deck A": {
+        "wins": 0,
+        "games": 1,
+        "winRate": 0,
+        "ci95": {
+          "lo": 0,
+          "hi": 0.7934567085261071
+        }
+      },
+      "Deck B": {
+        "wins": 1,
+        "games": 1,
+        "winRate": 1,
+        "ci95": {
+          "lo": 0.20654329147389294,
+          "hi": 1
+        }
+      },
+      "Deck C": {
+        "wins": 0,
+        "games": 1,
+        "winRate": 0,
+        "ci95": {
+          "lo": 0,
+          "hi": 0.7934567085261071
+        }
+      },
+      "Deck D": {
+        "wins": 0,
+        "games": 1,
+        "winRate": 0,
+        "ci95": {
+          "lo": 0,
+          "hi": 0.7934567085261071
+        }
+      }
+    },
+    "onThePlay": {
+      "wins": 0,
+      "games": 1,
+      "winRate": 0,
+      "ci95": {
+        "lo": 0,
+        "hi": 0.7934567085261071
+      }
+    }
+  },
+  "breakageCount": 0,
+  "cards": [],
+  "outcomes": {
+    "total": 1,
+    "completed": 1,
+    "userWins": 0,
+    "aiWins": 1,
+    "draws": 0,
+    "timeouts": 0,
+    "engineStuck": 0,
+    "dispatchError": 0,
+    "setupError": 0,
+    "unexpected": 0
+  },
+  "avgTurns": 69,
+  "totalBreakages": 0,
+  "perGameOutcomes": [
+    {
+      "decks": [
+        "Deck A",
+        "Deck B",
+        "Deck C",
+        "Deck D"
+      ],
+      "winnerDeck": "Deck B",
+      "result": "ai-wins",
+      "turns": 69
+    }
+  ],
+  "gamesCount": 1
+}
