@@ -1,6 +1,23 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-16 (overnight, latest) — THE CORPUS BLITZ: +208 audited native adds, 14 slices, LOST=0 everywhere
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +92 more (campaign +300), 7 slices, LOST=0
+
+Colton's standing order (morning): the Vault walk became a future full overhaul (parked); the corpus
+grind resumes uninterrupted — full trust, no check-ins. Day-2 slices, each gated (suite+lint+audited
+flip-diff) and pushed: **GY-2** exile-cost graveyard abilities, Seasoned Pyromancer frame (588487ce,
++17) · **AC-1** compound pump+grant attachments, Deviant Glee/Mortarpod (ea4920c9, +12) · **LA-1**
+aura-own ETB riders, Gift of Paradise/Abundant Growth (fb29da9d, +6) · **PV-1** PREVENTION SHIELDS
+(CR 615), the Samite Healer/Bandage system — floating this-turn shields consumed at BOTH damage paths,
+lifelink-honest in combat (ff9cea09, +43) · **FOG-1b** players-only fog + self prevent-all walls,
+integrated with the incumbent fog op after the suite caught my duplicate (d50bde1e, +6) · **AP-1**
+attached prevention walls, Gaseous Form/Defang — the reader lives in staticAbilityParser so the aura
+CAST gate and the metric can't drift (368951e4, +8). Suite 8,588 → 8,610 · lint 0 throughout ·
+NO release tag (the unreleased train now carries C5 + both blitz days). Prevention is now a real
+subsystem: next-N shields, fogs (all + players scopes), self walls, attached walls — each new
+prevention wording from here is a clause, not a build. Running census after day-2 so far: native
+9,791 → ~9,883 by name-dedup.
+
+## 🌙 2026-07-16 (overnight) — THE CORPUS BLITZ: +208 audited native adds, 14 slices, LOST=0 everywhere
 
 **The one-night autonomous order ([[overnight-corpus-blitz-2026-07-16]], now archived) ran 01:00–03:30.**
 
