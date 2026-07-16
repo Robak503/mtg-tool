@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { mineDeckLosses, mineDeckLossesFromStore, readAllGrindHeaders } from "./lossMiner.js";
+import { mineDeckLosses, mineDeckHistory, mineDeckLossesFromStore, readAllGrindHeaders, _internals } from "./lossMiner.js";
 import { appendGame } from "./gameLogStore.js";
 
 const DECKS4 = [
@@ -247,6 +247,103 @@ describe("mineDeckLosses — the R1 win side ('why you win') + the dossier facts
     expect(r.facts.avgGameTurns).toBeNull();
     expect(r.facts.winConMix).toBeNull();
     expect(r.facts.commanderOnline).toBeNull();
+  });
+});
+
+describe("mineDeckHistory — the R4 living history (era slicing, registry diffs, gated deltas)", () => {
+  // Stamp a version + store order onto a fixture header (deckV rides the Koma decks[] entry).
+  const stamp = (h, deckV, index) => ({
+    ...h, index,
+    decks: h.decks.map((d) => (d.id === "koma" ? { ...d, deckV } : d)),
+  });
+  const era = (deckV, startIndex, nWin, nLoss, opts = {}) => [
+    ...rep(nWin, (i) => stamp(win(opts.win || {}), deckV, startIndex + i)),
+    ...rep(nLoss, (i) => stamp(loss(opts.loss || {}), deckV, startIndex + nWin + i)),
+  ];
+  const REG = {
+    koma: {
+      vA: { deckName: "Koma", firstSeen: "2026-07-15T00:00:00Z", cards: { "Noxious Newt": 1, Forest: 30 }, commanders: ["Koma, Cosmos Serpent"], companion: null },
+      vB: { deckName: "Koma", firstSeen: "2026-07-15T01:00:00Z", cards: { "Last March of the Ents": 1, Forest: 30 }, commanders: ["Koma, Cosmos Serpent"], companion: null },
+    },
+  };
+
+  it("returns null with fewer than two eras (no history to tell)", () => {
+    expect(mineDeckHistory(era("vA", 0, 5, 5), KOMA, REG)).toBeNull();
+    expect(mineDeckHistory([], KOMA, REG)).toBeNull();
+    expect(mineDeckHistory(rep(6, () => loss({})), KOMA, REG)).toBeNull(); // all unstamped = ONE era
+  });
+
+  it("slices eras chronologically by store order, labels the unstamped era honestly, tags versions 1..N", () => {
+    const headers = [...rep(10, () => loss({})).map((h, i) => ({ ...h, index: i })), ...era("vA", 100, 5, 5), ...era("vB", 300, 5, 5)];
+    const r = mineDeckHistory(headers, KOMA, REG);
+    expect(r.eras.map((e) => e.label)).toEqual(["Before version tracking", "Version 1", "Version 2"]);
+    expect(r.eras.map((e) => e.games)).toEqual([10, 10, 10]);
+    expect(r.eras[0].deckV).toBeNull();
+  });
+
+  it("names the card diff between REGISTRY-backed eras and never guesses one for the pre-tracking era", () => {
+    const headers = [...rep(6, () => loss({})).map((h, i) => ({ ...h, index: i })), ...era("vA", 100, 3, 3), ...era("vB", 300, 3, 3)];
+    const r = mineDeckHistory(headers, KOMA, REG);
+    expect(r.eras[1].diff).toBeNull(); // previous era (pre-tracking) has no snapshot — unnameable, never fabricated
+    expect(r.eras[2].diff).toEqual({
+      added: [{ name: "Last March of the Ents", count: 1 }],
+      removed: [{ name: "Noxious Newt", count: 1 }],
+    });
+  });
+
+  it("gates the win-rate delta on BOTH eras carrying MIN_DELTA_GAMES", () => {
+    const big = _internals.MIN_DELTA_GAMES; // 100
+    const thin = mineDeckHistory([...era("vA", 0, 5, 5), ...era("vB", 1000, 8, 2)], KOMA, REG);
+    expect(thin.eras[1].winRateDelta).toBeNull(); // 10-game eras — too thin to claim a move
+    const fat = mineDeckHistory([...era("vA", 0, big / 2, big / 2), ...era("vB", 10000, (big * 3) / 4, big / 4)], KOMA, REG);
+    expect(fat.eras[1].winRateDelta).toBeCloseTo(0.25, 5); // 50% → 75%
+  });
+
+  it("surfaces a gated pattern shift ('no-commander losses dropped') and stays quiet below the floors", () => {
+    const n = _internals.MIN_SIDE_N + 10; // 40 losses per era
+    const A = [
+      ...rep(20, (i) => stamp(loss({ cmdrOnline: null, ownTurns: 6 }), "vA", i)),        // 50% no-commander
+      ...rep(20, (i) => stamp(loss({}), "vA", 20 + i)),
+      ...rep(n, (i) => stamp(win({}), "vA", 60 + i)),
+    ];
+    const B = [
+      ...rep(8, (i) => stamp(loss({ cmdrOnline: null, ownTurns: 6 }), "vB", 1000 + i)),  // 20% no-commander
+      ...rep(32, (i) => stamp(loss({}), "vB", 1010 + i)),
+      ...rep(n, (i) => stamp(win({}), "vB", 1100 + i)),
+    ];
+    const r = mineDeckHistory([...A, ...B], KOMA, REG);
+    const shift = r.eras[1].patternShifts.find((s) => s.key === "no-commander");
+    expect(shift).toBeTruthy();
+    expect(shift.side).toBe("loss");
+    expect(shift.before).toBeCloseTo(0.5, 5);
+    expect(shift.after).toBeCloseTo(0.2, 5);
+    expect(shift.delta).toBeCloseTo(-0.3, 5);
+    // sub-floor eras stay silent
+    const tiny = mineDeckHistory([...era("vA", 0, 3, 3), ...era("vB", 100, 3, 3)], KOMA, REG);
+    expect(tiny.eras[1].patternShifts).toEqual([]);
+  });
+
+  it("works without a registry — history still slices, diffs are simply unnameable", () => {
+    const r = mineDeckHistory([...era("vA", 0, 3, 3), ...era("vB", 100, 3, 3)], KOMA, null);
+    expect(r.eras).toHaveLength(2);
+    expect(r.eras[1].diff).toBeNull();
+  });
+
+  it("NEVER claims a delta against the pre-tracking era (mixed engines/pilots/stamps — confounded)", () => {
+    const big = _internals.MIN_DELTA_GAMES * 2;
+    const pre = rep(big, (i) => ({ ...loss({}), index: i }));            // huge unstamped era, 0% win
+    const cur = era("vA", 10000, big / 2, big / 2);                      // huge stamped era, 50% win
+    const r = mineDeckHistory([...pre, ...cur], KOMA, REG);
+    expect(r.eras[1].winRateDelta).toBeNull();                           // a 50pt "move" — still not claimable
+    expect(r.eras[1].patternShifts).toEqual([]);
+  });
+
+  it("silences a shift inside sampling noise even past the flat floor (two-proportion 2σ gate)", () => {
+    // 36% → 44% no-commander on 50-loss sides: |Δ|=8pt ≥ MIN_SHIFT but 2σ≈19pt → noise, stay quiet.
+    const A = [...rep(18, (i) => stamp(loss({ cmdrOnline: null, ownTurns: 6 }), "vA", i)), ...rep(32, (i) => stamp(loss({}), "vA", 20 + i))];
+    const B = [...rep(22, (i) => stamp(loss({ cmdrOnline: null, ownTurns: 6 }), "vB", 1000 + i)), ...rep(28, (i) => stamp(loss({}), "vB", 1030 + i))];
+    const r = mineDeckHistory([...A, ...B], KOMA, REG);
+    expect(r.eras[1].patternShifts.find((s) => s.key === "no-commander")).toBeUndefined();
   });
 });
 

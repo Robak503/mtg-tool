@@ -37,6 +37,11 @@ const MIN_SHARE = 0.10;        // …and this share of its side, to be worth men
 const MIN_LIFT = 0.10;         // …and it must be at least this much more common on its side (the real gate)
 const MIN_BASELINE = 10;       // fewer games on the OTHER side than this and the lift baseline is too noisy — fall back to share-only
 const MIN_FACT_N = 3;          // an averaged fact (avg win turn, mix, …) needs at least this many games behind it
+// R4 living-history floors — a version comparison is a strong claim, so it earns stricter gates:
+const MIN_DELTA_GAMES = 100;   // BOTH eras need this many games before a win-rate delta is claimed
+const MIN_SIDE_N = 30;         // …and this many games on a pattern's side (losses/wins) in BOTH eras for a rate shift
+const MIN_SHIFT = 0.05;        // …and the shift must be at least this large to mention
+const MAX_SHIFTS = 4;          // top pattern shifts per era transition (skimmable, not exhaustive)
 
 function deckSeatInHeader(h, deck) {
   if (!Array.isArray(h?.decks)) return null;
@@ -175,18 +180,33 @@ function computeFacts(wins, losses) {
  * (Named mineDeckLosses for lineage — the internal id stays, like the `postmortem` view id, while the
  * surface is "The Reflecting Pool".)
  */
-export function mineDeckLosses(headers, deck) {
-  if (!deck || (!deck.id && !deck.name) || !Array.isArray(headers)) return null;
-  let games = 0;
-  const wins = [], losses = [];
-  for (const h of headers) {
+// Collect one deck's decisive games off the headers, in store order (header.index when present —
+// the append counter, i.e. chronology — else array position, which readAllGrindHeaders keeps
+// chronological via manifest shard order). Shared by the dossier miner and the R4 history miner.
+function collectDeckGames(headers, deck) {
+  const out = [];
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
     if (!h || !DECISIVE.has(h.result)) continue;
     const seat = deckSeatInHeader(h, deck);
     if (!seat) continue;
-    games += 1;
-    const rec = recordOf(h, h.seatStats?.[seat] || null);
-    if (h.winnerSeat === seat) wins.push(rec); else losses.push(rec);
+    const entry = h.decks.find((d) => d?.seat === seat);
+    out.push({
+      rec: recordOf(h, h.seatStats?.[seat] || null),
+      isWin: h.winnerSeat === seat,
+      deckV: entry?.deckV ?? null, // null = pre-R3 header (before version tracking)
+      order: h.index ?? i,
+    });
   }
+  return out;
+}
+
+export function mineDeckLosses(headers, deck) {
+  if (!deck || (!deck.id && !deck.name) || !Array.isArray(headers)) return null;
+  const collected = collectDeckGames(headers, deck);
+  const games = collected.length;
+  const wins = collected.filter((g) => g.isWin).map((g) => g.rec);
+  const losses = collected.filter((g) => !g.isWin).map((g) => g.rec);
   if (games === 0) return null;
   const base = { deckId: deck.id ?? null, deckName: deck.name ?? null, games, wins: wins.length, losses: losses.length, winRate: wins.length / games };
   const facts = computeFacts(wins, losses);
@@ -222,6 +242,127 @@ export function mineDeckLosses(headers, deck) {
   return { ...base, patterns, avgLossTurn, note, winPatterns, winNote, facts };
 }
 
+// ── R4: THE LIVING HISTORY ─────────────────────────────────────────────────────────────────────────
+// Slice one deck's games by the deckV version stamp (R3) into chronological ERAS, and tell the story
+// of each change: the card diff (named via the deck-versions registry), the win-rate move, and the
+// pattern-rate shifts — every claim gated (a version comparison is a strong claim; see the MIN_* R4
+// floors above). Headers with no stamp form the single honest "before version tracking" era.
+
+// Named card diff between two registry snapshots ({name: copies} maps). Copy-count changes register
+// as the net count ("Forest ×2" when two were cut). Commander/companion changes ride the same lists.
+function diffVersions(prevEntry, curEntry) {
+  if (!prevEntry || !curEntry) return null; // an era without a registry snapshot can't be named — never guess
+  const a = prevEntry.cards || {}, b = curEntry.cards || {};
+  const added = [], removed = [];
+  for (const n of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    const d = (b[n] || 0) - (a[n] || 0);
+    if (d > 0) added.push({ name: n, count: d });
+    else if (d < 0) removed.push({ name: n, count: -d });
+  }
+  const cmdA = (prevEntry.commanders || []).join(" + "), cmdB = (curEntry.commanders || []).join(" + ");
+  if (cmdA !== cmdB) { if (cmdB) added.push({ name: `Commander: ${cmdB}`, count: 1 }); if (cmdA) removed.push({ name: `Commander: ${cmdA}`, count: 1 }); }
+  if ((prevEntry.companion ?? null) !== (curEntry.companion ?? null)) {
+    if (curEntry.companion) added.push({ name: `Companion: ${curEntry.companion}`, count: 1 });
+    if (prevEntry.companion) removed.push({ name: `Companion: ${prevEntry.companion}`, count: 1 });
+  }
+  const byName = (x, y) => x.name.localeCompare(y.name);
+  return { added: added.sort(byName), removed: removed.sort(byName) };
+}
+
+// Rate of one pattern within one side of one era. Returns null when the side is too thin to compare.
+const sideRate = (recs, pred) => (recs.length >= MIN_SIDE_N ? recs.filter(pred).length / recs.length : null);
+
+// Two-proportion noise gate: a rate change is claimable only when it exceeds ~2 standard errors of the
+// difference — a 6pt wobble on 130-game sides is sampling noise, not a story (CREED: silence over noise).
+const beyondNoise = (p1, n1, p2, n2, delta) =>
+  Math.abs(delta) >= 2 * Math.sqrt((p1 * (1 - p1)) / n1 + (p2 * (1 - p2)) / n2);
+
+/**
+ * PURE history miner. `headers` as in mineDeckLosses; `registry` = the deck-versions registry
+ * (gameLogStore.loadDeckVersions()), optional. Returns null unless the deck has ≥2 eras (no history →
+ * no section; the surface stays quiet rather than decorative). Eras are chronological; a STAMPED era
+ * following another STAMPED era carries its comparison (the pre-tracking era never anchors one):
+ *   { deckV, label, games, wins, losses, winRate,
+ *     diff: {added,removed}|null,          // named card changes (registry-backed; null = unnameable)
+ *     winRateDelta: number|null,           // gated: both eras ≥ MIN_DELTA_GAMES
+ *     patternShifts: [{key,label,side,before,after,delta}] }  // gated per MIN_SIDE_N/MIN_SHIFT
+ */
+export function mineDeckHistory(headers, deck, registry = null) {
+  if (!deck || (!deck.id && !deck.name) || !Array.isArray(headers)) return null;
+  const collected = collectDeckGames(headers, deck);
+  if (!collected.length) return null;
+
+  // Group into eras by stamp, ordered by first appearance (store order = chronology).
+  const byV = new Map(); // key: deckV ?? PRE sentinel → { deckV, games:[], firstOrder }
+  const PRE = "__pre-tracking__";
+  for (const g of collected) {
+    const key = g.deckV ?? PRE;
+    if (!byV.has(key)) byV.set(key, { deckV: g.deckV, games: [], firstOrder: g.order });
+    const e = byV.get(key);
+    e.games.push(g);
+    if (g.order < e.firstOrder) e.firstOrder = g.order;
+  }
+  if (byV.size < 2) return null; // one era = no history to tell yet
+
+  const regForDeck = registry?.[deck.id ?? deck.name] || null;
+  const eras = [...byV.values()].sort((x, y) => x.firstOrder - y.firstOrder);
+  let versionN = 0;
+  const out = [];
+  for (let i = 0; i < eras.length; i++) {
+    const e = eras[i];
+    const wins = e.games.filter((g) => g.isWin).map((g) => g.rec);
+    const losses = e.games.filter((g) => !g.isWin).map((g) => g.rec);
+    const n = e.games.length;
+    const label = e.deckV == null ? "Before version tracking" : `Version ${++versionN}`;
+    const prev = i > 0 ? out[i - 1] : null;
+
+    // Deltas are claimed ONLY between two STAMPED eras. The pre-tracking era is a mixed bag by
+    // construction — many engine versions, pilot eras, and stamp taxonomies — so any "change" against
+    // it is confounded (the 24k probe showed 'wins end in combat 0%→93%': the STAMP era changing, not
+    // the deck). It still lists with its record; it just never anchors a comparison.
+    const comparable = prev != null && prev.deckV != null && e.deckV != null;
+
+    // win-rate delta — both eras carry real weight AND the move clears the noise gate
+    const winRate = wins.length / n;
+    let winRateDelta = null;
+    if (comparable && n >= MIN_DELTA_GAMES && prev.games >= MIN_DELTA_GAMES) {
+      const d = winRate - prev.winRate;
+      if (beyondNoise(prev.winRate, prev.games, winRate, n, d)) winRateDelta = d;
+    }
+
+    // pattern shifts vs the previous era — both catalogs, side-aware, floor- AND noise-gated
+    const patternShifts = [];
+    if (comparable) {
+      const prevWins = prev._wins, prevLosses = prev._losses;
+      const compareSide = (catalog, prevSide, curSide, side) => {
+        for (const { key, label: plabel, pred } of catalog) {
+          const before = sideRate(prevSide, pred), after = sideRate(curSide, pred);
+          if (before == null || after == null) continue;
+          const delta = after - before;
+          // mentionable only if the pattern is REAL in at least one era (count+share floors there)…
+          const realSomewhere = [prevSide, curSide].some((s) => { const c = s.filter(pred).length; return c >= MIN_PATTERN_COUNT && c / s.length >= MIN_SHARE; });
+          // …big enough to matter, and bigger than sampling noise
+          if (Math.abs(delta) >= MIN_SHIFT && realSomewhere && beyondNoise(before, prevSide.length, after, curSide.length, delta)) {
+            patternShifts.push({ key, label: plabel, side, before, after, delta });
+          }
+        }
+      };
+      compareSide(LOSS_CATALOG, prevLosses, losses, "loss");
+      compareSide(WIN_CATALOG, prevWins, wins, "win");
+      patternShifts.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta)).splice(MAX_SHIFTS);
+    }
+
+    out.push({
+      deckV: e.deckV, label, games: n, wins: wins.length, losses: losses.length, winRate,
+      diff: prev ? diffVersions(prev.deckV != null ? regForDeck?.[prev.deckV] : null, e.deckV != null ? regForDeck?.[e.deckV] : null) : null,
+      winRateDelta, patternShifts,
+      _wins: wins, _losses: losses, // internal — stripped below
+    });
+  }
+  for (const e of out) { delete e._wins; delete e._losses; }
+  return { eras: out };
+}
+
 /** Read every forever-kept header line across all grind shards. Never throws — [] on an empty/absent store. */
 export async function readAllGrindHeaders() {
   const manifest = await loadGrindManifest().catch(() => null);
@@ -245,4 +386,4 @@ export async function mineDeckLossesFromStore(deck) {
   return mineDeckLosses(await readAllGrindHeaders(), deck);
 }
 
-export const _internals = { FAST_LOSS_TURN, FAST_WIN_TURN, EARLY_COMMANDER_TURN, MIN_LOSSES, MIN_WINS, MIN_PATTERN_COUNT, MIN_SHARE, MIN_LIFT, MIN_BASELINE, MIN_FACT_N };
+export const _internals = { FAST_LOSS_TURN, FAST_WIN_TURN, EARLY_COMMANDER_TURN, MIN_LOSSES, MIN_WINS, MIN_PATTERN_COUNT, MIN_SHARE, MIN_LIFT, MIN_BASELINE, MIN_FACT_N, MIN_DELTA_GAMES, MIN_SIDE_N, MIN_SHIFT, MAX_SHIFTS };

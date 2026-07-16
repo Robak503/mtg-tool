@@ -5,8 +5,12 @@
  * noise, and card ORDER don't. buildGrindHeader stamps it per seat so both grind write paths (grindLoop
  * + the pool worker) carry it via the one drift-guarded builder.
  */
-import { describe, expect, it } from "vitest";
-import { buildGrindHeader, deckVersionHash } from "./grindPod.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { buildGrindHeader, deckVersionHash, deckVersionEntry } from "./grindPod.js";
+import { loadDeckVersions, upsertDeckVersions } from "./gameLogStore.js";
 
 const mkDeck = (name, cardNames, { commanders = ["Koma, Cosmos Serpent"], companion = null, id = name } = {}) => ({
   id, name,
@@ -43,6 +47,38 @@ describe("deckVersionHash — exact-to-the-card version stamp (R3)", () => {
   it("returns null on a non-deck, never throws", () => {
     expect(deckVersionHash(null)).toBeNull();
     expect(deckVersionHash(undefined)).toBeNull();
+  });
+});
+
+describe("deck-versions registry — deckVersionEntry + the idempotent store upsert (R4)", () => {
+  let tmpDir, cwd;
+  beforeEach(async () => { tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "deckver-")); cwd = process.cwd(); process.chdir(tmpDir); });
+  afterEach(async () => { process.chdir(cwd); await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {}); });
+
+  it("deckVersionEntry snapshots the exact list ({name: copies}) under the SAME hash the headers stamp", () => {
+    const deck = mkDeck("Koma", ["Forest", "Forest", "Sol Ring"]);
+    const e = deckVersionEntry(deck);
+    expect(e.deckV).toBe(deckVersionHash(deck)); // one fn — registry can never disagree with headers
+    expect(e.cards).toEqual({ Forest: 2, "Sol Ring": 1 });
+    expect(e.commanders).toEqual(["Koma, Cosmos Serpent"]);
+    expect(deckVersionEntry(null)).toBeNull();
+  });
+
+  it("upsert merges new (deckId, deckV) pairs, first write wins, repeat upserts are no-ops", async () => {
+    const v1 = deckVersionEntry(mkDeck("Koma", ["Forest", "Sol Ring"]));
+    const v2 = deckVersionEntry(mkDeck("Koma", ["Forest", "Arcane Signet"]));
+    expect(await upsertDeckVersions([v1])).toBe(1);
+    expect(await upsertDeckVersions([v1])).toBe(0);          // idempotent — no rewrite
+    expect(await upsertDeckVersions([v1, v2])).toBe(1);      // only the new version lands
+    const reg = await loadDeckVersions();
+    expect(Object.keys(reg.Koma).sort()).toEqual([v1.deckV, v2.deckV].sort());
+    expect(reg.Koma[v1.deckV].cards).toEqual({ Forest: 1, "Sol Ring": 1 });
+    expect(reg.Koma[v1.deckV].firstSeen).toBeTruthy();
+  });
+
+  it("loadDeckVersions never throws — {} on an absent registry; upsert ignores junk entries", async () => {
+    expect(await loadDeckVersions()).toEqual({});
+    expect(await upsertDeckVersions([null, { deckId: "x" }, { deckV: "y" }])).toBe(0);
   });
 });
 

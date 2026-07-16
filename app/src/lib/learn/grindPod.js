@@ -59,6 +59,29 @@ export function deckVersionHash(deck) {
 }
 
 /**
+ * The registry entry for one deck's CURRENT version (R4 living history): the deckV hash plus the exact
+ * list snapshot ({name: copies}, commanders, companion) that produced it — what lets the Reflecting Pool
+ * NAME a version change ("+ Last March of the Ents · − Noxious Newt") instead of showing bare hashes.
+ * Both grind paths upsert these into the store's deck-versions registry at grind start
+ * (gameLogStore.upsertDeckVersions); the hash here and the one stamped into headers are the same fn,
+ * so a registry entry can never disagree with the headers it describes.
+ */
+export function deckVersionEntry(deck) {
+  const deckV = deckVersionHash(deck);
+  if (!deckV) return null;
+  const cards = {};
+  for (const c of deck.cards || []) { if (c?.name) cards[c.name] = (cards[c.name] || 0) + 1; }
+  return {
+    deckId: deck.id ?? deck.name ?? null,
+    deckName: deck.name ?? null,
+    deckV,
+    cards,
+    commanders: (deck.commanders || []).map((c) => c?.name).filter(Boolean),
+    companion: deck.companion?.name ?? null,
+  };
+}
+
+/**
  * THE ONE grind-store header builder (featuresV=2 drift guard — Omnath 2026-07-10): grindLoop (the
  * in-process grind) and scripts/grind-worker.mjs (the pool lanes) BOTH assemble game headers; the
  * featuresV=2 fields (startSeat/turnOrder/decisionsCount/pilotV) initially landed only in grindLoop

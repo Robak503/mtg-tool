@@ -149,6 +149,71 @@ function MirrorColumn({ title, tone, patterns, minerNote, emptyLine }) {
   );
 }
 
+const signed = (x) => `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))}pt`;
+
+/**
+ * The Living History (R4) — one deck's versions in order, each with its named card diff (from the
+ * deck-versions registry), its record, and the honest gated deltas vs the era before. Renders nothing
+ * until the deck has ≥2 eras (no dead space — history appears when there's history to tell).
+ */
+function LivingHistory({ history }) {
+  if (!history || !Array.isArray(history.eras) || history.eras.length < 2) return null;
+  const mono = { fontFamily: "var(--font-mono), monospace" };
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ley-text-dim)", marginBottom: 4 }}>
+        The living history
+      </div>
+      {history.eras.map((era, i) => (
+        <div key={era.deckV ?? "pre"} style={{ padding: "12px 0", borderTop: "1px solid var(--ley-line)" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 4 }}>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ley-text)" }}>{era.label}</span>
+            {era.deckV && <span style={{ ...mono, fontSize: 10, color: "var(--ley-text-faint)" }}>{era.deckV.slice(0, 6)}</span>}
+            {i === history.eras.length - 1 && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ley-green)", background: "var(--ley-green-dim)", border: "1px solid var(--ley-green)", borderRadius: 999, padding: "0 7px" }}>current</span>
+            )}
+            <span style={{ fontSize: 11.5, color: "var(--ley-text-dim)", fontVariantNumeric: "tabular-nums" }}>
+              {commas(era.games)} games · {commas(era.wins)}W · {commas(era.losses)}L · {pct(era.winRate)} win
+            </span>
+            {era.winRateDelta != null && (
+              <span
+                title="Win-rate change vs the previous version"
+                style={{ fontSize: 10.5, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: era.winRateDelta >= 0 ? "var(--ley-green)" : "var(--ley-red)", background: era.winRateDelta >= 0 ? "var(--ley-green-dim)" : "var(--ley-red-dim)", border: `1px solid ${era.winRateDelta >= 0 ? "var(--ley-green)" : "var(--ley-red)"}`, borderRadius: 999, padding: "1px 8px" }}
+              >
+                {signed(era.winRateDelta)} win rate
+              </span>
+            )}
+          </div>
+          {era.diff && (era.diff.added.length > 0 || era.diff.removed.length > 0) && (
+            <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 3 }}>
+              {era.diff.added.map((c) => (
+                <span key={`a-${c.name}`} style={{ color: "var(--ley-green)", marginRight: 12 }}>+ {c.name}{c.count > 1 ? ` ×${c.count}` : ""}</span>
+              ))}
+              {era.diff.removed.map((c) => (
+                <span key={`r-${c.name}`} style={{ color: "var(--ley-red)", marginRight: 12 }}>− {c.name}{c.count > 1 ? ` ×${c.count}` : ""}</span>
+              ))}
+            </div>
+          )}
+          {era.patternShifts && era.patternShifts.length > 0 && (
+            <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.7 }}>
+              {era.patternShifts.map((s) => (
+                <div key={`${s.side}-${s.key}`} style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {s.label} — {pct(s.before)} → {pct(s.after)} of {s.side === "loss" ? "losses" : "wins"} ({signed(s.delta)})
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+      <div style={{ fontSize: 11, color: "var(--ley-text-faint)", lineHeight: 1.5, paddingTop: 8 }}>
+        Version changes are read from the exact list each grind recorded. A delta only appears between
+        two tracked versions, when both carry enough games AND the change is bigger than sampling noise
+        — the era before version tracking never anchors a comparison.
+      </div>
+    </div>
+  );
+}
+
 // The full dossier for ONE deck: record header, facts strip, and the two mirrors side by side.
 function DeckDossier({ deck, card }) {
   const wr = deck.games ? deck.winRate ?? deck.wins / deck.games : 0;
@@ -177,6 +242,7 @@ function DeckDossier({ deck, card }) {
           emptyLine="No single loss pattern stands out for this deck yet — nothing shows up enough more in losses than wins to call it out. As the model trains and the deeper signals come online, this sharpens."
         />
       </div>
+      <LivingHistory history={deck.history} />
     </div>
   );
 }

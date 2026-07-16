@@ -25,7 +25,7 @@ const u = (rel) => pathToFileURL(path.join(APP, rel)).href;
 const { loadAllProfileDecks, toRunnerDeck, partitionPlayableRunnerDecks, selectDecksByIds } = await import(u("src/lib/server/selfPlayDecks.js"));
 const { loadPilotBuilder } = await import(u("src/lib/server/pilotLoader.js"));
 const { runSelfPlayGame } = await import(u("src/lib/learn/selfPlayRunner.js"));
-const { formPod, podToArgs, gameSeedAt, engineSeatsFor, buildGrindHeader } = await import(u("src/lib/learn/grindPod.js"));
+const { formPod, podToArgs, gameSeedAt, engineSeatsFor, buildGrindHeader, deckVersionEntry } = await import(u("src/lib/learn/grindPod.js"));
 
 const deckStore = await loadAllProfileDecks();
 const raw = cfg.deckIds?.length ? selectDecksByIds(deckStore, cfg.deckIds) : deckStore;
@@ -39,6 +39,11 @@ if (playable.length < podSize) {
 }
 const pilotBuilder = cfg.pilotFile ? await loadPilotBuilder(cfg.pilotFile, cfg.mode) : null;
 const seatNames = engineSeatsFor(cfg.mode);
+
+// R4 living-history handshake: hand the parent (the only store writer) every deck's version snapshot
+// BEFORE the first game record, so deck-versions.json names each deckV this lane will stamp. Every
+// lane emits (the upsert is idempotent — first write of a pair wins).
+process.stdout.write(JSON.stringify({ versions: playable.map(deckVersionEntry).filter(Boolean) }) + "\n");
 
 let played = 0;
 for (let i = cfg.laneIndex; cfg.maxGames == null || played < cfg.maxGames; i += cfg.laneCount) {

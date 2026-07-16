@@ -80,6 +80,47 @@ export async function loadGrindManifest() {
   return { nextIndex: 0, totalBytes: 0, capBytes: DEFAULT_CAP_BYTES, shards: [] };
 }
 
+// ── deck-versions registry (R4 living history, 2026-07-15) ────────────────────────────────────────
+// deck-versions.json maps deckId → deckV → the exact list snapshot that produced that hash
+// (grindPod.deckVersionEntry). Written at grind START by both grind paths (grindLoop in-process; the
+// pool parent on each lane's `versions` handshake), so any deckV that appears in a header from then on
+// has a nameable list — the Reflecting Pool diffs consecutive versions into "+ card / − card" stories.
+// Idempotent merge: first write of a (deckId, deckV) wins (list content is hash-determined; only
+// firstSeen would differ), so concurrent lanes and repeat grinds are safe.
+const deckVersionsPath = () => profilePath("self-play", "deck-versions.json");
+
+/** Read the registry. Never throws — {} when absent/corrupt. */
+export async function loadDeckVersions() {
+  const r = await readJsonSafe(deckVersionsPath());
+  return r && typeof r === "object" && !Array.isArray(r) ? r : {};
+}
+
+/**
+ * Merge version entries (grindPod.deckVersionEntry shapes) into the registry. Returns the number of
+ * NEW (deckId, deckV) pairs written; 0-new skips the disk write entirely. Never throws to the caller's
+ * grind — a registry failure must not kill games (callers log and continue).
+ */
+export async function upsertDeckVersions(entries) {
+  const list = (entries || []).filter((e) => e && e.deckId && e.deckV);
+  if (!list.length) return 0;
+  const reg = await loadDeckVersions();
+  let added = 0;
+  for (const e of list) {
+    const byV = (reg[e.deckId] ||= {});
+    if (byV[e.deckV]) continue; // first write wins — same hash ⇒ same list
+    byV[e.deckV] = {
+      deckName: e.deckName ?? null,
+      firstSeen: new Date().toISOString(),
+      cards: e.cards || {},
+      commanders: e.commanders || [],
+      companion: e.companion ?? null,
+    };
+    added += 1;
+  }
+  if (added > 0) await atomicWriteJson(deckVersionsPath(), reg);
+  return added;
+}
+
 /**
  * Append ONE game. Writes the raw game file + a forever-kept header line, then updates the manifest atomically.
  * Returns { index, file, capReached }. When the cap is hit returns { capReached:true } WITHOUT writing (the grind

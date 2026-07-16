@@ -26,7 +26,7 @@ const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
   return m ? [m[1], m[2] ?? true] : [a, true];
 }));
 
-const { appendGame } = await import(pathToFileURL(path.join(process.cwd(), "src/lib/learn/gameLogStore.js")).href);
+const { appendGame, upsertDeckVersions } = await import(pathToFileURL(path.join(process.cwd(), "src/lib/learn/gameLogStore.js")).href);
 
 const workers = Math.max(1, Number(argv.workers) || Math.max(1, Math.floor(os.cpus().length / 2)));
 const capBytes = argv["cap-gb"] ? Math.round(Number(argv["cap-gb"]) * 1024 ** 3) : null;
@@ -93,6 +93,9 @@ for (let k = 0; k < workers; k++) {
       let msg;
       try { msg = JSON.parse(line); } catch { return; }
       if (msg.done) { console.log(`[pool] lane ${msg.lane} done (${msg.games} games)`); return; }
+      // R4 living-history handshake: each lane sends its decks' version snapshots before game 1;
+      // ride the single write chain (registry read-modify-write must not interleave with itself).
+      if (msg.versions) { writeChain = writeChain.then(() => upsertDeckVersions(msg.versions)).then(() => {}, (e) => console.error(`[pool] deck-versions registry: ${e?.message || e}`)); return; }
       if (!msg.record) return;
       const appended = await enqueueAppend(msg.record, { capBytes });
       if (appended.capReached) { stopAll("disk cap reached"); return; }

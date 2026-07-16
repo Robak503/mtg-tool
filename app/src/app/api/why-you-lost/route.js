@@ -11,7 +11,8 @@
  */
 export const runtime = "nodejs";
 
-import { readAllGrindHeaders, mineDeckLosses } from "../../../lib/learn/lossMiner.js";
+import { readAllGrindHeaders, mineDeckLosses, mineDeckHistory } from "../../../lib/learn/lossMiner.js";
+import { loadDeckVersions } from "../../../lib/learn/gameLogStore.js";
 import { decksForActiveProfile } from "../../../lib/server/selfPlayDecks.js";
 
 export async function GET(request) {
@@ -25,11 +26,18 @@ export async function GET(request) {
   } catch (error) {
     return Response.json({ error: error?.message || "Couldn't read the grind history." }, { status: 500 });
   }
+  const registry = await loadDeckVersions().catch(() => ({})); // R4 — a missing registry only unnames diffs
+
+  // One deck's full dossier: the two mirrors + the R4 living history (null until ≥2 versions have games).
+  const dossierOf = (id, name) => {
+    const d = mineDeckLosses(headers, { id, name });
+    if (!d) return null;
+    return { ...d, history: mineDeckHistory(headers, { id, name }, registry) };
+  };
 
   // Single deck — deckParam may be an id OR a name; the miner matches either against each header's decks[].
   if (deckParam) {
-    const deck = mineDeckLosses(headers, { id: deckParam, name: deckParam });
-    return Response.json({ deck, totalGames: headers.length });
+    return Response.json({ deck: dossierOf(deckParam, deckParam), totalGames: headers.length });
   }
 
   // Shelf-wide: mine every active-profile deck against the same headers.
@@ -40,7 +48,7 @@ export async function GET(request) {
     return Response.json({ error: error?.message || "Couldn't load the active profile's decks." }, { status: 500 });
   }
   const decks = pool
-    .map((d) => mineDeckLosses(headers, { id: d.id, name: d.name }))
+    .map((d) => dossierOf(d.id, d.name))
     .filter(Boolean)
     .sort((a, b) => b.losses - a.losses); // most-lost decks first — the ones that most need coaching
   return Response.json({ decks, totalGames: headers.length });

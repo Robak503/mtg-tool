@@ -22,6 +22,14 @@ summarizes the notable changes.
   grind game now records an exact-to-the-card fingerprint of each deck in the pod — every copy,
   basics included, commanders and companion — so a future update can show how a deck's results
   changed after you swapped a card. Forward-only: old games simply carry no stamp.
+- **The Living History** — the payoff of the version stamp, live in each Reflecting Pool dossier.
+  Every version of your deck the grind has seen becomes an era: its exact card changes by name
+  ("+ Last March of the Ents · − Noxious Newt"), its record, and — only when the numbers can
+  honestly back it — how the win rate and the win/loss patterns moved after the change. Honesty
+  is structural: a delta only appears between two tracked versions when both carry enough games
+  and the change is bigger than sampling noise, and the era before version tracking (a mix of
+  old engine versions and pilots) never anchors a comparison. Games played before this update
+  still show as their own "before version tracking" era with their record intact.
 
 ### Changed
 - Generic "damage" finishes no longer masquerade as a win pattern: the real data showed the

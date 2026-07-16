@@ -97,4 +97,35 @@ describe("PostMortemBoard — The Reflecting Pool dossier", () => {
     const empty = renderToStaticMarkup(<PostMortemBoard decks={[{ deckId: "x", games: 0 }]} totalGames={0} />);
     expect(empty).toContain("No graded games yet");
   });
+
+  it("renders the R4 living history: eras, named diff, current tag, gated deltas — and hides it with <2 eras", () => {
+    const withHistory = {
+      ...BLANK_DECK,
+      history: {
+        eras: [
+          { deckV: null, label: "Before version tracking", games: 24102, wins: 9000, losses: 15102, winRate: 0.37, diff: null, winRateDelta: null, patternShifts: [] },
+          {
+            deckV: "c7b7fd004a5f", label: "Version 1", games: 600, wins: 250, losses: 350, winRate: 0.417,
+            diff: { added: [{ name: "Last March of the Ents", count: 1 }], removed: [{ name: "Noxious Newt", count: 1 }] },
+            winRateDelta: 0.047,
+            patternShifts: [{ key: "no-commander", label: "Commander never came down", side: "loss", before: 0.35, after: 0.27, delta: -0.08 }],
+          },
+        ],
+      },
+    };
+    const html2 = renderToStaticMarkup(<PostMortemBoard decks={[withHistory]} totalGames={24702} />);
+    expect(html2).toContain("The living history");
+    expect(html2).toContain("Before version tracking");
+    expect(html2).toContain("Version 1");
+    expect(html2).toContain("c7b7fd");                       // short hash chip
+    expect(html2).toContain("current");                      // last era tagged current
+    expect(html2).toContain("+ Last March of the Ents");     // named diff, both directions
+    expect(html2).toContain("− Noxious Newt");
+    expect(html2).toContain("+5pt win rate");                // gated win-rate delta chip (rounded)
+    expect(html2).toContain("35% → 27% of losses (−8pt)");   // gated pattern shift line
+    // hidden entirely when there's no history (null) or a single era
+    expect(renderToStaticMarkup(<PostMortemBoard decks={[BLANK_DECK]} totalGames={100} />)).not.toContain("The living history");
+    const oneEra = { ...BLANK_DECK, history: { eras: [{ deckV: "x", label: "Version 1", games: 5, wins: 3, losses: 2, winRate: 0.6, diff: null, winRateDelta: null, patternShifts: [] }] } };
+    expect(renderToStaticMarkup(<PostMortemBoard decks={[oneEra]} totalGames={5} />)).not.toContain("The living history");
+  });
 });

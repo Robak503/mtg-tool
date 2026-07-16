@@ -15,8 +15,8 @@
 import { readFile } from "node:fs/promises";
 
 import { runSelfPlayGame, resolveBaseSeed, engineSeatsForMode } from "./selfPlayRunner.js";
-import { appendGame } from "./gameLogStore.js";
-import { formPod, podToArgs, gameSeedAt, buildGrindHeader } from "./grindPod.js";
+import { appendGame, upsertDeckVersions } from "./gameLogStore.js";
+import { formPod, podToArgs, gameSeedAt, buildGrindHeader, deckVersionEntry } from "./grindPod.js";
 
 // One grind at a time (a persistent-server singleton). Serializable-plain so grindStatus() can be JSON'd to the panel.
 let state = freshState();
@@ -65,6 +65,10 @@ export async function startGrind({ decks, mode = "commander", pilotBuilder = nul
   }
   decks = poolDecks;
   state = { ...freshState(), running: true, startedAt: Date.now(), capBytes, pool };
+  // R4 living history: register every deck's CURRENT version snapshot before the first game, so each
+  // deckV stamped into this grind's headers has a nameable list in deck-versions.json. A registry
+  // failure never blocks games — surface it on state.error and grind on.
+  try { await upsertDeckVersions(decks.map(deckVersionEntry)); } catch (e) { state.error = `deck-versions registry: ${e?.message || e}`; }
   loop({ decks, mode, pilotBuilder, pilotFlags, capBytes, seed, podSize, pool }).catch((e) => {
     state.error = e?.message || String(e);
     state.running = false;
