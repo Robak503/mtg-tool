@@ -54,7 +54,7 @@ import { protectionApplies } from "./protection.js";
 import { selfDamagePrevention, attachedDamagePrevention, mayAssignAsUnblocked } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
-import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
 // out ("Toxic 3"); the Scryfall keywords array only carries the bare word "Toxic", so N is read from
@@ -152,6 +152,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const deathtouched = new Set();
   const lifeLoss = {};         // playerId -> amount
   const lifeGain = {};         // playerId -> amount (lifelink)
+  const dealtBySources = {};   // permId -> total dealt this step (SL-1 — the dealt-by lifegain links)
   const minusCounters = {};    // permanentId -> count (KW-POISON: infect/wither creature damage → -1/-1)
   const poisonGain = {};       // playerId -> count (KW-POISON: infect/toxic combat damage → poison)
   const loyaltyLoss = {};      // planeswalker permanentId -> loyalty removed by combat damage (PW-1)
@@ -384,6 +385,8 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       dealt += spillToDefender(power, false);
     }
     if (lifelink && dealt > 0) lifeGain[att.attackingPlayer] = (lifeGain[att.attackingPlayer] || 0) + dealt;
+    // SL-1: record the attacker's DEALT total for the dealt-by lifegain links (one CR 510.2 event per source).
+    if (dealt > 0) dealtBySources[att.permanentId] = (dealtBySources[att.permanentId] || 0) + dealt;
   }
 
   // Blockers deal back to the attacker they're blocking.
@@ -413,6 +416,8 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       if (bdealt > 0) recordArm(blk.permanent, att.permanentId); // WOLVERINE: blocker dealt to the attacking creature
       recordCreatureDamage(blk.permanent, att.permanentId, bdealt); // SUBTYPE-GLOBAL→CREATURE (Toxin): blocker → attacker
       if (blifelink && bdealt > 0) lifeGain[blk.permanent.controller] = (lifeGain[blk.permanent.controller] || 0) + bdealt;
+      // SL-1: the blocker is a dealt-by source too.
+      if (bdealt > 0) dealtBySources[blk.permanent.id] = (dealtBySources[blk.permanent.id] || 0) + bdealt;
     }
   }
 
@@ -510,6 +515,9 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   for (const [id, amount] of Object.entries(dmgToPermanent)) dealtDamageTotals[id] = (dealtDamageTotals[id] || 0) + amount;
   for (const [id, amount] of Object.entries(minusCounters)) dealtDamageTotals[id] = (dealtDamageTotals[id] || 0) + amount;
   next = checkDealtDamageTriggers(next, Object.entries(dealtDamageTotals).map(([creatureId, amount]) => ({ creatureId, amount })));
+  // SL-1 — the DEALT-BY lifegain links (Spirit Link / Zebra Unicorn): one event per dealing source with
+  // its CR 510.2 step total, fired before the lethal SBA (the source + its attachments bind live).
+  next = checkDealtByTriggers(next, Object.entries(dealtBySources).map(([sourceId, amount]) => ({ sourceId, amount })), { isCombat: true });
 
   // ── SBA: lethal damage (or ANY deathtouch damage) destroys creatures ──
   // N4: destroyLethalCreatures itself now logs each creature-dies (cause "combat" here, so the shape

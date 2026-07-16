@@ -43,7 +43,7 @@ import {
   addCounter,
   addPoison,
 } from "./gameState.js";
-import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield } from "./staticAbilityParser.js";
 import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
@@ -946,6 +946,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     const pv = consumePreventionShields(s, { targetKind: "player", targetId: pid, amount: dealt });
     s = pv.state; dealt = pv.amount;
     if (dealt <= 0) return s;
+    sourceDealtTotal += dealt; // SL-1: the source's dealt-by tally (players count — "deals damage" is any)
     return sourceInfect
       ? addPoison(s, { playerId: pid, amount: dealt })
       : loseLife(s, { playerId: pid, amount: dealt, combatDamage: false }); // non-combat (spell/ability) damage → burn win-con
@@ -955,6 +956,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // creature here (each is hit at most once per applyDamageEffect), but the map keeps it one-event-per-creature
   // if a future effect hits one creature twice in a call. Reflects the Wave-5a doubler (dmgConsult ran).
   const dealtToCreature = {};
+  let sourceDealtTotal = 0; // SL-1 — the SOURCE's total dealt this resolution (players + creatures + walkers)
   const hitCreature = (s, permId) => {
     let dealt = dmgConsult(amount, "creature", permId);
     if (dealt <= 0) return s;
@@ -976,6 +978,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     s = pv.state; dealt = pv.amount;
     if (dealt <= 0) return s;
     dealtToCreature[permId] = (dealtToCreature[permId] || 0) + dealt;
+    sourceDealtTotal += dealt; // SL-1
     let out = (sourceInfect || sourceWither)
       ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
       : markCombatDamage(s, { permanentId: permId, amount: dealt });
@@ -1023,7 +1026,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
             const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: t.id, amount: dealt });
             next = pv.state; dealt = pv.amount;
           }
-          if (dealt > 0) next = adjustLoyalty(next, { permanentId: t.id, delta: -dealt });
+          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: t.id, delta: -dealt }); sourceDealtTotal += dealt; } // SL-1
         }
       }
     }
@@ -1033,6 +1036,11 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // battlefield (a creature that then dies to the SBA self-no-ops at resolution — the "must survive"
   // reminder). Every entry is > 0 (the hitCreature `dealt <= 0` guard), so 0/prevented damage never fires.
   next = checkDealtDamageTriggers(next, Object.entries(dealtToCreature).map(([creatureId, dealt]) => ({ creatureId, amount: dealt })));
+  // SL-1 — the DEALT-BY lifegain link: the SOURCE permanent (a ping / fight / enrage payload) dealt this
+  // resolution's total. Non-combat, so a combat-only link (Sunhome Enforcer) stays silent here.
+  if (source?.id && sourceDealtTotal > 0) {
+    next = checkDealtByTriggers(next, [{ sourceId: source.id, amount: sourceDealtTotal }], { isCombat: false });
+  }
   // EXILE-IF-DIES (subsystem 3): "If that creature would die this turn, exile it instead." (single-target)
   // / "If a creature dealt damage this way would die this turn, exile it instead." (mass). Flag exactly the
   // creatures THIS effect actually damaged — `dealtToCreature` is the per-creature hit set built above, so

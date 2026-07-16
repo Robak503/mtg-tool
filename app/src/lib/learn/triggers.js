@@ -489,6 +489,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     && new RegExp(`\\b${firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
 
+  // ===== DEALT-BY LIFEGAIN LINK (BLITZ SL-1 — Zebra Unicorn / Sunhome Enforcer) ===== the SELF forms
+  // "this creature deals [combat] damage" (payoff "you gain that much life"). COVERAGE-ONLY like rampage:
+  // checkDealtByTriggers is the sole firing site (reading dealtByLinkOf per damage event at BOTH damage
+  // paths); this descriptor exists so the sentence counts + routes. The combat-only variant is honored at
+  // the fire sites (combatOnly rides the reader, not this descriptor).
+  if (/^this creature deals (?:combat )?damage$/.test(c)) {
+    return { event: "dealtBy", scope: "self", whose: "any" };
+  }
+
   // ===== LEAVES-SELF (BLITZ LV-1, CR 603.6c "leaves the battlefield" — ANY exit) ===== the SELF form
   // only ("this creature/artifact/enchantment/permanent leaves the battlefield" — the split half of
   // "enters or leaves the battlefield"). Fired by checkLeavesTriggers off the leave look-back for EVERY
@@ -3897,6 +3906,62 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents)
  * the source left), which IS the "(It must survive the damage to get the counter)" reminder (CR 704.5g
  * order). Pure — appends to pendingTriggers.
  */
+/**
+ * SPIRIT LINK (BLITZ SL-1) — the DEALT-BY lifelink-trigger family: "Whenever this creature deals
+ * [combat] damage, you gain that much life." (Zebra Unicorn / Warrior Angel / Exalted Angel's line /
+ * Sunhome Enforcer's combat-only form) and the ATTACHED form "Whenever enchanted creature deals damage,
+ * you gain that much life." (Spirit Link / Vampiric Link / Spirit Loop / Armadillo Cloak's line — the
+ * GAIN goes to the AURA's controller, not the host's). Returns {subject, combatOnly} or null.
+ * One reader shared by detectTriggers (the coverage-only descriptor), the aura residue admission, and
+ * checkDealtByTriggers (the runtime fire) — no drift.
+ */
+const RE_DEALT_BY_SELF = /(?:^|[\n.;])\s*whenever this creature deals (combat )?damage, you gain that much life\s*(?:\.|$)/i;
+const RE_DEALT_BY_ENCH = /(?:^|[\n.;])\s*whenever enchanted creature deals (combat )?damage, you gain that much life\s*(?:\.|$)/i;
+export function dealtByLinkOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  let m = o.match(RE_DEALT_BY_SELF);
+  if (m) return { subject: "self", combatOnly: !!m[1] };
+  m = o.match(RE_DEALT_BY_ENCH);
+  if (m) return { subject: "enchanted", combatOnly: !!m[1] };
+  return null;
+}
+
+/**
+ * SL-1 — fire the dealt-by links for a batch of damage-DEALING sources ({sourceId, amount}, per damage
+ * event: one combat-damage step total per source — CR 510.2 simultaneity — or one spell/ability
+ * resolution total). For each source: its OWN self link fires for its controller; each ATTACHMENT
+ * carrying the enchanted link fires for the ATTACHMENT's controller (CR — the Aura's "you"). A
+ * combat-only link fires only when isCombat. The descriptor is the rampage-style synthesized shape
+ * (the coverage-only detectTriggers twin never fires generically — this is the sole site); the payoff
+ * "you gain that much life" resolves through the standard flush with ctx.combatDamageAmount = the total.
+ */
+export function checkDealtByTriggers(state, events, { isCombat = false } = {}) {
+  const hits = (events || []).filter((e) => e && e.sourceId != null && e.amount > 0);
+  if (!hits.length) return state;
+  let fired = [];
+  for (const ev of hits) {
+    const lk = findPermanent(state, ev.sourceId);
+    if (!lk) continue; // the dealer already left — CR 603.6d look-back is out of scope for this family (FN-safe)
+    const context = { combatDamageAmount: ev.amount, dealtDamageAmount: ev.amount };
+    const selfLink = dealtByLinkOf(lk.permanent.card);
+    if (selfLink && selfLink.subject === "self" && (!selfLink.combatOnly || isCombat)) {
+      const desc = { event: "dealtBy", scope: "self", whose: "any", effect: null, effectClause: "you gain that much life", optional: false, sourceText: "dealt-by lifegain link" };
+      fired.push(makePendingTrigger(desc, lk.permanent, lk.permanent, context));
+    }
+    for (const attId of lk.permanent.attachments || []) {
+      const att = findPermanent(state, attId);
+      if (!att) continue;
+      const link = dealtByLinkOf(att.permanent.card);
+      if (link && link.subject === "enchanted" && (!link.combatOnly || isCombat)) {
+        const desc = { event: "dealtBy", scope: "self", whose: "any", effect: null, effectClause: "you gain that much life", optional: false, sourceText: "attached dealt-by lifegain link" };
+        fired.push(makePendingTrigger(desc, att.permanent, lk.permanent, context)); // the AURA's controller gains
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 export function checkDealtDamageTriggers(state, events) {
   const hits = (events || []).filter((e) => e && e.creatureId != null && e.amount > 0);
   if (!hits.length) return state;

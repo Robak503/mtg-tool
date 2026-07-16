@@ -35,7 +35,11 @@ import { detectTriggers } from "./triggers.js";
  * can't drift. A trigger whose event can't supply a referent stays on the Arbiter (a SAFE false-negative). Pure.
  */
 const DAMAGED_PLAYER_EVENTS = new Set(["combatDamageToPlayer"]);
-const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "dealtDamage"]);
+const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "dealtDamage",
+  // SL-1 — the DEALT-BY lifegain link ("Whenever this creature deals damage, you gain that much life"):
+  // checkDealtByTriggers threads combatDamageAmount = the source's per-event dealt total at BOTH damage
+  // paths, so the referent is genuinely satisfied on this event.
+  "dealtBy"]);
 // who:"defendingPlayer" (CR 509.1 — the attacked player) reads ctx.defenderId, supplied by the ATTACKS event
 // (triggers.checkAttackTriggers, CR 509.1a) AND by the BECOMES-BLOCKED event (triggers.checkBlockTriggers,
 // CR 509.1h — it now looks up the blocked attacker's declared defender and threads it into the context). On

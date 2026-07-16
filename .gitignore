@@ -92,6 +92,9 @@ app/data/feedback/
 # Goldfish game records (local-only, regenerable by re-running Garfield)
 app/data/games/
 
+# Self-play crucible logs + trajectories (local-only evidence, regenerable by re-running the harness)
+app/data/self-play/
+
 # Collection feature — user data + regenerable caches (live in %APPDATA% in prod)
 app/data/collection.json
 app/data/watchlist.json

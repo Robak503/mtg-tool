@@ -3045,7 +3045,10 @@ export function auraHasTotemArmor(card) {
 // rider, a "to a player or planeswalker" qualifier) does NOT match → it stays residue → the Aura is body-only
 // (CREED all-or-nothing: an aura trigger the engine can't fire end-to-end keeps the whole card off native).
 const AURA_OWN_MODELED_TRIGGER_RE =
-  /^whenever enchanted creature deals combat damage to (?:a player|an opponent), it deals that much damage to each other opponent\.?$/i;
+  // (1) the Super-State combat relay · (2) SL-1: the attached dealt-by lifegain link (Spirit Link /
+  // Vampiric Link / Armadillo Cloak's line — fired by triggers.checkDealtByTriggers via the attachment
+  // walk at both damage paths; the AURA's controller gains).
+  /^whenever enchanted creature deals combat damage to (?:a player|an opponent), it deals that much damage to each other opponent\.?$|^whenever enchanted creature deals (?:combat )?damage, you gain that much life\.?$/i;
 function isModeledAuraOwnTrigger(clause) {
   return AURA_OWN_MODELED_TRIGGER_RE.test(String(clause || "").trim());
 }
@@ -3151,9 +3154,22 @@ export function isNativeAura(card) {
   if (!isAuraCard(card)) return false;
   if (!auraEnchantRestrictions(card)) return false;         // "creature" or "creature you control" only
   const prev = attachedPreventionOf(card);
-  if (!parseAuraBonus(card).length && !prev.to && !prev.by && !attachedNoUntapOf(card)) return false;
+  // The MODELED-HALF gate: an aura must carry at least one modeled payload — a layer bonus, an AP-1 wall,
+  // the PZ-1 lock, or (SL-1) a modeled AURA-OWN TRIGGER (Spirit Link / Vampiric Link — a trigger-ONLY aura
+  // whose whole body is the admitted own-watcher is fully modeled: enter + attach + the trigger fires).
+  if (!parseAuraBonus(card).length && !prev.to && !prev.by && !attachedNoUntapOf(card)
+    && !auraHasModeledOwnTrigger(card)) return false;
   if (!auraTouchClausesAllModeled(card)) return false;       // PZ-1 hardening — see below
   return auraResidueClauses(card).length === 0;
+}
+
+/** SL-1 — does the aura print at least one line the modeled own-trigger allowlist admits? */
+function auraHasModeledOwnTrigger(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const clause of abilityClauses(oracle)) {
+    if (isModeledAuraOwnTrigger(clause.toLowerCase().trim())) return true;
+  }
+  return false;
 }
 
 /**
