@@ -51,7 +51,7 @@ function parseCastProgram(card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -1432,6 +1432,50 @@ function grantedActivatedForHost(state, hostPerm) {
   return out;
 }
 
+/**
+ * CREW (BLITZ VH-1, CR 702.121c) — offer crewing each of the player's uncrewed Vehicles: tap own untapped
+ * creatures with total (layer-aware) power ≥ N; the Vehicle becomes an artifact creature until end of turn.
+ * Same window as every activated ability in this engine (own turn + priority + main step). The tap SET is
+ * auto-picked deterministically (the oneYouControl auto-pick convention): SUMMONING-SICK creatures first
+ * (power desc — they can't attack this turn anyway, so tapping them is free), then non-sick by power ASC
+ * (preserve the big attackers), stopping at ≥ N. `allSick` marks a zero-cost crew (the AI's take-it signal).
+ * A Vehicle that is ALREADY a creature (crewed, or animated some other way) is skipped — re-crewing is legal
+ * by CR but useless here (the type is already on), so the offer stays clean. Total own power < N → no offer.
+ */
+function actionsCrewVehicle(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const out = [];
+  let crewPool = null; // computed once, only if a crewable Vehicle exists
+  for (const perm of player.battlefield) {
+    if (!/\bVehicle\b/.test(String(perm.card?.type || ""))) continue;
+    const n = parseCrewCost(perm.card);
+    if (n == null || permanentIsCreature(state, perm.id)) continue;
+    if (!crewPool) {
+      const own = player.battlefield.filter((p) => !p.tapped && permanentIsCreature(state, p.id));
+      const sick = own.filter((p) => p.summoningSick && !permanentHasKeyword(state, p.id, "Haste"))
+        .sort((a, b) => creaturePower(b, state) - creaturePower(a, state));
+      const ready = own.filter((p) => !(p.summoningSick && !permanentHasKeyword(state, p.id, "Haste")))
+        .sort((a, b) => creaturePower(a, state) - creaturePower(b, state));
+      crewPool = [...sick, ...ready];
+    }
+    const tapIds = [];
+    let power = 0;
+    let allSick = true;
+    for (const c of crewPool) {
+      if (power >= n) break;
+      tapIds.push(c.id);
+      power += Math.max(0, creaturePower(c, state)); // CR 107.1b — negative power contributes 0
+      if (!c.summoningSick || permanentHasKeyword(state, c.id, "Haste")) allSick = false;
+    }
+    if (power < n) continue; // can't meet the crew total
+    out.push({ kind: "crew-vehicle", playerId, permanentId: perm.id, vehicleName: perm.card?.name, crew: n, tapIds, allSick });
+  }
+  return out;
+}
+
 function actionsActivateAbility(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
@@ -2567,6 +2611,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   actions.push(...actionsActivateAbility(state, playerId));
+  actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
   actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
   actions.push(...actionsActivateLoyalty(state, playerId));
 

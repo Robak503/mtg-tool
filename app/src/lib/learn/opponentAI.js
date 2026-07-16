@@ -1258,6 +1258,12 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility));
       if (generic) return generic;
     }
+    // CREW (VH-1) — take a ZERO-COST crew: the offer's auto-picked tap set is all summoning-sick
+    // creatures (they can't attack this turn anyway), so animating the Vehicle is strictly free
+    // upside before declare-attackers. A crew that would tap ready attackers is left to the user's
+    // judgment (the AI never spends attack power on it — conservative, never a wrong play).
+    const crews = filterActions(actions, "crew-vehicle").filter(a => a.allSick);
+    if (crews.length > 0) return crews[0];
   }
 
   // No active-window action — pass priority. (The engine's combat

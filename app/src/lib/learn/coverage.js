@@ -32,7 +32,7 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -1514,9 +1514,23 @@ export function classifyCard(card) {
   // already carries the tap-stripped one.
   const tapRe = /[^\n.]*\benters (?:the battlefield )?tapped\b[^\n.]*\.?\n?/gi;
   const isTapped = entersTapped(card);
-  const etOracle = isTapped ? baseOracle.replace(tapRe, "\n").trim() : baseOracle;
-  const etCard = baseOracle !== oracle || isTapped
-    ? { ...card, oracle: (isTapped ? baseOracle.replace(tapRe, "\n") : baseOracle).trim() }
+  // CREW (BLITZ VH-1, CR 702.121): "Crew N" is a modeled special-activation line — legalChoices.
+  // actionsCrewVehicle offers it (tap own creatures with total power ≥ N, auto-picked sick-first),
+  // actionDispatcher.applyCrewVehicle taps + animates (a layer-4 endOfTurn Creature type-add; printed P/T
+  // and printed keyword lines apply once it's a creature; a same-turn-entered vehicle is stamped
+  // summoning-sick — CR 302.6). Strip the line (the plot/warp/enters-tapped precedent) so a Vehicle whose
+  // OTHER text is modeled reaches the downstream gates on its bare body — a keyword-only Vehicle rides
+  // isKeywordOnly to native-body; one with modeled triggers reaches the trigger gates. LOST-safe (a strip
+  // only ever adds coverage); an unmodeled non-crew clause still blocks downstream (whole-card CREED).
+  // LINE-START anchored (the parseCrewCost shape exactly): only the printed "Crew N …" keyword line strips.
+  // A clause merely CONTAINING "crew N" (Imposter Mech's clone rider "…enter as a copy … with crew 3 and it
+  // loses all other card types") must NOT be eaten — that residue keeps such a card parked (CREED).
+  const crewRe = /(?:^|\n)\s*crew \d+\b[^\n]*(?=\n|$)/gi;
+  const hasCrew = /\bvehicle\b/.test(type) && parseCrewCost(card) != null;
+  const crewOracle = hasCrew ? baseOracle.replace(crewRe, "\n") : baseOracle;
+  const etOracle = isTapped ? crewOracle.replace(tapRe, "\n").trim() : crewOracle;
+  const etCard = crewOracle !== oracle || isTapped
+    ? { ...card, oracle: (isTapped ? crewOracle.replace(tapRe, "\n") : crewOracle).trim() }
     : card;
   if (isKeywordOnly(etOracle, card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled

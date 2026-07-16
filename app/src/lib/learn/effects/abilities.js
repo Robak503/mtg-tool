@@ -406,6 +406,21 @@ export function parseWarpCost(card) {
 }
 
 /**
+ * CREW N (BLITZ VH-1, CR 702.121 — Vehicles): "Crew N (Tap any number of creatures you control with total
+ * power N or more: This Vehicle becomes an artifact creature until end of turn.)" Returns the integer N, or
+ * null when the card has no clean printed "Crew N" line (reminder text rides the line — line-anchored match).
+ * A "when/whenever … crew(s|ed)" TRIGGER elsewhere on the card is NOT gated here — the classify strip only
+ * removes the Crew line itself, so an unmodeled crew-watcher trigger still blocks the card downstream
+ * (whole-card CREED). Only a Vehicle's own printed line matches; a granted/quoted "crew" never has the
+ * line-anchored shape.
+ */
+export function parseCrewCost(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  const m = oracle.match(/(?:^|\n)\s*crew (\d+)\b/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/**
  * All activated-ability lines on a permanent, as serializable descriptors. Each entry:
  *   { index, raw, costStr, effectClause, manaPips, tapSelf, costModeled, isManaEffect,
  *     program, modeled, needsTarget }

@@ -31,6 +31,7 @@ import {
   logEvent,
   opponentsOf,
   tapPermanent,
+  updatePermanentSafe,
   addMana,
   MANA_COLORS,
   loseLife,
@@ -49,6 +50,7 @@ import {
   recordSpellCast,
   clearRemovedFromCombatFlags,
   recordGraveyardEvents,
+  findPermanent,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap } from "./manaModel.js";
@@ -58,7 +60,8 @@ import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped } from "./staticAbilityParser.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
+import { parseCrewCost } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkLeavesTriggers, checkBecomesTargetTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
@@ -723,6 +726,56 @@ function applyActivateGyRecursion(state, action) {
 }
 
 /**
+ * CREW (BLITZ VH-1, CR 702.121c) — a special activation with NO stack object in this engine (the tap is
+ * the cost; the animation is the effect — modeled as an immediate resolution, the same simplification every
+ * no-stack special action here uses). Re-verified live at dispatch (CREED — the action payload is untrusted):
+ * the Vehicle must be a live, un-animated Vehicle with a printed Crew N; every tapped creature must be a
+ * live, UNTAPPED creature the player controls; their total layer-aware power must still be ≥ N. Then: tap
+ * them all (no untap events — tapping fires nothing here), add the layer-4 endOfTurn Creature type-add
+ * (printed P/T + printed keyword lines apply once the type is on — no 7b/6 effects needed), and stamp
+ * summoning sickness per CR 302.6: a Vehicle that entered THIS turn hasn't been controlled since the turn
+ * began, so it can't attack even crewed (summoningSick true); an older Vehicle crews into a ready attacker.
+ */
+function applyCrewVehicle(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const lk = findPermanent(state, action.permanentId);
+  if (!lk || lk.controller !== action.playerId) throw new DispatcherError(`Vehicle ${action.permanentId} not found`, "CARD_NOT_FOUND");
+  const vehicle = lk.permanent;
+  if (!/\bVehicle\b/.test(String(vehicle.card?.type || ""))) throw new DispatcherError("Not a Vehicle", "BAD_TARGET");
+  if (permanentIsCreature(state, vehicle.id)) throw new DispatcherError("Vehicle is already a creature", "BAD_TARGET");
+  const n = parseCrewCost(vehicle.card);
+  if (n == null) throw new DispatcherError("No crew cost", "BAD_TARGET");
+  let power = 0;
+  for (const id of action.tapIds || []) {
+    const c = findPermanent(state, id);
+    if (!c || c.controller !== action.playerId || c.permanent.tapped || !permanentIsCreature(state, id)) {
+      throw new DispatcherError(`Crew member ${id} is not a live untapped creature you control`, "BAD_TARGET");
+    }
+    power += Math.max(0, creaturePower(c.permanent, state));
+  }
+  if (power < n) throw new DispatcherError(`Crew total power ${power} < ${n}`, "CREW_SHORT");
+  let next = state;
+  for (const id of action.tapIds) next = tapPermanent(next, id);
+  // CR 301.5c — an EQUIPMENT-Vehicle (Rover Blades) that becomes a creature can't stay attached:
+  // detach in place (it remains on the battlefield; only the attachment link clears).
+  if (vehicle.attachedTo) {
+    const hostId = vehicle.attachedTo;
+    next = updatePermanentSafe(next, hostId, (p) => ({ ...p, attachments: (p.attachments || []).filter((id) => id !== vehicle.id) }));
+    next = updatePermanentSafe(next, vehicle.id, (p) => ({ ...p, attachedTo: null }));
+  }
+  next = addContinuousEffect(next, {
+    layer: 4,
+    op: { types: ["Creature"], subtypes: [] },
+    affects: { mode: "fixed", permanentIds: [vehicle.id] },
+    duration: { kind: "endOfTurn", turn: next.turn },
+    source: { kind: "resolution", permanentId: vehicle.id, cardName: vehicle.card?.name || null },
+  }).state;
+  next = updatePermanentSafe(next, vehicle.id, (p) => ({ ...p, summoningSick: p.enteredOnTurn === next.turn }));
+  return logEvent(next, { kind: "crew-vehicle", playerId: action.playerId, permanentId: vehicle.id, cardName: vehicle.card?.name, tapped: action.tapIds });
+}
+
+/**
  * GY EXILE-COST ABILITY (BLITZ GY-2, CR 602.2): activate "<mana>, Exile this card from your
  * graveyard: <effect>". Mana paid through the shared planner; the EXILE is a COST item — the card
  * leaves the graveyard to exile BEFORE the ability goes on the stack (CR 602.2b; moveCardToZone
@@ -1334,6 +1387,7 @@ const HANDLERS = {
   "activate-ability": applyActivateAbility,
   "activate-gy-recursion": applyActivateGyRecursion, // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
   "activate-gy-exile": applyActivateGyExile, // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
+  "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "plot": applyPlot,   // PLOT (CR 702.171a): exile a hand card face-up for the plot cost (special action)
   "activate-loyalty": applyActivateLoyalty,
