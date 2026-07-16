@@ -363,11 +363,20 @@ export function mineDeckHistory(headers, deck, registry = null) {
   return { eras: out };
 }
 
-/** Read every forever-kept header line across all grind shards. Never throws — [] on an empty/absent store. */
+/**
+ * Read every forever-kept header line across all grind shards. Never throws — [] on an empty/absent
+ * store. DOUBLE-WRITER GUARD (wake-queue ②, 2026-07-15): two concurrent store writers (an in-app grind
+ * racing a pool run) can read the same manifest nextIndex and append two header lines for one index —
+ * which would double-count a game in every miner. Dedupe by index here, LAST line winning (the second
+ * writer's game file is the one that survived the overwrite). A 2026-07-15 audit found 0 duplicates in
+ * both the live store and the epoch-2 archive, so today this is pure insurance — kept because the race
+ * stays structurally possible. Headers without an index (never written by this store) pass through.
+ */
 export async function readAllGrindHeaders() {
   const manifest = await loadGrindManifest().catch(() => null);
   if (!manifest || !Array.isArray(manifest.shards)) return [];
   const out = [];
+  const posByIndex = new Map(); // index → position in `out` (dedupe without losing chronology)
   for (const s of manifest.shards) {
     const file = path.join(grindRoot(), s.shard, "headers.jsonl");
     let text;
@@ -375,7 +384,11 @@ export async function readAllGrindHeaders() {
     for (const line of text.split("\n")) {
       const t = line.trim();
       if (!t) continue;
-      try { out.push(JSON.parse(t)); } catch { /* skip a torn last line */ }
+      let h;
+      try { h = JSON.parse(t); } catch { continue; } // skip a torn last line
+      if (h?.index != null && posByIndex.has(h.index)) { out[posByIndex.get(h.index)] = h; continue; } // last writer wins
+      if (h?.index != null) posByIndex.set(h.index, out.length);
+      out.push(h);
     }
   }
   return out;

@@ -369,4 +369,27 @@ describe("lossMiner reader — over a REAL on-disk grind store (chdir tmp, appen
     expect(r.losses).toBe(12);
     expect(r.patterns.find((p) => p.key === "mana-screw").count).toBe(12); // schema-3 seatStats survives the round-trip
   });
+
+  it("dedupes a double-written index (concurrent-writer race) — LAST header line wins, count stays honest", async () => {
+    const game = (winnerSeat) => ({
+      header: {
+        seed: 1, engineVersion: "0.142.0", result: "ai-wins", winnerSeat, turns: 11, mode: "commander",
+        decks: [{ seat: "user", name: "A" }, { seat: "ai1", id: "koma", name: "Koma" }, { seat: "ai2", name: "B" }, { seat: "ai3", name: "C" }],
+        seatStats: {}, winCondition: "combat",
+      },
+      rows: [{ turn: 1, seat: "ai1", action: { kind: "pass" } }],
+    });
+    const first = await appendGame(game("user"));   // Koma LOSES this one…
+    await appendGame(game("ai2"));                  // an unrelated second game
+    // …then simulate the racing second writer: a header line re-using the FIRST game's index, Koma WINNING.
+    const { grindRoot } = await import("./gameLogStore.js");
+    const headersFile = path.join(grindRoot(), "shard-0000", "headers.jsonl");
+    const dupLine = JSON.stringify({ index: first.index, ...game("ai1").header, schemaVersion: 3, featuresV: 1 });
+    await fs.appendFile(headersFile, dupLine + "\n");
+    const headers = await readAllGrindHeaders();
+    expect(headers).toHaveLength(2);                               // 3 lines on disk → 2 games (dupe collapsed)
+    const koma = await mineDeckLossesFromStore({ id: "koma", name: "Koma" });
+    expect(koma.games).toBe(2);                                    // never double-counted
+    expect(koma.wins).toBe(1);                                     // the LAST line (Koma wins) is the survivor
+  });
 });
