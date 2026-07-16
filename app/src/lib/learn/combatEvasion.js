@@ -243,6 +243,27 @@ const reBlockedByAtMostOne = /(?:^|[\n.;])\s*(?:this creature|it) can't be block
 // rejected by parseAttackerRestrictions' conditional guard). The clause prints "a rad counter" = the 1+ test.
 const reRadConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked as long as defending player has a rad counter\s*(?:\.|$)/;
 
+// ISLANDHOME (BLITZ SM-1 — the sea-monster attack restriction, CR 508.1a): "This creature can't attack
+// unless defending player controls an Island." (+ the Swamp/Forest/etc. and "snow land" siblings). A
+// self-subject, unconditional PER-DEFENDER attack-legality gate: legalChoices.actionsDeclareAttacker only
+// offers attack targets whose defending player controls the named land type (the same live board read
+// landwalk uses — defenderControlsLandType). The TWO-line old frame ("When you control no Islands,
+// sacrifice …") is NOT this shape — its second sentence is a separate, unmodeled state trigger, so those
+// cards stay body-only (a safe FN). Anchored at a sentence boundary; a qualifier tail fails the match.
+const reAttackNeedsDefenderLand = /(?:^|[\n.;])\s*(?:this creature|it) can't attack unless defending player controls an? (island|swamp|mountain|forest|plains|snow land)\s*(?:\.|$)/i;
+/** ISLANDHOME (SM-1) — the land type the DEFENDING player must control for this creature to attack them
+ * ("island" / "swamp" / … / "snow land"), or null when unrestricted. Read off the card (printed static). */
+export function attackDefenderLandRequirement(card) {
+  const m = selfOracle(card).match(reAttackNeedsDefenderLand);
+  return m ? m[1].toLowerCase() : null;
+}
+/** Does `defenderId` control a land of the required type? (The exported face of the landwalk board read —
+ * "snow land" matches the adjacent type-line words "Snow Land".) */
+export function defenderMeetsAttackLandRequirement(state, defenderId, requirement) {
+  if (!requirement) return true;
+  return defenderControlsLandType(state, defenderId, requirement);
+}
+
 export function isSelfUnblockable(card) { return reBareUnblockable.test(selfOracle(card)); }
 export function isSelfCantBlock(card) { return reCantBlock.test(selfOracle(card)); }
 export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfOracle(card)); }
@@ -294,6 +315,11 @@ export function isEnforcedEvasionClause(clause) {
   // RAD-CONDITIONAL UNBLOCKABLE (Nightkin Ambusher) — credited here so a body whose only non-keyword text is
   // this conditional evasion static is honestly native; canBlockAttacker enforces the rad-counter condition.
   if (/^(?:this creature |it )?can't be blocked as long as defending player has a rad counter$/.test(c)) return true;
+  // ISLANDHOME (BLITZ SM-1) — "can't attack unless defending player controls an Island/…/snow land" is
+  // enforced per-defender at attack declaration (actionsDeclareAttacker filters the target list through
+  // defenderMeetsAttackLandRequirement), so a body whose only non-keyword text is this static is honestly
+  // native. The two-line "When you control no Islands, sacrifice …" frame never reaches here whole.
+  if (/^(?:this creature |it )?can't attack unless defending player controls an? (?:island|swamp|mountain|forest|plains|snow land)$/.test(c)) return true;
   // GROUP-EVASION (Shifting Sliver): "<subtype>s can't be blocked except by <same subtype>s" — enforced
   // in canBlockAttacker. Credit only the SYMMETRIC tribal form (parseGroupBlockRestriction returns non-null).
   // The single-subtype board-wide clause arrives here WHOLE (no comma → isKeywordOnly's splitter leaves it

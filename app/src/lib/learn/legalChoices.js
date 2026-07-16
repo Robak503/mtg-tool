@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne } from "./combatEvasion.js";
+import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -2272,15 +2272,27 @@ function actionsDeclareAttacker(state, playerId) {
     }
   }
 
+  // ISLANDHOME (BLITZ SM-1, CR 508.1a): a creature printed "can't attack unless defending player
+  // controls an Island/…" only pairs with defenders whose board meets the requirement — the same live
+  // board read landwalk uses. Unrestricted creatures see the full target list (identical by construction).
+  const allowedTargetsFor = (p) => {
+    const req = attackDefenderLandRequirement(p.card);
+    if (!req) return targets;
+    return targets.filter((t) => defenderMeetsAttackLandRequirement(state, t.defenderId, req));
+  };
+
   // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the
   // dispatcher auto-fills the defender, so emit one action per creature — unchanged shape.
+  // An islandhome attacker whose lone defender fails the requirement gets NO attack action (SM-1).
   if (targets.length <= 1) {
-    return attackers.map(p => ({
-      kind: "declare-attacker",
-      playerId,
-      permanentId: p.id,
-      name: p.card.name,
-    }));
+    return attackers
+      .filter(p => allowedTargetsFor(p).length > 0)
+      .map(p => ({
+        kind: "declare-attacker",
+        playerId,
+        permanentId: p.id,
+        name: p.card.name,
+      }));
   }
 
   // Multiple targets (Commander, OR any game with an enemy planeswalker): each attacker contributes
@@ -2289,7 +2301,7 @@ function actionsDeclareAttacker(state, playerId) {
   // seat id) so a pod's combat menu doesn't render N byte-identical "Attack with [[X]]." lines.
   const actions = [];
   for (const p of attackers) {
-    for (const t of targets) {
+    for (const t of allowedTargetsFor(p)) {
       // POD NAMING (P4 fix): the command zone is EMPTY while the commander is on the battlefield,
       // so the old command-zone-or-raw-id lookup leaked engine seat ids ("ai1") into narration and
       // board buttons for most of a pod game. Resolve across zones; when unknown, emit NO field so
