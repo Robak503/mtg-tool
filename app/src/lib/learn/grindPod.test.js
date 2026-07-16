@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { buildGrindHeader, deckVersionHash, deckVersionEntry } from "./grindPod.js";
+import { buildGrindHeader, deckVersionHash, deckVersionEntry, formPod, gameSeedAt } from "./grindPod.js";
 import { loadDeckVersions, upsertDeckVersions } from "./gameLogStore.js";
 
 const mkDeck = (name, cardNames, { commanders = ["Koma, Cosmos Serpent"], companion = null, id = name } = {}) => ({
@@ -47,6 +47,43 @@ describe("deckVersionHash — exact-to-the-card version stamp (R3)", () => {
   it("returns null on a non-deck, never throws", () => {
     expect(deckVersionHash(null)).toBeNull();
     expect(deckVersionHash(undefined)).toBeNull();
+  });
+});
+
+describe("formPod — deck→seat uniformity guard (SIM-INTEGRITY Phase 0 tripwire)", () => {
+  // The data-trust anchor behind every per-deck standings number: pod formation assigns decks to
+  // seats UNIFORMLY, so any per-seat win skew in real data is an ENGINE positional property, never a
+  // sampling artifact. 2,000 seeded pods over 5 decks → each (deck, seat) cell expects 25% of that
+  // deck's appearances (SE ≈ 1.1pt); the ±5pt band is >4σ — a real regression trips it, noise never.
+  // (The MIRRORED-pod acceptance run from the order is a separate ENGINE measurement — the 2026-07-15
+  // probe found identical-deck pods pile onto early seats (0/5/14/41 @ n=60), banked as an engine
+  // finding; real-deck pods measured uniform: 25.0/25.1/24.8/25.1 over 23,313 games.)
+  it("assigns each deck to each seat ~uniformly across seeded pods, and includes decks evenly", () => {
+    const decks = ["A", "B", "C", "D", "E"].map((n) => ({ id: n, name: n }));
+    const PODS = 2000;
+    const bySeat = new Map(decks.map((d) => [d.id, [0, 0, 0, 0]]));
+    const appearances = new Map(decks.map((d) => [d.id, 0]));
+    for (let i = 0; i < PODS; i++) {
+      const pod = formPod(decks, 4, gameSeedAt(0xc0ffee, i));
+      pod.forEach((d, seatIdx) => { bySeat.get(d.id)[seatIdx] += 1; appearances.set(d.id, appearances.get(d.id) + 1); });
+    }
+    for (const d of decks) {
+      const n = appearances.get(d.id);
+      expect(n / PODS).toBeGreaterThan(0.75);        // each deck sits in ~4/5 of pods…
+      expect(n / PODS).toBeLessThan(0.85);
+      for (const seatCount of bySeat.get(d.id)) {
+        const share = seatCount / n;
+        expect(share).toBeGreaterThan(0.20);          // …and lands in every seat ~25% (±5pt > 4σ)
+        expect(share).toBeLessThan(0.30);
+      }
+    }
+  });
+
+  it("is deterministic per seed (the pool's lane-split reproducibility rests on this)", () => {
+    const decks = ["A", "B", "C", "D", "E"].map((n) => ({ id: n, name: n }));
+    const a = formPod(decks, 4, 12345).map((d) => d.id);
+    const b = formPod(decks, 4, 12345).map((d) => d.id);
+    expect(a).toEqual(b);
   });
 });
 
