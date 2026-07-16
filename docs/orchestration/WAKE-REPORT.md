@@ -1,8 +1,16 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +364 more (campaign +572), 25 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +370 more (campaign +578), 26 slices, LOST=0
 > Latest: **KM-1** the Kismet imposition (61024daf, +3) — one reader at every entry path (cast, land
-> drop, reanimate/ramp/detain-return).
+> drop, reanimate/ramp/detain-return) · **GX-1** up-to-three single-graveyard exile (7fc54227, +6) —
+> the singleGraveyard subset constraint in targeting (the totalMvX pattern); Decompose / Carrion
+> Beetles / Ebony Charm.
+>
+> NEXT QUEUE (evidence standing, smallest-first): discard-hand-draw-that-many (3, Tolarian Winds) ·
+> bloodrush (3) · block-additional (3, Spike-Tailed Ceratops) · enters-or-LTB split (12, needs a
+> leavesSelf any-exit event) · Sword Coast Sailor's life-comparison intervening-if (4 backgrounds) ·
+> the enchant-land Class B interiors (7). Fresh clause-frontier after a few more. Baseline tier file:
+> scratchpad cand38.txt (10,161 native+land names).
 
 > Numbers audited against the tier-census files (9,791 → 10,152 name-dedup native+land, ~29.7% of
 > 34,161): the running "+358/20 slices" line pushed earlier in the day OVER-COUNTED by a drifted slice
