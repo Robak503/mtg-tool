@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine } from "./staticAbilityParser.js";
@@ -113,6 +113,11 @@ export const COVERED_KEYWORDS = [
   // shaped count. Only the EXACT modeled cost shape flips — a hybrid/{X} cost is rejected by the parser matcher
   // (matchCumulativeUpkeep → the synthesized trigger routes LOW → the whole card stays body-only, a SAFE FN).
   "cumulative upkeep",
+  // FLANKING (BLITZ FL-1, CR 702.25) — ENFORCED: one synthesized fire-time trigger per printed instance
+  // (checkBlockTriggers debuffs each non-flanking blocker -1/-1 per instance; a flanking blocker is
+  // immune). "flanking" matches via the startsWith check; allTriggerSentencesModeled bumps the shaped
+  // count by flankingKeywordCount so multiples reconcile (CR 702.25c).
+  "flanking",
   // ECHO (BLITZ EC-1, CR 702.30) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers
   // (a "your upkeep" descriptor whose sentinel effectClause parses to the `echo` atom) and fired by
   // checkStepTriggers — the FIRST of the controller's upkeeps after it entered suspends on the shared
@@ -636,9 +641,12 @@ function allTriggerSentencesModeled(card, oracle) {
   const undyingShaped = undyingKeywordCount(oracle);
   // KW-EVOLVE — the same reminder-text keyword synthesis; bump by 1 so shaped === detected holds.
   const evolveShaped = evolveKeywordCount(oracle);
+  // FLANKING (BLITZ FL-1) — one synthesized descriptor PER printed instance (CR 702.25c); bump by the
+  // structural count so multiples reconcile (grants and "without flanking" phrases contribute 0).
+  const flankingShaped = flankingKeywordCount(oracle);
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + flankingShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

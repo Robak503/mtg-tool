@@ -108,3 +108,30 @@ describe("BF-1 — blocks-a-flyer pump", () => {
     expect((vsGround.pendingTriggers || []).some((t) => t.descriptor?.event === "blocksFlyerPump")).toBe(false);
   });
 });
+
+// BLITZ FL-1 — KW-FLANKING (CR 702.25), the same fire-time family: the blocked attacker's flanking
+// debuffs each non-flanking blocker -1/-1, once PER printed instance; a flanking blocker is immune.
+const BENALISH_CAVALRY = { id: "bc", name: "Benalish Cavalry", type: "Creature — Human Knight", mana: "{W}{W}",
+  power: "2", toughness: "2", oracle: "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)" };
+
+describe("FL-1 — flanking", () => {
+  it("synthesizes per printed instance; grants and 'without flanking' phrases contribute 0", () => {
+    expect(detectTriggers(BENALISH_CAVALRY).filter((t) => t.event === "flanking")).toHaveLength(1);
+    expect(detectTriggers({ oracle: "Flanking, flanking", type: "Creature", name: "Double" }).filter((t) => t.event === "flanking")).toHaveLength(2);
+    expect(detectTriggers({ oracle: "Knights you control have flanking.", type: "Creature", name: "Granter" }).filter((t) => t.event === "flanking")).toHaveLength(0);
+    expect(classifyCard(BENALISH_CAVALRY)).toBe("native-body");
+  });
+  it("fires the -1/-1 onto a NON-flanking blocker (the triggering permanent); a flanking blocker is immune", () => {
+    let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const knight = createPermanent({ id: "kn", card: BENALISH_CAVALRY, controller: "user", summoningSick: false });
+    const plain = createPermanent({ id: "pl", card: { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "ai1", summoningSick: false });
+    const rival = createPermanent({ id: "rv", card: { name: "Rival Knight", type: "Creature — Knight", power: "2", toughness: "2", oracle: "Flanking" }, controller: "ai1", summoningSick: false });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [knight] }, ai1: { ...s.players.ai1, battlefield: [plain, rival] } } };
+    const vsPlain = checkBlockTriggers({ ...s, combat: { attackers: [{ permanentId: "kn", attackingPlayer: "user", defender: "ai1" }], blockers: [{ blockerId: "pl", attackerId: "kn" }] } });
+    const fl = (vsPlain.pendingTriggers || []).filter((t) => t.descriptor?.event === "flanking");
+    expect(fl).toHaveLength(1);
+    expect(fl[0].context.triggeringPermanentId).toBe("pl"); // the -1/-1 lands on the blocker
+    const vsRival = checkBlockTriggers({ ...s, combat: { attackers: [{ permanentId: "kn", attackingPlayer: "user", defender: "ai1" }], blockers: [{ blockerId: "rv", attackerId: "kn" }] } });
+    expect((vsRival.pendingTriggers || []).filter((t) => t.descriptor?.event === "flanking")).toHaveLength(0);
+  });
+});

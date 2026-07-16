@@ -1479,6 +1479,23 @@ export function undyingKeywordCount(oracle) {
 }
 
 /**
+ * FLANKING (BLITZ FL-1, CR 702.25) — the STRUCTURAL instance counter (the undying matcher, counting
+ * MULTIPLES: CR 702.25c — each flanking instance triggers separately, so "Flanking, flanking" debuffs
+ * -2/-2 total). A whole comma-segment of a line must be exactly "flanking" — a GRANT ("…creatures have
+ * flanking") or the phrase inside another card's condition ("a creature without flanking") never counts.
+ * Shared by the detectTriggers synthesis, the checkBlockTriggers fire site, and coverage's shaped bump,
+ * so the three can't drift.
+ */
+export function flankingKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  let n = 0;
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) if (seg.trim().toLowerCase() === "flanking") n++;
+  }
+  return n;
+}
+
+/**
  * TRIG-PUMP-1 (the trigger-effect compiler pilot) — a SELF-scope trigger states the pump on its OWN
  * source with the pronoun "it": "Whenever this creature attacks, IT gets +2/+0 until end of turn"
  * (Brazen Wolves), "…, IT gains trample until end of turn" (the combat-buff family). The modeled
@@ -2447,6 +2464,20 @@ export function detectTriggers(card) {
       event: "upkeep", scope: "you", whose: "yours",
       effect: null, effectClause: `echo ${echoKw[1]}`,
       optional: false, sourceText: `Echo ${echoKw[1]}`,
+    });
+  }
+  // FLANKING (BLITZ FL-1, CR 702.25a) — KEYWORD→TRIGGER synthesis, the BF-1 fire-time family: "Whenever a
+  // creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn."
+  // The ability lives in reminder parens; synthesize ONE descriptor PER printed instance (CR 702.25c —
+  // "Flanking, flanking" debuffs twice; the structural flankingKeywordCount never counts a grant or the
+  // "without flanking" phrase). COVERAGE-ONLY like rampage: checkBlockTriggers checks the block pair at
+  // fire time (attacker prints flanking; the BLOCKER lacks it, layer-aware) and fires with the blocker as
+  // the triggering permanent — "the triggering creature" resolves the -1/-1 onto the blocker.
+  for (let i = flankingKeywordCount(oracle); i > 0; i--) {
+    out.push({
+      event: "flanking", scope: "self", whose: "any",
+      effect: null, effectClause: "the triggering creature gets -1/-1 until end of turn",
+      optional: false, sourceText: "Flanking",
     });
   }
   // SOULSHIFT (CR 702.46a — BLITZ SS-1) — KEYWORD→TRIGGER synthesis, the CU/BUSHIDO precedent. "Soulshift N"
@@ -3517,6 +3548,25 @@ export function checkBlockTriggers(state) {
     if (p <= 0 && tf <= 0) continue;
     const descriptor = { event: "perBlockerPump", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${p}/+${tf} until end of turn`, optional: false, sourceText: `becomes blocked per-blocker pump ×${count}` };
     fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
+  }
+  // FLANKING (BLITZ FL-1, CR 702.25a) — per block PAIR: the blocked ATTACKER prints flanking (one fire
+  // per printed instance, CR 702.25c) and the BLOCKER lacks flanking RIGHT NOW (layer-aware — a blocker
+  // granted flanking is immune). The blocker rides as the TRIGGERING permanent so the synthesized
+  // "the triggering creature gets -1/-1" debuffs IT. The detectTriggers "flanking" descriptor is
+  // coverage-only; this is the sole firing site.
+  for (const b of blockers) {
+    if (!b?.blockerId || !b?.attackerId) continue;
+    const att = findPermanent(state, b.attackerId);
+    if (!att) continue;
+    const instances = flankingKeywordCount(String(att.permanent.card?.oracle || att.permanent.card?.oracle_text || ""));
+    if (instances <= 0) continue;
+    if (permanentHasKeyword(state, b.blockerId, "Flanking")) continue; // a flanking blocker is immune (CR 702.25a)
+    const blk = findPermanent(state, b.blockerId);
+    if (!blk) continue;
+    for (let i = 0; i < instances; i++) {
+      const descriptor = { event: "flanking", scope: "self", whose: "any", effect: null, effectClause: "the triggering creature gets -1/-1 until end of turn", optional: false, sourceText: "Flanking" };
+      fired.push(makePendingTrigger(descriptor, att.permanent, blk.permanent, {}));
+    }
   }
   // BLOCKS-A-FLYER PUMP (BLITZ BF-1 — the rampage-family fire-time pattern): per block PAIR, a blocker
   // printing "Whenever this creature blocks a creature with flying, it gets +N/+M until end of turn"
