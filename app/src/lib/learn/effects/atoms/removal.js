@@ -399,6 +399,21 @@ export function destroyExileClauseParser(clause) {
     }
   }
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  // TRIPLE-UNION with a flying-bound creature alternative (BLITZ BW-1, CR 601.2c) — "(destroy|exile) target
+  // artifact, enchantment, or creature with flying" (destroy: Broken Wings / Return to the Earth / Airship
+  // Crash; exile: Shoot Down — BOTH verbs corpus-evidenced, the rm frame's destroy|exile symmetry). The
+  // "with flying" restriction binds ONLY the CREATURE alternative — an artifact/enchantment needs no flying —
+  // so it can't ride the flat restrictions array (which applies to every candidate); the dedicated
+  // artifactOrEnchantmentOrFlyingCreature targetType carries the union INTO enumeration, where the creature
+  // arm is gated LAYER-AWARE via permanentHasKeyword (a granted flyer is a legal target, a ground creature
+  // never offered — spellEffects.enumerateTargets' dedicated branch). The exact `$` anchor rejects the probed
+  // near-misses: a different tail ("with power 4 or greater" — Exorcise), the 4-way battle union (Atraxa's
+  // Fall), any controller scope or rider, and unevidenced orderings → null → LOW → Arbiter (FN-safe). Listed
+  // in parser.PERMANENT_TARGET_TYPES so the trigger-flush gate keeps treating it as chosen-permanent removal.
+  const tripleM = t.match(/^(destroy|exile) target artifact, enchantment, or creature with flying$/);
+  if (tripleM) {
+    return { op: tripleM[1] === "destroy" ? "destroy" : "exile", targetType: "artifactOrEnchantmentOrFlyingCreature", restrictions: [] };
+  }
   // The two-type UNION list admits BOTH printed word-orders for the artifact/creature union — "creature or
   // artifact" (the order most cards print) AND "artifact or creature" (Putrefy: "Destroy target artifact or
   // creature. It can't be regenerated." — the cannotRegenerate rider is re-stamped by the parseEffectClause

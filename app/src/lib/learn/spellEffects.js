@@ -648,6 +648,31 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       }
     }
   };
+  // TRIPLE-UNION with a flying-bound creature alternative (BLITZ BW-1) — "target artifact, enchantment, or
+  // creature with flying" (Broken Wings / Return to the Earth / Airship Crash destroy; Shoot Down exile).
+  // The "with flying" restriction binds ONLY the CREATURE alternative, so it can't be a flat restriction on
+  // the whole pool (an artifact needs no flying) and can't live in PERMANENT_PREDICATES (a pure type-line
+  // predicate can't read keyword state) — hence this dedicated branch. The creature arm reads flying
+  // LAYER-AWARE via permanentHasKeyword (printed ∪ keyword counter ∪ layer-6 grants — a granted flyer is a
+  // legal target, a ground creature is NEVER offered, CR 601.2c + CREED FP-forbidden). Mirrors addPermanents'
+  // discipline: the DFC skip (face state untracked — a combined type line can't be trusted; a SAFE omission),
+  // creatureSatisfiesRestrictions (none emitted today — keeps a future scoped variant honest), and
+  // canBeTargetedBy (shroud/hexproof/protection). Targets tag { type: "permanent" } regardless of which union
+  // member matched — the proven creatureOrArtifact convention the destroy/exile resolvers already handle.
+  const addArtifactEnchantmentOrFlyingCreature = () => {
+    for (const pid of Object.keys(state.players)) {
+      for (const perm of state.players[pid].battlefield) {
+        const tl = String(perm.card?.type || perm.card?.type_line || "");
+        if (tl.includes(" // ")) continue; // DFC — current face untracked (mirror addPermanents' safe skip)
+        const artifactOrEnchantment = /\bArtifact\b|\bEnchantment\b/.test(tl);
+        const flyingCreature = /\bCreature\b/.test(tl) && permanentHasKeyword(state, perm.id, "flying");
+        if (!artifactOrEnchantment && !flyingCreature) continue;
+        if (creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+          out.push({ type: "permanent", id: perm.id, controller: pid, name: perm.card?.name });
+        }
+      }
+    }
+  };
   // PW-6: a live planeswalker (carries a loyalty counter, PW-1 ETB) is a legal target for damage
   // (and other "any target" effects). Honors the FULL restriction set via creatureSatisfiesRestrictions
   // (subsumes the controller restriction so "… an opponent controls" never offers your own walker, AND the
@@ -700,6 +725,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   else if (effect.targetType === "spell") addStackSpells();
   else if (effect.targetType === "graveyardCard") addGraveyardCards();
   else if (effect.targetType === "opponent") addOpponents();
+  else if (effect.targetType === "artifactOrEnchantmentOrFlyingCreature") addArtifactEnchantmentOrFlyingCreature(); // BW-1 triple union
   else if (PERMANENT_PREDICATES[effect.targetType]) addPermanents(PERMANENT_PREDICATES[effect.targetType]);
   return out;
 }
