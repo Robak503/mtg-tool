@@ -1004,14 +1004,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   // Must be checked BEFORE the \battacks\b guard since both words are in "you attack".
   if (/^you attack$/.test(c)) return { event: "youAttack", scope: "you", whose: "any" };
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
-  // "blocks" ("Whenever this creature attacks or blocks …" — Howling Golem, Burning Sun Cavalry) is a
-  // COMPOUND combat event. The single-verb branches below model only ONE event, so detecting it as just
-  // "attacks" would silently DROP the "blocks" half — the trigger would fire on attack only, a confident
-  // WRONG partial (CLAUDE.md §1.2). Until compound combat events are modeled, leave it UNDETECTED: the
+  // "blocks" is a COMPOUND combat event. The STANDARD "attacks or blocks" form is now SPLIT upstream
+  // (DISJUNCTION_BLOCKS_SRC, BLITZ OR-1) into two single-verb sentences before this detector runs, so it
+  // never reaches this guard. Anything that still names both verbs here is an UNSPLIT variant ("blocks or
+  // becomes blocked" — bushido's reminder; an exotic phrasing) — detecting it as just one verb would
+  // silently DROP the other half, a confident WRONG partial (CLAUDE.md §1.2). Leave it UNDETECTED: the
   // card's trigger-sentence count then mismatches in allTriggerSentencesModeled and the whole card routes
-  // to the Arbiter (a SAFE false-negative). Exposed by the each-player draw slice (Howling Golem's
-  // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
-  // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
+  // to the Arbiter (a SAFE false-negative).
   if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
   // ===== ATTACKS-OR-BECOMES-TARGET (compound event, CR 603.2 / CR 115.1) ===== A condition naming BOTH
   // "attacks" and "becomes the target of a spell" ("Whenever this creature attacks or becomes the target of
@@ -1862,6 +1861,13 @@ const DISJUNCTION_DIES_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the
 // "enters or becomes monstrous" (Alpha Deathclaw — SHELF S7): the SAME split, third event pair. The
 // monstrous half classifies standalone (becomesMonstrous/self — fired by applyMonstrosity's transition).
 const DISJUNCTION_MONSTROUS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or becomes monstrous(,\\s*[^\\n]+)";
+// "attacks or blocks" (BLITZ OR-1 — Hamlet Captain / Adventurer's Airship kin / the 49-card self class,
+// CR 603.2b): the SAME split, fourth event pair. Both halves classify standalone (attacks/self via
+// checkAttackTriggers; the BARE blocks/self via checkBlockTriggers — a FILTERED blocks half like "blocks
+// a creature with flying" stays undetected after the split, so the count reconciliation parks the card:
+// the split itself can never over-fire a restricted form). This retires the old blanket attacks+blocks
+// null guard for the split shape; the guard below still catches any unsplit compound leak (belt).
+const DISJUNCTION_BLOCKS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+attacks or blocks(,\\s*[^\\n]+)";
 // GY-TRAFFIC TRIPLE (Syr Konrad, the Grim — SHELF S7, CR 603.2b): the printed three-event disjunction
 // "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than
 // the battlefield, or a creature card leaves your graveyard, <effect>" → THREE sentences, one per event,
@@ -1882,6 +1888,8 @@ function splitCompoundTriggerSentences(oracle) {
       `Whenever ${subj} enters${eff}\nWhenever ${subj} dies${eff}`)
     .replace(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} becomes monstrous${eff}`)
+    .replace(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi"), (_m, _kw, subj, eff) =>
+      `Whenever ${subj} attacks${eff}\nWhenever ${subj} blocks${eff}`)
     .replace(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi"), (_m, _kw, eff) =>
       `Whenever another creature dies${eff}\nWhenever a creature card is put into a graveyard from anywhere other than the battlefield${eff}\nWhenever a creature card leaves your graveyard${eff}`);
 }
@@ -1895,9 +1903,10 @@ export function compoundTriggerCount(oracle) {
     .filter((m) => !/of the chosen type/i.test(m)).length;
   const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
   const monstrousDisjunctions = (s.match(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi")) || []).length;
+  const blocksDisjunctions = (s.match(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi")) || []).length; // OR-1 "attacks or blocks"
   // The GY-traffic triple adds TWO extra sentences per match (1 → 3).
   const gyTriples = (s.match(new RegExp(DISJUNCTION_GY_TRIPLE_SRC, "gi")) || []).length;
-  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + gyTriples * 2;
+  return andJoins + disjunctions + diesDisjunctions + monstrousDisjunctions + blocksDisjunctions + gyTriples * 2;
 }
 
 /**

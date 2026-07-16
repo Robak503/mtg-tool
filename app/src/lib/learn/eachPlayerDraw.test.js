@@ -127,14 +127,17 @@ describe("trigger gate — each-player draw and target-player draw both route na
     expect(classifyCard(symmetric)).toBe("native-trigger");
     expect(classifyCard(targeted)).toBe("native-trigger");
   });
-  it("a COMPOUND 'attacks or blocks' trigger is NOT native — the dropped 'or blocks' half would mis-fire", () => {
-    // Howling Golem: modeling the each-player-draw effect would otherwise expose the compound-combat
-    // trigger drop (detected as "attacks" only, firing on attack but not block). The guard routes it
-    // to the Arbiter instead. A single-event "Whenever this creature attacks, each player draws" stays
-    // native (the effect is non-targeted and the event is faithfully modeled).
+  it("'attacks or blocks' now SPLITS (OR-1) — both halves fire; an UNSPLIT compound still parks", () => {
+    // Howling Golem sat here as the compound-drop guard until BLITZ OR-1 added the attacks-or-blocks
+    // disjunction split (DISJUNCTION_BLOCKS_SRC): the sentence rewrites into two single-verb triggers
+    // BEFORE detection, so BOTH halves fire (checkAttackTriggers + checkBlockTriggers) — no dropped half,
+    // honestly native. The guard's intent lives on against an UNSPLIT both-verb compound ("blocks or
+    // becomes blocked" — bushido's reminder shape), which still nulls → Arbiter (safe FN).
     const howlingGolem = { type: "Artifact Creature — Golem", name: "Howling Golem", oracle: "Whenever this creature attacks or blocks, each player draws a card." };
+    const unsplitCompound = { type: "Creature — Golem", name: "Guard Golem", oracle: "Whenever this creature blocks or becomes blocked, each player draws a card." };
     const attacksOnly = { type: "Creature — Golem", name: "Attack Golem", oracle: "Whenever this creature attacks, each player draws a card." };
-    expect(classifyCard(howlingGolem)).not.toBe("native-trigger");
+    expect(classifyCard(howlingGolem)).toBe("native-trigger");
+    expect(classifyCard(unsplitCompound)).not.toBe("native-trigger");
     expect(classifyCard(attacksOnly)).toBe("native-trigger");
   });
   it("an 'attacks ALONE' trigger is NOT native — the dropped sole-attacker restriction (CR 508.4a) would over-fire", () => {

@@ -36,7 +36,11 @@ describe("parse + classify", () => {
     expect(classifyCard(THUNDERING_CHARIOT)).toBe("native-body");
   });
   it("CREED — a Vehicle with an unmodeled trigger stays body-only (only the Crew line is stripped)", () => {
-    expect(classifyCard(SMUGGLERS_COPTER)).toBe("body-only"); // the attacks-or-blocks loot trigger is unrouted
+    // (Smuggler's Copter sat here for about an hour until OR-1 split "attacks or blocks" — its loot
+    // trigger now routes and it's native-trigger. The guard uses a genuinely-unmodeled delayed rider.)
+    expect(classifyCard(SMUGGLERS_COPTER)).toBe("native-trigger");
+    expect(classifyCard({ id: "ww", name: "Wicker Warcrawler", type: "Artifact — Vehicle", power: "6", toughness: "6", mana: "{5}",
+      oracle: "Whenever this Vehicle attacks or blocks, put a -1/-1 counter on it at end of combat.\nCrew 2" })).toBe("body-only"); // the at-end-of-combat delayed rider is unmodeled
   });
 });
 
