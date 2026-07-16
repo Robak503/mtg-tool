@@ -887,6 +887,15 @@ function applyActivateAbility(state, action) {
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: action.returnLandId });
     working = checkLeavesTriggers(working);
   }
+  // γ1h (BLITZ DC-1) — pay a "Discard a card" cost by moving the CHOSEN hand card to the graveyard
+  // (CR 601.2h / 701.8 — a discard from a cost is still a discard; the graveyard-entry event records via
+  // moveCardToZone's chokepoint). The card is re-resolved against the LIVE hand; a missing card is a hard
+  // error so we never silently under-pay (CREED). Done BEFORE the ability goes on the stack.
+  if (action.discardCardId) {
+    const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === action.discardCardId);
+    if (!inHand) throw new DispatcherError(`Discard-cost card ${action.discardCardId} not in hand`, "CARD_NOT_FOUND");
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
+  }
   if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
   if (action.sacCreatureId) {
     const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);

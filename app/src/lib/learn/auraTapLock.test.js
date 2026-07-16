@@ -135,12 +135,15 @@ describe("UT-1 — parse + classify", () => {
     expect(parseEffectClause("untap this creature").atoms).toEqual([{ op: "untap", target: "self" }]);
     expect(parseEffectClause("untap this creature and it gains flying until end of turn").confidence).toBe("low");
   });
-  it("the escape-valve grant + printed untappers flip; an unmodeled grant COST stays parked", () => {
+  it("the escape-valve grant + printed untappers flip; Immobilizing Ink returns via DC-1's discard cost", () => {
     expect(classifyCard(SINGING_BELL_STRIKE)).toBe("native-activated");
     expect(classifyCard(HORSESHOE_CRAB)).toBe("native-activated");
-    // "{1}, Discard a card:" — the discard cost is outside the granted cost vocabulary → modeled:false
-    // → the whole card stays body-only (never a grant whose cost the runtime can't charge).
-    expect(classifyCard(IMMOBILIZING_INK)).toBe("body-only");
+    // (Immobilizing Ink sat here as the unmodeled-COST park until BLITZ DC-1's γ1h paid the discard —
+    // the runtime charges it now, pinned end-to-end in discardCost.test.js. The cost boundary lives on
+    // via a COUNT discard, still outside the vocabulary.)
+    expect(classifyCard(IMMOBILIZING_INK)).toBe("native-activated");
+    expect(classifyCard({ id: "ink2", name: "Two-Pitch Ink", type: "Enchantment — Aura", mana: "{1}{U}",
+      oracle: "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nEnchanted creature has \"{1}, Discard two cards: Untap this creature.\"" })).toBe("body-only");
   });
 });
 

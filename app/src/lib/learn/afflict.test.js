@@ -57,8 +57,9 @@ describe("AFFLICT (CR 702.131) — printed keyword synthesis + classification", 
     expect(classifyCard(cr("Spellweaver Eternal", "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nAfflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)"))).toBe("native-body");
   });
 
-  it("CREED near-miss — an UNMODELED sibling ability keeps the whole card body-only (Merciless Eternal's activated pump)", () => {
-    expect(classifyCard(cr("Merciless Eternal", "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\n{2}{B}, Discard a card: This creature gets +2/+2 until end of turn."))).toBe("body-only");
+  it("Merciless Eternal flips (DC-1 graduation — γ1h pays its discard); a COUNT-discard sibling still parks", () => {
+    expect(classifyCard(cr("Merciless Eternal", "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\n{2}{B}, Discard a card: This creature gets +2/+2 until end of turn."))).toBe("native-activated");
+    expect(classifyCard(cr("Two-Pitch Eternal", "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\n{2}{B}, Discard two cards: This creature gets +2/+2 until end of turn."))).toBe("body-only");
   });
 });
 

@@ -88,8 +88,10 @@ describe("cant-block — coverage: the Goblin-Shortcutter family flips native-tr
 
 // ─── 4. CREED guards ──────────────────────────────────────────────────────────────
 describe("cant-block — CREED: non-qualifying forms stay non-native", () => {
-  it("an ACTIVATED cant-block ('{R}, {T}: Target creature can't block') is body-only (activated path unmodeled)", () => {
-    expect(classifyCard(C("Bola Warrior", "{R}, {T}, Discard a card: Target creature can't block this turn.", "Creature — Human Warrior"))).not.toMatch(/^native/);
+  it("the ACTIVATED cant-block flips (DC-1 graduation — the discard cost was the real gate all along)", () => {
+    // (Bola Warrior sat here titled "activated path unmodeled", but the cant-block atom + the activation
+    // machinery always modeled it — only its "Discard a card" COST was unpayable. γ1h pays it now.)
+    expect(classifyCard(C("Bola Warrior", "{R}, {T}, Discard a card: Target creature can't block this turn.", "Creature — Human Warrior"))).toBe("native-activated");
   });
   it("an optional 'pay then' rider stays body-only", () => {
     expect(classifyCard(C("Frenzied Goblin", "Whenever this creature attacks, you may pay {R}. If you do, target creature can't block this turn."))).not.toMatch(/^native/);

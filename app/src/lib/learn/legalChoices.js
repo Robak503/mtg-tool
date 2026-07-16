@@ -1744,6 +1744,23 @@ function actionsActivateAbility(state, playerId) {
         if (returnLandVictims.length === 0) continue; // no returnable land → the cost can't be paid
       }
 
+      // γ1h (BLITZ DC-1) — a "Discard a card" cost (Rummaging Goblin / the granted looter interiors): the
+      // PLAYER picks WHICH hand card to pitch. Expand one action per DISTINCT-named hand card (copies are
+      // fungible — CR 601.2h pays with the object, and identical cards pay identically), capping the
+      // combinatorics at the hand's name variety. Empty hand → the cost can't be paid → not offered. The
+      // discard is a hand→graveyard move (no mana interaction, so no affordability filter is needed).
+      let discardVictims = [null];
+      if (ab.discardCard) {
+        const seenNames = new Set();
+        discardVictims = (player.hand || []).filter((c) => {
+          const k = c?.name || c?.id;
+          if (seenNames.has(k)) return false;
+          seenNames.add(k);
+          return true;
+        });
+        if (discardVictims.length === 0) continue; // nothing to discard → the cost can't be paid
+      }
+
       // Thread the SOURCE permanent id into target enumeration so an "another target …" restriction
       // (notSource — Formidable Speaker's "Untap another target permanent") excludes this very permanent
       // (CR 109.5). Non-"another" abilities ignore sourceId, so this is a no-op for every existing ability.
@@ -1766,6 +1783,7 @@ function actionsActivateAbility(state, playerId) {
         // the affordability check — mirrors the dispatcher's payment filter exactly. This is the real gate for
         // Oboro: bouncing the land that would have paid the {2} must not be counted as still available.
         if (ab.returnLand && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), cost)) continue;
+        for (const discardVictim of discardVictims) { // γ1h (DC-1) — one action per distinct hand card to pitch
         for (const ch of choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
@@ -1861,6 +1879,8 @@ function actionsActivateAbility(state, playerId) {
             tapCreatureName: tapVictim?.card?.name ?? null,
             returnLandId: returnLandVictim?.id ?? null,  // γ1g — the chosen land to return to owner's hand (cost)
             returnLandName: returnLandVictim?.card?.name ?? null,
+            discardCardId: discardVictim?.id ?? null,    // γ1h (DC-1) — the chosen hand card to pitch (cost)
+            discardCardName: discardVictim?.name ?? null,
             ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
             targets: ch.targets,
@@ -1871,9 +1891,11 @@ function actionsActivateAbility(state, playerId) {
               ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
               : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
               : ab.returnLand && returnLandVictim ? `Return ${returnLandVictim.card?.name}: ${ab.effectClause}`
+              : ab.discardCard && discardVictim ? `Discard ${discardVictim.name}: ${ab.effectClause}`
               : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
           });
         }
+       }
        }
        }
       }

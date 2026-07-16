@@ -56,10 +56,14 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     expect(a.modeled).toBe(false);
     expect(a.sacOther).toBe(null);
   });
-  it("does NOT model a Discard cost (needs a picker — deferred)", () => {
+  it("models a Discard-a-card cost (γ1h, BLITZ DC-1 — the picker arrived: one offer per distinct hand card)", () => {
     const [a] = one("{T}, Discard a card: Draw a card.");
-    expect(a.costModeled).toBe(false);
-    expect(a.modeled).toBe(false);
+    expect(a.discardCard).toBe(1);
+    expect(a.costModeled).toBe(true);
+    expect(a.modeled).toBe(true);
+    // The deferred boundary lives on: a COUNT or a FILTERED discard stays unmodeled.
+    expect(one("{T}, Discard two cards: Draw a card.")[0]?.modeled).toBeFalsy();
+    expect(one("{T}, Discard a creature card: Draw a card.")[0]?.modeled).toBeFalsy();
   });
   it("models an Exile-this cost (γ1c — no-choice self-exile)", () => {
     const [a] = one("{1}, Exile this artifact: Draw a card.", { type: "Artifact" });

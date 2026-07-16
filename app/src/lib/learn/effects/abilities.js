@@ -151,8 +151,17 @@ export function parseAbilityCost(costStr) {
   let removeCounter = null;
   let tapCreature = null;
   let returnLand = null;
+  let discardCard = 0;
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
+    // γ1h — DISCARD-A-CARD cost (BLITZ DC-1 — Rummaging Goblin "{T}, Discard a card: Draw a card."; the
+    // looter class + the Immobilizing Ink / Tin Street Market granted interiors): a CHOICE cost — WHICH
+    // hand card to pitch. The parser records the shape; legalChoices expands one action per DISTINCT-named
+    // hand card (copies are fungible) and gates on a non-empty hand; the dispatcher moves the chosen card
+    // hand → graveyard BEFORE the ability goes on the stack (CR 601.2h — never activate without paying).
+    // Whole-item anchored ($): a COUNT ("discard two cards"), a filter ("discard a creature card"), or
+    // "discard your hand" doesn't match → null (deferred, a safe FN).
+    if (/^discard a card$/i.test(item)) { discardCard = 1; continue; }
     // γ1f — TAP-CREATURE cost (Earthcraft "Tap an untapped creature you control: …"): a CHOICE cost
     // (CR 602.1b — "tap an untapped creature you control" is a cost to tap ANOTHER permanent, distinct
     // from the source's own {T}). The player picks WHICH untapped creature they control to tap (like
@@ -267,7 +276,7 @@ export function parseAbilityCost(costStr) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, costX };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, discardCard, costX };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -621,6 +630,7 @@ export function parseActivatedAbilities(card) {
       exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       tapCreature: cost?.tapCreature ?? null,  // γ1f — "Tap an untapped creature you control": legalChoices picks the creature
+      discardCard: cost?.discardCard ?? 0,     // γ1h — "Discard a card": legalChoices expands per distinct hand card (DC-1)
       returnLand: cost?.returnLand ?? null,    // γ1g — "Return a land you control to its owner's hand": legalChoices picks the land, dispatcher bounces it
       costModeled: !!cost,
       isManaEffect,

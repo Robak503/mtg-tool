@@ -69,8 +69,8 @@ describe("switch-pt — coverage", () => {
     expect(classifyCard({ name: "Twisted Image", type: "Instant", mana: "{U}", oracle: "Switch target creature's power and toughness until end of turn.\nDraw a card." })).toBe("native-spell");
     expect(classifyCard({ name: "Dwarven Thaumaturgist", type: "Creature — Dwarf", mana: "{2}{R}", oracle: "{T}: Switch target creature's power and toughness until end of turn." })).toBe("native-activated");
   });
-  it("CREED: a discard-cost activated (Aquamoeba) and a modal with an unmodeled mode stay non-native", () => {
-    expect(classifyCard({ name: "Aquamoeba", type: "Creature — Elemental Beast", mana: "{1}{U}", oracle: "Discard a card: Switch this creature's power and toughness until end of turn." })).not.toBe("native-activated");
+  it("Aquamoeba flips (DC-1 graduation — γ1h pays the discard); a modal with an unmodeled mode stays non-native", () => {
+    expect(classifyCard({ name: "Aquamoeba", type: "Creature — Elemental Beast", mana: "{1}{U}", oracle: "Discard a card: Switch this creature's power and toughness until end of turn." })).toBe("native-activated");
     expect(classifyCard({ name: "Very Cryptic Command", type: "Instant", mana: "{X}{U}{U}", oracle: "Choose two —\n• Untap two target permanents.\n• Switch target creature's power and toughness until end of turn.\n• Return target instant or sorcery card from your graveyard to your hand." })).not.toMatch(/^native/);
   });
 });
