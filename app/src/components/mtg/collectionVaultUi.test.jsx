@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import CollectionCardDetail from "./CollectionCardDetail.jsx";
-import CollectionView, { BulkActionBar, HeaderOverflowMenu } from "./CollectionView.jsx";
+import CollectionView, { BulkActionBar, HeaderOverflowMenu, ShowpieceShelf } from "./CollectionView.jsx";
 import CollectionImportModal from "./CollectionImportModal.jsx";
 import CollectionAddModal, { quickAddKeyAction } from "./CollectionAddModal.jsx";
 import VaultHome from "./VaultHome.jsx";
@@ -124,6 +124,39 @@ describe("C5-P2.3 — the Ledger split (The Census surface + kiosk door)", () =>
     for (const door of ["The Stacks", "The Ledger", "The Census", "The Atlas", "The Gallery", "The Forge"]) {
       expect(html).toContain(door);
     }
+  });
+});
+
+describe("C5-P2.1 — ShowpieceShelf (the treasure hierarchy in The Stacks)", () => {
+  const cards = [
+    {
+      scryfallId: "signed-1", name: "Gaea's Cradle",
+      stacks: [{ finish: "nonfoil", quantity: 1 }], prices: { usd: "900.00" },
+      signed: { artist: "Mark Zug", inPerson: true },
+    },
+    {
+      scryfallId: "grail-1", name: "Doubling Season",
+      stacks: [{ finish: "foil", quantity: 1 }], prices: { usdFoil: "150.00" },
+    },
+    {
+      scryfallId: "bulk-1", name: "Rampant Growth",
+      stacks: [{ finish: "nonfoil", quantity: 4 }], prices: { usd: "0.50" },
+    },
+  ];
+
+  it("renders flagged + top-value rows with provenance/value captions; bulk stays off", () => {
+    const html = renderToStaticMarkup(<ShowpieceShelf cards={cards} onPick={() => {}} colors={COLORS} />);
+    expect(html).toContain("The Showpiece Shelf");
+    expect(html).toContain("Gaea&#x27;s Cradle");
+    expect(html).toContain("Signed — Mark Zug (in person)");
+    expect(html).toContain("Doubling Season");
+    expect(html).toContain("Top value · $150.00");
+    expect(html).not.toContain("Rampant Growth");
+  });
+
+  it("an all-bulk collection renders no shelf at all", () => {
+    const html = renderToStaticMarkup(<ShowpieceShelf cards={[cards[2]]} onPick={() => {}} colors={COLORS} />);
+    expect(html).toBe("");
   });
 });
 

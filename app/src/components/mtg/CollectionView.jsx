@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { adjustStacks, stackTotal } from "../../lib/collectionStacks";
+import { buildShelf } from "../../lib/showpiece";
 import CollectionGrid from "./CollectionGrid";
 import VaultBinder from "./VaultBinder";
 import CollectionFilters, { applyFilters } from "./CollectionFilters";
@@ -736,7 +737,7 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
 
       {mode === "collection" && (<>
       {state.status === "ready" && (
-        <TrophyStrip cards={cards} onPick={setSelectedRow} colors={COLORS} />
+        <ShowpieceShelf cards={cards} onPick={setSelectedRow} colors={COLORS} />
       )}
       {state.status === "ready" && cards.length > 0 && (
         <CollectionFilters
@@ -1129,59 +1130,71 @@ export function HeaderOverflowMenu({ items, colors, initialOpen = false }) {
   );
 }
 
-// The Trophy Case (V6) — showcase-pinned rows as a hero strip at the top of
-// The Stacks: art tile, name, and the provenance caption. Hidden until the
-// user pins something (the ★ Showcase toggle in the card drawer).
-function TrophyStrip({ cards, onPick, colors }) {
-  const trophies = cards.filter((c) => c.showcase === true);
-  if (trophies.length === 0) return null;
-  const caption = (r) => {
-    const bits = [];
-    if (r.signed) {
-      bits.push(`Signed${r.signed.artist ? ` — ${r.signed.artist}` : ""}${r.signed.inPerson ? " (in person)" : ""}`);
-      if (r.signed.event) bits.push(r.signed.event);
-      if (r.signed.date) bits.push(r.signed.date);
-    }
-    if (r.artistProof) bits.push("Artist proof");
-    if (r.altered) bits.push("Altered");
-    return bits.join(" · ") || "Showcase";
-  };
+// Provenance caption shared by the shelf tiles (and their tooltips). Falls
+// back to "Showcase" for pinned-but-unannotated rows, and to the value line
+// for unflagged top-value picks.
+function showpieceCaption(entry) {
+  const r = entry.row;
+  const bits = [];
+  if (r.signed) {
+    bits.push(`Signed${r.signed.artist ? ` — ${r.signed.artist}` : ""}${r.signed.inPerson ? " (in person)" : ""}`);
+    if (r.signed.event) bits.push(r.signed.event);
+    if (r.signed.date) bits.push(r.signed.date);
+  }
+  if (r.artistProof) bits.push("Artist proof");
+  if (r.altered) bits.push("Altered");
+  if (bits.length === 0) return entry.flagged ? "Showcase" : `Top value · $${entry.value.toFixed(2)}`;
+  return bits.join(" · ");
+}
+
+// C5-P2.1 — THE SHOWPIECE SHELF: the treasure hierarchy that opens The Stacks.
+// The old Trophy Case strip (showcase-pins only, small tiles), promoted: every
+// provenance-flagged row PLUS the top few unflagged cards by value (the $50
+// Finance grail floor), rendered LARGE with the LEYLINE glow. The grid of
+// everything follows below — the Vault reads treasure-first the moment it opens.
+export function ShowpieceShelf({ cards, onPick, colors }) {
+  const shelf = useMemo(() => buildShelf(cards), [cards]);
+  if (shelf.length === 0) return null;
   return (
-    <div style={{ padding: "12px 20px 4px", borderBottom: `1px solid ${colors.LINE}` }}>
-      <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ley-green)", marginBottom: 8 }}>
-        ★ Trophy Case
+    <div style={{ padding: "14px 20px 4px", borderBottom: `1px solid ${colors.LINE}` }}>
+      <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ley-green)", marginBottom: 10, textShadow: "0 0 8px var(--ley-green-glow)" }}>
+        ★ The Showpiece Shelf
       </div>
-      <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 10 }}>
-        {trophies.map((r) => (
-          <button
-            key={r.scryfallId}
-            onClick={() => onPick(r)}
-            className="ley-card"
-            style={{
-              flexShrink: 0,
-              width: 190,
-              textAlign: "left",
-              cursor: "pointer",
-              background: "var(--ley-glass)",
-              border: "1px solid var(--ley-line-bright)",
-              borderRadius: "var(--r-lg)",
-              padding: 8,
-              color: colors.TEXT,
-            }}
-            title={`${r.name} — ${caption(r)}`}
-          >
-            <img
-              src={`/api/card-image?id=${encodeURIComponent(r.scryfallId)}`}
-              alt=""
-              width={174}
-              height={243}
-              loading="lazy"
-              style={{ objectFit: "cover", borderRadius: 9, display: "block", border: `1px solid ${colors.LINE}` }}
-            />
-            <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
-            <div style={{ fontSize: 10, color: "var(--ley-text-dim)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{caption(r)}</div>
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12 }}>
+        {shelf.map((entry) => {
+          const r = entry.row;
+          return (
+            <button
+              key={r.scryfallId}
+              onClick={() => onPick(r)}
+              className="ley-card"
+              style={{
+                flexShrink: 0,
+                width: 240,
+                textAlign: "left",
+                cursor: "pointer",
+                background: "var(--ley-glass)",
+                border: "1px solid var(--ley-line-bright)",
+                borderRadius: "var(--r-lg)",
+                padding: 8,
+                color: colors.TEXT,
+                boxShadow: "0 0 18px var(--ley-green-glow)",
+              }}
+              title={`${r.name} — ${showpieceCaption(entry)}`}
+            >
+              <img
+                src={`/api/card-image?id=${encodeURIComponent(r.scryfallId)}`}
+                alt=""
+                width={224}
+                height={313}
+                loading="lazy"
+                style={{ objectFit: "cover", borderRadius: 11, display: "block", border: `1px solid ${colors.LINE}` }}
+              />
+              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-display), sans-serif" }}>{r.name}</div>
+              <div style={{ fontSize: 10, color: "var(--ley-text-dim)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showpieceCaption(entry)}</div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

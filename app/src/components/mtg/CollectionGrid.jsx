@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { cardImageProxySrc } from "../../lib/cardImage";
+import { isShowpiece } from "../../lib/showpiece";
 
 const CARD_WIDTH = 200;
 // Real Magic card ratio (63mm × 88mm).
@@ -133,6 +134,10 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
   const [imgError, setImgError] = useState(false);
   // A real (non-default) color tag paints a left-edge stripe in its color.
   const tagStripe = tag && tag.id !== "default" && !tag.builtin ? tag : null;
+  // C5-P2.1 — elevated cells: provenance-flagged rows (signed / artist proof /
+  // altered / showcase) read as treasure in the grid — glow ring + ★ chip.
+  // Bulk stays exactly as compact as before.
+  const showpiece = isShowpiece(card);
   // Stop the stepper clicks from bubbling to the cell button (which opens the
   // detail drawer). A decrement at the last copy deletes the row upstream.
   const step = (delta) => (e) => {
@@ -165,7 +170,8 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
         flexShrink: 0,
         padding: 0,
         background: colors.BG3,
-        border: `1px solid ${isSelected ? colors.GOLD : colors.LINE}`,
+        border: `1px solid ${isSelected ? colors.GOLD : showpiece ? "var(--ley-line-bright)" : colors.LINE}`,
+        boxShadow: showpiece ? "0 0 14px var(--ley-green-glow)" : undefined,
         // Match a real card's corner radius at this size (~4.5% of width).
         borderRadius: 10,
         cursor: "pointer",
@@ -258,6 +264,21 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
               boxShadow: "0 0 6px var(--ley-red-dim)",
             }}
           />
+        )}
+        {showpiece && !selectMode && (
+          <span
+            aria-hidden
+            title="Showpiece"
+            style={{
+              position: "absolute", bottom: 6, left: 6, zIndex: 3,
+              fontSize: 11, lineHeight: "14px", color: "var(--ley-green)",
+              background: "rgba(5,7,5,0.82)",
+              border: "1px solid var(--ley-line-bright)",
+              borderRadius: 4, padding: "1px 5px",
+            }}
+          >
+            ★
+          </span>
         )}
         {!wishlist && onQuickAdjust && (
           <div
