@@ -1,6 +1,11 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +414 more (campaign +622), 31 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +429 more (campaign +637), 32 slices, LOST=0
+
+> Latest: **SC-1** cant-be-blocked SELF + the life-comparison intervening-if (16d80461, +15) — the
+> unblockable-activation class (Gearseeker Serpent kin) + Sword Coast Sailor; the Tar Pit pin caught a
+> real layer-blindness in selfTargets (now permanentIsCreature-aware). The exact-30% line (10,248) is
+> 28 cards out; baseline scratchpad cand45.txt (10,220).
 
 > **THE +600 MILESTONE**: campaign native+land 9,583 → 10,200 name-dedup (~29.9% of 34,161 — one slice
 > from 30%). Latest: **LV-1** the leavesSelf event + the LTB disjunction (a4b8c521, +20) — THRAGTUSK
