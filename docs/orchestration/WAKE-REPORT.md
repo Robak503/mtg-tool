@@ -1,5 +1,28 @@
 # WAKE REPORT — live resume anchor
 
+## 🏛️ 2026-07-15 (night, latest) — VAULT PHASE 2 COMPLETE on master: C5 is DONE end-to-end (awaiting Colton's taste walk)
+
+Colton fired the parked C5 Phase-2 layout batch ("fire it up and let'er rip"). All five items
+shipped in spec order, each suite-green + lint-0, then live-walked in the dev server (kiosk → Census
+→ Stacks → overflow → shelf → trophy page → edit drawer → Gallery, driven via the accessibility tree;
+seeded 2 stage-prop cards through the real API for the walk, deleted after):
+- **P2.2 (ececb650):** Stacks header → Add + Import + ONE ⋯ overflow menu (reversible by design).
+- **P2.3 (ba8a6d74):** Ledger split — finance stays; stats become **THE CENSUS** (kiosk 5→6 doors,
+  live pane = biggest color share + unique count; tally-mark icon; area tagline updated).
+- **P2.1 (2248e70e):** **THE SHOWPIECE SHELF** + elevated grid cells — provenance-flagged rows
+  (signed/artistProof/altered/showcase) + top-5 by value (\$50 Finance grail floor) open The Stacks
+  large under the glow; flagged grid cells get glow ring + ★ chip. Shared predicate:
+  `app/src/lib/showpiece.js` (unit-tested).
+- **P2.4 (1fe12c4e):** **VaultTrophyPage** — flagged cards open full-page (hero art, provenance
+  plaque, worth + trend, copies, notes); "Edit details" opens the drawer BESIDE it; unflagged cards
+  keep the drawer.
+- **P2.5 (b493e9e4):** Gallery rides the shared CollectionView shell (embedded mode, no dup header).
+
+Suite **8,519** (+20) · lint 0 · CHANGELOG [Unreleased] written. **OPEN for Colton: the C5 spec's
+review gate — a packaged-UI taste walk (shelf + trophy page are taste features; expect one
+adjustment round) → then cut the release.** Carried items unchanged: Rograkh in the pool? · real
+Omnath-deck reconciliation · Feature B (Omnath) · mirror-targeting spec.
+
 ## 🚢 2026-07-15 (night, later) — v0.142.0 TAGGED (c08d8d09): the whole Crucible batch ships
 
 Colton eyeballed and called it ("ship this is good"). One release: The Reflecting Pool R1-R4 +

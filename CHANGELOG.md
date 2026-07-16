@@ -8,7 +8,28 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
-_(nothing yet)_
+### Added
+- **The Showpiece Shelf** — The Stacks finally feels like a vault. A shelf of your treasure
+  opens the surface: every provenance-flagged card (signed, artist proof, altered, or
+  showcase-pinned) plus your top few cards by value, rendered large under the glow. In the
+  grid below, flagged cards carry a glow ring and a ★ chip so your showpieces stand out from
+  bulk at a glance. Bulk stays exactly as compact as before.
+- **The Trophy Page** — a showpiece opens full-page instead of in the edit drawer: hero art
+  banner, the card large, provenance rendered as a plaque (who signed it, where, when), current
+  worth with the price trend, your physical copies with paid/acquired, and your notes. "Edit
+  details" opens the familiar drawer right beside it; the drawer's ★ Showcase toggle is still
+  the promotion pin.
+- **The Census** — the Ledger split in two. The Ledger keeps the money (value, movement,
+  movers, alerts); the new Census door holds the counts (composition, mana curve, rarity, top
+  sets, most-valuable, the value chart). The Vault kiosk now has six doors, and the Census
+  door's pane shows your biggest color share live.
+
+### Changed
+- **The Stacks header slimmed down** — only "+ Add card" and "Import CSV" stay top-level;
+  everything else (binder view, select mode, color tags, CSV export, the roast) lives in one
+  ⋯ menu. Deliberately reversible: what you use earns its way back.
+- **The Gallery joined the family** — it now rides the same Vault shell as every other door
+  (header, counts, back button) instead of being its own standalone page.
 
 ## [0.142.0] — 2026-07-15
 
