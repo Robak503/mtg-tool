@@ -480,7 +480,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // distinct from the full name, and present word-bounded in the condition. Conservative by design (a false
   // negative is SAFE; a false positive is forbidden — CLAUDE.md §1.2).
   const firstWord = isLegendary && !nameL.includes(",") && /\s/.test(nameL) ? nameL.split(/\s+/)[0] : "";
-  const firstWordRef = firstWord.length >= 4 && firstWord !== nameL && !FIRST_WORD_SELF_STOPWORDS.has(firstWord)
+  // "<Word> the <Epithet>" names (Zur the Enchanter — BLITZ TUT-1) admit a THREE-letter first word: the
+  // " the " infix is the canonical WotC short-name style, so the over-match risk the ≥4 gate guards
+  // against (an arbitrary short common first word) doesn't apply — the stopword gate still holds (so
+  // "The Ur-Dragon" → "the" never matches). Every other no-comma name keeps the ≥4 gate unchanged.
+  const theEpithetName = /^\S+\s+the\s+\S/.test(nameL);
+  const firstWordRef = firstWord.length >= (theEpithetName ? 3 : 4) && firstWord !== nameL && !FIRST_WORD_SELF_STOPWORDS.has(firstWord)
     && new RegExp(`\\b${firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
 

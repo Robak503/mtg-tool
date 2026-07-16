@@ -328,21 +328,26 @@ export function parseGrantedKeywords(phrase) {
  * tutor drops to low → Arbiter, so the engine never silently mis-matches a filter it doesn't truly
  * understand.
  *
- * WAVE-2b TUTOR — the curated CREATURE-SUBTYPE block below is admitted ONLY for to-HAND / to-TOP
- * tutors (parseTutorFilter is shared, but the LAND-guard on the to-battlefield paths — RAMP-1/MULTI/
- * SPLIT — requires every group be guaranteed-land, which no creature subtype is, so a subtype tutor
- * can never cheat a non-land into play). Each word appears verbatim as a subtype in the corpus type
- * line ("Creature — Dragon"), so `\bdragon\b` matches exactly the subtyped creatures (CR 205.3m).
+ * WAVE-2b TUTOR — the curated CREATURE-SUBTYPE block below is admitted for to-HAND / to-TOP
+ * tutors, and (BLITZ TUT-1) for the FIXED-MV-CAPPED to-battlefield fetch (bfn), where the printed
+ * mana-value cap is the anti-cheat guarantee the LAND-guard provides elsewhere (parseTutorFilter is
+ * shared, but the UNCAPPED to-battlefield paths — RAMP-1/MULTI/SPLIT — still require every group be
+ * guaranteed-land, which no creature subtype is, so an uncapped subtype tutor can never cheat a
+ * non-land into play). Each word appears verbatim as a subtype in the corpus type line
+ * ("Creature — Dragon"), so `\bdragon\b` matches exactly the subtyped creatures (CR 205.3m).
  */
 const TUTOR_FILTER_WORDS = new Set([
   "basic", "legendary", "snow", "land", "creature", "artifact", "enchantment",
   "instant", "sorcery", "planeswalker", "battle", "plains", "island", "swamp",
   "mountain", "forest", "equipment", "aura",
-  // Curated creature subtypes (tribal tutors — to-hand/to-top only). Each is a real creature subtype
-  // that (a) has at least one "search your library for a <subtype> card" tutor in the corpus and (b)
-  // appears verbatim ONLY in the subtype portion of a type line (verified zero collision with any
+  // Curated creature subtypes (tribal tutors). Each is a real creature subtype that (a) has at
+  // least one "search your library for a <subtype> card" tutor in the corpus and (b) appears
+  // verbatim ONLY in the subtype portion of a type line (verified zero collision with any
   // non-subtyped card), so `\b<subtype>\b` containment matches exactly the subtyped creatures.
+  // "rebel"/"mercenary" verified 2026-07-16 (BLITZ TUT-1, the recruiter chains): zero corpus type
+  // lines carry either word left of the em-dash.
   "dragon", "merfolk", "dinosaur", "goblin", "wizard", "elf", "sliver", "vampire",
+  "rebel", "mercenary",
 ]);
 // ===== RAMP-TYPED ===== the five basic LAND TYPES (CR 305.6). A tutor-filter group naming any of
 // these is GUARANTEED to fetch a LAND — verified against the bundled corpus: ZERO non-land cards

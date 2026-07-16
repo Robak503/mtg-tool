@@ -1300,9 +1300,11 @@ export function millClauseParser(clause) {
 
 /**
  * TUTOR clause parser (CR 701.19) — migrated from parseExtendedAtom (seam batch 12e / Wave B2b), verbatim.
- * SIX contiguous match blocks, FIRST-MATCH ORDER LOAD-BEARING (tm/ttm/bfm share the `^search your library for
- * a…` prefix; tm fetch-to-hand wins over ttm fetch-to-top wins over bfm ramp-1, and the bare-both "up to two"
- * mf must precede the split spm — preserve tm,ttm,bfm,mf,spm,lfh exactly):
+ * SEVEN contiguous match blocks (+ the hasX-gated bfx/bfxg pair), FIRST-MATCH ORDER LOAD-BEARING (tm/ttm/bfm
+ * share the `^search your library for a…` prefix; the fixed-MV battlefield bfn is anchored on "with mana value
+ * N or less … onto the battlefield" so it is disjoint from all three, ordered first for documentation; tm
+ * fetch-to-hand wins over ttm fetch-to-top wins over bfm ramp-1, and the bare-both "up to two"
+ * mf must precede the split spm — preserve bfn,tm,ttm,bfm,mf,spm,lfh exactly):
  *   tm  — fetch-to-HAND single card (optional allowlisted filter + optional MV cap)
  *   ttm — fetch-to-TOP single card (shuffle-then-place; same optional filter/MV)
  *   bfm — RAMP-1 / RAMP-TYPED single LAND to battlefield (guaranteed-land guard + ambiguous-basic guard)
@@ -1389,6 +1391,38 @@ export function tutorClauseParser(clause, ctx = {}) {
         targetType: null,
       };
     }
+  }
+  // bfn — SEARCH→BATTLEFIELD, FIXED MV CAP (BLITZ TUT-1 — the Rebel/Mercenary recruiter chains:
+  // Ramosian Sergeant "search your library for a Rebel permanent card with mana value 2 or less, put it
+  // onto the battlefield, then shuffle"; also Zur's enchantment fetch, Soul of Mirrodin's artifact fetch,
+  // Captain America's Equipment fetch). The bfx SAFETY argument with the cap PRINTED instead of X-bound:
+  // the fetched card's mana value must be <= the printed N (enforced upstream by cardMatchesTutorFilter's
+  // MV gate), so the fetch can never cheat an uncapped permanent into play — which is exactly what the
+  // LAND-guard buys the uncapped ramp paths (bfm/mf/spm). The phrase runs the SAME allowlist
+  // (parseTutorFilter); a trailing "<subtype> permanent" phrase (rebel permanent / mercenary permanent)
+  // resolves as the subtype group PLUS the permanentOnly front-face gate — both gates hold together, so a
+  // "Rebel instant" could never be fetched even if one existed. An unmodeled word (nonland, nonlegendary,
+  // a color) fails the allowlist → null → LOW → Arbiter (Guardian Sunmare, Woodland Bellower park). Only
+  // "or less" is admitted — an exact-N / "or greater" battlefield fetch falls through (none in corpus).
+  // Ordered before tm for documentation only (tm's anchor requires "into your hand" — disjoint).
+  const bfn = t.match(/^search your library for an? ([a-z][a-z ]*?) cards? with mana value (\d+) or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (bfn) {
+    let phrase = bfn[1];
+    let permanentOnly = false;
+    if (phrase === "permanent") { permanentOnly = true; phrase = null; }
+    else if (phrase.endsWith(" permanent")) { permanentOnly = true; phrase = phrase.slice(0, -" permanent".length); }
+    const base = phrase === null ? { groups: [] } : parseTutorFilter(phrase);
+    if (!base) return null; // unmodeled filter word → LOW → Arbiter (never an over-fetch)
+    const filter = { ...base, mv: { max: parseInt(bfn[2], 10) } };
+    if (permanentOnly) filter.permanentOnly = true;
+    return {
+      op: "tutor",
+      filter,
+      filterLabel: `${bfn[1]} card with mana value ${bfn[2]} or less`,
+      destination: "battlefield",
+      entersTapped: !!bfn[3],
+      targetType: null,
+    };
   }
   // tm — fetch-to-HAND single card.
   const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
