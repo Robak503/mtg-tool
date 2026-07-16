@@ -1,5 +1,32 @@
 # WAKE REPORT — live resume anchor
 
+## 🎬 2026-07-15 (night) — CRUCIBLE SWEEP COMPLETE: dream shelf A ✅ + C ✅ (B = Omnath's lane) · queue item ② closed · sim-integrity order closed · A/B trust gate live
+
+Autonomous continuation (Colton's standing order: any Crucible-attached work, full auto). Shipped to
+master, each suite-green + lint-0 + live-verified:
+- **Feature C "▶ Watch it" (b0e22ea4):** game-anchored highlight facts re-run their exact game
+  (deterministic seed-index replay, cross-checked vs the recorded row) → per-turn scrubber. New
+  `engineLogNarrator.js` (engine log → honest plain-English play-by-play; reusable). perGame rows now
+  record their SEED index (array position drifts on engine-throws — the replay anchor bug that never
+  shipped).
+- **A/B bench coverage trust gate (3748e0fc):** both swap cards classified at start
+  (coverage.classifyCard); a not-fully-modeled card gets a plain banner framing the result as a
+  partial read — "no effect" can no longer masquerade as a verdict (Omnath's Chronicle-of-Victory rule).
+- **Grind-store double-writer guard (18d2b652):** wake-queue ② audited STALE (0 dupes in the live
+  store AND the epoch-2 archive, both dense) + a permanent dedupe-on-read (last-line-wins) in
+  readAllGrindHeaders.
+- **Sim-integrity order effectively CLOSED (0de1d309):** Phases 0-3 verified shipped; the missing
+  Phase-0 guard shipped as a formPod deck→seat uniformity tripwire (2,000 seeded pods, >4σ, 39ms).
+  **⚠ ENGINE FINDING (banked, not fixed): mirrored pods pile onto early seats (0/5/14/41 @ n=60)** —
+  attack-targeting heuristics; real-deck pods are FAIR (25.0/25.1/24.8/25.1 by position over 23,313
+  games). Any mirror-based measurement (pilot A/B, temperament benches) is position-poisoned until a
+  spec'd targeting fix — a RE-ANCHOR event, needs scheduling.
+- Removed the committed scratch dump `after-clone2.txt` (4b2b61c6).
+
+Suite **8,499** · lint 0 · master tip b0e22ea4 (+docs). **OPEN for Colton:** eyeball the Reflecting
+Pool + the highlight replay → cut the release (one batch: R1-R4 + trust gate + ▶ Watch it) · Rograkh
+in the grind pool? · real Omnath-deck reconciliation (Newt→Last March; the dev copy already matches).
+
 ## 🪞 2026-07-15 (later) — R4 THE LIVING HISTORY on master (600768d6): the Pool is COMPLETE R1-R4; combat-stamp finding RESOLVED (data age, not a bug)
 
 R4 un-parked and finished per Colton's standing order (autonomous session — he authorized working
