@@ -452,6 +452,12 @@ export function massFilteredDamageClauseParser(clause) {
   // confidence alone, and the deal-damage resolver synthesizes the single creature target from ctx.
   const tp = t.match(/^.+? deals? (\d+) damage to the triggering creature$/);
   if (tp) return { op: "deal-damage", amount: parseInt(tp[1], 10), target: "thatCreature", targetType: null };
+  // SELF-DRAIN damage (BLITZ JB-1 — Juzám Djinn / Ravenous Giant / Nettletooth Djinn: "At the beginning of
+  // your upkeep, this creature deals N damage to YOU."): the recipient is the CONTROLLER — a fixed referent,
+  // never a chosen target (targetType:null → routes on confidence). Real DAMAGE, not life loss (replacement
+  // effects / damage watchers apply through the shared per-target hitPlayer path). Whole-clause anchored.
+  const sd = t.match(/^(?:this creature|it) deals (\d+) damage to you$/);
+  if (sd) return { op: "deal-damage", amount: parseInt(sd[1], 10), target: "you", targetType: null };
   return null;
 }
 
@@ -1062,14 +1068,17 @@ export const stackResolvers = {
     // chosen target. Gone by resolution → no target → 0 dealt (a clean no-op, CR 608.2b-adjacent).
     const targets = atom.target === "thatCreature"
       ? (ctx.triggeringPermanentId && findPermanent(state, ctx.triggeringPermanentId) ? [{ type: "creature", id: ctx.triggeringPermanentId }] : [])
-      : atom.targetType === "defendingPlayer"
-        ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
-        : atom.targetType === "damagedPlayer"
-          ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
-          : ctx.targets;
-    // defendingPlayer/damagedPlayer/thatCreature resolve via `targets`, not the special targetType switch in
+      : atom.target === "you"
+        ? (state.players?.[ctx.controller] ? [{ type: "player", id: ctx.controller }] : [])
+        : atom.targetType === "defendingPlayer"
+          ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
+          : atom.targetType === "damagedPlayer"
+            ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
+            : ctx.targets;
+    // defendingPlayer/damagedPlayer/thatCreature/you resolve via `targets`, not the special targetType switch in
     // applyDamageEffect — pass a bare targetType so each takes the per-target hitPlayer/hitCreature path.
     const targetType = atom.target === "thatCreature" ? "creature"
+      : atom.target === "you" ? "player"
       : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer") ? "player" : atom.targetType;
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // SELF-HIT (BLITZ OA-1 — Orcish Artillery "and M damage to you"): the printed self-hit lands on the

@@ -182,9 +182,15 @@ describe("FIGHT-PAIR / DAMAGE-TARGET-POWER parser — the named cards classify H
     expect(p.atoms[0]).toMatchObject({ op: "fight-pair", distinct: true });
   });
 
-  it("CREED — an unmodeled RIDER ('or planeswalker') leaves the clause LOW (→ Arbiter)", () => {
-    // Bite Down (creature OR planeswalker) must NOT match — whole-clause `$`.
-    expect(parseEffectClause("Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.", "Instant").confidence).toBe("low");
+  it("the BITE union (JB-1): 'creature or planeswalker' dealee parses HIGH; a stat/count variant stays LOW", () => {
+    // (Bite Down sat here as the unmodeled-rider near-miss until BLITZ JB-1 modeled the union — the
+    // resolver routes a planeswalker dealee through the shared pw damage path, CR 120.3c.)
+    const p = parseEffectClause("Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.", "Instant");
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "damage-target-power", targetType: "creatureOrPlaneswalker" });
+    // The near-miss intent lives on: a TOUGHNESS-stat variant and an up-to-one count variant stay LOW.
+    expect(parseEffectClause("Target creature you control deals damage equal to its toughness to target creature or planeswalker you don't control.", "Instant").confidence).toBe("low");
+    expect(parseEffectClause("Target creature you control deals damage equal to its power to up to one target creature or planeswalker you don't control.", "Instant").confidence).toBe("low");
   });
 
   it("Ram Through (SHELF W2) — the trample-excess rider collapses to damage-target-power + trampleExcess, HIGH", () => {

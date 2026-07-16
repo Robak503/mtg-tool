@@ -516,6 +516,13 @@ export function applyDamageTargetPower(state, atom, ctx) {
   if (pow <= 0) {
     return logEvent(state, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
   }
+  // BITE-PW (BLITZ JB-1, CR 120.3c) — a PLANESWALKER dealee (the creature-or-planeswalker union): route the
+  // locked power through the shared applyDamageEffect pw path (damage → loyalty loss, zero-loyalty SBA).
+  // Deathtouch/trample are creature-combat concepts — irrelevant here (the union form carries no trampleExcess).
+  if (/\bPlaneswalker\b/i.test(String(target.permanent.card?.type || target.permanent.card?.type_line || ""))) {
+    const afterPw = applyDamageEffect(state, { controller: ctx.controller, amount: pow, targetType: "planeswalker", targets: [{ type: "planeswalker", id: target.permanent.id }], source: { id: ctx.sourceId } });
+    return logEvent(afterPw, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
+  }
   const deathtouched = new Set();
   if (permanentHasKeyword(state, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
   let toCreature = pow, excess = 0;
@@ -1502,6 +1509,14 @@ export function fightClauseParser(clause) {
     m = t.match(new RegExp(`^target creature you control deals damage equal to its power to ${ENEMY}$`));
     if (m) return {
       op: "damage-target-power", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+    };
+    // (b2) the BITE union (BLITZ JB-1 — Bite Down / Hard-Hitting Question / Master's Rebuke): the dealee may
+    // be a creature OR planeswalker. Same one-way resolver; a planeswalker dealee routes through the shared
+    // applyDamageEffect pw path (damage → loyalty loss, CR 120.3c).
+    m = t.match(/^target creature you control deals damage equal to its power to target creature or planeswalker (?:you don't control|an opponent controls)$/);
+    if (m) return {
+      op: "damage-target-power", targetType: "creatureOrPlaneswalker", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
       secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
     };
     // (c) "target creature fights another target creature"  (any-side, the two must be DISTINCT — CR 701.12)

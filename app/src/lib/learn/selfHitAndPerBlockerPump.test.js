@@ -161,6 +161,16 @@ describe("IE-1 — contact damage", () => {
     const brAfter = resolved.players.ai1.battlefield.find((x) => x.id === "br");
     expect(brAfter ? brAfter.damageMarked : 3).toBeGreaterThanOrEqual(3); // marked (or already swept dead)
   });
+  it("JB-1 — the upkeep self-drain ('deals N damage to you') lands REAL damage on the controller", () => {
+    const p = parseEffectClause("this creature deals 1 damage to you");
+    expect(p.atoms).toEqual([{ op: "deal-damage", amount: 1, target: "you", targetType: null }]);
+    expect(classifyCard({ type: "Creature — Djinn", name: "Juzám Djinn", power: "5", toughness: "5",
+      oracle: "At the beginning of your upkeep, this creature deals 1 damage to you." })).toBe("native-trigger");
+    let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const before = s.players.user.life;
+    const after = runEffectProgram(s, { source: { name: "Juzám Djinn" }, payload: { params: { program: { atoms: [{ op: "deal-damage", amount: 1, target: "you", targetType: null }] }, controller: "user", targets: [], sourceId: null } } });
+    expect(before - after.players.user.life).toBe(1);
+  });
   it("CREED — a trailing rider is never eaten (the audit catch): controller-damage and end-of-combat forms park", () => {
     const alphas = { type: "Creature — Wolf", name: "Assembled Alphas",
       oracle: "Whenever this creature blocks or becomes blocked by a creature, this creature deals 3 damage to that creature and 3 damage to that creature's controller." };
