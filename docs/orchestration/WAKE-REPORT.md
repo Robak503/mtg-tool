@@ -1,6 +1,10 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +358 more (campaign +526), 20 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +332 more (campaign +540), 20 slices, LOST=0
+
+> Numbers audited against the tier-census files (9,791 → 10,123 name-dedup native+land): the running
+> "+358/20 slices" line pushed earlier in the day OVER-COUNTED by a drifted slice tally — the census
+> delta is authoritative. (The ledger doesn't care how ya feel.)
 
 Colton's standing order (morning): the Vault walk became a future full overhaul (parked); the corpus
 grind resumes uninterrupted — full trust, no check-ins. Day-2 slices, each gated (suite+lint+audited
@@ -30,11 +34,18 @@ Winder fold · **SM-2** can't attack or block alone (f7b533b4, +5) — Mogg Flun
 gates · **TE-1** assign-as-unblocked (053ec13a, +8) — Thorn Elemental's full power through blockers ·
 **BF-1** the blocks-a-flyer pump (cf0df1af, +6) — Netcaster Spider, the rampage fire-time family ·
 **EC-1** KW-ECHO (5b063ead, +37) — the one-time first-upkeep pay-or-sacrifice on the cumulative-upkeep
-chassis; Karmic Guide / Avalanche Riders / Goblin Marshal ride their already-modeled ETBs. Suite
-8,588 → 8,645 · lint 0 throughout · NO release tag (the unreleased train now carries C5 + both blitz
-days). Prevention is now a real subsystem: next-N shields, fogs (all + players scopes), self walls,
+chassis; Karmic Guide / Avalanche Riders / Goblin Marshal ride their already-modeled ETBs · **FL-1**
+KW-FLANKING (5958b217 + the 936598d4 pin graduation — A GATE SLIP is on record in that commit: the
+FL-1 push carried one red pin because commit+push were chained behind the suite in one shell command;
+discipline since: gate exit verified BEFORE any commit) · **IE-1** contact damage (c44c4cb5, +4) —
+Inferno Elemental per block pair, both roles; the audit caught two rider-eating FPs (Assembled
+Alphas / Sawtooth Ogre) pre-commit and the regexes are sentence-end anchored · **JB-1** the BITE
+union + upkeep self-drain (21948f30, +15) — Bite Down's creature-or-planeswalker dealee via the pw
+damage path; Juzám Djinn's "deals 1 damage to you" as REAL controller damage. Suite 8,588 → 8,650 ·
+lint 0 throughout · NO release tag (the unreleased train now carries C5 + both blitz days).
+Prevention is now a real subsystem: next-N shields, fogs (all + players scopes), self walls,
 attached walls — each new prevention wording from here is a clause, not a build. Running census after
-day-2 so far: native+land 9,791 → 10,090 by name-dedup (~29.5% of 34,161).
+day-2 so far: native+land 9,791 → 10,123 by name-dedup (~29.6% of 34,161).
 
 ## 🌙 2026-07-16 (overnight) — THE CORPUS BLITZ: +208 audited native adds, 14 slices, LOST=0 everywhere
 
