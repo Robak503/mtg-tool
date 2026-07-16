@@ -1512,6 +1512,16 @@ function parseClause(clause, out, selfName, selfType) {
       }
       return; // a self-for-each clause — handled (or intentionally dropped to LOW on an unmodeled source)
     }
+    // ── YOUR-TURN GATED-SELFBUFF (BLITZ DT-1 — Hardy Veteran / Wildwood Geist / Skophos Reaver frame):
+    // "During your turn, this creature gets +N/+M." The same ptModifyGated lane with a turn-phase gate
+    // ({kind:"yourTurn"} — layers.gateMet reads state.activePlayer === controller, re-evaluated every
+    // derive pass so the buff flips exactly at the turn boundary). Whole-clause anchored: a keyword or
+    // rider tail falls through → LOW (safe FN).
+    const dt = c.match(/^during your turn, (?:this creature|it) gets ([+-]\d+)\/([+-]\d+)$/);
+    if (dt) {
+      out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: signed(dt[1]), toughness: signed(dt[2]), gate: { kind: "yourTurn" } }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
     // ── GATED-SELFBUFF: a STATIC self P/T buff GATED on a board threshold ("this creature gets +X/+Y as long
     // as you control a/another/N <type>") — Mire Kavu, Loam Lion, Grixis Grimblade. Same self-static family as
     // the for-each above (continuous, so exempt from the static-only "as long as" bail below), but the

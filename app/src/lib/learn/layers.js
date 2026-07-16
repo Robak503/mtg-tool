@@ -221,6 +221,10 @@ function countGraveyardSpec(state, perm, spec) {
 // types in the controller's graveyard (no self-exclusion — a graveyard card is never the gated permanent).
 function gateMet(state, perm, gate) {
   if (!gate) return true;
+  // YOUR-TURN gate (BLITZ DT-1 — "During your turn, this creature gets +N/+M", Hardy Veteran frame):
+  // open exactly while the permanent's CONTROLLER is the active player. Re-evaluated every derive
+  // pass like every other gate, so the buff flips precisely at the turn boundary (CR 611.2c).
+  if (gate.kind === "yourTurn") return state?.activePlayer === perm.controller;
   // EQUIPPED gate: any Equipment on the battlefield is attached to this permanent (CR 301.5b).
   if (gate.kind === "isEquipped") {
     for (const pid of Object.keys(state?.players || {})) {
