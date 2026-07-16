@@ -45,6 +45,26 @@ function stripSorcerySpeedRider(clause) {
 }
 
 /**
+ * GY SELF-RECURSION (BLITZ GY-1 — Reassembling Skeleton / Sanitarium Skeleton class, CR 602.2 + 113.6d:
+ * an ability activated from the graveyard because its effect can only make sense there): the exact line
+ * "<mana cost>: Return this card from your graveyard to <your hand | the battlefield [tapped]>." —
+ * MANA-only cost, whole-line anchored (a rider / a non-mana cost item / "at the beginning" delayed forms
+ * fail → the card stays body-only, a safe FN). Shared single-source: legalChoices' graveyard enumerator,
+ * the dispatcher, AND the coverage classifier all key off THIS parse, so offer/pay/metric cannot drift.
+ * Returns { manaPips, dest, entersTapped, raw } or null.
+ */
+export function parseGraveyardSelfRecursion(card) {
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
+  for (const line of oracle.split("\n")) {
+    const m = line.trim().match(/^((?:\{[^}]+\})+): return this card from your graveyard to (your hand|the battlefield)( tapped)?\.?$/i);
+    if (m) {
+      return { manaPips: m[1], dest: m[2].toLowerCase() === "your hand" ? "hand" : "battlefield", entersTapped: !!m[3], raw: line.trim() };
+    }
+  }
+  return null;
+}
+
+/**
  * Self-name normalization (CR 201.4 — a card referring to itself by name means THIS object). An activated
  * effect like "Regenerate Wolverine." means "Regenerate this permanent" — the engine's effect parser anchors
  * the self-regen / self-pump atoms on "this creature"/"this permanent", so map the card's OWN name (full and

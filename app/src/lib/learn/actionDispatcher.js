@@ -684,6 +684,44 @@ function sacrificePermanentForCost(state, playerId, permObj) {
   return next;
 }
 
+/**
+ * GY SELF-RECURSION (BLITZ GY-1, CR 602.2): activate "Return this card from your graveyard to <your
+ * hand | the battlefield [tapped]>" FROM the graveyard. Mana-only cost (paid through the same
+ * planPayment/commitPaymentPlan every ability uses); the ability goes ON THE STACK (kind
+ * "activated-ability", the GY_SELF_RETURN resolver) so responses work — the resolver re-checks the
+ * card is still in the graveyard and fizzles cleanly if it left.
+ */
+function applyActivateGyRecursion(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const card = (player.graveyard || []).find((c) => c.id === action.cardId);
+  if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
+  const working = commitPaymentPlan(state, action.playerId, plan);
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId,
+    kind: "activated-ability",
+    source: card,
+    controller: action.playerId,
+    targets: [],
+    cost: action.cost,
+    payload: {
+      resolver: RESOLVER_KEYS.GY_SELF_RETURN,
+      params: { cardId: action.cardId, controller: action.playerId, dest: action.dest, entersTapped: !!action.entersTapped },
+    },
+  });
+  let next = { ...working2, stack: [...working2.stack, stackObject] };
+  return logEvent(next, {
+    kind: "activate-ability",
+    playerId: action.playerId,
+    permanentId: null,
+    cardName: card.name,
+    abilityText: action.abilityText,
+  });
+}
+
 function applyActivateAbility(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
@@ -1253,6 +1291,7 @@ const HANDLERS = {
   "tap-for-mana": applyTapForMana,
   "double-mana-pool": applyDoubleManaPool, // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   "activate-ability": applyActivateAbility,
+  "activate-gy-recursion": applyActivateGyRecursion, // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "plot": applyPlot,   // PLOT (CR 702.171a): exile a hand card face-up for the plot cost (special action)
   "activate-loyalty": applyActivateLoyalty,

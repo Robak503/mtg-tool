@@ -32,7 +32,7 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines, parseGraveyardSelfRecursion } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -1665,6 +1665,20 @@ registerCoverageClassifier((card) => (isNativeGroupWard(card) ? "native-trigger"
 // all-or-nothing — its residue (minus the grant) must be KEYWORD-ONLY (Kira's own Flying is honored; any
 // unmodeled rider → body-only), so the credit is honest. isKeywordOnly injected to keep kiraTargetCounter a leaf.
 registerCoverageClassifier((card) => (isNativeKira(card, isKeywordOnly) ? "native-trigger" : null));
+
+// GY SELF-RECURSION (BLITZ GY-1, CR 602.2 — Reassembling Skeleton / Sanitarium Skeleton class): a card
+// whose only non-keyword text is the modeled graveyard-activated return line ("<mana>: Return this card
+// from your graveyard to your hand / the battlefield [tapped]") classifies native-activated — the SAME
+// parseGraveyardSelfRecursion the legalChoices enumerator and the dispatcher key on, so the metric can't
+// claim a line the runtime doesn't offer. All-or-nothing: any residue beyond keywords → null → body-only.
+registerCoverageClassifier((card) => {
+  const rec = parseGraveyardSelfRecursion(card);
+  if (!rec) return null;
+  const residue = stripReminder(String(card?.oracle || card?.oracle_text || ""))
+    .split("\n").map((l) => l.trim()).filter((l) => l && l !== rec.raw).join("\n");
+  if (!residue) return "native-activated";
+  return isKeywordOnly(residue, card?.name) ? "native-activated" : null;
+});
 
 // ─── WAVE 5a — Wolverine, Best There Is (the damage-replacement keystone) ──────────────────────────────────
 // All THREE clauses modeled (CREED all-or-nothing): the source-scoped double-all-damage replacement

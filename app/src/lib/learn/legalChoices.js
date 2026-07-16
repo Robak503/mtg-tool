@@ -51,7 +51,7 @@ function parseCastProgram(card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -1991,6 +1991,31 @@ function actionsCastPlottedFromExile(state, playerId) {
  * CR; a stale flag from a prior turn is already cleared at cleanup, so this is belt-and-suspenders). Once-per-
  * card is enforced naturally (the card leaves exile when played).
  */
+/**
+ * GY SELF-RECURSION (BLITZ GY-1, CR 602.2 — Reassembling Skeleton / Sanitarium Skeleton class): offer the
+ * graveyard-activated "Return this card from your graveyard …" ability on every own-graveyard card carrying
+ * the modeled line (parseGraveyardSelfRecursion — the SAME parse the dispatcher and the coverage classifier
+ * key on). Mana-only cost, affordability-gated like any activated ability; instant-speed (an activated
+ * ability may be activated whenever the player has priority — no timing rider is in the modeled shape).
+ */
+function actionsActivateGraveyardRecursion(state, playerId) {
+  const player = state.players[playerId];
+  const out = [];
+  for (const card of player.graveyard || []) {
+    if (!card || card.token) continue;
+    const rec = parseGraveyardSelfRecursion(card);
+    if (!rec) continue;
+    const cost = parseManaCost(rec.manaPips);
+    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    out.push({
+      kind: "activate-gy-recursion", playerId, cardId: card.id, name: card.name,
+      cost, cmc: totalCmc(cost), dest: rec.dest, entersTapped: rec.entersTapped,
+      abilityText: rec.raw,
+    });
+  }
+  return out;
+}
+
 function actionsPlayImpulseFromExile(state, playerId) {
   const player = state.players[playerId];
   const impulsed = (player.exile || []).filter(c => c && c._impulse && c._impulseTurn === state.turn);
@@ -2504,6 +2529,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
+    actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost

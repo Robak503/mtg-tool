@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents } from "./gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkSagaChapterTriggers } from "./triggers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHELF S7): entry lore counter + sagaFinal stamp; a pure leaf
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -59,6 +59,7 @@ export const RESOLVER_KEYS = Object.freeze({
   EFFECT_PROGRAM: "effect-program",     // the P2.2 multi-atom interpreter (the live spell/trigger/ability lane)
   ATTACH: "attach",                     // Equip/Aura attach — sets attachedTo + attachments
   AURA_ETB: "spell.aura",               // an Aura spell resolving: enter + attach to its target
+  GY_SELF_RETURN: "gy.self-return",     // GY-1 — "Return this card from your graveyard to your hand / the battlefield [tapped]"
 });
 
 /**
@@ -719,6 +720,33 @@ export const RESOLVERS = Object.freeze({
     return logEvent(attachPermanent(state, { equipId: sourceId, targetId }), {
       kind: "attach", source: src.permanent.card?.name, target: tgt.permanent.card?.name, controller,
     });
+  },
+
+  // GY SELF-RECURSION (BLITZ GY-1, CR 602.2 — Reassembling Skeleton / Sanitarium Skeleton class): the
+  // graveyard-activated "Return this card from your graveyard to <your hand | the battlefield [tapped]>".
+  // Re-checks the card is STILL in the controller's graveyard at resolution — removed in response, the
+  // ability does nothing (a logged fizzle, never a fabricated return). The hand path rides moveCardToZone
+  // (its graveyard-LEAVE event fires the gy-event watchers); the battlefield path splices the card, records
+  // the same leave event, then enters through the SAME enterPermanent a resolved permanent spell uses (ETB
+  // replacements + triggers fire identically), tapping the fresh permanent when the ability says "tapped".
+  [RESOLVER_KEYS.GY_SELF_RETURN]: (state, obj) => {
+    const { cardId, controller, dest, entersTapped: tapIt } = obj.payload?.params || {};
+    const player = state.players?.[controller];
+    const card = (player?.graveyard || []).find((c) => c.id === cardId);
+    if (!card) return logEvent(state, { kind: "spell-effect", effect: "gy-self-return", controller, fizzled: true });
+    if (dest === "hand") {
+      const next = moveCardToZone(state, { playerId: controller, fromZone: "graveyard", toZone: "hand", cardId });
+      return logEvent(next, { kind: "spell-effect", effect: "gy-self-return", controller, dest: "hand", cardName: card.name });
+    }
+    const gy = player.graveyard.filter((c) => c.id !== cardId);
+    let next = { ...state, players: { ...state.players, [controller]: { ...player, graveyard: gy } } };
+    next = recordGraveyardEvents(next, [{ dir: "leave", card, gyOwner: controller, zone: "battlefield" }]);
+    next = enterPermanent(next, card, controller);
+    if (tapIt) {
+      const bf = next.players[controller].battlefield;
+      if (bf.length) next = tapPermanent(next, bf[bf.length - 1].id);
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "gy-self-return", controller, dest: "battlefield", cardName: card.name, tapped: !!tapIt });
   },
 
   [RESOLVER_KEYS.MANUAL]: resolveManual,
