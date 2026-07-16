@@ -907,6 +907,13 @@ export function combatKeywordClauseParser(clause) {
   // opponents' creatures (matching the print, and aligning with cant-block's existing enemy intent so the
   // trigger flush already picks an opponent's blocker). applyCantBlock is targetType-agnostic → lifts the runtime.
   if (/^target creature an opponent controls can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] };
+  // CANT-BE-BLOCKED, POWER-CAPPED (BLITZ GT-1 — Goblin Tunneler / Dwarven Warriors class): "target
+  // creature with power N or less can't be blocked this turn". The SAME layer-6 endOfTurn unblockable
+  // grant, with the printed power cap as a target restriction (creatureSatisfiesRestrictions' existing
+  // layer-aware power branch — a pumped creature moves out of the pool live at enumeration). Tried
+  // BEFORE the bare form (more specific first); the `$` anchor still rejects "…except by <X>" riders.
+  const cbbP = t.match(/^target creature with power (\d+) or less can't be blocked this turn$/);
+  if (cbbP) return { op: "cant-be-blocked", targetType: "creature", restrictions: [{ kind: "power", op: "<=", value: parseInt(cbbP[1], 10) }] };
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).
   const cbb = t.match(/^target creature( you control)? can't be blocked this turn$/);
