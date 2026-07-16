@@ -17,7 +17,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { adjustStacks, stackTotal } from "../../lib/collectionStacks";
-import { buildShelf } from "../../lib/showpiece";
+import { buildShelf, isShowpiece } from "../../lib/showpiece";
+import VaultTrophyPage from "./VaultTrophyPage";
 import CollectionGrid from "./CollectionGrid";
 import VaultBinder from "./VaultBinder";
 import CollectionFilters, { applyFilters } from "./CollectionFilters";
@@ -97,6 +98,12 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const colorTags = useColorTags();
+  // C5-P2.4 — a provenance-flagged row opens the full-page trophy view instead
+  // of the drawer; "Edit details" flips the drawer open BESIDE the trophy page.
+  // Reset whenever the selection moves to a different card.
+  const [trophyEdit, setTrophyEdit] = useState(false);
+  useEffect(() => { setTrophyEdit(false); }, [selectedRow?.scryfallId]);
+  const trophyOpen = mode === "collection" && !!selectedRow && isShowpiece(selectedRow) && !selectMode;
 
   // Re-pull live Scryfall prices for cards whose stored TCGPlayer price is
   // null (the Card Kingdom fallback already covers most; this catches a
@@ -735,7 +742,32 @@ export default function CollectionView({ surface = "collection", onNavigate, onC
         <VaultBuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} onGoToCollection={() => onNavigate?.("collection")} />
       )}
 
-      {mode === "collection" && (<>
+      {/* C5-P2.4 — the trophy view takes the whole surface for a flagged
+          showpiece; the drawer joins it only when the collector asks to edit. */}
+      {mode === "collection" && trophyOpen && (
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          <VaultTrophyPage
+            row={selectedRow}
+            onBack={() => setSelectedRow(null)}
+            onEdit={() => setTrophyEdit(true)}
+            colors={COLORS}
+            fontFamily={FONT}
+          />
+          {trophyEdit && (
+            <CollectionCardDetail
+              row={selectedRow}
+              onClose={() => setTrophyEdit(false)}
+              onSave={handleCollectionUpdate}
+              onDelete={handleCollectionDelete}
+              tags={colorTags.tags}
+              onAssignTag={assignTag}
+              colors={COLORS}
+            />
+          )}
+        </div>
+      )}
+
+      {mode === "collection" && !trophyOpen && (<>
       {state.status === "ready" && (
         <ShowpieceShelf cards={cards} onPick={setSelectedRow} colors={COLORS} />
       )}

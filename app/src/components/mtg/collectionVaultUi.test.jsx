@@ -13,6 +13,7 @@ import CollectionView, { BulkActionBar, HeaderOverflowMenu, ShowpieceShelf } fro
 import CollectionImportModal from "./CollectionImportModal.jsx";
 import CollectionAddModal, { quickAddKeyAction } from "./CollectionAddModal.jsx";
 import VaultHome from "./VaultHome.jsx";
+import VaultTrophyPage, { plaqueLines } from "./VaultTrophyPage.jsx";
 
 const COLORS = {
   BG: "#090a0d", BG2: "#12131c", BG3: "#181922", LINE: "#2c393b",
@@ -157,6 +158,48 @@ describe("C5-P2.1 — ShowpieceShelf (the treasure hierarchy in The Stacks)", ()
   it("an all-bulk collection renders no shelf at all", () => {
     const html = renderToStaticMarkup(<ShowpieceShelf cards={[cards[2]]} onPick={() => {}} colors={COLORS} />);
     expect(html).toBe("");
+  });
+});
+
+describe("C5-P2.4 — VaultTrophyPage (full-page view for showpieces)", () => {
+  const trophy = {
+    scryfallId: "cradle-1", name: "Gaea's Cradle", setCode: "usg", collectorNumber: "321",
+    stacks: [{ finish: "nonfoil", quantity: 1, condition: "NM", paidUsd: 850, acquiredAt: "2026-05-01" }],
+    prices: { usd: "1100.00" },
+    signed: { artist: "Mark Zug", inPerson: true, event: "MagicCon Vegas" },
+    showcase: true,
+    notes: "The omega grail.",
+  };
+
+  it("plaqueLines renders provenance as plaque entries", () => {
+    const lines = plaqueLines(trophy);
+    expect(lines.map((l) => l.label)).toEqual(["Signed", "Showcase piece"]);
+    expect(lines[0].detail).toBe("Mark Zug · signed in person · MagicCon Vegas");
+  });
+
+  it("the page renders hero, plaque, worth, copies, and notes with both actions", () => {
+    const html = renderToStaticMarkup(
+      <VaultTrophyPage row={trophy} onBack={() => {}} onEdit={() => {}} colors={COLORS} fontFamily="Inter" />,
+    );
+    expect(html).toContain("Gaea&#x27;s Cradle");
+    expect(html).toContain("Provenance");
+    expect(html).toContain("Mark Zug · signed in person · MagicCon Vegas");
+    expect(html).toContain("$1100.00");                 // worth — best owned finish
+    expect(html).toContain("paid $850.00");             // the copy line
+    expect(html).toContain("acquired 2026-05-01");
+    expect(html).toContain("The omega grail.");
+    expect(html).toContain("← The Stacks");
+    expect(html).toContain("Edit details");
+  });
+
+  it("an unannotated pin still gets a page (Showcase piece), no notes card", () => {
+    const bare = { scryfallId: "x", name: "Llanowar Elves", stacks: [{ finish: "nonfoil", quantity: 1 }], showcase: true };
+    const html = renderToStaticMarkup(
+      <VaultTrophyPage row={bare} onBack={() => {}} onEdit={() => {}} colors={COLORS} fontFamily="Inter" />,
+    );
+    expect(html).toContain("Showcase piece");
+    expect(html).toContain("No price on record yet.");
+    expect(html).not.toContain("Notes");
   });
 });
 
