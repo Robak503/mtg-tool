@@ -445,6 +445,15 @@ function splitClauses(oracle) {
     // of Fate): the ", then" split orphans "draws N cards" of its "each player" subject. Inject it so the draw
     // half parses with the EXISTING draw who:"eachPlayer" atom (the discard-hand half is a new all-mode atom).
     .replace(/(each player discards their hand), then (draws \w+ cards?)/gi, "$1. Each player $2")
+    // SPLIT-DAMAGE PAIR (BLITZ LG-1 — Lunge / Hungry Flames / Shower of Sparks): "<name> deals N damage to
+    // target creature and M damage to target player or planeswalker" — the " and " joins TWO independent
+    // single-target damage instructions sharing one subject; the top-level split would orphan the second
+    // half ("M damage to target …" — no subject/verb → LOW). Inject the canonical spell subject so BOTH
+    // halves parse with the EXISTING deal-damage atoms (creature + playerOrPlaneswalker), each with its own
+    // chosen target (CR 601.2c — two targets, both required; resolution in written order, CR 608.2c).
+    // Anchored to the EXACT fixed-amount pair — an X form, "that creature's controller" (Assembled Alphas),
+    // or any other tail is untouched → the compound stays LOW → Arbiter (FN-safe).
+    .replace(/(deals? \d+ damage to target creature) and (\d+ damage to target player or planeswalker)/gi, "$1. This spell deals $2")
     // SELF-CAST HALF-X ROUNDING (CR 107.3) — a TRAILING "Round down/up each time." directive governs every
     // "half X" magnitude in the SAME effect (Hydroid Krasis: "you gain half X life and draw half X cards.
     // Round down each time."). The directive is its own sentence, so the sentence split would orphan it into an
