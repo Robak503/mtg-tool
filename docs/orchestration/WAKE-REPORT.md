@@ -1,6 +1,28 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.3%**: +569 more (campaign +777), 36 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.4%, campaign +800**: 39 slices, LOST=0 — and the desk became a TEAM
+
+> Census **10,383 of 34,161 (30.39%)**, baseline scratchpad cand53.txt. Colton's order (evening): three
+> Fable build agents fanned out under the director (me) — each in an isolated worktree with its own
+> baseline, each gating locally (suite+lint+audited flip-diff), NONE push; every diff is audited at the
+> director's desk, re-gated against the live census here, and integrated serially to master. Lanes out:
+> **MG-1** the modal shared-type graveyard pair (Return from Extinction kin) · **NR-1** the artifact
+> activation lock (Null Rod / Stony Silence / Collector Ouphe — close every enumeration site incl. mana
+> and crew, or park with the site list) · **FT-1** the Falter-class mass block lock ("creatures without
+> flying can't block this turn" — the withoutKeyword dynamic selector on WD-1's machinery).
+>
+> Post-30% solo slices since the last entry: **TG-1** UNTIL-EOT QUOTED GRANTS (4a928a44, +12) — the
+> Feign Death machinery: one fixed-ids layer-6 addAbility vehicle (CR 611.2c set-lock) riding the
+> existing group-grant collectors both halves (triggered fire incl. a dead-look-back dies path;
+> activated enumeration), body-gated by the SAME validators the static group grants use; the
+> [dies-return-bf] sentinel keeps the bare wording off the FLICKER spell half (Momentary Blink pinned
+> Arbiter); Feign Death / Undying Malice / Showstopper / Lightning Volley / Resuscitate / both Helixes
+> live; one graduated pin (enduringGlimmer's bare-return guard now owns only the no-type-strip boundary)
+> · **WD-1** the WITH-FLYING anthem (c748f21f, +7) — parseCreatureSelector withKeyword + a layer-aware
+> matchesSelector gate with a re-entry guard; Favorable Winds, Empyrean Eagle, Thunderclap Wyvern,
+> Cynette, Air Nomad Legacy · **LG-1** the SPLIT-DAMAGE pair (9d2db72f, +4) — one normalize rewrite,
+> zero new atoms; Lunge / Hungry Flames / Shower of Sparks / Cunning Strike; the Assembled Alphas
+> trigger tail and the X form pinned off the rewrite.
 
 > Census **10,360 of 34,161 (30.33%)**, baseline scratchpad cand50.txt. Post-30% slices:
 > **FA-1/AB-1** (a6546592, +31) — FLASH admitted as aura residue (26 flash auras cascade: Rancor-kin
