@@ -293,6 +293,15 @@ export function attackDefenderLandRequirement(card) {
   const m = selfOracle(card).match(reAttackNeedsDefenderLand);
   return m ? m[1].toLowerCase() : null;
 }
+/** CANT-ALONE (BLITZ SM-2, CR 508.1h/509.1a — Mogg Flunkies / Loyal Pegasus / Jackal Familiar): "This
+ * creature/token can't attack or block alone." Enforced at BOTH declaration gates in legalChoices: the
+ * creature is offered as an attacker/blocker only once ANOTHER attacker/blocker is already declared this
+ * combat (declaration is sequential in this engine, so the gate is exact-conservative — a lone Flunkies is
+ * simply never offerable). The "token" wording covers granted text on created tokens (Toby's Beast). */
+const reCantAlone = /(?:^|[\n.;])\s*this (?:creature|token) can't attack or block alone\s*(?:\.|$)/i;
+export function cantAttackOrBlockAlone(card) {
+  return reCantAlone.test(selfOracle(card));
+}
 /** Does `defenderId` control a land of the required type? (The exported face of the landwalk board read —
  * "snow land" matches the adjacent type-line words "Snow Land".) */
 export function defenderMeetsAttackLandRequirement(state, defenderId, requirement) {
@@ -356,6 +365,10 @@ export function isEnforcedEvasionClause(clause) {
   // defenderMeetsAttackLandRequirement), so a body whose only non-keyword text is this static is honestly
   // native. The two-line "When you control no Islands, sacrifice …" frame never reaches here whole.
   if (/^(?:this creature |it )?can't attack unless defending player controls an? (?:island|swamp|mountain|forest|plains|snow land)$/.test(c)) return true;
+  // CANT-ALONE (BLITZ SM-2) — "can't attack or block alone" is enforced at BOTH declaration gates
+  // (legalChoices offers the creature only once another attacker/blocker is declared), so a body whose
+  // only non-keyword text is this static is honestly native (Mogg Flunkies / Loyal Pegasus class).
+  if (/^(?:this (?:creature|token) |it )?can't attack or block alone$/.test(c)) return true;
   // GROUP-EVASION (Shifting Sliver): "<subtype>s can't be blocked except by <same subtype>s" — enforced
   // in canBlockAttacker. Credit only the SYMMETRIC tribal form (parseGroupBlockRestriction returns non-null).
   // The single-subtype board-wide clause arrives here WHOLE (no comma → isKeywordOnly's splitter leaves it

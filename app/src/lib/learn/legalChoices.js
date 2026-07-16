@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement } from "./combatEvasion.js";
+import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackOrBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -2361,7 +2361,11 @@ function actionsDeclareAttacker(state, playerId) {
     // aura grant) — layer-aware, so the restriction lifts the moment the aura leaves.
     .filter(p => !permanentHasKeyword(state, p.id, "cantAttack"))
     // Granted Haste (Concordant Crossroads, sliver) counts, not just printed.
-    .filter(p => !p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
+    .filter(p => !p.summoningSick || permanentHasKeyword(state, p.id, "Haste"))
+    // CANT-ALONE (BLITZ SM-2, CR 508.1h — Mogg Flunkies): offered only once ANOTHER attacker is already
+    // declared this combat (declaration is sequential here, so a lone can't-alone creature never leads;
+    // the AI's per-tick re-offer sweeps it in on a later tick once a teammate is declared).
+    .filter(p => !cantAttackOrBlockAlone(p.card) || declared.size > 0);
 
   // Legal attack targets (CR 508.1a): each opponent (their face) PLUS every planeswalker they
   // control (PW-1 — a creature may attack a planeswalker instead of its controller). A face target
@@ -2446,7 +2450,10 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     // Layer-aware (WALT-ANIMATE): an animated permanent can be declared as a blocker.
     .filter(p => permanentIsCreature(state, p.id))
     .filter(p => !p.tapped)
-    .filter(p => !assigned.has(p.id));
+    .filter(p => !assigned.has(p.id))
+    // CANT-ALONE (BLITZ SM-2, CR 509.1a — Mogg Flunkies): offered as a blocker only once ANOTHER
+    // blocker is already declared this combat (sequential declaration — the exact mirror of the attack gate).
+    .filter(p => !cantAttackOrBlockAlone(p.card) || assigned.size > 0);
 
   // Evasion runs through ONE chokepoint (combatEvasion.canBlockAttacker), read layer-aware so a
   // GRANTED keyword counts: flying/reach, unblockable, basic landwalk (gated by THIS defender's
