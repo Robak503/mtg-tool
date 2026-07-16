@@ -1295,6 +1295,23 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── ARTIFACT-ACTIVATION LOCK (BLITZ NR-1 — Null Rod / Stony Silence / Collector Ouphe, CR 604.2):
+  // "Activated abilities of artifacts can't be activated." Emitted as a coverage MARKER (the castLimit
+  // pattern — no `affects`/`op`, the layer engine ignores it). The RUNTIME enforcement lives at every
+  // artifact-activation enumeration site (legalChoices tap-for-mana/double-mana-pool/activate-ability/
+  // crew/loyalty + manaModel.manaSources — the one affordability/payment gatherer), each keyed on the SAME
+  // line via artifactActivationsLocked below — one parser, no drift. CR scope enforced there: symmetric
+  // ("artifacts", CR 109.2 — battlefield artifact permanents of EVERY player), covers MANA abilities
+  // (CR 605.1a — a mana ability is an activated ability), crew (CR 702.122a), equip (CR 702.6a), and
+  // loyalty of artifact planeswalkers (CR 606.2); does NOT touch casting (CR 601.2), triggered (CR 603.2)
+  // or static (CR 604.1) abilities, or activated abilities functioning outside the battlefield (cycling
+  // from hand, graveyard recursion — those cards are not "artifacts" per CR 109.2). Exact line only; any
+  // variant ("…your opponents control", "…lose all abilities") leaves residue → body-only (a safe FN).
+  if (/^activated abilities of artifacts can't be activated$/.test(c)) {
+    out.push({ artifactActivationLock: true });
+    return;
+  }
+
   // ── KISMET (BLITZ KM-1, CR 614.1c) — the opponents-enter-tapped imposition, a coverage MARKER (the
   // castLimit pattern): the RUNTIME lives at every entry chokepoint via impositionEntersTapped. Only the
   // exact three-type line; any variant leaves residue → body-only (a safe FN).
@@ -3100,6 +3117,31 @@ export function isAttachedNoUntapLine(line) {
 export function castsPerTurnLimitOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
   return /(?:^|[\n.;])\s*each player can't cast more than one spell each turn\s*(?:\.|$)/i.test(o) ? 1 : null;
+}
+
+// ── ARTIFACT-ACTIVATION LOCK (BLITZ NR-1 — Null Rod / Stony Silence / Collector Ouphe) ──────────────
+/** Does this card print the exact symmetric artifact lockdown line? The parseStaticAbilities marker and
+ * every runtime gate key on this one reader (no drift). Raw-oracle regex (the castsPerTurnLimitOf
+ * pattern) so the board query below stays cheap enough for the manaSources hot path. */
+export function artifactActivationLockOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*activated abilities of artifacts can't be activated\s*(?:\.|$)/i.test(o);
+}
+/**
+ * Is the artifact-activation lock live on ANY battlefield right now? A LIVE board query (never a stored
+ * flag — the lock lifts the moment the carrier leaves), scanning EVERY player's battlefield: the line
+ * names "artifacts" with no controller scope, so it is symmetric (CR 109.2 — all artifact permanents on
+ * the battlefield, whoever controls them, and whoever controls the carrier). Consumers gate the ACTED-ON
+ * permanent with a layer-aware Artifact type read (layers.permanentTypes — an animated artifact creature
+ * is still an artifact); this query only answers "is a carrier on the battlefield".
+ */
+export function artifactActivationsLocked(state) {
+  for (const pl of Object.values(state?.players || {})) {
+    for (const perm of (pl.battlefield || [])) {
+      if (artifactActivationLockOf(perm.card)) return true;
+    }
+  }
+  return false;
 }
 
 // ── KISMET (BLITZ KM-1, CR 614.1c — Kismet / Frozen Aether / Loxodon Gatekeeper): "Artifacts,

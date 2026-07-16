@@ -33,8 +33,8 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower 
 import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf } from "./staticAbilityParser.js";
+import { permanentHasKeyword, permanentIsCreature, permanentTypes, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
+import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackOrBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -1356,14 +1356,34 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
  * this action is only the explicit manual-tap / float path (Beginner +
  * floating-mana decks). Auto modes ignore it, so they never loop on it.
  */
+// ── ARTIFACT-ACTIVATION LOCK (BLITZ NR-1, CR 604.2 — Null Rod / Stony Silence / Collector Ouphe:
+// "Activated abilities of artifacts can't be activated.") ────────────────────────────────────────────
+// Is THIS permanent's activated-ability surface shut off by a live lock? `locked` is the per-call
+// artifactActivationsLocked(state) scan (computed once per enumerator — the lock is board-rare, so the
+// layer-aware type read only ever runs while a carrier is out). The Artifact test is the DERIVED types
+// (layers.permanentTypes, after layer 4): an animated artifact creature is still an artifact; a printed
+// check would also miss any future layer-4 Artifact add. Every enumeration site that offers an activated
+// ability of a BATTLEFIELD permanent gates through this one predicate: tap-for-mana + double-mana-pool
+// (mana abilities ARE activated abilities, CR 605.1a — Sol Ring, Doubling Cube), activate-ability
+// (printed + aura/equipment-granted + group-granted + equip, CR 702.6a), crew (CR 702.122a), and loyalty
+// (CR 606.2 — Luxior / The Aetherspark are artifact planeswalkers). manaModel.manaSources carries the
+// same gate for affordability/payment. NOT gated (CR scope): casting artifact spells (601.2), triggered
+// (603.2) / static (604.1) abilities, and hand/graveyard-zone activations — cycling, plot, gy-recursion/
+// -exile act on CARDS, not battlefield artifact permanents (CR 109.2).
+function lockedArtifactSource(state, locked, permId) {
+  return locked && permanentTypes(state, permId).types.includes("Artifact");
+}
+
 function actionsTapForMana(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
   if (state.step !== "main") return [];
   const player = state.players[playerId];
   const actions = [];
+  const artLocked = artifactActivationsLocked(state); // NR-1: locks artifact mana abilities (CR 605.1a)
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
+    if (lockedArtifactSource(state, artLocked, perm.id)) continue; // NR-1 — no artifact taps for mana under the lock
     let prod = manaProduction(perm.card);
     // GROUP-GRANT: a permanent with no own mana ability can have a {T}: Add … ability GRANTED by a lord
     // (Gemhide/Manaweft). DEDUP mirrors manaSources — the grant only adds a source where the permanent has
@@ -1452,9 +1472,11 @@ function actionsCrewVehicle(state, playerId) {
   if (state.step !== "main") return [];
   const player = state.players[playerId];
   const out = [];
+  const artLocked = artifactActivationsLocked(state); // NR-1: crew is an activated ability of an artifact (CR 702.122a)
   let crewPool = null; // computed once, only if a crewable Vehicle exists
   for (const perm of player.battlefield) {
     if (!/\bVehicle\b/.test(String(perm.card?.type || ""))) continue;
+    if (lockedArtifactSource(state, artLocked, perm.id)) continue; // NR-1 — a Vehicle can't be crewed under the lock
     const n = parseCrewCost(perm.card);
     if (n == null || permanentIsCreature(state, perm.id)) continue;
     if (!crewPool) {
@@ -1491,7 +1513,12 @@ function actionsActivateAbility(state, playerId) {
   // per player (invariant across the perm/ability loops); applied ONLY to abilities of a CREATURE the player
   // controls (the modeled subject), floored at one mana by activatedCostReductionForCost.
   const activatedReducers = collectActivatedCostReducers(player.battlefield || []);
+  const artLocked = artifactActivationsLocked(state); // NR-1: covers printed + granted + equip abilities of artifacts (CR 602.1/702.6a)
   for (const perm of player.battlefield) {
+    // NR-1 — the WHOLE activated surface of an artifact permanent is off under the lock: printed abilities,
+    // aura/equipment-granted and group-granted abilities (the granted ability belongs to the HOST — an
+    // artifact host means an artifact's ability), and equip (Equipment is an artifact, CR 702.6a).
+    if (lockedArtifactSource(state, artLocked, perm.id)) continue;
     // GRANTED-ACTIVATED (subsystem 1 phase 1b): an Aura on this creature can confer an activated ability
     // ("Enchanted creature has \"{T}: …\""). The granted descriptors are enumerated HERE on the host, so
     // tapSelf taps the host and the effect's "this creature"/"you" bind to the host/controller at resolution.
@@ -1927,7 +1954,9 @@ function actionsDoubleManaPool(state, playerId) {
   if (state.step !== "main") return [];
   const player = state.players[playerId];
   const actions = [];
+  const artLocked = artifactActivationsLocked(state); // NR-1: Doubling Cube is an artifact mana ability (CR 605.1a)
   for (const perm of player.battlefield) {
+    if (lockedArtifactSource(state, artLocked, perm.id)) continue; // NR-1 — no artifact activation under the lock
     for (const ab of parseActivatedAbilities(perm.card)) {
       if (!ab.doubleManaPool) continue;
       if (ab.tapSelf) {
@@ -2308,10 +2337,14 @@ function actionsActivateLoyalty(state, playerId) {
   if (!canCastSorcerySpeed(state, playerId)) return [];
   const player = state.players[playerId];
   const actions = [];
+  const artLocked = artifactActivationsLocked(state); // NR-1: loyalty abilities are activated abilities (CR 606.2)
   for (const perm of player.battlefield) {
     // A live planeswalker = a permanent carrying a loyalty counter (it entered as one — so a
     // creature-front DFC is excluded). The card-level gate then confirms no unmodeled static/trigger.
     if (perm.counters?.loyalty == null) continue;
+    // NR-1 — an ARTIFACT planeswalker's loyalty abilities are activated abilities of an artifact (Luxior,
+    // Ignited / The Aetherspark — both arbiter-pw today, so this is a dormant-but-correct future-proof gate).
+    if (lockedArtifactSource(state, artLocked, perm.id)) continue;
     if (!planeswalkerPlayable(perm.card)) continue;
     if (perm.loyaltyActivatedThisTurn) continue; // CR 606.3 — at most one per turn per walker
     const loyalty = perm.counters.loyalty;

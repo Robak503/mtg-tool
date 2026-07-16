@@ -32,9 +32,9 @@
 
 import { MANA_COLORS, addMana, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
 import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
-import { parseAuraLandManaBonus, parseGlobalTapManaAugment } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only)
+import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 
 // ─── Card → mana production ────────────────────────────────────────────────────
@@ -691,9 +691,22 @@ export function manaSources(state, playerId) {
   // below to TAP sources only (a sac-for-mana Treasure/Spawn is not "tapped for mana" → never multiplied).
   // ×1 with none, so the common case is a no-op.
   const manaMult = manaMultiplier(state, playerId);
+  // ── ARTIFACT-ACTIVATION LOCK (BLITZ NR-1, CR 604.2 — Null Rod / Stony Silence / Collector Ouphe):
+  // a mana ability is an ACTIVATED ability (CR 605.1a), so while any battlefield carries the lock, NO
+  // artifact permanent is a mana source — Sol Ring can't tap, a Treasure can't be cracked (its "{T},
+  // Sacrifice this artifact: Add …" is an activated ability of an artifact), an artifact LAND's tap is
+  // off too. This is THE affordability/payment chokepoint: every canAfford/planPayment consumer (cast
+  // affordability, X ceilings, ward/pay prompts, the dispatcher's auto-tap) reads sources from here, so
+  // gating here means a locked source is never counted affordable AND never tapped in payment. The
+  // Artifact test is layer-aware (permanentTypes, after layer 4 — an animated artifact is still an
+  // artifact) and only runs while a carrier is out (the lock is board-rare). A NON-artifact source is
+  // untouched: an Eldrazi Spawn's sac (creature), a land's tap, a triggered tap-augment bonus riding a
+  // nonartifact land (CR 603.2 — triggered abilities are not locked).
+  const artLocked = artifactActivationsLocked(state);
   const sources = [];
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
+    if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue; // NR-1
     let prod = manaProduction(perm.card);
     // GROUP-GRANT: a permanent with NO own mana ability can have a {T}: Add … MANA ability GRANTED by a lord
     // (Gemhide/Manaweft "All Slivers have \"{T}: Add one mana of any color\"" — every OTHER Sliver gains it).
