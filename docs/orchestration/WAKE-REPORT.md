@@ -1,6 +1,30 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.4%, campaign +813**: 42 slices, LOST=0 — the TEAM's first batch landed
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.5%, campaign +835**: 47 slices, LOST=0 — TEAM batch 2 landed
+
+> Census **10,418 of 34,161 (30.50%)**, baseline scratchpad cand61.txt. Batch 2 (+18 team, +4 director):
+> **XT-1** EXTRA TURNS, director solo (6dea9f58, +4) — Time Walk / Temporal Manipulation / Capture of
+> Jingzhou / Second Chance; a CR 500.7 LIFO stack popped at advanceStep's end-of-turn branch ·
+> **DG-1** the basilisk-touch delayed destroy (3f47ba5c, +2) — Deathgazer/Dread Specter; the engine's
+> FIRST end-of-combat queue (turn-stamped, stale-dropped, drained after the last damage sub-step; the
+> agent corrected the brief — first-strike sub-steps DO exist), destroys via the shared primitive so
+> indestructible/regen/shields behave; Gorgon parked on the madness-permanent policy gap ·
+> **AR-1** GY-TO-BOTTOM (0ade8b82, +9 — the probe found 14 carriers, not 3): Cogwork Archivist kin +
+> Junktroller/Reito pair/Grazing Kelpie/Hoverstone/Chandelier; plus a REAL side-correctness catch —
+> atomTargetIntent now reports anyGraveyard returns "ambiguous" so the Nantuko Tracer ETB class stays
+> off the side-blind flush · **BW-1** the triple destroy/exile union (1a95b86d, +7) — Broken Wings kin
+> + Shoot Down's exile twin + VIVIEN REID goes native-planeswalker (her −3 was the last unmodeled
+> loyalty ability); layer-aware flying on the creature arm only · **BG-2** a REPAIR lane (39d3cc05, +0
+> by construction): the agent's probe overturned the director's brief (the Background selector was
+> BG-1's, already banked) and instead found TWO live CREED defects on claimed-native Candlekeep Sage —
+> the granted leave-half never fired (dynamic dead-look-back added) and the granter phantom-drew off
+> its own quoted text (quote-mask on the compound splitter + counter, one mask no drift).
+>
+> Batch 3 out: zones seat — LT-1 land tuck / PX-1 power-capped exile / GS-1 gy shuffle-in · static
+> seat — NV-1 Nature's Revolt mass land animation / SU-1 Diminish base-P/T · combat seat — BT-2 the
+> contact siblings (non-Wall trio, bare pair, Abomination) / CT-1 the becomes-blocked self-pumps.
+
+## (superseded same-day) — 30.4%, campaign +813: 42 slices — the TEAM's first batch
 
 > Census **10,396 of 34,161 (30.43%)**, baseline scratchpad cand56.txt. Colton's order (evening): three
 > Fable build agents under the director (me) — isolated worktrees, local gates, NONE push; every diff is
