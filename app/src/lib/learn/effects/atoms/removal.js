@@ -12,7 +12,7 @@ import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor, millOnePlayer } from "./library.js";
-import { applyZoneMove } from "./zones.js";
+import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
 // sentinel large enough that targeting.targetSubsets always clamps it to the ACTUAL eligible-target count
@@ -354,6 +354,43 @@ export function destroyExileClauseParser(clause) {
   // matches "that creature can't be regenerated"). Only the detectTriggers sentinel produces this clause, so a
   // spell anaphor never reaches it; an absent id is a clean no-op (applyDestroyEffect over an empty target list).
   if (/^destroy the triggering creature$/.test(t)) return { op: "destroy", target: "thatCreature" };
+  // DETAIN (BLITZ DT-1, CR 610.3 — the Banishing Light / Banisher Priest / Oblivion-Ring-modern frame):
+  // "exile <target …> until this <enchantment|creature|artifact|permanent> leaves the battlefield." The
+  // TARGET vocabulary is delegated to THIS parser recursively (strip the until-tail, parse the bare exile) so
+  // the unions / controller scopes / MV filters stay single-sourced — then `untilSourceLeaves` is stamped on
+  // the atom. The resolver (zones.applyExileUntilLeaves) links the exiled card to the SOURCE permanent
+  // (detainedExile), and checkLeavesTriggers synthesizes the [detain-return] one-shot when the source leaves
+  // (ANY exit — bounce included, CR 610.3a). Per CR 610.3b, a source already gone at resolution → the exile
+  // doesn't happen at all (the resolver's source guard). An inner shape the bare parser doesn't model (an
+  // "up to one target" form, an unmodeled union) returns null → LOW → Arbiter (a safe FN, whole-card CREED).
+  // typeNeg:aura — a detained AURA would need attach-on-return modeling (CR 611.3c owner's choice); v1
+  // excludes auras AT ENUMERATION (never offered, never a silent resolver skip) — a documented narrow FN.
+  {
+    const dtm = t.match(/^exile (.+?) until this (?:enchantment|creature|artifact|permanent) leaves the battlefield$/);
+    if (dtm) {
+      let body = dtm[1];
+      const extra = [{ kind: "typeNeg", type: "aura" }];
+      // "another target …" (Oblivion Ring) — the source can't detain itself (CR 109.5); normalize + notSource.
+      if (/^another target /.test(body)) { body = body.replace(/^another target /, "target "); extra.push({ kind: "notSource" }); }
+      // "target tapped creature …" (Seal Away / Glass Casket's kin) — the tapped restriction, then normalize.
+      if (/^target tapped creature\b/.test(body)) { body = body.replace("target tapped creature", "target creature"); extra.push({ kind: "tapped", value: true }); }
+      // "… with mana value N or less" AFTER a controller scope (Portable Hole / Circle of Confinement) — the
+      // bare mvm matcher below can't carry both, so the MV rides as a normalized restriction here.
+      const mvTail = body.match(/ with mana value (\d+) or less$/);
+      if (mvTail) { body = body.slice(0, -mvTail[0].length); extra.push({ kind: "manaValue", op: "<=", value: parseInt(mvTail[1], 10) }); }
+      let inner = destroyExileClauseParser(`exile ${body}`);
+      if (!inner) {
+        // Bare "target creature [an opponent controls]" — the shared `rm` matcher deliberately excludes the
+        // bare creature type (legacy-path territory), so the detain frame admits it here explicitly.
+        const cm = body.match(/^target creature(?: (an opponent controls|you don't control))?$/);
+        if (cm) inner = { op: "exile", targetType: "creature", restrictions: cm[1] ? [{ kind: "controller", who: "opponent" }] : [] };
+      }
+      if (inner && inner.op === "exile" && inner.targetType && !inner.untilSourceLeaves) {
+        return { ...inner, untilSourceLeaves: true, restrictions: [...(inner.restrictions || []), ...extra] };
+      }
+      return null;
+    }
+  }
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
   // The two-type UNION list admits BOTH printed word-orders for the artifact/creature union — "creature or
   // artifact" (the order most cards print) AND "artifact or creature" (Putrefy: "Destroy target artifact or
@@ -528,6 +565,8 @@ export const removalResolvers = {
   "exile": (state, atom, ctx) =>
     atom.controllerRider
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Path to Exile / Swords to Plowshares
-      : applyZoneMove(state, atom, ctx, "exile"),
+      : atom.untilSourceLeaves
+        ? applyExileUntilLeaves(state, atom, ctx) // DETAIN (DT-1) — Banishing Light: exile linked to the source permanent
+        : applyZoneMove(state, atom, ctx, "exile"),
   "sacrifice": applySacrifice,
 };

@@ -110,7 +110,9 @@ describe("ENRAGE — unmodeled-effect enrage cards stay non-native (all-or-nothi
   const cases = [
     ["Stalwart Speartail (perpetual = Alchemy)", "Enrage — Whenever Stalwart Speartail is dealt damage, other Dinosaurs you control and Dinosaur cards in your hand and library perpetually get +1/+1.\nWhenever Stalwart Speartail attacks, Stalwart Speartail deals 1 damage to each creature and each planeswalker."],
     ["Indoraptor (random opponent + unless-sac)", "Menace\nEnrage — Whenever Indoraptor is dealt damage, choose an opponent at random. Indoraptor deals damage equal to its power to that player unless they sacrifice a nontoken creature of their choice."],
-    ["Trapjaw Tyrant (exile-until-leaves)", "Enrage — Whenever this creature is dealt damage, exile target creature an opponent controls until this creature leaves the battlefield."],
+    // NOTE: Trapjaw Tyrant ("exile … until this creature leaves the battlefield") is now NATIVE via the
+    // DETAIN subsystem (DT-1 — zones.applyExileUntilLeaves + the [detain-return] leave one-shot); see
+    // detainExile.test.js. It was previously the unmodeled-enrage example here — premise stale.
     // NOTE: Silverclad Ferocidons ("each opponent sacrifices a permanent of their choice") is now NATIVE via
     // the PERMANENT-EDICT subsystem (effects/atoms/removal.js — the what:"permanent" victim pool); see its
     // native-trigger pin in edicts.test.js. It was previously an unmodeled-enrage example here — premise stale.
@@ -306,7 +308,9 @@ describe("ENRAGE — FP guards", () => {
   });
 
   it("GUARD 6 — ALL-OR-NOTHING: an unmodeled-effect enrage stays non-native", () => {
-    expect(classifyCard(C("Enrage — Whenever this creature is dealt damage, exile target creature an opponent controls until this creature leaves the battlefield.", "Creature — Dinosaur", "Trapjaw Tyrant"))).not.toBe("native-trigger");
+    // (Trapjaw Tyrant's exile-until-leaves sat here until DT-1 modeled the detain frame — the guard now
+    // uses Indoraptor's random-opponent + unless-sac effect, which stays genuinely unmodeled.)
+    expect(classifyCard(C("Enrage — Whenever this creature is dealt damage, choose an opponent at random. This creature deals damage equal to its power to that player unless they sacrifice a nontoken creature of their choice.", "Creature — Dinosaur", "Indoraptor"))).not.toBe("native-trigger");
   });
 
   it("GUARD 7 — NO DOUBLE with combat-damage-to-PLAYER: an unblocked enrage creature is NOT dealt damage", () => {

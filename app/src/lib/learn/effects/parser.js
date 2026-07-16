@@ -57,7 +57,7 @@ import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, 
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
-import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser, earthbendReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger)
+import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { gainControlClauseParser } from "./atoms/control.js"; // GAIN-CONTROL — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -3913,6 +3913,7 @@ registerClauseParser(amassClauseParser);
 registerClauseParser(monarchClauseParser);
 registerClauseParser(selfReturnClauseParser);
 registerClauseParser(earthbendReturnClauseParser); // EARTHBEND-RETURN (CR 603.7) — the [earthbend-return:zone] marker checkLeavesTriggers synthesizes for the animated land's dies/exile return
+registerClauseParser(detainReturnClauseParser); // DETAIN-RETURN (DT-1, CR 610.3a) — the [detain-return] marker checkLeavesTriggers synthesizes when a detainer leaves
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause
 // parsers (parser.js imports both registerTriggerDetector and detectTriggers), so it's installed before any
 // classification can read the WeakMap cache. Detects the Aura self-PiG-return + equipped-creature-dies-return

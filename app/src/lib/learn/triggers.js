@@ -3268,6 +3268,15 @@ export function checkLeavesTriggers(state) {
       const desc = { event: "earthbendReturn", scope: "self", whose: "any", optional: false, effectClause: `[earthbend-return:${e.toZone}] return it to the battlefield tapped` };
       fired = fired.concat(makePendingTrigger(desc, lookBack, lookBack, {}));
     }
+    // DETAIN-RETURN (DT-1, CR 610.3a) — the leaving permanent carried linked exiles (Banishing Light /
+    // Banisher Priest: "exile … until this <word> leaves the battlefield"). Synthesized on ANY exit —
+    // graveyard, exile, bounce, tuck (the "until" duration ends however the detainer leaves), UNLIKE
+    // earthbend's dies-or-exiled rider. The links ride the trigger context; zones.applyDetainReturn
+    // re-enters each card from its owner's exile zone (a gone card is a clean no-op).
+    if (e.detainedExile?.length) {
+      const desc = { event: "detainReturn", scope: "self", whose: "any", optional: false, effectClause: "[detain-return] return the exiled cards to the battlefield" };
+      fired = fired.concat(makePendingTrigger(desc, lookBack, lookBack, { detainedExile: e.detainedExile }));
+    }
     // SELF-PiG ("ltb") — the Aura self-PiG-return (Rancor), printed "is put INTO A GRAVEYARD from the
     // battlefield" (CR 700.4 — NOT a bounce/exile). Fire "ltb" ONLY for a graveyard exit; a bounce/exile leave
     // is recorded but not fired here (firing would WRONGLY return a bounced Aura — a false positive). The self

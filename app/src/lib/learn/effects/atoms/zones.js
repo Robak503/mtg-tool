@@ -492,6 +492,83 @@ export function applyEarthbendReturn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "earthbend-return", returned: entered, controller: owner });
 }
 
+/**
+ * DETAIN (BLITZ DT-1, CR 610.3 — Banishing Light / Banisher Priest / Journey to Nowhere-modern): "exile
+ * <target> until this <enchantment|creature> leaves the battlefield." The exile is LINKED to the SOURCE
+ * permanent: each exiled card's {cardId, ownerId} is stamped onto the source's `detainedExile` (plain JSON —
+ * serialize→restore replays; gameState.recordLeaveEvent carries it onto the leave look-back, and
+ * triggers.checkLeavesTriggers synthesizes the [detain-return] one-shot on ANY exit — bounce included,
+ * CR 610.3a "until … leaves", not a dies-only rider).
+ *
+ * CR guards, all enforced here:
+ *   - CR 610.3b — the SOURCE already left before the ETB resolved → the duration has expired → the exile
+ *     does NOT happen at all (a logged no-op, never an unlinked permanent exile).
+ *   - CR 111.7 — a TOKEN target is exiled (moveCardToZone's token branch vanishes it) but never linked:
+ *     nothing returns.
+ *   - The target must still be a live battlefield permanent (CR 608.2b) — a vanished target is skipped.
+ * The exiled card sits in its CONTROLLER's exile zone (the engine's owner proxy, matching bounce/tuck), and
+ * the link's ownerId records that player so the return re-enters it under the same player's control.
+ */
+export function applyExileUntilLeaves(state, atom, ctx) {
+  const srcLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!srcLk) {
+    return logEvent(state, { kind: "spell-effect", effect: "detain-exile", targets: [], reason: "source-left" });
+  }
+  let next = state;
+  const links = [];
+  const exiled = [];
+  for (const t of atomTargets(state, atom, ctx)) {
+    if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
+    const lk = findPermanent(next, t.id);
+    if (!lk) continue;
+    const card = lk.permanent.card;
+    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: t.id });
+    exiled.push(t.id);
+    if (!card?.token) links.push({ cardId: card.id, ownerId: lk.controller });
+  }
+  if (links.length) {
+    // Stamp the links on the LIVE source permanent (it may have moved in `next`'s player objects — re-find).
+    const src = findPermanent(next, ctx.sourceId);
+    if (src) {
+      next = {
+        ...next,
+        players: {
+          ...next.players,
+          [src.controller]: {
+            ...next.players[src.controller],
+            battlefield: next.players[src.controller].battlefield.map((p) =>
+              p.id === ctx.sourceId ? { ...p, detainedExile: [...(p.detainedExile || []), ...links] } : p),
+          },
+        },
+      };
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "detain-exile", targets: exiled });
+}
+
+/**
+ * DETAIN-RETURN (DT-1, CR 610.3a) — the one-shot checkLeavesTriggers synthesizes off the leave look-back's
+ * `detainedExile` links when the detaining permanent leaves (any exit). Each linked card returns from its
+ * OWNER's exile zone to the battlefield under that owner's control (enterCardFromZone — ETB/landfall/
+ * permanent-enters fire like any entry; a fresh permanent id, CR 400.7). A card no longer in that exile zone
+ * is a clean no-op (CR 608.2b-style fail-safe); a token never linked, so nothing fabricated returns.
+ */
+const DETAIN_RETURN_RE = /^\[detain-return\] return the exiled cards to the battlefield$/i;
+export function detainReturnClauseParser(clause) {
+  return DETAIN_RETURN_RE.test(String(clause || "").trim()) ? { op: "detain-return", targetType: null } : null;
+}
+export function applyDetainReturn(state, atom, ctx) {
+  let next = state;
+  const returned = [];
+  for (const link of ctx.detainedExile || []) {
+    if (!link?.cardId || !next.players?.[link.ownerId]) continue;
+    const { state: after, entered } = enterCardFromZone(next, { playerId: link.ownerId, cardId: link.cardId, fromZone: "exile" });
+    next = after;
+    if (entered) returned.push(link.cardId);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "detain-return", returned });
+}
+
 export const zoneResolvers = {
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
@@ -499,4 +576,5 @@ export const zoneResolvers = {
   "reanimate": applyReanimate,
   "exile-from-graveyard": applyExileFromGraveyard,
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
+  "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves
 };

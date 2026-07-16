@@ -962,6 +962,9 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
   // can synthesize the "when it dies or is exiled, return it to the battlefield tapped" delayed trigger. Only a
   // graveyard (dies) or exile exit qualifies — a bounce to hand / tuck to library does NOT (the rider is dies-or-exiled).
   if (permanent.earthbendReturn) { ev.earthbendReturn = true; ev.toZone = toZone; }
+  // DETAIN (DT-1, CR 610.3a): carry the detainer's linked-exile records so checkLeavesTriggers can
+  // synthesize the [detain-return] one-shot — fires on ANY exit (bounce included), unlike earthbend.
+  if (permanent.detainedExile?.length) ev.detainedExile = permanent.detainedExile;
   return { ...state, pendingLeaveEvents: [...(state.pendingLeaveEvents || []), ev] };
 }
 
