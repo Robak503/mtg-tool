@@ -722,6 +722,47 @@ function applyActivateGyRecursion(state, action) {
   });
 }
 
+/**
+ * GY EXILE-COST ABILITY (BLITZ GY-2, CR 602.2): activate "<mana>, Exile this card from your
+ * graveyard: <effect>". Mana paid through the shared planner; the EXILE is a COST item — the card
+ * leaves the graveyard to exile BEFORE the ability goes on the stack (CR 602.2b; moveCardToZone
+ * fires the graveyard-LEAVE watchers), which also makes the ability structurally once-per-copy.
+ * The effect rides the normal EFFECT_PROGRAM resolver (v1 programs are non-targeted, non-modal,
+ * non-X by the recognizer's gate).
+ */
+function applyActivateGyExile(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const card = (player.graveyard || []).find((c) => c.id === action.cardId);
+  if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
+  let working = commitPaymentPlan(state, action.playerId, plan);
+  // The exile-self cost item (CR 602.2b — costs are paid before the ability is put on the stack).
+  working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: action.cardId });
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId,
+    kind: "activated-ability",
+    source: card,
+    controller: action.playerId,
+    targets: [],
+    cost: action.cost,
+    payload: {
+      resolver: RESOLVER_KEYS.EFFECT_PROGRAM,
+      params: { program: action.program, controller: action.playerId, targets: [], cardId: card.id, sourceId: null },
+    },
+  });
+  let next = { ...working2, stack: [...working2.stack, stackObject] };
+  return logEvent(next, {
+    kind: "activate-ability",
+    playerId: action.playerId,
+    permanentId: null,
+    cardName: card.name,
+    abilityText: action.abilityText,
+  });
+}
+
 function applyActivateAbility(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
@@ -1292,6 +1333,7 @@ const HANDLERS = {
   "double-mana-pool": applyDoubleManaPool, // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   "activate-ability": applyActivateAbility,
   "activate-gy-recursion": applyActivateGyRecursion, // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
+  "activate-gy-exile": applyActivateGyExile, // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "plot": applyPlot,   // PLOT (CR 702.171a): exile a hand card face-up for the plot cost (special action)
   "activate-loyalty": applyActivateLoyalty,

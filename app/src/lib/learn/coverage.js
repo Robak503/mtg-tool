@@ -32,7 +32,7 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines, parseGraveyardSelfRecursion } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -1673,6 +1673,20 @@ registerCoverageClassifier((card) => (isNativeKira(card, isKeywordOnly) ? "nativ
 // claim a line the runtime doesn't offer. All-or-nothing: any residue beyond keywords → null → body-only.
 registerCoverageClassifier((card) => {
   const rec = parseGraveyardSelfRecursion(card);
+  if (!rec) return null;
+  const residue = stripReminder(String(card?.oracle || card?.oracle_text || ""))
+    .split("\n").map((l) => l.trim()).filter((l) => l && l !== rec.raw).join("\n");
+  if (!residue) return "native-activated";
+  return isKeywordOnly(residue, card?.name) ? "native-activated" : null;
+});
+
+// GY EXILE-COST ABILITY (BLITZ GY-2, CR 602.2 — Seasoned Pyromancer / Runehorn Hellkite / the Soul
+// cycle): a card whose only non-keyword text is the modeled "<mana>, Exile this card from your
+// graveyard: <effect>" line (parseGraveyardExileAbility: HIGH, non-targeted, non-modal, non-X, the
+// sorcery rider recognized) classifies native-activated — the SAME parse the legalChoices enumerator
+// and the dispatcher key on. All-or-nothing: any residue beyond keywords → null → body-only.
+registerCoverageClassifier((card) => {
+  const rec = parseGraveyardExileAbility(card);
   if (!rec) return null;
   const residue = stripReminder(String(card?.oracle || card?.oracle_text || ""))
     .split("\n").map((l) => l.trim()).filter((l) => l && l !== rec.raw).join("\n");

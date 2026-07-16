@@ -45,6 +45,34 @@ function stripSorcerySpeedRider(clause) {
 }
 
 /**
+ * GY EXILE-COST ABILITY (BLITZ GY-2 — Seasoned Pyromancer / Runehorn Hellkite / the Soul cycle,
+ * CR 602.2 + 113.6d): "<mana>, Exile this card from your graveyard: <effect>." The exile IS the cost
+ * (paid at activation — the card leaves the graveyard before the ability resolves, so the ability is
+ * structurally once-per-copy). V1 models the NON-TARGETED, non-modal, non-X HIGH effects only (a
+ * chosen-target effect needs cast-time target enumeration on this lane — the natural GY-3); the
+ * "Activate only as a sorcery" rider is recognized and enforced at the offer gate. Shared
+ * single-source: the legalChoices enumerator, the dispatcher, and the coverage classifier all key off
+ * THIS parse. Returns { manaPips, program, effectClause, sorceryOnly, raw } or null.
+ */
+const GY_EXILE_SORC_RIDER = /\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i;
+export function parseGraveyardExileAbility(card) {
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
+  for (const line of oracle.split("\n")) {
+    const m = line.trim().match(/^((?:\{[^}]+\})+), exile this card from your graveyard: (.+)$/i);
+    if (!m) continue;
+    let eff = m[2].trim();
+    const sorceryOnly = GY_EXILE_SORC_RIDER.test(eff);
+    if (sorceryOnly) eff = eff.replace(GY_EXILE_SORC_RIDER, "").trim();
+    const program = parseEffectClause(normalizeSelfName(eff, card), "Instant");
+    if (!program || programConfidence(program) !== "high") return null;
+    if (program.modal || program.xSpell) return null;                    // v1 — the plain shape only
+    if ((program.atoms || []).some((a) => !!a.targetType)) return null;  // v1 — non-targeted only (GY-3 adds enumeration)
+    return { manaPips: m[1], program, effectClause: eff, sorceryOnly, raw: line.trim() };
+  }
+  return null;
+}
+
+/**
  * GY SELF-RECURSION (BLITZ GY-1 — Reassembling Skeleton / Sanitarium Skeleton class, CR 602.2 + 113.6d:
  * an ability activated from the graveyard because its effect can only make sense there): the exact line
  * "<mana cost>: Return this card from your graveyard to <your hand | the battlefield [tapped]>." —
