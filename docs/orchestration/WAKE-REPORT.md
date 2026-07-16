@@ -1,5 +1,13 @@
 # WAKE REPORT — live resume anchor
 
+## 🚢 2026-07-15 (night, later) — v0.142.0 TAGGED (c08d8d09): the whole Crucible batch ships
+
+Colton eyeballed and called it ("ship this is good"). One release: The Reflecting Pool R1-R4 +
+Living History, ▶ watch-the-highlight, the A/B coverage trust banner, the grind-store guards.
+Tag v0.142.0 pushed; CI release run 29469377709 was in progress at handoff — if it failed, fix and
+re-tag per RELEASE.md before anything else. Remaining Colton/Omnath items unchanged from the entry
+below (Rograkh? · real Omnath-deck reconciliation · Feature B · mirror-targeting spec).
+
 ## 🎬 2026-07-15 (night) — CRUCIBLE SWEEP COMPLETE: dream shelf A ✅ + C ✅ (B = Omnath's lane) · queue item ② closed · sim-integrity order closed · A/B trust gate live
 
 Autonomous continuation (Colton's standing order: any Crucible-attached work, full auto). Shipped to
