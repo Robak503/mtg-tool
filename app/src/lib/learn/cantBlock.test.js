@@ -32,12 +32,14 @@ describe("cant-block — parser + intent", () => {
     expect(atomTargetIntent({ op: "cant-block", targetType: "creature" })).toBe("enemy");
     expect(programTriggerTargetsResolvable(parseEffectProgram({ type: "Instant", oracle: "Target creature can't block this turn." }))).toBe(true);
   });
-  it("the 'an opponent controls' restriction now parses (distinct atom); mass / 'this combat' variants still drop", () => {
+  it("the 'an opponent controls' restriction now parses (distinct atom); the 'this combat' variant still drops", () => {
     // "an opponent controls" is modeled as cant-block + the opponent controller restriction (same enemy intent).
     expect(parseEffectClause("target creature an opponent controls can't block this turn", "Instant").atoms[0])
       .toMatchObject({ op: "cant-block", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] });
-    // …but a MASS ("creatures without flying") or a "this combat" duration variant still fails the exact anchor → LOW.
-    expect(programConfidence(parseEffectClause("creatures without flying can't block this turn", "Instant"))).toBe("low");
+    // The MASS form ("creatures [without flying] can't block this turn") is FT-1's distinct mass-block-lock
+    // atom now — see massBlockLock.test.js. A "this combat" duration variant still fails the anchors → LOW.
+    expect(parseEffectClause("creatures without flying can't block this turn", "Instant").atoms[0])
+      .toMatchObject({ op: "mass-block-lock", withoutKeyword: "flying" });
     expect(programConfidence(parseEffectClause("target creature can't block this combat", "Instant"))).toBe("low");
   });
 });
@@ -96,7 +98,10 @@ describe("cant-block — CREED: non-qualifying forms stay non-native", () => {
   it("an optional 'pay then' rider stays body-only", () => {
     expect(classifyCard(C("Frenzied Goblin", "Whenever this creature attacks, you may pay {R}. If you do, target creature can't block this turn."))).not.toMatch(/^native/);
   });
-  it("a mass 'creatures without flying can't block' stays body-only", () => {
-    expect(classifyCard(C("Seismic Elemental", "When this creature enters, creatures without flying can't block this turn.", "Creature — Elemental"))).not.toMatch(/^native/);
+  it("a mass 'creatures without flying can't block' ETB now flips (FT-1's mass-block-lock atom)", () => {
+    // Sat here as a CREED guard while the mass form was unmodeled; FT-1 models it as a no-target
+    // dynamic-selector rule, so the trigger's effect parses HIGH → native-trigger (runtime pinned
+    // in massBlockLock.test.js).
+    expect(classifyCard(C("Seismic Elemental", "When this creature enters, creatures without flying can't block this turn.", "Creature — Elemental"))).toBe("native-trigger");
   });
 });

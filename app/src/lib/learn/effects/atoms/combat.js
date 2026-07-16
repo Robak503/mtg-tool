@@ -616,6 +616,46 @@ export function applyCantBeBlocked(state, atom, ctx) {
 }
 
 /**
+ * MASS-BLOCK-LOCK (BLITZ FT-1, the Falter class) — "Creatures [without flying] can't block this turn"
+ * (Falter, Magmatic Chasm, Seismic Stomp; Seismic Elemental's ETB carries the same clause). NOT a
+ * characteristic change on a locked set: the clause modifies the RULES of the game, so per CR 611.2c it
+ * "can affect objects that weren't affected when that continuous effect began" — a creature that enters
+ * (or loses flying) later this turn is also stopped, and one granted flying escapes the filtered form.
+ * Modeled as ONE layer-6 endOfTurn `addKeyword cantBlock` whose affects is a DYNAMIC selector (every
+ * creature, any controller; `withoutKeyword: "flying"` for the filtered form) — matchesSelector re-reads
+ * membership at every block-legality query via the layer-aware permanentHasKeyword, which is exactly the
+ * CR 509.1b restriction check, and canBlockAttacker already refuses any blocker carrying cantBlock.
+ * Wears off at cleanup (CR 514.2). No targets, no snapshot — storing the rule IS the resolution.
+ */
+export function applyMassBlockLock(state, atom, ctx) {
+  const selector = { cardTypes: ["Creature"], ...(atom.withoutKeyword ? { withoutKeyword: atom.withoutKeyword } : {}) };
+  const next = addContinuousEffect(state, {
+    layer: 6, op: { layerOp: "addKeyword", keyword: "cantBlock" },
+    affects: { mode: "dynamic", selector },
+    duration: { kind: "endOfTurn", turn: state.turn },
+    source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null },
+  }).state;
+  return logEvent(next, { kind: "spell-effect", effect: "mass-block-lock", controller: ctx.controller || null, withoutKeyword: atom.withoutKeyword || null });
+}
+
+/**
+ * MASS-BLOCK-LOCK clause parser — exactly the two evidenced whole clauses: "Creatures without flying
+ * can't block this turn" (Falter / Magmatic Chasm / Seismic Stomp / Fire of Orthanc / Tectonic Rift)
+ * and the bare "Creatures can't block this turn" (Order // Chaos's Chaos half). Whole-clause anchored:
+ * every other filter (power N or less — Temur Charm; monocolored — Awe for the Guilds; color pairs —
+ * Flash of Defiance; nonartifact — Ruthless Invasion; Cowards — Pyrophobia; "your opponents control" —
+ * Cosmotronic Wave) and every conditional carrier (Ferocious/Threshold/monarch riders arrive as ONE
+ * un-split sentence) fails the anchor → null → Arbiter (CREED, FN-safe). Emits a no-target atom
+ * (no targetType → non-targeting). Pure. Registered via registerClauseParser in parser.js.
+ */
+export function massBlockLockClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^creatures( without flying)? can't block this turn$/);
+  if (!m) return null;
+  return m[1] ? { op: "mass-block-lock", withoutKeyword: "flying" } : { op: "mass-block-lock" };
+}
+
+/**
  * SWITCH-PT (CR 613.7e, the engine's layer-7 "7d" sublayer) — "switch [target / this / the triggering]
  * creature's power and toughness until end of turn" (Twisted Image, Transmutation, About Face; plus the
  * {T} / ETB / attack-trigger / self forms on permanents — Dwarven Thaumaturgist, Crookclaw Transmuter,
@@ -1596,6 +1636,7 @@ export const combatResolvers = {
   "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
+  "mass-block-lock": applyMassBlockLock, // MASS-BLOCK-LOCK (FT-1) — "creatures [without flying] can't block this turn" → ONE dynamic-selector layer-6 endOfTurn cantBlock rule (CR 611.2c)
   "switch-pt": applySwitchPT, // SWITCH-PT — "switch ~ power and toughness until end of turn" → layer-7 sublayer-7d endOfTurn swap
   "grant-keywords-group": applyGrantKeywordsGroup, // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
   "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"

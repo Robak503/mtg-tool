@@ -471,7 +471,7 @@ function effectiveTypeIdentity(candidate, state) {
 // for such an id (a) excludes the P/T-predicate grant (P/T-irrelevant — CR 613.1f vs 613.3) and (b) skips the
 // memo write, so no keyword-less entry can ever be served to a later reader.
 const _ptPredicateInProgress = new Set();
-const _withKeywordInProgress = new Set(); // WD-1 — the withKeyword selector's re-entry guard (see matchesSelector)
+const _withKeywordInProgress = new Set(); // WD-1 — the withKeyword selector's re-entry guard, shared by FT-1's withoutKeyword twin (see matchesSelector)
 
 function matchesSelector(selector, candidate, sourcePerm, state) {
   if (!selector) return false;
@@ -583,6 +583,28 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
     _withKeywordInProgress.add(kwKey);
     try {
       if (!permanentHasKeyword(state, candidate.id, selector.withKeyword)) return false;
+    } finally {
+      _withKeywordInProgress.delete(kwKey);
+    }
+  }
+  // WITHOUT-KEYWORD gate (BLITZ FT-1 — the Falter class: "Creatures WITHOUT FLYING can't block this
+  // turn"): the NEGATED twin of withKeyword above — the candidate must LACK the keyword right now, read
+  // through the same LAYER-AWARE permanentHasKeyword (printed ∪ keyword counter ∪ layer-6 grants), so a
+  // creature GRANTED flying mid-turn escapes the lock the moment the grant lands and a flyer that loses
+  // its grant falls into it (CR 611.2c — a rules-modifying resolution effect "can affect objects that
+  // weren't affected when that continuous effect began"). Shares _withKeywordInProgress (same
+  // candidate.id+keyword key), and the re-entry bail MUST stay `return false` — treat the candidate as
+  // NOT SELECTED. Merely skipping the keyword check on a bail would SELECT a candidate whose keyword
+  // status is unknowable that pass, and for a restriction-granting effect that could lock a flyer out of
+  // a legal block (a forbidden FP); the unselected bail only under-applies the lock (FN-safe). No modeled
+  // vocabulary can re-enter this pair today — the guard is a termination backstop for a pathological
+  // CR 613.5 keyword-reads-keyword cycle, exactly as on the positive gate.
+  if (selector.withoutKeyword) {
+    const kwKey = candidate.id + "|" + selector.withoutKeyword;
+    if (_withKeywordInProgress.has(kwKey)) return false;
+    _withKeywordInProgress.add(kwKey);
+    try {
+      if (permanentHasKeyword(state, candidate.id, selector.withoutKeyword)) return false;
     } finally {
       _withKeywordInProgress.delete(kwKey);
     }
