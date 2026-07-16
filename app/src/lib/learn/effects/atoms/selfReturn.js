@@ -37,7 +37,8 @@
  * atoms module could race a direct `import triggers` + detectTriggers call and miss the WeakMap-cached card).
  */
 
-import { addCounter, logEvent, moveCardToZone } from "../../gameState.js";
+import { addCounter, logEvent, moveCardToZone, destroyLethalCreatures } from "../../gameState.js";
+import { checkDiesTriggers } from "../../triggers.js"; // PS-1: a 1/1 persister returns 0/0 → the immediate lethal SBA (CR 704.5f) — cycle-safe (triggers doesn't import atoms/selfReturn)
 import { enterCardFromZone } from "./zones.js";
 
 /**
@@ -145,6 +146,10 @@ export function selfReturnClauseParser(clause) {
   // return+counter half. Anchored ^…$; the marker never occurs in real oracle text, so a spell can't reach it.
   if (/^\[undying\] return it to the battlefield under its owner's control with a \+1\/\+1 counter on it$/i.test(t)) {
     return { op: "undying-return" };
+  }
+  // KW-PERSIST (BLITZ PS-1, CR 702.79a) — undying's -1/-1 mirror sentinel (triggers.persistKeywordCount).
+  if (/^\[persist\] return it to the battlefield under its owner's control with a -1\/-1 counter on it$/i.test(t)) {
+    return { op: "persist-return" };
   }
   // GY-FUNCTIONING self-return (Infesting Radroach — the Bloodghast-class zone shape): the kind-tagged
   // sentinel detectTriggers produces for "…if this creature is in your graveyard, you may return it to
@@ -290,9 +295,43 @@ export function applyGySelfReturnHand(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "gy-self-return-hand", returned: true, controller: owner });
 }
 
+/**
+ * applyPersistReturn — KW-PERSIST (CR 702.79a): undying's -1/-1 mirror, byte-for-byte the same zone
+ * mechanics (the "it had no -1/-1 counters on it" intervening-if enforced upstream at flush + resolution;
+ * CR 608.2b gone-card no-op; CR 111.7 token guard) with the returned body carrying one -1/-1 counter
+ * through the same doubling-aware addCounter path — so the loop terminates exactly as printed.
+ */
+export function applyPersistReturn(state, atom, ctx) {
+  const owner = ctx.triggeringController;
+  const cardId = ctx.triggeringCardId;
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (ctx.triggeringCardIsToken) {
+    return logEvent(state, { kind: "spell-effect", effect: "persist-return", returned: false, reason: "token", controller: owner });
+  }
+  const gy = state.players[owner].graveyard || [];
+  if (!gy.some((c) => c.id === cardId)) {
+    return logEvent(state, { kind: "spell-effect", effect: "persist-return", returned: false, controller: owner });
+  }
+  const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard" });
+  let next = entered;
+  if (didEnter) {
+    const perm = (next.players[owner].battlefield || []).find((p) => p.card?.id === cardId);
+    if (perm) {
+      next = addCounter(next, { permanentId: perm.id, type: "-1/-1", amount: 1 });
+      // A 1-toughness persister returns 0/0 → dies IMMEDIATELY to the SBA (CR 704.5f) — and stays dead
+      // (its LKI now shows a -1/-1 counter, so the intervening-if blocks a second return). Run the sweep
+      // here so the zero-toughness body never lingers as a phantom blocker until some later chokepoint.
+      const lethal = destroyLethalCreatures(next);
+      next = checkDiesTriggers(lethal.state, lethal.dead);
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "persist-return", returned: didEnter, controller: owner });
+}
+
 export const selfReturnResolvers = {
   "self-return": applySelfReturn,
   "self-return-bf-enchantment": applySelfReturnBattlefieldEnchantment,
   "undying-return": applyUndyingReturn,
+  "persist-return": applyPersistReturn, // KW-PERSIST (PS-1, CR 702.79a) — undying's -1/-1 mirror
   "gy-self-return-hand": applyGySelfReturnHand,
 };

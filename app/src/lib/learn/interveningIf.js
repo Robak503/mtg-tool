@@ -283,6 +283,9 @@ const WAS_A_CREATURE_RE = /^it was a creature$/;
 // fail-open return — fail-open would loop a countered body forever). Anchored EXACTLY; a "-1/-1"/named-
 // counter variant (persist et al) falls through → Arbiter (CREED).
 const HAD_NO_PLUS_COUNTERS_RE = /^it had no \+1\/\+1 counters on it$/;
+// KW-PERSIST (BLITZ PS-1, CR 702.79a) — undying's minus-twin: the LKI counter-lessness read off
+// ctx.triggeringHadNoMinusCounters (stamped by checkDiesTriggers from the death look-back).
+const HAD_NO_MINUS_COUNTERS_RE = /^it had no -1\/-1 counters on it$/;
 
 // ===== POWER-DIFFERED-FROM-BASE (Jason Bright — CR 603.4 + 603.6e) ===========================
 // "its power was different from its base power" — the intervening-if on Jason Bright's tribal dies trigger
@@ -497,6 +500,12 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     if (typeof hadNone !== "boolean") return null; // no per-object counters snapshot → can't confirm (FN-safe)
     return hadNone === true; // "it had no +1/+1 counters on it" → true iff the LKI showed none
   }
+  // KW-PERSIST (BLITZ PS-1, CR 702.79a) — the -1/-1 mirror of the undying branch above, same LKI discipline.
+  if (HAD_NO_MINUS_COUNTERS_RE.test(c)) {
+    const hadNone = context?.triggeringHadNoMinusCounters;
+    if (typeof hadNone !== "boolean") return null; // no per-object counters snapshot → can't confirm (FN-safe)
+    return hadNone === true;
+  }
 
   // POWER-DIFFERED-FROM-BASE (Jason Bright, CR 603.6e) — read the dying object's effective-vs-base power
   // comparison off the context flag (stamped by checkDiesTriggers from the death look-back's power +
@@ -662,5 +671,5 @@ export function interveningIfParseable(condition) {
   // It ALSO carries `sourcePermanentId` pointing at the probe permanent so the SOURCE-COUNTER-THRESHOLD
   // shape returns a boolean here (the runtime threads the real source id via makePendingTrigger's context);
   // the probe permanent has no counters → false, still a definite boolean.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringPowerDifferedFromBase: true, sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringPowerDifferedFromBase: true, sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
 }

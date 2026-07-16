@@ -1478,6 +1478,17 @@ export function undyingKeywordCount(oracle) {
   return 0;
 }
 
+/** KW-PERSIST (BLITZ PS-1, CR 702.79a) — the STRUCTURAL matcher, undying's exact mirror: a whole
+ * comma-segment must be exactly "persist", so a grant ("…gains persist" — Cauldron of Souls) or a
+ * mid-sentence use never counts. Shared by the synthesis and coverage's shaped bump. */
+export function persistKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    if (line.split(",").some((seg) => seg.trim().toLowerCase() === "persist")) return 1;
+  }
+  return 0;
+}
+
 /**
  * FLANKING (BLITZ FL-1, CR 702.25) — the STRUCTURAL instance counter (the undying matcher, counting
  * MULTIPLES: CR 702.25c — each flanking instance triggers separately, so "Flanking, flanking" debuffs
@@ -2541,6 +2552,21 @@ export function detectTriggers(card) {
       optional: false, sourceText: "Undying",
     });
   }
+  // KW-PERSIST (BLITZ PS-1, CR 702.79a) — undying's -1/-1 MIRROR, synthesized identically: the SELF-DIES
+  // descriptor with the "it had no -1/-1 counters on it" intervening-if (LKI off the death snapshot,
+  // ctx.triggeringHadNoMinusCounters) and the [persist] sentinel → the persist-return atom (graveyard →
+  // battlefield under owner + one -1/-1 counter). The returned body carries the counter, so its next death
+  // reads "had counters" → no second return (the loop terminates, CR 702.79a exactly). Structural matcher —
+  // a grant ("…gains persist" — Cauldron of Souls) never self-synthesizes (safe FN).
+  if (persistKeywordCount(oracle) > 0) {
+    out.push({
+      event: "dies", scope: "self", whose: "any",
+      effect: null,
+      effectClause: "[persist] return it to the battlefield under its owner's control with a -1/-1 counter on it",
+      interveningIf: "it had no -1/-1 counters on it",
+      optional: false, sourceText: "Persist",
+    });
+  }
   // KW-EVOLVE (CR 702.100a, SHELF S7) — KEYWORD→TRIGGER synthesis, the UNDYING precedent exactly. "Evolve"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(Whenever a creature you
   // control enters, if that creature has greater power or toughness than this creature, put a +1/+1
@@ -3262,6 +3288,8 @@ export function checkDiesTriggers(state, dead) {
     // one leaves the flag undefined, and interveningIf.js returns null on undefined (can't confirm → the
     // trigger drops, FN-safe — NEVER a fail-open return, which could loop a countered body forever).
     if (d.counters) diesCtx.triggeringHadNoPlusCounters = !((d.counters["+1/+1"] || 0) > 0);
+    // KW-PERSIST (PS-1): the -1/-1 mirror of the undying stamp above, same LKI snapshot.
+    if (d.counters) diesCtx.triggeringHadNoMinusCounters = !((d.counters["-1/-1"] || 0) > 0);
     // POWER-DIFFERED (Jason Bright, CR 603.6e LKI): the dies intervening-if "its power was different from
     // its base power" compares the look-back's EFFECTIVE power (counters + anthems + pumps) against its
     // BASE power (printed / 7b-set). Stamped only when BOTH were captured; a missing capture leaves the
