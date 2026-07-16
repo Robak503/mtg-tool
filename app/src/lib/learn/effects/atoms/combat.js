@@ -1164,6 +1164,11 @@ export function pumpClauseParser(clause) {
   // whole-clause anchored, so a filtered/rider form fails the `$` → low → Arbiter (FN-safe).
   const cmb = t.match(/^(attacking|blocking) creatures get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (cmb) return { op: "pump", scope: cmb[1] === "attacking" ? "attackingCreatures" : "blockingCreatures", ptDelta: { p: parseInt(cmb[2], 10), t: parseInt(cmb[3], 10) } };
+  // BATTLE CRY (BLITZ BC-1, CR 702.90a) — "each other attacking creature gets +N/+M until end of turn":
+  // the Trumpet-Blast team pump EXCLUDING the source (excludeSource → atomTargets drops ctx.sourceId).
+  // Fired from the keyword's synthesized attacks trigger; whole-clause anchored (a rider → LOW).
+  const boc = t.match(/^each other attacking creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (boc) return { op: "pump", scope: "attackingCreatures", excludeSource: true, ptDelta: { p: parseInt(boc[1], 10), t: parseInt(boc[2], 10) } };
   // MASS-DEBUFF — "Creatures your opponents control get -N/-N until end of turn" (Make Obsolete, Suffocating
   // Fumes, Cower in Fear, Turn the Tide, Hysterical Blindness, Hampering Snare). The opponent-side mirror of the
   // youControl TEAM pump: scope:"eachOpponentCreature" → applyPumpEffect over opponentCreatureTargets, the SAME

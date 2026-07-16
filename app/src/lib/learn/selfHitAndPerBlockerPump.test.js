@@ -136,6 +136,35 @@ describe("FL-1 — flanking", () => {
   });
 });
 
+// BLITZ BC-1 — BATTLE CRY (CR 702.90): the keyword's synthesized attacks trigger pumps each OTHER
+// attacker +1/+0 until end of turn (the Trumpet-Blast scope with excludeSource — the crier never pumps
+// itself). One descriptor per printed instance; a grant never self-synthesizes.
+describe("BC-1 — battle cry", () => {
+  const WARDRIVER = { id: "gw", name: "Goblin Wardriver", type: "Creature — Goblin Warrior", power: "2", toughness: "2", mana: "{R}{R}",
+    oracle: "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)" };
+  it("synthesizes per instance (grants never); the effect parses with excludeSource; the card flips", () => {
+    expect(detectTriggers(WARDRIVER).filter((t) => t.sourceText === "Battle cry")).toHaveLength(1);
+    expect(detectTriggers({ oracle: "Creatures you control have battle cry.", type: "Creature", name: "Granter" }).filter((t) => t.sourceText === "Battle cry")).toHaveLength(0);
+    const p = parseEffectClause("each other attacking creature gets +1/+0 until end of turn", "Instant");
+    expect(p.atoms).toEqual([{ op: "pump", scope: "attackingCreatures", excludeSource: true, ptDelta: { p: 1, t: 0 } }]);
+    expect(classifyCard(WARDRIVER)).toBe("native-body");
+  });
+  it("runtime: the pump lands on the OTHER attacker only (the crier excluded)", () => {
+    let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const crier = createPermanent({ id: "cr", card: WARDRIVER, controller: "user", summoningSick: false });
+    const buddy = createPermanent({ id: "bd", card: { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "user", summoningSick: false });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [crier, buddy] } },
+      combat: { attackers: [{ permanentId: "cr", attackingPlayer: "user", defender: "ai1" }, { permanentId: "bd", attackingPlayer: "user", defender: "ai1" }], blockers: [] } };
+    const after = runEffectProgram(s, { source: { name: "Goblin Wardriver" }, payload: { params: { program: { atoms: [{ op: "pump", scope: "attackingCreatures", excludeSource: true, ptDelta: { p: 1, t: 0 } }] }, controller: "user", targets: [], sourceId: "cr" } } });
+    const eff = (after.continuousEffects || []).filter((e) => e.op?.layerOp === "ptModify" || e.op?.power != null);
+    expect(eff.length).toBeGreaterThan(0);
+    // The pump's affected set: buddy in, crier out (probe via the applied effect's fixed ids).
+    const affected = eff.flatMap((e) => e.affects?.permanentIds || []);
+    expect(affected).toContain("bd");
+    expect(affected).not.toContain("cr");
+  });
+});
+
 // BLITZ IE-1 — CONTACT DAMAGE (Inferno Elemental class): "Whenever this creature blocks or becomes
 // blocked by a creature, this creature deals N damage to that creature." Fires per PAIR in both roles;
 // the pair partner rides as the triggering permanent and the sentinel's thatCreature referent lands the hit.

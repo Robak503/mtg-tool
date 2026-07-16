@@ -1489,6 +1489,19 @@ export function persistKeywordCount(oracle) {
   return 0;
 }
 
+/** BATTLE CRY (BLITZ BC-1, CR 702.90) — the STRUCTURAL instance counter (the flanking matcher: a whole
+ * comma-segment must be exactly "battle cry"; multiples stack per CR 702.90b — each instance pumps the
+ * team +1/+0 again). A grant ("…creatures have battle cry") never counts. Shared by the synthesis and
+ * coverage's shaped bump. */
+export function battleCryKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  let n = 0;
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) if (seg.trim().toLowerCase() === "battle cry") n++;
+  }
+  return n;
+}
+
 /**
  * FLANKING (BLITZ FL-1, CR 702.25) — the STRUCTURAL instance counter (the undying matcher, counting
  * MULTIPLES: CR 702.25c — each flanking instance triggers separately, so "Flanking, flanking" debuffs
@@ -2489,6 +2502,19 @@ export function detectTriggers(card) {
       event: "flanking", scope: "self", whose: "any",
       effect: null, effectClause: "the triggering creature gets -1/-1 until end of turn",
       optional: false, sourceText: "Flanking",
+    });
+  }
+  // BATTLE CRY (BLITZ BC-1, CR 702.90a) — KEYWORD→TRIGGER synthesis (the reminder-parens keyword, the
+  // bushido precedent): "Whenever this creature attacks, each other attacking creature gets +1/+0 until
+  // end of turn." One descriptor PER printed instance (CR 702.90b — multiples stack); the effect is the
+  // Trumpet-Blast team pump with excludeSource, fired through the normal attacks event (checkAttackTriggers
+  // threads ctx.sourceId, so "each OTHER" drops the crier itself). A grant never self-synthesizes
+  // (battleCryKeywordCount — structural).
+  for (let i = battleCryKeywordCount(oracle); i > 0; i--) {
+    out.push({
+      event: "attacks", scope: "self", whose: "any",
+      effect: null, effectClause: "each other attacking creature gets +1/+0 until end of turn",
+      optional: false, sourceText: "Battle cry",
     });
   }
   // CONTACT DAMAGE (BLITZ IE-1 — Inferno Elemental / Ornery Goblin / Ashmouth Hound: "Whenever this

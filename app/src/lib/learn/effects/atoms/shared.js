@@ -246,7 +246,13 @@ export const atomTargets = (state, atom, ctx) => {
   // get +1/+0", Hold the Line "blocking creatures get +0/+5"). The set is locked at resolution (CR 611.2c);
   // combat state lives in state.combat.attackers (permanentId) / .blockers (blockerId), the same source
   // creatureSatisfiesRestrictions reads for the "attacking"/"blocking" target restriction.
-  if (atom.scope === "attackingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.attackers || []).some((a) => a.permanentId === t.id));
+  if (atom.scope === "attackingCreatures") {
+    // BATTLE CRY (BC-1): excludeSource drops the trigger's own source (CR 702.90a "each OTHER attacking
+    // creature"); absent (Trumpet Blast), every attacker is included — byte-identical to before.
+    return massCreatureTargets(state)
+      .filter((t) => (state.combat?.attackers || []).some((a) => a.permanentId === t.id))
+      .filter((t) => !(atom.excludeSource && ctx?.sourceId && t.id === ctx.sourceId));
+  }
   if (atom.scope === "blockingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.blockers || []).some((b) => b.blockerId === t.id));
   if (atom.target === "self") return selfTargets(state, ctx);
   if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
