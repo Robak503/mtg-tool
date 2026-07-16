@@ -1,11 +1,12 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +409 more (campaign +617), 30 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +414 more (campaign +622), 31 slices, LOST=0
 
 > **THE +600 MILESTONE**: campaign native+land 9,583 → 10,200 name-dedup (~29.9% of 34,161 — one slice
 > from 30%). Latest: **LV-1** the leavesSelf event + the LTB disjunction (a4b8c521, +20) — THRAGTUSK
 > lives (any-exit LTB, bounce included); the fading/vanishing phantom-reminder strip un-parked every
-> vanishing+trigger card (Aven Riftwatcher, Keldon Marauders); Illusions AND Delusions of Grandeur.
+> vanishing+trigger card (Aven Riftwatcher, Keldon Marauders); Illusions AND Delusions of Grandeur ·
+> **OD-1** the opponent-debuff anthem (c7ca39c0, +5) — ELESH NORN, GRAND CENOBITE both-sides native.
 > Latest: **KM-1** Kismet imposition (61024daf, +3) · **GX-1** up-to-three single-graveyard exile
 > (7fc54227, +6) · **TW-1** the whole-hand cycle (260db308, +3) — Tolarian Winds as ONE composite atom,
 > disarming the bare "draw that many cards" combat-damage mis-bind for the known wordings · **BC-1**
