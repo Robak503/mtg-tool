@@ -34,6 +34,7 @@ import {
   regeneratePermanent,
   hasShieldCounter,
   consumeShieldCounter,
+  consumePreventionShields,
   totemArmorAuraFor,
   applyTotemArmor,
   adjustLoyalty,
@@ -933,7 +934,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —
     // the doubled magnitude becomes that many poison counters (CR 614 doubles the amount; CR 702.90a changes
     // the form). 120.8: only deal if >0 after doubling.
-    const dealt = dmgConsult(amount, "player", pid);
+    let dealt = dmgConsult(amount, "player", pid);
+    if (dealt <= 0) return s;
+    // PV-1 (CR 615): floating prevent-next-N shields consume BEFORE the hit lands (after the doubler —
+    // CR 616.1 ordering is the engine's deterministic simplification). Fast-pathed inside the helper.
+    const pv = consumePreventionShields(s, { targetKind: "player", targetId: pid, amount: dealt });
+    s = pv.state; dealt = pv.amount;
     if (dealt <= 0) return s;
     return sourceInfect
       ? addPoison(s, { playerId: pid, amount: dealt })
@@ -945,7 +951,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // if a future effect hits one creature twice in a call. Reflects the Wave-5a doubler (dmgConsult ran).
   const dealtToCreature = {};
   const hitCreature = (s, permId) => {
-    const dealt = dmgConsult(amount, "creature", permId);
+    let dealt = dmgConsult(amount, "creature", permId);
     if (dealt <= 0) return s;
     // CR 122.1c — a SHIELD COUNTER PREVENTS all damage this event would deal to the creature and removes one
     // shield counter. The damage is prevented, so it is NOT marked, feeds NO enrage/dealtDamage tally (CR 120.8 —
@@ -953,6 +959,10 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     // effect hits each creature at most once). Gated on the counter, so an unshielded creature is byte-identical.
     const lk = findPermanent(s, permId);
     if (lk && hasShieldCounter(lk.permanent)) return consumeShieldCounter(s, permId);
+    // PV-1 (CR 615): floating prevent-next-N shields (Samite Healer on a creature) consume before the hit.
+    const pv = consumePreventionShields(s, { targetKind: "creature", targetId: permId, amount: dealt });
+    s = pv.state; dealt = pv.amount;
+    if (dealt <= 0) return s;
     dealtToCreature[permId] = (dealtToCreature[permId] || 0) + dealt;
     let out = (sourceInfect || sourceWither)
       ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
@@ -994,7 +1004,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         // doesn't touch planeswalkers (it replaces damage to creatures/players only) — loyalty as normal.
         // DAMAGE-REPLACEMENT (CR 120.3c): loyalty uses the DOUBLED amount.
         else if (t.type === "planeswalker" && findPermanent(next, t.id)) {
-          const dealt = dmgConsult(amount, "planeswalker", t.id);
+          let dealt = dmgConsult(amount, "planeswalker", t.id);
+          // PV-1 (CR 615): a prevention shield on a planeswalker consumes before the loyalty hit.
+          if (dealt > 0) {
+            const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: t.id, amount: dealt });
+            next = pv.state; dealt = pv.amount;
+          }
           if (dealt > 0) next = adjustLoyalty(next, { permanentId: t.id, delta: -dealt });
         }
       }

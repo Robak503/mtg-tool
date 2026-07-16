@@ -47,6 +47,7 @@ import {
   addPoison,
   hasShieldCounter,
   consumeShieldCounter,
+  preventionShieldsFor,
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
@@ -199,19 +200,41 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // FRESH per resolveCombatDamage call (MUST-FIX 4): each combat sub-step is its own call, so a double-striker
   // doubles in BOTH the first-strike and the regular step (per-step doubling, never ×2 "for two steps").
   const hasReplacement = boardHasDamageReplacement(state);
+  // PV-1 (CR 615): floating prevent-next-N shields consume at THIS funnel — per source→target deal event,
+  // BEFORE the amount is recorded — so lifelink / infect / toxic / commander damage / triggers all read the
+  // post-prevention amount (a shield-counter-style skip, but with a decrementing magnitude). The pool is a
+  // LOCAL copy (the shieldConsumed pattern: state is the frozen pre-step board) written back to `next` after
+  // the apply loops. Empty pool → zero allocations on the hot path → byte-identical.
+  const pvPool = preventionShieldsFor(state).map((s) => ({ ...s }));
+  const pvConsume = (targetKind, targetId, dealt) => {
+    let rem = dealt;
+    for (const sh of pvPool) {
+      if (rem <= 0) break;
+      if (sh.amount <= 0 || sh.targetKind !== targetKind || sh.targetId !== targetId) continue;
+      const used = Math.min(sh.amount, rem);
+      sh.amount -= used;
+      rem -= used;
+    }
+    return rem;
+  };
   // Finalize a combat damage amount for one source→target event. `targetKind` is "creature" | "player" |
   // "planeswalker"; `targetId` is the receiving permanent/player. 120.8 zero-guard is re-checked by the
   // callers (addDmg's `n > 0`, spillToDefender's `amount <= 0`) AFTER this returns.
   const consultCombat = (rawAmount, sourcePerm, targetKind, targetId) => {
-    if (!hasReplacement || rawAmount <= 0) return rawAmount;
-    return consultDamageAmount(state, {
-      sourceId: sourcePerm?.id ?? null,
-      sourceController: sourcePerm?.controller ?? null,
-      amount: rawAmount,
-      targetKind,
-      targetId,
-      isCombat: true,
-    });
+    let amt = rawAmount;
+    if (hasReplacement && amt > 0) {
+      amt = consultDamageAmount(state, {
+        sourceId: sourcePerm?.id ?? null,
+        sourceController: sourcePerm?.controller ?? null,
+        amount: amt,
+        targetKind,
+        targetId,
+        isCombat: true,
+      });
+    }
+    // PV-1: shields consume AFTER the doubler (deterministic 616.1 ordering, matching applyDamageEffect).
+    if (amt > 0 && pvPool.length) amt = pvConsume(targetKind, targetId, amt);
+    return amt;
   };
 
   // Attackers deal.
@@ -374,6 +397,9 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // CR 122.1c — remove one shield counter from each creature whose combat damage this step was prevented by its
   // shield (recorded at the deal sites). Done BEFORE marking so the log reflects the post-prevention board.
   for (const id of shieldConsumed) if (findPermanent(next, id)) next = consumeShieldCounter(next, id);
+  // PV-1 (CR 615): write the surviving prevention shields back (the local pool decremented at the deal
+  // sites). Only when a live pool existed — an empty pool leaves state untouched (byte-identical).
+  if (pvPool.length) next = { ...next, preventionShields: pvPool.filter((s) => s.amount > 0) };
   for (const [id, amount] of Object.entries(dmgToPermanent)) {
     if (findPermanent(next, id)) next = markCombatDamage(next, { permanentId: id, amount });
   }

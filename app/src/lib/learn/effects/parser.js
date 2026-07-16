@@ -3744,6 +3744,11 @@ export function atomTargetIntent(atom) {
       // the case only tightens its intent from ambiguous → enemy, correct if one is ever printed.)
       if (tt === "player" || tt === "opponent") return "enemy";
       return "ambiguous";
+    case "prevent-next-damage":
+      // PREVENT-NEXT-DAMAGE (BLITZ PV-1 — Samite Healer class): protective — you shield your OWN
+      // creature/planeswalker/face. The trigger-flush chooser stays own-side (no prevention card is a
+      // trigger today; this future-proofs it), and the cast/activated AI aims at its own side.
+      return "own";
     case "gain-life":
       // "target player gains N life" (Titan of Industry's ETB mode, Perrie, various charms) — life gain is
       // purely BENEFICIAL, so the controller always targets THEMSELVES on a trigger flush (targeting an opponent

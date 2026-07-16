@@ -5,10 +5,10 @@
 
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
-import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 
 /** Tap / untap target creature(s), land(s), OR any permanent (CR 701.26). The CREATURE form is the original
@@ -907,6 +907,16 @@ export function combatKeywordClauseParser(clause) {
   // opponents' creatures (matching the print, and aligning with cant-block's existing enemy intent so the
   // trigger flush already picks an opponent's blocker). applyCantBlock is targetType-agnostic → lifts the runtime.
   if (/^target creature an opponent controls can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] };
+  // PREVENT-NEXT-DAMAGE (BLITZ PV-1, CR 615 — the Samite Healer / Bandage / Healing Salve frame):
+  // "prevent the next N damage that would be dealt to any target this turn" (chosen target) and the
+  // non-targeted self form "…that would be dealt to you this turn". The resolver pushes a FLOATING
+  // this-turn shield (gameState.addPreventionShield); BOTH damage paths consume it before a hit lands
+  // (applyDamageEffect per hit; combatResolution via its local pool at the consultCombat funnel).
+  // Anchored ^…$: a rider / "all damage" / a source-scoped form falls through → LOW → Arbiter.
+  const pvd = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to any target this turn$/);
+  if (pvd) return { op: "prevent-next-damage", amount: NUM_WORD[pvd[1]] ?? parseInt(pvd[1], 10), targetType: "any" };
+  const pvy = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to you this turn$/);
+  if (pvy) return { op: "prevent-next-damage", amount: NUM_WORD[pvy[1]] ?? parseInt(pvy[1], 10), who: "you", targetType: null };
   // CANT-BE-BLOCKED, POWER-CAPPED (BLITZ GT-1 — Goblin Tunneler / Dwarven Warriors class): "target
   // creature with power N or less can't be blocked this turn". The SAME layer-6 endOfTurn unblockable
   // grant, with the printed power cap as a target restriction (creatureSatisfiesRestrictions' existing
@@ -1502,8 +1512,30 @@ export function fightClauseParser(clause) {
   return null;
 }
 
+/**
+ * PREVENT-NEXT-DAMAGE (BLITZ PV-1, CR 615) — push a floating this-turn prevention shield for the chosen
+ * target (any target: creature / player / planeswalker) or the controller ("…dealt to you"). The shield
+ * lives in state.preventionShields (plain JSON, self-expiring by turn stamp); the two damage paths
+ * consume it before a hit lands. A vanished target shields nobody (a clean no-op, never fabricated).
+ */
+function applyPreventNextDamage(state, atom, ctx) {
+  let next = state;
+  const entries = [];
+  if (atom.who === "you") {
+    if (next.players?.[ctx.controller]) entries.push({ targetKind: "player", targetId: ctx.controller });
+  } else {
+    for (const t of ctx.targets || []) {
+      if (t.type === "player" && next.players?.[t.id]) entries.push({ targetKind: "player", targetId: t.id });
+      else if ((t.type === "creature" || t.type === "planeswalker") && findPermanent(next, t.id)) entries.push({ targetKind: t.type, targetId: t.id });
+    }
+  }
+  for (const e of entries) next = addPreventionShield(next, { ...e, amount: atom.amount, turn: next.turn });
+  return logEvent(next, { kind: "spell-effect", effect: "prevent-next-damage", controller: ctx.controller, amount: atom.amount, shielded: entries.map((e) => e.targetId) });
+}
+
 export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
+  "prevent-next-damage": applyPreventNextDamage, // PV-1 (CR 615) — floating this-turn prevent-the-next-N shield
   "set-base-pt-team": applySetBasePtTeam, // SET-BASE-PT-TEAM (Biomass Mutation) — team layer-7b base-P/T set to X/X until end of turn
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),

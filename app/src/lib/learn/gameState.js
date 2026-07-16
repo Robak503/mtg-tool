@@ -1135,6 +1135,51 @@ export function consumeShieldCounter(state, permanentId) {
   return removeCounter(state, { permanentId, type: "shield", amount: 1 });
 }
 
+// ===== PREVENTION SHIELDS (BLITZ PV-1, CR 615) — "Prevent the next N damage that would be dealt to
+// <target> this turn." (the Samite Healer / Bandage / Healing Salve frame). A resolved prevention
+// effect pushes a FLOATING shield entry { targetKind: "creature"|"player"|"planeswalker", targetId,
+// amount, turn } onto state.preventionShields (plain JSON — serialize-stable). Shields are THIS-TURN
+// scoped: entries stamped with an older turn are inert and purged on the next write (the Tato-ledger
+// self-expiry pattern — no cleanup pass). Consumption decrements in array order (CR 616.1 — the
+// affected player's ordering choice is out of scope; deterministic order is the engine's standing
+// simplification, same as applyDamageReplacements' registration order). Both damage paths consume:
+// applyDamageEffect per hit (state threads immediately) and combatResolution via a local pool written
+// back after the apply loops (the shieldConsumed pattern).
+/** The live (this-turn) prevention shields. Cheap empty-board read for the byte-identical gate. */
+export function preventionShieldsFor(state) {
+  const all = state?.preventionShields || [];
+  if (!all.length) return all;
+  return all.filter((s) => s.turn === state.turn && (s.amount || 0) > 0);
+}
+
+/** Add a prevention shield. Purges stale/spent entries on write so the array never accumulates. */
+export function addPreventionShield(state, { targetKind, targetId, amount, turn }) {
+  const live = preventionShieldsFor(state);
+  return { ...state, preventionShields: [...live, { targetKind, targetId, amount: Math.max(0, amount || 0), turn }] };
+}
+
+/** Consume up to `amount` of matching shields. Returns { state, amount } — the unprevented remainder.
+ * Fast path: no live shields → the same state object back (byte-identical for every ordinary hit). */
+export function consumePreventionShields(state, { targetKind, targetId, amount }) {
+  const live = preventionShieldsFor(state);
+  if (!live.length || amount <= 0) return { state, amount };
+  let rem = amount;
+  let touched = false;
+  const nextShields = [];
+  for (const sh of live) {
+    if (rem > 0 && sh.targetKind === targetKind && sh.targetId === targetId && sh.amount > 0) {
+      const used = Math.min(sh.amount, rem);
+      rem -= used;
+      touched = true;
+      if (sh.amount - used > 0) nextShields.push({ ...sh, amount: sh.amount - used });
+    } else {
+      nextShields.push(sh);
+    }
+  }
+  if (!touched && nextShields.length === (state.preventionShields || []).length) return { state, amount };
+  return { state: { ...state, preventionShields: nextShields }, amount: rem };
+}
+
 /**
  * Untap every permanent the given player controls AND remove summoning
  * sickness from creatures that started the turn under their control.
