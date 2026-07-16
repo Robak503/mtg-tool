@@ -45,8 +45,9 @@ describe("LAND-host granted-activated aura (queue 2) — recognition", () => {
     expect(classifyCard(aura("Underworld Connections", 'Enchant land\nEnchanted land has "{T}, Pay 1 life: Draw a card."'))).toBe("native-activated");
   });
   it("FN boundary — rider / unmodeled body / land-MANA grant are NOT native-activated (CREED)", () => {
-    // ETB-trigger rider → residue → Arbiter
-    expect(classifyCard(aura("Rider", 'Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land has "{T}: Create a 1/1 green Squirrel creature token."'))).toBe("body-only");
+    // ETB-trigger rider whose effect does NOT route natively → residue → Arbiter (the routable draw
+    // rider graduated in BLITZ LA-1 — Dragon Mantle-class pins live in landAuraEtbRider.test.js)
+    expect(classifyCard(aura("Rider", 'Enchant land\nWhen this Aura enters, untap all Islands you control and shuffle your hand into your library.\nEnchanted land has "{T}: Create a 1/1 green Squirrel creature token."'))).toBe("body-only");
     // unmodeled granted body → no grant emitted → Arbiter
     expect(classifyCard(aura("Unmodeled", 'Enchant land\nEnchanted land has "{T}: Reveal the top three cards of your library and do something unmodeled."'))).toBe("body-only");
     // a land-MANA grant remains native-mana-aura (phase 1a), NOT native-activated

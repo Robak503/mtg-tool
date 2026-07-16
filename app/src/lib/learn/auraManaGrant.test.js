@@ -62,9 +62,11 @@ describe("AURA-MANA-GRANT (1a) — recognition", () => {
   it("residue gate: a RIDER keeps the card non-native (all-or-nothing, CREED)", () => {
     // restriction rider
     expect(classifyCard(aura("Utopia Vow", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("body-only");
-    // ETB-trigger rider (creature + land forms)
-    expect(classifyCard(aura("Karametra's Favor", 'Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("body-only");
-    expect(classifyCard(aura("Abundant Growth", 'Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land has "{T}: Add one mana of any color."'))).toBe("body-only");
+    // ETB-trigger rider whose effect does NOT route natively (creature + land forms — the routable
+    // draw/gain riders graduated in BLITZ LA-1: Karametra's Favor + Abundant Growth are pinned native
+    // in landAuraEtbRider.test.js; unroutable ETBs hold the pin now)
+    expect(classifyCard(aura("Probe Favor", 'Enchant creature\nWhen this Aura enters, untap all Islands you control and shuffle your hand into your library.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("body-only");
+    expect(classifyCard(aura("Probe Growth", 'Enchant land\nWhen this Aura enters, untap all Islands you control and shuffle your hand into your library.\nEnchanted land has "{T}: Add one mana of any color."'))).toBe("body-only");
     // sacrifice-draw rider
     expect(classifyCard(aura("Unbridled Growth", 'Enchant land\nEnchanted land has "{T}: Add one mana of any color."\nSacrifice this Aura: Draw a card.'))).toBe("body-only");
   });

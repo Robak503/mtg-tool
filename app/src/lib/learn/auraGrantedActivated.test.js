@@ -53,8 +53,9 @@ describe("GRANTED-ACTIVATED (1b) — recognition", () => {
     expect(N("Presence of Gond", "{T}: Create a 1/1 green Elf Warrior creature token.")).toBe("native-activated");
   });
   it("residue gate — a rider keeps the card Arbiter (all-or-nothing, CREED)", () => {
-    // ETB-trigger rider (Dragon Mantle)
-    expect(classifyCard(aura("Dragon Mantle", 'Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has "{R}: This creature gets +1/+0 until end of turn."'))).toBe("body-only");
+    // ETB-trigger rider whose effect does NOT route natively (Dragon Mantle's routable draw graduated
+    // in BLITZ LA-1 — pinned native in landAuraEtbRider.test.js; an unroutable ETB holds the pin now)
+    expect(classifyCard(aura("Probe Mantle", 'Enchant creature\nWhen this Aura enters, untap all Islands you control and shuffle your hand into your library.\nEnchanted creature has "{R}: This creature gets +1/+0 until end of turn."'))).toBe("body-only");
     // restriction rider (Compulsory Rest-style)
     expect(classifyCard(aura("Restful", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."'))).toBe("body-only");
     // return-to-hand rider (Hypervolt Grasp)

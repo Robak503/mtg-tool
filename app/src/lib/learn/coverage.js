@@ -1074,6 +1074,42 @@ export function registerCoverageClassifier(fn) {
 // them through the existing dispatcher (legalChoices.grantedActivatedForHost). All-or-nothing: a rider
 // (an ETB trigger, a restriction, a sacrifice clause, an unmodeled second ability) leaves residue → the
 // card stays Arbiter, never a partially-modeled grant (CREED).
+// LA-1 (BLITZ day 2): an AURA-OWN ETB trigger line ("When this Aura enters, <effect>") whose SINGLE
+// descriptor routes natively is MODELED end-to-end — an Aura enters through the same enterPermanent
+// chokepoint every permanent uses (checkEnterTriggers is the single ETB-fire site), so the flush fires
+// it exactly like a creature's ETB. The metric may therefore admit such a line as non-residue wherever
+// an aura gate walks the card's clauses (Gift of Paradise's "you gain 3 life", Abundant Growth's
+// "draw a card", Weirding Wood's "investigate"). Strictly ONE detected descriptor, event "etb", scope
+// "self", routing natively — anything else stays residue (CREED all-or-nothing).
+function isModeledAuraOwnEtbLine(line) {
+  const t = String(line || "").trim();
+  if (!/^when this (?:aura|enchantment) enters\b/i.test(t)) return false;
+  // abilityClauses strips the trailing period; detectTriggers' sentence anchor needs a complete
+  // sentence — restore it so the probe sees the line exactly as printed.
+  const probeText = /[.!]$/.test(t) ? t : `${t}.`;
+  const descs = detectTriggers({ name: "AuraOwnEtbProbe", type: "Enchantment — Aura", oracle: probeText });
+  return descs.length === 1 && descs[0].event === "etb" && descs[0].scope === "self" && triggerRoutesNatively(descs[0]);
+}
+
+// LA-1 — the Gift of Paradise / Abundant Growth frame: a MANA-GRANT aura (parseAuraGrantedManaAbility)
+// whose only other body is Enchant line(s) + modeled aura-own ETB line(s). The bare-grant form is
+// isNativeManaGrantAura (staticAbilityParser); this widens it with the ETB rider WITHOUT touching that
+// module (the grant-line shape mirrors manaGrantResidueClauses' admission exactly).
+const MANA_GRANT_LINE_RE = /^enchanted (?:creature|land) (?:has|have)\s+["“][^"”]*\{t\}[^"”]*add[^"”]*["”]\s*\.?$/i;
+function isNativeManaGrantAuraWithEtb(card) {
+  if (!isAuraCard(card)) return false;
+  if (!parseAuraGrantedManaAbility(card)) return false;
+  let sawEtb = false;
+  for (const clause of abilityClauses(String(card?.oracle || card?.oracle_text || ""))) {
+    const c = clause.toLowerCase().trim();
+    if (/^enchant\b/.test(c)) continue;
+    if (MANA_GRANT_LINE_RE.test(c)) continue;
+    if (isModeledAuraOwnEtbLine(clause)) { sawEtb = true; continue; }
+    return false; // any other clause = residue (CREED)
+  }
+  return sawEtb; // the bare form (no ETB) is isNativeManaGrantAura's — this gate only adds the rider form
+}
+
 function isNativeActivatedGrantAura(card) {
   if (!isAuraCard(card)) return false;
   const granted = parseGrantedActivatedAbilities(card);
@@ -1096,6 +1132,7 @@ function isNativeActivatedGrantAura(card) {
     if (!t) continue;
     if (/^enchant\b/i.test(t)) continue;                                                  // the Enchant keyword line
     if (grantLineRe.test(t)) continue;                                                     // a granted-ability line
+    if (isModeledAuraOwnEtbLine(stripReminder(t))) continue;                               // LA-1: a modeled aura-own ETB rider
     return false;                                                                          // any other clause = residue
   }
   return true;
@@ -1344,6 +1381,9 @@ export function classifyCard(card) {
     // Harmony; Settlement / Sheltered Aerie) — the host gains a clean tap-for-mana source through the existing
     // grantedManaSpecsFor runtime (creature = no-own-prod fallback; land = the dominating-grant supplement).
     if (isNativeManaGrantAura(card)) return "native-mana-aura";
+    // LA-1 — the mana-grant aura WITH a modeled aura-own ETB rider (Gift of Paradise, Abundant Growth,
+    // Weirding Wood): the grant is the same phase-1a machinery; the ETB fires through checkEnterTriggers.
+    if (isNativeManaGrantAuraWithEtb(card)) return "native-mana-aura";
     // GRANTED-ACTIVATED (subsystem 1 phase 1b): "Enchanted creature has \"{cost}: {effect}\"" (Hermetic
     // Study, Midnight Covenant, Sadistic Obsession) — the host gains an activated ability the runtime
     // enumerates + resolves (legalChoices.grantedActivatedForHost). All-or-nothing: every granted ability
