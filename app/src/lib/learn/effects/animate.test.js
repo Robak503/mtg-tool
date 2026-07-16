@@ -167,8 +167,10 @@ describe("WALT-ANIMATE PR3 — man-land self-animate parser (HIGH: the modeled s
 });
 
 describe("WALT-ANIMATE PR3 — man-land CREED routing (LOW → Arbiter)", () => {
-  it("Creeping Tar Pit — a 'can't be blocked' (Lure) rider → LOW", () => {
-    expect(clauseConf("Until end of turn, this land becomes a 3/2 blue and black Elemental creature. It's still a land. It can't be blocked this turn.")).toBe("low");
+  it("Creeping Tar Pit — the 'can't be blocked' rider now MODELS (SC-1 graduation: the self anchor + layer-aware selfTargets)", () => {
+    // (This pin guarded a dropped rider until BLITZ SC-1 added the cant-be-blocked SELF anchor and made
+    // selfTargets layer-aware — the unblockable grant genuinely lands on the animated land at runtime.)
+    expect(clauseConf("Until end of turn, this land becomes a 3/2 blue and black Elemental creature. It's still a land. It can't be blocked this turn.")).toBe("high");
   });
   it("Mutavault — 'with all creature types' (changeling) → LOW", () => {
     expect(clauseConf("This land becomes a 2/2 creature with all creature types until end of turn. It's still a land.")).toBe("low");

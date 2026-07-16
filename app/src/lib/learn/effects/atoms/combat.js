@@ -927,6 +927,10 @@ export function combatKeywordClauseParser(clause) {
   // hands this parser "you untap all lands you control". The subject is redundant (the resolver already
   // scopes to the controller — CR 701.20), so both forms route to the identical atom.
   if (/^(?:you )?untap all lands(?: you control)?$/.test(t)) return { op: "untap-lands", all: true, targetType: null };
+  // CANT-BE-BLOCKED SELF (BLITZ SC-1 — Sword Coast Sailor's granted trigger effect: "this creature can't
+  // be blocked this turn"): the SOURCE as the fixed referent (atomTargets target:"self" → ctx.sourceId);
+  // the same layer-6 endOfTurn unblockable grant as the targeted form. Whole-clause anchored.
+  if (/^(?:this creature|it) can't be blocked this turn$/.test(t)) return { op: "cant-be-blocked", target: "self", targetType: null };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // CANT-BLOCK with the printed "an opponent controls" restriction (Clamor Shaman / Plasma Jockey / Smelt-Ward
   // Minotaur) — the same offensive layer-6 cantBlock grant, but the restriction narrows the legal targets to

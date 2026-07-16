@@ -3519,7 +3519,10 @@ export function checkAttackTriggers(state) {
     const lk = findPermanent(state, a.permanentId);
     if (!lk) continue;
     const attackerPerm = lk.permanent;
-    const context = { defenderId: a.defender };
+    // SC-1: carry the pw-attack marker so a "attacks a PLAYER"-conditioned trigger (Sword Coast Sailor's
+    // life-comparison intervening-if) can FN-drop on a planeswalker attack (CR — attacking a walker is
+    // not attacking a player). Absent on a face attack; every other consumer ignores it.
+    const context = { defenderId: a.defender, ...(a.defenderPlaneswalkerId ? { defenderPlaneswalkerId: a.defenderPlaneswalkerId } : {}) };
     // self ("this attacks") + the attacker's own "creature you control attacks"
     fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
     // ATTACKS-OR-BECOMES-TARGET (CR 603.2) — the ATTACK site of Goldspan's compound self-trigger. The

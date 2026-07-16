@@ -286,7 +286,11 @@ export function enchantedTargets(state, ctx) {
  */
 export function selfTargets(state, ctx) {
   const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
-  return lk && isCreatureCard(lk.permanent.card) ? [{ type: "creature", id: ctx.sourceId, controller: lk.controller }] : [];
+  // LAYER-AWARE (BLITZ SC-1 catch): an ANIMATED source (Creeping Tar Pit mid-activation — a land that
+  // became a creature) counts too; the printed-card check alone silently dropped self effects on it
+  // (the metric said HIGH while the runtime no-opped — the exact FP class the CREED forbids).
+  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.sourceId))
+    ? [{ type: "creature", id: ctx.sourceId, controller: lk.controller }] : [];
 }
 
 /**

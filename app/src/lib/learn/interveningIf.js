@@ -507,6 +507,23 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return hadNone === true;
   }
 
+  // LIFE-COMPARISON (BLITZ SC-1 — Sword Coast Sailor / the background quartet: "no opponent has more life
+  // than that player"): "that player" = the ATTACKED player (ctx.defenderId, threaded by
+  // checkAttackTriggers); true iff every opponent OF THE TRIGGER'S CONTROLLER has life ≤ that player's.
+  // A planeswalker attack (ctx.defenderPlaneswalkerId set) is NOT "attacks a player" — FN-drop (null),
+  // never a mis-fire; likewise a missing referent (a non-attack event).
+  if (/^no opponent has more life than that player$/.test(c)) {
+    if (context?.defenderPlaneswalkerId) return null; // a pw attack isn't "attacks a player" (CR)
+    const pid = context?.defenderId;
+    if (!pid || !state?.players?.[pid]) return null;  // no attacked-player referent → can't confirm
+    const targetLife = state.players[pid].life;
+    for (const [id, pl] of Object.entries(state.players)) {
+      if (id === controllerId) continue;              // "no OPPONENT" — the controller's own life is irrelevant
+      if ((pl?.life ?? 0) > targetLife) return false;
+    }
+    return true;
+  }
+
   // POWER-DIFFERED-FROM-BASE (Jason Bright, CR 603.6e) — read the dying object's effective-vs-base power
   // comparison off the context flag (stamped by checkDiesTriggers from the death look-back's power +
   // basePower captures). Undefined (an unstamped death path / not a dies trigger) → null (FN-safe).
@@ -671,5 +688,5 @@ export function interveningIfParseable(condition) {
   // It ALSO carries `sourcePermanentId` pointing at the probe permanent so the SOURCE-COUNTER-THRESHOLD
   // shape returns a boolean here (the runtime threads the real source id via makePendingTrigger's context);
   // the probe permanent has no counters → false, still a definite boolean.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringPowerDifferedFromBase: true, sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
 }
