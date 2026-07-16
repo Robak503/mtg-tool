@@ -8,6 +8,10 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+_(nothing yet)_
+
+## [0.142.0] — 2026-07-15
+
 ### Added
 - **The Reflecting Pool** — The Post-Mortem grew into the full per-deck review dossier and took
   its true name. Pick a deck off the shelf and read its whole story on one card: the record up
