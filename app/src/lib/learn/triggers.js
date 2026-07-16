@@ -2172,6 +2172,19 @@ export function detectTriggers(card) {
         // sentences that neither clause parser matches → LOW. The "It's an enchantment" semantics are captured
         // by the marker tag itself (the resolver strips the creature type), so the collapsed sentence is faithful.
         effectClause = "[self-return-bf:enchantment] return it to the battlefield under its owner's control as an enchantment";
+      } else if (cls.event === "dies" && cls.scope === "self" && /^return it to the battlefield( tapped)? under its owner's control( with a \+1\/\+1 counter on it)?$/i.test(effectClause)) {
+        // DIES-RETURN-TO-BATTLEFIELD (BLITZ TG-1 — the Feign Death frame, reached via the until-EOT quoted
+        // grants: "When this creature dies, return it to the battlefield [tapped] under its owner's control
+        // [with a +1/+1 counter on it]."). The creature DIED, so "it" (CR 608.2c) is the dead source in its
+        // owner's graveyard — undying's zone mechanics with tapped/counter knobs re-read from the preserved
+        // printed text by selfReturnClauseParser. SAME dies+self gate as the branches above; CRITICALLY this
+        // stays a dies-only SENTINEL because the bare wording also appears in FLICKER spell halves ("Exile
+        // target creature you control, then return it to the battlefield under its owner's control" —
+        // Momentary Blink): a bare clause-parser match there would classify the blink native and silently
+        // DROP the return (ctx.triggeringCardId unset on the spell path → resolver no-op — a forbidden
+        // dropped-clause FP). The marker only ever exists on a dies/self descriptor, so the spell path can
+        // never reach the atom. Whole-clause anchored ($) — a rider never matches → body-only (CREED).
+        effectClause = `[dies-return-bf] ${effectClause}`;
       } else if (cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-LTB (Wave 4) — "return it to its owner's hand" where the returned object has ALREADY LEFT the
         // battlefield (it's in a graveyard): the Aura self-PiG-return (Rancor — "it" = the Aura) or the

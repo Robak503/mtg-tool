@@ -1098,7 +1098,23 @@ export function grantedActivatedQuotedFor(state, permanentId) {
  */
 export function grantedTriggeredQuotedFor(state, permanentId) {
   const perm = findPerm(state, permanentId);
-  if (!perm) return [];
+  if (!perm) {
+    // DEAD-LOOK-BACK (BLITZ TG-1, CR 603.6e/603.10a): a permanent that just LEFT the battlefield still
+    // fires its dies-trigger off its last-known abilities — including a temporarily GRANTED one (Feign
+    // Death's "When this creature dies, …" grant is the whole point of the card). The selector walk above
+    // needs a live permanent, but a STORED fixed-ids grant (grantUntilEot's resolution effect) names its
+    // recipients explicitly, so it can be matched by id alone. STORED effects only (state.continuousEffects
+    // — statics are collected live and can never carry a fixed-ids triggered grant), so the blast radius is
+    // exactly the until-EOT grant vehicle; a dead id simply isn't in any list otherwise.
+    const out = [];
+    for (const e of state?.continuousEffects || []) {
+      if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
+      if (e.op.grant?.kind !== "triggered" || !e.op.grant.quoted) continue;
+      if (e.affects?.mode !== "fixed" || !e.affects.permanentIds?.includes(permanentId)) continue;
+      out.push(e.op.grant.quoted);
+    }
+    return out;
+  }
   const board = collectContinuousEffects(state);
   if (board.length === 0) return [];
   const out = [];

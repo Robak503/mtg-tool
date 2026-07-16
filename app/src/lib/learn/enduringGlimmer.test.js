@@ -150,16 +150,22 @@ describe("atom fail-safes", () => {
 });
 
 describe("CREED false-negative guards (a partial / mis-shaped variant stays non-native)", () => {
-  it("a bare 'return it to the battlefield under its owner's control' WITHOUT the 'It's an enchantment' rider is NOT rewritten → stays LOW", () => {
-    // A hypothetical Phoenix-to-battlefield (no type change) must not collapse to the enchantment-return atom.
+  it("a bare 'return it to the battlefield under its owner's control' WITHOUT the 'It's an enchantment' rider never takes the ENCHANTMENT marker (identity preserved)", () => {
+    // GRADUATED (BLITZ TG-1): this pin originally asserted the bare form stays LOW — the dies-return-to-
+    // battlefield had no model, so the FN-boundary was "unmodeled → Arbiter". TG-1's [dies-return-bf]
+    // sentinel now models exactly this shape (the Feign Death frame — return as-is, NO type change), so the
+    // bare form legitimately routes. The boundary this guard still owns: the bare return must NEVER collapse
+    // to the ENCHANTMENT marker (which strips the creature type — a fabricated identity change, the original
+    // FP this test was built against). grantUntilEot.test.js owns the dies-return-bf runtime pins.
     const bareCard = {
       id: "bare", name: "Bare Reanimator", type: "Creature — Phoenix", power: "4", toughness: "4",
       oracle: "When Bare Reanimator dies, if it was a creature, return it to the battlefield under its owner's control.",
     };
     const [d] = detectTriggers(bareCard).filter((t) => t.event === "dies");
-    // effect is NOT the enchantment marker (the 'It's an enchantment' rider is absent) → not rewritten
+    // effect is NOT the enchantment marker (the 'It's an enchantment' rider is absent) → no type strip
     expect(d.effectClause).not.toBe(MARKER);
-    expect(triggerRoutesNatively(d)).toBe(false); // the bare return-to-battlefield is unmodeled → Arbiter
+    expect(d.effectClause).toBe("[dies-return-bf] return it to the battlefield under its owner's control");
+    expect(triggerRoutesNatively(d)).toBe(true); // TG-1 — the as-is return is now modeled (dies-return-bf)
   });
 
   it("a NON-creature look-back drops the dies-return trigger (CR 603.4 — 'it was a creature' is false)", () => {

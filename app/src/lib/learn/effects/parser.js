@@ -60,6 +60,7 @@ import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, 
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { gainControlClauseParser } from "./atoms/control.js"; // GAIN-CONTROL — indefinite control-change of a target creature/subtype (Sliver Overlord)
+import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
@@ -650,6 +651,13 @@ function splitClauses(oracle) {
     // NOT a top-level effect boundary. Keep the whole sentence so setBasePtTeamClauseParser binds it (else it
     // shatters into "…base power" + "toughness X/X…" → low). Anchored to the exact X/X form.
     if (/^creatures you control have base power and toughness x\/x until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // UNTIL-EOT QUOTED GRANT (BLITZ TG-1 — Feign Death / Demonic Gifts / Showstopper): the sentence carries a
+    // QUOTED ability body ("…gains \"When this creature dies, …\""), and both the "gets +N/+N AND gains" pump
+    // conjunction and any " and " INSIDE the quotes are internal to the one grant instruction, NOT top-level
+    // effect boundaries — the split below would shatter the quote. Keep the whole sentence so
+    // grantUntilEotClauseParser sees it intact; its body validator + whole-clause anchor keep the CREED gate
+    // downstream (an unmodeled body / a rider → null → LOW → Arbiter, never a confident wrong partial).
+    if (/^until end of turn, (?:target creature (?:gets [+-]\d+\/[+-]\d+ and )?gains|creatures you control gain) ["“].+["”]\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TAP-PERMANENT-LOCK (Koma) — the normalize fold above joined "Tap target permanent. Its activated
     // abilities can't be activated this turn." into one sentence with an internal " and "; that " and " is
     // INTERNAL to the one tap+lock instruction ("Its" = the tapped permanent), NOT a top-level effect
@@ -4189,3 +4197,4 @@ registerClauseParser(freeCastClauseParser);
 // {kind:"subtype"} target restriction (enumerateTargets enforces it), and applyGainControl moves the permanent
 // to the new controller's battlefield summoning-sick. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(gainControlClauseParser);
+registerClauseParser(grantUntilEotClauseParser); // UNTIL-EOT QUOTED GRANT (TG-1) — body-validated via the injected grant validators

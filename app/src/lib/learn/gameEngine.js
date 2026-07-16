@@ -71,6 +71,7 @@ import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N p
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
 import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./triggerRouting.js";
+import { registerGrantTriggeredBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gate
 
 // GROUP-TRIGGERED grant (Tempered Sliver) — RUNTIME registration of the modeled-body gate into
 // staticAbilityParser's group-triggered emission. The trigger-firing path (combatResolution / checkXTriggers →
@@ -81,6 +82,13 @@ import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./tr
 // registrations are idempotent (identical function), mirroring registerGroupActivatedBodyValidator (coverage +
 // legalChoices). The validator itself lives in triggerRouting.js so metric + runtime share one definition.
 registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
+
+// UNTIL-EOT QUOTED GRANT (BLITZ TG-1) — RUNTIME registration of the triggered-body gate into the
+// grant-until-eot clause parser. The runtime CAST path (legalChoices/expandCastChoices → parseEffectProgram)
+// flows through gameEngine but not coverage.js; without this the Feign Death clause would parse LOW at
+// runtime while the metric (coverage.js registers the same fn) claimed it native — a drift the shared
+// definition forbids. Idempotent with coverage's registration (identical function).
+registerGrantTriggeredBodyValidator(isModeledGroupTriggeredBody);
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 

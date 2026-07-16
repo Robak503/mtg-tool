@@ -40,6 +40,7 @@ import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 // triggerRoutesNatively (+ the group-triggered-grant validator) extracted to triggerRouting.js — its
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
 import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
+import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
 import { isNativeGroupWard } from "./groupWard.js";
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause, selfDamagePrevention } from "./combatEvasion.js";
@@ -1734,6 +1735,15 @@ registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 // player, put a +1/+1 counter on it.\"") classifies native-static via staticAbilitiesCoverCard, and
 // triggers.triggersForEvent fires the granted trigger on every affected permanent (layers.grantedTriggeredQuotedFor).
 registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
+
+// UNTIL-EOT QUOTED GRANT (BLITZ TG-1 — Feign Death / Showstopper family): inject the SAME two modeled-body
+// gates into the grant-until-eot clause parser (grantUntilEot.js can't import them directly — a load cycle
+// through parser.js / the atoms registry). With these registered, "Until end of turn, target creature
+// [gets +N/+M and] gains \"<body>\"" / "…creatures you control gain \"<body>\"" parses HIGH exactly when the
+// quoted body is fully modeled as a triggered OR an activated grant — the same all-or-nothing standard the
+// static group grants live by. Unvalidated body → LOW → Arbiter.
+registerGrantTriggeredBodyValidator(isModeledGroupTriggeredBody);
+registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 
 // PZ-1: inject the aura-own-ETB validator into staticAbilityParser (the group-validator pattern — it
 // can't import detectTriggers without a load cycle). With this registered, isNativeAura's residue walk

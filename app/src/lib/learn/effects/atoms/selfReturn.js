@@ -158,6 +158,13 @@ export function selfReturnClauseParser(clause) {
   if (/^\[gy-self-return:hand\] return it to your hand$/i.test(t)) {
     return { op: "gy-self-return-hand" };
   }
+  // DIES-RETURN-TO-BATTLEFIELD (BLITZ TG-1 — the Feign Death frame): the dies/self sentinel
+  // detectTriggers produces for "return it to the battlefield [tapped] under its owner's control
+  // [with a +1/+1 counter on it]" — undying's zone mechanics with the tapped/counter knobs
+  // re-derived from the preserved printed text. Marker-gated (the bare wording is a FLICKER spell
+  // half — Momentary Blink — that must stay Arbiter); anchored ^…$.
+  const drb = t.match(/^\[dies-return-bf\] return it to the battlefield( tapped)? under its owner's control( with a \+1\/\+1 counter on it)?$/i);
+  if (drb) return { op: "dies-return-bf", tapped: !!drb[1], plusCounter: !!drb[2] };
   return null;
 }
 
@@ -328,10 +335,39 @@ export function applyPersistReturn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "persist-return", returned: didEnter, controller: owner });
 }
 
+/**
+ * applyDiesReturnBattlefield — DIES-RETURN-TO-BATTLEFIELD (BLITZ TG-1, the Feign Death frame): return the
+ * dead source (its card now in its owner's graveyard) to the battlefield under its owner's control,
+ * TAPPED when the printed text says so (enterCardFromZone's tapped option — the KM-1 imposition still
+ * unions on top), with ONE +1/+1 counter when printed (the doubling-aware addCounter path, mirroring
+ * undying). No lethal sweep needed: a plus counter or a tapped entry can never make the return lethal.
+ * Fail-safes: CR 608.2b gone-card → logged no-op; CR 111.7 token → never returns.
+ */
+export function applyDiesReturnBattlefield(state, atom, ctx) {
+  const owner = ctx.triggeringController;
+  const cardId = ctx.triggeringCardId;
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (ctx.triggeringCardIsToken) {
+    return logEvent(state, { kind: "spell-effect", effect: "dies-return-bf", returned: false, reason: "token", controller: owner });
+  }
+  const gy = state.players[owner].graveyard || [];
+  if (!gy.some((c) => c.id === cardId)) {
+    return logEvent(state, { kind: "spell-effect", effect: "dies-return-bf", returned: false, controller: owner });
+  }
+  const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard", tapped: !!atom.tapped });
+  let next = entered;
+  if (didEnter && atom.plusCounter) {
+    const perm = (next.players[owner].battlefield || []).find((p) => p.card?.id === cardId);
+    if (perm) next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1 });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "dies-return-bf", returned: didEnter, controller: owner });
+}
+
 export const selfReturnResolvers = {
   "self-return": applySelfReturn,
   "self-return-bf-enchantment": applySelfReturnBattlefieldEnchantment,
   "undying-return": applyUndyingReturn,
   "persist-return": applyPersistReturn, // KW-PERSIST (PS-1, CR 702.79a) — undying's -1/-1 mirror
   "gy-self-return-hand": applyGySelfReturnHand,
+  "dies-return-bf": applyDiesReturnBattlefield, // TG-1 — the Feign Death frame (granted dies-return)
 };
