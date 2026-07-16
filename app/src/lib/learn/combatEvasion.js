@@ -242,6 +242,12 @@ const reBlockedByAtMostOne = /(?:^|[\n.;])\s*(?:this creature|it) can't be block
 // generic conditional-unblockable parser (every OTHER "as long as …" rider stays a SAFE false-negative,
 // rejected by parseAttackerRestrictions' conditional guard). The clause prints "a rad counter" = the 1+ test.
 const reRadConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked as long as defending player has a rad counter\s*(?:\.|$)/;
+// TYPE-CONDITIONAL UNBLOCKABLE (BLITZ AB-1 — Neurok Spy / Bouncing Beebles / Scrapdiver Serpent
+// "…controls an artifact"; Bubbling Beebles "…an enchantment"; Hazy Homunculus "…an untapped land"):
+// the SAME per-defender conditional-evasion shape as the rad gate, keyed on the defending player's board
+// (live at block-legality time, so it switches on/off exactly like landwalk). Only the three exact
+// printed conditions; any other "as long as …" rider stays a SAFE FN.
+const reTypeConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked as long as defending player controls an? (artifact|enchantment|untapped land)\s*(?:\.|$)/;
 
 // ISLANDHOME (BLITZ SM-1 — the sea-monster attack restriction, CR 508.1a): "This creature can't attack
 // unless defending player controls an Island." (+ the Swamp/Forest/etc. and "snow land" siblings). A
@@ -325,6 +331,11 @@ export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfO
 export function isBlockedByAtMostOne(card) { return reBlockedByAtMostOne.test(selfOracle(card)); }
 /** Nightkin Ambusher — unblockable while the DEFENDING player has ≥1 rad counter (corpus-unique). */
 export function isRadConditionalUnblockable(card) { return reRadConditionalUnblockable.test(selfOracle(card)); }
+/** AB-1 — the defender-board type condition ("artifact" | "enchantment" | "untapped land") or null. */
+export function typeConditionalUnblockableOf(card) {
+  const m = selfOracle(card).match(reTypeConditionalUnblockable);
+  return m ? m[1].toLowerCase() : null;
+}
 
 // ── Classifier helper (coverage.isKeywordOnly): does ONE normalized keyword-only clause read as
 // an evasion form THIS file enforces? The clause arrives already lowercased, reminder-stripped, and
@@ -369,6 +380,9 @@ export function isEnforcedEvasionClause(clause) {
   // RAD-CONDITIONAL UNBLOCKABLE (Nightkin Ambusher) — credited here so a body whose only non-keyword text is
   // this conditional evasion static is honestly native; canBlockAttacker enforces the rad-counter condition.
   if (/^(?:this creature |it )?can't be blocked as long as defending player has a rad counter$/.test(c)) return true;
+  // AB-1 — the defender-board type conditions (Neurok Spy / Bubbling Beebles / Hazy Homunculus): enforced
+  // live in canBlockAttacker, so a body whose only non-keyword text is this static is honestly native.
+  if (/^(?:this creature |it )?can't be blocked as long as defending player controls an? (?:artifact|enchantment|untapped land)$/.test(c)) return true;
   // ISLANDHOME (BLITZ SM-1) — "can't attack unless defending player controls an Island/…/snow land" is
   // enforced per-defender at attack declaration (actionsDeclareAttacker filters the target list through
   // defenderMeetsAttackLandRequirement), so a body whose only non-keyword text is this static is honestly
@@ -446,6 +460,18 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // basic-landwalk per-defender gate above), so it correctly turns OFF the moment the defender's rad counters
   // are gone (e.g. milled away by their radiation ability) and never blocks for the wrong opponent in a pod.
   if (isRadConditionalUnblockable(aCard) && (state.players?.[defenderId]?.radCounters || 0) > 0) return false;
+  // AB-1 — the defender-board type condition (Neurok Spy class): unblockable while the DEFENDING player
+  // controls a permanent of the named kind, read live per block-legality query (the landwalk discipline).
+  {
+    const cond = typeConditionalUnblockableOf(aCard);
+    if (cond) {
+      const bf = state.players?.[defenderId]?.battlefield || [];
+      const met = cond === "artifact" ? bf.some((p) => /\bArtifact\b/i.test(String(p.card?.type || p.card?.type_line || "")))
+        : cond === "enchantment" ? bf.some((p) => /\bEnchantment\b/i.test(String(p.card?.type || p.card?.type_line || "")))
+        : bf.some((p) => /\bLand\b/i.test(String(p.card?.type || p.card?.type_line || "")) && !p.tapped);
+      if (met) return false;
+    }
+  }
 
   // Basic landwalk — gated by the DEFENDING player's lands (per-defender → 4P-correct).
   for (const [walk, subtype] of BASIC_WALK) {

@@ -2968,6 +2968,11 @@ function auraResidueClauses(card) {
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;                       // the Enchant keyword line
+    // FLASH (BLITZ FA-1 — Tiger Claws / Frantic Strength / Epic Proportions): the Aura's own cast-timing
+    // keyword is NOT residue — the engine hard-casts at the main-phase window (the flash speed simply goes
+    // unused: the card still does exactly its printed thing at sorcery speed, the bloodrush-inverse — an
+    // FN-safe timing simplification, never a wrong resolution).
+    if (c === "flash") continue;
     // An aura-own TRIGGER sentence starting with When/Whenever/At "touches" the enchanted creature but is NOT
     // a static bonus clause; admit it as non-residue ONLY when it is the modeled aura-own trigger (the runtime
     // fires it), else it stays residue → non-native (CREED). Checked BEFORE the generic touchesAttachedCreature
