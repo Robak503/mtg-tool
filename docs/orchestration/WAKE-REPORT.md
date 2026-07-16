@@ -17,10 +17,15 @@
 > PARKED WITH REASONS: bloodrush (needs a combat-step activation window the engine's action surface
 > lacks — native-but-unusable would be an FP by uselessness) · block-additional (the multi-block
 > damage-DIVISION choice is unmodeled — an over-deal trap) · lure (needs a block-requirements
-> subsystem; half-enforcement = FP). NEXT QUEUE: enters-or-LTB split (12, a leavesSelf any-exit
-> event) · Sword Coast Sailor's life-comparison intervening-if (4) · enchant-land Class B interiors
-> (7) · the "sac unless discard at random" trio (needs a random primitive — check house policy first).
-> Fresh clause-frontier next. Baseline tier file: scratchpad cand41.txt (10,180 native+land names).
+> subsystem; half-enforcement = FP) · SC-1 Sword Coast Sailor (4 backgrounds: needs the cant-be-blocked
+> SELF anchor + resolver referent + a "no opponent has more life than that player" intervening-if
+> vocabulary entry + an attacks-PLAYER-only gate so pw attacks don't over-fire — scoped, four
+> touchpoints, next session's opener) · "sac unless discard at random" (needs a random primitive —
+> check house policy). FRESH FRONTIER (post-31-slice census): enchant-creature grant interiors 20 ·
+> backgrounds 17 · enchant-land interiors 7 · slivers 6 · until-EOT +N/+N-and-gains quoted grants 5 ·
+> the "trample-tail" suspend carriers 5 · until-EOT team/target quoted grants 4+4 · lure 4 · Zelyon
+> Sword 4 — the ≥3 trunk is long-tail interiors + temp-grant machinery from here. Baseline tier file:
+> scratchpad cand43.txt (10,205 native+land names, ~29.9%; the exact-30% line is 10,248).
 
 > Numbers audited against the tier-census files (9,791 → 10,152 name-dedup native+land, ~29.7% of
 > 34,161): the running "+358/20 slices" line pushed earlier in the day OVER-COUNTED by a drifted slice
