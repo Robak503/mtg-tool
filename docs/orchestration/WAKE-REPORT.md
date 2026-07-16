@@ -1,6 +1,13 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +430 more (campaign +638), 33 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.2% — THE 30% LINE FALLS**: +526 more (campaign +734), 34 slices, LOST=0
+
+> **DC-1, the Discard-a-card cost (84d200f2, +96)** — the single biggest slice of the campaign took the
+> census from 10,221 to **10,317 (30.2% of 34,161)**, straight through the 10,248 line. One cost-vocabulary
+> entry (γ1h + the per-distinct-hand-card offer + the pay-before-stack dispatch) unlocked the looter
+> class, the madness enablers, YAWGMOTH THRAN PHYSICIAN, Trading Post, The Underworld Cookbook, and
+> brought the Immobilizing Ink granted family back from its UT-1 eviction with real runtime. Six pins
+> graduated — every one had used the discard cost as its canonical unmodeled example. Suite 8,676 green.
 
 > Latest: **SC-1** cant-be-blocked SELF + the life-comparison intervening-if (16d80461, +15) — the
 > unblockable-activation class (Gearseeker Serpent kin) + Sword Coast Sailor; the Tar Pit pin caught a
