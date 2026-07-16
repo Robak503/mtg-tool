@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +92 more (campaign +300), 7 slices, LOST=0
+## ⚙️ 2026-07-16 (day 2, RUNNING) — THE GRIND CONTINUES: +162 more (campaign +370), 9 slices, LOST=0
 
 Colton's standing order (morning): the Vault walk became a future full overhaul (parked); the corpus
 grind resumes uninterrupted — full trust, no check-ins. Day-2 slices, each gated (suite+lint+audited
@@ -11,11 +11,17 @@ aura-own ETB riders, Gift of Paradise/Abundant Growth (fb29da9d, +6) · **PV-1**
 lifelink-honest in combat (ff9cea09, +43) · **FOG-1b** players-only fog + self prevent-all walls,
 integrated with the incumbent fog op after the suite caught my duplicate (d50bde1e, +6) · **AP-1**
 attached prevention walls, Gaseous Form/Defang — the reader lives in staticAbilityParser so the aura
-CAST gate and the metric can't drift (368951e4, +8). Suite 8,588 → 8,610 · lint 0 throughout ·
+CAST gate and the metric can't drift (368951e4, +8) · **PZ-1** the Paralyze-class attached tap-lock +
+aura-own-ETB validator (6cd9013d, +42) — PLUS the HARDENING: auraTouchClausesAllModeled caught the
+Bind-the-Monster shape (a pronoun follow-up sentence riding the runtime descriptor while the touch
+heuristic ate it — 7 would-be FPs evicted pre-commit, and it retro-caught AP-1's Candletrap classify
+hole) · **UT-1** the untap-self atom (2f847746, +28) — one anchor, three families: the tap-lock
+escape grants (Singing Bell Strike returns WITH runtime support), printed untappers (Morphling wakes
+up), cast/ETB-watcher self-untap triggers (Thermo-Alchemist). Suite 8,588 → 8,619 · lint 0 throughout ·
 NO release tag (the unreleased train now carries C5 + both blitz days). Prevention is now a real
 subsystem: next-N shields, fogs (all + players scopes), self walls, attached walls — each new
-prevention wording from here is a clause, not a build. Running census after day-2 so far: native
-9,791 → ~9,883 by name-dedup.
+prevention wording from here is a clause, not a build. Running census after day-2 so far: native+land
+9,791 → 9,953 by name-dedup.
 
 ## 🌙 2026-07-16 (overnight) — THE CORPUS BLITZ: +208 audited native adds, 14 slices, LOST=0 everywhere
 
