@@ -950,7 +950,7 @@ const MUST_DROP_TO_LOW = [
   // life, counter, discard, a verbless damage fragment, a comma-rider) still drops
   // the WHOLE program (all-or-nothing). These are the false-high vectors P2.2 guarded
   // with a denylist; P2.5 keeps them low because a split clause fails to parse.
-  "Char deals 4 damage to any target and 2 damage to you.",              // "2 damage to you" has no verb → low
+  // (Char's "and 2 damage to you" is now HIGH — SELF-HIT DAMAGE, BLITZ OA-1, pinned in selfHitAndPerBlockerPump.test.js)
   "Deals 2 damage to target creature and 2 damage to target player.",    // 2nd clause verbless → low
   "Draw two cards, discard a card.",                                     // comma-rider (NOT split) → low
   // Unmodeled target restrictions — HIGH would permit an illegal target. P2.4 + β-1 model

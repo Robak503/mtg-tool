@@ -2363,6 +2363,33 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Rampage ${n}`,
     });
   }
+  // PER-BLOCKER PUMP (BLITZ RE-1 — Rabid Elephant / Sparring Golem class, the rampage sibling):
+  // "Whenever this creature becomes blocked, it gets +N/+M until end of turn for each creature blocking
+  // it." The amount is DYNAMIC (N × blockerCount — counting ALL blockers, where rampage counts beyond
+  // the first), so like rampage this descriptor is COVERAGE-ONLY: the "perBlockerPump" event has no
+  // generic runtime firing site; checkBlockTriggers computes the real amount at fire time and pushes a
+  // parsed self-pump directly. The effectClause here is the representative fixed pump so
+  // triggerRoutesNatively gates it HIGH honestly (the fire-time clause has the same shape).
+  // SELF-subject ONLY ("Whenever THIS CREATURE becomes blocked …"): a group watcher ("Whenever a
+  // creature you control / a Beast becomes blocked, IT gets …" — General Marhault Elsdragon, Berserk
+  // Murlodont) pumps the BLOCKED creature, not this card — the fire loop reads the attacker's own
+  // card, so a group form synthesized here would fire on the WRONG scope (a CREED FP, caught in the
+  // OA/RE flip-diff audit). Group forms stay undetected → body-only (safe FN).
+  const pbp = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;]\s*)whenever this creature becomes blocked, (?:it|this creature) gets \+(\d+)\/\+(\d+) until end of turn for each creature blocking it\b/i);
+  if (pbp) {
+    // The SAME printed sentence also detects through the normal When/Whenever path as a becomesBlocked
+    // descriptor whose for-each effect parses LOW — evict that twin (this synthesis owns the sentence),
+    // else the LOW twin blocks the card while the runtime would fire BOTH (a double pump).
+    const twinTail = /for each creature blocking it/i;
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (out[i].event === "becomesBlocked" && twinTail.test(out[i].effectClause || "")) out.splice(i, 1);
+    }
+    out.push({
+      event: "perBlockerPump", scope: "self", whose: "any",
+      effect: null, effectClause: `this creature gets +${pbp[1]}/+${pbp[2]} until end of turn`,
+      optional: false, sourceText: `becomes blocked per-blocker pump +${pbp[1]}/+${pbp[2]}`,
+    });
+  }
   // CUMULATIVE UPKEEP (CR 702.24) — KEYWORD→TRIGGER synthesis, the BUSHIDO/AFFLICT precedent. "Cumulative upkeep
   // {cost}" is a keyword whose triggered ability lives entirely in REMINDER parens ("(At the beginning of your
   // upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age
@@ -3398,6 +3425,23 @@ export function checkBlockTriggers(state) {
     const amt = parseInt(ramp[1], 10) * (count - 1);
     if (amt <= 0) continue;
     const descriptor = { event: "rampage", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${amt}/+${amt} until end of turn`, optional: false, sourceText: `Rampage ${ramp[1]}` };
+    fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
+  }
+  // PER-BLOCKER PUMP (BLITZ RE-1 — the rampage sibling): a blocked attacker printed "becomes blocked,
+  // it gets +N/+M until end of turn for each creature blocking it" pumps N×count/M×count — counting ALL
+  // blockers (one blocker ⇒ one pump, where rampage's beyond-the-first would be zero). Same fire-time
+  // dynamic-descriptor pattern as rampage; the detectTriggers "perBlockerPump" descriptor is coverage-only.
+  for (const [attId, count] of Object.entries(blockerCount)) {
+    if (count < 1) continue;
+    const lk = findPermanent(state, attId);
+    if (!lk) continue;
+    const pbp = String(lk.permanent.card?.oracle || lk.permanent.card?.oracle_text || "").replace(/\([^)]*\)/g, " ")
+      .match(/(?:^|[\n.;]\s*)whenever this creature becomes blocked, (?:it|this creature) gets \+(\d+)\/\+(\d+) until end of turn for each creature blocking it\b/i);
+    if (!pbp) continue;
+    const p = parseInt(pbp[1], 10) * count;
+    const tf = parseInt(pbp[2], 10) * count;
+    if (p <= 0 && tf <= 0) continue;
+    const descriptor = { event: "perBlockerPump", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${p}/+${tf} until end of turn`, optional: false, sourceText: `becomes blocked per-blocker pump ×${count}` };
     fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
   }
   if (!fired.length) return state;

@@ -2862,6 +2862,20 @@ function matchMetalcraftDamage(oracle) {
   }] };
 }
 
+// SELF-HIT DAMAGE (BLITZ OA-1 — the Orcish Artillery pinger frame): "<source> deals N damage to any
+// target and M damage to you." ONE deal-damage atom carrying the printed self-hit as `selfDamage` —
+// the resolver deals the target damage, then M to the CONTROLLER through the SAME applyDamageEffect
+// (so replacements / lifegain-from-loss / infect interactions are identical to any burn). Collapsed
+// up front: the clause's internal " and " would be shattered by splitClauses into an unparseable
+// fragment. The `$` anchor rejects any further rider (FN-safe). Both numbers are mandatory — a
+// variable ("that much") or scaled form never matches.
+function matchSelfHitDamage(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^(.+?) deals (\d+) damage to any target and (\d+) damage to you$/);
+  if (!m) return null;
+  return { atoms: [{ op: "deal-damage", amount: parseInt(m[2], 10), targetType: "any", selfDamage: parseInt(m[3], 10) }] };
+}
+
 function matchCounterThenGrant(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^put (a|two|three) \+1\/\+1 counters? on target creature( you control)?\. (?:then )?it gains (.+) until end of turn$/);
@@ -3063,6 +3077,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const mcd = matchMetalcraftDamage(oracle);
   if (mcd && mcd.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: mcd.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== SELF-HIT DAMAGE (Orcish Artillery — BLITZ OA-1) ===== "deals N damage to any target and M damage
+  // to you" → ONE deal-damage atom with selfDamage (see matchSelfHitDamage; collapsed before the splitter).
+  const shd = matchSelfHitDamage(oracle);
+  if (shd && shd.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: shd.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== RAD-OR-PROLIFERATE (Vexing Radgull) ===== the rad-if-none / else-proliferate branch → ONE rad atom
   // with ifNoRadElseProliferate (see matchRadOrProliferate). HIGH iff the op is KNOWN.

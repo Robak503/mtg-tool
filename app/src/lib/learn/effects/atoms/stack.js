@@ -1035,7 +1035,14 @@ export const stackResolvers = {
     // defendingPlayer/damagedPlayer resolve via `targets`, not the special targetType switch in
     // applyDamageEffect — pass a bare targetType so it takes the per-target hitPlayer path.
     const targetType = (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer") ? "player" : atom.targetType;
-    return applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
+    let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
+    // SELF-HIT (BLITZ OA-1 — Orcish Artillery "and M damage to you"): the printed self-hit lands on the
+    // CONTROLLER through the same primitive, after the target damage (one sentence, resolved in print
+    // order). Never conditional on the target damage landing — the sentence deals both unconditionally.
+    if (atom.selfDamage > 0 && next.players?.[ctx.controller]) {
+      next = applyDamageEffect(next, { controller: ctx.controller, amount: atom.selfDamage, targetType: "player", targets: [{ type: "player", id: ctx.controller }], source: { id: ctx.sourceId } });
+    }
+    return next;
   },
   "counter": applyCounter,
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
