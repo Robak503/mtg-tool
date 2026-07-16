@@ -125,6 +125,11 @@ export const COVERED_KEYWORDS = [
   // DYNAMIC amount computed at fire time). "bushido N" / "rampage N" match via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count for each.
   "bushido", "rampage",
+  // KW-EXALTED (CR 702.83a — BLITZ EX-1) — ENFORCED: fired at the checkAttackTriggers exalted site
+  // (attackers.length === 1 → count the controller's battlefield exalted instances, reminder-stripped →
+  // one aggregated fire-time +N/+N descriptor on the lone attacker, the rampage pattern). "exalted"
+  // matches via the exact keyword-word check; a multi-instance card counts each printed instance.
+  "exalted",
   // SOULSHIFT (CR 702.46a — BLITZ SS-1) — ENFORCED: the keyword's dies-trigger is synthesized in
   // detectTriggers ("you may return target spirit card with mana value N or less from your graveyard to
   // your hand" — the printed reminder wording) and fired by the normal dies flush; the clause parses to

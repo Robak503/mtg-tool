@@ -3360,6 +3360,33 @@ export function checkAttackTriggers(state) {
       fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
     }
   }
+  // ===== KW-EXALTED (CR 702.83a — BLITZ EX-1, the rampage fire-time pattern) ===== "Whenever a creature
+  // you control attacks alone, that creature gets +1/+1 until end of turn." Fires ONLY when the attacking
+  // player declared EXACTLY ONE attacker: count the exalted instances across THAT player's battlefield
+  // (any permanent type carries it — Finest Hour is an enchantment; reminder-stripped, one count per
+  // printed instance), then push ONE aggregated fire-time descriptor pumping the LONE ATTACKER +N/+N
+  // (sourcePermanent = triggeringPermanent = the attacker, so "this creature" binds to it — behaviorally
+  // identical to N separate +1/+1 triggers for the symmetric until-EOT pump). The "exalted" event name has
+  // no generic firing site (coverage-only elsewhere), so nothing double-fires.
+  if (attackers.length === 1) {
+    const soleLk = findPermanent(state, attackers[0].permanentId);
+    const atkPlayer = attackers[0].attackingPlayer;
+    if (soleLk && atkPlayer) {
+      let exaltedCount = 0;
+      for (const p of state.players?.[atkPlayer]?.battlefield || []) {
+        const stripped = String(p.card?.oracle || p.card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+        exaltedCount += (stripped.match(/\bexalted\b/gi) || []).length;
+      }
+      if (exaltedCount > 0) {
+        const descriptor = {
+          event: "exalted", scope: "self", whose: "any", effect: null,
+          effectClause: `this creature gets +${exaltedCount}/+${exaltedCount} until end of turn`,
+          optional: false, sourceText: `Exalted ×${exaltedCount}`,
+        };
+        fired.push(makePendingTrigger(descriptor, soleLk.permanent, soleLk.permanent, {}));
+      }
+    }
+  }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
