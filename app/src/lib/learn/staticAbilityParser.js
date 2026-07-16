@@ -2726,6 +2726,18 @@ function parseAttachedClause(c, subject) {
         && _groupTriggeredBodyValidator && _groupTriggeredBodyValidator(quoted)) {
         return out.length ? out : null;                // P/T bonus applies; the trigger fires via the trigger system
       }
+      // COMBINED GRANT-ACTIVATED (BLITZ AC-1 — Deviant Glee "+2/+1 and has \"{R}: This creature gains
+      // trample until end of turn.\""; Trollhide, Arcane Teachings, Mortarpod, Screaming Shield): the
+      // quoted-ACTIVATED twin of the Bear Umbra fold. Emit ONLY the P/T here — the granted ability is
+      // enumerated on the HOST by legalChoices.grantedActivatedForHost (GRANTED_ACTIVATED_LINE's compound
+      // form extracts the same quoted body), so nothing is double-applied and nothing dropped. CREED-gated
+      // on the SAME group-activated validator: a TARGETED body is fine (the host enumeration expands
+      // targets exactly like a printed ability — Arcane Teachings' ping, Screaming Shield's mill), but an
+      // UNMODELED body fails it → the whole bonus drops → body-only (a safe FN).
+      if (!/^(?:when|whenever|at)\b/i.test(quoted)
+        && _groupActivatedBodyValidator && _groupActivatedBodyValidator(quoted)) {
+        return out.length ? out : null;                // P/T bonus applies; the ability enumerates on the host
+      }
     }
   }
   if (rest) {

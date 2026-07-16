@@ -25,8 +25,10 @@ describe("LIVING WEAPON / FOR MIRRODIN! — coverage flips", () => {
     expect(classifyCard(equip("For Mirrodin!\nEquipped creature gets +2/+0.\nEquip {3}", "Mirran Bardiche"))).toBe("native-equipment");
     expect(classifyCard(equip("Living weapon\nEquipped creature gets +2/+2.\nEquip {2}", "Batterbone"))).toBe("native-equipment");
   });
-  it("CREED: a complex equipped-creature ability (granted sac) stays body-only (bonus parse drops)", () => {
-    expect(classifyCard(equip("Living weapon\nEquipped creature gets +0/+1 and has \"Sacrifice this creature: This creature deals 1 damage to any target.\"\nEquip {2}", "Mortarpod"))).toBe("body-only");
+  it("CREED: an UNMODELED equipped-creature granted ability stays body-only (bonus parse drops)", () => {
+    // Mortarpod's granted-sac ping held this pin until BLITZ AC-1 folded the compound pump+grant line
+    // (pinned native in auraCompoundGrant.test.js); an unmodeled granted body holds it now.
+    expect(classifyCard(equip("Living weapon\nEquipped creature gets +0/+1 and has \"Sacrifice this creature: Untap all Islands you control and shuffle your hand into your library.\"\nEquip {2}", "Probe Pod"))).toBe("body-only");
   });
 });
 

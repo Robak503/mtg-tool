@@ -629,7 +629,11 @@ export function parseActivatedAbilities(card) {
 // Tar, Barbed Field). The quoted body is parsed identically; the caller enumerates it on the host permanent
 // (a land taps for its {T} cost with no summoning-sickness gate). A land-MANA grant ("{T}: Add …") is the
 // phase-1a path and is filtered out by isManaEffect below, so this never double-counts a mana land-aura.
-const GRANTED_ACTIVATED_LINE = /^(?:enchanted|equipped) (?:creature|land)\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+// AC-1 (BLITZ day 2): the COMPOUND pump form "Enchanted creature gets +N/+N and has \"…\"" (Deviant
+// Glee / Trollhide / Lunarch Mantle) carries its granted ability behind an optional "gets ±N/±N and "
+// infix — the quoted body is extracted identically; the P/T half is the layer engine's
+// (parseAttachedClause folds it, CREED-gated on the same group-activated validator).
+const GRANTED_ACTIVATED_LINE = /^(?:enchanted|equipped) (?:creature|land)\s+(?:gets [+-]\d+\/[+-]\d+ and )?(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
 
 /**
  * GRANTED activated abilities (subsystem 1 phase 1b) — an Aura/Equipment that grants the enchanted/equipped
