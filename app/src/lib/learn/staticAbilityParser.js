@@ -3025,6 +3025,13 @@ function auraResidueClauses(card) {
     // unused: the card still does exactly its printed thing at sorcery speed, the bloodrush-inverse — an
     // FN-safe timing simplification, never a wrong resolution).
     if (c === "flash") continue;
+    // MADNESS (BLITZ MA-1 — Senseless Rage / Strength of Isolation / Strength of Lunacy): the Aura's own
+    // "Madness {cost}" line is a DISCARD-window cast option (CR 702.35), vacuous for the normal hard-cast —
+    // the SAME versioned trade MD-1 shipped for every other permanent (coverage.reMadnessCost; the engine
+    // never offers the discard-window cast, so a discarded madness card just goes to the graveyard — an
+    // FN-safe alternative-entry simplification, never a wrong resolution; see commit 6b23d689 for the full
+    // ninjutsu/morph rationale). Cost-pips-only anchor: a madness-REFERENCING static/trigger never matches.
+    if (/^madness (?:\{[^}]+\})+$/.test(c)) continue;
     // An aura-own TRIGGER sentence starting with When/Whenever/At "touches" the enchanted creature but is NOT
     // a static bonus clause; admit it as non-residue ONLY when it is the modeled aura-own trigger (the runtime
     // fires it), else it stays residue → non-native (CREED). Checked BEFORE the generic touchesAttachedCreature
