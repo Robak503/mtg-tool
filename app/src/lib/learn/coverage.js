@@ -1505,6 +1505,39 @@ function isNativeOwnActivatedAura(card) {
   return sawActivated === activatedLineCount;
 }
 
+// AURA-OWN-TRIGGERED (BLITZ AU-3) — an Aura whose ONLY body (the Enchant keyword line aside) is one-or-more
+// TRIGGERED abilities PRINTED ON THE AURA that fire off a modeled event with a natively-routed effect
+// (Curiosity "Whenever enchanted creature deals damage to an opponent, you may draw a card"; Sigil of Sleep;
+// Extra Arms; Curse of Chains "At the beginning of each upkeep, tap enchanted creature"; Mantle of Leadership).
+// The Aura is the trigger SOURCE (CR 603.2), NOT the granter — distinct from the GRANTED-TRIGGERED family
+// (isNativeTriggerGrantAuraOrEquipment, "Enchanted creature has \"…\"", which quotes an ability the HOST gains).
+// The SAME sibling shape as isNativeOwnActivatedAura, with a trigger CONDITION in place of an activation cost:
+//   • The runtime already fires it — checkStepTriggers / checkAttackTriggers / checkCombatDamageTriggers /
+//     checkEnterTriggers all scan triggerSourcesOf(state, pid), which returns EVERY battlefield permanent the
+//     player controls (Auras included), and scopeMatches gates it: scope:"equippedCreature" fires ONLY when
+//     the triggering permanent IS the Aura's host (attachedTo / the CR-603.10a look-back attachments), scope:
+//     "you" fires on the Aura CONTROLLER's step (CR 503.1a upkeep, etc.), scope:"eachCreature" on any ETB.
+//   • The effect resolves off the Aura source — buildTriggerStack threads sourceId = the trigger's source
+//     permanent (the Aura) into the effect program, so an "enchanted creature" referent (target:"enchanted")
+//     resolves through atomTargets → enchantedTargets → the host (CR 303.4a), exactly like the aura-own
+//     ACTIVATED / regenerate atoms (AU-2 / RG-1). The combatDamageToPlayer attached-watcher fire is the
+//     SB-1-hardened path saboteurDamagedPlayer.test.js already pins for Sigil of Sleep.
+// ALL-OR-NOTHING (THE CREED): reuse permanentTriggersCovered on the Enchant-stripped oracle — the identical
+// gate the player-Aura lane uses — so every printed trigger must (a) be detected (shaped-sentence count ===
+// detected count) AND (b) route natively (triggerRoutesNatively: a HIGH, non-modal, target-resolvable effect
+// program with its combat-damage referent supplied by the event) AND (c) leave NO non-keyword residue after
+// the trigger sentences are stripped. Any static bonus / unmodeled clause / unrouted effect (a "put a +1/+1
+// counter on enchanted creature" the counter parser rejects; a "When enchanted creature dies …" detectTriggers
+// doesn't recognize) fails the gate → the whole Aura stays on the Arbiter (a SAFE false-negative). Player-
+// enchant Auras are deferred to isPlayerAuraCard (their per-player cast lane + elimination sweep); a routing
+// trigger's cast is offered through grantAuraCastHostType's generic lane, gated on this native-trigger tier.
+function isNativeOwnTriggeredAura(card) {
+  if (!isAuraCard(card)) return false;
+  if (isPlayerAuraCard(card)) return false; // player-enchant Auras keep their own per-player cast lane (isPlayerAuraCard, below)
+  const stripped = String(card.oracle || card.oracle_text || "").replace(/(?:^|\n)\s*Enchant [^\n]*(?=\n|$)/i, "\n");
+  return permanentTriggersCovered({ ...card, oracle: stripped });
+}
+
 // GRANTED-ACTIVATED EQUIPMENT (subsystem 1 phase 1b) — an Equipment whose ONLY body is a modeled Equip
 // cost + one-or-more granted activated abilities on the equipped creature ("Equipped creature has \"{T}:
 // This creature deals 2 damage to any target.\"" — Bow of the Hunter, Viridian Longbow, Siren Song Lyre).
@@ -1739,6 +1772,14 @@ export function classifyCard(card) {
       const stripped = String(card.oracle || card.oracle_text || "").replace(/(?:^|\n)\s*Enchant player\s*(?=\n|$)/i, "\n");
       return permanentTriggersCovered({ ...card, oracle: stripped }) ? "native-aura" : "body-only";
     }
+    // AURA-OWN-TRIGGERED (BLITZ AU-3): a creature/permanent-enchant Aura whose whole body (the Enchant line
+    // aside) is its OWN printed triggered abilities that every detect + route natively (isNativeOwnTriggeredAura
+    // — the sibling of the aura-own ACTIVATED gate above, with a trigger condition in place of an activation
+    // cost). native-trigger: the Aura is the trigger SOURCE (CR 603.2), fired off triggerSourcesOf (Auras
+    // included) with "enchanted creature" referents resolving to the host via ctx.sourceId. Checked AFTER the
+    // player-Aura lane (which owns "Enchant player") and BEFORE isNativeAura (a card with any static bonus fails
+    // the residue walk, so the two lanes are disjoint — a pure own-trigger Aura has no bonus for isNativeAura).
+    if (isNativeOwnTriggeredAura(card)) return "native-trigger";
     // isNativeAura keeps PRIORITY: an Aura already fully native (its whole body a modeled creature bonus + an
     // aura-own activated pump/tap it already handles — Shiv's Embrace, Armor of Faith) stays native-aura and
     // keeps its own cast lane (legalChoices' isNativeAura branch). The EQ-2 composite runs ONLY on the residue-

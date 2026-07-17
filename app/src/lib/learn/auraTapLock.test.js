@@ -42,7 +42,10 @@ const SINGING_BELL_STRIKE = { id: "sbs", name: "Singing Bell Strike", type: "Enc
 const PARALYZE = { id: "pz", name: "Paralyze", type: "Enchantment — Aura", mana: "{B}",
   oracle: "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {4}. If the player does, untap the creature." };
 const NARCOLEPSY = { id: "nc", name: "Narcolepsy", type: "Enchantment — Aura", mana: "{1}{U}",
-  oracle: "Enchant creature\nAt the beginning of each upkeep, tap enchanted creature." };
+  // Real Narcolepsy: the upkeep tap is guarded by an intervening-if whose "tap it" pronoun effect doesn't
+  // route (parses LOW), so the whole card stays body-only — UNLIKE the bare "tap enchanted creature" shape
+  // (Curse of Chains) that BLITZ AU-3 credits native-trigger via isNativeOwnTriggeredAura.
+  oracle: "Enchant creature\nAt the beginning of each upkeep, if enchanted creature is untapped, tap it." };
 
 describe("reader + classify", () => {
   it("attachedNoUntapOf reads the printed lock line and nothing else", () => {
@@ -67,7 +70,9 @@ describe("reader + classify", () => {
     // Ink's discard COST and Paralyze/Narcolepsy's triggers.)
     // The {4} upkeep untap offer is an unmodeled aura-own trigger.
     expect(classifyCard(PARALYZE)).toBe("body-only");
-    // At-each-upkeep tap is NOT the modeled self-ETB shape.
+    // Real Narcolepsy: the upkeep tap's intervening-if "tap it" pronoun effect routes LOW → body-only. (The
+    // bare "tap enchanted creature" upkeep shape — no intervening-if — is credited by AU-3; see Curse of
+    // Chains in auraOwnTriggered.test.js.)
     expect(classifyCard(NARCOLEPSY)).toBe("body-only");
   });
 });

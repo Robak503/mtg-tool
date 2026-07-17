@@ -198,13 +198,16 @@ describe("REVIEW FIX — granted keywords are honored at runtime (no partial app
 
 describe("cast legality + Arbiter routing", () => {
   it("a non-native Aura is offered but routes to the Arbiter seam at resolution (no do-nothing permanent)", () => {
-    const COMPLEX = { id: "c-cplx", name: "Curiosity", type: "Enchantment — Aura", mana: "{1}", oracle: "Enchant creature\nWhenever enchanted creature deals damage to a player, draw a card." };
+    // A still-non-native Aura: an aura-own DIES trigger detectTriggers doesn't recognize (BLITZ AU-3 credits
+    // only auras whose whole body is DETECTED + ROUTED triggers — Curiosity, Sigil of Sleep — so a
+    // dies-return aura like Bequeathal stays body-only and must still route to the Arbiter, never a do-nothing permanent).
+    const COMPLEX = { id: "c-cplx", name: "Bequeathal", type: "Enchantment — Aura", mana: "{1}", oracle: "Enchant creature\nWhen enchanted creature dies, you draw two cards." };
     let s = boardState({ user: [createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false })], hand: [COMPLEX] });
     const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find(a => a.cardId === "c-cplx");
     expect(cast.isAuraSpell).toBeUndefined(); // not a native aura → no targeted attach
     s = resolveTopOfStack(dispatchAction(s, cast));
     // It did NOT enter the battlefield as a permanent; it flagged the Arbiter seam.
-    expect(s.players.user.battlefield.some(p => p.card?.name === "Curiosity")).toBe(false);
+    expect(s.players.user.battlefield.some(p => p.card?.name === "Bequeathal")).toBe(false);
     expect(s.pendingArbiter).toBeTruthy();
   });
   it("if the target is gone by resolution, the Aura spell fizzles and never enters (CR 608.3b)", () => {

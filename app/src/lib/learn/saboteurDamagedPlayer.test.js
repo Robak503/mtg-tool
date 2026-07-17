@@ -39,7 +39,7 @@ import { resolveAtom } from "./effects/effectAtoms.js";
 import { enumerateTargets } from "./spellEffects.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
-import { classifyCard, isNativeTier } from "./coverage.js";
+import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -136,12 +136,15 @@ describe("SB-1 classification — the saboteur flips (ninjutsu cost lines are ke
     expect(classifyCard({ name: "Arm with Aether", type: "Sorcery", mana: "{2}{U}", oracle: ARM_ORACLE })).toBe("native-spell");
   });
 
-  it("Sigil of Sleep: the aura trigger now DETECTS + ROUTES, but the card stays body-only (documented SAFE FN)", () => {
+  it("Sigil of Sleep: the aura's own combat-damage trigger is credited native-trigger (BLITZ AU-3)", () => {
     const sigil = { name: "Sigil of Sleep", type: "Enchantment — Aura", mana: "{U}", oracle: SIGIL_ORACLE };
     const d = detectTriggers(sigil);
     expect(d).toEqual([expect.objectContaining({ event: "combatDamageToPlayer", scope: "equippedCreature" })]);
     expect(d.every(triggerRoutesNatively)).toBe(true);
-    expect(isNativeTier(classifyCard(sigil))).toBe(false); // the Aura classifier doesn't credit an aura's own trigger line
+    // AU-3: isNativeOwnTriggeredAura now credits an Aura whose whole body is its OWN routed triggers — the
+    // runtime already fires this exact aura (the SB-1-hardened attached-watcher path pinned above). See
+    // auraOwnTriggered.test.js for the full flip set + runtime pins.
+    expect(classifyCard(sigil)).toBe("native-trigger");
   });
 
   it("CREED: Moon-Circuit Hacker stays body-only (the 'unless this creature entered this turn' rider is unmodeled)", () => {
