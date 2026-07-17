@@ -25,7 +25,10 @@ describe("α2 — you-may optional wrapper", () => {
     expect(parseEffectProgram(I("You may draw a card.")).atoms).toEqual([{ op: "draw", amount: 1, targetType: null, optional: true }]);
     expect(parseEffectProgram(I("Draw a card.")).atoms[0].optional).toBeUndefined();
     expect(parseEffectProgram(I("You may pay {2}.")).confidence).toBe("low");
-    expect(parseEffectProgram(I("You may sacrifice a creature.")).confidence).toBe("low");
+    // ("You may sacrifice a creature." sat here until EC-1c modeled the bare controller edict — it now
+    // parses to an optional who:"controller" sacrifice, pinned in controllerSacrificeUpkeep.test.js; the
+    // unmodeled-inner boundary holds with a FILTERED victim, which the exact-anchor edict never admits.)
+    expect(parseEffectProgram(I("You may sacrifice a creature with flying.")).confidence).toBe("low");
   });
 
   it("an optional atom SUSPENDS instead of resolving mandatory", () => {

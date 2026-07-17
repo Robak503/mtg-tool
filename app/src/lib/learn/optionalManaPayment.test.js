@@ -43,7 +43,10 @@ describe("parser — optional-mana-payment atom (you may pay {cost}. If you do, 
 
   it("CREED — an {X} cost / an unmodeled payoff / a second 'if you do' stay LOW → Arbiter", () => {
     expect(isHigh("you may pay {X}. If you do, draw X cards")).toBe(false);                 // Shanna — {X} + cap unmodeled
-    expect(isHigh("you may pay {2}. If you do, sacrifice a creature")).toBe(false);          // unmodeled payoff (a choice)
+    // ("If you do, sacrifice a creature" sat here until EC-1c modeled the bare controller edict — that
+    // payoff is now a real last-position sacrifice atom; the unmodeled-payoff boundary holds with a
+    // FILTERED victim, which the exact-anchor edict never admits.)
+    expect(isHigh("you may pay {2}. If you do, sacrifice a creature with flying")).toBe(false); // unmodeled payoff (filtered victim)
     expect(isHigh("you may pay {1}. If you do, draw a card. If you do, draw a card")).toBe(false); // chained 2nd "if you do"
     expect(isHigh("you may pay {2}")).toBe(false);                                           // bare optional cost, no payoff
   });

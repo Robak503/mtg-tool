@@ -940,7 +940,10 @@ const MUST_DROP_TO_LOW = [
   "Scry X.",                                                            // variable amount — deferred
   // α2 — "you may" wraps an OPTIONAL effect, but a "you may <unmodeled effect>" stays LOW. (A bare "you may
   // pay {cost}. If you do, <modeled-effect>" is now HIGH — OPTIONAL-MANA-PAYMENT, CR 603.7c — see MUST_STAY_HIGH.)
-  "You may sacrifice a creature.",                                      // optional UNMODELED effect — deferred
+  // ("You may sacrifice a creature." sat here until EC-1c modeled the bare controller edict — it now parses
+  // to an optional who:"controller" sacrifice, pinned in controllerSacrificeUpkeep.test.js; the boundary
+  // holds with a FILTERED victim, which the exact-anchor edict never admits.)
+  "You may sacrifice a creature with flying.",                          // optional UNMODELED effect (filtered victim) — deferred
   "You may draw a card and gain 2 life.",                              // conjoined "you may X and Y" — optionality scope ambiguous → low (α2 forward guard)
   // ── GRAVEYARD RECURSION (return-from-graveyard) — single-target "return target <X> card from YOUR
   // graveyard to your HAND". REG-1 widened the modeled <X> to any basic type / " or " union / "permanent"

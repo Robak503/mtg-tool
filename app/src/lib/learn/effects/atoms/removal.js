@@ -248,6 +248,11 @@ function applySacrifice(state, atom, ctx) {
       .filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid));
   } else if (atom.who === "eachOpponent") {
     sacrificers = opponentsOf(state, ctx.controller).filter((pid) => state.players?.[pid]);
+  } else if (atom.who === "controller") {
+    // CONTROLLER EDICT (BLITZ EC-1c — "sacrifice a creature"): the ability's controller alone. For an
+    // aura-GRANTED trigger (Inevitable End on an opponent's creature) the controller is the HOST's
+    // controller (makePendingTrigger — the granted ability is theirs), so THEY sacrifice, as printed.
+    sacrificers = state.players?.[ctx.controller] ? [ctx.controller] : [];
   } else {
     sacrificers = (ctx.targets || [])
       .filter((t) => t.type === "player" && state.players?.[t.id])
@@ -290,6 +295,17 @@ export function sacrificeEdictClauseParser(clause) {
   // never a filtered / conjoined sacrifice, so no wrong-victim FP (CREED).
   if (/^sacrifice this (creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)$/.test(t)) return { op: "sacrifice", target: "self" };
   if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
+  // CONTROLLER EDICT (BLITZ EC-1c — Inevitable End's granted "At the beginning of your upkeep, sacrifice a
+  // creature."; the bare imperative subject is the ability's controller, CR 109.5 — "you"): the
+  // CONTROLLER sacrifices ONE creature of their choice, resolved through the SAME advanceSacrificeChain the
+  // edicts use (0 creatures → clean no-op, CR 701.21a "can't sacrifice … a permanent they don't control"; 1 → forced;
+  // ≥2 → the pending-sacrifice choice: a human picks, an AI auto-sacs its least valuable — the established
+  // chain policy). An α2-peeled "you may sacrifice a creature" arrives with optional:true and rides the
+  // generic optional-effect pause (runProgram), so a may-sac is never forced. ALL-OR-NOTHING bare
+  // "a creature" (count 1, unfiltered) — a count / typed / filtered / conjoined victim ("two creatures",
+  // "a creature with flying", "a creature or land") fails the exact anchor → low → Arbiter (a wrong-victim
+  // sac is a forbidden FP, CREED). Placed before the target-player edicts (disjoint anchors regardless).
+  if (/^sacrifice a creature$/.test(t)) return { op: "sacrifice", who: "controller", what: "creature" };
   let m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };
   m = t.match(/^each player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
