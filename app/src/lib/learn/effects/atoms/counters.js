@@ -174,20 +174,27 @@ export function applyAddCounter(state, atom, ctx) {
   return next;
 }
 
-// PROLIFERATE (CR 701.27): "choose any number of permanents and/or players that have a counter on them,
-// then give each another counter of each kind already there." The "may choose any number" is auto-resolved
-// to NEVER-HARMFUL picks (the sim's controller plays to win): a permanent is proliferated only when adding
-// to it HELPS ctx.controller — MY permanent that has a GOOD counter and no BAD one, an OPPONENT's that has
-// a BAD counter and no good one — plus POISON on opponent players. Per CR one of EACH kind on a chosen
+// PROLIFERATE (CR 701.34a): "choose any number of permanents and/or players that have a counter, then give
+// each one additional counter of each kind already there." The "any number" choice is auto-resolved to
+// NEVER-HARMFUL picks (the sim's controller plays to win): a permanent is proliferated only when adding to it
+// HELPS ctx.controller — MY permanent that has a GOOD counter and no BAD one, an OPPONENT's that has a BAD
+// counter and no good one — plus POISON/RAD on opponent players. Per CR one of EACH kind on a chosen
 // permanent is added, so the choice is PER-PERMANENT (not per-kind). Ambiguous counters (saga lore, etc.)
 // are never the reason to choose a permanent → a safe no-op. (A future interactive choice UI can replace
-// the heuristic; this is the rules engine.) Compounds with every counter the engine tracks.
+// the heuristic; this is the rules engine.) Each +1 routes through addCounter → applyCounterDoubling, so a
+// proliferated +1/+1 on a permanent you control still doubles under Doubling Season / Hardened Scales
+// (CR 616). Compounds with every counter the engine tracks.
 const PROLIF_GOOD = new Set(["+1/+1", "loyalty", "charge", "fade", "time", "level", "oil"]);
 const PROLIF_BAD = new Set(["-1/-1", "stun"]);
 
 export function applyProliferate(state, atom, ctx) {
   const me = ctx.controller;
-  const times = Math.max(1, atom.times || 1); // "proliferate twice" (Contagion Engine) runs it twice
+  // Count: a FIXED count ("proliferate twice" / "proliferate three times", Contagion Engine / War of the
+  // Spark III) floors at 1 (a proliferate always runs at least once). A VARIABLE count ("Proliferate X times",
+  // Expansion Algorithm {X}{U}{U} — timesX:true) reads the cast {X} (ctx.xValue) and floors at 0 (X may be 0 →
+  // a legal no-op, never forced to 1). Mirrors the rad amountX discipline.
+  const times = atom.timesX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.times || 1);
+  if (times === 0) return state; // X=0 → nothing proliferates (a clean no-op)
   let next = state;
   for (let n = 0; n < times; n++) {
     for (const pid of Object.keys(next.players)) {
@@ -228,14 +235,24 @@ export function applyGainExperience(state, atom, ctx) {
 }
 
 /**
- * PROLIFERATE clause parser (CR 701.27) — migrated from parser.js parseExtendedAtom (seam batch 3).
- * A standalone keyword action: "proliferate" / "proliferate again" → one proliferate; "proliferate twice"
- * (Contagion Engine) → times:2. A proliferate with a rider in the same clause keeps the rider via the normal
- * clause split, so the exact-match never silently drops trailing text. Pure (no parser.js import — cycle-safe).
+ * PROLIFERATE clause parser (CR 701.34a) — migrated from parser.js parseExtendedAtom (seam batch 3).
+ * A standalone keyword action. Count forms:
+ *   "proliferate" / "proliferate again"            → one proliferate (times defaults to 1)
+ *   "proliferate twice"                            → times:2  (Contagion Engine)
+ *   "proliferate <N> times" (three/four/five/digit)→ times:N  (War of the Spark III "Proliferate three times")
+ *   "proliferate X times"  (GATED on ctx.hasX)     → timesX:true — the cast {X} (Expansion Algorithm {X}{U}{U})
+ * The X form is gated on ctx.hasX so a card with no {X} in its cost can never bind a phantom 0-count — it falls
+ * through unmatched → Arbiter (the rewriteAmountX discipline). A "proliferate a number of times equal to <…>"
+ * (Expand the Sphere) or a trailing "…, where X is <board count>" (Tromell) leaves residue past the `$` anchor
+ * → no match → Arbiter (a SAFE false-negative, never a dropped clause). A proliferate with a rider in the same
+ * clause keeps the rider via the normal clause split. Pure (no parser.js import — cycle-safe).
  */
-export function proliferateClauseParser(clause) {
+export function proliferateClauseParser(clause, ctx) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^proliferate twice$/.test(t)) return { op: "proliferate", times: 2, targetType: null };
+  const nTimes = t.match(/^proliferate (three|four|five|\d+) times$/);
+  if (nTimes) return { op: "proliferate", times: SMALL_NUM[nTimes[1]] ?? parseInt(nTimes[1], 10), targetType: null };
+  if (ctx?.hasX && /^proliferate x times$/.test(t)) return { op: "proliferate", timesX: true, targetType: null };
   if (/^proliferate( again)?$/.test(t)) return { op: "proliferate", targetType: null };
   return null;
 }
