@@ -18,8 +18,9 @@
  * The buff must touch ONLY the chosen type (a changeling counts; a non-chosen creature and — for the "you
  * control" form — an opponent's creature do NOT). A rider keeps the WHOLE card on the Arbiter (no partial flip):
  * Morophon (a WUBRG cost-reduction rider AND an "Other …" exclude-self anthem the flat branch doesn't model),
- * Vanquisher's Banner (a draw trigger), Icon of Ancestry (an activated ability), Radiant Destiny (a city's-
- * blessing rider on the same clause) all stay body-only. An unset chosenType → a SAFE no-op (CLAUDE.md §1.2).
+ * Icon of Ancestry (an activated ability), Radiant Destiny (a city's-blessing rider on the same clause) stay
+ * body-only. Vanquisher's Banner is claimed by the CAST-DRAW classifier (BLITZ TC-1) — native-mixed there,
+ * still rejected by THIS branch. An unset chosenType → a SAFE no-op (CLAUDE.md §1.2).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -80,9 +81,11 @@ describe("CHOSEN-TYPE FLAT ANTHEM — classification", () => {
     const moro = { name: "Morophon, the Boundless", type: "Legendary Creature — Shapeshifter", oracle: "Changeling (This card is every creature type.)\nAs Morophon enters, choose a creature type.\nSpells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.\nOther creatures you control of the chosen type get +1/+1." };
     expect(classifyCard(moro)).toBe("body-only");
   });
-  it("CREED — Vanquisher's Banner parks (an extra cast-draw trigger is residue)", () => {
+  it("Vanquisher's Banner no longer parks on the FLAT branch — the CAST-DRAW classifier (BLITZ TC-1) owns it", () => {
+    // Still a CREED pin for THIS branch: the flat classifier itself must keep rejecting it (a trigger is
+    // residue here); the flip to native-mixed belongs to classifyChosenTypeCastDraw (chosenTypeCastDraw.test.js).
     const v = { name: "Vanquisher's Banner", type: "Artifact", oracle: "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\nWhenever you cast a creature spell of the chosen type, draw a card." };
-    expect(classifyCard(v)).toBe("body-only");
+    expect(classifyCard(v)).toBe("native-mixed");
   });
   it("CREED — Icon of Ancestry parks (an activated ability is residue)", () => {
     const icon = { name: "Icon of Ancestry", type: "Artifact", oracle: "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\n{3}, {T}: Look at the top three cards of your library. You may reveal a creature card of the chosen type from among them and put it into your hand. Put the rest on the bottom of your library in a random order." };

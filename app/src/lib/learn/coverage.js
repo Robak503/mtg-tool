@@ -2112,6 +2112,89 @@ function classifyChosenTypeFlatAnthem(card) {
 }
 registerCoverageClassifier((card) => classifyChosenTypeFlatAnthem(card));
 
+// ─── CHOSEN-TYPE CAST-DRAW (TYPAL CAST-DRAW) — Vanquisher's Banner / Chronicle of Victory (BLITZ TC-1) ─────
+// The anthem-PLUS-cast-trigger sibling of the flat anthem above: a choose-a-creature-type artifact/enchantment
+// whose payoffs are a FLAT chosen-type anthem AND a "Whenever you cast a [creature] spell of the chosen type,
+// <effect>" trigger. WHOLE-CARD (CREED) — every line must be one of exactly three modeled shapes:
+//   • "As this <permanent> enters, choose a creature type." — the ETB auto-pick (resolvers.
+//     autoPickCreatureType → perm.chosenType; CR 614.12), LINE-anchored here (unlike the substring chooser RE)
+//     so a Banner-of-Kinship-style compound chooser line ("… choose a creature type. This artifact enters
+//     with …") is NOT consumed — its counter sentence stays residue → null.
+//   • the FLAT anthem line — "Creatures [you control] of the chosen type get +N/+N[ and have <kw list>]." or
+//     "… have <kw list>." (the parseCreatureSelector chosen-type branch → layer-7c ptModify / layer-6
+//     addKeyword with selector.chosenTypeOfSource:true — same lane the flat classifier rides). CONSUMPTION-
+//     CHECKED: the line re-parses standalone and must emit EXACTLY (1 if P/T) + (one per listed keyword)
+//     descriptors, all chosenTypeOfSource — so a silently-dropped grant tail (the parser keeps "+1/+1" and
+//     drops "and can't be blocked") can NEVER be credited: a tail that isn't a fully-parsed have-list fails
+//     the count (or the line RE) → residue → null. Chronicle's "get +2/+2 and have first strike and trample"
+//     = 1 + 2 = 3 descriptors ✓.
+//   • the chosen-type CAST trigger line — "Whenever you cast a [creature] spell of the chosen type, <effect>."
+//     (the detectChosenTypeCast shapes, CR 603.2; the creature-spell form gates on creatureOnly at
+//     checkCastTriggers). The card's ONE detected trigger must be exactly this cast/chosenType descriptor,
+//     route natively (triggerRoutesNatively — the shared metric↔runtime gate; "draw a card" parses HIGH), and
+//     its detected effectClause must EQUAL the line's printed effect (a second effect sentence on the line
+//     can't be silently shed).
+// NOTHING else may remain (keyword-only lines like Flash aside) — Icon of Ancestry / Patchwork Banner (an
+// activated ability), Herald's Horn (an unroutable upkeep look-trigger) keep residue or fail the gates → null
+// (their anthem/reducer STILL applies at runtime; only the flip is withheld — a safe FN). Returns native-mixed
+// (static + trigger), or null. Additive-seam, mechanism-keyed (a future bare twin flips automatically). Door
+// of Destinies never reaches here (classifyChosenTypeAnthem owns it and runs first; its COUNT-anthem line
+// would fail this classifier's flat-anthem RE anyway).
+const CT_CHOOSER_LINE_RE = /^as\b[^.]*\benters\b[^.]*,\s*choose a creature type\.?$/i;
+const CT_CAST_TRIGGER_LINE_RE = /^whenever you cast a (?:creature )?spell of the chosen type,\s*([^.]+)\.?$/i;
+const CT_CAST_ANTHEM_LINE_RE = /^creatures (?:you control )?of the chosen type (?:get \+\d+\/\+\d+(?: and have ([a-z][a-z ,'-]*))?|have ([a-z][a-z ,'-]*))\.?$/i;
+function classifyChosenTypeCastDraw(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (!/\b(?:artifact|enchantment)\b/.test(type) || /\bcreature\b/.test(type)) return null;
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  if (!oracle || !CHOSEN_TYPE_CHOOSER_RE.test(oracle)) return null;   // the ETB chooser must be present
+  // (1) EXACTLY ONE trigger: the chosen-type cast trigger, routing natively through the shared gate.
+  const triggers = detectTriggers(card);
+  if (triggers.length !== 1) return null;
+  const trig = triggers[0];
+  if (trig.event !== "cast" || trig.spellFilter?.kind !== "chosenType" || !triggerRoutesNatively(trig)) return null;
+  // (2) ≥1 static, and EVERY parsed static descriptor is a chosen-type anthem one (a stray modeled static
+  // that isn't chosen-type-scoped — or Herald's costReduction marker, which has no affects — rejects).
+  const statics = parseStaticAbilities(card);
+  if (!statics.length || !statics.some((d) => d?.affects?.selector?.chosenTypeOfSource === true)) return null;
+  if (!statics.every((d) => d?.affects?.selector?.chosenTypeOfSource === true)) return null;
+  if (parseActivatedAbilities(card).length > 0) return null;          // Icon/Patchwork's {T} abilities
+  // (3) PER-LINE audit: every line must be the chooser, ONE consumption-checked anthem line, the ONE
+  // trigger line (its printed effect === the detected effectClause), or keyword-only (Flash). Else residue.
+  let triggerLines = 0;
+  const residue = [];
+  for (const rawLine of oracle.split(/\n+/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (CT_CHOOSER_LINE_RE.test(line)) continue;                      // the whole-line ETB chooser
+    const trigM = line.match(CT_CAST_TRIGGER_LINE_RE);
+    if (trigM) {
+      triggerLines += 1;
+      // The detected trigger's effect must be EXACTLY this line's effect (nothing shed by the split).
+      if (String(trig.effectClause || "").trim().toLowerCase() !== trigM[1].trim().toLowerCase()) return null;
+      continue;
+    }
+    const anthemM = line.match(CT_CAST_ANTHEM_LINE_RE);
+    if (anthemM) {
+      // CONSUMPTION CHECK: standalone, the line must emit exactly (P/T ? 1 : 0) + (# listed keywords)
+      // descriptors, all chosen-type-scoped. A dropped tail or an unparsed keyword fails the count → null.
+      const hasPt = /get \+\d+\/\+\d+/i.test(line);
+      const kwList = anthemM[1] ?? anthemM[2] ?? null;
+      const kwCount = kwList ? kwList.split(/,\s*(?:and\s+)?|\s+and\s+/).filter((w) => w.trim()).length : 0;
+      const lineStatics = parseStaticAbilities({ name: card?.name, type: card?.type ?? card?.type_line, oracle: line });
+      if (lineStatics.length !== (hasPt ? 1 : 0) + kwCount) return null;
+      if (!lineStatics.every((d) => d?.affects?.selector?.chosenTypeOfSource === true)) return null;
+      continue;
+    }
+    residue.push(line);
+  }
+  if (triggerLines !== 1) return null;                                // the one detected trigger, seen once
+  const rest = residue.join(" ").replace(/[\s.]+/g, " ").trim();
+  if (rest.length > 0 && !isKeywordOnly(rest, card?.name)) return null;
+  return "native-mixed";
+}
+registerCoverageClassifier((card) => classifyChosenTypeCastDraw(card));
+
 // ─── SELF-METRIC COST-REDUCTION — Ghalta, Primal Hunger (cross-deck big-mana payoff) ────────────────────────
 // A permanent SPELL whose only non-keyword text is a modeled self cost-reduction ("This spell costs {X} less to
 // cast, where X is <board metric>") + keyword(s). The reduction is applied at the cast site (legalChoices.

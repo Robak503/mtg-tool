@@ -4883,11 +4883,15 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
         // CAST-FROM-NONHAND (Vega, SHELF K1): fires ONLY when the cast's source zone is known and isn't
         // the hand. An unthreaded caller (castFromZone undefined) under-fires — never over-fires (CREED).
         if (d.castNotFromHand && (!castFromZone || castFromZone === "hand")) continue;
-        // CHOSEN-TYPE cast filter (Door of Destinies) — the cast spell must carry the WATCHER's stored
-        // chosenType (CR 614.12). spellMatchesFilter has no watcher, so it's resolved here via
-        // permHasChosenType (subtype OR changeling); an unset chosenType yields false (a SAFE no-op).
+        // CHOSEN-TYPE cast filter (Door of Destinies / Chronicle of Victory) — the cast spell must carry the
+        // WATCHER's stored chosenType (CR 614.12). spellMatchesFilter has no watcher, so it's resolved here
+        // via permHasChosenType (subtype OR changeling); an unset chosenType yields false (a SAFE no-op).
+        // The CREATURE-SPELL variant (Vanquisher's Banner, creatureOnly) additionally requires the cast spell
+        // to BE a creature spell — a Kindred/Tribal NONCREATURE spell of the chosen type (a changeling
+        // instant, an Elf-typed sorcery) fires Door/Chronicle but never Vanquisher's, matching the print.
         if (d.spellFilter && d.spellFilter.kind === "chosenType") {
           if (!permHasChosenType(spellCard, watcher.chosenType)) continue;
+          if (d.spellFilter.creatureOnly && !spellMatchesFilter("creature", spellCard)) continue;
         } else if (!spellMatchesFilter(d.spellFilter, spellCard)) {
           continue;
         }
@@ -5068,20 +5072,29 @@ function detectChosenTypeEntersOrAttacks(condition) {
 }
 registerTriggerDetector(detectChosenTypeEntersOrAttacks);
 
-// ─── CHOSEN-TYPE CAST detector (Door of Destinies) ──────────────────────────────
-// "Whenever you cast a spell of the chosen type, put a charge counter on this artifact." A CAST trigger
-// whose spell filter is the SOURCE's stored chosenType (CR 614.12 — picked at ETB). The inline cast matcher
-// anchors on "…spell$" so the "of the chosen type" rider leaves residue → classifyCondition returns falsy →
-// this registry detector reaches the condition. It maps to the normal cast event with a `{ kind:"chosenType" }`
-// filter; checkCastTriggers resolves that filter against the WATCHER's chosenType via permHasChosenType (the
-// filter alone can't — spellMatchesFilter has no watcher). The "you cast" scope means it fires only for the
-// source's controller. CREED ANCHOR: matched ONLY on the EXACT bare shape, end-anchored; a different caster
-// ("an opponent…"), an extra rider, or a qualified spell phrase leaves residue → no match → Arbiter (a SAFE
-// false-negative, never an over-fire). The effect ("put a charge counter on this artifact") still has to parse
-// HIGH (triggerRoutesNatively → the add-named-counter-self atom) for the card to flip native.
+// ─── CHOSEN-TYPE CAST detector (Door of Destinies / Chronicle of Victory; Vanquisher's Banner) ──────────
+// "Whenever you cast a spell of the chosen type, <effect>" (Door "put a charge counter on this artifact",
+// Chronicle of Victory "draw a card") and the CREATURE-SPELL variant "Whenever you cast a creature spell of
+// the chosen type, draw a card" (Vanquisher's Banner — BLITZ TC-1). A CAST trigger whose spell filter is the
+// SOURCE's stored chosenType (CR 614.12 — picked at ETB). The inline cast matcher anchors on "…spell$" so the
+// "of the chosen type" rider leaves residue → classifyCondition returns falsy → this registry detector reaches
+// the condition. It maps to the normal cast event with a `{ kind:"chosenType" }` filter; checkCastTriggers
+// resolves that filter against the WATCHER's chosenType via permHasChosenType (the filter alone can't —
+// spellMatchesFilter has no watcher). The CREATURE-SPELL form additionally carries `creatureOnly: true`:
+// checkCastTriggers then also requires the cast spell to BE a creature spell (its type line carries
+// "Creature"), so a Kindred/Tribal NONCREATURE spell of the chosen type fires Door/Chronicle but NOT
+// Vanquisher's — exactly the printed difference. The "you cast" scope means it fires only for the source's
+// controller. CREED ANCHOR: matched ONLY on the EXACT bare shapes, end-anchored; a different caster ("an
+// opponent…"), an extra rider, or any other spell qualifier ("a red spell of the chosen type") leaves residue
+// → no match → Arbiter (a SAFE false-negative, never an over-fire). The effect still has to parse HIGH
+// (triggerRoutesNatively) for the card to flip native.
 function detectChosenTypeCast(condition) {
-  if (/^you cast a spell of the chosen type$/.test(String(condition).toLowerCase().trim())) {
+  const c = String(condition).toLowerCase().trim();
+  if (/^you cast a spell of the chosen type$/.test(c)) {
     return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "chosenType" } };
+  }
+  if (/^you cast a creature spell of the chosen type$/.test(c)) {
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "chosenType", creatureOnly: true } };
   }
   return null;
 }
