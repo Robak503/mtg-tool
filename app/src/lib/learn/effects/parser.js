@@ -52,7 +52,7 @@ import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tuto
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTutorFilter, parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT); SMALL_NUM for MULTI-COUNT damage count words
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
-import { earthbendClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
+import { earthbendClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
@@ -660,6 +660,10 @@ function splitClauses(oracle) {
     // NOT a top-level effect boundary. Keep the whole sentence so setBasePtTeamClauseParser binds it (else it
     // shatters into "…base power" + "toughness X/X…" → low). Anchored to the exact X/X form.
     if (/^creatures you control have base power and toughness x\/x until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish / Square Up) — the single-target twin: the " and " inside
+    // "base power and toughness" is internal to the one set instruction. Anchored to the exact literal-N/N
+    // form (a rider like Turn to Frog's "and loses all abilities" doesn't match → splits → low → Arbiter).
+    if (/^target creature has base power and toughness \d+\/\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // UNTIL-EOT QUOTED GRANT (BLITZ TG-1 — Feign Death / Demonic Gifts / Showstopper): the sentence carries a
     // QUOTED ability body ("…gains \"When this creature dies, …\""), and both the "gets +N/+N AND gains" pump
     // conjunction and any " and " INSIDE the quotes are internal to the one grant instruction, NOT top-level
@@ -4072,6 +4076,7 @@ registerClauseParser(pumpClauseParser);
 registerClauseParser(condPumpXClauseParser);
 registerClauseParser(groupGrantClauseParser); // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
 registerClauseParser(setBasePtTeamClauseParser); // SET-BASE-PT-TEAM (Biomass Mutation) — "creatures you control have base power and toughness X/X until end of turn"
+registerClauseParser(setBasePtTargetClauseParser); // SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish / Square Up) — "target creature has base power and toughness N/N until end of turn"
 // ANIMATE (seam batch 14 / Wave C) — WALT-ANIMATE (target land) + man-land self-animate migrated to
 // atoms/combat.animateClauseParser (2 adjacent blocks, order preserved; inline COLOR helpers travel; uses the
 // parseGrantedKeywords leaf). The "land becomes a N/N … creature" clauses match no earlier registered parser

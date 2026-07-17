@@ -1481,6 +1481,50 @@ export function setBasePtTeamClauseParser(clause, ctx = {}) {
 }
 
 /**
+ * ===== SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish 1/1, Square Up 4/4) ===== "Target creature has base
+ * power and toughness N/N until end of turn." The single-CHOSEN-TARGET twin of the team form above: the
+ * SAME layer-7b base-P/T SET (CR 613.3b/613.4a — overwrites the printed base, BELOW +1/+1 counters and
+ * anthems in 7c and switches in 7d, so a Diminished 1/1 with a +1/+1 counter is a 2/2), fixed to the one
+ * chosen creature, endOfTurn (worn off at cleanup, CR 514.2). The target resolves through the standard
+ * atomTargets/ctx.targets path (the pump precedent), a departed target fizzles (CR 608.2b), and the
+ * lethal SBA runs at resolution — already-MARKED damage can turn lethal against the new base (a 5/5
+ * carrying 3 damage set to 1/1 dies on the spot, CR 704.5g).
+ */
+export function applySetBasePtTarget(state, atom, ctx) {
+  let next = state;
+  const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
+  const applied = [];
+  for (const target of atomTargets(next, atom, ctx)) {
+    if (target.type !== "creature" || !findPermanent(next, target.id)) continue; // CR 608.2b — a departed target fizzles
+    next = addContinuousEffect(next, {
+      layer: 7, sublayer: "7b",
+      op: { layerOp: "ptSet", power: atom.power, toughness: atom.toughness },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: { kind: "endOfTurn", turn: next.turn },
+      source: src,
+    }).state;
+    applied.push(target.id);
+  }
+  const lethal = destroyLethalCreatures(next); // marked damage ≥ the new toughness kills at resolution (CR 704.5g)
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "set-base-pt-target", power: atom.power, toughness: atom.toughness, targets: applied });
+}
+
+/**
+ * SET-BASE-PT-TARGET clause parser — the literal-N/N single-target form ONLY ("Target creature has base
+ * power and toughness 1/1 until end of turn"). A scope variant ("…you don't control"), a rider ("…and
+ * loses all abilities" — Turn to Frog class), or a missing duration fails the `$`/exact anchor → null →
+ * low → Arbiter (CREED: ability-losing variants must never half-apply as a bare P/T set). Pure.
+ * Registered via registerClauseParser next to the team form.
+ */
+export function setBasePtTargetClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^target creature has base power and toughness (\d+)\/(\d+) until end of turn$/);
+  if (m) return { op: "set-base-pt-target", targetType: "creature", power: parseInt(m[1], 10), toughness: parseInt(m[2], 10) };
+  return null;
+}
+
+/**
  * FIGHT-FAMILY clause parser (seam batch S1 — migrated verbatim out of parseClauseToAtom's inline dispatch;
  * the resolvers fightCreature / applyFightPair / applyDamageTargetPower / applyDamageSelfPower already live in
  * THIS module). FIRST-MATCH ORDER preserved from the inline blocks: bare source-bound → source-bound "another"
@@ -1627,6 +1671,7 @@ export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "prevent-next-damage": applyPreventNextDamage, // PV-1 (CR 615) — floating this-turn prevent-the-next-N shield
   "set-base-pt-team": applySetBasePtTeam, // SET-BASE-PT-TEAM (Biomass Mutation) — team layer-7b base-P/T set to X/X until end of turn
+  "set-base-pt-target": applySetBasePtTarget, // SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish / Square Up) — chosen-target layer-7b base-P/T set to N/N until end of turn
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
   "earthbend": applyEarthbend, // EARTHBEND N (Toph) — permanently animate a land you control + N +1/+1 counters
