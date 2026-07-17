@@ -73,7 +73,9 @@ describe("STATIC-COST-REDUCTION — excluded subjects stay body-only (safe FN)",
     ["supertype (Legendary — Kethis)", "Legendary spells you cast cost {1} less to cast."],
     ["colorless (Ugin) — not a WUBRG color", "Colorless spells you cast cost {2} less to cast."],
     ["over-broad 'permanent' (not a type-line token)", "Permanent spells you cast cost {1} less to cast."],
-    ["compound 'instant and sorcery'", "Instant and sorcery spells you cast cost {1} less to cast."],
+    // NOTE: the compound "Instant and sorcery spells …" is NO LONGER excluded — it is now MODELED (BLITZ ST-2:
+    // the disjoint-pair compound card-type reducer, tested in compoundCostReduction.test.js). A compound SUBTYPE
+    // pair ("Elemental spells and Warrior spells" — Banneret) stays excluded there (dual-subtype over-reduction).
     ["'{X} less' (non-numeric)", "Dragon spells you cast cost {X} less to cast."],
     ["a trailing rider breaks the anchor", "Dragon spells you cast cost {1} less to cast for each Mountain you control."],
   ];

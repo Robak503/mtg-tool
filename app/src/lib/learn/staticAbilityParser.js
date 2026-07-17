@@ -1170,6 +1170,52 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── COMPOUND-COLOR COST-REDUCTION (BLITZ ST-2 — the Familiar cycle: Thornscape "Red spells and white
+  // spells you cast cost {1} less", Thunderscape/Sunscape/Stormscape) ─────────────────────────────────────
+  // The two-color twin of the single/"X or Y" color reducer above. parseColorCostReduction handles the
+  // "<colorlist> spells you cast cost {N} less" shape where the colors are joined by "or"/","; this REPEATED-
+  // "spells" wording ("<color> spells and <color> spells …") isn't a single color list, so it needs its own
+  // matcher. Emitted as ONE { costReduction: { colors:[both WUBRG], amount } } marker — costReductionForSpell
+  // tests colors with OR (.some), so a spell that is BOTH colors (a Boros spell under "red and white") is
+  // reduced ONCE, never twice. That single-descriptor-with-a-color-list shape is the exact CREED over-reduction
+  // guard: two SEPARATE color reducers would double-count a dual-color spell. "you cast" is mandatory (the
+  // printed framing on the whole cycle); a symmetric form (none in the corpus) stays body-only (a safe FN).
+  const ccrM = c.match(/^(white|blue|black|red|green) spells and (white|blue|black|red|green) spells you cast cost \{(\d+)\} less to cast$/);
+  if (ccrM) {
+    const colors = [...new Set([COLOR_WORDS[ccrM[1]], COLOR_WORDS[ccrM[2]]])];
+    out.push({ costReduction: { colors, amount: parseInt(ccrM[3], 10) } });
+    return; // a compound-color cost-reduction clause — handled
+  }
+
+  // ── COMPOUND CARD-TYPE COST-REDUCTION (BLITZ ST-2 — Goblin Electromancer / Mocking Sprite "Instant and
+  // sorcery spells you cast cost {1} less"; Mana Matrix "Instant and enchantment …"; Stormcatch Mentor) ────
+  // "<A> and <B> spells you cast cost {N} less to cast" where A and B are card TYPES. Emitted as TWO
+  // { costReduction: { subtype } } markers — the SAME card-type-as-subtype shape the single reducer uses (the
+  // base crM branch above pushes { subtype } for a COST_REDUCTION_CARDTYPE_WORDS word), which costReductionForSpell
+  // word-matches against the spell's TYPE LINE and SUMS. Over-reduction guard (CREED): two descriptors double-
+  // count a spell whose type line carries BOTH tokens, so the compound is admitted ONLY when the pair is
+  // PROVABLY DISJOINT — one side must be `instant` or `sorcery`. A spell cast as an instant/sorcery is never a
+  // permanent (CR 110.4 — "Instant and sorcery cards can't enter the battlefield and thus can't be permanents"),
+  // so it can't ALSO be artifact/creature/
+  // enchantment, and no printed card is both instant AND sorcery. That makes {Instant,X} / {Sorcery,X} descriptor
+  // pairs match disjoint spell sets → each spell is reduced by exactly {N}. The dual-permanent pairs ("artifact
+  // and enchantment", "artifact and creature", "creature and enchantment") are NOT admitted — a card can carry
+  // both types, so two descriptors would over-reduce it → those stay body-only (a safe FN, e.g. Starnheim Courser).
+  // A compound SUBTYPE reducer ("Elemental spells and Warrior spells" — the Banneret cycle) is likewise NOT
+  // admitted here (the single-`subtype` enforcement can't express an OR over two subtypes, and a dual-subtype
+  // creature spell would double-reduce) — it stays body-only. Both words must be recognized card types.
+  const cctM = c.match(/^([a-z]+) and ([a-z]+) spells you cast cost \{(\d+)\} less to cast$/);
+  if (cctM) {
+    const a = cctM[1], b = cctM[2];
+    if (COST_REDUCTION_CARDTYPE_WORDS.has(a) && COST_REDUCTION_CARDTYPE_WORDS.has(b) &&
+        (a === "instant" || a === "sorcery" || b === "instant" || b === "sorcery")) {
+      const amount = parseInt(cctM[3], 10);
+      out.push({ costReduction: { subtype: normalizeSubtype(a), amount } });
+      out.push({ costReduction: { subtype: normalizeSubtype(b), amount } });
+    }
+    return; // a compound card-type cost-reduction clause — handled (or dropped to body-only on a non-disjoint / non-card-type pair)
+  }
+
   // ── ACTIVATED-ABILITY COST-REDUCTION (Training Grounds; Biomancer's Familiar) ───────────────────────────
   // "Activated abilities of creatures you control cost {N} less to activate." A STATIC cost-reducer that
   // trims the GENERIC portion of an ACTIVATED ABILITY's cost (CR 118.9 / 601.2f — an effect may reduce the
@@ -1701,6 +1747,28 @@ function parseClause(clause, out, selfName, selfType) {
     if (dt) {
       out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: signed(dt[1]), toughness: signed(dt[2]), gate: { kind: "yourTurn" } }, affects: { mode: "self" }, duration: { kind: "permanent" } });
       return;
+    }
+    // ── YOUR-TURN GATED KEYWORD GRANT (BLITZ ST-2 — Fresh-Faced Recruit / Pouncing Lynx "During your turn,
+    // this creature has first strike"; Daggersail Aeronaut / Hookblade Veteran "…has flying"; Leech Fanatic /
+    // Blood Burglar "…has lifelink"): the keyword twin of the DT-1 your-turn P/T buff above. Each grantable
+    // keyword → a layer-6 gated addKeyword carrying the SAME {kind:"yourTurn"} gate (layers.gateMet reads
+    // state.activePlayer === controller; permanentHasKeyword / keywordSet BOTH honor e.op.gate — the same
+    // enforcement the LV-1 leveler + emitGatedKeywords control-gate grants ride), so the keyword switches ON
+    // exactly during the controller's turn and OFF otherwise, read live at every combat/keyword query.
+    // ALL-OR-NOTHING (CREED): every segment after "has" must be an enforced/layer-aware grantable keyword
+    // (GRANTABLE_KEYWORDS — the SAME set emitGatedKeywords validates), else NOTHING is emitted and the whole
+    // clause stays residue → body-only. A P/T-set rider ("…has base power and toughness 5/2" — Snowmelt Stag)
+    // or any non-keyword tail fails the allowlist → safe FN, never a fabricated grant. Whole-clause anchored;
+    // a trailing "…, and <unmodeled>" splits into a non-grantable segment and drops the whole clause (CREED).
+    const dtk = c.match(/^during your turn, (?:this creature|it) (?:has|have) (.+)$/);
+    if (dtk) {
+      const segs = dtk[1].split(/,|\band\b/).map((s) => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
+      if (segs.length && segs.every((s) => GRANTABLE_KEYWORDS.has(s))) {
+        for (const s of segs) {
+          out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(s), gate: { kind: "yourTurn" } }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+        }
+      }
+      return; // a your-turn keyword grant — handled (or intentionally dropped to body-only on a non-grantable tail)
     }
     // ── GATED-SELFBUFF: a STATIC self P/T buff GATED on a board threshold ("this creature gets +X/+Y as long
     // as you control a/another/N <type>") — Mire Kavu, Loam Lion, Grixis Grimblade. Same self-static family as
