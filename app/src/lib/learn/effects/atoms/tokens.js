@@ -168,15 +168,25 @@ export function applyCreateToken(state, atom, ctx) {
 // table. Each enters as a REAL non-creature artifact permanent carrying its printed ability, so the
 // existing subsystems run it with no special-casing: Treasure/Gold are mana sources the mana model
 // SACRIFICES on use (manaModel.manaProduction reads "Add … any color" + flags the self-sac cost),
-// Clue/Food activate on the stack through the γ1 self-sac activated-ability path (legalChoices /
+// Clue/Food/Blood activate on the stack through the γ1 self-sac activated-ability path (legalChoices /
 // actionDispatcher). The oracle text is the canonical Oracle wording so parseActivatedAbilities /
-// manaProduction read it exactly as they would a printed permanent. Only these four are in the parser
-// allowlist (Blood/Map/Powerstone are unmodeled → stay low → Arbiter).
+// manaProduction read it exactly as they would a printed permanent.
+//
+// BLOOD (BLITZ TOK-1) — the real Innistrad Blood token is "{1}, {T}, Discard a card, Sacrifice this
+// token: Draw a card." (verified via cardIndex.lookupCard, NOT the loot-effect the ETB-1 park note
+// paraphrased): the discard is an ADDITIONAL COST (CR 601.2h — the γ1h discard-cost path, discardCost.test.js),
+// not a "draw then discard" rider. parseActivatedAbilities models the full {mana}+{T}+discard-a-card+sac-self
+// cost (it recognizes "Sacrifice this artifact", NOT the printed "Sacrifice this token", so the stored oracle
+// uses the artifact wording exactly like Clue/Food); the runtime pays all four costs and the token's draw
+// resolves (tokensT2.test.js). Map (targeted explore + sorcery-speed — the explore atom has no chosen-target
+// subject) / Powerstone (restricted mana, explicitly unmodeled — manaModel.js) / Incubator (transform) stay
+// unmodeled → low → Arbiter.
 export const NAMED_TOKENS = {
   treasure: { name: "Treasure", type: "Token Artifact — Treasure", oracle: "{T}, Sacrifice this artifact: Add one mana of any color." },
   clue: { name: "Clue", type: "Token Artifact — Clue", oracle: "{2}, Sacrifice this artifact: Draw a card." },
   food: { name: "Food", type: "Token Artifact — Food", oracle: "{2}, {T}, Sacrifice this artifact: You gain 3 life." },
   gold: { name: "Gold", type: "Token Artifact — Gold", oracle: "Sacrifice this artifact: Add one mana of any color." },
+  blood: { name: "Blood", type: "Token Artifact — Blood", oracle: "{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card." },
 };
 
 /**
@@ -369,7 +379,7 @@ export function applyCreateTokenCopy(state, atom, ctx) {
 
 /**
  * CREATE-NAMED-TOKEN clause parser — migrated from parser.js parseExtendedAtom (seam batch 18 / Wave C).
- * The contiguous named-artifact-token family (Treasure/Clue/Food/Gold only — the modeled allowlist), six
+ * The contiguous named-artifact-token family (Treasure/Clue/Food/Gold/Blood — the modeled allowlist), six
  * matchers in original first-match order (dynamic-count anchors before fixed-N):
  *   (a) "create X <tok> tokens, where X is [equal to] [the number of] <src>" (Dockside) — countFor allowScopes
  *   (b) "create a/an/one <tok> token for each <src>" (Cavern-Hoard Dragon) — countFor allowScopes
@@ -389,12 +399,12 @@ export function createNamedTokenClauseParser(clause) {
   // anchors below bind, exactly as createTokenClauseParser already does for the vanilla-token family. Strictly
   // a PROMOTION (can only let an already-low clause parse) — never changes a token's owner.
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/^you create /, "create ");
-  let m = t.match(/^create x (treasure|clue|food|gold) tokens,? where x is (?:equal to )?(?:the number of )?(.+)$/);
+  let m = t.match(/^create x (treasure|clue|food|gold|blood) tokens,? where x is (?:equal to )?(?:the number of )?(.+)$/);
   if (m) {
     const countFor = parseCountSource(m[2], { allowScopes: true });
     return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
   }
-  m = t.match(/^create (?:a|an|one) (treasure|clue|food|gold) tokens? for each (.+)$/);
+  m = t.match(/^create (?:a|an|one) (treasure|clue|food|gold|blood) tokens? for each (.+)$/);
   if (m) {
     const countFor = parseCountSource(m[2], { allowScopes: true });
     return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
@@ -403,17 +413,17 @@ export function createNamedTokenClauseParser(clause) {
   // "create half X Food tokens, rounded up"). The count is the chosen {X} HALVED with stated rounding (countX
   // + halve), resolved at ETB via ctx.xValue. CREED: the rounding MUST be stated — a bare "create half X Food
   // tokens" with no "rounded up/down" is ambiguous and stays unmatched → Arbiter (mirrors radClauseParser).
-  m = t.match(/^create half x (treasure|clue|food|gold) tokens, rounded (up|down)$/);
+  m = t.match(/^create half x (treasure|clue|food|gold|blood) tokens, rounded (up|down)$/);
   if (m) return { op: "create-named-token", token: m[1], countX: true, halve: m[2] === "up" ? "ceil" : "floor", targetType: null };
-  m = t.match(/^create that many (treasure|clue|food|gold) tokens$/);
+  m = t.match(/^create that many (treasure|clue|food|gold|blood) tokens$/);
   if (m) return { op: "create-named-token", token: m[1], countContext: "combatDamageAmount", targetType: null };
-  m = t.match(/^create a number of (tapped )?(treasure|clue|food|gold) tokens equal to its power$/);
+  m = t.match(/^create a number of (tapped )?(treasure|clue|food|gold|blood) tokens equal to its power$/);
   if (m) {
     const atom = { op: "create-named-token", token: m[2], countContext: "dyingPower", targetType: null };
     if (m[1]) atom.tapped = true;
     return atom;
   }
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold) tokens?$/);
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold|blood) tokens?$/);
   if (m) {
     const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
     if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged
@@ -425,7 +435,7 @@ export function createNamedTokenClauseParser(clause) {
   // and whoCreates:"target" tells applyCreateNamedToken to put the token on the CHOSEN player's battlefield
   // (ctx.targets), not the controller's. Single fixed token only (a/an/one); a dynamic/count form on this
   // rarer shape isn't printed → stays unmatched → Arbiter (CREED — never a partial). "tapped" rider preserved.
-  m = t.match(/^target opponent creates? (?:a|an|one) (tapped )?(treasure|clue|food|gold) token$/);
+  m = t.match(/^target opponent creates? (?:a|an|one) (tapped )?(treasure|clue|food|gold|blood) token$/);
   if (m) {
     const atom = { op: "create-named-token", token: m[2], count: 1, targetType: "opponent", whoCreates: "target" };
     if (m[1]) atom.tapped = true;

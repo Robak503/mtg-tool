@@ -28,6 +28,6 @@ describe("', then' splits a top-level sequence", () => {
   });
   it("an unmodeled second half still drops the whole program (all-or-nothing)", () => {
     expect(programConfidence(parseEffectProgram(I("Scry 2, then exile the top card of your library.")))).toBe("low"); // impulse — unmodeled
-    expect(programConfidence(parseEffectProgram(I("Scry 2, then create a Blood token.")))).toBe("low"); // Blood unmodeled (TOK-2 defers it)
+    expect(programConfidence(parseEffectProgram(I("Scry 2, then create a Powerstone token.")))).toBe("low"); // Powerstone unmodeled (restricted mana defers it)
   });
 });

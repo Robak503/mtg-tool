@@ -185,8 +185,8 @@ describe("HALF-X-CREATE-TOKENS — createNamedTokenClauseParser recognizes the h
   it("CREED: a half-X-token clause with NO stated rounding stays unmatched (ambiguous → Arbiter)", () => {
     expect(createNamedTokenClauseParser("create half x food tokens")).toBeNull();
   });
-  it("CREED: an UNMODELED token type (Blood) stays unmatched even with rounding", () => {
-    expect(createNamedTokenClauseParser("create half x blood tokens, rounded up")).toBeNull();
+  it("CREED: an UNMODELED token type (Powerstone) stays unmatched even with rounding", () => {
+    expect(createNamedTokenClauseParser("create half x powerstone tokens, rounded up")).toBeNull();
   });
   it("the fixed-N named-token form is untouched (no countX/halve)", () => {
     expect(createNamedTokenClauseParser("create two food tokens")).toEqual({

@@ -4,8 +4,9 @@
  * The CREED-critical invariant this file pins: a minted Treasure/Gold is a ONE-SHOT mana source —
  * it is SACRIFICED when used (auto-pay or explicit tap-for-mana), never merely tapped, so it can
  * never ramp forever (the false positive this feature exists to avoid). Clue/Food resolve through
- * the activated-ability stack path (sac cost → draw / gain 3 life). Blood/Map/Powerstone are NOT
- * modeled (stay low → Arbiter), pinned in parser.test.js.
+ * the activated-ability stack path (sac cost → draw / gain 3 life); Blood too (BLITZ TOK-1 — discard-a-card
+ * additional cost → draw, pinned in bloodToken.test.js). Map/Powerstone/Incubator are NOT modeled
+ * (stay low → Arbiter), pinned in parser.test.js.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

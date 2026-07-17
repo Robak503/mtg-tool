@@ -586,11 +586,12 @@ describe("parseEffectProgram — ability-carrying tokens: mana (T4)", () => {
   });
 });
 
-// ===== TOKENS ===== T2 — NAMED ARTIFACT TOKENS (TOK-2). Treasure/Clue/Food/Gold enter as real
-// artifact permanents whose printed ability the engine drives (mana model for Treasure/Gold, the
-// activated-ability stack path for Clue/Food). Blood/Map/Powerstone stay low (unmodeled cost/effect).
+// ===== TOKENS ===== T2 — NAMED ARTIFACT TOKENS (TOK-2 + BLITZ TOK-1). Treasure/Clue/Food/Gold/Blood
+// enter as real artifact permanents whose printed ability the engine drives (mana model for Treasure/Gold,
+// the activated-ability stack path for Clue/Food/Blood — Blood's discard-a-card additional cost via the γ1h
+// discard-cost path). Map/Powerstone/Incubator stay low (targeted explore / restricted mana / transform).
 describe("parseEffectProgram — named artifact tokens (TOK-2)", () => {
-  it("parses the four modeled named tokens to a create-named-token atom", () => {
+  it("parses the five modeled named tokens to a create-named-token atom", () => {
     expect(parseEffectProgram(I("Create a Treasure token.")).atoms)
       .toEqual([{ op: "create-named-token", token: "treasure", count: 1, targetType: null }]);
     expect(parseEffectProgram(I("Create a Clue token.")).atoms)
@@ -599,6 +600,8 @@ describe("parseEffectProgram — named artifact tokens (TOK-2)", () => {
       .toEqual([{ op: "create-named-token", token: "food", count: 1, targetType: null }]);
     expect(parseEffectProgram(I("Create a Gold token.")).atoms)
       .toEqual([{ op: "create-named-token", token: "gold", count: 1, targetType: null }]);
+    expect(parseEffectProgram(I("Create a Blood token.")).atoms)
+      .toEqual([{ op: "create-named-token", token: "blood", count: 1, targetType: null }]);
   });
   it("parses counts (spelled + numeric, singular/plural)", () => {
     expect(parseEffectProgram(I("Create three Treasure tokens.")).atoms[0]).toMatchObject({ token: "treasure", count: 3 });
@@ -609,10 +612,10 @@ describe("parseEffectProgram — named artifact tokens (TOK-2)", () => {
     expect(p.confidence).toBe("high");
     expect(p.atoms.map(a => a.op)).toEqual(["draw", "create-named-token"]);
   });
-  it("MUST_DROP_TO_LOW: unmodeled named tokens (Blood/Map/Powerstone) + an unmodeled count source", () => {
-    expect(programConfidence(parseEffectProgram(I("Create a Blood token.")))).toBe("low");      // discard cost unmodeled
-    expect(programConfidence(parseEffectProgram(I("Create a Map token.")))).toBe("low");        // explore + sorcery-speed target unmodeled
+  it("MUST_DROP_TO_LOW: unmodeled named tokens (Map/Powerstone/Incubator) + an unmodeled count source", () => {
+    expect(programConfidence(parseEffectProgram(I("Create a Map token.")))).toBe("low");        // explore has no chosen-target subject + sorcery-speed unmodeled
     expect(programConfidence(parseEffectProgram(I("Create a Powerstone token.")))).toBe("low"); // restricted mana unmodeled
+    expect(programConfidence(parseEffectProgram(I("Create an Incubator token.")))).toBe("low"); // transform unmodeled
     // ===== TREASURE-MAKER ===== "for each <unmodeled source>" matches the shape but the source ("opponent")
     // isn't a count source → null → low (never a fabricated count); same for a bare "where X is …" gibberish.
     expect(programConfidence(parseEffectProgram(I("Create a Treasure token for each opponent.")))).toBe("low");

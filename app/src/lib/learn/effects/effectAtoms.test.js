@@ -120,8 +120,8 @@ describe("effectAtoms — create-named-token (TOK-2)", () => {
     }
   });
   it("an unknown token key is a no-op (never fabricated) — the parser allowlist prevents this", () => {
-    const after = resolveAtom(st(), { op: "create-named-token", token: "blood", count: 1 }, { controller: "user", targets: [] });
-    expect(after.players.user.battlefield).toHaveLength(0);
+    const after = resolveAtom(st(), { op: "create-named-token", token: "powerstone", count: 1 }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield).toHaveLength(0); // Powerstone is not in NAMED_TOKENS (restricted mana unmodeled) → guarded no-op
   });
 });
 
