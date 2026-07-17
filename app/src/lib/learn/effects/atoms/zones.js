@@ -247,6 +247,18 @@ export function tuckClauseParser(clause) {
   return null;
 }
 
+// REANIMATE PERMANENT-COMPATIBILITY (BLITZ GY-2, CR 110.4a) — a reanimate destination is the BATTLEFIELD, and
+// only a PERMANENT card can be put onto the battlefield (an instant/sorcery card can't). A filtered reanimate's
+// parseGraveyardFilter typeFilter is admitted ONLY when it resolves to permanent card types: "permanent" (any
+// permanent type) always passes; a single type or a "|"-union passes iff EVERY member is a permanent card type.
+// A lone or union-member "instant"/"sorcery" → false → the whole clause parks (never reanimates a non-permanent
+// — an FP guard; no printed reanimate names instant/sorcery in this slot, but the check keeps the atom honest).
+const PERMANENT_GY_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "battle"]);
+function isPermanentReanimateFilter(typeFilter) {
+  if (typeFilter === "permanent") return true;
+  return typeFilter.split("|").every((tok) => PERMANENT_GY_TYPES.has(tok));
+}
+
 /**
  * GRAVEYARD-RETURN clause parser (CR 608) — co-extracted from parseExtendedAtom (seam batch 16 / Wave C). The
  * coupling pair that shares the `^return target … from your graveyard` prefix, order preserved (return-to-hand
@@ -318,17 +330,32 @@ export function graveyardReturnClauseParser(clause) {
     if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
   }
   if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
-  // REANIMATE-MV-FILTER (BLITZ PW-1 — Ajani, Adversary of Tyrants "−2: Return target creature card with mana
-  // value 2 or less from your graveyard to the battlefield"; ~33 corpus carriers at MV 1/2/3/6): the plain
-  // own-graveyard reanimate (above) NARROWED by a mana-value cap. A STRUCTURED cardFilter {cardType:"creature",
-  // mvMax:N} rides the SAME applyReanimate resolver + the ONE cardMatchesGraveyardFilter chokepoint (cast-time
-  // enumeration AND the trigger-flush chooser both read it, so a wrong-MV / non-creature card is NEVER offered
-  // — CR 601.2c target restriction, CR 202.3 mana value, CR 712.8a a card in the graveyard has only its
-  // front-face characteristics). The exact `$` anchor rejects every rider ("tapped", "with a +1/+1 counter",
-  // an "X"/power/"lesser mana value" cap, the "artifact or creature" union) → those stay LOW → Arbiter (CREED
-  // whole-clause). CREATURE only — the cardType gate keeps a non-creature card of matching MV out of the pool.
-  const rmvM = /^return target creature card with mana value (\d+) or less from your graveyard to the battlefield$/.exec(t);
-  if (rmvM) return { op: "reanimate", targetType: "graveyardCard", cardFilter: { cardType: "creature", mvMax: parseInt(rmvM[1], 10) } };
+  // REANIMATE-MV-FILTER (BLITZ PW-1 creature — Ajani, Adversary of Tyrants "−2: Return target creature card
+  // with mana value 2 or less…"; BLITZ GY-2 non-creature types — Sun Titan, Shepherd of the Cosmos "return
+  // target permanent card with mana value N or less…"): the plain own-graveyard reanimate (above) NARROWED by
+  // a mana-value cap. A STRUCTURED cardFilter rides the SAME applyReanimate resolver + the ONE
+  // cardMatchesGraveyardFilter chokepoint (cast-time enumeration AND the trigger-flush chooser both read it, so
+  // a wrong-MV / wrong-type card is NEVER offered — CR 601.2c target restriction, CR 202.3 mana value, CR
+  // 712.8a a card in the graveyard has only its front-face characteristics). CREATURE keeps the PW-1
+  // {cardType:"creature", mvMax} shape (pinned, byte-identical); every other <X> runs through the SAME
+  // parseGraveyardFilter the return-to-hand MV filter uses (GY-1) → a modeled basic type / " or "-union /
+  // "permanent" becomes {typeFilter, mvMax}, PERMANENT-COMPATIBLE only (isPermanentReanimateFilter — a card
+  // entering the battlefield must be a permanent; an instant/sorcery/bare-"any" filter parks). A subtype /
+  // color / negation / intersection ("Rebel permanent", "nonland permanent", "creature or Spacecraft",
+  // "Aura or Equipment") → parseGraveyardFilter null → the WHOLE clause parks → LOW → Arbiter (CREED
+  // whole-clause, FN-safe). The exact `$` anchor rejects every rider ("tapped", "with a +1/+1 counter", a
+  // "with a finality counter" rider, an "X"/power/"lesser mana value" dynamic cap) → those stay LOW → Arbiter.
+  const rmvM = /^return target (.*?)card with mana value (\d+) or less from your graveyard to the battlefield$/.exec(t);
+  if (rmvM) {
+    const mvMax = parseInt(rmvM[2], 10);
+    const word = rmvM[1].trim();
+    if (word === "creature") return { op: "reanimate", targetType: "graveyardCard", cardFilter: { cardType: "creature", mvMax } };
+    const typeFilter = parseGraveyardFilter(word);
+    if (typeFilter && typeFilter !== "any" && isPermanentReanimateFilter(typeFilter)) {
+      return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter, mvMax } };
+    }
+    return null; // an unmodeled / non-permanent filter → the whole clause stays unmodeled (never a mis-reanimate)
+  }
   // REANIMATE-FROM-ANY (CR 608) — the Reanimate-family phrasing "put target creature card from a graveyard
   // onto the battlefield under your control" (Hymn of Rebirth, Endless Obedience, Vat Emergence's first
   // clause) and the opponent-scoped "from an opponent's graveyard" (Ashen Powder). UNLIKE the own-graveyard

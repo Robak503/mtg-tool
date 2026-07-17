@@ -213,13 +213,16 @@ describe("PW-1 runtime — untap-two-lands untaps exactly the chosen lands (re-v
 // 5. FN GUARDS — real near-miss riders stay LOW → Arbiter (whole-clause anchors)
 // ─────────────────────────────────────────────────────────────────────────────
 describe("PW-1 FN guards — rider variants stay LOW (safe false-negatives)", () => {
-  it("reanimate-MV rejects every rider / non-integer cap / non-creature union", () => {
+  it("reanimate-MV rejects every rider / non-integer cap / non-permanent union", () => {
     for (const c of [
       "Return target creature card with mana value 2 or less from your graveyard to the battlefield tapped.",
       "Return target creature card with mana value 2 or less from your graveyard to the battlefield with a finality counter on it.",
       "Return target creature card with mana value X or less from your graveyard to the battlefield.",
       "Return target creature card with lesser mana value from your graveyard to the battlefield.",
-      "Return target artifact or creature card with mana value 3 or less from your graveyard to the battlefield.",
+      // NOTE (BLITZ GY-2): "artifact or creature card with mana value N or less … to the battlefield" is now
+      // MODELED — a permanent-compatible " or "-union rides the same {typeFilter, mvMax} chokepoint (see
+      // gyReanimateFiltered.test.js). A union with a NON-permanent member still parks:
+      "Return target creature or instant card with mana value 3 or less from your graveyard to the battlefield.",
       "Return target creature card with power 2 or less from your graveyard to the battlefield.",
     ]) expect(programConfidence(parseEffectClause(c, "Instant"))).toBe("low");
   });
