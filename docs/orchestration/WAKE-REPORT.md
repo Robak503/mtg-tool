@@ -1,6 +1,26 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~07:00 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 32.07%, suite 9,678 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~08:10 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 32.78%, suite 9,771 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
+> **GROUND TRUTH (fresh tier-fingerprint on master 413a325a): 32.78% native = 11,198 / 34,161 name-deduped.**
+> Since the prior campaign's WIND-DOWN handoff (041dc82e @ 30.80%): **54 engine slices landed, NET native +677,
+> suite → 9,771, LOST=0 on genuine natives**, ~17 loose/wrong CR cites caught at the desk. **Landed since the
+> 07:00 entry below**: **CM-1** double/triple combat-damage replacements (c119895f, +6 — the CR 614 replacement
+> seam, NOT the assignment seam, so trample distributes correctly) · **DM-1** defending-player attacks-trigger
+> mill (191f1c63, +2 — Nemesis of Reason, Flint Golem; cite 701.13→701.17, the repo's 701.13-for-mill is stale)
+> · **SF-1** anthem subject-filters (413a325a, +14 — legendary/colorless/multicolored/non&lt;color&gt;/tapped/
+> untapped, layer-aware with a color-derive re-entry guard mirroring the Tetsuko precedent; untapped liveness
+> pinned). **IN FLIGHT (3 Opus seats)**: **MC-1** magecraft copy-trigger · **GA-1** global "each creature"
+> anthems/debuffs (Ascendant Evincar / Crovax — the all-players scope SF-1 parked) · **EV-2** combat-evasion
+> residue census (can't-be-blocked-except-by / lure / can't-block).
+> **DEFERRED CLEANUP (run on an EMPTY floor to avoid merge conflicts)**: a comment-only CR-cite-integrity pass
+> for the repo-wide stale families flagged tonight — 701.8-for-discard, 701.15a-for-regeneration,
+> 603.6e-for-look-back (~20 files), 701.13-for-mill, 509.1a-for-defending-player. Plus the selfPlayRunner
+> seating-determinism flake chip and a broader phantom-mana FP sweep.
+
+## (superseded ~70 min later) — 32.07%, suite 9,678 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
