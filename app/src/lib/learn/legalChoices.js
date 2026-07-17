@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackOrBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -51,7 +51,7 @@ function parseCastProgram(card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -69,6 +69,10 @@ registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 // UNTIL-EOT QUOTED GRANT (BLITZ TG-1) — the activated-body gate for the grant-until-eot clause parser
 // (Lightning Volley's granted "{T}: …" pings). Runtime mirror of coverage.js's identical registration.
 registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
+// LEVEL UP (BLITZ LV-1) — register the whole-card leveler gate so parseStaticAbilities emits the
+// band P/T + keyword statics for a runtime that imports legalChoices without coverage. Idempotent
+// with coverage.js's identical registration; see registerLevelerCardValidator in staticAbilityParser.js.
+registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, parseStaticAbilities } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
@@ -1557,6 +1561,19 @@ function actionsActivateAbility(state, playerId) {
       // turn is not offered again. Keyed permId:rawLine (raw is unique per ability, printed OR granted —
       // an index would collide across the two lists) against state.turn, so the ledger self-expires.
       if (ab.oncePerTurn && state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`] === state.turn) continue;
+      // LEVEL-BAND gate (BLITZ LV-1, CR 711.2a/b): a leveler band's activated ability exists ONLY while
+      // the source's level-counter count is inside the band ({LEVEL N1-N2} ⇒ N1 <= level <= N2; the open
+      // {LEVEL N3+} band carries atMost null). Read live from the permanent's own counter pile, so the
+      // very activation that crosses a boundary flips which band's abilities are offered next window.
+      if (ab.levelGate) {
+        const lvl = perm.counters?.level || 0;
+        if (lvl < ab.levelGate.atLeast) continue;
+        if (ab.levelGate.atMost != null && lvl > ab.levelGate.atMost) continue;
+      }
+      // LEVEL UP is sorcery-only by definition (CR 702.87a "Activate only as a sorcery" = own main,
+      // empty stack, priority — CR 602.5i). The main-step gate above already covers own-main+priority;
+      // canCastSorcerySpeed adds the empty-stack requirement the generic lane approximates away.
+      if (ab.sorceryOnly && !canCastSorcerySpeed(state, playerId)) continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).

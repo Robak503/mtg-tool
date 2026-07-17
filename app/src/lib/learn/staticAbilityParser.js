@@ -22,6 +22,7 @@
  */
 
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "./keywords.js";
+import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 
 // GROUP-ACTIVATED grant validator (injected — CR 113.7). Whether a quoted group-grant body ("All Slivers
 // have \"{2}: Regenerate this permanent.\"") is a FULLY-MODELED activated ability is decided by
@@ -47,6 +48,18 @@ export function registerGroupActivatedBodyValidator(fn) {
 let _groupTriggeredBodyValidator = null;
 export function registerGroupTriggeredBodyValidator(fn) {
   _groupTriggeredBodyValidator = typeof fn === "function" ? fn : null;
+}
+
+// LEVELER validator (injected — BLITZ LV-1, CR 702.87 / 711). Whether a leveler card is WHOLLY
+// modeled (frame + every band line + the level-up ability) is decided by effects/abilities.js
+// `modeledLeveler`, which lives behind effects/parser.js → (back to this module): a STATIC import
+// would form the same load-time cycle as the group-grant validators above, so it's REGISTERED at
+// load by coverage.js / legalChoices.js. Until registered, a leveler emits NO band statics (it
+// stays the pre-slice vanilla body — a safe FN). The validator returns the parsed bundle
+// ({ bands: [{atLeast, atMost, power, toughness, keywords[]}] }) or null.
+let _levelerCardValidator = null;
+export function registerLevelerCardValidator(fn) {
+  _levelerCardValidator = typeof fn === "function" ? fn : null;
 }
 
 // The grantable-keyword set + canonical-caser live in keywords.js as the SINGLE source of truth,
@@ -2362,6 +2375,37 @@ export function parseStaticAbilities(card) {
     const oracle = selfNormalizeOracle(rawOracle, card?.name, card?.type || card?.type_line); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
     for (const clause of abilityClauses(oracle)) {
       parseClause(clause, out, card?.name, card?.type || card?.type_line); // name → EMINENCE excludeSelf sourceName; type → ARIXMETHES type-change
+    }
+  } else if (rawOracle) {
+    // LEVEL UP (BLITZ LV-1, CR 711.2a/b): a WHOLLY-MODELED leveler's band symbols ARE static
+    // abilities — "as long as this creature has at least N1 (at most N2) level counters on it, it
+    // has base power and toughness [P/T] and has [abilities]". Emit, per band, a level-counter-gated
+    // layer-7b base-P/T set + a gated layer-6 addKeyword per validated keyword (both re-evaluated
+    // live by layers.gateMet — the counter crossing a boundary flips the band on/off, CR 613.7;
+    // below the first band's N1 no gate is open and the printed P/T stands, CR 711.5). Gated on the
+    // injected whole-card validator: a leveler with ANY unmodeled piece emits NOTHING here (it
+    // stays the pre-slice vanilla body — safe FN). Class cards ("{cost}: Level N") have no
+    // "Level up" frame → the validator returns null → nothing emitted, exactly as before.
+    if (_levelerCardValidator) {
+      const lv = _levelerCardValidator(card);
+      if (lv) {
+        for (const b of lv.bands) {
+          const gate = {
+            countSpec: { kind: "countersOnSelf", counterType: "level" },
+            atLeast: b.atLeast,
+            ...(b.atMost != null ? { atMost: b.atMost } : {}),
+            excludeSelf: false,
+          };
+          out.push({ layer: 7, sublayer: "7b", op: { layerOp: "ptSet", power: b.power, toughness: b.toughness, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+          for (const kw of b.keywords) {
+            out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(kw), gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+          }
+        }
+      }
+    } else if (isLevelerFrame(rawOracle)) {
+      // Validator not registered yet (a consumer loaded this module alone) — don't memoize the
+      // empty result, so a later fully-wired caller isn't stuck with a stale park.
+      return out;
     }
   }
   if (slot) slot.statics = out;

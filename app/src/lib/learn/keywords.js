@@ -90,17 +90,37 @@ function patternFor(keyword) {
   return re;
 }
 
+// LEVEL-BAND detection (LV-1, CR 711.2a): a LEVELER card's band striations ("LEVEL 2-6\n3/3\nFirst
+// strike") print keywords that exist ONLY while the level-counter count is inside the band — they are
+// NOT always-on printed keywords. Both of hasKeyword's sources over-claim on a leveler: the Scryfall
+// `keywords` array lists band keywords flat (Student of Warfare: ["First strike","Double strike",
+// "Level up"]), and the line-anchored oracle scan matches the band's own keyword line. So on a banded
+// card the array is skipped and the scan runs on the text ABOVE the first band header only (everything
+// from the first header onward is band-scoped — bands are always the tail of a leveler's text). The
+// band keywords re-enter through the gated layer-6 grants staticAbilityParser emits for a WHOLLY
+// modeled leveler; on a parked leveler they simply don't exist (a vanilla body — safe FN, and strictly
+// closer to the real card than the old always-on FP). Uppercase, line-anchored: no non-leveler text
+// matches. Kept local so this stays a leaf module (leveler.js imports from HERE, never the reverse).
+const LEVEL_BAND_SPLIT_RE = /(?:^|\n)LEVEL \d+(?:-\d+|\+)\s*(?:\n|$)/;
+
 /**
- * Does the card have the given keyword as a printed ability? Checks an explicit
- * `keywords` array first, then an ability-word-position oracle match.
+ * Does the card have the given keyword as a printed ALWAYS-ON ability? Checks an explicit
+ * `keywords` array first, then an ability-word-position oracle match. On a leveler card
+ * (LEVEL band headers present) only the text above the first band is consulted — band
+ * keywords are counter-gated statics, not printed keywords (CR 711.2a).
  */
 export function hasKeyword(card, keyword) {
   if (!card || !keyword) return false;
 
-  const kws = Array.isArray(card.keywords) ? card.keywords : [];
-  if (kws.length && kws.some(k => String(k).toLowerCase() === keyword.toLowerCase())) return true;
-
   const oracle = card.oracle || card.oracle_text || "";
-  if (!oracle) return false;
-  return patternFor(keyword).test(oracle);
+  const bandSplit = oracle ? oracle.search(LEVEL_BAND_SPLIT_RE) : -1;
+  if (bandSplit === -1) {
+    const kws = Array.isArray(card.keywords) ? card.keywords : [];
+    if (kws.length && kws.some(k => String(k).toLowerCase() === keyword.toLowerCase())) return true;
+    if (!oracle) return false;
+    return patternFor(keyword).test(oracle);
+  }
+  // Leveler: the flat keywords array can't tell a band keyword from an always-on one — scan
+  // only the pre-band text (CR 711.4: those abilities are the normal, always-on ones).
+  return patternFor(keyword).test(oracle.slice(0, bandSplit));
 }

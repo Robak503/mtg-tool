@@ -32,8 +32,8 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount } from "./staticAbilityParser.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -940,6 +940,11 @@ function isActivatedAbilityLine(line) {
 }
 
 export function permanentActivatedCovered(card) {
+  // LEVEL UP (LV-1): a leveler is owned WHOLLY by the modeledLeveler classifier (band statics + gated
+  // abilities together) — this single-mechanism tier must never claim one through a residue coincidence.
+  // Mirrors permanentFullyCovered's identical guard. Belt-and-braces: a leveler's band headers / P/T
+  // boxes already fail the keyword-only residue below.
+  if (isLevelGatedOracle(String(card?.oracle || card?.oracle_text || ""))) return false;
   const abilities = parseActivatedAbilities(card);
   if (abilities.length === 0) return false;
   // A single unmodeled ability (unmodeled cost OR effect, incl. complex mana abilities)
@@ -1831,6 +1836,19 @@ registerCoverageClassifier(globalTapManaAugmentTier);
 // Slivers have \"{2}: Regenerate this permanent.\"") classifies native-static via staticAbilitiesCoverCard,
 // and legalChoices offers the ability on every affected permanent (layers.grantedActivatedQuotedFor).
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
+
+// LEVEL UP (BLITZ LV-1, CR 702.87 / 711) — inject the whole-card leveler gate into staticAbilityParser's
+// band-statics emission (same load-cycle rationale as the group validators above), and register the
+// classifier: a WHOLLY-modeled leveler — the level-up activated ability (CR 702.87a rewrite through the
+// standard activated lane) + every band being printed P/T + closed-vocabulary keywords + fully-modeled
+// band-gated activated abilities — is native. The metric consumes the SAME modeledLeveler parse the
+// runtime offers/emits from (abilities lane + band statics), so they cannot drift. Any unmodeled band
+// line (islandwalk, protection, a "can't be blocked…" static, a banded trigger, a banded anthem — the
+// gate evaluates against the AFFECTED permanent, so a source-counter-scoped anthem isn't wireable yet, a
+// banded mana ability — the mana lane has no band gate) ⇒ modeledLeveler null ⇒ the card stays body-only
+// and the runtime emits nothing for it (whole-card-or-park).
+registerLevelerCardValidator(modeledLeveler);
+registerCoverageClassifier((card) => (modeledLeveler(card) ? "native-mixed" : null));
 
 // GROUP-TRIGGERED grant (Tempered Sliver) — inject the modeled-body gate into staticAbilityParser's
 // group-triggered-grant emission. A quoted body is a valid group-triggered grant iff it parses to one-or-more

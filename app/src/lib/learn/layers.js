@@ -243,7 +243,11 @@ function gateMet(state, perm, gate) {
   // to the threshold. Re-evaluated every keyword/P-T read via gateMet, so the grant turns on the instant the
   // count crosses N and off if the count later drops (CR 613.7 continuous). No board scan — recursion-safe.
   if (spec?.kind === "countersOnSelf") {
-    return (perm.counters?.[spec.counterType] || 0) >= (gate.atLeast || 1);
+    const n = perm.counters?.[spec.counterType] || 0;
+    // LEVEL-BAND upper bound (LV-1, CR 711.2a): a {LEVEL N1-N2} band is open only while
+    // N1 <= count <= N2. An absent atMost keeps the pre-existing open-ended (">= atLeast")
+    // semantics — Primordial Hydra / Taborax / Arixmethes gates carry no atMost and are untouched.
+    return n >= (gate.atLeast || 1) && (gate.atMost == null || n <= gate.atMost);
   }
   let n = countSelfSpecOnBoard(state, perm, spec);
   if (gate.excludeSelf && matchesCountSpec(perm, spec)) n -= 1;
@@ -771,8 +775,12 @@ function applyLayer7(state, perm, l7Effects) {
     if (e.op.setPower) basePower = n;
     if (e.op.setToughness) baseToughness = n;
   }
-  // 7b — set base P/T ("base power/toughness becomes X/Y").
+  // 7b — set base P/T ("base power/toughness becomes X/Y"). LEVEL-BAND (LV-1, CR 711.2a/b):
+  // a leveler band's base-P/T set carries a level-counter gate — skip it while the gate is
+  // closed (below the band the printed box stands, CR 711.5; gateMet re-evaluates live every
+  // derive, CR 613.7). Pre-existing 7b ops carry no gate and are untouched.
   for (const e of l7Effects.filter(e => e.sublayer === "7b").sort(byTimestamp)) {
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue;
     if (e.op.power != null) basePower = e.op.power;
     if (e.op.toughness != null) baseToughness = e.op.toughness;
   }

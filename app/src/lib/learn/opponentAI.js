@@ -1131,6 +1131,17 @@ function pickEquipAction(state, aiPlayerId, equipActions) {
  * Rank: draw > token > scry/surveil > lifegain, then cheapest, then name/id — deterministic.
  */
 const SAFE_ABILITY_OPS = new Map([["draw", 0], ["create-token", 1], ["scry", 2], ["surveil", 2], ["gain-life", 3]]);
+// LEVEL UP (BLITZ LV-1): a level-up activation is the single untargeted atom
+// {op:"add-named-counter-self", counterType:"level"}. Within the modeled set it is PURE UPSIDE by
+// construction — legalChoices offers level-up ONLY on a WHOLLY-modeled leveler (modeledLeveler), whose
+// bands can only set base P/T and grant closed-vocabulary keywords — so spending leftover main-phase
+// mana on it is never a wrong play. Ranked LAST (after draw/token/scry/lifegain) so it only soaks mana
+// no better safe activation wants; the existing cmc>=1 bound is the termination guard (every printed
+// level-up cost is >=1 mana). A named counter OTHER than "level" stays outside the whitelist (its
+// value isn't knowable in general).
+function isLevelUpAtomList(atoms) {
+  return atoms.length === 1 && atoms[0].op === "add-named-counter-self" && atoms[0].counterType === "level";
+}
 function pickSafeAbilityActivation(abilityActions) {
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
   const safe = [];
@@ -1142,6 +1153,7 @@ function pickSafeAbilityActivation(abilityActions) {
     if (!a.tapSelf && (a.cmc || 0) < 1) continue;         // termination bound: tap or a real mana cost
     const atoms = a.program.atoms || [];
     if (atoms.length === 0) continue;                     // nothing runnable — activating burns the cost
+    if (isLevelUpAtomList(atoms)) { safe.push({ a, rank: 4 }); continue; } // LV-1 — level up with leftover mana
     if (!atoms.every((atom) => SAFE_ABILITY_OPS.has(atom.op) && !atom.targetType)) continue;
     const rank = Math.min(...atoms.map((atom) => SAFE_ABILITY_OPS.get(atom.op)));
     safe.push({ a, rank });

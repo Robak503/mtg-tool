@@ -22,6 +22,7 @@
  */
 
 import { parseEffectClause, programConfidence, programNeedsChosenTarget } from "./parser.js";
+import { parseLeveler, isLevelerFrame } from "../leveler.js";
 
 /** Strip reminder text (parens) but PRESERVE newlines so per-ability line splitting works. */
 function stripReminder(text) {
@@ -491,6 +492,12 @@ export function parseActivatedAbilities(card) {
   ).join("\n");
   const oracle = stripReminder(labelStripped);
   if (!oracle.trim()) return [];
+  // LEVEL UP (BLITZ LV-1, CR 702.87 / 711): a LEVELER frame routes to the dedicated lane. Its band
+  // striations otherwise leak into this loop as ALWAYS-ON activated abilities (Brimstone Mage's
+  // "{T}: This creature deals 3 damage…" was parsed modeled with ZERO level counters — a live FP the
+  // leveler lane fixes: band abilities are emitted ONLY with their level gate, and ONLY when the WHOLE
+  // card is modeled; otherwise the frame emits nothing at all — a safe FN, exactly today's park).
+  if (isLevelerFrame(rawOracle)) return levelerActivatedAbilities(card);
   // Card-level: would a self-sac drop a trigger? Use the RAW oracle (reminder included) so a death
   // keyword whose trigger lives in reminder text (Recover…) is caught, matching the victim path.
   const sacUnsafe = sacrificeDropsTrigger(card?.oracle || card?.oracle_text || "");
@@ -660,6 +667,106 @@ export function parseActivatedAbilities(card) {
     });
   }
   return out;
+}
+
+// ─── LEVEL UP (BLITZ LV-1 — CR 702.87 / 711) ─────────────────────────────────────────────────────
+//
+// The leveler lane: "Level up [cost]" IS an activated ability — CR 702.87a defines it as
+// "[Cost]: Put a level counter on this permanent. Activate only as a sorcery." — so the frame is
+// rewritten to EXACTLY that CR text and parsed through the SAME loop as every printed ability
+// (the add-named-counter-self atom resolves it; the counter is plain serializable permanent
+// state). Band colon-lines (Brimstone Mage's pingers, Kargan Dragonlord's firebreathing) are
+// parsed identically and stamped with their band's `levelGate` ({atLeast, atMost|null} on the
+// SOURCE's own `level` counters) — legalChoices offers them only while the gate is open
+// (CR 711.2a/b: the band's abilities exist only at those counts).
+//
+// WHOLE-CARD-OR-NOTHING (THE CREED): abilities are emitted ONLY when the ENTIRE card is modeled —
+// the frame parses (leveler.js), the card is a creature, nothing precedes the bands, every band
+// has a printed P/T box and only closed-vocabulary keyword lines + fully-MODELED colon lines. One
+// unmodeled band line (islandwalk, "can't be blocked…", a banded trigger, a quoted mana grant, an
+// unparsed cost) ⇒ the frame emits NOTHING — no level-up offer, no band abilities, no statics
+// (staticAbilityParser gates on this same function via the injected validator), so a parked
+// leveler plays exactly as before this slice: a vanilla body. Never a half-leveled permanent.
+const _levelerMemo = new WeakMap(); // card -> bundle | null (card objects are immutable, house convention)
+
+function levelerActivatedAbilities(card) {
+  return modeledLeveler(card)?.abilities ?? [];
+}
+
+/**
+ * The single whole-card gate for the leveler frame. Returns
+ *   { levelUpPips, bands: [{ atLeast, atMost, power, toughness, keywords[] }], abilities: [...] }
+ * when EVERY piece of the card is modeled, else null. Consumed by: this file (the activated lane),
+ * staticAbilityParser (band P/T + keyword statics, via registerLevelerCardValidator — injected by
+ * coverage.js / legalChoices.js to avoid the load-time cycle), and coverage.js (the classifier).
+ * Metric and runtime share THIS parse, so they cannot drift.
+ */
+export function modeledLeveler(card) {
+  if (typeof card === "object" && card !== null && _levelerMemo.has(card)) return _levelerMemo.get(card);
+  const bundle = computeModeledLeveler(card);
+  if (typeof card === "object" && card !== null) _levelerMemo.set(card, bundle);
+  return bundle;
+}
+
+function computeModeledLeveler(card) {
+  const lv = parseLeveler(card);
+  if (!lv) return null;
+  // Creature levelers only (the one printed non-creature leveler — Under-Construction Skyscraper,
+  // a Land — has band MANA abilities the mana lane doesn't band-gate; it stays exactly as before).
+  if (!/\bcreature\b/i.test(String(card?.type || card?.type_line || ""))) return null;
+  // CR 711.4: a line outside every band would be a normal always-on ability. No printed creature
+  // leveler has one; fail closed rather than guess where it belongs.
+  if (lv.preBandLines.length) return null;
+  for (const b of lv.bands) {
+    if (!b.pt) return null;                 // every band must carry its printed P/T box (CR 711.2a)
+    if (b.unmodeledLines.length) return null; // an unbucketed band line parks the whole card
+  }
+  // Rewrite the frame to its CR-702.87a text and parse through the ONE activated-ability loop.
+  // The synthetic oracle has no "Level up" line and no band headers, so the recursive call takes
+  // the normal path. Band colon-lines keep their exact printed text — the raw→gate map below
+  // re-attaches each descriptor to its band (duplicate text across bands would be ambiguous →
+  // fail closed; no printed leveler duplicates a line).
+  const levelUpLine = `${lv.levelUpPips}: Put a level counter on this permanent.`;
+  const gateByRaw = new Map();
+  const syntheticLines = [levelUpLine];
+  for (const b of lv.bands) {
+    const gate = { atLeast: b.atLeast, atMost: b.atMost };
+    for (const line of b.colonLines) {
+      if (gateByRaw.has(line) || line === levelUpLine) return null; // ambiguous mapping → park
+      gateByRaw.set(line, gate);
+      syntheticLines.push(line);
+    }
+  }
+  const abilities = parseActivatedAbilities({
+    name: card?.name,
+    type: String(card?.type || card?.type_line || ""),
+    oracle: syntheticLines.join("\n"),
+  });
+  // Every synthetic line must have produced a descriptor (a line the loop silently skipped —
+  // an unparseable cost shape — would otherwise vanish from the audit) and every descriptor
+  // must be fully modeled. One miss ⇒ the whole card parks.
+  if (abilities.length !== syntheticLines.length) return null;
+  const stamped = abilities.map((ab) => {
+    if (ab.raw === levelUpLine) {
+      // CR 702.87a "Activate only as a sorcery": enforced at the offer gate (legalChoices requires
+      // canCastSorcerySpeed — own main, empty stack), not just the main-step approximation.
+      return { ...ab, isLevelUp: true, sorceryOnly: true };
+    }
+    return { ...ab, levelGate: gateByRaw.get(ab.raw) };
+  });
+  if (stamped.some((ab) => !ab.isLevelUp && !ab.levelGate)) return null; // a descriptor from nowhere → park
+  if (!stamped.every((ab) => ab.modeled)) return null;
+  return {
+    levelUpPips: lv.levelUpPips,
+    bands: lv.bands.map((b) => ({
+      atLeast: b.atLeast,
+      atMost: b.atMost,
+      power: b.pt.power,
+      toughness: b.pt.toughness,
+      keywords: [...b.keywords],
+    })),
+    abilities: stamped,
+  };
 }
 
 // Host = the enchanted/equipped CREATURE (Aura/Equipment) OR an enchanted LAND (a land-enchanting Aura that
