@@ -81,7 +81,7 @@ describe("MASS-NC — the AI holds a symmetric non-creature wipe (can't weigh nu
 
 describe("non-chosen-targetType helper (drift-trap fix)", () => {
   it("isNonChosenTargetType is the one source of truth for every mass scope", () => {
-    for (const tt of ["eachOpponent", "eachCreature", "eachCreatureAndPlayer", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment", "eachOpponentCreature"]) {
+    for (const tt of ["eachOpponent", "eachCreature", "eachOtherCreature", "eachCreatureAndPlayer", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment", "eachOpponentCreature"]) {
       expect(isNonChosenTargetType(tt)).toBe(true);
     }
     expect(isNonChosenTargetType("creature")).toBe(false);

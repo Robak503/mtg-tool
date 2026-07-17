@@ -500,6 +500,19 @@ export function addCounterClauseParser(clause) {
   // auto-pick above, which predates the multi-count infra. A `you control` suffix narrows enumeration to own creatures.
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each of up to (two|three|four|five) target creatures( you control)?$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: m[4] ? "creatureYouControl" : "creature", maxTargets: SMALL_NUM[m[3]], minTargets: 0 };
+  // SUPPORT N (CR 701.41 — BLITZ ETB-1) — the keyword action "Support N". Its reminder ("Put a +1/+1 counter
+  // on each of up to N other target creatures") is parenthetical, stripped before clause parsing, so
+  // detectTriggers / the splitter hands us the BARE "support N". Model it as the SAME chosen-target multi-count
+  // +1/+1 atom as "on each of up to N target creatures" above (maxTargets:N, minTargets:0 — applyAddCounter loops
+  // ctx.targets; expandAtoms offers each 0..N subset) PLUS excludeSource:true. Per CR 701.41a, "Support N" on a
+  // PERMANENT means "each of up to N OTHER target creatures" (exclude the source); on an INSTANT/SORCERY it means
+  // "each of up to N target creatures" — but there the source is not a creature and so is never a legal creature
+  // target anyway, making excludeSource a vacuous no-op. So emitting excludeSource:true is correct for BOTH source
+  // shapes (every printed Support carrier that ETBs is a creature). N is a printed numeral. A
+  // +1/+1 counter is own-intent (atomTargetIntent), so the trigger-flush enemy/own chooser only ever places it on
+  // the controller's own creatures — never an FP. Whole-clause anchored ($); a rider → no match → LOW → Arbiter.
+  m = t.match(/^support (\d+|one|two|three|four|five)$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature", maxTargets: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), minTargets: 0, excludeSource: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
   // ANOTHER-TARGET-YOU-CONTROL (CR 109.5, "another target creature you control" — Benevolent Hydra's

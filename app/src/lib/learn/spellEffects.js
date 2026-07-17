@@ -510,6 +510,13 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
+        // EXCLUDE-SOURCE (CR 701.41a "OTHER target creature" — Support N, BLITZ ETB-1): drop the source
+        // permanent (ctx.sourceId, threaded on the ability/trigger flush) from the ANY-creature target pool, the
+        // same self-exclusion the creatureYouControl branch already honors. Only add-counter/pump/damage/destroy
+        // atoms that explicitly set excludeSource carry it into the spec (targeting.atomTargetSpec), and none
+        // emitted targetType creature/any WITH excludeSource before this slice — so an ordinary "target creature"
+        // enumeration is byte-identical. Absent ctx.sourceId simply doesn't exclude (FN-safe).
+        if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
         if (isCreature(perm.card) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
           out.push({ type: "creature", id: perm.id, controller: pid, name: perm.card?.name });
         }
@@ -1054,6 +1061,17 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       for (const pid of Object.keys(next.players)) {
         for (const perm of next.players[pid].battlefield) {
           if (isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
+        }
+      }
+    } else if (targetType === "eachOtherCreature") {
+      // SOURCE-EXCLUDING BOARD SWEEP (BLITZ ETB-1 — Chaos Maw / Crater Hellion / Raging Swordtooth): mirror the
+      // eachCreature wipe but SKIP the source permanent (source.id = ctx.sourceId, the entering creature). CR
+      // 113.7 — "each OTHER creature" is every creature except the source. An absent source.id (a sourceless
+      // effect — no such printed card) excludes nothing, degrading to a full sweep rather than fabricating; but
+      // the only carriers are creature ETBs whose source is always set, so the source is always excluded.
+      for (const pid of Object.keys(next.players)) {
+        for (const perm of next.players[pid].battlefield) {
+          if (perm.id !== source?.id && isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
         }
       }
     } else if (targetType === "eachCreatureAndPlayer") {

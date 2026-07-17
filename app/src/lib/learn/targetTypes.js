@@ -16,6 +16,10 @@
 export const NON_CHOSEN_TARGET_TYPES = new Set([
   "eachOpponent",               // "each opponent" — mass player scope
   "eachCreature",               // board wipes — every creature on every battlefield
+  "eachOtherCreature",          // ETB-1 — source-excluding board sweep ("it deals N damage to each OTHER
+  //                               creature" — Chaos Maw / Crater Hellion / Raging Swordtooth). Every creature
+  //                               EXCEPT the source (ctx.sourceId); non-chosen, so the trigger flush routes it
+  //                               on confidence (no target pick) exactly like eachCreature.
   "eachCreatureAndPlayer",      // SYMBURN-1 — symmetric burn (every creature AND every player)
   "eachArtifact",               // MASS-NC — "destroy all artifacts"
   "eachEnchantment",            // MASS-NC — "destroy all enchantments"

@@ -445,6 +445,15 @@ export function massFilteredDamageClauseParser(clause) {
   if (m) return { op: "deal-damage", amount: parseInt(m[1], 10), targetType: "eachCreature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: m[2] === "without" }] };
   const cm = t.match(/^.+? deals? (\d+) damage to each creature (you control|your opponents control)$/);
   if (cm) return { op: "deal-damage", amount: parseInt(cm[1], 10), targetType: "eachCreature", restrictions: [{ kind: "controller", who: cm[2] === "you control" ? "you" : "opponent" }] };
+  // SOURCE-EXCLUDING BOARD SWEEP (BLITZ ETB-1) — "<source> deals N damage to each OTHER creature" (Chaos Maw's /
+  // Raging Swordtooth's / Crater Hellion's ETB): every creature on every battlefield EXCEPT the source itself
+  // (CR 113.7 — "other" is relative to the ability's source, ctx.sourceId). Reuses the deal-damage primitive
+  // with the eachOtherCreature mass targetType (registered in NON_CHOSEN_TARGET_TYPES → non-chosen, so the
+  // trigger routes on confidence and applyDamageEffect's eachOtherCreature branch skips source.id). Whole-clause
+  // anchored ($) — a filter/rider ("…with flying", "…and each player", "…you control") fails the anchor and
+  // stays LOW → Arbiter (FN-safe; those variants are DELIBERATELY unmodeled here).
+  const om = t.match(/^.+? deals? (\d+) damage to each other creature$/);
+  if (om) return { op: "deal-damage", amount: parseInt(om[1], 10), targetType: "eachOtherCreature" };
   // TRIG-PRONOUN damage (BLITZ IE-1 — Inferno Elemental / Ornery Goblin / Ashmouth Hound: "…this creature
   // deals N damage to THAT CREATURE", the blocked/blocking pair partner). detectTriggers rewrites the
   // non-self pronoun to this sentinel (the Toxin-Sliver destroy precedent); the referent is the trigger's
