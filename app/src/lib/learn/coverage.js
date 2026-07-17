@@ -117,7 +117,7 @@ export const COVERED_KEYWORDS = [
   // FLANKING (BLITZ FL-1, CR 702.25) — ENFORCED: one synthesized fire-time trigger per printed instance
   // (checkBlockTriggers debuffs each non-flanking blocker -1/-1 per instance; a flanking blocker is
   // immune). "flanking" matches via the startsWith check; allTriggerSentencesModeled bumps the shaped
-  // count by flankingKeywordCount so multiples reconcile (CR 702.25c).
+  // count by flankingKeywordCount so multiples reconcile (CR 702.25b).
   "flanking",
   // KW-PERSIST (BLITZ PS-1, CR 702.79a) — ENFORCED: undying's -1/-1 mirror end to end (the synthesized
   // self-dies descriptor + the "had no -1/-1 counters" LKI intervening-if + the persist-return atom with
@@ -690,7 +690,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const undyingShaped = undyingKeywordCount(oracle);
   // KW-EVOLVE — the same reminder-text keyword synthesis; bump by 1 so shaped === detected holds.
   const evolveShaped = evolveKeywordCount(oracle);
-  // FLANKING (BLITZ FL-1) — one synthesized descriptor PER printed instance (CR 702.25c); bump by the
+  // FLANKING (BLITZ FL-1) — one synthesized descriptor PER printed instance (CR 702.25b); bump by the
   // structural count so multiples reconcile (grants and "without flanking" phrases contribute 0).
   const flankingShaped = flankingKeywordCount(oracle);
   // KW-PERSIST (BLITZ PS-1) — undying's mirror; bump by 1 (the structural matcher, grants never count).

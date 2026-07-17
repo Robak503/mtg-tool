@@ -1587,7 +1587,7 @@ export function battleCryKeywordCount(oracle) {
 
 /**
  * FLANKING (BLITZ FL-1, CR 702.25) — the STRUCTURAL instance counter (the undying matcher, counting
- * MULTIPLES: CR 702.25c — each flanking instance triggers separately, so "Flanking, flanking" debuffs
+ * MULTIPLES: CR 702.25b — each flanking instance triggers separately, so "Flanking, flanking" debuffs
  * -2/-2 total). A whole comma-segment of a line must be exactly "flanking" — a GRANT ("…creatures have
  * flanking") or the phrase inside another card's condition ("a creature without flanking") never counts.
  * Shared by the detectTriggers synthesis, the checkBlockTriggers fire site, and coverage's shaped bump,
@@ -2678,7 +2678,7 @@ export function detectTriggers(card) {
   }
   // FLANKING (BLITZ FL-1, CR 702.25a) — KEYWORD→TRIGGER synthesis, the BF-1 fire-time family: "Whenever a
   // creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn."
-  // The ability lives in reminder parens; synthesize ONE descriptor PER printed instance (CR 702.25c —
+  // The ability lives in reminder parens; synthesize ONE descriptor PER printed instance (CR 702.25b —
   // "Flanking, flanking" debuffs twice; the structural flankingKeywordCount never counts a grant or the
   // "without flanking" phrase). COVERAGE-ONLY like rampage: checkBlockTriggers checks the block pair at
   // fire time (attacker prints flanking; the BLOCKER lacks it, layer-aware) and fires with the blocker as
@@ -3971,7 +3971,7 @@ export function checkBlockTriggers(state) {
     fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
   }
   // FLANKING (BLITZ FL-1, CR 702.25a) — per block PAIR: the blocked ATTACKER prints flanking (one fire
-  // per printed instance, CR 702.25c) and the BLOCKER lacks flanking RIGHT NOW (layer-aware — a blocker
+  // per printed instance, CR 702.25b) and the BLOCKER lacks flanking RIGHT NOW (layer-aware — a blocker
   // granted flanking is immune). The blocker rides as the TRIGGERING permanent so the synthesized
   // "the triggering creature gets -1/-1" debuffs IT. The detectTriggers "flanking" descriptor is
   // coverage-only; this is the sole firing site.
