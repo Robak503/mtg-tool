@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
+import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -2656,22 +2656,32 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   // Evasion runs through ONE chokepoint (combatEvasion.canBlockAttacker), read layer-aware so a
   // GRANTED keyword counts: flying/reach, unblockable, basic landwalk (gated by THIS defender's
   // lands), skulk/fear/intimidate/horsemanship, and the blocker-side "can't block" / "can block
-  // only flyers". Menace is a SET rule (≥2) — gated below + normalized at resolution.
+  // only flyers". Menace and the printed "except by <N> or more creatures" family are SET rules
+  // (≥N, CR 509.1b / 702.111b) — gated below via attackerMinBlockers + normalized at resolution.
   const eligibleByAttacker = {};
+  const minBlockersByAttacker = {};
   for (const attackerId of declaredAttackers) {
     eligibleByAttacker[attackerId] = candidateBlockers.filter((b) => canBlockAttacker(state, b.id, attackerId, playerId));
+    minBlockersByAttacker[attackerId] = attackerMinBlockers(state, attackerId);
   }
 
   // Surface one action per attacker a blocker could legally block. A menace attacker (CR 702.111b)
-  // needs ≥2 blockers, so we don't offer a block on it unless this defender has ≥2 eligible blockers
-  // for it; resolution drops any lone menace block as the safety net. v1 doesn't enforce "must block
-  // X" effects (Lure, etc.) — those stay Arbiter cases.
+  // needs ≥2 blockers — and a "can't be blocked except by <N> or more creatures" attacker (BLITZ EV-3,
+  // Guile / Rampaging Ceratops class) needs ≥N — so we don't offer a block on it unless a legal ≥N
+  // block can still be COMPLETED: blockers ALREADY declared on it this combat (blockersOnAttacker —
+  // declaration is one action per tick, and `eligible` excludes already-assigned creatures) PLUS the
+  // still-eligible pool must reach N. Counting only `eligible.length` (the pre-EV-3 menace gate) wedged
+  // the flow: with exactly N eligible blockers, declaring the 1st shrank the pool below N and the gate
+  // then denied the 2nd..Nth declarations — a legal block the defender could never finish. Resolution
+  // drops any under-sized block as the safety net. v1 doesn't enforce "must block X" effects (Lure,
+  // etc.) — those stay Arbiter cases.
   const actions = [];
   for (const blocker of candidateBlockers) {
     for (const attackerId of declaredAttackers) {
       const eligible = eligibleByAttacker[attackerId];
       if (!eligible.includes(blocker)) continue;                                  // pairwise illegal
-      if (attackerHasMenace(state, attackerId) && eligible.length < 2) continue;  // can't form a legal ≥2 menace block
+      const minBlk = minBlockersByAttacker[attackerId];
+      if (minBlk > 1 && (blockersOnAttacker[attackerId] || 0) + eligible.length < minBlk) continue;  // a legal ≥N block can't be completed (menace / EV-3 set rule)
       // BLOCK-COUNT CAP (CR 509.1c) — "can't be blocked by more than one creature": once one blocker is on this
       // attacker, no further blocker may be declared (menace-inverse). Layer-aware via the attacker's live card.
       if ((blockersOnAttacker[attackerId] || 0) >= 1 && isBlockedByAtMostOne(findPermanent(state, attackerId)?.permanent?.card)) continue;

@@ -68,8 +68,10 @@ describe("EVADE — classifier (which evasion bodies are honestly native)", () =
   });
 
   it("MUST stay body-only — conditional / except / team / extra-ability shapes (no false positive)", () => {
-    // "except by" is not a qualifier we model — still body-only.
-    expect(classifyCard({ type: "Creature — Beast", name: "X", oracle: "This creature can't be blocked except by Walls." })).toBe("body-only");
+    // "except by Walls" flipped NATIVE under BLITZ EV-3 (the subtype-allowlist except-gate, enforced in
+    // canBlockAttacker via permIsSubtype — see evasionMinBlockers.test.js); an unvetted filter still parks.
+    expect(classifyCard({ type: "Creature — Beast", name: "X", oracle: "This creature can't be blocked except by Walls." })).toBe("native-body");
+    expect(classifyCard({ type: "Creature — Beast", name: "X", oracle: "This creature can't be blocked except by legendary creatures." })).toBe("body-only");
     // Team grant (others, not self) — never a self-evasion body.
     expect(classifyCard({ type: "Creature — Lord", name: "X", oracle: "Other creatures you control can't be blocked." })).toBe("body-only");
     // Unblockable beside an UNMODELED activated ability — one bare evasion clause can't carry it.

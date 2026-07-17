@@ -42,11 +42,24 @@
  * (safe false-negative). Team grants and set-level "more than one creature" are also excluded here.
  *
  * EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — the INVERSE shape "this creature can't be blocked EXCEPT by
- * <filter>" (a blocker is legal ONLY if it MATCHES the filter). parseAttackerExceptions() parses the two
- * clean-reuse filter families — the flying keyword ("creatures with flying" / "creatures with flying or
- * reach") and color ("<color> creatures") — reusing the exact CR 702.9b flying/reach gate and the color-set
- * gate. Same SELF-ONLY, unconditional contract; a compound "and/or" filter, a set-level "N or more creatures"
- * (menace-family), or a subtype/legendary/artifact/defender filter is rejected → the card stays body-only.
+ * <filter>" (a blocker is legal ONLY if it MATCHES the filter). parseAttackerExceptions() parses the vetted
+ * filter families — flying keyword ("creatures with flying" / "creatures with flying or reach"), color
+ * ("<color> creatures"), artifact ("artifact creatures"), and (BLITZ EV-3) blocker-SUBTYPE ("Rogues" /
+ * "Spirits" / "Walls" — layer-aware via permIsSubtype, changeling included) — each reusing the exact gate the
+ * rest of this file already trusts. A compound "A and/or B" filter (Amrou Seekers / Elven Riders, BLITZ EV-3)
+ * is admitted as an OR-of-vetted-arms ONLY when EVERY arm maps to one of those gates; one unvetted arm rejects
+ * the WHOLE clause. Same SELF-ONLY, unconditional contract; a legendary/defender/flavor-text filter stays
+ * rejected → the card stays body-only (safe FN).
+ *
+ * SET-LEVEL ≥N (BLITZ EV-3, CR 509.1b — the menace family, 702.111b's "except by two or more" generalized):
+ * "this creature can't be blocked except by <N> or more creatures" is a restriction on the SIZE of the block,
+ * not a pairwise blocker gate, so it is deliberately NOT a parseAttackerExceptions filter. It's read by
+ * minBlockerCountOf() and enforced at the SAME two seams menace uses: the declare-blockers offer gate
+ * (legalChoices — no block offered unless ≥N eligible blockers exist) and the resolution normalize
+ * (combatResolution — an attacker left with fewer than N blockers is treated as unblocked).
+ * attackerMinBlockers() is the single aggregation point: max of menace's 2 (layer-aware), the printed ≥N, and
+ * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
+ * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
@@ -178,25 +191,66 @@ function parseAttackerRestrictions(card) {
   return restrictions;
 }
 
+// ── EVASION-EXCEPT filter grammar (BLITZ EV-2 + EV-3, CR 509.1b) ──
+// Blocker SUBTYPES admitted in "can't be blocked except by <Subtype>s" (BLITZ EV-3). Allowlist only —
+// corpus-confirmed words (Deathcult Rogue "Rogues", Departed Deckhand "Spirits", Elven Riders / Evil Eye of
+// Orms-by-Gore "Walls"); an unlisted subtype stays a safe FN. The blocker-side test is permIsSubtype — the
+// SAME layer-aware (layer-4 effective subtypes + changeling, CR 702.73a) reader GROUP-EVASION already trusts.
+const EXCEPT_SUBTYPE_TO_TYPE = {
+  wall: "Wall", walls: "Wall", rogue: "Rogue", rogues: "Rogue", spirit: "Spirit", spirits: "Spirit",
+};
+
+// Number words for the SET-LEVEL "except by <N> or more creatures" family (CR 509.1b; menace's 702.111b is
+// the N=2 member). Word forms only — that's how every corpus card prints it (three: Guile/Pathrazer/…; six:
+// Hexmark Destroyer). Shared by the runtime readers AND the classifier mirror so the two can never drift.
+const MIN_BLOCKER_COUNT_WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+const MIN_BLOCKER_WORD_ALT = Object.keys(MIN_BLOCKER_COUNT_WORDS).join("|");
+
 /**
- * EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — parse a self-creature "this creature can't be blocked EXCEPT by
- * <filter>" evasion. The INVERSE of parseAttackerRestrictions: a blocker is legal ONLY if it MATCHES the
- * filter (a non-matching blocker can't block it). Returns an array of exception objects; empty = none.
- *   { kind:"keyword", keyword:"Flying" }  — blocker MUST have flying ("except by creatures with flying"; a
- *                                           reach-only creature does NOT satisfy this filter — flying is required)
- *   { kind:"flyingOrReach" }              — blocker MUST have flying OR reach ("… flying or reach"): the fixed
- *                                           idiom that maps EXACTLY to the CR 702.9b flying-block predicate
- *   { kind:"color", color:"W"|"U"|"B"|"R"|"G" } — blocker MUST be that color ("except by <color> creatures")
+ * Parse ONE "can't be blocked except by …" filter text into an array of vetted pairwise arm objects, or null
+ * when ANY part is unvetted (fail-closed → safe FN). This is the SINGLE SOURCE OF TRUTH for the except-by
+ * filter grammar: parseAttackerExceptions (runtime) and isEnforcedEvasionClause (classifier mirror) both call
+ * it, so recognition and enforcement flip together (the parseGroupBlockRestriction discipline).
+ *   Arms: { kind:"keyword", keyword:"Flying" }        — "creatures with flying" (reach does NOT satisfy it)
+ *         { kind:"flyingOrReach" }                    — "creatures with flying or reach" (the CR 702.9b idiom)
+ *         { kind:"color", color:"W"|…|"G" }           — "<color> creatures"
+ *         { kind:"artifact" }                         — "artifact creatures" (the fear/intimidate type gate)
+ *         { kind:"subtype", subtype:"Rogue"|… }       — "<Subtype>s" (EXCEPT_SUBTYPE_TO_TYPE allowlist)
+ * A COMPOUND "A and/or B [and/or C]" (BLITZ EV-3) splits into arms — the blocker is legal iff it matches AT
+ * LEAST ONE (CR 509.1b: it satisfies the exception); ONE unvetted arm rejects the WHOLE filter. The set-level
+ * "<N> or more creatures" (menace family) is NOT a pairwise filter — rejected here, read by minBlockerCountOf.
+ */
+export function parseExceptBlockerFilters(raw) {
+  const text = String(raw || "").trim();
+  // Set-level "<N> or more creatures" — a block-SIZE restriction, not a pairwise gate (attackerMinBlockers).
+  if (/^\S+ or more creatures$/.test(text)) return null;
+  const arms = [];
+  for (const armRaw of text.split(/\s+and\/or\s+/)) {
+    const arm = armRaw.trim();
+    if (arm === "creatures with flying or reach") { arms.push({ kind: "flyingOrReach" }); continue; }
+    if (arm === "creatures with flying") { arms.push({ kind: "keyword", keyword: "Flying" }); continue; }
+    if (/^artifact creatures?$/.test(arm)) { arms.push({ kind: "artifact" }); continue; }
+    const colM = arm.match(/^(white|blue|black|red|green) creatures?$/);
+    if (colM) { arms.push({ kind: "color", color: BLOCKER_COLOR_WORDS[colM[1]] }); continue; }
+    const subM = arm.match(/^([a-z]+)$/);
+    if (subM && EXCEPT_SUBTYPE_TO_TYPE[subM[1]]) { arms.push({ kind: "subtype", subtype: EXCEPT_SUBTYPE_TO_TYPE[subM[1]] }); continue; }
+    return null; // one unvetted arm (legendary / defender / power / flavor text / …) → the WHOLE filter fails closed
+  }
+  return arms.length > 0 ? arms : null;
+}
+
+/**
+ * EVASION-EXCEPT (BLITZ EV-2 + EV-3, CR 509.1b) — parse a self-creature "this creature can't be blocked
+ * EXCEPT by <filter>" evasion. The INVERSE of parseAttackerRestrictions: a blocker is legal ONLY if it
+ * MATCHES the filter (a non-matching blocker can't block it). Returns an array of exception objects; a
+ * compound filter arrives as { kind:"or", arms:[…] } (blocker must match ≥1 arm); empty array = none.
  *
  * Safety contract (mirrors parseAttackerRestrictions): SELF-subject only (the subject is "this creature"/"it"
  * after name-normalization — the board-wide tribal "Slivers can't be blocked except by Slivers" is NOT this
- * shape and stays with GROUP-EVASION), unconditional (no "as long as"/"if"/"until"/"this turn" rider), and a
- * COMPOUND "and/or" filter (Amrou Seekers "artifact and/or white creatures") or a set-level "N or more
- * creatures" (Guile, the menace-family ≥N rule — NOT pairwise) is rejected WHOLE → the card stays body-only
- * (safe FN). Subtype ("Rogues"/"Spirits"), "artifact creatures", "legendary creatures", and "creatures with
- * defender/flavor text" filters are deliberately NOT admitted here (each would need its own vetted blocker-side
- * gate) — only the flying-keyword and color filters, whose blocker-side gates already exist and are reused
- * verbatim in canBlockAttacker.
+ * shape and stays with GROUP-EVASION; Deluxe Dragster's "This Vehicle …" subject also fails, so it parks),
+ * unconditional (no "as long as"/"if"/"until"/"this turn" rider), and the whole filter grammar lives in
+ * parseExceptBlockerFilters (fail-closed). The set-level "<N> or more creatures" (Guile, menace-family ≥N —
+ * NOT pairwise) is rejected there and enforced at the menace seams via attackerMinBlockers.
  */
 function parseAttackerExceptions(card) {
   const oracle = selfOracle(card);
@@ -207,20 +261,61 @@ function parseAttackerExceptions(card) {
     const raw = m[1].trim().toLowerCase().replace(/['']/g, "'");
     // Conditional riders — a live-condition variant ("as long as …"/"if …"/"until …"/"this turn") → safe FN.
     if (/\bas long as\b|\bif\b|\buntil\b|\bthis turn\b/.test(raw)) continue;
-    // "creatures with flying or reach" — the fixed flying/reach idiom. Contains "or", so it is matched BEFORE
-    // the generic "or"/"and" compound rejection below. Maps to the exact CR 702.9b flying-block predicate.
-    if (raw === "creatures with flying or reach") { exceptions.push({ kind: "flyingOrReach" }); continue; }
-    // "creatures with flying" — blocker must HAVE flying (reach alone does NOT satisfy this filter, CR 702.9b).
-    if (raw === "creatures with flying") { exceptions.push({ kind: "keyword", keyword: "Flying" }); continue; }
-    // Reject compound "and/or" filters (can't model both) and set-level "N or more creatures" (menace-family
-    // ≥N rule, enforced at resolution — not a pairwise blocker-eligibility gate). Both → safe FN.
-    if (/\bor\b|\band\b|\bmore\b/.test(raw)) continue;
-    // "[Color] creatures" — blocker must BE that color (a colorless / off-color blocker can't block).
-    const colM = raw.match(/^(white|blue|black|red|green) creatures?$/);
-    if (colM) { exceptions.push({ kind: "color", color: BLOCKER_COLOR_WORDS[colM[1]] }); continue; }
-    // Anything else (subtype, artifact, legendary, defender, flavor text) — skip (safe FN; card stays body-only).
+    const arms = parseExceptBlockerFilters(raw);
+    if (!arms) continue; // unvetted / set-level ≥N — safe FN here (≥N is enforced at the menace seams)
+    exceptions.push(arms.length === 1 ? arms[0] : { kind: "or", arms });
   }
   return exceptions;
+}
+
+// ── SET-LEVEL MINIMUM BLOCK SIZE (BLITZ EV-3, CR 509.1b — the menace family, CR 702.111b generalized) ──
+// "This creature can't be blocked except by <N> or more creatures." — a restriction on how MANY creatures the
+// block must contain (Guile / Pathrazer of Ulamog / Rampaging Ceratops / … at N=3; Hexmark Destroyer's N=6
+// hides behind an ability-word prefix and deliberately does NOT match — a safe FN, see the test pins). Bare,
+// self-subject, unconditional; sentence-anchored so a rider or team grant never matches.
+const reMinBlockerCount = new RegExp(
+  `(?:^|[\\n.;])\\s*(?:this creature|it) can't be blocked except by (${MIN_BLOCKER_WORD_ALT}) or more creatures\\s*(?:\\.|$)`);
+/** The printed set-level minimum block size (2..10) on this card, or null when none. */
+export function minBlockerCountOf(card) {
+  const m = selfOracle(card).match(reMinBlockerCount);
+  return m ? MIN_BLOCKER_COUNT_WORDS[m[1]] : null;
+}
+
+// SONOROUS HOWLBONDER team static — "Each creature you control with menace can't be blocked except by three
+// or more creatures." Corpus-UNIQUE (a full-corpus sweep 2026-07-17 found no sibling), so this is a targeted,
+// anchored matcher — the Nightkin Ambusher precedent — never a generic team-grant parser. Read off the RAW
+// oracle (the subject is the team, not the card itself, so no name normalization is wanted).
+const reMenaceTeamMinBlockers = new RegExp(
+  `(?:^|[\\n.;])\\s*each creature you control with menace can't be blocked except by (${MIN_BLOCKER_WORD_ALT}) or more creatures\\s*(?:\\.|$)`);
+/** Howlbonder-static N (the min block size it imposes on the controller's menace creatures), or null. */
+export function menaceTeamMinBlockersOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ").toLowerCase().replace(/[’']/g, "'");
+  const m = o.match(reMenaceTeamMinBlockers);
+  return m ? MIN_BLOCKER_COUNT_WORDS[m[1]] : null;
+}
+
+/**
+ * The SET-level minimum number of blockers a legal block on `attackerId` must contain (CR 509.1b): the MAX of
+ * menace's 2 (CR 702.111b, layer-aware so a granted menace counts), the printed "except by <N> or more
+ * creatures", and — when the attacker has menace — any Sonorous Howlbonder static its CONTROLLER controls
+ * ("each creature YOU control with menace…"). 1 = unrestricted. Enforced at the SAME two seams menace always
+ * used: the legalChoices offer gate (no block offered on it unless ≥N eligible blockers exist) and the
+ * combatResolution normalize (an attacker left with 1..N-1 blockers resolves as unblocked). Restrictions
+ * compose by CR 509.1b — every restriction must be obeyed, hence the max.
+ */
+export function attackerMinBlockers(state, attackerId) {
+  const hasMenace = permanentHasKeyword(state, attackerId, "Menace");
+  let n = hasMenace ? 2 : 1;
+  const lk = findPermanent(state, attackerId);
+  const printed = lk?.permanent?.card ? minBlockerCountOf(lk.permanent.card) : null;
+  if (printed && printed > n) n = printed;
+  if (hasMenace && lk?.controller) {
+    for (const perm of state.players?.[lk.controller]?.battlefield || []) {
+      const teamN = menaceTeamMinBlockersOf(perm?.card);
+      if (teamN && teamN > n) n = teamN;
+    }
+  }
+  return n;
 }
 
 // ── GROUP-EVASION (Shifting Sliver / Serpent of Yawning Depths) ──
@@ -438,6 +533,11 @@ const reEvasionQualifier = new RegExp(
   ")$"
 );
 
+// Classifier-mirror faces of the EV-3 set-level readers (same MIN_BLOCKER_WORD_ALT as the runtime regexes).
+const reEnforcedMinBlockerClause = new RegExp(`^(?:${MIN_BLOCKER_WORD_ALT}) or more creatures$`);
+const reEnforcedMenaceTeamClause = new RegExp(
+  `^each creature you control with menace can't be blocked except by (?:${MIN_BLOCKER_WORD_ALT}) or more creatures$`);
+
 export function isEnforcedEvasionClause(clause) {
   const c = String(clause || "").trim();
   if (reLandwalkWord.test(c)) return true;
@@ -449,12 +549,27 @@ export function isEnforcedEvasionClause(clause) {
   // non-keyword text is this static is honestly native.
   if (/^(?:this creature |it )?can't be blocked by more than one creature$/.test(c)) return true;
   if (reEvasionQualifier.test(c)) return true;
-  // EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — "can't be blocked except by creatures with flying[ or reach]" /
-  // "… except by <color> creatures". Enforced in canBlockAttacker (parseAttackerExceptions): a blocker not
-  // matching the filter can't block, so a body whose only non-keyword text is this static is honestly native.
-  // Mirrors parseAttackerExceptions EXACTLY (flying / flying-or-reach / color) so the metric and the runtime
-  // stay in lockstep; a compound "and/or" or a subtype/legendary filter is NOT credited (it stays body-only).
-  if (/^(?:this creature |it )?can't be blocked except by (?:creatures with flying(?: or reach)?|(?:white|blue|black|red|green) creatures)$/.test(c)) return true;
+  // EVASION-EXCEPT (BLITZ EV-2 + EV-3, CR 509.1b) — "can't be blocked except by <filter>". Two enforced
+  // families, credited in exact lockstep with their runtimes:
+  //   • PAIRWISE filters (flying / flying-or-reach / color / artifact / subtype allowlist, compounds via
+  //     "and/or") — the filter grammar is parseExceptBlockerFilters, the SAME function parseAttackerExceptions
+  //     feeds canBlockAttacker, so recognition and enforcement can never drift. An unvetted filter (legendary /
+  //     defender / flavor text / power) returns null → not credited (body-only, safe FN). NOTE: isKeywordOnly's
+  //     clause splitter protects "and/or" (the `\band\b(?!\/or\b)` lookahead) so a compound arrives here WHOLE.
+  //   • SET-LEVEL "<N> or more creatures" (the menace family, CR 702.111b generalized) — enforced at the two
+  //     menace seams via attackerMinBlockers (legalChoices offer gate + combatResolution normalize). The word
+  //     alternation is the SAME MIN_BLOCKER_WORD_ALT reMinBlockerCount matches, so credit == enforcement.
+  {
+    const exM = c.match(/^(?:this creature |it )?can't be blocked except by (.+)$/);
+    if (exM) {
+      if (reEnforcedMinBlockerClause.test(exM[1])) return true;
+      if (parseExceptBlockerFilters(exM[1])) return true;
+    }
+  }
+  // SONOROUS HOWLBONDER team static — enforced in attackerMinBlockers (the controller's menace creatures get
+  // the ≥N block-size rule), so a body whose only non-keyword text is this static is honestly native. The
+  // regex is anchored to the exact corpus-unique sentence (same word alternation as menaceTeamMinBlockersOf).
+  if (reEnforcedMenaceTeamClause.test(c)) return true;
   // RAD-CONDITIONAL UNBLOCKABLE (Nightkin Ambusher) — credited here so a body whose only non-keyword text is
   // this conditional evasion static is honestly native; canBlockAttacker enforces the rad-counter condition.
   if (/^(?:this creature |it )?can't be blocked as long as defending player has a rad counter$/.test(c)) return true;
@@ -495,6 +610,19 @@ function defenderControlsLandType(state, defenderId, subtype) {
   const bf = state.players?.[defenderId]?.battlefield || [];
   const re = new RegExp(`\\b${subtype}\\b`, "i");
   return bf.some((p) => re.test(String(p?.card?.type || p?.card?.type_line || "")));
+}
+
+// Does the BLOCKER satisfy one vetted EVASION-EXCEPT arm (parseExceptBlockerFilters)? Layer-aware on every
+// axis: keywords via permanentHasKeyword (a granted flying counts), color via permColorSet, artifact via the
+// effective type line (isArtifactPerm — the fear/intimidate gate), subtype via permIsSubtype (layer-4
+// subtypes + changeling, CR 702.73a — the GROUP-EVASION reader, so a legal changeling block is never denied).
+function blockerMatchesExceptArm(state, blockerId, e) {
+  if (e.kind === "flyingOrReach") return permanentHasKeyword(state, blockerId, "Flying") || permanentHasKeyword(state, blockerId, "Reach");
+  if (e.kind === "keyword") return permanentHasKeyword(state, blockerId, e.keyword);
+  if (e.kind === "color") return permColorSet(state, blockerId).has(e.color);
+  if (e.kind === "artifact") return isArtifactPerm(state, blockerId);
+  if (e.kind === "subtype") return permIsSubtype(state, blockerId, e.subtype);
+  return false; // unknown arm kind — unreachable (the parser only emits the five above); fail closed
 }
 
 /**
@@ -631,20 +759,17 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
     }
   }
 
-  // EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — parsed "can't be blocked EXCEPT by [filter]" evasion: the blocker
-  // must MATCH the filter, else it may not block (the INVERSE of EVASION-QUALIFIER above). Layer-aware on the
-  // blocker's keywords/colors (permanentHasKeyword / permColorSet), so a granted flying/reach or a
-  // granted/removed color is honored live. Cumulative with every other restriction (CR 509.1b — a false here
-  // short-circuits the block).
+  // EVASION-EXCEPT (BLITZ EV-2 + EV-3, CR 509.1b) — parsed "can't be blocked EXCEPT by [filter]" evasion: the
+  // blocker must MATCH the filter, else it may not block (the INVERSE of EVASION-QUALIFIER above). Layer-aware
+  // on the blocker's keywords/colors/types/subtypes (permanentHasKeyword / permColorSet / permanentTypes via
+  // permIsSubtype — changeling included, CR 702.73a, so a changeling blocking Deathcult Rogue stays LEGAL). A
+  // compound { kind:"or" } filter (Amrou Seekers) is satisfied by matching ANY arm. Cumulative with every
+  // other restriction (CR 509.1b — a false here short-circuits the block).
   const exceptions = parseAttackerExceptions(aCard);
   for (const e of exceptions) {
-    if (e.kind === "flyingOrReach") {
-      if (!(permanentHasKeyword(state, blockerId, "Flying") || permanentHasKeyword(state, blockerId, "Reach"))) return false;
-    } else if (e.kind === "keyword") {
-      if (!permanentHasKeyword(state, blockerId, e.keyword)) return false;
-    } else if (e.kind === "color") {
-      if (!permColorSet(state, blockerId).has(e.color)) return false;
-    }
+    if (e.kind === "or") {
+      if (!e.arms.some((a) => blockerMatchesExceptArm(state, blockerId, a))) return false;
+    } else if (!blockerMatchesExceptArm(state, blockerId, e)) return false;
   }
 
   // GROUP-EVASION (Shifting Sliver / Serpent of Yawning Depths) — a "<subtypes> [you control] can't be

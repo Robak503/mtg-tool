@@ -31,7 +31,7 @@ import { opponentsOf, findPermanent } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
-import { attackerHasMenace, canBlockAttacker } from "./combatEvasion.js";
+import { attackerMinBlockers, canBlockAttacker } from "./combatEvasion.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
 import { parseAuraBonus } from "./staticAbilityParser.js";
 
@@ -483,7 +483,7 @@ function teamPumpFlipsLethal(state, aiPlayerId, pumpPower) {
     const s = combatStatsOf(state, id);
     if (!s) return null;
     const eligible = eligibleBlockersFor(state, defenderId, id, blockers);
-    return { power: s.power, menace: hasMenace(state, id), eligibleCount: eligible.length };
+    return { power: s.power, minBlockers: minBlockersFor(state, id), eligibleCount: eligible.length };
   }).filter(Boolean);
   if (rows.length === 0) return false;
   const defenderLife = state.players[defenderId].life ?? 0;
@@ -845,9 +845,11 @@ function hasDeathtouch(state, permanentId) {
   try { return permanentHasKeyword(state, permanentId, "Deathtouch"); } catch { return false; }
 }
 
-/** Menace on an attacker (layer-aware via combatEvasion), guarded against bad ids. */
-function hasMenace(state, permanentId) {
-  try { return attackerHasMenace(state, permanentId); } catch { return false; }
+/** SET-level minimum block size for an attacker (menace's 2 / the printed "except by <N> or more creatures"
+ * / the Howlbonder team static — attackerMinBlockers, layer-aware; BLITZ EV-3), guarded against bad ids.
+ * 1 = unrestricted. */
+function minBlockersFor(state, permanentId) {
+  try { return attackerMinBlockers(state, permanentId); } catch { return 1; }
 }
 
 /** Derived combat stats of a live permanent, or null when it can't be resolved. */
@@ -989,7 +991,7 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
     .sort((a, b) => (b.power - a.power) || byId(a.id, b.id));
 
   for (const att of attackers) {
-    if (hasMenace(state, att.id)) continue; // a single block on menace is a no-op
+    if (minBlockersFor(state, att.id) > 1) continue; // a single block on a menace/≥N attacker is a no-op
     const candidates = candidatesFor(att.id);
     let pick = candidates.find(({ stats }) => {
       const { attackerDies, blockerDies } = combatDuel(att, stats);
@@ -1019,7 +1021,7 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
     const targets = unblockedFace().sort((a, b) => (b.power - a.power) || byId(a.id, b.id));
     for (const t of targets) {
       if (incoming < life) break;
-      if (hasMenace(state, t.id)) continue; // a lone chump on menace absorbs nothing
+      if (minBlockersFor(state, t.id) > 1) continue; // a lone chump on a menace/≥N attacker absorbs nothing
       const candidates = candidatesFor(t.id);
       if (candidates.length === 0) continue;
       take(candidates[0], t.id); // smallest spare blocker soaks the biggest attacker
@@ -1393,14 +1395,15 @@ function attackerDiesForNothingV2(att, eligibleBlockers) {
 
 /**
  * W4 lethality: unavoidable damage if the defender blocks optimally, judged with
- * block LEGALITY + menace. An attacker with zero eligible blockers (or menace
- * with fewer than 2 — the declaration gate never offers that block) always
- * connects; a blockable menace attacker consumes TWO blockers from the budget
- * (CR 509.1c). The defender chumps the biggest blockable attackers first.
- * Approximation: eligibility is per-attacker but the budget is the global
- * untapped-creature count (exact optimal assignment is a matching problem);
- * trample-through damage is ignored (a safe underestimate of the swing).
- * `attackers`: [{ power, menace, eligibleCount }].
+ * block LEGALITY + the SET-level minimum block size (menace's 2 / the printed
+ * "except by <N> or more creatures" — BLITZ EV-3). An attacker with zero eligible
+ * blockers (or a ≥N attacker with fewer than N — the declaration gate never
+ * offers that block, CR 509.1b / 702.111b) always connects; a blockable ≥N
+ * attacker consumes N blockers from the budget. The defender chumps the biggest
+ * blockable attackers first. Approximation: eligibility is per-attacker but the
+ * budget is the global untapped-creature count (exact optimal assignment is a
+ * matching problem); trample-through damage is ignored (a safe underestimate of
+ * the swing). `attackers`: [{ power, minBlockers, eligibleCount }].
  */
 function swingIsLethalV2(attackers, blockerCount, defenderLife) {
   if (defenderLife <= 0) return false;
@@ -1408,12 +1411,12 @@ function swingIsLethalV2(attackers, blockerCount, defenderLife) {
   let unavoidable = 0;
   const blockable = [];
   for (const a of attackers) {
-    if (a.eligibleCount >= (a.menace ? 2 : 1)) blockable.push(a);
+    if (a.eligibleCount >= (a.minBlockers || 1)) blockable.push(a);
     else unavoidable += a.power;
   }
   blockable.sort((x, y) => y.power - x.power);
   for (const a of blockable) {
-    const cost = a.menace ? 2 : 1;
+    const cost = a.minBlockers || 1;
     if (budget >= cost) budget -= cost;
     else unavoidable += a.power;
   }
@@ -1498,14 +1501,15 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
 
   // W4 — legality-aware profitability. Each attacker is judged against the
   // blockers that may LEGALLY block it (canBlockAttacker — the block
-  // enumeration's own chokepoint), with deathtouch on both sides and menace in
-  // the lethality budget. A stat we can't resolve (bare test state) keeps the
-  // legacy swing-with-it default — never freeze on an unevaluable board.
+  // enumeration's own chokepoint), with deathtouch on both sides and the ≥N
+  // block-size rule (menace / EV-3) in the lethality budget. A stat we can't
+  // resolve (bare test state) keeps the legacy swing-with-it default — never
+  // freeze on an unevaluable board.
   const describe = (id) => {
     const s = combatStatsOf(state, id);
     if (!s) return null;
     const eligible = eligibleBlockersFor(state, defenderId, id, blockers);
-    return { ...s, menace: hasMenace(state, id), eligible, eligibleCount: eligible.length };
+    return { ...s, minBlockers: minBlockersFor(state, id), eligible, eligibleCount: eligible.length };
   };
   const stats = new Map(permIds.map((id) => [id, describe(id)]));
 
@@ -1518,7 +1522,7 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
     .filter(Boolean);
   const candidates = [...stats.values()].filter(Boolean);
   const lethal = swingIsLethalV2(
-    [...committed, ...candidates].map(s => ({ power: s.power, menace: s.menace, eligibleCount: s.eligibleCount })),
+    [...committed, ...candidates].map(s => ({ power: s.power, minBlockers: s.minBlockers, eligibleCount: s.eligibleCount })),
     blockers.length,
     defenderLife,
   );
@@ -1527,7 +1531,7 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
   for (const id of permIds) {
     const s = stats.get(id);
     if (!s) { chosen.add(id); continue; } // unresolvable candidate → legacy swing-all default
-    const unstoppable = s.eligibleCount < (s.menace ? 2 : 1); // menace + <2 eligible = never offered a block
+    const unstoppable = s.eligibleCount < (s.minBlockers || 1); // menace/≥N + too few eligible = never offered a block
     if (lethal || unstoppable || !attackerDiesForNothingV2(s, s.eligible)) {
       chosen.add(id);
     }

@@ -272,7 +272,13 @@ export function isKeywordOnly(oracle, name) {
   // Split on SENTENCE boundaries (. ! ?) too — not just , ; \n and. Otherwise a trailing non-keyword
   // sentence glued on by a strip ("flying  scry 1.") is swallowed whole by `startsWith("flying ")`
   // and mis-credited as keyword-only. Splitting on the period forces "scry 1" to stand alone and fail.
-  const clauses = t.split(/[,;.!?\n]|\band\b/).map((c) => c.trim()).filter(Boolean);
+  // The `(?!\/or\b)` lookahead keeps the oracle idiom "and/or" INTACT (BLITZ EV-3 — Amrou Seekers'
+  // "artifact creatures and/or white creatures" must reach isEnforcedEvasionClause whole; shredding it at
+  // "and" left an uncreditable "/or …" fragment). Safe against over-credit: a 2026-07-17 full-corpus sweep
+  // found ZERO "and/or"-carrying clauses that begin with a COVERED_KEYWORD (the startsWith credit), and every
+  // other credit test is ^…$-anchored, so a newly-whole "and/or" clause can only match the compound
+  // except-by matcher built for it.
+  const clauses = t.split(/[,;.!?\n]|\band\b(?!\/or\b)/).map((c) => c.trim()).filter(Boolean);
   return clauses.every((c) =>
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
     isEnforcedEvasionClause(c) ||

@@ -52,7 +52,7 @@ import {
 import { permanentHasKeyword, permanentColors, permanentProtectionColors, assignsCombatDamageWithToughness } from "./layers.js";
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
-import { selfDamagePrevention, attachedDamagePrevention, mayAssignAsUnblocked } from "./combatEvasion.js";
+import { selfDamagePrevention, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
@@ -155,13 +155,17 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     (blockersByAttacker[b.attackerId] ||= []).push(b);
   }
 
-  // ===== EVADE (menace — CR 509.1c / 702.111b) ===== a menace attacker left with exactly ONE
-  // blocker can't legally be blocked → it's unblocked (the lone would-be blocker isn't in combat,
-  // so it deals/takes no combat damage). 2+ blockers resolve normally; non-menace is untouched.
-  // legalChoices already avoids offering a hopeless lone block; this is the resolution guarantee.
+  // ===== EVADE (the SET-level ≥N block-size rule — CR 509.1b / 702.111b; menace + BLITZ EV-3) =====
+  // An attacker whose block must contain at least N creatures (menace's 2, or the printed "can't be
+  // blocked except by <N> or more creatures" — Guile / Rampaging Ceratops class, plus the Sonorous
+  // Howlbonder team static; attackerMinBlockers aggregates all three, layer-aware) that is left with
+  // FEWER than N blockers can't legally be blocked → it's unblocked (the under-sized would-be block
+  // isn't in combat, so those blockers deal/take no combat damage). ≥N blockers resolve normally; an
+  // unrestricted attacker (N=1) is untouched. legalChoices already avoids offering a hopeless
+  // under-sized block; this is the resolution guarantee.
   for (const att of combat.attackers) {
     const list = blockersByAttacker[att.permanentId];
-    if (list && list.length === 1 && permanentHasKeyword(state, att.permanentId, "Menace")) {
+    if (list && list.length < attackerMinBlockers(state, att.permanentId)) {
       delete blockersByAttacker[att.permanentId];
     }
   }

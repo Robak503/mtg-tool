@@ -12,10 +12,11 @@
  * flips a blocker's legality live.
  *
  * CREED — false-pos FORBIDDEN: a wrongly-(un)blockable creature is a combat-math FP, so the block-legality
- * outcome is pinned in BOTH directions. Whole-card law: a compound "and/or" filter (Amrou Seekers), a subtype
- * filter (Deathcult Rogue), a set-level "N or more creatures" (Guile), or any other unmodeled clause (Manta
- * Ray's islandhome-sac frame) keeps the card body-only (safe FN). Real oracle fixtures (bundled Scryfall,
- * verified against the corpus 2026-07-17).
+ * outcome is pinned in BOTH directions. BLITZ EV-3 later flipped the compound "and/or" filter (Amrou
+ * Seekers), the subtype allowlist (Deathcult Rogue), and the set-level "N or more creatures" family (Guile's
+ * clause — enforced at the menace seams via attackerMinBlockers) to ENFORCED + credited — see
+ * evasionMinBlockers.test.js for those pins. An unmodeled sibling clause (Manta Ray's islandhome-sac frame)
+ * still parks the whole card (safe FN). Real oracle fixtures (bundled Scryfall, verified 2026-07-17).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -72,22 +73,24 @@ describe("recognition + classification", () => {
     expect(isEnforcedEvasionClause("this creature can't be blocked except by creatures with flying or reach")).toBe(true);
     expect(isEnforcedEvasionClause("this creature can't be blocked except by black creatures")).toBe(true);
     expect(isEnforcedEvasionClause("it can't be blocked except by white creatures")).toBe(true);
-    // NOT credited — compound, subtype, N-or-more, artifact, legendary, defender.
-    expect(isEnforcedEvasionClause("this creature can't be blocked except by artifact creatures and/or white creatures")).toBe(false);
-    expect(isEnforcedEvasionClause("this creature can't be blocked except by rogues")).toBe(false);
-    expect(isEnforcedEvasionClause("this creature can't be blocked except by three or more creatures")).toBe(false);
-    expect(isEnforcedEvasionClause("this creature can't be blocked except by artifact creatures")).toBe(false);
+    // BLITZ EV-3 flipped the compound / subtype-allowlist / artifact / set-level-≥N shapes to CREDITED
+    // (each now enforced — see evasionMinBlockers.test.js for the full lockstep pins).
+    expect(isEnforcedEvasionClause("this creature can't be blocked except by artifact creatures and/or white creatures")).toBe(true);
+    expect(isEnforcedEvasionClause("this creature can't be blocked except by rogues")).toBe(true);
+    expect(isEnforcedEvasionClause("this creature can't be blocked except by three or more creatures")).toBe(true);
+    expect(isEnforcedEvasionClause("this creature can't be blocked except by artifact creatures")).toBe(true);
+    // STILL not credited — no vetted gate exists for these filters.
     expect(isEnforcedEvasionClause("this creature can't be blocked except by legendary creatures")).toBe(false);
     expect(isEnforcedEvasionClause("this creature can't be blocked except by creatures with defender")).toBe(false);
   });
 });
 
-describe("CREED — unmodeled 'except by' filters stay body-only", () => {
-  it("compound and/or, subtype, and multi-clause carriers park", () => {
-    expect(classifyCard(AMROU_SEEKERS)).toBe("body-only");   // "artifact and/or white creatures"
-    expect(classifyCard(ELVEN_RIDERS)).toBe("body-only");    // "Walls and/or creatures with flying"
-    expect(classifyCard(DEATHCULT_ROGUE)).toBe("body-only"); // subtype "Rogues"
-    expect(classifyCard(MANTA_RAY)).toBe("body-only");       // islandhome + unmodeled sac trigger
+describe("CREED — 'except by' whole-card law (EV-3 flipped the vetted filters; unmodeled residue still parks)", () => {
+  it("compound and/or + subtype carriers now flip native (BLITZ EV-3); multi-clause residue still parks", () => {
+    expect(classifyCard(AMROU_SEEKERS)).toBe("native-body");   // "artifact and/or white creatures" — OR of vetted gates
+    expect(classifyCard(ELVEN_RIDERS)).toBe("native-body");    // "Walls and/or creatures with flying"
+    expect(classifyCard(DEATHCULT_ROGUE)).toBe("native-body"); // subtype "Rogues" (layer-aware permIsSubtype gate)
+    expect(classifyCard(MANTA_RAY)).toBe("body-only");         // islandhome + unmodeled sac trigger — still parked
   });
 });
 
@@ -138,12 +141,16 @@ describe("runtime — layer-aware: a granted keyword flips legality live", () =>
   });
 });
 
-describe("runtime — CREED: unmodeled 'except by' filters impose NO restriction (never a fabricated block-lock)", () => {
-  it("a compound / subtype / N-or-more filter leaves a ground creature free to block (safe FN, not a wrong lock)", () => {
-    expect(canBlock(AMROU_SEEKERS, blocker({ oracle: "" }))).toBe(true);   // "artifact and/or white" unparsed
-    expect(canBlock(DEATHCULT_ROGUE, blocker({ oracle: "" }))).toBe(true); // subtype "Rogues" unparsed
+describe("runtime — EV-3 flipped the compound/subtype filters to ENFORCED; ≥N stays pairwise-permissive", () => {
+  it("a compound / subtype filter now locks out a non-matching ground creature (BLITZ EV-3)", () => {
+    expect(canBlock(AMROU_SEEKERS, blocker({ oracle: "" }))).toBe(false);   // neither artifact nor white → illegal
+    expect(canBlock(DEATHCULT_ROGUE, blocker({ oracle: "" }))).toBe(false); // not a Rogue → illegal
+  });
+  // A SET rule — enforced at the declaration gate + resolution normalize via attackerMinBlockers
+  // (see evasionMinBlockers.test.js), never as a pairwise blocker gate.
+  it("the set-level ≥N stays PERMISSIVE at the pairwise gate", () => {
     const guile = { id: "gu", name: "Guile", type: "Creature — Elemental", power: "6", toughness: "6",
       oracle: "This creature can't be blocked except by three or more creatures." };
-    expect(canBlock(guile, blocker({ oracle: "" }))).toBe(true);           // set-level ≥N unparsed here
+    expect(canBlock(guile, blocker({ oracle: "" }))).toBe(true);
   });
 });
