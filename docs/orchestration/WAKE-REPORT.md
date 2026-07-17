@@ -16,9 +16,14 @@
 > anthems/debuffs (Ascendant Evincar / Crovax — the all-players scope SF-1 parked) · **EV-2** combat-evasion
 > residue census (can't-be-blocked-except-by / lure / can't-block).
 > **DEFERRED CLEANUP (run on an EMPTY floor to avoid merge conflicts)**: a comment-only CR-cite-integrity pass
-> for the repo-wide stale families flagged tonight — 701.8-for-discard, 701.15a-for-regeneration,
-> 603.6e-for-look-back (~20 files), 701.13-for-mill, 509.1a-for-defending-player. Plus the selfPlayRunner
-> seating-determinism flake chip and a broader phantom-mana FP sweep.
+> for the repo-wide stale families flagged tonight. Target numbers pre-verified vs cr_current.json (08:20):
+> — SAFE blanket swaps: **701.8→701.9** (701.8 is "Destroy", 701.9 is "Discard") · **701.15a→701.19** (701.15a
+> is "goad", 701.19 is "Regenerate") · **701.13→701.17** (701.13 is "Exile", 701.17 is "Mill").
+> — CONTEXT-DEPENDENT, per-site judgment NOT a sed: **603.6e** is a REAL rule (Aura LTB-trigger); general
+> "look-back-in-time" is **603.10a** — only swap sites that mean the general concept. **509.1a** is a REAL rule
+> (defending player chooses blockers); the defending-player DEFINITION is **508.5a** — only swap sites that mean
+> the definition (DM-1 correctly used 508.5a for the mill referent). Plus the selfPlayRunner seating-determinism
+> flake chip and a broader phantom-mana FP sweep.
 
 ## (superseded ~70 min later) — 32.07%, suite 9,678 — 3 OPUS seats hot
 
