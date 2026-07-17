@@ -980,7 +980,13 @@ function applyActivateAbility(state, action) {
     working = checkLeavesTriggers(working);
   }
   if (action.removeCounter) {
-    working = removeCounter(working, { permanentId: action.permanentId, type: action.removeCounter.type, amount: 1 });
+    // γ1c/CC-2 — remove EXACTLY the parsed count (1 for the singular form; N for a "Remove N <type>
+    // counters" cost — the Thallid / Lux Cannon class) of the named kind from the SOURCE, at activation
+    // time (CR 601.2h via 602.2b — the cost is paid before the ability goes on the stack). The offer gate
+    // guaranteed ≥N exist (CR 118.3), so this never under-pays; `count` defaults to 1 for a pre-CC-2
+    // serialized action. The removal mutates the same per-permanent counter pile the layer system reads,
+    // so a +1/+1-counter payment drops derived P/T immediately.
+    working = removeCounter(working, { permanentId: action.permanentId, type: action.removeCounter.type, amount: action.removeCounter.count || 1 });
     // Removing a +1/+1 counter lowers derived toughness — a creature it drops to <= 0 dies as an SBA
     // (CR 704.5f). Run the lethal sweep + its dies triggers so that's never left until the next combat.
     const lethal = destroyLethalCreatures(working);

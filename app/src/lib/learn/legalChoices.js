@@ -1687,6 +1687,22 @@ function actionsActivateAbility(state, playerId) {
         const applicable = activatedReducers.filter((r) => (r.equipOnly ? !!ab.isEquipAbility : isCreaturePerm));
         if (applicable.length) cost = activatedCostReductionForCost(applicable, cost);
       }
+      // NO-CHOICE cost affordability gates — X-INDEPENDENT, so they sit ABOVE the γ1f costX expansion and
+      // gate EVERY enumeration path below (previously the costX branch `continue`d past them — an {X}
+      // ability that also carried a pay-life / pay-energy / remove-counter item would have been offered
+      // unpayable; no printed modeled ability hit it, but the seam is now airtight — CREED):
+      // γ1 — a "Pay N life" cost needs the life to spend (CR 119.4: you can't pay life you don't
+      // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
+      // unaffordable one — never hide a legal play.
+      if (ab.payLife && player.life < ab.payLife) continue;
+      // γ1e — a "Pay {E}…" energy cost needs the energy to spend (CR 122.1e); never offer an activation the
+      // player can't pay for. Energy defaults to 0 (older states), so a source with energy 0 is correctly gated out.
+      if (ab.payEnergy && (player.energy || 0) < ab.payEnergy) continue;
+      // γ1c/CC-2 — a "Remove [N] <type> counter(s) from this" cost needs the source to actually HAVE ≥N such
+      // counters (CR 118.3 — a cost can't be paid without the full resources); otherwise it's unpayable
+      // (never offer a cost we can't pay). `count` defaults to 1 for the singular form and for any pre-CC-2
+      // serialized descriptor (back-compat with saved states).
+      if (ab.removeCounter && !((perm.counters?.[ab.removeCounter.type] || 0) >= (ab.removeCounter.count || 1))) continue;
       // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a bare mana-{X} cost whose
       // effect's TARGET COUNT is the paid X (a targetCountX atom → program.xSpell). The PLAYER chooses X at
       // activation, so — exactly like the cast path's X-spell branch — enumerate every affordable X and, per X,
@@ -1744,16 +1760,6 @@ function actionsActivateAbility(state, playerId) {
         continue; // costX expanded its own per-X actions; skip the deferral + single-action push below
       }
       if (cost.hasX) continue; // X-cost activated abilities deferred (need the X-choice expansion)
-      // γ1 — a "Pay N life" cost needs the life to spend (CR 119.4: you can't pay life you don't
-      // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
-      // unaffordable one — never hide a legal play.
-      if (ab.payLife && player.life < ab.payLife) continue;
-      // γ1e — a "Pay {E}…" energy cost needs the energy to spend (CR 122.1e); never offer an activation the
-      // player can't pay for. Energy defaults to 0 (older states), so a source with energy 0 is correctly gated out.
-      if (ab.payEnergy && (player.energy || 0) < ab.payEnergy) continue;
-      // γ1c — a "Remove a <type> counter from this" cost needs the source to actually HAVE such a
-      // counter; otherwise it's unpayable (never offer a cost we can't pay).
-      if (ab.removeCounter && !((perm.counters?.[ab.removeCounter.type] || 0) >= 1)) continue;
       // γ1d — a "Sacrifice N <fungible subtype>" cost (Ruthless Knave "Sacrifice three Treasures", Olivia
       // "Sacrifice two Treasures"). The subtype is a FUNGIBLE value token (Treasure/Food/…), so the N victims
       // are interchangeable — no meaningful choice among them (CR 701.16). Gather every legal victim of the

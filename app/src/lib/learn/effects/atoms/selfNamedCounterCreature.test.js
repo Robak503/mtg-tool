@@ -79,12 +79,19 @@ describe("CREED anti-FP guards", () => {
   it("a 'for each' count form stays LOW → Arbiter (not a fabricated count)", () => {
     expect(confOf("put a spore counter on this creature for each fungus you control")).toBe("low");
   });
-  it("a remove-counter activated cost on the SAME card without the put-effect being modeled would NOT flip", () => {
-    // A Thallid whose ONLY non-keyword text were the remove-three-spore token ability (no upkeep put trigger)
-    // stays body-only: the create-Saproling-with-a-remove-cost activated ability is unmodeled (token-create).
+  it("a remove-counter activated ability whose EFFECT is unmodeled does NOT flip (CC-2 parses the cost, never the effect)", () => {
+    // MIGRATED PIN (BLITZ CC-2): the plural "Remove three spore counters" COST now parses (counterCost-
+    // Activated.test.js owns that lane), so the create-Saproling half-Thallid legitimately flips — the
+    // whole-card gate it exercised lives on. The anti-FP spirit is preserved with an effect that stays
+    // unmodeled (Vexing Puzzlebox's real library-search line): a parsed COST must never drag an unmodeled
+    // EFFECT to native.
     expect(classifyCard({
       name: "Half Thallid", type: "Creature — Fungus",
       oracle: "Remove three spore counters from this creature: Create a 1/1 green Saproling creature token.",
+    })).toBe("native-activated");
+    expect(classifyCard({
+      name: "Half Puzzlebox", type: "Artifact",
+      oracle: "{T}, Remove three charge counters from this artifact: Search your library for an artifact card, put that card onto the battlefield, then shuffle.",
     })).toBe("body-only");
   });
 });

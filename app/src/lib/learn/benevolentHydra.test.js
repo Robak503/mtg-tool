@@ -49,7 +49,7 @@ describe("Benevolent Hydra — clause 3 (activated ability: 'another target crea
     const ab = parseActivatedAbilities(HYDRA)[0];
     expect(ab.modeled).toBe(true);
     expect(ab.tapSelf).toBe(true);
-    expect(ab.removeCounter).toEqual({ type: "+1/+1" });
+    expect(ab.removeCounter).toEqual({ type: "+1/+1", count: 1 }); // CC-2: the shape carries its count (1 = the singular form)
   });
   it("target enumeration offers ANOTHER own creature but NEVER the source or an opponent's creature", () => {
     _resetIdsForTests();

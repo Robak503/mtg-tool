@@ -238,9 +238,28 @@ export function parseAbilityCost(costStr) {
     // The item MUST END after the optional permanent-type noun ($) — like the exileSelf allowlist — so a
     // COMPOUND cost ("Remove a quest counter from this enchantment AND SACRIFICE IT") doesn't match the
     // prefix and silently drop its trailing cost (a partial-payment false-positive); it routes to the Arbiter.
-    const rcM = /^remove (?:a|an|one) ([+\-\w/]+) counter from (?:this|~|it)(?: creature| permanent| artifact| enchantment| land)?$/i.exec(item);
-    // Keep "+1/+1" / "-1/-1" verbatim (the counter-model keys); lowercase named types (charge, fade…).
-    if (rcM) { removeCounter = { type: /^[+-]\d/.test(rcM[1]) ? rcM[1] : rcM[1].toLowerCase() }; continue; }
+    // CC-2 (BLITZ COUNTER-COST) — the count may be PLURAL: "Remove three spore counters from this creature"
+    // (the Thallid class), "Remove three charge counters from this artifact" (Lux Cannon / Golem Foundry),
+    // "Remove two +1/+1 counters from this creature" (Experiment One / Mindless Automaton), up to the printed
+    // extremes ("Remove 100 charge counters…", Vexing Puzzlebox). The cost is payable ONLY while the source
+    // HAS ≥N counters of that kind (CR 118.3 — a cost can't be paid without the full resources; legalChoices
+    // gates on it), and payment removes EXACTLY N at activation time (CR 601.2h via 602.2b), through the SAME
+    // per-permanent counter pile the layer system reads (a +1/+1 removal drops P/T immediately). The noun list
+    // matches the sacSelf allowlist (…| token| vehicle — Reckoner Bankbuster's "from this Vehicle"): the noun
+    // is COSMETIC, the cost always removes from the SOURCE object. Still fail-closed: an X-count ("Remove X
+    // storage counters" — Dreadship Reef), "any number", "all", an UNTYPED "Remove a counter" (a which-kind
+    // choice), and every from-among / other-permanent form miss the anchor → the whole cost parks (safe FN).
+    const rcM = /^remove (a|an|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|fifty|\d+) ([+\-\w/]+) (counters?) from (?:this|~|it)(?: creature| permanent| artifact| enchantment| land| aura| equipment| token| vehicle)?$/i.exec(item);
+    if (rcM) {
+      const W = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, fifty: 50 };
+      const n = W[rcM[1].toLowerCase()] ?? parseInt(rcM[1], 10);
+      // NUMBER/NOUN AGREEMENT, fail closed: 1 ↔ "counter", ≥2 ↔ "counters". A mismatched pairing (or a
+      // digit 0) is no printed oracle shape — return null so the whole cost parks rather than guess a count.
+      if (!Number.isInteger(n) || n < 1 || (n === 1) !== (rcM[3].toLowerCase() === "counter")) return null;
+      // Keep "+1/+1" / "-1/-1" verbatim (the counter-model keys); lowercase named types (charge, spore…).
+      removeCounter = { type: /^[+-]\d/.test(rcM[2]) ? rcM[2] : rcM[2].toLowerCase(), count: n };
+      continue;
+    }
     // γ1b — "Sacrifice a/an/another <type>": a CHOICE cost. The single victim is picked at offer time
     // (legalChoices expands one action per legal sacrificeable permanent of <type>), so the parser only
     // records the shape; "another" excludes the source. A COUNT ("two creatures") or a compound type
