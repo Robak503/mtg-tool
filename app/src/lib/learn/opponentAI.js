@@ -949,7 +949,11 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
   // heuristic then plans the rest around the pre-seeded assignments.
   {
     const RE_LURE = /(?:^|[\n.;])\s*all creatures able to block this creature do so\s*(?:\.|$)/i;
+    // LU-2: a THIS-TURN lure marker (Alluring Scent / Taunting Challenge / Mortipede's activation —
+    // state.lureThisTurn[permId] === the current turn) requires blocks exactly like the printed line;
+    // it self-expires when the turn number moves on (the FOG-1 latch pattern).
     const luredAttackerIds = [...byAttacker.keys()].filter((attId) => {
+      if ((state.lureThisTurn || {})[attId] === state.turn) return true;
       const lk = findPermanent(state, attId);
       return lk && RE_LURE.test(String(lk.permanent.card?.oracle || lk.permanent.card?.oracle_text || "").replace(/\([^)]*\)/g, " "));
     }).sort(byId);

@@ -43,9 +43,12 @@ describe("classify — the credit at the MUST-ATTACK bar", () => {
     expect(classifyCard({ id: "oa", name: "Ochran Assassin", type: "Creature — Elf Assassin", power: "1", toughness: "1", mana: "{1}{B}{G}", oracle: "Deathtouch\n" + LURE_LINE })).toBe("native-body");
     expect(classifyCard({ id: "tc", name: "Treeshaker Chimera", type: "Creature — Chimera", power: "8", toughness: "5", mana: "{5}{G}",
       oracle: LURE_LINE + "\nWhen this creature dies, draw three cards." })).toBe("native-trigger");
-    // The this-turn / targeted / "it" variants are DIFFERENT shapes — never credited by the exact anchor.
+    // The this-turn / targeted / "it" variants are DIFFERENT shapes — never credited by LU-1's static
+    // anchor (isKeywordOnly still rejects the activated this-turn wording as a STATIC credit).
     expect(isKeywordOnly("All creatures able to block this creature this turn do so.", "Mortipede")).toBe(false);
-    expect(classifyCard({ id: "as", name: "Alluring Scent", type: "Sorcery", mana: "{1}{G}{G}", oracle: "All creatures able to block target creature this turn do so." })).toBe("arbiter-spell");
+    // GRADUATED (BLITZ LU-2): the targeted spell form was pinned arbiter here while unmodeled — LU-2's
+    // lure-this-turn atom + marker now legitimately flips it. lureThisTurn.test.js owns the LU-2 pins.
+    expect(classifyCard({ id: "as", name: "Alluring Scent", type: "Sorcery", mana: "{1}{G}{G}", oracle: "All creatures able to block target creature this turn do so." })).toBe("native-spell");
   });
 });
 

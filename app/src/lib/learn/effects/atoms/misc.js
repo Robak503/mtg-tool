@@ -197,6 +197,20 @@ export function miscClauseParser(clause) {
   if (/^draw a card for each tapped creature target opponent controls$/.test(t)) {
     return { op: "draw", who: "controller", targetType: "opponent", amountCount: { kind: "tappedCreaturesOfTargetOpponent" } };
   }
+  // THIS-TURN LURE (BLITZ LU-2, CR 509.1c — Alluring Scent / Bloodscent / Taunting Challenge, and
+  // Mortipede's activated self form): "All creatures able to block (target creature|this creature) this
+  // turn do so." A turn-scoped BLOCK REQUIREMENT stamped on ONE creature (state.lureThisTurn[permId] =
+  // turn — self-expiring, the FOG-1/preventCombatDamageTurn latch pattern) and enforced at the SAME
+  // versioned bar as the printed lure (LU-1): opponentAI.pickBlockers force-assigns every legal blocker
+  // of a lured attacker; the human seat is never hard-gated. Whole-clause anchored ($): the "it"-anaphor
+  // form (Declare Dominance), a conditional rider (Roar of Challenge's Ferocious), or any scope variant
+  // never matches → low → Arbiter (FN-safe).
+  if (/^all creatures able to block target creature this turn do so$/.test(t)) {
+    return { op: "lure-this-turn", targetType: "creature" };
+  }
+  if (/^all creatures able to block this creature this turn do so$/.test(t)) {
+    return { op: "lure-this-turn", target: "self", targetType: null };
+  }
   // FORCED-ATTACK (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able."
   // (Bident of Thassa). A turn-scoped combat REQUIREMENT on every creature the activator's opponents control:
   // the force-attack atom stamps forcedToAttackTurn[opponentId] and opponentAI.pickAttackPlan force-declares
@@ -374,9 +388,28 @@ export function applyExtraTurn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "extra-turn", controller: ctx.controller, queued: next.extraTurns.length });
 }
 
+/**
+ * THIS-TURN LURE (BLITZ LU-2, CR 509.1c) — stamp the turn-scoped lure marker on the chosen creature
+ * (or the SOURCE for Mortipede's activated self form). state.lureThisTurn maps permanentId → the turn
+ * stamped, and opponentAI.pickBlockers treats a marked attacker exactly like a printed-lure carrier
+ * while the turn matches — the marker self-expires (next turn's number differs; the FOG-1 latch
+ * pattern, no cleanup needed). A departed target → no stamp (CR 608.2b — atomTargets already skips
+ * vanished ids on the chosen path; the self form reads ctx.sourceId, absent → a clean no-op).
+ */
+export function applyLureThisTurn(state, atom, ctx) {
+  const ids = atom.target === "self"
+    ? (ctx.sourceId ? [ctx.sourceId] : [])
+    : (ctx.targets || []).filter((t) => t.type === "creature").map((t) => t.id);
+  if (!ids.length) return logEvent(state, { kind: "spell-effect", effect: "lure-this-turn", lured: 0, controller: ctx.controller });
+  const marks = { ...(state.lureThisTurn || {}) };
+  for (const id of ids) marks[id] = state.turn;
+  return logEvent({ ...state, lureThisTurn: marks }, { kind: "spell-effect", effect: "lure-this-turn", lured: ids.length, controller: ctx.controller });
+}
+
 export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "extra-turn": applyExtraTurn, // ===== EXTRA-TURN ===== (XT-1, CR 500.7) — "Take an extra turn after this one": a LIFO stack popped at advanceStep's end-of-turn branch
+  "lure-this-turn": applyLureThisTurn, // ===== THIS-TURN LURE ===== (LU-2, CR 509.1c) — a turn-scoped block requirement marker, enforced in opponentAI.pickBlockers at the LU-1 bar
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "force-attack": applyForceAttack, // ===== FORCED-ATTACK ===== (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able" (Bident): a turn-scoped attack requirement enforced in opponentAI.pickAttackPlan
