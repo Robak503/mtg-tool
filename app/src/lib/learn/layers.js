@@ -1314,9 +1314,14 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   // real declare-blockers gate and combat resolution). Seeded like a keyword counter: a later layer-6
   // removeKeyword ("loses menace") still wins below (last-wins), never a hard override.
   const fromSuspect = !!perm.suspected && (kwLower === "menace" || kwLower === "cantblock");
+  // KICKER keyword grant (BLITZ KK-1, CR 702.33e + 614.12) — "If this creature was kicked, it enters … and
+  // with <keyword>" stamps perm.kickedKeywords (resolvers.enterPermanent, only for GRANTABLE_COMBAT_KEYWORDS).
+  // Seeded exactly like fromSuspect: a durable per-permanent grant honored by EVERY read that funnels through
+  // here (combat damage / evasion / summoning-sickness), overridable by a later layer-6 removeKeyword below.
+  const fromKicked = Array.isArray(perm.kickedKeywords) && perm.kickedKeywords.includes(kwLower);
   const grants = l6IndexOf(state).byKeyword.get(kwLower);
-  if (!grants || grants.length === 0) return printed || fromCounter || fromSuspect;
-  let has = printed || fromCounter || fromSuspect;
+  if (!grants || grants.length === 0) return printed || fromCounter || fromSuspect || fromKicked;
+  let has = printed || fromCounter || fromSuspect || fromKicked;
   for (const e of grants) {
     if (!effectAffects(e, perm, state)) continue;
     // GATED-KEYWORD: gate closed → no grant. gatePermForEffect (CA-1) — gateOn:"source" reads the SOURCE's

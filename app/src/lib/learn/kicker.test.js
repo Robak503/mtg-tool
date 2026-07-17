@@ -28,7 +28,7 @@ import { createPermanent } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
-import { permanentPower, permanentToughness } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 import { pickAction } from "./opponentAI.js";
 
@@ -82,10 +82,10 @@ describe("KICKER parser — parseKickerCost", () => {
 
 describe("KICKER parser — entersWithKickedCounters", () => {
   it("reads the kicked counters count (a / two / three / five)", () => {
-    expect(entersWithKickedCounters(ARDENT_SOLDIER)).toEqual({ n: 1 });
-    expect(entersWithKickedCounters(ACADEMY_DRAKE)).toEqual({ n: 2 });
-    expect(entersWithKickedCounters(BALOTH_GORGER)).toEqual({ n: 3 });
-    expect(entersWithKickedCounters(LLANOWAR_ELITE)).toEqual({ n: 5 });
+    expect(entersWithKickedCounters(ARDENT_SOLDIER)).toEqual({ n: 1, keywords: [] });
+    expect(entersWithKickedCounters(ACADEMY_DRAKE)).toEqual({ n: 2, keywords: [] });
+    expect(entersWithKickedCounters(BALOTH_GORGER)).toEqual({ n: 3, keywords: [] });
+    expect(entersWithKickedCounters(LLANOWAR_ELITE)).toEqual({ n: 5, keywords: [] });
   });
   it("returns null for a non-counter kicked payoff (ETB trigger / spell effect) and a multikicker scaler", () => {
     expect(entersWithKickedCounters({ name: "X", oracle: "When this creature enters, if it was kicked, destroy target land." })).toBeNull();
@@ -442,5 +442,148 @@ describe("KICKED ETB runtime — the AI pays the kicker for an ETB-trigger payof
   });
   it("picks the normal cast when only the base cost is affordable", () => {
     expect(aiPickEtb(4)).toMatchObject({ kind: "cast-spell", cardId: "c1", kicked: false });
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+// KICKED ENTERS-WITH — "… counters on it AND WITH <keyword>" grant tail (BLITZ KK-1, CR 702.33e + 614.12).
+//
+// The kicked replacement can grant a continuous combat keyword ALONGSIDE the +1/+1 counters (Benalish Lancer
+// = first strike, Kavu Titan = trample, Duskwalker = fear, Faerie Squadron = flying, Pouncing Wurm/Kavu =
+// haste). resolvers.enterPermanent stamps perm.kickedKeywords on the kicked cast; layers.permanentHasKeyword
+// seeds from it (fromKicked) — the ONE gate combat damage / evasion / summoning-sickness all funnel through —
+// but ONLY for GRANTABLE_COMBAT_KEYWORDS, so a granted instance behaves EXACTLY like a printed one. A NOT-
+// kicked cast grants nothing. CREED anti-FP: a quoted grant (Prison Barricade) / a compound "…and a trample
+// counter…" shape (Voidpouncer) / a non-grantable keyword fails closed → the card stays body-only. Also:
+// hasKickedEtbTrigger now normalizes the legendary PRE-COMMA short name (CR 201.5), flipping Slinn Voda,
+// whose "When Slinn Voda enters, if it was kicked, …" self-reference was a false negative before.
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const BENALISH_LANCER = { name: "Benalish Lancer", type: "Creature — Human Knight", mana: "{2}{W}", power: 2, toughness: 2,
+  oracle: "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with first strike." };
+const KAVU_TITAN = { name: "Kavu Titan", type: "Creature — Kavu", mana: "{1}{G}", power: 2, toughness: 2,
+  oracle: "Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nIf this creature was kicked, it enters with three +1/+1 counters on it and with trample." };
+const DUSKWALKER = { name: "Duskwalker", type: "Creature — Human Minion", mana: "{B}", power: 1, toughness: 1,
+  oracle: "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with fear. (It can't be blocked except by artifact creatures and/or black creatures.)" };
+const FAERIE_SQUADRON = { name: "Faerie Squadron", type: "Creature — Faerie", mana: "{U}", power: 1, toughness: 1,
+  oracle: "Kicker {3}{U} (You may pay an additional {3}{U} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with flying." };
+const POUNCING_WURM = { name: "Pouncing Wurm", type: "Creature — Wurm", mana: "{3}{G}", power: 3, toughness: 3,
+  oracle: "Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nIf this creature was kicked, it enters with three +1/+1 counters on it and with haste." };
+const POUNCING_KAVU = { name: "Pouncing Kavu", type: "Creature — Kavu", mana: "{1}{R}", power: 1, toughness: 1,
+  oracle: "Kicker {2}{R} (You may pay an additional {2}{R} as you cast this spell.)\nFirst strike\nIf this creature was kicked, it enters with two +1/+1 counters on it and with haste." };
+const SLINN_VODA = { name: "Slinn Voda, the Rising Deep", type: "Legendary Creature — Leviathan", mana: "{6}{U}{U}", power: 8, toughness: 8,
+  oracle: "Kicker {1}{U} (You may pay an additional {1}{U} as you cast this spell.)\nWhen Slinn Voda enters, if it was kicked, return all creatures to their owners' hands except for Merfolk, Krakens, Leviathans, Octopuses, and Serpents." };
+// Anti-FP park cards (real oracle): a quoted-grant tail and a compound "…and a trample counter…" shape.
+const PRISON_BARRICADE = { name: "Prison Barricade", type: "Creature — Wall", mana: "{1}{W}", power: 1, toughness: 3,
+  oracle: "Defender (This creature can't attack.)\nKicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nIf this creature was kicked, it enters with a +1/+1 counter on it and with \"This creature can attack as though it didn't have defender.\"" };
+const VOIDPOUNCER = { name: "Voidpouncer", type: "Creature — Eldrazi", mana: "{1}{R}", power: 3, toughness: 1,
+  oracle: "Devoid (This card has no color.)\nKicker {2}{C} (You may pay an additional {2}{C} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters and a trample counter on it and with haste." };
+const GRUNN = { name: "Grunn, the Lonely King", type: "Legendary Creature — Ape Warrior", mana: "{4}{G}{G}", power: 5, toughness: 5,
+  oracle: "Kicker {3} (You may pay an additional {3} as you cast this spell.)\nIf Grunn was kicked, it enters with five +1/+1 counters on it.\nWhenever Grunn attacks alone, double its power and toughness until end of turn." };
+
+// [card, granted keyword, kicked-counter count, kicked-total mana (single color), exact base mana]. Mana is
+// isolated to the card's OWN color (zero of anything else) so the "not kicked" cast can afford the base but
+// NEVER the kicker — cross-color generic can't sneak the kicker in.
+const KEYWORD_GRANT_FLIPS = [
+  [BENALISH_LANCER, "First strike", 2, { W: 6 }, { W: 3 }], // {2}{W} + kicker {2}{W}
+  [KAVU_TITAN,      "Trample",      3, { G: 5 }, { G: 2 }], // {1}{G} + kicker {2}{G}
+  [DUSKWALKER,      "Fear",         2, { B: 5 }, { B: 1 }], // {B}    + kicker {3}{B}
+  [FAERIE_SQUADRON, "Flying",       2, { U: 5 }, { U: 1 }], // {U}    + kicker {3}{U}
+  [POUNCING_WURM,   "Haste",        3, { G: 7 }, { G: 4 }], // {3}{G} + kicker {2}{G}
+  [POUNCING_KAVU,   "Haste",        2, { R: 5 }, { R: 2 }], // {1}{R} + kicker {2}{R}
+];
+
+describe("KICKER keyword-grant parser — entersWithKickedCounters returns { n, keywords }", () => {
+  it("reads the counters count AND the grantable-keyword tail (first strike / trample / fear / flying / haste)", () => {
+    expect(entersWithKickedCounters(BENALISH_LANCER)).toEqual({ n: 2, keywords: ["first strike"] });
+    expect(entersWithKickedCounters(KAVU_TITAN)).toEqual({ n: 3, keywords: ["trample"] });
+    expect(entersWithKickedCounters(DUSKWALKER)).toEqual({ n: 2, keywords: ["fear"] });
+    expect(entersWithKickedCounters(FAERIE_SQUADRON)).toEqual({ n: 2, keywords: ["flying"] });
+    expect(entersWithKickedCounters(POUNCING_WURM)).toEqual({ n: 3, keywords: ["haste"] });
+    expect(entersWithKickedCounters(POUNCING_KAVU)).toEqual({ n: 2, keywords: ["haste"] });
+  });
+  it("the counter-only form still returns an EMPTY keyword list (backward compatible)", () => {
+    expect(entersWithKickedCounters(BALOTH_GORGER)).toEqual({ n: 3, keywords: [] });
+    expect(entersWithKickedCounters(ARDENT_SOLDIER)).toEqual({ n: 1, keywords: [] });
+  });
+  it("normalizes the legendary PRE-COMMA short name (Grunn → n=5)", () => {
+    expect(entersWithKickedCounters(GRUNN)).toEqual({ n: 5, keywords: [] });
+  });
+  it("fails closed on a non-grantable / quoted / compound grant tail (CREED anti-FP)", () => {
+    expect(entersWithKickedCounters(PRISON_BARRICADE)).toBeNull();  // quoted "can attack as though…" grant
+    expect(entersWithKickedCounters(VOIDPOUNCER)).toBeNull();       // "…and a trample counter…" compound shape
+    // a hypothetical NON-grantable keyword (protection) must park, not fabricate a grant the engine ignores
+    expect(entersWithKickedCounters({ name: "X", oracle: "If this creature was kicked, it enters with a +1/+1 counter on it and with protection from red." })).toBeNull();
+  });
+});
+
+describe("KICKER keyword-grant coverage — the six counter+keyword creatures classify native-body", () => {
+  for (const [c] of KEYWORD_GRANT_FLIPS) {
+    it(`${c.name} → native-body`, () => {
+      expect(classifyCard(c)).toBe("native-body");
+      const spec = parseKickerCounterCreature(c, isKeywordOnly);
+      expect(spec, c.name).not.toBeNull();
+      expect(spec.kicked.keywords.length, c.name).toBeGreaterThan(0);
+    });
+  }
+  it("Slinn Voda (short-name ETB self-ref) → native-trigger via hasKickedEtbTrigger normalization", () => {
+    expect(hasKickedEtbTrigger(SLINN_VODA)).toBe(true);
+    expect(classifyCard(SLINN_VODA)).toBe("native-trigger");
+  });
+  it("anti-FP: quoted-grant / compound-counter / extra-clause kicker creatures stay body-only", () => {
+    expect(classifyCard(PRISON_BARRICADE)).toBe("body-only"); // quoted grant tail
+    expect(classifyCard(VOIDPOUNCER)).toBe("body-only");      // compound "…and a trample counter…"
+    expect(classifyCard(GRUNN)).toBe("body-only");            // attacks-alone trigger drags the whole card
+  });
+});
+
+describe("KICKER keyword-grant runtime — the granted keyword is honored ONLY on a kicked cast", () => {
+  for (const [card, keyword, n, kickedMana, baseMana] of KEYWORD_GRANT_FLIPS) {
+    it(`${card.name} KICKED → enters with ${n} counters AND ${keyword} (permanentHasKeyword true)`, () => {
+      const s = setup({ hand: [{ ...card, id: "c1" }], mana: kickedMana });
+      const kicked = casts(s).find((a) => a.cardId === "c1" && a.kicked === true);
+      expect(kicked, card.name).toBeTruthy();
+      const after = castAndResolve(s, kicked);
+      const perm = enteredPerm(after);
+      expect(perm.counters?.["+1/+1"], card.name).toBe(n);
+      expect(permanentHasKeyword(after, perm.id, keyword), card.name).toBe(true);
+    });
+    it(`${card.name} NOT kicked → no counters and NO granted ${keyword}`, () => {
+      const s = setup({ hand: [{ ...card, id: "c1" }], mana: baseMana });
+      const mine = casts(s).filter((a) => a.cardId === "c1");
+      expect(mine.map((a) => a.kicked), card.name).toEqual([false]); // base affordable, kicker is NOT
+      const after = castAndResolve(s, mine[0]);
+      const perm = enteredPerm(after);
+      expect(perm.counters?.["+1/+1"] || 0, card.name).toBe(0);
+      // Pouncing Kavu has PRINTED first strike; the GRANTED keyword under test (haste) must still be absent.
+      expect(permanentHasKeyword(after, perm.id, keyword), card.name).toBe(false);
+    });
+  }
+  it("a kicked Pouncing Kavu keeps its PRINTED first strike AND gains the granted haste", () => {
+    const s = setup({ hand: [{ ...POUNCING_KAVU, id: "c1" }], mana: { R: 6 } }); // {1}{R} + kicker {2}{R}
+    const kicked = casts(s).find((a) => a.cardId === "c1" && a.kicked === true);
+    const after = castAndResolve(s, kicked);
+    const perm = enteredPerm(after);
+    expect(permanentHasKeyword(after, perm.id, "First strike")).toBe(true); // printed
+    expect(permanentHasKeyword(after, perm.id, "Haste")).toBe(true);        // kicked grant
+  });
+});
+
+describe("KICKER short-name ETB runtime — Slinn Voda bounces the board ONLY when kicked", () => {
+  const BEAR = createPermanent({ id: "b1", card: { name: "Grizzly Bears", id: "gb", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "ai" });
+  it("KICKED → the ETB trigger returns the opponent's non-exempt creature to hand", () => {
+    let s = withOppBoard(setup({ hand: [{ ...SLINN_VODA, id: "c1" }], mana: { U: 12 } }), [{ ...BEAR }]);
+    const kicked = casts(s).find((a) => a.cardId === "c1" && a.kicked === true);
+    expect(kicked).toBeTruthy();
+    s = drainStack(dispatchAction(s, kicked));
+    expect(s.players.ai.battlefield.map((p) => p.card.name)).not.toContain("Grizzly Bears");
+    expect(s.players.ai.hand.map((c) => c.name)).toContain("Grizzly Bears");
+  });
+  it("NOT kicked → the ETB trigger is dropped at flush (the creature survives)", () => {
+    let s = withOppBoard(setup({ hand: [{ ...SLINN_VODA, id: "c1" }], mana: { U: 8 } }), [{ ...BEAR }]);
+    const normal = casts(s).find((a) => a.cardId === "c1" && a.kicked === false);
+    expect(normal).toBeTruthy();
+    s = drainStack(dispatchAction(s, normal));
+    expect(s.players.ai.battlefield.map((p) => p.card.name)).toContain("Grizzly Bears");
   });
 });

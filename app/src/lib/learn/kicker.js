@@ -7,10 +7,15 @@
  *
  * SCOPE (this slice — the cleanest, highest-confidence shape, whole-card per THE CREED):
  *   a CREATURE with a vanilla/keyword-only base body whose ONLY non-keyword text is a single
- *   "If this creature was kicked, it enters with N +1/+1 counters on it." replacement. The base body
- *   is already native (native-body); the kicked payoff reuses the SAME enters-with-+1/+1-counters
- *   replacement the engine already resolves (resolvers.enterPermanent) — only now GATED on the
- *   was-kicked flag instead of being unconditional. So both halves are modeled atoms.
+ *   "If this creature was kicked, it enters with N +1/+1 counters on it[ and with <keyword>]." replacement.
+ *   The base body is already native (native-body); the kicked payoff reuses the SAME enters-with-+1/+1-counters
+ *   replacement the engine already resolves (resolvers.enterPermanent) — only now GATED on the was-kicked
+ *   flag instead of being unconditional. An optional "and with <keyword>" grant tail (Benalish Lancer =
+ *   first strike, Kavu Titan = trample, Duskwalker = fear, Faerie Squadron = flying, Pouncing Wurm/Kavu =
+ *   haste) rides that same replacement: the granted keyword is stamped on the permanent (perm.kickedKeywords)
+ *   and seeded into permanentHasKeyword (layers.js, fromKicked) — the ONE gate combat/evasion/summoning-
+ *   sickness all read — but ONLY for keywords in GRANTABLE_COMBAT_KEYWORDS (a granted instance = a printed
+ *   one). So every half is a modeled atom.
  *
  * RUNTIME (the cast-flag path):
  *   1. legalChoices.castActionsFromZone emits TWO cast actions for a kicker card — the normal cast and
@@ -36,10 +41,33 @@
  */
 
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only keyword lines (the runtime hard-casts at full cost — CR-safe); strip them from the body so coverage + runtime agree (parseHelpers imports only keywords.js → acyclic)
+import { GRANTABLE_COMBAT_KEYWORDS } from "./keywords.js"; // the keyword set the engine honors layer-aware via permanentHasKeyword (flying/first strike/trample/haste/fear/…); the ONLY keywords a kicked enters-with grant may add (keywords.js is a pure leaf → acyclic)
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
 
 const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+
+const _escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Reminder-strip an oracle, then normalize the card's OWN name — the FULL printed name AND the legendary
+ * PRE-COMMA short name (CR 201.5 — text referring to the object by name means that object; 201.4 is the
+ * distinct choose-a-card-name rule, a legacy mis-cite corrected here) — to "this creature". A comma-carrying legend self-references by its short
+ * name in its own text ("If Grunn was kicked, …" on "Grunn, the Lonely King"; "When Slinn Voda enters, if it
+ * was kicked, …" on "Slinn Voda, the Rising Deep"), so the tight kicked-clause shapes below must see "this
+ * creature" for BOTH forms or a legend's kicked rider is a false negative. This is the SAME split(",")[0]
+ * self-reference convention combatEvasion / coverage / damageReplacements / opponentAI already use.
+ */
+function normalizeSelf(oracle, name) {
+  let t = stripReminder(oracle);
+  const nm = String(name || "").trim();
+  if (nm) {
+    t = t.replace(new RegExp(`\\b${_escRe(nm)}\\b`, "g"), "this creature");
+    const sn = nm.split(",")[0].trim();
+    if (sn && sn !== nm) t = t.replace(new RegExp(`\\b${_escRe(sn)}\\b`, "g"), "this creature");
+  }
+  return t;
+}
 
 // A clean single-Kicker line: "Kicker {cost}" at the start of a line, the cost one-or-more mana pips, and
 // NOTHING else on the line after the reminder strip (so "Kicker {2} and/or {R}" / "Multikicker {1}" / a
@@ -66,28 +94,38 @@ export function parseKickerCost(card) {
 }
 
 /**
- * The kicked "enters with N +1/+1 counters" payoff for a CREATURE, or null.
- * Matches the single modeled kicked shape: "If this creature was kicked, it enters with N +1/+1 counters
- * on it." (N a small word or digit). Returns `{ n }`. null for any other kicked clause (an ETB trigger, a
- * spell effect, a "for each time it was kicked" multikicker scaler). Leaf — pure text.
+ * The kicked "enters with N +1/+1 counters [and with <keyword(s)>]" payoff for a CREATURE, or null.
+ * Matches "If this creature was kicked, it enters with N +1/+1 counters on it[ and with <kw>]." (N a small
+ * word or digit; self-name normalized). Returns `{ n, keywords }` — `keywords` the granted combat keywords
+ * (empty for the counter-only form). null for any other kicked clause (an ETB trigger, a spell effect, a
+ * "for each time it was kicked" multikicker scaler, OR a grant tail carrying a non-grantable keyword / a
+ * quoted grant). The "and with <keyword>" tail rides the SAME kicked replacement (Benalish Lancer = first
+ * strike, Kavu Titan = trample, Duskwalker = fear, Faerie Squadron = flying, Pouncing Wurm/Kavu = haste) —
+ * admitted ONLY when EVERY listed keyword is in GRANTABLE_COMBAT_KEYWORDS (the set permanentHasKeyword honors
+ * layer-aware), so a granted instance behaves EXACTLY like a printed one; anything else fails closed (CREED).
+ * Leaf — pure text.
  */
 export function entersWithKickedCounters(card) {
-  const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
-  // Self-clause may be printed with the card name; normalize to "this creature" so a name-printed form
-  // ("If Foo was kicked, …") also matches. Mirrors isKeywordOnly's name-normalization.
-  let t = oracle;
-  const nm = String(card?.name || "").trim();
-  if (nm) {
-    const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    t = t.replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
-  }
-  const m = t.match(/\bif this creature was kicked, it enters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it\b/i);
+  const t = normalizeSelf(card?.oracle || card?.oracle_text || "", card?.name);
+  const m = t.match(/\bif this creature was kicked, it enters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it\b([^.\n]*)/i);
   if (!m) return null;
   // A "for each time it was kicked" magnitude is a multikicker scaler, not a fixed N — exclude (defensive;
   // multikicker is already rejected by parseKickerCost, but entersWithKickedCounters is called independently).
   if (/\bfor each\b/i.test(t)) return null;
   const n = _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
-  return n > 0 ? { n } : null;
+  if (n <= 0) return null;
+  // Optional "and with <keyword(s)>" grant tail. Must be EXACTLY "and with <kw list>" whose every keyword is
+  // grantable; a quoted grant ("and with 'This creature can attack…'" — Prison Barricade) or any non-grantable
+  // keyword → null → the card PARKS (fail closed). No tail → counter-only.
+  const tail = m[2].trim();
+  let keywords = [];
+  if (tail) {
+    const wm = tail.match(/^and with\s+(.+)$/i);
+    if (!wm) return null;
+    keywords = wm[1].split(/,\s*and\s+|,\s+|\s+and\s+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (!keywords.length || !keywords.every((k) => GRANTABLE_COMBAT_KEYWORDS.has(k))) return null;
+  }
+  return { n, keywords };
 }
 
 /**
@@ -114,7 +152,7 @@ export function parseKickerCounterCreature(card, isKeywordOnly) {
   // the runtime legalChoices path (which passes the RAW card) reach the identical keyword-only verdict.
   const body = stripCostOnlyKeywordLines(stripKickerText(card?.oracle || card?.oracle_text || ""));
   if (typeof isKeywordOnly === "function" && !isKeywordOnly(body, card?.name)) return null;
-  return { kickerCost, kicked: { counters: kicked.n } };
+  return { kickerCost, kicked: { counters: kicked.n, keywords: kicked.keywords || [] } };
 }
 
 /**
@@ -127,8 +165,10 @@ export function stripKickerText(oracle) {
   let t = String(oracle || "");
   // Drop the whole "Kicker {cost} (reminder…)" line (line-anchored, reminder and all).
   t = t.replace(/(?:^|\n)[^\n]*\bkicker\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n");
-  // Drop the kicked enters-with-counters sentence (the modeled payoff).
-  t = t.replace(/[^.\n]*\bif this creature was kicked, it enters (?:the battlefield )?with [^.\n]*\+1\/\+1 counters? on it\.?/i, " ");
+  // Drop the kicked enters-with-counters sentence (the modeled payoff), INCLUDING any "and with <keyword>"
+  // grant tail (the trailing [^.\n]* consumes "…on it and with first strike" up to the sentence period) so the
+  // residual body the keyword-only gate checks carries no leftover "and with …" fragment.
+  t = t.replace(/[^.\n]*\bif this creature was kicked, it enters (?:the battlefield )?with [^.\n]*\+1\/\+1 counters? on it[^.\n]*\.?/i, " ");
   return t.trim();
 }
 
@@ -160,14 +200,9 @@ const KICKED_ETB_TRIGGER_RE = /\b(?:when|whenever) this creature enters(?:\s+the
  * body re-classification in parseKickerEtbCreature.
  */
 export function hasKickedEtbTrigger(card) {
-  const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
-  let t = oracle;
-  const nm = String(card?.name || "").trim();
-  if (nm) {
-    const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    t = t.replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
-  }
-  return KICKED_ETB_TRIGGER_RE.test(t);
+  // Self-name normalized FULL + legendary short name (normalizeSelf) so "When Slinn Voda enters, if it was
+  // kicked, …" on "Slinn Voda, the Rising Deep" matches — the short-name form was a false negative before.
+  return KICKED_ETB_TRIGGER_RE.test(normalizeSelf(card?.oracle || card?.oracle_text || "", card?.name));
 }
 
 /**

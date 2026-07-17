@@ -298,6 +298,15 @@ export function enterPermanent(state, card, controller, opts = {}) {
   if (opts.kicked) {
     const kickedCtr = entersWithKickedCounters(card);
     if (kickedCtr && kickedCtr.n > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", kickedCtr.n) };
+    // KICKER keyword grant (CR 702.33e + 614.12): "…and with <keyword>" rides the same kicked enters-with
+    // replacement (Benalish Lancer = first strike, Kavu Titan = trample, Duskwalker = fear …). Stamp the
+    // granted combat keywords DURABLY on the permanent (a plain string array — serializes like wasKicked,
+    // Phase-7). permanentHasKeyword (layers.js) seeds from perm.kickedKeywords (fromKicked), so every combat /
+    // evasion / summoning-sickness read honors the grant EXACTLY like a printed keyword (a later "loses <kw>"
+    // layer-6 effect still wins). Only keywords entersWithKickedCounters admitted (all GRANTABLE_COMBAT_KEYWORDS).
+    if (kickedCtr && kickedCtr.keywords && kickedCtr.keywords.length) {
+      perm.kickedKeywords = [...new Set([...(perm.kickedKeywords || []), ...kickedCtr.keywords.map((k) => String(k).toLowerCase())])];
+    }
   }
   // ENTERS-WITH-X: "this creature enters with X +1/+1 counters on it" — X is the value paid for the {X}
   // cost (threaded as opts.xValue from the cast). A hydra cast for X=5 enters as a real 5/5+, not a 0/0
