@@ -334,3 +334,36 @@ describe("SB-1 runtime — the granted/aura forms fire through the SAME chokepoi
     expect(s.players.ai.hand.map((c) => c.name)).toContain("Grizzly Bears");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CROSS-CONTROLLER attached watcher — the checkCombatDamageTriggers hardening
+// (the OC-1 attacks-scan mirror: an attached cdmg watcher controlled by a
+// DIFFERENT player than the attacker must still fire, exactly once)
+// ─────────────────────────────────────────────────────────────────────────────
+describe("cdmg hardening — an attached watcher another player controls fires exactly once", () => {
+  const sigilOn = (hostController) => {
+    const host = perm("host", "Runeclaw Bear", "", { controller: hostController, type: "Creature — Bear" });
+    const sigil = { ...perm("sigil", "Sigil of Sleep", SIGIL_ORACLE, { controller: "user", type: "Enchantment — Aura" }), attachedTo: "host" };
+    host.attachments = ["sigil"];
+    return { host, sigil };
+  };
+
+  it("the USER's Sigil on the AI's attacker fires when that attacker connects (was silently dropped)", () => {
+    const { host, sigil } = sigilOn("ai");
+    let s = combatState({ user: [sigil], ai: [host], attackers: [{ permanentId: "host", attackingPlayer: "ai", defender: "user" }] });
+    s = resolveCombatDamage(s);
+    expect(s.players.user.life).toBe(38); // the AI's enchanted bear connected
+    const fired = (s.pendingTriggers || []).filter((t) => t.descriptor?.event === "combatDamageToPlayer");
+    expect(fired).toHaveLength(1); // the cross-controller aura watcher — exactly once
+  });
+
+  it("no double-fire: the USER's Sigil on the USER's own attacker still fires exactly once", () => {
+    const { host, sigil } = sigilOn("user");
+    const bear = perm("bear", "Grizzly Bears", "", { controller: "ai", type: "Creature — Bear" });
+    let s = combatState({ user: [host, sigil], ai: [bear], attackers: [{ permanentId: "host", attackingPlayer: "user", defender: "ai" }] });
+    s = resolveCombatDamage(s);
+    expect(s.players.ai.life).toBe(38);
+    const fired = (s.pendingTriggers || []).filter((t) => t.descriptor?.event === "combatDamageToPlayer");
+    expect(fired).toHaveLength(1); // the attacking-player scan already covers it — the attachments walk must not re-fire it
+  });
+});

@@ -4130,6 +4130,18 @@ export function checkCombatDamageTriggers(state, playerEvents) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context, scopeFilter: notGlobal }));
     }
+    // ATTACHED watchers ANOTHER player controls (the OC-1-hardening mirror, flagged in that commit) — an
+    // Aura/Equipment attached to this attacker whose controller is NOT the attacking player (a cdmg-watcher
+    // aura cast on an opponent's creature, or a host that changed control). Its "enchanted/equipped creature
+    // deals combat damage" descriptor (the equippedCreature attached-linkage scope) would otherwise silently
+    // never fire — the scan above covers only the attacking player's permanents. Controller-gated exactly
+    // like the checkAttackTriggers walk (same-controller attachments were already scanned above; the
+    // attacker itself rides the self path), so a double-fire is impossible by construction.
+    for (const attachId of attackerPerm.attachments || []) {
+      const alk = findPermanent(state, attachId);
+      if (!alk || alk.controller === ev.attackingPlayer) continue; // already scanned above
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: alk.permanent, triggeringPermanent: attackerPerm, triggeringContext: context, scopeFilter: notGlobal }));
+    }
     // GLOBAL SUBTYPE watchers (Synapse/Brood Sliver — "Whenever a Sliver deals combat damage to a player,
     // ITS CONTROLLER may …"). The subject is ANY player's matching-subtype creature, so scan EVERY player's
     // sources (not just the attacking player's), firing ONLY subtypeGlobal descriptors. The effect resolves
