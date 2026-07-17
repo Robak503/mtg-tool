@@ -177,6 +177,20 @@ function countSelfSpecOnBoard(state, perm, spec) {
     for (const p of player.battlefield || []) for (const c of colorsOf(p.card)) cols.add(c);
     return cols.size;
   }
+  // COLOR-OR control gate (BLITZ AU-1 — the Runemark cycle "as long as you control a black or green
+  // permanent"): the number of permanents THIS gate subject controls whose (printed) color set includes ANY
+  // of the wanted WUBRG letters. `colorsOf` is the SAME recursion-safe printed reader colorsAmongPermanents
+  // (Conqueror's Flail) already uses for a board-count gate — a layer-aware color read would re-enter
+  // deriveCharacteristics inside this gate eval; a color-CHANGED permanent is the vanishing corner the
+  // precedent accepts (over-counts only under a rare color-REMOVAL, under-counts a color-ADD = FN-safe). Used
+  // only as a presence test (the gate carries atLeast:1), so the exact tally past 1 is immaterial.
+  if (spec.kind === "colorPermanentsYouControl") {
+    const want = new Set(spec.colors || []);
+    if (want.size === 0) return 0;
+    let cn = 0;
+    for (const p of player.battlefield || []) if (colorsOf(p.card).some((c) => want.has(c))) cn += 1;
+    return cn;
+  }
   if (spec.kind !== "permanentsYouControl") return 0;
   const needle = spec.cardType || spec.subtype;
   if (!needle) return 0;

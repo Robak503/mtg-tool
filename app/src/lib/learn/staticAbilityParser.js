@@ -1040,6 +1040,16 @@ function parseAsLongAsGate(condText) {
     const g = parseControlGateSource(m[1], m[2]);
     return g ? { ...g, gateOn: "source" } : null;
   }
+  // COLOR-OR control gate (BLITZ AU-1 — the Runemark cycle: "you control a black or green permanent"): a
+  // permanent of EITHER named color on the SOURCE controller's board (gateOn:"source" — CR 109.5 "you" = the
+  // aura/anthem controller, which the enchanted creature need NOT be). Only a WUBRG color-word pair maps; any
+  // other word pair ("an artifact or enchantment permanent" — a type-OR this slice doesn't model) → null →
+  // fail closed. layers.countSelfSpecOnBoard counts the printed-color matches; presence (atLeast 1) opens it.
+  m = t.match(/^you control (?:a|an) (\w+) or (\w+) permanent$/);
+  if (m) {
+    const cA = COLOR_WORDS[m[1]], cB = COLOR_WORDS[m[2]];
+    return cA && cB ? { countSpec: { kind: "colorPermanentsYouControl", colors: [cA, cB] }, atLeast: 1, gateOn: "source" } : null;
+  }
   // Graveyard-count gate — reuse parseGraveyardGate and require it to consume the WHOLE condition.
   const gy = parseGraveyardGate(`as long as ${t}`);
   if (gy) return gy.match === `as long as ${t}` ? { ...gy.gate, gateOn: "source" } : null;
@@ -3657,6 +3667,22 @@ function parseAttachedClause(c, subject) {
     }
   }
   if (rest) {
+    // CONDITIONAL-KEYWORD grant (BLITZ AU-1 — the Runemark cycle: "has <keyword> as long as you control a
+    // <colorA> or <colorB> permanent"). The keyword grant is GATED: layers.gateMet re-evaluates <condition>
+    // live every derive pass, and gateOn:"source" (baked into the parseAsLongAsGate specs) reads the AURA/
+    // EQUIPMENT controller's board — the enchanted/equipped creature may be an OPPONENT's, and CR 109.5 makes
+    // "you" the source's controller, never the host's. Reuses the SAME parseAsLongAsGate the group-anthem /
+    // self-static gated grants call (ONE condition vocabulary — classifier credit and runtime gate can't
+    // drift); an unmodeled condition → null → the whole bonus drops (CREED all-or-nothing, a safe FN). ONLY
+    // plain grantable keywords are gated below — a conditional protection/ward tail is out of this slice and
+    // returns null rather than emit an UNGATED protection/ward (never a wrong-scope FP).
+    let condGate = null;
+    const alaM = rest.match(/^((?:has|have)\s+.+?)\s+as long as\s+(.+)$/);
+    if (alaM) {
+      condGate = parseAsLongAsGate(alaM[2].trim());
+      if (!condGate) return null;                      // an unmodeled "as long as" condition → whole bonus drops
+      rest = alaM[1].trim();
+    }
     const haveMatch = rest.match(/^(?:has|have)\s+(.+)$/);
     if (!haveMatch) return null;                       // residue that isn't a keyword/protection grant
     // EQUIP-PROTECTION: a "protection from <color>…" grant occupies the WHOLE have-tail (protection lists
@@ -3664,6 +3690,7 @@ function parseAttachedClause(c, subject) {
     // quality returns null → whole bonus drops (Sword of Wealth and Power stays body-only).
     const protColors = parseAttachedProtectionColors(haveMatch[1].trim());
     if (protColors) {
+      if (condGate) return null;                       // a GATED protection is out of this slice — never an ungated FP
       out.push({ layer: 6, op: { layerOp: "addProtection", colors: protColors }, duration: { kind: "permanent" } });
       return out.length ? out : null;
     }
@@ -3673,6 +3700,7 @@ function parseAttachedClause(c, subject) {
     // that layers.permanentProtectionColors resolves at read time. All-or-nothing: it must occupy the WHOLE
     // have-tail (no rider trails), matching every other quality here. Any OTHER non-color quality still → null.
     if (/^protection from each color that's not in your commander's color identity$/i.test(haveMatch[1].trim())) {
+      if (condGate) return null;                       // a GATED dynamic-protection is out of this slice
       out.push({ layer: 6, op: { layerOp: "addProtection", dynamicColors: "notCommanderIdentity" }, duration: { kind: "permanent" } });
       return out.length ? out : null;
     }
@@ -3688,10 +3716,14 @@ function parseAttachedClause(c, subject) {
       // (permanentGrantedWardCosts reads `generic` only). A colored / {X} / life / discard ward grant falls
       // through to null below → the whole bonus drops → body-only, a safe FN (never a costless/wrong-cost ward).
       const wardM = seg.match(/^ward \{(\d+)\}$/);
-      if (wardM) { out.push({ layer: 6, op: { layerOp: "addWard", generic: parseInt(wardM[1], 10) }, duration: { kind: "permanent" } }); continue; }
+      if (wardM) {
+        if (condGate) return null;                       // a GATED ward is out of this slice
+        out.push({ layer: 6, op: { layerOp: "addWard", generic: parseInt(wardM[1], 10) }, duration: { kind: "permanent" } });
+        continue;
+      }
       const w = seg.replace(/[^a-z ]/g, "").trim();
       if (!w || !GRANTABLE_KEYWORDS.has(w)) return null;   // an unmodeled keyword/rider → whole bonus drops
-      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(w) }, duration: { kind: "permanent" } });
+      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(w), ...(condGate ? { gate: condGate } : {}) }, duration: { kind: "permanent" } });
     }
   }
   return out.length ? out : null;
