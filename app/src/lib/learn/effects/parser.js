@@ -3073,6 +3073,73 @@ function matchMetalcraftDamage(oracle) {
   }] };
 }
 
+// INSTEAD-AMOUNT (BLITZ INST-1, CR 608.2 + 614 "instead") — the condition-gated ability-word amount upgrade,
+// generalizing matchMetalcraftDamage beyond Metalcraft/artifacts to the wider "<base>. <Ability-word> —
+// <upgraded amount> instead if <condition>" family (Brimstone Volley's Morbid burn, Cackling Flames's Hellbent
+// burn, Firecannon Blast's Raid burn, Feed the Clan's Ferocious life, Hunger of the Howlpack's Morbid counter,
+// Mirran Mettle's Metalcraft pump, Tragic Slip's Morbid debuff). The second sentence REWRITES the amount
+// (CR 614 "instead"), so the sentence splitter would leave it as residue → low; collapsed into ONE atom
+// carrying `amountUpgrade` (a scalar amount read via the SHARED resolveScaledAmount) or `ptUpgrade` (the P/T
+// pair read in applyPumpEffect). Both readers evaluate the board condition at RESOLUTION (evaluateInterveningIf,
+// CR 608.2) and swap to the upgraded amount ONLY when it holds — the base amount otherwise (false-negative safe).
+//
+// The condition is gated on a CURATED ability-word → canonical-condition map AND spellConditionParseable: the
+// ability word is a designer LABEL, but the real guard is that the printed condition equals its word's exact,
+// reader-verified board query. This is what keeps the graveyard-count mis-reader out — Threshold ("seven or
+// more cards in your graveyard": no type word → unparseable) and Descend ("N or more permanent cards …": the
+// `\bPermanent\b` type-line scan reads 0 forever, a mis-reader) are NOT in the map, so Cabal Ritual / Join the
+// Dead / Kirtar's Wrath PARK (whole-card law). Both amounts are fixed numerals; a reworded upgrade (Arrow
+// Storm's added "damage can't be prevented"), an X amount (Crater's Claws "X plus 2"), a non-self-name burn, or
+// the leading-"If … instead" form all fail the exact anchors → low → Arbiter (CREED).
+const INSTEAD_ABILITY_WORD_CONDITION = {
+  metalcraft: "you control three or more artifacts",
+  morbid: "a creature died this turn",
+  hellbent: "you have no cards in hand",
+  raid: "you attacked this turn",
+  ferocious: "you control a creature with power 4 or greater",
+};
+// Accept a printed condition ONLY when it is the ability word's exact canonical query (CLOSED vocabulary) AND
+// the resolver can actually read it (spellConditionParseable — the metric⇄runtime shared gate); else null → park.
+function insteadCondition(word, cond) {
+  const canon = INSTEAD_ABILITY_WORD_CONDITION[word];
+  return canon && cond === canon && spellConditionParseable(cond) ? cond : null;
+}
+function matchInsteadAmountUpgrade(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  // Family 1 — self-name BURN (deal-damage). Galvanic Blast is caught by matchMetalcraftDamage first (its exact
+  // {kind:"artifactsYouControl"} shape preserved); this catches Brimstone Volley / Cackling Flames / Firecannon Blast.
+  let m = t.match(/^(.+?) deals (\d+) damage (to any target|to target creature)\. ([a-z][a-z ]*?) — \1 deals (\d+) damage instead if (.+)$/);
+  if (m) {
+    const cond = insteadCondition(m[4], m[6]);
+    if (!cond) return null;
+    return { atoms: [{ op: "deal-damage", amount: parseInt(m[2], 10), targetType: m[3] === "to any target" ? "any" : "creature", amountUpgrade: { condition: cond, amount: parseInt(m[5], 10) } }] };
+  }
+  // Family 2 — GAIN-LIFE (Feed the Clan): "you gain N life. <word> — you gain M life instead if <cond>".
+  m = t.match(/^you gain (\d+) life\. ([a-z][a-z ]*?) — you gain (\d+) life instead if (.+)$/);
+  if (m) {
+    const cond = insteadCondition(m[2], m[4]);
+    if (!cond) return null;
+    return { atoms: [{ op: "gain-life", amount: parseInt(m[1], 10), targetType: null, amountUpgrade: { condition: cond, amount: parseInt(m[3], 10) } }] };
+  }
+  // Family 3 — ADD-COUNTER (+1/+1 on the SINGLE target creature; the upgrade's "that creature" is the same
+  // chosen target — one atom, one target): Hunger of the Howlpack "put a … Morbid — put three … on that creature".
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on target creature\. ([a-z][a-z ]*?) — put (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on that creature instead if (.+)$/);
+  if (m) {
+    const cond = insteadCondition(m[2], m[4]);
+    if (!cond) return null;
+    return { atoms: [{ op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", amountUpgrade: { condition: cond, amount: SMALL_NUM[m[3]] ?? parseInt(m[3], 10) } }] };
+  }
+  // Family 4 — PUMP (single target creature, SIGNED P/T): Mirran Mettle "+2/+2 … Metalcraft — +4/+4 instead",
+  // Tragic Slip "-1/-1 … Morbid — -13/-13 instead". ptUpgrade swaps the whole P/T pair at resolution.
+  m = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) until end of turn\. ([a-z][a-z ]*?) — that creature gets ([+-]\d+)\/([+-]\d+) until end of turn instead if (.+)$/);
+  if (m) {
+    const cond = insteadCondition(m[3], m[6]);
+    if (!cond) return null;
+    return { atoms: [{ op: "pump", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, targetType: "creature", duration: "endOfTurn", ptUpgrade: { condition: cond, ptDelta: { p: parseInt(m[4], 10), t: parseInt(m[5], 10) } } }] };
+  }
+  return null;
+}
+
 // SELF-HIT DAMAGE (BLITZ OA-1 — the Orcish Artillery pinger frame): "<source> deals N damage to any
 // target and M damage to you." ONE deal-damage atom carrying the printed self-hit as `selfDamage` —
 // the resolver deals the target damage, then M to the CONTROLLER through the SAME applyDamageEffect
@@ -3297,6 +3364,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const mcd = matchMetalcraftDamage(oracle);
   if (mcd && mcd.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: mcd.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== INSTEAD-AMOUNT (BLITZ INST-1) ===== the condition-gated ability-word amount swap generalizing
+  // METALCRAFT-DAMAGE to the Morbid / Hellbent / Raid / Ferocious (+ Metalcraft pump / debuff) family → ONE
+  // atom with amountUpgrade / ptUpgrade (see matchInsteadAmountUpgrade). HIGH iff the op is KNOWN. Runs AFTER
+  // metalcraft so Galvanic Blast keeps its exact {kind:"artifactsYouControl"} shape (byte-identical).
+  const iau = matchInsteadAmountUpgrade(oracle);
+  if (iau && iau.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: iau.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== SELF-HIT DAMAGE (Orcish Artillery — BLITZ OA-1) ===== "deals N damage to any target and M damage
   // to you" → ONE deal-damage atom with selfDamage (see matchSelfHitDamage; collapsed before the splitter).

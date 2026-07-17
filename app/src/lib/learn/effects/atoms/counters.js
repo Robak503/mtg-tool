@@ -104,7 +104,11 @@ export function applyAddCounter(state, atom, ctx) {
   // it": the count is a trigger-context magnitude (ctx.combatDamageAmount, the damage just dealt), resolved via the
   // SHARED resolveScaledAmount (floored at 0 → a clean no-op on 0 damage). A fixed/dynamic form is unchanged
   // (countContext unset). Mutually exclusive with countFor by construction (the parser emits at most one).
-  const amount = atom.countContext ? Math.max(0, resolveScaledAmount(state, atom, ctx) || 0)
+  // INSTEAD-AMOUNT (BLITZ INST-1) — a `condition`-gated amountUpgrade (Hunger of the Howlpack "put a … Morbid —
+  // put three … instead if a creature died this turn") routes through the SHARED resolveScaledAmount too, which
+  // reads the board condition at RESOLUTION and swaps to the upgraded count when it holds (the base count
+  // otherwise). New field only the INSTEAD matcher emits, so every other add-counter is byte-identical.
+  const amount = atom.countContext || atom.amountUpgrade ? Math.max(0, resolveScaledAmount(state, atom, ctx) || 0)
     : atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor))
     : (atom.amount || 1);
   // PER-TARGET-DOUBLE (CR 121 — board-wide "double the number of +1/+1 counters on EACH creature you control":

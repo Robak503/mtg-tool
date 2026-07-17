@@ -10,6 +10,7 @@ import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
+import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated ptUpgrade; interveningIf → gameState is a leaf edge (no cycle)
 
 /** Tap / untap target creature(s), land(s), OR any permanent (CR 701.26). The CREATURE form is the original
  * (a chosen `type:"creature"` target). UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") targets a LAND;
@@ -179,8 +180,17 @@ export function applyPumpEffect(state, atom, ctx) {
   // Overrun-X behavior). Mirrors amountXSlot exactly but for the board-count (`scaled`) magnitude, not ctx.xValue.
   const cP = scaled != null && (!atom.ptDeltaCountSlot || atom.ptDeltaCountSlot === "p");
   const cT = scaled != null && (!atom.ptDeltaCountSlot || atom.ptDeltaCountSlot === "t");
-  const power = cP ? scaled : (scaled != null && !cP ? (atom.ptDelta?.p || 0) : (xP ? xSigned : atom.ptDelta?.p || 0));
-  const toughness = cT ? scaled : (scaled != null && !cT ? (atom.ptDelta?.t || 0) : (xT ? xSigned : atom.ptDelta?.t || 0));
+  // CONDITION-GATED P/T UPGRADE (BLITZ INST-1, CR 608.2 + 614 "instead") — the ability-word pump swap (Mirran
+  // Mettle "gets +4/+4 instead if you control three or more artifacts"; Tragic Slip's Morbid -13/-13): the
+  // board condition is read at RESOLUTION via the shared intervening-if evaluator; when it holds, the printed
+  // base ptDelta is replaced by the upgraded pair. `ptUpgrade` is a NEW field only the INSTEAD matcher emits
+  // (and it never co-occurs with the X / board-count pump paths), so every existing pump is byte-identical;
+  // a false/null read keeps the base ptDelta (false-negative safe — the curated parser gate blocks a wrongly
+  // applied upgrade, CREED).
+  const pt = (atom.ptUpgrade?.condition && evaluateInterveningIf(state, atom.ptUpgrade.condition, ctx.controller, ctx) === true)
+    ? atom.ptUpgrade.ptDelta : atom.ptDelta;
+  const power = cP ? scaled : (scaled != null && !cP ? (pt?.p || 0) : (xP ? xSigned : pt?.p || 0));
+  const toughness = cT ? scaled : (scaled != null && !cT ? (pt?.t || 0) : (xT ? xSigned : pt?.t || 0));
   // Chosen targets for a single-creature pump (Giant Growth), EVERY creature for a mass
   // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
   // Languish), or the controller's creatures for a TEAM pump (atom.scope "youControl" — Overrun

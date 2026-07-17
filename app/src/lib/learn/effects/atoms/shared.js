@@ -8,6 +8,7 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -726,6 +727,18 @@ export const resolveScaledAmount = (state, atom, ctx) => {
     const n = (state.players?.[ctx.controller]?.battlefield || [])
       .filter((p) => /\bArtifact\b/i.test(String(p.card?.type || p.card?.type_line || ""))).length;
     if (n >= (atom.amountUpgrade.atLeast ?? Infinity)) return atom.amountUpgrade.amount;
+  }
+  // CONDITION-GATED AMOUNT UPGRADE (BLITZ INST-1, CR 608.2 + 614 "instead") — the generalized ability-word
+  // amount swap (Brimstone Volley "deals 5 instead if a creature died this turn"; Feed the Clan's Ferocious
+  // life; Hunger of the Howlpack's Morbid counter): the board condition is read at RESOLUTION via the SHARED
+  // intervening-if evaluator, and when it holds the printed base amount is replaced by the upgraded amount.
+  // The parser attaches `condition` ONLY for a curated, spell-readable board query (the metric⇄runtime shared
+  // gate), so a real game state yields a definite true/false here; a false/null read (condition unmet, or
+  // can't confirm) falls through to the base amount below — the false-negative-safe direction (CREED — a
+  // wrongly-true condition applying the bigger amount would be a forbidden FP, which the curated gate prevents).
+  if (atom.amountUpgrade?.condition
+      && evaluateInterveningIf(state, atom.amountUpgrade.condition, ctx.controller, ctx) === true) {
+    return atom.amountUpgrade.amount;
   }
   return atom.countContext ? halveAmount(ctx[atom.countContext] || 0, atom.halve)
     : atom.amountCount ? halveAmount(countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1), atom.halve)
