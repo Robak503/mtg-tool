@@ -842,6 +842,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     // Checked BEFORE the bare creatureSubjectScope / subtype matchers because those don't see "nontoken".
     const ntCreatureDies = c.match(/^a nontoken creature you control dies$/);
     if (ntCreatureDies) return { event: "dies", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
+    // "ANOTHER nontoken creature you control dies" (Sek'Kuar, Grim Haruspex, Agent Venom, the aristocrats
+    // "another nontoken creature" payoffs) — the source-EXCLUDING analog of the line above, the DIES mirror of
+    // the "another nontoken creature you control enters" ETB carve-out. Same scope-expressible nontoken
+    // restriction (CR 111.1): otherCreatureYouControl gates on same-controller + not-self + isCreaturePerm, and
+    // the pre-switch nontokenFilter gate excludes a token death — so the source's own token minted by the payoff
+    // (Sek'Kuar's Graveborn, Agent Venom's… none) can never re-fire, and the "another" id-check excludes the
+    // source itself. Checked BEFORE creatureSubjectScope (which returns null for the "nontoken"-carrying subject).
+    if (subjectBefore(c, "dies") === "another nontoken creature you control")
+      return { event: "dies", scope: "otherCreatureYouControl", whose: "any", nontokenFilter: true };
     // The NON_SUBTYPE_ETB_WORDS denylist (shared with the ETB path) rejects a meta-word subject
     // ("permanent"/"planeswalker"/a color) whose typeStr-substring scope check would silently never fire —
     // claiming native on a do-nothing trigger is a CREED FP. "artifact"/"enchantment" are NOT denylisted
@@ -965,6 +974,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     // "a creature you control" PiG (the dies-equivalent LTB wording — fires on a graveyard exit only).
     if (pigSubj === "a creature you control")
       return { event: "permanentLeaves", scope: "creatureYouControlPiG", whose: "any" };
+    // "an enchantment you control is put into a graveyard from the battlefield" (Wicked Visitor, Ashiok's
+    // Reaper, Knight of Doves, Savior of the Sleeping — the enchantment-death aristocrats) — the ENCHANTMENT
+    // analog of the artifact/creature PiG scopes above. Graveyard exit only (CR 700.4). No "another" here → the
+    // source self-includes (an enchantment-typed source dying fires its own PiG, CR-correct); the current corpus
+    // sources are all creatures (never enchantments), so self never matches in practice. The payoffs ("each
+    // opponent loses 1 life" / "draw a card" / "create a token" / "put a +1/+1 counter on this creature") parse
+    // HIGH and reference the SOURCE, not the leaving enchantment — no pronoun binding needed.
+    if (pigSubj === "an enchantment you control")
+      return { event: "permanentLeaves", scope: "enchantmentYouControlPiG", whose: "any" };
   }
   // LEAVES (any zone): "a token you control leaves the battlefield" (Nadier's Nightblade) — fires on a token's
   // exit to ANY zone (death, sac, bounce, exile), CR 111.7. The token gate is on the leaving permanent's
@@ -973,6 +991,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     const ltbSubj = c.replace(/\s+leaves the battlefield$/, "").trim();
     if (ltbSubj === "a token you control")
       return { event: "permanentLeaves", scope: "tokenYouControlLeaves", whose: "any" };
+    // "another creature you control leaves the battlefield" (Ninth Bridge Patrol, Flaming Fist Officer) — the
+    // CREATURE any-exit LEAVES analog of the token form above: fires on EVERY exit of another creature you
+    // control (death, sac, bounce, exile, tuck — CR 603.6c has no zone gate, unlike the graveyard-only PiG
+    // scopes). otherCreatureYouControlLeaves gates on isCreaturePerm + same-controller + not-self (the "another"
+    // id-check, so the source's own leave never self-fires). The clean corpus payoff is a self-pump ("put a
+    // +1/+1 counter on this creature") — references the SOURCE, no leaving-creature pronoun binding. A
+    // self-or-another / leaves-without-dying / intervening-if variant leaves residue → stays UNDETECTED → Arbiter.
+    if (ltbSubj === "another creature you control")
+      return { event: "permanentLeaves", scope: "otherCreatureYouControlLeaves", whose: "any" };
   }
   // "Leaves the battlefield" (LTB) for OTHER subjects is intentionally NOT detected here: a self-LTB / un-scoped
   // form whose effect the engine can't fire would be a false positive (the whole ability silently does nothing,
@@ -3157,10 +3184,27 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
         && isCreaturePerm(triggeringPermanent);
+    case "enchantmentYouControlPiG":
+      // "an enchantment you control is put into a graveyard from the battlefield" (Wicked Visitor, Ashiok's
+      // Reaper, Knight of Doves, Savior of the Sleeping) — the ENCHANTMENT analog of artifactYouControlPiG.
+      // Graveyard exit only; type-line substring (CR 205.2 — an Enchantment Creature / Aura matches too) +
+      // controller gate. No excludeSelf: the bare "an enchantment you control" self-includes (a source that is
+      // itself an enchantment fires on its own PiG, CR-correct), matching the creature/artifact bare forms.
+      return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && /Enchantment/.test(typeStr(triggeringPermanent.card));
     case "tokenYouControlLeaves":
       // Nadier's Nightblade — "a token you control leaves the battlefield". ANY exit (no graveyard gate), CR 111.7.
       // The token gate is the leaving permanent's card.token flag (the token-factory convention); a nontoken never fires.
       return !!triggeringPermanent && !!triggeringPermanent.card?.token
+        && triggeringPermanent.controller === sourcePermanent.controller;
+    case "otherCreatureYouControlLeaves":
+      // "another creature you control leaves the battlefield" (Ninth Bridge Patrol, Flaming Fist Officer) — the
+      // CREATURE any-exit LEAVES analog of tokenYouControlLeaves: fires on EVERY exit (no leftToGraveyard gate,
+      // CR 603.6c). isCreaturePerm + same-controller + not-self (the "another" exclusion, so the source's own
+      // leave — arriving via the self look-back with source===triggering — never self-fires).
+      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id
+        && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOpponentControls":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
