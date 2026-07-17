@@ -14,7 +14,17 @@
 > restored), until he stops me or interjects from his phone. 1.0 roadmap + Vault deferred to a full weekend
 > sitting. Floor relit: 3 Fable seats.
 >
-> **~10:15 checkpoint — day-shift grind rolling, 32.92% (11,247), suite 9,874.** Landed since relight:
+> **~11:30 checkpoint — 33.42% (11,420), suite 9,998, day-shift +199.** Since 10:15: **TR-2** trigger scopes
+> (91ab0265, +31 — each-player-upkeep + blocks/becomes-blocked + attacks-alone; 4 house cites corrected in new
+> text) · **CS-1** combat statics (7aaa6b47, +31 — multi-block WITH the CR 510.1d damage-division fix the old
+> loop lacked (full-power-to-each was fabricated damage), must-be-blocked, can't/must-attack-unless; fixed
+> Reckless Cohort over-enforcement) · **CA-2** self as-long-as gates (581c058f, **+85 — CAMPAIGN'S BIGGEST
+> SLICE**; 16 gate families incl. life/hand/GY/poison/planeswalker-type/counters; rightly parked color-counts
+> on derive re-entry risk) · **CC-2** counter-cost activations (f2f7a791, +26 — the Thallid tribe pays;
+> latent costX no-choice-gate seam closed). Queue from census follow-ups: CC-3a X-count lane, CC-3b self-NAME
+> costs (~49), DF-1 "as though no defender" [SAP] statics, aura-residue staged program (979 pool).
+>
+> **(superseded ~10:15 checkpoint) — 32.92% (11,247), suite 9,874.** Landed since relight:
 > **CEN-3** fresh census (085d2dbe — THE vein map: 17,395 body-only, 10,908 single-residue; top-12 ranked
 > with collision groups; read it before picking any lane) · **EV-3** set-level ≥N min-blockers + compound/
 > subtype except-by (f7e22399, +8 — ALSO fixed a pre-existing menace offer-gate wedge where a legal 2-blocker
