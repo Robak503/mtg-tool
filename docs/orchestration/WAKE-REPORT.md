@@ -1,5 +1,19 @@
 # WAKE REPORT — live resume anchor
 
+## ☀️ 2026-07-17 ~09:15 — FLAKE CLOSED + FLOOR RELIT (Colton: full-autonomy grind, Fable back, until he calls stop)
+
+> **selfPlayRunner flake ROOT-CAUSED and fixed (51418c92)**: engine PROVEN deterministic — a 960-game probe
+> (300× same-seed with id-reset, 300× without, 120 batches) produced ONE fingerprint per scenario, plus 12/12
+> green full-suite reruns. Diagnosis: spurious timeout under MULTI-SUITE contention (3 agent gates + the
+> integration gate concurrently), the class vitest.config.js documents. Fix: legacy nextId de-randomized
+> (was crypto.randomUUID — ids feed sort tie-breaks, a replay hazard), NEW selfPlaySeatingDeterminism.test.js
+> (5 load-independent pins incl. serialize→mid-game-restore→byte-identical continuation), 90s per-file ceiling
+> on the heavy runner file. Gate: 9,825 green, lint 0, flip-diff 0. v0.145.0 CI was queued at ~08:45 (~22 min
+> typical) — verify the release published when checking in.
+> **STANDING ORDER (Colton, 09:10)**: corpus grind NON-STOP, full autonomy, dynamic agent/model choice (Fable
+> restored), until he stops me or interjects from his phone. 1.0 roadmap + Vault deferred to a full weekend
+> sitting. Floor relit: 3 Fable seats.
+
 ## 🌅 2026-07-17 ~08:40 — WIND-DOWN (Colton called it) — FLOOR EMPTY, v0.145.0 CUT — 32.85%, suite 9,820
 
 > Colton stopped the floor and asked to wind down. All three in-flight seats harvested clean and swept:
