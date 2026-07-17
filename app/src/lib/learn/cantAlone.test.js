@@ -28,9 +28,11 @@ describe("reader + classify", () => {
     // (isEnforcedEvasionClause takes pre-lowercased clauses — the isKeywordOnly caller's convention.)
     expect(isEnforcedEvasionClause("this creature can't attack or block alone")).toBe(true);
   });
-  it("the pure bodies flip native-body; a mentor rider keeps the card parked (whole-card CREED)", () => {
+  it("the pure body flips native-body; Wojek (Mentor + can't-alone, both now modeled) flips too (BLITZ MN-1)", () => {
     expect(classifyCard(MOGG_FLUNKIES)).toBe("native-body");
-    expect(classifyCard(WOJEK_BODYGUARD)).toBe("body-only");
+    // Wojek Bodyguard used to park here because Mentor was unmodeled; with MN-1 (CR 702.134) landing the
+    // mentor keyword→trigger synthesis, BOTH of Wojek's clauses are modeled, so the whole card is native.
+    expect(classifyCard(WOJEK_BODYGUARD)).toBe("native-body");
   });
 });
 

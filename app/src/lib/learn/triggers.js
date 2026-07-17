@@ -1514,6 +1514,20 @@ export function afterlifeKeywordValues(oracle) {
   return out;
 }
 
+/** MENTOR (BLITZ MN-1, CR 702.134b) — the STRUCTURAL instance counter (the battle-cry matcher: a whole
+ * comma-segment must be exactly "mentor"; multiples each trigger separately per CR 702.134b). A GRANT
+ * ("…and has mentor" — Aegis of the Legion / Nyxborn Unicorn's enchanted-creature line) or any mid-sentence
+ * use never counts (CREED — a keyword grant would never self-synthesize). Shared by the detectTriggers
+ * synthesis and coverage's shaped-count bump so the two can't drift. */
+export function mentorKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  let n = 0;
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) if (seg.trim().toLowerCase() === "mentor") n++;
+  }
+  return n;
+}
+
 /** KW-PERSIST (BLITZ PS-1, CR 702.79a) — the STRUCTURAL matcher, undying's exact mirror: a whole
  * comma-segment must be exactly "persist", so a grant ("…gains persist" — Cauldron of Souls) or a
  * mid-sentence use never counts. Shared by the synthesis and coverage's shaped bump. */
@@ -2599,6 +2613,26 @@ export function detectTriggers(card) {
       event: "attacks", scope: "self", whose: "any",
       effect: null, effectClause: "each other attacking creature gets +1/+0 until end of turn",
       optional: false, sourceText: "Battle cry",
+    });
+  }
+  // MENTOR (BLITZ MN-1, CR 702.134a) — KEYWORD→TRIGGER synthesis (the reminder-parens keyword, battle cry's
+  // attacks-event precedent): "Whenever this creature attacks, put a +1/+1 counter on target attacking creature
+  // with lesser power." One descriptor PER printed instance (CR 702.134b — multiples trigger separately). The
+  // effectClause parses to the add-counter atom carrying restrictions [combat:"attacking", powerVsSource:"<"] —
+  // the DYNAMIC comparison (target power STRICTLY below the source's, layer-aware, CR 702.134a: equal power is
+  // NOT lesser), enforced at enumeration by creatureSatisfiesRestrictions (it reads ctx.sourceId's current power
+  // and fail-closes when the source is unresolvable → no legal target, never a wrong/illegal pick). A +1/+1
+  // counter is own-intent, so the enemy/own flush chooser (chooseTriggerTargets) only ever picks the
+  // controller's OWN attacking creature of lesser power; a mentor attacking ALONE has no OTHER attacking
+  // creature of lesser power (its own power is not < itself), so the trigger is removed with no legal target
+  // (CR 603.3c — it fires nothing). Fired by checkAttackTriggers, which threads the attacker as the source
+  // permanent → buildTriggerStack passes ctx.sourceId into the enumerator. A grant ("…and has mentor" — Aegis
+  // of the Legion / Nyxborn Unicorn) never self-synthesizes (mentorKeywordCount — structural, CREED).
+  for (let i = mentorKeywordCount(oracle); i > 0; i--) {
+    out.push({
+      event: "attacks", scope: "self", whose: "any",
+      effect: null, effectClause: "put a +1/+1 counter on target attacking creature with lesser power",
+      optional: false, sourceText: "Mentor",
     });
   }
   // CONTACT DAMAGE (BLITZ IE-1 — Inferno Elemental / Ornery Goblin / Ashmouth Hound: "Whenever this

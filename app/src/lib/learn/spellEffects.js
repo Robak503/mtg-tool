@@ -383,6 +383,20 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       const pw = creaturePower(perm, state);
       if (r.op === "<=" && !(pw <= r.value)) return false;
       if (r.op === ">=" && !(pw >= r.value)) return false;
+    } else if (r.kind === "powerVsSource") {
+      // MENTOR (BLITZ MN-1, CR 702.134a) — "target attacking creature with lesser power": the target's power
+      // must be STRICTLY below the SOURCE's (op "<"; CR 702.134a — equal power is NOT lesser). Both reads are
+      // LAYER-AWARE (creaturePower folds counters/anthems/pumps), evaluated at the choice (flush enumeration) —
+      // the ONLY CR-honest moment for a dynamic comparison. The source is ctx.sourceId (the mentor), threaded
+      // by buildTriggerStack from the attacks trigger. FAIL-CLOSED when the source is unresolvable (no
+      // ctx.sourceId, or it already left play): no creature qualifies → the pool empties and the trigger drops
+      // no-target (SAFE, CREED — never a wrongly-legal equal/greater-power target). The op "<" naturally
+      // excludes the source itself (its power is never < its own), so a mentor attacking alone finds no target.
+      if (!ctx?.sourceId) return false;
+      const srcLk = findPermanent(state, ctx.sourceId);
+      if (!srcLk) return false;
+      const srcPw = creaturePower(srcLk.permanent, state);
+      if (r.op === "<" && !(creaturePower(perm, state) < srcPw)) return false;
     } else if (r.kind === "combat") {
       const atk = (state.combat?.attackers || []).some((a) => a.permanentId === perm.id);
       const blk = (state.combat?.blockers || []).some((b) => b.blockerId === perm.id);

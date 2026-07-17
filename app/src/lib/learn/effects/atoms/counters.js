@@ -473,6 +473,17 @@ export function addCounterClauseParser(clause) {
   // qualifies (the printed target carries no controller restriction).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature that entered this turn$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", restrictions: [{ kind: "enteredThisTurn" }] };
+  // MENTOR (BLITZ MN-1, CR 702.134a) — the keyword's synthesized attacks trigger: "put a +1/+1 counter on target
+  // attacking creature with lesser power". The chosen-creature atom narrowed by TWO restrictions the enumerator
+  // enforces: combat:"attacking" (the target must be a current attacker) AND powerVsSource:"<" (the target's
+  // power STRICTLY below the SOURCE mentor's — layer-aware via ctx.sourceId; CR 702.134a: equal power is NOT
+  // lesser). Only the +1/+1 printed form (fixed count 1). A +1/+1 counter is own-intent (atomTargetIntent), so
+  // the enemy/own flush chooser only ever places it on the controller's own attacking creature of lesser power;
+  // creatureSatisfiesRestrictions fail-closes when the source is unresolvable, so an equal/greater-power,
+  // non-attacking, or wrong-side pick is impossible (CREED — the FP direction). Whole-clause anchored; any
+  // rider/variant leaves residue → no match → LOW → Arbiter (a SAFE false-negative).
+  m = t.match(/^put a \+1\/\+1 counter on target attacking creature with lesser power$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature", restrictions: [{ kind: "combat", value: "attacking" }, { kind: "powerVsSource", op: "<" }] };
   // MULTI-COUNT (CR 601.2c "up to N") — "put <N> <±1/±1> counter(s) on each of up to <K> target creatures[ you
   // control]" → the chosen-target multi-count (applyAddCounter already LOOPS ctx.targets, applying `amount` to EACH;
   // targeting.expandAtoms offers each 0..K subset). maxTargets:K. Distinct from the dice-roll scope:"upToTwoYouControl"
