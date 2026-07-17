@@ -750,6 +750,15 @@ export function applyMill(state, atom, ctx) {
     // mirrors the rad damagedPlayer resolver's guard).
     const pid = ctx.damagedPlayerId;
     if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
+  } else if (atom.who === "defendingPlayer") {
+    // DEFENDING-PLAYER mill (BLITZ DM-1 — CR 508.5 referent / CR 701.17 mill) — the attacked player the
+    // attacking creature's trigger refers to (ctx.defenderId, threaded by checkAttackTriggers on `attacks`
+    // AND checkBlockTriggers on `becomesBlocked`). Absent / eliminated referent (a spell, a non-combat
+    // trigger, a player who left the game) → mill nobody (a clean no-op, never a wrong-player mill — the
+    // exact mirror of applyLoseLife's AFFLICT defendingPlayer branch and the damagedPlayer resolver above).
+    // Multiplayer: exactly the one specific defending player (CR 508.5a), never every opponent.
+    const pid = ctx.defenderId;
+    if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
   } else if (atom.who === "untappedController") {
     // BECOMES-UNTAPPED (Mesmeric Orb) — the just-untapped permanent's controller (ctx.untappedControllerId,
     // threaded by checkUntapTriggers). Absent/eliminated → mill nobody.
@@ -1355,6 +1364,20 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
+  // ===== DEFENDING-PLAYER mill (BLITZ DM-1 — CR 508.5: an ability of an attacking creature that refers to
+  // the defending player; CR 701.17 mill) ===== "defending player mills N cards" on an ATTACKS trigger
+  // (Nemesis of Reason "mills ten cards") OR a BECOMES-BLOCKED trigger (Flint Golem "mills three cards" — the
+  // ability still belongs to the attacking creature, so CR 508.5 still names the referent). who:"defendingPlayer"
+  // reads ctx.defenderId — the per-attacker defending player threaded by triggers.checkAttackTriggers (attacks)
+  // AND triggers.checkBlockTriggers (becomesBlocked, CR 509.1h), the EXACT referent AFFLICT's "defending player
+  // loses N life" rides. NON-targeted (the defender is the trigger's referent, not a chosen target →
+  // targetType:null → programNeedsChosenTarget false → routes natively on the attack/blocked flush), and a clean
+  // no-op outside those events (no ctx.defenderId → applyMill's defendingPlayer branch skips, never a wrong-player
+  // mill — a forbidden FP). The combat-referent gate in triggerRouting.js (DEFENDING_PLAYER_EVENTS) already
+  // restricts this referent to attacks/becomesBlocked. FIXED-N only; a "half their library"/scaled form fails the
+  // `$` anchor (Lord Xander, Terisian Mindbreaker — dynamic half-library) → Arbiter (a SAFE false-negative).
+  m = t.match(/^defending player mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "defendingPlayer", targetType: null };
   // BECOMES-UNTAPPED payoff (Mesmeric Orb — "that permanent's controller mills a card"): the referent is
   // the just-untapped permanent's controller (ctx.untappedControllerId, threaded by checkUntapTriggers).
   // Gated to the untapped event by combatDamageReferentSatisfied; absent referent → mill nobody.
