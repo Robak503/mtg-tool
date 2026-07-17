@@ -40,6 +40,13 @@
  * of restriction objects; canBlockAttacker() short-circuits on the first match. Compound "A or B"
  * restrictions (e.g., "can't be blocked by knights or walls") are not parsed — all-or-nothing
  * (safe false-negative). Team grants and set-level "more than one creature" are also excluded here.
+ *
+ * EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — the INVERSE shape "this creature can't be blocked EXCEPT by
+ * <filter>" (a blocker is legal ONLY if it MATCHES the filter). parseAttackerExceptions() parses the two
+ * clean-reuse filter families — the flying keyword ("creatures with flying" / "creatures with flying or
+ * reach") and color ("<color> creatures") — reusing the exact CR 702.9b flying/reach gate and the color-set
+ * gate. Same SELF-ONLY, unconditional contract; a compound "and/or" filter, a set-level "N or more creatures"
+ * (menace-family), or a subtype/legendary/artifact/defender filter is rejected → the card stays body-only.
  */
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
@@ -169,6 +176,51 @@ function parseAttackerRestrictions(card) {
     // Anything else — skip (safe FN, the card stays body-only if the restriction can't be modeled)
   }
   return restrictions;
+}
+
+/**
+ * EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — parse a self-creature "this creature can't be blocked EXCEPT by
+ * <filter>" evasion. The INVERSE of parseAttackerRestrictions: a blocker is legal ONLY if it MATCHES the
+ * filter (a non-matching blocker can't block it). Returns an array of exception objects; empty = none.
+ *   { kind:"keyword", keyword:"Flying" }  — blocker MUST have flying ("except by creatures with flying"; a
+ *                                           reach-only creature does NOT satisfy this filter — flying is required)
+ *   { kind:"flyingOrReach" }              — blocker MUST have flying OR reach ("… flying or reach"): the fixed
+ *                                           idiom that maps EXACTLY to the CR 702.9b flying-block predicate
+ *   { kind:"color", color:"W"|"U"|"B"|"R"|"G" } — blocker MUST be that color ("except by <color> creatures")
+ *
+ * Safety contract (mirrors parseAttackerRestrictions): SELF-subject only (the subject is "this creature"/"it"
+ * after name-normalization — the board-wide tribal "Slivers can't be blocked except by Slivers" is NOT this
+ * shape and stays with GROUP-EVASION), unconditional (no "as long as"/"if"/"until"/"this turn" rider), and a
+ * COMPOUND "and/or" filter (Amrou Seekers "artifact and/or white creatures") or a set-level "N or more
+ * creatures" (Guile, the menace-family ≥N rule — NOT pairwise) is rejected WHOLE → the card stays body-only
+ * (safe FN). Subtype ("Rogues"/"Spirits"), "artifact creatures", "legendary creatures", and "creatures with
+ * defender/flavor text" filters are deliberately NOT admitted here (each would need its own vetted blocker-side
+ * gate) — only the flying-keyword and color filters, whose blocker-side gates already exist and are reused
+ * verbatim in canBlockAttacker.
+ */
+function parseAttackerExceptions(card) {
+  const oracle = selfOracle(card);
+  const exceptions = [];
+  const RE_CLAUSE = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked except by ([^.;\n]+?)(?:\.|$)/gi;
+  let m;
+  while ((m = RE_CLAUSE.exec(oracle)) !== null) {
+    const raw = m[1].trim().toLowerCase().replace(/['']/g, "'");
+    // Conditional riders — a live-condition variant ("as long as …"/"if …"/"until …"/"this turn") → safe FN.
+    if (/\bas long as\b|\bif\b|\buntil\b|\bthis turn\b/.test(raw)) continue;
+    // "creatures with flying or reach" — the fixed flying/reach idiom. Contains "or", so it is matched BEFORE
+    // the generic "or"/"and" compound rejection below. Maps to the exact CR 702.9b flying-block predicate.
+    if (raw === "creatures with flying or reach") { exceptions.push({ kind: "flyingOrReach" }); continue; }
+    // "creatures with flying" — blocker must HAVE flying (reach alone does NOT satisfy this filter, CR 702.9b).
+    if (raw === "creatures with flying") { exceptions.push({ kind: "keyword", keyword: "Flying" }); continue; }
+    // Reject compound "and/or" filters (can't model both) and set-level "N or more creatures" (menace-family
+    // ≥N rule, enforced at resolution — not a pairwise blocker-eligibility gate). Both → safe FN.
+    if (/\bor\b|\band\b|\bmore\b/.test(raw)) continue;
+    // "[Color] creatures" — blocker must BE that color (a colorless / off-color blocker can't block).
+    const colM = raw.match(/^(white|blue|black|red|green) creatures?$/);
+    if (colM) { exceptions.push({ kind: "color", color: BLOCKER_COLOR_WORDS[colM[1]] }); continue; }
+    // Anything else (subtype, artifact, legendary, defender, flavor text) — skip (safe FN; card stays body-only).
+  }
+  return exceptions;
 }
 
 // ── GROUP-EVASION (Shifting Sliver / Serpent of Yawning Depths) ──
@@ -397,6 +449,12 @@ export function isEnforcedEvasionClause(clause) {
   // non-keyword text is this static is honestly native.
   if (/^(?:this creature |it )?can't be blocked by more than one creature$/.test(c)) return true;
   if (reEvasionQualifier.test(c)) return true;
+  // EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — "can't be blocked except by creatures with flying[ or reach]" /
+  // "… except by <color> creatures". Enforced in canBlockAttacker (parseAttackerExceptions): a blocker not
+  // matching the filter can't block, so a body whose only non-keyword text is this static is honestly native.
+  // Mirrors parseAttackerExceptions EXACTLY (flying / flying-or-reach / color) so the metric and the runtime
+  // stay in lockstep; a compound "and/or" or a subtype/legendary filter is NOT credited (it stays body-only).
+  if (/^(?:this creature |it )?can't be blocked except by (?:creatures with flying(?: or reach)?|(?:white|blue|black|red|green) creatures)$/.test(c)) return true;
   // RAD-CONDITIONAL UNBLOCKABLE (Nightkin Ambusher) — credited here so a body whose only non-keyword text is
   // this conditional evasion static is honestly native; canBlockAttacker enforces the rad-counter condition.
   if (/^(?:this creature |it )?can't be blocked as long as defending player has a rad counter$/.test(c)) return true;
@@ -570,6 +628,22 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
       }
       if (r.kind === "token" && bIsToken) return false;
       if (r.kind === "subtype" && bSubtypes.has(r.subtype.toLowerCase())) return false;
+    }
+  }
+
+  // EVASION-EXCEPT (BLITZ EV-2, CR 509.1b) — parsed "can't be blocked EXCEPT by [filter]" evasion: the blocker
+  // must MATCH the filter, else it may not block (the INVERSE of EVASION-QUALIFIER above). Layer-aware on the
+  // blocker's keywords/colors (permanentHasKeyword / permColorSet), so a granted flying/reach or a
+  // granted/removed color is honored live. Cumulative with every other restriction (CR 509.1b — a false here
+  // short-circuits the block).
+  const exceptions = parseAttackerExceptions(aCard);
+  for (const e of exceptions) {
+    if (e.kind === "flyingOrReach") {
+      if (!(permanentHasKeyword(state, blockerId, "Flying") || permanentHasKeyword(state, blockerId, "Reach"))) return false;
+    } else if (e.kind === "keyword") {
+      if (!permanentHasKeyword(state, blockerId, e.keyword)) return false;
+    } else if (e.kind === "color") {
+      if (!permColorSet(state, blockerId).has(e.color)) return false;
     }
   }
 
