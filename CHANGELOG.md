@@ -8,6 +8,39 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.146.0] — 2026-07-17
+
+### Added
+- **+398 more cards join native rules coverage** (corpus 32.85% → 34.01% — 11,619 of 34,161),
+  from a day-long census-driven grind: a fresh whole-corpus body-only census ranked the veins,
+  then 23 engine slices mined them in parallel, each desk-audited with a tier-fingerprint flip-diff
+  proving zero native regressions. The headline additions, grouped:
+  - **"As long as" conditional statics** — live board-condition gates re-evaluated every derive:
+    group anthems (Divine Sacrament, Jetmir) and self-buffs (Serra Ascendant, Adanto Vanguard,
+    Tarmogoyf-kin thresholds) keyed to life totals, hand/graveyard counts, poison, metalcraft,
+    attach state, your-turn, and planeswalker-type — 100+ cards across the two halves.
+  - **Characteristic-defining power/toughness** — the `*/*` creatures (Tarmogoyf, Maro, Lhurgoyf,
+    Multani) now compute their real P/T in the correct layer sublayer, with counters and pumps
+    stacking on top; this also closed a latent bug where they classified native but played as 0/0.
+  - **Trigger scopes** — each-player's-upkeep, blocks/becomes-blocked, attacks-alone, the end step,
+    artifact-into-graveyard, and cast-quality filters (historic, multicolored).
+  - **The aura program** — the enchant→attach→grant→falls-off pipeline extended across pump+keyword
+    riders (Runemark cycle), pacifism-locks and can't-activate restrictions (Arrest — closing a
+    mana-tap leak), aura-own regeneration, and aura-own triggered abilities (Curiosity, Sigil of Sleep).
+  - **Combat** — set-level "can't be blocked by fewer than N" (fixing a menace two-blocker wedge),
+    multi-block with correct CR 510.1d damage division, must/can't-attack-unless, static damage
+    prevention (Fog Bank takes and deals zero and survives blocking a 6/6).
+  - **Counters & keywords** — remove-N-counters activation costs (the Thallid tribe), enters-with
+    counter-kind and conditional (morbid/raid) extensions, proliferate count generalization,
+    connive and suspect, kicked keyword grants.
+  - **Tokens** — quoted dies-triggers and plural mana-token boundaries.
+  - **Spells** — count-scaled magnitudes ("deal/gain equal to the number of…"), and a flashback
+    graveyard-recast + mandatory-exile capability (runtime foundation for jump-start/retrace).
+- **Fixed a full-suite test flake** — a self-play seating test that failed only under parallel
+  load. Root-caused as a spurious timeout under multi-suite CPU contention (the engine was proven
+  deterministic by a 960-game same-seed probe); removed the last entropy source from the id path
+  and added load-independent determinism pins.
+
 ## [0.145.0] — 2026-07-17
 
 ### Added

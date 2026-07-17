@@ -1,5 +1,32 @@
 # WAKE REPORT — live resume anchor
 
+## 🌇 2026-07-17 ~15:30 — DAY-SHIFT WIND-DOWN (Colton called it) — FLOOR EMPTY — 34.01%, suite 10,307, v0.146.0 cut
+
+> Colton called the wind-down and asked for memory + push + omnath comms. All three in-flight seats harvested
+> clean and swept — **UT-1** group don't-untap lock (87656bca, +5 Winter-Orb/Meekstone), **TR-3** trigger scopes
+> R2 (3ee079ba, +44 historic/multicolored/end-step/artifact-PiG), **FE-1** for-each drain-by-count (cd66f0f1, +4).
+> **No agent worktrees remain.**
+> **FINAL DAY STATE: 34.01% native = 11,619 / 34,161 (crossed 34%), suite 10,307 green, LOST=0 on every genuine
+> native across all 23 slices.** Day-shift NET +398 (from the v0.145.0 morning at 32.85%). Method: the CEN-3
+> whole-corpus census (085d2dbe) ranked the veins, then census-driven parallel Opus seats mined them — no more
+> guessing. Fable credits ran out ~12:00 → switched to Opus (Colton's standing order); the earlier selfPlayRunner
+> flake was root-caused + fixed (51418c92, engine proven deterministic).
+> **CORRECTNESS WINS beyond coverage:** killed latent FPs (Tarmogoyf 0/0, Arrest mana-tap leak, magecraft copy-half,
+> menace 2-blocker wedge, multi-block CR 510.1d damage-division); swept 36 stale 701.15→701.19 regen cites +
+> corrected in-flight cites (509.1c, 201.4→201.5, 701.27/701.28→701.34, 613.3c→613.4c, 514→513, 702.x→700.6).
+> **KEY STRATEGIC FINDINGS (for the next grind session):** modal vein is MINED OUT (singleton-atom tail, drop it);
+> alt-cast/flashback is CAPABILITY-ONLY (+0 coverage — the strip already flips native bodies, so jump-start/retrace
+> won't move the metric either); the aura program is the most fertile remaining vein (stage 4+: aura dies-triggers
+> ~49 + counter-on-enchanted need [TRG]/[EFX]); group quoted-grant statics (133, [SAP]+[TRG]) and the face-down
+> (164) + subgame (126) new-subsystems are the biggest untapped tier-movers.
+> **DEFERRED / FLAGGED (queued for future slices):** the detectTriggers period-truncation bug (TK-1: quoted-ability
+> effect clause truncated at first period, parks ~15 Pest/Devil makers — quote-aware extraction, corpus-wide blast
+> radius); combat-damage-"to a player"-deliberate-FN (blocks Grateful Apparition + the proliferate saboteurs);
+> totem-armor cite 702.116→702.89 (task_3329dfa8); the crime subsystem (CR 700.13, ~20 cards); the remaining
+> cite-hygiene families. See the pre-verified cite mapping in the deferred-cleanup note further down.
+> **1.0 ROADMAP** (Colton, deferred to a full weekend sitting): Vault-zone full rework (1.0 req), Academy →
+> playable shelf, random effects (RNG primitive already landed), and the coverage-bar-for-1.0 question still open.
+
 ## ☀️ 2026-07-17 ~09:15 — FLAKE CLOSED + FLOOR RELIT (Colton: full-autonomy grind, Fable back, until he calls stop)
 
 > **selfPlayRunner flake ROOT-CAUSED and fixed (51418c92)**: engine PROVEN deterministic — a 960-game probe
