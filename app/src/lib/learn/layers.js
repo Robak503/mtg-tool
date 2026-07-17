@@ -223,8 +223,15 @@ const DELIRIUM_TYPE_RES = [
 // "Permanent" is NOT a type line word; we match by the presence of any permanent type instead.
 const PERMANENT_TYPE_RE = /\b(?:creature|artifact|enchantment|land|battle|planeswalker)\b/i;
 function countGraveyardSpec(state, perm, spec) {
-  const gy = state?.players?.[perm?.controller]?.graveyard || [];
-  if (spec.kind === "cardsInGraveyard") {
+  // ALL-GRAVEYARDS (BLITZ CDP-1 — the Lhurgoyf / Tarmogoyf CDA family "…cards in all graveyards" / "card
+  // types among cards in all graveyards"): the source card list is EVERY player's graveyard rather than
+  // only the controller's. The typed / delirium-card-types filters below are byte-identical either way —
+  // only the collected card list differs. A plain zone read (never deriveCharacteristics — recursion-safe).
+  const allGy = spec.kind === "cardsInAllGraveyards" || spec.kind === "cardTypesInAllGraveyards";
+  const gy = allGy
+    ? Object.values(state?.players || {}).flatMap((pl) => pl.graveyard || [])
+    : (state?.players?.[perm?.controller]?.graveyard || []);
+  if (spec.kind === "cardsInGraveyard" || spec.kind === "cardsInAllGraveyards") {
     // SUBTYPE-GY (BLITZ CA-2 — "a Warrior card is in your graveyard" / "there is a Desert card in your
     // graveyard"): a word-bounded match on the FULL type line (subtypes live RIGHT of the dash, so the
     // head-only split the card-TYPE branches use would never see them). The parser admits only a closed-
@@ -246,12 +253,41 @@ function countGraveyardSpec(state, perm, spec) {
     const typeRe = new RegExp(`\\b${spec.cardType}\\b`, "i");
     return gy.filter((c) => typeRe.test(typeLineOf(c).split("—")[0])).length;
   }
+  // cardTypesInGraveyard (controller) OR cardTypesInAllGraveyards (every player) — distinct DELIRIUM card
+  // types across the collected `gy`. Supertypes (Legendary/Basic/Snow/World) are deliberately excluded.
   const seen = new Set();
   for (const card of gy) {
     const head = typeLineOf(card).split("—")[0].toLowerCase(); // types/supertypes, before any subtypes
     for (const [re, key] of DELIRIUM_TYPE_RES) if (re.test(head)) seen.add(key);
   }
   return seen.size;
+}
+
+// CDA COUNT DISPATCHER (BLITZ CDP-1, CR 604.3 / 613.4a) — resolve a characteristic-defining P/T's `countSpec`
+// to its live magnitude. Every branch is a plain zone-length read or a printed type-line scan — NEVER
+// deriveCharacteristics — so a CDA that counts creatures/graveyard-types can't recurse into its own P/T derive
+// (the SAME recursion-safety the layer-7c count-buff relies on). Routes: hand → live hand size; graveyard /
+// all-graveyard (typed or delirium card-types) → countGraveyardSpec; everything else (permanentsYouControl,
+// colorsAmongPermanents, …) → the board evaluator countSelfSpecOnBoard. A null/unknown spec is 0 (never
+// emitted — the parser only produces a spec whose evaluator exists here; metric⇄runtime lockstep).
+function countForSpec(state, perm, spec) {
+  if (!spec) return 0;
+  switch (spec.kind) {
+    case "cardsInHand":
+      return (state?.players?.[perm?.controller]?.hand || []).length;
+    case "cardsInAllHands": {
+      let n = 0;
+      for (const pl of Object.values(state?.players || {})) n += (pl.hand || []).length;
+      return n;
+    }
+    case "cardsInGraveyard":
+    case "cardTypesInGraveyard":
+    case "cardsInAllGraveyards":
+    case "cardTypesInAllGraveyards":
+      return countGraveyardSpec(state, perm, spec);
+    default:
+      return countSelfSpecOnBoard(state, perm, spec);
+  }
 }
 
 // GATED-SELFBUFF / GATED-KEYWORD / GATED-GY: is a count-threshold gate currently OPEN for this permanent?
@@ -1028,18 +1064,21 @@ function applyLayer7(state, perm, l7Effects) {
   let baseToughness = printedToughness(perm);
 
   // 7a — characteristic-defining P/T (CR 613.4a; 604.3 — a CDA applies in layer 7a and is NEVER on the
-  // stack). CDA-SELF-P/T-BY-COUNT: "[this creature]'s power and toughness are each equal to the number of
-  // <X> you control" SETS the base from a LIVE board count (Dakkon Blackblade / Molimo / Flora Colossus —
-  // lands; Scion of the Wild / Crusader of Odric — creatures). The count is read THIS computation via the
-  // SAME countSelfSpecOnBoard the layer-7c count-buff uses (a plain type-line board scan — recursion-safe,
-  // never deriveCharacteristics), so it tracks the board both directions (a land enters → grows; a land
-  // leaves → shrinks). CDAs have no inter-CDA dependency in the modeled set; apply each in timestamp order.
-  // `setPower`/`setToughness` flags gate which characteristic the CDA defines (the modeled form sets both).
+  // stack). CDA-SELF-P/T-BY-COUNT: "[this creature]'s power [and toughness are each] equal to the number of
+  // <X>" SETS the base from a LIVE count (Dakkon / Molimo — lands you control; Scion of the Wild — creatures
+  // you control; Maro — cards in your hand; Revenant — creature cards in your graveyard; Tarmogoyf / Lhurgoyf
+  // — card-types / creature cards in ALL graveyards). The count is read THIS computation via countForSpec (a
+  // plain zone-length / type-line scan — recursion-safe, never deriveCharacteristics), so it tracks the count
+  // both directions (a land/card enters → grows; leaves → shrinks). CDAs have no inter-CDA dependency in the
+  // modeled set; apply each in timestamp order. `setPower`/`setToughness` gate which characteristic the CDA
+  // defines (a power-only CDA leaves the printed toughness), and `powerOffset`/`toughnessOffset` add the fixed
+  // Lhurgoyf/Tarmogoyf "…toughness is equal to that number plus 1" tail (`*/1+*`) on TOP of the set base
+  // (still layer 7a — it's part of the characteristic-defining value, applied before 7c counters/pumps).
   for (const e of l7Effects.filter(e => e.sublayer === "7a").sort(byTimestamp)) {
     if (e.op?.layerOp !== "ptSetDynamicCount") continue;
-    const n = countSelfSpecOnBoard(state, perm, e.op.countSpec);
-    if (e.op.setPower) basePower = n;
-    if (e.op.setToughness) baseToughness = n;
+    const n = countForSpec(state, perm, e.op.countSpec);
+    if (e.op.setPower) basePower = n + (e.op.powerOffset || 0);
+    if (e.op.setToughness) baseToughness = n + (e.op.toughnessOffset || 0);
   }
   // 7b — set base P/T ("base power/toughness becomes X/Y"). LEVEL-BAND (LV-1, CR 711.2a/b):
   // a leveler band's base-P/T set carries a level-counter gate — skip it while the gate is

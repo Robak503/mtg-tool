@@ -349,6 +349,47 @@ function parseSelfCountSource(phrase) {
   return null;
 }
 
+// CDA COUNT VOCABULARY (BLITZ CDP-1) — the count sources a characteristic-defining self-P/T may read. This is
+// a CURATED, EXACT-EVALUATOR-ONLY allowlist, DELIBERATELY DISTINCT from parseSelfCountSource (the layer-7c
+// "for each" self-buff vocabulary): a CDA SETS the base, so an over-count is a wrong printed P/T on the
+// battlefield — the CREED forbids it. Every branch here maps to an evaluator layers.countForSpec computes
+// EXACTLY (metric⇄runtime lockstep), so a phrase with no exact evaluator returns null → NO descriptor → the
+// card parks (Arbiter; a false-negative is safe). NOT admitted (each parks): the plural "…on the battlefield"
+// subtype sources (countSelfSpecOnBoard would test a PLURAL needle "Clerics"/"Zombies" against a SINGULAR
+// type line → count 0 → a fabricated 0/0, forbidden), and any qualified / opponent / counter / mana-symbol
+// count (Toph's "+1/+1 counters on lands", Adamaro's "opponent with the most cards", Umbra Stalker's "black
+// mana symbols") — no exact evaluator, so they stay body-only.
+function parseCdaCountSource(phrase) {
+  const p = phrase.toLowerCase().trim().replace(/\.\s*$/, "");
+  let m;
+  // BOARD — "<card type>s you control" / "<basic land>s you control" (plural handled via the count tables so
+  // "creatures"→Creature; countForSpec → countSelfSpecOnBoard's word-bounded type-line scan, exact).
+  if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
+  if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
+  // BOARD — distinct WUBRG colors among the controller's permanents (Opulent Clomper; countSelfSpecOnBoard
+  // evaluates the Set size — exact, devoid-safe via colorsOf).
+  if (/^colors? among permanents you control$/.test(p)) return { kind: "colorsAmongPermanents" };
+  // ZONE — cards in hand (Maro / Psychosis Crawler — "cards in your hand"; Multani, Maro-Sorcerer — "cards in
+  // all players' hands"). Live zone-length read; the CDA permanent is on the battlefield, so its own card is
+  // never in the counted hand (no self-inclusion issue).
+  if (/^cards in your hand$/.test(p)) return { kind: "cardsInHand" };
+  if (/^cards in all players' hands$/.test(p)) return { kind: "cardsInAllHands" };
+  // GRAVEYARD (your) — typed count (Revenant/Boneyard Wurm — creature cards; Uurg — land cards; Haughty Djinn/
+  // Enigma Drake — instant and sorcery cards) or distinct DELIRIUM card-types (Nethergoyf/Ooze). countForSpec
+  // → countGraveyardSpec, the SAME exact evaluator the graveyard-count GATES already use.
+  if ((m = p.match(/^(creature|land|artifact|enchantment|instant|sorcery|planeswalker) cards? in your graveyard$/))) return { kind: "cardsInGraveyard", cardType: m[1] };
+  if (/^instant and sorcery cards in your graveyard$/.test(p)) return { kind: "cardsInGraveyard", cardType: "instantOrSorcery" };
+  if (/^card types among cards in your graveyard$/.test(p)) return { kind: "cardTypesInGraveyard" };
+  // GRAVEYARD (all players) — the Lhurgoyf/Tarmogoyf family: typed count in ALL graveyards (Lhurgoyf/Mortivore
+  // — creature cards; Cognivore — instant; Magnivore — sorcery; Slag Fiend — artifact; Cantivore — enchantment)
+  // or distinct card-types in ALL graveyards (Tarmogoyf/Polygoyf). countForSpec → countGraveyardSpec's
+  // all-graveyards path (every player's graveyard).
+  if ((m = p.match(/^(creature|land|artifact|enchantment|instant|sorcery|planeswalker) cards? in all graveyards$/))) return { kind: "cardsInAllGraveyards", cardType: m[1] };
+  if (/^instant and sorcery cards in all graveyards$/.test(p)) return { kind: "cardsInAllGraveyards", cardType: "instantOrSorcery" };
+  if (/^card types among cards in all graveyards$/.test(p)) return { kind: "cardTypesInAllGraveyards" };
+  return null;
+}
+
 /**
  * GROUP-GRANT — parse the QUOTED text of a granted ability into a serializable, FIXED-amount mana spec
  * `{ colors, amount }`, or null. The modeled subset MIRRORS manaModel.parseAddClause's fixed (non-variable)
@@ -2076,35 +2117,54 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
-  // ── CDA-SELF-P/T-BY-COUNT: a characteristic-defining ability SETTING self P/T from a live board count ──
-  // "[this creature]'s power and toughness are each equal to the number of <X> you control" — a CDA (CR
-  // 613.4a / 604.3), layer 7a, that SETS both base power and toughness to a LIVE count (Dakkon Blackblade /
-  // Molimo / Flora Colossus — lands; Scion of the Wild / Crusader of Odric — creatures). DISTINCT from the
-  // 7c "gets +X/+Y for each" self-buff below (that ADDS to the printed body; this SETS the */* base). The
-  // card name was normalized to "this creature" upstream, so "Dakkon Blackblade's power and toughness …"
-  // reads "this creature's power and toughness …". The count source must be one parseSelfCountSource models
-  // (lands / creatures / artifacts / enchantments / a basic-land subtype) → a serializable
-  // { kind:"permanentsYouControl", cardType|subtype } spec that layers.countSelfSpecOnBoard evaluates every
-  // P/T computation (recursion-safe — a plain type-line scan, never deriveCharacteristics). An UNMODELED
-  // count ("Spirits", "+1/+1 counters on lands", "permanents", a qualified/opponent count) → NO descriptor
-  // → the card stays body-only (Arbiter; CREED — a miss is safe, a fabricated/wrong base across 75 such
-  // creatures is forbidden). Anchored ^…$ on the whole clause: a trailing rider would break the anchor and
-  // fall through to body-only. Placed BEFORE the 7c "for each" block so the SET form is tried first.
+  // ── CDA-SELF-P/T-BY-COUNT: a characteristic-defining ability SETTING self P/T from a LIVE count ──
+  // A CDA (CR 613.4a / 604.3), layer 7a, that SETS the base power/toughness from a count re-read every P/T
+  // computation. DISTINCT from the 7c "gets +X/+Y for each" self-buff below (that ADDS to the printed body;
+  // this SETS the `*` base, so 7c counters/pumps then stack ON TOP — CR 613.4 sublayer order). The card name
+  // was normalized to "this creature" upstream. parseCdaCountSource must recognize the count source (a
+  // curated exact-evaluator allowlist — you-control board counts, cards-in-hand, typed/card-types graveyard
+  // counts in your or ALL graveyards); an UNMODELED count → NO descriptor → the card stays body-only
+  // (Arbiter; CREED — a miss is safe, a fabricated base is forbidden). THREE printed P/T shapes, each
+  // whole-clause `^…$`-anchored so a trailing rider falls through to body-only; the Lhurgoyf/Tarmogoyf GOYF
+  // form is tried FIRST (its "…plus 1" tail is a suffix a bare power-only match would otherwise swallow):
+  //   • GOYF   "…power is equal to the number of <X> and its toughness is equal to that number plus 1"
+  //            → set power = N, toughness = N + 1 (`*/1+*`). (Tarmogoyf, Lhurgoyf, Nethergoyf, Consuming Blob)
+  //   • BOTH   "…power and toughness are each equal to the [total ]number of <X>" → set both = N.
+  //   • POWER  "…power is equal to the [total ]number of <X>" → set power = N (printed toughness stands).
   {
-    const cdaM = c.match(/^this creature's power and toughness are each equal to the number of (.+) you control$/);
-    if (cdaM) {
-      const countSpec = parseSelfCountSource(`${cdaM[1]} you control`);
+    let cdaM;
+    if ((cdaM = c.match(/^this creature's power is equal to the (?:total )?number of (.+) and its toughness is equal to that number plus (\d+)$/))) {
+      const countSpec = parseCdaCountSource(cdaM[1]);
       if (countSpec) {
         out.push({
-          layer: 7,
-          sublayer: "7a",
-          isCDA: true,
-          op: { layerOp: "ptSetDynamicCount", countSpec, setPower: true, setToughness: true },
-          affects: { mode: "self" },
-          duration: { kind: "permanent" },
+          layer: 7, sublayer: "7a", isCDA: true,
+          op: { layerOp: "ptSetDynamicCount", countSpec, setPower: true, setToughness: true, toughnessOffset: parseInt(cdaM[2], 10) },
+          affects: { mode: "self" }, duration: { kind: "permanent" },
         });
       }
-      return; // a CDA self-P/T clause — handled (or intentionally dropped to body-only on an unmodeled count)
+      return; // a GOYF-form CDA — handled (or dropped to body-only on an unmodeled count)
+    }
+    if ((cdaM = c.match(/^this creature's power and toughness are each equal to the (?:total )?number of (.+)$/))) {
+      const countSpec = parseCdaCountSource(cdaM[1]);
+      if (countSpec) {
+        out.push({
+          layer: 7, sublayer: "7a", isCDA: true,
+          op: { layerOp: "ptSetDynamicCount", countSpec, setPower: true, setToughness: true },
+          affects: { mode: "self" }, duration: { kind: "permanent" },
+        });
+      }
+      return; // a symmetric CDA — handled (or dropped to body-only on an unmodeled count)
+    }
+    if ((cdaM = c.match(/^this creature's power is equal to the (?:total )?number of (.+)$/))) {
+      const countSpec = parseCdaCountSource(cdaM[1]);
+      if (countSpec) {
+        out.push({
+          layer: 7, sublayer: "7a", isCDA: true,
+          op: { layerOp: "ptSetDynamicCount", countSpec, setPower: true, setToughness: false },
+          affects: { mode: "self" }, duration: { kind: "permanent" },
+        });
+      }
+      return; // a power-only CDA — handled (or dropped to body-only on an unmodeled count)
     }
   }
 
