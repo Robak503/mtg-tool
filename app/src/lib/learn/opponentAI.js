@@ -31,7 +31,7 @@ import { opponentsOf, findPermanent } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
-import { attackerMinBlockers, canBlockAttacker } from "./combatEvasion.js";
+import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence } from "./effects/parser.js";
 import { parseAuraBonus } from "./staticAbilityParser.js";
 
@@ -950,26 +950,30 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
   // conflicting requirements the CR accepts any legal maximum; deterministic + documented. The normal
   // heuristic then plans the rest around the pre-seeded assignments.
   {
-    const RE_LURE = /(?:^|[\n.;])\s*all creatures able to block this creature do so\s*(?:\.|$)/i;
     // LU-2: a THIS-TURN lure marker (Alluring Scent / Taunting Challenge / Mortipede's activation —
     // state.lureThisTurn[permId] === the current turn) requires blocks exactly like the printed line;
-    // it self-expires when the turn number moves on (the FOG-1 latch pattern).
-    const luredAttackerIds = [...byAttacker.keys()].filter((attId) => {
-      if ((state.lureThisTurn || {})[attId] === state.turn) return true;
+    // it self-expires when the turn number moves on (the FOG-1 latch pattern). The printed read is
+    // lureFilterOf (BLITZ CS-1 — the LU-1 regex generalized in combatEvasion, ONE core shared with the
+    // classifier mirror): the bare form forces EVERY offered blocker, Talruum Piper's "with flying"
+    // filter forces only the FLYING ones (layer-aware — a granted flying counts).
+    const luredAttackers = [...byAttacker.keys()].map((attId) => {
+      if ((state.lureThisTurn || {})[attId] === state.turn) return { attId, filter: null };
       const lk = findPermanent(state, attId);
-      return lk && RE_LURE.test(String(lk.permanent.card?.oracle || lk.permanent.card?.oracle_text || "").replace(/\([^)]*\)/g, " "));
-    }).sort(byId);
-    for (const attId of luredAttackerIds) {
-      for (const { action } of candidatesForLure(attId)) {
+      const lu = lk ? lureFilterOf(lk.permanent.card) : null;
+      return lu ? { attId, filter: lu.filter } : null;
+    }).filter(Boolean).sort((a, b) => byId(a.attId, b.attId));
+    for (const { attId, filter } of luredAttackers) {
+      for (const { action } of candidatesForLure(attId, filter)) {
         plan.push(action);
         usedBlockers.add(action.permanentId);
         blockedAttackers.add(attId);
       }
     }
-    function candidatesForLure(attackerId) {
+    function candidatesForLure(attackerId, filter) {
       return (byAttacker.get(attackerId) || [])
         .map((action) => ({ action }))
-        .filter((c) => !usedBlockers.has(c.action.permanentId));
+        .filter((c) => !usedBlockers.has(c.action.permanentId))
+        .filter((c) => !filter || permanentHasKeyword(state, c.action.permanentId, filter));
     }
   }
   const candidatesFor = (attackerId) => (byAttacker.get(attackerId) || [])
@@ -1004,6 +1008,39 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
       });
     }
     if (pick) take(pick, att.id);
+  }
+
+  // MUST-BE-BLOCKED (BLITZ CS-1, CR 509.1c — Riveteers Decoy / Goblin Fire Fiend / Gaea's Protector
+  // class): "This creature must be blocked if able." requires the block to CONTAIN it — satisfied by a
+  // minimum legal block (normally ONE blocker; a granted menace/≥N needs minBlockersFor many, and with
+  // too few unused candidates the requirement is unobeyable → no forced block, CR 509.1c's "maximum
+  // possible number of requirements … without disobeying any restrictions"). Runs AFTER the value
+  // heuristic: a value/trade block (or a lure force, or an earlier tick's declared block) already
+  // satisfies the requirement, so this seeds a forced chump ONLY for a carrier the plan left unblocked
+  // — the same versioned house bar as LURE/MUST-ATTACK (AI seats comply; the human seat is never
+  // hard-gated). Deterministic: attackers by id; forced blockers are the smallest-power unused
+  // candidates, power asc then id.
+  {
+    const declaredEarlier = new Set((state.combat?.blockers || []).map((b) => b.attackerId));
+    const mustIds = [...byAttacker.keys()].filter((attId) => {
+      if (blockedAttackers.has(attId) || declaredEarlier.has(attId)) return false;
+      const lk = findPermanent(state, attId);
+      return !!lk && mustBeBlockedIfAble(lk.permanent.card);
+    }).sort(byId);
+    for (const attId of mustIds) {
+      const need = minBlockersFor(state, attId);
+      const cands = (byAttacker.get(attId) || [])
+        .filter((action) => !usedBlockers.has(action.permanentId))
+        .map((action) => ({ action, stats: blockerStats.get(action.permanentId) }))
+        .filter((c) => c.stats)
+        .sort((x, y) => (x.stats.power - y.stats.power) || byId(x.stats.id, y.stats.id));
+      if (cands.length < need) continue; // a legal block can't be completed → not required (CR 509.1c)
+      for (const c of cands.slice(0, need)) {
+        plan.push(c.action);
+        usedBlockers.add(c.action.permanentId);
+        blockedAttackers.add(attId);
+      }
+    }
   }
 
   // CHUMP stage — only when the remaining unblocked FACE damage is lethal.
@@ -1591,9 +1628,22 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
   // per-(creature,defender) fan-out means force-including every action for a forced permanent, which the
   // byPermanent focus below collapses back to one attack per creature — correct either way.
   const forcedSeat = (state.forcedToAttackTurn || {})[aiPlayerId] === state.turn;
+  // MUST-ATTACK-UNLESS (BLITZ CS-1, CR 508.1d — Reckless Cohort / Marauding Maulhorn): "attacks each
+  // combat if able UNLESS you control <predicate>" is a CONDITIONAL requirement — live only while the
+  // predicate FAILS. selfMustAttack matches the sentence prefix, so without this read the two carriers
+  // were force-declared unconditionally (over-enforcement); the shared predicate grammar
+  // (parseControllerBoardPredicate — the same parser the classifier mirror credits) releases the
+  // requirement the moment the controller's board satisfies the unless.
+  const selfMustAttackNow = (permanent) => {
+    const card = permanent?.card;
+    if (!selfMustAttack(card)) return false;
+    const unless = mustAttackUnlessOf(card);
+    if (unless && controllerMeetsBoardPredicate(state, aiPlayerId, permanent.id, unless)) return false;
+    return true;
+  };
   const forced = new Set(
     attackerActions
-      .filter(a => forcedSeat || selfMustAttack(state.players?.[aiPlayerId]?.battlefield?.find(p => p.id === a.permanentId)?.card))
+      .filter(a => forcedSeat || selfMustAttackNow(state.players?.[aiPlayerId]?.battlefield?.find(p => p.id === a.permanentId)))
       .map(a => a.permanentId),
   );
 

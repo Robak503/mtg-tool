@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
+import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -2561,7 +2561,16 @@ function actionsDeclareAttacker(state, playerId) {
     // creature never leads; the AI's per-tick re-offer sweeps it in on a later tick once a teammate is
     // declared). cantAttackAlone matches BOTH the bare "can't attack alone" and the combined "attack or block
     // alone" form — the block-only "can't block alone" (Craven Hulk) is NOT gated here (it may attack alone).
-    .filter(p => !cantAttackAlone(p.card) || declared.size > 0);
+    .filter(p => !cantAttackAlone(p.card) || declared.size > 0)
+    // CANT-ATTACK-UNLESS-YOU (BLITZ CS-1, CR 508.1c — Desperate Castaways / War Falcon / Steelclad
+    // Serpent / Warden of the Chained): "can't attack unless you control <predicate>" is a hard attack
+    // RESTRICTION — the creature is not offered as an attacker while its controller's board fails the
+    // predicate. Read LIVE each enumeration (layer-aware types/subtypes/power), so casting the missing
+    // artifact this main phase immediately unlocks the attack.
+    .filter(p => {
+      const req = attackControllerRequirementOf(p.card);
+      return !req || controllerMeetsBoardPredicate(state, playerId, p.id, req);
+    });
 
   // Legal attack targets (CR 508.1a): each opponent (their face) PLUS every planeswalker they
   // control (PW-1 — a creature may attack a planeswalker instead of its controller). A face target
@@ -2577,13 +2586,16 @@ function actionsDeclareAttacker(state, playerId) {
     }
   }
 
-  // ISLANDHOME (BLITZ SM-1, CR 508.1a): a creature printed "can't attack unless defending player
-  // controls an Island/…" only pairs with defenders whose board meets the requirement — the same live
-  // board read landwalk uses. Unrestricted creatures see the full target list (identical by construction).
+  // CANT-ATTACK-UNLESS-DEFENDER (BLITZ SM-1, generalized by CS-1 — CR 508.1c): a creature printed
+  // "can't attack unless defending player <predicate>" (islandhome lands + Whimwader's blue permanent,
+  // Lurking Green Dragon's flying creature, Godhunter Octopus' enchantment, Chained Throatseeker's
+  // poisoned, Crown-Hunter Hireling's monarch) only pairs with defenders who meet the requirement —
+  // the same live per-defender board read landwalk uses (4P-correct). Unrestricted creatures see the
+  // full target list (identical by construction).
   const allowedTargetsFor = (p) => {
-    const req = attackDefenderLandRequirement(p.card);
+    const req = attackDefenderRequirementOf(p.card);
     if (!req) return targets;
-    return targets.filter((t) => defenderMeetsAttackLandRequirement(state, t.defenderId, req));
+    return targets.filter((t) => defenderMeetsAttackRequirement(state, t.defenderId, req));
   };
 
   // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the
@@ -2634,8 +2646,16 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   if (state.step !== "declare-blockers") return [];
   if (declaredAttackers.length === 0) return [];
 
-  // A creature already assigned as a blocker this combat can't block again.
+  // MULTI-BLOCK (BLITZ CS-1, CR 509.1a): a creature may block ONE attacker by default; a printed
+  // "can block an additional creature each combat" (max 2 — Selesnya Sagittars class) or "can block
+  // any number of creatures" (∞ — Palace Guard class) raises its cap (maxBlocksOf). A blocker below
+  // its cap stays offerable against OTHER attackers (never the same attacker twice — the pair filter
+  // in eligibleByAttacker below); at cap it is excluded exactly like the old assigned-set rule
+  // (maxBlocks 1 ⇔ the previous `!assigned.has(p.id)` filter, byte-identical for normal creatures).
   const assigned = new Set((state.combat?.blockers || []).map(b => b.blockerId));
+  const blocksDeclaredBy = {};
+  for (const b of state.combat?.blockers || []) blocksDeclaredBy[b.blockerId] = (blocksDeclaredBy[b.blockerId] || 0) + 1;
+  const blockedPairs = new Set((state.combat?.blockers || []).map(b => `${b.blockerId}::${b.attackerId}`));
   // BLOCK-COUNT CAP (CR 509.1c — the menace-inverse) — count blockers ALREADY assigned per attacker this combat,
   // so a "can't be blocked by more than one creature" attacker (Hungering Hydra) is never offered a 2nd blocker
   // (blocks accumulate one declare-blocker action at a time; combat.blockers is the running tally).
@@ -2646,7 +2666,7 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     // Layer-aware (WALT-ANIMATE): an animated permanent can be declared as a blocker.
     .filter(p => permanentIsCreature(state, p.id))
     .filter(p => !p.tapped)
-    .filter(p => !assigned.has(p.id))
+    .filter(p => (blocksDeclaredBy[p.id] || 0) < maxBlocksOf(p.card))
     // CANT-BLOCK-ALONE (BLITZ SM-2 + CB-1, CR 509.1a — Mogg Flunkies / Craven Hulk): offered as a blocker
     // only once ANOTHER blocker is already declared this combat (sequential declaration — the exact mirror of
     // the attack gate). cantBlockAlone matches BOTH the bare "can't block alone" and the combined form — the
@@ -2661,7 +2681,9 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   const eligibleByAttacker = {};
   const minBlockersByAttacker = {};
   for (const attackerId of declaredAttackers) {
-    eligibleByAttacker[attackerId] = candidateBlockers.filter((b) => canBlockAttacker(state, b.id, attackerId, playerId));
+    // MULTI-BLOCK: a blocker below its cap is eligible for OTHER attackers, never one it already
+    // blocks (the blockedPairs filter) — so the ≥N completion count below never double-counts it.
+    eligibleByAttacker[attackerId] = candidateBlockers.filter((b) => !blockedPairs.has(`${b.id}::${attackerId}`) && canBlockAttacker(state, b.id, attackerId, playerId));
     minBlockersByAttacker[attackerId] = attackerMinBlockers(state, attackerId);
   }
 

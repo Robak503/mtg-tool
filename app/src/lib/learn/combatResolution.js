@@ -450,6 +450,45 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     if (dealt > 0) dealtBySources[att.permanentId] = (dealtBySources[att.permanentId] || 0) + dealt;
   }
 
+  // ── MULTI-BLOCK DIVISION (BLITZ CS-1, CR 510.1d) ──
+  // "If it's blocking two or more creatures, it assigns its combat damage divided as its controller
+  // chooses among them." A creature blocking 2+ attackers (legal via maxBlocksOf — Palace Guard /
+  // Selesnya Sagittars class) must DIVIDE its power, never deal it in full to each (that would be a
+  // fabricated-damage FP). Deterministic take of the division choice: lethal need (deathtouch → 1,
+  // CR 702.2c) to each blocked attacker in DECLARATION order, then all remainder onto the LAST one —
+  // a legal division under 510.1d. Computed per damage sub-step from the step's live combatants (a
+  // first-strike casualty drops out and the survivor absorbs the full division, mirroring the
+  // attacker-side loop). Single-block (the universal case): the map stays empty and the deal below
+  // uses full power — byte-identical.
+  const blockCountByBlocker = {};
+  for (const list of Object.values(blockersByAttacker)) {
+    for (const b of list) blockCountByBlocker[b.blockerId] = (blockCountByBlocker[b.blockerId] || 0) + 1;
+  }
+  const multiBlockPortion = {}; // "blockerId::attackerId" -> assigned amount this step
+  for (const [bid, count] of Object.entries(blockCountByBlocker)) {
+    if (count < 2) continue;
+    const blk = combatant(bid);
+    if (!blk || !dealsThisStep(blk.permanent)) continue;
+    // The attackers this blocker blocks, in declaration order, still in combat this step (a normalized
+    // under-sized block was deleted from blockersByAttacker above and never receives an assignment).
+    const targets = blockers
+      .filter((b) => b.blockerId === bid && blockersByAttacker[b.attackerId])
+      .map((b) => combatant(b.attackerId))
+      .filter(Boolean);
+    if (targets.length === 0) continue;
+    let remaining = combatDamageAmount(blk.permanent);
+    const bdt = permanentHasKeyword(state, bid, "Deathtouch");
+    const gives = targets.map((t) => {
+      const already = t.permanent.damageMarked || 0;
+      const lethalNeed = bdt ? 1 : Math.max(1, creatureToughness(t.permanent, state) - already);
+      const give = Math.min(remaining, lethalNeed);
+      remaining -= give;
+      return { id: t.permanent.id, give };
+    });
+    if (remaining > 0) gives[gives.length - 1].give += remaining;
+    for (const g of gives) multiBlockPortion[`${bid}::${g.id}`] = g.give;
+  }
+
   // Blockers deal back to the attacker they're blocking.
   for (const att of combat.attackers) {
     const attLookup = combatant(att.permanentId);
@@ -457,7 +496,9 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     for (const b of (blockersByAttacker[att.permanentId] || [])) {
       const blk = combatant(b.blockerId);
       if (!blk || !dealsThisStep(blk.permanent)) continue;
-      const bpow = combatDamageAmount(blk.permanent);
+      // CR 510.1d — a multi-blocking creature deals only its DIVIDED portion to this attacker.
+      const portionKey = `${blk.permanent.id}::${att.permanentId}`;
+      const bpow = portionKey in multiBlockPortion ? multiBlockPortion[portionKey] : combatDamageAmount(blk.permanent);
       const bdt = permanentHasKeyword(state, blk.permanent.id, "Deathtouch");
       const blifelink = permanentHasKeyword(state, blk.permanent.id, "Lifelink");
       // KW-PROTECTION (CR 702.16e): if the attacker has protection from the blocker's color, the blocker's

@@ -61,7 +61,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentIsCreature } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
 import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
@@ -396,14 +396,14 @@ const reRadConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't b
 // printed conditions; any other "as long as …" rider stays a SAFE FN.
 const reTypeConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked as long as defending player controls an? (artifact|enchantment|untapped land)\s*(?:\.|$)/;
 
-// ISLANDHOME (BLITZ SM-1 — the sea-monster attack restriction, CR 508.1a): "This creature can't attack
+// ISLANDHOME (BLITZ SM-1 — the sea-monster attack restriction, CR 508.1c): "This creature can't attack
 // unless defending player controls an Island." (+ the Swamp/Forest/etc. and "snow land" siblings). A
 // self-subject, unconditional PER-DEFENDER attack-legality gate: legalChoices.actionsDeclareAttacker only
-// offers attack targets whose defending player controls the named land type (the same live board read
-// landwalk uses — defenderControlsLandType). The TWO-line old frame ("When you control no Islands,
-// sacrifice …") is NOT this shape — its second sentence is a separate, unmodeled state trigger, so those
-// cards stay body-only (a safe FN). Anchored at a sentence boundary; a qualifier tail fails the match.
-const reAttackNeedsDefenderLand = /(?:^|[\n.;])\s*(?:this creature|it) can't attack unless defending player controls an? (island|swamp|mountain|forest|plains|snow land)\s*(?:\.|$)/i;
+// offers attack targets whose defending player meets the requirement (the same live board read landwalk
+// uses). Since BLITZ CS-1 the parse lives in parseAttackDefenderRequirementClause below (the land arm),
+// generalized to the Whimwader/monarch/poisoned defender predicates. The TWO-line old frame ("When you
+// control no Islands, sacrifice …") is NOT this shape — its second sentence is a separate, unmodeled
+// state trigger, so those cards stay body-only (a safe FN).
 // SELF DAMAGE-PREVENTION statics (BLITZ FOG-1, CR 615 — Guard Gomazoa / Everdawn Champion "Prevent all
 // combat damage that would be dealt to this creature."; Dawn Elemental / Glittering Lion "Prevent all
 // damage that would be dealt to this creature."): a printed, unconditional, self-scoped prevention wall.
@@ -441,10 +441,190 @@ export function attachedDamagePrevention(state, permId) {
 }
 
 /** ISLANDHOME (SM-1) — the land type the DEFENDING player must control for this creature to attack them
- * ("island" / "swamp" / … / "snow land"), or null when unrestricted. Read off the card (printed static). */
+ * ("island" / "swamp" / … / "snow land"), or null when unrestricted. Read off the card (printed static).
+ * Since BLITZ CS-1 this is the land-only FACE of the generalized attackDefenderRequirementOf below (same
+ * parse, so the two can never drift); kept because tests and callers pin the land-string contract. */
 export function attackDefenderLandRequirement(card) {
-  const m = selfOracle(card).match(reAttackNeedsDefenderLand);
-  return m ? m[1].toLowerCase() : null;
+  const r = attackDefenderRequirementOf(card);
+  return r && r.kind === "land" ? r.subtype : null;
+}
+
+// ── COMBAT STATICS (BLITZ CS-1) — block-count statics, block/attack requirements, attack-restriction
+// conditions. LOCKSTEP LAW (the EV-3 parseExceptBlockerFilters discipline): each family has ONE shared
+// clause parser / core pattern consumed by BOTH the runtime reader (sentence-anchored over selfOracle)
+// AND the classifier mirror (isEnforcedEvasionClause, clause-anchored), so credit == enforcement by
+// construction. Every parser is fail-closed: an unvetted predicate/variant returns null → the card
+// stays body-only (safe FN), never a half-enforced FP. ──
+
+// MULTI-BLOCK (CR 509.1a — "the defending player chooses ONE creature for it to block", modified by the
+// printed static): the maximum number of ATTACKERS this creature may block this combat.
+//   "This creature can block an additional creature each combat."  → 2   (Selesnya Sagittars / Two-Headed
+//                                                                        Giant of Foriys / Foriysian kin)
+//   "This creature can block any number of creatures."             → ∞   (Palace Guard / Wall of Glare)
+// Enforced at the declare-blockers offer (legalChoices — a blocker below its cap is re-offered against
+// OTHER attackers) and honored at resolution (combatResolution divides its damage per CR 510.1d). The
+// activated "{cost}: … this turn" grants, the team "each creature you control …" statics (Brave the
+// Sands / High Ground — [SAP] lane), Equipment grants (Echo Circlet), and conditional riders (Entourage
+// of Trest's monarch gate, Kemba's Legion's per-Equipment count) all fail these anchors → safe FN.
+const CORE_BLOCK_ADDITIONAL = "can block an additional creature each combat";
+const CORE_BLOCK_ANY_NUMBER = "can block any number of creatures";
+const selfSentenceRe = (core) => new RegExp(`(?:^|[\\n.;])\\s*(?:this creature|it) ${core}\\s*(?:\\.|$)`);
+const selfClauseRe = (core) => new RegExp(`^(?:this creature |it )?${core}$`);
+const reMaxBlocksAdditional = selfSentenceRe(CORE_BLOCK_ADDITIONAL);
+const reMaxBlocksAny = selfSentenceRe(CORE_BLOCK_ANY_NUMBER);
+const reClauseMaxBlocksAdditional = selfClauseRe(CORE_BLOCK_ADDITIONAL);
+const reClauseMaxBlocksAny = selfClauseRe(CORE_BLOCK_ANY_NUMBER);
+/** The max number of attackers this creature may block this combat (CR 509.1a): 1, 2, or Infinity. */
+export function maxBlocksOf(card) {
+  const o = selfOracle(card);
+  if (reMaxBlocksAny.test(o)) return Infinity;
+  if (reMaxBlocksAdditional.test(o)) return 2;
+  return 1;
+}
+
+// MUST-BE-BLOCKED (CR 509.1c — a block REQUIREMENT: "effects that say a creature must block, or that it
+// must block if some condition is met"): "This creature must be blocked if able." (Riveteers Decoy /
+// Goblin Fire Fiend / Gaea's Protector class). Enforced at the AI block plan (opponentAI.pickBlockers
+// seeds a minimum legal block on it before the value heuristic — the LU-1 lure seam, the same versioned
+// house bar as MUST-ATTACK: AI seats comply, the human seat is never hard-gated). The activated
+// "{cost}: … this turn" forms (Loathsome Catoblepas), the targeted spell form (Satyr Piper), and the
+// filtered "…by an Eldrazi…" Equipment grant (Slayer's Cleaver) all fail the anchor → safe FN.
+const CORE_MUST_BE_BLOCKED = "must be blocked if able";
+const reMustBeBlocked = selfSentenceRe(CORE_MUST_BE_BLOCKED);
+const reClauseMustBeBlocked = selfClauseRe(CORE_MUST_BE_BLOCKED);
+export function mustBeBlockedIfAble(card) { return reMustBeBlocked.test(selfOracle(card)); }
+
+// LURE (LU-1, generalized in CS-1 — CR 509.1c): "All creatures [with flying] able to block this creature
+// do so." The optional "with flying" filter (Talruum Piper — corpus-unique among whole-card carriers)
+// narrows the requirement to FLYING blockers only; the bare form is the LU-1 shape unchanged. ONE core
+// pattern builds the sentence reader (opponentAI's lure seeding consumes lureFilterOf) and the clause
+// mirror, so the filtered form's credit and enforcement flip together. Any other filter/scope variant
+// ("…able to block target creature…", "…this turn do so") fails the anchor → safe FN.
+const CORE_LURE = "all creatures( with flying)? able to block (?:this creature|it) do so";
+const reLureSentence = new RegExp(`(?:^|[\\n.;])\\s*${CORE_LURE}\\s*(?:\\.|$)`);
+const reClauseLure = new RegExp(`^${CORE_LURE}$`);
+/** { filter: null | "Flying" } when the card carries a printed lure static, else null. */
+export function lureFilterOf(card) {
+  const m = selfOracle(card).match(reLureSentence);
+  return m ? { filter: m[1] ? "Flying" : null } : null;
+}
+
+// CONTROLLER-BOARD PREDICATE — the shared "…you control <predicate>" grammar consumed by BOTH the
+// CANT-ATTACK-UNLESS gate (CR 508.1c) and the MUST-ATTACK-UNLESS condition (CR 508.1d). Vetted,
+// corpus-confirmed arms only; anything else (action costs "you return/sacrifice/pay…", hand/graveyard
+// counts, "you've cast…") returns null → fail closed (safe FN).
+export function parseControllerBoardPredicate(text) {
+  const t = String(text || "").trim();
+  if (t === "an artifact") return { kind: "artifact", other: false };                     // Desperate Castaways
+  if (t === "another artifact") return { kind: "artifact", other: true };                 // Steelclad Serpent / Mouser Mark III
+  if (t === "a knight or a soldier") return { kind: "subtypeAny", subtypes: ["Knight", "Soldier"], other: false }; // War Falcon
+  if (t === "another ally") return { kind: "subtypeAny", subtypes: ["Ally"], other: true };                        // Reckless Cohort
+  const pm = t.match(/^another creature with power (\d+) or greater$/);                   // Warden of the Chained
+  if (pm) return { kind: "powerGE", n: parseInt(pm[1], 10), other: true };
+  const nm = t.match(/^a creature named ([a-z][a-z' -]*[a-z])$/);                         // Marauding Maulhorn
+  if (nm) return { kind: "namedCreature", name: nm[1], other: false };
+  return null;
+}
+/**
+ * Does `playerId`'s board satisfy a parsed controller-board predicate? Layer-aware on every axis:
+ * types via permanentTypes (an animated artifact counts), subtypes via permIsSubtype (layer-4 +
+ * changeling, CR 702.73a), power via creaturePower. `other: true` excludes the carrier itself
+ * ("another artifact" on an artifact creature never self-satisfies). Read LIVE at each declare-attackers
+ * enumeration, so the gate switches on/off exactly as the board changes.
+ */
+export function controllerMeetsBoardPredicate(state, playerId, selfPermId, pred) {
+  const bf = state.players?.[playerId]?.battlefield || [];
+  const notSelf = (p) => !pred.other || p.id !== selfPermId;
+  if (pred.kind === "artifact") {
+    return bf.some((p) => notSelf(p) && (permanentTypes(state, p.id)?.types || []).some((t) => String(t).toLowerCase() === "artifact"));
+  }
+  if (pred.kind === "subtypeAny") {
+    return bf.some((p) => notSelf(p) && pred.subtypes.some((s) => permIsSubtype(state, p.id, s)));
+  }
+  if (pred.kind === "powerGE") {
+    return bf.some((p) => notSelf(p) && permanentIsCreature(state, p.id) && creaturePower(p, state) >= pred.n);
+  }
+  if (pred.kind === "namedCreature") {
+    return bf.some((p) => notSelf(p) && permanentIsCreature(state, p.id)
+      && String(p.card?.name || "").toLowerCase().replace(/[’']/g, "'") === pred.name);
+  }
+  return false; // unreachable — the parser emits only the four kinds above; fail closed
+}
+
+// CANT-ATTACK-UNLESS-YOU (CR 508.1c — an attack RESTRICTION: "can't attack unless some condition is
+// met"): "This creature can't attack unless you control <predicate>." Enforced as a hard filter at
+// attack declaration (legalChoices.actionsDeclareAttacker — the creature is simply not offered as an
+// attacker while the predicate fails). The "can't attack OR BLOCK unless …" combined forms (Blind-Spot
+// Giant / Oketra class) gate blocking too and are NOT this shape → safe FN.
+const reAttackNeedsControllerBoard = /(?:^|[\n.;])\s*(?:this creature|it) can't attack unless you control ([^.;\n]+?)\s*(?:\.|$)/;
+export function attackControllerRequirementOf(card) {
+  const m = selfOracle(card).match(reAttackNeedsControllerBoard);
+  return m ? parseControllerBoardPredicate(m[1]) : null;
+}
+
+// MUST-ATTACK-UNLESS (CR 508.1d — an attack REQUIREMENT with a condition: "attacks if able, or …
+// attacks if some condition is met"): "This creature attacks each combat if able unless you control
+// <predicate>." (Reckless Cohort / Marauding Maulhorn). While the predicate FAILS the requirement is
+// live (opponentAI.pickAttackPlan force-declares, the MUST-ATTACK bar); while it HOLDS the requirement
+// is off and the creature is an ordinary optional attacker. Before CS-1 the runtime over-enforced these
+// two (selfMustAttack matched the prefix and ignored the unless) — the predicate read fixes that in
+// lockstep with the credit.
+const reMustAttackUnless = /(?:^|[\n.;])\s*(?:this creature|it) attacks each (?:combat|turn) if able unless you control ([^.;\n]+?)\s*(?:\.|$)/;
+export function mustAttackUnlessOf(card) {
+  const m = selfOracle(card).match(reMustAttackUnless);
+  return m ? parseControllerBoardPredicate(m[1]) : null;
+}
+
+// CANT-ATTACK-UNLESS-DEFENDER (CR 508.1c) — the SM-1 islandhome seam GENERALIZED: "This creature can't
+// attack unless defending player <predicate>." A per-defender attack-legality gate (legalChoices'
+// allowedTargetsFor pairs the creature only with defenders whose board/state meets it — 4P-correct,
+// the landwalk read discipline). Vetted predicates only; the clause parser is the single source of
+// truth for reader AND mirror.
+//   controls an Island/Swamp/…/snow land      → { kind:"land", subtype }          (SM-1, unchanged set)
+//   controls a blue/white/… permanent          → { kind:"colorPermanent", color }  (Whimwader)
+//   controls a creature with flying            → { kind:"creatureWithKeyword" }    (Lurking Green Dragon)
+//   controls an enchantment or an enchanted permanent → { kind:"enchantmentOrEnchanted" } (Godhunter Octopus)
+//   is poisoned                                → { kind:"poisoned" }               (Chained Throatseeker)
+//   is the monarch                             → { kind:"monarch" }                (Crown-Hunter Hireling)
+export function parseAttackDefenderRequirementClause(clause) {
+  const m = String(clause || "").match(/^(?:this creature |it )?can't attack unless defending player (.+)$/);
+  if (!m) return null;
+  const rest = m[1].trim();
+  if (rest === "is poisoned") return { kind: "poisoned" };
+  if (rest === "is the monarch") return { kind: "monarch" };
+  const cm = rest.match(/^controls an? (.+)$/);
+  if (!cm) return null;
+  const what = cm[1];
+  if (/^(?:island|swamp|mountain|forest|plains|snow land)$/.test(what)) return { kind: "land", subtype: what };
+  const colM = what.match(/^(white|blue|black|red|green) permanent$/);
+  if (colM) return { kind: "colorPermanent", color: BLOCKER_COLOR_WORDS[colM[1]] };
+  if (what === "creature with flying") return { kind: "creatureWithKeyword", keyword: "Flying" };
+  if (what === "enchantment or an enchanted permanent") return { kind: "enchantmentOrEnchanted" };
+  return null; // unvetted defender predicate → fail closed (safe FN)
+}
+const reAttackDefenderSentence = /(?:^|[\n.;])\s*((?:this creature|it) can't attack unless defending player [^.;\n]+?)\s*(?:\.|$)/;
+export function attackDefenderRequirementOf(card) {
+  const m = selfOracle(card).match(reAttackDefenderSentence);
+  return m ? parseAttackDefenderRequirementClause(m[1]) : null;
+}
+/** Does `defenderId` meet a parsed defender requirement? Layer-aware; live per enumeration. */
+export function defenderMeetsAttackRequirement(state, defenderId, req) {
+  if (!req) return true;
+  const bf = state.players?.[defenderId]?.battlefield || [];
+  if (req.kind === "land") return defenderControlsLandType(state, defenderId, req.subtype);
+  if (req.kind === "colorPermanent") return bf.some((p) => permColorSet(state, p.id).has(req.color));
+  if (req.kind === "creatureWithKeyword") return bf.some((p) => permanentIsCreature(state, p.id) && permanentHasKeyword(state, p.id, req.keyword));
+  if (req.kind === "enchantmentOrEnchanted") {
+    return bf.some((p) =>
+      (permanentTypes(state, p.id)?.types || []).some((t) => String(t).toLowerCase() === "enchantment")
+      || (p.attachments || []).some((aid) => {
+        const a = findPermanent(state, aid);
+        return !!a && /\bAura\b/i.test(String(a.permanent.card?.type || a.permanent.card?.type_line || ""));
+      }));
+  }
+  if (req.kind === "poisoned") return (state.players?.[defenderId]?.poison || 0) > 0;
+  if (req.kind === "monarch") return state.monarchId === defenderId;
+  return false; // unreachable — the parser emits only the kinds above; fail closed
 }
 /** CANT-ALONE (BLITZ SM-2, CR 508.1h/509.1a — Mogg Flunkies / Loyal Pegasus / Jackal Familiar): "This
  * creature/token can't attack or block alone." Enforced at BOTH declaration gates in legalChoices: the
@@ -576,11 +756,43 @@ export function isEnforcedEvasionClause(clause) {
   // AB-1 — the defender-board type conditions (Neurok Spy / Bubbling Beebles / Hazy Homunculus): enforced
   // live in canBlockAttacker, so a body whose only non-keyword text is this static is honestly native.
   if (/^(?:this creature |it )?can't be blocked as long as defending player controls an? (?:artifact|enchantment|untapped land)$/.test(c)) return true;
-  // ISLANDHOME (BLITZ SM-1) — "can't attack unless defending player controls an Island/…/snow land" is
-  // enforced per-defender at attack declaration (actionsDeclareAttacker filters the target list through
-  // defenderMeetsAttackLandRequirement), so a body whose only non-keyword text is this static is honestly
-  // native. The two-line "When you control no Islands, sacrifice …" frame never reaches here whole.
-  if (/^(?:this creature |it )?can't attack unless defending player controls an? (?:island|swamp|mountain|forest|plains|snow land)$/.test(c)) return true;
+  // CANT-ATTACK-UNLESS-DEFENDER (BLITZ SM-1 generalized by CS-1, CR 508.1c) — "can't attack unless
+  // defending player <predicate>" (islandhome lands + blue-permanent / creature-with-flying /
+  // enchantment-or-enchanted / poisoned / monarch). Enforced per-defender at attack declaration
+  // (actionsDeclareAttacker filters the target list through defenderMeetsAttackRequirement); the credit
+  // consumes the SAME parseAttackDefenderRequirementClause the runtime reader uses, so an unvetted
+  // predicate is refused by both at once. The two-line "When you control no Islands, sacrifice …" frame
+  // never reaches here whole.
+  if (parseAttackDefenderRequirementClause(c)) return true;
+  // CANT-ATTACK-UNLESS-YOU (BLITZ CS-1, CR 508.1c) — "can't attack unless you control <predicate>"
+  // (Desperate Castaways / War Falcon / Steelclad Serpent / Warden of the Chained). Enforced as a hard
+  // attacker filter in actionsDeclareAttacker via the SAME parseControllerBoardPredicate grammar; an
+  // unvetted predicate (action costs, hand counts, "you've cast…") is refused by reader and mirror alike.
+  {
+    const am = c.match(/^(?:this creature |it )?can't attack unless you control (.+)$/);
+    if (am && parseControllerBoardPredicate(am[1])) return true;
+  }
+  // MULTI-BLOCK (BLITZ CS-1, CR 509.1a) — "can block an additional creature each combat" (max 2) /
+  // "can block any number of creatures" (∞). Enforced at the declare-blockers offer (legalChoices reads
+  // maxBlocksOf) + the CR 510.1d damage division in combatResolution; the clause regexes are built from
+  // the SAME core strings as the runtime reader's, so credit == enforcement.
+  if (reClauseMaxBlocksAdditional.test(c)) return true;
+  if (reClauseMaxBlocksAny.test(c)) return true;
+  // MUST-BE-BLOCKED (BLITZ CS-1, CR 509.1c) — "must be blocked if able". Enforced at the AI block plan
+  // (opponentAI.pickBlockers seeds a minimum legal block before the value heuristic — the LU-1 lure
+  // seam, the MUST-ATTACK house bar). Same shared core as mustBeBlockedIfAble.
+  if (reClauseMustBeBlocked.test(c)) return true;
+  // LURE (LU-1 + the CS-1 "with flying" filter — Talruum Piper): the clause face of lureFilterOf's
+  // sentence reader (ONE core pattern), enforced at the pickBlockers lure seeding with the filter
+  // narrowing the forced set to flying blockers.
+  if (reClauseLure.test(c)) return true;
+  // MUST-ATTACK-UNLESS (BLITZ CS-1, CR 508.1d) — "attacks each combat/turn if able unless you control
+  // <predicate>" (Reckless Cohort / Marauding Maulhorn). pickAttackPlan force-declares while the
+  // predicate fails and releases the requirement while it holds — the same shared predicate grammar.
+  {
+    const um = c.match(/^(?:this creature |it )?attacks each (?:combat|turn) if able unless you control (.+)$/);
+    if (um && parseControllerBoardPredicate(um[1])) return true;
+  }
   // CANT-ALONE (BLITZ SM-2 + CB-1) — "can't attack alone" / "can't block alone" / "can't attack or block
   // alone" are enforced at the attack and/or block declaration gate(s) (legalChoices offers the creature
   // only once another attacker/blocker is declared this combat — cantAttackAlone gates the attack side,
