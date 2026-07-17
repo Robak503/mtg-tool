@@ -218,16 +218,21 @@ export function applyReanimate(state, atom, ctx) {
 
 /**
  * TUCK clause parser (migrated from parseExtendedAtom, seam batch 10 / Wave A5).
- * "put target <creature|permanent|nonland permanent|creature or land|artifact or creature> on (top|the
+ * "put target <creature|permanent|nonland permanent|creature or land|artifact or creature|land> on (top|the
  * bottom) of its owner's library" → tuck atom (applyZoneMove → library, top/bottom). A creature restriction,
  * 3-way union, positional "Nth from the top", or any rider fails the exact anchor → low → Arbiter (clean FN).
+ * LAND-TUCK (BLITZ LT-1 — Fallow Earth / Uproot spells; Rootrunner's sac-self activated): "land" joins the
+ * alternation — the SAME proven machinery end to end (PERMANENT_PREDICATES.land enumeration → a
+ * type:"permanent" target → applyZoneMove's library move, owner = the permanent's controller — the
+ * controller-as-owner proxy every bounce/tuck uses). A scoped ("you control") / subtype ("Forest") /
+ * "another target" variant fails the exact anchor → low → Arbiter (FN-safe).
  * Pure (no parser.js import — cycle-safe); normalizes the clause exactly as parseExtendedAtom does.
  */
 export function tuckClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  const tk = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent) on (top|the bottom) of its owner's library$/);
+  const tk = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent|land) on (top|the bottom) of its owner's library$/);
   if (tk) {
-    const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact" };
+    const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact", "land": "land" };
     return { op: "tuck", targetType: TT[tk[1]], where: tk[2] === "top" ? "top" : "bottom" };
   }
   return null;
