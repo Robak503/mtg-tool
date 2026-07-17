@@ -1511,9 +1511,19 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
     // Reckoner's Bargain — gain life equal to the sacrificed creature's toughness.
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards, then you gain life equal to the sacrificed creature's toughness.")))).toBe("low");
   });
-  it("MUST DROP TO LOW: an unmodeled cost shape (count / 'another') is NOT stripped", () => {
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice two creatures.\nDraw two cards.")))).toBe("low");
+  it("AC-1 MUST STAY HIGH: a count-of-N sacrifice ('sacrifice two creatures') is now modeled (Bankrupt in Blood / Phyrexian Tribute)", () => {
+    const p = parseEffectProgram(I("As an additional cost to cast this spell, sacrifice two creatures.\nDraw two cards."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.additionalCosts).toEqual([{ kind: "sacrifice", sacType: "creature", count: 2 }]);
+    // 'sacrifice five lands' — plural type maps to the singular sacType key, count preserved (Gaea's Balance cost shape).
+    const lands = parseEffectProgram(I("As an additional cost to cast this spell, sacrifice five lands.\nDraw a card."));
+    expect(lands.additionalCosts).toEqual([{ kind: "sacrifice", sacType: "land", count: 5 }]);
+  });
+  it("MUST DROP TO LOW: an unmodeled cost shape ('another', or a count outside two–five) is NOT stripped", () => {
+    // "another" — a spell has no source permanent to exclude, so it's not a modeled form.
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice another creature.\nDraw a card.")))).toBe("low");
+    // A count beyond the SUPPORTED two–five word range is left unstripped → LOW (no such corpus card today).
+    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice ten creatures.\nDraw a card.")))).toBe("low");
   });
   it("ADDCOST-1 union MUST STAY HIGH: 'sacrifice an artifact or creature' is modeled (Deadly Dispute / Costly Plunder)", () => {
     // The "artifact or creature" union sac cost is enforced as one sacType ("artifactOrCreature"); a victim
@@ -1532,8 +1542,12 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
     expect(programConfidence(life)).toBe("high");
     expect(life.additionalCosts).toEqual([{ kind: "payLife", amount: 3 }]);
   });
-  it("ADDCOST-2 MUST DROP TO LOW: multi-card discard / X-life / self-ref-discard are deferred", () => {
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard two cards.\nDraw three cards.")))).toBe("low");   // N>1 discard deferred (Cathartic Reunion)
+  it("AC-1 MUST STAY HIGH: a count-of-N discard ('discard two cards') is now modeled (Cathartic Reunion)", () => {
+    const p = parseEffectProgram(I("As an additional cost to cast this spell, discard two cards.\nDraw three cards."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.additionalCosts).toEqual([{ kind: "discard", count: 2 }]);
+  });
+  it("ADDCOST-2 MUST DROP TO LOW: X-life / self-ref-discard remain deferred", () => {
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, pay X life.\nDraw X cards.")))).toBe("low");               // X-life deferred (+ X-cost compound)
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard a card.\nDraw cards equal to the discarded card's mana value.")))).toBe("low"); // self-ref / cost-scaled effect
   });

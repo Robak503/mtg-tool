@@ -240,12 +240,19 @@ function applyCastSpell(state, action) {
     // (Treasure/Gold/Spawn) is likewise excluded — planPayment must never crack the very permanent the
     // cost sacrifice below re-finds (PERM_NOT_FOUND on an offered action). Emerge keeps its stricter
     // always-exclude (documented conservative FN); a repeatable victim still taps first legally.
-    const castSources = sourcesExcludingOneShotVictim(
-      action.emerge && action.sacCreatureId
-        ? manaSources(state, action.playerId).filter((s) => s.permanentId !== action.sacCreatureId)
-        : manaSources(state, action.playerId),
-      action.sacCreatureId,
-    );
+    let castBaseSources = action.emerge && action.sacCreatureId
+      ? manaSources(state, action.playerId).filter((s) => s.permanentId !== action.sacCreatureId)
+      : manaSources(state, action.playerId);
+    // AC-1 (count-of-N sacrifice, CR 601.2f): none of the N frozen `sacCountIds` victims that are ONE-SHOT mana
+    // sources (Treasure/Gold/Spawn) may ALSO be cracked to pay the mana — planPayment must never spend a
+    // permanent the additional-cost loop below re-finds to sacrifice (PERM_NOT_FOUND on an offered action).
+    // Mirrors legalChoices' per-N affordability filter + the activated-ability sacCountExcluded path. No
+    // sacCountIds (every N=1 / non-sac cast) → the original sources array, byte-identical.
+    if (action.sacCountIds?.length) {
+      const sacCountSet = new Set(action.sacCountIds);
+      castBaseSources = castBaseSources.filter((s) => !(s.sacrifices && sacCountSet.has(s.permanentId)));
+    }
+    const castSources = sourcesExcludingOneShotVictim(castBaseSources, action.sacCreatureId);
     const plan = planPayment(pool, castSources, action.cost);
     if (!plan) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
@@ -262,9 +269,12 @@ function applyCastSpell(state, action) {
   // the chosen way-to-pay onto the action. Kinds:
   //   sacrifice — γ1b `sacrificePermanentForCost` (battlefield→graveyard + the victim's dies trigger; the
   //               legalChoices filter already excluded any victim whose leave-trigger the dies path can't fire).
+  //               AC-1 count-of-N (`ac.count > 1`, "sacrifice two creatures"): sacrifice each of the N frozen
+  //               `sacCountIds` (a policy-picked least-valuable set from legalChoices).
   //   payLife   — deduct N life (CR 119.4; legalChoices gated life >= N).
   //   discard   — move the CHOSEN hand card → graveyard (same mechanism as EP-2's discard). The spell itself
-  //               is still in hand here but was excluded as a discard candidate at enumeration.
+  //               is still in hand here but was excluded as a discard candidate at enumeration. AC-1 count-of-N
+  //               (`ac.count > 1`, "discard two cards"): discard each of the N frozen `discardIds`.
   // FAIL-FAST: a program that REQUIRES a cost but arrived without the matching choice is an upstream bug —
   // THROW rather than cast cost-free (silently skipping a cost is the cardinal false-positive failure,
   // CLAUDE.md §1.2). `program` is hoisted here and reused for the payload below (single parse).
@@ -276,13 +286,37 @@ function applyCastSpell(state, action) {
   // mismatch, Omnath breakage #4). No-op for any card without a cost-only keyword line.
   const program = action.program || parseEffectProgram({ ...castCard, oracle: stripCostOnlyKeywordLines(castCard?.oracle || "") });
   for (const ac of program?.additionalCosts || []) {
-    if (ac.kind === "sacrifice") {
+    if (ac.kind === "sacrifice" && (ac.count ?? 1) > 1) {
+      // AC-1 (count-of-N, CR 701.21a) — sacrifice EACH of the N frozen victims (battlefield→graveyard + dies
+      // triggers). legalChoices froze exactly N legal ids on `sacCountIds`; a short/missing list is an upstream
+      // bug — THROW rather than cast having sacrificed fewer than N (paying N-1 is the cardinal false positive).
+      if (!Array.isArray(action.sacCountIds) || action.sacCountIds.length < ac.count) {
+        throw new DispatcherError(`Spell requires sacrificing ${ac.count} but ${action.sacCountIds?.length || 0} were chosen`, "ADDCOST_UNPAID");
+      }
+      for (const vid of action.sacCountIds) {
+        const victim = working.players[action.playerId]?.battlefield.find(p => p.id === vid);
+        if (!victim) throw new DispatcherError(`Sacrifice victim ${vid} not on battlefield`, "PERM_NOT_FOUND");
+        working = sacrificePermanentForCost(working, action.playerId, victim);
+      }
+    } else if (ac.kind === "sacrifice") {
       if (!action.sacCreatureId) throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
       const victim = working.players[action.playerId]?.battlefield.find(p => p.id === action.sacCreatureId);
       if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
       working = sacrificePermanentForCost(working, action.playerId, victim);
     } else if (ac.kind === "payLife") {
       working = loseLife(working, { playerId: action.playerId, amount: ac.amount });
+    } else if (ac.kind === "discard" && (ac.count ?? 1) > 1) {
+      // AC-1 (count-of-N) — discard EACH of the N frozen hand cards (hand→graveyard). Same fail-fast: a
+      // short/missing `discardIds` means the offer was malformed — THROW rather than discard fewer than N.
+      if (!Array.isArray(action.discardIds) || action.discardIds.length < ac.count) {
+        throw new DispatcherError(`Spell requires discarding ${ac.count} but ${action.discardIds?.length || 0} were chosen`, "ADDCOST_UNPAID");
+      }
+      for (const cid of action.discardIds) {
+        if (!working.players[action.playerId]?.hand.some(c => c.id === cid)) {
+          throw new DispatcherError(`Discard card ${cid} not in hand`, "CARD_NOT_IN_HAND");
+        }
+        working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: cid });
+      }
     } else if (ac.kind === "discard") {
       if (!action.discardCardId) throw new DispatcherError("Spell requires an additional discard cost but no card was chosen", "ADDCOST_UNPAID");
       if (!working.players[action.playerId]?.hand.some(c => c.id === action.discardCardId)) {

@@ -1557,23 +1557,33 @@ function matchChooseTypeDraw(oracle) {
 // cast per legal victim + gates the spell uncastable when none can be sacrificed; actionDispatcher.
 // applyCastSpell pays it via the γ1b `sacrificePermanentForCost` helper). The sac allowlist MIRRORS
 // abilities.parseAbilityCost's `sacOther` regex — we can't import it (abilities.js imports parser.js → a
-// cycle), so the discipline is duplicated, not shared: a COUNT ("two creatures"), a compound type ("a
-// creature or artifact"), or "another" (a spell has no source permanent to exclude) doesn't match → the
-// sentence is left in place → the card stays LOW.
+// cycle), so the discipline is duplicated, not shared. AC-1 extends this to a COUNT-of-N ("sacrifice two
+// creatures" / "discard two cards" / "sacrifice five lands") via SAC_COUNT_COST_RE / DISCARD_COUNT_COST_RE
+// (SUPPORTED count words two–five, single types only) — the cast path pays EXACTLY N (legalChoices offers a
+// policy-picked N-victim set + gates uncastable when fewer than N exist; the dispatcher sacrifices/discards
+// each). Still LOW: a compound type ("a creature or artifact" with a count), an "or pay {N}" alternative, or
+// "another" (a spell has no source permanent to exclude) doesn't match → the sentence is left in place.
 const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+)\.\s*/i;
 // ADDCOST-1 sac victims — single types PLUS the "artifact or creature" UNION (Deadly Dispute, Deadly
 // Dispute-style "sacrifice an artifact or creature"). The union is enforced as one sacType key
 // ("artifactOrCreature"); legalChoices.sacTypeMatches offers a victim matching EITHER type.
 const SAC_COST_RE = /^sacrifice (?:a|an) (artifact or creature|creature or artifact|creature|permanent|artifact|enchantment|land)$/i;
-const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2 — no-choice life cost
-const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;             // ADDCOST-2 — N=1 only ("two cards"/"X cards"/"your hand" deferred)
+// AC-1 (count-of-N, CR 601.2f) — the PLURAL form: "sacrifice two/three/four/five <type>s" (Bankrupt in Blood,
+// Phyrexian Tribute "sacrifice two creatures"; Gaea's Balance "sacrifice five lands"). Canonicalized to the SAME
+// singular sacType key the N=1 form emits (creatures→creature, lands→land), so sacTypeMatches is untouched; the
+// only new field is `count:N`. The "artifact or creature" union stays N=1-only (no count-N corpus card needs it).
+const SAC_COUNT_COST_RE = /^sacrifice (two|three|four|five) (creatures|permanents|artifacts|enchantments|lands)$/i;
+const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2 — no-choice life cost (N already numeric)
+const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;            // ADDCOST-2 — the N=1 form
+const DISCARD_COUNT_COST_RE = /^discard (two|three|four|five) cards$/i; // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion)
 const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard"]);
 
 /**
  * Pull a modeled additional cost off a spell's oracle. Returns `{ costs, rest }`:
  *   - `costs`: `[cost]` when the (sole) additional cost is a modeled type AND the remaining effect does NOT
  *     reference the paid-cost object; otherwise `null`. Modeled cost shapes:
- *       `{ kind:"sacrifice", sacType }` (ADDCOST-1) · `{ kind:"payLife", amount }` · `{ kind:"discard", count:1 }`.
+ *       `{ kind:"sacrifice", sacType }` (ADDCOST-1, N=1) · `{ kind:"sacrifice", sacType, count:N }` (AC-1, N>1) ·
+ *       `{ kind:"payLife", amount }` · `{ kind:"discard", count:N }` (N=1 or, AC-1, N>1).
  *   - `rest`: the oracle with the cost sentence removed — ONLY when `costs !== null`; otherwise the oracle
  *     unchanged (so the un-strippable cost sentence keeps the card LOW).
  * CONSERVATIVE by construction: anything but a modeled cost form (a count, a compound, an "or pay {N}" alt,
@@ -1584,18 +1594,28 @@ function extractAdditionalCosts(oracle) {
   if (!m) return { costs: null, rest: oracle };
   const phrase = m[1].trim();
   const sac = SAC_COST_RE.exec(phrase);
+  const sacN = SAC_COUNT_COST_RE.exec(phrase);   // AC-1 count-of-N — tried only when the N=1 singular form misses
   const life = PAYLIFE_COST_RE.exec(phrase);
   const disc = DISCARD_COST_RE.exec(phrase);
+  const discN = DISCARD_COUNT_COST_RE.exec(phrase); // AC-1 count-of-N
   let cost, selfRef = null;
   if (sac) {
     // Canonicalize the "artifact or creature" / "creature or artifact" union to one sacType key.
     const raw = sac[1].toLowerCase();
     const sacType = (raw === "artifact or creature" || raw === "creature or artifact") ? "artifactOrCreature" : raw;
-    cost = { kind: "sacrifice", sacType };
+    cost = { kind: "sacrifice", sacType };                                            // N=1 — BYTE-IDENTICAL (no count field)
+    selfRef = /\bsacrificed\b/i;
+  }
+  else if (sacN) {
+    // AC-1: "sacrifice two/three… <type>s" — the plural type is stripped to the singular sacType key the N=1
+    // form uses (creatures→creature, lands→land), so sacTypeMatches / the whole cost pipeline is unchanged.
+    const sacType = sacN[2].toLowerCase().replace(/s$/, "");
+    cost = { kind: "sacrifice", sacType, count: SMALL_NUM[sacN[1].toLowerCase()] };
     selfRef = /\bsacrificed\b/i;
   }
   else if (life) { cost = { kind: "payLife", amount: parseInt(life[1], 10) }; }       // no-choice: deduct N at cast
-  else if (disc) { cost = { kind: "discard", count: 1 }; selfRef = /\bdiscarded\b/i; } // N=1; "two cards"/X deferred
+  else if (disc) { cost = { kind: "discard", count: 1 }; selfRef = /\bdiscarded\b/i; } // N=1 — BYTE-IDENTICAL
+  else if (discN) { cost = { kind: "discard", count: SMALL_NUM[discN[1].toLowerCase()] }; selfRef = /\bdiscarded\b/i; } // AC-1 N>1
   else return { costs: null, rest: oracle };                   // unmodeled cost-type / count / compound → LOW
   const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
   // Self-reference guard: an effect that reads the paid-cost object ("…damage equal to the sacrificed

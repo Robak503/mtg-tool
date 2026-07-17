@@ -40,6 +40,7 @@ import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTar
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
+import { tutorManaValue } from "./effects/atoms/library.js"; // AC-1 — the least-valuable ranking the edict/discard auto-pick uses (library.js is a leaf, cycle-safe)
 
 // S1.1 (shelf run, 2026-07-10): parse a card's CAST program from the cost-only-keyword-STRIPPED
 // oracle — the same strip the classifier (coverage.js) and the dispatcher's fallback use. The
@@ -249,6 +250,26 @@ function sacTypeMatches(card, type, subtype = null) {
   const dash = t.indexOf("—");
   const subtypeStr = (dash >= 0 ? t.slice(dash + 1) : "").toLowerCase();
   return new RegExp(`\\b${subtype.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(subtypeStr);
+}
+// AC-1 (count-of-N additional costs, CR 601.2f) — the deterministic "least valuable" ranking the engine uses to
+// pick WHICH N permanents/cards to give up when a spell's additional cost demands N>1 (Bankrupt in Blood /
+// Phyrexian Tribute "sacrifice two creatures"; Cathartic Reunion "discard two cards"). Mirrors runProgram's
+// autoPickSacrificeCandidate / autoPickDiscardCandidate EXACTLY — lowest mana value, then lowest printed power,
+// then codepoint name, then id — so the choice is serialize-stable (no Math.random) and consistent with how an
+// edict / each-player-discard auto-picks a single victim. The N-count offer reuses this single-choice policy N
+// times (take the N cheapest) rather than enumerating C(pool,N) combinations, which would explode the action set.
+const _cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+function leastValuablePermanentCmp(a, b) {
+  return tutorManaValue(a.card) - tutorManaValue(b.card) ||
+    (Number(a.card?.power) || 0) - (Number(b.card?.power) || 0) ||
+    _cmpStr(String(a.card?.name || ""), String(b.card?.name || "")) ||
+    _cmpStr(String(a.id || ""), String(b.id || ""));
+}
+function leastValuableCardCmp(a, b) {
+  return tutorManaValue(a) - tutorManaValue(b) ||
+    (Number(a.power) || 0) - (Number(b.power) || 0) ||
+    _cmpStr(String(a.name || ""), String(b.name || "")) ||
+    _cmpStr(String(a.id || ""), String(b.id || ""));
 }
 function isSorcerySpeed(card) {
   const type = typeLineOf(card);
@@ -937,7 +958,36 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         modeName: ch.label || undefined,
         ...extra,
       });
-      if (addCost.kind === "sacrifice") {
+      if (addCost.kind === "sacrifice" && (addCost.count ?? 1) > 1) {
+        // AC-1 (count-of-N, CR 601.2f) — "sacrifice two creatures" (Bankrupt in Blood, Phyrexian Tribute) /
+        // "sacrifice five lands". No combinatorial enumeration: reuse the edict least-valuable policy to pick
+        // EXACTLY N victims and offer ONE cast per legal target combo (freezing the N ids on `sacCountIds`,
+        // which the dispatcher's additional-cost loop pays). Same fail-safe as γ1b: a victim whose OWN
+        // leave-trigger the dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply.
+        const n = addCost.count;
+        const pool = player.battlefield.filter(v =>
+          sacTypeMatches(v.card, addCost.sacType) &&
+          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
+        if (pool.length < n) continue;                    // fewer than N legal victims → cost can't be paid → uncastable
+        const ranked = [...pool].sort(leastValuablePermanentCmp);
+        for (const ch of combos) {
+          // Don't sacrifice a permanent the effect targets — paid as a cost (gone before the spell resolves) →
+          // the target would fizzle (CR 608.2b). Exclude every targeted id BEFORE taking the N cheapest.
+          const targeted = new Set(ch.targets.map(t => t.id));
+          const chosen = ranked.filter(v => !targeted.has(v.id)).slice(0, n);
+          if (chosen.length < n) continue;                // too few once the targeted victims are excluded
+          const chosenIds = chosen.map(v => v.id);
+          // W3 (two-sites invariant): none of the N one-shot mana victims (Treasure/Gold/Spawn) may ALSO be
+          // cracked to pay the spell's mana cost — re-check affordability with all N excluded. A repeatable
+          // victim taps first legally, so it's only dropped from the sources when it's a one-shot.
+          if (!freeCast) {
+            let src = manaSources(state, playerId);
+            for (const id of chosenIds) src = sourcesExcludingOneShotVictim(src, id);
+            if (!canAfford(player.manaPool, src, cost)) continue;
+          }
+          emit(ch, { sacCountIds: chosenIds, sacName: `sacrifice ${chosen.map(c => c.card?.name).filter(Boolean).join(", ")}` });
+        }
+      } else if (addCost.kind === "sacrifice") {
         // γ1b: the player picks which permanent of <type> to sacrifice. A victim whose OWN leave-trigger
         // the dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply.
         const victims = player.battlefield.filter(v =>
@@ -968,13 +1018,23 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if ((player.life || 0) < addCost.amount) continue;
         for (const ch of combos) emit(ch, { payLifeCost: addCost.amount, payLifeName: `pay ${addCost.amount} life` });
       } else if (addCost.kind === "discard") {
-        // N=1: the player picks which hand card to discard. The spell itself is being cast (on its way to
-        // the stack), so it's NOT a legal discard candidate — exclude it. No legal card → uncastable.
+        // The player picks which hand card(s) to discard. The spell itself is being cast (on its way to the
+        // stack), so it's NOT a legal discard candidate — exclude it. Fewer than N candidates → uncastable.
         if (!affordable) continue; // R1.5 — same printed-cost re-check as payLife above
         const discardable = player.hand.filter(h => h.id !== card.id);
         if (discardable.length < addCost.count) continue;
-        for (const dc of discardable) for (const ch of combos) {
-          emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
+        if (addCost.count > 1) {
+          // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion). Reuse the each-player discard
+          // least-valuable policy (autoPickDiscardCandidate: lowest MV, then power, then name, then id) to pick
+          // EXACTLY N and offer ONE cast per target combo (freezing the N ids on `discardIds`).
+          const chosen = [...discardable].sort(leastValuableCardCmp).slice(0, addCost.count);
+          const chosenIds = chosen.map(c => c.id);
+          for (const ch of combos) emit(ch, { discardIds: chosenIds, discardName: `discard ${chosen.map(c => c.name).filter(Boolean).join(", ")}` });
+        } else {
+          // N=1 — one cast per discardable hand card (a real in-game pick). BYTE-IDENTICAL.
+          for (const dc of discardable) for (const ch of combos) {
+            emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
+          }
         }
       } else {
         continue; // unknown cost kind — programConfidence already gates unsupported kinds to low (defensive)
