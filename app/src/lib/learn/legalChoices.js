@@ -57,7 +57,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
-import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly } from "./coverage.js";
+import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura } from "./coverage.js";
 import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
@@ -1094,7 +1094,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // battlefield ("Enchant creature" has no controller restriction); no legal creature
     // → can't cast (CR 303.4a). A non-native Aura has no modeled bonus, so it falls
     // through to the no-target branch and the dispatcher routes it to the Arbiter seam.
-    if (isNativeAura(card)) {
+    // ORDEAL (BLITZ OC-1): the exact Theros Ordeal template (attacks→counter→threshold-sac→"when you
+    // sacrifice" payoff) is a fully-modeled trigger-only creature Aura — same cast shape (enter + attach
+    // via AURA_ETB; the triggers fire off the attached linkage), gated on the SAME isNativeOrdealAura the
+    // metric awards, so the offer and the native-trigger claim can't drift.
+    if (isNativeAura(card) || isNativeOrdealAura(card)) {
       // KW-PROTECTION (CR 702.16b): the Aura spell's colors gate targeting — a protection-from-[color]
       // creature can't be the Aura's target if the Aura is that color (also its 702.16c enchant immunity).
       // ENCHANT-RESTRICTION (CR 303.4a): "Enchant creature you control" limits legal targets to the caster's

@@ -346,6 +346,51 @@ export function sacrificeEdictClauseParser(clause) {
 }
 
 /**
+ * ORDEAL THRESHOLD-SAC clause parser (BLITZ OC-1, the Theros Ordeal cycle) — the sentinel-tagged second
+ * sentence of the Ordeal attack trigger ("… Then if it has three or more +1/+1 counters on it, sacrifice
+ * this Aura."). The [ordeal-threshold-sac] marker phrase is emitted ONLY by the detectTriggers Ordeal
+ * rewrite (gated to the attacks/equippedCreature descriptor whose WHOLE effect matched the exact printed
+ * pair), so a spell's / any other clause's text can never reach this atom — the same sentinel discipline as
+ * [self-return:*] / [dies-return-bf]. Anchored to the exact marker sentence; anything else → null.
+ */
+export function ordealThresholdSacClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().trim();
+  if (/^\[ordeal-threshold-sac\] sacrifice this aura if the triggering creature has three or more \+1\/\+1 counters on it$/.test(t)) {
+    return { op: "ordeal-threshold-sac", counterType: "+1/+1", threshold: 3 };
+  }
+  return null;
+}
+
+/**
+ * ORDEAL THRESHOLD-SAC resolver (BLITZ OC-1) — "Then if it has three or more +1/+1 counters on it,
+ * sacrifice this Aura." Runs AFTER the counter atom in the same program (CR 608.2c — instructions in the
+ * order written), so the threshold is read at exactly the printed point: the HOST's live +1/+1 counter
+ * count (ALL of them, not just this Aura's — the printed "it has three or more", counting counters from
+ * any source) — the just-placed counter included.
+ *   - host = ctx.triggeringPermanentId (the attacker that fired the attacks/equippedCreature trigger =
+ *     the enchanted creature). Host gone at resolution → the count can't be read off the battlefield and
+ *     the Aura is already graveyard-bound by the SBA (CR 704.5m) → a clean no-op, never a blind sacrifice.
+ *   - the Aura = ctx.sourceId (the trigger's SOURCE permanent, CR 113.7). Already left (destroyed in
+ *     response) → nothing to sacrifice (CR 701.21a — a sacrifice moves it FROM the battlefield) → no-op.
+ * Threshold met → sacrificeCreatureEffect under the AURA's current controller (CR 701.21a — its controller
+ * moves it to the graveyard): the shared effect-sac chokepoint, so the sacrifice fires the sac watchers AND
+ * the Aura's own "When you sacrifice this Aura" payoff (checkSacrificeTriggers' youSacrificeThis look-back,
+ * CR 603.10a). Below-threshold → logged no-op.
+ */
+function applyOrdealThresholdSac(state, atom, ctx) {
+  const hostLk = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+  const have = hostLk ? (hostLk.permanent.counters?.[atom.counterType || "+1/+1"] || 0) : 0;
+  if (!hostLk || have < (atom.threshold ?? 3)) {
+    return logEvent(state, { kind: "spell-effect", effect: "ordeal-threshold-sac", controller: ctx.controller, sacrificed: null, counters: have });
+  }
+  const auraLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!auraLk) {
+    return logEvent(state, { kind: "spell-effect", effect: "ordeal-threshold-sac", controller: ctx.controller, sacrificed: null, counters: have });
+  }
+  return sacrificeCreatureEffect(state, auraLk.controller, ctx.sourceId);
+}
+
+/**
  * DESTROY ⇄ EXILE clause parser — co-extracted from parseExtendedAtom (seam batch 27 / Wave C, RIDER-FOLDING).
  * All five destroy/exile matchers, original first-match order:
  *   1. "exile target creature" → exile/creature
@@ -642,4 +687,5 @@ export const removalResolvers = {
         ? applyExileUntilLeaves(state, atom, ctx) // DETAIN (DT-1) — Banishing Light: exile linked to the source permanent
         : applyZoneMove(state, atom, ctx, "exile"),
   "sacrifice": applySacrifice,
+  "ordeal-threshold-sac": applyOrdealThresholdSac, // ORDEAL (BLITZ OC-1, CR 608.2c order-written) — host at 3+ +1/+1 counters → the source Aura sacrifices itself (→ its own "when you sacrifice" payoff)
 };

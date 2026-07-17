@@ -45,7 +45,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
-import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding)
+import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
@@ -4201,6 +4201,12 @@ registerClauseParser(createTokenClauseParser);
 // original order). These were the LAST matchers in parseExtendedAtom, so nothing ran after them; the clauses
 // match no earlier registered parser → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(sacrificeEdictClauseParser);
+// ORDEAL THRESHOLD-SAC (BLITZ OC-1) — the [ordeal-threshold-sac] sentinel sentence, emitted ONLY by the
+// detectTriggers Ordeal rewrite (attacks/equippedCreature descriptor whose whole effect matched the exact
+// printed pair). Resolver in atoms/removal.applyOrdealThresholdSac: host at 3+ +1/+1 counters → the source
+// Aura sacrifices itself through the shared sacrificeCreatureEffect chokepoint. No printed oracle text can
+// produce the bracketed marker, so no earlier/later parser competes for it.
+registerClauseParser(ordealThresholdSacClauseParser);
 // SAC-LAND-RAMP (Toph TIER-2) — "Sacrifice a land." as a resolution EFFECT (the controller self-sacs one of
 // their lands of their choice), the lead clause of the sac-then-fetch ramp spells (Roiling Regrowth, Cycle of
 // Renewal). Resolver in atoms/sacLand.applySacrificeLand (reuses the sacrifice-choice pause/resume + the

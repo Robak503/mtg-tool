@@ -58,6 +58,9 @@ import { parseEffectProgram } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped } from "./staticAbilityParser.js";
+// ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
+// awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
+import { isNativeOrdealAura } from "./coverage.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
@@ -376,9 +379,11 @@ function applyCastSpell(state, action) {
     // leaves). The enchanted-creature bonus is the SAME parseAuraBonus descriptor layers already applies.
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, bestowed: true } };
-  } else if (isNativeAura(castCard)) {
+  } else if (isNativeAura(castCard) || isNativeOrdealAura(castCard)) {
     // Aura (CR 303.4f): resolve via the AURA_ETB resolver — enter the battlefield attached
     // to the targeted creature. The target id is the battlefield permanent chosen at cast.
+    // ORDEAL (BLITZ OC-1): the fully-modeled trigger-only Ordeal Aura rides the SAME lane (enter +
+    // attach; its triggers fire off the attached linkage) — the gate mirrors legalChoices' offer.
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId } };
   } else if (action.enchantsPlayer && isPlayerAuraCard(castCard)) {

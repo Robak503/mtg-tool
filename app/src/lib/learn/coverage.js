@@ -1188,6 +1188,39 @@ function isNativeManaGrantAuraWithEtb(card) {
   return sawEtb; // the bare form (no ETB) is isNativeManaGrantAura's — this gate only adds the rider form
 }
 
+// ===== ORDEAL AURA (BLITZ OC-1 — the Theros Ordeal cycle, CR 303.4) ===== an "Enchant creature" Aura whose
+// WHOLE body is the exact two-trigger Ordeal template:
+//   "Whenever enchanted creature attacks, put a +1/+1 counter on it. Then if it has three or more +1/+1
+//    counters on it, sacrifice this Aura."  (attacks/equippedCreature — the attached-linkage scope; the
+//    counter + the [ordeal-threshold-sac] threshold-sacrifice, CR 608.2c order-written)
+//   "When you sacrifice this Aura, <payoff>."  (youSacrificeThis — fired off the sacrifice chokepoint's
+//    look-back, CR 603.10a; NEVER on a non-sacrifice exit such as the host-died SBA, CR 704.5m)
+// Native ONLY when the lines are EXACTLY {Enchant creature, the Ordeal attack line, the you-sacrifice
+// payoff line} — any residue line fails closed — AND detectTriggers yielded exactly one descriptor per
+// trigger line AND every descriptor routes natively (the SAME shared gate the runtime flush uses, so the
+// metric can't claim a payoff the engine would drop: an unmodeled payoff → LOW → body-only, e.g. a
+// "manifest dread"-style payoff card with other unroutable residue). All-or-nothing per THE CREED.
+const ORDEAL_ATTACK_LINE_RE = /^whenever enchanted creature attacks, put a \+1\/\+1 counter on it\.\s*then if it has three or more \+1\/\+1 counters on it, sacrifice this aura\.?$/i;
+const ORDEAL_PAYOFF_LINE_RE = /^when you sacrifice this aura, .+\.?$/i;
+export function isNativeOrdealAura(card) {
+  if (!isAuraCard(card)) return false;
+  const oracle = String(card.oracle || card.oracle_text || "");
+  const lines = oracle.split(/\n+/).map((l) => l.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim()).filter(Boolean);
+  let sawEnchant = false, sawAttack = false, sawPayoff = false;
+  for (const line of lines) {
+    if (/^enchant creature$/i.test(line)) { sawEnchant = true; continue; }
+    if (ORDEAL_ATTACK_LINE_RE.test(line)) { sawAttack = true; continue; }
+    if (ORDEAL_PAYOFF_LINE_RE.test(line)) { sawPayoff = true; continue; }
+    return false; // any residue line → not the Ordeal template → Arbiter (CREED fail-closed)
+  }
+  if (!(sawEnchant && sawAttack && sawPayoff)) return false;
+  const descs = detectTriggers(card);
+  return descs.length === 2
+    && descs.some((d) => d.event === "attacks" && d.scope === "equippedCreature")
+    && descs.some((d) => d.event === "youSacrificeThis")
+    && descs.every((d) => triggerRoutesNatively(d));
+}
+
 function isNativeActivatedGrantAura(card) {
   if (!isAuraCard(card)) return false;
   const granted = parseGrantedActivatedAbilities(card);
@@ -1484,6 +1517,11 @@ export function classifyCard(card) {
     // GRANTED-TRIGGERED (1c): "Enchanted creature has \"Whenever/At …\"" (Sixth Sense, Commander's Authority)
     // — the host gains a triggered ability the runtime fires on the host's event (triggers.triggersForEvent).
     if (isNativeTriggerGrantAuraOrEquipment(card)) return "native-trigger";
+    // ORDEAL (BLITZ OC-1): the exact Theros Ordeal template — attacks→counter→threshold-sac→"when you
+    // sacrifice" payoff, both descriptors routing natively (see isNativeOrdealAura above). native-trigger:
+    // the whole body is the Aura's OWN two triggered abilities, fired by checkAttackTriggers (attached
+    // linkage) and checkSacrificeTriggers (the youSacrificeThis look-back, CR 603.10a).
+    if (isNativeOrdealAura(card)) return "native-trigger";
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): an "Enchant player" Aura whose
     // whole body (the Enchant line aside) is natively-routed TRIGGERS. The runtime lane: legalChoices
     // offers the cast per living player target (gated on THIS tier, so metric and offer can't drift),

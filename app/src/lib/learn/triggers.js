@@ -972,6 +972,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   // — a restriction the engine can't check exactly, CLAUDE.md §1.2). "another" excludes the source permanent.
   const sacM = c.match(/^you sacrifice (a|an|another) (permanent|creature|artifact)$/);
   if (sacM) return { event: "sacrifice", scope: "you", whose: "any", sacScope: sacM[2], sacAnother: sacM[1] === "another" };
+  // TRIG-SELF-SACRIFICE (BLITZ OC-1, the Ordeal cycle) — "When YOU SACRIFICE THIS Aura/enchantment,
+  // <payoff>". A zone-change trigger that LOOKS BACK IN TIME (CR 603.10a — abilities that trigger when a
+  // player sacrifices a permanent), on the sacrificed permanent ITSELF: by the time it fires the source has
+  // already left the battlefield, so the battlefield watcher scan can never see it. It is fired directly
+  // from the sacrifice chokepoint (checkSacrificeTriggers reads the SACRIFICED card's own descriptors off
+  // the look-back), which every sacrifice path funnels through — the effect/edict sac, the cost sac, the
+  // Treasure-crack, the Saga sweep, and the Ordeal threshold-sac atom. "You" is satisfied by construction:
+  // only a permanent's controller can sacrifice it (CR 701.21a), and the chokepoint gates on it anyway.
+  // CRITICALLY this event NEVER fires on a non-sacrifice exit — an Aura put into the graveyard by the
+  // state-based action (host died, CR 704.5m) or destroyed/bounced is NOT sacrificed, and none of those
+  // paths call the sacrifice chokepoint. BARE self form only ("this aura"/"this enchantment"); any other
+  // subject ("you sacrifice it" mid-compound, a named subject) stays UNDETECTED → Arbiter (SAFE FN).
+  if (/^you sacrifice this (?:aura|enchantment)$/.test(c)) return { event: "youSacrificeThis", scope: "self", whose: "any" };
   // TRIG-SACRIFICE SUBTYPE — "Whenever you sacrifice a <Subtype>" (Captain Lannery Storm "sacrifice a
   // Treasure"; the artifact-token subtypes Clue/Food/Gold; tribal "sacrifice a Goblin/Saproling"). The sac'd
   // permanent's TYPE LINE is checked for the subtype word in checkSacrificeTriggers (sacScopeMatches' subtype
@@ -1081,6 +1094,16 @@ function classifyCondition(condRaw, cardName, cardType) {
     // never an over-fire across the 57 corpus "equipped creature attacks" cards). whose:"any" — combat is
     // not turn-scoped here; checkAttackTriggers only sources the active player's permanents anyway.
     if (/^equipped creature attacks$/.test(c)) return { event: "attacks", scope: "equippedCreature", whose: "any" };
+    // AURA-RIDER attacks (BLITZ OC-1, the Ordeal cycle) — "Whenever ENCHANTED CREATURE attacks, <effect>"
+    // (CR 508.3a — the enchanted creature being declared as an attacker). The watcher is the AURA; the
+    // attacker is the triggering permanent, so the SAME "equippedCreature" attached-linkage scope fires
+    // ONLY when the attacker IS this Aura's host (triggeringPermanent.id === sourcePermanent.attachedTo) —
+    // the exact precedent of the "enchanted creature deals combat damage to a player" descriptor below,
+    // which already shares the scope (Auras and Equipment attach through the identical `attachedTo` field).
+    // EXACTLY anchored to the bare form: any rider variant ("attacks alone", "attacks or blocks" — caught
+    // upstream) leaves residue → UNDETECTED → Arbiter (a SAFE false-negative). whose:"any" like the
+    // equipped form (checkAttackTriggers only scans the attacking player's watchers anyway).
+    if (/^enchanted creature attacks$/.test(c)) return { event: "attacks", scope: "equippedCreature", whose: "any" };
     // SUBTYPE attacks (tribal payoffs — Utvara Hellkite / Sanctum Seeker / Grolnok). Single-word subtype
     // filter reusing subtypeYouControl; checkAttackTriggers threads the attacker as triggeringPermanent.
     const atkSub = c.match(/^a ([a-z]{3,}) you control attacks$/);
@@ -2157,6 +2180,23 @@ export function detectTriggers(card) {
       // pronouns; a modal block's modes carry their own self/that/triggering referents (handled inside
       // the parser per mode), so skip the whole chain when the effect is the re-extracted modal block.
       if (modalBlock === null) {
+      // ===== ORDEAL CYCLE (BLITZ OC-1) ===== the exact Theros Ordeal attack line: "Whenever enchanted
+      // creature attacks, put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it,
+      // sacrifice this Aura." Both pronouns are the ENCHANTED creature — on an attacks/equippedCreature
+      // trigger the triggering permanent IS the attacker = this Aura's host (checkAttackTriggers +
+      // scopeMatches' attached linkage), so "it" = ctx.triggeringPermanentId. The instructions run IN THE
+      // ORDER WRITTEN (CR 608.2c): counter first, THEN the threshold check ("Then if …" is a mid-effect
+      // conditional read at that point of the resolution, NOT a CR 603.4 intervening if — it is checked
+      // AFTER the counter lands, counting ALL +1/+1 counters on the host). Rewrite the WHOLE two-sentence
+      // pair (anchored ^…$ — any variant/rider fails the anchor and keeps its raw pronouns → LOW → Arbiter)
+      // into: the standard triggering-creature counter sentinel + the [ordeal-threshold-sac] marker ONLY
+      // the ordealThresholdSacClauseParser models (threshold read live off the host; the sacrifice is the
+      // SOURCE Aura via ctx.sourceId → sacrificeCreatureEffect, whose chokepoint then fires the Aura's own
+      // "when you sacrifice this Aura" payoff — CR 603.10a).
+      if (cls.event === "attacks" && cls.scope === "equippedCreature"
+        && /^put a \+1\/\+1 counter on it\.\s*then if it has three or more \+1\/\+1 counters on it, sacrifice this aura$/i.test(effectClause)) {
+        effectClause = "put a +1/+1 counter on the triggering creature. [ordeal-threshold-sac] sacrifice this aura if the triggering creature has three or more +1/+1 counters on it";
+      }
       // TRIG-PUMP-1: for a SELF-scope trigger only, normalize a leading "it" → "this creature" when
       // the WHOLE effect is the self-pump shape (SELF_PUMP_IT_RE), so the parser's self-pump atom
       // (target:"self") models it. Gated on `cls.scope === "self"`: in a NON-self trigger
@@ -3715,6 +3755,20 @@ export function checkAttackTriggers(state) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
     }
+    // ATTACHED watchers ANOTHER player controls (BLITZ OC-1 hardening) — an Aura/Equipment attached to
+    // this attacker whose controller is NOT the attacking player (an Ordeal cast on an opponent's
+    // creature — legal per its bare "Enchant creature", CR 303.4; or a host that changed control). Its
+    // "Whenever enchanted/equipped creature attacks" descriptor (the equippedCreature attached-linkage
+    // scope) would otherwise silently never fire: the scan above covers ONLY the attacking player's
+    // watchers — a dropped trigger in a reachable state (a forbidden FP once the card claims native).
+    // Walk the attacker's attachments and fire exactly the not-already-scanned controllers' watchers
+    // (the id-set gate makes a double-fire impossible by construction; scopeMatches re-checks the
+    // attached linkage as always).
+    for (const attachId of attackerPerm.attachments || []) {
+      const alk = findPermanent(state, attachId);
+      if (!alk || alk.controller === a.attackingPlayer) continue; // already scanned above
+      fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: alk.permanent, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    }
   }
   // ===== KW-EXALTED (CR 702.83a — BLITZ EX-1, the rampage fire-time pattern) ===== "Whenever a creature
   // you control attacks alone, that creature gets +1/+1 until end of turn." Fires ONLY when the attacking
@@ -4456,6 +4510,21 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
       for (const d of detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onSacrifice)) {
         fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
       }
+    }
+  }
+  // SELF-SACRIFICE trigger (BLITZ OC-1 — "When you sacrifice this Aura, <payoff>", the Ordeal cycle). The
+  // sacrificed permanent's OWN youSacrificeThis descriptors fire off the LOOK-BACK (CR 603.10a — sacrifice
+  // triggers look back in time; the permanent has already left, so the battlefield watcher scan above can
+  // never see it). Source = triggering = the sacrificed look-back {id, controller, card} — makePendingTrigger
+  // reads exactly those fields, and the payoff programs (draw / gain-life / damage / discard / land tutor)
+  // never need the source on the battlefield (the dies-trigger precedent). Gated on the sacrificer BEING the
+  // sacrificed permanent's controller — always true for a real sacrifice (CR 701.21a: a player can't
+  // sacrifice a permanent they don't control), so this is a pure belt against a malformed caller. Fires from
+  // EVERY sacrifice chokepoint (this function is the single funnel) and from NO other exit path — an SBA /
+  // destroy / bounce never calls it, so the payoff never over-fires (CREED).
+  if (sacrificingPlayerId === sacrificed.controller) {
+    for (const d of detectTriggers(sacrificed.card).filter((x) => x.event === "youSacrificeThis")) {
+      fired.push(makePendingTrigger(d, sacrificed, sacrificed, {}));
     }
   }
   if (!fired.length) return state;
