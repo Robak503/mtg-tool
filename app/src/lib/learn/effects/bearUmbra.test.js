@@ -141,7 +141,7 @@ describe("Bear Umbra — totem armor (destruction replacement, both sites)", () 
     expect(s.players.user.graveyard.some((c) => c.name === "Bear Umbra")).toBe(true);
   });
 
-  it("totem armor SURVIVES a 'can't be regenerated' wrath (the rider only blocks regen, CR 701.15)", () => {
+  it("totem armor SURVIVES a 'can't be regenerated' wrath (the rider only blocks regen, CR 701.19)", () => {
     let s = boardWithBearUmbra();
     s = applyDestroyEffect(s, { controller: "ai", targets: [{ type: "creature", id: "c-host" }], cannotRegenerate: true });
     expect(findPermanent(s, "c-host")).toBeTruthy();          // host still saved

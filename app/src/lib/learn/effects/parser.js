@@ -132,7 +132,7 @@ const CANT_REGEN_TEST = new RegExp(CANT_REGEN_SUBJECTS.source, "i");
 /**
  * Remove the "can't be regenerated" rider from the PARSE TEXT so the rest of the card (Wrath of God's
  * "Destroy all creatures", Terminate's "Destroy target creature") still matches its anchored pattern. The
- * rider is NOT vacuous — regeneration shields ARE modeled (CR 701.15; applyDestroyEffect / the lethal SBA
+ * rider is NOT vacuous — regeneration shields ARE modeled (CR 701.19; applyDestroyEffect / the lethal SBA
  * consume them) — so the parseEffectClause wrapper re-detects it (CANT_REGEN_TEST) and stamps
  * `cannotRegenerate` on the resulting destroy atom(s), and applyDestroyEffect then ignores shields for that
  * destruction. Stripping here is purely to let the lead effect parse; the rider's MEANING is preserved.
@@ -3292,7 +3292,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // board wipe / removal) still matches its anchored pattern instead of being forced low by the rider
   // clause. The rider's MEANING is NOT dropped: the exported parseEffectClause wrapper re-detects it on
   // the original oracle (CANT_REGEN_TEST) and stamps `cannotRegenerate` on the resulting destroy atom(s),
-  // which applyDestroyEffect honors by ignoring regeneration shields (CR 701.15).
+  // which applyDestroyEffect honors by ignoring regeneration shields (CR 701.19).
   oracle = stripRegenerationRider(oracle);
   // Drop the vacuous "This spell can't be countered" rider too — uncounterability is enforced at the
   // counter-target enumerator, not the effect program, so honoring it yields the identical resolution.
@@ -3849,7 +3849,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
  * rider from its parse text so the lead effect matches; this wrapper restores the rider's MEANING by
  * stamping `cannotRegenerate: true` on every destroy atom in the produced program whenever the original
  * oracle carried the rider. `applyDestroyEffect` honors the flag by skipping regeneration shields
- * (CR 701.15) — indestructible (a separate replacement, CR 702.12b) is unaffected.
+ * (CR 701.19) — indestructible (a separate replacement, CR 702.12b) is unaffected.
  *
  * Stamps both the sequence path (`program.atoms`) and any modal modes (`program.modal.modes[].atoms`).
  * Attribution caveat: the rider is stripped before clauses/modes split, so in the (printed-card-nonexistent)

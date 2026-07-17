@@ -1080,9 +1080,9 @@ export function untapPermanent(state, permanentId) {
   return { ...next, pendingUntapEvents: [...(next.pendingUntapEvents || []), { id: permanentId, controller: lk.controller }] };
 }
 
-// ── REGEN (CR 701.15) — regeneration shields ──────────────────────────────────────────────────────────────
+// ── REGEN (CR 701.19) — regeneration shields ──────────────────────────────────────────────────────────────
 // "Regenerate <permanent>" sets up a replacement: the NEXT time it would be destroyed this turn, instead
-// remove all damage from it, tap it, and remove it from combat (CR 701.15a). Modeled as a per-permanent
+// remove all damage from it, tap it, and remove it from combat (CR 701.19a). Modeled as a per-permanent
 // `regenShields` count: `addRegenShield` is the regen atom's effect; the two destruction sites (the lethal-
 // damage SBA destroyLethalCreatures + the explicit-destroy effect applyDestroyEffect) consume one shield via
 // `regeneratePermanent` INSTEAD of destroying. Shields clear at cleanup (the replacement is "this turn" only).
@@ -1091,7 +1091,7 @@ export function addRegenShield(state, permanentId) {
   return updatePermanent(state, permanentId, p => ({ ...p, regenShields: (p.regenShields || 0) + 1 }));
 }
 
-/** Consume one regeneration shield: clear marked damage, tap, and REMOVE FROM COMBAT (CR 701.15a). The caller
+/** Consume one regeneration shield: clear marked damage, tap, and REMOVE FROM COMBAT (CR 701.19a). The caller
  * has already confirmed a shield is present and is skipping the destruction (the creature stays on the
  * battlefield, never entering the dead set). The `removedFromCombat` flag — set only while a combat is active —
  * makes combatResolution skip the creature as both a damage dealer and receiver in any LATER damage step this
@@ -1147,7 +1147,7 @@ export function applyTotemArmor(state, hostId, auraId) {
   return logEvent(next, { kind: "spell-effect", effect: "totem-armor", targets: [auraId] });
 }
 
-/** Clear the transient `removedFromCombat` flag on every permanent (CR 701.15a — removal from combat lasts
+/** Clear the transient `removedFromCombat` flag on every permanent (CR 701.19a — removal from combat lasts
  * only for the combat it happened in). Called by the engine when it resets combat at end-of-combat (and
  * defensively at beginning-of-combat) and by actionDispatcher.clearCombat, so a creature regenerated
  * mid-combat deals/takes damage normally in every later combat. Cheap: only rebuilds a player whose board
@@ -1570,7 +1570,7 @@ export function markExileIfDies(state, { permanentId, turn }) {
 }
 
 /** Wipe marked damage off every permanent (combat damage wears off at cleanup). Also expires unused
- * regeneration shields (CR 701.15 — the replacement lasts "this turn" only), since both are turn-scoped
+ * regeneration shields (CR 701.19 — the replacement lasts "this turn" only), since both are turn-scoped
  * cleanup state cleared at the same step. */
 export function clearCombatDamage(state) {
   let changed = false;
@@ -1603,7 +1603,7 @@ export function clearCombatDamage(state) {
  */
 export function destroyLethalCreatures(state, deathtouched = new Set(), cause = "sba") {
   const dead = [];
-  const regenerated = []; // REGEN (CR 701.15) — creatures whose destruction a regen shield replaces this SBA
+  const regenerated = []; // REGEN (CR 701.19) — creatures whose destruction a regen shield replaces this SBA
   const shieldSaved = []; // SHIELD COUNTER (CR 122.1c) — creatures whose destruction a shield counter replaces
   const totemSaved = []; // TOTEM ARMOR (CR 702.116) — {hostId, auraId} pairs whose destruction the Aura replaces
   // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
@@ -1675,7 +1675,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
         // armor, the Aura is destroyed instead and damage is cleared (applied below).
         const totemAuraId = totemArmorAuraFor(state, perm);
         if (hasShieldCounter(perm)) shieldSaved.push(perm.id);
-        else if ((perm.regenShields || 0) > 0) regenerated.push(perm.id); // CR 701.15 — regen shield replaces
+        else if ((perm.regenShields || 0) > 0) regenerated.push(perm.id); // CR 701.19 — regen shield replaces
         else if (totemAuraId) totemSaved.push({ hostId: perm.id, auraId: totemAuraId }); // CR 702.116 — totem armor replaces
         else markDead(pid, perm); // CR 704.5g — destruction; an indestructible creature survives
       }
@@ -1696,7 +1696,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
     next = logEvent(next, { kind: d.exileInstead ? "creature-exiled-instead" : "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause });
   }
   for (const id of shieldSaved) next = consumeShieldCounter(next, id); // CR 122.1c — remove one shield, survive (no tap)
-  for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.15a — clear damage + tap, survive
+  for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.19a — clear damage + tap, survive
   for (const t of totemSaved) next = applyTotemArmor(next, t.hostId, t.auraId); // CR 702.116 — destroy the Aura, clear damage, host survives
   return { state: next, dead };
 }

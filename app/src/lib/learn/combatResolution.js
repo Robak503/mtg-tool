@@ -87,7 +87,7 @@ function toxicValue(card) {
  * whose turn isn't the CURRENT turn is DROPPED unfired — a stale delayed destroy firing in a later
  * combat would be a forbidden FP, a dropped one is FN-safe. The queue empties on every drain either
  * way, so nothing survives past its combat. Destroys run through the SHARED applyDestroyEffect, so
- * indestructible (CR 702.12b), shield counters (CR 122.1c), regeneration (CR 701.15), totem armor
+ * indestructible (CR 702.12b), shield counters (CR 122.1c), regeneration (CR 701.19), totem armor
  * (CR 702.116) and dies-triggers behave exactly like any other destroy; an entry whose creature
  * already left (died to combat damage) is a clean skip.
  */
@@ -176,7 +176,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     return firstStrikeStep ? (fs || ds) : (!fs || ds);
   };
 
-  // REGEN (CR 701.15a): a creature regenerated in an EARLIER damage step of this combat is removed from combat
+  // REGEN (CR 701.19a): a creature regenerated in an EARLIER damage step of this combat is removed from combat
   // — it deals and takes no further combat damage. It's still on the battlefield (findPermanent finds it), so
   // the damage loops must skip it explicitly. `combatant` returns the live lookup ONLY while still in combat.
   const combatant = (id) => { const lk = findPermanent(state, id); return lk && !lk.permanent.removedFromCombat ? lk : null; };

@@ -127,7 +127,7 @@ export function applyUntapLands(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "untap", targets: ids });
 }
 
-/** REGEN (CR 701.15) — give the SOURCE (self) or the chosen creature a regeneration shield. The shield is
+/** REGEN (CR 701.19) — give the SOURCE (self) or the chosen creature a regeneration shield. The shield is
  * consumed at the next would-destroy (the lethal-damage SBA / the destroy effect), which clears damage + taps
  * the creature so it survives. No magnitude (one clause → one shield per target); atomTargets resolves "self"
  * to the source creature and "creature" to ctx.targets, exactly like the +1/+1-counter atom. */
@@ -1051,7 +1051,14 @@ export function combatKeywordClauseParser(clause) {
   if (/^each creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "eachCreature" };
   if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
   if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
-  // SUBTYPE-REGEN (CR 205.3 / 701.15) — "regenerate target <Subtype>" (Crypt/Poultice Sliver's group-granted
+  // AURA-OWN-REGEN (CR 701.19) — "regenerate enchanted creature" on an Aura that PRINTS a "{cost}: Regenerate
+  // enchanted creature." ability (Regeneration, Keldon Mantle). The fixed target:"enchanted" referent is the
+  // SAME one the aura-own tap/untap/pump atoms use: atomTargets → enchantedTargets resolves it to the Aura's
+  // host (ctx.sourceId→attachedTo) at resolution, and applyRegenerate already accepts that type:"creature"
+  // target. So no resolver change — only isNativeOwnActivatedAura widens its allowed op-set to include this.
+  // A spell context has no aura source, so enchantedTargets → [] (a clean no-op, never a fabricated shield).
+  if (/^regenerate enchanted creature$/.test(t)) return { op: "regenerate", target: "enchanted" };
+  // SUBTYPE-REGEN (CR 205.3 / 701.19) — "regenerate target <Subtype>" (Crypt/Poultice Sliver's group-granted
   // "{T}: Regenerate target Sliver"; printed Black Poplar Shaman "Regenerate target Treefolk", etc.). A
   // CURATED creature-subtype word only (REGEN_TARGET_SUBTYPES) — so a color ("regenerate target green
   // creature"), a card type ("artifact"/"permanent"), or a control rider ("creature you control") never
@@ -1772,7 +1779,7 @@ export const combatResolvers = {
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
   "earthbend": applyEarthbend, // EARTHBEND N (Toph) — permanently animate a land you control + N +1/+1 counters
-  "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
+  "regenerate": applyRegenerate, // REGEN (CR 701.19) — set a regeneration shield on self / target creature
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated

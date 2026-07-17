@@ -946,17 +946,17 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     // survives and fires no dies-trigger (it never left the battlefield). Checked BEFORE regen (both are
     // replacements the permanent's controller orders per CR 616; a shield is strictly better — no tap). A
     // "can't be regenerated" rider (Wrath/Terminate — cannotRegenerate) does NOT bypass a shield counter: that
-    // rider is specific to the regeneration replacement (CR 701.15), NOT the shield-counter replacement, so a
+    // rider is specific to the regeneration replacement (CR 701.19), NOT the shield-counter replacement, so a
     // shielded creature still survives a "can't be regenerated" destroy by removing a shield (CR 122.1c).
     if (hasShieldCounter(lk.permanent)) {
       next = consumeShieldCounter(next, t.id);
       prevented.push(t.id);
       continue;
     }
-    // CR 701.15 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives
+    // CR 701.19 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives
     // (clear damage + tap) and fires no dies-trigger (it never left the battlefield). Same look as indestructible.
     // MTG-001 — a "can't be regenerated" destroy (Wrath of God, Terminate) sets `cannotRegenerate`, which
-    // overrides the shield (CR 701.15 — the rider prevents the regeneration replacement). It does NOT bypass
+    // overrides the shield (CR 701.19 — the rider prevents the regeneration replacement). It does NOT bypass
     // indestructible (handled above, a separate replacement CR 702.12b), so the order here is correct.
     if (!cannotRegenerate && (lk.permanent.regenShields || 0) > 0) {
       next = regeneratePermanent(next, t.id);
@@ -967,7 +967,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     // Aura is destroyed INSTEAD, all damage is cleared, and the permanent survives (fires no dies-trigger — it
     // never left). Checked LAST among the replacements (after indestructible/shield/regen, which don't sacrifice
     // the Aura). A "can't be regenerated" rider does NOT bypass totem armor — that rider is specific to the
-    // regeneration replacement (CR 701.15), not this one, exactly like the shield-counter carve-out above.
+    // regeneration replacement (CR 701.19), not this one, exactly like the shield-counter carve-out above.
     const totemAuraId = totemArmorAuraFor(next, lk.permanent);
     if (totemAuraId) {
       next = applyTotemArmor(next, t.id, totemAuraId);

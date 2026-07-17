@@ -391,7 +391,7 @@ export function runStepActions(state) {
 
     case "end-of-combat":
       next = { ...next, combat: { ...EMPTY_COMBAT } };
-      // REGEN (CR 701.15a): removal-from-combat lasts only this combat — clear the per-permanent
+      // REGEN (CR 701.19a): removal-from-combat lasts only this combat — clear the per-permanent
       // removedFromCombat flag here so combatResolution stops skipping the creature in later combats.
       next = clearRemovedFromCombatFlags(next);
       next = logEvent(next, { kind: "step", phase: "combat", step: "end-of-combat", player: state.activePlayer });

@@ -1498,7 +1498,7 @@ export function dispatchAction(state, action) {
  */
 export function clearCombat(state) {
   if (!state.combat) return state;
-  // REGEN (CR 701.15a): a creature removed from combat by regeneration clears that transient flag when combat
+  // REGEN (CR 701.19a): a creature removed from combat by regeneration clears that transient flag when combat
   // ends, so it attacks/blocks normally next combat. Shared helper — the engine's end-of-combat reset uses it too.
   return { ...clearRemovedFromCombatFlags(state), combat: { attackers: [], blockers: [] } };
 }

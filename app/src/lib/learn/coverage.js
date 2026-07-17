@@ -1482,8 +1482,11 @@ function isNativeOwnActivatedAura(card) {
     !!prog && Array.isArray(prog.atoms) && prog.atoms.length > 0 &&
     prog.structure !== "modal" &&
     // AF-1 widens the trio: the aura-own PUMP ("{R}: Enchanted creature gets +1/+0 until end of turn" —
-    // Firebreathing) rides the same fixed enchanted referent as the tap/untap pair.
-    prog.atoms.every((a) => (a.op === "tap" || a.op === "untap" || a.op === "pump") && a.target === "enchanted");
+    // Firebreathing) rides the same fixed enchanted referent as the tap/untap pair. BLITZ RG-1 adds the
+    // aura-own REGEN ("{G}: Regenerate enchanted creature." — Regeneration, Keldon Mantle, CR 701.19): the
+    // regenerate atom carries the SAME fixed target:"enchanted" referent and resolves through the same
+    // enchantedTargets host path (applyRegenerate → addRegenShield on the host), so it's op-for-op safe here.
+    prog.atoms.every((a) => (a.op === "tap" || a.op === "untap" || a.op === "pump" || a.op === "regenerate") && a.target === "enchanted");
   if (!abilities.every((a) => a.modeled && !a.isManaEffect && !a.isEquipAbility && isEnchantedTapProgram(a.program))) return false;
   // No body clause other than the Enchant keyword line and the printed activated-ability lines. An activated
   // ability line contains a colon whose cost is symbol/word-bearing (the same shape parseActivatedAbilities

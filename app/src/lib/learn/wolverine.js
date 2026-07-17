@@ -19,7 +19,7 @@
  *      end step (intervening-if, CR 603.4 — checked when the trigger would fire); reset at cleanup. The
  *      counter is placed via gameState.addCounter so the Wave-3 counter-doubler (Doubling Season, Hardened
  *      Scales) COMPOSES automatically.
- *   3. {1}{G}: REGENERATE — the activated regeneration ability (CR 701.15), modeled via the existing
+ *   3. {1}{G}: REGENERATE — the activated regeneration ability (CR 701.19), modeled via the existing
  *      addRegenShield precedent. Recognized by the activated-ability classifier (a "Regenerate <name>"
  *      effect is already in the engine's regen atom vocabulary).
  *

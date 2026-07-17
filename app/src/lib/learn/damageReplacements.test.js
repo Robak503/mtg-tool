@@ -445,8 +445,8 @@ describe("Wolverine end-step +1/+1 counter (CR 603.4 intervening-if)", () => {
   });
 });
 
-// ─── WOLVERINE clause 3: {1}{G} regenerate (CR 701.15) ──────────────────────────────
-describe("Wolverine regenerate ability (CR 701.15)", () => {
+// ─── WOLVERINE clause 3: {1}{G} regenerate (CR 701.19) ──────────────────────────────
+describe("Wolverine regenerate ability (CR 701.19)", () => {
   it("the {1}{G} ability parses to a MODELED self-regenerate (self-name normalization)", () => {
     const ab = parseActivatedAbilities(wolverine("user").card);
     const regen = ab.find((a) => /regenerate/i.test(a.effectClause || ""));
@@ -465,7 +465,7 @@ describe("Wolverine regenerate ability (CR 701.15)", () => {
     const shielded = applyRegenerate(s, { op: "regenerate", target: "self" }, { controller: "user", source: { permanentId: w.id }, sourceId: w.id, targets: [] });
     const armed = shielded.players.user.battlefield.find((p) => p.id === w.id);
     expect(armed.regenShields).toBe(1);
-    // A destroy now consumes the shield instead of killing Wolverine (CR 701.15).
+    // A destroy now consumes the shield instead of killing Wolverine (CR 701.19).
     const afterDestroy = applyDestroyEffect(shielded, { controller: "ai", targets: [{ type: "creature", id: w.id }] });
     expect(afterDestroy.players.user.battlefield.some((p) => p.id === w.id)).toBe(true); // survived
     expect(afterDestroy.players.user.battlefield.find((p) => p.id === w.id).regenShields).toBe(0); // shield used

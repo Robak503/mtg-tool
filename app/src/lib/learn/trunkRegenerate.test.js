@@ -1,7 +1,7 @@
 /**
- * REGEN (CR 701.15) — "{cost}: Regenerate this creature" / "Regenerate target creature" sets up a
+ * REGEN (CR 701.19) — "{cost}: Regenerate this creature" / "Regenerate target creature" sets up a
  * regeneration shield that REPLACES the next destruction this turn: the creature survives, tapped, with its
- * marked damage removed (CR 701.15a), instead of dying. Modeled end-to-end: the effect atom sets the shield;
+ * marked damage removed (CR 701.19a), instead of dying. Modeled end-to-end: the effect atom sets the shield;
  * the lethal-damage SBA + the explicit-destroy effect consume it; it expires at cleanup. CREED: a shield does
  * NOT save from 0-toughness (CR 704.5f) — only from destruction.
  */
@@ -69,8 +69,8 @@ describe("REGEN — engine: the shield replaces destruction", () => {
     expect(inGrave(after, "Regen Troll")).toBe(false);          // survived
     const p = findPermanent(after, "p1").permanent;
     expect(p.regenShields).toBe(0);                              // shield consumed
-    expect(p.damageMarked).toBe(0);                              // damage removed (CR 701.15a)
-    expect(p.tapped).toBe(true);                                 // tapped (CR 701.15a)
+    expect(p.damageMarked).toBe(0);                              // damage removed (CR 701.19a)
+    expect(p.tapped).toBe(true);                                 // tapped (CR 701.19a)
   });
   it("the SAME lethal damage with NO shield kills it", () => {
     const { state: after } = destroyLethalCreatures(onBoard(bear({ damageMarked: 3 })));
@@ -88,14 +88,14 @@ describe("REGEN — engine: the shield replaces destruction", () => {
     expect(inGrave(after, "Regen Troll")).toBe(false);
     expect(findPermanent(after, "p1").permanent.regenShields).toBe(0);
   });
-  it("unused shields expire at cleanup (CR 701.15 — 'this turn')", () => {
+  it("unused shields expire at cleanup (CR 701.19 — 'this turn')", () => {
     const after = clearCombatDamage(onBoard(bear({ regenShields: 2 })));
     expect(findPermanent(after, "p1").permanent.regenShields).toBe(0);
   });
 });
 
 // MTG-001 — a destroy effect carrying "[They|It|That creature|Those creatures] can't be regenerated"
-// (Wrath of God, Terminate, Rend Flesh) PREVENTS the regeneration replacement (CR 701.15): the shield
+// (Wrath of God, Terminate, Rend Flesh) PREVENTS the regeneration replacement (CR 701.19): the shield
 // does NOT save the creature. The parser strips the rider from the parse text but the parseEffectClause
 // wrapper re-stamps `cannotRegenerate` on the destroy atom, which applyDestroyEffect then honors. The
 // rider does NOT bypass indestructible (CR 702.12b — a separate replacement that still applies).
@@ -143,7 +143,7 @@ describe("REGEN — MTG-001: 'can't be regenerated' overrides the shield (but no
   });
 });
 
-describe("REGEN — CR 701.15a: a regenerated creature is REMOVED FROM COMBAT (no second-step damage)", () => {
+describe("REGEN — CR 701.19a: a regenerated creature is REMOVED FROM COMBAT (no second-step damage)", () => {
   // A 5/3 trampler with a pre-combat regen shield attacks; a 3/3 first-strike blocker deals lethal in the
   // first-strike step, so the attacker regenerates THEN — and must deal nothing in the regular step.
   const fsCombat = () => {
@@ -166,8 +166,8 @@ describe("REGEN — CR 701.15a: a regenerated creature is REMOVED FROM COMBAT (n
     const afterFS = resolveCombatDamage(fsCombat(), { firstStrikeStep: true });
     const att = findPermanent(afterFS, "att").permanent;
     expect(att.regenShields).toBe(0);          // shield consumed regenerating
-    expect(att.tapped).toBe(true);             // CR 701.15a — tapped
-    expect(att.removedFromCombat).toBe(true);  // CR 701.15a — removed from combat
+    expect(att.tapped).toBe(true);             // CR 701.19a — tapped
+    expect(att.removedFromCombat).toBe(true);  // CR 701.19a — removed from combat
     expect(afterFS.players.ai.battlefield.map(p => p.card.name)).toEqual(["FS Knight"]); // blocker unhurt so far
 
     const afterReg = resolveCombatDamage(afterFS, { firstStrikeStep: false });
