@@ -1192,7 +1192,13 @@ function isNativeActivatedGrantAura(card) {
   if (!isAuraCard(card)) return false;
   const granted = parseGrantedActivatedAbilities(card);
   if (!granted.length || !granted.every((a) => a.modeled)) return false;
-  const oracle = String(card?.oracle || card?.oracle_text || "");
+  // EC-1a: REMINDER-STRIPPED like the equipment/trigger sibling gates (and like parseGrantedActivatedAbilities
+  // itself, which parses the stripped oracle). A grant line carrying trailing reminder text ("Enchanted creature
+  // has \"{T}: Scry 1, then draw a card.\" (To scry 1, …)" — Oracle's Insight) failed the raw-line grantLineRe in
+  // BOTH the count guard and the residue walk below, parking a card whose granted body is fully modeled. Reminder
+  // text is rules-inert (CR 207.2/207.2a) — stripping it can only align this gate with what the parser already credits,
+  // never admit real residue (any non-reminder clause still fails the walk → Arbiter).
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
   // Host = the enchanted CREATURE (Hermetic Study) OR an enchanted LAND (Squirrel Nest "Enchanted land has
   // \"{T}: Create a 1/1 …\"", Caustic Tar, Barbed Field) — the runtime (grantedActivatedForHost via the
   // land-extended GRANTED_ACTIVATED_LINE) enumerates the granted ability on the land, which taps for its {T}
