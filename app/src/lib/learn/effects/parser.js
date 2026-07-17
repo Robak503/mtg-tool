@@ -384,13 +384,15 @@ function isCleanClause(text) {
  */
 function splitClauses(oracle) {
   const clauses = [];
-  // ===== TOKENS ===== T4: normalize the two-sentence "create … token[ named N]. It has \"<ability>\""
-  // shape (Eldrazi Scion/Spawn, Llanowar Mentor) into the single-sentence "…token[ named N] with
-  // \"<ability>\"" form so the create-token matcher binds the ability to the token (the ". It has"
-  // boundary would otherwise orphan the ability into its own unparsed clause → low). Fires ONLY on a
-  // QUOTED ability directly after a token-creation sentence; it's content-agnostic (the clean-mana GATE
-  // lives in parseTokenManaAbility — a non-mana ability still drops the whole clause to low). The merge
-  // can only PROMOTE a card that was already low (the orphan clause), never regress a HIGH one.
+  // ===== TOKENS ===== T4/T5: normalize the two-sentence "create … token[s][ named N]. It has|They have
+  // \"<ability>\"" shape (Eldrazi Scion/Spawn, Llanowar Mentor — singular "It has"; the PLURAL "They have"
+  // form of the same, Dread Drone / Emrakul's Hatcher / a plural Devil-maker) into the single-sentence
+  // "…token[s][ named N] with \"<ability>\"" form so the create-token matcher binds the ability to the token
+  // (the sentence boundary would otherwise orphan the ability into its own unparsed clause → low). Fires ONLY
+  // on a QUOTED ability directly after a token-creation sentence; it's content-agnostic (the clean-mana GATE
+  // lives in parseTokenManaAbility, the curated-trigger GATE in parseTokenTriggeredAbility — a non-modeled
+  // ability still drops the whole clause to low). The merge can only PROMOTE a card that was already low (the
+  // orphan clause), never regress a HIGH one.
   const normalized = stripReminder(oracle)
     // FINALE-SHUFFLE-REMINDER — strip the vacuous "If you search your library this way, shuffle." sentence
     // (Finale of Devastation). Its "and/or graveyard" tutor (bfxg) ALWAYS searches the library, so the CR-
@@ -405,7 +407,7 @@ function splitClauses(oracle) {
     // into an unparsed clause, and folds the inline "…creature that's still a land" form to the core.
     .replace(/\s*(?:it[’']s|that[’']s|they[’']re)\s+still\s+(?:a\s+land|lands)\.?/gi, "")
     .replace(
-      /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+it has (["“'])/gi,
+      /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+(?:it has|they have) (["“'])/gi,
       "$1 with $2",
     )
     // PUMP-UNTAP — fold the separate "Untap it." sentence that follows a combat-trick pump ("Target

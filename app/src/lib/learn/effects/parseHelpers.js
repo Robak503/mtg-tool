@@ -449,3 +449,37 @@ export function parseTokenKeywords(phrase) {
   }
   return out;
 }
+
+// ===== TOKENS ===== T5 quoted TRIGGERED ability — a minted token may carry a self-DIES triggered ability
+// whose trigger event AND payoff are BOTH modeled and runtime-fired end-to-end (a Pest's "When this token dies,
+// you gain N life", a Devil's "When this token dies, it deals N damage to any target / to each opponent" —
+// SoK/Innistrad-block staples). Stamped as the token's real oracle so checkDiesTriggers detects the self-dies
+// descriptor when the token dies (selfRef matches "this token") and the payoff resolves through the normal
+// pending-trigger flush — the SAME "mint real oracle text; existing subsystems drive it" pattern as the mana
+// ability (T4) and named tokens (T2). CURATED + `^…$`-anchored, FAIL-CLOSED: only the exact runtime-verified
+// corpus forms are admitted, each rebuilt into clean canonical Oracle text (the input clause is lowercased
+// upstream); any other quoted ability — an unmodeled trigger, or a create-token payoff that could recurse a
+// mint — returns null → the whole token (and its card) drops to low → Arbiter (CREED — a token must NEVER carry
+// an ability the engine won't actually fire, which would be a forbidden false-positive native).
+const TOKEN_TRIGGERED_ABILITY = [
+  [/^when this token dies, you gain (\d+) life$/i, (m) => `When this token dies, you gain ${m[1]} life.`],
+  [/^when this token dies, it deals (\d+) damage to any target$/i, (m) => `When this token dies, it deals ${m[1]} damage to any target.`],
+  [/^when this token dies, it deals (\d+) damage to each opponent$/i, (m) => `When this token dies, it deals ${m[1]} damage to each opponent.`],
+];
+/**
+ * Parse a token's quoted ability (the text after "with"/"It has"/"They have", including the surrounding
+ * quotes) into a canonical TRIGGERED-ability oracle string to stamp on the minted token, or null if it isn't
+ * one of the curated, runtime-verified self-dies forms above. Tolerates straight or curly quotes and a
+ * trailing period. Tried AFTER parseTokenManaAbility in the create-token "with" branch (a quoted ability is a
+ * mana ability XOR a triggered ability); both gates return null for anything unmodeled, so the token parks.
+ */
+export function parseTokenTriggeredAbility(quotedWithQuotes) {
+  const inner = String(quotedWithQuotes).trim()
+    .replace(/^["“'](.*)["”']$/s, "$1")  // strip surrounding quotes (straight or curly)
+    .trim().replace(/\.\s*$/, "");        // strip a trailing period
+  for (const [re, canon] of TOKEN_TRIGGERED_ABILITY) {
+    const m = inner.match(re);
+    if (m) return canon(m);
+  }
+  return null;
+}

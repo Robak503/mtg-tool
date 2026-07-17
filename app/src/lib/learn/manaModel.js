@@ -385,7 +385,10 @@ function manaAbilityCostUnpayable(oracle) {
  */
 export function stripCreatedTokenAbilities(text) {
   const norm = String(text || "").replace(
-    /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+it has (["“'])/gi,
+    // singular "It has" AND plural "They have" — both bind a token's quoted ability; kept in lockstep with the
+    // parser's splitClauses normalization so the mana FP-guard strips a plural-token maker's ability too (Dread
+    // Drone's "…tokens. They have \"Sacrifice this token: Add {C}\"" must not fabricate Dread Drone's own mana).
+    /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+(?:it has|they have) (["“'])/gi,
     "$1 with $2",
   );
   return norm.replace(

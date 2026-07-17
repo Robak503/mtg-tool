@@ -7,7 +7,7 @@ import { tokenMultiplier, tokenAdditive, applyCounterDoubling } from "../../repl
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenTriggeredAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
 /**
  * ===== TOKENS ===== Build a token's type line from its descriptor ("colorless thopter artifact"
@@ -568,9 +568,12 @@ export function createTokenClauseParser(clause) {
     const tokenName = m[5] ? m[5].trim().split(/\s+/).map(cap).join(" ") : null; // title-case the parsed name (it was lowercased upstream)
     const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
     if (m[6] === undefined) return base;
-    // A QUOTED inline ability → clean-mana-ability gate; a non-quoted phrase → the keyword path. The quote disambiguates.
+    // A QUOTED inline ability → the clean-mana-ability gate (T4) OR the curated self-dies TRIGGERED-ability gate
+    // (T5: a Pest's dies→gain-life, a Devil's dies→deal-damage — both minted as real oracle so checkDiesTriggers
+    // fires them); a non-quoted phrase → the keyword path. The quote disambiguates ability-vs-keyword; a quoted
+    // ability outside BOTH curated gates → null → low → Arbiter (CREED — never a token carrying an unfired ability).
     if (/^["“']/.test(m[6].trim())) {
-      const tokenOracle = parseTokenManaAbility(m[6]);
+      const tokenOracle = parseTokenManaAbility(m[6]) || parseTokenTriggeredAbility(m[6]);
       return tokenOracle ? { ...base, tokenOracle } : null;
     }
     // CHANGELING (CR 702.73a — the token is EVERY creature type): "with changeling" is an ability-defining
