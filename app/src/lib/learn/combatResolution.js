@@ -52,7 +52,7 @@ import {
 import { permanentHasKeyword, permanentColors, permanentProtectionColors, assignsCombatDamageWithToughness } from "./layers.js";
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
-import { selfDamagePrevention, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers } from "./combatEvasion.js";
+import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
@@ -299,8 +299,13 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       if (lk && attachedDamagePrevention(state, targetId).to) return 0;
     }
     // AP-1 (Gaseous Form / Defang): the DEALER's attached "…dealt BY enchanted creature" wall zeroes
-    // every combat deal it makes ("all" and "combat" both bind here — this IS combat damage).
-    if (amt > 0 && sourcePerm?.id && attachedDamagePrevention(state, sourcePerm.id).by) return 0;
+    // every combat deal it makes ("all" and "combat" both bind here — this IS combat damage). PV-1 adds the
+    // DEALER's own printed self BY wall (Fog Bank "…dealt to and dealt by this creature") — it deals zero
+    // combat damage, so a Fog Bank blocking a 6/6 takes none (TO wall, line above) AND marks none on it.
+    if (amt > 0 && sourcePerm?.id) {
+      if (attachedDamagePrevention(state, sourcePerm.id).by) return 0;
+      if (selfDamagePreventionBy(sourcePerm.card)) return 0;
+    }
     if (hasReplacement && amt > 0) {
       amt = consultDamageAmount(state, {
         sourceId: sourcePerm?.id ?? null,

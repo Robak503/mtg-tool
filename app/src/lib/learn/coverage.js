@@ -44,7 +44,7 @@ import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatRefere
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
 import { isNativeGroupWard } from "./groupWard.js";
 import { isNativeKira } from "./kiraTargetCounter.js";
-import { isEnforcedEvasionClause, selfDamagePrevention } from "./combatEvasion.js";
+import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
@@ -2233,18 +2233,32 @@ registerCoverageClassifier((card) => {
   return isKeywordOnly(residue, card?.name) ? "native-activated" : null;
 });
 
-// SELF DAMAGE-PREVENTION statics (BLITZ FOG-1, CR 615 — Guard Gomazoa / Dawn Elemental class): a
-// creature whose only non-keyword text is the printed self prevent-all wall classifies native-static —
-// the SAME selfDamagePrevention read both damage paths consult (the combat funnel zeroes both forms;
-// applyDamageEffect zeroes the ALL form), so the metric can't claim a wall the runtime doesn't enforce.
+// SELF DAMAGE-PREVENTION statics (BLITZ FOG-1 / PV-1, CR 615 — Guard Gomazoa / Dawn Elemental / Fog Bank
+// class): a creature whose only non-keyword text is the printed self prevent-all wall classifies
+// native-static — the SAME selfDamagePrevention / selfDamagePreventionBy reads both damage paths consult
+// (the combat funnel zeroes the TO form on the damaged creature AND the BY form on the dealer;
+// applyDamageEffect zeroes the ALL-TO form), so the metric can't claim a wall the runtime doesn't enforce.
+// PV-1 extends the stripped line to Fog Bank's compound "…dealt to and dealt by this creature" form and the
+// "…dealt by this creature" (BY) form, and normalizes the printed card NAME (and legendary short name) to
+// "this creature" the way selfDamagePrevention's selfOracle does — so the name form (Cho-Manno "…dealt to
+// Cho-Manno.") strips clean, aligning the metric with the runtime that already read it through selfOracle.
 // All-or-nothing: any residue beyond keywords → null → body-only.
-const SELF_PREVENT_LINE_RE = /^prevent all (?:combat )?damage that would be dealt to (?:this creature|it)\.?$/i;
+const SELF_PREVENT_LINE_RE = /^prevent all (?:combat )?damage that would be dealt (?:to and dealt by|to|by) (?:this creature|it)\.?$/i;
 registerCoverageClassifier((card) => {
-  if (!selfDamagePrevention(card)) return null;
+  if (!selfDamagePrevention(card) && !selfDamagePreventionBy(card)) return null;
   const type = String(card?.type ?? card?.type_line ?? "");
   if (!/creature/i.test(type)) return null;
+  const name = String(card?.name ?? "").toLowerCase().replace(/[’']/g, "'");
+  const nEsc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const shortEsc = name.split(",")[0].trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const normSelfName = (line) => {
+    let x = line.toLowerCase().replace(/[’']/g, "'");
+    if (nEsc) x = x.replace(new RegExp(`\\b${nEsc}\\b`, "g"), "this creature");
+    if (shortEsc && shortEsc !== nEsc) x = x.replace(new RegExp(`\\b${shortEsc}\\b`, "g"), "this creature");
+    return x;
+  };
   const residue = stripReminder(String(card?.oracle || card?.oracle_text || ""))
-    .split("\n").map((l) => l.trim()).filter((l) => l && !SELF_PREVENT_LINE_RE.test(l)).join("\n");
+    .split("\n").map((l) => l.trim()).filter((l) => l && !SELF_PREVENT_LINE_RE.test(normSelfName(l))).join("\n");
   if (!residue) return "native-static";
   return isKeywordOnly(residue, card?.name) ? "native-static" : null;
 });

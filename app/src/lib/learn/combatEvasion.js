@@ -410,13 +410,39 @@ const reTypeConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't 
 // "all" blocks BOTH damage paths; "combat" blocks only combat damage (a Bolt still lands on Gomazoa).
 // Anchored at sentence boundaries; a conditional / cost-bearing variant ("unless", "{1}: …") never matches
 // → residue → body-only (safe FN). Consulted at the combat funnel + applyDamageEffect's creature hit.
-const reSelfPreventAllDmg = /(?:^|[\n.;])\s*prevent all damage that would be dealt to (?:this creature|it)\s*(?:\.|$)/i;
-const reSelfPreventCombatDmg = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt to (?:this creature|it)\s*(?:\.|$)/i;
-/** "all" | "combat" | null — the printed self damage-prevention wall on this card. */
+//
+// BLITZ PV-1 (CR 615) extends the TO reader with Fog Bank's compound "to and dealt by this creature" form
+// (its TO half) and adds a companion BY reader (selfDamagePreventionBy) for the DEALER direction — the
+// "…dealt by this creature" half of Fog Bank ("Prevent all combat damage that would be dealt to and dealt
+// by this creature."). selfOracle already normalizes the card NAME (and legendary short name) to "this
+// creature", so the printed name form (Cho-Manno "…dealt to Cho-Manno.") reads through the same anchors.
+// The `\s*(?:\.|$)` tail right after the subject is load-bearing: it PARKS the activated/triggered "…this
+// turn" variants (Moonlight Geist "{3}{W}: Prevent all combat damage that would be dealt to and dealt by
+// this creature this turn.", Goblin Snowman's block trigger) — "this creature" is followed by " this turn",
+// never a terminator — and the leading `[\n.;]` anchor rejects the ": " / ", " lead-ins those forms carry.
+const reSelfPreventAllDmg = /(?:^|[\n.;])\s*prevent all damage that would be dealt to (?:and dealt by )?(?:this creature|it)\s*(?:\.|$)/i;
+const reSelfPreventCombatDmg = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt to (?:and dealt by )?(?:this creature|it)\s*(?:\.|$)/i;
+/** "all" | "combat" | null — the printed self damage-prevention wall (the TO direction) on this card. */
 export function selfDamagePrevention(card) {
   const o = selfOracle(card);
   if (reSelfPreventAllDmg.test(o)) return "all";
   if (reSelfPreventCombatDmg.test(o)) return "combat";
+  return null;
+}
+
+// BY direction (PV-1): the DEALER's own printed wall — Fog Bank deals no combat damage. Matches both the
+// compound "…dealt to and dealt by this creature" (Fog Bank's BY half) and a bare "…dealt by this creature"
+// self form. "combat" binds at the combat funnel only; "all" would additionally silence noncombat damage
+// dealt by the source (no real card carries the bare "all" self-by shape today — a safe structural mirror
+// of attachedDamagePrevention.by). Same anchors as the TO reader → the "…this turn" activated/triggered
+// by-only forms (Ignoble Soldier, Mtenda Lion) never match → parked (safe FN).
+const reSelfPreventAllDmgBy = /(?:^|[\n.;])\s*prevent all damage that would be dealt (?:to and dealt )?by (?:this creature|it)\s*(?:\.|$)/i;
+const reSelfPreventCombatDmgBy = /(?:^|[\n.;])\s*prevent all combat damage that would be dealt (?:to and dealt )?by (?:this creature|it)\s*(?:\.|$)/i;
+/** "all" | "combat" | null — the printed self damage-prevention wall (the BY / dealer direction) on this card. */
+export function selfDamagePreventionBy(card) {
+  const o = selfOracle(card);
+  if (reSelfPreventAllDmgBy.test(o)) return "all";
+  if (reSelfPreventCombatDmgBy.test(o)) return "combat";
   return null;
 }
 
