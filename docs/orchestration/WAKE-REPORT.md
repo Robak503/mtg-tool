@@ -1,6 +1,25 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~03:15 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.54%, suite 9,332 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~04:05 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.66%, suite 9,404 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
+> **Landed since the 03:15 entry below**: **TOK-1** predefined-token abilities (1dc7f491, +8 — Blood token
+> wired via the discard-COST path; Clue/Food already done, mission premise was stale; Map/Powerstone/Incubator
+> parked) · **IF-1** intervening-if vocab (965835a7, +13 — monarch/opponent-lost-life/no-cards-in-hand/
+> creature-died-under-your-control, each reusing a live reader; controller-SCOPED not all-seats) · **AA-1**
+> activated abilities (f14d2f62, +8 — "Activate only during your turn" timing-strip; safe because runtime
+> offers on own-main ⊂ your-turn = under-offer only; named shelf commanders' real oracles need new atoms,
+> parked) · **GY-2** filtered reanimate (c506d041, +2 — permanent-type filter, Sun Titan; the dynamic-MV
+> premise had ZERO corpus carriers, census-refuted) · **LG-1** the life-gained-this-turn LEDGER (8ca43e21,
+> +9 — new per-turn ledger fed at the single gainLife chokepoint, reset with its siblings, serialize-safe;
+> Angelic Accord / Griffin Aerie / Crested Sunmare). Slices integrated: **30**; night native total **+268**
+> (30.87%→31.66%), suite 8,932→9,404, LOST=0 unbroken, TWELVE loose/wrong CR cites caught at the desk.
+> **IN FLIGHT (3 Opus seats)**: **RV-1** reveal-top-conditional (Thrasios entersTapped route, Rograkh shelf)
+> · **ST-1** non-anthem static census · **SE-1** spell-effect near-miss census. Standing flake chip + repo-wide
+> stale "701.8" discard cites still open (below).
+
+## (superseded ~50 min later) — 31.54%, suite 9,332 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
