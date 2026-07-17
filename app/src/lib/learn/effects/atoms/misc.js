@@ -189,6 +189,14 @@ export function miscClauseParser(clause) {
   // extra turn" / "take two extra turns" / a skip-step rider never matches) → low → Arbiter (FN-safe —
   // an extra turn credited to the wrong player would be a catastrophic FP).
   if (/^take an extra turn after this one$/.test(t)) return { op: "extra-turn", targetType: null };
+  // TAPPED-COUNT DRAW (BLITZ TD-1 — Theft of Dreams / Borrowing 100,000 Arrows): "Draw a card for each
+  // tapped creature target opponent controls." The CONTROLLER draws; the chosen OPPONENT target only
+  // supplies the count (countForSpec's tappedCreaturesOfTargetOpponent — layer-aware creature read at
+  // resolution, CR 608.2h). Whole-clause anchored ($): a different counter ("untapped"), scope ("each
+  // opponent"), or drawer never matches → low → Arbiter (FN-safe).
+  if (/^draw a card for each tapped creature target opponent controls$/.test(t)) {
+    return { op: "draw", who: "controller", targetType: "opponent", amountCount: { kind: "tappedCreaturesOfTargetOpponent" } };
+  }
   // FORCED-ATTACK (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able."
   // (Bident of Thassa). A turn-scoped combat REQUIREMENT on every creature the activator's opponents control:
   // the force-attack atom stamps forcedToAttackTurn[opponentId] and opponentAI.pickAttackPlan force-declares

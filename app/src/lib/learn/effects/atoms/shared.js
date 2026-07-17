@@ -388,6 +388,17 @@ function chosenTypePermanentsCount(player) {
   return best;
 }
 export function countForSpec(state, ctx, spec) {
+  // ===== TAPPED-CREATURES-OF-TARGET-OPPONENT (BLITZ TD-1 — Theft of Dreams / Borrowing 100,000 Arrows:
+  // "Draw a card for each tapped creature target opponent controls") ===== the count is read off the
+  // CHOSEN player target's battlefield AT RESOLUTION (CR 608.2h): every permanent that IS a creature
+  // right now (permanentIsCreature — layer-aware, an animated land counts) and is tapped. A vanished /
+  // absent player target → 0 (a clean no-op, never a fabricated count).
+  if (spec.kind === "tappedCreaturesOfTargetOpponent") {
+    const pt = (ctx?.targets || []).find((t) => t.type === "player" && state?.players?.[t.id]);
+    if (!pt) return 0;
+    return (state.players[pt.id].battlefield || [])
+      .filter((perm) => perm.tapped && permanentIsCreature(state, perm.id)).length;
+  }
   // ===== TRIGGERING-CREATURE POWER (Railway Brawler — "put X +1/+1 counters on it, where X is its
   // power") ===== the TRIGGERING permanent's LIVE layer-aware power, read at resolution (CR 608.2h — the
   // entering creature's power as the trigger resolves, BEFORE these counters land). An absent/vanished
