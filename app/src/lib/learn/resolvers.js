@@ -662,7 +662,7 @@ export const RESOLVERS = Object.freeze({
   // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
   // enters (logged, never fabricated). The targetId is a battlefield permanent id.
   [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
-    const { card, controller, targetId, bestowed, enchantsPlayer } = obj.payload?.params || {};
+    const { card, controller, targetId, bestowed, enchantsPlayer, hostType } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER.
     // Re-check at resolution (CR 608.2b — the player may have been eliminated); gone → the Aura card
@@ -683,9 +683,15 @@ export const RESOLVERS = Object.freeze({
     // CHOSEN-COLOR (Utopia Sprawl) enchants the FOREST subtype specifically, so its resolution re-check
     // requires a Forest (CR 303.4h — an Aura whose enchant restriction its target no longer meets isn't put
     // onto the battlefield). A bare land-mana Aura requires any Land; a creature Aura requires a Creature.
-    const requiredType = isNativeManaAura(card)
-      ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/)
-      : /Creature/;
+    // GRANT-AURA CAST (BLITZ TS-1): a grant-family Aura cast stamps its host type onto the SERIALIZABLE
+    // payload (actionDispatcher, from the shared grantAuraCastHostType gate) — the CR 608.2b re-check
+    // requires that type ("Enchant land" must still point at a Land). Legacy payloads carry no hostType
+    // and keep the original mana-aura/creature derivation byte-identical.
+    const requiredType = hostType === "land" ? /Land/
+      : hostType === "creature" ? /Creature/
+        : isNativeManaAura(card)
+          ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/)
+          : /Creature/;
     if (!tgt || !requiredType.test(tgtType)) {
       // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
       // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as

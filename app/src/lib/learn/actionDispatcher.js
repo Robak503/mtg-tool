@@ -60,7 +60,7 @@ import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped } from "./staticAbilityParser.js";
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
-import { isNativeOrdealAura } from "./coverage.js";
+import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
@@ -398,6 +398,16 @@ function applyCastSpell(state, action) {
     // attached, manaModel.landAuraManaBonus adds the extra mana inline when the land taps (CR 605.1b).
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId } };
+  } else if (grantAuraCastHostType(castCard)) {
+    // GRANT-AURA CAST (BLITZ TS-1): a GRANT-family Aura (granted-activated / granted-mana / granted-
+    // triggered / aura-own-activated — Squirrel Nest, Tin Street Market, Hermetic Study, Settlement, Gift
+    // of Paradise, Sixth Sense, Freed from the Real) resolves via AURA_ETB attached to the host chosen at
+    // cast, exactly like the branches above. `hostType` rides the SERIALIZABLE payload so the resolver's
+    // CR 608.2b re-check requires the right host type (a LAND-enchant Aura must still point at a Land at
+    // resolution; the legacy creature/mana derivations stay byte-identical when hostType is absent). Gated
+    // on the SAME grantAuraCastHostType legalChoices offered with, so offer and resolution can't drift.
+    const targetId = targets[0]?.id;
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, hostType: grantAuraCastHostType(castCard).host } };
   } else if (isAuraCard(castCard)) {
     // An Aura we can't model end-to-end (enchants a non-creature / restricted subject, or
     // carries an unmodeled bonus/ability). Route to the Arbiter seam rather than entering a

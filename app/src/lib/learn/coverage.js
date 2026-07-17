@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1256,9 +1256,73 @@ function isNativeActivatedGrantAura(card) {
     if (grantLineRe.test(t)) continue;                                                     // a granted-ability line
     if (isModeledAuraOwnEtbLine(stripReminder(t))) continue;                               // LA-1: a modeled aura-own ETB rider
     if (isAttachedNoUntapLine(t)) continue;                                                // UT-1: the PZ-1 tap-lock line (untapAll enforces it)
+    // TS-1 — AURA SELF-KEYWORD / cost-only keyword lines on a GRANT aura, mirroring the two proven admits:
+    //   • "Flash" — the FA-1 admit auraResidueClauses already makes for the pump-aura lane (Oblivion Crown /
+    //     Talons of Falkenrath): a cast-TIMING keyword. The engine hard-casts at its sorcery-speed window —
+    //     the flash option simply goes unused; the card still does exactly its printed thing (an FN-safe
+    //     timing simplification, never a wrong resolution).
+    //   • "Cycling {cost}" (CR 702.29a) — a HAND-zone alternative action the runtime already offers for ANY
+    //     card type (legalChoices.actionsCycleFromHand is type-agnostic; Footfall Crater cycles today). The
+    //     line is meaningless once the Aura is on the battlefield. Anchored to the plain brace-cost form:
+    //     typecycling ("Islandcycling {2}") doesn't match (its tutor is unmodeled → residue → park), and a
+    //     "when you cycle …" TRIGGER is its own line, hits the fall-through below, and parks the card.
+    if (/^flash$/i.test(t)) continue;
+    if (/^cycling (?:\{[^}]+\})+$/i.test(t)) continue;
+    // TS-1 — CUMULATIVE UPKEEP (CR 702.24) on the Aura itself (Mystic Might): the keyword's synthesized
+    // upkeep descriptor (detectTriggers' keyword→trigger synthesis) fires through checkStepTriggers on ANY
+    // battlefield permanent — an Aura included — and the pay-or-sacrifice atom sacrifices the Aura (the
+    // grant lifts with the attachment). Admit the line ONLY when the synthesized descriptor routes natively
+    // (the SAME shared gate the runtime flush uses): a {X}/hybrid cost routes LOW → residue → park (safe FN).
+    if (isModeledCumulativeUpkeepLine(stripReminder(t))) continue;
     return false;                                                                          // any other clause = residue
   }
   return true;
+}
+
+// TS-1 — is this line exactly a "Cumulative upkeep {cost}" whose SYNTHESIZED upkeep trigger routes
+// natively? Probed through the same detectTriggers + triggerRoutesNatively pair the runtime flush uses
+// (the isModeledAuraOwnEtbLine pattern), so the metric can never admit a cost shape the runtime would
+// route to the Arbiter (a {X}/hybrid cumulative upkeep parses LOW → false → residue).
+function isModeledCumulativeUpkeepLine(line) {
+  const t = String(line || "").trim();
+  if (!/^cumulative upkeep\b/i.test(t)) return false;
+  const probeText = /[.!]$/.test(t) ? t : `${t}.`;
+  const descs = detectTriggers({ name: "CumulativeUpkeepProbe", type: "Enchantment — Aura", oracle: probeText });
+  return descs.length === 1 && descs[0].event === "upkeep" && triggerRoutesNatively(descs[0]);
+}
+
+/**
+ * GRANT-AURA CAST HOST (BLITZ TS-1) — the cast→attach lane for the GRANT-aura families. The grant tiers
+ * (native-activated / native-mana-aura grants / native-trigger grants) were fully modeled ON the
+ * battlefield (grantedActivatedForHost / grantedManaSpecsFor / triggersForEvent enumerate on the host),
+ * but the CAST of every such Aura fell through legalChoices' aura branches (isNativeAura requires a
+ * creature-bonus payload; isNativeManaAura is the Wild Growth boost lane) to the no-target push, and the
+ * dispatcher routed it to the Arbiter seam — the metric claimed native for a card whose cast never
+ * attached natively. This helper is the SINGLE gate legalChoices (offer) and actionDispatcher (AURA_ETB
+ * routing) share, so offer, resolution, and the metric's native claim cannot drift.
+ *
+ * Returns { host: "creature"|"land", ownOnly } — the host type the Aura legally enchants and whether the
+ * offer is restricted to the caster's own permanents — or null when this lane doesn't own the card:
+ *   • not an Aura, or one of the lanes with its OWN cast branch (isNativeAura / Ordeal / mana-boost /
+ *     player-aura) — those keep priority and stay byte-identical;
+ *   • an enchant subject outside the four modeled forms ("creature[ you control]" / "land[ you control]")
+ *     — a subtype/zone/opponent-restricted subject is unmodeled → null → the cast still routes to the
+ *     Arbiter (safe FN, CR 303.4a never violated);
+ *   • a Saga-framed Aura (chapter machinery is the saga lane's — none in the corpus, fail closed);
+ *   • a tier outside the three grant tiers — the whole card must be modeled (THE CREED: the tier gate is
+ *     the all-or-nothing authority; body-only grant auras keep Arbiter-routed casts).
+ * ownOnly: a "you control" subject is CR 303.4a-mandatory; a LAND host is additionally offered own-only
+ * (the mana-boost lane's precedent — enchanting an opponent's land only helps them; a safe useful subset).
+ */
+export function grantAuraCastHostType(card) {
+  if (!isAuraCard(card)) return null;
+  if (isNativeAura(card) || isNativeOrdealAura(card) || isNativeManaAura(card) || isPlayerAuraCard(card)) return null;
+  if (isSagaCard(card)) return null;
+  const m = String(auraEnchantSubject(card) || "").match(/^(creature|land)( you control)?$/);
+  if (!m) return null;
+  const tier = classifyCard(card);
+  if (tier !== "native-activated" && tier !== "native-mana-aura" && tier !== "native-trigger") return null;
+  return { host: m[1], ownOnly: !!m[2] || m[1] === "land" };
 }
 
 // AURA-OWN-ACTIVATED — an Aura whose ONLY body is the Enchant line + one-or-more activated abilities PRINTED

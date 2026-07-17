@@ -3101,6 +3101,19 @@ function auraResidueClauses(card) {
     // unused: the card still does exactly its printed thing at sorcery speed, the bloodrush-inverse — an
     // FN-safe timing simplification, never a wrong resolution).
     if (c === "flash") continue;
+    // CYCLING (BLITZ TS-1 — Savage Hunger / Sicken / Improvised Armor / Sigil of the Nayan Gods, CR 702.29a):
+    // the Aura's own "Cycling {cost}" line is a HAND-zone alternative action the runtime already offers for
+    // any card type (legalChoices.actionsCycleFromHand is type-agnostic — discard the card, draw a card);
+    // once the Aura is on the battlefield the line is meaningless, so it is NOT residue. Anchored to the
+    // plain brace-cost form only: typecycling ("Islandcycling {2}") doesn't match (its library search is
+    // unmodeled → residue, safe FN), and a "when you cycle …" TRIGGER is its own When/Whenever clause that
+    // falls to the trigger branch below → residue → the card stays body-only (CREED all-or-nothing).
+    if (/^cycling (?:\{[^}]+\})+$/.test(c)) continue;
+    // SELF-SHROUD (BLITZ TS-1 — Diplomatic Immunity): "Shroud" printed on the Aura ITSELF is enforced at the
+    // canBeTargetedBy chokepoint (permanentHasKeyword reads the PRINTED keyword of any permanent type), the
+    // same allowlist reasoning as the equipment gate's SELF-KEYWORD admit (Mithril Coat) — so the line is a
+    // MODELED clause, not residue. Only the bare keyword line matches; any rider stays residue.
+    if (c === "shroud") continue;
     // MADNESS (BLITZ MA-1 — Senseless Rage / Strength of Isolation / Strength of Lunacy): the Aura's own
     // "Madness {cost}" line is a DISCARD-window cast option (CR 702.35), vacuous for the normal hard-cast —
     // the SAME versioned trade MD-1 shipped for every other permanent (coverage.reMadnessCost; the engine

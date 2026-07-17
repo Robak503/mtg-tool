@@ -57,7 +57,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
-import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura } from "./coverage.js";
+import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
@@ -1191,6 +1191,28 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
       }
       continue;
+    }
+
+    // GRANT-AURA CAST (BLITZ TS-1, CR 303.4): an Aura in the GRANT families — granted-activated (Squirrel
+    // Nest / Tin Street Market / Hermetic Study), granted-mana (Settlement / Gift of Paradise), granted-
+    // triggered (Sixth Sense), aura-own-activated (Freed from the Real) — is fully modeled ON the
+    // battlefield, but had NO cast branch: it fell to the no-target push and the dispatcher Arbiter-routed
+    // it, so the native tier's card never actually attached. Offer one cast per legal host, exactly like
+    // the isNativeAura/mana-aura branches: creature hosts enumerate every battlefield creature (own-only
+    // when the subject says "you control" — CR 303.4a); land hosts enumerate the caster's OWN lands (the
+    // mana-boost lane's useful-subset precedent). Gated on grantAuraCastHostType — the SAME single gate the
+    // dispatcher routes AURA_ETB on and the coverage tier stands on, so offer/resolution/metric can't drift.
+    {
+      const grantHost = grantAuraCastHostType(card);
+      if (grantHost) {
+        const restrictions = grantHost.ownOnly ? [{ kind: "controller", who: "you" }] : [];
+        const targets = enumerateTargets(state, playerId, { targetType: grantHost.host, restrictions }, colorsOf(card));
+        if (targets.length === 0) continue;         // no legal host → can't cast (CR 303.4a)
+        for (const t of targets) {
+          actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
+        }
+        continue;
+      }
     }
 
     // KICKER (CR 702.33) — a creature with a modeled kicker (clean single cost + an enters-with-counters
