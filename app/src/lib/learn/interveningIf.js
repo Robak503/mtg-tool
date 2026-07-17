@@ -39,6 +39,16 @@
  *      history read off the per-turn creature-death tally (gameState.creaturesDiedThisTurn, bumped at the death
  *      chokepoint, reset for all seats at untap). "a creature died" ≡ "1 or more died" (≥1); the cardinal form
  *      compares the all-seats death total (CR 700.4 — any player's creature dying counts) to N.
+ *   "a creature died under your control this turn" (Denethor Ruling Steward, Faramir Field Commander,
+ *      Essenceknit Scholar — BLITZ IF-1) — the CONTROLLER-SCOPED variant: the controller's OWN
+ *      creaturesDiedThisTurn tally (keyed on the dying creature's controller) is ≥1, NOT the all-seats sum.
+ *   "an opponent lost life this turn" (Lion Vulture, Savage Gorger, Bloodtithe Collector, Arrogant Outlaw —
+ *      BLITZ IF-1) — the ≥1 case of the OPP-LOST-LIFE lifeLostThisTurn ledger (bare form, no number word).
+ *   "you're the monarch" (Throne Warden, Garrulous Sycophant, Skyline Despot, Faramir Steward of Gondor —
+ *      BLITZ IF-1) — the controller holds the monarch designation now (CR 725.1); a live state.monarchId read
+ *      (the same field manaModel's Regal Behemoth mana-augment gate reads).
+ *   "you have no cards in hand" (Bloodhall Priest, Hollowborn Barghest — BLITZ IF-1) — the controller's hand
+ *      is empty (controllerMetric "cards in hand" === 0), reusing the opponent hand-compare's reader.
  *   "it was kicked" (CR 702.33e) — the kicker ETB-trigger condition (Goblin Ruinblaster, Torch Slinger,
  *      Heartstabber Mosquito …): a per-PERMANENT cast-decision flag read off the entering permanent's
  *      `wasKicked` (stamped by resolvers.enterPermanent on a kicked cast), keyed on ctx.triggeringPermanentId.
@@ -47,9 +57,10 @@
  *      off the entering permanent's `tributePaid` (stamped by resolvers.enterPermanent when the opponent
  *      chose at ETB), keyed on ctx.triggeringPermanentId exactly like the kicked flag.
  * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
- * less", toughness), OTHER turn-event history (a NON-creature died, "you gained life this turn", attacked),
- * subtype-scoped death counts ("a Zubera died"), the OTHER cast-decision flags (bargain), state flags
- * (monarch, city's blessing) — each a future increment.
+ * less", toughness), OTHER turn-event history (a NON-creature died, "you gained life this turn" — no
+ * lifeGainedThisTurn ledger exists, so it stays Arbiter; "a permanent left the battlefield this turn"),
+ * subtype-scoped death counts ("a Zubera died"), the OTHER cast-decision flags (bargain), the remaining
+ * state flags (city's blessing, initiative — no live tracking) — each a future increment.
  */
 
 import { creaturePower, creatureToughness } from "./gameState.js"; // layer-aware P/T readers (counters + anthems) — one-way edge, no cycle
@@ -333,6 +344,38 @@ const EVOLVE_COMPARE_RE = /^that creature has greater power or toughness than th
 // gameState.loseLife chokepoint, reset for all seats at untap). An absent tally IS zero (fail-closed: the
 // ledger can't miss a loss — every life-loss path funnels through loseLife). Boolean always, never null.
 const OPP_LOST_LIFE_RE = new RegExp(`^an opponent lost ${NUM_RE} or more life this turn$`);
+// BLITZ IF-1 (CR 119.3) — the bare "an opponent lost life this turn" (Lion Vulture, Savage Gorger, Bloodtithe
+// Collector, Arrogant Outlaw …) is the ≥1 case of the SAME lifeLostThisTurn ledger: any life lost by any
+// opponent this turn satisfies it. No number word, so it's a DISTINCT anchor from OPP_LOST_LIFE_RE; both read
+// the identical ledger (identical at flush AND resolution), differing only in the threshold (≥1 vs ≥N).
+const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
+
+// ===== MONARCH-STATUS (CR 725.1 + 603.4 — BLITZ IF-1) ========================================
+// "you're the monarch" (Throne Warden, Garrulous Sycophant, Skyline Despot, Faramir Steward of Gondor …) —
+// the controller currently holds the monarch designation (CR 725.1: "The monarch is a designation a player
+// can have"). A LIVE read of state.monarchId — the SAME field the mana-augment gate reads for Regal Behemoth
+// (manaModel.js: `state.monarchId !== playerId`) and the crown-steal / become-monarch events keep current.
+// True iff state.monarchId === controllerId; no monarch (undefined) → false (CR 603.4 drop). Layer-irrelevant
+// single-value read, identical at flush AND resolution. NOT the "you control a monarch" filter (a designation,
+// not a typed permanent — still rejected by NON_TYPE_WORDS); this anchors the monarch STATUS predicate.
+const MONARCH_STATUS_RE = /^you(?:'?re| are) the monarch$/;
+
+// ===== NO-CARDS-IN-HAND (CR 603.4 — BLITZ IF-1) ==============================================
+// "you have no cards in hand" (Bloodhall Priest, Hollowborn Barghest, Hollow One shape …) — the controller's
+// hand is empty. Reuses the SAME controllerMetric "cards in hand" reader (player.hand.length) the opponent
+// hand-compare uses; true iff that count is 0. A single count off the live state, layer-irrelevant, identical
+// at flush AND resolution. Anchored EXACTLY — a "that player has no cards in hand" (opponent-scoped) variant
+// falls through → null → Arbiter (CREED — never a mis-scoped hand read).
+const NO_CARDS_IN_HAND_RE = /^you have no cards in hand$/;
+
+// ===== CREATURE-DIED-UNDER-YOUR-CONTROL (CR 700.4 + 603.4 — BLITZ IF-1) ======================
+// "a creature died under your control this turn" (Denethor Ruling Steward, Faramir Field Commander,
+// Essenceknit Scholar) — a CONTROLLER-SCOPED turn-event history read off the per-seat creaturesDiedThisTurn
+// tally (gameState.js increments it for `d.controller` — the controller of the dying creature — at the death
+// chokepoint, reset for all seats at untap). "died" = battlefield→graveyard (CR 700.4); "under your control"
+// scopes it to the CONTROLLER's own tally (NOT the all-seats sum that the unscoped "a creature died this turn"
+// reads). True iff the controller's tally is ≥1. Layer-irrelevant, identical at flush AND resolution.
+const CREATURE_DIED_UNDER_CONTROL_RE = /^a creature died under your control this turn$/;
 
 // ===== SOURCE-COUNTER-THRESHOLD (Bloodchief Ascension trigger 2 — SHELF S7, CR 603.4) ========
 // "this <noun> has N or more <type> counters on it" — a LIVE read of the SOURCE permanent's counters
@@ -390,6 +433,26 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
       return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.lifeLostThisTurn || 0) >= n);
     }
   }
+  // OPPONENT-LOST-LIFE (bare, ≥1 — BLITZ IF-1, CR 119.3) — the SAME ledger, threshold ≥1 (any opponent lost
+  // any life this turn). Distinct anchor from the "N or more" form; both read lifeLostThisTurn identically.
+  if (OPP_LOST_LIFE_ANY_RE.test(c)) {
+    return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.lifeLostThisTurn || 0) >= 1);
+  }
+
+  // MONARCH-STATUS (CR 725.1 — BLITZ IF-1) — the controller holds the monarch designation right now. A live
+  // read of state.monarchId (the field manaModel's Regal Behemoth gate reads); no monarch → false (CR 603.4
+  // drop). Layer-irrelevant, identical at flush AND resolution.
+  if (MONARCH_STATUS_RE.test(c)) return state?.monarchId === controllerId;
+
+  // NO-CARDS-IN-HAND (CR 603.4 — BLITZ IF-1) — the controller's hand is empty. Reuses controllerMetric's
+  // "cards in hand" reader (player.hand.length); true iff 0. Identical at flush AND resolution.
+  if (NO_CARDS_IN_HAND_RE.test(c)) return controllerMetric(state, controllerId, "cards in hand") === 0;
+
+  // CREATURE-DIED-UNDER-YOUR-CONTROL (CR 700.4 — BLITZ IF-1) — the CONTROLLER's own per-seat creaturesDiedThisTurn
+  // tally is ≥1 (a creature they controlled died this turn). Distinct from the unscoped "a creature died this
+  // turn" (deathsThisTurnTotal across all seats); this reads only the controller's tally. Identical at flush AND
+  // resolution. A seat with no tally → 0 → false.
+  if (CREATURE_DIED_UNDER_CONTROL_RE.test(c)) return (state.players[controllerId]?.creaturesDiedThisTurn || 0) >= 1;
 
   // SOURCE-COUNTER-THRESHOLD (Bloodchief Ascension) — live read of the SOURCE permanent's counters.
   {

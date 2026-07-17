@@ -85,9 +85,10 @@ describe("evaluateInterveningIf — board queries", () => {
 describe("evaluateInterveningIf — strict null for unmodeled conditions (CREED)", () => {
   it("turn-event / state-flag / designation conditions return null (Arbiter)", () => {
     // NOTE: "a creature died this turn" is now MODELED (DEATHS-THIS-TURN) — covered in its own block below.
-    expect(evaluateInterveningIf(withBoard([]), "you gained 3 or more life this turn", "user")).toBe(null);
+    // NOTE: "you're the monarch" is now MODELED (MONARCH-STATUS, BLITZ IF-1) — covered in its own block below.
+    expect(evaluateInterveningIf(withBoard([]), "you gained 3 or more life this turn", "user")).toBe(null); // no lifeGainedThisTurn ledger → still Arbiter
     expect(evaluateInterveningIf(withBoard([]), "a Zubera died this turn", "user")).toBe(null); // subtype-scoped death stays Arbiter (CREED)
-    expect(evaluateInterveningIf(withBoard([]), "you're the monarch", "user")).toBe(null);
+    expect(evaluateInterveningIf(withBoard([]), "you have the city's blessing", "user")).toBe(null); // no ascend/blessing tracking → Arbiter
     // POWER near-misses stay null (only "power N or greater/more" is modeled — CREED)
     expect(evaluateInterveningIf(withBoard([]), "you control a creature with power 4 or less", "user")).toBe(null);
     expect(evaluateInterveningIf(withBoard([]), "you control a creature with toughness 4 or greater", "user")).toBe(null);
@@ -114,8 +115,14 @@ describe("interveningIfParseable — shape gate", () => {
     }
     for (const c of ["you control a commander", "you control a blue permanent",
       "you control a creature with power 4 or less", "you control a creature with toughness 4 or greater",
-      "a Zubera died this turn", "you're the monarch"]) {
+      "a Zubera died this turn", "you gained 3 or more life this turn", "that player has no cards in hand"]) {
       expect(interveningIfParseable(c)).toBe(false);
+    }
+    // BLITZ IF-1: monarch-status, opponent-lost-life (bare ≥1), no-cards-in-hand, and controller-scoped death
+    // are now parseable shapes.
+    for (const c of ["you're the monarch", "an opponent lost life this turn", "you have no cards in hand",
+      "a creature died under your control this turn"]) {
+      expect(interveningIfParseable(c)).toBe(true);
     }
     // DEATHS-THIS-TURN now parseable (modeled):
     for (const c of ["a creature died this turn", "three or more creatures died this turn"]) {
@@ -362,5 +369,137 @@ describe("opponent-comparison + control-another-subtype — runtime gates the tr
   it("control-another-subtype NOT met (only the entering Elf) → never goes on the stack (CR 113.7)", () => {
     const entering = enterPerm("ent", "Creature — Elf");
     expect(runConditional({ condition: "you control another Elf", entering: "ent", userBoard: [entering] })).toBe(0);
+  });
+});
+
+// ─── 5. BLITZ IF-1: monarch-status / opponent-lost-life (bare ≥1) / no-cards-in-hand / creature-died-under-
+//        your-control. Each reuses an EXISTING live board reader — state.monarchId (CR 725.1), the
+//        lifeLostThisTurn ledger (CR 119.3), controllerMetric "cards in hand", and the CONTROLLER-scoped
+//        creaturesDiedThisTurn tally (CR 700.4). ───────────────────────────────────────────────────────
+describe("BLITZ IF-1 — evaluator correctness (new families)", () => {
+  it("'you're the monarch' → state.monarchId === controller (CR 725.1)", () => {
+    expect(evaluateInterveningIf(withBoard([]), "you're the monarch", "user")).toBe(false); // no monarch on board
+    expect(evaluateInterveningIf({ ...withBoard([]), monarchId: "user" }, "you're the monarch", "user")).toBe(true);
+    expect(evaluateInterveningIf({ ...withBoard([]), monarchId: "ai" }, "you're the monarch", "user")).toBe(false); // an opponent holds the crown
+    expect(evaluateInterveningIf({ ...withBoard([]), monarchId: "user" }, "you are the monarch", "user")).toBe(true); // "you are" spelling
+  });
+  it("'an opponent lost life this turn' → ≥1 on the lifeLostThisTurn ledger (CR 119.3)", () => {
+    expect(evaluateInterveningIf(withOpp({}), "an opponent lost life this turn", "user")).toBe(false);
+    expect(evaluateInterveningIf(withOpp({ ai: { lifeLostThisTurn: 1 } }), "an opponent lost life this turn", "user")).toBe(true);
+    // the CONTROLLER's own life loss doesn't count — only an opponent's (existential over opponents)
+    expect(evaluateInterveningIf(withOpp({ user: { lifeLostThisTurn: 5 } }), "an opponent lost life this turn", "user")).toBe(false);
+  });
+  it("'you have no cards in hand' → the controller's hand is empty", () => {
+    expect(evaluateInterveningIf(withOpp({ user: { hand: [] } }), "you have no cards in hand", "user")).toBe(true);
+    expect(evaluateInterveningIf(withOpp({ user: { hand: [card("h", "Instant")] } }), "you have no cards in hand", "user")).toBe(false);
+  });
+  it("'a creature died under your control this turn' → the CONTROLLER's OWN death tally ≥1 (CR 700.4)", () => {
+    expect(evaluateInterveningIf(withOpp({}), "a creature died under your control this turn", "user")).toBe(false);
+    expect(evaluateInterveningIf(withOpp({ user: { creaturesDiedThisTurn: 1 } }), "a creature died under your control this turn", "user")).toBe(true);
+    // an OPPONENT's creature dying does NOT satisfy the controller-scoped condition …
+    expect(evaluateInterveningIf(withOpp({ ai: { creaturesDiedThisTurn: 3 } }), "a creature died under your control this turn", "user")).toBe(false);
+    // … whereas the UNSCOPED "a creature died this turn" (all-seats sum) IS true there — the scoping is the difference
+    expect(evaluateInterveningIf(withOpp({ ai: { creaturesDiedThisTurn: 3 } }), "a creature died this turn", "user")).toBe(true);
+  });
+});
+
+describe("BLITZ IF-1 — coverage: real cards flip native (whole-card, LOST=0)", () => {
+  it("monarch-status end-step → native-trigger (Throne Warden, Garrulous Sycophant)", () => {
+    expect(classifyCard(C("Throne Warden", "At the beginning of your end step, if you're the monarch, put a +1/+1 counter on this creature.", "Creature — Human Soldier"))).toBe("native-trigger");
+    expect(classifyCard(C("Garrulous Sycophant", "At the beginning of your end step, if you're the monarch, each opponent loses 1 life and you gain 1 life.", "Creature — Human Advisor"))).toBe("native-trigger");
+  });
+  it("opponent-lost-life (bare ≥1) ETB/end-step → native-trigger (Arrogant Outlaw, Savage Gorger, Lion Vulture)", () => {
+    expect(classifyCard(C("Arrogant Outlaw", "When this creature enters, if an opponent lost life this turn, each opponent loses 2 life and you gain 2 life.", "Creature — Vampire Noble"))).toBe("native-trigger");
+    expect(classifyCard(C("Savage Gorger", "Flying\nAt the beginning of your end step, if an opponent lost life this turn, put a +1/+1 counter on this creature.", "Creature — Vampire"))).toBe("native-trigger");
+    expect(classifyCard(C("Lion Vulture", "Flying\nAt the beginning of your end step, if an opponent lost life this turn, put a +1/+1 counter on this creature and draw a card.", "Creature — Cat Bird"))).toBe("native-trigger");
+  });
+  it("no-cards-in-hand → native-trigger (Bloodhall Priest, madness cost stripped)", () => {
+    expect(classifyCard(C("Bloodhall Priest", "Whenever this creature enters or attacks, if you have no cards in hand, this creature deals 2 damage to any target.\nMadness {1}{B}{R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)", "Creature — Vampire Cleric"))).toBe("native-trigger");
+  });
+  it("creature-died-under-your-control → native (single-trigger flips native-trigger; Denethor's whole card native-mixed)", () => {
+    expect(classifyCard(C("Deathwatch Scribe", "At the beginning of your end step, if a creature died under your control this turn, draw a card.", "Creature — Human Cleric"))).toBe("native-trigger");
+    // real whole-card flip: end-step conditional token + an already-modeled sac-outlet activated ability
+    expect(classifyCard(C("Denethor, Ruling Steward", "At the beginning of your end step, if a creature died under your control this turn, create a 1/1 white Human Soldier creature token.\n{2}, Sacrifice another creature: Each opponent loses 1 life and you gain 1 life.", "Legendary Creature — Human Noble"))).toBe("native-mixed");
+  });
+});
+
+describe("BLITZ IF-1 — CREED: near-miss / deferred conditions stay body-only (false-negative SAFE)", () => {
+  it("deferred conditions evaluate null (no live reader) — Arbiter", () => {
+    // "you gained life this turn" has NO lifeGainedThisTurn ledger → unmodeled (never fail-open)
+    expect(evaluateInterveningIf(withOpp({}), "you gained life this turn", "user")).toBe(null);
+    // opponent-scoped hand ("that player has no cards in hand" — Hollowborn Barghest's 2nd trigger) is out of vocabulary
+    expect(evaluateInterveningIf(withOpp({}), "that player has no cards in hand", "user")).toBe(null);
+    expect(evaluateInterveningIf(withOpp({}), "you have the initiative", "user")).toBe(null);
+  });
+  it("cards with a deferred condition stay non-native", () => {
+    expect(classifyCard(C("Lifegain Draw", "When this creature enters, if you gained life this turn, draw a card."))).not.toMatch(/^native/);
+    expect(classifyCard(C("Opp Empty Hand", "At the beginning of each opponent's upkeep, if that player has no cards in hand, they lose 2 life.", "Creature — Demon"))).not.toMatch(/^native/);
+  });
+  it("WHOLE-CARD law: a real card whose SECOND trigger's condition is unmodeled stays body-only (Hollowborn Barghest)", () => {
+    // trigger 1 ("you have no cards in hand") is now modeled, but trigger 2 ("that player has no cards in hand")
+    // is not → one unmodeled trigger parks the whole card (correct — never a partial flip).
+    expect(classifyCard(C("Hollowborn Barghest", "At the beginning of your upkeep, if you have no cards in hand, each opponent loses 2 life.\nAt the beginning of each opponent's upkeep, if that player has no cards in hand, they lose 2 life.", "Creature — Demon Dog"))).not.toMatch(/^native/);
+  });
+});
+
+describe("BLITZ IF-1 — runtime: condition gates the trigger at flush AND resolution (CR 603.4)", () => {
+  // Drive a conditional end-of-turn-style trigger end-to-end (flush → resolution). `stateMut` sets the live
+  // reader (monarchId / per-seat tally / hand) BEFORE flush.
+  function runIf({ condition, effectClause = "draw a card", stateMut = (s) => s }) {
+    let st = createGameState({ userDeck: [], aiDeck: [] });
+    const lib = [{ id: "topcard", name: "Forest", type: "Basic Land — Forest" }];
+    st = { ...st, players: { ...st.players, user: { ...st.players.user, battlefield: [], library: lib, hand: [], life: 20 } } };
+    st = stateMut(st);
+    st = { ...st, pendingTriggers: [{
+      event: "upkeep", source: { name: "Probe", permanentId: "src" }, controller: "user",
+      descriptor: { event: "upkeep", scope: "self", whose: "any", effectClause, interveningIf: condition },
+      context: {}, targets: [], payload: {},
+    }] };
+    let out = flushTriggers(st, { chooseTargets: chooseTriggerTargets });
+    while (out.stack.length) out = resolveTopOfStack(out);
+    return out;
+  }
+  const setUser = (patch) => (s) => ({ ...s, players: { ...s.players, user: { ...s.players.user, ...patch } } });
+  const setAi = (patch) => (s) => ({ ...s, players: { ...s.players, ai: { ...s.players.ai, ...patch } } });
+
+  it("monarch MET (you hold the crown) → fires (draws)", () => {
+    expect(runIf({ condition: "you're the monarch", stateMut: (s) => ({ ...s, monarchId: "user" }) }).players.user.hand.length).toBe(1);
+  });
+  it("monarch NOT met (no crown) → never goes on the stack (no draw)", () => {
+    expect(runIf({ condition: "you're the monarch" }).players.user.hand.length).toBe(0);
+  });
+  it("opponent-lost-life MET (an opponent lost 2) → fires", () => {
+    expect(runIf({ condition: "an opponent lost life this turn", stateMut: setAi({ lifeLostThisTurn: 2 }) }).players.user.hand.length).toBe(1);
+  });
+  it("opponent-lost-life NOT met (only YOU lost life) → never goes on the stack", () => {
+    expect(runIf({ condition: "an opponent lost life this turn", stateMut: setUser({ lifeLostThisTurn: 5 }) }).players.user.hand.length).toBe(0);
+  });
+  it("creature-died-under-your-control MET (your tally ≥1) → fires", () => {
+    expect(runIf({ condition: "a creature died under your control this turn", stateMut: setUser({ creaturesDiedThisTurn: 1 }) }).players.user.hand.length).toBe(1);
+  });
+  it("creature-died-under-your-control NOT met (only an OPPONENT's creature died) → never goes on the stack", () => {
+    expect(runIf({ condition: "a creature died under your control this turn", stateMut: setAi({ creaturesDiedThisTurn: 3 }) }).players.user.hand.length).toBe(0);
+  });
+  it("no-cards-in-hand MET (empty hand) → the gain fires (20 → 23)", () => {
+    expect(runIf({ condition: "you have no cards in hand", effectClause: "you gain 3 life" }).players.user.life).toBe(23);
+  });
+  it("no-cards-in-hand NOT met (a card in hand) → never goes on the stack (20 stays 20)", () => {
+    expect(runIf({ condition: "you have no cards in hand", effectClause: "you gain 3 life",
+      stateMut: setUser({ hand: [{ id: "h", name: "Bolt", type: "Instant" }] }) }).players.user.life).toBe(20);
+  });
+  it("CR 603.4 SECOND check: the crown is stolen between flush and resolution → the ability does NOTHING", () => {
+    let st = createGameState({ userDeck: [], aiDeck: [] });
+    const lib = [{ id: "topcard", name: "Forest", type: "Basic Land — Forest" }];
+    st = { ...st, monarchId: "user", players: { ...st.players, user: { ...st.players.user, battlefield: [], library: lib, hand: [] } } };
+    st = { ...st, pendingTriggers: [{
+      event: "upkeep", source: { name: "Throne Warden", permanentId: "src" }, controller: "user",
+      descriptor: { event: "upkeep", scope: "self", whose: "any", effectClause: "draw a card", interveningIf: "you're the monarch" },
+      context: {}, targets: [], payload: {},
+    }] };
+    let out = flushTriggers(st, { chooseTargets: chooseTriggerTargets });
+    expect(out.stack.length).toBe(1); // condition MET at flush → the trigger IS on the stack
+    out = { ...out, monarchId: "ai" }; // an opponent steals the crown in response (CR 603.4 re-check)
+    while (out.stack.length) out = resolveTopOfStack(out);
+    expect(out.players.user.hand.length).toBe(0); // false at resolution → the ability has no effect
   });
 });
