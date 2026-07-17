@@ -1246,6 +1246,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bdeals? damage to (?:a player|an opponent)$/.test(c) && selfRef) {
     return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
   }
+  // AURA-RIDER damage-to-a-player WITHOUT "combat" (BLITZ SB-1 — Sigil of Sleep "Whenever enchanted creature
+  // deals damage to a player, return target creature that player controls to its owner's hand"). The same
+  // in-simulator equivalence as the self form directly above (all creature damage to a player is combat
+  // damage here), routed through the SAME "equippedCreature" attached-linkage scope as the aura/equipment
+  // combat-damage riders (the watcher is the AURA; the trigger fires ONLY when the connecting attacker IS
+  // this aura's host — sourcePermanent.attachedTo). Anchored bare-object; a qualifier ("…or planeswalker",
+  // a rider) leaves residue → UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire).
+  if (/^enchanted creature deals damage to (?:a player|an opponent)$/.test(c)) {
+    return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+  }
   // AURA-RIDER combat-damage TO AN OPPONENT (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage
   // to an opponent, <effect>". The "to an opponent" object is equivalent to "to a player" for this event: the
   // defender of a combat-damage-player event is ALWAYS an opponent of the attacking player (CR 509.1a), and

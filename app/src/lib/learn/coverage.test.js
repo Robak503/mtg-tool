@@ -155,8 +155,11 @@ describe("classifyCard — tiers", () => {
   it("KW-NINJUTSU FP-GUARD: a ninja whose OTHER ability is unmodeled stays body-only (residue gate holds)", () => {
     // Silver-Fur Master — ninjutsu + a STATIC cost-reducer + an anthem → unmodeled residue → body-only.
     expect(classifyCard(C("Creature — Rat Ninja", "Ninjutsu {U}{B} ({U}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nNinjutsu abilities you activate cost {1} less to activate.\nOther Ninja and Rogue creatures you control get +1/+1.", { name: "Silver-Fur Master", mana: "{U}{B}" }))).not.toBe("native-body");
-    // Skullsnatcher — ninjutsu + an UNMODELED graveyard-exile combat-damage trigger → body-only.
-    expect(classifyCard(C("Creature — Rat Ninja", "Ninjutsu {B} ({B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, exile up to two target cards from that player's graveyard.", { name: "Skullsnatcher", mana: "{1}{B}" }))).toBe("body-only");
+    // Skullsnatcher's graveyard-exile trigger is MODELED as of BLITZ SB-1 (the damagedPlayerGraveyard
+    // exile — see saboteurDamagedPlayer.test.js), so it no longer serves as this guard's unmodeled-trigger
+    // example; a RIDER-carrying near-miss variant of the same shape stands in (the un-evidenced count
+    // fails the exact anchor → the trigger is unrouted → body-only).
+    expect(classifyCard(C("Creature — Rat Ninja", "Ninjutsu {B} ({B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, exile up to three target cards from that player's graveyard.", { name: "Skullsnatcher Variant", mana: "{1}{B}" }))).toBe("body-only");
     // The static cost-reducer / grant lines are NOT credited as a bare ninjutsu cost.
     expect(isKeywordOnly("ninjutsu abilities you activate cost {1} less to activate")).toBe(false);
     expect(isKeywordOnly("each creature card in your hand has ninjutsu {1}{u}{b}")).toBe(false);

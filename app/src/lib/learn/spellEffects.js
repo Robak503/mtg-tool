@@ -572,13 +572,20 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   const addGraveyardCards = () => {
     // Default: the CASTER'S OWN graveyard ("your graveyard" — return-from-graveyard / reanimate / GY-TO-TOP).
     // GY-EXILE / REANIMATE-FROM-ANY set effect.anyGraveyard ("a graveyard") → offer cards from EVERY player's
-    // graveyard; effect.opponentGraveyard ("an opponent's graveyard" — Ashen Powder) → opponents only. Each
-    // target is stamped with its OWNER as `controller` so the resolver acts on the right graveyard.
-    const pids = effect.anyGraveyard
-      ? Object.keys(state.players)
-      : effect.opponentGraveyard
-        ? Object.keys(state.players).filter((pid) => pid !== controllerId)
-        : [controllerId];
+    // graveyard; effect.opponentGraveyard ("an opponent's graveyard" — Ashen Powder) → opponents only;
+    // effect.damagedPlayerGraveyard (BLITZ SB-1 — "that player's graveyard", the Skullsnatcher / Zombie
+    // Cannibal saboteur payoffs) → ONLY the just-combat-damaged player's graveyard (ctx.damagedPlayerId,
+    // threaded by triggers.checkCombatDamageTriggers; absent referent — a spell / non-combat path — → EMPTY
+    // pool, so the ability drops no-target rather than exile from a wrong graveyard, the
+    // creatureSatisfiesRestrictions damagedPlayer discipline). Each target is stamped with its OWNER as
+    // `controller` so the resolver acts on the right graveyard.
+    const pids = effect.damagedPlayerGraveyard
+      ? (ctx?.damagedPlayerId ? [ctx.damagedPlayerId] : [])
+      : effect.anyGraveyard
+        ? Object.keys(state.players)
+        : effect.opponentGraveyard
+          ? Object.keys(state.players).filter((pid) => pid !== controllerId)
+          : [controllerId];
     for (const pid of pids) {
       for (const card of state.players[pid]?.graveyard || []) {
         if (card.token) continue; // a token is not a "card" (CR 111 / 608.2b) — never a legal target

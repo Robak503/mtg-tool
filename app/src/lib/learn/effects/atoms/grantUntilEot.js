@@ -27,8 +27,9 @@
  * validators the static group-grant emission gate uses (isModeledGroupTriggeredBody /
  * isModeledGroupActivatedBody), injected below to avoid the load cycle (this module is imported by
  * parser.js; the validators live above it — the registerGroupTriggeredBodyValidator pattern). An
- * unvalidated body → null → LOW → Arbiter (Resuscitate's regenerate, Galuf's power-counters, Arm with
- * Aether's may-bounce all park here — no per-card lists, pure vocabulary). No validator registered yet
+ * unvalidated body → null → LOW → Arbiter (Resuscitate's regenerate and Galuf's power-counters park
+ * here — no per-card lists, pure vocabulary; Arm with Aether's may-bounce body un-parked in BLITZ SB-1
+ * when the damaged-player bounce became a modeled saboteur payoff). No validator registered yet
  * (a load order where classification ran first) → null — fail-safe, never fail-open.
  *
  * CIRCULAR-IMPORT NOTE: mirrors combat.js's import set exactly (gameState + layers + shared + combat) —

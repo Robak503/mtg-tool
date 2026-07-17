@@ -3823,10 +3823,15 @@ export function atomTargetIntent(atom) {
     case "exile-from-graveyard":
       // OPPONENT's-graveyard exile ("exile target card from an opponent's graveyard" — Disposal Mummy, Leonin
       // of the Lost Pride, Disruptor Wanderglyph) is unambiguously ENEMY-side (the only candidates are cards in
-      // opponents' graveyards), so an ETB/attack TRIGGER routes natively. "from a graveyard" (anyGraveyard) can't
-      // promise a side → ambiguous → Arbiter (a SAFE false-negative); a caster-only form is own. Cast path
-      // (Coffin Purge / Cremate) is unaffected — it enumerates + picks interactively / by AI.
-      return atom.opponentGraveyard ? "enemy" : atom.anyGraveyard ? "ambiguous" : "own";
+      // opponents' graveyards), so an ETB/attack TRIGGER routes natively. DAMAGED-PLAYER's-graveyard exile
+      // (BLITZ SB-1 — "from that player's graveyard", Skullsnatcher / Zombie Cannibal) is enemy-side too: the
+      // only candidates are cards in the just-combat-damaged player's graveyard, and a combat-damaged player is
+      // always an opponent of the attacker's controller (CR 506.2a — a defending player is always one of the
+      // attacking player's opponents).
+      // "from a graveyard" (anyGraveyard) can't promise a side → ambiguous → Arbiter (a SAFE false-negative);
+      // a caster-only form is own. Cast path (Coffin Purge / Cremate) is unaffected — it enumerates + picks
+      // interactively / by AI.
+      return (atom.opponentGraveyard || atom.damagedPlayerGraveyard) ? "enemy" : atom.anyGraveyard ? "ambiguous" : "own";
     case "self-attach":
       // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush
       // chooser stays on the controller's own side (the host is always friendly; never an enemy creature).

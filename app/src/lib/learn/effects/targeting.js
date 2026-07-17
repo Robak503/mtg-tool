@@ -210,9 +210,11 @@ function atomTargetSpec(atom) {
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the matching graveyard cards. anyGraveyard (Reanimate / Hymn of
   // Rebirth — "from a graveyard") widens the scope to EVERY player's graveyard; opponentGraveyard
-  // (Ashen Powder — "from an opponent's graveyard") scopes it to opponents only. Absent → the caster's
-  // own graveyard (the default return-from-graveyard / own-graveyard reanimate).
-  if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any", anyGraveyard: atom.anyGraveyard, opponentGraveyard: atom.opponentGraveyard, ...(atom.milledThisTurnOnly && { milledThisTurnOnly: true }) };
+  // (Ashen Powder — "from an opponent's graveyard") scopes it to opponents only; damagedPlayerGraveyard
+  // (BLITZ SB-1 — "from that player's graveyard", Skullsnatcher / Zombie Cannibal) scopes it to the
+  // just-combat-damaged player's graveyard (ctx.damagedPlayerId — absent referent → empty pool). Absent →
+  // the caster's own graveyard (the default return-from-graveyard / own-graveyard reanimate).
+  if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any", anyGraveyard: atom.anyGraveyard, opponentGraveyard: atom.opponentGraveyard, ...(atom.damagedPlayerGraveyard && { damagedPlayerGraveyard: true }), ...(atom.milledThisTurnOnly && { milledThisTurnOnly: true }) };
   // A PLAYER-target atom — δ-1b hand disruption (opponent) and EDICTS sacrifice (player/opponent).
   // Enumerated purely by targetType ("opponent" → opponents, "player" → every player); the victim's
   // hand/creature is chosen at RESOLUTION, not enumeration, so the spec carries no extra filter. The

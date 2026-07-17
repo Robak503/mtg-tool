@@ -357,6 +357,23 @@ export function graveyardReturnClauseParser(clause) {
   // destination exile. Reuses applyExileFromGraveyard's cross-zone move (it already handles opponentGraveyard,
   // like Ashen Powder's reanimate above) — only the parser form was missing. Same `$`-anchored FN-safe rejection.
   if (/^exile target card from an opponent's graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", opponentGraveyard: true, cardFilter: "any" };
+  // GY-EXILE-DAMAGED-PLAYER (BLITZ SB-1, CR 608.2c "that player" back-reference) — the SABOTEUR graveyard-hate
+  // payoffs "exile target card from that player's graveyard" (Zombie Cannibal, optional via the α2 "you may"
+  // peel) and "exile up to two target cards from that player's graveyard" (Skullsnatcher). The graveyard scope
+  // is the JUST-COMBAT-DAMAGED player's (ctx.damagedPlayerId, threaded by triggers.checkCombatDamageTriggers):
+  // damagedPlayerGraveyard rides atomTargetSpec → spellEffects.addGraveyardCards, which pools ONLY that
+  // player's graveyard (absent referent → empty pool). The atom-level who:"damagedPlayer" pins the combat
+  // referent (triggerRouting.combatDamageReferentSatisfied) so the trigger routes natively ONLY off
+  // combatDamageToPlayer — a spell / non-combat trigger carrying this clause stays Arbiter (SAFE FN). The
+  // up-to-two form reuses the maxTargets subset machinery (targeting.expandAtoms, largest subset first at
+  // flush; minTargets:0 — "up to" permits zero, CR 601.2c). Exact `$` anchors — a different count, a type
+  // filter, another zone, or any rider → null → LOW → Arbiter (FN-safe).
+  if (/^exile target card from that player's graveyard$/.test(t)) {
+    return { op: "exile-from-graveyard", targetType: "graveyardCard", damagedPlayerGraveyard: true, cardFilter: "any", who: "damagedPlayer" };
+  }
+  if (/^exile up to two target cards from that player's graveyard$/.test(t)) {
+    return { op: "exile-from-graveyard", targetType: "graveyardCard", damagedPlayerGraveyard: true, cardFilter: "any", maxTargets: 2, minTargets: 0, who: "damagedPlayer" };
+  }
   // GY-SHUFFLE-IN (BLITZ GS-1, CR 701.24) — two anchored forms sharing one resolver:
   //   PLAYER form — "target player shuffles up to <N> target cards from their graveyard into their library"
   //     (N=2 Krosan Reclamation, N=3 Memory's Journey / Gaea's Blessing / Quandrix Command's mode, N=4 Dwell
@@ -439,14 +456,28 @@ export function bounceClauseParser(clause) {
     const restrictions = multiB[3] ? [{ kind: "controller", who: /^you control$/.test(multiB[3]) ? "you" : "opponent" }] : [];
     if (n >= 2) return { op: "bounce", targetType: TTm[multiB[2]], restrictions, maxTargets: n, minTargets: 0 };
   }
-  // "return target creature[ you control | an opponent controls | you don't control] to its owner's hand"
-  // (Chulane, Teller of Tales's {3},{T} bounce). Mirrors the non-creature `bp` branch below's OPTIONAL controller
-  // restriction; the plain unrestricted form (no clause) is byte-identical to before. legalChoices' creature-target
-  // enumeration honors the { kind:"controller" } restriction exactly as it does for the nonland-permanent bounce.
-  const cb = t.match(/^return target creature(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
+  // "return target creature[ you control | an opponent controls | you don't control | that player controls]
+  // to its owner's hand" (Chulane, Teller of Tales's {3},{T} bounce). Mirrors the non-creature `bp` branch
+  // below's OPTIONAL controller restriction; the plain unrestricted form (no clause) is byte-identical to
+  // before. legalChoices' creature-target enumeration honors the { kind:"controller" } restriction exactly
+  // as it does for the nonland-permanent bounce.
+  // DAMAGED-PLAYER bounce (BLITZ SB-1, CR 608.2c "that player" back-reference) — the SABOTEUR payoff
+  // "return target creature that player controls to its owner's hand" (Mistblade Shinobi's combat-damage
+  // trigger; Sigil of Sleep's aura form). The exact mirror of removal.js's damagedPlayer destroy scope:
+  // (a) a controller restriction who:"damagedPlayer" the enumerator resolves against ctx.damagedPlayerId
+  // (creatureSatisfiesRestrictions — absent referent → empty pool), AND (b) an atom-level who:"damagedPlayer"
+  // so the combat-referent gate (triggerRouting.combatDamageReferentSatisfied / coverage's spell guard) pins
+  // the bounce to combatDamageToPlayer — on any other event (a spell, an ETB) the referent is unset → not
+  // native there (a SAFE FN, never a mis-scoped bounce).
+  const cb = t.match(/^return target creature(?: (an opponent controls|you don't control|you control|that player controls))? to its owner's hand$/);
   if (cb) {
-    const restrictions = cb[1] ? [{ kind: "controller", who: /^you control$/.test(cb[1]) ? "you" : "opponent" }] : [];
-    return restrictions.length ? { op: "bounce", targetType: "creature", restrictions } : { op: "bounce", targetType: "creature" };
+    const who = /^you control$/.test(cb[1] || "") ? "you"
+      : /^that player controls$/.test(cb[1] || "") ? "damagedPlayer"
+      : "opponent";
+    if (!cb[1]) return { op: "bounce", targetType: "creature" };
+    const atom = { op: "bounce", targetType: "creature", restrictions: [{ kind: "controller", who }] };
+    if (who === "damagedPlayer") atom.who = "damagedPlayer";
+    return atom;
   }
   const bp = t.match(/^return target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
   if (bp) {
