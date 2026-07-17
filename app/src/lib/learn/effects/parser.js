@@ -531,6 +531,14 @@ function splitClauses(oracle) {
     // the ±N/±N pump tail so a damage/exile fanout ("…deals 4 damage to target creature and each other creature
     // with the same name…") never captures here (that's a different, un-modeled shape → stays on the Arbiter).
     if (/^target creature and all other creatures with the same name as that creature get [+-]\d+\/[+-]\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // GUSTCLOAK ESCAPE (BLITZ GC-1, CR 506.4) — "[you may ]untap (it|this creature) and remove (it|this
+    // creature) from combat" (the becomes-blocked escape's effect — Gustcloak Runner/Sentinel/Harrier/
+    // Skirmisher/Cavalier). The " and " joins the untap to the combat removal within ONE instruction on the
+    // SAME self referent, not a top-level boundary — keep the sentence whole so the α2 "you may" peel + the
+    // untap-remove-from-combat clause parser bind it as one optional atom. Anchored ^…$ so the TARGETED
+    // spell/ability forms ("Remove target attacking creature … from combat and untap it" — Reconnaissance,
+    // reversed order + a chosen target) and any rider never capture here (they shatter and stay LOW → Arbiter).
+    if (/^(?:you may )?untap (?:it|this creature) and remove (?:it|this creature) from combat$/i.test(sentence)) { clauses.push(sentence); continue; }
     // CAUSATIVE pump + keyword grant ("have target creature get +2/+0 and gain deathtouch until end of turn" —
     // Painsmith, the inner of "you may have …"): the " and " joins the P/T bump to the grant within ONE causative
     // instruction, not a top-level boundary. Keep it whole so pumpClauseParser binds the pump + grant to the SAME

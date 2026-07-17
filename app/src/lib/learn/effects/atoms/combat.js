@@ -902,6 +902,19 @@ export function combatKeywordClauseParser(clause) {
   // ctx.sourceId at resolution (live creature verified; gone → [] no-op). Whole-clause anchored ($) so
   // any rider stays LOW → Arbiter (a safe FN).
   if (/^untap this creature$/.test(t)) return { op: "untap", target: "self" };
+  // GUSTCLOAK ESCAPE (BLITZ GC-1, CR 506.4 / 510.1c-d) — "untap (it|this creature) and remove (it|this
+  // creature) from combat", the becomes-blocked escape's effect (Gustcloak Runner / Sentinel / Harrier /
+  // Skirmisher: "Whenever this creature becomes blocked, you may untap it and remove it from combat."; the
+  // Cavalier printing writes "untap this creature"). The internal " and " is kept whole by a splitClauses
+  // guard in parser.js; the leading "you may" is peeled by α2 (optional:true → the runProgram yes/no pause;
+  // human seat decides, AI/Expert auto-take — the house optional-effect policy). SELF referent only (the
+  // trigger's source, ctx.sourceId — atomTargets target:"self"): the TARGETED spell/ability forms ("Remove
+  // target attacking creature … from combat" — Reconnaissance / Labyrinth of Skophos) and every
+  // blocker-side/rewrite variant (Ydwen Efreet, False Orders, Balduvian Warlord) fail this anchor →
+  // low → Arbiter (safe FNs). Resolver: applyUntapRemoveFromCombat.
+  if (/^untap (?:it|this creature) and remove (?:it|this creature) from combat$/.test(t)) {
+    return { op: "untap-remove-from-combat", target: "self" };
+  }
   // UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") — a single chosen land. targetType "land" routes
   // through PERMANENT_PREDICATES.land in enumerateTargets (so any land on any battlefield is a legal target),
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so
@@ -1678,6 +1691,42 @@ function applyPreventNextDamage(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "prevent-next-damage", controller: ctx.controller, amount: atom.amount, shielded: entries.map((e) => e.targetId) });
 }
 
+/**
+ * GUSTCLOAK ESCAPE (BLITZ GC-1, CR 506.4 / 510.1c-d) — untap the trigger's SOURCE creature and remove it
+ * from combat. Fired by the becomes-blocked trigger's resolution (declare-blockers step — the trigger
+ * resolves BEFORE any combat-damage step, CR 603.3b). Removal is TWO coordinated writes, both faithful to
+ * this engine's combat model:
+ *   • the `removedFromCombat` flag (the CR 701.19 regeneration vehicle, cleared at end-of-combat by
+ *     clearRemovedFromCombatFlags) — combatResolution's `combatant()` gate then skips the creature as a
+ *     damage dealer AND receiver;
+ *   • its record is dropped from state.combat.attackers — so it stops being an ATTACKING creature for every
+ *     scope read (CR 506.4: "stops being an attacking … creature"; an "attacking creatures get …" team pump
+ *     resolving after the escape must not include it), and combatResolution's blocker-deals-back loop
+ *     (which iterates combat.attackers) never lets its former blockers deal damage — exactly CR 510.1d
+ *     ("a blocking creature … not currently blocking any creatures … assigns no combat damage").
+ * Its BLOCKER records are deliberately KEPT: CR 506.4 removes only THIS creature from combat — the creatures
+ * that were blocking it remain blocking creatures (a "blocking creatures get +0/+5" team pump still includes
+ * them); with the attacker record gone they simply never deal or take combat damage. A source that already
+ * LEFT the battlefield (killed in response) → atomTargets' self referent is [] → clean no-op (CR 608.2b);
+ * one no longer among the attackers (combat already ended/blanked) → untap only, "remove from combat" is
+ * vacuous — never a stray flag outside combat.
+ */
+export function applyUntapRemoveFromCombat(state, atom, ctx) {
+  let next = state;
+  const escaped = [];
+  for (const t of atomTargets(state, atom, ctx)) {
+    if (!findPermanent(next, t.id)) continue;
+    next = untapPermanent(next, t.id);
+    if ((next.combat?.attackers || []).some((a) => a?.permanentId === t.id)) {
+      next = updatePermanentSafe(next, t.id, (p) => ({ ...p, removedFromCombat: true }));
+      next = { ...next, combat: { ...next.combat, attackers: next.combat.attackers.filter((a) => a?.permanentId !== t.id) } };
+    }
+    escaped.push(t.id);
+  }
+  if (escaped.length) next = checkUntapTriggers(next); // BECOMES-UNTAPPED (Mesmeric Orb): drain the recorded transitions
+  return logEvent(next, { kind: "spell-effect", effect: "untap-remove-from-combat", targets: escaped });
+}
+
 export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "prevent-next-damage": applyPreventNextDamage, // PV-1 (CR 615) — floating this-turn prevent-the-next-N shield
@@ -1690,6 +1739,7 @@ export const combatResolvers = {
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
+  "untap-remove-from-combat": applyUntapRemoveFromCombat, // GUSTCLOAK ESCAPE (GC-1, CR 506.4/510.1c-d) — untap the trigger source + remove it from combat (flag + attacker-record drop; blockers stay in combat, deal nothing)
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "mass-block-lock": applyMassBlockLock, // MASS-BLOCK-LOCK (FT-1) — "creatures [without flying] can't block this turn" → ONE dynamic-selector layer-6 endOfTurn cantBlock rule (CR 611.2c)
