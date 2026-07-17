@@ -40,7 +40,7 @@ function permanentManaValue(state, permanentId) {
 // an ILLEGAL pair sharing only "Food"/"Equipment"/"Shrine" — a forbidden FP. Allowlist direction per the
 // CREED: a word NOT listed here is never treated as a creature type, so an unlisted (future set / Universes
 // Beyond) type can only SUPPRESS a legal pair (FN, safe), never admit an illegal one.
-const CR_CREATURE_TYPES = new Set([
+export const CR_CREATURE_TYPES = new Set([
   "advisor", "aetherborn", "alien", "ally", "angel", "antelope", "ape", "archer", "archon",
   "armadillo", "army", "artificer", "assassin", "assembly-worker", "astartes", "atog", "aurochs",
   "avatar", "azra", "badger", "balloon", "barbarian", "bard", "basilisk", "bat", "bear", "beast",

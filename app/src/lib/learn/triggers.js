@@ -25,6 +25,7 @@ import {
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
+import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
@@ -85,6 +86,17 @@ function parseBatchSubjectFilter(subjectRaw) {
   // NONTOKEN creature batch (Rooftop Bypass; "other nontoken creatures" — Vodalian — the "other" is a no-op
   // for the batch gate since the source's own connection still satisfies "one or more"). Gated on !card.token.
   if (s === "nontoken creatures" || s === "other nontoken creatures") return { batchNontoken: true };
+  // NEGATED-SUBTYPE creature batch (Keeper of Fables — "non-Human creatures you control deal combat damage
+  // to a player, draw a card"): a creature that is NOT of the named subtype. Gated to a REAL creature type
+  // (CR_CREATURE_TYPES — the closed vocabulary, per ENGINE-SCAFFOLD §6: validate against a closed set, never
+  // a loose word). This is the load-bearing FP guard: a supertype / card-type word ("non-legendary",
+  // "non-artifact") is NOT in CR_CREATURE_TYPES → null → Arbiter — because permanentTypes' subtypes never
+  // carry a supertype, its negation would match EVERY creature (a runtime-vacuous, always-true filter — the
+  // forbidden over-fire class). The runtime gate (batchDealerMatches) reads the dealer's subtypes layer-aware
+  // and is changeling-aware (a changeling IS every creature type → EXCLUDED from "non-<subtype>"), reusing the
+  // notSubtypeOrChangeling discipline (BLITZ BT-2). "nontoken" is handled above, so it never reaches here.
+  const nonSubM = s.match(/^non-?([a-z]+) creatures?$/);
+  if (nonSubM && CR_CREATURE_TYPES.has(nonSubM[1])) return { batchNotSubtype: nonSubM[1] };
   // OUTLAW meta-type (Olivia) — expand to the five constituent subtypes (OR semantics via subtypeFilterMatches).
   if (s === "outlaws" || s === "outlaw") return { subtypeFilter: OUTLAW_SUBTYPE_LIST };
   // BARE creature SUBTYPE(S) — a single word ("goblins"/"dinosaur") or a comma/or list, de-pluralized. Reuses
@@ -126,6 +138,17 @@ function batchDealerMatches(descriptor, dealerPerm, state = null) {
   if (descriptor.batchArtifact) return /Artifact/.test(typeStr(dealerPerm.card));
   if (descriptor.batchEnchantment) return /Enchantment/.test(typeStr(dealerPerm.card));
   if (descriptor.batchNontoken) return !dealerPerm.card.token;
+  // NEGATED-SUBTYPE batch (Keeper of Fables — "non-Human creatures") — layer-4-aware subtypes UNIONED with
+  // the changeling gate (CR 702.73a: a changeling IS every creature type, so it IS a Human and "non-Human"
+  // EXCLUDES it — the widest exclusion; missing it would be the FP direction). Without state (defensive) the
+  // dealer can't be verified → no match (an under-fire, never an over-fire). Identical shape to the
+  // basilisk-touch notSubtypeOrChangeling partner gate.
+  if (descriptor.batchNotSubtype) {
+    if (!state) return false;
+    if (permanentHasKeyword(state, dealerPerm.id, "changeling")) return false;
+    const subs = (permanentTypes(state, dealerPerm.id)?.subtypes || []).map((x) => String(x).toLowerCase());
+    return !subs.includes(descriptor.batchNotSubtype);
+  }
   // WITH-KEYWORD batch (Quartzwood) — layer-aware, so an equipment/anthem-granted keyword counts, exactly
   // like the qualified-ETB keyword filter. Without state (defensive) the dealer can't be verified → no match
   // (an under-fire, never an over-fire).
@@ -2498,6 +2521,7 @@ export function detectTriggers(card) {
         batchArtifact: cls.batchArtifact,     // SUBTYPE/PROPERTY BATCH combat-damage only — "artifact creatures" (Thopter Spy Network)
         batchEnchantment: cls.batchEnchantment, // SUBTYPE/PROPERTY BATCH combat-damage only — "enchantment creatures"
         batchNontoken: cls.batchNontoken,     // SUBTYPE/PROPERTY BATCH combat-damage only — "(other) nontoken creatures" (Rooftop Bypass)
+        batchNotSubtype: cls.batchNotSubtype, // NEGATED-SUBTYPE BATCH combat-damage only — lowercase creature type NOT to match (Keeper of Fables "non-Human"); layer-aware + changeling-aware dealer gate
         batchKeyword: cls.batchKeyword,       // WITH-KEYWORD BATCH combat-damage only (Quartzwood — lowercase keyword; layer-aware dealer gate)
         perDefender: cls.perDefender,         // WITH-KEYWORD BATCH only — fires once per damaged player with that pair's damage total in ctx
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
