@@ -1,6 +1,26 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~04:05 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.66%, suite 9,404 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~05:00 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.73%, suite 9,463 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
+> **Landed since the 04:05 entry below**: **RV-1** reveal-top-conditional (45a0e128, +1 — Thrasios, Rograkh
+> shelf; family mostly already native) · **ST-1** blanket combat-restriction statics (07a17514, +5 — "creatures
+> can't attack/block", Pacifism enforcement reused; player-scoped "can't attack YOU" correctly excluded) ·
+> **SE-1** restricted exile-target (6565f99b, +9 — exile gained destroy's restriction grammar; census maps
+> the spell space as near-saturated but for real subsystems) · **CC-1** cast/draw-count triggers (f76c936b,
+> +4 — Flurry/Eukrasia ability-word labels hid the trigger; ledgers already existed) · **the OPUS FP-removal**
+> (61f7c4cc, director-solo — Molten-Core Maestro was a phantom-mana FP; strip the Opus label → body-only, a
+> CORRECT −1 the CREED demands) · **EQ-2** aura/equip+activated composite (d4153f85, +5 — self-sac cost noun
+> + composite classifier reusing isNativeAura/permanentEquipmentCovered; Capashen Standard, Lightning Spear).
+> Slices integrated: **37** (+ the FP-removal); night NET native **+291** (30.87%→31.73%), suite 8,932→9,463,
+> LOST=0 on genuine natives (1 phantom-mana FP intentionally removed), TWELVE loose/wrong CR cites caught.
+> **IN FLIGHT (3 Opus seats)**: **CD-1** conditional spell riders (board-condition subset) · **DI-1** dies/
+> leaves-trigger census · **CB-1** combat-effect residue census. Standing flake chip + repo-wide stale
+> "701.8" discard cites still open (below); a broader phantom-mana FP sweep is worth a future pass (Opus FP
+> was the first found).
+
+## (superseded ~55 min later) — 31.66%, suite 9,404 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
