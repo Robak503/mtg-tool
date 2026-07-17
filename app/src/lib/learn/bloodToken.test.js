@@ -17,8 +17,9 @@
  * is cosmetic — proven below), so the full {1}+{T}+discard-a-card+sac-self cost models and the runtime
  * pays all four before the draw resolves.
  *
- * Map (targeted explore + sorcery-speed — the explore atom has NO chosen-target subject), Powerstone
- * (restricted mana, explicitly unmodeled), and Incubator (transform) stay parked (FN guards below).
+ * Map is now WIRED too (BLITZ EX-1 — its chosen-target explore ability models; makers flip, see
+ * chosenTargetExplore.test.js). Powerstone (restricted mana, explicitly unmodeled) and Incubator (transform)
+ * stay parked (FN guards below).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -71,20 +72,14 @@ describe("BLITZ TOK-1 — Blood makers classify native (real oracle fixtures)", 
 });
 
 // ─── 2. FN guards — un-wired predefined tokens stay parked (CREED: park, never a stub) ─────
-describe("BLITZ TOK-1 — CREED: Map / Powerstone / Incubator makers stay non-native", () => {
+describe("BLITZ TOK-1 — CREED: Powerstone / Incubator makers stay non-native", () => {
   const C = (name, type, oracle) => ({ name, type, oracle });
 
-  it("Map maker (targeted explore + sorcery-speed unmodeled) stays body-only (Cartographer's Companion)", () => {
-    // Identical shape to Blood Servitor but the token is a MAP — proves the park is the token's ability,
-    // not the ETB shape. Map's "Target creature you control explores" has no chosen-target explore atom.
-    expect(classifyCard(C("Cartographer's Companion", "Artifact Creature — Gnome",
-      "When this creature enters, create a Map token. (It's an artifact with \"{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery.\")")))
-      .not.toMatch(/^native/);
-  });
   it("a Blood ETB PLUS an un-wired token rider still parks (whole-card law)", () => {
-    // Blood is wired, but the second line makes a MAP (still unmodeled), so the whole card stays body-only.
+    // Blood is wired, but the second line makes a POWERSTONE (still unmodeled — restricted mana), so the
+    // whole card stays body-only. (Map is NO LONGER an un-wired example — EX-1 wired it; this uses Powerstone.)
     expect(classifyCard(C("Fake Blood Weirdo", "Creature — Vampire",
-      "When this creature enters, create a Blood token.\nWhenever this creature attacks, create a Map token.")))
+      "When this creature enters, create a Blood token.\nWhenever this creature attacks, create a Powerstone token.")))
       .not.toMatch(/^native/);
   });
   it("Powerstone / Incubator make no create-named-token atom (restricted mana / transform)", () => {

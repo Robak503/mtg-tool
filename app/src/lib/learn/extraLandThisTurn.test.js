@@ -41,6 +41,8 @@ const URBAN_EVOLUTION = { id: "sp-ue", name: "Urban Evolution", type: "Sorcery",
 const SCALE_THE_HEIGHTS = { id: "sp-sth", name: "Scale the Heights", type: "Sorcery", mana: "{2}{G}", oracle: "Put a +1/+1 counter on up to one target creature. You gain 2 life. You may play an additional land this turn.\nDraw a card." };
 // Non-native (symmetric / variable-X / unmodeled rider):
 const NAHIRIS_LITHOFORMING = { id: "sp-nl", name: "Nahiri's Lithoforming", type: "Sorcery", mana: "{X}{R}", oracle: "Sacrifice X lands. For each land sacrificed this way, draw a card. You may play X additional lands this turn. Lands you control enter tapped this turn." };
+// Enter the Unknown flips native-spell as of BLITZ EX-1 (its "target creature you control explores" clause is
+// now modeled — the chosen-target explore atom, chosenTargetExplore.test.js).
 const ENTER_THE_UNKNOWN = { id: "sp-etu", name: "Enter the Unknown", type: "Sorcery", mana: "{G}", oracle: "Target creature you control explores.\nYou may play an additional land this turn." };
 const ESCAPE_TO_THE_WILDS = { id: "sp-etw", name: "Escape to the Wilds", type: "Sorcery", mana: "{3}{R}{G}", oracle: "Exile the top five cards of your library. You may play cards exiled this way until the end of your next turn.\nYou may play an additional land this turn." };
 
@@ -107,6 +109,8 @@ describe("ONE-SHOT EXTRA-LAND — classifyCard", () => {
     expect(classifyCard(EXPLORE)).toBe("native-spell");
     expect(classifyCard(SUMMER_BLOOM)).toBe("native-spell");
     expect(classifyCard(URBAN_EVOLUTION)).toBe("native-spell");
+    // BLITZ EX-1 — Enter the Unknown (chosen-target explore + extra land) is now fully modeled.
+    expect(classifyCard(ENTER_THE_UNKNOWN)).toBe("native-spell");
   });
 
   it("Scale the Heights (counter-on-up-to-one-target + gain 2 + extra-land + draw — ALL modeled) is native-spell", () => {
@@ -117,7 +121,6 @@ describe("ONE-SHOT EXTRA-LAND — classifyCard", () => {
 
   it("CREED: a card with ANY unmodeled rider / symmetric / variable-X clause stays non-native", () => {
     expect(classifyCard(NAHIRIS_LITHOFORMING)).not.toMatch(/^native/); // variable X + sac-X + lands-enter-tapped rider
-    expect(classifyCard(ENTER_THE_UNKNOWN)).not.toMatch(/^native/);    // explore-a-target rider
     expect(classifyCard(ESCAPE_TO_THE_WILDS)).not.toMatch(/^native/);  // play-cards-from-exile rider
   });
 });

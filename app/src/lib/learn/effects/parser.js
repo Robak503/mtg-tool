@@ -3992,6 +3992,14 @@ export function atomTargetIntent(atom) {
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
       return "own";
+    case "explore":
+      // CHOSEN-TARGET EXPLORE (BLITZ EX-1) — "target creature you control explores" (Miner's Guidewing's dies
+      // trigger, Enter the Unknown, the Map token). The ONLY targeted explore form the parser emits carries
+      // targetType "creatureYouControl" (own creatures only); exploring is beneficial (a land to hand or a
+      // +1/+1 counter on YOUR creature), so the trigger-flush chooser stays own-side and a dies/ETB trigger
+      // routes natively picking the controller's own creature. (Self / thatCreature explore forms carry no
+      // targetType and returned null at the top of this function — this case is reached only for the chosen form.)
+      return "own";
     case "return-from-graveyard":
       // The target is a card in the CASTER'S OWN graveyard — own-side, so a recursion TRIGGER
       // ("When this enters, return target creature card from your graveyard to your hand") routes

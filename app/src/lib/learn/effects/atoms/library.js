@@ -1200,7 +1200,18 @@ export function applyShuffleGraveyardIntoLibrary(state, atom, ctx) {
  */
 export function applyExplore(state, atom, ctx) {
   const times = Math.max(1, atom.times || 1);
-  const subjectId = atom.target === "thatCreature" ? ctx.triggeringPermanentId : ctx.sourceId;
+  // Subject resolution by atom.target:
+  //   "self"          → ctx.sourceId (Merfolk Branchwalker's ETB — the source explores).
+  //   "thatCreature"  → ctx.triggeringPermanentId (Path of Discovery — the just-entered creature explores).
+  //   "targetCreature"→ the CHOSEN target (BLITZ EX-1 — "target creature you control explores": the Map token,
+  //                     Enter the Unknown, Miner's Guidewing). ctx.targets carries the cast/activated/flush-picked
+  //                     creature (targetType "creatureYouControl"); read its id so the reveal uses that creature's
+  //                     controller's library and the +1/+1 counter lands on the CHOSEN creature (CR 701.44a).
+  const subjectId = atom.target === "thatCreature"
+    ? ctx.triggeringPermanentId
+    : atom.target === "targetCreature"
+      ? (ctx.targets?.find((t) => t.type === "creature")?.id ?? ctx.targets?.[0]?.id ?? null)
+      : ctx.sourceId;
   let next = state;
   for (let i = 0; i < times; i++) {
     const lk = subjectId ? findPermanent(next, subjectId) : null;
@@ -1244,6 +1255,12 @@ export function exploreClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe (parseExtendedAtom parity)
   if (/^this creature explores$/.test(t)) return { op: "explore", target: "self", targetType: null };
   if (/^the triggering creature explores$/.test(t)) return { op: "explore", target: "thatCreature", targetType: null };
+  // CHOSEN-TARGET EXPLORE (BLITZ EX-1, CR 701.44) — "target creature you control explores" (the Map token's
+  // activated ability, Enter the Unknown's sorcery, Miner's Guidewing's dies trigger). Rides the standard
+  // creatureYouControl target enumeration (spellEffects.enumerateTargets); at resolution applyExplore reads the
+  // chosen creature from ctx.targets. The whole-clause anchor keeps a compound "…explores, then it explores
+  // again" (Over the Edge — an explore-N-times mechanic) LOW → Arbiter (a safe FN, not modeled here).
+  if (/^target creature you control explores$/.test(t)) return { op: "explore", target: "targetCreature", targetType: "creatureYouControl" };
   return null;
 }
 

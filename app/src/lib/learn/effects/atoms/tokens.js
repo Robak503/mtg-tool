@@ -178,15 +178,26 @@ export function applyCreateToken(state, atom, ctx) {
 // not a "draw then discard" rider. parseActivatedAbilities models the full {mana}+{T}+discard-a-card+sac-self
 // cost (it recognizes "Sacrifice this artifact", NOT the printed "Sacrifice this token", so the stored oracle
 // uses the artifact wording exactly like Clue/Food); the runtime pays all four costs and the token's draw
-// resolves (tokensT2.test.js). Map (targeted explore + sorcery-speed — the explore atom has no chosen-target
-// subject) / Powerstone (restricted mana, explicitly unmodeled — manaModel.js) / Incubator (transform) stay
-// unmodeled → low → Arbiter.
+// resolves (tokensT2.test.js).
+//
+// MAP (BLITZ EX-1) — the real Map token is "{1}, {T}, Sacrifice this artifact: Target creature you control
+// explores. Activate only as a sorcery." (verified via cardIndex.lookupCard; the token card's stored oracle
+// already uses the "Sacrifice this artifact" wording, matching the Blood/Clue/Food convention — reminder text
+// is stripped by parseActivatedAbilities.stripReminder). With EX-1's chosen-target explore atom
+// (library.exploreClauseParser "target creature you control explores" → targetType creatureYouControl), the
+// activated ability now models fully: parseActivatedAbilities parses the {1}+{T}+sac-self cost and the HIGH
+// targeted-explore effect (the "Activate only as a sorcery" rider stripped + enforced at the offer gate via
+// stripEnforcedTimingRider — identical to Olivia's sac-Treasure sorcery ability). legalChoices offers it
+// sorcery-speed with per-target enumeration; applyActivateAbility → runProgram → applyExplore explores the
+// chosen creature. Powerstone (restricted mana, explicitly unmodeled — manaModel.js) / Incubator (transform)
+// stay unmodeled → low → Arbiter.
 export const NAMED_TOKENS = {
   treasure: { name: "Treasure", type: "Token Artifact — Treasure", oracle: "{T}, Sacrifice this artifact: Add one mana of any color." },
   clue: { name: "Clue", type: "Token Artifact — Clue", oracle: "{2}, Sacrifice this artifact: Draw a card." },
   food: { name: "Food", type: "Token Artifact — Food", oracle: "{2}, {T}, Sacrifice this artifact: You gain 3 life." },
   gold: { name: "Gold", type: "Token Artifact — Gold", oracle: "Sacrifice this artifact: Add one mana of any color." },
   blood: { name: "Blood", type: "Token Artifact — Blood", oracle: "{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card." },
+  map: { name: "Map", type: "Token Artifact — Map", oracle: "{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery." },
 };
 
 /**
@@ -423,7 +434,11 @@ export function createNamedTokenClauseParser(clause) {
     if (m[1]) atom.tapped = true;
     return atom;
   }
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold|blood) tokens?$/);
+  // MAP (BLITZ EX-1) is FIXED-COUNT only in the corpus ("create a Map token" — Cartographer's Companion,
+  // Spyglass Siren, Waterwind Scout, Sentinel of the Nameless City; "create two Map tokens" — Get Lost), so it
+  // joins the allowlist HERE (the fixed-N form) and NOT the dynamic count anchors above (no "X Map tokens" /
+  // "half X Map tokens" / "that many Map tokens" card is printed → those stay unmatched → Arbiter, a safe FN).
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold|blood|map) tokens?$/);
   if (m) {
     const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
     if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged
