@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount } from "./staticAbilityParser.js";
@@ -175,6 +175,16 @@ export const COVERED_KEYWORDS = [
   // afflict creature (Khenra Eternal — "Afflict 1") read keyword-only after its synthesized trigger sentence
   // is stripped, exactly like bushido.
   "afflict",
+  // AFTERLIFE (BLITZ AF-2, CR 702.135a) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
+  // create-token trigger from the printed keyword (afterlifeKeywordValues — structural comma-segment match, so
+  // grants like Afterlife Insurance's "gain afterlife 1" / Indebted Spirit's "has afterlife 1" never self-
+  // synthesize); the effectClause is the reminder's own create-token wording ("create N 1/1 white and black
+  // Spirit creature token(s) with flying"), parsed by the existing create-token atom and fired by the normal
+  // dies flush under the dead creature's controller (CR 702.135a). The count is emitted in DIGIT form for N>1
+  // so ANY printed value parses HIGH and routes — a skipped/unparseable N would be a claimed-native carrier
+  // whose death mints nothing (a forbidden FP). "afterlife N" matches via the startsWith check; allTrigger-
+  // SentencesModeled bumps the shaped count per printed instance (CR 702.135b — multiples trigger separately).
+  "afterlife",
   // KW-UNDYING (CR 702.92a, SHELF S7) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
   // return trigger from the printed keyword (undyingKeywordCount — structural line-segment match, so grants
   // like Undying Evil / Mikaeus never self-synthesize); checkDiesTriggers fires it with the death look-back's
@@ -677,9 +687,13 @@ function allTriggerSentencesModeled(card, oracle) {
   const persistShaped = persistKeywordCount(oracle);
   // BATTLE CRY (BLITZ BC-1) — one synthesized attacks descriptor per printed instance (CR 702.90b).
   const battleCryShaped = battleCryKeywordCount(oracle);
+  // AFTERLIFE (BLITZ AF-2, CR 702.135b) — the same reminder-parens keyword synthesis; bump by the number of
+  // printed instances (the structural matcher — grants never count). Every printed N synthesizes (digit form
+  // parses HIGH for any N), so shaped === detected holds for any printed value.
+  const afterlifeShaped = afterlifeKeywordValues(oracle).length;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + flankingShaped + persistShaped + battleCryShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

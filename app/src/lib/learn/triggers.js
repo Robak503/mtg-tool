@@ -1496,6 +1496,24 @@ export function undyingKeywordCount(oracle) {
   return 0;
 }
 
+/** AFTERLIFE (BLITZ AF-2, CR 702.135b) — the printed keyword's N values, one entry per printed instance
+ * (CR 702.135b — multiples each trigger separately). STRUCTURAL like undyingKeywordCount: a whole
+ * comma-segment of a line must be EXACTLY "afterlife N", so a GRANT ("creatures you control gain
+ * afterlife 1 until end of turn" — Afterlife Insurance; "…and has afterlife 1" — Indebted Spirit's
+ * enchanted-creature buff line) or any mid-sentence use never counts (CREED — a layer-6 keyword grant
+ * would never self-synthesize). Shared by the detectTriggers synthesis and coverage's shaped-count bump. */
+export function afterlifeKeywordValues(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  const out = [];
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^afterlife (\d+)$/);
+      if (m) out.push(parseInt(m[1], 10));
+    }
+  }
+  return out;
+}
+
 /** KW-PERSIST (BLITZ PS-1, CR 702.79a) — the STRUCTURAL matcher, undying's exact mirror: a whole
  * comma-segment must be exactly "persist", so a grant ("…gains persist" — Cauldron of Souls) or a
  * mid-sentence use never counts. Shared by the synthesis and coverage's shaped bump. */
@@ -2690,6 +2708,28 @@ export function detectTriggers(card) {
       effectClause: "[persist] return it to the battlefield under its owner's control with a -1/-1 counter on it",
       interveningIf: "it had no -1/-1 counters on it",
       optional: false, sourceText: "Persist",
+    });
+  }
+  // AFTERLIFE (BLITZ AF-2, CR 702.135a) — KEYWORD→TRIGGER synthesis, the UNDYING/PERSIST precedent: the
+  // keyword's dies-trigger lives entirely in REMINDER parens ("(When this creature dies, create N 1/1 white
+  // and black Spirit creature tokens with flying.)"), which the boundary-anchored When/Whenever/At regex can't
+  // reach. Synthesize the SELF-DIES descriptor whose effectClause is the reminder's create-token wording — it
+  // parses to the existing create-token atom (colors + subtype + flying + count all modeled), no new effect
+  // vocabulary. The count is emitted in DIGIT form for N>1 (the token regex's `\d+` alternation accepts ANY N,
+  // where the word alternation stops at "five") so EVERY printed value parses HIGH and routes — required because
+  // the "afterlife" COVERED_KEYWORDS entry makes a keyword-only carrier read native via isKeywordOnly WITHOUT
+  // re-checking trigger routing: a skipped/unparseable N would be a claimed-native card whose death mints NOTHING
+  // (a forbidden FP). Fired by the normal dies flush; the tokens enter under the DEAD creature's controller
+  // (makePendingTrigger's controller = the death look-back's controller — CR 702.135a "its controller creates").
+  // One descriptor PER printed instance (CR 702.135b). afterlifeKeywordValues is STRUCTURAL (a whole comma-segment
+  // must be exactly "afterlife N"), so a GRANT ("creatures you control gain afterlife 1 until end of turn" —
+  // Afterlife Insurance; "…has afterlife 1" — Indebted Spirit's enchanted line) never self-synthesizes (CREED).
+  for (const n of afterlifeKeywordValues(oracle)) {
+    out.push({
+      event: "dies", scope: "self", whose: "any",
+      effect: null,
+      effectClause: `create ${n === 1 ? "a" : String(n)} 1/1 white and black Spirit creature token${n === 1 ? "" : "s"} with flying`,
+      optional: false, sourceText: `Afterlife ${n}`,
     });
   }
   // KW-EVOLVE (CR 702.100a, SHELF S7) — KEYWORD→TRIGGER synthesis, the UNDYING precedent exactly. "Evolve"
