@@ -207,10 +207,17 @@ describe("DAMAGE = a board count, 'where X is' word order (Scourge of Valkas / D
     expect(classifyCard(card)).toMatch(/^native-/);
   });
 
-  it("CREED: a COMPOUND 'and you gain X life' card stays LOW (the lifegain is never silently dropped)", () => {
-    // Consuming Corruption — the where-X regex requires the count immediately after the target, so the
-    // intervening " and you gain X life" breaks the anchor → no match → low → Arbiter (whole-card-or-nothing).
-    expect(conf(I("Consuming Corruption deals X damage to target creature or planeswalker and you gain X life, where X is the number of Swamps you control."))).toBe("low");
+  it("BLITZ FE-1: the COMPOUND 'and you gain X life' drain now parses HIGH via the DRAIN-BY-COUNT fused matcher (both atoms, never a dropped lifegain)", () => {
+    // Consuming Corruption — the where-X clause parser still can't take the intervening " and you gain X life",
+    // so the whole compound is caught UP FRONT (matchDrainByCount, before splitClauses shatters the " and ") and
+    // emits [gain-life, deal-damage] both bound to the SAME Swamp count. See drainByCount.test.js for the runtime
+    // magnitude pins (X locked once). This was a deliberate park until FE-1 modeled the family.
+    const p = parseEffectProgram(I("Consuming Corruption deals X damage to target creature or planeswalker and you gain X life, where X is the number of Swamps you control."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toMatchObject([
+      { op: "gain-life", amountCount: { kind: "permanentsYouControl", subtype: "Swamp", per: 1 } },
+      { op: "deal-damage", targetType: "creatureOrPlaneswalker", amountCount: { kind: "permanentsYouControl", subtype: "Swamp", per: 1 } },
+    ]);
   });
 
   it("CREED: an UNMODELED count source ('colors of mana spent') stays LOW → Arbiter (never a guessed count)", () => {

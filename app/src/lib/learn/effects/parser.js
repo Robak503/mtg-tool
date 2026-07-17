@@ -50,7 +50,7 @@ import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { parseTutorFilter, parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT); SMALL_NUM for MULTI-COUNT damage count words
+import { parseTutorFilter, parseTokenKeywords, parseGrantedKeywords, SMALL_NUM, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, endureClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
 import { earthbendClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
@@ -2154,6 +2154,56 @@ function matchReanimateDrain(oracle) {
 }
 
 /**
+ * ===== DRAIN-BY-COUNT (BLITZ FE-1, CR 107.3b + 119.3) ===== the count-scaled "deal-and-gain" drain family:
+ * "<source> deals X damage to <target> and you gain X life, where X is [equal to] the number of <count source>."
+ * (Tendrils of Corruption — Swamps → target creature; Consuming Corruption — Swamps → target creature or
+ * planeswalker; Harsh Sustenance — creatures you control → any target.) The single "where X is the number of
+ * <count>" governs BOTH the damage AND the lifegain (CR templating), so X is one value locked ONCE as the spell
+ * resolves (CR 107.3b) — but the top-level " and " split would shatter this into ["deals X damage to <target>"
+ * (NO amount — the count rides the SECOND half) and "you gain X life, where X is the number of <count>"], and
+ * BOTH fragments then fail their anchors (the damage clause has no count; a bare "gain X life where X is the
+ * number of" gain-life clause isn't modeled). So match the WHOLE compound up front and emit BOTH atoms directly,
+ * exactly like matchDiesGainDrawByPower's shared-magnitude gain+draw.
+ *
+ * CREED — X LOCKED ONCE (the off-by-one guard): the gain-life atom is emitted FIRST, the deal-damage atom
+ * SECOND. Gaining life NEVER mutates a permanent count, so the gain-life atom reads the count off the PRE-damage
+ * board; the deal-damage atom then reads the SAME count (the gain didn't change the board) — so both bind the
+ * identical value even when the target is your own creature and the count is "creatures you control" (Harsh
+ * Sustenance), where the damage could otherwise drop the count by one if computed AFTER. A triggered lifegain
+ * ability doesn't resolve between atoms (CR 603.3b — it waits until the whole spell finishes), so the pre-damage
+ * board read is exact. Both atoms carry amountCount:{...src, per:1} → resolveScaledAmount/countForSpec computes
+ * the controller board count at resolution.
+ *
+ * The count source is the SHARED parseCountSource leaf with DEFAULT (controller-scoped) opts — an opponent-/
+ * target-scoped count ("creatures they control") has no anaphoric referent on a controller drain, so it returns
+ * null → no match → low → Arbiter (a SAFE FN, never a mis-scoped count). Whole-string anchored ^…$ (the leading
+ * `.+?` consumes the source-name reference exactly like dealDamageScaledClauseParser) — any rider leaves residue
+ * → no match → low → Arbiter (CREED). Only the TIGHT damage-target allowlist (the fully-modeled bare forms) is
+ * admitted so a restricted target never mis-resolves to the unrestricted set. Returns { atoms }.
+ *
+ * NOT modeled here (SAFE FN parks): the "deals damage … equal to the number of <count>. You gain life equal to
+ * the DAMAGE DEALT this way." phrasing (Corrupt) — its lifegain is the ACTUAL damage dealt (a mid-resolution
+ * value, sensitive to prevention), a different mechanism than the count-defined "gain X life" here.
+ */
+function matchDrainByCount(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  const DRAIN_TARGET = {
+    "any target": "any", "target creature": "creature",
+    "target creature or planeswalker": "creatureOrPlaneswalker",
+  };
+  const m = s.match(/^.+? deals? x damage to (any target|target creature|target creature or planeswalker) and you gain x life, where x is (?:equal to )?the number of (.+)$/);
+  if (!m) return null;
+  const targetType = DRAIN_TARGET[m[1]];
+  const src = parseCountSource(m[2]); // DEFAULT opts — controller-scoped counts only (a "they control"/"that player" scope has no referent here)
+  if (!targetType || !src) return null;
+  return { atoms: [
+    // gain-life FIRST — reads the count off the pre-damage board so both atoms bind the identical locked X (CR 107.3b).
+    { op: "gain-life", amountCount: { ...src, per: 1 }, targetType: null },
+    { op: "deal-damage", targetType, amountCount: { ...src, per: 1 } },
+  ] };
+}
+
+/**
  * ===== GENESIS-WAVE (mass reveal-top-X → put-permanents-onto-battlefield → mill-the-rest) ===== the {X}-cost
  * mass permanent-drop family: "Reveal the top X cards of your library. You may put any number of <FILTER> cards
  * with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that
@@ -3426,6 +3476,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rd = matchReanimateDrain(oracle);
   if (rd && rd.atoms.every(a => KNOWN.has(a.op)) && revealTopSequenceOk(rd.atoms)) {
     return makeProgram({ confidence: "high", atoms: rd.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== DRAIN-BY-COUNT (BLITZ FE-1) ===== "<source> deals X damage to <target> and you gain X life, where X is
+  // the number of <count>" (Tendrils of Corruption / Consuming Corruption / Harsh Sustenance) → [gain-life,
+  // deal-damage], both amountCount off the SAME controller board count, gain-life first so X is locked ONCE off
+  // the pre-damage board (CR 107.3b — see matchDrainByCount). HIGH iff both atoms are KNOWN (they are). Not X.
+  const dbc = matchDrainByCount(oracle);
+  if (dbc && dbc.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: dbc.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== PUMP-THEN-FIGHT (Epic Confrontation / Savage Smash / Swift Kick / Wild Instincts / Ruthless
   // Predation / Chelonian Tackle) ===== "Target creature you control gets +X/+Y until end of turn. It fights

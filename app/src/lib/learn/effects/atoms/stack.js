@@ -296,6 +296,11 @@ export function dealDamageScaledClauseParser(clause) {
     "any target": "any", "target creature": "creature", "target player": "player",
     "target player or planeswalker": "playerOrPlaneswalker",
     "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
+    // MASS-SCALE (BLITZ FE-1 — Gates Ablaze "deals X damage to each creature, where X is the number of Gates you
+    // control"): the bare "each creature" board sweep, scaled by a controller board count. NON-targeted (a mass
+    // set), so the count must be controller-scoped — a who:"target"/"defendingPlayer" count is rejected by the
+    // build() guards below (neither referent exists on a non-targeted mass wipe), so it can never mis-scope.
+    "each creature": "eachCreature",
     // DEFENDING-PLAYER (attacks trigger, CR 509.1a) — "it deals damage to DEFENDING PLAYER equal to the number
     // of artifacts they control" (Generous Plunderer). NOT a chosen target: the defender is the player this
     // attacker is attacking (ctx.defenderId, set by checkAttackTriggers). The deal-damage resolver synthesizes
@@ -363,7 +368,7 @@ export function dealDamageScaledClauseParser(clause) {
   // allowTarget stays OFF here: every "where X is" card scales by a board/graveyard count, never "that player's
   // hand" (which only appears in the legacy "deals damage to target player equal to…" word order), so a "that
   // player's hand" referent has no anaphoric player on this form and must route to the Arbiter — not silently 0.
-  const mds3 = t.match(/^.+? deals? x damage to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent),? where x is (?:equal to )?the number of (.+)$/);
+  const mds3 = t.match(/^.+? deals? x damage to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent|each creature),? where x is (?:equal to )?the number of (.+)$/);
   if (mds3) {
     const targetType = TT[mds3[1]];
     const amountCount = parseCountSource(mds3[2]);
