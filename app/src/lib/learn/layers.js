@@ -233,6 +233,27 @@ function gateMet(state, perm, gate) {
     }
     return false;
   }
+  // NOT-ATTACKING gate (BLITZ CA-1 — Arcades Sabboth "Each untapped creature you control gets +0/+2 as long
+  // as it's not attacking"): open exactly while the gate's subject permanent is NOT a declared attacker. A
+  // PER-CANDIDATE condition (no gateOn:"source" — the gate reads the AFFECTED creature), the same pure
+  // state.combat.attackers read matchesSelector's `attacking` predicate uses, re-evaluated every derive pass
+  // so the buff drops the moment the creature is declared and returns when combat clears (CR 611.3a live).
+  if (gate.kind === "notAttacking") {
+    return !(state?.combat?.attackers || []).some((a) => a?.permanentId === perm.id);
+  }
+  // UNTAPPED gate (BLITZ CA-1 — Juniper Order Advocate "As long as this creature is untapped, green
+  // creatures you control get +1/+1"): open while the gate's subject permanent is untapped. Emitted with
+  // gateOn:"source" for the group anthem (the SOURCE's tap state gates the whole group); the same live
+  // perm.tapped read the SF-1 untapped/tapped selectors use (a tap is an immutable state update, so the
+  // per-state memo re-derives on the post-tap state).
+  if (gate.kind === "untapped") return !perm.tapped;
+  // CARDS-IN-HAND gate (BLITZ CA-1 — Neheb, the Worthy "As long as you have one or fewer cards in hand,
+  // Minotaurs you control get +2/+0"): the gate subject's CONTROLLER's live hand size against an
+  // atMost/atLeast band. A pure zone-array length read — no derive, no event history.
+  if (gate.kind === "cardsInHand") {
+    const n = (state?.players?.[perm.controller]?.hand || []).length;
+    return (gate.atMost == null || n <= gate.atMost) && n >= (gate.atLeast || 0);
+  }
   const spec = gate.countSpec;
   if (spec?.kind === "cardsInGraveyard" || spec?.kind === "cardTypesInGraveyard") {
     return countGraveyardSpec(state, perm, spec) >= (gate.atLeast || 1);
@@ -251,7 +272,10 @@ function gateMet(state, perm, gate) {
   }
   let n = countSelfSpecOnBoard(state, perm, spec);
   if (gate.excludeSelf && matchesCountSpec(perm, spec)) n -= 1;
-  return n >= (gate.atLeast || 1);
+  // EXACTLY-N band (BLITZ CA-1 — Homicidal Seclusion / Deadly Wanderings "as long as you control exactly
+  // one creature"): an optional atMost upper bound on the board count. Absent atMost keeps the pre-existing
+  // open-ended (">= atLeast") semantics for every prior control gate — no behavior change.
+  return n >= (gate.atLeast || 1) && (gate.atMost == null || n <= gate.atMost);
 }
 
 // SOURCE-GATED continuous effect (BLITZ SG-1, CR 711.2a; live recompute 613.7-adjacent): the permanent whose state a gate is read
@@ -1084,7 +1108,14 @@ function keywordSet(perm, l6Effects, state) {
   for (const e of l6Effects.slice().sort(byTimestamp)) {
     const kw = String(e.op.keyword || "").toLowerCase();
     if (!kw) continue;
-    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue; // GATED-KEYWORD: gate closed → no grant this turn
+    // GATED-KEYWORD: gate closed → no grant this turn. gatePermForEffect (CA-1) resolves the gate's SUBJECT —
+    // the affected permanent by default, the effect's SOURCE for a group grant carrying gate.gateOn:"source"
+    // (Raksha Golden Cub: "As long as [Raksha] is equipped, Cat creatures … have double strike" reads
+    // RAKSHA's equipped state, never the candidate cat's). Absent gateOn is byte-identical to the old read.
+    if (e.op.gate) {
+      const gp = gatePermForEffect(state, e, perm);
+      if (!gp || !gateMet(state, gp, e.op.gate)) continue;
+    }
     if (e.op.layerOp === "addKeyword") set.add(kw);
     else if (e.op.layerOp === "removeKeyword") set.delete(kw);
   }
@@ -1129,7 +1160,12 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   let has = printed || fromCounter;
   for (const e of grants) {
     if (!effectAffects(e, perm, state)) continue;
-    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue; // GATED-KEYWORD: gate closed → no grant
+    // GATED-KEYWORD: gate closed → no grant. gatePermForEffect (CA-1) — gateOn:"source" reads the SOURCE's
+    // state (Raksha's equipped bit), default reads the affected permanent (unchanged for all prior gates).
+    if (e.op.gate) {
+      const gp = gatePermForEffect(state, e, perm);
+      if (!gp || !gateMet(state, gp, e.op.gate)) continue;
+    }
     if (e.op.layerOp === "addKeyword") has = true;
     else if (e.op.layerOp === "removeKeyword") has = false;
   }
@@ -1155,7 +1191,12 @@ export function keywordInstanceCount(state, permanentId, keyword, printedCount =
   if (!grants || grants.length === 0) return n;
   for (const e of grants) {
     if (!effectAffects(e, perm, state)) continue;
-    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue; // GATED-KEYWORD: gate closed → no grant
+    // GATED-KEYWORD: gate closed → no grant. gatePermForEffect (CA-1) — same source-vs-affected resolution
+    // as keywordSet/permanentHasKeyword, so an instance-counted gated group grant can never diverge.
+    if (e.op.gate) {
+      const gp = gatePermForEffect(state, e, perm);
+      if (!gp || !gateMet(state, gp, e.op.gate)) continue;
+    }
     if (e.op.layerOp === "addKeyword") n++;
     else if (e.op.layerOp === "removeKeyword") n = 0; // removal strips printed + prior grants (613.9)
   }

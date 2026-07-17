@@ -149,14 +149,18 @@ describe("SF-1 — untapped / tapped gates (LIVE state read — mission live-nes
   });
 });
 
-// ── FN guard — an unenforceable filter PARKS (no false positive) ─────────────────────────────────────────
-describe("SF-1 — FN guard: an uncheckable conditional parks", () => {
-  it("Arcades Sabboth stays body-only — the 'as long as it's not attacking' gate can't be evaluated", () => {
-    // "Each untapped creature you control gets +0/+2 as long as it's not attacking" — a vigilant attacker is
-    // untapped yet attacking, so untapped != (untapped AND not attacking). The static-only guard rejects the
-    // clause (unmodeled gate) rather than emit an over-broad untapped anthem (a forbidden FP).
-    expect(classifyCard(ARCADES_SABBOTH)).toBe("body-only");
+// ── SF-1 park, CA-1 pickup — the not-attacking conditional is now a LIVE per-candidate gate ─────────────
+describe("SF-1 park → CA-1 pickup: the not-attacking conditional is exactly gated", () => {
+  it("Arcades Sabboth's anthem now parses with the notAttacking gate (card tier rides its other clauses)", () => {
+    // SF-1 parked this clause ("untapped != untapped AND not attacking" — a vigilant attacker would be a
+    // forbidden FP under a bare untapped anthem). CA-1 models the conditional exactly: the untapped selector
+    // PLUS a per-candidate {kind:"notAttacking"} gate layers.gateMet re-evaluates every derive (the vigilant-
+    // attacker case is pinned in conditionGatedAnthem.test.js). The CARD still classifies body-only — its
+    // "sacrifice … unless you pay {G}{W}{U}" upkeep clause is unmodeled — but the anthem descriptor is exact.
     const specs = parseStaticAbilities(ARCADES_SABBOTH).filter(s => s.affects?.mode === "dynamic");
-    expect(specs).toHaveLength(0);
+    expect(specs).toHaveLength(1);
+    expect(specs[0].op).toMatchObject({ layerOp: "ptModifyGated", power: 0, toughness: 2, gate: { kind: "notAttacking" } });
+    expect(specs[0].affects.selector).toMatchObject({ controllerScope: "you", cardTypes: ["Creature"], untapped: true });
+    expect(classifyCard(ARCADES_SABBOTH)).toBe("body-only");
   });
 });

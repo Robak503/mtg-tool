@@ -174,11 +174,21 @@ describe("GA-1 — a you-control anthem stays you-control; the global twin does 
 
 // ── FN guards — an unmodelable / mis-scoped clause PARKS (never a false positive) ────────────────────────
 describe("GA-1 — FN guards", () => {
-  it("a conditional global anthem parks (static-only guard rejects 'as long as')", () => {
+  it("a conditional global anthem is now GATED (CA-1) — never an unconditional fabrication", () => {
+    // GA-1 parked this shape; CA-1 models it as a LIVE Plains-count gate (gateOn:"source" — the anthem
+    // controller's board), so it flips native. The FP guard this test carried survives tightened: every
+    // emitted descriptor must be gated (no unconditional ptModify while the gate is closed).
     const gated = { id: "g", name: "T", type: "Enchantment", mana: "{1}{W}",
       oracle: "White creatures get +1/+1 as long as you control a Plains." };
-    expect(classifyCard(gated)).toBe("body-only");
-    expect(parseStaticAbilities(gated).filter(s => s.affects?.mode === "dynamic")).toHaveLength(0);
+    expect(classifyCard(gated)).toBe("native-static");
+    const specs = parseStaticAbilities(gated).filter(s => s.affects?.mode === "dynamic");
+    expect(specs).toHaveLength(1);
+    expect(specs[0].op).toMatchObject({ layerOp: "ptModifyGated", gate: { countSpec: { kind: "permanentsYouControl", subtype: "Plains" }, atLeast: 1, gateOn: "source" } });
+    // A condition with NO exact evaluator still parks the whole clause (CREED fail-closed).
+    const unevaluable = { id: "g2", name: "T", type: "Enchantment", mana: "{1}{W}",
+      oracle: "White creatures get +1/+1 as long as you have the city's blessing." };
+    expect(classifyCard(unevaluable)).toBe("body-only");
+    expect(parseStaticAbilities(unevaluable).filter(s => s.affects?.mode === "dynamic")).toHaveLength(0);
   });
   it("a FILTERED opponents debuff is NOT captured as a global anthem (parks, safe FN)", () => {
     // Only the BARE "creatures your opponents control get -N/-M" is the OD-1 branch; a filtered one has no

@@ -419,7 +419,17 @@ describe("anti-fabrication guards (CLAUDE.md §1.2)", () => {
   });
 
   it("does NOT fabricate an unconditional buff from an 'as long as' anthem", () => {
-    expect(parseStaticAbilities(card("Conditional", "Other creatures you control get +2/+2 as long as you control a Forest.", "Enchantment"))).toEqual([]);
+    // CA-1 TIGHTENED: the Forest-gated form is now MODELED — but strictly as a GATED buff (layers.gateMet
+    // re-evaluates the Forest count live). The anti-fabrication guard's real claim stands: NO descriptor may
+    // be an UNCONDITIONAL ptModify (the buff must never apply while the gate is closed).
+    const specs = parseStaticAbilities(card("Conditional", "Other creatures you control get +2/+2 as long as you control a Forest.", "Enchantment"));
+    expect(specs.length).toBeGreaterThan(0);
+    for (const s of specs) {
+      expect(s.op.layerOp).toBe("ptModifyGated");
+      expect(s.op.gate).toMatchObject({ countSpec: { kind: "permanentsYouControl", subtype: "Forest" }, atLeast: 1, gateOn: "source" });
+    }
+    // A condition with NO exact evaluator still emits NOTHING (CREED: fail closed, whole clause parks).
+    expect(parseStaticAbilities(card("Conditional", "Other creatures you control get +2/+2 as long as you have the city's blessing.", "Enchantment"))).toEqual([]);
   });
 
   // ── Triggered / activated / ETB abilities are NOT static continuous effects ──

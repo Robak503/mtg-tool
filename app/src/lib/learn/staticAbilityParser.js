@@ -433,7 +433,17 @@ function parseControlGateSource(quant, typePhrase) {
   if (quant === "another") excludeSelf = true;
   else if (quant === "two or more") atLeast = 2;
   else if (quant === "three or more") atLeast = 3;
-  else { const mm = quant.match(/^(\d+) or more$/); if (mm) atLeast = parseInt(mm[1], 10); }
+  else {
+    // WORD-NUMBER quants (BLITZ CA-1 — Jetmir "six/nine or more creatures", Fecund Greenshell "ten or more
+    // lands"): the group-anthem gate regex admits any "<word> or more", so an unrecognized number word must
+    // FAIL CLOSED (null → no gate → body-only), never silently degrade to atLeast 1 (an over-open gate = FP).
+    const mm = quant.match(/^(\w+) or more$/);
+    if (mm) {
+      const n = /^\d+$/.test(mm[1]) ? parseInt(mm[1], 10) : GY_NUMWORD[mm[1]];
+      if (!Number.isInteger(n) || n < 1) return null;
+      atLeast = n;
+    } else if (quant !== "a" && quant !== "an") return null; // unknown quant → fail closed
+  }
   if (SELF_COUNT_CARDTYPE[t]) return { countSpec: { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[t] }, atLeast, excludeSelf };
   if (SELF_COUNT_BASIC[t]) return { countSpec: { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[t] }, atLeast, excludeSelf };
   // A SUPERTYPE token (legendary/basic/snow/world) would word-bound-match unrelated type lines and OVER-count
@@ -889,6 +899,98 @@ function emitGatedEffect(out, effRaw, gate) {
   if (e !== "" || (!pt && kws.length === 0)) return; // unconsumed rider, or nothing recognized → LOW (Arbiter)
   if (pt) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: pt.power, toughness: pt.toughness, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
   for (const kw of kws) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+}
+
+/**
+ * CONDITION-GATED GROUP ANTHEM (BLITZ CA-1, CR 611.3a/611.3b) — parse the "<condition>" text of a GROUP
+ * anthem's "as long as <condition>" into a serializable gate layers.gateMet can evaluate LIVE at every
+ * derive pass, or null if the condition has no exact evaluator (the whole clause then stays body-only —
+ * CREED: a condition that evaluates wrong at any phase is a forbidden FP; a park is safe). Two SCOPES,
+ * kept distinct and exact:
+ *   • PER-SOURCE conditions carry gateOn:"source" — layers.gatePermForEffect swaps the gate's subject to
+ *     the effect's SOURCE permanent, so "your graveyard" / "you control" / "this creature is equipped"
+ *     read the ANTHEM's controller/source state while the buff lands on each selected candidate:
+ *       - "you control <quant> <type>"                → the parseControlGateSource board count
+ *       - "there are <N> or more … in your graveyard" → the parseGraveyardGate count (threshold/delirium/…)
+ *       - "this creature is equipped"                 → isEquipped (source carries the Equipment)
+ *       - "this creature is untapped"                 → untapped (the source's live tapped flag)
+ *       - "this enchantment has <N> or more <name> counters on it" (+ the "there are/is …" and
+ *         "exactly <N>" phrasings)                    → countersOnSelf on the SOURCE's counter pile
+ *       - "you have <N> or fewer cards in hand"       → cardsInHand (the source controller's hand size)
+ *   • PER-CANDIDATE conditions carry NO gateOn — the gate reads each AFFECTED creature's own state:
+ *       - "it's not attacking"                        → notAttacking (state.combat.attackers membership)
+ * Every alternative is whole-anchored (^…$) over the condition text, so a compound/rider condition
+ * ("… and it's your turn") matches nothing and fails closed. Pure text → spec; no game state read here.
+ */
+function parseAsLongAsGate(condText) {
+  const t = String(condText).trim().replace(/\.$/, "");
+  // Board-count control gate ("you control three or more artifacts" / "an equipment" / "ten or more lands").
+  let m = t.match(/^you control (a|an|another|\w+ or more) ([a-z]+)$/);
+  if (m) {
+    const g = parseControlGateSource(m[1], m[2]);
+    return g ? { ...g, gateOn: "source" } : null;
+  }
+  // Graveyard-count gate — reuse parseGraveyardGate and require it to consume the WHOLE condition.
+  const gy = parseGraveyardGate(`as long as ${t}`);
+  if (gy) return gy.match === `as long as ${t}` ? { ...gy.gate, gateOn: "source" } : null;
+  // Source attachment / tap state ("this creature" — the self-name was normalized upstream).
+  if (/^(?:this creature|it) is equipped$/.test(t)) return { kind: "isEquipped", gateOn: "source" };
+  if (/^(?:this creature|it) is untapped$/.test(t)) return { kind: "untapped", gateOn: "source" };
+  // PER-CANDIDATE: the affected creature is not a declared attacker (Arcades Sabboth).
+  if (/^it's not attacking$/.test(t)) return { kind: "notAttacking" };
+  // Source counter-pile thresholds (Beastmaster Ascension / Obscura Ascendancy / Tidal Influence forms).
+  const SELF_PERM = "this (?:enchantment|artifact|creature|permanent)";
+  m = t.match(new RegExp(`^(?:${SELF_PERM}|it) has (\\w+) or more ([a-z]+) counters on it$`));
+  if (!m) {
+    const mm = t.match(new RegExp(`^there (?:are|is) (\\w+) or more ([a-z]+) counters? on ${SELF_PERM}$`));
+    if (mm) m = mm;
+  }
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0
+      ? { countSpec: { kind: "countersOnSelf", counterType: m[2] }, atLeast: n, gateOn: "source" }
+      : null;
+  }
+  m = t.match(new RegExp(`^there (?:are|is) exactly (\\w+) ([a-z]+) counters? on ${SELF_PERM}$`));
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0
+      ? { countSpec: { kind: "countersOnSelf", counterType: m[2] }, atLeast: n, atMost: n, gateOn: "source" }
+      : null;
+  }
+  // Hand-size ceiling (Neheb, the Worthy — "you have one or fewer cards in hand").
+  m = t.match(/^you have (\w+) or fewer cards? in hand$/);
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n >= 0 ? { kind: "cardsInHand", atMost: n, gateOn: "source" } : null;
+  }
+  return null; // no exact evaluator → the caller emits nothing (body-only — a safe FN)
+}
+
+/**
+ * CONDITION-GATED GROUP ANTHEM emitter (BLITZ CA-1) — the GROUP twin of emitGatedEffect: reduce the anthem's
+ * effect text ("gets +X/+Y[ and has|have <kw>[, <kw>…]]" or a bare "have <kw>…") to gated descriptors over a
+ * caller-supplied dynamic selector. ALL-OR-NOTHING (CREED): any unconsumed rider, or a non-grantable keyword
+ * segment, emits NOTHING (the whole clause stays body-only — never a partial flip). The P/T rides the SAME
+ * layer-7c ptModifyGated lane the self control-gates use (CR 613.4c; gateMet re-evaluated every derive); each
+ * keyword rides a gated layer-6 addKeyword (CR 613.1f) that keywordSet/permanentHasKeyword resolve through
+ * gatePermForEffect, so a gateOn:"source" gate reads the SOURCE at both the P/T and the keyword seams.
+ */
+function emitGatedGroupEffect(out, effRaw, gate, affects) {
+  if (!gate || !affects) return;
+  let e = String(effRaw).trim().replace(/\.$/, "");
+  let pt = null;
+  const ptm = e.match(/^gets? ([+-]\d+)\/([+-]\d+)/);
+  if (ptm) { pt = { power: signed(ptm[1]), toughness: signed(ptm[2]) }; e = e.slice(ptm[0].length); }
+  e = e.replace(/^\s*(?:,\s*and|,|and)\s+/, "").trim(); // connector between the P/T and the keyword(s)
+  const kws = [];
+  if (/^(?:has|have)\s/.test(e)) {
+    const segs = e.replace(/^(?:has|have)\s+/, "").split(/,|\band\b/).map(s => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
+    if (segs.length && segs.every(s => GRANTABLE_KEYWORDS.has(s))) { for (const s of segs) kws.push(canonicalKeyword(s)); e = ""; }
+  }
+  if (e !== "" || (!pt && kws.length === 0)) return; // unconsumed rider, or nothing recognized → body-only (CREED)
+  if (pt) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: pt.power, toughness: pt.toughness, gate }, affects, duration: { kind: "permanent" } });
+  for (const kw of kws) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw, gate }, affects, duration: { kind: "permanent" } });
 }
 
 // ─── FLASH-CAST-PERMISSION filter vocabulary (CR 601.3e — cast a class of your spells at instant speed) ───
@@ -1862,8 +1964,16 @@ function parseClause(clause, out, selfName, selfType) {
     const gy = parseGraveyardGate(gyClause);
     if (gy) {
       const eff = gyClause.replace(gy.match, "").replace(/^[\s,]+|[\s,]+$/g, "");
-      emitGatedEffect(out, eff, gy.gate);
-      return;
+      // SELF shapes only (CA-1): a GROUP subject ("White creatures / Other creatures you control / All
+      // Squirrels get … as long as … in your graveyard" — Divine Sacrament, Silver Seraph, Nut Collector)
+      // falls THROUGH to the condition-gated GROUP anthem branch below, which scopes the same gate to the
+      // SOURCE (gateOn:"source") over a dynamic selector. emitGatedEffect can only consume a self-subject
+      // effect anyway (any other shape emitted nothing and parked), so this fall-through changes no self
+      // card's behavior — it only stops the lane from swallowing group clauses it never modeled.
+      if (/^(?:this creature\b|it\b|gets?\b|ha(?:s|ve)\b)/.test(eff)) {
+        emitGatedEffect(out, eff, gy.gate);
+        return;
+      }
     }
     // ── SELF-COUNTER-GATE: a self P/T buff and/or keyword grant gated on THIS permanent's own +1/+1 counter
     // count ("this creature has trample as long as it has ten or more +1/+1 counters on it" — Primordial Hydra;
@@ -2012,6 +2122,80 @@ function parseClause(clause, out, selfName, selfType) {
       });
     }
     return; // the devotion gate is fully modeled (or, on a malformed threshold, a safe body-only) — handled
+  }
+
+  // ── CONDITION-GATED GROUP ANTHEMS (BLITZ CA-1, CR 611.3a/b continuous statics; layers 613.4c / 613.1f) ──
+  // The "as long as <board condition>" GROUP anthem family the SF-1/GA-1 slices parked behind the "as long
+  // as" static-only bail below: "White creatures get an additional +1/+1 as long as there are seven or more
+  // cards in your graveyard" (Divine Sacrament), "Metalcraft — Creatures you control get +3/+0 as long as
+  // you control three or more artifacts" (Jor Kadeen), "As long as [this creature] is equipped, Cat
+  // creatures you control get +2/+2 and have double strike" (Raksha Golden Cub), "Each untapped creature
+  // you control gets +0/+2 as long as it's not attacking" (Arcades Sabboth). The condition becomes a
+  // serializable GATE (parseAsLongAsGate — only conditions with an existing exact evaluator; per-source
+  // gates carry gateOn:"source", per-candidate gates read the affected creature) that layers.gateMet
+  // re-evaluates LIVE at every P/T derive and keyword read (CR 611.3a — never locked in), so the anthem
+  // flips exactly when the graveyard crosses seven, the third artifact leaves, the Equipment unattaches,
+  // or the creature is declared an attacker. The de-conditioned remainder must reduce COMPLETELY to a
+  // recognized creature selector + "get ±X/±Y" and/or all-grantable keywords (emitGatedGroupEffect,
+  // all-or-nothing); the "also get" / "get an additional" stacking markers (Jetmir / Divine Sacrament —
+  // each line is an independent additive 7c effect, CR 613.7 commuting) are normalized away first. A SELF
+  // subject ("this creature…" — the self gated lanes above already returned on their matches) is rejected
+  // so an unmodeled self conditional (hellbent / celebration / infusion …) can never leak into a bogus
+  // group selector. An unrecognized condition or an unconsumed rider emits NOTHING → the clause parks →
+  // body-only (CREED: false-negative SAFE, false-positive FORBIDDEN).
+  {
+    // EXACTLY-ONE-CREATURE bind (Homicidal Seclusion / Deadly Wanderings): "As long as you control exactly
+    // one creature, that creature gets …". While the gate holds, "creatures you control" IS "that creature"
+    // (the set has exactly one member), so a your-creatures selector + an atLeast:1/atMost:1 board-count
+    // gate is EXACT at every board size: 0 creatures → gate closed (nobody buffed), 1 → that creature
+    // buffed, 2+ → gate closed. Whole-clause anchored on the printed template.
+    const exM = c.match(/^as long as you control exactly one creature, that creature ((?:gets|has) .+)$/);
+    if (exM) {
+      emitGatedGroupEffect(
+        out, exM[1],
+        { countSpec: { kind: "permanentsYouControl", cardType: "Creature" }, atLeast: 1, atMost: 1, gateOn: "source" },
+        { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"] } },
+      );
+      return; // handled (or an unconsumed rider parked the clause — safe FN)
+    }
+    // ANIMATED-LAND anthem (Earth Surge): "Each land gets +X/+Y as long as it's a creature." The condition
+    // IS a type test the selector already evaluates exactly — matchesSelector's cardTypes gate ANDs over the
+    // candidate's EFFECTIVE (printed ∪ layer-4 animated) types, so cardTypes ["Creature","Land"] selects
+    // precisely the lands that are creatures right now, live at every derive (no gate object needed).
+    const esM = c.match(/^each land gets ([+-]\d+)\/([+-]\d+) as long as it's a creature$/);
+    if (esM) {
+      out.push({
+        layer: 7, sublayer: "7c",
+        op: { layerOp: "ptModify", power: signed(esM[1]), toughness: signed(esM[2]) },
+        affects: { mode: "dynamic", selector: { controllerScope: "each", cardTypes: ["Creature", "Land"] } },
+        duration: { kind: "permanent" },
+      });
+      return;
+    }
+    // GENERAL FORM — trailing "<subject+effect> as long as <cond>" (greedy split: the LAST "as long as"),
+    // else leading "As long as <cond>, <subject+effect>". The gate must parse AND the remainder must fully
+    // reduce, or nothing is emitted.
+    let gate = null, rest = null;
+    let m = c.match(/^(.+) as long as (.+)$/);
+    if (m && (gate = parseAsLongAsGate(m[2]))) rest = m[1];
+    if (!rest) {
+      m = c.match(/^as long as (.+?), (.+)$/);
+      if (m && (gate = parseAsLongAsGate(m[1]))) rest = m[2];
+    }
+    if (rest) {
+      // Stacking markers: "Creatures you control ALSO get …" (Jetmir lines 2-3) / "get AN ADDITIONAL +1/+1"
+      // (Divine Sacrament) — each line is its own additive layer-7c effect, so the markers carry no extra
+      // rules meaning here; normalize them away so the selector/effect anchors see the plain anthem shape.
+      rest = rest.replace(/\balso (gets?|has|have)\b/, "$1").replace(/\b(gets?) an additional (?=[+-]\d)/, "$1 ");
+      // SELF/BOUND subjects park: the self gated lanes above own "this creature/it"; an aura's
+      // "enchanted creature" and an Equipment's "equipped creature" belong to the attachment lanes.
+      const em = rest.match(/^(.+?)\s+(gets? [+-]\d+\/[+-]\d+.*|(?:has|have)\s+.+)$/);
+      if (em && !/^(?:this\b|that\b|it\b|it's\b|its\b|enchanted\b|equipped\b)/.test(em[1])) {
+        const affects = parseCreatureSelector(rest);
+        if (affects) emitGatedGroupEffect(out, em[2], gate, affects);
+      }
+      return; // an as-long-as group clause — handled, or parked with NO descriptor (body-only, CREED-safe)
+    }
   }
 
   // ── STATIC-ONLY GUARD (CLAUDE.md §1.2: a miss is safe; a false grant is forbidden) ──
