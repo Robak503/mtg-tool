@@ -1,6 +1,37 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~01:20 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.10%, suite 9,123 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~01:50 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.16%, suite 9,183 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + all
+> agents on Opus (Fable budget spent).
+> **Landed since the 01:20 entry below**: **SG-1** source-gated group anthems (5dec8ea8, +2 — Kabira
+> Vindicator / Coralhelm Commander; a `gateOn:"source"` gate-subject swap so a leveler band anthem reads
+> the SOURCE's counters; Bladeback park was a brief-correction — its hellbent line is an activated-ability
+> grant, not an anthem; NO dead handSize vocab shipped) · **LK-2** top-card take-or-leave (32e19e4b, +3 —
+> Herald's Horn's last blocker, Dryad Greenseeker, + bonus Domri Rade native-planeswalker; a new 21st
+> pendingChoice kind + UI panel + PLAY-API-CONTRACT entry; DESK NOTE: my hand-probe read Domri arbiter-pw,
+> the classic publicCard-shape trap — the tier-fingerprint authority confirmed native-planeswalker, all 3
+> loyalty abilities modeled incl. the static keyword-emblem) · **RD-1** the SEEDED RNG PRIMITIVE (985c6a2e,
+> +14 — owner-blessed milestone): `seedMath.nextRandomInt(state,n)→{value,state}` is now THE canonical
+> single-integer draw off the serialized `rngSeed`; the dice-roll atom draws through it, VERIFIED
+> byte-identical at the desk (mulberry32 + LCG constants op-for-op identical to roll.js's old inline draw,
+> library.js shuffle untouched — every recorded-game replay stays deterministic). First consumer = RANDOM
+> DISCARD (Hymn to Tourach, Hypnotic Specter, Mindwhip Sliver, +11). PRIMITIVE CONTRACT in the commit body
+> (next consumer threads the returned state; never re-inline the PRNG).
+> **KNOWN FLAKE (flagged, not blocking)**: a selfPlayRunner seating-determinism test fails intermittently
+> under full-suite load, passes in isolation + on rerun. Pre-existing (unrelated to any slice; no profile
+> deck has a leveler). Spawned as its own task-chip — matters because the whole replay/grind pipeline
+> rides on same-seed determinism. If a gate hits it, rerun the suite once to confirm green.
+> **REPO-WIDE STALE CITE (noted by RD-1, not fixed — out of scope)**: existing discard code pervasively
+> cites "CR 701.8" — that's the pre-renumber number (701.8 is now "Destroy"); discard is 701.9 / 701.9b.
+> A comment-only cleanup pass for later.
+> **IN FLIGHT (3 Opus seats)**: **BC-1** batch combat-damage (Quartzwood Crasher, Pantlaza's #1 lever) ·
+> **PW-1** planeswalker loyalty completion (Tezzeret the Seeker / Sarkhan Fireblood) · **SN-1** the snow-mana
+> {S} primitive (Frost Augur's last blocker). Night total so far: **+98** (30.87% → 31.16%), suite
+> 8,932 → 9,183, LOST=0 unbroken, TEN loose/wrong CR cites caught.
+
+## (superseded ~30 min later) — 31.10%, suite 9,123 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself.
