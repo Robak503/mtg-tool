@@ -5,7 +5,7 @@
  * would create a cycle).
  */
 
-import { applyDestroyEffect, applyDamageEffect } from "../../spellEffects.js";
+import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
 import { logEvent, gainLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureBasePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -566,6 +566,28 @@ export function destroyExileClauseParser(clause) {
   if (pxm) {
     const op = /^(greater|more)$/.test(pxm[2]) ? ">=" : "<=";
     return { op: "exile", targetType: "creature", restrictions: [{ kind: "power", op, value: parseInt(pxm[1], 10) }] };
+  }
+  // RESTRICTED exile (BLITZ SE-1, CR 601.2c) — "exile target <restricted> creature" where the restriction is
+  // one the DESTROY twin already models: combat state (attacking / blocking / attacking or blocking), tapped /
+  // untapped, power / toughness N or greater|less, color negation (nonblack…), type negation (nonartifact…),
+  // with|without flying, and a curated creature subtype. DESTROY has enforced these for years (parser.js's
+  // legacy restriction fold — Reprisal / Smite are native), but exile shared only the bare + power forms above,
+  // so "Exile target attacking creature" (Not on My Watch), "…tapped creature" (Expel / Excoriate), "…creature
+  // with toughness 4 or greater" (Pillar of Light) all parked despite the machinery existing. The restriction
+  // PARSER is delegated to the shared parseCreatureTargetRestrictions (removal.js already imports from
+  // spellEffects.js — a one-way, cycle-safe edge; the parser is re-anchored to accept an "exile target …"
+  // clause) so the vocabulary can NEVER drift from the destroy twin. A CLEAN parse — the whole phrase reduces to
+  // the base noun + modeled restrictions; a union ("creature or Spacecraft"), a graveyard clause ("creature card
+  // from a graveyard"), or ANY unmodeled qualifier leaves residue → clean=false → no match → LOW → Arbiter
+  // (whole-clause anchor, FN-safe) — with >=1 restriction rides as the SAME { restrictions } array
+  // creatureSatisfiesRestrictions enforces at ENUMERATION (targeting.atomTargetSpec threads it for every
+  // creature-target op; the PX-1 power-filter exile above proves the runtime path end-to-end). The exile
+  // resolver (applyZoneMove) then just moves the enumerated-legal target — no restriction re-validation needed.
+  // Placed after the bare/power exile matchers so those stay byte-identical (a bare "exile target creature"
+  // returns at line 462; the >=1-restriction gate would reject it here regardless).
+  if (/^exile target .*\bcreature\b/.test(t)) {
+    const { restrictions, clean } = parseCreatureTargetRestrictions({ oracle: clause });
+    if (clean && restrictions.length) return { op: "exile", targetType: "creature", restrictions };
   }
   // MULTI-COUNT + COLLECTIVE-X-MV destroy (CR 601.2c "any number of target" + the TOTAL-MV target restriction) —
   // "destroy any number of target artifacts and/or enchantments with total mana value X or less" (Rampaging Yao

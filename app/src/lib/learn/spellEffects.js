@@ -277,6 +277,12 @@ export function parseCreatureTargetRestrictions(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").toLowerCase();
   let m = oracle.match(/destroy\s+target\s+([^.]+)/);
   if (!m) m = oracle.match(/deals?\s+\d+\s+damage\s+to\s+([^.]+)/);
+  // SE-1 — reuse the SAME creature-target restriction grammar for an "exile target <phrase> creature" clause.
+  // The destroy/damage anchors are tried first (order preserved), so a destroy/damage clause is byte-identical;
+  // this anchor only bites a pure exile clause (removal.destroyExileClauseParser delegates here). Its consumers
+  // (parser.js's legacy fold at line ~967, legalChoices' legacy single-target path) only ever pass destroy/
+  // deal-damage clauses, where the exile anchor can never win — so adding it is inert for every incumbent path.
+  if (!m) m = oracle.match(/exile\s+target\s+([^.]+)/);
   if (!m || !/\bcreature\b/.test(m[1])) {
     // Not a creature target → nothing to model. (A "creature or player" any-target
     // never reaches here — parseSpellEffect maps it to targetType "any". A genuine

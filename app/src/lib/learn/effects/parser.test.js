@@ -343,7 +343,7 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
       .toEqual([{ op: "destroy", targetType: "artifact", restrictions: [{ kind: "controller", who: "opponent" }] }]);
   });
   it("keeps RESTRICTED / non-creature variants low (anchor exact)", () => {
-    expect(programConfidence(parseEffectProgram(I("Exile target creature you control.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Exile target creature with shadow.")))).toBe("low"); // an unmodeled keyword rider (SE-1: MODELED restrictions like "you control"/"attacking"/"tapped" now flip HIGH — see restrictedExile.test.js)
     expect(programConfidence(parseEffectProgram(I("Tap target artifact.")))).toBe("low");          // tap is creature-only
     expect(programConfidence(parseEffectProgram(I("Destroy target tapped artifact.")))).toBe("low"); // unmodeled restriction
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact creature.")))).toBe("low"); // not a bare type

@@ -42,11 +42,13 @@ describe("PX-1 parser — both power directions parse for exile; near-misses sta
       { op: "exile", targetType: "creature", restrictions: [{ kind: "power", op: ">=", value: 4 }] },
     ]);
   });
-  it("FN guards: an X-power form / controller scope / toughness variant stays LOW", () => {
+  it("FN guards: an X-power form / an unmodeled keyword rider stays LOW", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: "Instant", oracle }))).toBe("low");
-    low("Exile target creature with power X or less.");                     // Killing Glare shape (X-power)
-    low("Exile target creature with power 3 or less an opponent controls.");// unevidenced scope rider
-    low("Exile target creature with toughness 3 or less.");                 // toughness variant (unevidenced for exile)
+    low("Exile target creature with power X or less.");                     // Killing Glare shape (X-power — X ≠ digit)
+    low("Exile target creature with power 3 or less with menace.");         // an unmodeled keyword rider → residue → LOW
+    // NOTE (SE-1): "…an opponent controls" (controller) and "…toughness N or (less|greater)" NO LONGER stay LOW —
+    // that slice folds the DESTROY twin's full creature-target restriction grammar into exile, so those forms now
+    // flip native-spell exactly as their destroy siblings do. See restrictedExile.test.js for the coverage.
   });
   it("classify: Reaver Ambush + Grotesque Demise flip native-spell; the DESTROY twin stays native (regression)", () => {
     expect(classifyCard(REAVER_AMBUSH)).toBe("native-spell");
