@@ -21,7 +21,7 @@
  */
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
-import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkSagaChapterTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkSagaChapterTriggers, modularKeywordValues } from "./triggers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHELF S7): entry lore counter + sagaFinal stamp; a pure leaf
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
@@ -279,6 +279,15 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
   const plusCounters = entersWithPlusCounters(card);
   if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", plusCounters) };
+  // MODULAR (BLITZ MOD-1, CR 702.43a) — "Modular N" is (in part) an enters-with-N-+1/+1-counters replacement,
+  // but that sentence lives ONLY in the keyword's REMINDER parens (entersWithPlusCounters strips parens →
+  // returns 0 for a modular card), so read the count from the keyword itself. modularKeywordValues is the SAME
+  // recognizer detectTriggers uses for the dies half, so the two halves can't drift; DIGIT-only, so the variable
+  // "Modular—Sunburst" (Arcbound Wanderer) adds nothing here (its per-color count is unmodeled → the card parks).
+  // Summed across instances (CR 702.43b — each works separately), through applyCounterDoubling (Doubling Season
+  // doubles them too, CR 616), exactly like the unconditional enters-with-counters write above.
+  const modularN = modularKeywordValues(card?.oracle || card?.oracle_text || "").reduce((a, b) => a + b, 0);
+  if (modularN > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", modularN) };
   // KICKER (CR 702.33e + 614.1c + 122.6a): "If this creature was kicked, it enters with N +1/+1 counters on
   // it" — a replacement GATED on the was-kicked flag (opts.kicked, threaded from the kicked cast). Added AS
   // the creature enters, so its P/T is right from turn 1, exactly like the unconditional enters-with-counters

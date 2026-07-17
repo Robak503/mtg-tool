@@ -498,6 +498,18 @@ export function addCounterClauseParser(clause) {
   // rider/variant leaves residue → no match → LOW → Arbiter (a SAFE false-negative).
   m = t.match(/^put a \+1\/\+1 counter on target attacking creature with lesser power$/);
   if (m) return { op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature", restrictions: [{ kind: "combat", value: "attacking" }, { kind: "powerVsSource", op: "<" }] };
+  // MODULAR (BLITZ MOD-1, CR 702.43a) — the keyword's synthesized dies payoff: "put its +1/+1 counters on target
+  // artifact creature" (the "you may" wrapper is peeled by the α2 optional-scope handler upstream, so this matches
+  // the inner clause; the atom is stamped optional there → the resolver offers a real decline). The COUNT is the
+  // DYING creature's last-known +1/+1 total (countContext:"triggeringPlusCounterCount", stamped by checkDiesTriggers
+  // off the CR-603.6e death look-back; resolveScaledAmount floors it at 0 → a clean no-op when the source had no
+  // counters or the referent is absent — never a fabricated count). The target is narrowed by cardType:"artifact"
+  // (the target creature must ALSO be an artifact — enforced at enumeration by creatureSatisfiesRestrictions). A
+  // +1/+1 counter is own-intent (atomTargetIntent), so the enemy/own flush chooser only ever picks the controller's
+  // own artifact creature; combatDamageReferentSatisfied gates the countContext to the dies event ONLY. Whole-clause
+  // anchored ^…$ so the Poison-Modular variant ("…on target player or artifact creature") never matches (a SAFE FN).
+  m = t.match(/^put its \+1\/\+1 counters on target artifact creature$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", countContext: "triggeringPlusCounterCount", targetType: "creature", restrictions: [{ kind: "cardType", type: "artifact" }] };
   // MULTI-COUNT (CR 601.2c "up to N") — "put <N> <±1/±1> counter(s) on each of up to <K> target creatures[ you
   // control]" → the chosen-target multi-count (applyAddCounter already LOOPS ctx.targets, applying `amount` to EACH;
   // targeting.expandAtoms offers each 0..K subset). maxTargets:K. Distinct from the dice-roll scope:"upToTwoYouControl"

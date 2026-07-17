@@ -85,6 +85,12 @@ export function combatDamageReferentSatisfied(program, event) {
     // by checkGraveyardEventTriggers' gyEnter event (the detectTriggers sentinel rewrite is gyEnter-gated
     // too; this pin is the belt on top of it).
     if (a?.who === "gyOwner" && event !== "gyEnter") return false;
+    // MODULAR (BLITZ MOD-1, CR 702.43a): the dies payoff's count is the DYING creature's last-known +1/+1
+    // total (ctx.triggeringPlusCounterCount), stamped ONLY by checkDiesTriggers' dies event. On any other
+    // event the referent is unset → the clause would silently place 0 (a dropped-payoff FP) → not native
+    // there (a SAFE false-negative). The clause is only ever synthesized on the modular dies trigger, so
+    // this is belt-and-suspenders that keeps the metric honest if the wording ever appears elsewhere.
+    if (a?.countContext === "triggeringPlusCounterCount" && event !== "dies") return false;
   }
   return true;
 }

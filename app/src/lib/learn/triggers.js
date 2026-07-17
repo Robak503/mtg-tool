@@ -1688,6 +1688,32 @@ export function afterlifeKeywordValues(oracle) {
   return out;
 }
 
+/** MODULAR (BLITZ MOD-1, CR 702.43a) — the printed keyword's N values, one entry per printed instance
+ * (CR 702.43b — multiple instances each work separately). STRUCTURAL like afterlifeKeywordValues: a whole
+ * comma-segment of a reminder-stripped line must be EXACTLY "modular N" (a literal DIGIT). This is the
+ * SINGLE recognizer shared by (a) the detectTriggers dies-payoff synthesis, (b) resolvers.enterPermanent's
+ * enters-with-N-+1/+1-counters replacement (CR 702.43a first half), and (c) coverage's shaped-count bump —
+ * so they can NEVER drift on which instances count. Deliberately DIGIT-only so the two non-fixed-count
+ * variants PARK (CREED — never a fabricated/wrong count):
+ *   - "Modular—Sunburst" (Arcbound Wanderer) — enters with a counter PER color of mana spent (variable),
+ *     no space+digit after "modular" → no match → the whole card stays body-only (Sunburst is unmodeled).
+ *   - "Poison Modular N" (Arcbound Mamba) — its dies payoff targets a PLAYER or artifact creature and makes
+ *     poison counters, a DIFFERENT effect; the segment is "poison modular n" (leads with "poison"), so the
+ *     `^modular` anchor rejects it and the variant is never modeled as plain modular (a dropped-rider FP).
+ * A mid-sentence use ("each creature you control with modular" — Arcbound Overseer) is never a bare
+ * "modular N" segment either, so it contributes 0. */
+export function modularKeywordValues(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  const out = [];
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^modular (\d+)$/);
+      if (m) out.push(parseInt(m[1], 10));
+    }
+  }
+  return out;
+}
+
 /** MENTOR (BLITZ MN-1, CR 702.134b) — the STRUCTURAL instance counter (the battle-cry matcher: a whole
  * comma-segment must be exactly "mentor"; multiples each trigger separately per CR 702.134b). A GRANT
  * ("…and has mentor" — Aegis of the Legion / Nyxborn Unicorn's enchanted-creature line) or any mid-sentence
@@ -2997,6 +3023,29 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Afterlife ${n}`,
     });
   }
+  // MODULAR (BLITZ MOD-1, CR 702.43a) — KEYWORD→TRIGGER synthesis, the SOULSHIFT precedent exactly (a "you may"
+  // dies payoff whose ability lives entirely in REMINDER parens: "(This creature enters with N +1/+1 counters
+  // on it. When it dies, you may put its +1/+1 counters on target artifact creature.)"). The ENTERS half is a
+  // replacement modeled by resolvers.enterPermanent (reads the SAME modularKeywordValues); THIS synthesizes the
+  // DIES half. The effectClause is the printed reminder wording — the leading "you may" rides the α2 optional
+  // wrapper (the atom pauses for a yes/no, CR 702.43a "you may"), and the inner "put its +1/+1 counters on
+  // target artifact creature" parses to the add-counter atom carrying countContext:"triggeringPlusCounterCount"
+  // (the DYING creature's last-known +1/+1 total, CR 603.6e LKI — stamped by checkDiesTriggers, so a creature
+  // that grew via added counters — Arcbound Ravager's sac — moves ALL of them) + restriction cardType:"artifact"
+  // (the target must be an artifact creature, enforced at enumeration by creatureSatisfiesRestrictions). A +1/+1
+  // counter is own-intent (atomTargetIntent → "own"), so the flush chooser only ever picks the controller's OWN
+  // artifact creature; with no own artifact-creature target the "you may" simply declines (CR 603.3c drop). One
+  // descriptor PER printed instance (CR 702.43b — each modular works separately). modularKeywordValues is
+  // STRUCTURAL/DIGIT-only, so "Modular—Sunburst" and "Poison Modular N" never self-synthesize (their differing
+  // effects would be dropped-rider FPs) — they stay body-only/Arbiter (CREED, a safe FN).
+  for (const n of modularKeywordValues(oracle)) {
+    out.push({
+      event: "dies", scope: "self", whose: "any",
+      effect: null,
+      effectClause: "you may put its +1/+1 counters on target artifact creature",
+      optional: false, sourceText: `Modular ${n}`,
+    });
+  }
   // KW-EVOLVE (CR 702.100a, SHELF S7) — KEYWORD→TRIGGER synthesis, the UNDYING precedent exactly. "Evolve"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(Whenever a creature you
   // control enters, if that creature has greater power or toughness than this creature, put a +1/+1
@@ -3754,6 +3803,13 @@ export function checkDiesTriggers(state, dead) {
     if (d.counters) diesCtx.triggeringHadNoPlusCounters = !((d.counters["+1/+1"] || 0) > 0);
     // KW-PERSIST (PS-1): the -1/-1 mirror of the undying stamp above, same LKI snapshot.
     if (d.counters) diesCtx.triggeringHadNoMinusCounters = !((d.counters["-1/-1"] || 0) > 0);
+    // MODULAR (BLITZ MOD-1, CR 702.43a + 603.6e LKI): the actual COUNT of +1/+1 counters the dying object had
+    // as it last existed on the battlefield — the magnitude the modular dies payoff moves ("put ITS +1/+1
+    // counters on target artifact creature"). Read off the SAME death look-back `counters` snapshot the undying/
+    // persist booleans use, so a modular creature grown by added counters (Arcbound Ravager's sac, an Overseer
+    // upkeep) moves its FULL total. Stamped only when the snapshot was captured; an entry without one leaves the
+    // key undefined → resolveScaledAmount reads 0 → a clean no-op (never a fabricated count).
+    if (d.counters) diesCtx.triggeringPlusCounterCount = d.counters["+1/+1"] || 0;
     // POWER-DIFFERED (Jason Bright, CR 603.6e LKI): the dies intervening-if "its power was different from
     // its base power" compares the look-back's EFFECTIVE power (counters + anthems + pumps) against its
     // BASE power (printed / 7b-set). Stamped only when BOTH were captured; a missing capture leaves the

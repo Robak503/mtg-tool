@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText } from "./staticAbilityParser.js";
@@ -195,6 +195,19 @@ export const COVERED_KEYWORDS = [
   // lesser power; a mentor attacking ALONE (no legal target) fires nothing (CR 603.3c drop). The bare "mentor"
   // residue matches via the exact === check; allTriggerSentencesModeled bumps the shaped count per instance.
   "mentor",
+  // MODULAR (BLITZ MOD-1, CR 702.43a) — ENFORCED end-to-end. Modular is BOTH halves of CR 702.43a: (1) an
+  // enters-with-N-+1/+1-counters replacement — modeled by resolvers.enterPermanent (reads modularKeywordValues,
+  // the SAME DIGIT-only recognizer, so it can't drift); (2) a self-dies "you may put its +1/+1 counters on
+  // target artifact creature" trigger — synthesized by detectTriggers, whose count is the dying creature's
+  // last-known +1/+1 total (CR 603.6e LKI, ctx.triggeringPlusCounterCount) and whose target is narrowed by
+  // cardType:"artifact"; a +1/+1 counter is own-intent, so the flush chooser picks the controller's own artifact
+  // creature (no own artifact-creature target → the "you may" declines). The reminder parens (both sentences)
+  // are stripped by isKeywordOnly, leaving the bare "modular N" keyword line — matched via the startsWith check,
+  // exactly like afterlife/soulshift. allTriggerSentencesModeled bumps the shaped count per printed instance
+  // (modularKeywordValues.length). DIGIT-only, so "Modular—Sunburst" (Arcbound Wanderer — variable per-color
+  // count) and "Poison Modular N" (Arcbound Mamba — a player-or-artifact-creature + poison variant) never match
+  // this keyword and stay body-only/Arbiter (CREED — their differing behavior is never claimed native).
+  "modular",
   // KW-UNDYING (CR 702.92a, SHELF S7) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
   // return trigger from the printed keyword (undyingKeywordCount — structural line-segment match, so grants
   // like Undying Evil / Mikaeus never self-synthesize); checkDiesTriggers fires it with the death look-back's
@@ -704,9 +717,15 @@ function allTriggerSentencesModeled(card, oracle) {
   // MENTOR (BLITZ MN-1, CR 702.134b) — one synthesized attacks descriptor per printed instance (multiples
   // each trigger separately); the structural matcher never counts a grant.
   const mentorShaped = mentorKeywordCount(oracle);
+  // MODULAR (BLITZ MOD-1, CR 702.43a) — the "Modular N" keyword's self-dies payoff lives entirely in stripped
+  // reminder parens, so it never counts as a When/Whenever/At sentence. detectTriggers synthesizes ONE dies
+  // descriptor per printed instance (CR 702.43b — each works separately); bump the shaped count by the DIGIT-only
+  // recognizer's length so shaped === detected holds (variant "Modular—Sunburst"/"Poison Modular N" contribute 0
+  // to BOTH counts). The enters-with-counters half is a replacement (resolver), not a trigger, so it's not here.
+  const modularShaped = modularKeywordValues(oracle).length;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

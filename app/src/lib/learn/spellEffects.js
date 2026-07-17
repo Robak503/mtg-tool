@@ -445,6 +445,13 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // back-face type (mirrors the front-face discipline used for counter/tutor/graveyard targets here).
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0].toLowerCase();
       if (tl.includes(r.type)) return false;       // a non<type> target can't be that card type
+    } else if (r.kind === "cardType") {
+      // CARD-TYPE TARGET (CR 205.2) — the positive mirror of typeNeg: "target artifact creature" (Modular's
+      // dies payoff, BLITZ MOD-1) requires the target creature's type line to ALSO carry the named card type.
+      // Front-face only (CR 712.4a) so a DFC back-face type can't wrongly qualify; fail-closed on a missing
+      // type line (a creature with no readable type → not that type → SAFE false-negative, never a wrong pick).
+      const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0].toLowerCase();
+      if (!tl.includes(r.type)) return false;      // a non-<type> creature can't be a "<type> creature" target
     } else if (r.kind === "toughness") {
       // TAP-TARGET-CREATURE: "with toughness N or less" (Errant Doomsayers). Mirrors the power branch.
       const th = creatureToughness(perm, state);
