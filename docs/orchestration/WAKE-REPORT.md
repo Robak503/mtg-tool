@@ -1,6 +1,26 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~01:50 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.16%, suite 9,183 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~02:30 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.24%, suite 9,261 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
+> **Landed since the 01:50 entry below**: **BC-1** batch combat-damage (b739817c, +1 — Keeper of Fables,
+> the corpus's only "non-Human" batch; a prior session had already built the batch machinery, so this was
+> the honest one-card completion + end-to-end pins) · **SN-1** the {S} snow-mana primitive (8583fdca, +13 —
+> Frost Augur + 12 snow kin; a mana-model addition threading {S} as its own requirement, satisfied ONLY by
+> a fresh snow tap, never fake-paid — gated on cost.snow so every non-snow payment is byte-identical; DESK
+> CATCH: seat cited 107.4s → real rule is 107.4h, fixed 7 spots) · **PW-1** planeswalker loyalty (eb03b5f0,
+> +13 — 3 buckets: reanimate-MV / untap-N-lands / layer-aware destroy-power; flipped Ajani/Garruk/Elspeth
+> + 10 corpus riders incl. modal commands; Tezzeret parked on a −X ultimate, Sarkhan on restricted-mana —
+> both honest) · **MD-1** nonland mana doubler (4e50e693, +0 native but real: Kinnan's nonland-tap doubler
+> now fires in the sim — Joe's Kinnan grind games are accurate now; Kinnan the card parks on its impulse-dig
+> ability, whole-card law). Slices integrated tonight: 17; night native total **+125** (30.87%→31.24%),
+> suite 8,932→9,261, LOST=0 unbroken, ELEVEN loose/wrong CR cites caught at the desk.
+> **IN FLIGHT (3 Opus seats)**: **ETB-1** enters-trigger census+build (the 59-slot bucket) · **GY-1** filtered
+> graveyard return-to-hand (extends PW-1's cardMatchesGraveyardFilter) · **EQ-1** equipment/aura static census
+> (Cap America shelf). Standing flake chip + the repo-wide stale "701.8" discard cites both still open (below).
+
+## (superseded ~40 min later) — 31.16%, suite 9,183 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + all
