@@ -907,8 +907,7 @@ const MUST_DROP_TO_LOW = [
   "All creatures get -1/-1 until end of turn and can't block.", // pump rider (can't block) — keyword effect dropped
   // Combat-trick keyword grants must drop when the granted keyword isn't enforced (a fake
   // grant is forbidden) — the grantable set is the layer-aware combat keywords, NOT these.
-  "Target creature gains horsemanship until end of turn.",      // horsemanship not grantable (shadow now IS — SLIVER INTERIORS SP-1)
-  "Target creature gains banding until end of turn.",           // banding not grantable
+  "Target creature gains banding until end of turn.",           // banding not grantable (horsemanship/infect/intimidate/skulk graduated — BLITZ EQ-1)
   "Target creature gets +2/+2 and gains protection from red until end of turn.", // protection not grantable
   // Review catch (no-split + all-or-nothing): a grant chained to a non-keyword via " and "
   // must NOT parse high with a partial grant — the whole clause is unmodeled → Arbiter.
@@ -925,7 +924,7 @@ const MUST_DROP_TO_LOW = [
   "Vehicles you control get +1/+1 until end of turn.",                 // a NON-curated subtype word → low (only COUNT_SUBTYPE entries are admitted)
   "Other creatures you control get +1/+1 and gain protection from red until end of turn.", // un-grantable keyword on the OTHER-scope pump → low
   "Creatures you control get +1/+1 and gain banding until end of turn.", // pump-path grant: banding un-grantable → low (shadow now grantable — SLIVER INTERIORS SP-1)
-  "Creatures you control gain forestwalk until end of turn.",          // GROUP-KEYWORD-GRANT: an un-grantable keyword → still low (the bare "gain trample/hexproof/indestructible" form is now native)
+  "Creatures you control gain banding until end of turn.",             // GROUP-KEYWORD-GRANT: an un-grantable keyword → still low (the bare "gain trample/hexproof/indestructible/forestwalk" form is now native — forestwalk graduated in EQ-1)
   // OVERRUN-X — count-scaled team pump ("…gain trample and get +X/+X, where X is <count>"): a FILTERED team,
   // an unmodeled count source, or an un-grantable keyword stays LOW → Arbiter (never a half-scaled native).
   "Until end of turn, creatures you control with flying gain trample and get +X/+X, where X is the greatest power among creatures you control.",        // filtered subset
@@ -1625,8 +1624,7 @@ describe("parseEffectClause — self keyword-grant (ACT-KW-GRANT)", () => {
     expect(atomsOf("This creature gets -1/-1 and gains flying until end of turn.")).toEqual([{ op: "pump", target: "self", ptDelta: { p: -1, t: -1 }, grantKeywords: ["Flying"] }]);
   });
   it("MUST stay LOW: granting a keyword NOT in GRANTABLE_STATIC_KEYWORDS → Arbiter (the allowlist IS the FP guard)", () => {
-    expect(conf("This creature gains horsemanship until end of turn.")).toBe("low");  // horsemanship un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
-    expect(conf("This creature gains banding until end of turn.")).toBe("low");
+    expect(conf("This creature gains banding until end of turn.")).toBe("low");  // banding un-grantable (horsemanship graduated — BLITZ EQ-1)
   });
   it("menace IS now grantable (GATED-GY-EXT) — self-grant menace parses high", () => {
     expect(conf("This creature gains menace until end of turn.")).toBe("high");
@@ -1692,10 +1690,11 @@ describe("parseEffectProgram — PUMP-TGT-CTRL controller-qualified pump/grant",
   it("menace is now GRANTABLE (GATED-GY-EXT #343 — enforced at combat resolution, CR 509.1c) → HIGH", () => {
     hi("target creature you control gains menace until end of turn");
   });
-  it("MUST stay LOW: un-grantable keywords (horsemanship, banding) still drop the clause", () => {
-    lo("target creature you control gains horsemanship until end of turn");
+  it("MUST stay LOW: un-grantable keyword (banding) still drops the clause", () => {
+    // (horsemanship graduated to grantable in BLITZ EQ-1; banding remains un-grantable — the CREED guard holds.)
+    lo("target creature you control gains banding until end of turn");
     lo("target creature you control gets +1/+0 and gains banding until end of turn");
-    lo("target creature an opponent controls gains horsemanship until end of turn");
+    lo("target creature an opponent controls gains banding until end of turn");
   });
   it("unqualified 'target creature gets...' is unchanged (no restriction)", () => {
     const a = atomOf("target creature gets +2/+2 until end of turn");

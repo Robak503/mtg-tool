@@ -58,12 +58,14 @@ const KARGAN = {
   power: "2", toughness: "2", keywords: ["Flying", "Trample", "Level up"],
   oracle: "Level up {R} ({R}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 4-7\n4/4\nFlying\nLEVEL 8+\n8/8\nFlying, trample\n{R}: This creature gets +1/+0 until end of turn.",
 };
-// Parks — each carries one honestly-unmodelable band piece:
-const HALIMAR = { // islandwalk is not a grantable keyword the engine enforces
+// Halimar Wavewatch FLIPPED in BLITZ EQ-1 — islandwalk graduated to a grantable, layer-aware keyword, so its
+// LEVEL 5+ band is now wholly modeled (whole-card + audit pins below).
+const HALIMAR = {
   name: "Halimar Wavewatch", type: "Creature — Merfolk Soldier", mana: "{1}{U}", power: "0", toughness: "3",
   keywords: ["Islandwalk", "Level up"],
   oracle: "Level up {2} ({2}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-4\n0/6\nLEVEL 5+\n6/6\nIslandwalk (This creature can't be blocked as long as defending player controls an Island.)",
 };
+// Parks — each carries one honestly-unmodelable band piece:
 const ZULAPORT = { // "can't be blocked except by black creatures" — an unmodeled band static
   name: "Zulaport Enforcer", type: "Creature — Human Warrior", mana: "{B}", power: "1", toughness: "1",
   oracle: "Level up {4} ({4}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-2\n3/3\nLEVEL 3+\n5/5\nThis creature can't be blocked except by black creatures.",
@@ -120,8 +122,12 @@ describe("parseLeveler — the frame parser", () => {
   it("band colon lines land in colonLines, unknown band text lands in unmodeledLines", () => {
     const bm = parseLeveler(BRIMSTONE);
     expect(bm.bands[0].colonLines).toEqual(["{T}: This creature deals 1 damage to any target."]);
+    // A grantable keyword band lands in `keywords` (Halimar's islandwalk graduated in EQ-1); an unmodeled
+    // STATIC band line still lands in unmodeledLines (Zulaport's block restriction → fail closed).
     const hal = parseLeveler(HALIMAR);
-    expect(hal.bands[1].unmodeledLines).toEqual(["Islandwalk"]); // not in the grantable vocabulary → fail closed
+    expect(hal.bands[1].keywords).toEqual(["islandwalk"]);
+    const zul = parseLeveler(ZULAPORT);
+    expect(zul.bands[1].unmodeledLines).toEqual(["This creature can't be blocked except by black creatures."]);
     const jor = parseLeveler(JORAGA);
     // the quoted group grant's colon is INSIDE the quotes → NOT this card's own colon line
     expect(jor.bands[1].colonLines).toEqual([]);
@@ -130,9 +136,10 @@ describe("parseLeveler — the frame parser", () => {
   it("keyword-line vocabulary is closed: unknown words fail the whole line", () => {
     expect(parseBandKeywordLine("First strike")).toEqual(["first strike"]);
     expect(parseBandKeywordLine("Lifelink, indestructible")).toEqual(["lifelink", "indestructible"]);
-    expect(parseBandKeywordLine("Islandwalk")).toBeNull();
+    expect(parseBandKeywordLine("Islandwalk")).toEqual(["islandwalk"]); // graduated to grantable — BLITZ EQ-1
+    expect(parseBandKeywordLine("Banding")).toBeNull();                 // still un-grantable
     expect(parseBandKeywordLine("Protection from instants")).toBeNull();
-    expect(parseBandKeywordLine("Flying, islandwalk")).toBeNull(); // one bad word poisons the line
+    expect(parseBandKeywordLine("Flying, banding")).toBeNull(); // one bad word poisons the line
   });
   it("Class enchantments are NOT the leveler frame (CR 716.4 / 711.7)", () => {
     const cls = { name: "Fighter Class", type: "Enchantment — Class", oracle: "(Gain the next level as a sorcery to add its ability.)\nWhen this Class enters, search your library for an Equipment card, reveal it, put it into your hand, then shuffle.\n{3}{R}{W}: Level 2\nEquipment you control have equip {1}.\n{3}{R}{W}: Level 3\nAt the beginning of combat on your turn, attach up to one target Equipment you control to target creature you control." };
@@ -145,7 +152,7 @@ describe("parseLeveler — the frame parser", () => {
 
 describe("modeledLeveler + classifyCard — whole card or park", () => {
   it("the 14 modeled levelers classify native-mixed", () => {
-    for (const card of [STUDENT, BRIMSTONE, TRANSCENDENT, KARGAN]) {
+    for (const card of [STUDENT, BRIMSTONE, TRANSCENDENT, KARGAN, HALIMAR]) {
       expect(modeledLeveler(card), card.name).not.toBeNull();
       expect(classifyCard(card), card.name).toBe("native-mixed");
     }
@@ -154,7 +161,7 @@ describe("modeledLeveler + classifyCard — whole card or park", () => {
     }
   });
   it("FN guards: every leveler with an unmodeled band piece parks whole (body-only)", () => {
-    for (const card of [HALIMAR, ZULAPORT, ECHO_MAGE, JORAGA]) {
+    for (const card of [ZULAPORT, ECHO_MAGE, JORAGA]) {
       expect(modeledLeveler(card), card.name).toBeNull();
       expect(classifyCard(card), card.name).toBe("body-only");
     }
@@ -165,7 +172,7 @@ describe("modeledLeveler + classifyCard — whole card or park", () => {
     }
   });
   it("a parked leveler emits NOTHING at runtime: no abilities, no statics", () => {
-    for (const card of [HALIMAR, ZULAPORT, ECHO_MAGE, JORAGA]) {
+    for (const card of [ZULAPORT, ECHO_MAGE, JORAGA]) {
       expect(parseActivatedAbilities(card), card.name).toEqual([]);
       expect(parseStaticAbilities(card), card.name).toEqual([]);
     }

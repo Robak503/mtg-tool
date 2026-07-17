@@ -80,9 +80,28 @@ export const GRANTABLE_COMBAT_KEYWORDS = new Set(
 //   - "exalted" (CR 702.83a): the attacks-alone fire site sums instances across the attacking player's
 //     battlefield via layers.keywordInstanceCount — structural printed count (exaltedKeywordCount; a
 //     grant line "…have exalted" is NOT an own-instance) PLUS layer-6 grants per permanent.
+// EQUIPMENT/AURA STATIC (BLITZ EQ-1) — five more keywords whose GRANTED instance is honored EXACTLY like a
+// printed one (each is already a COVERED_KEYWORDS native on a vanilla creature, and every enforcement site
+// reads it via the LAYER-AWARE permanentHasKeyword, so a layer-6 addKeyword grant switches it on/off with the
+// attachment). This admits the "Equipped/Enchanted creature has <kw>" grants (Executioner's Hood's intimidate,
+// Segovian Sword's skulk, Phyresis's infect) plus the anthem/token/pump forms:
+//   - "infect" (CR 702.90b/a) + "wither" (CR 702.80a): combatResolution reads permanentHasKeyword(Infect/Wither)
+//     — creature combat damage → -1/-1 counters, infect player damage → poison (the identical model already
+//     credited on every printed infect/wither creature; combat-only, matching the printed baseline). NOTE:
+//     "toxic" is deliberately NOT here — toxicValue reads the PRINTED oracle text, so a granted toxic isn't
+//     enforced (and it carries a value N a bare keyword grant can't convey) → those cards stay body-only (FN).
+//   - "intimidate" (CR 702.13b) + "skulk" (CR 702.118b) + "horsemanship" (CR 702.31b): block restrictions
+//     enforced in combatEvasion.canBlockAttacker via permanentHasKeyword — the ENTIRETY of each keyword, so
+//     granting it is complete.
+// BASIC LANDWALK (CR 702.14) — plains/island/swamp/mountain/forest-walk: canBlockAttacker's BASIC_WALK loop
+// reads permanentHasKeyword(<Type>walk) against the DEFENDING player's lands, so a granted basic-landwalk makes
+// the attached creature unblockable exactly like a printed one (Fishliver Oil's islandwalk, Burrowing's
+// mountainwalk). NONBASIC landwalk has no enforcement path → left out (those cards park, FN-safe).
 export const GRANTABLE_STATIC_KEYWORDS = new Set([
   ...GRANTABLE_COMBAT_KEYWORDS, "indestructible", "hexproof", "shroud",
   "defender", "shadow", "flanking", "exalted",
+  "infect", "wither", "intimidate", "skulk", "horsemanship",
+  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
 ]);
 
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */

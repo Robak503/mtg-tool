@@ -40,7 +40,7 @@ describe("group-keyword-grant — parser", () => {
   it("CREED: un-grantable keyword / filter / color-choice / static 'have' form stay low → Arbiter", () => {
     expect(programConfidence(parseEffectClause("Creatures you control gain protection from the color of your choice until end of turn.", "Instant"))).toBe("low");
     expect(programConfidence(parseEffectClause("White creatures you control gain protection from red until end of turn.", "Instant"))).toBe("low");
-    expect(programConfidence(parseEffectClause("Creatures you control gain forestwalk until end of turn.", "Instant"))).toBe("low"); // forestwalk un-grantable
+    expect(programConfidence(parseEffectClause("Creatures you control gain banding until end of turn.", "Instant"))).toBe("low"); // banding un-grantable (forestwalk graduated — BLITZ EQ-1)
     expect(programConfidence(parseEffectClause("Creatures you control have hexproof.", "Enchantment"))).toBe("low"); // static anthem, not this one-shot path
   });
 });

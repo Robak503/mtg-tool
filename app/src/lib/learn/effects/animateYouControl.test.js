@@ -115,8 +115,9 @@ describe("KAMAHL-ANIMATE-YOUCONTROL — CREED routing (LOW → Arbiter)", () => 
   it("a color-SET 'you control' animate ('becomes a green creature') → LOW", () => {
     expect(clauseConf("Until end of turn, target land you control becomes a 3/3 green creature. It's still a land.")).toBe("low");
   });
-  it("an un-grantable keyword rider ('you control' + infect) → LOW", () => {
-    expect(clauseConf("Until end of turn, target land you control becomes a 1/1 creature with infect. It's still a land.")).toBe("low");
+  it("an un-grantable keyword rider ('you control' + banding) → LOW", () => {
+    // (infect graduated to grantable in BLITZ EQ-1; banding remains un-grantable — the CREED guard holds.)
+    expect(clauseConf("Until end of turn, target land you control becomes a 1/1 creature with banding. It's still a land.")).toBe("low");
   });
 });
 

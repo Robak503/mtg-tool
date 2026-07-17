@@ -2955,10 +2955,21 @@ function parseAttachedClause(c, subject) {
       out.push({ layer: 6, op: { layerOp: "addProtection", dynamicColors: "notCommanderIdentity" }, duration: { kind: "permanent" } });
       return out.length ? out : null;
     }
-    const words = haveMatch[1].split(/,|\band\b/).map(w => w.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
-    if (words.length === 0) return null;
-    for (const w of words) {
-      if (!GRANTABLE_KEYWORDS.has(w)) return null;     // an unmodeled keyword/rider → whole bonus drops
+    // Split the have-tail into RAW segments (before the non-alpha strip, so a ward cost's "{N}" survives),
+    // each of which must be a grantable keyword OR a fixed-generic "ward {N}" grant.
+    const segs = haveMatch[1].split(/,|\band\b/).map((s) => s.trim()).filter(Boolean);
+    if (segs.length === 0) return null;
+    for (const seg of segs) {
+      // EQUIP-WARD (BLITZ EQ-1, CR 702.21): "ward {N}" (Lavaspur Boots, Crystal Carapace) — a layer-6 addWard
+      // grant scoped to the attached creature by staticEffectsOf; ward.js unions the granted generic cost with
+      // any printed ward at the soft-counter tax site (permanentGrantedWardCosts), so the grant is ENFORCED,
+      // not parse-only. ONLY a fixed-generic pip is modeled — the sole granted-ward cost the runtime enforces
+      // (permanentGrantedWardCosts reads `generic` only). A colored / {X} / life / discard ward grant falls
+      // through to null below → the whole bonus drops → body-only, a safe FN (never a costless/wrong-cost ward).
+      const wardM = seg.match(/^ward \{(\d+)\}$/);
+      if (wardM) { out.push({ layer: 6, op: { layerOp: "addWard", generic: parseInt(wardM[1], 10) }, duration: { kind: "permanent" } }); continue; }
+      const w = seg.replace(/[^a-z ]/g, "").trim();
+      if (!w || !GRANTABLE_KEYWORDS.has(w)) return null;   // an unmodeled keyword/rider → whole bonus drops
       out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(w) }, duration: { kind: "permanent" } });
     }
   }

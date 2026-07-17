@@ -97,7 +97,7 @@ export const COVERED_KEYWORDS = [
   "shroud", "indestructible", "ward", "protection", "prowess", "skulk",
   "intimidate", "fear", "horsemanship", "shadow", "changeling", "devoid",
   // KW-POISON — ENFORCED in combatResolution.js: infect/wither reroute combat damage to a creature
-  // into -1/-1 counters (CR 702.90b/702.79b); infect reroutes combat damage to a player into poison
+  // into -1/-1 counters (CR 702.90b/702.80a); infect reroutes combat damage to a player into poison
   // (702.90a); toxic N adds N poison on top of normal player damage (702.180a); ten poison loses the
   // game (704.5c). "toxic" matches the oracle clause "toxic N" via the startsWith check.
   "infect", "wither", "toxic",

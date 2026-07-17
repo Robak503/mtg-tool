@@ -175,8 +175,14 @@ describe("WALT-ANIMATE PR3 — man-land CREED routing (LOW → Arbiter)", () => 
   it("Mutavault — 'with all creature types' (changeling) → LOW", () => {
     expect(clauseConf("This land becomes a 2/2 creature with all creature types until end of turn. It's still a land.")).toBe("low");
   });
-  it("Inkmoth Nexus — infect (un-grantable keyword) → LOW", () => {
-    expect(clauseConf("This land becomes a 1/1 Phyrexian Blinkmoth artifact creature with flying and infect until end of turn. It's still a land.")).toBe("low");
+  it("Inkmoth Nexus — infect now MODELS (EQ-1 graduation: infect is grantable + enforced layer-aware)", () => {
+    // (This pin guarded infect as un-grantable until BLITZ EQ-1 added it to GRANTABLE_STATIC_KEYWORDS —
+    // the animate applies it as a layer-6 addKeyword grant that combatResolution reads via permanentHasKeyword,
+    // so the animated Blinkmoth genuinely deals -1/-1 counters / poison.)
+    expect(clauseConf("This land becomes a 1/1 Phyrexian Blinkmoth artifact creature with flying and infect until end of turn. It's still a land.")).toBe("high");
+  });
+  it("an animate with a genuinely un-grantable keyword (banding) still routes → LOW", () => {
+    expect(clauseConf("This land becomes a 1/1 artifact creature with banding until end of turn. It's still a land.")).toBe("low");
   });
 });
 

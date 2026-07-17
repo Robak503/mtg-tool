@@ -217,7 +217,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const recordCreatureDamage = (sourcePerm, damagedCreatureId, dealt) => {
     if (dealt > 0 && sourcePerm?.id != null) creatureDamagePairs.push({ dealerId: sourcePerm.id, dealerController: sourcePerm.controller, damagedCreatureId });
   };
-  // KW-POISON (CR 702.90b infect / 702.79b wither): when the SOURCE has infect or wither, combat
+  // KW-POISON (CR 702.90b infect / 702.80a wither): when the SOURCE has infect or wither, combat
   // damage to a creature is dealt as that many -1/-1 counters, NOT as marked damage (`minus=true`).
   // The damage is still "dealt", so deathtouch (if also present) still marks the creature — no real
   // card has infect/wither AND deathtouch (corpus-verified 0), so this is a harmless guard.
@@ -477,7 +477,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   for (const [pid, amount] of Object.entries(lifeLoss)) {
     if (amount > 0) next = loseLife(next, { playerId: pid, amount, combatDamage: true });
   }
-  // KW-POISON (CR 702.90b infect / 702.79b wither): infect/wither combat damage to a creature is dealt
+  // KW-POISON (CR 702.90b infect / 702.80a wither): infect/wither combat damage to a creature is dealt
   // as -1/-1 counters. Applied BEFORE the lethal SBA below so a creature dropped to 0 toughness is
   // destroyed in the SAME step (CR 704.5f) and fires its dies-triggers — exactly like marked lethal
   // damage. The +1/+1 ⟷ -1/-1 annihilation (CR 122.3) is handled by the net counterPtDelta math.
