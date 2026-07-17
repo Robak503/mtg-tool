@@ -459,6 +459,26 @@ function effectiveTypeIdentity(candidate, state) {
       }
       continue;
     }
+    // MASS-ANIMATION dynamic layer-4 ADD (BLITZ NV-1 — "All lands are N/N creatures that are still
+    // lands"): a DYNAMIC type-add must be visible to SELECTORS too (an anthem's cardTypes ["Creature"]
+    // must match an animated land — the same CR 613 layer-4-before-layer-6/7 dependency the fixed branch
+    // below honors), but evaluating a dynamic selector HERE would recurse (matchesSelector →
+    // effectiveTypeIdentity). RECURSION-FREE rule: honor ONLY a selector that carries nothing but
+    // cardTypes, matched against the candidate's PRINTED types (cardTypesOf — Land is never dynamically
+    // granted or removed in the modeled corpus, so the printed read is exact for the admitted carriers).
+    // Any richer dynamic type-add selector is SKIPPED here (conservative: deriveCharacteristics still
+    // applies it; selectors just don't see it — and no such emitter exists today).
+    if (e.affects?.mode === "dynamic" && Array.isArray(e.op?.types) && e.op.types.length) {
+      const sel = e.affects.selector || {};
+      const onlyCardTypes = Object.keys(sel).every((k) => k === "cardTypes" || sel[k] == null);
+      if (onlyCardTypes && Array.isArray(sel.cardTypes) && sel.cardTypes.length) {
+        const printed = cardTypesOf(candidate.card);
+        if (sel.cardTypes.every((t) => printed.includes(t))) {
+          for (const t of e.op.types) if (!types.includes(t)) types.push(t);
+        }
+      }
+      continue;
+    }
     if (e.affects?.mode !== "fixed" || !e.affects.permanentIds?.includes(candidate.id)) continue;
     for (const t of e.op?.types || []) if (!types.includes(t)) types.push(t);
     for (const st of e.op?.subtypes || []) subtypes.push(String(st).toLowerCase());
@@ -1073,6 +1093,26 @@ export function permanentTypes(state, permanentId) {
  */
 export function permanentIsCreature(state, permanentId) {
   return permanentTypes(state, permanentId).types.includes("Creature");
+}
+
+/**
+ * CR 302.6 — is this permanent summoning-sick RIGHT NOW, layer-aware? (BLITZ NV-1.) A PRINTED creature
+ * carries the truth on its stamped flag (entry stamps it, untap clears it, crew re-stamps it — the flag
+ * is authoritative there). A permanent that is a creature only BY LAYERS (a mass-animated land under
+ * Nature's Revolt / Living Plane; a crewed Vehicle equivalently) is sick iff it ENTERED THIS TURN: its
+ * flag is unreliable (non-creatures enter with summoningSick:false per the entry stamp; a stolen
+ * permanent carries true), so the read is enteredOnTurn === state.turn gated on the LIVE layer-4
+ * creature check — the layer read runs only for this-turn entries, so the mana/attack hot paths stay
+ * cheap. HASTE is deliberately NOT consulted here: every call site pairs this with its own
+ * permanentHasKeyword("Haste") check, so earthbend's printed haste and Vihaan's outlaw-anthem haste
+ * keep those animations attacking exactly as before. Consumers: legalChoices (declare-attacker,
+ * tap-for-mana, activate-ability {T} gate, double-mana-pool) + manaModel.manaSources.
+ */
+export function summoningSickNow(state, perm) {
+  if (!perm) return false;
+  if (/\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || ""))) return !!perm.summoningSick;
+  if (perm.enteredOnTurn !== state?.turn) return false;
+  return permanentIsCreature(state, perm.id);
 }
 
 /**

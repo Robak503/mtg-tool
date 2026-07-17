@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower 
 import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentHasKeyword, permanentIsCreature, permanentTypes, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackOrBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
@@ -1395,9 +1395,11 @@ function actionsTapForMana(state, playerId) {
       prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT supplement — mirrors manaSources (two-sites invariant)
     }
     if (!prod) continue;
-    const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
-    // Granted Haste counts here too (a lord that hastes your mana dorks).
-    if (isCreature && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+    // Granted Haste counts here too (a lord that hastes your mana dorks). Layer-aware sickness (NV-1,
+    // CR 302.6): a MASS-ANIMATED land played this turn is a summoning-sick creature — its {T} mana
+    // ability is off until its controller's next turn (summoningSickNow; printed creatures read their
+    // stamped flag exactly as before).
+    if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste")) continue;
     // MANA-VARIABLE: a count-derived amount (Gaea's Cradle / Karametra / Bighorner) is resolved LIVE
     // against the board (CR 608.2g), floored at 0. Skip the source entirely when it would tap for 0 —
     // never offer a pointless 0-mana tap (e.g. Gaea's Cradle with no creatures).
@@ -1551,7 +1553,8 @@ function actionsActivateAbility(state, playerId) {
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).
-        if (isCreaturePerm && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+        // summoningSickNow (NV-1): layer-aware — a mass-animated land played this turn is gated too.
+        if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste")) continue;
       }
       let cost = parseManaCost(ab.manaPips || "");
       // ACTIVATED-ABILITY COST-REDUCTION: shave the generic mana of an ability OF A CREATURE the player
@@ -1961,7 +1964,8 @@ function actionsDoubleManaPool(state, playerId) {
       if (!ab.doubleManaPool) continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
-        if (isCreature(perm.card) && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+        // summoningSickNow (NV-1, CR 302.6): layer-aware — printed creatures read their flag as before.
+        if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste")) continue;
       }
       const cost = parseManaCost(ab.manaPips || "");
       if (cost.hasX) continue; // no X-cost double-mana ability exists; guard defensively
@@ -2431,8 +2435,11 @@ function actionsDeclareAttacker(state, playerId) {
     // PACIFISM CLASS (BLITZ PA-1): the cantAttack pseudo-keyword (an attached "can't attack [or block]"
     // aura grant) — layer-aware, so the restriction lifts the moment the aura leaves.
     .filter(p => !permanentHasKeyword(state, p.id, "cantAttack"))
-    // Granted Haste (Concordant Crossroads, sliver) counts, not just printed.
-    .filter(p => !p.summoningSick || permanentHasKeyword(state, p.id, "Haste"))
+    // Granted Haste (Concordant Crossroads, sliver) counts, not just printed. The sickness read is
+    // flag-OR-layer-aware (NV-1, CR 302.6): the stamped flag keeps every existing verdict (crewed
+    // Vehicles re-stamp it; a stolen sick permanent carries it), and summoningSickNow adds the
+    // MASS-ANIMATED land played this turn (its flag is false — lands enter unstamped).
+    .filter(p => !(p.summoningSick || summoningSickNow(state, p)) || permanentHasKeyword(state, p.id, "Haste"))
     // CANT-ALONE (BLITZ SM-2, CR 508.1h — Mogg Flunkies): offered only once ANOTHER attacker is already
     // declared this combat (declaration is sequential here, so a lone can't-alone creature never leads;
     // the AI's per-tick re-offer sweeps it in on a later tick once a teammate is declared).

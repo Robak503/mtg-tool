@@ -32,7 +32,7 @@
 
 import { MANA_COLORS, addMana, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
 import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
@@ -731,7 +731,10 @@ export function manaSources(state, playerId) {
     // usable the turn the creature enters — so a freshly-created Spawn ramps immediately. All other
     // summoning-sick creatures (Haste-less {T} dorks) stay excluded exactly as before.
     const usableWhileSick = prod.sacrifices && !prod.requiresTap;
-    if (isCreature && perm.summoningSick && !usableWhileSick
+    // summoningSickNow (NV-1, CR 302.6): layer-aware — printed creatures read the stamped flag exactly
+    // as before; a MASS-ANIMATED land played this turn is newly gated (its {T} mana ability is a sick
+    // creature's); a Treasure/stolen non-creature keeps its old never-gated verdict.
+    if ((isCreature ? !!perm.summoningSick : summoningSickNow(state, perm)) && !usableWhileSick
         && !permanentHasKeyword(state, perm.id, "Haste")) continue;
     // MANA-VARIABLE: a count-derived amount (Gaea's Cradle "for each creature", Karametra "devotion",
     // Bighorner "greatest power", …) is resolved LIVE against the controller's board (CR 608.2g),

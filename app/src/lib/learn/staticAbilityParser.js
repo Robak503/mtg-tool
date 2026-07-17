@@ -1312,6 +1312,28 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── MASS LAND ANIMATION (BLITZ NV-1 — Nature's Revolt "All lands are 2/2 creatures that are still
+  // lands." / Living Plane "…1/1…"): TWO real layer descriptors on a dynamic selector over EVERY land,
+  // every player (no controller scope — the line names no "you"):
+  //   • layer 4 — ADD Creature (CR 613.1d; "still lands" = additive, Land is kept). Selectors see the
+  //     animated type via effectiveTypeIdentity's dynamic-add branch (an anthem's cardTypes ["Creature"]
+  //     matches an animated land — the CR 613 layer-4-before-6/7 dependency); combat / the lethal SBA
+  //     read it through deriveCharacteristics.
+  //   • layer 7b — SET base P/T to N/N (CR 613.3b/613.4a); counters and anthems then apply ON TOP (7c).
+  // The animation lifts LIVE (statics are re-collected per state — the carrier leaving removes both).
+  // CR 302.6 is enforced by layers.summoningSickNow at the attack/{T}-ability/mana gates: a land played
+  // while a carrier is out can't attack or tap for mana that turn. EXACT all-lands line only: the
+  // COLOR-carrying cousin (Kormus Bell "All Swamps are 1/1 black creatures that are still lands") is NOT
+  // admitted — its layer-5 color set has no delivery into selector color reads (matchesSelector reads
+  // printed colors), so admitting it would silently drop the "black" half (a CREED half-enforcement);
+  // it stays body-only (a safe FN).
+  const mlaM = c.match(/^all lands are (\d+)\/(\d+) creatures that are still lands$/);
+  if (mlaM) {
+    out.push({ layer: 4, op: { types: ["Creature"] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"] } }, duration: { kind: "permanent" } });
+    out.push({ layer: 7, sublayer: "7b", op: { layerOp: "ptSet", power: parseInt(mlaM[1], 10), toughness: parseInt(mlaM[2], 10) }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"] } }, duration: { kind: "permanent" } });
+    return;
+  }
+
   // ── KISMET (BLITZ KM-1, CR 614.1c) — the opponents-enter-tapped imposition, a coverage MARKER (the
   // castLimit pattern): the RUNTIME lives at every entry chokepoint via impositionEntersTapped. Only the
   // exact three-type line; any variant leaves residue → body-only (a safe FN).
