@@ -108,6 +108,13 @@ function cardMatchesGraveyardFilter(card, cardFilter) {
       const re = new RegExp(`\\b${String(cardFilter.subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
       if (!re.test(front)) return false;
     }
+    // BASE CARD-TYPE gate (BLITZ PW-1 — the reanimate-MV filter {cardType:"creature", mvMax:N}): front-face
+    // type-line containment (CR 712.8a, same front-face read as the string-token branch below). An unknown
+    // cardType word can never pass → the card is rejected (never a mis-scoped return; whole-or-nothing).
+    if (cardFilter.cardType) {
+      const word = GY_TYPE_WORD[cardFilter.cardType];
+      if (!word || !front.includes(word)) return false;
+    }
     if (typeof cardFilter.mvMax === "number") {
       const mv = card?.cmc ?? card?.mana_value ?? 0; // CR 202.3 — an absent cost reads MV 0
       if (mv > cardFilter.mvMax) return false;

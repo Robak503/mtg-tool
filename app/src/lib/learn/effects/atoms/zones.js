@@ -308,6 +308,17 @@ export function graveyardReturnClauseParser(clause) {
     if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
   }
   if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
+  // REANIMATE-MV-FILTER (BLITZ PW-1 — Ajani, Adversary of Tyrants "−2: Return target creature card with mana
+  // value 2 or less from your graveyard to the battlefield"; ~33 corpus carriers at MV 1/2/3/6): the plain
+  // own-graveyard reanimate (above) NARROWED by a mana-value cap. A STRUCTURED cardFilter {cardType:"creature",
+  // mvMax:N} rides the SAME applyReanimate resolver + the ONE cardMatchesGraveyardFilter chokepoint (cast-time
+  // enumeration AND the trigger-flush chooser both read it, so a wrong-MV / non-creature card is NEVER offered
+  // — CR 601.2c target restriction, CR 202.3 mana value, CR 712.8a a card in the graveyard has only its
+  // front-face characteristics). The exact `$` anchor rejects every rider ("tapped", "with a +1/+1 counter",
+  // an "X"/power/"lesser mana value" cap, the "artifact or creature" union) → those stay LOW → Arbiter (CREED
+  // whole-clause). CREATURE only — the cardType gate keeps a non-creature card of matching MV out of the pool.
+  const rmvM = /^return target creature card with mana value (\d+) or less from your graveyard to the battlefield$/.exec(t);
+  if (rmvM) return { op: "reanimate", targetType: "graveyardCard", cardFilter: { cardType: "creature", mvMax: parseInt(rmvM[1], 10) } };
   // REANIMATE-FROM-ANY (CR 608) — the Reanimate-family phrasing "put target creature card from a graveyard
   // onto the battlefield under your control" (Hymn of Rebirth, Endless Obedience, Vat Emergence's first
   // clause) and the opponent-scoped "from an opponent's graveyard" (Ashen Powder). UNLIKE the own-graveyard

@@ -69,6 +69,13 @@ export function massCreatureTargets(state, opts = {}) {
         const has = subRes.some((re) => re.test(face)); // carries ANY listed subtype
         if (opts.subtypeNegate ? has : !has) continue;
       }
+      // POWER threshold (BLITZ PW-1 — "destroy all creatures with power N or greater/less", Elspeth, Sun's
+      // Champion). LAYER-AWARE effective power (CR 613.3 — counters + anthems counted), read at resolution so
+      // a pumped/shrunk creature is judged by its CURRENT power (CR 208.1). ">=" keeps power ≥ N; "<=" ≤ N.
+      if (opts.powerCmp && typeof opts.powerVal === "number") {
+        const pw = creaturePower(perm, state);
+        if (opts.powerCmp === ">=" ? pw < opts.powerVal : pw > opts.powerVal) continue;
+      }
       out.push({ type: "creature", id: perm.id, controller: pid });
     }
   }
@@ -200,7 +207,7 @@ export function opponentCreatureTargets(state, controller, opts = {}) {
 export const atomTargets = (state, atom, ctx) => {
   // CRUX — a subtype-filtered mass set ("destroy all Dragon creatures" / "all non-Dragon creatures"). The bare
   // "destroy all creatures" wipe carries no subtypeFilter, so it passes EVERY creature (unchanged byte-for-byte).
-  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
+  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal });
   if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
   if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
   if (atom.targetType === "eachLand") return massPermanentTargets(state, atom.landSubtype

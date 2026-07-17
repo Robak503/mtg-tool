@@ -930,6 +930,17 @@ export function combatKeywordClauseParser(clause) {
     const upLandsM = t.match(/^untap up to (one|two|three|four|five) target lands?$/);
     if (upLandsM) return { op: "untap", targetType: "land", maxTargets: SMALL_NUM[upLandsM[1]], minTargets: 0 };
   }
+  // UNTAP-N-TARGET-LANDS (BLITZ PW-1 — Garruk Wildspeaker "+1: Untap two target lands"; Ley Weaver / Hope
+  // Tender / Argothian Elder / Enhancement Stickers — 5 corpus carriers): the EXACT-count sibling of the "up
+  // to N" form above. CR 601.2c requires exactly N targets, so minTargets:N = maxTargets:N (NOT the minTargets:0
+  // "up to" shape) — fewer than N legal lands ⇒ the ability can't be activated. Rides the SAME applyTapEffect
+  // resolver (loops ctx.targets, re-verifying each LIVE permanent is a land before untapping — CR 701.26b) + the
+  // SAME targetSubsets machinery (expandAtoms offers only size-N subsets). Plural "lands" only (an exact count
+  // is ≥2); a scoped/qualified form ("two target lands you control", a subtype) stays Arbiter (a safe FN).
+  {
+    const exactLandsM = t.match(/^untap (two|three|four|five) target lands$/);
+    if (exactLandsM) { const n = SMALL_NUM[exactLandsM[1]]; return { op: "untap", targetType: "land", maxTargets: n, minTargets: n }; }
+  }
   // UNTAP-BASIC-LAND (Earthcraft "Tap an untapped creature you control: Untap target basic land") — a single
   // chosen land carrying the Basic supertype (CR 205.4a). targetType "basicLand" routes through
   // PERMANENT_PREDICATES.basicLand in enumerateTargets (any BASIC land on any battlefield is a legal target),

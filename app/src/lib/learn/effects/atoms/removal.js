@@ -612,6 +612,15 @@ export function destroyExileClauseParser(clause) {
     const sub = MASS_CREATURE_SUBTYPES[mc[2]];
     if (sub) return { op: "destroy", targetType: "eachCreature", subtypeFilter: sub, subtypeNegate: !!mc[1] };
   }
+  // POWER-FILTERED CREATURE WIPE (BLITZ PW-1 — Elspeth, Sun's Champion "−3: Destroy all creatures with power 4
+  // or greater"; Solar Tide / Retribution of the Meek / Dusk // Dawn / Draw Team Lines — 8 corpus carriers):
+  // the eachCreature wipe NARROWED by an effective-power threshold. massCreatureTargets reads LAYER-AWARE
+  // creaturePower (CR 613.3 — counters + anthems counted), so the set is exactly the creatures whose CURRENT
+  // power meets the bound at resolution (CR 208.1 power, CR 701.8a destroy). "greater" → power ≥ N; "less" →
+  // power ≤ N. eachCreature stays a NON-chosen mass target (no rider, no target choice). A non-integer bound /
+  // "greater than" (strict) / any trailing rider fails the exact `$` → low → Arbiter (CREED whole-clause).
+  const mpow = t.match(/^destroy all creatures with power (\d+) or (greater|less)$/);
+  if (mpow) return { op: "destroy", targetType: "eachCreature", powerCmp: mpow[2] === "greater" ? ">=" : "<=", powerVal: parseInt(mpow[1], 10) };
   return null;
 }
 
