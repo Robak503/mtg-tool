@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackOrBlockAlone } from "./combatEvasion.js";
+import { canBlockAttacker, attackerHasMenace, isBlockedByAtMostOne, attackDefenderLandRequirement, defenderMeetsAttackLandRequirement, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -2496,10 +2496,12 @@ function actionsDeclareAttacker(state, playerId) {
     // Vehicles re-stamp it; a stolen sick permanent carries it), and summoningSickNow adds the
     // MASS-ANIMATED land played this turn (its flag is false — lands enter unstamped).
     .filter(p => !(p.summoningSick || summoningSickNow(state, p)) || permanentHasKeyword(state, p.id, "Haste"))
-    // CANT-ALONE (BLITZ SM-2, CR 508.1h — Mogg Flunkies): offered only once ANOTHER attacker is already
-    // declared this combat (declaration is sequential here, so a lone can't-alone creature never leads;
-    // the AI's per-tick re-offer sweeps it in on a later tick once a teammate is declared).
-    .filter(p => !cantAttackOrBlockAlone(p.card) || declared.size > 0);
+    // CANT-ATTACK-ALONE (BLITZ SM-2 + CB-1, CR 508.1h — Mogg Flunkies / Raging Kronch): offered only once
+    // ANOTHER attacker is already declared this combat (declaration is sequential here, so a lone can't-alone
+    // creature never leads; the AI's per-tick re-offer sweeps it in on a later tick once a teammate is
+    // declared). cantAttackAlone matches BOTH the bare "can't attack alone" and the combined "attack or block
+    // alone" form — the block-only "can't block alone" (Craven Hulk) is NOT gated here (it may attack alone).
+    .filter(p => !cantAttackAlone(p.card) || declared.size > 0);
 
   // Legal attack targets (CR 508.1a): each opponent (their face) PLUS every planeswalker they
   // control (PW-1 — a creature may attack a planeswalker instead of its controller). A face target
@@ -2585,9 +2587,11 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     .filter(p => permanentIsCreature(state, p.id))
     .filter(p => !p.tapped)
     .filter(p => !assigned.has(p.id))
-    // CANT-ALONE (BLITZ SM-2, CR 509.1a — Mogg Flunkies): offered as a blocker only once ANOTHER
-    // blocker is already declared this combat (sequential declaration — the exact mirror of the attack gate).
-    .filter(p => !cantAttackOrBlockAlone(p.card) || assigned.size > 0);
+    // CANT-BLOCK-ALONE (BLITZ SM-2 + CB-1, CR 509.1a — Mogg Flunkies / Craven Hulk): offered as a blocker
+    // only once ANOTHER blocker is already declared this combat (sequential declaration — the exact mirror of
+    // the attack gate). cantBlockAlone matches BOTH the bare "can't block alone" and the combined form — the
+    // attack-only "can't attack alone" (Raging Kronch) is NOT gated here (it may block alone).
+    .filter(p => !cantBlockAlone(p.card) || assigned.size > 0);
 
   // Evasion runs through ONE chokepoint (combatEvasion.canBlockAttacker), read layer-aware so a
   // GRANTED keyword counts: flying/reach, unblockable, basic landwalk (gated by THIS defender's

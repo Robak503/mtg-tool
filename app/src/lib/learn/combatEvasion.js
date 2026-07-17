@@ -308,6 +308,26 @@ const reCantAlone = /(?:^|[\n.;])\s*this (?:creature|token) can't attack or bloc
 export function cantAttackOrBlockAlone(card) {
   return reCantAlone.test(selfOracle(card));
 }
+/** CANT-ATTACK-ALONE (BLITZ CB-1, CR 508.1h — Raging Kronch / Bonded Construct / Trusty Companion): the
+ * ATTACK-ONLY restriction "This creature can't attack alone." It forbids a lone ATTACK only (blocking is
+ * unrestricted), so it routes through the attack-declaration gate ONLY (legalChoices.actionsDeclareAttacker):
+ * the creature is offered as an attacker only once ANOTHER attacker is already declared — the SAME
+ * sequential-declaration mechanism SM-2 built, just wired to one gate. The regex also matches the combined
+ * "can't attack or block alone" form (which likewise forbids a lone attack), so Mogg Flunkies' attack gate is
+ * still enforced through this reader. The "token" wording covers granted text on created tokens. */
+const reCantAttackAlone = /(?:^|[\n.;])\s*this (?:creature|token) can't attack (?:or block )?alone\s*(?:\.|$)/i;
+export function cantAttackAlone(card) {
+  return reCantAttackAlone.test(selfOracle(card));
+}
+/** CANT-BLOCK-ALONE (BLITZ CB-1, CR 509.1a — Craven Hulk): the mirror BLOCK-ONLY restriction "This creature
+ * can't block alone." It forbids a lone BLOCK only (attacking is unrestricted), so it routes through the
+ * block-declaration gate ONLY (legalChoices.actionsDeclareBlocker): offered as a blocker only once ANOTHER
+ * blocker is already declared this combat. The regex also matches the combined "can't attack or block alone"
+ * form (which likewise forbids a lone block), so Mogg Flunkies' block gate is still enforced through here. */
+const reCantBlockAlone = /(?:^|[\n.;])\s*this (?:creature|token) can't (?:attack or )?block alone\s*(?:\.|$)/i;
+export function cantBlockAlone(card) {
+  return reCantBlockAlone.test(selfOracle(card));
+}
 /** ASSIGN-AS-UNBLOCKED (BLITZ TE-1, CR 508.1h — Thorn Elemental / Pride of Lions / Wolf Pack / Lone Wolf):
  * "You may have this creature assign its combat damage as though it weren't blocked." Enforced in
  * combatResolution: a blocked attacker with this line assigns its FULL power to the defending player
@@ -388,10 +408,12 @@ export function isEnforcedEvasionClause(clause) {
   // defenderMeetsAttackLandRequirement), so a body whose only non-keyword text is this static is honestly
   // native. The two-line "When you control no Islands, sacrifice …" frame never reaches here whole.
   if (/^(?:this creature |it )?can't attack unless defending player controls an? (?:island|swamp|mountain|forest|plains|snow land)$/.test(c)) return true;
-  // CANT-ALONE (BLITZ SM-2) — "can't attack or block alone" is enforced at BOTH declaration gates
-  // (legalChoices offers the creature only once another attacker/blocker is declared), so a body whose
-  // only non-keyword text is this static is honestly native (Mogg Flunkies / Loyal Pegasus class).
-  if (/^(?:this (?:creature|token) |it )?can't attack or block alone$/.test(c)) return true;
+  // CANT-ALONE (BLITZ SM-2 + CB-1) — "can't attack alone" / "can't block alone" / "can't attack or block
+  // alone" are enforced at the attack and/or block declaration gate(s) (legalChoices offers the creature
+  // only once another attacker/blocker is declared this combat — cantAttackAlone gates the attack side,
+  // cantBlockAlone the block side), so a body whose only non-keyword text is one of these statics is honestly
+  // native (Raging Kronch / Bonded Construct / Craven Hulk / Mogg Flunkies / Loyal Pegasus class).
+  if (/^(?:this (?:creature|token) |it )?can't (?:attack alone|block alone|attack or block alone)$/.test(c)) return true;
   // ASSIGN-AS-UNBLOCKED (BLITZ TE-1) — enforced in combatResolution (the blocked attacker assigns its
   // full power to the defending player), so a Thorn Elemental body is honestly native.
   if (/^you may have this creature assign its combat damage as though it weren't blocked$/.test(c)) return true;
