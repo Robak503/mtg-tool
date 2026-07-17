@@ -64,6 +64,7 @@ import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-E
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
+import { spellConditionParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -719,6 +720,18 @@ function splitClauses(oracle) {
     // OR drops a multi-keyword grant). All-or-nothing anchored downstream (an un-grantable keyword → null → low →
     // Arbiter), so keeping too much together can only fail to match, never a confident wrong partial.
     if (/^create a token that(?:'s| is) a copy of target creature you control, except the token has .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // CONDITIONAL SPELL RIDER (BLITZ CD-1, CR 608.2) — a leading "If <board-condition>, <effect>" sentence
+    // ("If you control a Wizard, draw a card"): keep the WHOLE sentence as one clause so the top-level " and "
+    // split below can't SEVER a multi-instruction gated effect ("If you control a Vampire, each opponent loses
+    // 2 life and you gain 2 life") into a conditional head + an orphaned, now-UNconditional tail (a forbidden
+    // dropped-condition FP). parseClauseToAtom's conditional peel then models a SINGLE-atom gated effect
+    // (attaching `condition`) or returns null for a multi-atom one → the whole card parks (→ low → Arbiter,
+    // CREED). Gated on spellConditionParseable so ONLY a board-readable condition triggers keep-whole; a
+    // leading "if" with an unreadable condition ("if its power is 3 or less") splits normally, byte-identical.
+    {
+      const cm = sentence.match(/^if (.+?), .+$/i);
+      if (cm && spellConditionParseable(cm[1])) { clauses.push(sentence); continue; }
+    }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
@@ -825,6 +838,38 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     // so the atom is left UN-optional too — otherwise Explore ("…land this turn. Draw a card.") would become
     // optional-then-mandatory and fail the optionalsFormSuffix suffix rule, dropping a clean card to Arbiter.
     return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn") ? inner : { ...inner, optional: true };
+  }
+
+  // ===== CONDITIONAL SPELL RIDER (BLITZ CD-1, CR 608.2) ===== a leading "If <board-condition>, <effect>"
+  // clause ("If you control a Wizard, draw a card") — the resolving spell applies <effect> ONLY when the board
+  // condition holds AS the instruction resolves (CR 608.2, checked in written order). The condition must be one
+  // a spell can read with only its own context (spellConditionParseable — the board/player/turn readers, NO
+  // per-object referent), which is the metric⇄runtime shared gate: attach `condition` here ONLY when the
+  // resolver (runProgram → evaluateInterveningIf) can evaluate it, so "native" is never claimed for a rider
+  // that would silently never fire. SCOPE (this slice): a SINGLE, NON-optional, NON-targeting gated atom. A
+  // multi-instruction gated effect (any top-level " and "/", then ") → null → the whole card parks (→ low →
+  // Arbiter, CREED — never a partial that drops one instruction's condition); a targeted or optional gated
+  // effect likewise parks (a fast-follow). splitClauses keeps the leading-if sentence WHOLE, so the effect
+  // text reaching here is complete. The TRAILING form ("<effect> if <cond>") is deferred to a later slice.
+  {
+    const cond = s.match(/^if (.+?), (.+)$/i);
+    if (cond && spellConditionParseable(cond[1])) {
+      // Once the condition is spell-readable (and splitClauses kept the sentence whole for exactly this), the
+      // clause is COMMITTED to the conditional model — every failure below returns null (the card parks → low
+      // → Arbiter), NEVER falls through to the legacy parse, which could match the gated verb and SILENTLY DROP
+      // the condition (a forbidden FP). A multi-instruction gated effect (top-level " and "/", then ") parks.
+      const gated = cond[2];
+      if (/\s+\band\b\s+|,\s+then\s+/i.test(gated)) return null; // multi-atom gated rider → park (this slice)
+      const inner = parseClauseToAtom(cardType, gated, hasX);
+      if (inner
+        && KNOWN.has(inner.op)
+        && !inner.condition                 // no nested conditional (defensive — the effect can't re-lead with "if …,")
+        && !inner.optional                  // park an optional-gated rider (a fast-follow) — never double-gate here
+        && (!inner.targetType || isNonChosenTargetType(inner.targetType))) { // non-targeting gated atom only (this slice)
+        return { ...inner, condition: cond[1].toLowerCase() };
+      }
+      return null; // gated effect isn't a clean single non-targeting atom → park (CREED)
+    }
   }
 
   // ===== TOKENS ===== T3 X/X-FROM-COMBAT-DAMAGE create-token (Quartzwood Crasher) — "Create an X/X

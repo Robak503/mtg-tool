@@ -28,6 +28,7 @@ import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
+import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
 /**
@@ -150,6 +151,13 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   }
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
+    // CONDITIONAL SPELL RIDER (BLITZ CD-1, CR 608.2) — a `condition`-gated rider ("If you control a Wizard,
+    // draw a card") applies ONLY when the board condition holds AS this instruction resolves (CR 608.2, in
+    // written order — so `next`, the state after earlier atoms, is the correct read). Reuses the intervening-if
+    // board readers verbatim (evaluateInterveningIf). The parser attaches `condition` ONLY for spell-readable
+    // board queries, so a real game state yields true/false here; a defensive null (never expected) is treated
+    // as not-met → SKIP (the false-negative-safe direction — a rider is dropped, never fabricated; CREED).
+    if (atom.condition && evaluateInterveningIf(next, atom.condition, controller, context) !== true) continue;
     // KICKED-SPELL-EFFECT (CR 702.33e) — a `kickedOnly` atom (the "If this spell was kicked, <extra>" payoff)
     // runs ONLY when the spell was cast kicked (params.kicked). On a normal cast it's SKIPPED — never resolved,
     // never a fabricated effect (the cardinal CREED guarantee for the not-kicked path). The base atoms (no

@@ -788,3 +788,26 @@ export function interveningIfParseable(condition) {
   // the probe permanent has no counters → false, still a definite boolean.
   return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
 }
+
+/**
+ * SPELL-side shape check (BLITZ CD-1): is this a condition a resolving INSTANT/SORCERY can read with only
+ * the context a spell supplies — the controller and the live board/player/turn state, but NO triggering
+ * permanent, source permanent, defender, or per-object flag? Probes `evaluateInterveningIf` with an
+ * EMPTY single-seat board and an EMPTY context (no per-object thread), so:
+ *   • a board/player/turn query ("you control a Wizard", "you control no artifacts", "a creature died this
+ *     turn", "an opponent controls more creatures than you", "you have no cards in hand") returns a boolean
+ *     (its truth on the empty board) → readable → true;
+ *   • a PER-OBJECT condition that needs a referent a spell can't provide ("you control another Elf" needs the
+ *     triggering permanent to exclude; "it was kicked"; the source-counter / same-name shapes) returns null
+ *     → NOT readable → false.
+ * This is the metric⇄runtime shared gate for a conditional spell rider: the parser attaches a `condition`
+ * to a gated atom ONLY when this returns true, so the coverage claim ("native") is always backed by a
+ * condition the resolver (runProgram → the same evaluateInterveningIf) can actually evaluate — a condition
+ * a spell can't read stays LOW → Arbiter (false-negative SAFE; a wrongly-applied rider would be a forbidden
+ * FP, CREED). Reuses the readers verbatim — no re-implementation. Straight mirror of interveningIfParseable
+ * but with the SPELL context (no per-object probe fields), which is exactly what distinguishes the two.
+ */
+export function spellConditionParseable(condition) {
+  const probe = { players: { __probe__: { battlefield: [], graveyard: [], hand: [], library: [], life: 20 } } };
+  return evaluateInterveningIf(probe, condition, "__probe__", {}) !== null;
+}
