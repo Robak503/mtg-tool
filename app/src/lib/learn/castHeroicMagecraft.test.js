@@ -1,16 +1,17 @@
 /**
  * CAST-HEROIC — two new cast-trigger conditions:
  *
- * 1. HEROIC (CR 702.35): "Whenever you cast a spell that targets this creature, <effect>"
- *    Fires when the controller casts a spell that has this permanent as a chosen target.
- *    The "Heroic —" ability-word label (CR 207.2c) is stripped by stripTriggerAbilityLabel.
+ * 1. HEROIC (CR 207.2c ability word — no individual 702 entry): "Whenever you cast a spell that targets
+ *    this creature, <effect>". Fires when the controller casts a spell that has this permanent as a chosen
+ *    target. The "Heroic —" ability-word label is stripped by stripTriggerAbilityLabel.
  *    Engine: checkCastTriggers scans action.targets for heroic-bearing permanents the caster
  *    controls and fires their triggers (scope:"self", whose:"you").
  *
- * 2. MAGECRAFT (CR 702.173): "Whenever you cast or copy an instant or sorcery spell, <effect>"
- *    Routes to the existing event:"cast" + spellFilter:"instantSorcery" path; the "copy" half
- *    (CR 706.10) is a safe false-negative — the engine only fires on cast.
- *    The "Magecraft —" ability-word label is stripped by stripTriggerAbilityLabel.
+ * 2. MAGECRAFT (CR 207.2c ability word — no individual 702 entry): "Whenever you cast or copy an instant or
+ *    sorcery spell, <effect>". Routes to the existing event:"cast" + spellFilter:"instantSorcery" path; the
+ *    "copy" half (a separate CR 707 Copying-Objects event) is a false-negative — the engine fires only on
+ *    cast, not on a storm/Double-Major copy. The "Magecraft —" ability-word label is stripped by
+ *    stripTriggerAbilityLabel.
  *
  * CREED guard: a trailing rider on heroic ("that targets this creature and another target")
  * stays UNDETECTED → Arbiter. A heroic trigger with an unmodeled effect (e.g. become a copy,

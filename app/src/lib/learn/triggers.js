@@ -262,8 +262,17 @@ export function stripTriggerAbilityLabel(oracle) {
   // ability silently does nothing. Stripping can only RAISE the shaped count toward the true total (it never
   // hides a trigger), so it's strictly FN-safe + closes the false-positive. A Raid trigger that IS modeled
   // (a bare ETB/upkeep effect) stays native exactly as before — the strip only reveals it to the counter.
+  // "flurry" (CR 207.2c) is the ability-word label on the SECOND-SPELL family ("Flurry — Whenever you cast
+  // your second spell each turn, …" — Cori Mountain Stalwart, Devoted Duelist, Wingblade Disciple). Every one
+  // of the 14 corpus "Flurry —" cards writes the full "cast your second spell each turn" trigger after the
+  // label with NO intervening-if (BLITZ CC-1 corpus scan), so stripping lets the boundary-anchored regex see
+  // the bare "Whenever" and the existing castSecond detector routes it. "flurry of blows" (Monk of the Open
+  // Hand) and "eukrasia" (Alphinaud Leveilleur, FIN) are the same second-spell label under card-specific /
+  // newer-set flavor names — not in this CR snapshot's 207.2c list, but corpus-verified pure flavor (the
+  // trigger is written out in full after each), so they strip on the same FN-safe + FP-closing basis. Ordered
+  // longest-first so "flurry of blows" is consumed whole before the bare "flurry" alternative can partial-match.
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid)\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia)\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
@@ -1346,9 +1355,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you cast a spell that targets this creature$/.test(c))
     return { event: "heroic", scope: "self", whose: "you" };
 
-  // MAGECRAFT (CR 702.173) — "Whenever you cast or copy an instant or sorcery spell, <effect>".
-  // Routes to the existing cast event + instantSorcery filter; "copy" is a separate CR 706.10
-  // event not yet tracked, so the copy half is a safe false-negative (never over-fires).
+  // MAGECRAFT (CR 207.2c ability word — no individual 702 keyword entry) — "Whenever you cast or copy an
+  // instant or sorcery spell, <effect>". Routes to the existing cast event + instantSorcery filter; "copy"
+  // is a separate CR 707 (Copying Objects) event the cast chokepoint does NOT observe, so the copy half is a
+  // false-negative: a magecraft watcher that should fire on a storm/Double-Major copy (the copy-spell /
+  // copy-creature-spell atoms) does not. It only ever UNDER-fires (never over-fires), which is why the whole
+  // card is still routed native here — but see BLITZ CC-1 park notes: wiring the copy chokepoint to fire
+  // cast-watchers is the honest fix for the copy half, deferred as its own slice.
   // checkCastTriggers already handles event:"cast" whose:"you" spellFilter:"instantSorcery",
   // so magecraft gets the CAST half for free. Anchored bare form only.
   if (/^you cast or copy an instant or sorcery spell$/.test(c))
