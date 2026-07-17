@@ -3505,6 +3505,20 @@ function parseGlobalTapManaAugmentImpl(card) {
   if (isAuraCard(card)) return null;
   const oracle = String(card?.oracle || card?.oracle_text || "");
   for (const clause of abilityClauses(oracle)) {
+    // MANA FLARE (BLITZ MF-1, CR 605.1b) — the ALL-PLAYERS, LANDS-ONLY, SAME-TYPE additive cousin: "Whenever
+    // a player taps a land for mana, that player adds one mana of any type that land produced." (Mana Flare /
+    // Heartbeat of Spring / Zhur-Taa Ancient / Dictate of Karametra — the exact template). The extra mana's
+    // TYPE is the type the land produced, expressed as sameAsProduced: the consumers credit +1 of the PRIMARY
+    // chosen color of that very tap (planPayment's sameAsProduced component pick; actionsTapForMana's
+    // per-action color), so a dual/any-color land never mints an off-type pip (the FP direction — e.g. W+U
+    // off one Adarkar Wastes tap is impossible). allPlayers: the TAPPING player benefits regardless of who
+    // controls the carrier (symmetric, "a player … that player" — manaModel scans every battlefield). Anchored
+    // whole-clause: Overabundance's damage rider, Barbflare Gremlin's "if this creature is tapped" condition,
+    // and Vorinclex's you-scoped line all leave residue → no match → the fixed-pip branch below also rejects
+    // them → null → body-only (a SAFE FN, CREED).
+    if (/^whenever a player taps a land for mana, that player adds one mana of any type that land produced$/.test(clause.trim().toLowerCase())) {
+      return { subject: "land", allPlayers: true, sameAsProduced: true, amount: 1 };
+    }
     // The optional " while you're the monarch" condition rides between "for mana" and ", add" (Regal
     // Behemoth — the only monarch-gated tap-augment in the corpus). Captured as condition:"monarch"; the
     // runtime (globalTapManaAugment) adds the extra mana ONLY while `state.monarchId === playerId`.
@@ -3546,7 +3560,11 @@ export function stripGlobalTapManaAugment(card) {
   if (!parseGlobalTapManaAugment(card)) return oracle;
   return oracle
     .split(/\n+/)
-    .filter((line) => !/^\s*whenever you tap a (?:land|creature) for mana(?: while you're the monarch)?, add /i.test(line))
+    .filter((line) => !/^\s*whenever you tap a (?:land|creature) for mana(?: while you're the monarch)?, add /i.test(line)
+      // MANA FLARE (MF-1): the all-players line strips ONLY in its exact rider-free form ($-anchored), so
+      // Overabundance's "…, and this enchantment deals 1 damage to the player." survives as residue (its
+      // parse is null anyway — belt on top of the parse gate).
+      && !/^\s*whenever a player taps a land for mana, that player adds one mana of any type that land produced\.?\s*$/i.test(line))
     .join("\n");
 }
 

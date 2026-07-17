@@ -619,16 +619,29 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
   const srcIsLand = /\bLand\b/.test(srcType);
   const srcIsCreature = /\bCreature\b/.test(srcType);
   const out = [];
-  for (const perm of player.battlefield) {
-    const aug = parseGlobalTapManaAugment(perm.card);
-    if (!aug) continue;
-    // MONARCH GATE (Regal Behemoth, CR 725) — a condition:"monarch" augment adds the extra mana ONLY while
-    // this player holds the crown. Not the monarch → no extra mana (no phantom production, CREED). The
-    // become-monarch event / crown-steal keep state.monarchId current, so this reads the live crown.
-    if (aug.condition === "monarch" && state.monarchId !== playerId) continue;
-    if (aug.subject === "land" && !srcIsLand) continue;
-    if (aug.subject === "creature" && !srcIsCreature) continue;
-    out.push({ colors: [...aug.colors], amount: aug.amount });
+  // MANA FLARE (BLITZ MF-1): an allPlayers augment ("Whenever a PLAYER taps a land for mana, THAT PLAYER
+  // adds …") benefits the TAPPING player (`playerId`) no matter who controls the carrier — so the scan
+  // covers EVERY battlefield, with the controller gate applied only to the controller-scoped ("Whenever
+  // YOU tap …") forms. Symmetric by construction: the AI opponents' land taps ride a user-owned Mana Flare
+  // exactly as the user's do (each seat's manaSources/actionsTapForMana calls in with its own playerId).
+  for (const pid of Object.keys(state.players || {})) {
+    for (const perm of state.players[pid]?.battlefield || []) {
+      const aug = parseGlobalTapManaAugment(perm.card);
+      if (!aug) continue;
+      if (!aug.allPlayers && pid !== playerId) continue; // controller-scoped: only the tapper's own carriers
+      // MONARCH GATE (Regal Behemoth, CR 725) — a condition:"monarch" augment adds the extra mana ONLY while
+      // this player holds the crown. Not the monarch → no extra mana (no phantom production, CREED). The
+      // become-monarch event / crown-steal keep state.monarchId current, so this reads the live crown.
+      if (aug.condition === "monarch" && state.monarchId !== playerId) continue;
+      if (aug.subject === "land" && !srcIsLand) continue;
+      if (aug.subject === "creature" && !srcIsCreature) continue;
+      // sameAsProduced (MF-1): the bonus's TYPE is the type this tap produces — resolved by the consumer
+      // (manaSources stamps the source's production colors; planPayment/actionsTapForMana credit the
+      // PRIMARY chosen color), never an independent color pick (the off-type FP, CREED).
+      out.push(aug.sameAsProduced
+        ? { sameAsProduced: true, amount: aug.amount }
+        : { colors: [...aug.colors], amount: aug.amount });
+    }
   }
   return out;
 }
@@ -760,7 +773,11 @@ export function manaSources(state, playerId) {
     // Dirtbag, Leyline of Abundance). Both boosts ride on THIS source's tap (neither taps the augmenter),
     // so they concat into one `bonus` list the planner credits on tap. (MANA-MULTIPLIER applies to the
     // source's OWN production above; an additive triggered boost is NOT multiplied — CR 605.1b/616.)
-    const bonus = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)];
+    // MANA FLARE (MF-1): a sameAsProduced bonus's reachable color set IS the source's own production set
+    // (the extra pip is the type this tap produced), so stamp prod.colors here — planPayment's flex/can-make
+    // reads stay exact (no new color reach) and its sameAsProduced pick binds the bonus to the primary color.
+    const bonus = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)]
+      .map((b) => (b.sameAsProduced ? { sameAsProduced: true, colors: [...prod.colors], amount: b.amount } : b));
     sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices, ...(bonus.length ? { bonus } : {}) });
   }
   return sources;
@@ -820,7 +837,9 @@ export function planPayment(pool, sources, cost) {
       sacrifices: !!s.sacrifices,   // one-shot source (Treasure/Gold) — the commit path sacrifices it
       // AURA-LAND-MANA-BOOST: extra mana produced INLINE when this source (a land) taps — each entry
       // {colors, amount}. Credited on tap; the bonus is part of the land tap, never a separate tap.
-      bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount })).filter(b => b.amount > 0 && b.colors.length) : [],
+      // MANA FLARE (MF-1): a sameAsProduced bonus keeps its marker — tapSource binds its color to the
+      // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
+      bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
       used: false,
     }))
     .filter(s => s.amount > 0);
@@ -844,7 +863,7 @@ export function planPayment(pool, sources, cost) {
   const tapSource = (s, wantColor) => {
     s.used = true;
     // Components: the primary land mana (one chosen color from s.colors) + each bonus entry.
-    const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false }))];
+    const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false, sameAsProduced: !!b.sameAsProduced }))];
     let primaryColor = null;
     const bonusPicks = [];
     let assigned = false;
@@ -856,7 +875,10 @@ export function planPayment(pool, sources, cost) {
       return needed || comp.colors[0];
     };
     for (const comp of components) {
-      const color = pickColor(comp);
+      // MANA FLARE (MF-1, CR 106.1b): a sameAsProduced bonus is "one mana of any type THAT LAND PRODUCED" — its
+      // color IS the primary's chosen color (the primary component is first, so primaryColor is already set),
+      // NEVER an independent pick: one Adarkar Wastes tap under Mana Flare makes WW or UU, never W+U (CREED).
+      const color = comp.sameAsProduced ? primaryColor : pickColor(comp);
       working[color] += comp.amount;
       if (comp.primary) primaryColor = color;
       else bonusPicks.push({ color, amount: comp.amount });

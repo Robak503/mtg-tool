@@ -1415,8 +1415,11 @@ function actionsTapForMana(state, playerId) {
     // GLOBAL-TAP-AUGMENT mirrors manaSources (the two-sites invariant): a controller-owned "Whenever you
     // tap a <land|creature> for mana, add …" permanent adds extra fixed-color mana inline on this tap.
     const bonusSources = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)];
-    const bonus = bonusSources.map(b => ({ color: b.colors[0], amount: b.amount }));
     for (const color of prod.colors) {
+      // MANA FLARE (MF-1): a sameAsProduced bonus's color IS this action's chosen production color ("one
+      // mana of any type that land produced" — resolved per action, so tapping a dual for W carries a +1 W
+      // bonus and the U action a +1 U, never an off-type pip). Fixed-color bonuses keep their color.
+      const bonus = bonusSources.map(b => ({ color: b.sameAsProduced ? color : b.colors[0], amount: b.amount }));
       actions.push({
         kind: "tap-for-mana",
         playerId,
