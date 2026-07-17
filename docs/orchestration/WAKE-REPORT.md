@@ -1,6 +1,25 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 (night shift, RUNNING) — shelf-first team era: 30.95% (+27 tonight), suite 9,042 — 2 Fable seats hot
+## 🌃 2026-07-17 ~01:20 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.10%, suite 9,123 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself.
+> **Landed since the entry below**: **TS-1** (6260ee99, +9 — grant-aura CAST lane: ~30 already-native
+> grant auras were metric-native but their cast resolved SPELL_NOOP — the drift found by probe; plus
+> keyword-line residue admits) · **SP-1** (8e1440c5, +22 — Sliver interiors: defender/shadow/flanking/
+> exalted vocabulary + keywordInstanceCount, a latent exalted over-count fixed; 34-card bucketed park
+> list in the commit) · **LK-1** (b4c884a6, +13 — look-at-top reveal-take rides impulse-dig; Icon of
+> Ancestry composed; Herald's Horn deferred to LK-2 as its own take-or-leave mechanic) · **UP-1**
+> (1340397d, +8 — the Brass Man untap-tax family; the runtime now honors the self "doesn't untap"
+> static; DESK CATCH: the seat's regex also froze the Cloudcrest Lake slow-dual family via the one-shot
+> "next untap step" wording — narrowed + pinned before landing).
+> **IN FLIGHT (3 Opus seats)**: **LK-2** top-card take-or-leave (Herald's Horn's last blocker) ·
+> **SG-1** source-gated group anthems (Kabira/Coralhelm bands + Bladeback hellbent) · **RD-1** the
+> owner-blessed SEEDED RNG primitive + random discard. Night total so far: **+79** (30.87% → 31.10%),
+> suite 8,932 → 9,123, LOST=0 throughout, EIGHT wrong/loose CR cites caught (7 at the desk + SP-1's
+> self-caught batch).
+
+## (superseded same-night) — shelf-first team era: 30.95% (+27 tonight), suite 9,042 — 2 Fable seats hot
 
 > **The state**: census **10,574 of 34,161 (30.95%)** native+land (name-dedup; tally = `native*`+`land`
 > rows, playable-pw excluded). Master tip **61625022** · suite **9,042 green** · lint 0 · LOST=0 on every
