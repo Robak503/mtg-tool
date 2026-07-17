@@ -159,7 +159,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * creature-land for a "land" edict. An unknown `what` falls back to the creature pool (defensive — the parser
  * only ever emits the five known values, so this is never reached at runtime). Pure type-line read (leaf).
  */
-const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment"]);
+const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbasicLand"]);
 function sacrificePoolMatch(what, card) {
   switch (what) {
     case "permanent": return true;
@@ -167,6 +167,13 @@ function sacrificePoolMatch(what, card) {
     case "artifact": return isArtifactCard(card);
     case "enchantment": return isEnchantmentCard(card);
     case "artifactOrEnchantment": return isArtifactCard(card) || isEnchantmentCard(card);
+    // BLITZ TR-2 — "an artifact, creature, or land" (Braids, Cabal Minion): the three-way type union over
+    // the same word-anchored predicates (a multi-typed permanent qualifies via any of its types).
+    case "artifactCreatureOrLand": return isArtifactCard(card) || isCreatureCard(card) || isLandCard(card);
+    // BLITZ TR-2 — "a nonbasic land" (Destructive Flow): a land WITHOUT the Basic supertype (CR 205.4c —
+    // "Basic" is printed in the type line's supertype slot, so the word-anchored test is exact; a
+    // creature-land is a legal pick iff nonbasic, matching the printed pool).
+    case "nonbasicLand": return isLandCard(card) && !/\bBasic\b/i.test(card?.type || card?.type_line || "");
     default: return isCreatureCard(card); // "creature" (and the unset default)
   }
 }
@@ -253,6 +260,18 @@ function applySacrifice(state, atom, ctx) {
     // aura-GRANTED trigger (Inevitable End on an opponent's creature) the controller is the HOST's
     // controller (makePendingTrigger — the granted ability is theirs), so THEY sacrifice, as printed.
     sacrificers = state.players?.[ctx.controller] ? [ctx.controller] : [];
+  } else if (atom.who === "upkeepPlayer") {
+    // UPKEEP-PLAYER EDICT (BLITZ TR-2 — Molder Slug / Braids, Cabal Minion / Destructive Flow: "At the
+    // beginning of each player's upkeep, that player sacrifices a[n] <pool> of their choice"): the player
+    // whose upkeep it is, ctx.upkeepPlayerId (threaded by checkStepTriggers). Absent / eliminated referent
+    // (a spell, a non-upkeep event) → nobody sacrifices (a clean logged no-op, never a wrong-player edict).
+    sacrificers = ctx.upkeepPlayerId && state.players?.[ctx.upkeepPlayerId] ? [ctx.upkeepPlayerId] : [];
+  } else if (atom.who === "defendingPlayer") {
+    // DEFENDING-PLAYER EDICT (BLITZ TR-2 — Nefarox, Overlord of Grixis "Whenever Nefarox attacks alone,
+    // defending player sacrifices a creature of their choice", CR 508.5): the declared defender,
+    // ctx.defenderId (threaded by checkAttackTriggers on attacks AND attacksAlone, checkBlockTriggers on
+    // becomesBlocked). Absent / eliminated referent → nobody sacrifices (the applyLoseLife mirror).
+    sacrificers = ctx.defenderId && state.players?.[ctx.defenderId] ? [ctx.defenderId] : [];
   } else {
     sacrificers = (ctx.targets || [])
       .filter((t) => t.type === "player" && state.players?.[t.id])
@@ -342,6 +361,27 @@ export function sacrificeEdictClauseParser(clause) {
   if (m) return { op: "sacrifice", who: "eachPlayer", what: TYPE_POOL[m[1]] };
   m = t.match(new RegExp(`^each (?:opponent|other player) sacrifices an? ${TYPED}(?: of (?:their|his or her) choice)?$`));
   if (m) return { op: "sacrifice", who: "eachOpponent", what: TYPE_POOL[m[1]] };
+  // ===== UPKEEP-PLAYER EDICT (BLITZ TR-2, CR 503.1a / 701.21) ===== "the upkeep player sacrifices a[n]
+  // <pool> of their choice" — the SENTINEL detectTriggers emits for an "each player's upkeep" trigger's
+  // "that player sacrifices …" (Molder Slug "an artifact"; Braids, Cabal Minion "an artifact, creature, or
+  // land"; Destructive Flow "a nonbasic land"; Kuon's Essence-style "a creature"). Corpus-clean phrase (only
+  // the event-gated rewrite produces it); who:"upkeepPlayer" reads ctx.upkeepPlayerId and the triggerRouting
+  // referent gate pins the atom to the upkeep event. The pool set is the exact evidenced list — the shared
+  // TYPED pools plus the two TR-2 additions (three-way union / nonbasic land). ALL-OR-NOTHING: a count /
+  // filtered victim ("a monocolored creature" — Defiler of Souls; "a non-Elf creature" — Ruthless Winnower;
+  // "a green or white permanent" — Dystopia) fails the exact anchor → low → Arbiter (a wrong-victim sac is
+  // a forbidden FP, CREED).
+  const UP_POOL = { ...TYPE_POOL, creature: "creature", permanent: "permanent", "artifact, creature, or land": "artifactCreatureOrLand", "nonbasic land": "nonbasicLand" };
+  m = t.match(new RegExp(`^the upkeep player sacrifices an? (creature|permanent|nonbasic land|artifact, creature, or land|${TYPED.slice(1, -1)})(?: of (?:their|his or her) choice)?$`));
+  if (m) return { op: "sacrifice", who: "upkeepPlayer", what: UP_POOL[m[1]] };
+  // ===== DEFENDING-PLAYER EDICT (BLITZ TR-2, CR 508.5 / 701.21) ===== "defending player sacrifices a
+  // creature of their choice" (Nefarox, Overlord of Grixis — an attacks-alone payoff). who:"defendingPlayer"
+  // reads ctx.defenderId (threaded on attacks / attacksAlone / becomesBlocked — the same referent AFFLICT's
+  // life-loss rides); the triggerRouting DEFENDING_PLAYER_EVENTS gate keeps it off every other event (a
+  // spell / non-combat trigger leaves the referent unset → clean no-op → never native there). BARE creature
+  // pool only — a typed/filtered/count variant fails the exact anchor → low → Arbiter (CREED).
+  m = t.match(/^defending player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", who: "defendingPlayer", what: "creature" };
   return null;
 }
 

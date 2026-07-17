@@ -468,6 +468,17 @@ export function massFilteredDamageClauseParser(clause) {
   // effects / damage watchers apply through the shared per-target hitPlayer path). Whole-clause anchored.
   const sd = t.match(/^(?:this creature|this permanent|it) deals (\d+) damage to you$/);
   if (sd) return { op: "deal-damage", amount: parseInt(sd[1], 10), target: "you", targetType: null };
+  // UPKEEP-PLAYER damage (BLITZ TR-2 — Copper Tablet / Barbed Wire / Sulfuric Vortex: "At the beginning of
+  // each player's upkeep, this artifact deals N damage to THAT PLAYER"): the recipient is the player whose
+  // upkeep it is — "the upkeep player" is the SENTINEL detectTriggers emits for the "that player" anaphor on
+  // an each-player's-upkeep trigger (corpus-clean phrase; only the event-gated rewrite produces it). A fixed
+  // referent read off ctx.upkeepPlayerId, never a chosen target (targetType:null → routes on confidence);
+  // who:"upkeepPlayer" lets the triggerRouting referent gate pin the atom to the upkeep event — anywhere
+  // else the referent is unset → no target → 0 dealt (a clean no-op). Real DAMAGE through the shared
+  // per-target hitPlayer path (source threaded, so infect/doubler replacements compose). The subject set
+  // adds the artifact/enchantment source nouns (Copper Tablet is an artifact; Sulfuric Vortex an enchantment).
+  const ud = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the upkeep player$/);
+  if (ud) return { op: "deal-damage", amount: parseInt(ud[1], 10), target: "upkeepPlayer", who: "upkeepPlayer", targetType: null };
   return null;
 }
 
@@ -1087,19 +1098,24 @@ export const stackResolvers = {
     // TRIG-PRONOUN damage (BLITZ IE-1 — "deals N damage to that creature"): the referent is the trigger's
     // OTHER creature (ctx.triggeringPermanentId — the pair partner checkBlockTriggers threads), never a
     // chosen target. Gone by resolution → no target → 0 dealt (a clean no-op, CR 608.2b-adjacent).
+    // UPKEEP-PLAYER (BLITZ TR-2 — Copper Tablet): same synthesis off ctx.upkeepPlayerId (set by
+    // checkStepTriggers at every upkeep-step entry) — absent id (any non-upkeep event) → no target →
+    // 0 dealt (a clean no-op; the who:"upkeepPlayer" referent gate keeps the atom off those events anyway).
     const targets = atom.target === "thatCreature"
       ? (ctx.triggeringPermanentId && findPermanent(state, ctx.triggeringPermanentId) ? [{ type: "creature", id: ctx.triggeringPermanentId }] : [])
       : atom.target === "you"
         ? (state.players?.[ctx.controller] ? [{ type: "player", id: ctx.controller }] : [])
-        : atom.targetType === "defendingPlayer"
-          ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
-          : atom.targetType === "damagedPlayer"
-            ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
-            : ctx.targets;
-    // defendingPlayer/damagedPlayer/thatCreature/you resolve via `targets`, not the special targetType switch in
-    // applyDamageEffect — pass a bare targetType so each takes the per-target hitPlayer/hitCreature path.
+        : atom.target === "upkeepPlayer"
+          ? (ctx.upkeepPlayerId && state.players?.[ctx.upkeepPlayerId] ? [{ type: "player", id: ctx.upkeepPlayerId }] : [])
+          : atom.targetType === "defendingPlayer"
+            ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
+            : atom.targetType === "damagedPlayer"
+              ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
+              : ctx.targets;
+    // defendingPlayer/damagedPlayer/thatCreature/you/upkeepPlayer resolve via `targets`, not the special targetType
+    // switch in applyDamageEffect — pass a bare targetType so each takes the per-target hitPlayer/hitCreature path.
     const targetType = atom.target === "thatCreature" ? "creature"
-      : atom.target === "you" ? "player"
+      : (atom.target === "you" || atom.target === "upkeepPlayer") ? "player"
       : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer") ? "player" : atom.targetType;
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // SELF-HIT (BLITZ OA-1 — Orcish Artillery "and M damage to you"): the printed self-hit lands on the

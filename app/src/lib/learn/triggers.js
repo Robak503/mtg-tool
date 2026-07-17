@@ -1052,6 +1052,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   // fail-safe (abilities.sacrificeDropsTrigger) independently detects "leaves the battlefield" to keep self-sac
   // costs safe — that path is unaffected.
 
+  // ===== EACH-PLAYER'S UPKEEP (BLITZ TR-2, CR 603.2b + 503.1a) ===== "At the beginning of EACH PLAYER'S
+  // upkeep, <effect>" — fires at the beginning of EVERY upkeep step (once per player per turn cycle),
+  // controller-independent, exactly like the bare "each upkeep" wording below (whose:"any" — checkStepTriggers
+  // fires the "upkeep" event once per upkeep-step entry, so the once-per-upkeep guarantee is structural; the
+  // whose:"yours" gate is what it deliberately does NOT carry). The eachPlayersUpkeep flag gates the
+  // "that player" → "the upkeep player" SENTINEL rewrite in detectTriggers (the gyOwner precedent): "that
+  // player" in this trigger's effect is the player WHOSE UPKEEP IT IS (ctx.upkeepPlayerId = the active
+  // player, threaded by checkStepTriggers), NOT the combat-damaged player the bare "that player" atoms bind
+  // (who:"damagedPlayer" — whose referent gate correctly keeps those off upkeep events). Whole-clause
+  // anchored ^…$ — a rider on the condition leaves it UNDETECTED → Arbiter (a SAFE false-negative).
+  if (/^the beginning of each player[’']s upkeep$/.test(c)) {
+    return { event: "upkeep", scope: "you", whose: "any", eachPlayersUpkeep: true };
+  }
   if (/beginning of (your|each) (upkeep|end step|draw step)/.test(c)) {
     const whose = /\beach\b/.test(c) ? "any" : "yours";
     const event = /end step/.test(c) ? "endStep" : /draw step/.test(c) ? "draw" : "upkeep";
@@ -1189,14 +1202,33 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
     return null; // restricted ("an opponent controls") / non-self form stays UNDETECTED → Arbiter (SAFE FN)
   }
-  // ===== ATTACKS-ALONE (sole-attacker restriction guard, CR 508.4a) ===== "attacks alone" fires ONLY when
-  // exactly one creature is attacking. The engine has NO sole-attacker gate, so the non-anchored
-  // "a creature you control" match below would silently DROP "alone" and fire on EVERY attacker (Black
-  // Panther / Agent 13 would grant their bonus whenever any creature attacks — a confident over-fire FP,
-  // CLAUDE.md §1.2). Leave it UNDETECTED → the card routes to body-only/Arbiter (SAFE false-negative) until
-  // an attacks-alone system exists. Also neutralizes Exalted's "attacks alone" reminder text. Caught by the
-  // WAVE-3b adversarial sweep + a full-surface scan (this also retired the pre-existing Agent 13 FP).
-  if (/\battacks\b/.test(c) && /\balone\b/.test(c)) return null;
+  // ===== ATTACKS-ALONE (BLITZ TR-2, CR 506.5 / 702.83b) ===== "attacks alone" = it's the ONLY creature
+  // declared as an attacker. The sole-attacker gate now EXISTS at the runtime: checkAttackTriggers fires the
+  // dedicated "attacksAlone" event ONLY when attackers.length === 1 (the KW-EXALTED seam — the same
+  // structural gate exalted's aggregated fire rides), so a multi-attacker declaration can never fire it (the
+  // over-fire FP the old blanket guard existed to prevent — Black Panther / Agent 13 firing on every
+  // attacker). Exactly TWO subject shapes classify, both whole-clause anchored:
+  //   - "this creature attacks alone" / the card's own name (Rogue Kavu, Lunk Errant, Ma Chao) → scope
+  //     "self" (the source must BE the sole attacker — scopeMatches' id check).
+  //   - "a creature you control attacks alone" (Battlegrace Angel, Black Panther, Peggy Carter, Agents of
+  //     S.H.I.E.L.D.) → scope "creatureYouControl" (the sole attacker is the triggering permanent; the
+  //     watcher is any of the attacking player's permanents — the watcher itself included, per the bare
+  //     "a creature you control" reading).
+  // ANY other form — "a Samurai or Warrior you control attacks alone" (a two-subtype filter the scope
+  // vocabulary can't express), "equipped creature attacks alone" (Bilbo's Ring / S.H.I.E.L.D. Spy Kit) —
+  // stays UNDETECTED → Arbiter (a SAFE false-negative). Exalted's "attacks alone" REMINDER text is stripped
+  // before detection, so only real printed sentences reach this branch.
+  if (/\battacks\b/.test(c) && /\balone\b/.test(c)) {
+    const aaM = c.match(/^(.+?) attacks alone$/);
+    if (aaM) {
+      const subj = aaM[1].trim();
+      const isSelfSubj = subj === "this creature" || subj === "this permanent"
+        || subj === nameL || (shortNameRef && subj === shortName) || (firstWordRef && subj === firstWord);
+      if (isSelfSubj) return { event: "attacksAlone", scope: "self", whose: "any" };
+      if (subj === "a creature you control") return { event: "attacksAlone", scope: "creatureYouControl", whose: "any" };
+    }
+    return null;
+  }
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     // ANCHORED bare form (was a non-anchored substring test — any "a creature you control <restriction>
@@ -1255,6 +1287,26 @@ function classifyCondition(condRaw, cardName, cardType) {
   // (modeled) self-pump on ANY plain block — a confident WRONG partial. Leave any non-bare self-block
   // UNDETECTED → Arbiter, mirroring the attacks-or-blocks guard. A self-pump on a plain block stays native.
   if (/\bbecomes blocked\b/.test(c)) {
+    // ===== BLOCKS-OR-BECOMES-BLOCKED (BLITZ TR-2, CR 509.1a + 509.1h) ===== the BARE compound self form
+    // "Whenever this creature blocks or becomes blocked, <effect>" (Chub Toad / Raging Gorilla / Brushwagg /
+    // Jukai Trainee / Karn, Silver Golem). ONE detected descriptor for the ONE printed sentence, riding the
+    // EXISTING "blocksOrBecomesBlocked" runtime event (checkBlockTriggers' bushido loop — CR 702.45a
+    // precedent): it fires ONCE for a creature declared as a blocker AND ONCE for an attacker that becomes
+    // blocked, deduped per creature per declaration (blocking two attackers is still one "blocks" event —
+    // CR 509.3c's once-per-combat reading). SUBJECT-EXACT: only the pure self subjects ("this creature" /
+    // "this permanent" / the card's own full/short/first-word name per CR 201.4) classify — a restricted
+    // ("…by a creature" → the blocksOrBlockedByCreature contact family; "…by one or more X creatures" —
+    // Serra Inquisitors; "equipped/enchanted creature blocks or becomes blocked" — Dead-Iron Sledge/Ferocity,
+    // whose attached-watcher fire site doesn't exist at the block seam) or compound-subject form falls
+    // through → UNDETECTED → Arbiter (a SAFE false-negative, never a mis-scoped fire).
+    const bobM = c.match(/^(.+?) blocks or becomes blocked$/);
+    if (bobM) {
+      const subj = bobM[1].trim();
+      const isSelfSubj = subj === "this creature" || subj === "this permanent"
+        || subj === nameL || (shortNameRef && subj === shortName) || (firstWordRef && subj === firstWord);
+      if (isSelfSubj) return { event: "blocksOrBecomesBlocked", scope: "self", whose: "any" };
+      return null;
+    }
     // BECOMES-BLOCKED (subsystem 2): the BARE self form "Whenever this creature becomes blocked, …" is
     // modeled — checkBlockTriggers fires it for each attacker that got blocked. A COMPOUND ("blocks or
     // becomes blocked" — bushido; names the SECOND "blocks" event) or a RESTRICTED form ("becomes blocked
@@ -1808,6 +1860,14 @@ export function exaltedKeywordCount(oracle) {
 // GIVES the parser the chance to model it — never asserts coverage. A pump-grant ("and gains KW") form has no
 // "for each" tail in printed text, so the optional tail rides the pure ±P/±P branch only.
 const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .+?) until end of turn(?: for each .+)?$/i;
+
+// THAT-CREATURE PUMP (BLITZ TR-2 — Agents of S.H.I.E.L.D. "Whenever a creature you control attacks alone,
+// THAT CREATURE gets +1/+1 until end of turn"): the NON-self pronoun-subject pump with "that creature"
+// instead of "it" — the SAME whole-clause pump/grant shapes SELF_PUMP_IT_RE admits, the same referent
+// (the TRIGGERING creature, CR 608.2c). Rewritten (NONSELF_TRIGGERING_SCOPES-gated, alongside the "it"
+// branch) to the "the triggering creature …" sentinel the parser models as target:"thatCreature". A
+// rider/compound fails the whole-clause anchor → no rewrite → LOW → Arbiter (a SAFE false-negative).
+const THAT_CREATURE_PUMP_RE = /^that creature (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .+?) until end of turn(?: for each .+)?$/i;
 
 // IT-COUNTER — the self-COUNTER analogue of SELF_PUMP_IT_RE: a SELF-scope trigger states its +1/+1 (or
 // -1/-1) counter on its own source with the pronoun "it" — "Whenever this creature attacks, put a +1/+1
@@ -2416,6 +2476,18 @@ export function detectTriggers(card) {
       if (cls.event === "gyEnter") {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the graveyard's owner");
       }
+      // UPKEEP-PLAYER REFERENT (BLITZ TR-2 — CR 603.2b + 503.1a): on an "each player's upkeep" trigger,
+      // "that player" is the player WHOSE UPKEEP IT IS (ctx.upkeepPlayerId = the active player, threaded by
+      // checkStepTriggers at every upkeep-step entry). Rewrite to the SENTINEL "the upkeep player" so the
+      // dedicated who:"upkeepPlayer" atoms bind it — and so the bare "that player" matchers (who:
+      // "damagedPlayer", the combat-damage referent) never see this trigger's anaphor. The sentinel phrase
+      // appears NOWHERE in printed oracle (corpus-verified), so no spell/other-event clause can reach those
+      // atoms; the triggerRouting referent gate additionally pins who:"upkeepPlayer" to the upkeep event.
+      // Gated on the eachPlayersUpkeep flag (set ONLY by the anchored "each player's upkeep" condition) —
+      // a "your upkeep" / bare "each upkeep" trigger's effect is byte-identical. The gyOwner precedent.
+      if (cls.eachPlayersUpkeep) {
+        effectClause = effectClause.replace(/\bthat player\b/gi, "the upkeep player");
+      }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       }
@@ -2511,6 +2583,13 @@ export function detectTriggers(card) {
         // target:"thatCreature". Same scope gate + whole-clause anchor as COUNTERS-ON-EVENT (a spell
         // anaphor never reaches here; a rider stays LOW). The parser re-gates the keyword set.
         effectClause = effectClause.replace(/^it /i, "the triggering creature ");
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && THAT_CREATURE_PUMP_RE.test(effectClause)) {
+        // THAT-CREATURE PUMP (BLITZ TR-2): the same non-self pump with the "that creature" subject
+        // (Agents of S.H.I.E.L.D. — "Whenever a creature you control attacks alone, that creature gets
+        // +1/+1 until end of turn"; exalted's printed long-form). Identical referent (the TRIGGERING
+        // creature, CR 608.2c) and identical whole-clause shapes as the "it" branch above — rewrite the
+        // leading "that creature" to the same target:"thatCreature" sentinel. The parser re-gates.
+        effectClause = effectClause.replace(/^that creature /i, "the triggering creature ");
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_SAC_REF_RE.test(effectClause)) {
         // TRIG-PRONOUN-IT: "sacrifice IT" → sacrifice the TRIGGERING permanent (CR 608.2c).
         effectClause = "sacrifice the triggering creature";
@@ -2685,6 +2764,7 @@ export function detectTriggers(card) {
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         functionsFromGraveyard: cls.functionsFromGraveyard, // GY-FUNCTIONING milled trigger (Radroach) — fired by checkMilledTriggers' graveyard scan, never the battlefield scan
+        eachPlayersUpkeep: cls.eachPlayersUpkeep, // EACH-PLAYER'S UPKEEP (BLITZ TR-2): gates the "that player" → "the upkeep player" sentinel rewrite; whose:"any" carries the fire-on-every-upkeep semantics
         gyCardType: cls.gyCardType,           // GY-EVENT (SHELF S7): front-face type gate on the moved card ("Creature" | null = any)
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
@@ -3955,9 +4035,15 @@ export function checkLeavesTriggers(state) {
  */
 export function checkStepTriggers(state, event) {
   let fired = [];
+  // UPKEEP-PLAYER REFERENT (BLITZ TR-2 — CR 503.1a): at an upkeep-step entry, the player whose upkeep it is
+  // IS the active player. Thread it as ctx.upkeepPlayerId so an "each player's upkeep" trigger's rewritten
+  // "the upkeep player <effect>" atoms (who:"upkeepPlayer") bind the right player at resolution — pinned in
+  // the context at ENQUEUE time, so a delayed resolution can never drift to another seat. Additive plain
+  // data on every upkeep descriptor's context; every non-upkeepPlayer consumer ignores it.
+  const stepCtx = event === "upkeep" ? { upkeepPlayerId: state.activePlayer } : {};
   for (const pid of Object.keys(state.players)) {
     for (const perm of triggerSourcesOf(state, pid)) {
-      fired = fired.concat(triggersForEvent(state, { event, sourcePermanent: perm }));
+      fired = fired.concat(triggersForEvent(state, { event, sourcePermanent: perm, triggeringContext: stepCtx }));
     }
   }
   if (!fired.length) return state;
@@ -4037,6 +4123,22 @@ export function checkAttackTriggers(state) {
   if (attackers.length === 1) {
     const soleLk = findPermanent(state, attackers[0].permanentId);
     const atkPlayer = attackers[0].attackingPlayer;
+    // ===== ATTACKS-ALONE (BLITZ TR-2, CR 506.5) ===== exactly ONE creature was declared as an attacker, so
+    // every "attacks alone" trigger fires — the SAME structural gate exalted's aggregated fire rides (CR
+    // 702.83b defers to 506.5), so the detection metric and this fire site can't drift: a multi-attacker
+    // declaration never enters this block, so an attacksAlone descriptor can NEVER over-fire (the FP the
+    // old blanket detection guard existed to prevent). Scan the attacking player's watchers (battlefield +
+    // emblems) with the SOLE attacker as the triggering permanent: scope "self" matches only the attacker's
+    // own printed trigger (id check); scope "creatureYouControl" matches every watcher of the attacking
+    // player (the watcher itself included — the bare "a creature you control" reading). The context carries
+    // the declared defender so a "defending player …" payoff (Nefarox — CR 508.5) binds, mirroring the
+    // per-attacker "attacks" context above. Fired ONCE per combat by construction (one declaration batch).
+    if (soleLk && atkPlayer) {
+      const aloneCtx = { defenderId: attackers[0].defender, ...(attackers[0].defenderPlaneswalkerId ? { defenderPlaneswalkerId: attackers[0].defenderPlaneswalkerId } : {}) };
+      for (const watcher of triggerSourcesOf(state, atkPlayer)) {
+        fired = fired.concat(triggersForEvent(state, { event: "attacksAlone", sourcePermanent: watcher, triggeringPermanent: soleLk.permanent, triggeringContext: aloneCtx }));
+      }
+    }
     if (soleLk && atkPlayer) {
       // SLIVER INTERIORS (BLITZ SP-1): per permanent, printed instances via the STRUCTURAL counter
       // (a grant line "…have exalted" is no longer mis-counted as the granter's own instance) PLUS

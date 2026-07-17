@@ -153,6 +153,14 @@ export function applyDiscard(state, atom, ctx) {
     // applyMill's damagedPlayer guard). The discarder chooses their own card via the chain (CR 701.8).
     const pid = ctx.damagedPlayerId;
     discarders = pid && state.players?.[pid] ? [pid] : [];
+  } else if (atom.who === "upkeepPlayer") {
+    // UPKEEP-PLAYER DISCARD (BLITZ TR-2 — Necrogen Mists "At the beginning of each player's upkeep, that
+    // player discards a card"; Bottomless Pit's at-random twin): the player whose upkeep it is
+    // (ctx.upkeepPlayerId, threaded by checkStepTriggers at every upkeep-step entry). Absent / eliminated
+    // referent (a spell, a non-upkeep event, a player who left the game) → discard nobody (a clean logged
+    // no-op, never a fabrication — the exact damagedPlayer mirror). The discarder chooses (CR 701.9b).
+    const pid = ctx.upkeepPlayerId;
+    discarders = pid && state.players?.[pid] ? [pid] : [];
   } else {
     discarders = (ctx.targets || [])
       .filter((t) => t.type === "player" && state.players?.[t.id])
@@ -228,6 +236,16 @@ export function discardClauseParser(clause) {
   // Goblin Lore / Desperate Ravings / Burning Inquiry's self half). who:"controller".
   if ((rm = t.match(new RegExp(`^(?:you )?discard ${RN} cards? at random$`))))
     return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "controller", targetType: null, atRandom: true };
+  // ===== UPKEEP-PLAYER DISCARD (BLITZ TR-2, CR 503.1a) ===== "the upkeep player discards N cards[ at
+  // random]" — the SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player
+  // discards …" (Necrogen Mists; Bottomless Pit's at-random form). The phrase appears NOWHERE in printed
+  // oracle (corpus-verified), so only the event-gated rewrite can produce it; who:"upkeepPlayer" reads
+  // ctx.upkeepPlayerId and the triggerRouting referent gate pins the atom to the upkeep event (a spell /
+  // any other event leaves the referent unset → clean no-op → never native there). NON-targeted
+  // (targetType:null — the referent is the event's, not a chosen target). The discarder chooses via the
+  // chain (CR 701.9b); the at-random form pitches via the seeded primitive like every other atRandom.
+  if ((rm = t.match(new RegExp(`^the upkeep player discards ${RN} cards?( at random)?$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "upkeepPlayer", targetType: null, ...(rm[2] ? { atRandom: true } : {}) };
   let m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   // TARGET-OPPONENT discard (Ravenous Rats / Dirty Rat / Deadbridge Shaman ETB) — the same targeted discard as

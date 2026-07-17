@@ -39,8 +39,14 @@ describe("BLOCK triggers (subsystem 2) — recognition", () => {
     expect(classifyCard(cr("Deeproot Warrior", "Whenever this creature becomes blocked, it gets +1/+1 until end of turn."))).toBe("native-trigger");
     expect(classifyCard(cr("Gainer", "Whenever this creature becomes blocked, you gain 2 life."))).toBe("native-trigger");
   });
-  it("FN boundary — compound bushido / restricted rampage stay Arbiter", () => {
-    expect(classifyCard(cr("Bushido", "Whenever this creature blocks or becomes blocked, it gets +2/+2 until end of turn."))).toBe("body-only");
+  it("FN boundary — the bare compound is now native (BLITZ TR-2); restricted rampage stays Arbiter", () => {
+    // The bare "blocks or becomes blocked" compound previously parked (naming a second event the spine
+    // couldn't attribute). BLITZ TR-2 classifies it onto the blocksOrBecomesBlocked event checkBlockTriggers
+    // already fires for bushido (once per role, deduped — both-events/once-each pinned in
+    // triggerScopes.test.js), so the printed form now honestly routes native. The RESTRICTED forms keep
+    // the park: rampage's per-blocker scaling and any "by one or more <filter> creatures" wording fail the
+    // whole-clause subject anchor → UNDETECTED → Arbiter (a SAFE false-negative).
+    expect(classifyCard(cr("Bushido", "Whenever this creature blocks or becomes blocked, it gets +2/+2 until end of turn."))).toBe("native-trigger");
     expect(classifyCard(cr("Rampage", "Whenever this creature becomes blocked by one or more creatures, it gets +2/+2 until end of turn for each creature blocking it beyond the first."))).toBe("body-only");
   });
 });

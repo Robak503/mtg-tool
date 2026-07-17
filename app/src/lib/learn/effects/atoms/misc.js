@@ -48,6 +48,12 @@ function applyDrawAtom(state, atom, ctx) {
     for (const t of ctx.targets || []) {
       if (t.type === "player" && next.players[t.id]) next = applyDrawEffect(next, { controller: t.id, amount });
     }
+  } else if (atom.who === "upkeepPlayer") {
+    // UPKEEP-PLAYER DRAW (BLITZ TR-2 — Seizan's "… and draws two cards" half): the player whose upkeep it
+    // is, ctx.upkeepPlayerId (threaded by checkStepTriggers). Absent / eliminated referent (a spell, a
+    // non-upkeep event) → draw nobody (a clean no-op, never a fabricated or wrong-player draw).
+    const pid = ctx.upkeepPlayerId;
+    next = pid && state.players?.[pid] ? applyDrawEffect(state, { controller: pid, amount }) : state;
   } else {
     next = applyDrawEffect(state, { controller: ctx.controller, amount });
   }
@@ -286,6 +292,13 @@ export function drawEachPlayerClauseParser(clause) {
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  // ===== UPKEEP-PLAYER DRAW (BLITZ TR-2, CR 503.1a / 121.1) ===== "the upkeep player draws N cards" — the
+  // SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player draws …" (Seizan's
+  // draw half, split off the drain by the parser's upkeep-player normalizer). Corpus-clean phrase (only the
+  // event-gated rewrite produces it); who:"upkeepPlayer" reads ctx.upkeepPlayerId, and the triggerRouting
+  // referent gate pins the atom to the upkeep event (any other event → referent unset → clean no-op).
+  m = t.match(/^the upkeep player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
   return null;
 }
 

@@ -47,7 +47,10 @@ const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "dealtDamag
 // CREED), so "defending player loses N life" routes natively only off those two events. AFFLICT (CR 702.131 —
 // "Whenever this creature becomes blocked, defending player loses N life") relies on the becomesBlocked entry;
 // Silent Skimmer ("Whenever this creature attacks, defending player loses 2 life") on the attacks entry.
-const DEFENDING_PLAYER_EVENTS = new Set(["attacks", "becomesBlocked"]);
+// "attacksAlone" (BLITZ TR-2, CR 506.5): the sole-attacker event — checkAttackTriggers threads the sole
+// attacker's declared defender into the context exactly like the per-attacker "attacks" fire, so a
+// "defending player …" payoff (Nefarox, Overlord of Grixis' edict) genuinely has its referent there.
+const DEFENDING_PLAYER_EVENTS = new Set(["attacks", "becomesBlocked", "attacksAlone"]);
 
 /**
  * Every atom a combat-referent gate must inspect — MODAL programs keep their atoms in
@@ -91,6 +94,12 @@ export function combatDamageReferentSatisfied(program, event) {
     // there (a SAFE false-negative). The clause is only ever synthesized on the modular dies trigger, so
     // this is belt-and-suspenders that keeps the metric honest if the wording ever appears elsewhere.
     if (a?.countContext === "triggeringPlusCounterCount" && event !== "dies") return false;
+    // UPKEEP-PLAYER (BLITZ TR-2, CR 503.1a): the "the upkeep player <effect>" atoms read ctx.upkeepPlayerId,
+    // threaded ONLY by checkStepTriggers' upkeep-step fire. On any other event the referent is unset → the
+    // clause would silently no-op (a dropped-clause FP) → not native there (a SAFE false-negative). The
+    // sentinel phrase is emitted only by the eachPlayersUpkeep detectTriggers rewrite (never printed oracle),
+    // so this is the event-side half of the same double gate the gyOwner referent uses.
+    if (a?.who === "upkeepPlayer" && event !== "upkeep") return false;
   }
   return true;
 }

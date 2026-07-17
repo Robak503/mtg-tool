@@ -442,6 +442,13 @@ function splitClauses(oracle) {
     // with their EXISTING who:"target" atoms (draw + lose-life). A trailing rider (", and gets poison" /
     // ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays Arbiter (FN-safe).
     .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. Target player $2")
+    // UPKEEP-PLAYER LOSE-DRAW (BLITZ TR-2 — Seizan, Perverter of Truth: "that player loses 2 life and draws
+    // two cards", sentinel-rewritten to "the upkeep player …" by detectTriggers): the same shared-subject
+    // conjunction as DRAW-LOSE-SUBJECT above, in the printed loses-then-draws order. Inject the subject into
+    // the 2nd half so both halves parse with their who:"upkeepPlayer" atoms (lose-life + draw) in written
+    // order (CR 608.2c). The sentinel phrase never appears in printed oracle, so this can only touch the
+    // event-gated rewrite's output; a trailing rider fails the contiguous match → stays Arbiter (FN-safe).
+    .replace(/(the upkeep player loses \d+ life) and (draws \w+ cards?)/gi, "$1. The upkeep player $2")
     // WHEEL — "Each player discards their hand, then draws N cards" (Wheel of Fortune, Reforge the Soul, Wheel
     // of Fate): the ", then" split orphans "draws N cards" of its "each player" subject. Inject it so the draw
     // half parses with the EXISTING draw who:"eachPlayer" atom (the discard-hand half is a new all-mode atom).

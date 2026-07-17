@@ -83,6 +83,12 @@ export function applyLoseLife(state, atom, ctx) {
     // no-op, never a fabricated loss or a wrong recipient. Mirrors the damagedPlayer referent resolvers.
     const pid = ctx.defenderId;
     if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
+  } else if (atom.who === "upkeepPlayer") {
+    // UPKEEP-PLAYER (BLITZ TR-2 — Seizan, Perverter of Truth "that player loses 2 life …"): the player
+    // whose upkeep it is, ctx.upkeepPlayerId (threaded by checkStepTriggers at every upkeep-step entry).
+    // Absent (a spell / non-upkeep event) → a clean no-op, never a fabricated loss or a wrong recipient.
+    const pid = ctx.upkeepPlayerId;
+    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
   } else {
     next = loseLife(next, { playerId: ctx.controller, amount });
   }
@@ -168,6 +174,14 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "defendingPlayer", targetType: null };
   m = t.match(/^defending player gains (\d+) life$/);
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "defendingPlayer", targetType: null };
+  // ===== UPKEEP-PLAYER LIFE LOSS (BLITZ TR-2, CR 503.1a / 119.3) ===== "the upkeep player loses N life" —
+  // the SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player loses N life"
+  // (Seizan, Perverter of Truth's drain half). Corpus-clean phrase (only the event-gated rewrite produces
+  // it); who:"upkeepPlayer" reads ctx.upkeepPlayerId, and the triggerRouting referent gate pins the atom to
+  // the upkeep event (any other event leaves the referent unset → clean no-op). NON-targeted. FIXED-N only —
+  // a scaled/half-life form ("loses half their life" — Havoc Festival) fails the `$` anchor → Arbiter.
+  m = t.match(/^the upkeep player loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
   return null;
 }
 

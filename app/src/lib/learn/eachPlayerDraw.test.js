@@ -127,29 +127,37 @@ describe("trigger gate — each-player draw and target-player draw both route na
     expect(classifyCard(symmetric)).toBe("native-trigger");
     expect(classifyCard(targeted)).toBe("native-trigger");
   });
-  it("'attacks or blocks' now SPLITS (OR-1) — both halves fire; an UNSPLIT compound still parks", () => {
+  it("'attacks or blocks' SPLITS (OR-1); 'blocks or becomes blocked' rides its own event (TR-2); a FILTERED compound still parks", () => {
     // Howling Golem sat here as the compound-drop guard until BLITZ OR-1 added the attacks-or-blocks
     // disjunction split (DISJUNCTION_BLOCKS_SRC): the sentence rewrites into two single-verb triggers
     // BEFORE detection, so BOTH halves fire (checkAttackTriggers + checkBlockTriggers) — no dropped half,
-    // honestly native. The guard's intent lives on against an UNSPLIT both-verb compound ("blocks or
-    // becomes blocked" — bushido's reminder shape), which still nulls → Arbiter (safe FN).
+    // honestly native. The bare "blocks or becomes blocked" compound — this test's former surviving park —
+    // is now ALSO native (BLITZ TR-2): it classifies onto the blocksOrBecomesBlocked event checkBlockTriggers
+    // fires for bushido (both events, once each — pinned in triggerScopes.test.js). The guard's intent lives
+    // on against the FILTERED compound ("…by one or more black creatures" — Serra Inquisitors), whose
+    // partner restriction the engine can't enforce → whole-clause anchor fails → Arbiter (safe FN).
     const howlingGolem = { type: "Artifact Creature — Golem", name: "Howling Golem", oracle: "Whenever this creature attacks or blocks, each player draws a card." };
-    const unsplitCompound = { type: "Creature — Golem", name: "Guard Golem", oracle: "Whenever this creature blocks or becomes blocked, each player draws a card." };
+    const bareCompound = { type: "Creature — Golem", name: "Guard Golem", oracle: "Whenever this creature blocks or becomes blocked, each player draws a card." };
+    const filteredCompound = { type: "Creature — Golem", name: "Picky Golem", oracle: "Whenever this creature blocks or becomes blocked by one or more black creatures, each player draws a card." };
     const attacksOnly = { type: "Creature — Golem", name: "Attack Golem", oracle: "Whenever this creature attacks, each player draws a card." };
     expect(classifyCard(howlingGolem)).toBe("native-trigger");
-    expect(classifyCard(unsplitCompound)).not.toBe("native-trigger");
+    expect(classifyCard(bareCompound)).toBe("native-trigger");
+    expect(classifyCard(filteredCompound)).not.toBe("native-trigger");
     expect(classifyCard(attacksOnly)).toBe("native-trigger");
   });
-  it("an 'attacks ALONE' trigger is NOT native — the dropped sole-attacker restriction (CR 508.4a) would over-fire", () => {
+  it("an 'attacks ALONE' trigger IS now native — the sole-attacker gate exists (BLITZ TR-2, CR 506.5)", () => {
     // Black Panther / Agent 13: "Whenever a creature you control attacks alone, …" fires ONLY when exactly
-    // one creature attacks. The engine has no sole-attacker gate, so the non-anchored "a creature you control"
-    // match would drop "alone" and fire on every attacker. The guard routes these to body-only (safe FN).
+    // one creature attacks. This test previously pinned the SAFE-FN park (no sole-attacker gate existed —
+    // detecting the form would have dropped "alone" and over-fired on every attacker). BLITZ TR-2 built the
+    // gate: the dedicated attacksAlone event fires from checkAttackTriggers ONLY when attackers.length === 1
+    // (the KW-EXALTED structural seam; the multi-attacker FP guard is pinned in triggerScopes.test.js), so
+    // these carriers now honestly classify native. The bare "attacks" (no qualifier) pin is unchanged.
     const blackPanther = { type: "Legendary Creature — Human Warrior Hero", name: "Black Panther, Claws of Bast", oracle: "Lifelink\nWhenever a creature you control attacks alone, put a +1/+1 counter on it." };
     const agent13 = { type: "Legendary Creature — Human", name: "Agent 13, Sharon Carter", oracle: "Whenever a creature you control attacks alone, investigate." };
     const bareAttacks = { type: "Enchantment", name: "Gleam-like", oracle: "Whenever a creature you control attacks, put a +1/+1 counter on it." };
-    expect(classifyCard(blackPanther)).not.toBe("native-trigger"); // body-only — restriction can't be modeled
-    expect(classifyCard(agent13)).not.toBe("native-trigger");
-    expect(classifyCard(bareAttacks)).toBe("native-trigger");      // a bare "attacks" (no qualifier) stays native
+    expect(classifyCard(blackPanther)).toBe("native-trigger"); // the sole-attacker gate is real (checkAttackTriggers)
+    expect(classifyCard(agent13)).toBe("native-trigger");
+    expect(classifyCard(bareAttacks)).toBe("native-trigger");  // a bare "attacks" (no qualifier) stays native
   });
 });
 

@@ -764,6 +764,12 @@ export function applyMill(state, atom, ctx) {
     // threaded by checkUntapTriggers). Absent/eliminated → mill nobody.
     const pid = ctx.untappedControllerId;
     if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
+  } else if (atom.who === "upkeepPlayer") {
+    // UPKEEP-PLAYER MILL (BLITZ TR-2 — Worry Beads "At the beginning of each player's upkeep, that player
+    // mills a card"): the player whose upkeep it is (ctx.upkeepPlayerId, threaded by checkStepTriggers).
+    // Absent / eliminated referent (a spell, a non-upkeep event) → mill nobody (the damagedPlayer mirror).
+    const pid = ctx.upkeepPlayerId;
+    if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
   } else {
     next = millOnePlayer(next, ctx.controller, amount);
   }
@@ -1364,6 +1370,13 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
+  // ===== UPKEEP-PLAYER MILL (BLITZ TR-2, CR 503.1a / 701.17) ===== "the upkeep player mills N cards" — the
+  // SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player mills …" (Worry
+  // Beads). Corpus-clean phrase (only the event-gated rewrite produces it); who:"upkeepPlayer" reads
+  // ctx.upkeepPlayerId and the triggerRouting referent gate pins the atom to the upkeep event — on any
+  // other event the referent is unset → mill nobody (a clean no-op, never a wrong-player mill). NON-targeted.
+  m = t.match(/^the upkeep player mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
   // ===== DEFENDING-PLAYER mill (BLITZ DM-1 — CR 508.5: an ability of an attacking creature that refers to
   // the defending player; CR 701.17 mill) ===== "defending player mills N cards" on an ATTACKS trigger
   // (Nemesis of Reason "mills ten cards") OR a BECOMES-BLOCKED trigger (Flint Golem "mills three cards" — the
