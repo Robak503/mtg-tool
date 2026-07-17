@@ -540,6 +540,13 @@ function effectiveTypeIdentity(candidate, state) {
 // memo write, so no keyword-less entry can ever be served to a later reader.
 const _ptPredicateInProgress = new Set();
 const _withKeywordInProgress = new Set(); // WD-1 — the withKeyword selector's re-entry guard, shared by FT-1's withoutKeyword twin (see matchesSelector)
+// SF-1 — the LAYER-AWARE color selector's re-entry guard (colorless/notColors/multicolored/colors). permanentColors
+// re-enters THIS candidate's deriveCharacteristics (the layer-7/6 color anthem is bucketed through effectAffects →
+// back into matchesSelector), so a nested selector-color read finds the id here and bails as UNSELECTED (FN-safe —
+// a color filter is layer-5-inert-to-layer-7, so the excluded anthem can't change the colors the nested pass
+// computes), and that partial derive is NOT memoized (deriveCharacteristics' tail gates its memo write on this set
+// too). Mirrors _ptPredicateInProgress exactly; terminates at depth 2 by construction.
+const _selectorColorInProgress = new Set();
 
 function matchesSelector(selector, candidate, sourcePerm, state) {
   if (!selector) return false;
@@ -564,7 +571,7 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // subtypes gates so an ANIMATED permanent (Vihaan's Treasure → "Construct Assassin artifact creature") is
   // seen as the Creature/outlaw it has BECOME (CR 613's layer-4-before-layer-6 dependency). Lazily — only when
   // a type/subtype gate is present (the common color/generic anthem skips it).
-  const ident = (selector.cardTypes || selector.subtypes) ? effectiveTypeIdentity(candidate, state) : null;
+  const ident = (selector.cardTypes || selector.subtypes || selector.legendary || selector.notLegendary) ? effectiveTypeIdentity(candidate, state) : null;
   if (selector.cardTypes) {
     if (!selector.cardTypes.every(t => ident.types.includes(t))) return false;
   }
@@ -588,15 +595,54 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
       if (!wanted.some(st => subs.includes(st))) return false;
     }
   }
-  if (selector.colors) {
-    const cols = colorsOf(candidate.card);
-    if (!selector.colors.some(c => cols.includes(c))) return false;
+  // LEGENDARY supertype gate (BLITZ SF-1 — CR 205.4; Rising of the Day "Legendary creatures you control get
+  // +1/+0", Day of Destiny, Arvad the Cursed, Esika "Other legendary creatures you control have vigilance";
+  // the negated twin is Flowering of the White Tree "Nonlegendary creatures you control get +1/+1"). "Legendary"
+  // is a SUPERTYPE carried in effectiveTypeIdentity's type set (cardTypesOf keeps the type-line head's
+  // capitalized words, so "Legendary Creature — X" yields "Legendary"). LAYER-AWARE (printed ∪ FIXED layer-4
+  // grants) and recursion-free (effectiveTypeIdentity consults only fixed/self layer-4 effects), so no guard is
+  // needed. Each direction is EXACT — a nonlegendary candidate never gets a `legendary` anthem, and vice versa.
+  if (selector.legendary && !ident.types.includes("Legendary")) return false;
+  if (selector.notLegendary && ident.types.includes("Legendary")) return false;
+  // COLOR-QUALITY gates (BLITZ SF-1) — all read LAYER-AWARE via permanentColors (printed ∪ layer-5
+  // setColor/addColor, the SAME read combatEvasion uses), so a color-changed permanent is judged by the color it
+  // IS now, not its printed color (CR 105 / CR 613 layer 5): `colors` = has ANY listed color (the Liege cycle
+  // "red creatures you control", now layer-aware); `notColors` = has NONE of them (Angel of Jubilation "Other
+  // nonblack creatures you control"); `colorless` = zero colors (Ruination Guide / Forsaken Monument, devoid-safe
+  // via colorsOf's seed); `multicolored` = two+ colors (Rienne, Glass of the Guildpact, the Maze cycle).
+  // permanentColors → deriveCharacteristics re-enters THIS candidate's derive, so it is guarded exactly like the
+  // P/T predicate: a nested read finds the id in _selectorColorInProgress and bails as UNSELECTED (FN-safe — a
+  // color filter is layer-7-inert, so excluding the anthem leaves the nested pass's layer-5 colors exact), and
+  // that nested derive is not memoized (deriveCharacteristics' tail gates on the same set). Terminates at depth 2.
+  if (selector.colors || selector.notColors || selector.colorless || selector.multicolored) {
+    if (_selectorColorInProgress.has(candidate.id)) return false;
+    _selectorColorInProgress.add(candidate.id);
+    let cols;
+    try {
+      cols = permanentColors(state, candidate.id);
+    } finally {
+      _selectorColorInProgress.delete(candidate.id);
+    }
+    if (selector.colors && !selector.colors.some(c => cols.includes(c))) return false;
+    if (selector.notColors && selector.notColors.some(c => cols.includes(c))) return false;
+    if (selector.colorless && cols.length !== 0) return false;
+    if (selector.multicolored && cols.length <= 1) return false;
   }
   // TOKEN gate (Teysa Karlov — "Creature TOKENS you control have vigilance and lifelink"): the candidate
   // must be a token (CR 111.1 — card.token stamped at every token-mint chokepoint, incl. token copies). A
   // nontoken creature is skipped, so the anthem confers vigilance/lifelink to exactly the controller's
   // creature tokens. Re-read each collection, so a token entering/leaving updates the grant live.
   if (selector.token && !candidate.card?.token) return false;
+  // TAP-STATE gates (BLITZ SF-1 — Builder's Blessing / Castle "Untapped creatures you control get +0/+2";
+  // Saryth "Other untapped creatures you control have hexproof" / "Other tapped creatures you control have
+  // deathtouch"; Adept Watershaper "Other tapped creatures you control have indestructible"). Reads the LIVE
+  // `candidate.tapped` flag. Exact AND live because a tap/untap is an IMMUTABLE state update (updatePermanent →
+  // a NEW state object) and deriveCharacteristics' memo is keyed per-state (WeakMap), so the anthem P/T
+  // re-derives on the post-tap state — a creature that taps (e.g. attacks without vigilance) drops the buff that
+  // same query, and untaps back into it (verified by the tap-flip runtime pin in the SF-1 test). Direct field
+  // read: no derive, no recursion.
+  if (selector.untapped && candidate.tapped) return false;
+  if (selector.tapped && !candidate.tapped) return false;
   // COMMANDER gate (BLITZ BG-1 — Bastion Protector "Commander creatures you control get +2/+2 and have
   // indestructible"; the Background cycle "Commander creatures you own have …"). "Commander" is a
   // game-STATE quality, not a type-line word: the flag rides card.isCommander, stamped at seat build
@@ -970,11 +1016,12 @@ export function deriveCharacteristics(state, permanentId) {
     };
   }
 
-  // P/T-PREDICATE guard: a derive that ran while THIS permanent's P/T was being read from inside a selector
-  // (the Tetsuko powerOrToughnessAtMost branch) excluded that layer-6 grant from its effect set — exact for
-  // the P/T the caller wanted, but its keyword set would be missing the grant. Don't memoize the partial
-  // entry; the next un-guarded derive computes (and caches) the complete one.
-  if (!_ptPredicateInProgress.has(permanentId)) permMemo.set(permanentId, result);
+  // SELECTOR-PREDICATE guard: a derive that ran while THIS permanent's P/T (the Tetsuko powerOrToughnessAtMost
+  // branch) or COLORS (the SF-1 layer-aware color gates) were being read from inside a selector excluded the
+  // in-flight anthem/grant from its effect set — exact for the P/T or colors the caller wanted, but the rest of
+  // the result (keyword set, or the anthem's own P/T buff) would be partial. Don't memoize either partial entry;
+  // the next un-guarded derive computes (and caches) the complete one.
+  if (!_ptPredicateInProgress.has(permanentId) && !_selectorColorInProgress.has(permanentId)) permMemo.set(permanentId, result);
   return result;
 }
 

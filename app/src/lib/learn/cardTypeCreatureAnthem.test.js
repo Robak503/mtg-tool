@@ -67,10 +67,11 @@ describe("card-type creature anthem — classification", () => {
 // ── 2. CREED anti-FP pins: board-state / quality qualifiers STAY body-only ────────
 describe("card-type creature anthem — anti-FP (these are NOT card types, must stay body-only)", () => {
   // ("Attacking creatures you control get +1/+0" sat here until BLITZ AT-1 modeled it with a REAL
-  // combat-state selector (layers gates on state.combat.attackers) — see attackingAnthem.test.js.
-  // The remaining qualifiers stay genuinely unmodeled parks.)
+  // combat-state selector; "Tapped creatures you control …" graduated in BLITZ SF-1 with the live-tapped
+  // selector — see attackingAnthem.test.js / anthemSubjectFilter.test.js. The remaining qualifiers below stay
+  // genuinely unmodeled parks: "Token creatures …" is the reversed-word-order twin of the modeled "Creature
+  // tokens …" anthem — no selector field for it; "Enchanted …" is an aura-attachment state we don't track.)
   for (const oracle of [
-    "Tapped creatures you control have vigilance",
     "Token creatures you control get +1/+1",
     "Enchanted creatures you control have flying",
   ]) {
@@ -78,6 +79,9 @@ describe("card-type creature anthem — anti-FP (these are NOT card types, must 
       expect(classifyCard({ name: "T", type: "Enchantment", mana: "{2}{G}", oracle })).toBe("body-only");
     });
   }
+  it("SF-1: 'Tapped creatures you control have vigilance' now flips native (live-tapped selector)", () => {
+    expect(classifyCard({ name: "T", type: "Enchantment", mana: "{2}{G}", oracle: "Tapped creatures you control have vigilance." })).toBe("native-static");
+  });
 });
 
 // ── 3. RUNTIME: the grant resolves through the layers engine ──────────────────────

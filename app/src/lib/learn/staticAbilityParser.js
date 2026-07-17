@@ -227,6 +227,29 @@ const NON_SUBTYPE_ANTHEM_WORDS = new Set([
   "other", "another", "all", "each", "this", "your", "target", "creature", "creatures",
 ]);
 
+// SUBJECT-QUALITY anthem filters (BLITZ SF-1) — a leading word in "<word> creatures you control get/have …"
+// that is NOT a creature subtype but a SUPERTYPE / COLOR-QUALITY / TAP-STATE the derive-time selector can
+// evaluate EXACTLY (layers.matchesSelector: `legendary`/`notLegendary` via effectiveTypeIdentity's supertype
+// set — CR 205.4; the layer-aware color set `colorless`/`multicolored`/`notColors` via permanentColors — CR
+// 105/202; `tapped`/`untapped` via the live candidate.tapped flag). Each maps to a partial selector fragment
+// merged into the anthem's { controllerScope, cardTypes:["Creature"] } selector. These words are ALSO in
+// NON_SUBTYPE_ANTHEM_WORDS (so the tribal-lord path never fabricates a zero-selecting subtype grant); this map
+// is consulted FIRST in each anthem branch, so a MODELED quality anthem flips native while any OTHER quality
+// word still falls through to body-only (CREED-safe FN). notColors letters follow COLOR_WORDS (WUBRG).
+const SUBJECT_QUALITY_SELECTORS = {
+  legendary: { legendary: true },
+  nonlegendary: { notLegendary: true },
+  colorless: { colorless: true },
+  multicolored: { multicolored: true },
+  untapped: { untapped: true },
+  tapped: { tapped: true },
+  nonwhite: { notColors: ["W"] },
+  nonblue: { notColors: ["U"] },
+  nonblack: { notColors: ["B"] },
+  nonred: { notColors: ["R"] },
+  nongreen: { notColors: ["G"] },
+};
+
 // STATIC-COST-REDUCTION: leading words in "<word> spells you cast cost {N} less to cast" that are NOT a
 // permanent/spell SUBTYPE and never appear as a TYPE-LINE token — a color (also caught via COLOR_WORDS),
 // a negated/category word ("noncreature"/"historic"), or an over-broad noun ("permanent"/"spell"). A
@@ -2244,6 +2267,14 @@ function parseCreatureSelector(c) {
       if (COLOR_WORDS[word]) {
         return { mode: "dynamic", selector: { controllerScope, cardTypes: ["Creature"], colors: [COLOR_WORDS[word]], excludeSelf } };
       }
+      // SUBJECT-QUALITY anthem (BLITZ SF-1): a supertype / color-quality / tap-state word → the corresponding
+      // exact selector fragment (matchesSelector honors each). Checked BEFORE the card-type / tribal-lord /
+      // NON_SUBTYPE_ANTHEM_WORDS branches so "Other legendary/colorless/nonblack/untapped/tapped/multicolored
+      // creatures you control …" (Rising of the Day, Ruination Guide, Angel of Jubilation, Saryth, Rienne) flips
+      // native instead of being dropped as a non-subtype word. `excludeSelf` rides the "other" determiner.
+      if (SUBJECT_QUALITY_SELECTORS[word]) {
+        return { mode: "dynamic", selector: { controllerScope, cardTypes: ["Creature"], ...SUBJECT_QUALITY_SELECTORS[word], excludeSelf } };
+      }
       // CARD-TYPE-qualified creature anthem: "(all|other|each) <Artifact|Enchantment|Land> creatures you
       // control …". The qualifier reads on the LEFT of the type-line em-dash, so it's a card-TYPE filter
       // (NOT a subtype). matchesSelector's cardTypes gate is AND-semantics over the candidate's effective
@@ -2339,6 +2370,20 @@ function parseCreatureSelector(c) {
         selector: { controllerScope: "you", cardTypes: ["Creature", ...typeFilter] },
       };
     }
+  }
+
+  // No-determiner SUBJECT-QUALITY anthem (BLITZ SF-1): "<legendary|nonlegendary|colorless|multicolored|
+  // non<color>|tapped|untapped> creatures you control get|gain|has|have …" — Rising of the Day ("Legendary
+  // creatures you control get +1/+0"), Ruination Guide, Forsaken Monument, Glass of the Guildpact, Builder's
+  // Blessing, Castle. Checked BEFORE the subtype anthem below (which would reject these via
+  // NON_SUBTYPE_ANTHEM_WORDS). No excludeSelf: a determiner-less quality anthem includes the source if it
+  // qualifies, matching the printed "Untapped creatures you control get …" all-inclusive reach.
+  m = c.match(/^([a-z]+)\s+creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/);
+  if (m && SUBJECT_QUALITY_SELECTORS[m[1]]) {
+    return {
+      mode: "dynamic",
+      selector: { controllerScope: "you", cardTypes: ["Creature"], ...SUBJECT_QUALITY_SELECTORS[m[1]] },
+    };
   }
 
   // No-determiner tribal anthem: "<Subtype> creatures you control get|gain|has|have …" — the modern

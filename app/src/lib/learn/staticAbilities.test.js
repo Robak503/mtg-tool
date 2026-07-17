@@ -223,10 +223,17 @@ describe("parseStaticAbilities — NO-DETERMINER tribal anthem ('<Subtype> creat
     expect(d[0].affects.selector).toMatchObject({ controllerScope: "you", cardTypes: ["Creature"], attacking: true });
     expect(d[0].affects.selector.subtypes).toBeUndefined();
   });
-  it("does NOT grant for tapped / nontoken / colorless qualifiers", () => {
-    expect(parseStaticAbilities(card("A", "Tapped creatures you control have vigilance.", "Enchantment"))).toHaveLength(0);
+  // SF-1 graduated tapped/colorless (and legendary/multicolored/non<color>/untapped) from parked to REAL
+  // selectors — tapped via the live candidate.tapped flag, colorless via layer-aware permanentColors. `nontoken`
+  // has no carrier-backed field yet, so it stays parked (no grant): the CREED guard still holds for un-added words.
+  it("SF-1: tapped/colorless emit their exact selector; nontoken stays parked", () => {
+    const tap = parseStaticAbilities(card("A", "Tapped creatures you control have vigilance.", "Enchantment"));
+    expect(tap).toHaveLength(1);
+    expect(tap[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], tapped: true });
+    const col = parseStaticAbilities(card("C", "Colorless creatures you control get +1/+1.", "Enchantment"));
+    expect(col).toHaveLength(1);
+    expect(col[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], colorless: true });
     expect(parseStaticAbilities(card("B", "Nontoken creatures you control have riot.", "Enchantment"))).toHaveLength(0);
-    expect(parseStaticAbilities(card("C", "Colorless creatures you control get +1/+1.", "Enchantment"))).toHaveLength(0);
   });
   // CARD-TYPE words read on the LEFT of the em-dash → a card-TYPE filter, NOT a subtype. The modeled card
   // types (Artifact/Enchantment/Land) now emit a cardTypes:["Creature", X] selector (AND-semantics in
@@ -257,10 +264,15 @@ describe("determiner anthem hardening — colors enforce, non-subtype words don'
     expect(d[0].affects.selector.subtypes).toBeUndefined();
     expect(d[0].affects.selector.excludeSelf).toBe(true);
   });
-  it("'Other tapped/nontoken/colorless creatures …' → NO grant (not a subtype, CREED)", () => {
-    expect(parseStaticAbilities(card("Adept Watershaper", "Other tapped creatures you control have indestructible.", "Creature"))).toHaveLength(0);
+  it("SF-1: 'Other tapped/colorless creatures …' emit exact excludeSelf selectors; nontoken stays parked", () => {
+    const tap = parseStaticAbilities(card("Adept Watershaper", "Other tapped creatures you control have indestructible.", "Creature"));
+    expect(tap).toHaveLength(1);
+    expect(tap[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], tapped: true, excludeSelf: true });
+    const col = parseStaticAbilities(card("Tide Drifter", "Other colorless creatures you control get +0/+1.", "Creature"));
+    expect(col).toHaveLength(1);
+    expect(col[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], colorless: true, excludeSelf: true });
+    // `nontoken` has no selector field yet → still no grant (CREED: never fabricate an unmodeled quality anthem).
     expect(parseStaticAbilities(card("Thraben Watcher", "Other nontoken creatures you control get +1/+1.", "Creature"))).toHaveLength(0);
-    expect(parseStaticAbilities(card("Tide Drifter", "Other colorless creatures you control get +0/+1.", "Creature"))).toHaveLength(0);
   });
   it("irregular plural subtypes normalize to the real type ('Other Elves' → Elf, 'Allies' → Ally)", () => {
     const elf = parseStaticAbilities(card("Elf Lord", "Other Elves you control get +1/+1.", "Creature — Elf"));
