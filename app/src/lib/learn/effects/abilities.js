@@ -695,7 +695,7 @@ function levelerActivatedAbilities(card) {
 
 /**
  * The single whole-card gate for the leveler frame. Returns
- *   { levelUpPips, bands: [{ atLeast, atMost, power, toughness, keywords[] }], abilities: [...] }
+ *   { levelUpPips, bands: [{ atLeast, atMost, power, toughness, keywords[], anthems[] }], abilities: [...] }
  * when EVERY piece of the card is modeled, else null. Consumed by: this file (the activated lane),
  * staticAbilityParser (band P/T + keyword statics, via registerLevelerCardValidator — injected by
  * coverage.js / legalChoices.js to avoid the load-time cycle), and coverage.js (the classifier).
@@ -764,6 +764,7 @@ function computeModeledLeveler(card) {
       power: b.pt.power,
       toughness: b.pt.toughness,
       keywords: [...b.keywords],
+      anthems: b.anthems.map((a) => ({ ...a })), // SG-1: band group anthems, source-gated on this band
     })),
     abilities: stamped,
   };

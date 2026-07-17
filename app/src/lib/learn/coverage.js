@@ -1930,9 +1930,11 @@ registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 // classifier: a WHOLLY-modeled leveler — the level-up activated ability (CR 702.87a rewrite through the
 // standard activated lane) + every band being printed P/T + closed-vocabulary keywords + fully-modeled
 // band-gated activated abilities — is native. The metric consumes the SAME modeledLeveler parse the
-// runtime offers/emits from (abilities lane + band statics), so they cannot drift. Any unmodeled band
-// line (islandwalk, protection, a "can't be blocked…" static, a banded trigger, a banded anthem — the
-// gate evaluates against the AFFECTED permanent, so a source-counter-scoped anthem isn't wireable yet, a
+// runtime offers/emits from (abilities lane + band statics + band anthems), so they cannot drift. A banded
+// GROUP anthem ("Other creatures you control get +X/+Y" — Kabira Vindicator / Coralhelm Commander) is now
+// wired (BLITZ SG-1): staticAbilityParser emits it as a layer-7c ptModifyGated over the OTHER creatures, its
+// gate carrying gateOn:"source" so layers reads the SOURCE's level band, not each affected permanent. Any
+// OTHER unmodeled band line (islandwalk, protection, a "can't be blocked…" static, a banded trigger, a
 // banded mana ability — the mana lane has no band gate) ⇒ modeledLeveler null ⇒ the card stays body-only
 // and the runtime emits nothing for it (whole-card-or-park).
 registerLevelerCardValidator(modeledLeveler);

@@ -68,10 +68,8 @@ const ZULAPORT = { // "can't be blocked except by black creatures" — an unmode
   name: "Zulaport Enforcer", type: "Creature — Human Warrior", mana: "{B}", power: "1", toughness: "1",
   oracle: "Level up {4} ({4}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-2\n3/3\nLEVEL 3+\n5/5\nThis creature can't be blocked except by black creatures.",
 };
-const KABIRA = { // banded ANTHEM — the countersOnSelf gate evaluates against the AFFECTED permanent, not the source
-  name: "Kabira Vindicator", type: "Creature — Human Knight", mana: "{3}{W}", power: "2", toughness: "4",
-  oracle: "Level up {2}{W} ({2}{W}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 2-4\n3/6\nOther creatures you control get +1/+1.\nLEVEL 5+\n4/8\nOther creatures you control get +2/+2.",
-};
+// Kabira Vindicator (banded GROUP anthem) FLIPPED in BLITZ SG-1 — its source-gated band anthem is now
+// modeled; the whole-card + runtime pins live in sourceGatedAnthem.test.js.
 const ECHO_MAGE = { // banded copy-spell activated ability — the effect doesn't parse modeled
   name: "Echo Mage", type: "Creature — Human Wizard", mana: "{1}{U}{U}", power: "2", toughness: "3",
   oracle: "Level up {1}{U} ({1}{U}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 2-3\n2/4\n{U}{U}, {T}: Copy target instant or sorcery spell. You may choose new targets for the copy.\nLEVEL 4+\n2/5\n{U}{U}, {T}: Copy target instant or sorcery spell twice. You may choose new targets for the copies.",
@@ -103,7 +101,7 @@ const OTHER_PARKS = [
   ["Hada Spy Patrol", "Creature — Human Rogue", "1", "1", "Level up {2}{U} ({2}{U}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-2\n2/2\nThis creature can't be blocked.\nLEVEL 3+\n3/3\nShroud (This creature can't be the target of spells or abilities.)\nThis creature can't be blocked."],
   ["Lighthouse Chronologist", "Creature — Human Wizard", "1", "3", "Level up {U} ({U}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 4-6\n2/4\nLEVEL 7+\n3/5\nAt the beginning of each end step, if it's not your turn, take an extra turn after this one."],
   ["Lord of Shatterskull Pass", "Creature — Minotaur Shaman", "3", "3", "Level up {1}{R} ({1}{R}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-5\n6/6\nLEVEL 6+\n6/6\nWhenever this creature attacks, it deals 6 damage to each creature defending player controls."],
-  ["Coralhelm Commander", "Creature — Merfolk Soldier", "2", "2", "Level up {1} ({1}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 2-3\n3/3\nFlying\nLEVEL 4+\n4/4\nFlying\nOther Merfolk creatures you control get +1/+1."],
+  // Coralhelm Commander (band GROUP anthem) FLIPPED in BLITZ SG-1 — pins in sourceGatedAnthem.test.js.
   ["Hedron-Field Purists", "Creature — Human Cleric", "0", "3", "Level up {2}{W} ({2}{W}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-4\n1/4\nIf a source would deal damage to you or a creature you control, prevent 1 of that damage.\nLEVEL 5+\n2/5\nIf a source would deal damage to you or a creature you control, prevent 2 of that damage."],
 ];
 
@@ -156,7 +154,7 @@ describe("modeledLeveler + classifyCard — whole card or park", () => {
     }
   });
   it("FN guards: every leveler with an unmodeled band piece parks whole (body-only)", () => {
-    for (const card of [HALIMAR, ZULAPORT, KABIRA, ECHO_MAGE, JORAGA]) {
+    for (const card of [HALIMAR, ZULAPORT, ECHO_MAGE, JORAGA]) {
       expect(modeledLeveler(card), card.name).toBeNull();
       expect(classifyCard(card), card.name).toBe("body-only");
     }
@@ -167,7 +165,7 @@ describe("modeledLeveler + classifyCard — whole card or park", () => {
     }
   });
   it("a parked leveler emits NOTHING at runtime: no abilities, no statics", () => {
-    for (const card of [HALIMAR, ZULAPORT, KABIRA, ECHO_MAGE, JORAGA]) {
+    for (const card of [HALIMAR, ZULAPORT, ECHO_MAGE, JORAGA]) {
       expect(parseActivatedAbilities(card), card.name).toEqual([]);
       expect(parseStaticAbilities(card), card.name).toEqual([]);
     }

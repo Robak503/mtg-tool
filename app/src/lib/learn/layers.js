@@ -254,6 +254,20 @@ function gateMet(state, perm, gate) {
   return n >= (gate.atLeast || 1);
 }
 
+// SOURCE-GATED continuous effect (BLITZ SG-1, CR 711.2a; live recompute 613.7-adjacent): the permanent whose state a gate is read
+// AGAINST. By default that's the AFFECTED permanent (a self-buff / self-band static — the gate and the effect
+// share a subject). `gate.gateOn === "source"` swaps the subject to the effect's SOURCE permanent (a leveler
+// band anthem: the gate reads the SOURCE's level counters while the effect buffs the OTHER creatures it selects).
+// The source is resolved live from e.source.permanentId (stamped at staticEffectsOf collection); effectAffects
+// has already dropped any static effect whose source left the battlefield, so a null here only guards a torn-down
+// state. Absent gateOn keeps the pre-existing self-subject semantics for every prior gate — no behavior change.
+function gatePermForEffect(state, effect, affectedPerm) {
+  if (effect?.op?.gate?.gateOn === "source") {
+    return (effect.source?.permanentId && findPerm(state, effect.source.permanentId)) || null;
+  }
+  return affectedPerm;
+}
+
 const COLOR_PIPS = ["W", "U", "B", "R", "G"];
 // DEVOID (CR 702.114, BLITZ DV-1) — a standalone "Devoid (This card has no color.)" keyword line. Detected via
 // the Scryfall `keywords` array (authoritative) OR a whole-line oracle match (for a fixture that sets oracle but
@@ -826,9 +840,13 @@ function applyLayer7(state, perm, l7Effects) {
       power += n * (e.op.perPower || 0);
       toughness += n * (e.op.perToughness || 0);
     } else if (e.op.layerOp === "ptModifyGated") {
-      // GATED-SELFBUFF: a FIXED self buff applied ONLY while a board threshold holds ("gets +X/+Y as long as
-      // you control a/another/N <type>"). Re-evaluated live every P/T computation via the shared gate.
-      if (gateMet(state, perm, e.op.gate)) { power += e.op.power || 0; toughness += e.op.toughness || 0; }
+      // GATED-SELFBUFF: a FIXED buff applied ONLY while a threshold holds ("gets +X/+Y as long as you control
+      // a/another/N <type>"). Re-evaluated live every P/T computation via the shared gate. SG-1: a leveler band
+      // GROUP anthem carries gate.gateOn "source" — gatePermForEffect swaps the gate's subject to the effect's
+      // SOURCE (the leveler's own level counters) so the anthem flips at the SOURCE's band boundary while
+      // buffing the OTHER creatures the dynamic selector already matched (effectAffects, above the switch).
+      const gatePerm = gatePermForEffect(state, e, perm);
+      if (gatePerm && gateMet(state, gatePerm, e.op.gate)) { power += e.op.power || 0; toughness += e.op.toughness || 0; }
     }
   }
 

@@ -74,6 +74,21 @@ export function parseBandKeywordLine(line) {
   return out.length ? out : null;
 }
 
+// A band GROUP-ANTHEM line (BLITZ SG-1) — "Other [<Subtype> ]creatures you control get +X/+Y." — the ONLY
+// continuous GROUP grant modeled inside a band: a fixed-magnitude P/T anthem over the controller's OTHER
+// creatures (optionally one creature subtype), whose gate is the SOURCE's level band (CR 711.2a).
+// Returns { subtype, power, toughness } | null. The subject MUST be "Other …" — every printed leveler band
+// anthem is (CR 613 excludes the leveler itself; both real carriers, Kabira Vindicator / Coralhelm Commander,
+// say "Other"). Only POSITIVE integer P/T is admitted. A non-"Other" subject, a negative or dynamic magnitude
+// ("+X/+X"), a keyword tail ("and have flying"), a multi-word subtype, or any other shape fails this closed
+// matcher → the line lands in unmodeledLines → the whole card parks (safe FN, never a partial anthem).
+const BAND_ANTHEM_RE = /^Other (?:([A-Z][a-z]+) )?creatures you control get \+(\d+)\/\+(\d+)\.?$/;
+export function parseBandAnthemLine(line) {
+  const m = String(line || "").trim().match(BAND_ANTHEM_RE);
+  if (!m) return null;
+  return { subtype: m[1] || null, power: parseInt(m[2], 10), toughness: parseInt(m[3], 10) };
+}
+
 // A colon line whose colon sits OUTSIDE any quoted grant (the same quote-parity guard
 // parseActivatedAbilities uses, CR 113.7) — a quoted group grant inside a band (Joraga
 // Treespeaker's «Elves you control have "{T}: Add {G}{G}."») is NOT this card's own
@@ -94,6 +109,7 @@ function isOwnColonLine(line) {
  *       atLeast, atMost,                     // atMost null for the open "N+" band
  *       pt: { power, toughness } | null,     // the band's base P/T box (CR 711.2a)
  *       keywords: [...],                     // validated grantable keywords, may be []
+ *       anthems: [...],                      // SG-1: band group anthems {subtype, power, toughness}, may be []
  *       colonLines: [...],                   // the band's own activated-ability lines
  *       unmodeledLines: [...],               // anything else — non-empty ⇒ park the card
  *     }],
@@ -129,6 +145,7 @@ export function parseLeveler(card) {
         atMost: range ? parseInt(range[2], 10) : null,
         pt: null,
         keywords: [],
+        anthems: [],
         colonLines: [],
         unmodeledLines: [],
       };
@@ -153,6 +170,11 @@ export function parseLeveler(card) {
     const kws = parseBandKeywordLine(line);
     if (kws) {
       current.keywords.push(...kws);
+      continue;
+    }
+    const anthem = parseBandAnthemLine(line); // SG-1 — a band group anthem (source-gated on this band)
+    if (anthem) {
+      current.anthems.push(anthem);
       continue;
     }
     current.unmodeledLines.push(line); // fail-closed bucket

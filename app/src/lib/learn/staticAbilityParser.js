@@ -2400,6 +2400,22 @@ export function parseStaticAbilities(card) {
           for (const kw of b.keywords) {
             out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(kw), gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
           }
+          // SOURCE-GATED GROUP ANTHEM (BLITZ SG-1, CR 711.2a; live recompute 613.7-adjacent): a band anthem — "Other [<Subtype> ]
+          // creatures you control get +X/+Y" — is a layer-7c fixed P/T buff over the controller's OTHER
+          // creatures, but its gate reads THE SOURCE (this leveler's level counters), NOT each affected
+          // permanent. `gateOn: "source"` tells layers.gatePermForEffect to swap the gate's subject to the
+          // effect's source before gateMet, so the anthem flips ON/OFF live as the SOURCE crosses the band
+          // boundary while buffing the OTHERS. The dynamic selector (controllerScope you, cardTypes Creature,
+          // excludeSelf) resolves against the source's controller via effectAffects; an optional subtype
+          // (Coralhelm's "Merfolk") narrows it. source.permanentId is stamped at collect (staticEffectsOf).
+          for (const a of b.anthems || []) {
+            out.push({
+              layer: 7, sublayer: "7c",
+              op: { layerOp: "ptModifyGated", power: a.power, toughness: a.toughness, gate: { ...gate, gateOn: "source" } },
+              affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], excludeSelf: true, ...(a.subtype ? { subtypes: [a.subtype] } : {}) } },
+              duration: { kind: "permanent" },
+            });
+          }
         }
       }
     } else if (isLevelerFrame(rawOracle)) {
