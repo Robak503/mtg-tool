@@ -222,7 +222,13 @@ export function parseAbilityCost(costStr) {
     // time (CREED — never activate without paying). The energy GAIN side is modeled (add-energy, Slice A).
     const energyM = /^pay ((?:\{e\})+)$/i.exec(item);
     if (energyM) { payEnergy += (energyM[1].match(/\{e\}/gi) || []).length; continue; }
-    if (/^sacrifice (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { sacSelf = true; continue; }
+    // "Sacrifice this[ <noun>]" (BLITZ EQ-2 — CR 701.21a): sacrifice the SOURCE permanent. The noun after
+    // "this" is COSMETIC — CR 701.21a sacrifices the object the ability is on regardless of how the card
+    // names it — so an Aura ("Sacrifice this Aura"), Equipment ("Sacrifice this Equipment"), Vehicle, or a
+    // self-referential token noun resolves IDENTICALLY to the base "Sacrifice this creature/permanent/…"
+    // forms: the source leaves the battlefield as the activation cost. Whole-item anchored ($) so a COMPOUND
+    // cost ("Sacrifice this Aura and a creature") never prefix-matches and silently drops its trailing item.
+    if (/^sacrifice (?:this|~)(?: creature| permanent| artifact| enchantment| land| aura| equipment| token| vehicle)?$/i.test(item)) { sacSelf = true; continue; }
     // γ1c — two more NO-CHOICE self costs:
     //   "Exile this[ <type>]"            → exile the SOURCE from the battlefield (NOT "dies"; no dies
     //                                      triggers). The `$` anchor excludes "Exile this card from your

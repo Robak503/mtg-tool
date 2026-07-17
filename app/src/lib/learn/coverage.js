@@ -1175,6 +1175,78 @@ export function registerCoverageClassifier(fn) {
   COVERAGE_CLASSIFIERS.push(fn);
 }
 
+/**
+ * BLITZ EQ-2 — the AURA/EQUIPMENT static grant + SELF-SAC-ACTIVATED composite. An Aura or Equipment whose
+ * body is EXACTLY {the enchant/equip line, a modeled static grant (parseAuraBonus/parseEquipmentBonus — the
+ * SAME all-or-nothing gate isNativeAura/permanentEquipmentCovered already stand on), one-or-more modeled
+ * activated abilities, keyword-only residue}. The activated ability is the piece the plain aura/equipment
+ * tiers each treat as residue: isNativeAura's residue walk pushes a "{cost}: effect" line (Capashen Standard
+ * "{2}, Sacrifice this Aura: Draw a card." falls out of native-aura), and permanentEquipmentCovered requires
+ * EVERY activated ability be an Equip line (Lightning Spear's "Sacrifice this Equipment: …" fails it). This
+ * COMPOSES the two rather than forking: STRIP the non-attach activated-ability lines, then require the
+ * REMAINDER to be a fully-native aura/equipment (the exact existing gate — reuse), AND every activated
+ * ability modeled (whole-card CREED). The self-sac cost noun ("Sacrifice this Aura/Equipment", CR 701.21a)
+ * is what parseAbilityCost newly parses this slice, so the self-sac ability finally reaches `modeled:true`.
+ *
+ * TIERING: an Aura returns "native-activated" — NOT "native-aura" — because isNativeAura is FALSE on the
+ * residue-carrying FULL card, so the plain aura CAST branch (legalChoices, gated on isNativeAura) would never
+ * offer it; grantAuraCastHostType's grant-aura cast lane DOES offer a non-isNativeAura Aura whose tier is
+ * native-activated/native-mana-aura/native-trigger, and it attaches through AURA_ETB (the layer engine then
+ * applies the static bonus and actionsActivateAbility enumerates the self-sac ability on the attached Aura —
+ * the whole card plays). An Equipment returns "native-equipment" (a normal artifact cast; the registry seam
+ * tiers it after the inline equipment tiers). A non-Aura/Equipment card returns null (registry no-op).
+ *
+ * TWO CREED GUARDS (a false negative is SAFE; a dropped rider / mis-bound referent is FORBIDDEN):
+ *   • GUARD-LEAVE: a self-sac / self-exile activated COST removes the source (and its attachment) as the cost,
+ *     BEFORE the ability's effect resolves (actionDispatcher pays the cost, then the payload carries a
+ *     `sourceId` pointing at the now-gone permanent). An effect that references the detached host — an atom
+ *     target:"enchanted"/"equipped", or the phrase "enchanted/equipped creature" — can't bind at resolution,
+ *     so the effect silently no-ops. Reject such a card: Briar Shield ("Sacrifice this Aura: Enchanted
+ *     creature gets +3/+3 until end of turn." → a pump target:"enchanted" the runtime drops) parks. Effects
+ *     on a CHOSEN / any target (draw, create a token, "It deals N damage to any target") are unaffected — the
+ *     target is picked at activation and survives the source's departure.
+ *   • GUARD-QUOTE: parseEquipmentBonus is NOT all-or-nothing over a QUOTED granted ability (Candlestick
+ *     "Equipped creature gets +1/+1 and has \"Whenever this creature attacks, surveil 2.\"" → it captures only
+ *     the +1/+1 and SILENTLY DROPS the granted trigger). A double-quote in the stripped remainder signals a
+ *     granted ability the bonus parser drops → reject. (parseAuraBonus IS all-or-nothing so this only bites
+ *     Equipment, but the guard covers both; isNativeTriggerGrantAuraOrEquipment already owns the pure
+ *     grant-line equipment, checked earlier in the dispatch, so nothing legitimate is lost here.)
+ */
+function nativeStaticGrantPlusActivated(card) {
+  const ty = String(card?.type || card?.type_line || "");
+  const isAura = /\bAura\b/.test(ty);
+  const isEquip = /\bequipment\b/i.test(ty);
+  if (!isAura && !isEquip) return null;
+  const abilities = parseActivatedAbilities(card);
+  if (!abilities.length || !abilities.every((a) => a.modeled)) return null;   // whole-card: every ability modeled
+  // The EXTRA abilities = the non-attach (non-Equip), non-mana activated abilities — the piece the plain
+  // aura/equipment tier can't already model. ≥1 required (else the plain tier owns the card; keep priority).
+  const extra = abilities.filter((a) => !a.isEquipAbility && !a.isManaEffect);
+  if (!extra.length) return null;
+  // GUARD-LEAVE (see doc): a leaving cost whose effect references the detached host → forbidden FP.
+  const refsHost = (a) =>
+    (a.program?.atoms || []).some((at) => at.target === "enchanted" || at.target === "equipped") ||
+    /\b(?:enchanted|equipped) creature\b/i.test(String(a.effectClause || ""));
+  if (extra.some((a) => (a.sacSelf || a.exileSelf) && refsHost(a))) return null;
+  // STRIP the extra activated-ability lines from the (reminder-preserved) oracle — every activated-ability
+  // line that is NOT the Equip attach line (which the equipment gate still needs). Keyed on the SAME
+  // isActivatedAbilityLine the parser's own residue strips use, so the strip can't drift from detection.
+  const kept = String(card.oracle || card.oracle_text || "").split("\n").filter((line) => {
+    const s = stripReminder(line).trim();
+    if (!s) return true;
+    return !(isActivatedAbilityLine(s) && !/^equip\b/i.test(s));
+  });
+  const stripped = { ...card, oracle: kept.join("\n") };
+  // GUARD-QUOTE (see doc): a granted quoted ability in the remainder's bonus is silently dropped → reject.
+  if (/["“”]/.test(stripReminder(stripped.oracle))) return null;
+  if (isAura) return isNativeAura(stripped) ? "native-activated" : null;
+  return permanentEquipmentCovered(stripped) ? "native-equipment" : null;
+}
+// EQ-2 — register the EQUIPMENT lane (returns "native-equipment" | null; a non-equipment card is null, so
+// this is a no-op for everything but Equipment). The AURA lane is called directly in the aura block below,
+// because auras return from classifyCard BEFORE the registry runs.
+registerCoverageClassifier((card) => (/\bequipment\b/i.test(String(card?.type || card?.type_line || "")) ? nativeStaticGrantPlusActivated(card) : null));
+
 // GRANTED-ACTIVATED AURA (subsystem 1 phase 1b) — an Aura whose ONLY body is granting the enchanted
 // creature one-or-more activated abilities, every one fully modeled (cost in the modeled subset + effect
 // parses HIGH, via parseGrantedActivatedAbilities). The runtime enumerates these on the host and resolves
@@ -1624,7 +1696,21 @@ export function classifyCard(card) {
       const stripped = String(card.oracle || card.oracle_text || "").replace(/(?:^|\n)\s*Enchant player\s*(?=\n|$)/i, "\n");
       return permanentTriggersCovered({ ...card, oracle: stripped }) ? "native-aura" : "body-only";
     }
-    return isNativeAura(card) ? "native-aura" : "body-only";
+    // isNativeAura keeps PRIORITY: an Aura already fully native (its whole body a modeled creature bonus + an
+    // aura-own activated pump/tap it already handles — Shiv's Embrace, Armor of Faith) stays native-aura and
+    // keeps its own cast lane (legalChoices' isNativeAura branch). The EQ-2 composite runs ONLY on the residue-
+    // carrying auras isNativeAura rejects.
+    if (isNativeAura(card)) return "native-aura";
+    // EQ-2 — the static-grant + self-sac-activated composite (Capashen Standard, Illuminated Wings, Crackling
+    // Club, Inferno Fist): an Aura whose creature bonus is modeled AND whose remaining "{cost}: effect" line is
+    // a modeled activated ability the plain native-aura residue walk rejects. Tiered native-activated so
+    // grantAuraCastHostType's cast lane offers it (isNativeAura is FALSE on the full residue-carrying card).
+    // Called HERE, before body-only, because the aura block returns before the registry seam.
+    {
+      const t = nativeStaticGrantPlusActivated(card);
+      if (t) return t;
+    }
+    return "body-only";
   }
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now
   // plays natively (it suspends on a copy-choice and enters as a snapshot). Checked before the

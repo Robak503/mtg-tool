@@ -12,9 +12,10 @@
  *     {1}, {T}, Discard a card, Sacrifice this token: Draw a card.
  * The discard is an ADDITIONAL COST (CR 601.2h — the γ1h discard-cost path already modeled for
  * Rummaging Goblin et al, discardCost.test.js), and the effect is a plain "Draw a card." NAMED_TOKENS
- * stores it with "Sacrifice this artifact" (the wording parseActivatedAbilities recognizes for self-sac;
- * the printed "Sacrifice this token" is NOT recognized — proven below), so the full
- * {1}+{T}+discard-a-card+sac-self cost models and the runtime pays all four before the draw resolves.
+ * stores it with "Sacrifice this artifact" (a wording parseActivatedAbilities recognizes for self-sac;
+ * as of BLITZ EQ-2 the printed "Sacrifice this token" wording models identically — CR 701.21a, the noun
+ * is cosmetic — proven below), so the full {1}+{T}+discard-a-card+sac-self cost models and the runtime
+ * pays all four before the draw resolves.
  *
  * Map (targeted explore + sorcery-speed — the explore atom has NO chosen-target subject), Powerstone
  * (restricted mana, explicitly unmodeled), and Incubator (transform) stay parked (FN guards below).
@@ -100,10 +101,13 @@ describe("BLITZ TOK-1 — the Blood token ability parses (discard-a-card additio
     const [ab] = parseActivatedAbilities({ name: "Blood", type: "Token Artifact — Blood", oracle: BLOOD_ORACLE });
     expect(ab).toMatchObject({ modeled: true, costModeled: true, sacSelf: true, tapSelf: true, discardCard: 1 });
   });
-  it("CREED: the printed 'Sacrifice this token' wording is NOT recognized as self-sac → NAMED_TOKENS uses 'artifact'", () => {
+  it("BLITZ EQ-2: the printed 'Sacrifice this token' wording is ALSO recognized as self-sac (CR 701.21a) — both wordings model identically", () => {
+    // The self-sac cost noun now includes "token" (EQ-2), so the AS-PRINTED Blood token line models the same
+    // as the NAMED_TOKENS "Sacrifice this artifact" form above — confirming that choice was equivalent, not
+    // load-bearing. (The noun after "this" is cosmetic; sacrifice moves the source regardless — CR 701.21a.)
     const [ab] = parseActivatedAbilities({ name: "Blood", type: "Token Artifact — Blood",
       oracle: "{1}, {T}, Discard a card, Sacrifice this token: Draw a card." });
-    expect(ab?.modeled).toBeFalsy();
+    expect(ab).toMatchObject({ modeled: true, costModeled: true, sacSelf: true, tapSelf: true, discardCard: 1 });
   });
 });
 
