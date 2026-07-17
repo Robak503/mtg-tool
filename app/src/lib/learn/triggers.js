@@ -23,7 +23,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentColors, diesTriggerMultiplierCount } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentColors, permanentTypes, diesTriggerMultiplierCount } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 
 function oracleOf(card) {
@@ -2600,21 +2600,21 @@ export function detectTriggers(card) {
       optional: false, sourceText: `blocks-or-blocked contact damage ${ie[1]}`,
     });
   }
-  // BASILISK TOUCH (BLITZ DG-1 — Deathgazer / Dread Specter / Gorgon Recluse: "Whenever this creature
-  // blocks or becomes blocked by a nonblack creature, destroy that creature at end of combat.") The
-  // IE-1 contact family with TWO twists enforced at the fire site: the NONBLACK filter on the contact
-  // partner (layer-aware permanentColors) and the CR 511 DELAY (the sentinel routes to the
-  // destroy-at-end-of-combat atom, whose resolver enqueues onto state.endOfCombatEffects —
+  // BASILISK TOUCH (BLITZ DG-1 + BT-2 — Deathgazer kin: "Whenever this creature blocks or becomes
+  // blocked by <filter> creature, destroy that creature at end of combat.") The IE-1 contact family
+  // with TWO twists enforced at the fire site: the PARTNER filter (BASILISK_FILTERS — nonblack /
+  // non-Wall / green-or-white / bare, each read layer-aware) and the CR 511 DELAY (the sentinel routes
+  // to the destroy-at-end-of-combat atom, whose resolver enqueues onto state.endOfCombatEffects —
   // combatResolution drains it after the last damage sub-step). Coverage-only descriptor like IE-1
   // (checkBlockTriggers fires per pair, both directions, the OTHER creature as the triggering
   // permanent); the normal When/Whenever path nulls this compound condition, so no twin to evict.
-  // SENTENCE-END anchored: any rider after "at end of combat" fails the lookahead (CREED, FN-safe).
-  const dg = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by a nonblack creature, destroy that creature at end of combat(?=\s*(?:\.|\n|$))/i);
+  // The anchored regex + filter table (shared with the fire site) live above checkBlockTriggers.
+  const dg = basiliskTouchOf(oracle);
   if (dg) {
     out.push({
       event: "blocksOrBlockedByCreature", scope: "self", whose: "any",
       effect: null, effectClause: "destroy the triggering creature at end of combat",
-      optional: false, sourceText: "blocks-or-blocked nonblack delayed destroy",
+      optional: false, sourceText: `blocks-or-blocked ${dg.tag} delayed destroy`,
     });
   }
   // SOULSHIFT (CR 702.46a — BLITZ SS-1) — KEYWORD→TRIGGER synthesis, the CU/BUSHIDO precedent. "Soulshift N"
@@ -3636,6 +3636,48 @@ export function checkAttackTriggers(state) {
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
+// ── BASILISK TOUCH shared vocabulary (BLITZ DG-1 + BT-2 — the Deathgazer contact family) ──
+// One anchored regex + filter table consumed by BOTH the detectTriggers coverage descriptor and the
+// checkBlockTriggers fire site (no drift between what classifies and what fires). Exactly the four
+// EVIDENCED partner filters; the bare alternative is LAST so a filtered wording can never fall through
+// to it, and the sentence-end lookahead rejects any rider after "at end of combat" (CREED, FN-safe).
+const BASILISK_TOUCH_RE = /(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by (a nonblack creature|a non-wall creature|a green or white creature|a creature), destroy that creature at end of combat(?=\s*(?:\.|\n|$))/i;
+const BASILISK_FILTERS = {
+  "a nonblack creature": { tag: "nonblack", filter: { kind: "notColor", color: "B" } },                       // Deathgazer / Dread Specter (DG-1)
+  "a non-wall creature": { tag: "non-wall", filter: { kind: "notSubtypeOrChangeling", subtype: "wall" } },    // Rock Basilisk / Cockatrice / Thicket Basilisk
+  "a green or white creature": { tag: "green-or-white", filter: { kind: "anyColor", colors: ["G", "W"] } },   // Abomination
+  "a creature": { tag: "any", filter: null },                                                                  // Venomous Dragonfly / Tangle Asp
+};
+function basiliskTouchOf(oracle) {
+  const m = String(oracle || "").replace(/\([^)]*\)/g, " ").match(BASILISK_TOUCH_RE);
+  return m ? BASILISK_FILTERS[m[1].toLowerCase()] || null : null;
+}
+// Does the contact PARTNER satisfy the printed filter RIGHT NOW? Every read is layer-aware — the same
+// live reads the rest of combat enforcement uses — because firing on a partner the filter excludes
+// would destroy a creature the card never touches (a forbidden FP):
+//   notColor / anyColor — permanentColors (deriveCharacteristics; the engine's live color truth).
+//   notSubtypeOrChangeling — permanentTypes' layer-4-aware subtypes UNIONED with the changeling gate:
+//     a changeling has EVERY creature type (CR 702.73a), so it IS a Wall and "non-Wall" EXCLUDES it —
+//     the trigger does NOT fire on a changeling partner. permanentHasKeyword reads changeling
+//     layer-aware (printed ∪ granted), the widest exclusion (missing one would be the FP direction).
+// An unknown filter kind never fires (FN-safe).
+function basiliskPartnerMatches(state, filter, partnerId) {
+  if (!filter) return true;
+  if (filter.kind === "notColor") {
+    return !(permanentColors(state, partnerId) || []).some((c) => String(c).toUpperCase() === filter.color);
+  }
+  if (filter.kind === "anyColor") {
+    const have = new Set((permanentColors(state, partnerId) || []).map((c) => String(c).toUpperCase()));
+    return filter.colors.some((c) => have.has(c));
+  }
+  if (filter.kind === "notSubtypeOrChangeling") {
+    if (permanentHasKeyword(state, partnerId, "changeling")) return false;
+    const subs = (permanentTypes(state, partnerId)?.subtypes || []).map((s) => String(s).toLowerCase());
+    return !subs.includes(filter.subtype);
+  }
+  return false;
+}
+
 /**
  * BLOCK triggers (subsystem 2) — at the declare-blockers step, enqueue the SELF block triggers the spine
  * detected but never fired: each BLOCKER's "Whenever this creature blocks, …" (CR 509.1a) and each ATTACKER
@@ -3759,29 +3801,26 @@ export function checkBlockTriggers(state) {
       }
     }
   }
-  // BASILISK TOUCH (BLITZ DG-1 — Deathgazer class): per block PAIR, BOTH directions like IE-1 contact
-  // damage — a creature printing the basilisk line marks the OTHER creature of the pair for destruction
-  // at end of combat, whether it blocks or is blocked (once per pair partner, CR 603.2). The NONBLACK
-  // gate is enforced HERE at fire time on the CONTACT PARTNER's colors, read LAYER-AWARE through
-  // permanentColors (deriveCharacteristics — whatever the engine's live color truth is, exactly the
-  // read the protection enforcement uses): a black partner never fires (CR 603.2 — the event doesn't
-  // match the trigger condition). The OTHER creature rides as the triggering permanent; the sentinel
-  // effectClause's thatCreature referent enqueues IT (the destroy-at-end-of-combat atom). Coverage-only
-  // descriptor in detectTriggers; this is the sole fire site.
-  {
-    const BASILISK_RE = /(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by a nonblack creature, destroy that creature at end of combat(?=\s*(?:\.|\n|$))/i;
-    const printsBasilisk = (perm) => BASILISK_RE.test(String(perm.card?.oracle || perm.card?.oracle_text || "").replace(/\([^)]*\)/g, " "));
-    for (const b of blockers) {
-      if (!b?.blockerId || !b?.attackerId) continue;
-      const blk = findPermanent(state, b.blockerId);
-      const att = findPermanent(state, b.attackerId);
-      if (!blk || !att) continue;
-      for (const [me, other] of [[blk, att], [att, blk]]) {
-        if (!printsBasilisk(me.permanent)) continue;
-        if ((permanentColors(state, other.permanent.id) || []).some((c) => String(c).toUpperCase() === "B")) continue; // a BLACK partner never triggers
-        const descriptor = { event: "blocksOrBlockedByCreature", scope: "self", whose: "any", effect: null, effectClause: "destroy the triggering creature at end of combat", optional: false, sourceText: "blocks-or-blocked nonblack delayed destroy" };
-        fired.push(makePendingTrigger(descriptor, me.permanent, other.permanent, {}));
-      }
+  // BASILISK TOUCH (BLITZ DG-1 + BT-2 — the Deathgazer contact family): per block PAIR, BOTH directions
+  // like IE-1 contact damage — a creature printing a basilisk line marks the OTHER creature of the pair
+  // for destruction at end of combat, whether it blocks or is blocked (once per pair partner, CR 603.2).
+  // The printed PARTNER filter (nonblack / non-Wall / green-or-white / none) is enforced HERE at fire
+  // time via basiliskPartnerMatches — every read layer-aware (see the shared vocabulary above): a
+  // partner the filter excludes never fires (CR 603.2 — the event doesn't match the trigger condition).
+  // The OTHER creature rides as the triggering permanent; the sentinel effectClause's thatCreature
+  // referent enqueues IT (the destroy-at-end-of-combat atom). Coverage-only descriptor in
+  // detectTriggers (same basiliskTouchOf — no drift); this is the sole fire site.
+  for (const b of blockers) {
+    if (!b?.blockerId || !b?.attackerId) continue;
+    const blk = findPermanent(state, b.blockerId);
+    const att = findPermanent(state, b.attackerId);
+    if (!blk || !att) continue;
+    for (const [me, other] of [[blk, att], [att, blk]]) {
+      const spec = basiliskTouchOf(me.permanent.card?.oracle || me.permanent.card?.oracle_text || "");
+      if (!spec) continue;
+      if (!basiliskPartnerMatches(state, spec.filter, other.permanent.id)) continue;
+      const descriptor = { event: "blocksOrBlockedByCreature", scope: "self", whose: "any", effect: null, effectClause: "destroy the triggering creature at end of combat", optional: false, sourceText: `blocks-or-blocked ${spec.tag} delayed destroy` };
+      fired.push(makePendingTrigger(descriptor, me.permanent, other.permanent, {}));
     }
   }
   // BLOCKS-A-FLYER PUMP (BLITZ BF-1 — the rampage-family fire-time pattern): per block PAIR, a blocker

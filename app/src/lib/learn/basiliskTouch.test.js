@@ -49,17 +49,65 @@ describe("DG-1 — detect + sentinel parse + coverage flips", () => {
     expect(classifyCard({ name: "Gorgon Recluse", type: "Creature — Gorgon", mana: "{3}{B}", power: "2", toughness: "2",
       oracle: BASILISK_LINE + "\nMadness {B}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)" })).toBe("native-trigger");
   });
-  it("FN guards: the non-Wall / bare / color-pair siblings never synthesize and stay parked", () => {
-    const cockatrice = { name: "Cockatrice", type: "Creature — Cockatrice", power: "2", toughness: "4",
-      oracle: "Flying\nWhenever this creature blocks or becomes blocked by a non-Wall creature, destroy that creature at end of combat." };
-    const tangleAsp = { name: "Tangle Asp", type: "Creature — Snake", power: "1", toughness: "2",
-      oracle: "Whenever this creature blocks or becomes blocked by a creature, destroy that creature at end of combat." };
-    const abomination = { name: "Abomination", type: "Creature — Horror", power: "2", toughness: "6",
-      oracle: "Whenever this creature blocks or becomes blocked by a green or white creature, destroy that creature at end of combat." };
-    for (const card of [cockatrice, tangleAsp, abomination]) {
+  it("FN guards: unevidenced partner filters and rider forms never synthesize and stay parked", () => {
+    const mk = (cond, tail = "destroy that creature at end of combat.") => ({ name: "Fake Basilisk", type: "Creature — Basilisk", power: "2", toughness: "2",
+      oracle: `Whenever this creature blocks or becomes blocked by ${cond}, ${tail}` });
+    for (const card of [
+      mk("a red creature"),                              // unevidenced color filter
+      mk("an artifact creature"),                        // unevidenced type filter
+      mk("a creature with flying"),                      // unevidenced keyword filter
+      mk("a non-Zombie creature"),                       // unevidenced subtype negation
+      mk("a creature", "destroy that creature at end of combat unless its controller pays {2}."), // rider after the anchor
+      mk("a creature", "destroy that creature."),        // the IMMEDIATE mass form is a different (unmodeled) shape
+    ]) {
       expect(detectTriggers(card).filter((t) => t.event === "blocksOrBlockedByCreature")).toHaveLength(0);
       expect(classifyCard(card)).not.toMatch(/^native/);
     }
+  });
+});
+
+// ─── 1b. BT-2 — the sibling admissions on the shared machinery ───────────────────
+describe("BT-2 — non-Wall / bare / green-or-white siblings (real carriers)", () => {
+  const NON_WALL_LINE = "Whenever this creature blocks or becomes blocked by a non-Wall creature, destroy that creature at end of combat.";
+  const BARE_LINE = "Whenever this creature blocks or becomes blocked by a creature, destroy that creature at end of combat.";
+  const GW_LINE = "Whenever this creature blocks or becomes blocked by a green or white creature, destroy that creature at end of combat.";
+
+  it("all six sibling carriers flip native-trigger (whole card — a Flying line is covered)", () => {
+    expect(classifyCard({ name: "Rock Basilisk", type: "Creature — Basilisk", mana: "{4}{R}{G}", power: "4", toughness: "5", oracle: NON_WALL_LINE })).toBe("native-trigger");
+    expect(classifyCard({ name: "Thicket Basilisk", type: "Creature — Basilisk", mana: "{3}{G}{G}", power: "2", toughness: "4", oracle: NON_WALL_LINE })).toBe("native-trigger");
+    expect(classifyCard({ name: "Cockatrice", type: "Creature — Cockatrice", mana: "{3}{G}{G}", power: "2", toughness: "4", oracle: "Flying\n" + NON_WALL_LINE })).toBe("native-trigger");
+    expect(classifyCard({ name: "Venomous Dragonfly", type: "Creature — Insect", mana: "{3}{G}", power: "1", toughness: "1", oracle: "Flying\n" + BARE_LINE })).toBe("native-trigger");
+    expect(classifyCard({ name: "Tangle Asp", type: "Creature — Snake", mana: "{1}{G}", power: "1", toughness: "2", oracle: BARE_LINE })).toBe("native-trigger");
+    expect(classifyCard({ name: "Abomination", type: "Creature — Horror", mana: "{3}{B}{B}", power: "2", toughness: "6", oracle: GW_LINE })).toBe("native-trigger");
+  });
+
+  function fireProbe(basiliskCard, partnerCard) {
+    let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const me = createPermanent({ id: "bk", card: basiliskCard, controller: "user", summoningSick: false });
+    const partner = createPermanent({ id: "pt", card: partnerCard, controller: "ai1", summoningSick: false });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [me] }, ai1: { ...s.players.ai1, battlefield: [partner] } } };
+    const fired = checkBlockTriggers({ ...s, combat: { attackers: [{ permanentId: "bk", attackingPlayer: "user", defender: "ai1" }], blockers: [{ blockerId: "pt", attackerId: "bk" }] } });
+    return (fired.pendingTriggers || []).filter((t) => /delayed destroy$/.test(t.descriptor?.sourceText || ""));
+  }
+  const ROCK = { name: "Rock Basilisk", type: "Creature — Basilisk", power: "4", toughness: "5", oracle: NON_WALL_LINE };
+
+  it("non-Wall gate: a Wall partner never fires; a non-Wall partner fires", () => {
+    expect(fireProbe(ROCK, { name: "Stone Wall", type: "Creature — Wall", power: "0", toughness: "8", oracle: "Defender" })).toHaveLength(0);
+    expect(fireProbe(ROCK, { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" })).toHaveLength(1);
+  });
+  it("CR 702.73a: a CHANGELING partner IS a Wall — non-Wall excludes it, the trigger does NOT fire", () => {
+    expect(fireProbe(ROCK, { name: "Woodland Changeling", type: "Creature — Shapeshifter", power: "1", toughness: "1",
+      oracle: "Changeling (This card is every creature type.)" })).toHaveLength(0);
+  });
+  it("green-or-white gate: G fires, W fires, a blue partner does not", () => {
+    const ABOM = { name: "Abomination", type: "Creature — Horror", power: "2", toughness: "6", oracle: GW_LINE };
+    expect(fireProbe(ABOM, { name: "Grizzly Bears", type: "Creature — Bear", mana: "{1}{G}", power: "2", toughness: "2", oracle: "" })).toHaveLength(1);
+    expect(fireProbe(ABOM, { name: "Savannah Lions", type: "Creature — Cat", mana: "{W}", power: "2", toughness: "1", oracle: "" })).toHaveLength(1);
+    expect(fireProbe(ABOM, { name: "Merfolk of the Pearl Trident", type: "Creature — Merfolk", mana: "{U}", power: "1", toughness: "1", oracle: "" })).toHaveLength(0);
+  });
+  it("bare form: fires on ANY partner — a black partner too (the contrast with nonblack)", () => {
+    const ASP = { name: "Tangle Asp", type: "Creature — Snake", power: "1", toughness: "2", oracle: BARE_LINE };
+    expect(fireProbe(ASP, { name: "Black Knight", type: "Creature — Human Knight", mana: "{B}{B}", power: "2", toughness: "2", oracle: "" })).toHaveLength(1);
   });
 });
 
