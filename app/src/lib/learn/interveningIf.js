@@ -42,6 +42,12 @@
  *   "a creature died under your control this turn" (Denethor Ruling Steward, Faramir Field Commander,
  *      Essenceknit Scholar — BLITZ IF-1) — the CONTROLLER-SCOPED variant: the controller's OWN
  *      creaturesDiedThisTurn tally (keyed on the dying creature's controller) is ≥1, NOT the all-seats sum.
+ *   "you('ve) gained life this turn" / "you('ve) gained N or more life this turn" (Regal Bloodlord, Courier
+ *      Bat, Griffin Aerie, Angelic Accord, Indulging Patrician, Valkyrie Harbinger, The Gaffer — BLITZ LG-1)
+ *      — a CONTROLLER-SCOPED turn-event read off the per-seat lifeGainedThisTurn ledger (gameState.gainLife
+ *      bumps it at the single life-gain chokepoint, reset all-seats at untap). The ledger sums the turn's
+ *      TOTAL gained (CR 119.3), so the bare form is ≥1 and the cardinal compares the running total to N — the
+ *      exact GAIN mirror of the lifeLostThisTurn reads below.
  *   "an opponent lost life this turn" (Lion Vulture, Savage Gorger, Bloodtithe Collector, Arrogant Outlaw —
  *      BLITZ IF-1) — the ≥1 case of the OPP-LOST-LIFE lifeLostThisTurn ledger (bare form, no number word).
  *   "you're the monarch" (Throne Warden, Garrulous Sycophant, Skyline Despot, Faramir Steward of Gondor —
@@ -57,10 +63,11 @@
  *      off the entering permanent's `tributePaid` (stamped by resolvers.enterPermanent when the opponent
  *      chose at ETB), keyed on ctx.triggeringPermanentId exactly like the kicked flag.
  * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
- * less", toughness), OTHER turn-event history (a NON-creature died, "you gained life this turn" — no
- * lifeGainedThisTurn ledger exists, so it stays Arbiter; "a permanent left the battlefield this turn"),
- * subtype-scoped death counts ("a Zubera died"), the OTHER cast-decision flags (bargain), the remaining
- * state flags (city's blessing, initiative — no live tracking) — each a future increment.
+ * less", toughness), OTHER turn-event history (a NON-creature died, "a permanent left the battlefield this
+ * turn", the compound "you gained AND lost life this turn", the 2HG "your team gained life this turn", the
+ * opponent-scoped "an opponent gained life this turn"), subtype-scoped death counts ("a Zubera died"), the
+ * OTHER cast-decision flags (bargain), the remaining state flags (city's blessing, initiative — no live
+ * tracking) — each a future increment.
  */
 
 import { creaturePower, creatureToughness } from "./gameState.js"; // layer-aware P/T readers (counters + anthems) — one-way edge, no cycle
@@ -377,6 +384,21 @@ const NO_CARDS_IN_HAND_RE = /^you have no cards in hand$/;
 // reads). True iff the controller's tally is ≥1. Layer-irrelevant, identical at flush AND resolution.
 const CREATURE_DIED_UNDER_CONTROL_RE = /^a creature died under your control this turn$/;
 
+// ===== CONTROLLER-GAINED-LIFE (CR 119.3 + 603.4 — BLITZ LG-1) ================================
+// "you('ve) gained life this turn" (Regal Bloodlord, Courier Bat, Lathiel …) and "you('ve) gained N or more
+// life this turn" (Griffin Aerie / The Gaffer "3 or more", Angelic Accord / Valkyrie Harbinger "4 or more",
+// Resplendent Angel "5 or more" …) — a CONTROLLER-SCOPED turn-event history read off the per-seat
+// lifeGainedThisTurn ledger (gameState.gainLife increments it for the GAINING player at the single life-gain
+// chokepoint, reset for all seats at untap alongside lifeLostThisTurn). The ledger sums the turn's TOTAL life
+// gained (CR 119.3 — cumulative, so 1+1+1 satisfies "3 or more"), so the bare form is the ≥1 case and the
+// cardinal form compares that running total to N. The exact GAIN mirror of the OPP-LOST-LIFE lifeLostThisTurn
+// reads (bare + "N or more"); layer-irrelevant, identical at flush AND resolution. Controller-scoped — "your
+// team gained" (2HG), "an opponent gained life this turn" (opponent existential), and the compound "you gained
+// and lost life this turn" all fail these EXACT anchors → fall through → null → Arbiter (CREED, never a
+// mis-scoped read). Straight + curly apostrophe on the "you've" contraction tolerated.
+const CTRL_GAINED_LIFE_ANY_RE = /^you(?:['’]ve| have)? gained life this turn$/;
+const CTRL_GAINED_LIFE_N_RE = new RegExp(`^you(?:['’]ve| have)? gained ${NUM_RE} or more life this turn$`);
+
 // ===== SOURCE-COUNTER-THRESHOLD (Bloodchief Ascension trigger 2 — SHELF S7, CR 603.4) ========
 // "this <noun> has N or more <type> counters on it" — a LIVE read of the SOURCE permanent's counters
 // (ctx.sourcePermanentId, threaded by makePendingTrigger), re-evaluated at flush AND resolution. The
@@ -453,6 +475,19 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   // turn" (deathsThisTurnTotal across all seats); this reads only the controller's tally. Identical at flush AND
   // resolution. A seat with no tally → 0 → false.
   if (CREATURE_DIED_UNDER_CONTROL_RE.test(c)) return (state.players[controllerId]?.creaturesDiedThisTurn || 0) >= 1;
+
+  // CONTROLLER-GAINED-LIFE (CR 119.3 — BLITZ LG-1) — the CONTROLLER's own per-seat lifeGainedThisTurn tally
+  // (the turn's TOTAL life gained). Bare form ≥1; the cardinal form compares the running total to N. The exact
+  // GAIN mirror of the OPP-LOST-LIFE reads; a seat with no tally → 0 → false. Identical at flush AND resolution.
+  if (CTRL_GAINED_LIFE_ANY_RE.test(c)) return (state.players[controllerId]?.lifeGainedThisTurn || 0) >= 1;
+  {
+    const m = c.match(CTRL_GAINED_LIFE_N_RE);
+    if (m) {
+      const n = parseCount(m[1]);
+      if (n == null) return null;
+      return (state.players[controllerId]?.lifeGainedThisTurn || 0) >= n;
+    }
+  }
 
   // SOURCE-COUNTER-THRESHOLD (Bloodchief Ascension) — live read of the SOURCE permanent's counters.
   {

@@ -1396,7 +1396,19 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
 export function gainLife(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("gainLife: amount must be non-negative integer");
-  return withPlayer(state, playerId, p => ({ ...p, life: p.life + amount }));
+  // LIFE-GAINED-THIS-TURN ledger (BLITZ LG-1, CR 119.3 + 603.4): the exact GAIN mirror of loseLife's
+  // lifeLostThisTurn — tallied HERE at the single life-GAIN chokepoint. Every gain path (a "you gain N life"
+  // spell/trigger, a drain's gain half, lifelink combat, the radiation life-gain replacement) funnels through
+  // gainLife (verified — no direct `p.life +=` elsewhere), so a single += here counts each gain exactly once:
+  // no double-count, no missed path. A 0-amount "gain" is not a life-gain event (CR 119.3 adjusts only on a
+  // real amount) so it's skipped — it must not satisfy "you gained life this turn". The ledger sums the TURN's
+  // TOTAL gained (cumulative, not a single event), reset for all seats at untap alongside lifeLostThisTurn /
+  // creaturesDiedThisTurn (resetCreatureDeathsAllPlayers). Absence of a tally IS "no life gained" (fail-closed).
+  // Read by the "if you('ve) gained [N or more] life this turn" intervening-if (interveningIf.js, CR 603.4).
+  return withPlayer(state, playerId, p => ({
+    ...p, life: p.life + amount,
+    ...(amount > 0 && { lifeGainedThisTurn: (p.lifeGainedThisTurn || 0) + amount }),
+  }));
 }
 
 /**
@@ -1845,9 +1857,10 @@ export function recordCreatureDeaths(state, dead) {
 export function resetCreatureDeathsAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
-    // lifeLostThisTurn + gyEnteredThisTurn reset on the SAME per-game-turn cadence (Bloodchief Ascension's
-    // end-step check / Fraying Sanity's end-step mill — either can accrue on any player's turn).
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, gyEnteredThisTurn: 0 };
+    // lifeLostThisTurn + lifeGainedThisTurn + gyEnteredThisTurn reset on the SAME per-game-turn cadence
+    // (Bloodchief Ascension's end-step check / Regal Bloodlord's end-step "if you gained life this turn" /
+    // Fraying Sanity's end-step mill — any can accrue on any player's turn, so all seats clear each turn).
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0 };
   }
   return { ...state, players };
 }

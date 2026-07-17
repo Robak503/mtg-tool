@@ -86,7 +86,8 @@ describe("evaluateInterveningIf — strict null for unmodeled conditions (CREED)
   it("turn-event / state-flag / designation conditions return null (Arbiter)", () => {
     // NOTE: "a creature died this turn" is now MODELED (DEATHS-THIS-TURN) — covered in its own block below.
     // NOTE: "you're the monarch" is now MODELED (MONARCH-STATUS, BLITZ IF-1) — covered in its own block below.
-    expect(evaluateInterveningIf(withBoard([]), "you gained 3 or more life this turn", "user")).toBe(null); // no lifeGainedThisTurn ledger → still Arbiter
+    // NOTE: "you('ve) gained [N or more] life this turn" is now MODELED (LIFE-GAINED, BLITZ LG-1) — its own block below.
+    expect(evaluateInterveningIf(withBoard([]), "your team gained life this turn", "user")).toBe(null); // 2HG team-scoped gain — out of vocabulary → Arbiter
     expect(evaluateInterveningIf(withBoard([]), "a Zubera died this turn", "user")).toBe(null); // subtype-scoped death stays Arbiter (CREED)
     expect(evaluateInterveningIf(withBoard([]), "you have the city's blessing", "user")).toBe(null); // no ascend/blessing tracking → Arbiter
     // POWER near-misses stay null (only "power N or greater/more" is modeled — CREED)
@@ -115,13 +116,13 @@ describe("interveningIfParseable — shape gate", () => {
     }
     for (const c of ["you control a commander", "you control a blue permanent",
       "you control a creature with power 4 or less", "you control a creature with toughness 4 or greater",
-      "a Zubera died this turn", "you gained 3 or more life this turn", "that player has no cards in hand"]) {
+      "a Zubera died this turn", "your team gained life this turn", "that player has no cards in hand"]) {
       expect(interveningIfParseable(c)).toBe(false);
     }
-    // BLITZ IF-1: monarch-status, opponent-lost-life (bare ≥1), no-cards-in-hand, and controller-scoped death
-    // are now parseable shapes.
+    // BLITZ IF-1: monarch-status, opponent-lost-life (bare ≥1), no-cards-in-hand, and controller-scoped death;
+    // BLITZ LG-1: controller-scoped life-gained (bare ≥1 + cardinal) — all now parseable shapes.
     for (const c of ["you're the monarch", "an opponent lost life this turn", "you have no cards in hand",
-      "a creature died under your control this turn"]) {
+      "a creature died under your control this turn", "you gained life this turn", "you gained 3 or more life this turn"]) {
       expect(interveningIfParseable(c)).toBe(true);
     }
     // DEATHS-THIS-TURN now parseable (modeled):
@@ -252,8 +253,9 @@ describe("intervening-if — coverage: conditional triggers flip native-trigger"
 
 describe("intervening-if — CREED: unparseable conditions stay body-only", () => {
   it("turn-event / designation conditions stay non-native", () => {
-    // a NON-death turn event ("you gained life this turn") is still unmodeled → body-only
-    expect(classifyCard(C("Lifegain Event", "When this creature enters, if you gained life this turn, draw a card."))).not.toMatch(/^native/);
+    // the controller-scoped "you gained life this turn" is now MODELED (LG-1); a still-unmodeled turn event —
+    // the compound "you gained AND lost life this turn" (Lunar Convocation #2) — stays body-only
+    expect(classifyCard(C("Gain-and-Lost Event", "When this creature enters, if you gained and lost life this turn, draw a card."))).not.toMatch(/^native/);
     // a subtype-scoped death ("a Zubera died this turn") stays Arbiter (CREED — never a mis-scoped death count)
     expect(classifyCard(C("Zubera Event", "When this creature enters, if a Zubera died this turn, draw a card."))).not.toMatch(/^native/);
     expect(classifyCard(C("Cmdr", "When this creature enters, if you control a commander, draw a card."))).not.toMatch(/^native/);
@@ -425,14 +427,18 @@ describe("BLITZ IF-1 — coverage: real cards flip native (whole-card, LOST=0)",
 
 describe("BLITZ IF-1 — CREED: near-miss / deferred conditions stay body-only (false-negative SAFE)", () => {
   it("deferred conditions evaluate null (no live reader) — Arbiter", () => {
-    // "you gained life this turn" has NO lifeGainedThisTurn ledger → unmodeled (never fail-open)
-    expect(evaluateInterveningIf(withOpp({}), "you gained life this turn", "user")).toBe(null);
+    // the controller-scoped "you('ve) gained [N or more] life this turn" is now modeled (LG-1); its
+    // OUT-OF-SCOPE cousins stay unmodeled — the 2HG team-scoped and the compound gained-AND-lost forms
+    // (Lunar Convocation's 2nd trigger) → Arbiter (never fail-open)
+    expect(evaluateInterveningIf(withOpp({}), "your team gained life this turn", "user")).toBe(null);
+    expect(evaluateInterveningIf(withOpp({}), "you gained and lost life this turn", "user")).toBe(null);
     // opponent-scoped hand ("that player has no cards in hand" — Hollowborn Barghest's 2nd trigger) is out of vocabulary
     expect(evaluateInterveningIf(withOpp({}), "that player has no cards in hand", "user")).toBe(null);
     expect(evaluateInterveningIf(withOpp({}), "you have the initiative", "user")).toBe(null);
   });
   it("cards with a deferred condition stay non-native", () => {
-    expect(classifyCard(C("Lifegain Draw", "When this creature enters, if you gained life this turn, draw a card."))).not.toMatch(/^native/);
+    // a 2HG team-scoped gained-life condition is NOT the controller-scoped LG-1 anchor → still parks
+    expect(classifyCard(C("Team Lifegain Draw", "When this creature enters, if your team gained life this turn, draw a card."))).not.toMatch(/^native/);
     expect(classifyCard(C("Opp Empty Hand", "At the beginning of each opponent's upkeep, if that player has no cards in hand, they lose 2 life.", "Creature — Demon"))).not.toMatch(/^native/);
   });
   it("WHOLE-CARD law: a real card whose SECOND trigger's condition is unmodeled stays body-only (Hollowborn Barghest)", () => {

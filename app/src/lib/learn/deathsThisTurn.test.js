@@ -175,8 +175,9 @@ describe("classifyCard — DEATHS-THIS-TURN flips (CREED whole-card)", () => {
     expect(classifyCard(C("Spoils of Blood", "Create an X/X black Horror creature token, where X is the number of creatures that died this turn.", "Instant"))).not.toMatch(/^native/);
     // subtype-scoped death stays Arbiter (CREED — never a mis-scoped count)
     expect(classifyCard(C("Zubera Event", "When this creature enters, if a Zubera died this turn, draw a card."))).not.toMatch(/^native/);
-    // a NON-death turn event is still unmodeled
-    expect(classifyCard(C("Lifegain Event", "When this creature enters, if you gained life this turn, draw a card."))).not.toMatch(/^native/);
+    // a NON-death turn event: "you gained life this turn" is now modeled (LG-1), but the COMPOUND
+    // "you gained and lost life this turn" (Lunar Convocation #2) is still unmodeled → stays non-native
+    expect(classifyCard(C("Gain-and-Lost Event", "When this creature enters, if you gained and lost life this turn, draw a card."))).not.toMatch(/^native/);
   });
 });
 
