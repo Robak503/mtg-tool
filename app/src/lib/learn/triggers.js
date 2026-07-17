@@ -572,7 +572,11 @@ function classifyCondition(condRaw, cardName, cardType) {
   // counted only enters/dies/leaves, so "enters or attacks" (Grave Titan) and "enters or is put into a
   // graveyard" slipped through (eventVerbs==1) — attacks/blocks/put-into-graveyard are now counted too. A
   // single-event "attacks"/"blocks"/etc. stays at eventVerbs==1 and resolves normally below.
-  const eventVerbs = [/\benters\b/, /\bdies\b/, /leaves the battlefield/, /\battacks\b/, /\bblocks\b/, /put into a graveyard/]
+  // BECOMES-TAPPED (BLITZ TR-1) joins the compound tally: a "becomes tapped" half compounded with ANY other
+  // event verb ("attacks or becomes tapped", "enters or becomes tapped") must PARK — the single-event branches
+  // would detect only the first verb and silently drop the tap half (a CREED false positive). A bare
+  // single-event "becomes tapped" stays at eventVerbs==1 and reaches the SELF detector below.
+  const eventVerbs = [/\benters\b/, /\bdies\b/, /leaves the battlefield/, /\battacks\b/, /\bblocks\b/, /put into a graveyard/, /\bbecomes tapped\b/]
     .filter((re) => re.test(c)).length;
   if (eventVerbs >= 2) return null;
   if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(c)) return null; // an embedded second trigger clause
@@ -922,6 +926,24 @@ function classifyCondition(condRaw, cardName, cardType) {
   // checkEvolvesTriggers). Self-scope only — the printed form is always the evolving creature's own rider.
   if (selfRef && /\bevolves\s*$/.test(c) && /^(?:this creature|[a-z0-9',. -]+?) evolves$/.test(c)) {
     return { event: "evolves", scope: "self", whose: "any" };
+  }
+  // ===== BECOMES-TAPPED SELF (BLITZ TR-1, CR 701.26a) ===== the SELF form only ("this creature / this
+  // permanent / this artifact / <name> becomes tapped"). CR 701.26a: a permanent "becomes tapped" ONLY on an
+  // untapped→tapped transition — NOT when it enters tapped (the ETB-tap sites pass fromEnter to
+  // gameState.tapPermanent, which suppresses the event). checkTapTriggers fires the SOURCE's own watcher off
+  // the pendingTapEvents queue (recorded by tapPermanent / regeneratePermanent for every real transition — the
+  // checkUntapTriggers / pendingUntapEvents mirror; both taps of attacking, mana, crew, and cost payment funnel
+  // through tapPermanent). Self-scope ONLY (the becomes-monstrous / evolves discipline): a watcher form ("a
+  // creature an opponent controls becomes tapped" — Gideon's Avenger; "enchanted land becomes tapped") or any
+  // filtered / compound subject ("becomes tapped or untapped") stays UNDETECTED → Arbiter (a SAFE
+  // false-negative, never a mis-scoped or partial fire). The "it deals … / put a +1/+1 counter on it" payoff
+  // pronouns bind the source through the existing scope:"self" SELF_PUMP_IT / SELF_COUNTER_IT rewrites.
+  if (/\bbecomes tapped\s*$/.test(c)) {
+    const subj = c.replace(/\s+becomes tapped\s*$/, "").trim();
+    const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact"
+      || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+    if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "any" };
+    return null;
   }
   // BECOMES-UNTAPPED (Mesmeric Orb — SHELF S6): "a permanent becomes untapped". ANY player's permanent,
   // fired per transition by checkUntapTriggers off the gameState pendingUntapEvents queue (tapped→untapped
@@ -4925,6 +4947,36 @@ export function checkUntapTriggers(state) {
         }));
       }
     }
+  }
+  if (!fired.length) return cleared;
+  return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * BECOMES-TAPPED SELF triggers (BLITZ TR-1, CR 701.26a): drain `state.pendingTapEvents` (recorded by
+ * gameState.tapPermanent / regeneratePermanent for every real untapped→tapped transition — the
+ * pendingUntapEvents mirror; the ETB-tap sites pass fromEnter so a permanent that ENTERS tapped never records
+ * an event) and fire each tapped permanent's OWN "Whenever this creature becomes tapped, …" watcher. Self-scope
+ * only (the checkEvolvesTriggers / checkBecomesMonstrousTriggers pattern): the tapped permanent is BOTH the
+ * source and the triggering permanent, so a self-referential payoff ("it deals 1 damage", "put a +1/+1 counter
+ * on this creature") binds correctly. ALWAYS clears the queue (idempotent — a second call sees an empty list).
+ * Drained at the flushTriggers funnel (every priority-grant checkpoint), so a tap recorded during action
+ * dispatch (mana / crew / cost / attack) or stack resolution is converted before its flush. A vanished source
+ * (tapped, then left the battlefield before the flush) no-ops. Pure.
+ */
+export function checkTapTriggers(state) {
+  const events = state.pendingTapEvents || [];
+  if (!events.length) return state;
+  const { pendingTapEvents: _drop, ...cleared } = state;
+  let fired = [];
+  for (const ev of events) {
+    const lk = findPermanent(cleared, ev.id);
+    if (!lk) continue;
+    fired = fired.concat(
+      detectTriggers(lk.permanent.card)
+        .filter((d) => d.event === "becomesTapped" && d.scope === "self")
+        .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}))
+    );
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };

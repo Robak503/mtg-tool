@@ -832,7 +832,7 @@ export const RESOLVERS = Object.freeze({
     next = enterPermanent(next, card, controller);
     if (tapIt) {
       const bf = next.players[controller].battlefield;
-      if (bf.length) next = tapPermanent(next, bf[bf.length - 1].id);
+      if (bf.length) next = tapPermanent(next, bf[bf.length - 1].id, { fromEnter: true }); // CR 701.26a: re-enters tapped ≠ "becomes tapped" — suppress the event
     }
     return logEvent(next, { kind: "spell-effect", effect: "gy-self-return", controller, dest: "battlefield", cardName: card.name, tapped: !!tapIt });
   },

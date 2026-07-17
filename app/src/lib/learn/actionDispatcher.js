@@ -151,7 +151,7 @@ function applyPlayLand(state, action) {
   if (entersTapped(card) || impositionEntersTapped(next, card, action.playerId)) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
-    if (entered) next = tapPermanent(next, entered.id);
+    if (entered) next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
   }
   // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): a fading/vanishing LAND enters with N fade/time
   // counters via the play-land path too (the PERMANENT_ETB resolver only covers cast creature/artifact

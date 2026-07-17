@@ -1031,8 +1031,19 @@ export function detachPermanentFromAll(state, permanent, toGy = false, toZone = 
   return next;
 }
 
-export function tapPermanent(state, permanentId) {
-  return updatePermanent(state, permanentId, p => ({ ...p, tapped: true }));
+export function tapPermanent(state, permanentId, { fromEnter = false } = {}) {
+  // BECOMES-TAPPED event (BLITZ TR-1, CR 701.26a): record the untapped→tapped transition so a self
+  // "Whenever this creature becomes tapped, …" watcher can fire (triggers.checkTapTriggers drains the queue at
+  // the flush funnel — gameState can't import triggers, the pendingUntapEvents pattern). Recorded ONLY when the
+  // permanent was genuinely UNTAPPED (a re-tap of an already-tapped permanent is not a transition) AND this is
+  // not the ETB-tapped path (`fromEnter` — a permanent that ENTERS tapped never "becomes" tapped, CR 701.26a;
+  // the tapland / gy-self-return sites pass fromEnter:true). Every other tapPermanent caller (attack, mana,
+  // crew, cost payment) is a real transition and records.
+  const lk = fromEnter ? null : findPermanent(state, permanentId);
+  const transitions = !!lk && !lk.permanent.tapped;
+  const next = updatePermanent(state, permanentId, p => ({ ...p, tapped: true }));
+  if (!transitions) return next;
+  return { ...next, pendingTapEvents: [...(next.pendingTapEvents || []), { id: permanentId, controller: lk.controller }] };
 }
 
 /**
@@ -1082,13 +1093,21 @@ export function addRegenShield(state, permanentId) {
  * Destroy spell in a main phase — no flag is set: there's no combat to leave.) */
 export function regeneratePermanent(state, permanentId) {
   const inCombat = (state.combat?.attackers?.length || 0) > 0;
-  return updatePermanent(state, permanentId, p => ({
+  // BECOMES-TAPPED event (BLITZ TR-1, CR 701.19a + 701.26a): a regenerated permanent is tapped by the shield;
+  // record the untapped→tapped transition (an already-tapped attacker being regenerated is not a transition)
+  // so a self "becomes tapped" watcher fires exactly as it would for any other tap. This is the ONE tap site
+  // that bypasses tapPermanent, so it records here directly (the pendingUntapEvents / pendingTapEvents pattern).
+  const lk = findPermanent(state, permanentId);
+  const transitions = !!lk && !lk.permanent.tapped;
+  const next = updatePermanent(state, permanentId, p => ({
     ...p,
     regenShields: Math.max(0, (p.regenShields || 0) - 1),
     damageMarked: 0,
     tapped: true,
     ...(inCombat ? { removedFromCombat: true } : {}),
   }));
+  if (!transitions) return next;
+  return { ...next, pendingTapEvents: [...(next.pendingTapEvents || []), { id: permanentId, controller: lk.controller }] };
 }
 
 // ── TOTEM ARMOR (CR 702.116 / "Umbra armor") — a destruction-replacement on an Aura ──────────────────────

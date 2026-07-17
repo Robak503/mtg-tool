@@ -50,7 +50,7 @@ import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkGraveyardEventTriggers, checkSagaChapterTriggers, checkSacrificeTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkTapTriggers, checkGraveyardEventTriggers, checkSagaChapterTriggers, checkSacrificeTriggers } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
@@ -1106,6 +1106,11 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // every settlement path funnels through this flush, so a recorded event always fires here (BEFORE the
   // empty-pending early return, which would otherwise strand a queue with no other pending triggers).
   state = checkGraveyardEventTriggers(state);
+  // BECOMES-TAPPED drain (BLITZ TR-1): same funnel discipline — a tap recorded during action dispatch (mana /
+  // crew / cost / attack) or a resolution converts its self "becomes tapped" watcher here, at the next
+  // priority-grant checkpoint (CR 603.3a). BEFORE the empty-pending early return so a lone tap trigger isn't
+  // stranded. Idempotent (empty queue → no-op), so re-entrant flushes never double-fire.
+  state = checkTapTriggers(state);
   const pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
 
