@@ -978,8 +978,13 @@ export function permanentTriggersCovered(card) {
  * EXACT detection guard in `parseActivatedAbilities` (a colon whose cost is symbol-bearing OR a
  * modeled word-cost — γ1's "Pay N life" / "Sacrifice this"), so the residue strippers below can
  * never drift from what the parser detects. Single source of truth = the shared `parseAbilityCost`.
+ *
+ * `card` (CC-3) — threaded to parseAbilityCost so a SELF-NAME remove-counter cost line ("Remove a
+ * charge counter from Umezawa's Jitte: …", CR 201.5) is detected with the SAME name anchor the parser
+ * uses. Every call site passes the card whose oracle the line came from — passing a DIFFERENT card
+ * (or none) would desync this mirror from parseActivatedAbilities and hide/expose phantom residue.
  */
-function isActivatedAbilityLine(line) {
+function isActivatedAbilityLine(line, card) {
   const ci = line.indexOf(":");
   if (ci === -1) return false;
   // QUOTED-GRANT GUARD (CR 113.7) — a GROUP-GRANT static ("Artifacts you control have \"{T}: Add …\"" —
@@ -994,7 +999,7 @@ function isActivatedAbilityLine(line) {
   const preColonQuotes = (line.slice(0, ci).match(/["“”]/g) || []).length;
   if (preColonQuotes % 2 === 1) return false;
   const costStr = line.slice(0, ci).trim();
-  return costStr.includes("{") || !!parseAbilityCost(costStr);
+  return costStr.includes("{") || !!parseAbilityCost(costStr, card);
 }
 
 export function permanentActivatedCovered(card) {
@@ -1013,7 +1018,7 @@ export function permanentActivatedCovered(card) {
   // parser uses), then drop every activated-ability-shaped line (the same shape the parser detects).
   // The remainder (keywords, and any trigger/static text) must be keyword-only/empty.
   const residue = foldModalBulletLines(stripReminder(card.oracle || ""))
-    .filter((line) => !isActivatedAbilityLine(line))
+    .filter((line) => !isActivatedAbilityLine(line, card))
     .join("\n");
   return isKeywordOnly(residue, card?.name);
 }
@@ -1085,7 +1090,7 @@ export function permanentFullyCovered(card) {
     .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
     .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ");
   const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))
-    .filter((line) => !isActivatedAbilityLine(line))
+    .filter((line) => !isActivatedAbilityLine(line, card))
     .join("\n");
   // QUOTE-AWARE residue split (abilityClauses, the SAME splitter staticAbilitiesCoverCard uses): a GROUP-GRANT
   // static whose quoted ability carries an internal period ("Treasures you control have \"{T}, Sacrifice this
@@ -1268,7 +1273,7 @@ function nativeStaticGrantPlusActivated(card) {
   const kept = String(card.oracle || card.oracle_text || "").split("\n").filter((line) => {
     const s = stripReminder(line).trim();
     if (!s) return true;
-    return !(isActivatedAbilityLine(s) && !/^equip\b/i.test(s));
+    return !(isActivatedAbilityLine(s, card) && !/^equip\b/i.test(s));
   });
   const stripped = { ...card, oracle: kept.join("\n") };
   // GUARD-QUOTE (see doc): a granted quoted ability in the remainder's bonus is silently dropped → reject.
@@ -2670,14 +2675,14 @@ function classifyXCastTokenCommander(card) {
   // effect text instead (mirrors hasManaAbility's "Add …" shape). Reminder stripped first (a keyword reminder
   // can carry a colon). Any activated line whose effect is NOT a mana "Add …" → null.
   for (const line of stripReminder(noTrig.oracle).split(/\n+/)) {
-    if (!isActivatedAbilityLine(line)) continue;                 // not an activated ability → handled by the keyword gate below
+    if (!isActivatedAbilityLine(line, card)) continue;           // not an activated ability → handled by the keyword gate below
     if (!hasManaAbility(line.slice(line.indexOf(":") + 1))) return null; // a non-mana activated ability remains → Arbiter (CREED)
   }
   // Strip reminder + the X-cast trigger + every (now-confirmed-mana) activated-ability line; the remainder
   // must be keyword-only (Deathtouch).
   const manaStripped = stripReminder(noTrig.oracle)
     .split(/\n+/)
-    .filter((line) => !isActivatedAbilityLine(line))            // drop the "{T}: Add …" mana line(s) — all verified mana above
+    .filter((line) => !isActivatedAbilityLine(line, card))      // drop the "{T}: Add …" mana line(s) — all verified mana above
     .join("\n");
   if (!isKeywordOnly(manaStripped, card?.name)) return null;     // any non-keyword static/text residue → Arbiter
   return "native-mixed";                                         // mana ability + X-cast token trigger + keyword body

@@ -143,6 +143,48 @@ function normalizeSelfName(clause, card) {
   return out;
 }
 
+// γ1c/CC-2/CC-3 — the remove-counter cost item, SINGLE-SOURCED pieces so the "from this/~/it" form and the
+// CC-3 "from <CardName>" form can never drift on the count vocabulary or the type token. Count words cover
+// the printed corpus (a/an/one…fifty) plus bare digits ("Remove 100 charge counters…", Vexing Puzzlebox);
+// the type token keeps "+1/+1"/"-1/-1" verbatim alongside named kinds (charge, spore, ki, divinity…).
+const RC_COUNT = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|fifty|\\d+)";
+const RC_TYPE = "([+\\-\\w/]+)";
+// The noun after "this" is COSMETIC (matches the sacSelf allowlist; see the γ1c doc at the use site).
+const RC_SELF_RE = new RegExp(
+  `^remove ${RC_COUNT} ${RC_TYPE} (counters?) from (?:this|~|it)(?: creature| permanent| artifact| enchantment| land| aura| equipment| token| vehicle)?$`, "i");
+
+/**
+ * CC-3 (BLITZ SELF-NAME COUNTER COSTS) — the SAME γ1c/CC-2 remove-counter cost item, with the from-object
+ * printed as the card's OWN NAME instead of "this <noun>/~/it" (CR 201.5 — text that refers to the object
+ * it's on by name means just that particular object; the older comments in this file cite the same rule
+ * under its legacy 201.4 number): "Remove a charge counter from Umezawa's Jitte: …", the Myojin cycle's "Remove a
+ * divinity counter from Myojin of Cleansing Fire: …", and the legendary SHORT-name convention ("Remove a
+ * +1/+1 counter from Mikaeus" on "Mikaeus, the Lunarch" — the pre-comma short form, the SAME two forms
+ * normalizeSelfName maps on the effect side, so cost and effect self-name handling can't disagree).
+ *
+ * The name anchor is EXACT and whole-tail (`^…$`): the from-tail must equal the card's full or short name
+ * VERBATIM (regex-escaped — never a substring, never another card's name, no trailing text). A COMPOUND
+ * item ("Remove twelve time counters from Trenzalore Clocktower and exile it") or a trailing noun fails the
+ * anchor → the whole cost parks (the CC-2 fail-closed discipline, a safe FN). A FULL name containing a
+ * comma can never appear here (the caller splits cost items on ","), but the printed convention is the
+ * short form anyway — the census corpus prints "from Arwen", never "from Arwen, Mortal Queen".
+ *
+ * Returns the SAME match-group layout as RC_SELF_RE (count/type/noun) so the caller's number/noun
+ * agreement gate and count parse apply unchanged. A card-less caller (no name) gets null — the coverage
+ * mirror (isActivatedAbilityLine) threads the card for exactly this reason, keeping metric and runtime in
+ * lockstep (the CA-1/EV-3 shared-parser pattern): the metric can never credit a line the runtime can't pay.
+ */
+function execRemoveCounterFromSelfName(item, card) {
+  if (!/^remove /i.test(item)) return null;                 // cheap gate — skip regex construction otherwise
+  const name = String(card?.name || "").trim();
+  if (!name) return null;
+  const forms = [name];
+  const short = name.split(",")[0].trim();
+  if (short && short !== name) forms.push(short);
+  const alt = forms.map(escapeRe).join("|");
+  return new RegExp(`^remove ${RC_COUNT} ${RC_TYPE} (counters?) from (?:${alt})$`, "i").exec(item);
+}
+
 /**
  * A single pip the engine's mana model understands. {X}/{Q}/{E} are deliberately NOT mana. {S} (snow,
  * CR 107.4h / 106.3) IS a modeled mana pip as of BLITZ SN-1: it flows verbatim into `manaPips`, and
@@ -165,8 +207,12 @@ function pipIsMana(pipRaw) {
  * ({X}/{Q}/{E}) drops the whole cost to null, so we never offer an ability whose
  * cost we can't pay. A `{S}` pip flows into `manaPips` and becomes `cost.snow`, which
  * planPayment satisfies ONLY from a snow source (SN-1).
+ *
+ * `card` (optional, CC-3) — the card the cost is printed on, threaded ONLY so the remove-counter item can
+ * recognize the self-name form ("Remove a charge counter from Umezawa's Jitte") via CR 201.5. A card-less
+ * call parses every other shape identically and simply never matches the self-name form (fail-closed).
  */
-export function parseAbilityCost(costStr) {
+export function parseAbilityCost(costStr, card = null) {
   const items = String(costStr || "").split(",").map((s) => s.trim()).filter(Boolean);
   if (!items.length) return null;
   let manaPips = "";
@@ -246,10 +292,12 @@ export function parseAbilityCost(costStr) {
     // gates on it), and payment removes EXACTLY N at activation time (CR 601.2h via 602.2b), through the SAME
     // per-permanent counter pile the layer system reads (a +1/+1 removal drops P/T immediately). The noun list
     // matches the sacSelf allowlist (…| token| vehicle — Reckoner Bankbuster's "from this Vehicle"): the noun
-    // is COSMETIC, the cost always removes from the SOURCE object. Still fail-closed: an X-count ("Remove X
-    // storage counters" — Dreadship Reef), "any number", "all", an UNTYPED "Remove a counter" (a which-kind
-    // choice), and every from-among / other-permanent form miss the anchor → the whole cost parks (safe FN).
-    const rcM = /^remove (a|an|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|fifty|\d+) ([+\-\w/]+) (counters?) from (?:this|~|it)(?: creature| permanent| artifact| enchantment| land| aura| equipment| token| vehicle)?$/i.exec(item);
+    // is COSMETIC, the cost always removes from the SOURCE object. CC-3: the from-object may also be the
+    // card's OWN NAME (full or legendary pre-comma short form — CR 201.5; see execRemoveCounterFromSelfName's
+    // exact-anchor doc). Still fail-closed: an X-count ("Remove X storage counters" — Dreadship Reef), "any
+    // number", "all", an UNTYPED "Remove a counter" (a which-kind choice), a NON-self name, and every
+    // from-among / other-permanent form miss the anchors → the whole cost parks (safe FN).
+    const rcM = RC_SELF_RE.exec(item) || execRemoveCounterFromSelfName(item, card);
     if (rcM) {
       const W = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, fifty: 50 };
       const n = W[rcM[1].toLowerCase()] ?? parseInt(rcM[1], 10);
@@ -618,7 +666,9 @@ export function parseActivatedAbilities(card) {
     const effectClause = stripEnforcedTimingRider(oncePerTurn ? rawEffect.replace(ONCE_RIDER, "").trim() : rawEffect);
     if (!costStr || !effectClause) continue;
 
-    const cost = parseAbilityCost(costStr);
+    // CC-3 — thread the card so a SELF-NAME remove-counter cost item ("Remove a charge counter from
+    // Umezawa's Jitte") parses (CR 201.5). Every other cost shape is card-independent.
+    const cost = parseAbilityCost(costStr, card);
     // A real activated ability's cost is either symbol-bearing ({mana}/{T}) or a modeled word-cost
     // (γ1: "Pay N life" / "Sacrifice this"). A colon with neither to its left is flavor/rules text
     // (a level band, a Class line, a keyword-action colon) → skip, so we never mis-detect.
