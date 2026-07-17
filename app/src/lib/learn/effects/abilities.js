@@ -30,19 +30,30 @@ function stripReminder(text) {
 }
 
 /**
- * Strip a trailing "Activate only as a sorcery" timing restriction (CR 602.5i) from an activated ability's
- * EFFECT clause before it's parsed. The restriction governs WHEN the ability may be activated, never WHAT it
- * does — and the runtime ALREADY enforces sorcery speed for every activated ability (legalChoices.actions-
- * ActivateAbility offers them only at step==="main"), so dropping the sentence can NEVER let the engine play
- * an ability faster than the card allows (THE CREED — a strict, safe simplification, exactly like the
- * cost-only keyword strips). Without this, the trailing sentence is swept into the effect program and drags
- * an otherwise-HIGH effect ("Put two +1/+1 counters on each creature you control. Activate only as a
- * sorcery.") to LOW, silently parking a fully-modelable ability. Both printed forms are handled ("Activate
- * only as a sorcery." and "Activate this ability only as a sorcery."). Single-sourced here so the parser and
- * the coverage metric strip identically.
+ * Strip a trailing RUNTIME-ENFORCED timing restriction from an activated ability's EFFECT clause before it is
+ * parsed. Such a rider governs WHEN the ability may be activated, never WHAT it does; when the runtime ALREADY
+ * enforces at-least-as-strict a window, dropping the sentence can NEVER let the engine play an ability sooner
+ * or more often than the card allows (THE CREED — a strict, safe simplification, exactly like the cost-only
+ * keyword strips). Without the strip the trailing sentence is swept into the effect program and drags an
+ * otherwise-HIGH effect ("Put two +1/+1 counters on each creature you control. Activate only as a sorcery.")
+ * to LOW, silently parking a fully-modelable ability. Single-sourced here so the parser and the coverage metric
+ * strip identically. Two riders are stripped, BOTH implied by the offer gate (legalChoices.actionsActivate-
+ * Ability offers activated abilities ONLY when it is the controller's own main step, they hold priority, and —
+ * for a sorceryOnly ability — the stack is empty):
+ *   • "Activate [this ability] only as a sorcery." (CR 602.5i) — own main + empty stack, already the gate.
+ *   • "Activate [this ability] only during your turn." (BLITZ AA-1) — own MAIN step is a STRICT SUBSET of
+ *     "your turn", so the engine's window is always inside the printed one; stripping only ever UNDER-offers
+ *     (never at instant speed on your turn, which the card would allow) — a safe false-negative, never an FP.
+ * BOTH are whole-clause anchored ($ after the phrase) so a rider carrying an EXTRA, un-enforced condition —
+ * "…during your turn, before attackers are declared." (Capricious Sorcerer), "…no more than twice each turn."
+ * (Pit Imp), "…only if <condition>." (Cinder Crawler) — does NOT match and the ability stays parked, because
+ * offering it in the engine's main-step window WOULD violate that extra constraint (a forbidden FP).
  */
-function stripSorcerySpeedRider(clause) {
-  return String(clause || "").replace(/\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i, "").trim();
+function stripEnforcedTimingRider(clause) {
+  return String(clause || "")
+    .replace(/\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i, "")
+    .replace(/\.?\s*Activate (?:this ability )?only during your turn\.?\s*$/i, "")
+    .trim();
 }
 
 /**
@@ -579,7 +590,7 @@ export function parseActivatedAbilities(card) {
     const rawEffect = line.slice(ci + 1).trim();
     const ONCE_RIDER = /\.?\s*Activate (?:this ability )?only once each turn\.?\s*$/i;
     const oncePerTurn = ONCE_RIDER.test(rawEffect);
-    const effectClause = stripSorcerySpeedRider(oncePerTurn ? rawEffect.replace(ONCE_RIDER, "").trim() : rawEffect);
+    const effectClause = stripEnforcedTimingRider(oncePerTurn ? rawEffect.replace(ONCE_RIDER, "").trim() : rawEffect);
     if (!costStr || !effectClause) continue;
 
     const cost = parseAbilityCost(costStr);
