@@ -1443,8 +1443,15 @@ function matchImpulseDig(oracle) {
  * Arbiter (FN-safe — a partial would be forbidden). `mayShuffle` records whether the optional shuffle is present.
  */
 function matchReorderTop(oracle) {
+  // The trailing period after "any order" is OPTIONAL (`\.?`): a SPELL carries it ("…any order. You may
+  // shuffle.\nDraw a card." — Ponder), but a TRIGGER / activated-ability effect clause arrives with its
+  // sentence-final period already stripped ("look at the top four cards of your library, then put them back
+  // in any order" — Spire Owl / Sage Owl / Sage of Epityr's ETB). Both feed the SAME reorder-top atom, which
+  // resolves identically; only the anchor blocked the period-stripped form. The optional-shuffle group already
+  // requires its own leading whitespace, so a with-period spell still matches greedily (period consumed first),
+  // never a regression. Any non-final continuation ("…any order and <more>") leaves a `rest` for the pipeline.
   const m = String(oracle).match(
-    /^look at the top (\w+) cards? of your library, then put them back in any order\.(\s+you may shuffle\.)?/i,
+    /^look at the top (\w+) cards? of your library, then put them back in any order\.?(\s+you may shuffle\.)?/i,
   );
   if (!m) return null;
   const amount = DIG_NUM[m[1].toLowerCase()];
@@ -2440,7 +2447,14 @@ function matchRevealTopConditional(oracle) {
  */
 function matchImpulseExilePlay(oracle) {
   const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
-  if (!/^exile the top card of your library\. you may play (?:that card|it)(?: this turn| until end of turn)$/.test(s)) {
+  // BOTH clause orders map to the SAME this-turn impulse-exile atom (the duration is identical — "this turn"
+  // = "until end of turn"), only the anchor differed: the duration can trail the permission ("you may play
+  // that card until end of turn" — Professional Face-Breaker) OR LEAD it ("Until end of turn, you may play
+  // that card" — Abbot of Keral Keep, Experimental Synthesizer, Stromkirk Occultist, Irascible Wolverine).
+  // The leading-duration form ONLY accepts the bare "until end of turn" phrasing — a "until the end of your
+  // NEXT turn" two-turn window is a DIFFERENT effect the this-turn `_impulseTurn` stamp can't model, so it
+  // stays unmatched → Arbiter (a SAFE false-negative, never a mis-modeled window; CREED whole-effect).
+  if (!/^exile the top card of your library\. (?:you may play (?:that card|it)(?: this turn| until end of turn)|until end of turn, you may play (?:that card|it))$/.test(s)) {
     return null;
   }
   return { atom: { op: "impulse-exile", targetType: null } };
