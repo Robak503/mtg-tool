@@ -1,6 +1,28 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.5%, campaign +835**: 47 slices, LOST=0 — TEAM batch 2 landed
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.7%, campaign +891**: 57 slices, LOST=0 — batch 3 landed (+56 this cycle)
+
+> Census **10,474 of 34,161 (30.66%)**, baseline scratchpad cand71.txt. This cycle: director solos —
+> **TD-1** the tapped-count draw (0c6a5761, +2, Theft of Dreams kin) · **GR-1** the discard-N graveyard
+> recursion (4a9ffb3b, +3, Stitchwing Skaab kin — the sacCount slice discipline for multi-victim costs)
+> · **MD-1** MADNESS credited on permanents (6b23d689, **+18** — the ninjutsu/morph rationale + the
+> spell path's versioned strip; Gorgon Recluse lifted DG-1's park; the 3 madness AURAS queued to the
+> static seat). Team batch 3 — combat seat: **BT-2** the basilisk siblings (7d199925, +6 — non-Wall trio
+> with the changeling-IS-a-Wall pin, bare pair, Abomination) · **CT-1** becomes-blocked-by-a-creature
+> self-pumps (b4dc5792, +5 — a DEDICATED CR 509.3d per-blocker event, deliberately un-deduped vs 509.3c;
+> Retaliation rides the group grant) — zones seat: **LT-1** land tuck (742c6200, +3) · **PX-1**
+> power-filtered exile both directions (215a0307, +7 — probe corrected the brief: N=3, ≥ evidenced; four
+> modal charms complete) · **GS-1** the gy shuffle-in (1b5c0d8f, +6 — dependent enumeration BY
+> CONSTRUCTION, the unconditional-shuffle CR 701.24 pin) — static seat: **NV-1** mass land animation
+> (5acfe069, +2 — dynamic layer-4 + 7b with a recursion-free type-identity branch + summoningSickNow
+> enforcement; Kormus Bell parked on layer-5 color delivery) · **SU-1** single-target base-P/T set
+> (50c7c980, +4 — Diminish/Square Up + two modal completions; counters-on-top-of-base pinned).
+>
+> Batch 4 out: combat seat — AF-2 afterlife (11) / MN-1 mentor (20) · static seat — MA-1 the madness
+> auras (+3) / RT-1 riot (13, documented auto-pick policy) · zones seat — DV-1 the devoid
+> correctness-first probe / BB-1 the same-name mass debuff.
+
+## (superseded same-day) — 30.5%, campaign +835: 47 slices — TEAM batch 2
 
 > Census **10,418 of 34,161 (30.50%)**, baseline scratchpad cand61.txt. Batch 2 (+18 team, +4 director):
 > **XT-1** EXTRA TURNS, director solo (6dea9f58, +4) — Time Walk / Temporal Manipulation / Capture of
