@@ -53,17 +53,24 @@ describe("GATED-GY — coverage flips (threshold + delirium, real cards)", () =>
 
 describe("GATED-GY — CREED: typed counts and non-grantable riders stay LOW", () => {
   const descns = (oracle) => parseStaticAbilities({ name: "X", type: "Creature — Beast", power: 2, toughness: 2, oracle });
-  it("a TYPED graveyard count is NOT modeled (creature cards / mana values — not 'permanent cards', which GATED-GY-EXT models)", () => {
-    expect(descns("As long as there are two or more creature cards in your graveyard, this creature gets +2/+1.")).toEqual([]);
-    expect(descns("This creature gets +3/+3 as long as there is a land card in your graveyard.")).toEqual([]);
+  it("TYPED graveyard counts are modeled by BLITZ CA-2 (creature cards / land-card presence); mana values still park", () => {
+    // Pre-CA-2 all three pinned empty. The typed count and the typed presence now carry a
+    // cardsInGraveyard cardType gate (the same countGraveyardSpec single-type filter GATED-GY-EXT used
+    // for 'permanent cards'); the mana-values metric has no zone-length evaluator → still fails closed.
+    expect(descns("As long as there are two or more creature cards in your graveyard, this creature gets +2/+1.")).toMatchObject([
+      { op: { layerOp: "ptModifyGated", gate: { countSpec: { kind: "cardsInGraveyard", cardType: "creature" }, atLeast: 2 } }, affects: { mode: "self" } },
+    ]);
+    expect(descns("This creature gets +3/+3 as long as there is a land card in your graveyard.")).toMatchObject([
+      { op: { layerOp: "ptModifyGated", gate: { countSpec: { kind: "cardsInGraveyard", cardType: "land" }, atLeast: 1 } }, affects: { mode: "self" } },
+    ]);
     expect(descns("As long as there are five or more mana values among cards in your graveyard, this creature gets +2/+2.")).toEqual([]);
   });
   it("a rider riding alongside the gated P/T drops the WHOLE clause (no silent partial)", () => {
     expect(descns("As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.")).toEqual([]);
     expect(descns("Threshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has \"{2}{B}, {T}: Destroy target green creature.\"")).toEqual([]);
   });
-  it("the same cards stay body-only end-to-end (typed creature-cards gate remains unmodeled)", () => {
-    expect(classifyCard({ type: "Creature — Vampire", name: "Killmonger", mana: "{2}{B}", oracle: "As long as there are two or more creature cards in your graveyard, this creature gets +2/+1." })).toBe("body-only");
+  it("the typed creature-cards gate flips native end-to-end (park LIFTED by BLITZ CA-2)", () => {
+    expect(classifyCard({ type: "Creature — Vampire", name: "Killmonger", mana: "{2}{B}", oracle: "As long as there are two or more creature cards in your graveyard, this creature gets +2/+1." })).toMatch(/^native/);
   });
 });
 

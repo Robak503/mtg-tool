@@ -153,6 +153,21 @@ function countSelfSpecOnBoard(state, perm, spec) {
     if (spec.excludeSelf && re.test(typeLineOf(perm.card))) n -= 1;
     return Math.max(0, n);
   }
+  // OPPONENTS-CONTROL count (BLITZ CA-2 — Wu Admiral "as long as an opponent controls an Island"; Syr
+  // Ginger's "a planeswalker"; Night Revelers' "a Human"): the same word-bounded type-line scan as the
+  // controller count below, over every LIVE opponent's battlefield (eliminated seats are removed from
+  // state.players). Plain type-line read — recursion-safe like every other board-count gate source.
+  if (spec.kind === "opponentsControl") {
+    const oppNeedle = spec.cardType || spec.subtype;
+    if (!oppNeedle) return 0;
+    const oppRe = new RegExp(`\\b${oppNeedle}\\b`);
+    let oppN = 0;
+    for (const [pid, pl] of Object.entries(state?.players || {})) {
+      if (pid === perm.controller) continue;
+      for (const p of pl.battlefield || []) if (oppRe.test(typeLineOf(p.card))) oppN += 1;
+    }
+    return oppN;
+  }
   const player = state?.players?.[perm.controller];
   if (!player) return 0;
   // EQUIP-DYNAMIC-PT: distinct WUBRG colors among the controller's battlefield (Conqueror's Flail
@@ -166,7 +181,10 @@ function countSelfSpecOnBoard(state, perm, spec) {
   const needle = spec.cardType || spec.subtype;
   if (!needle) return 0;
   const re = new RegExp(`\\b${needle}\\b`);
-  return (player.battlefield || []).filter((p) => re.test(typeLineOf(p.card))).length;
+  // untappedOnly (BLITZ CA-2 — Spur Grappler / Scoria Cat "as long as you control no untapped lands", an
+  // atLeast:0/atMost:0 band over this filtered count): restrict to permanents whose live tapped flag is
+  // false. Absent flag keeps the pre-existing unfiltered count — no behavior change for prior gates.
+  return (player.battlefield || []).filter((p) => re.test(typeLineOf(p.card)) && (!spec.untappedOnly || !p.tapped)).length;
 }
 
 // GATED-SELFBUFF: does the SOURCE permanent itself match a count spec's type? (so "another <type>" can
@@ -193,6 +211,14 @@ const PERMANENT_TYPE_RE = /\b(?:creature|artifact|enchantment|land|battle|planes
 function countGraveyardSpec(state, perm, spec) {
   const gy = state?.players?.[perm?.controller]?.graveyard || [];
   if (spec.kind === "cardsInGraveyard") {
+    // SUBTYPE-GY (BLITZ CA-2 — "a Warrior card is in your graveyard" / "there is a Desert card in your
+    // graveyard"): a word-bounded match on the FULL type line (subtypes live RIGHT of the dash, so the
+    // head-only split the card-TYPE branches use would never see them). The parser admits only a closed-
+    // vocabulary single word (never a supertype/qualifier), so this is a faithful membership test.
+    if (spec.subtype) {
+      const subRe = new RegExp(`\\b${spec.subtype}\\b`, "i");
+      return gy.filter((c) => subRe.test(typeLineOf(c))).length;
+    }
     if (!spec.cardType) return gy.length; // bare threshold: all cards
     // GATED-GY-EXT: typed count — cardType "Permanent" (Descend 4) or "instantOrSorcery" (Ghitu style).
     // "Permanent" = any permanent card type (creature/artifact/enchantment/land/battle/planeswalker, CR 700.3).
@@ -241,6 +267,101 @@ function gateMet(state, perm, gate) {
   if (gate.kind === "notAttacking") {
     return !(state?.combat?.attackers || []).some((a) => a?.permanentId === perm.id);
   }
+  // ATTACKING gate (BLITZ CA-2 — Adanto Vanguard "As long as this creature is attacking, it gets +2/+0";
+  // Kitesail Corsair's flying / Kor Scythemaster's first strike): the exact mirror of notAttacking above —
+  // open while the gate's subject IS a declared attacker. Same pure state.combat.attackers read, so the
+  // buff appears at attack declaration and drops when combat clears (CR 611.3a live re-evaluation).
+  if (gate.kind === "attacking") {
+    return (state?.combat?.attackers || []).some((a) => a?.permanentId === perm.id);
+  }
+  // ENCHANTED gate (BLITZ CA-2 — Fledgling Osprey / Skyrider Trainee "has flying as long as it's
+  // enchanted"): any Aura on the battlefield is attached to this permanent (CR 303.4c). The exact mirror
+  // of the isEquipped scan above with the Aura type test — a plain attachedTo + type-line read.
+  if (gate.kind === "isEnchanted") {
+    for (const pid of Object.keys(state?.players || {})) {
+      const bf = state.players[pid]?.battlefield || [];
+      if (bf.some(p => p.attachedTo === perm.id && /\baura\b/i.test(p.card?.type || ""))) return true;
+    }
+    return false;
+  }
+  // LIFE-TOTAL gates (BLITZ CA-2) — pure per-seat life reads, re-evaluated every derive (CR 611.3a):
+  //   lifeAtLeast — "as long as you have 25 or more life" (Divinity of Pride / Angel of Vitality /
+  //   Serra Ascendant's 30): the gate subject's CONTROLLER's live life total.
+  //   opponentLifeAtMost — "as long as an opponent has 10 or less life" (Ruthless Cullblade / Guul Draz
+  //   Vampire): ANY opponent qualifies (an eliminated seat is removed from state.players entirely, so
+  //   only live opponents are scanned).
+  if (gate.kind === "lifeAtLeast") {
+    return (state?.players?.[perm.controller]?.life ?? 0) >= (gate.atLeast ?? 1);
+  }
+  if (gate.kind === "opponentLifeAtMost") {
+    for (const pid of Object.keys(state?.players || {})) {
+      if (pid === perm.controller) continue;
+      if ((state.players[pid]?.life ?? Infinity) <= (gate.atMost ?? 0)) return true;
+    }
+    return false;
+  }
+  // OPPONENT HAND/GRAVEYARD/POISON gates (BLITZ CA-2) — plain zone-length / counter reads over LIVE
+  // opponents (ANY opponent qualifies — the printed "an opponent" exists-quantifier):
+  //   opponentCardsInHandAtMost — "an opponent has no cards in hand" (Guul Draz Specter).
+  //   opponentGraveyardAtLeast — "an opponent has eight or more cards in their graveyard" (Tenured
+  //   Oilcaster / Jace's Phantasm's ten).
+  //   opponentPoisonAtLeast — "an opponent has three or more poison counters" (Corrupted — Bonepicker
+  //   Skirge) / "an opponent is poisoned" (Viridian Betrayers, threshold 1); the per-seat poison tally
+  //   combatResolution's infect/toxic path maintains.
+  if (gate.kind === "opponentCardsInHandAtMost") {
+    for (const pid of Object.keys(state?.players || {})) {
+      if (pid === perm.controller) continue;
+      if ((state.players[pid]?.hand || []).length <= (gate.atMost ?? 0)) return true;
+    }
+    return false;
+  }
+  if (gate.kind === "opponentGraveyardAtLeast") {
+    for (const pid of Object.keys(state?.players || {})) {
+      if (pid === perm.controller) continue;
+      if ((state.players[pid]?.graveyard || []).length >= (gate.atLeast ?? 1)) return true;
+    }
+    return false;
+  }
+  if (gate.kind === "opponentPoisonAtLeast") {
+    for (const pid of Object.keys(state?.players || {})) {
+      if (pid === perm.controller) continue;
+      if ((state.players[pid]?.poison || 0) >= (gate.atLeast ?? 1)) return true;
+    }
+    return false;
+  }
+  // MORE-CARDS-THAN-EACH-OPPONENT gate (BLITZ CA-2 — Okina Nightwatch / Secretkeeper "as long as you have
+  // more cards in hand than each opponent"): a strict > against EVERY live opponent's hand size.
+  if (gate.kind === "moreCardsInHandThanEachOpponent") {
+    const mine = (state?.players?.[perm.controller]?.hand || []).length;
+    for (const pid of Object.keys(state?.players || {})) {
+      if (pid === perm.controller) continue;
+      if ((state.players[pid]?.hand || []).length >= mine) return false;
+    }
+    return true;
+  }
+  // PER-TURN LEDGER gates (BLITZ CA-2) — exact per-seat tallies the engine already maintains (each is
+  // incremented at its single chokepoint and reset for all seats on the per-game-turn cadence):
+  //   spellsCastThisTurnAtLeast — "you've cast two or more spells this turn" (Brightspear Zealot; the
+  //   TRIG-CAST2 spellsCastThisTurn ledger).
+  //   gainedLifeThisTurn — "you gained life this turn" (Infusion — Tenured Concocter; the BLITZ LG-1
+  //   lifeGainedThisTurn ledger).
+  //   lostLifeThisTurn — "you've lost life this turn" (Essence Channeler; the lifeLostThisTurn ledger).
+  if (gate.kind === "spellsCastThisTurnAtLeast") {
+    return (state?.players?.[perm.controller]?.spellsCastThisTurn || 0) >= (gate.atLeast ?? 1);
+  }
+  if (gate.kind === "gainedLifeThisTurn") {
+    return (state?.players?.[perm.controller]?.lifeGainedThisTurn || 0) >= 1;
+  }
+  if (gate.kind === "lostLifeThisTurn") {
+    return (state?.players?.[perm.controller]?.lifeLostThisTurn || 0) >= 1;
+  }
+  // ENTERED-THIS-TURN gate (BLITZ CA-2 — Crew Captain's indestructible / Thrasta & Drownyard Behemoth's
+  // hexproof "as long as it entered this turn"): the permanent's own enteredOnTurn stamp (set by the
+  // engine at battlefield entry) against the live global turn counter — the same read the
+  // enteredThisTurn target restriction uses. Flips off exactly at the next turn boundary.
+  if (gate.kind === "enteredThisTurn") {
+    return perm.enteredOnTurn != null && perm.enteredOnTurn === state?.turn;
+  }
   // UNTAPPED gate (BLITZ CA-1 — Juniper Order Advocate "As long as this creature is untapped, green
   // creatures you control get +1/+1"): open while the gate's subject permanent is untapped. Emitted with
   // gateOn:"source" for the group anthem (the SOURCE's tap state gates the whole group); the same live
@@ -256,7 +377,11 @@ function gateMet(state, perm, gate) {
   }
   const spec = gate.countSpec;
   if (spec?.kind === "cardsInGraveyard" || spec?.kind === "cardTypesInGraveyard") {
-    return countGraveyardSpec(state, perm, spec) >= (gate.atLeast || 1);
+    // BLITZ CA-2: an optional atMost bound admits the EMPTY-graveyard band (Gorilla Titan "as long as
+    // there are no cards in your graveyard" → atLeast 0 / atMost 0). `??` (not `||`) so an explicit
+    // atLeast:0 is honored; absent bounds keep the pre-existing open-ended ">= atLeast||1" semantics.
+    const gyN = countGraveyardSpec(state, perm, spec);
+    return gyN >= (gate.atLeast ?? 1) && (gate.atMost == null || gyN <= gate.atMost);
   }
   // SELF-COUNTER-GATED KEYWORD (CR 613.1f-adjacent, layer 6) — a keyword/buff this permanent has "as long as
   // it has N or more <counterType> counters on it" (Primordial Hydra's trample-at-10, Taborax's lifelink-at-5).
@@ -264,18 +389,26 @@ function gateMet(state, perm, gate) {
   // to the threshold. Re-evaluated every keyword/P-T read via gateMet, so the grant turns on the instant the
   // count crosses N and off if the count later drops (CR 613.7 continuous). No board scan — recursion-safe.
   if (spec?.kind === "countersOnSelf") {
-    const n = perm.counters?.[spec.counterType] || 0;
+    // TOTAL-COUNTERS form (BLITZ CA-2 — Warden of the Inner Sky "as long as this creature has three or
+    // more counters on it"): a null counterType sums EVERY kind on the permanent's own pile (CR 122 —
+    // "counters" unqualified counts all kinds). A named counterType keeps the single-pile read.
+    const n = spec.counterType == null
+      ? Object.values(perm.counters || {}).reduce((a, b) => a + (b || 0), 0)
+      : (perm.counters?.[spec.counterType] || 0);
     // LEVEL-BAND upper bound (LV-1, CR 711.2a): a {LEVEL N1-N2} band is open only while
     // N1 <= count <= N2. An absent atMost keeps the pre-existing open-ended (">= atLeast")
     // semantics — Primordial Hydra / Taborax / Arixmethes gates carry no atMost and are untouched.
-    return n >= (gate.atLeast || 1) && (gate.atMost == null || n <= gate.atMost);
+    // BLITZ CA-2: `??` (not `||`) so the NO-COUNTERS band (Roc Hatchling "as long as this creature has
+    // no shell counters on it" → atLeast 0 / atMost 0) is honored; absent atLeast still defaults to 1.
+    return n >= (gate.atLeast ?? 1) && (gate.atMost == null || n <= gate.atMost);
   }
   let n = countSelfSpecOnBoard(state, perm, spec);
   if (gate.excludeSelf && matchesCountSpec(perm, spec)) n -= 1;
   // EXACTLY-N band (BLITZ CA-1 — Homicidal Seclusion / Deadly Wanderings "as long as you control exactly
   // one creature"): an optional atMost upper bound on the board count. Absent atMost keeps the pre-existing
-  // open-ended (">= atLeast") semantics for every prior control gate — no behavior change.
-  return n >= (gate.atLeast || 1) && (gate.atMost == null || n <= gate.atMost);
+  // open-ended (">= atLeast") semantics for every prior control gate — no behavior change. BLITZ CA-2:
+  // `??` (not `||`) admits the ZERO band ("you control no untapped lands" → atLeast 0 / atMost 0).
+  return n >= (gate.atLeast ?? 1) && (gate.atMost == null || n <= gate.atMost);
 }
 
 // SOURCE-GATED continuous effect (BLITZ SG-1, CR 711.2a; live recompute 613.7-adjacent): the permanent whose state a gate is read

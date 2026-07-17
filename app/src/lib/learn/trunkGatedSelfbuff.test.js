@@ -29,7 +29,9 @@ describe("GATED-SELFBUFF — coverage flips", () => {
   });
   it("a color / compound / negated gate stays body-only (LOW → Arbiter)", () => {
     expect(classifyCard({ type: "Creature — Cleric", name: "Gearsmith Guardian", mana: "{4}{U}", oracle: "This creature gets +2/+0 as long as you control a blue creature." })).toBe("body-only");
-    expect(classifyCard({ type: "Creature — Beast", name: "Scoria Cat", mana: "{3}{R}", oracle: "This creature gets +3/+3 as long as you control no untapped lands." })).toBe("body-only");
+  });
+  it("the no-untapped-lands zero band flips native (park LIFTED by BLITZ CA-2's untappedOnly count)", () => {
+    expect(classifyCard({ type: "Creature — Beast", name: "Scoria Cat", mana: "{3}{R}", oracle: "This creature gets +3/+3 as long as you control no untapped lands." })).toMatch(/^native/);
   });
 });
 

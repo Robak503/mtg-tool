@@ -192,9 +192,9 @@ describe("GATED-GY-EXTENDED — FP regressions", () => {
     expect(tier("Cephalid Sage", SAGE)).toBe("body-only");
   });
 
-  it("opponent-GY gate stays body-only (Nimana Skitter-Sneak)", () => {
+  it("opponent-GY gate flips native (park LIFTED by BLITZ CA-2's opponentGraveyardAtLeast evaluator)", () => {
     const NIMANA = "As long as an opponent has eight or more cards in their graveyard, this creature gets +1/+0 and has menace.";
-    expect(tier("Nimana Skitter-Sneak", NIMANA)).toBe("body-only");
+    expect(tier("Nimana Skitter-Sneak", NIMANA)).toMatch(/^native/);
   });
 
   it("OR-condition gate stays body-only (Sidewinder Naga)", () => {
@@ -207,9 +207,9 @@ describe("GATED-GY-EXTENDED — FP regressions", () => {
     expect(tier("Omnivorous Flytrap", FLYTRAP)).toBe("body-only");
   });
 
-  it("hand-count gate stays body-only (Akki Underling)", () => {
+  it("hand-count gate flips native (park LIFTED by BLITZ CA-2's cardsInHand atLeast band)", () => {
     const AKKI = "As long as you have seven or more cards in hand, this creature gets +2/+1 and has first strike.";
-    expect(tier("Akki Underling", AKKI)).toBe("body-only");
+    expect(tier("Akki Underling", AKKI)).toMatch(/^native/);
   });
 
   it("composite AND gate stays body-only (Bloodfire Enforcers)", () => {

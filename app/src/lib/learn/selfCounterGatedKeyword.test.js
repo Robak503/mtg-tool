@@ -90,8 +90,11 @@ describe("SELF-COUNTER-GATED KEYWORD — CREED anti-FP (never a partial-coverage
     expect(classifyCard(TABORAX)).toBe("body-only");
   });
 
-  it("a WRONG counter kind (charge counters) is NOT modeled by this lever", () => {
-    expect(clauseProducesStatic("this creature has trample as long as it has three or more charge counters on it")).toBe(false);
+  it("a NAMED counter kind (charge counters) is not this lever's — but the BLITZ CA-2 unified self lane models it exactly (countersOnSelf 'charge')", () => {
+    // Pre-CA-2 this pinned FALSE (the +1/+1-only parseSelfCounterGate was the sole lane and rightly
+    // rejected other kinds). CA-2 routes the leftover through parseAsLongAsGate, whose named-counter
+    // threshold reads the permanent's own 'charge' pile — the same exact evaluator, a lifted park.
+    expect(clauseProducesStatic("this creature has trample as long as it has three or more charge counters on it")).toBe(true);
   });
 
   it("a QUALIFIED threshold ('the most +1/+1 counters', not 'N or more on it') is NOT modeled", () => {

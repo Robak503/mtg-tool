@@ -292,7 +292,6 @@ describe("CA-1 — FN guards: unevaluable conditions emit NOTHING (whole-card pa
     ["Angelic Voices (universal-negative compound filter)", ANGELIC_VOICES],
     ["Watchdog ('attacking you' defender scope unmodeled)", WATCHDOG],
     ["Depala ('as long as it's a creature' on Vehicles — crew unmodeled)", DEPALA],
-    ["Soaring Thought-Thief (an OPPONENT's graveyard — exists-quantifier unmodeled)", SOARING_THOUGHT_THIEF],
     ["Liu Bei (named-permanent condition)", LIU_BEI],
   ];
   for (const [label, card] of parked) {
@@ -302,4 +301,11 @@ describe("CA-1 — FN guards: unevaluable conditions emit NOTHING (whole-card pa
       expect(gated).toHaveLength(0);
     });
   }
+  it("Soaring Thought-Thief — the CA-1 park is LIFTED by CA-2's opponentGraveyardAtLeast evaluator: the anthem clause models (per-source, exists-quantified) while the unmodeled attack-mill trigger still parks the card", () => {
+    const gated = parseStaticAbilities(SOARING_THOUGHT_THIEF).filter(s => s.op?.gate);
+    expect(gated).toHaveLength(1);
+    expect(gated[0].op.gate).toMatchObject({ kind: "opponentGraveyardAtLeast", atLeast: 8, gateOn: "source" });
+    expect(gated[0].affects?.mode).toBe("dynamic");             // a GROUP anthem (Rogues you control)
+    expect(classifyCard(SOARING_THOUGHT_THIEF)).toBe("body-only"); // whole-card law: the mill trigger is still residue
+  });
 });

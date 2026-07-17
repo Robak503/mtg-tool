@@ -427,7 +427,17 @@ function parseGrantedManaSpec(quoted) {
  * applies (false-negative, SAFE — never a fabricated buff). "another" excludes the source (CR — "another").
  */
 function parseControlGateSource(quant, typePhrase) {
-  const t = String(typePhrase).toLowerCase().trim().replace(/\.$/, "");
+  let t = String(typePhrase).toLowerCase().trim().replace(/\.$/, "");
+  // PLANESWALKER-TYPE gate (BLITZ CA-2 — "you control a Liliana planeswalker": Arisen Gorgon / Charging
+  // War Boar / Moon-Eating Dog): the ONE admitted two-word phrase. The planeswalker TYPE is a word-bounded
+  // type-line token ("Legendary Planeswalker — Liliana") carried only by that planeswalker, so the subtype
+  // scan is exact. A qualifier word that is NOT a planeswalker type (a color / supertype / "historic")
+  // would make the gate unopenable → fail closed (CREED — a never-opening gate is a mis-model, not a FN).
+  const pw = t.match(/^([a-z]+) planeswalkers?$/);
+  if (pw) {
+    if (/^(?:white|blue|black|red|green|colorless|multicolored|monocolored|colored|legendary|basic|snow|world|historic|nontoken|token|tapped|untapped|another|other)$/.test(pw[1])) return null;
+    t = pw[1];
+  }
   if (!t || /\s/.test(t)) return null; // compound / color-qualified / negated → LOW
   let atLeast = 1, excludeSelf = false;
   if (quant === "another") excludeSelf = true;
@@ -924,8 +934,10 @@ function emitGatedEffect(out, effRaw, gate) {
  */
 function parseAsLongAsGate(condText) {
   const t = String(condText).trim().replace(/\.$/, "");
-  // Board-count control gate ("you control three or more artifacts" / "an equipment" / "ten or more lands").
-  let m = t.match(/^you control (a|an|another|\w+ or more) ([a-z]+)$/);
+  // Board-count control gate ("you control three or more artifacts" / "an equipment" / "ten or more
+  // lands" / — BLITZ CA-2 — "a Liliana planeswalker", the one two-word phrase parseControlGateSource
+  // admits as a planeswalker-TYPE subtype scan).
+  let m = t.match(/^you control (a|an|another|\w+ or more) ([a-z]+(?: planeswalkers?)?)$/);
   if (m) {
     const g = parseControlGateSource(m[1], m[2]);
     return g ? { ...g, gateOn: "source" } : null;
@@ -964,7 +976,146 @@ function parseAsLongAsGate(condText) {
     const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
     return Number.isInteger(n) && n >= 0 ? { kind: "cardsInHand", atMost: n, gateOn: "source" } : null;
   }
+  // ── BLITZ CA-2 — the SELF-subject slice's gate-kind expansion. Every alternative stays whole-anchored
+  // (^…$) and maps to an exact PURE-STATE evaluator in layers.gateMet (plain zone/flag/ledger reads — no
+  // derived characteristics, no event reconstruction). The SELF lane strips gateOn (its subject IS the
+  // source); in a GROUP clause the printed grammar decides the scope: "this creature is <X>" names the
+  // SOURCE (the card's own name was normalized upstream) → gateOn:"source", while the bare contraction
+  // "it's <X>" refers to each affected candidate (the Arcades notAttacking precedent) → per-candidate.
+  // Turn-phase (the DT-1/ST-2 yourTurn evaluator, new phrasing): "as long as it's your turn" (Faithful
+  // Pikemaster / Maarika). "Your" = the gate subject's controller → per-source in a group clause.
+  if (/^it(?:'s| is) your turn$/.test(t)) return { kind: "yourTurn", gateOn: "source" };
+  // Combat state (the notAttacking mirror): Adanto Vanguard / Kitesail Corsair / Kor Scythemaster.
+  if (/^this creature is attacking$/.test(t)) return { kind: "attacking", gateOn: "source" };
+  if (/^it(?:'s| is) attacking$/.test(t)) return { kind: "attacking" };
+  // Tap state contraction ("as long as it's untapped" — Giant Tortoise / Dragonlord Ojutai; the full
+  // "this creature is untapped" per-source form is matched above).
+  if (/^it's untapped$/.test(t)) return { kind: "untapped" };
+  // Attachment state (isEquipped is matched above; isEnchanted is its Aura twin — Fledgling Osprey).
+  if (/^this creature is enchanted$/.test(t)) return { kind: "isEnchanted", gateOn: "source" };
+  if (/^it(?:'s| is) enchanted$/.test(t)) return { kind: "isEnchanted" };
+  if (/^it's equipped$/.test(t)) return { kind: "isEquipped" };
+  // Hellbent / hand-size floor (extends the CA-1 cardsInHand band): "you have no cards in hand" (Demon's
+  // Jester / Gathan Raiders); "you have seven or more cards in hand" (Akki Underling / Kiyomaro's four).
+  if (/^you have no cards in hand$/.test(t)) return { kind: "cardsInHand", atMost: 0, gateOn: "source" };
+  m = t.match(/^you have (\w+) or more cards in hand$/);
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0 ? { kind: "cardsInHand", atLeast: n, gateOn: "source" } : null;
+  }
+  if (/^an opponent has no cards in hand$/.test(t)) return { kind: "opponentCardsInHandAtMost", atMost: 0, gateOn: "source" };
+  if (/^you have more cards in hand than each opponent$/.test(t)) return { kind: "moreCardsInHandThanEachOpponent", gateOn: "source" };
+  // Life totals (printed as digits — 25/30 or more, 10 or less): Divinity of Pride / Serra Ascendant;
+  // Ruthless Cullblade / Bloodghast. Pure per-seat life reads.
+  m = t.match(/^you have (\d+) or more life$/);
+  if (m) { const n = parseInt(m[1], 10); return n > 0 ? { kind: "lifeAtLeast", atLeast: n, gateOn: "source" } : null; }
+  m = t.match(/^an opponent has (\d+) or less life$/);
+  if (m) { const n = parseInt(m[1], 10); return n > 0 ? { kind: "opponentLifeAtMost", atMost: n, gateOn: "source" } : null; }
+  // Opponent graveyard size / poison (exists-quantified over live opponents): Tenured Oilcaster /
+  // Jace's Phantasm; Corrupted (Bonepicker Skirge / Apostle of Invasion) / "is poisoned" (Viridian
+  // Betrayers — CR 122.1f: a player is "poisoned" if they have one or more poison counters).
+  m = t.match(/^an opponent has (\w+) or more cards in their graveyard$/);
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0 ? { kind: "opponentGraveyardAtLeast", atLeast: n, gateOn: "source" } : null;
+  }
+  m = t.match(/^an opponent has (\w+) or more poison counters$/);
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0 ? { kind: "opponentPoisonAtLeast", atLeast: n, gateOn: "source" } : null;
+  }
+  if (/^an opponent is poisoned$/.test(t)) return { kind: "opponentPoisonAtLeast", atLeast: 1, gateOn: "source" };
+  // Per-turn ledgers the engine already maintains exactly (each has a single increment chokepoint and the
+  // shared per-game-turn reset): spellsCastThisTurn (TRIG-CAST2), lifeGainedThisTurn (LG-1),
+  // lifeLostThisTurn. "you've drawn N or more cards this turn" has NO ledger → stays unparsed (FN-safe).
+  m = t.match(/^you've cast (\w+) or more spells this turn$/);
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0 ? { kind: "spellsCastThisTurnAtLeast", atLeast: n, gateOn: "source" } : null;
+  }
+  if (/^you gained life this turn$/.test(t)) return { kind: "gainedLifeThisTurn", gateOn: "source" };
+  if (/^you've lost life this turn$/.test(t)) return { kind: "lostLifeThisTurn", gateOn: "source" };
+  // Permanent's own entry stamp (perm.enteredOnTurn vs the live turn counter): Crew Captain / Thrasta.
+  if (/^it entered this turn$/.test(t)) return { kind: "enteredThisTurn" };
+  // Opponent board presence ("an opponent controls a/an <single word>" — Wu Admiral's Island, Night
+  // Revelers' Human, Syr Ginger's planeswalker): the same closed type-word vocabulary as the "you
+  // control" gate (parseControlGateSource's tail), counted over every live opponent's battlefield.
+  m = t.match(/^an opponent controls (?:a|an) ([a-z]+)$/);
+  if (m) {
+    const g = parseControlGateSource("a", m[1]);
+    return g ? { countSpec: { ...g.countSpec, kind: "opponentsControl" }, atLeast: 1, gateOn: "source" } : null;
+  }
+  // Typed graveyard presence / threshold ("a land card is in your graveyard" — Murasa Behemoth /
+  // Windwright Mage; "there are two or more creature cards in your graveyard" — Killmonger): a closed
+  // card-TYPE vocabulary maps to the countGraveyardSpec head test; any other single word is admitted only
+  // as a real SUBTYPE (Warrior / Desert / Lesson — a word-bounded full-type-line test), with the same
+  // supertype/qualifier rejects as the board gate PLUS the defined-characteristic words a type-line test
+  // cannot evaluate (historic; color words) — those fail closed (Havi's "historic cards" parks).
+  m = t.match(/^there (?:is|are) (?:a|an) ([a-z]+) card in your graveyard$/)
+    || t.match(/^(?:a|an) ([a-z]+) card is in your graveyard$/);
+  if (m) {
+    const spec = graveyardTypeWordSpec(m[1]);
+    return spec ? { countSpec: spec, atLeast: 1, gateOn: "source" } : null;
+  }
+  m = t.match(/^there are (\w+) or more ([a-z]+) cards in your graveyard$/);
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    const spec = graveyardTypeWordSpec(m[2]);
+    return Number.isInteger(n) && n > 0 && spec ? { countSpec: spec, atLeast: n, gateOn: "source" } : null;
+  }
+  // Empty graveyard (Gorilla Titan "as long as there are no cards in your graveyard"): the zero band.
+  if (/^there are no cards in your graveyard$/.test(t)) {
+    return { countSpec: { kind: "cardsInGraveyard" }, atLeast: 0, atMost: 0, gateOn: "source" };
+  }
+  // Untapped-lands zero band (Spur Grappler / Scoria Cat / Vintara Snapper "as long as you control no
+  // untapped lands"): the untappedOnly-filtered controller count must be exactly zero.
+  if (/^you control no untapped lands$/.test(t)) {
+    return { countSpec: { kind: "permanentsYouControl", cardType: "Land", untappedOnly: true }, atLeast: 0, atMost: 0, gateOn: "source" };
+  }
+  // Self counter-pile presence / absence / totals (extends the CA-1 threshold forms above; all read the
+  // subject's OWN pile — countersOnSelf):
+  //   "it has a +1/+1 counter on it" (Lightwalker / Chaos Imps) — P/T-counter presence, threshold 1;
+  //   the -1/-1 twin (Thunderblust). The counter NAME is the pile key ("+1/+1" / "-1/-1").
+  m = t.match(new RegExp(`^(?:${SELF_PERM}|it) has (?:a|an|one) ([+-]1\\/[+-]1) counter on it$`));
+  if (m) return { countSpec: { kind: "countersOnSelf", counterType: m[1] }, atLeast: 1, gateOn: "source" };
+  //   "this creature has four or more +1/+1 counters on it" (Voice of the Blessed / Vadmir, New Blood) —
+  //   the P/T-counter THRESHOLD twin of the CA-1 named-counter threshold above (whose `[a-z]+` counter
+  //   word can't spell "+1/+1"). The self block's parseSelfCounterGate only sees the "…as long as it has…"
+  //   suffix order, so the prefix order lands here.
+  m = t.match(new RegExp(`^(?:${SELF_PERM}|it) has (\\w+) or more ([+-]1\\/[+-]1) counters on it$`));
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0 ? { countSpec: { kind: "countersOnSelf", counterType: m[2] }, atLeast: n, gateOn: "source" } : null;
+  }
+  //   "it has a <name> counter on it" (the Myojin divinity presence; Rhox Pummeler's shield) — a NAMED
+  //   pile, threshold 1. Loyalty is a planeswalker resource, not a gate pile → fail closed.
+  m = t.match(new RegExp(`^(?:${SELF_PERM}|it) has (?:a|an|one) ([a-z]+) counter on it$`));
+  if (m) return m[1] === "loyalty" ? null : { countSpec: { kind: "countersOnSelf", counterType: m[1] }, atLeast: 1, gateOn: "source" };
+  //   "it has no <name> counters on it" (Roc Hatchling's shell) — the zero band over a named pile.
+  m = t.match(new RegExp(`^(?:${SELF_PERM}|it) has no ([a-z]+) counters on it$`));
+  if (m) return { countSpec: { kind: "countersOnSelf", counterType: m[1] }, atLeast: 0, atMost: 0, gateOn: "source" };
+  //   "it has three or more counters on it" (Warden of the Inner Sky) — the ALL-KINDS total (counterType
+  //   null → gateMet sums every pile).
+  m = t.match(new RegExp(`^(?:${SELF_PERM}|it) has (\\w+) or more counters on it$`));
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0 ? { countSpec: { kind: "countersOnSelf", counterType: null }, atLeast: n, gateOn: "source" } : null;
+  }
   return null; // no exact evaluator → the caller emits nothing (body-only — a safe FN)
+}
+
+// BLITZ CA-2 — resolve the single type-word of a typed-graveyard gate ("a <word> card is in your
+// graveyard") into a countGraveyardSpec, or null. Closed CARD-TYPE vocabulary first (the head-of-type-line
+// test); otherwise the word is admitted as a SUBTYPE (full-type-line word-bounded test) unless it's a
+// supertype / qualifier / defined-characteristic word a type-line token test cannot faithfully evaluate
+// (historic = artifact ∪ legendary ∪ Saga; color words are characteristics, not type-line tokens) — those
+// return null so the clause fails closed (CREED: a gate that can never open is a mis-model, not a FN).
+const GY_TYPE_WORDS = new Set(["creature", "artifact", "enchantment", "land", "instant", "sorcery", "planeswalker", "battle"]);
+function graveyardTypeWordSpec(word) {
+  const w = String(word).toLowerCase();
+  if (GY_TYPE_WORDS.has(w)) return { kind: "cardsInGraveyard", cardType: w };
+  if (/^(?:legendary|basic|snow|world|ongoing|historic|permanent|token|spell|card|white|blue|black|red|green|colorless|multicolored|monocolored|colored|nonland|noncreature|nontoken|tribal|kindred)$/.test(w)) return null;
+  return { kind: "cardsInGraveyard", subtype: w.charAt(0).toUpperCase() + w.slice(1) };
 }
 
 /**
@@ -1094,7 +1245,12 @@ function parseClause(clause, out, selfName, selfType) {
   // is not a functional gate), so stripping it lets the bare static match. Enumerated (not
   // an open-ended "<Word> —" strip) for the same reason the trigger-side strip is: a blanket
   // strip would mis-normalize the 337 real ability-word labels that carry conditions.
-  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|unlock ability)\s*[—–-]\s*/, "");
+  // BLITZ CA-2 adds Hellbent ("Hellbent — … as long as you have no cards in hand", Demon's Jester),
+  // Corrupted ("Corrupted — … as long as an opponent has three or more poison counters", Bonepicker
+  // Skirge) and Infusion ("Infusion — … as long as you gained life this turn", Tenured Concocter) — like
+  // every CR 207.2c ability word, the CONDITION is always restated in the rules text that follows, so
+  // the label itself is pure flavor and stripping it is universally safe.
+  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|hellbent|corrupted|infusion|unlock ability)\s*[—–-]\s*/, "");
 
   // ── FLASH-CAST-PERMISSION (Yeva; Vedalken Orrery; Leyline of Anticipation; Prophet of Kruphix; …) ──────
   // "You may cast <FILTER> spells as though they had flash." A STATIC casting-permission (CR 601.3e / 702.8f
@@ -2001,6 +2157,38 @@ function parseClause(clause, out, selfName, selfType) {
     if (sncg) {
       const eff = c.replace(sncg.match, "").replace(/^[\s,]+|[\s,]+$/g, "");
       if (emitCounterGatedTypeChange(out, eff, sncg.gate, { type: selfType })) return;
+    }
+  }
+
+  // ── SELF AS-LONG-AS GATES (BLITZ CA-2, CR 611.3a/b; layers 613.4c 7c P/T + 613.1f layer-6 keywords) ──
+  // The SELF-subject twin of the CA-1 condition-gated GROUP anthems below: "[this creature] gets +X/+Y
+  // [and has <kw>…] as long as <condition>" / "As long as <condition>, [this creature] gets/has …". The
+  // SPECIFIC self lanes above (control-gate / equipped-prefix / graveyard / +1+1-counter threshold)
+  // already returned on their shapes; every REMAINING self conditional routes through the SAME
+  // parseAsLongAsGate the group branch uses — ONE shared condition vocabulary, so classifier credit and
+  // layer enforcement can never diverge — and reduces through the SAME all-or-nothing emitGatedEffect
+  // (any unconsumed rider → NOTHING emitted → body-only; CREED: FN-safe, FP-forbidden). gateOn is
+  // STRIPPED: a self effect's gate subject IS the affected permanent (== the source), so every gate reads
+  // the self permanent directly at every seam, including the layer-4 sites that call gateMet without
+  // gatePermForEffect. Sits OUTSIDE the self block above because a per-turn-ledger condition ("you've
+  // cast two or more spells this turn" — Brightspear Zealot) legitimately contains "this turn", which
+  // that block's guard excludes; the effect side needs no duration guard here — emitGatedEffect emits
+  // nothing unless the effect reduces COMPLETELY to a P/T delta and/or grantable keywords, which no
+  // "until end of turn" / triggered / activated text can survive.
+  if (!/^(?:when|whenever|at)\b/.test(c) && !/\bwhenever\b/.test(c) && !c.includes(":")) {
+    let sm = c.match(/^(?:this creature|it) ((?:gets|has) .+?) as long as (.+)$/);
+    let sg = sm && parseAsLongAsGate(sm[2]);
+    if (sm && sg) {
+      const { gateOn: _gOn, ...selfGate } = sg;
+      emitGatedEffect(out, sm[1], selfGate);
+      return; // handled — or the effect had an unmodeled rider and NOTHING was emitted (body-only, CREED)
+    }
+    sm = c.match(/^as long as (.+?), (?:this creature|it) ((?:gets|has) .+)$/);
+    sg = sm && parseAsLongAsGate(sm[1]);
+    if (sm && sg) {
+      const { gateOn: _gOn, ...selfGate } = sg;
+      emitGatedEffect(out, sm[2], selfGate);
+      return; // handled — or parked whole on an unconsumed rider (safe FN)
     }
   }
 

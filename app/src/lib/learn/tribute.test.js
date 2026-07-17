@@ -147,8 +147,11 @@ describe("TRIBUTE parser — parseTributeCreature (whole-card gate)", () => {
     expect(parseTributeCreature({ type: "Artifact", oracle: "Tribute 2\nWhen this enters, if tribute wasn't paid, you gain 4 life." }, classifyCard, isNativeTier)).toBeNull();
   });
   it("returns null when an extra unmodeled body clause remains (all-or-nothing CREED)", () => {
+    // The rider clause must be genuinely unmodeled: the shared-color condition is the CA-1 park
+    // (derived-characteristic — Common Cause class). The previous fixture's "as long as it's your turn"
+    // anthem became a MODELED gate in BLITZ CA-2, which would have defeated this test's premise.
     const rider = { name: "Rider", type: "Creature — Beast", mana: "{4}{G}",
-      oracle: "Tribute 3 (reminder)\nWhen this creature enters, if tribute wasn't paid, you gain 4 life.\nOther creatures you control get +1/+0 as long as it's your turn." };
+      oracle: "Tribute 3 (reminder)\nWhen this creature enters, if tribute wasn't paid, you gain 4 life.\nOther creatures you control get +1/+0 as long as they all share a color." };
     expect(parseTributeCreature(rider, classifyCard, isNativeTier)).toBeNull();
   });
 });
