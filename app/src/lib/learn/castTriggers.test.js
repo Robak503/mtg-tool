@@ -24,17 +24,25 @@ describe("cast-trigger detection", () => {
     expect(castDescriptors("Whenever a player casts a spell, draw a card.")[0]).toMatchObject({ whose: "any", spellFilter: "any" });
   });
 
-  it("does NOT detect an unmodeled filter (color / historic / kicked / permanent — denylisted non-subtypes)", () => {
+  it("does NOT detect an unmodeled filter (color / kicked / permanent / legendary — denylisted non-subtypes)", () => {
     // CAST-SUBTYPE denylist: these words are NOT type-line subtypes, so a subtype match would never fire →
     // staying undetected avoids a never-firing native (CREED). Caught by the corpus flip-diff.
     expect(castDescriptors("Whenever you cast a red spell, it deals 1 damage to each opponent.")).toHaveLength(0);
-    expect(castDescriptors("Whenever you cast a historic spell, draw a card.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a kicked spell, scry 2.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a permanent spell, draw a card.")).toHaveLength(0);
+    // "legendary" alone is NOT a modeled quality filter (only "historic" = legendary ∨ artifact ∨ Saga is —
+    // see TR-3 below); a bare "cast a legendary spell" stays undetected → Arbiter.
     expect(castDescriptors("Whenever you cast a legendary spell, draw a card.")).toHaveLength(0);
     // Un-set defined term: "an alliterative spell" (Treacherous Trapezist) is a name-property, not a
     // type-line subtype → must NOT detect (subtype:Alliterative would never fire = a do-nothing native FP).
     expect(castDescriptors("Whenever you cast an alliterative spell, scry 2.")).toHaveLength(0);
+  });
+
+  it("DOES detect the historic / multicolored QUALITY filters (BLITZ TR-3, CR 700.6 / 105.2b)", () => {
+    // Historic (legendary ∨ artifact ∨ Saga) and multicolored (≥2 colors) are whole-object QUALITIES, not
+    // subtypes — carved out of the denylist as exact filters spellMatchesFilter enforces on the cast spell.
+    expect(castDescriptors("Whenever you cast a historic spell, draw a card.")[0]).toMatchObject({ whose: "you", spellFilter: "historic" });
+    expect(castDescriptors("Whenever you cast a multicolored spell, draw a card.")[0]).toMatchObject({ whose: "you", spellFilter: "multicolored" });
   });
 
   it("CAST-SUBTYPE: detects a real creature/spell SUBTYPE filter (Elf / Knight / Adventure → subtype:Name)", () => {

@@ -23,7 +23,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, colorsOf } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
@@ -1003,6 +1003,22 @@ function classifyCondition(condRaw, cardName, cardType) {
   // loses 1 life", "target opponent loses life equal to this creature's power") already parses HIGH.
   if (/\bis put into a graveyard from the battlefield$/.test(c)) {
     const pigSubj = c.replace(/\s+is put into a graveyard from the battlefield$/, "").trim();
+    // SELF-PiG (BLITZ TR-3, CR 700.4 + 603.6c) — "when THIS <artifact|creature|enchantment|permanent> is put
+    // into a graveyard from the battlefield, <effect>" (Nutrient Block / Implement of Examination "draw a
+    // card"). Fires the SELF "ltb" event checkLeavesTriggers already enqueues for EVERY graveyard exit of the
+    // source (source === triggering === the leave look-back; toGraveyard-gated, so a bounce/exile never fires
+    // it — CR 700.4). "this aura" is DELIBERATELY excluded from the alternation so the Aura self-PiG-return
+    // (Rancor) still reaches the selfReturn.js registry detector, which adds the selfReturnKind rewrite the
+    // bare "return it to its owner's hand" needs — classifyCondition has priority over the registry, so
+    // matching "this aura" HERE would strip that rewrite and break it (CREED). The effect routes through the
+    // normal pipeline; a bare self-return (Spine of Ish Sah) or a cost/optional effect ("you may pay {G}") is
+    // NOT a modeled atom on this event → triggerRoutesNatively false → the card stays body-only → Arbiter (a
+    // SAFE false-negative, whole-card law). A creature form fires via "ltb" (checkLeavesTriggers), NOT "dies"
+    // (checkDiesTriggers) — one descriptor, one event, so a spelled-out creature self-PiG never double-fires.
+    if (/^this (?:artifact|creature|enchantment|permanent)$/.test(pigSubj)
+        || (selfRef && nameL && (pigSubj === nameL || (shortName && pigSubj === shortName)))) {
+      return { event: "ltb", scope: "self", whose: "any" };
+    }
     // Marionette Apprentice — "another creature or artifact you control" (the "another" excludes the source).
     if (pigSubj === "another creature or artifact you control")
       return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any" };
@@ -1015,6 +1031,16 @@ function classifyCondition(condRaw, cardName, cardType) {
     // "another artifact you control" — the source-excluding artifact form (Disciple of the Vault-style).
     if (pigSubj === "another artifact you control")
       return { event: "permanentLeaves", scope: "artifactYouControlPiG", whose: "any", excludeSelf: true };
+    // ===== BROAD ARTIFACT-PiG (BLITZ TR-3, CR 700.4 / 603.6e) ===== "an artifact is put into a graveyard from
+    // the battlefield" — ANY player's artifact, NOT controller-scoped (Molder Beast, Fangren Marauder, Moriok
+    // Rigger, Disciple of the Vault). The typed sibling of "a creature dies": for artifacts there is no "dies"
+    // keyword (CR 700.4 is creature-only), so the event is spelled out. The dedicated artifactAnyPiG scope
+    // drops the controller gate the "you control" PiG scopes carry — the sole non-controller PiG scope — and
+    // fires off the SAME checkLeavesTriggers permanentLeaves path (self-source + battlefield-watcher scan), so
+    // an artifact-typed watcher (Summoning Station) firing on its own death is CR-correct (an artifact IS put
+    // into a graveyard). Bare "an artifact" ONLY: a controlled/filtered variant is handled above or parks.
+    if (pigSubj === "an artifact")
+      return { event: "permanentLeaves", scope: "artifactAnyPiG", whose: "any" };
     // "a creature you control" PiG (the dies-equivalent LTB wording — fires on a graveyard exit only).
     if (pigSubj === "a creature you control")
       return { event: "permanentLeaves", scope: "creatureYouControlPiG", whose: "any" };
@@ -1064,6 +1090,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   // anchored ^…$ — a rider on the condition leaves it UNDETECTED → Arbiter (a SAFE false-negative).
   if (/^the beginning of each player[’']s upkeep$/.test(c)) {
     return { event: "upkeep", scope: "you", whose: "any", eachPlayersUpkeep: true };
+  }
+  // ===== "THE END STEP" (BLITZ TR-3, CR 513.1/513.2 + 603.2b) ===== "At the beginning of THE end step, …"
+  // (Ball Lightning, Impetuous Devils, Glitterfang, Underworld Breach) — the OLD unqualified end-step
+  // templating. Per CR 513.2 (which quotes this exact wording) and the printed ruling (Glitterfang "triggers
+  // at the beginning of each end step, no matter whose turn it is"), "the end step" = the end step of EVERY
+  // turn — so whose:"any" (identical firing to "each end step" below), NOT whose:"yours". The distinction is
+  // load-bearing: a self-sacrifice / self-bounce that fires only on the controller's end step would UNDER-fire
+  // on an off-turn survival — CR-wrong. checkStepTriggers fires the "endStep" event once per end-step entry, so
+  // whose:"any" gives exactly one fire per turn's end step. Whole-clause ^…$ anchored — the delayed
+  // "your NEXT end step" (a one-shot delayed trigger, CR 603.7b), the Aura "end step of enchanted creature's
+  // controller" wording, and any rider all fail the anchor → UNDETECTED → Arbiter (a SAFE false-negative).
+  if (/^the beginning of the end step$/.test(c)) {
+    return { event: "endStep", scope: "you", whose: "any" };
   }
   if (/beginning of (your|each) (upkeep|end step|draw step)/.test(c)) {
     const whose = /\beach\b/.test(c) ? "any" : "yours";
@@ -1640,6 +1679,19 @@ function castSpellFilter(text) {
   if (f === "enchantment") return "enchantment"; // "Whenever you cast an enchantment spell" (enchantress payoffs)
   if (f === "creature") return "creature";
   if (f === "noncreature") return "noncreature";
+  // HISTORIC (BLITZ TR-3, CR 700.6) — "the term historic refers to an object that has the legendary
+  // supertype, the artifact card type, or the Saga subtype." A whole-object QUALITY, not a subtype: the
+  // NON_SUBTYPE_CAST_WORDS denylist (checked below) rejects "historic" as a subtype (a "\bHistoric\b" type-
+  // line scan would never fire → a do-nothing native = FP), so it's carved out HERE as an exact quality
+  // filter spellMatchesFilter enforces on the cast spell's type line (Legendary ∨ Artifact ∨ Saga). Cabal
+  // Paladin, Serra Disciple, the Dominaria historic-matters payoffs.
+  if (f === "historic") return "historic";
+  // MULTICOLORED (BLITZ TR-3, CR 105.2b) — "a multicolored object is two or more of the five colors." Like
+  // historic, a COLOR-count quality, not a subtype/type-line token (the denylist rejects it below), so it's
+  // an exact filter enforced on the cast spell's colorsOf() (≥2 colors). Mana Cannons, Hero of Precinct One,
+  // the multicolor-matters payoffs. The color of a spell is fixed by its mana cost / color indicator at cast
+  // (CR 105.2b + 500.4-agnostic), so the printed colorsOf reading is CR-faithful for the cast event.
+  if (f === "multicolored") return "multicolored";
   // CAST-SUBTYPE — a single bare word that's a real subtype (not in the denylist) → match the cast spell's
   // type line (Elf/Dog/Dragon/Adventure/Aura spells; tribal cast payoffs). A multi-word phrase, color, or
   // denylisted word → null → undetected → Arbiter (a SAFE false-negative). Serialized as "subtype:Name".
@@ -3403,6 +3455,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
         && isCreaturePerm(triggeringPermanent);
+    case "artifactAnyPiG":
+      // BLITZ TR-3 (CR 700.4 / 603.6e) — "an artifact is put into a graveyard from the battlefield" (Molder
+      // Beast, Fangren Marauder, Moriok Rigger, Disciple of the Vault). ANY player's artifact, so NO controller
+      // gate (the ONLY non-"you control" PiG scope). Graveyard exit only (leftToGraveyard, so a bounce/exile
+      // never fires); type-line substring (CR 205.2 — an Artifact Creature dying matches too). The source
+      // self-includes: an artifact-typed watcher (Summoning Station) firing on its OWN death is CR-correct.
+      return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
+        && /Artifact/.test(typeStr(triggeringPermanent.card));
     case "enchantmentYouControlPiG":
       // "an enchantment you control is put into a graveyard from the battlefield" (Wicked Visitor, Ashiok's
       // Reaper, Knight of Doves, Savior of the Sleeping) — the ENCHANTMENT analog of artifactYouControlPiG.
@@ -5352,6 +5412,13 @@ function spellMatchesFilter(filter, spellCard) {
     case "noncreature": return !/Creature/.test(t);
     case "artifact": return /Artifact/.test(t);
     case "enchantment": return /Enchantment/.test(t);
+    // HISTORIC (BLITZ TR-3, CR 700.6) — legendary supertype ∨ artifact card type ∨ Saga subtype, all of which
+    // appear literally on the type line (word-bounded so "Saga" doesn't match a longer token). An Artifact
+    // Creature / Legendary Instant / Enchantment — Saga all read historic, exactly as the rule reads.
+    case "historic": return /\b(?:Legendary|Artifact|Saga)\b/.test(t);
+    // MULTICOLORED (BLITZ TR-3, CR 105.2b) — two or more of the five colors, read from the cast spell's colors
+    // (colorsOf: Scryfall's baked colors array, or a mana-cost pip derivation; devoid → colorless, never multi).
+    case "multicolored": return colorsOf(spellCard).length >= 2;
     default: return false;
   }
 }
