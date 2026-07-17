@@ -7,6 +7,7 @@ import { logEvent, opponentsOf, moveCardToZone, drawCards } from "../../gameStat
 import { setPendingHandDiscardChoice, setPendingDiscardChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount } from "./shared.js";
 import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the discard family
+import { nextRandomInt } from "../../seedMath.js"; // RD-1: THE canonical seeded uniform draw for random discard (leaf; no cycle)
 
 /**
  * δ-1b targeted hand disruption (CR 701.8 discard) — Duress / Thoughtseize / Inquisition / Coercion /
@@ -78,6 +79,42 @@ export function advanceDiscardChain(state, { queue, sourceName = null }) {
 }
 
 /**
+ * ===== RANDOM DISCARD ===== (RD-1, CR 701.9b — "Some effects... require a random discard") — "discards N
+ * cards at random" (Hymn to Tourach / Specter's Wail / Mind Knives; Hypnotic Specter's combat trigger; the
+ * self-discard "discard a card at random"). CR 701.9b removes the discarding player's CHOICE: the engine
+ * picks uniformly at random, so there is NO pause for ANY seat (human or AI) — the card is chosen by the
+ * SEEDED primitive (nextRandomInt over state.rngSeed) and pitched inline. Distinct from the chooser chain
+ * (advanceDiscardChain) precisely because there's no decision to surface.
+ *
+ * Per discarder, in the given (APNAP-stable) order: draw min(amount, |non-token hand|) DISTINCT cards by
+ * repeatedly picking a uniform index over the CURRENT hand and moving it hand→graveyard (CR 701.9a). Without
+ * replacement (each pick shrinks the hand) — the correct reading of "N cards at random" (N distinct cards,
+ * each equally likely). An empty hand is a clean no-op (nothing to pitch, no seed consumed). HIDDEN-INFO
+ * HONEST: the pick reveals NOTHING about the rest of the hand — only the discarded card is named, and it's
+ * public the moment it reaches the graveyard (a public zone, CR 400.2); no hand-reveal event is emitted
+ * (contrast the δ-1b Duress reveal). The seed threads through EVERY pick (nextRandomInt returns the advanced
+ * state), so the sequence is serialize-stable: a game saved mid-discard restores the identical picks.
+ */
+function pitchRandomDiscard(state, { discarders, amount, sourceName = null }) {
+  let next = state;
+  for (const pid of discarders) {
+    let remaining = amount;
+    while (remaining > 0) {
+      const hand = (next.players?.[pid]?.hand || []).filter((c) => !c.token);
+      if (hand.length === 0) break; // empty / exhausted hand → discard as many as possible, no seed consumed
+      const { value: idx, state: advanced } = nextRandomInt(next, hand.length);
+      next = advanced;
+      const chosen = hand[idx];
+      next = moveCardToZone(next, { playerId: pid, fromZone: "hand", toZone: "graveyard", cardId: chosen.id });
+      // Log names ONLY the discarded card (public in the graveyard) — never the rest of the hand.
+      next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: pid, discarded: 1, atRandom: true, card: chosen.name, sourceName });
+      remaining -= 1;
+    }
+  }
+  return next;
+}
+
+/**
  * ===== EACH-PLAYER ===== discard (EP-2) — "Target player discards N cards" (Mind Rot / Fugue — the
  * VICTIM chooses) and "Each player discards N cards" (Delirium Skeins — every player chooses their own).
  * CR 701.8: the discarding player picks the cards, so this routes through the resolution-time pending-
@@ -126,6 +163,12 @@ export function applyDiscard(state, atom, ctx) {
     const s0 = atom.recordMaxDiscarded ? { ...state, maxDiscardedThisWay: 0 } : state;
     return logEvent(s0, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount, discarders: 0 });
   }
+  // RANDOM DISCARD (RD-1, CR 701.9b) — no chooser: pitch uniformly at random inline (no pause for any seat),
+  // threading the seeded primitive. `atom.all` never combines with atRandom (no printed "discard your hand at
+  // random"), so `amount` here is the resolved fixed/spelled count. Handled before the chooser chain.
+  if (atom.atRandom) {
+    return pitchRandomDiscard(state, { discarders, amount, sourceName: ctx.cardName || null });
+  }
   // WINDFALL (record-max) — "then draws cards equal to the GREATEST number of cards a player discarded this way"
   // (CR 118.10): a following draw atom reads state.maxDiscardedThisWay via amountCount:{kind:"maxDiscardedThisWay"}.
   // This whole-hand discard (atom.all) pitches EVERY player's entire non-token hand with NO choice (advance-
@@ -158,6 +201,33 @@ export function applyDiscard(state, atom, ctx) {
  */
 export function discardClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ===== RANDOM DISCARD (RD-1, CR 701.9b) ===== — the SAME who-scoped family, but "at random" removes the
+  // chooser: the resolver picks uniformly via the seeded primitive (atom.atRandom), no pause. Whole-clause
+  // anchored, FIXED numeric/spelled N only — an "X cards at random" (Mind Twist / Mind Shatter) or any rider
+  // ("...unless they pay {1}" Flay; "...then discards a card" Stupor) fails the `$` anchor → low → Arbiter
+  // (a safe FN — never a dropped clause). Matched BEFORE the non-random forms; the distinct " at random"
+  // suffix makes the anchors disjoint, so the chooser forms below are byte-for-byte unchanged. The count
+  // count-word set is identical to the chooser family (NUM_WORD covers "a"/"one".."ten").
+  const RN = "(\\d+|a|one|two|three|four|five|six|seven|eight|nine|ten)";
+  let rm;
+  if ((rm = t.match(new RegExp(`^target player discards ${RN} cards? at random$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "target", targetType: "player", atRandom: true };
+  if ((rm = t.match(new RegExp(`^target opponent discards ${RN} cards? at random$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "target", targetType: "opponent", atRandom: true };
+  if ((rm = t.match(new RegExp(`^each player discards ${RN} cards? at random$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "eachPlayer", targetType: null, atRandom: true };
+  if ((rm = t.match(new RegExp(`^each opponent discards ${RN} cards? at random$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "eachOpponent", targetType: null, atRandom: true };
+  // "that player discards N cards at random" — the just-combat-damaged player (Hypnotic Specter class). who:
+  // "damagedPlayer" reads ctx.damagedPlayerId; combatDamageReferentSatisfied (triggerRouting.js) admits it
+  // ONLY on a combat/damage event, so a bare spell or an upkeep "that player discards a card at random"
+  // (Bottomless Pit's per-upkeep referent) can NEVER route here and mis-scope — it stays parked (safe FN).
+  if ((rm = t.match(new RegExp(`^that player discards ${RN} cards? at random$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "damagedPlayer", targetType: null, atRandom: true };
+  // "[you] discard N cards at random" — the controller self-discards at random (draw-then-discard-random loot:
+  // Goblin Lore / Desperate Ravings / Burning Inquiry's self half). who:"controller".
+  if ((rm = t.match(new RegExp(`^(?:you )?discard ${RN} cards? at random$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "controller", targetType: null, atRandom: true };
   let m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   // TARGET-OPPONENT discard (Ravenous Rats / Dirty Rat / Deadbridge Shaman ETB) — the same targeted discard as

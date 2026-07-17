@@ -288,10 +288,11 @@ describe("parseEffectProgram — each-player / target-player discard (EP-2)", ()
     expect(programConfidence(parseEffectProgram(I("Target player discards two cards. Scry 2.")))).toBe("high");
     expect(programConfidence(parseEffectProgram(I("Target player discards a card. Draw a card.")))).toBe("high");
   });
-  it("keeps at-random / X / their-hand / half / opponent / riders low (anchored allowlist holds)", () => {
+  it("keeps X-at-random / their-hand / half / riders low (anchored allowlist holds)", () => {
     const low = (o) => expect(programConfidence(parseEffectProgram(I(o)))).toBe("low");
-    low("Target player discards two cards at random.");                          // Hymn to Tourach — RNG, no choice
-    low("Target player discards X cards at random.");                            // Mind Twist — variable + RNG
+    // NOTE: fixed-N "at random" ("Target player discards two cards at random." — Hymn to Tourach) is now
+    // MODELED (RD-1 — the seeded random discard); its positive pins live in randomDiscard.test.js.
+    low("Target player discards X cards at random.");                            // Mind Twist — variable X (still unmodeled) + RNG
     low("Target player discards their hand unless they pay 7 life.");            // Tyrannize — unless-pay (bare "discards their hand" now native: DISCARD-HAND)
     low("Target opponent discards half the cards in their hand, rounded up.");   // Rush of Dread — dynamic count
     low("Target opponent discards two cards, mills a card, and loses 1 life.");  // Mind Drain — unmodeled riders
@@ -960,7 +961,8 @@ const MUST_DROP_TO_LOW = [
   "Return target creature card from your graveyard to the battlefield with a +1/+1 counter on it.", // counter rider → low
   // NOTE: "Each player draws a card." / "Target player draws N cards." are now HIGH (EACH-PLAYER draw
   // slice) — see the dedicated describe block above. They are intentionally NOT in this stay-low corpus.
-  "Target player discards a card at random.",
+  // NOTE: fixed-N "Target player discards a card at random." is now HIGH (RD-1 seeded random discard) —
+  // intentionally NOT in this stay-low corpus; positive pin in randomDiscard.test.js.
   "Deal damage to target creature equal to the number of Mountains you control.",
   // Modal that should stay low (MODAL-2 models "choose two"/"one or both" when EVERY mode is modeled;
   // these stay low because a mode is UNMODELED — all-or-nothing across modes).
@@ -1065,10 +1067,10 @@ const MUST_DROP_TO_LOW = [
   "You sacrifice a creature.",                                                  // controller "you sacrifice" — bare controller-sac deferred (α2-interaction risk)
 
   // ===== EACH-PLAYER ===== discard (EP-2) — only the bare numeric "target/each player discards N cards"
-  // is modeled (the discarding player chooses). "at random" (RNG, no choice), X, "their hand", "half",
-  // the "target opponent" form (deferred — 0 clean cards this slice), or any unmodeled rider drops to low.
-  "Target player discards two cards at random.",                                // Hymn to Tourach — RNG, no choice
-  "Target player discards X cards at random.",                                  // Mind Twist — variable + RNG
+  // is modeled (the discarding player chooses). "their hand", "half", or any unmodeled rider drops to low.
+  // NOTE: fixed-N "at random" (Hymn to Tourach) is now MODELED (RD-1 seeded random discard); ONLY the X-count
+  // at-random form (Mind Twist — variable X still unmodeled) still drops.
+  "Target player discards X cards at random.",                                  // Mind Twist — variable X + RNG
   "Discard your hand, then draw four cards. For each card discarded this way, creatures you control get +1/+0 until end of turn.", // Pyretic Charge — event-count pump rider (bare "discard your hand" now native: DISCARD-HAND)
   "Target player discards their hand unless they pay 7 life.",                  // Tyrannize — conditional
   "Target opponent discards two cards, mills a card, and loses 1 life.",        // Mind Drain — unmodeled riders

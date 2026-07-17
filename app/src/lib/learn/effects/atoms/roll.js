@@ -22,44 +22,30 @@
 
 import { logEvent } from "../../gameState.js";
 import { parseCountSource } from "../parseHelpers.js";
+import { nextRandomInt } from "../../seedMath.js"; // THE canonical seeded single-integer draw (leaf; no cycle)
 
 // CR 726 — a "d20" is a twenty-sided die; rolling it yields a uniform integer result in [1, 20].
 const D20_SIDES = 20;
 
 /**
- * A deterministic PRNG (mulberry32), IDENTICAL to library.js's shuffle PRNG, so the die roll uses the exact
- * same serialize-stable seam the engine already trusts for shuffles (no Math.random anywhere in game-state
- * mutation). Kept local (a strict leaf — atoms must not import sibling atom modules).
- */
-function deterministicRng(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/**
- * ROLL-D20 (CR 726.2-726.4) — pick a uniform result in [1, sides] from the threaded seed, ADVANCE the seed
- * (the same LCG step shuffleControllerLibrary uses) so consecutive rolls differ AND a serialized game
- * restores to byte-identical future rolls, and stamp the result on `state.diceRoll` for the following
- * payoff atom to read. The roll resolves for `ctx.controller` (CR 726.2a — "you roll"); the result is the
- * controller's regardless of who's damaged. Pure + serialize-safe (state.diceRoll is a plain number).
+ * ROLL-D20 (CR 726.2-726.4) — pick a uniform result in [1, sides] from the threaded seed via the canonical
+ * nextRandomInt primitive (which reads state.rngSeed, maps ONE mulberry32 output into [0, sides), and ADVANCES
+ * the seed by the shared LCG step so consecutive rolls differ AND a serialized game restores to byte-identical
+ * future rolls) — then stamp the result on `state.diceRoll` for the following payoff atom to read. Drawing
+ * through nextRandomInt keeps the die on the SAME serialize-stable seam as every other in-game random draw
+ * (no Math.random anywhere in game-state mutation); the result is byte-identical to the pre-primitive inline
+ * draw (nextRandomInt's mulberry32 + LCG step are the exact ops this atom used to inline). The roll resolves
+ * for `ctx.controller` (CR 726.2a — "you roll"). Pure + serialize-safe (state.diceRoll is a plain number).
  *
  * `atom.sides` defaults to 20 (the only printed die for these cards); a non-20 die would be a future slice.
  */
 export function applyRollDie(state, atom, ctx) {
   const sides = atom.sides || D20_SIDES;
-  const seed = (state.rngSeed ?? 0) >>> 0;
-  // Uniform [1, sides]: floor(rng()*sides) is [0, sides-1]; +1 shifts to [1, sides].
-  const result = Math.floor(deterministicRng(seed)() * sides) + 1;
-  const next = {
-    ...state,
-    diceRoll: result,
-    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
-  };
+  // Uniform [1, sides]: nextRandomInt returns [0, sides-1]; +1 shifts to [1, sides]. The returned state
+  // carries the advanced seed (the single source of the seed-advance discipline).
+  const { value, state: advanced } = nextRandomInt(state, sides);
+  const result = value + 1;
+  const next = { ...advanced, diceRoll: result };
   return logEvent(next, { kind: "spell-effect", effect: "roll-die", sides, result, controller: ctx.controller });
 }
 

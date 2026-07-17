@@ -118,8 +118,10 @@ describe("OC-1 CREED — near-miss variants and the near-family card stay parked
     expect(!!triggerRoutesNatively(d)).toBe(false);
   });
   it("an unroutable payoff parks the whole card (the payoff line SHAPE alone is not enough)", () => {
+    // The bare "each opponent discards a card at random" now ROUTES (RD-1 seeded random discard), so the
+    // still-unroutable example carries an unmodeled "unless they pay {2}" rider (the `$` anchor rejects it).
     const variant = { name: "Faux Payoff", type: "Enchantment — Aura",
-      oracle: `Enchant creature\n${ORDEAL_MIDDLE}\nWhen you sacrifice this Aura, each opponent discards a card at random.` };
+      oracle: `Enchant creature\n${ORDEAL_MIDDLE}\nWhen you sacrifice this Aura, each opponent discards a card at random unless they pay {2}.` };
     expect(isNativeOrdealAura(variant)).toBe(false);
     expect(classifyCard(variant)).toBe("body-only");
   });

@@ -62,7 +62,8 @@ describe("parser + coverage — the discard family is HIGH; the atom targets a P
   });
   it("Mind Rot / Delirium Skeins / Fill with Fright classify native-spell; riders are arbiter-spell", () => {
     for (const c of [MINDROT, DELIRIUM, FILL]) expect(classifyCard(c)).toBe("native-spell");
-    expect(classifyCard({ type: SORCERY, name: "Hymn to Tourach", oracle: "Target player discards two cards at random." })).toBe("arbiter-spell");
+    // Hymn to Tourach — fixed-N "at random" is now modeled (RD-1 seeded random discard) → native-spell.
+    expect(classifyCard({ type: SORCERY, name: "Hymn to Tourach", oracle: "Target player discards two cards at random." })).toBe("native-spell");
     expect(classifyCard({ type: SORCERY, name: "Mind Drain", oracle: "Target opponent discards two cards, mills a card, and loses 1 life. You gain 1 life." })).toBe("arbiter-spell");
   });
   it("'target player' offers every player (an edict-style enumeration)", () => {
@@ -72,8 +73,9 @@ describe("parser + coverage — the discard family is HIGH; the atom targets a P
 });
 
 // LOOT-1 — the CONTROLLER self-discards (the "loot" half of draw-then-discard). who:"controller" reuses the
-// same discard chain: the caster picks which cards (human picker / AI auto-pitches cheapest). "Discard N
-// at random" (engine-chosen) and "discard your hand" stay low → Arbiter.
+// same discard chain: the caster picks which cards (human picker / AI auto-pitches cheapest). "Discard N at
+// random" is now modeled separately (RD-1 seeded random discard — no chooser); "discard your hand, then draw
+// N" (non-"that many") stays low → Arbiter.
 describe("LOOT-1 — controller self-discard (draw-then-discard loot)", () => {
   const CAREFUL = { id: "cs", name: "Careful Study", type: SORCERY, mana: "{1}", oracle: "Draw two cards, then discard two cards." };
   it("parses imperative / 'you' self-discard to a who:controller atom", () => {
@@ -90,8 +92,12 @@ describe("LOOT-1 — controller self-discard (draw-then-discard loot)", () => {
     expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Draw three cards, then discard a card." }))).toBe("high");
     expect(classifyCard(CAREFUL)).toBe("native-spell");
   });
-  it("'discard N at random' (engine-chosen) and 'discard your hand' stay low → Arbiter", () => {
-    expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Discard two cards at random." }))).toBe("low");
+  it("'discard N at random' is now modeled (RD-1); 'discard your hand, then draw seven' stays low → Arbiter", () => {
+    // RD-1 — the controller self-discard-at-random parses HIGH to a who:controller atRandom atom (positive
+    // runtime pins live in randomDiscard.test.js). The non-"that many" whole-hand-then-draw stays low.
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Discard two cards at random." }).atoms)
+      .toEqual([{ op: "discard", amount: 2, who: "controller", targetType: null, atRandom: true }]);
+    expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Discard two cards at random." }))).toBe("high");
     expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Discard your hand, then draw seven cards." }))).toBe("low");
   });
   it("resolution: the caster draws then discards via the chain (keeps the priciest, pitches cheapest)", () => {
