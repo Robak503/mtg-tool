@@ -27,7 +27,8 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes } from "./layers.js";
+import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
@@ -1283,15 +1284,54 @@ function selfPreventsUntap(perm) {
   return false;
 }
 
+// GROUP NO-UNTAP LOCKDOWN (BLITZ UT-1, CR 302.6 — Winter-Orb / Meekstone / Choke / Back to Basics / Marble
+// Titan / Juntu Stakes): a CONTINUOUS static "<filter> don't untap during their controllers' untap steps" holds
+// EVERY matching permanent tapped through its controller's untap step, regardless of who controls the static.
+// Collect the active filters ONCE per untapAll (scan every battlefield's oracle — a permanent leaving the field
+// lifts its lock the same untap step, like the attached PZ-1 form), then match the active player's tapped
+// permanents against them using LIVE layer-aware characteristics (never printed-only — an animated permanent's
+// current type/power is what the filter reads). groupNoUntap.js is the SINGLE recognition source the coverage
+// classifier also reads, so metric and runtime can't drift. Empty on the overwhelmingly common no-lock board
+// (fast bail). Distinct from selfPreventsUntap (self) / attachmentPreventsUntap (attached) / doesNotUntapNext
+// (one-shot) / stun (consumable) — this is the GROUP static, its own disjoint skip branch below.
+function groupNoUntapActiveFilters(state) {
+  const filters = [];
+  const players = state?.players || {};
+  for (const key of Object.keys(players)) {
+    const bf = players[key]?.battlefield || [];
+    for (const perm of bf) {
+      const fs = groupNoUntapFiltersOf(perm?.card);
+      for (const f of fs) filters.push(f);
+    }
+  }
+  return filters;
+}
+function groupPreventsUntap(state, perm, filters) {
+  if (!filters.length || !perm?.card) return false;
+  const isCreature = permanentIsCreature(state, perm.id);
+  const needsPower = filters.some(groupNoUntapFilterNeedsPower);
+  const t = permanentTypes(state, perm.id); // layer-aware { types, subtypes }
+  const chars = {
+    types: t.types,
+    subtypes: t.subtypes,
+    isCreature,
+    // Power read only when a power filter is active AND this is a creature (a non-creature never has combat power).
+    power: needsPower && isCreature ? permanentPower(state, perm.id) : null,
+  };
+  return filters.some((f) => groupNoUntapMatches(f, chars));
+}
+
 export function untapAll(state, { playerId }) {
   assertPlayer(playerId);
+  // GROUP NO-UNTAP (UT-1): the continuous "<filter> don't untap" statics active on ANY battlefield this step.
+  const groupFilters = groupNoUntapActiveFilters(state);
   // BECAME-UNTAPPED events (Mesmeric Orb — CR 613.10a-style look-back list): record every permanent that
   // actually TRANSITIONS tapped→untapped this step (the doesNotUntapNext / stun / attached-lock skips below
   // stay tapped and must NOT fire; an already-untapped permanent doesn't "become" untapped). gameState can't
   // import triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
   // pendingLeaveEvents pattern exactly). Computed BEFORE the map so the skip conditions are read unmutated.
   const becameUntapped = (state.players[playerId]?.battlefield || [])
-    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p) && !selfPreventsUntap(p))
+    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p) && !selfPreventsUntap(p) && !groupPreventsUntap(state, p, groupFilters))
     .map((p) => ({ id: p.id, controller: playerId }));
   const untapped = withPlayer(state, playerId, player => ({
     ...player,
@@ -1305,6 +1345,14 @@ export function untapAll(state, { playerId }) {
       // lock — stays tapped this untap step (its pay-to-untap upkeep trigger is the only escape); non-tap flags
       // reset like every skip branch here. Read off the permanent's OWN oracle (a continuous static, not a flag).
       if (p.tapped && selfPreventsUntap(p)) {
+        return { ...p, summoningSick: false, loyaltyActivatedThisTurn: false };
+      }
+      // UT-1 (Meekstone / Choke / Back to Basics / Marble Titan / Juntu Stakes class): a GROUP "<filter> don't
+      // untap during their controllers' untap steps" continuous static — this permanent matches an active
+      // filter, so it stays tapped this untap step (the lock lifts when the source leaves or the permanent stops
+      // matching). Non-tap flags reset like every skip branch here. Matched on LIVE characteristics via
+      // groupPreventsUntap (layer-aware type/power) so an animated permanent reads its current form.
+      if (p.tapped && groupPreventsUntap(state, p, groupFilters)) {
         return { ...p, summoningSick: false, loyaltyActivatedThisTurn: false };
       }
       // NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): a

@@ -62,6 +62,7 @@ import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN command
 import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.86a) — runtime hook lives in gameEngine (applyAnnihilatorTriggers)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { isMurkfiendUntap } from "./murkfiendUntap.js"; // MURKFIEND-UNTAP — runtime hook lives in gameEngine (applyMurkfiendUntap)
+import { groupNoUntapFiltersOf, GROUP_NO_UNTAP_SENTENCE_RE } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1) — runtime enforced in gameState.untapAll (groupPreventsUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
@@ -3061,6 +3062,42 @@ function classifyMurkfiendUntap(card) {
   return "native-static";                                        // green/blue anthems + the phase-filtered untap static
 }
 registerCoverageClassifier((card) => classifyMurkfiendUntap(card));
+
+// ─── GROUP NO-UNTAP STATIC — Winter-Orb / Meekstone / Choke lock family (BLITZ UT-1, CR 302.6) ────────────────
+// A CONTINUOUS static "<filter> don't untap during their controllers' untap steps" that holds every matching
+// permanent tapped through its controller's untap step. NOW ENFORCED in the runtime — gameState.untapAll
+// (groupPreventsUntap) reads the SAME groupNoUntap.js recognition source and skips the matching permanents at
+// the untap-step chokepoint the stun/self/attached machinery already uses, so the metric may credit the static
+// (metric mirrors runtime, CREED). Only the fail-closed supported filter vocabulary flips (subtype Island,
+// nonbasic land, creature power ≥/≤ N); an unsupported filter (Crackdown's "nonwhite", An-Zerrin's chosen type)
+// yields NO filter → this card is not ours → parks (safe FN).
+//
+// CREED — whole card, the static modeled:
+//   • the group no-untap static (groupNoUntapFiltersOf → groupPreventsUntap).
+// All-or-nothing (mirrors classifySeedbornUntap): NO trigger or activated ability may remain (a detected one is
+// unmodeled residue the runtime won't play through this tier — a FORBIDDEN dropped-ability FP; e.g. Curse of
+// Marit Lage's "tap all Islands" ETB and Embargo's "you lose 2 life" upkeep keep those cards parked), and after
+// stripping the modeled static sentence(s) the remainder must be keyword-only or fully static-covered (the five
+// shipped locks — Choke / Back to Basics / Meekstone / Marble Titan / Juntu Stakes — are static-only bodies, so
+// the residue is EMPTY). Returns native-static or null. Mechanism-keyed (the exact templating), not name-keyed.
+function classifyGroupNoUntap(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // A continuous static lives on a permanent — never an instant/sorcery. Gate defensively.
+  if (/\b(instant|sorcery)\b/.test(type)) return null;
+  const filters = groupNoUntapFiltersOf(card);
+  if (filters.length === 0) return null;                         // no supported group no-untap static → not ours
+  // No unmodeled trigger/activated residue may remain (CREED — the runtime plays only the static through this tier).
+  if (detectTriggers(card).length > 0) return null;
+  if (parseActivatedAbilities(card).length > 0) return null;
+  // Strip the modeled static sentence(s); the remainder must be keyword-only (the five shipped locks are
+  // static-only → EMPTY) or fully covered by the general static path (a future lock + anthem composition).
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const residue = oracle.replace(GROUP_NO_UNTAP_SENTENCE_RE, " ").replace(/\s+/g, " ").trim();
+  if (isKeywordOnly(residue, card?.name)) return "native-static";
+  if (staticAbilitiesCoverCard({ ...card, oracle: residue }, (c) => isKeywordOnly(c, card?.name))) return "native-static";
+  return null;                                                   // unmodeled residue → Arbiter (safe FN)
+}
+registerCoverageClassifier((card) => classifyGroupNoUntap(card));
 
 // ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. (HIGH corpus yield, ~150 cards) ──────────────────
 // An Adventure card has a CREATURE half and an instant/sorcery "Adventure" half (CR 715.1). From hand you may
