@@ -8,6 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.144.0] — 2026-07-16
+
+### Added
+- **+27 more cards join native rules coverage** (corpus 30.8% → 30.87% — 10,547 of 34,161).
+  Five engine mechanics, harvested from the overnight build agents and finished at the desk:
+  the **Gustcloak escape** (all five Gustcloaks — "Whenever this creature becomes blocked, you
+  may untap it and remove it from combat", with its blockers correctly stranded dealing
+  nothing), the bare **controller edict** ("sacrifice a creature" as an ability's effect —
+  Inevitable End, Smothering Abomination, Daemogoth Titan and 11 kin, including the
+  "you may sacrifice… When you do…" reflexive forms where declining correctly cancels the
+  payoff), **Mana Flare** and its three twins (every player's land taps produce one extra
+  mana of the same type — a dual under Mana Flare makes WW or UU, never one of each),
+  **lifegain-scaled counters** (Sunbond / Light of Promise / Ageless Entity), and a
+  reminder-text fix that admits **Oracle's Insight**. Every addition passed a by-name audited
+  flip-diff with zero coverage regressions.
+
 ## [0.143.0] — 2026-07-16
 
 ### Added

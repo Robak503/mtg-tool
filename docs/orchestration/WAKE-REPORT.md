@@ -1,6 +1,46 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-16 (day 2, WOUND DOWN ~20:00) — HANDOFF: 30.8%, campaign +937, 66 slices, LOST=0 — 3 Opus worktrees IN FLIGHT
+## ✅ 2026-07-16 (evening) — HARVEST COMPLETE + v0.143.0 & v0.144.0 SHIPPED: 30.87% (+27), all 6 agent worktrees swept
+
+> **The state**: census **10,547 of 34,161 (30.87%)** native+land (name-dedup; tally = tier-fingerprint
+> rows matching `native*`+`land`, playable-pw excluded — reconciled against the prior 10,520 exactly).
+> Suite **8,932 green** (717 files) · lint 0 · campaign total **+964** across 71 slices, LOST=0 on every
+> audited flip-diff. **v0.143.0 SHIPPED** (Colton lifted the Vault taste-gate — the Vault heads into a
+> full rework, so Phase 2 rode out as-is; release CI green, installer + .sig + latest.json verified on
+> the GitHub release). **v0.144.0 tagged** with the harvest below.
+>
+> **THE HARVEST (the 3 in-flight Opus worktrees, per the wind-down protocol)** — every slice
+> desk-audited line-by-line, full per-slice gate (suite exit 0 + lint 0 + flip-diff vs a fresh baseline,
+> every GAINED audited by name), pushed serially:
+> - **EC-1a** (7a97ad09, +1 committed-in-seat): aura-grant gate reads reminder-stripped oracle —
+>   Oracle's Insight. Desk fix: cite 207.2c→207.2/207.2a (207.2c is ability words).
+> - **EC-1b** (d0135508, +3 committed-in-seat): lifegain-scaled self counters (Sunbond / Light of
+>   Promise / Ageless Entity) — the event-specific sentinel discipline; cites 603.2/119.3 verified.
+> - **GC-1** (e6a1780e, +5, finished at the desk from the seat's uncommitted diff + test file):
+>   Gustcloak becomes-blocked escape — untap + remove-from-combat atom; attacker record dropped,
+>   blockers stay and assign nothing (CR 506.4/510.1d). Desk fix: cite 701.15a→701.19 (goad ≠ regen).
+> - **EC-1c** (2ab88eb8, **+14**, finished at the desk — the seat left machinery, no tests): the bare
+>   CONTROLLER edict "sacrifice a creature" (CR 109.5/701.21a) through the shared sacrifice chain —
+>   Inevitable End's granted upkeep edict, the α2 reflexive pair (Shrapnel Slinger / Unscrupulous
+>   Contractor — decline skips the reflexiveGate payoff, pinned live), Desecration Elemental's
+>   any-player cast scope, Smothering Abomination's edict-feeds-own-draw. Also fixed the seat's missed
+>   third stale boundary pin (parser.test.js MUST-DROP).
+> - **MF-1** (51822a6d, +4, finished at the desk — machinery, no tests): Mana Flare all-players
+>   same-type land-tap augment (Mana Flare / Heartbeat of Spring / Zhur-Taa Ancient / Dictate of
+>   Karametra) — allPlayers battlefield scan + sameAsProduced bonus bound to the primary color (one
+>   dual tap = WW or UU, never W+U). Desk fix: cite 613→106.1b.
+> - **SP-1 (sliver interiors) and TS-1 (enchanted-land discard-cost activations) were NEVER STARTED
+>   in their seats — returned to the frontier.**
+>
+> **Worktrees**: all 6 agent trees removed (3 dead Fable, fully harvested earlier; 3 Opus, harvested
+> above). Remaining trees are the desk (cindy) + Omnath's — not build seats.
+>
+> **NEXT**: the remaining frontier is unchanged from the wind-down entry below MINUS GC-1/MF-1, PLUS
+> SP-1 + TS-1 returned. The 1.0 roadmap conversation with Colton is OPEN (his call, evening 07-16:
+> harvest first, then talk out the path-to-1v0 queue — C1 status vs the 07-15 B1-B4 ship, C2's
+> app-required check, the Vault full-rework re-scope of C5).
+
+## 🌙 2026-07-16 (day 2, WOUND DOWN ~20:00) — HANDOFF (superseded — harvest complete above): 30.8%, campaign +937, 66 slices, LOST=0 — 3 Opus worktrees IN FLIGHT
 
 > **The state**: census **10,520 of 34,161 (30.80%)** native+land (name-dedup, the tier-fingerprint is
 > the tally authority — generate a FRESH baseline before any new slice; session scratchpad files are
