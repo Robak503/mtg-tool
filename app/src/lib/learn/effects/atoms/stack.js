@@ -11,6 +11,7 @@ import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
+import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 
 /**
  * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
@@ -918,6 +919,12 @@ function applyCopySpell(state, atom, ctx) {
     });
     next = { ...next, stack: [...next.stack, { ...copyObj, isCopy: true }] };
     made++;
+    // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10) — each copy of an instant/sorcery is a distinct "copy" event, so
+    // a magecraft "cast or copy" watcher fires ONCE PER COPY (CR ruling: storm making N copies triggers magecraft N
+    // times, plus once for the original cast which checkCastTriggers already handled). Only firesOnCopy watchers
+    // fire — a plain "whenever you cast" never does (a copy is not a cast). sourceCard carries the storm spell's
+    // type, so the instantSorcery filter is satisfied for the always-instant/sorcery storm spell.
+    next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller });
   }
   return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: made, requested: n, controller: ctx.controller, cardName: sourceCard?.name });
 }
@@ -1041,6 +1048,11 @@ function applyCopyCreatureSpell(state, atom, ctx) {
     payload: clonedPayload,
   });
   next = { ...next, stack: [...next.stack, { ...copyObj, isCopy: true }] };
+  // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10) — route the copy through the same "cast or copy" watcher check as
+  // the storm site. The copied object is a CREATURE spell, so the magecraft instantSorcery filter EXCLUDES it
+  // (checkCopyTriggers is a no-op here) — magecraft correctly never fires on a copied creature spell (CR 707.10f).
+  // Wired uniformly so every copy-creation site funnels through one chokepoint; the filter guarantees no FP.
+  next = checkCopyTriggers(next, { copiedSpellCard: copyCard, controllerId: ctx.controller });
   return logEvent(next, { kind: "spell-effect", effect: "copy-creature-spell", count: 1, controller: ctx.controller, cardName: sourceCard?.name });
 }
 

@@ -1434,16 +1434,16 @@ function classifyCondition(condRaw, cardName, cardType) {
     return { event: "heroic", scope: "self", whose: "you" };
 
   // MAGECRAFT (CR 207.2c ability word — no individual 702 keyword entry) — "Whenever you cast or copy an
-  // instant or sorcery spell, <effect>". Routes to the existing cast event + instantSorcery filter; "copy"
-  // is a separate CR 707 (Copying Objects) event the cast chokepoint does NOT observe, so the copy half is a
-  // false-negative: a magecraft watcher that should fire on a storm/Double-Major copy (the copy-spell /
-  // copy-creature-spell atoms) does not. It only ever UNDER-fires (never over-fires), which is why the whole
-  // card is still routed native here — but see BLITZ CC-1 park notes: wiring the copy chokepoint to fire
-  // cast-watchers is the honest fix for the copy half, deferred as its own slice.
-  // checkCastTriggers already handles event:"cast" whose:"you" spellFilter:"instantSorcery",
-  // so magecraft gets the CAST half for free. Anchored bare form only.
+  // instant or sorcery spell, <effect>". Routes to the existing cast event + instantSorcery filter; the CAST
+  // half fires for free via checkCastTriggers (event:"cast" whose:"you" spellFilter:"instantSorcery"). The
+  // "copy" half is a SEPARATE CR 707.10 event ("a copy of a spell isn't cast") that the cast chokepoint does
+  // NOT observe — so magecraft ALONE among cast triggers carries `firesOnCopy:true`, the marker checkCopyTriggers
+  // gates on at the copy-creation sites (storm's copy-spell / Double Major's copy-creature-spell, effects/atoms/
+  // stack.js). A plain "whenever you cast a[n] … spell" descriptor lacks the flag, so it NEVER fires on a copy
+  // (a copy is not a cast — the forbidden FP). BLITZ MC-1: the copy half is now wired; the instantSorcery filter
+  // keeps a copied CREATURE spell (Double Major) from firing magecraft. Anchored bare form only.
   if (/^you cast or copy an instant or sorcery spell$/.test(c))
-    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "instantSorcery" };
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "instantSorcery", firesOnCopy: true };
 
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
   // to "(you|an opponent|a player|each player) cast(s) a[n] <filter> spell" — ANCHORED, so a
@@ -2658,6 +2658,7 @@ export function detectTriggers(card) {
         scope: cls.scope,
         whose: cls.whose,
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
+        firesOnCopy: cls.firesOnCopy,         // MAGECRAFT COPY HALF (BLITZ MC-1): magecraft's "cast OR copy" descriptor alone carries this; checkCopyTriggers fires ONLY firesOnCopy watchers at a copy site (a plain "whenever you cast" never fires on a copy — CR 707.10)
         castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
@@ -5381,11 +5382,53 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   const cascadeSpellMv = cascadingSpellManaValue(spellCard);
   for (const d of detectTriggers(spellCard).filter((x) => x.event === "selfCast")) {
     const extra = d.stormCopy
-      ? { stormCount, stormSourcePayload: stormStackObj?.payload || null, stormSourceCard: { name: spellCard.name } }
+      ? { stormCount, stormSourcePayload: stormStackObj?.payload || null, stormSourceCard: { name: spellCard.name, type: typeStr(spellCard) } }
       : d.cascade
       ? { cascadeSpellMv }
       : {};
     fired.push(makePendingTrigger(d, selfCastSource, null, { ...context, xValue, ...extra }));
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * ===== MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10) ===== Enqueue the "cast OR copy" watchers when a spell is
+ * COPIED (put on the stack as a copy — CR 707.10, "a copy of a spell isn't cast"). Fired ONCE per copy created,
+ * by the copy-creation sites (applyCopySpell / applyCopyCreatureSpell in effects/atoms/stack.js).
+ *
+ * DISCIPLINE (the cardinal guard): this scans the SAME watcher set as checkCastTriggers but fires ONLY the
+ * descriptors carrying `firesOnCopy` — magecraft's "Whenever you cast OR copy an instant or sorcery spell". A
+ * plain "Whenever you cast a[n] … spell" descriptor has NO firesOnCopy flag, so it is NEVER fired here: a copy
+ * is not a cast (CR 707.10), and a generic cast trigger firing on a copy would be a forbidden false-positive.
+ *
+ * `copiedSpellCard` is the copiable card of the object being copied (carries at least a type line); the
+ * instantSorcery filter is re-applied so a copied CREATURE spell (Double Major, CR 707.10f) never fires
+ * magecraft — only an instant/sorcery copy does. `controllerId` is the copy's controller (you copy — CR 707.10),
+ * the beneficiary the `whose:"you"` gate binds to. Pure — appends to pendingTriggers and returns new state
+ * (flushed on the next priority pass by the same finalizeStackResolution path as any other pending trigger).
+ */
+export function checkCopyTriggers(state, { copiedSpellCard, controllerId }) {
+  if (!copiedSpellCard || !state?.players?.[controllerId]) return state;
+  const context = {
+    castSpellName: copiedSpellCard?.name,
+    castSpellType: typeStr(copiedSpellCard),
+    castingPlayerId: controllerId,
+    castSpellMv: cascadingSpellManaValue(copiedSpellCard),
+  };
+  const fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      const descriptors = detectTriggers(watcher.card).filter((d) => d.event === "cast" && d.firesOnCopy);
+      for (const d of descriptors) {
+        // whose:"you" = the copy's controller must BE the watcher's controller (magecraft is "whenever YOU …
+        // copy"). "opponent" is honored for symmetry though no printed "cast or copy" trigger uses it.
+        if (d.whose === "you" && controllerId !== watcher.controller) continue;
+        if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(controllerId)) continue;
+        if (!spellMatchesFilter(d.spellFilter, copiedSpellCard)) continue;
+        fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
