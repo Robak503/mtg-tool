@@ -376,7 +376,7 @@ export function setPendingDistributeChoice(state, { controller, amount, counterT
  * forward across the chain). Only flagged when a REAL choice exists (hand > remaining); a hand ≤ remaining
  * is the forced whole-hand discard, resolved inline with no pause. FIFO: one pick at a time.
  */
-export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null }) {
+export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null, connive = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "discard-pending", controller, remaining, count: candidates.length, sourceName });
   return {
@@ -388,6 +388,10 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
       candidates,
       queue,
       sourceName,
+      // CONNIVE rider (BLITZ EK-1, CR 701.50a) — `{ permanentId, controller }` of the conniving permanent.
+      // resolveDiscardChoice checks the settled card's landness and places the +1/+1 counter. Null for every
+      // non-connive discard (byte-identical behavior). Plain JSON — serialize-safe.
+      connive,
     },
   };
 }

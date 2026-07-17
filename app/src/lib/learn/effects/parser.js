@@ -56,6 +56,8 @@ import { earthbendClauseParser, combatKeywordClauseParser, massBlockLockClausePa
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
+import { conniveClauseParser } from "./atoms/connive.js"; // CONNIVE (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard → +1/+1 if nonland
+import { suspectClauseParser } from "./atoms/suspect.js"; // SUSPECT (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
@@ -4094,6 +4096,24 @@ export function atomTargetIntent(atom) {
       // routes natively picking the controller's own creature. (Self / thatCreature explore forms carry no
       // targetType and returned null at the top of this function — this case is reached only for the chosen form.)
       return "own";
+    case "connive":
+      // CHOSEN-TARGET CONNIVE (BLITZ EK-1, CR 701.50a) — the ONLY targeted connive form the parser emits is
+      // "target creature you control connives" (Mob Lookout, Scorpion's end-step form): an OWN-side pool
+      // (conniving is a draw-discard-counter benefit aimed at your own creature), so the trigger-flush
+      // chooser stays own-side — the EX-1 chosen-target explore pattern verbatim. (Self / thatCreature
+      // connive forms carry no targetType and returned null at the top of this function.)
+      return "own";
+    case "suspect":
+      // SUSPECT (BLITZ EK-1, CR 701.60) — side-provable pools only: a "you control" pool is own-side
+      // (Rune-Brand Juggler), an "an opponent controls" restriction is enemy-side (Absolving Lammasu's
+      // dies rider, Hot Pursuit's clause — the pool holds only opponents' creatures, so any pick is
+      // correct-side). The BARE "target creature" form (J. Jonah Jameson) is genuinely board-dependent —
+      // menace helps the creature attack while can't-block hurts its defense, and the pool spans every
+      // side — so it stays "ambiguous" → a TRIGGER routes to the Arbiter (a SAFE FN); the cast path
+      // (Reasonable Doubt) is unaffected (the caster picks interactively / by AI).
+      if (tt === "creatureYouControl") return "own";
+      if (atom.restrictions?.some(r => r.kind === "controller" && r.who === "opponent")) return "enemy";
+      return "ambiguous";
     case "return-from-graveyard":
       // The target is a card in the CASTER'S OWN graveyard — own-side, so a recursion TRIGGER
       // ("When this enters, return target creature card from your graveyard to your hand") routes
@@ -4373,6 +4393,13 @@ registerClauseParser(tokenCopyParser);
 // the inline (priority) path to the CLAUSE_PARSERS (post-extended) path is behavior-identical — the explore
 // clauses match no other matcher. Acceptance proven by program-fingerprint byte-identical over 34,160 cards.
 registerClauseParser(exploreClauseParser);
+// CONNIVE + SUSPECT (BLITZ EK-1, CR 701.50 / 701.60) — the ETB action-keyword atoms. Whole-clause-anchored
+// ("this creature connives" / "suspect this creature" / the chosen-target forms), reached only via the
+// detectTriggers it/he/she + leading-"suspect it" rewrites or the printed target forms; every variable
+// ("connives X"), anaphoric ("It connives" mid-program, "… and suspect it" token referents), or
+// conditional ("If it's suspected …") form stays unmatched → LOW → Arbiter (CREED fail-closed).
+registerClauseParser(conniveClauseParser);
+registerClauseParser(suspectClauseParser);
 // PROLIFERATE + GAIN-EXPERIENCE (seam batch 3) — migrated verbatim out of parseExtendedAtom into
 // atoms/counters (co-located with applyProliferate / applyGainExperience). Whole-clause-anchored, so the
 // inline→CLAUSE_PARSERS move is behavior-identical (proven byte-identical by program-fingerprint).

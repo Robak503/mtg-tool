@@ -787,6 +787,15 @@ export function permanentTriggersCovered(card) {
     // the When/Whenever strip removes the "counter on it." prefix this anchor needs); the remaining "…counter on
     // it." stays inside the trigger sentence and is removed by the trigger-sentence strip below.
     .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
+    // SUSPECT-THEN-FOLLOW-UP (BLITZ EK-1 — Person of Interest: "When this creature enters, suspect it.
+    // Create a 2/2 white and blue Detective creature token."): the same follow-up-sentence class as Surrak
+    // above — detectTriggers folds the create-sentence into the trigger's effectClause and the WHOLE effect
+    // parses HIGH in allTriggerSentencesModeled (proven before this residue check runs — an unmodeled
+    // follow-up fails that gate and never reaches here), but the trigger-sentence strip below stops at the
+    // first period after "suspect it.", leaving the follow-up as apparent residue. Anchored to DIRECTLY
+    // follow the exact "suspect it." clause (FN-safe — a standalone create-sentence elsewhere is untouched).
+    // Runs before the When-strip (which removes the "suspect it." prefix this anchor needs).
+    .replace(/(suspect it)\.\s+create a [^.]+ token\b\.?\s*/gi, "$1. ")
     // RAD-OR-PROLIFERATE (Vexing Radgull, SHELF S7) — the "Otherwise, proliferate." else-arm is part of the
     // SAME combat-damage trigger's effect (folded into effectClause; the whole branch parses HIGH via
     // matchRadOrProliferate — proven by allTriggerSentencesModeled above). The trigger strip stops at the

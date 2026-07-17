@@ -38,6 +38,8 @@ import { freeCastResolvers } from "./atoms/freeCast.js";
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
 import { controlResolvers } from "./atoms/control.js";
 import { grantUntilEotResolvers } from "./atoms/grantUntilEot.js";
+import { conniveResolvers } from "./atoms/connive.js";
+import { suspectResolvers } from "./atoms/suspect.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
@@ -48,6 +50,7 @@ export { applyEarthbend } from "./atoms/combat.js";
 export { counterSpellById, controllerSacSubtypeMatch } from "./atoms/stack.js";
 export { tutorManaValue, cardMatchesTutorFilter, shuffleControllerLibrary, bottomLibraryCardsByIds } from "./atoms/library.js";
 export { advanceDiscardChain } from "./atoms/hand.js";
+export { applyConniveCounter } from "./atoms/connive.js"; // CONNIVE (CR 701.50a) — the settle-side nonland→counter step (runProgram.resolveDiscardChoice)
 export { applyDivideDamage } from "./atoms/misc.js";
 export { advanceEdictChain, applyEdictMode, edictLegalModes, edictLoseLife, EDICT_LIFE_LOSS } from "./atoms/iteratedEdict.js";
 
@@ -74,6 +77,8 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
   ...grantUntilEotResolvers, // grant-until-eot (TG-1, CR 611.2c fixed set) — until-EOT quoted-ability grants (Feign Death / Showstopper family)
+  ...conniveResolvers, // connive (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard (pause) → +1/+1 if a nonland was discarded
+  ...suspectResolvers, // suspect / unsuspect-all (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block via the layer reads)
 });
 
 /**
@@ -115,6 +120,7 @@ const PAUSING_OPS_LIST = [
   "taxed-draw", // stack.js applyTaxedDraw → setPendingTaxedPaymentChoice (opponent pays or you draw — Rhystic Study)
   "taxed-treasure", // stack.js applyTaxedTreasure → setPendingTaxedPaymentChoice (opponent pays or you create a Treasure — Smothering Tithe)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
+  "connive", // connive.js applyConnive → setPendingDiscardChoice (the chosen discard; the counter settles in resolveDiscardChoice)
 ];
 for (const op of PAUSING_OPS_LIST) {
   if (!ATOM_RESOLVERS[op]) throw new Error(`PAUSING_ATOM_OPS drift: "${op}" is not a registered atom op`);

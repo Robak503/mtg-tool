@@ -1,8 +1,9 @@
 /**
  * bolsterEndureKeywords.test.js — BLITZ KW-1: two keyword-action payoff buckets whose payoff atoms are now
- * reachable. (Connive is PARKED — its counter count scales with the number of NONLAND cards discarded "this
- * way", a quantity known only AFTER the interactive discard resolves across the pending-choice boundary; no
- * such nonland-discard tally exists and approximating it would be a forbidden FP, CR 701.50e.)
+ * reachable. (Connive — parked here in KW-1 for the missing across-the-pause nonland-discard tally — LANDED
+ * in BLITZ EK-1: the plain draw-1/discard-1 form's landness check now rides a `connive` rider on the shared
+ * "discard" pending-choice, settled in resolveDiscardChoice; see conniveSuspectKeywords.test.js. The
+ * VARIABLE "connive N"/"connives X" forms (CR 701.50e) remain parked — no printed fixed-N form exists.)
  *
  *  (A) BOLSTER N (CR 701.39 / 701.39a) — "Choose a creature you control with the least toughness or tied for
  *      least toughness among creatures you control. Put N +1/+1 counters on that creature." A NON-targeted

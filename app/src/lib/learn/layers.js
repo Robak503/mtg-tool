@@ -1238,6 +1238,12 @@ function keywordSet(perm, l6Effects, state) {
   for (const kw of COMBAT_KEYWORDS) {
     if ((perm.counters?.[kw.toLowerCase()] || 0) > 0) set.add(kw.toLowerCase());
   }
+  // SUSPECTED (BLITZ EK-1, CR 701.60c) — a suspected permanent has menace and "This creature can't block"
+  // for as long as it's suspected. Seeded like a keyword counter (before the layer-6 loop), so a later
+  // "loses menace" removeKeyword still wins (last-wins) exactly as it does over a counter-granted keyword.
+  // "cantblock" is the SAME pseudo-keyword the granted "can't block this turn" effects ride — the read
+  // combatEvasion.canBlockAttacker already enforces at block legality.
+  if (perm.suspected) { set.add("menace"); set.add("cantblock"); }
   for (const e of l6Effects.slice().sort(byTimestamp)) {
     const kw = String(e.op.keyword || "").toLowerCase();
     if (!kw) continue;
@@ -1288,9 +1294,15 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   const kwLower = String(keyword).toLowerCase();
   const printed = hasKeyword(perm.card, keyword);
   const fromCounter = (perm.counters?.[kwLower] || 0) > 0;
+  // SUSPECTED (BLITZ EK-1, CR 701.60c) — the suspected designation grants menace + "can't block"
+  // ("cantblock" is the pseudo-keyword the granted can't-block reads already use: combatEvasion.
+  // canBlockAttacker / attackerHasMenace both come through HERE, so the designation is enforced at the
+  // real declare-blockers gate and combat resolution). Seeded like a keyword counter: a later layer-6
+  // removeKeyword ("loses menace") still wins below (last-wins), never a hard override.
+  const fromSuspect = !!perm.suspected && (kwLower === "menace" || kwLower === "cantblock");
   const grants = l6IndexOf(state).byKeyword.get(kwLower);
-  if (!grants || grants.length === 0) return printed || fromCounter;
-  let has = printed || fromCounter;
+  if (!grants || grants.length === 0) return printed || fromCounter || fromSuspect;
+  let has = printed || fromCounter || fromSuspect;
   for (const e of grants) {
     if (!effectAffects(e, perm, state)) continue;
     // GATED-KEYWORD: gate closed → no grant. gatePermForEffect (CA-1) — gateOn:"source" reads the SOURCE's

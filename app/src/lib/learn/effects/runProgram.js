@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
@@ -698,11 +698,20 @@ export function resolveDiscardChoice(state, cardId) {
   let next = clearPendingChoice(state);
   const discarder = pc.controller;
   if (next.players?.[discarder]) {
-    const inHand = cardId && (next.players[discarder].hand || []).some((c) => c.id === cardId);
+    // Capture the card object BEFORE the move — the CONNIVE rider needs its landness (CR 701.50a).
+    const discardedCard = cardId ? (next.players[discarder].hand || []).find((c) => c.id === cardId) : null;
+    const inHand = !!discardedCard;
     if (inHand) {
       next = moveCardToZone(next, { playerId: discarder, fromZone: "hand", toZone: "graveyard", cardId });
     }
     next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: discarder, discarded: inHand ? 1 : 0 });
+    // CONNIVE rider (BLITZ EK-1, CR 701.50a): a NONLAND card discarded this way puts a +1/+1 counter on
+    // the conniving permanent — routed through applyConniveCounter (doublers CR 616 + counters-placed
+    // watchers CR 122.6 compose; the permanent having left the battlefield is a clean no-op). A LAND
+    // discard or a stale/no-op settle places nothing (only a card actually "discarded this way" counts).
+    if (pc.connive && inHand && !/\bLand\b/.test(String(discardedCard.type || discardedCard.type_line || ""))) {
+      next = applyConniveCounter(next, pc.connive.permanentId, pc.connive.controller || discarder);
+    }
   }
   // Decrement the head discarder's owed count, then advance the chain.
   const queue = (pc.queue || []).map((e, i) => (i === 0 ? { ...e, remaining: e.remaining - 1 } : e));

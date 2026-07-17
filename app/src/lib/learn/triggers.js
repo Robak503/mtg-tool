@@ -2043,6 +2043,25 @@ const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
 // explores" → target:"self" and "the triggering creature explores" → target:"thatCreature".
 const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 
+// CONNIVE (BLITZ EK-1, CR 701.50a) — "it connives" / "he connives" / "she connives" (the SNC/Marvel
+// families print gendered pronouns for legendary sources: Tiger Shark "he connives", Madame Masque "she
+// connives"). "it/he/she" is the SOURCE for a SELF trigger and the TRIGGERING creature for a non-self
+// watcher (Swordsman, Sharp Scoundrel's equipped-attacker form) — the EXPLORE pattern verbatim.
+// Whole-clause anchored: a variable "it connives X…" (Mask of the Schemer), an anaphoric mid-program
+// "It connives." (Kamiz), or "you may have it connive" (Baron Strucker) is never rewritten → LOW →
+// Arbiter (CREED). The parser maps "this creature connives" → target:"self" and "the triggering
+// creature connives" → target:"thatCreature".
+const CONNIVE_IT_RE = /^(?:it|he|she) connives$/i;
+
+// SUSPECT (BLITZ EK-1, CR 701.60a) — a LEADING "suspect it" sentence on a SELF trigger ("When this
+// creature enters, suspect it." — Frantic Scapegoat, Barbed Servitor; Person of Interest's "suspect it.
+// Create a 2/2 …"). At the effect's HEAD, "it" can only be the object the ability triggered on — the
+// SOURCE (CR 608.2c) — so the rewrite is referent-safe. Anchored to the FIRST sentence exactly ("suspect
+// it" followed by end-of-clause or a sentence break): a compound "create a … token and suspect it" (Case
+// of the Stashed Skeleton — "it" is the TOKEN, a different referent) or a spell's anaphoric "Suspect it."
+// never matches → stays LOW → Arbiter (CREED — the exact FP this anchor exists to forbid).
+const SUSPECT_IT_LEAD_RE = /^suspect it(?=\.|$)/i;
+
 // SELF-NAME-REF (CR 201.4) — a SELF-scope trigger that names its OWN source by name in the effect rather than
 // the pronoun "it" ("Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn";
 // "Whenever this creature attacks, <Name> gets +2/+2 …"). The full name AND the legendary short name (the
@@ -2056,7 +2075,10 @@ const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 // "this creature fights …" binds the fight's own-side to the source (the parser's fight atom re-gates the tail).
 // Returns null when the effect doesn't begin with the source's name (the common case — most effects use "it"
 // or have no self-subject), making this a pure promotion.
-const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights )/i;
+// "connives$" (BLITZ EK-1): the bare named-self connive ("Whenever you cast a noncreature spell, Pharaoh
+// Rama-Tut connives." / "Whenever another Villain you control enters, Prowler connives.") — END-anchored so
+// a variable "…connives X, where…" tail never matches (CREED; the parser re-gates the rewritten clause).
+const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights |connives$)/i;
 // TRAILING self-name (ARIXMETHES) — a counter REMOVAL whose SOURCE-permanent referent trails the verb:
 // "[you may ]remove a slumber counter from <Name>". The self-name sits at the END of the clause (unlike the
 // leading "<Name> gets +1/+1" shape above), so it's rewritten to "this creature" only when the whole clause
@@ -2609,6 +2631,21 @@ export function detectTriggers(card) {
         // EXPLORE non-self (Path of Discovery — "Whenever a creature you control enters, it explores"): "it"
         // is the TRIGGERING creature (CR 608.2c) → the sentinel the parser maps to target:"thatCreature".
         effectClause = effectClause.replace(/^it /i, "the triggering creature ");
+      } else if (cls.scope === "self" && CONNIVE_IT_RE.test(effectClause)) {
+        // CONNIVE (BLITZ EK-1, CR 701.50a): "it/he/she connives" on a SELF trigger — the pronoun is the
+        // SOURCE (CR 113.7). Same self-scope gate + whole-clause anchor as the EXPLORE branch above.
+        effectClause = "this creature connives";
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && CONNIVE_IT_RE.test(effectClause)) {
+        // CONNIVE non-self (Swordsman, Sharp Scoundrel — "Whenever an equipped creature you control
+        // attacks, it connives"): the pronoun is the TRIGGERING creature (CR 608.2c) → the sentinel the
+        // parser maps to target:"thatCreature" (the Path-of-Discovery explore pattern verbatim).
+        effectClause = "the triggering creature connives";
+      } else if (cls.scope === "self" && SUSPECT_IT_LEAD_RE.test(effectClause)) {
+        // SUSPECT (BLITZ EK-1, CR 701.60a): a LEADING "suspect it" sentence on a SELF trigger — "it" is
+        // the SOURCE (CR 608.2c; at the effect's head no other referent exists). Rewrite ONLY that first
+        // sentence → "suspect this creature" (the parser's target:"self" suspect atom); any follow-up
+        // sentences (Person of Interest's "Create a 2/2 …") ride along verbatim for the sequence parser.
+        effectClause = effectClause.replace(SUSPECT_IT_LEAD_RE, "suspect this creature");
       } else if (cls.scope === "subtypeGlobal" && cls.itsController) {
         // GLOBAL SUBTYPE "its controller" (Synapse/Brood Sliver — "Whenever a Sliver deals combat damage to a
         // player, ITS CONTROLLER may draw / create …"; Essence Sliver — "…its controller GAINS that much life").
