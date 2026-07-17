@@ -13,6 +13,19 @@
 > **STANDING ORDER (Colton, 09:10)**: corpus grind NON-STOP, full autonomy, dynamic agent/model choice (Fable
 > restored), until he stops me or interjects from his phone. 1.0 roadmap + Vault deferred to a full weekend
 > sitting. Floor relit: 3 Fable seats.
+>
+> **~10:15 checkpoint — day-shift grind rolling, 32.92% (11,247), suite 9,874.** Landed since relight:
+> **CEN-3** fresh census (085d2dbe — THE vein map: 17,395 body-only, 10,908 single-residue; top-12 ranked
+> with collision groups; read it before picking any lane) · **EV-3** set-level ≥N min-blockers + compound/
+> subtype except-by (f7e22399, +8 — ALSO fixed a pre-existing menace offer-gate wedge where a legal 2-blocker
+> pair could never complete; flagged repo-wide 509.1c-for-restrictions mis-cite family → cleanup queue) ·
+> **CA-1** condition-gated group anthems (01cd8cdf, +18 — live "as long as" gates at 613.4c/613.1f per
+> 611.3a/b; two anti-fabrication guards TIGHTENED (structural gated-descriptor assertions), desk-audited;
+> census vein #1 machinery now open). **IN FLIGHT (3 Fable seats)**: **TR-2** each-player-upkeep +
+> blocks/becomes-blocked trigger scopes · **CS-1** combat block/attack statics (census #12) · **CA-2**
+> self-subject as-long-as gates (vein #1's other half). Deferred for a QUIET floor: the cite-hygiene pass
+> (now incl. 509.1c family) + the census's free Contraption denominator fix (−43 Un-set noise; re-baseline
+> required — never mid-flight).
 
 ## 🌅 2026-07-17 ~08:40 — WIND-DOWN (Colton called it) — FLOOR EMPTY, v0.145.0 CUT — 32.85%, suite 9,820
 
