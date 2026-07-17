@@ -211,9 +211,11 @@ export function parseGroupBlockRestriction(oracle, name) {
 const NON_SUBTYPE_ANTHEM_WORDS = new Set([
   // board state
   "attacking", "blocking", "blocked", "unblocked", "tapped", "untapped", "enchanted", "equipped",
-  // supertype / quality qualifiers
+  // supertype / quality qualifiers ("premium" = the foil/Un-card quality — Super Secret Tech's "Premium
+  // creatures get +1/+1"; NOT a creature subtype, so it must never fabricate a subtype grant that selects
+  // nobody — yet a changeling would spuriously match it — while flipping the card native, a CREED FP).
   "token", "nontoken", "legendary", "nonlegendary", "colorless", "multicolored", "monocolored",
-  "nonland", "snow", "monstrous", "modified",
+  "nonland", "snow", "monstrous", "modified", "premium",
   // colour qualifiers ("Nonblack creatures you control …" — Angel of Jubilation): not subtypes
   "nonwhite", "nonblue", "nonblack", "nonred", "nongreen",
   // CARD TYPES — "Artifact/Enchantment/Land/Commander creatures you control …" reads on the LEFT of the
@@ -2398,6 +2400,57 @@ function parseCreatureSelector(c) {
       mode: "dynamic",
       selector: { controllerScope: "you", cardTypes: ["Creature"], subtypes: [normalizeSubtype(m[1])] },
     };
+  }
+
+  // ── GLOBAL "each creature" anthems/debuffs (BLITZ GA-1) ────────────────────────────────────────────
+  // The FILTERED anthem/debuff with NO "you control" — the SF-1 filtered forms parked their GLOBAL sibling
+  // (SF-1 hardcoded "you control" in every no-determiner branch). controllerScope "each" (matchesSelector's
+  // default: candidate.controller unrestricted) reaches EVERY player's matching creatures — the printed
+  // all-players reach of Bad Moon ("Black creatures get +1/+1"), Crusade, Dread of Night ("White creatures get
+  // -1/-1"), Ascendant Evincar ("Nonblack creatures get -1/-1" — genuinely hits the OPPONENT's nonblack X/1s
+  // too, which is the whole point), Anaba Spirit Crafter ("Minotaur creatures get +1/+0"), Akroma's Devoted
+  // ("Cleric creatures have vigilance"). Each branch mirrors its "you control" sibling ABOVE byte-for-byte,
+  // differing ONLY in the absent "you control" → "each" scope: the scope is read STRICTLY from the presence/
+  // absence of "you control", so a you-control anthem NEVER becomes global and a global one NEVER becomes
+  // you-control. The regexes ANCHOR the anthem verb IMMEDIATELY after "creatures", so a "creatures your
+  // opponents control …" / "creatures you don't control …" subject (the verb isn't next) fails to match here
+  // and parks (a safe FN — the bare-opponents form is the OD-1 branch at the top; a FILTERED opponents/
+  // don't-control debuff stays unmodeled rather than mis-scoped to all-players). NO determiner (all/other/each
+  // → the determiner branch at the top of this fn already emits "each" scope for those). NO excludeSelf — a
+  // determiner-less GLOBAL filter includes the source when it qualifies (Anaba Spirit Crafter, itself a
+  // Minotaur, pumps itself; a non-black Ascendant Evincar debuffs no one since it's black — the -1/-1 skips it
+  // via the notColors gate, not an excludeSelf). The SF-1 selector gates (color/notColors/legendary/colorless/
+  // multicolored/tap-state/subtype) are scope-agnostic — matchesSelector applies the SAME filter after the
+  // controllerScope switch — so reusing them at "each" scope is exact and layer-aware. The negative debuff
+  // rides the SAME layer-7c ptModify (signed deltas) the you-control/opponent anthems use; the lethal SBA reads
+  // layer-aware toughness (CR 704), so a global -1/-1 genuinely kills every player's nonblack X/1.
+
+  // GLOBAL color anthem — "<color> creatures get|have …" (Bad Moon, Crusade, Dread of Night, Gauntlet of Might).
+  m = c.match(/^(white|blue|black|red|green)\s+creatures?\s+(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    return { mode: "dynamic", selector: { controllerScope: "each", cardTypes: ["Creature"], colors: [COLOR_WORDS[m[1]]] } };
+  }
+  // GLOBAL card-type creature anthem — "<Artifact|Enchantment|Land> creatures get|have …" (cardTypes AND-gate
+  // over effective printed∪animated types, exactly like the "you control" card-type sibling above).
+  m = c.match(/^([a-z]+)\s+creatures?\s+(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    const typeFilter = PERMANENT_TYPE_CARD_TYPES[m[1]];
+    if (typeFilter && typeFilter.length === 1) {
+      return { mode: "dynamic", selector: { controllerScope: "each", cardTypes: ["Creature", ...typeFilter] } };
+    }
+  }
+  // GLOBAL subject-quality anthem — "<legendary|nonlegendary|colorless|multicolored|non<color>|tapped|untapped>
+  // creatures get|have …" (Ascendant Evincar / Crovax, Ascendant Hero: "Nonblack/Nonwhite creatures get -1/-1").
+  m = c.match(/^([a-z]+)\s+creatures?\s+(?:gets?|gains?|has|have)\b/);
+  if (m && SUBJECT_QUALITY_SELECTORS[m[1]]) {
+    return { mode: "dynamic", selector: { controllerScope: "each", cardTypes: ["Creature"], ...SUBJECT_QUALITY_SELECTORS[m[1]] } };
+  }
+  // GLOBAL tribal anthem — "<Subtype> creatures get|have …" (Anaba Spirit Crafter, Akroma's Devoted). Same
+  // NON_SUBTYPE_ANTHEM_WORDS guard as the "you control" sibling (board-state/quality/card-type/determiner words
+  // never fabricate a zero-selecting subtype grant); a genuinely-bogus subtype selects no creature (safe FN).
+  m = c.match(/^([a-z]+)\s+creatures?\s+(?:gets?|gains?|has|have)\b/);
+  if (m && !NON_SUBTYPE_ANTHEM_WORDS.has(m[1])) {
+    return { mode: "dynamic", selector: { controllerScope: "each", cardTypes: ["Creature"], subtypes: [normalizeSubtype(m[1])] } };
   }
 
   // GROUP-GRANT subtype-without-"creatures": "<Subtype> you control (get|gain|has|have) …" — the bare-plural
