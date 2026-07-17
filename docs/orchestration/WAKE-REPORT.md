@@ -1,6 +1,27 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~02:30 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.24%, suite 9,261 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~03:15 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.54%, suite 9,332 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
+> **Landed since the 02:30 entry below** (a strong run): **ETB-1** enters-trigger census (4fd42880, +11 —
+> Support N + source-excluding board sweep; census found the ETB machinery already robust, pivoted to 2 real
+> buckets) · **GY-1** filtered graveyard return-to-hand (947795c3, +7 — generalized the SS-1 matcher to route
+> the MV/type filter through the shared chokepoint; my first clean AUTO-MERGE with ETB-1's spellEffects) ·
+> **KW-1** keyword actions (962254bd, +23 — bolster N least-toughness selector + endure N modal; connive
+> correctly PARKED, its nonland-discard tally would be an FP) · **EQ-1** equipment/aura static (be7dbda1,
+> **+58**, night's biggest — added infect/wither/intimidate/skulk/horsemanship/basic-landwalk to the
+> grantable-keyword set + ward {N} grant, EACH verified layer-aware-enforced; toxic + nonbasic-landwalk
+> PARKED because their enforcement reads printed oracle not layers; DESK: fixed a wither cite 702.79b→702.80a,
+> incl. the pre-existing stale copies) · **AT-1** attacks triggers (c71ab234, +4 — another-creature-you-control
+> + creature-with-keyword scopes). Slices integrated: **24**; night native total **+228** (30.87%→31.54%),
+> suite 8,932→9,332, LOST=0 unbroken, TWELVE loose/wrong CR cites caught at the desk.
+> **IN FLIGHT (3 Opus seats)**: **TOK-1** predefined-token abilities (Clue/Food/Blood/Map — ETB-1's biggest
+> park bucket) · **AA-1** activated-ability shelf census (Scion of the Ur-Dragon / Thrasios) · **IF-1**
+> intervening-if vocabulary (AT-1's parked 22-card bucket). Standing flake chip + repo-wide stale "701.8"
+> discard cites still open (below).
+
+## (superseded ~45 min later) — 31.24%, suite 9,261 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
