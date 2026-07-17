@@ -14,7 +14,24 @@
 > restored), until he stops me or interjects from his phone. 1.0 roadmap + Vault deferred to a full weekend
 > sitting. Floor relit: 3 Fable seats.
 >
-> **~11:30 checkpoint — 33.42% (11,420), suite 9,998, day-shift +199.** Since 10:15: **TR-2** trigger scopes
+> **~13:00 checkpoint — 33.67% (11,502), suite 10,136, day-shift +281. Fable credits ran out ~12:00 → agents
+> switched to OPUS (Colton's standing "keep working set to opus").** Since 11:30: **EK-1** connive+suspect
+> (6e496cb3, +20 — honest learn/incubate parks; flagged ~184 digital/Un-set denominator noise) · **CC-2**
+> counter-cost activations (f2f7a791, +26 — Thallid tribe) · **CC-3** self-NAME counter costs (c0a83f68, +1
+> Mikaeus — but threaded card-context through the metric⇄runtime pair, so ~28 carriers flip free later) ·
+> **EW-1** enters-with extensions (4580c0aa, +45 — named-kind was a COVERAGE seam not a resolver gap; shield
+> counters already modeled; corrected CA-2's stale "no raid ledger") · **AU-1** aura stage-1 (5c502419, +6 —
+> KEY FINDING: pump family already 62/71 done, the 253 was a POOL count; real aura residue is stage-2
+> restrictions) · **KK-1** kicker keyword grants (912165fa, +7; desk-corrected its 201.4→201.5 cite) · **ML-1**
+> modal (236b0138, +3 — KEY FINDING: modal vein MINED OUT, residue is singleton-atom whack-a-mole, drop from
+> queue). THREE main-tree cherry-pick slips total today (all caught pre-push, reset clean) — root cause was the
+> `cd /c/Projects/mtg-tool` prefix for cite checks; FIXED PERMANENTLY: worktree has knowledge/, cite checks now
+> run from cwd, that prefix is BANNED. **IN FLIGHT (3 Opus)**: **AU-2** aura pacifism-locks · **TK-1** keyword/
+> ability tokens · **RG-1** regeneration shield. Sync note (Colton asked): work → git push → GitHub master
+> only; the omnath Weaviate brain does NOT auto-ingest — needs a vault memory write to reach it (offered at
+> wind-down).
+>
+> **(superseded ~11:30) — 33.42% (11,420), suite 9,998, day-shift +199.** Since 10:15: **TR-2** trigger scopes
 > (91ab0265, +31 — each-player-upkeep + blocks/becomes-blocked + attacks-alone; 4 house cites corrected in new
 > text) · **CS-1** combat statics (7aaa6b47, +31 — multi-block WITH the CR 510.1d damage-division fix the old
 > loop lacked (full-power-to-each was fabricated damage), must-be-blocked, can't/must-attack-unless; fixed
