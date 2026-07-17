@@ -33,7 +33,8 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText } from "./staticAbilityParser.js";
+import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1844,6 +1845,33 @@ export function classifyCard(card) {
       : entersWithMetricCounters(card)
         ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
         : plotStrippedOracle;
+  // ENTERS-WITH extensions (BLITZ EW-1; CR 614.1c + 122.6a) — three more modeled enters-with-counter shapes,
+  // each stripped ONLY when its parser (the SAME helper the resolver reads — single source of truth) confirms
+  // the whole-sentence anchored form, so a rider variant is never silently dropped (the strips below carry NO
+  // trailing [^.]* slop: the sentence must end at the matched clause, mirroring the parsers' ^…$ anchors).
+  //   • NAMED counters ("~ enters with three charge counters on it" — the Trigons; oil / shield / stun /
+  //     keyword kinds): credited ONLY for an HONEST kind (isHonestEnterCounterKind — inert vocabulary,
+  //     modeled-semantics shield/stun per CR 122.1c/1d, or an enforced CR 122.1b keyword counter). A fade/
+  //     time/finality/unknown kind is NOT stripped → the card parks (a shield that doesn't shield would be a
+  //     forbidden FP; an unread fade counter would silently skip the vanishing sacrifice).
+  //   • CONDITIONAL counters ("Morbid — … enters with four +1/+1 counters on it if a creature died this
+  //     turn"; Raid / Ferocious / opponent-lost-life): credited ONLY when spellConditionParseable confirms
+  //     the condition is in the interveningIf vocabulary the resolver evaluates at ETB — the metric⇄runtime
+  //     shared gate (Patient Turtle's "you didn't go first this game" fails it → parks).
+  //   • CHOICE keyword counters ("… your choice of a deathtouch counter or a lifelink counter" — Boot Nipper;
+  //     Grimdancer's two-of-three): the parser fails closed unless EVERY option is an enforced 122.1b kind;
+  //     the resolver auto-picks (first `pick` printed options) and permanentHasKeyword honors the counter.
+  const namedEnterCtr = entersWithNamedCounters(card);
+  const namedEnterOracle = namedEnterCtr && isHonestEnterCounterKind(namedEnterCtr.type)
+    ? baseOracle.replace(/[^.\n]*\benters (?:the battlefield )?(?:tapped )?with (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? on (?:it|him|her)\.?/i, " ")
+    : baseOracle;
+  const condEnterCtr = entersWithConditionalCounters(card);
+  const condEnterOracle = condEnterCtr && spellConditionParseable(condEnterCtr.condition)
+    ? namedEnterOracle.replace(/[^.\n]*\benters with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her) if [^.\n]*\.?/i, " ")
+    : namedEnterOracle;
+  const ewOracle = entersWithChoiceCounters(card)
+    ? condEnterOracle.replace(/[^.\n]*\benters with your choice of [^.\n]*\.?/i, " ")
+    : condEnterOracle;
   // ENTERS-TAPPED: actionDispatcher handles unconditional "enters tapped" via entersTapped() — credit it
   // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining
   // text is fully modeled (triggers / activated / static / mixed). etCard propagates the stripped oracle
@@ -1881,7 +1909,7 @@ export function classifyCard(card) {
   // body-only (their grant is unmodeled). LINE-START anchored so only the printed keyword line strips; a
   // clause merely CONTAINING "riot" is untouched. LOST-safe (a strip only ever adds coverage).
   const riotN = riotKeywordCount(card);
-  const riotOracle = riotN > 0 ? baseOracle.replace(/(?:^|\n)[ \t]*riot\b[^\n]*(?=\n|$)/gi, "\n") : baseOracle;
+  const riotOracle = riotN > 0 ? ewOracle.replace(/(?:^|\n)[ \t]*riot\b[^\n]*(?=\n|$)/gi, "\n") : ewOracle;
   const crewRe = /(?:^|\n)\s*crew \d+\b[^\n]*(?=\n|$)/gi;
   const hasCrew = /\bvehicle\b/.test(type) && parseCrewCost(card) != null;
   const crewOracle = hasCrew ? riotOracle.replace(crewRe, "\n") : riotOracle;

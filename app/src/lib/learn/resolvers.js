@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
@@ -336,6 +336,36 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // would double it, CR 616). No lethal-SBA concern — a named non-P/T counter never changes toughness.
   const namedCtr = entersWithNamedCounters(card);
   if (namedCtr && namedCtr.n > 0) perm.counters = { ...perm.counters, [namedCtr.type]: (perm.counters[namedCtr.type] || 0) + applyCounterDoubling(state, controller, namedCtr.type, namedCtr.n) };
+  // ENTERS-WITH-CONDITIONAL-COUNTERS (BLITZ EW-1; CR 614.1c + 122.6a) — "~ enters with N +1/+1 counters on it
+  // if <condition>" (Morbid — Gravetiller Wurm; Raid — War-Name Aspirant; Ferocious — Frontier Mastodon…).
+  // The condition is evaluated HERE against the PRE-entry `state` (CR 614.1c — a replacement's condition is
+  // read as the permanent enters; the entering creature is not on the battlefield yet, so it never satisfies
+  // its own condition — the Ferocious ruling), through the SAME evaluateInterveningIf vocabulary the trigger
+  // pipeline uses (the metric⇄runtime shared gate: coverage credits only spellConditionParseable conditions).
+  // TRUE → the counters are added AS it enters (before the lethal SBA + ETB watchers), through
+  // applyCounterDoubling (CR 616 — Doubling Season doubles a Morbid entry counter too). FALSE **or NULL**
+  // (condition outside the vocabulary — e.g. Patient Turtle's "you didn't go first this game") → NO counters,
+  // the printed body enters unchanged — the FN-safe direction, and exactly the pre-EW-1 behavior.
+  const condCtr = entersWithConditionalCounters(card);
+  if (condCtr && condCtr.n > 0 && evaluateInterveningIf(state, condCtr.condition, controller, {}) === true) {
+    perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", condCtr.n) };
+  }
+  // ENTERS-WITH-CHOICE-COUNTERS (BLITZ EW-1; CR 614.1c + 122.1b + 122.6a) — the Ikoria keyword-counter choice
+  // ("~ enters with your choice of a deathtouch counter or a lifelink counter on it" — Boot Nipper; "two
+  // different counters … from among menace, deathtouch, and lifelink" — Grimdancer). HOUSE AUTO-PICK (the
+  // riotPicksHaste / autoPickCreatureType discipline — a deterministic, documented policy at the choice site):
+  // take the FIRST `pick` options in PRINTED order. Any legal pick is correct play; printed order is stable,
+  // serialize-safe, and matches the card's own emphasis. Each keyword counter is placed AS the permanent
+  // enters, through applyCounterDoubling (CR 616 — Doubling Season doubles a keyword counter too; two flying
+  // counters are legal + redundant per CR 122.1b, and permanentHasKeyword reads ≥1). The parser fails closed
+  // (every option must be an enforced 122.1b kind), so an option the runtime wouldn't honor never gets here.
+  const choiceCtr = entersWithChoiceCounters(card);
+  if (choiceCtr) {
+    for (const kind of choiceCtr.options.slice(0, choiceCtr.pick)) {
+      const cn = applyCounterDoubling(state, controller, kind, 1);
+      if (cn > 0) perm.counters = { ...perm.counters, [kind]: (perm.counters[kind] || 0) + cn };
+    }
+  }
   // ETB-XCOUNTERS-FROM-METRIC (CR 614.1c + 122.6a + 608.2h): enters with +1/+1 counters whose count is a BOARD
   // METRIC — Squad Captain / Sheriff of Safe Passage ("for each other creature you control"), Prime Speaker
   // Zegana ("X = greatest power among other creatures"). The metric is resolved AT THIS MOMENT against the

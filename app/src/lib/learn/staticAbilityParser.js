@@ -550,12 +550,16 @@ export function entersWithPlusCounters(card) {
 
 // ENTERS-WITH-NAMED-COUNTERS (CR 614.1c + 122.6a) — the FIXED number of a NAMED (non-P/T) counter a permanent
 // "enters with N <name> counters on it", or null. The generic sibling of entersWithPlusCounters, for a
-// card-specific counter kind (slumber — Arixmethes; the fading/vanishing fade/time counters have their own
-// keyword-driven path in fading.js and are EXCLUDED here to avoid a double-add). ONLY the bare, unconditional,
-// literal-N form: a kicker / "for each" / "where X" / conditional variant → null (the variable/gated count
-// isn't modeled → left to the Arbiter, never a fabricated count). The counter NAME must be a single bare word
-// (not a ±1/+1 P/T form, not loyalty — loyalty enters via the PW starting-loyalty write). Returns
-// { type, n } | null. Leaf (no engine import). The resolver adds exactly this at ETB; the SINGLE source of truth.
+// card-specific counter kind (slumber — Arixmethes; charge — the Trigons; oil / shield / stun — BLITZ EW-1;
+// the fading/vanishing fade/time counters have their own keyword-driven path in fading.js and are EXCLUDED
+// here to avoid a double-add). ONLY the bare, unconditional, literal-N form: a kicker / "for each" /
+// "where X" / conditional variant → null (the variable/gated count isn't modeled → left to the Arbiter,
+// never a fabricated count). WHOLE-SENTENCE ANCHORED (BLITZ EW-1, fail-closed): the trimmed sentence must
+// END at "counters on it/him/her" — a trailing rider ("… on it and can't block") would otherwise be
+// silently dropped by the coverage strip (a forbidden FP), so the anchor rejects it and the card parks.
+// The counter NAME must be a single bare word (not a ±1/+1 P/T form, not loyalty — loyalty enters via the
+// PW starting-loyalty write). Returns { type, n } | null. Leaf (no engine import). The resolver adds
+// exactly this at ETB; the coverage strip credits exactly this — the SINGLE source of truth.
 const _RESERVED_ENTER_COUNTER_KINDS = new Set(["fade", "time", "loyalty"]);
 export function entersWithNamedCounters(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
@@ -564,13 +568,107 @@ export function entersWithNamedCounters(card) {
     // tapped clause and the counter clause in one sentence ("enters tapped with five slumber counters on it"),
     // so tolerate an optional "tapped" between "enters" and "with" (the enters-tapped seam handles the tapped
     // status separately; the coverage tapRe strip removes the tapped mention from the classifier residue).
-    const m = sentence.match(/enters (?:the battlefield )?(?:tapped )?with (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on it/i);
+    // "on him/her" — a named legend's pronoun (Captain America "…a shield counter on him") is the same clause.
+    const m = sentence.trim().match(/^[^.]*?\benters (?:the battlefield )?(?:tapped )?with (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on (?:it|him|her)\.?$/i);
     if (!m) continue;
     const kind = m[2].toLowerCase();
     if (_RESERVED_ENTER_COUNTER_KINDS.has(kind)) return null; // owned by another path (fading/PW) → not this seam
     if (/\b(?:if|for each|where|kicked|unless|equal to|plus)\b/i.test(sentence)) return null; // conditional/variable → not modeled
     const n = _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
     return n > 0 ? { type: kind, n } : null;
+  }
+  return null;
+}
+
+// ─── ENTER-COUNTER KIND HONESTY (BLITZ EW-1) — which named counter kinds may the COVERAGE strip credit? ────
+// The resolver places ANY single-word named counter (honest state either way), but the TIER claim ("this card
+// plays correctly natively") additionally requires the counter's SEMANTICS to be honored by the runtime:
+//   • INERT kinds (CR 122.1 — "a counter … interacts with a rule, ability, or effect": these interact with
+//     NOTHING intrinsically; only printed readers consume them, and an unmodeled reader clause is residue that
+//     parks the card under the whole-card law anyway). The audited, census-measured vocabulary — charge (the
+//     Trigons/Shriekhorn), oil (Phyrexia: All Will Be One), javelin (Icatian Javelineers), brick (Sunset
+//     Pyramid), shell (Roc Hatchling), wish (Ring of Three Wishes), and the long single-card tail.
+//   • MODELED-SEMANTICS kinds — shield (CR 122.1c: the destroy-replacement + damage-prevention pair, enforced
+//     at gameState.hasShieldCounter/consumeShieldCounter by the destroy SBA, applyDestroyEffect,
+//     applyDamageEffect and combatResolution) and stun (CR 122.1d: the untap replacement, enforced at
+//     gameState.untapOrConsumeStun + the untap-step filter).
+//   • ENFORCED KEYWORD counters (CR 122.1b: a keyword counter grants its keyword; 613.1f) — ONLY the 122.1b
+//     legal kinds whose runtime enforcement is COMPLETE and layer-aware via permanentHasKeyword's counter read
+//     (layers.js — printed ∪ counter ∪ layer-6 grants). Excluded from 122.1b's list: "decayed" (its can't-block
+//     + attack-sacrifice machinery is unmodeled) and "exalted" (the fire site counts instances via
+//     keywordInstanceCount, which reads printed + grants but NOT counters — an exalted counter would never fire).
+// Everything else — fade/time/loyalty (reserved paths), finality (dies→exile replacement unmodeled), level/
+// lore/defense (leveler/Saga/battle machinery), and any unlisted kind — fails CLOSED → no coverage credit
+// (the card parks; a shield that doesn't shield or a finality counter that doesn't exile is a forbidden FP).
+const _INERT_ENTER_COUNTER_KINDS = new Set([
+  "charge", "oil", "javelin", "brick", "shell", "wish", "healing", "tide", "omen", "net", "ice",
+  "page", "hour", "task", "dream", "soul", "credit", "ore", "arrowhead", "sleight", "polyp", "growth",
+  "doom", "eyestalk", "cage", "reprieve", "film", "intervention", "resonance", "stroopwafel",
+]);
+// CR 122.1b legal keyword-counter kinds ∩ runtime-enforced (see keywords.js GRANTABLE_STATIC_KEYWORDS +
+// permanentHasKeyword). Two-word kinds ("first strike", "double strike") are reachable only via the CHOICE
+// parser below (the single-word named regex can't match them) but are listed here so both seams share ONE set.
+const _ENFORCED_KEYWORD_COUNTER_KINDS = new Set([
+  "flying", "first strike", "double strike", "deathtouch", "haste", "hexproof", "indestructible",
+  "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
+]);
+export function isHonestEnterCounterKind(kind) {
+  const k = String(kind || "").toLowerCase();
+  return _INERT_ENTER_COUNTER_KINDS.has(k) || k === "shield" || k === "stun" || _ENFORCED_KEYWORD_COUNTER_KINDS.has(k);
+}
+
+/**
+ * ENTERS-WITH-CONDITIONAL-COUNTERS (BLITZ EW-1; CR 614.1c + 122.6a) — "~ enters with N +1/+1 counters on it
+ * if <condition>." — the Morbid (Gravetiller Wurm — "if a creature died this turn"), Raid (War-Name Aspirant —
+ * "if you attacked this turn"), opponent-lost-life (Cindering Cutthroat) and Ferocious (Frontier Mastodon —
+ * "if you control a creature with power 4 or greater") family. Returns { n, condition } | null with the RAW
+ * condition text; the resolver evaluates it via evaluateInterveningIf against the PRE-entry state (CR 614.1c —
+ * the replacement's condition is checked as the permanent enters; the entering creature is not yet on the
+ * battlefield, so it never satisfies its own condition — the Ferocious ruling), and the coverage strip credits
+ * ONLY when interveningIf.spellConditionParseable confirms the condition is in the modeled vocabulary — the
+ * metric⇄runtime shared gate (an unreadable condition → evaluateInterveningIf null → NO counters, FN-safe, and
+ * NO credit → Arbiter). WHOLE-SENTENCE ANCHORED (fail-closed): an ability-word prefix ("Morbid — ") is
+ * tolerated inside the [^.]*? subject slop; a leading-if form (Adamant — "If at least three white mana was
+ * spent…, this creature enters with…"), a kicked form ("If this creature was kicked, it enters with…" — owned
+ * by kicker.js; no trailing "if"), or any trailing rider fails the anchor → null → park. Leaf (no engine import).
+ */
+export function entersWithConditionalCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const m = sentence.trim().match(/^[^.]*?\benters with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her) if ([^.]+?)\.?$/i);
+    if (!m) continue;
+    const n = _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
+    return n > 0 ? { n, condition: m[2].trim() } : null;
+  }
+  return null;
+}
+
+/**
+ * ENTERS-WITH-CHOICE-COUNTERS (BLITZ EW-1; CR 614.1c + 122.1b + 122.6a) — the Ikoria keyword-counter choice:
+ *   "~ enters with your choice of a <kw> counter or a <kw> counter on it."          (pick 1 of 2 — Boot Nipper)
+ *   "~ enters with your choice of two different counters on it from among <a>, <b>, and <c>."  (pick 2 of 3 — Grimdancer)
+ * Returns { pick, options } | null — options in PRINTED order. EVERY option must be an ENFORCED keyword-counter
+ * kind (_ENFORCED_KEYWORD_COUNTER_KINDS — the CR 122.1b legal list ∩ what permanentHasKeyword's counter read
+ * actually honors); ONE unenforced option means the auto-pick could owe a keyword the runtime ignores, so the
+ * WHOLE clause fails closed → null → park (CREED). A "+1/+1" option (Denry Klin's three-way comma form) or a
+ * quoted-grant wrapper (Champions of Tyr) fails the anchors → null. WHOLE-SENTENCE ANCHORED. Leaf (no engine
+ * import): the resolver auto-picks (first `pick` options in printed order — a deterministic, documented house
+ * policy like riotPicksHaste) and places via applyCounterDoubling; the coverage strip credits the same shape.
+ */
+export function entersWithChoiceCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const s = sentence.trim();
+    let m = s.match(/^[^.]*?\benters with your choice of an? ([a-z][a-z ]*?) counter or an? ([a-z][a-z ]*?) counter on it\.?$/i);
+    if (m) {
+      const options = [m[1].toLowerCase(), m[2].toLowerCase()];
+      return options.every((k) => _ENFORCED_KEYWORD_COUNTER_KINDS.has(k)) ? { pick: 1, options } : null;
+    }
+    m = s.match(/^[^.]*?\benters with your choice of two different counters on it from among ([a-z][a-z ]*?), ([a-z][a-z ]*?), and ([a-z][a-z ]*?)\.?$/i);
+    if (m) {
+      const options = [m[1].toLowerCase(), m[2].toLowerCase(), m[3].toLowerCase()];
+      return options.every((k) => _ENFORCED_KEYWORD_COUNTER_KINDS.has(k)) ? { pick: 2, options } : null;
+    }
   }
   return null;
 }
