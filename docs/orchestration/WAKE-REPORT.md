@@ -1,6 +1,26 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.7%, campaign +900**: 59 slices, LOST=0 — the limit hit and the desk restarted on OPUS seats
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.8%, campaign +937**: 66 slices, LOST=0 — OPUS batch 4 landed whole (+37)
+
+> Census **10,520 of 34,161 (30.80%)**, baseline scratchpad cand79.txt. The Opus fleet's first full
+> batch, every gate reproduced at the director's desk: **RT-1** RIOT (a115996a, +7 — modeled end-to-end
+> at the entry chokepoint with a documented deterministic counter-vs-haste policy; the layer-6 haste
+> grant over raw summoningSick) · **DV-1** DEVOID (711ad664, +8 — the agent's probe REFUTED the brief's
+> hypothesized color bug: Scryfall bakes colors:[] into devoid cards and both derivation chokepoints
+> read it; the real gap was the spell credit — the CDA line now strips like storm, plus a zero-cost
+> hardening guard; Complete Disregard's pin lifted in-lane) · **BB-1** the same-name mass pump
+> (330540d1, +3 — Bile Blight / Echoing Decay / Echoing Courage, the buff twin included on pure
+> vocabulary) · **AF-2** AFTERLIFE (50963e3c, +7 — the dies→N-Spirits synthesis, salvaged partial diff
+> evaluated and reused; tokens enter under the DYING creature's controller, pinned) · **MN-1** MENTOR
+> (4e644eed, +8 — a new powerVsSource dynamic restriction, layer-aware, FAIL-CLOSED; equal power
+> excluded, mentor-alone fires nothing, the own-intent chooser as a second net) · plus the director's
+> **LU-2** this-turn lure (02f08256, +4 — Alluring Scent kin + Mortipede's activated self form on the
+> FOG-latch marker; Declare Dominance's it-anaphor and Roar of Challenge's rider parked).
+> Batch 5 out: EC-1 the 19-carrier enchant-creature interior sweep (the batch-planning artifact) ·
+> MF-1 Mana Flare via the manaMultiplier machinery + SP-1 sliver interiors · GC-1 the Gustcloak
+> combat-surgery escape + TS-1 the enchanted-land discard-cost activations.
+
+## (superseded same-day) — 30.7%, campaign +900: the limit-restart entry
 
 > Census **10,483 of 34,161 (30.69%)** — campaign +900 exactly. The session limit hit mid-batch-4
 > (~17:45, reset 18:50); all three Fable agents died mid-lane. Post-reset salvage: **LU-1** LURE
