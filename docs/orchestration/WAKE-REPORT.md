@@ -1,5 +1,44 @@
 # WAKE REPORT — live resume anchor
 
+## 🌙 2026-07-16 (day 2, WOUND DOWN ~20:00) — HANDOFF: 30.8%, campaign +937, 66 slices, LOST=0 — 3 Opus worktrees IN FLIGHT
+
+> **The state**: census **10,520 of 34,161 (30.80%)** native+land (name-dedup, the tier-fingerprint is
+> the tally authority — generate a FRESH baseline before any new slice; session scratchpad files are
+> gone). Master tip **eef29c12**; suite green + lint 0 at tip; NO release tag (the unreleased train
+> still carries the far-from-ready Vault UI — unchanged). Day 2 total: +937 campaign, 66 slices, LOST=0
+> on every flip-diff, every slice gated (suite exit VERIFIED before commit + lint + audited flip-diff).
+>
+> **HARVEST FIRST — three OPUS agents were mid-lane at wind-down.** Their commits (if finished) sit in
+> their worktrees; none can push. For each: `git -C <path> log --oneline -5` — any feat(engine) commit
+> above the branch base is deliverable. Cherry-pick into the build tree, AUDIT THE DIFF YOURSELF, then
+> the full per-slice gate at the desk (suite exit 0 + lint exit 0 + flip-diff vs a fresh baseline with
+> every GAINED audited by name, LOST=0) before pushing serially:
+> - `C:\Projects\mtg-tool\.claude\worktrees\agent-ab239de3af440ff66` — **EC-1** the 19-carrier
+>   enchant-creature interior sweep (its park map is the batch-6 planning artifact — capture it from
+>   the commit body / test file even if the yield is small)
+> - `C:\Projects\mtg-tool\.claude\worktrees\agent-af9c51fa1611291e8` — **MF-1** Mana Flare (via the
+>   manaMultiplier machinery) + **SP-1** sliver interiors
+> - `C:\Projects\mtg-tool\.claude\worktrees\agent-a83f560f46f0276d1` — **GC-1** Gustcloak escape
+>   (combat-state surgery — park-prone, audit hard) + **TS-1** enchanted-land discard-cost activations
+> The three DEAD Fable worktrees (agent-a9051935634e9b54a / agent-a559ab0e57185554d /
+> agent-a19965a385e2da5d7) are FULLY harvested — safe to `git worktree remove --force`.
+>
+> **The working model (Colton's standing order, evening of 07-16)**: the DIRECTOR runs a team of three
+> build agents (Opus seats; worktree isolation; they build + gate locally and NEVER push) and
+> personally audits every diff, re-runs the full gate against the live census, integrates serially,
+> pushes `git push origin HEAD:master`, and refills seats immediately — plus solo slices on
+> non-contested files between integrations. Uninterrupted, no check-ins, no release tag. Known seat
+> mechanics: agents junction node_modules via PowerShell New-Item (Git Bash mklink mangles the target);
+> probes run from app/ with MTG_APP_ROOT="C:/Projects/mtg-tool/app"; briefs carry the CREED + workflow
+> + park-with-evidence license; expect and welcome brief corrections from probes.
+>
+> **The remaining frontier (post-batch-5)**: the backgrounds' 16 unmodelable bodies · enchant-land
+> interiors 6 (mostly parked with reasons) · Zelyon Sword 4 · block-additional 3 · copy-with-ability 3
+> (Gigantoplasm, heavy) · random-discard 3 (HOUSE POLICY — needs Colton's call on a random primitive) ·
+> suspend/trample-tail 5 · soulbond 24 (pairing subsystem) · banding 7 · the sub-2 singles trunk ·
+> Declare Dominance's it-anaphor lure fold (combat.js pump rider) · Roar of Challenge's Ferocious
+> rider · Geralf's Masterpiece's hand-scaled stat · Kormus Bell's layer-5 color delivery.
+
 ## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.8%, campaign +937**: 66 slices, LOST=0 — OPUS batch 4 landed whole (+37)
 
 > Census **10,520 of 34,161 (30.80%)**, baseline scratchpad cand79.txt. The Opus fleet's first full
