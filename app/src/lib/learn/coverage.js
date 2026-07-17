@@ -258,7 +258,14 @@ export function isKeywordOnly(oracle, name) {
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
     // name was already normalized to "this creature" above). ENFORCED in opponentAI.pickAttackPlan (the
     // creature is force-declared as an attacker when able), so it's a modeled static, not residue.
-    /^this creature attacks each (?:combat|turn) if able$/.test(c),
+    /^this creature attacks each (?:combat|turn) if able$/.test(c) ||
+    // LURE (BLITZ LU-1, CR 509.1c) — "all creatures able to block this creature do so" (Taunting Elf /
+    // Prized Unicorn / Elvish Bard / Breaker of Armies). ENFORCED in opponentAI.pickBlockers: every
+    // legal blocker of a lure-carrying attacker is force-assigned before the value heuristic — the SAME
+    // versioned bar as MUST-ATTACK above (AI seats comply; the human seat is never hard-gated). The
+    // sentence carries no split characters, so it reaches this per-clause test whole; any variant scope
+    // ("…able to block target creature…" — the spell form) or rider fails the exact anchor → residue.
+    /^all creatures able to block this creature do so$/.test(c),
   );
 }
 

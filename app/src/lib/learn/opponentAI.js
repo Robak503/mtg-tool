@@ -937,6 +937,35 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
   const plan = [];
   const usedBlockers = new Set();
   const blockedAttackers = new Set();
+  // LURE (BLITZ LU-1, CR 509.1c — "All creatures able to block this creature do so": Taunting Elf /
+  // Prized Unicorn / Elvish Bard / Breaker of Armies / Noxious Toad kin): a BLOCK REQUIREMENT, enforced
+  // at the AI block plan exactly like MUST-ATTACK (CR 508.1a) is at pickAttackPlan — the versioned house
+  // bar for combat requirements (the human seat is never hard-gated; coverage's credit states the same
+  // bar). blockerActions are pre-filtered to LEGAL blocks upstream (canBlockAttacker — "able" already
+  // excludes cantBlock/restrictions, CR 509.1c requirements never override restrictions), so EVERY
+  // offered blocker for a lure-carrying attacker is force-assigned here, BEFORE the value heuristic
+  // runs. A blocker able to block two lured attackers goes to the first in attacker-id order — with
+  // conflicting requirements the CR accepts any legal maximum; deterministic + documented. The normal
+  // heuristic then plans the rest around the pre-seeded assignments.
+  {
+    const RE_LURE = /(?:^|[\n.;])\s*all creatures able to block this creature do so\s*(?:\.|$)/i;
+    const luredAttackerIds = [...byAttacker.keys()].filter((attId) => {
+      const lk = findPermanent(state, attId);
+      return lk && RE_LURE.test(String(lk.permanent.card?.oracle || lk.permanent.card?.oracle_text || "").replace(/\([^)]*\)/g, " "));
+    }).sort(byId);
+    for (const attId of luredAttackerIds) {
+      for (const { action } of candidatesForLure(attId)) {
+        plan.push(action);
+        usedBlockers.add(action.permanentId);
+        blockedAttackers.add(attId);
+      }
+    }
+    function candidatesForLure(attackerId) {
+      return (byAttacker.get(attackerId) || [])
+        .map((action) => ({ action }))
+        .filter((c) => !usedBlockers.has(c.action.permanentId));
+    }
+  }
   const candidatesFor = (attackerId) => (byAttacker.get(attackerId) || [])
     .map((action) => ({ action, stats: blockerStats.get(action.permanentId) }))
     .filter((c) => c.stats && !usedBlockers.has(c.action.permanentId))
