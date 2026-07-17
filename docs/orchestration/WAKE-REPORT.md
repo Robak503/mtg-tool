@@ -1,5 +1,41 @@
 # WAKE REPORT — live resume anchor
 
+## 🌃 2026-07-17 (night shift, RUNNING) — shelf-first team era: 30.95% (+27 tonight), suite 9,042 — 2 Fable seats hot
+
+> **The state**: census **10,574 of 34,161 (30.95%)** native+land (name-dedup; tally = `native*`+`land`
+> rows, playable-pw excluded). Master tip **61625022** · suite **9,042 green** · lint 0 · LOST=0 on every
+> flip-diff · no release tag since v0.144.0 (the unreleased train accumulates). **Shelf-first per Colton's
+> evening call** — the fresh 15-deck census (real profiles, re-imported to the box app tonight) reads
+> aggregate 81% native; worst-first: Wolverine 68 · Kellan 69 · Yuriko 70 · Cap/Pantlaza 72 · Kinnan/
+> Ur-Dragon 75 · Rograkh/Toph 79 · Vihaan 85 · Mothman 90 · Zaxara 93 · Koma/Omnath 94 · Slivers 99.
+>
+> **Landed tonight (each desk-audited, full per-slice gate, pushed serially)**: **TC-1** typal cast-draw
+> (c8259299, +2 — Vanquisher's Banner / Chronicle of Victory; unblocks the Slivers card-A/B ask) ·
+> **OC-1** the Ordeal cycle (b40ad2b0, +5 — all five Ordeals; NEW youSacrificeThis look-back event off the
+> sacrifice chokepoint + a real Ordeal cast lane + cross-controller attack-watcher hardening) · **SB-1**
+> saboteur cdmg payoffs (54d22160, +4 — Skullsnatcher / Mistblade Shinobi / Zombie Cannibal / Arm with
+> Aether; damagedPlayer bounce + gy-exile scopes) · the **cdmg cross-controller hardening** (df7608aa,
+> director solo — the OC-1 mirror, 0 flips) · **SB-2** damaged-player reanimate (243e2493, +2 — Ink-Eyes /
+> Scion of Darkness; NEW owner discipline at the zone-exit chokepoint — a stolen creature's death now
+> lands in its OWNER's graveyard — plus the desk-completed owner-link so a detained stolen card's return
+> still connects) · **LV-1** Level Up (61625022, +14 levelers; leveler.js band parser + gated 7b/6 layers
+> + 2 pre-existing runtime FPs fixed: band abilities/keywords no longer always-on; NOTE: Wolverine runs
+> ZERO levelers — its "Level Up" card is a green Aura, the roadmap note was stale).
+> **Cite-audit law, reaffirmed**: SEVEN wrong CR citations caught at the desk tonight (207.2c→207.2a ·
+> 701.15a→701.19 · 701.17a→701.21a · 601.2/603.3→109.5 · 613→106.1b · 603.3c→603.3d · 704.5g→404.1, the
+> last caught by an agent in the DIRECTOR's brief). Every cite gets verified against cr_current.json.
+>
+> **IN FLIGHT (2 Fable seats, worktree isolation, never push)**: **SP-1** sliver interiors (census +
+> group-grant buckets) · **TS-1** enchant-land activations (the Tin Street lane; licensed to pivot to
+> adjacent enchant-land interiors if the family's tiny). Harvest per the standing protocol: audit
+> line-by-line at the desk, re-gate, integrate serially, sweep the worktree.
+> **Also tonight (pre-shift)**: v0.143.0 + v0.144.0 shipped (CI green, assets verified) · the box app
+> got the REAL profiles (Colton 6 / Joe 9, 0-miss vs the oracle index; box AppData = deck truth now) ·
+> the Academy turn-1 break does NOT reproduce on the current build (API + real-UI repro both healthy
+> through turn 5+; likely fixed by C1 B1-B4 on 07-15; Colton re-tests on v0.144.0 with a FRESH game) ·
+> Colton's 1.0 calls logged in vault CONTINUITY: Vault full-rework = a 1.0 requirement · shelf-first
+> grind · seeded-RNG random primitive BLESSED (lane not yet built) · C2/C3 stay laptop/app-side.
+
 ## ✅ 2026-07-16 (evening) — HARVEST COMPLETE + v0.143.0 & v0.144.0 SHIPPED: 30.87% (+27), all 6 agent worktrees swept
 
 > **The state**: census **10,547 of 34,161 (30.87%)** native+land (name-dedup; tally = tier-fingerprint
