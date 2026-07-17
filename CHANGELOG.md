@@ -8,7 +8,24 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.143.0] — 2026-07-16
+
 ### Added
+- **+729 more cards join native rules coverage** (corpus 28.7% → 30.8% — 10,520 of
+  34,161 cards now resolve natively), capping a one-day, 66-slice engine campaign of
+  +937 total that includes the overnight pass below. The headline mechanics:
+  **extra turns** (Time Walk / Temporal Manipulation / Second Chance), **madness**
+  credited on permanents and auras (+21), **lure** and its this-turn/targeted
+  variants (the long-parked block-requirements lane — blockers are now
+  force-assigned to a lured attacker), **riot**, **mentor**, **afterlife**,
+  **devoid**, the first **end-of-combat delayed-trigger queue** (Deathgazer's
+  basilisk touch), same-name mass pump/debuff (Bile Blight kin),
+  graveyard-to-bottom and graveyard-shuffle-in recursion, land tuck, power-filtered
+  exile, mass land animation (Nature's Revolt), single-target base-P/T sets
+  (Diminish), until-end-of-turn quoted-ability grants (Feign Death), Null Rod's
+  full activated-ability lockdown, and Vivien Reid running as a native planeswalker.
+  Every slice passed the full gate before landing: suite green, lint clean, and a
+  by-name audited flip-diff with zero coverage regressions.
 - **+208 cards join native rules coverage** (corpus 28.05% → 28.7%) across 14 engine
   mechanics shipped in one overnight pass: targeted mill (Tome Scour / Millstone / Jace
   Beleren's ultimate), the Rebel/Mercenary recruiter tutors + Zur the Enchanter,
