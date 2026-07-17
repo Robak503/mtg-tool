@@ -738,6 +738,24 @@ function splitClauses(oracle) {
       const cm = sentence.match(/^if (.+?), .+$/i);
       if (cm && spellConditionParseable(cm[1])) { clauses.push(sentence); continue; }
     }
+    // CONDITIONAL SPELL RIDER — TRAILING form (BLITZ CD-2, CR 608.2) — the mirror of the leading keep-whole
+    // above: a "<effect> if <board-condition>" sentence (Inga Rune-Eyes's "…draw three cards if three or more
+    // creatures died this turn"; Scalestorm Summoner's "…create a 3/1 red Dinosaur creature token if you
+    // control a creature with power 4 or greater" — like CD-1 this ONE clause seam lifts a spell, a trigger, or
+    // an activated ability). Keep the WHOLE sentence as one clause so the top-level " and "/", then " split below can't SEVER a
+    // scope-AMBIGUOUS compound ("<A> and <B> if <cond>") into an unconditional <A> + a gated <B> — a GUESS at
+    // whether the if gates B only or A+B (a forbidden dropped/mis-scoped-condition FP). parseClauseToAtom's
+    // trailing peel then models a SINGLE-atom gated effect (attaching `condition`) or returns null for a
+    // compound one → the whole card parks (→ low → Arbiter, CREED). Gated on spellConditionParseable so ONLY a
+    // board-readable trailing condition triggers keep-whole; an unreadable trailing "if" splits normally,
+    // byte-identical. A LEADING-if sentence starts with "if" (no internal " if ") so it never matches here — and
+    // the leading keep-whole above already `continue`d it. This addition can only PREVENT a split, never change
+    // an existing kept-whole clause; and any sentence it keeps whole has a trailing-if half that failed to parse
+    // before this slice (so the card wasn't native already — keep-whole can't regress a native, LOST-safe).
+    {
+      const tm = sentence.match(/^(.+?) if (.+)$/i);
+      if (tm && spellConditionParseable(tm[2])) { clauses.push(sentence); continue; }
+    }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
@@ -873,6 +891,41 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
         && !inner.optional                  // park an optional-gated rider (a fast-follow) — never double-gate here
         && (!inner.targetType || isNonChosenTargetType(inner.targetType))) { // non-targeting gated atom only (this slice)
         return { ...inner, condition: cond[1].toLowerCase() };
+      }
+      return null; // gated effect isn't a clean single non-targeting atom → park (CREED)
+    }
+  }
+
+  // ===== CONDITIONAL SPELL RIDER — TRAILING form (BLITZ CD-2, CR 608.2) ===== the mirror of the leading peel
+  // above: a "<effect> if <board-condition>" clause (Inga Rune-Eyes's "…draw three cards if three or more
+  // creatures died this turn", an activated "{2}: Draw a card if you have no cards in hand" — Idle Thoughts)
+  // — the resolving spell/ability applies <effect> ONLY when the board condition holds AS the instruction
+  // resolves (CR 608.2, in written order). SAME metric⇄runtime shared gate: attach `condition` ONLY when
+  // spellConditionParseable (the board/player/turn readers, NO per-object referent), so the resolver
+  // (runProgram → evaluateInterveningIf, unchanged) can evaluate it — never a rider credited native that
+  // would silently never fire. SCOPE (this slice): a SINGLE, NON-optional, NON-targeting gated atom whose
+  // LEFT side carries NO top-level " and "/", then " (a compound left side — "<A> and <B> if <cond>" — is
+  // scope-AMBIGUOUS: does the if gate B only or A+B? → PARK, never guess). Once the trailing condition is
+  // spell-readable the clause is COMMITTED to the conditional model — every failure below returns null (the
+  // card parks → low → Arbiter, CREED), NEVER falls through to a legacy loose-match that could SILENTLY DROP
+  // the trailing condition (a forbidden FP). splitClauses keeps a trailing-if sentence WHOLE so the compound
+  // reaches here intact. Runs AFTER the leading peel (a clause starting "if …," never has an internal " if ",
+  // so the two never contend); the leading "you may" wrapper is peeled before this, so an optional trailing
+  // rider recurses through here as its bare inner atom. A back-reference gated effect ("it/that creature/that
+  // player …"), an "instead" replacement, or an ability-word-prefixed effect ("Ferocious — …") fails the
+  // clean-atom parse below → parks (never a mis-scoped native).
+  {
+    const cond = s.match(/^(.+?) if (.+)$/i);
+    if (cond && spellConditionParseable(cond[2])) {
+      const gated = cond[1];
+      if (/\s+\band\b\s+|,\s+then\s+/i.test(gated)) return null; // compound / scope-ambiguous left side → park (this slice)
+      const inner = parseClauseToAtom(cardType, gated, hasX);
+      if (inner
+        && KNOWN.has(inner.op)
+        && !inner.condition                 // no nested conditional (the effect can't itself re-carry a condition)
+        && !inner.optional                  // park an optional-gated rider (a fast-follow) — never double-gate here
+        && (!inner.targetType || isNonChosenTargetType(inner.targetType))) { // non-targeting gated atom only (this slice)
+        return { ...inner, condition: cond[2].toLowerCase() };
       }
       return null; // gated effect isn't a clean single non-targeting atom → park (CREED)
     }

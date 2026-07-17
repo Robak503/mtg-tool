@@ -45,7 +45,7 @@ describe("parser — combat-trick keyword grants", () => {
     low("Target creature gains banding until end of turn.");       // banding un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
     low("Target creature gains banding until end of turn.");
     low("Target creature gets +2/+2 and gains protection from red until end of turn.");
-    low("Target creature gains flying until end of turn. Draw a card if you control a Bird."); // conditional rider
+    low("Target creature gains flying until end of turn. Draw a card if that creature has flying."); // a trailing rider whose condition is a per-object back-reference (unreadable) stays LOW — the CD-1/CD-2 conditional-rider peel models only BOARD-readable trailing riders (a board-readable "…if you control a Bird" now parses HIGH — see conditionalSpellRiderTrailing.test.js)
   });
   it("menace IS now grantable (GATED-GY-EXT) — combat tricks with menace parse high", () => {
     expect(programConfidence(parseEffectProgram({ type: INSTANT, oracle: "Target creature gets +1/+1 and gains menace until end of turn." }))).toBe("high");

@@ -3,12 +3,14 @@
  *
  * Plan the Heist: "Surveil 3 if you have no cards in hand. Then draw three cards."
  * Two seams under test:
- *  1. Parser — the conditional-surveil clause shape (`onlyIfHandEmpty`) AND the per-sentence
+ *  1. Parser — the conditional-surveil clause shape (a `condition`-gated surveil, via the CD-1/CD-2
+ *     conditional-rider peel — the trailing "surveil 3 if you have no cards in hand") AND the per-sentence
  *     sequencing-"Then" strip (CR 608.2c — instructions resolve in written order, which the
  *     program's atom order already encodes), so "Then draw three cards" parses as a draw.
  *     Guard: "Then, if …" / "Then if …" keep their conditional shape (NOT stripped bare).
- *  2. Resolver — applyScrySurveilAtom skips the surveil (logged, conditionNotMet) when the
- *     controller's hand is non-empty, and pauses into the scry-surveil pending choice when empty.
+ *  2. Resolver — applyScrySurveilAtom still honors the legacy `onlyIfHandEmpty` flag (skips the surveil,
+ *     logged conditionNotMet, when the controller's hand is non-empty; pauses into the scry-surveil pending
+ *     choice when empty) — kept as a resolver-level unit even though the parser now emits `condition` instead.
  */
 import { describe, expect, it } from "vitest";
 import { parseEffectProgram } from "../parser.js";
@@ -22,8 +24,12 @@ describe("Plan the Heist — parser (conditional surveil + sequencing-Then strip
   it("parses the whole card: surveil-if-hand-empty then draw 3, HIGH confidence", () => {
     const prog = spell(ORACLE);
     expect(prog.confidence).not.toBe("low");
+    // Since the CD-1/CD-2 conditional-rider peel, the trailing "surveil 3 if you have no cards in hand"
+    // is modeled by the UNIFIED `condition` mechanism (evaluateInterveningIf's "you have no cards in hand"
+    // board query), superseding the bespoke `onlyIfHandEmpty` flag. runProgram's condition-skip gates the
+    // surveil identically (skip when hand non-empty; pause-then-resume when empty) — byte-identical runtime.
     expect(prog.atoms).toEqual([
-      { op: "surveil", amount: 3, onlyIfHandEmpty: true, targetType: null },
+      { op: "surveil", amount: 3, condition: "you have no cards in hand", targetType: null },
       { op: "draw", amount: 3, targetType: null },
     ]);
   });
