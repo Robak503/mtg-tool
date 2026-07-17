@@ -632,6 +632,11 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
   const srcType = typeLineOf(sourcePerm.card);
   const srcIsLand = /\bLand\b/.test(srcType);
   const srcIsCreature = /\bCreature\b/.test(srcType);
+  // NONLAND MANA DOUBLER (BLITZ MD-1, Kinnan): a "nonland permanent" is any tapped mana source whose type
+  // line is NOT a Land — a mana rock (Sol Ring/Signet), a mana dork (a creature IS nonland), a Treasure. The
+  // subject-gate is the whole point: a LAND tapped under a nonland-only doubler adds NOTHING (never fire on a
+  // land tap). A creature-LAND (Dryad Arbor) is still a Land → excluded, exactly as "nonland permanent" reads.
+  const srcIsNonland = !srcIsLand;
   const out = [];
   // MANA FLARE (BLITZ MF-1): an allPlayers augment ("Whenever a PLAYER taps a land for mana, THAT PLAYER
   // adds …") benefits the TAPPING player (`playerId`) no matter who controls the carrier — so the scan
@@ -649,6 +654,7 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
       if (aug.condition === "monarch" && state.monarchId !== playerId) continue;
       if (aug.subject === "land" && !srcIsLand) continue;
       if (aug.subject === "creature" && !srcIsCreature) continue;
+      if (aug.subject === "nonland-permanent" && !srcIsNonland) continue; // MD-1: never fire on a LAND tap
       // sameAsProduced (MF-1): the bonus's TYPE is the type this tap produces — resolved by the consumer
       // (manaSources stamps the source's production colors; planPayment/actionsTapForMana credit the
       // PRIMARY chosen color), never an independent color pick (the off-type FP, CREED).

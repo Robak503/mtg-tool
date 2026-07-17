@@ -3592,6 +3592,20 @@ function parseGlobalTapManaAugmentImpl(card) {
     if (/^whenever a player taps a land for mana, that player adds one mana of any type that land produced$/.test(clause.trim().toLowerCase())) {
       return { subject: "land", allPlayers: true, sameAsProduced: true, amount: 1 };
     }
+    // NONLAND MANA DOUBLER (BLITZ MD-1, CR 605.1b) — the CONTROLLER-scoped, NONLAND-permanent, SAME-TYPE
+    // additive cousin: "Whenever you tap a nonland permanent for mana, add one mana of any type that
+    // permanent produced." (Kinnan, Bonder Prodigy — the sole carrier of this exact template). The extra
+    // mana's TYPE (CR 106.1b) is the type the tapped nonland permanent produced, so the consumers credit +1
+    // of the PRIMARY chosen color of that very tap (the SAME sameAsProduced pathway MF-1 built for lands —
+    // reused UNCHANGED), never an off-type pip. Controller-scoped ("you tap", NOT "a player") → allPlayers
+    // is absent (falsy), so globalTapManaAugment's controller gate keeps it on the tapper's own carriers. The
+    // subject "nonland-permanent" gates the runtime to a NON-land tap — a LAND tapped under this doubler adds
+    // NOTHING (the whole point of the subject: Kinnan doubles a mana ROCK / mana DORK, never a Command Tower).
+    // Anchored whole-clause + $-anchored, so any variant with a rider leaves residue → the fixed-pip branch
+    // below rejects it too → null → body-only (a SAFE FN, CREED).
+    if (/^whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced$/.test(clause.trim().toLowerCase())) {
+      return { subject: "nonland-permanent", sameAsProduced: true, amount: 1 };
+    }
     // The optional " while you're the monarch" condition rides between "for mana" and ", add" (Regal
     // Behemoth — the only monarch-gated tap-augment in the corpus). Captured as condition:"monarch"; the
     // runtime (globalTapManaAugment) adds the extra mana ONLY while `state.monarchId === playerId`.
@@ -3637,7 +3651,12 @@ export function stripGlobalTapManaAugment(card) {
       // MANA FLARE (MF-1): the all-players line strips ONLY in its exact rider-free form ($-anchored), so
       // Overabundance's "…, and this enchantment deals 1 damage to the player." survives as residue (its
       // parse is null anyway — belt on top of the parse gate).
-      && !/^\s*whenever a player taps a land for mana, that player adds one mana of any type that land produced\.?\s*$/i.test(line))
+      && !/^\s*whenever a player taps a land for mana, that player adds one mana of any type that land produced\.?\s*$/i.test(line)
+      // NONLAND MANA DOUBLER (MD-1): Kinnan's controller-scoped nonland doubler line, $-anchored so only its
+      // exact rider-free form strips (the "you tap a (?:land|creature)" regex above never matches "nonland
+      // permanent"). Kinnan's OTHER line — the {5}{G}{U} look-at-top-five activated ability — survives → not
+      // keyword-only → the card stays body-only (a SAFE FN; Kinnan parks on its unmodeled activated ability).
+      && !/^\s*whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced\.?\s*$/i.test(line))
     .join("\n");
 }
 
