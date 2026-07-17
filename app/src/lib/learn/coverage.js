@@ -804,6 +804,15 @@ export function permanentTriggersCovered(card) {
     // Anchored to the exact untap-lockdown phrasing, so it can only consume this modeled follow-up (FN-safe).
     // Curly apostrophe tolerated.
     .replace(/\bit doesn['’]t untap during its controller['’]s next untap step\b\.?\s*/gi, " ")
+    // SELF NO-UNTAP LOCKDOWN (BLITZ UP-1) — the CONTINUOUS static "This <permanent> doesn't untap during your
+    // untap step." on the untap-tax family (Brass Man / Brass Gnat / Goblin War Wagon / Goblin Dirigible; the
+    // pay-to-untap escape is the upkeep trigger, stripped by the "if you do" tail below). NOW MODELED in the
+    // runtime — gameState.untapAll (selfPreventsUntap) skips the source at the untap step, so the metric may treat
+    // this line as covered (metric mirrors runtime, CREED). Anchored to the SELF subject ("this <noun>", curly
+    // apostrophe tolerated); the "enchanted …" attached form (line ~806-region attachmentPreventsUntap) and the
+    // "each other player's untap step" Seedborn phase static are DISJOINT and untouched. FN-safe: a card whose
+    // ONLY residue is this line reads keyword-only after the strip and the runtime plays it faithfully.
+    .replace(/\bthis (?:creature|artifact|permanent|land|enchantment|equipment|vehicle) doesn['’]t untap during your(?: next)? untap step\b\.?\s*/gi, " ")
     // DICE-ROLL (CR 726) — the result-scaled payoff sentences that FOLLOW a combat-damage trigger's "roll a
     // d20." are part of THAT trigger's effect (detectTriggers folds them into the effectClause, which parses
     // HIGH in allTriggerSentencesModeled above — proven before this residue check runs), but the trigger

@@ -1218,6 +1218,37 @@ function attachmentPreventsUntap(state, perm) {
   return false;
 }
 
+// SELF NO-UNTAP LOCKDOWN (BLITZ UP-1, CR 302.6 — Brass Man / Brass Gnat / Goblin War Wagon / Mana Vault):
+// "This <permanent> doesn't untap during your untap step." is a CONTINUOUS static restriction on the SOURCE
+// permanent itself (the untap-tax family whose escape is "At the beginning of your upkeep, you may pay {cost}.
+// If you do, untap this <permanent>."). Read off the permanent's OWN oracle so untapAll SKIPS it — otherwise the
+// untap step would untap it for free and the pay-to-untap upkeep trigger would be a meaningless no-op (a false
+// positive: the metric flips the card native, so the runtime MUST honor this or the two diverge, CREED). The
+// subject is anchored to SELF: "this <noun>" or the printed card name (older printings templated the name), never
+// "enchanted …" (the attached form above) nor "each other player's …" (the Seedborn phase static, opposite polarity).
+const SELF_NO_UNTAP_NOUNS = "creature|artifact|permanent|land|enchantment|equipment|vehicle";
+// DESK AUDIT (director): the "your NEXT untap step" wording is EXCLUDED — that form is a ONE-SHOT rider
+// printed inside activated abilities ("{T}: Add {W} or {U}. This land doesn't untap during your next untap
+// step." — the Cloudcrest Lake / Vec Townships slow-dual family, 17 corpus permanents), not a continuous
+// lock. Matching it froze those lands forever after one tap (a live FP the flip-diff can't see — the tier
+// never changed). The continuous Brass Man-class static is exactly the "your untap step" wording.
+const RE_SELF_NO_UNTAP_THIS = new RegExp(`(?:^|[\\n.;])\\s*this (?:${SELF_NO_UNTAP_NOUNS}) doesn't untap during your untap step\\s*(?:\\.|$)`, "i");
+function selfPreventsUntap(perm) {
+  const card = perm?.card;
+  if (!card) return false;
+  const oracle = String(card.oracle || card.oracle_text || "").replace(/[’]/g, "'");
+  if (!oracle) return false;
+  if (RE_SELF_NO_UNTAP_THIS.test(oracle)) return true;
+  // Legacy printings name the card explicitly ("Mana Vault doesn't untap during your untap step."). Still a SELF
+  // reference (CR 201.4 — a permanent's rules text referring to itself by name means itself). Escape the name.
+  const name = String(card.name || "");
+  if (name) {
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/'/g, "['’]");
+    if (new RegExp(`(?:^|[\\n.;])\\s*${esc} doesn't untap during your untap step\\s*(?:\\.|$)`, "i").test(oracle)) return true;
+  }
+  return false;
+}
+
 export function untapAll(state, { playerId }) {
   assertPlayer(playerId);
   // BECAME-UNTAPPED events (Mesmeric Orb — CR 613.10a-style look-back list): record every permanent that
@@ -1226,7 +1257,7 @@ export function untapAll(state, { playerId }) {
   // import triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
   // pendingLeaveEvents pattern exactly). Computed BEFORE the map so the skip conditions are read unmutated.
   const becameUntapped = (state.players[playerId]?.battlefield || [])
-    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p))
+    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p) && !selfPreventsUntap(p))
     .map((p) => ({ id: p.id, controller: playerId }));
   const untapped = withPlayer(state, playerId, player => ({
     ...player,
@@ -1234,6 +1265,12 @@ export function untapAll(state, { playerId }) {
       // PZ-1 (Waterknot class): an attached "doesn't untap during its controller's untap step" lock —
       // stays tapped while the Aura holds; non-tap flags reset like every skip branch here.
       if (p.tapped && attachmentPreventsUntap(state, p)) {
+        return { ...p, summoningSick: false, loyaltyActivatedThisTurn: false };
+      }
+      // UP-1 (Brass Man / Mana Vault class): a SELF "This <permanent> doesn't untap during your untap step."
+      // lock — stays tapped this untap step (its pay-to-untap upkeep trigger is the only escape); non-tap flags
+      // reset like every skip branch here. Read off the permanent's OWN oracle (a continuous static, not a flag).
+      if (p.tapped && selfPreventsUntap(p)) {
         return { ...p, summoningSick: false, loyaltyActivatedThisTurn: false };
       }
       // NO-UNTAP LOCKDOWN (Junk Winder — "It doesn't untap during its controller's next untap step"): a
