@@ -9,6 +9,7 @@ import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
 import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards"; parseCountSource: MASS-OPPONENT-BOUNCE toughness-threshold count (leaf, cycle-free)
+import { shuffleControllerLibrary } from "./library.js"; // GS-1 — the deterministic rngSeed shuffle (works for any player id); library.js never imports zones.js → cycle-free sibling edge
 
 /** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
  * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
@@ -356,7 +357,61 @@ export function graveyardReturnClauseParser(clause) {
   // destination exile. Reuses applyExileFromGraveyard's cross-zone move (it already handles opponentGraveyard,
   // like Ashen Powder's reanimate above) — only the parser form was missing. Same `$`-anchored FN-safe rejection.
   if (/^exile target card from an opponent's graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", opponentGraveyard: true, cardFilter: "any" };
+  // GY-SHUFFLE-IN (BLITZ GS-1, CR 701.24) — two anchored forms sharing one resolver:
+  //   PLAYER form — "target player shuffles up to <N> target cards from their graveyard into their library"
+  //     (N=2 Krosan Reclamation, N=3 Memory's Journey / Gaea's Blessing / Quandrix Command's mode, N=4 Dwell
+  //     on the Past / Stream of Consciousness / Witness the Future / Rite of Renewal — the count vocabulary
+  //     is corpus-evidenced). TWO DEPENDENT target dimensions: ONE chosen player + an up-to-N subset of
+  //     cards drawn FROM THAT PLAYER'S graveyard ("their"). The dependency is enforced BY CONSTRUCTION at
+  //     enumeration (targeting.expandAtoms' gyFromTargetPlayer branch pairs each candidate player ONLY with
+  //     subsets of their own graveyard — a cross-player pairing is never enumerated, CR 601.2c).
+  //   SELF form — "shuffle up to <N> target cards from your graveyard into your library" (N=1 Put Away,
+  //     N=4 Cathartic Parting / Devious Cover-Up, N=5 Wand of Vertebrae's activated) — no player target
+  //     (the controller), riding the EXISTING own-graveyard subset machinery (maxTargets/minTargets:0).
+  // Both: cards only ("cards?" — token exclusion at enumeration), unfiltered. The exact `$` anchors reject
+  // a mandatory count (no "up to"), a filtered form, "a graveyard"/cross-zone scopes, or riders → LOW →
+  // Arbiter (FN-safe). atomTargetIntent: the op takes the AMBIGUOUS default, so a TRIGGER carrying either
+  // form (Covetous Castaway's ETB) routes to the Arbiter — only player-driven cast/activated paths run it.
+  const shufP = /^target player shuffles up to (one|two|three|four|five) target cards? from their graveyard into their library$/.exec(t);
+  if (shufP) {
+    const n = SMALL_NUM[shufP[1]];
+    if (n >= 1) return { op: "gy-shuffle-into-library", targetType: "player", gyFromTargetPlayer: true, maxTargets: n, minTargets: 0 };
+  }
+  const shufS = /^shuffle up to (one|two|three|four|five) target cards? from your graveyard into your library$/.exec(t);
+  if (shufS) {
+    const n = SMALL_NUM[shufS[1]];
+    if (n >= 1) return { op: "gy-shuffle-into-library", targetType: "graveyardCard", cardFilter: "any", maxTargets: n, minTargets: 0 };
+  }
   return null;
+}
+
+/**
+ * GY-SHUFFLE-IN resolver (GS-1, CR 701.24) — move each chosen card from the SUBJECT player's graveyard into
+ * that player's library, then SHUFFLE that library. The subject is the chosen player target (the PLAYER
+ * form) or the controller (the SELF form — no player target in ctx.targets). CR 608.2b fail-safe (the
+ * incumbent per-target discipline): a chosen card that already left the graveyard is skipped, never a
+ * throw. CR 701.24c/d: the library is shuffled EVEN IF some or all of the chosen cards are gone — and even
+ * if the chosen set was empty ("up to" zero, a legal cast) — so the shuffle is unconditional. The shuffle
+ * is the deterministic rngSeed shuffle (shuffleControllerLibrary — serialize-stable, no Math.random).
+ * Hidden-info safe: graveyards are public, and the shuffle randomizes a hidden zone's ORDER only.
+ */
+export function applyGyShuffleIntoLibrary(state, atom, ctx) {
+  const playerT = (ctx.targets || []).find((t) => t.type === "player");
+  const pid = playerT ? playerT.id : ctx.controller;
+  if (!state.players?.[pid]) {
+    return logEvent(state, { kind: "spell-effect", effect: "gy-shuffle-into-library", controller: ctx.controller, player: pid, targets: [], reason: "player-missing" });
+  }
+  let next = state;
+  const shuffledIn = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "graveyardCard") continue;
+    const gy = next.players[pid]?.graveyard || [];
+    if (!gy.some((c) => c.id === t.id)) continue; // left the graveyard — a logged no-op (CR 608.2b)
+    next = moveCardToZone(next, { playerId: pid, fromZone: "graveyard", toZone: "library", cardId: t.id });
+    shuffledIn.push(t.id);
+  }
+  next = shuffleControllerLibrary(next, pid); // CR 701.24c/d — shuffle even when zero cards moved
+  return logEvent(next, { kind: "spell-effect", effect: "gy-shuffle-into-library", controller: ctx.controller, player: pid, targets: shuffledIn });
 }
 
 /**
@@ -631,4 +686,5 @@ export const zoneResolvers = {
   "exile-from-graveyard": applyExileFromGraveyard,
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
   "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves
+  "gy-shuffle-into-library": applyGyShuffleIntoLibrary, // GY-SHUFFLE-IN (GS-1, CR 701.24) — chosen graveyard cards shuffle into their owner's library
 };

@@ -263,6 +263,36 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     const atom = atoms[i];
     const tagged = atomTargets(state, controllerId, atom, i, sourceColors, ctx);
     if (tagged === null) continue;            // non-targeted atom
+    // GS-1 DEPENDENT TWO-DIMENSIONAL TARGET (CR 601.2c — "target player shuffles up to N target cards from
+    // THEIR graveyard …", Dwell on the Past / Stream of Consciousness / Memory's Journey / Krosan
+    // Reclamation): ONE chosen player PLUS an up-to-N subset of cards constrained to THAT player's
+    // graveyard. The dependency is enforced BY CONSTRUCTION: for each candidate player (`tagged` — the
+    // atom's targetType is "player"), subsets are drawn ONLY from that player's own graveyard cards — a
+    // cross-player pairing is never enumerated. (A post-cartesian filter would instead burn the
+    // MAX_CAST_EXPANSIONS budget on illegal player×card combos and could starve a legal player's options —
+    // enumerate-then-filter is strictly worse here.) Each option is [player, …cards], all tagged with this
+    // atomIndex; the combine loop below spreads option arrays, and the resolver reads the player target +
+    // the graveyardCard targets off ctx.targets. Largest subset first (the standard auto-pick order).
+    // MUST precede the maxTargets subset gate: this atom carries maxTargets for the CARD dimension — the
+    // generic branch would wrongly build subsets of PLAYERS from it.
+    if (atom.gyFromTargetPlayer) {
+      const gyCards = enumerateTargets(state, controllerId, { targetType: "graveyardCard", cardFilter: "any", anyGraveyard: true }, sourceColors, ctx)
+        .map((t) => ({ ...t, atomIndex: i }));
+      const options = [];
+      for (const p of tagged) {
+        const own = gyCards.filter((c) => c.controller === p.id);
+        const subs = targetSubsets(own, atom.minTargets ?? 0, atom.maxTargets) || [[]];
+        for (const sub of subs) {
+          options.push([p, ...sub]);
+          if (options.length >= MAX_CAST_EXPANSIONS) break; // the standard option-blow-up backstop
+        }
+        if (options.length >= MAX_CAST_EXPANSIONS) break;
+      }
+      if (options.length === 0) return null;  // no candidate player at all → uncastable (players always exist in practice)
+      options.sort((a, b) => b.length - a.length); // maximal shuffle-in first (stable — ties keep player order)
+      perAtom.push(options);
+      continue;
+    }
     // MULTI-COUNT TARGET ("up to N target …"): this atom chooses a SUBSET of [minTargets..maxTargets] distinct legal
     // targets (all tagged atomIndex i). Push the subsets as this atom's options; the combine loop SPREADS a subset
     // (an array) into the combo. Gated on maxTargets>1 — every single-target atom takes the unchanged path below, so
