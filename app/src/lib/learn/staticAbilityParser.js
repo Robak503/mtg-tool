@@ -21,7 +21,7 @@
  * Pure; imports only the keyword vocabulary. Returns plain JSON descriptors.
  */
 
-import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "./keywords.js";
+import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 
 // GROUP-ACTIVATED grant validator (injected — CR 113.7). Whether a quoted group-grant body ("All Slivers
@@ -3141,6 +3141,53 @@ export function parseAttachedBonus(card, subjectOverride) {
   const result = saw ? out : [];
   if (slot) slot[slotKey] = result;
   return result;
+}
+
+/**
+ * SOULBOND (BLITZ SL-1, CR 702.95a/b) — the BOND ability a paired soulbond creature confers on BOTH itself
+ * and its partner: "As long as this creature is paired with another creature, both creatures have <keyword>."
+ * / "…each of those creatures gets +N/+N." Parsed into the SAME layer descriptors an Equipment/Aura bonus
+ * yields (reusing parseAttachedClause via a normalized "equipped creature <effect>" rewrite), so the metric
+ * (coverage.soulbondCardTier) and the runtime (layers.staticEffectsOf, which scopes these to BOTH paired ids)
+ * read ONE parse and can't drift. Returns the descriptor array, or null when the bond is anything we don't
+ * model as a static +N/+N-or-grantable-keyword grant — a quoted triggered/activated ability (Tandem Lookout,
+ * Deadeye Navigator), protection from a subtype (Diregraf Escort's "protection from Zombies"), or any other
+ * rider — which PARKS the whole carrier (CR whole-card-or-park). A non-soulbond card → null. Pure.
+ */
+const SOULBOND_BOND_RE = /^as long as this creature is paired with another creature,\s+(?:both creatures|each of those creatures)\s+(.+)$/im;
+function normalizeSelfName(oracle, name) {
+  let out = String(oracle || "").replace(/[’]/g, "'");
+  const nm = String(name || "").replace(/[’]/g, "'");
+  if (!nm) return out;
+  out = out.replace(new RegExp(`\\b${nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), "this creature");
+  const short = nm.split(",")[0];
+  if (short && short !== nm) out = out.replace(new RegExp(`\\b${short.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), "this creature");
+  return out;
+}
+export function parseSoulbondBond(card) {
+  if (!hasKeyword(card, "soulbond")) return null;
+  // Normalize the card's (short) name → "this creature" so a bond line that names the card matches (mirrors
+  // coverage.isKeywordOnly's self-normalization). FN-safe: a mangled non-self clause just fails the RE below.
+  const oracle = normalizeSelfName(String(card?.oracle || card?.oracle_text || ""), card?.name);
+  const m = oracle.match(SOULBOND_BOND_RE);
+  if (!m) return null;
+  // Strip any same-line parenthetical reminder ("both creatures have hexproof. (They can't be the targets…)")
+  // before parsing, then the trailing period, then lowercase → "have vigilance" / "gets +1/+1" / "have hexproof".
+  const effect = m[1].replace(/\([^)]*\)/g, "").trim().replace(/\.\s*$/, "").toLowerCase();
+  return parseAttachedClause(`equipped creature ${effect}`, "equipped");
+}
+
+/**
+ * SOULBOND residual (BLITZ SL-1) — the card's oracle with the modeled soulbond text removed: the BOND sentence
+ * ("As long as … is paired …, …") and the "soulbond" keyword word itself (its reminder is a parenthetical that
+ * coverage.isKeywordOnly's stripReminder drops). What remains (a printed keyword like Flying/Reach, or nothing)
+ * is judged keyword-only to decide the whole card is native. Pure; a non-soulbond card is returned unchanged
+ * (harmless — the caller only invokes this once parseSoulbondBond has confirmed a modeled soulbond carrier).
+ */
+export function stripSoulbondText(card) {
+  return normalizeSelfName(String(card?.oracle || card?.oracle_text || ""), card?.name)
+    .replace(SOULBOND_BOND_RE, "")   // drop the whole bond sentence (line)
+    .replace(/\bsoulbond\b/gi, "");  // drop the keyword word (reminder paren handled by stripReminder)
 }
 
 /** Back-compat alias — the equipment bonus is the attached bonus with the "equipped" subject. */

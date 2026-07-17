@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1958,6 +1958,26 @@ function doublerCardTier(card) {
   return null;
 }
 registerCoverageClassifier(doublerCardTier);
+
+// ─── SOULBOND (BLITZ SL-1, CR 702.95) — pairing + bond grant ─────────────────────────────────────
+// A soulbond creature confers a BOND ability on itself + its paired partner while both stay under its control
+// (CR 702.95a/b/e). NATIVE when the bond is a static +N/+N and/or grantable keyword(s) (parseSoulbondBond — the
+// SAME parse layers.staticEffectsOf emits at runtime, so metric ≡ runtime) AND every OTHER clause is
+// keyword-only (stripSoulbondText removes the soulbond keyword + the bond sentence; a printed Flying/Reach on
+// the body survives and passes isKeywordOnly). PARKS (null) when the bond is a quoted triggered/activated
+// ability (Tandem Lookout, Deadeye Navigator, Doom Weaver, Breathkeeper Seraph, Galvanic Alchemist, …),
+// protection from a subtype (Diregraf Escort's "protection from Zombies"), or the card carries other unmodeled
+// text (Donna Noble's damage-redirect + Doctor's companion) — the whole-card-or-park law. RUNTIME:
+// resolvers.enterPermanent auto-pairs at ETB (deterministic policy — first eligible unpaired creature),
+// layers.staticEffectsOf grants the bond to both ids while paired, and gameState.detachPermanentFromAll /
+// control.applyGainControl tear the pairing down on leave / control-change (CR 702.95e).
+function soulbondCardTier(card) {
+  const bond = parseSoulbondBond(card);
+  if (!bond) return null;                                            // not a soulbond carrier, or bond unmodelable → park
+  if (isKeywordOnly(stripSoulbondText(card), card?.name)) return "native-static";
+  return null;                                                       // other unmodeled residue → park
+}
+registerCoverageClassifier(soulbondCardTier);
 
 // ─── MANA-MULTIPLIER — full-card coverage (mirrors doublerCardTier) ──────────────────────────────
 // A card carrying a runtime-modeled mana multiplier (manaMultiplierProfile → manaModel.manaMultiplier,

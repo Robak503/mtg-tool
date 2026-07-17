@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkSagaChapterTriggers } from "./triggers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHELF S7): entry lore counter + sagaFinal stamp; a pure leaf
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
@@ -472,7 +472,43 @@ export function enterPermanent(state, card, controller, opts = {}) {
   if (perm.sagaFinal) {
     afterEtb = checkSagaChapterTriggers(afterEtb, perm.id, 0, perm.counters?.lore || 0);
   }
-  return checkPermanentEntersTriggers(afterEtb, perm);
+  // SOULBOND auto-pair (BLITZ SL-1, CR 702.95a) — after every creature entry, attempt the deterministic pairing.
+  return maybeAutoPairSoulbond(checkPermanentEntersTriggers(afterEtb, perm), perm.id);
+}
+
+// SOULBOND auto-pair (BLITZ SL-1, CR 702.95a) — the two soulbond triggered abilities, modeled as a DETERMINISTIC
+// ETB pairing (the bond is beneficial, so auto-pairing when able is a safe policy; a human-interactive "you may
+// pair" choice is a deferred PLAY-API change). Fired at EVERY creature ETB. POLICY: pair the entering creature
+// with the FIRST eligible unpaired creature the SAME controller controls, in battlefield iteration order —
+// where AT LEAST ONE of the pair is a soulbond creature whose bond we MODEL (parseSoulbondBond non-null). A
+// soulbond carrier whose bond we can't model (Doom Weaver's quoted trigger) never pairs, so its whole card
+// stays Arbiter's (no half-modeled state). Both must be unpaired (CR 702.95d — one partner only). Pure.
+function isCreaturePerm(p) {
+  return /\bCreature\b/.test(String(p?.card?.type || p?.card?.type_line || ""));
+}
+function modelableSoulbondPerm(p) {
+  return isCreaturePerm(p) && !!parseSoulbondBond(p?.card);
+}
+function maybeAutoPairSoulbond(state, enteredPermId) {
+  const lk = findPermanent(state, enteredPermId);
+  if (!lk) return state;
+  const entered = lk.permanent;
+  if (entered.soulbondPartner || !isCreaturePerm(entered)) return state; // already paired (CR 702.95d) or not a creature
+  const bf = state.players[entered.controller]?.battlefield || [];
+  let partnerId = null;
+  if (modelableSoulbondPerm(entered)) {
+    // The entrant is a modelable soulbond creature → pair it with the first unpaired creature it controls.
+    const cand = bf.find((p) => p.id !== entered.id && isCreaturePerm(p) && !p.soulbondPartner);
+    if (cand) partnerId = cand.id;
+  } else {
+    // The entrant is a plain creature → pair it with the controller's first unpaired MODELABLE soulbond creature.
+    const cand = bf.find((p) => p.id !== entered.id && !p.soulbondPartner && modelableSoulbondPerm(p));
+    if (cand) partnerId = cand.id;
+  }
+  if (!partnerId) return state;
+  let next = updatePermanentSafe(state, entered.id, (p) => ({ ...p, soulbondPartner: partnerId }));
+  next = updatePermanentSafe(next, partnerId, (p) => ({ ...p, soulbondPartner: entered.id }));
+  return logEvent(next, { kind: "soulbond-paired", controller: entered.controller, a: entered.id, b: partnerId, cardName: entered.card?.name || null });
 }
 
 /**

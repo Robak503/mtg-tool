@@ -32,7 +32,7 @@
  * game serialized mid-resolution restores byte-identical (no closures).
  */
 
-import { findPermanent, logEvent } from "../../gameState.js";
+import { findPermanent, logEvent, updatePermanentSafe } from "../../gameState.js";
 import { atomTargets } from "./shared.js";
 import { TARGET_SUBTYPES } from "../parseHelpers.js"; // curated creature-subtype allowlist (leaf, cycle-free)
 
@@ -103,6 +103,15 @@ export function applyGainControl(state, atom, ctx) {
       },
     };
     next = logEvent(next, { kind: "spell-effect", effect: "gain-control", controller, from, permanentId: t.id, name: perm.card?.name || null });
+    // SOULBOND teardown (BLITZ SL-1, CR 702.95e) — another player gaining control of a paired creature unpairs
+    // it. Clear the moved creature's back-reference AND its (still-under-the-old-controller) partner's, so
+    // neither soulbond carrier keeps conferring the bond. The layers liveness guard would already suppress the
+    // grant on the controller mismatch, but clearing makes the unpairing PERMANENT (they don't re-pair if
+    // control later reverts) — never a wrongly-persisting bond.
+    if (perm.soulbondPartner) {
+      next = updatePermanentSafe(next, perm.soulbondPartner, (p) => ({ ...p, soulbondPartner: null }));
+      next = updatePermanentSafe(next, t.id, (p) => ({ ...p, soulbondPartner: null }));
+    }
   }
   return next;
 }

@@ -995,6 +995,13 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
 export function detachPermanentFromAll(state, permanent, toGy = false, toZone = null) {
   if (!permanent) return state;
   let next = recordLeaveEvent(state, permanent, toGy, toZone);
+  // SOULBOND teardown (BLITZ SL-1, CR 702.95e) — a paired creature LEAVING the battlefield unpairs its partner.
+  // Clear the partner's back-reference so its soulbond carrier stops conferring the bond (layers.staticEffectsOf
+  // reads soulbondPartner). The leaving permanent's own field departs with it. This is the single battlefield-
+  // exit chokepoint, so bounce / destroy / exile / sacrifice all tear the pairing down uniformly.
+  if (permanent.soulbondPartner) {
+    next = updatePermanentSafe(next, permanent.soulbondPartner, (p) => ({ ...p, soulbondPartner: null }));
+  }
   if (permanent.attachedTo) {
     next = updatePermanentSafe(next, permanent.attachedTo, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== permanent.id) }));
   }

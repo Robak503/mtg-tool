@@ -34,7 +34,7 @@ import {
   counterPtDelta,
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility } from "./staticAbilityParser.js";
+import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
 import { parseProtectionColors } from "./protection.js";
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
@@ -375,6 +375,22 @@ export function staticEffectsOf(state, permanent) {
         affects: { mode: "fixed", permanentIds: [permanent.attachedTo] },
         duration: { kind: "permanent" },
       });
+    }
+  }
+  // SOULBOND (BLITZ SL-1, CR 702.95b/e): a PAIRED soulbond creature confers its bond ability on BOTH itself and
+  // its partner. Emit the bond descriptors (parseSoulbondBond — the SAME parse coverage.soulbondCardTier gates
+  // on, so metric ≡ runtime) FIXED to both ids, but ONLY while the pairing is LIVE — the partner must still be
+  // on THIS controller's battlefield AND a (printed) creature. The explicit teardown (detachPermanentFromAll on
+  // leave, control.applyGainControl on control-change) clears soulbondPartner, and this liveness guard is the
+  // belt-and-suspenders that makes any stale pointer inert (never a wrongly-persisting bond FP, CR 702.95e). A
+  // PRINTED-creature check (not layer-aware) keeps this recursion-free — staticEffectsOf runs INSIDE the layer
+  // collect — and is exact for the corpus (every soulbond carrier + its corpus partners are printed creatures).
+  if (permanent.soulbondPartner) {
+    const partner = findPerm(state, permanent.soulbondPartner);
+    if (partner && partner.controller === permanent.controller
+        && /\bCreature\b/.test(typeLineOf(card)) && /\bCreature\b/.test(typeLineOf(partner.card))) {
+      const bond = parseSoulbondBond(card);
+      if (bond) for (const e of bond) partials.push({ ...e, affects: { mode: "fixed", permanentIds: [permanent.id, permanent.soulbondPartner] } });
     }
   }
   if (!partials.length) return [];
