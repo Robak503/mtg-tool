@@ -78,7 +78,11 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
   // its zone at cast), so this is a direct append to the exile zone (a token/copy already returned above — it
   // ceases to exist, never exiled). Everything else about GY-1 (no disposition → no-op; eliminated owner → no-op)
   // is identical.
-  if (selfExile) {
+  // FLASHBACK (CR 702.34a): `disposition.exile` (set by applyCastSpell for a flashback cast) diverts the SAME
+  // way — the card leaves the stack to EXILE, not the graveyard, whether it resolved or fizzled (this function is
+  // the disposition site for BOTH). The flag rides the disposition object, so it survives every resume across a
+  // resolution-time choice (the resume threads spellToGraveyard verbatim). Prevents the recast-from-graveyard FP.
+  if (selfExile || disposition?.exile) {
     const next = {
       ...state,
       players: { ...state.players, [playerId]: { ...player, exile: [...(player.exile || []), card] } },

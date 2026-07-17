@@ -487,7 +487,12 @@ function applyCastSpell(state, action) {
       // Arbiter-routed spells (SPELL_NOOP / low-confidence) keep vanishing — the Arbiter owns their
       // disposition (a blanket GY would FP on unparsed self-exile riders). Storm copies strip the
       // param at clone (applyCopySpell) — a copy ceases to exist instead (CR 707.10a).
-      params.spellToGraveyard = { playerId: action.playerId, card };
+      // FLASHBACK (CR 702.34a): a spell cast for its flashback cost (action.flashbackCast) is EXILED as it
+      // leaves the stack instead of hitting the graveyard — the `exile:true` rider rides the disposition
+      // object, so finishSpellResolution (resolution/fizzle/resume) and counterSpellById (counter) all divert
+      // it to exile. Without this the card would return to the graveyard → the flashback offer would re-fire
+      // (an infinite-recast false positive — the cardinal forbidden bug for this mechanic).
+      params.spellToGraveyard = { playerId: action.playerId, card, ...(action.flashbackCast ? { exile: true } : {}) };
     }
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   } else if (isPermanentSpell(castCard)) {

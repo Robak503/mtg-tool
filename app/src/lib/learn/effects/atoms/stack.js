@@ -124,7 +124,12 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   const isSpell = targetObj.kind === "spell"; // an ability is not a card → no zone change on counter
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
   const player = state.players[controller];
-  const dest = counterDest || (exileInstead ? "exile" : "graveyard"); // exileInstead → counterDest:"exile" alias
+  // FLASHBACK (CR 702.34a): a spell cast for its flashback cost is exiled — not graveyard'd — when it leaves the
+  // stack for ANY reason, including a counter. The `exile:true` rider on the cast's spellToGraveyard disposition
+  // rides the stack object's payload, so a countered flashback spell diverts to exile here (else it would return
+  // to the graveyard and the flashback offer would re-fire — the infinite-recast FP).
+  const flashbackExile = !!targetObj.payload?.params?.spellToGraveyard?.exile;
+  const dest = counterDest || (exileInstead ? "exile" : (flashbackExile ? "exile" : "graveyard")); // exileInstead → counterDest:"exile" alias
   let next = {
     ...state,
     stack: newStack,

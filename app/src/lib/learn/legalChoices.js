@@ -2321,6 +2321,68 @@ function actionsPlayImpulseFromExile(state, playerId) {
  * printed "once". Mirrors actionsPlayFromTopOfLibrary — the enforcement that keeps the credited static
  * from being a no-op (CREED). "Cast a spell" — lands are never castable (CR 601.2), so they're excluded.
  */
+// FLASHBACK (CR 702.34a) — parse the "Flashback {cost}" MANA cost off a card's oracle: the pip run immediately
+// after the keyword, terminated by a reminder paren / a period / the line end. Returns the cost STRING (e.g.
+// "{2}{U}") or null. PARKS (returns null, all SAFE FNs the strip already withheld the recast for):
+//   • a NON-MANA em-dash cost — "Flashback—Sacrifice three creatures" (Dread Return), "Flashback—{1}{U}, Pay 3
+//     life" (Deep Analysis): `flashback[ \t]+\{` never matches an em-dash / the comma+text breaks the pip run.
+//   • an X flashback cost — "Flashback {X}{R}{R}{R}" (Devil's Play): parseManaCost(cost).hasX → null.
+//   • a flashback-line cost-reduction rider — "Flashback {8}{W}{W}. This spell costs {X} less…" (Visions of
+//     Glory): the ". This" after the pips fails the terminator, so the whole line doesn't match.
+// These 9 (of 94 native-body flashback cards) stay NATIVE on their body; only their graveyard recast is withheld.
+function parseFlashbackManaCost(card) {
+  const oracle = card?.oracle || card?.oracle_text || "";
+  const m = oracle.match(/(?:^|\n)[ \t]*flashback[ \t]+((?:\{[^}]+\}[ \t]*)+?)[ \t]*(?:\(|\.?[ \t]*(?:\n|$))/i);
+  if (!m) return null;
+  const cost = m[1].trim();
+  if (!/^(?:\{[^}]+\}[ \t]*)+$/.test(cost)) return null;      // defensive: a pure pip run only
+  if (parseManaCost(cost).hasX) return null;                  // X flashback parked (minimal version)
+  return cost;
+}
+
+/**
+ * FLASHBACK (CR 702.34a) — cast an instant/sorcery from YOUR GRAVEYARD for its "Flashback {cost}" mana cost
+ * instead of its mana cost (CR 702.34a), then EXILE it as it leaves the stack (CR 702.34a — resolution, fizzle,
+ * or counter). This is the runtime PLAY-QUALITY half of the flashback strip: coverage already credits a
+ * flashback card native on its BODY (parser.stripCastKeywordLines drops the flashback line so the from-hand body
+ * flips native, the graveyard recast a documented SAFE false-negative). This lane makes that recast REAL.
+ *
+ * LOCKSTEP: the offer is gated on the classifier's OWN native verdict (isNativeTier(classifyCard(card))) — the
+ * metric's authority (mirroring the adventure / split gate) — so a flashback card is graveyard-castable IFF its
+ * body is a modeled program. The runtime offer and the tier metric can never disagree; a body-only / arbiter
+ * flashback card (unmodeled effect — Cabal Therapy, Conflagrate) is NEVER offered, so we never cast-then-Arbiter
+ * a spell for an engine-paid flashback cost (THE CREED, no false positive).
+ *
+ * Infra reuse: we project the card onto a FACE view whose mana cost IS the flashback cost and run it through the
+ * SHARED cast builder (fromZone "graveyard", the same path actionsCastMilledFromGraveyard uses), so affordability
+ * / target / modal / additional-cost / instant-vs-sorcery timing enumerate EXACTLY like any spell. Each emitted
+ * action is stamped `flashbackCast:true`; the dispatcher tags the spellToGraveyard disposition `exile:true`, which
+ * finishSpellResolution (resolution + fizzle + resume) and counterSpellById (counter) honor — so the card lands in
+ * EXILE at every leave-stack site (never the graveyard → never re-offered → the recast is truly once).
+ */
+function actionsCastFlashbackFromGraveyard(state, playerId) {
+  const player = state.players[playerId];
+  const gy = player?.graveyard || [];
+  if (!gy.length) return [];
+  const actions = [];
+  for (const card of gy) {
+    if (isLand(card)) continue;
+    const fbCost = parseFlashbackManaCost(card);
+    if (!fbCost) continue;                                    // no plain-mana flashback cost → not offered (SAFE FN)
+    if (!isNativeTier(classifyCard(card))) continue;         // THE CREED / lockstep: modeled body only
+    // Project the flashback cost as the payable cost; body/type/oracle are unchanged (the builder's
+    // parseCastProgram strips the flashback line to parse the body, and manaCostOf reads the overridden cost —
+    // set BOTH `mana` and `mana_cost` since manaCostOf prefers `mana`). The mana VALUE stays the PRINTED cost
+    // (CR 202.3b — an alternative cost doesn't change mana value), so it's restamped after the builder runs.
+    const face = { ...card, mana: fbCost, mana_cost: fbCost };
+    const printedMv = totalCmc(parseManaCost(manaCostOf(card)));
+    for (const a of castActionsFromZone(state, playerId, [face], "graveyard", null, false)) {
+      actions.push({ ...a, flashbackCast: true, faceCard: face, cmc: printedMv });
+    }
+  }
+  return actions;
+}
+
 function actionsCastMilledFromGraveyard(state, playerId) {
   const player = state.players[playerId];
   if (state.activePlayer !== playerId) return []; // "during each of YOUR turns"
@@ -2848,6 +2910,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
+    actions.push(...actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
     actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
     actions.push(...actionsActivateGraveyardExile(state, playerId)); // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
