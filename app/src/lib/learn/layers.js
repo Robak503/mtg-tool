@@ -615,6 +615,25 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
       _ptPredicateInProgress.delete(candidate.id);
     }
   }
+  // TOUGHNESS>POWER predicate (BLITZ DN-1 — Ancient Lumberknot's "each creature you control WITH TOUGHNESS
+  // GREATER THAN ITS POWER assigns combat damage equal to its toughness …"): the candidate's LIVE
+  // layer-aware toughness must EXCEED its power, re-read every query so a mid-combat pump/debuff moves a
+  // creature in or out of the effect (CR 611.2c). Mirrors the powerOrToughnessAtMost predicate's recursion
+  // guard exactly — this read re-enters deriveCharacteristics for the SAME candidate (line 896 buckets every
+  // effect through effectAffects); the guard bails as UNSELECTED on re-entry, which is correct because this
+  // static is P/T-inert (l6IndexOf never processes it), so it can't influence the nested P/T pass. An
+  // unsizeable stat (NaN) fails the compare → never a wrongly-granted toughness substitution (FN-safe).
+  if (selector.toughnessGreaterThanPower) {
+    if (_ptPredicateInProgress.has(candidate.id)) return false;
+    _ptPredicateInProgress.add(candidate.id);
+    try {
+      const pw = permanentPower(state, candidate.id);
+      const tf = permanentToughness(state, candidate.id);
+      if (!(Number.isFinite(pw) && Number.isFinite(tf) && tf > pw)) return false;
+    } finally {
+      _ptPredicateInProgress.delete(candidate.id);
+    }
+  }
   // CHOSEN-TYPE anthem (CR 614.12 — Banner of Kinship / Door of Destinies "Creatures you control of the
   // chosen type …"). The candidate must carry the SOURCE permanent's stored chosenType (subtype OR
   // changeling). controllerScope:"you" above already restricted to the source's controller. An unset
@@ -1315,6 +1334,31 @@ export function diesTriggerMultiplierCount(state, controllerId) {
     if (src && src.controller === controllerId) n += 1;
   }
   return n;
+}
+
+/**
+ * ASSIGNS-COMBAT-DAMAGE-BY-TOUGHNESS (BLITZ DN-1 — Doran, the Siege Tower; Belligerent Brontodon; Ancient
+ * Lumberknot; modifies CR 510.1a — combat damage is otherwise assigned equal to power): does a LIVE
+ * "assigns combat damage equal to its toughness rather than its power"
+ * static currently apply to the permanent `permanentId`? Walks the same continuous-effect collection the
+ * layer engine uses, filters to the rule-modifying `assignsCombatDamageWithToughness` statics
+ * (staticAbilityParser emits one per unconditional carrier), and matches the affected creatures via the
+ * SHARED effectAffects/matchesSelector (so the GLOBAL / "you control" / toughness>power / self scopes are
+ * all honored, layer-aware). Consumed by combatResolution.resolveCombatDamage at the damage-amount site to
+ * substitute creatureToughness for creaturePower for an affected DEALING creature. Pure. Returns false on the
+ * empty board (no allocation) → a Doran-less combat is byte-identical to before this seam. Kept HERE (not
+ * combatResolution) because only this module owns effectAffects/matchesSelector.
+ */
+export function assignsCombatDamageWithToughness(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return false;
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return false;
+  for (const e of board) {
+    if (e.op?.layerOp !== "assignsCombatDamageWithToughness") continue;
+    if (effectAffects(e, perm, state)) return true;
+  }
+  return false;
 }
 
 /**

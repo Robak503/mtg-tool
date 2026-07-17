@@ -49,7 +49,7 @@ import {
   consumeShieldCounter,
   preventionShieldsFor,
 } from "./gameState.js";
-import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentProtectionColors, assignsCombatDamageWithToughness } from "./layers.js";
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { selfDamagePrevention, attachedDamagePrevention, mayAssignAsUnblocked } from "./combatEvasion.js";
@@ -189,6 +189,21 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const shieldPrevents = (id) => { const lk = findPermanent(state, id); return !!(lk && hasShieldCounter(lk.permanent)); };
   const shieldConsumed = new Set();
 
+  // ASSIGNS-DAMAGE-BY-TOUGHNESS (BLITZ DN-1, CR 510.1a — Doran / Belligerent Brontodon / Ancient Lumberknot):
+  // the AMOUNT of combat damage a creature assigns. CR 510.1a assigns combat damage equal to POWER; a live
+  // "assigns combat damage equal to its toughness rather than its power" static replaces that with the
+  // creature's layer-aware effective TOUGHNESS (assignsCombatDamageWithToughness reads the static via the
+  // shared selector machinery, scoped to the printed subject). Only the assigned MAGNITUDE changes — a
+  // blocker's lethal-need (its own toughness) and every keyword branch (first/double strike, trample,
+  // deathtouch, lifelink, infect) read this substituted amount consistently. Floored at 0 (CR 510.1a — a
+  // creature that would assign 0 or less doesn't assign at all). Byte-identical on a Doran-less board:
+  // assignsCombatDamageWithToughness returns false for the empty/no-static board, so this collapses to the
+  // exact `Math.max(0, creaturePower(...))` the two deal sites used before this seam.
+  const combatDamageAmount = (perm) =>
+    Math.max(0, assignsCombatDamageWithToughness(state, perm.id)
+      ? creatureToughness(perm, state)
+      : creaturePower(perm, state));
+
   // ── Compute damage from the pre-step board (simultaneous within the step) ──
   const dmgToPermanent = {};   // permanentId -> amount
   const deathtouched = new Set();
@@ -302,7 +317,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     const lookup = combatant(att.permanentId);
     if (!lookup || !dealsThisStep(lookup.permanent)) continue;
     const attackerId = lookup.permanent.id;
-    const power = Math.max(0, creaturePower(lookup.permanent, state));
+    const power = combatDamageAmount(lookup.permanent);
     const deathtouch = permanentHasKeyword(state, attackerId, "Deathtouch");
     const trample = permanentHasKeyword(state, attackerId, "Trample");
     const lifelink = permanentHasKeyword(state, attackerId, "Lifelink");
@@ -438,7 +453,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     for (const b of (blockersByAttacker[att.permanentId] || [])) {
       const blk = combatant(b.blockerId);
       if (!blk || !dealsThisStep(blk.permanent)) continue;
-      const bpow = Math.max(0, creaturePower(blk.permanent, state));
+      const bpow = combatDamageAmount(blk.permanent);
       const bdt = permanentHasKeyword(state, blk.permanent.id, "Deathtouch");
       const blifelink = permanentHasKeyword(state, blk.permanent.id, "Lifelink");
       // KW-PROTECTION (CR 702.16e): if the attacker has protection from the blocker's color, the blocker's

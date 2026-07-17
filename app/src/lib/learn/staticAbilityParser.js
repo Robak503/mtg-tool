@@ -1014,6 +1014,46 @@ function parseClause(clause, out, selfName, selfType) {
     return; // handled — a modeled rule-modifying static (the coverage residue check credits it via `produced.length`)
   }
 
+  // ── ASSIGNS-COMBAT-DAMAGE-BY-TOUGHNESS (BLITZ DN-1 — Doran, the Siege Tower; Belligerent Brontodon;
+  //    Ancient Lumberknot) ────────────────────────────────────────────────────────────────────────────
+  // "<subject> assigns combat damage equal to its toughness rather than its power" (modifies CR 510.1a —
+  // combat damage is otherwise assigned equal to POWER) — a rule-modifying STATIC that changes the AMOUNT of
+  // combat damage a creature assigns (its LAYER-AWARE effective toughness in place of its power), NOT a
+  // layer-6/7 P/T or keyword grant. Emitted as a
+  // continuous effect carrying op.layerOp:"assignsCombatDamageWithToughness"; collectContinuousEffects picks
+  // it up while the source is on the battlefield and combatResolution.resolveCombatDamage reads
+  // layers.assignsCombatDamageWithToughness(state, id) at the damage-amount site, substituting
+  // creatureToughness for creaturePower for every affected dealing creature. The op is INERT in the layer
+  // engine (l6IndexOf skips any op whose layerOp isn't add/removeKeyword/Protection/Ward — the exact
+  // diesTriggerMultiplier precedent), so P/T + keyword derivation are byte-identical.
+  //
+  // ONLY the UNCONDITIONAL board-static scopes flip: GLOBAL ("each creature"), CONTROLLER ("each creature
+  // you control" / plural "creatures you control … assign …"), a per-creature TOUGHNESS>POWER predicate
+  // ("… with toughness greater than its power …"), and SELF ("this creature"). PARKED as residue → body-only
+  // (a safe FN): the "during your turn" gated form (Baldin), the "… and can attack as though it didn't have
+  // defender" / "with defender" compounds (Arcades/High Alert/Felothar), the ATTACHED "enchanted/equipped
+  // creature …" grants (the parseAttachedClause path, not this splitter), and the TEMPORARY "target creature
+  // … this turn" activated/triggered grants — none is an unconditional board static, so none is matched here.
+  {
+    const TAIL = "assigns? combat damage equal to (?:its|their) toughness rather than (?:its|their) power";
+    if (new RegExp(`^each creature ${TAIL}$`).test(c)) {
+      out.push({ layer: 6, op: { layerOp: "assignsCombatDamageWithToughness" }, affects: { mode: "dynamic", selector: { cardTypes: ["Creature"] } }, duration: { kind: "permanent" } });
+      return;
+    }
+    if (new RegExp(`^(?:each creature you control|creatures you control) ${TAIL}$`).test(c)) {
+      out.push({ layer: 6, op: { layerOp: "assignsCombatDamageWithToughness" }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"] } }, duration: { kind: "permanent" } });
+      return;
+    }
+    if (new RegExp(`^(?:each creature you control|creatures you control) with toughness greater than (?:its|their) power ${TAIL}$`).test(c)) {
+      out.push({ layer: 6, op: { layerOp: "assignsCombatDamageWithToughness" }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], toughnessGreaterThanPower: true } }, duration: { kind: "permanent" } });
+      return;
+    }
+    if (new RegExp(`^this creature ${TAIL}$`).test(c)) {
+      out.push({ layer: 6, op: { layerOp: "assignsCombatDamageWithToughness" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
+  }
+
   // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
   // "<Subtype> spells you cast cost {N} less to cast" reduces the GENERIC portion of the matching spell's
   // cost (CR 601.2f — effects may reduce the cost to pay), floored at {0} when the cost is applied at the

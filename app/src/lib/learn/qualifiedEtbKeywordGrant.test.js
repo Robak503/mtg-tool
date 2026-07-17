@@ -99,13 +99,16 @@ describe("QUALIFIED-ETB KEYWORD-GRANT — classifyCard", () => {
     })).toBe("native-trigger");
   });
 
-  it("CREED: Arcades stays body-only — the defender-ETB trigger routes, but the unmodeled combat-static is residue", () => {
-    // The qualified-ETB trigger is now detected + routes, but Arcades carries an unmodeled "assigns combat
-    // damage equal to its toughness" static → all-or-nothing keeps the WHOLE card body-only (NOT over-claimed).
+  it("CREED: Arcades stays body-only — the defender-ETB trigger routes, but the 'with defender … can attack' compound is residue", () => {
+    // The qualified-ETB trigger is now detected + routes. The unconditional "assigns combat damage equal to
+    // its toughness" static is now modeled (BLITZ DN-1) — but REAL Arcades scopes it to creatures "with
+    // defender" AND folds in "can attack as though it didn't have defender", a compound clause the DN-1
+    // recognizer does NOT match (anchored to the unconditional forms only). That compound is the unmodeled
+    // residue → all-or-nothing keeps the WHOLE card body-only (NOT over-claimed).
     expect(classifyCard({
       name: "Arcades, the Strategist", type: "Legendary Creature — Elder Dragon", mana: "{1}{G}{W}{U}",
-      oracle: "Vigilance\nWhenever a creature you control with defender enters, draw a card.\n" +
-        "Each creature you control assigns combat damage equal to its toughness rather than its power.",
+      oracle: "Flying, vigilance\nWhenever a creature you control with defender enters, draw a card.\n" +
+        "Each creature you control with defender assigns combat damage equal to its toughness rather than its power and can attack as though it didn't have defender.",
     })).toBe("body-only");
   });
 
