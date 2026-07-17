@@ -1319,6 +1319,51 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
+  // ── BLANKET COMBAT RESTRICTION (BLITZ ST-1 — Bedlam "Creatures can't block"; Peacekeeper "Creatures
+  // can't attack"; Light of Day "Black creatures can't attack or block"; Razorjaw Oni / Magistrate's
+  // Veto — color-filtered) — a BOARD-WIDE static barring a class of creatures from attacking and/or
+  // blocking OUTRIGHT (CR 508.1a attack restriction / 509.1b block restriction; no cost, no player
+  // scope, no attacker subset). Emitted as layer-6 addKeyword grant(s) of the cantAttack / cantBlock
+  // pseudo-keywords over a DYNAMIC selector (all creatures, or a color-filtered subset), read
+  // LAYER-AWARE at the two declaration gates — legalChoices.actionsDeclareAttacker's cantAttack filter
+  // and combatEvasion.canBlockAttacker's cantBlock read (permanentHasKeyword) — the SAME enforcement
+  // the PACIFISM attach class (parseAttachedClause) uses, so the metric and the runtime can't drift.
+  // The grant lifts LIVE when the source leaves (statics are re-collected per state; effectAffects's
+  // dynamic branch drops the effect once the source permanent is gone).
+  //
+  // STRICTLY BLANKET ONLY (CREED — a scoped/conditional restriction the selector/keyword can't express
+  // is a forbidden FP, so it stays body-only, a safe FN). The ^…$ anchor after "attack"/"block" is what
+  // rejects the unmodeled cousins, all confirmed against the corpus:
+  //   • PLAYER-SCOPED "…can't attack YOU / …planeswalkers you control [unless …]" (Blazing Archon,
+  //     Ghostly Prison / Propaganda family) — cantAttack is a BLANKET keyword (barred from attacking
+  //     ANY defender). There is no player-scoped attack-restriction machinery, so using it here would
+  //     over-bar attacks on OTHER players — the anchor rejects any "you"/"planeswalkers…"/"unless…" tail.
+  //   • ATTACKER-SUBSET "…can't block creatures you control" (Heat Wave) — those creatures CAN still
+  //     block other players' attackers; the anchor rejects the trailing subject.
+  //   • STATE-CONDITIONAL "untapped/attacking/tapped creatures …" (Siege Elemental) — not a color word,
+  //     so the subject never matches (no tapped/attacking-state cantBlock selector exists).
+  //   • NEGATED colors ("nonblack creatures …"), supertypes, or a P/T predicate ("power N or less can't
+  //     attack you") — not in the color set and/or carry a "you" tail → body-only (safe FN).
+  // "White creatures and blue creatures" is a color UNION (CR 105.2 — a creature that's white OR blue is
+  // restricted), matched by the selector's colors[] under matchesSelector's `.some` (OR) semantics.
+  {
+    const crRestrictM = c.match(/^(creatures|(?:white|blue|black|red|green) creatures(?: and (?:white|blue|black|red|green) creatures)*) can't (attack or block|attack|block)$/);
+    if (crRestrictM) {
+      const subject = crRestrictM[1];
+      const which = crRestrictM[2];
+      const selector = { cardTypes: ["Creature"] };
+      if (subject !== "creatures") {
+        // Color-filtered subject — collect each named color (de-duped) into a WUBRG selector; matchesSelector
+        // ORs them, so a creature of ANY listed color is restricted (never an over-narrow AND intersection).
+        const colors = [...new Set([...subject.matchAll(/\b(white|blue|black|red|green)\b/g)].map((m) => COLOR_WORDS[m[1]]))];
+        selector.colors = colors;
+      }
+      if (which !== "block") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantAttack" }, affects: { mode: "dynamic", selector }, duration: { kind: "permanent" } });
+      if (which !== "attack") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantBlock" }, affects: { mode: "dynamic", selector }, duration: { kind: "permanent" } });
+      return;
+    }
+  }
+
   // ── CAST-LIMIT (BLITZ RL-1 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric, CR 604.2):
   // "Each player can't cast more than one spell each turn." Emitted as a coverage MARKER (the
   // blockRestriction pattern — no `affects`/`op`, the layer engine ignores it). The RUNTIME enforcement
