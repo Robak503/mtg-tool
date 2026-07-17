@@ -39,13 +39,15 @@ describe("DG-1 — detect + sentinel parse + coverage flips", () => {
     // the pre-existing IMMEDIATE form still parses to the plain destroy (no shadowing either way)
     expect(parseEffectClause("destroy the triggering creature", "Creature").atoms).toEqual([{ op: "destroy", target: "thatCreature" }]);
   });
-  it("whole-card flips: Deathgazer + Dread Specter → native-trigger; Gorgon Recluse PARKS on its madness line", () => {
+  it("whole-card flips: Deathgazer + Dread Specter + Gorgon Recluse → native-trigger", () => {
     expect(classifyCard(DEATHGAZER)).toBe("native-trigger");
     expect(classifyCard({ name: "Dread Specter", type: "Creature — Specter", mana: "{3}{B}", power: "2", toughness: "2", oracle: BASILISK_LINE })).toBe("native-trigger");
-    // Gorgon Recluse carries the SAME trigger plus a Madness line — the permanent classify path has no
-    // madness handling (a madness-only creature is body-only), so the whole card stays parked (CREED).
+    // GRADUATED (BLITZ MD-1): this pin originally parked Gorgon Recluse on its Madness line — the
+    // permanent classify path had no madness handling. MD-1's reMadnessCost credit (coverage.js — the
+    // ninjutsu/morph rationale + the spell path's versioned strip) covers the bare cost line, so the
+    // whole card now legitimately flips on DG-1's trigger. madnessPermanent.test.js owns the MD-1 pins.
     expect(classifyCard({ name: "Gorgon Recluse", type: "Creature — Gorgon", mana: "{3}{B}", power: "2", toughness: "2",
-      oracle: BASILISK_LINE + "\nMadness {B}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)" })).toBe("body-only");
+      oracle: BASILISK_LINE + "\nMadness {B}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)" })).toBe("native-trigger");
   });
   it("FN guards: the non-Wall / bare / color-pair siblings never synthesize and stay parked", () => {
     const cockatrice = { name: "Cockatrice", type: "Creature — Cockatrice", power: "2", toughness: "4",

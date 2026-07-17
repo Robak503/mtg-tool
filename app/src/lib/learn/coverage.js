@@ -251,6 +251,7 @@ export function isKeywordOnly(oracle, name) {
     reDashCost.test(c) ||
     reDisguiseCost.test(c) ||
     reAltCastKeywordCost.test(c) ||
+    reMadnessCost.test(c) || // MD-1 — madness on a permanent: a discard-window cast option, vacuous for the hard-cast (the spell path's versioned strip, the ninjutsu/morph rationale)
     rePrototypeCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
@@ -331,6 +332,17 @@ const reDisguiseCost = /^disguise (?:\{[^}]+\})+$/;
 // correctly — the only unmodeled part is the optional alt entry (the blitz haste+draw+sac / the deferred foretell
 // cast), which never applies on a hard cast. The caller still validates all OTHER text all-or-nothing.
 const reAltCastKeywordCost = /^(?:foretell|blitz|freerunning) (?:\{[^}]+\})+$/;
+// KW-MADNESS on a PERMANENT (BLITZ MD-1, CR 702.35 — Basking Rootwalla / Arrogant Wurm / Gorgon Recluse,
+// 21 census carriers blocked by this line alone): madness is a DISCARD-replacement cast option — it does
+// NOTHING on the battlefield, and a normal hard-cast resolves the card exactly as printed. The engine
+// doesn't offer the discard-window cast (a discarded madness card just goes to the graveyard — the
+// unmodeled part is an OPTIONAL alternative entry the player loses, never a mis-resolution), the SAME
+// versioned trade the spell path has always shipped (parser.stripCastKeywordLines strips madness-alone
+// lines — Fiery Temper is native-spell today) and the same rationale that credits ninjutsu/morph/sneak
+// above. The clause split already isolates a compound line's other keywords (each judged on its own gate,
+// an unmodeled one → body-only), so only the bare cost clause is credited. Anchored ^…$ brace-cost tail —
+// a madness-referencing static/trigger never matches.
+const reMadnessCost = /^madness (?:\{[^}]+\})+$/;
 // KW-PROTOTYPE (CR 702.161) — an artifact creature with a SECOND, smaller castable profile ("Prototype {cost} —
 // X/Y (…different mana cost, color, and size; keeps its abilities and types)"). Hard-casting at the printed
 // (full) cost yields the printed (full) creature — the prototype profile is the OPTIONAL cheaper entry the engine
