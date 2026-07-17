@@ -125,7 +125,14 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // KM-1 (CR 614.1c): an opposing Kismet-class static forces this non-cast entry (reanimate / ramp /
   // detain-return / earthbend-return) in tapped too — every entry path consults the one reader.
   const forcedTapped = tapped || impositionEntersTapped(s2, card, playerId);
-  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped: forcedTapped }), enteredOnTurn: s2.turn, timestamp: ts };
+  // OWNER STAMP (BLITZ SB-2, CR 110.2 / 404.1): a CROSS-PLAYER entry (reanimation out of another player's
+  // graveyard — Ashen Powder / Hymn of Rebirth / the Ink-Eyes saboteur theft) creates a permanent whose
+  // controller is NOT its owner (the zone holder — a player's graveyard contains only their own cards,
+  // CR 404.1). Stamp `owner` so the battlefield-exit chokepoint (gameState.moveCardToZone) routes the
+  // card back to its OWNER's graveyard/hand/library when it dies / is bounced / is tucked (CR 404.1 — a
+  // destroyed object "is put on top of its owner's graveyard"; CR 700.4 — dies = put into a graveyard
+  // from the battlefield). The common same-player entry stamps nothing → byte-identical.
+  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped: forcedTapped }), enteredOnTurn: s2.turn, timestamp: ts, ...(fromPlayerId !== playerId && { owner: fromPlayerId }) };
   // Remove the card from its OWNER's source zone (fromPlayerId), then add the new permanent to the
   // CONTROLLER's battlefield (playerId). Build both player updates from s2 so a same-player move (the
   // common case, fromPlayerId === playerId) composes into one object and a cross-player move (reanimation
@@ -196,16 +203,17 @@ export function applyReanimate(state, atom, ctx) {
     // following "you lose life equal to that card's mana value" atom reads it (via state.revealedCardMV,
     // amountCount kind:"revealedCardMV") — mirrors reveal-top-to-hand's stamp. Only when the matcher set stampMv.
     if (atom.stampMv) {
-      const fromPid = (atom.anyGraveyard || atom.opponentGraveyard) ? (t.controller || ctx.controller) : ctx.controller;
+      const fromPid = (atom.anyGraveyard || atom.opponentGraveyard || atom.damagedPlayerGraveyard) ? (t.controller || ctx.controller) : ctx.controller;
       const gyCard = (next.players[fromPid]?.graveyard || []).find((c) => c.id === t.id);
       if (gyCard) lastMv = reanimateCardMv(gyCard);
     }
     // "from your graveyard" → the card lives in (and is removed from) the CASTER's graveyard. "from a
-    // graveyard" (anyGraveyard) / "from an opponent's graveyard" (opponentGraveyard) → it lives in the
-    // TARGET's owner graveyard (t.controller, stamped at enumeration, possibly an opponent), but enters
-    // under the CASTER's control. fromPlayerId routes the removal to the right graveyard; playerId (the
-    // caster) always gets the entering permanent.
-    const crossZone = atom.anyGraveyard || atom.opponentGraveyard;
+    // graveyard" (anyGraveyard) / "from an opponent's graveyard" (opponentGraveyard) / "from that player's
+    // graveyard" (damagedPlayerGraveyard, BLITZ SB-2 — the pool was already narrowed to the just-combat-
+    // damaged player at enumeration) → it lives in the TARGET's owner graveyard (t.controller, stamped at
+    // enumeration, possibly an opponent), but enters under the CASTER's control. fromPlayerId routes the
+    // removal to the right graveyard; playerId (the caster) always gets the entering permanent.
+    const crossZone = atom.anyGraveyard || atom.opponentGraveyard || atom.damagedPlayerGraveyard;
     const fromPlayerId = crossZone ? (t.controller || ctx.controller) : ctx.controller;
     // entersTapped (Tato Farmer's milled-land reanimate — "…onto the battlefield under your control TAPPED"):
     // rides enterCardFromZone's tapped param; every existing reanimate leaves it unset → false (byte-identical).
@@ -309,6 +317,24 @@ export function graveyardReturnClauseParser(clause) {
   // indestructible / proliferate rider fails the exact `$` anchor → low → Arbiter (CREED whole-card).
   if (/^put target creature card from a graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true };
   if (/^put target creature card from an opponent's graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", opponentGraveyard: true };
+  // DAMAGED-PLAYER REANIMATE (BLITZ SB-2, CR 608.2c "that player" back-reference) — the SABOTEUR graveyard
+  // theft "put target creature card from that player's graveyard onto the battlefield under your control"
+  // (Ink-Eyes, Servant of Oni; Scion of Darkness — the ONLY corpus carriers of this exact anchored shape;
+  // both wrap it in the α2 "you may"). COMPOSES SB-1's damagedPlayerGraveyard pool (atomTargetSpec →
+  // spellEffects.addGraveyardCards enumerates ONLY ctx.damagedPlayerId's graveyard; absent referent → EMPTY
+  // pool, never a wrong graveyard) with the REANIMATE-FROM-ANY cross-zone resolver directly above
+  // (applyReanimate's fromPlayerId routes the removal to the damaged player's graveyard; the permanent
+  // enters under the TRIGGER CONTROLLER's battlefield — enterCardFromZone stamps `owner` so a later death
+  // returns the card to its OWNER's graveyard, CR 110.2 / 404.1). The atom-level who:"damagedPlayer" pins
+  // the combat referent (triggerRouting.combatDamageReferentSatisfied + coverage's spell guard): native
+  // ONLY off combatDamageToPlayer — a spell / non-combat trigger carrying this clause stays Arbiter (SAFE
+  // FN). Enemy-side intent (the pool holds only the damaged opponent's cards — CR 506.2a, a defending
+  // player is always one of the attacking player's opponents). Exact `$` anchor — a missing creature
+  // filter, a count ("up to two"), a "tapped" / counter rider, or a different controller clause → null →
+  // LOW → Arbiter (FN-safe; Sepulchral Primordial / Zareth San-class variants park honestly).
+  if (/^put target creature card from that player's graveyard onto the battlefield under your control$/.test(t)) {
+    return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", damagedPlayerGraveyard: true, who: "damagedPlayer" };
+  }
   // MILLED-LAND REANIMATE (Tato Farmer — SHELF S7): "put target land card in a graveyard that was milled
   // this turn onto the battlefield under your control tapped". The SAME cross-graveyard reanimate resolver
   // (fromPlayerId routes the removal; entersTapped rides enterCardFromZone), narrowed by the
@@ -664,7 +690,12 @@ export function applyExileUntilLeaves(state, atom, ctx) {
     const card = lk.permanent.card;
     next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: t.id });
     exiled.push(t.id);
-    if (!card?.token) links.push({ cardId: card.id, ownerId: lk.controller });
+    // OWNER-LINK (SB-2 desk completion): a STOLEN permanent (owner-stamped by a cross-player reanimation)
+    // has its exile card OWNER-routed by moveCardToZone, so the link must record the OWNER — else the
+    // return one-shot (CR 610.3; enterCardFromZone reads exactly players[ownerId].exile) misses the card
+    // and it strands in exile forever. Owner-return also matches the class's printed text ("return that
+    // card to the battlefield under its owner's control"). No owner stamp → controller, unchanged.
+    if (!card?.token) links.push({ cardId: card.id, ownerId: lk.permanent.owner && next.players[lk.permanent.owner] ? lk.permanent.owner : lk.controller });
   }
   if (links.length) {
     // Stamp the links on the LIVE source permanent (it may have moved in `next`'s player objects — re-find).

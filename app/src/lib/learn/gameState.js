@@ -647,6 +647,18 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
       : (permanent.printedCard || permanent.card);
 
     const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
+    // OWNER ROUTING (BLITZ SB-2, CR 110.2 / 404.1): a permanent stamped with an `owner` different from the
+    // moving player (a cross-player reanimation — zones.enterCardFromZone stamps it; every other permanent
+    // carries no `owner` field → destPid === playerId, byte-identical) sends its unwrapped CARD to the
+    // OWNER's destination zone: dies → its owner's graveyard (CR 404.1 — a destroyed object "is put on top
+    // of its owner's graveyard"; CR 700.4 — dies = put into a graveyard from the battlefield), bounce → its
+    // owner's hand, tuck → its owner's library. The PERMANENT is still removed from the
+    // controller's battlefield (it lives there); only the card's landing zone re-routes. A stale/eliminated
+    // owner falls back to the controller (never a throw). Every battlefield exit funnels through here
+    // (destroyLethalCreatures, sacrifice, destroy/exile resolvers, the legend/0-loyalty SBAs), so the
+    // owner discipline can't drift per-path.
+    const destPid = (toZone !== "battlefield" && permanent.owner && permanent.owner !== playerId && state.players[permanent.owner])
+      ? permanent.owner : playerId;
     let nextDest;
     if (toZone === "battlefield") {
       // Permanent moves to battlefield from battlefield — weird but possible (blinks).
@@ -659,22 +671,25 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
       // as printed — we simply DON'T add the token card to the destination, so it vanishes instead of
       // persisting as a castable card in hand or a body in the graveyard. Without this, every bounce / exile /
       // tuck / death leaked the token into a public zone (pre-existing engine-wide gap; pollutes self-play data).
-      nextDest = player[toZone];
+      nextDest = state.players[destPid][toZone];
     } else {
       // Unwrapping: drop permanent state, keep the card. `toTop` (tuck-to-top-of-library) prepends
       // instead of appending — library index 0 is the TOP (drawCardEffect slices from the front).
-      nextDest = toTop ? [card, ...player[toZone]] : [...player[toZone], card];
+      nextDest = toTop ? [card, ...state.players[destPid][toZone]] : [...state.players[destPid][toZone], card];
     }
-    let result = withPlayer(state, playerId, p => ({
-      ...p,
-      [fromZone]: nextSource,
-      [toZone]: nextDest,
-    }));
+    let result = destPid === playerId
+      ? withPlayer(state, playerId, p => ({
+          ...p,
+          [fromZone]: nextSource,
+          [toZone]: nextDest,
+        }))
+      : withPlayer(withPlayer(state, playerId, p => ({ ...p, [fromZone]: nextSource })), destPid, p => ({ ...p, [toZone]: nextDest }));
     // GY-EVENT (SHELF S7): a battlefield→graveyard move puts the unwrapped CARD into the graveyard (dies /
     // destroyed / sacrificed / aura falls off). A token never lands (the vanish branch above) and is not a
-    // card — recordGraveyardEvents' token filter makes that structural.
+    // card — recordGraveyardEvents' token filter makes that structural. gyOwner is the RECEIVING player
+    // (destPid — the card's owner when the owner-routing above re-routed a stolen permanent's death).
     if (toZone === "graveyard") {
-      result = recordGraveyardEvents(result, [{ dir: "enter", card, gyOwner: playerId, zone: "battlefield" }]);
+      result = recordGraveyardEvents(result, [{ dir: "enter", card, gyOwner: destPid, zone: "battlefield" }]);
     }
     // Leaving the battlefield: detach this permanent from its host and unattach anything
     // on it (CR 704.5n/704.5q). A blink (→ battlefield) keeps attachments out of scope here.

@@ -3819,6 +3819,11 @@ export function atomTargetIntent(atom) {
       // enumerate across other players' graveyards — the one-value-per-atom intent model can't promise the
       // flush chooser a provably-correct side, so report "ambiguous" → such a TRIGGER routes to the Arbiter
       // (a SAFE false-negative). The cast path is unaffected (it enumerates + picks interactively / by AI).
+      // DAMAGED-PLAYER reanimate (BLITZ SB-2 — "from that player's graveyard", Ink-Eyes / Scion of Darkness)
+      // IS side-provable: the pool holds only the just-combat-damaged player's cards, and a combat-damaged
+      // player is always an opponent of the attacker's controller (CR 506.2a) → "enemy" (the same rationale
+      // as the SB-1 damagedPlayerGraveyard exile below), so the saboteur trigger routes natively.
+      if (atom.damagedPlayerGraveyard) return "enemy";
       return (atom.anyGraveyard || atom.opponentGraveyard) ? "ambiguous" : "own";
     case "exile-from-graveyard":
       // OPPONENT's-graveyard exile ("exile target card from an opponent's graveyard" — Disposal Mummy, Leonin
