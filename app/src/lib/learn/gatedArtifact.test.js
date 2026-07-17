@@ -15,12 +15,13 @@
  *    the permanent's id. emitGatedEffect drops any non-grantable keyword → LOW. (+8 cards)
  *
  * Total: +31 cards (6498 → 6529 native).
- * CREED: a non-grantable keyword (shadow) drops the whole clause → stays LOW; multi-word gate types
+ * CREED: a non-grantable keyword (banding) drops the whole clause → stays LOW; multi-word gate types
  * rejected → Battle Brawler stays LOW; a death-trigger rider → Fireblade Charger stays LOW.
  * NOTE (rebase onto master b37e86d): menace is now GRANTABLE + enforced at combat (CR 509.1c,
  * GATED-GY-EXT #343), so a gated MENACE grant now flips native — the former "menace stays LOW" guards
  * are updated to native here, mirroring the #354 precedent. (hexproof/shroud also became grantable via
- * STATIC-HEXPROOF-SHROUD; shadow now carries the non-grantable guard — still un-enforced evasion.)
+ * STATIC-HEXPROOF-SHROUD; shadow joined the grantable set in SLIVER INTERIORS SP-1, so BANDING now
+ * carries the non-grantable guard — genuinely un-enforced combat machinery.)
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -110,8 +111,8 @@ describe("GATED-ARTIFACT — CREED: combined gate false-negative guards", () => 
   it("combined gate with menace now flips native (menace grantable + enforced, GATED-GY-EXT #343)", () => {
     expect(classifyCard(cr("As long as you control an artifact, this creature gets +2/+0 and has menace."))).toMatch(/^native/);
   });
-  it("combined gate with a NON-grantable keyword (shadow) stays body-only — emitGatedEffect drops whole clause", () => {
-    expect(classifyCard(cr("As long as you control an artifact, this creature gets +2/+0 and has shadow."))).toBe("body-only");
+  it("combined gate with a NON-grantable keyword (banding) stays body-only — emitGatedEffect drops whole clause", () => {
+    expect(classifyCard(cr("As long as you control an artifact, this creature gets +2/+0 and has banding."))).toBe("body-only");
   });
 });
 
@@ -178,8 +179,8 @@ describe("GATED-ARTIFACT — CREED: equipped gate false-negative guards", () => 
   it("equipped + P/T + menace now flips native (menace grantable + enforced)", () => {
     expect(classifyCard({ name: "Armed Assailant", type: "Creature — Human Warrior", power: 2, toughness: 2, oracle: "Deathtouch\nAs long as this creature is equipped, it gets +2/+0 and has menace." })).toMatch(/^native/);
   });
-  it("equipped + a NON-grantable keyword (shadow) stays body-only — shadow not in GRANTABLE_STATIC_KEYWORDS", () => {
-    expect(classifyCard({ name: "Test Equipped Shadow", type: "Creature — Dwarf Warrior", power: 3, toughness: 3, oracle: "As long as this creature is equipped, it has shadow." })).toBe("body-only");
+  it("equipped + a NON-grantable keyword (banding) stays body-only — banding not in GRANTABLE_STATIC_KEYWORDS", () => {
+    expect(classifyCard({ name: "Test Equipped Banding", type: "Creature — Dwarf Warrior", power: 3, toughness: 3, oracle: "As long as this creature is equipped, it has banding." })).toBe("body-only");
   });
   it("equipped + death trigger stays body-only — death trigger unmodeled", () => {
     expect(classifyCard({ name: "Fireblade Charger", type: "Creature — Goblin Warrior", power: 2, toughness: 1, oracle: "As long as this creature is equipped, it has haste.\nWhen this creature dies, it deals damage equal to its power to any target." })).toBe("body-only");

@@ -102,7 +102,7 @@ describe("SELF-COUNTER-GATED KEYWORD — CREED anti-FP (never a partial-coverage
     expect(clauseProducesStatic("this creature is a 4/4 as long as it has five or more +1/+1 counters on it")).toBe(false);
   });
 
-  it("a non-grantable keyword (shadow) gated on the same counter threshold stays unmodeled", () => {
-    expect(clauseProducesStatic("this creature has shadow as long as it has five or more +1/+1 counters on it")).toBe(false);
+  it("a non-grantable keyword (banding) gated on the same counter threshold stays unmodeled", () => {
+    expect(clauseProducesStatic("this creature has banding as long as it has five or more +1/+1 counters on it")).toBe(false);
   });
 });

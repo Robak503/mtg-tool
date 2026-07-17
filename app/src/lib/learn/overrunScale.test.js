@@ -6,7 +6,7 @@
  * computed at resolution (`ptDeltaCount`, via parseCountSource + countForSpec) — reusing the combat-trick
  * pump loop + layer-aware keyword grant verbatim. X is LOCKED pre-buff (CR 608.2h): every creature gets the
  * SAME +X/+X. A FILTERED team ("…with flying"), an unmodeled count source, or an un-grantable keyword
- * ("shadow"/"banding" — hexproof/indestructible/shroud ARE grantable now via PUMP-STATIC-GRANT) keeps the
+ * ("banding" — hexproof/indestructible/shroud/shadow ARE grantable now, PUMP-STATIC-GRANT + SP-1) keeps the
  * card LOW → Arbiter (never a half-scaled native). The AI HOLDS it like every team pump (programContainsTeamPump).
  */
 
@@ -64,7 +64,7 @@ describe("parser — count-scaled team pumps are HIGH with a ptDeltaCount; landm
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
     low("Until end of turn, creatures you control with flying gain trample and get +X/+X, where X is the greatest power among creatures you control."); // filtered subset
     low("Until end of turn, creatures you control gain trample and get +X/+X, where X is the number of cards in target opponent's hand.");             // unmodeled count source
-    low("Until end of turn, creatures you control gain shadow and get +X/+X, where X is the greatest power among creatures you control.");      // shadow un-grantable (indestructible now IS — PUMP-STATIC-GRANT)
+    low("Until end of turn, creatures you control gain banding and get +X/+X, where X is the greatest power among creatures you control.");      // banding un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
     low("Until end of turn, other creatures you control gain trample and get +X/+X, where X is the greatest power among creatures you control.");       // "other" — different set
   });
 });

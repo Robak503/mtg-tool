@@ -906,7 +906,7 @@ const MUST_DROP_TO_LOW = [
   "All creatures get -1/-1 until end of turn and can't block.", // pump rider (can't block) — keyword effect dropped
   // Combat-trick keyword grants must drop when the granted keyword isn't enforced (a fake
   // grant is forbidden) — the grantable set is the layer-aware combat keywords, NOT these.
-  "Target creature gains shadow until end of turn.",            // shadow not enforced/grantable (hexproof/indestructible now ARE — PUMP-STATIC-GRANT)
+  "Target creature gains horsemanship until end of turn.",      // horsemanship not grantable (shadow now IS — SLIVER INTERIORS SP-1)
   "Target creature gains banding until end of turn.",           // banding not grantable
   "Target creature gets +2/+2 and gains protection from red until end of turn.", // protection not grantable
   // Review catch (no-split + all-or-nothing): a grant chained to a non-keyword via " and "
@@ -923,13 +923,13 @@ const MUST_DROP_TO_LOW = [
   "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset (a color is not a curated subtype)
   "Vehicles you control get +1/+1 until end of turn.",                 // a NON-curated subtype word → low (only COUNT_SUBTYPE entries are admitted)
   "Other creatures you control get +1/+1 and gain protection from red until end of turn.", // un-grantable keyword on the OTHER-scope pump → low
-  "Creatures you control get +1/+1 and gain shadow until end of turn.", // pump-path grant: shadow un-grantable → low (hexproof now grantable — PUMP-STATIC-GRANT)
+  "Creatures you control get +1/+1 and gain banding until end of turn.", // pump-path grant: banding un-grantable → low (shadow now grantable — SLIVER INTERIORS SP-1)
   "Creatures you control gain forestwalk until end of turn.",          // GROUP-KEYWORD-GRANT: an un-grantable keyword → still low (the bare "gain trample/hexproof/indestructible" form is now native)
   // OVERRUN-X — count-scaled team pump ("…gain trample and get +X/+X, where X is <count>"): a FILTERED team,
   // an unmodeled count source, or an un-grantable keyword stays LOW → Arbiter (never a half-scaled native).
   "Until end of turn, creatures you control with flying gain trample and get +X/+X, where X is the greatest power among creatures you control.",        // filtered subset
   "Until end of turn, creatures you control gain trample and get +X/+X, where X is the number of cards in target opponent's hand.",                     // unmodeled count source
-  "Until end of turn, creatures you control gain shadow and get +X/+X, where X is the greatest power among creatures you control.",             // shadow un-grantable (indestructible now grantable — PUMP-STATIC-GRANT)
+  "Until end of turn, creatures you control gain banding and get +X/+X, where X is the greatest power among creatures you control.",             // banding un-grantable (shadow now grantable — SLIVER INTERIORS SP-1)
   // SELF-reference (trigger/activated vocabulary) — "this creature" is modeled (= the source);
   // the ambiguous "it" (could be a prior target, not the source) stays LOW → Arbiter.
   "It gets +2/+0 until end of turn.",                                   // "it" is ambiguous — deferred
@@ -1361,8 +1361,8 @@ describe("parseEffectProgram — team pump (scope:youControl)", () => {
     ]);
   });
   it("drops an unenforced granted keyword to low (all-or-nothing, no fake grant)", () => {
-    expect(programConfidence(parseEffectProgram(I("Creatures you control get +1/+1 and gain shadow until end of turn.")))).toBe("low");
-    expect(parseEffectProgram(I("Creatures you control get +1/+1 and gain shadow until end of turn.")).atoms).toHaveLength(0);
+    expect(programConfidence(parseEffectProgram(I("Creatures you control get +1/+1 and gain banding until end of turn.")))).toBe("low");
+    expect(parseEffectProgram(I("Creatures you control get +1/+1 and gain banding until end of turn.")).atoms).toHaveLength(0);
   });
   it("is not flagged as mass removal (a team pump is not a wipe)", () => {
     const p = parseEffectProgram(I("Creatures you control get +2/+2 until end of turn."));
@@ -1598,8 +1598,8 @@ describe("parseEffectProgram — Inspiring Call (counter-draw then grant to thos
     expect(p.atoms[1]).toMatchObject({ op: "grant-keywords-group", scope: "creaturesYouControl", grantKeywords: ["Indestructible"], requiresCounter: "+1/+1" });
   });
   it("MUST DROP TO LOW: an un-grantable keyword / a trailing rider / a bare 'those creatures' → Arbiter", () => {
-    // 'shadow' is not in the group-grant allowlist → the grant clause returns null → the whole card stays LOW.
-    expect(programConfidence(parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain shadow until end of turn.")))).toBe("low");
+    // 'banding' is not in the group-grant allowlist → the grant clause returns null → the whole card stays LOW.
+    expect(programConfidence(parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain banding until end of turn.")))).toBe("low");
     // A trailing rider breaks the anchored two-sentence match → the split fragments don't recombine → LOW.
     expect(programConfidence(parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain indestructible until end of turn. Draw a card.")))).toBe("low");
     // 'those creatures' with no counter-draw lead has no referent → LOW (a bare group grant can't say 'those').
@@ -1623,7 +1623,7 @@ describe("parseEffectClause — self keyword-grant (ACT-KW-GRANT)", () => {
     expect(atomsOf("This creature gets -1/-1 and gains flying until end of turn.")).toEqual([{ op: "pump", target: "self", ptDelta: { p: -1, t: -1 }, grantKeywords: ["Flying"] }]);
   });
   it("MUST stay LOW: granting a keyword NOT in GRANTABLE_STATIC_KEYWORDS → Arbiter (the allowlist IS the FP guard)", () => {
-    expect(conf("This creature gains shadow until end of turn.")).toBe("low");  // shadow un-enforced/un-grantable
+    expect(conf("This creature gains horsemanship until end of turn.")).toBe("low");  // horsemanship un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
     expect(conf("This creature gains banding until end of turn.")).toBe("low");
   });
   it("menace IS now grantable (GATED-GY-EXT) — self-grant menace parses high", () => {
@@ -1690,10 +1690,10 @@ describe("parseEffectProgram — PUMP-TGT-CTRL controller-qualified pump/grant",
   it("menace is now GRANTABLE (GATED-GY-EXT #343 — enforced at combat resolution, CR 509.1c) → HIGH", () => {
     hi("target creature you control gains menace until end of turn");
   });
-  it("MUST stay LOW: un-grantable keywords (shadow, banding) still drop the clause", () => {
-    lo("target creature you control gains shadow until end of turn");
+  it("MUST stay LOW: un-grantable keywords (horsemanship, banding) still drop the clause", () => {
+    lo("target creature you control gains horsemanship until end of turn");
     lo("target creature you control gets +1/+0 and gains banding until end of turn");
-    lo("target creature an opponent controls gains shadow until end of turn");
+    lo("target creature an opponent controls gains horsemanship until end of turn");
   });
   it("unqualified 'target creature gets...' is unchanged (no restriction)", () => {
     const a = atomOf("target creature gets +2/+2 until end of turn");

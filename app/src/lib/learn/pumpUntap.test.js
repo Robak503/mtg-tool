@@ -37,7 +37,7 @@ describe("pump-untap — parser", () => {
   it("'untap target creature' alone is still the plain untap atom; a bare 'Untap it.' clause stays unmodeled", () => {
     expect(parseEffectProgram(I("Twiddle", "Untap target creature.")).atoms).toEqual([{ op: "untap", targetType: "creature" }]);
     // a pump that grants an UNMODELED keyword + untap still drops (the grant gates the whole clause)
-    expect(programConfidence(parseEffectProgram(I("X", "Target creature gets +2/+2 and gains shadow until end of turn. Untap it.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("X", "Target creature gets +2/+2 and gains banding until end of turn. Untap it.")))).toBe("low");
   });
 });
 

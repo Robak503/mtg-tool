@@ -9,7 +9,8 @@
  * have shroud", Asceticism/Privileged Position "have hexproof", Drogskol Captain/Lord of the Unreal/Scion
  * of Oona), equipment (Lightning Greaves, Mask of Avacyn), token-makers (Deeproot Waters, Jungleborn
  * Pioneer), and Angelic Overseer's GATED self-grant. A quoted-ability grant + an un-enforced keyword
- * (shadow) still route to the Arbiter (FN-safe).
+ * (provoke/banding) still route to the Arbiter (FN-safe). (Shadow joined the grantable set in
+ * SLIVER INTERIORS SP-1 — its symmetric block exclusion was already enforced layer-aware.)
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
@@ -83,7 +84,7 @@ describe("static-hexproof-shroud — CREED: un-enforced keyword / quoted ability
     // the boundary example; a still-unmodeled tutor body is.)
     expect(classifyCard({ type: "Creature — Sliver", name: "Tutor Sliver", oracle: 'All Slivers have "{T}: Search your library for a card, then shuffle."' })).toBe("body-only");
   });
-  it("an un-enforced keyword (shadow) anthem stays body-only", () => {
-    expect(classifyCard({ type: "Creature — Sliver", name: "Shadow Sliver", oracle: "All Sliver creatures have shadow." })).toBe("body-only");
+  it("an un-enforced keyword (provoke) anthem stays body-only", () => {
+    expect(classifyCard({ type: "Creature — Sliver", name: "Hunter Sliver", oracle: "All Sliver creatures have provoke." })).toBe("body-only");
   });
 });

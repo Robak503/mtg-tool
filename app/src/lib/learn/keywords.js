@@ -63,7 +63,27 @@ export const GRANTABLE_COMBAT_KEYWORDS = new Set(
 // by isIndestructible / canBeTargetedBy exactly like the GROUP-KEYWORD-GRANT path — the former "not modeled
 // yet" rationale is gone. (The 0-toughness carve-out, CR 704.5f, means a granted indestructible still dies at
 // 0 toughness — handled by gameState.isIndestructible's call-site, matching the cards' own reminder text.)
-export const GRANTABLE_STATIC_KEYWORDS = new Set([...GRANTABLE_COMBAT_KEYWORDS, "indestructible", "hexproof", "shroud"]);
+// SLIVER INTERIORS (BLITZ SP-1) — four more keywords whose GRANTED instances are honored exactly like
+// printed ones, admitting the group-anthem forms (Dormant Sliver "All Sliver creatures have defender",
+// Shadow Sliver "…have shadow", Sidewinder Sliver "…have flanking", First Sliver's Chosen "Sliver
+// creatures you control have exalted") plus the attached/pump/token forms:
+//   - "defender" (CR 702.3b): the ONLY thing defender does is forbid attack declaration — enforced
+//     layer-aware at BOTH enumeration sites (legalChoices attack candidates + opponentAI's attacker
+//     scan read permanentHasKeyword), so a granted defender is complete.
+//   - "shadow" (CR 702.28b): a pure SYMMETRIC block exclusion — combatEvasion.canBlockAttacker requires
+//     attacker and blocker to MATCH on shadow, layer-aware on both sides. That is the ENTIRETY of the
+//     keyword, so granting it is complete.
+//   - "flanking" (CR 702.25): the blocked-attacker fire site (triggers.checkBlockTriggers) counts
+//     instances via layers.keywordInstanceCount — printed (structural flankingKeywordCount) PLUS
+//     layer-6 grants, one -1/-1 fire per instance (702.25b) — and the blocker-immunity read was
+//     already layer-aware. Granted flanking fires exactly like printed flanking.
+//   - "exalted" (CR 702.83a): the attacks-alone fire site sums instances across the attacking player's
+//     battlefield via layers.keywordInstanceCount — structural printed count (exaltedKeywordCount; a
+//     grant line "…have exalted" is NOT an own-instance) PLUS layer-6 grants per permanent.
+export const GRANTABLE_STATIC_KEYWORDS = new Set([
+  ...GRANTABLE_COMBAT_KEYWORDS, "indestructible", "hexproof", "shroud",
+  "defender", "shadow", "flanking", "exalted",
+]);
 
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */
 export function canonicalCombatKeyword(lower) {

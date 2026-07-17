@@ -63,7 +63,7 @@ describe("parser — team pumps are HIGH; filtered / wrong-scope / unenforced-kw
     low("White creatures you control get +1/+1 until end of turn.");          // color-filtered subset
     low("Vehicles you control get +1/+1 until end of turn.");                 // a NON-curated subtype word → low
     low("Attacking creatures you control get +2/+0 until end of turn.");      // you-control-filtered attacking subset (bare "attacking creatures" IS native — COMBAT-TEAM-PUMP)
-    low("Creatures you control get +1/+1 and gain shadow until end of turn."); // pump path: shadow un-grantable (hexproof now IS — PUMP-STATIC-GRANT)
+    low("Creatures you control get +1/+1 and gain banding until end of turn."); // pump path: banding un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
     low("Creatures you control gain forestwalk until end of turn.");          // GROUP-KEYWORD-GRANT: un-grantable keyword → low
   });
   it("a pure team keyword grant (no P/T) is now native via GROUP-KEYWORD-GRANT", () => {

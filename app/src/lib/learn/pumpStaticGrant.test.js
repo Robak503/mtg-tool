@@ -5,7 +5,7 @@
  * endOfTurn addKeyword applyPumpEffect already emits, so a granted instance is honored LAYER-AWARE by
  * isIndestructible / canBeTargetedBy exactly like a printed keyword. This flips single-target protection
  * instants (Blossoming Defense, Withstand Death, Adamant Will), activated grants (Sylvan Safekeeper), and
- * triggered grants (Angelheart Protector). An un-enforced keyword (shadow/banding) still drops → Arbiter.
+ * triggered grants (Angelheart Protector). An un-enforced keyword (banding) still drops → Arbiter.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
@@ -31,8 +31,8 @@ describe("pump-static-grant — parser", () => {
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms[0].grantKeywords).toEqual(["Lifelink", "indestructible"]);
   });
-  it("CREED: an un-enforced keyword (shadow) still drops the clause → low", () => {
-    expect(programConfidence(parseEffectClause("Target creature gains shadow until end of turn.", "Instant"))).toBe("low");
+  it("CREED: an un-enforced keyword (banding) still drops the clause → low", () => {
+    expect(programConfidence(parseEffectClause("Target creature gains banding until end of turn.", "Instant"))).toBe("low");
     expect(programConfidence(parseEffectClause("Target creature gets +2/+2 and gains protection from red until end of turn.", "Instant"))).toBe("low");
   });
 });

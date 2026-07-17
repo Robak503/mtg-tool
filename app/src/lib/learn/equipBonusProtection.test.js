@@ -70,7 +70,7 @@ describe("parseAttachedClause — EQUIP-LOSES-KW (+N/+N and loses <combat keywor
     ]);
   });
   it("'loses <unmodeled keyword>' drops the whole bonus (only a known grantable keyword may be removed)", () => {
-    expect(parseEquipmentBonus({ oracle: "Equipped creature gets +1/+1 and loses shadow.\nEquip {2}" })).toEqual([]);
+    expect(parseEquipmentBonus({ oracle: "Equipped creature gets +1/+1 and loses banding.\nEquip {2}" })).toEqual([]);
   });
 });
 

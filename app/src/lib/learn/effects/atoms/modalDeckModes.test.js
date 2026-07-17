@@ -195,9 +195,10 @@ describe("MODAL-DECK-MODES — CREED guards (near-miss variants STAY low → Arb
     low("Double the number of +1/+1 counters on target creature");
   });
   it("a token 'with <unmodeled keyword>' alongside changeling → low (whole token or nothing)", () => {
-    // "shadow" is a real keyword the engine doesn't enforce, so the companion drops the whole token to low
-    // even though changeling itself is modeled (a grantable companion like flying WOULD compose — tested above).
-    low("Create a 3/2 colorless Shapeshifter creature token with changeling and shadow");
+    // "banding" is a real keyword the engine doesn't enforce (shadow now IS grantable — SLIVER INTERIORS
+    // SP-1), so the companion drops the whole token to low even though changeling itself is modeled
+    // (a grantable companion like flying WOULD compose — tested above).
+    low("Create a 3/2 colorless Shapeshifter creature token with changeling and banding");
   });
   it("Primordial Hydra → native-mixed (upkeep doubler routes AND the conditional-trample static is now modeled)", () => {
     // Was body-only while the "has trample as long as it has ten or more +1/+1 counters on it" rider was

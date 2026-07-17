@@ -35,7 +35,7 @@ describe("ACT-KW-GRANT — classification (the allowlist is the FP guard)", () =
     expect(classifyCard(creature("X", "{R}: This creature gains menace until end of turn."))).toBe("native-activated");
   });
   it("NOT native: granting a keyword NOT in GRANTABLE_STATIC_KEYWORDS stays off the native path", () => {
-    expect(classifyCard(creature("Y", "{R}: This creature gains shadow until end of turn."))).not.toBe("native-activated"); // shadow un-grantable (indestructible now IS — PUMP-STATIC-GRANT)
+    expect(classifyCard(creature("Y", "{R}: This creature gains banding until end of turn."))).not.toBe("native-activated"); // banding un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
   });
   it("NOT native: an activation-limit trailer the engine can't enforce sinks the ability", () => {
     // "only once each turn" graduated in BLITZ ONCE-1 (ledger-enforced — pinned in

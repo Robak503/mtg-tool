@@ -304,7 +304,8 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
  * Parse a granted-keyword phrase ("trample", "flying and vigilance", "deathtouch and indestructible",
  * "trample, hexproof, and indestructible") into canonical keyword names, or null if ANY word is outside the
  * enforced + layer-aware GRANTABLE_STATIC_KEYWORDS set (combat keywords + indestructible + hexproof + shroud
- * — PUMP-STATIC-GRANT). ALL-OR-NOTHING: one unmodeled keyword (protection/shadow/banding/an ability word)
+ * — PUMP-STATIC-GRANT — + defender/shadow/flanking/exalted, SLIVER INTERIORS SP-1; see keywords.js for the
+ * per-keyword enforcement sites). ALL-OR-NOTHING: one unmodeled keyword (protection/banding/an ability word)
  * drops the whole grant to null → the clause is unmodeled → low → Arbiter, never a fake/partial grant. Shared
  * by the pump + self/team/triggering-creature + activated-grant + animate matchers; every consumer grants via
  * a layer-6 addKeyword, so all four static keywords are honored layer-aware exactly like a printed one.
@@ -428,7 +429,9 @@ export function parseTokenManaAbility(quotedWithQuotes) {
   return canonicalizeManaAbility(inner);
 }
 // Canonical case for the non-combat keywords a token may carry (combat ones come from canonicalCombatKeyword).
-const TOKEN_KEYWORD_CANON = { indestructible: "Indestructible" };
+// The SP-1 four are included so a minted token's keywords[]/oracle read in Oracle casing; the minted oracle
+// line (tokens.js keywords.join) is what the structural instance counters + hasKeyword scan match on.
+const TOKEN_KEYWORD_CANON = { indestructible: "Indestructible", defender: "Defender", shadow: "Shadow", flanking: "Flanking", exalted: "Exalted" };
 /**
  * Parse a keyword-token's "with …" phrase ("flying", "flying and vigilance", "first strike, deathtouch, and
  * lifelink") into canonical keyword names, or null if ANY word is outside the enforced+layer-aware GRANTABLE

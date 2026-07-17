@@ -23,7 +23,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentColors, permanentTypes, diesTriggerMultiplierCount } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 
 function oracleOf(card) {
@@ -1598,6 +1598,23 @@ export function flankingKeywordCount(oracle) {
   let n = 0;
   for (const line of stripped.split("\n")) {
     for (const seg of line.split(",")) if (seg.trim().toLowerCase() === "flanking") n++;
+  }
+  return n;
+}
+
+/**
+ * EXALTED (SLIVER INTERIORS, BLITZ SP-1 — CR 702.83) — the STRUCTURAL instance counter, the exact
+ * flanking pattern: a whole comma-segment of a (reminder-stripped) line must be exactly "exalted", so a
+ * GRANT line ("Sliver creatures you control have exalted" — First Sliver's Chosen, Sublime Archangel)
+ * or a reference inside another ability never counts as an OWN printed instance. Replaces the old loose
+ * `\bexalted\b` scan at the checkAttackTriggers fire site (which over-counted a granter's own
+ * instances); the granted instances re-enter per-permanent through layers.keywordInstanceCount.
+ */
+export function exaltedKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  let n = 0;
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) if (seg.trim().toLowerCase() === "exalted") n++;
   }
   return n;
 }
@@ -3792,10 +3809,14 @@ export function checkAttackTriggers(state) {
     const soleLk = findPermanent(state, attackers[0].permanentId);
     const atkPlayer = attackers[0].attackingPlayer;
     if (soleLk && atkPlayer) {
+      // SLIVER INTERIORS (BLITZ SP-1): per permanent, printed instances via the STRUCTURAL counter
+      // (a grant line "…have exalted" is no longer mis-counted as the granter's own instance) PLUS
+      // granted instances via the layer-6 index (First Sliver's Chosen / Sublime Archangel anthems,
+      // until-EOT grants) — gate-aware, one +1/+1 per instance across the whole battlefield (702.83a).
       let exaltedCount = 0;
       for (const p of state.players?.[atkPlayer]?.battlefield || []) {
-        const stripped = String(p.card?.oracle || p.card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
-        exaltedCount += (stripped.match(/\bexalted\b/gi) || []).length;
+        exaltedCount += keywordInstanceCount(state, p.id, "Exalted",
+          exaltedKeywordCount(p.card?.oracle || p.card?.oracle_text || ""));
       }
       if (exaltedCount > 0) {
         const descriptor = {
@@ -3958,7 +3979,11 @@ export function checkBlockTriggers(state) {
     if (!b?.blockerId || !b?.attackerId) continue;
     const att = findPermanent(state, b.attackerId);
     if (!att) continue;
-    const instances = flankingKeywordCount(String(att.permanent.card?.oracle || att.permanent.card?.oracle_text || ""));
+    // SLIVER INTERIORS (BLITZ SP-1): printed instances (structural) PLUS layer-6 granted instances
+    // (Sidewinder Sliver "All Sliver creatures have flanking", an Aura/pump "gains flanking") — one
+    // fire per instance (CR 702.25b), read through the same gate-aware index the immunity check uses.
+    const instances = keywordInstanceCount(state, b.attackerId, "Flanking",
+      flankingKeywordCount(String(att.permanent.card?.oracle || att.permanent.card?.oracle_text || "")));
     if (instances <= 0) continue;
     if (permanentHasKeyword(state, b.blockerId, "Flanking")) continue; // a flanking blocker is immune (CR 702.25a)
     const blk = findPermanent(state, b.blockerId);

@@ -30,8 +30,8 @@ describe("counter-payoff keyword anthem — parse", () => {
     expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have trample and menace." })).toHaveLength(2);
   });
   it("ALL-OR-NOTHING: a non-grantable keyword anywhere in the phrase → no grant (no silent drop)", () => {
-    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have shadow." })).toHaveLength(0);
-    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have trample and shadow." })).toHaveLength(0);
+    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have banding." })).toHaveLength(0);
+    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have trample and banding." })).toHaveLength(0);
   });
   it("a real CONDITIONAL prefix does NOT match (safe FN — the condition isn't modeled)", () => {
     expect(parseStaticAbilities({ name: "Inspiring Paladin", oracle: "During your turn, creatures you control with +1/+1 counters on them have first strike." })).toHaveLength(0);

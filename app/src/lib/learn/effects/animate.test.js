@@ -70,7 +70,7 @@ describe("WALT-ANIMATE PR2 — CREED routing (LOW → Arbiter)", () => {
     expect(conf(I("Until end of turn, target land becomes a 3/3 black creature that's still a land."))).toBe("low");
   });
   it("an un-grantable keyword rider → LOW", () => {
-    expect(conf(I("Until end of turn, target land becomes a 3/3 creature with shadow."))).toBe("low"); // shadow un-grantable (shroud now IS — PUMP-STATIC-GRANT)
+    expect(conf(I("Until end of turn, target land becomes a 3/3 creature with banding."))).toBe("low"); // banding un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
   });
   it("an awaken-style counter-scaled 0/0 → LOW", () => {
     expect(conf(I("Put three +1/+1 counters on target land you control and it becomes a 0/0 Elemental creature with haste that's still a land."))).toBe("low");

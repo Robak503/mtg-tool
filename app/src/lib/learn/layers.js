@@ -1037,6 +1037,32 @@ export function permanentHasKeyword(state, permanentId, keyword) {
 }
 
 /**
+ * KEYWORD INSTANCE COUNT (SLIVER INTERIORS, BLITZ SP-1) — how many INSTANCES of `keyword` the permanent
+ * has right now: the caller-supplied PRINTED count (a structural counter like flankingKeywordCount /
+ * exaltedKeywordCount — layers can't parse oracle shapes) plus one per layer-6 addKeyword grant that
+ * affects the permanent (gate-aware, timestamp order — the same index permanentHasKeyword reads). Serves
+ * the instance-counted trigger keywords where each instance fires separately (flanking CR 702.25b,
+ * exalted CR 702.83a): a granted instance stacks WITH a printed one ("Flanking" + Sidewinder's anthem =
+ * 2 fires). A removeKeyword ("loses <kw>") strips the ABILITY entirely (CR 613.9 last-wins), so it zeros
+ * the running total INCLUDING the printed count; a later re-grant counts again.
+ */
+export function keywordInstanceCount(state, permanentId, keyword, printedCount = 0) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return 0;
+  const kwLower = String(keyword).toLowerCase();
+  let n = Math.max(0, printedCount || 0);
+  const grants = l6IndexOf(state).byKeyword.get(kwLower);
+  if (!grants || grants.length === 0) return n;
+  for (const e of grants) {
+    if (!effectAffects(e, perm, state)) continue;
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue; // GATED-KEYWORD: gate closed → no grant
+    if (e.op.layerOp === "addKeyword") n++;
+    else if (e.op.layerOp === "removeKeyword") n = 0; // removal strips printed + prior grants (613.9)
+  }
+  return n;
+}
+
+/**
  * EQUIP-PROTECTION (CR 702.16, layer 6) — the set of COLORS a permanent has "protection from" right now:
  * its PRINTED protection-from-color (parseProtectionColors on the card) UNIONED with GRANTED protection
  * from layer-6 `addProtection` continuous effects (a Captain America Sword's "Equipped creature … has
