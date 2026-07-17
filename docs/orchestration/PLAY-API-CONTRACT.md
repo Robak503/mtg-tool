@@ -121,6 +121,7 @@ General rules, all kinds:
 | `commander-return` | `{ kind, return: boolean }` | CR 903.9a — return the commander to the command zone, or leave it in `zone`. |
 | `hand-discard` | `{ kind, cardId }` | the CASTER picks from the victim's revealed, filtered hand (`victim` on the decision); no decline — null/illegal re-surfaces. |
 | `impulse-dig` | `{ kind, cardId }` | keep one looked-at card to HAND; the rest go to `restTo`; no decline. |
+| `look-top-take` | `{ kind, cardId }` | BLITZ LK-2 top-card take-or-leave-on-top (Dryad Greenseeker / Herald's Horn, Domri +1): `cardId` = the single matched top card (`candidates[0]`) → TAKE to HAND; `null` = LEAVE it on top (a legal, non-dominated decline — no disposal). Only ever raised when the top card matched the quality (a non-match resolves inline, unrevealed). AI policy: always take. |
 | `dig-land-to-battlefield` | `{ kind, cardId }` | which offered LAND enters the battlefield (ETB fires; rest bottoms random); no decline. |
 | `sacrifice-choice` | `{ kind, cardId }` | `cardId` = the chosen creature's PERMANENT id (edicts — the SACRIFICER chooses, CR 701.16); chains via `queue`; no decline. |
 | `discard` | `{ kind, cardId }` | the DISCARDER picks from their own hand (CR 701.8); chains via `remaining` + `queue`; no decline. |
@@ -136,8 +137,8 @@ General rules, all kinds:
 | `edict-mode` | `{ kind, mode: "life"\|"sacrifice"\|"discard", permId?, cardId? }` | `mode` must be ∈ the decision's `modes` (anything else coerces to `"life"`); `permId` picks from the `sac` pool, `cardId` from the `disc` pool; chains via `queue`. |
 
 (Shape source of truth: the `apply*Choice` settlers in `app/src/lib/learn/learnSession.js` —
-the dispatch table in `applyPendingChoice` names all 20. The LearnView client stamps the same
-kind-echoed payloads, so this table matches both clients.)
+the dispatch table in `applyPendingChoice` names all 21 (20 original + BLITZ LK-2 `look-top-take`).
+The LearnView client stamps the same kind-echoed payloads, so this table matches both clients.)
 
 ### 1.1b `ask` decisions — metadata + the answering seat
 

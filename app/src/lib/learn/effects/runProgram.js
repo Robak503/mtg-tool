@@ -392,6 +392,43 @@ export function resolveImpulseDigChoice(state, cardId) {
 }
 
 /**
+ * TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) — the AI / Expert auto-pick: ALWAYS TAKE. The documented,
+ * deterministic policy — a matched top card into hand is strict card advantage at zero cost (you draw a
+ * fresh card next; the taken card is a net +1), and declining only leaves it on top to be drawn anyway, so
+ * taking is never worse. Returns the single candidate's id (the matched top card), or null if none (defensive).
+ */
+export function autoPickLookTopTake(state, pendingChoice) {
+  const cand = (pendingChoice.candidates || [])[0];
+  return cand ? cand.id : null;
+}
+
+/**
+ * Settle a pending look-top-take choice (BLITZ LK-2): TAKE (`cardId` = the matched top card's id → move it
+ * library→hand) or LEAVE (`cardId` null / a stale mismatch → the card STAYS ON TOP, a literal no-op, per the
+ * printed absence of any disposal). A take moves the card only if it is STILL the library top (a defensive
+ * stale-guard — a top-1 look never disturbs it, but the pause can outlive intervening state). Eliminated-
+ * controller guard (the pause can outlive the SBA that removes them), mirroring resolveImpulseDigChoice. Then
+ * RESUME the suspended program (an activated ability / trigger has no rider past this, but the seam is uniform).
+ * Hidden-info safe (the controller's own library).
+ */
+export function resolveLookTopTakeChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "look-top-take") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return resumeAfterChoice(next, pc); // controller eliminated mid-pause
+  const cand = (pc.candidates || [])[0];
+  const take = !!cand && cardId === cand.id;
+  if (take) {
+    const lib = next.players[pc.controller].library || [];
+    if (lib[0]?.id === cand.id) {
+      next = moveCardToZone(next, { playerId: pc.controller, fromZone: "library", toZone: "hand", cardId: cand.id });
+    }
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "look-top-take", controller: pc.controller, took: take });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
  * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — deterministically auto-pick which land an AI / Expert
  * puts onto the battlefield (no picker): the highest-mana-value land (a fetchland / dual > a basic), codepoint
  * tie-break by name then id (serialize-stable, no Math.random). Returns the chosen LAND's id from the candidate

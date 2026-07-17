@@ -53,7 +53,7 @@ import { isLandCard } from "./effects/atoms/shared.js"; // death capture: count 
 import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice, autoPickEdictMode, resolveEdictModeChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickLookTopTake, resolveLookTopTakeChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice, autoPickEdictMode, resolveEdictModeChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -780,6 +780,18 @@ function settleImpulseDigChoice(state, cardId) {
 }
 
 /**
+ * TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) — settle a look-top-take choice: TAKE the matched top card
+ * (→ hand) when `cardId` is its id, else LEAVE it on top (cardId null / stale mismatch → no zone change),
+ * then resume the suspended program (an activated ability / trigger has no rider past this, but the seam is
+ * uniform — a resumed atom could re-pause, so guard pendingChoice before flushing), then
+ * finalizeStackResolution flushes any triggers a resumed atom enqueued.
+ */
+function settleLookTopTakeChoice(state, cardId) {
+  const next = resolveLookTopTakeChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * Settle a dig-land-to-battlefield choice (Silverback Elder mode 2): put the chosen land onto the battlefield
  * (firing its ETB/landfall), bottom the rest in a random order, resume the suspended program (no rider on
  * Silverback, but the seam is uniform — a resumed atom could re-pause, so guard pendingChoice before flushing),
@@ -1421,6 +1433,22 @@ export function advanceUntilDecision(
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
         });
         current = { ...current, state: settleImpulseDigChoice(current.state, picked.candidateId) };
+        continue;
+      }
+      // TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2 — Dryad Greenseeker / Frost Augur / Herald's Horn): the top
+      // card matched the quality, so the player's OWN library surfaces a TAKE-or-LEAVE (offer the take AND a
+      // real decline — leaving the card ON TOP is a legitimate, non-dominated choice). Expert autopilot + an
+      // opponent AUTO-TAKE (autoPickLookTopTake — always take: strict card advantage at zero cost).
+      if (pc.kind === "look-top-take") {
+        if (pause) {
+          return { session: current, decision: { kind: "look-top-take", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc, { allowDecline: true }), // LEAVE (candidateId null) is legal here
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickLookTopTake(current.state, pc) },
+        });
+        current = { ...current, state: settleLookTopTakeChoice(current.state, picked.candidateId) };
         continue;
       }
       // DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2): the player's OWN dig surfaces a pick-which-land
@@ -2656,6 +2684,53 @@ export function applyImpulseDigChoice(session, choice, opts = {}) {
 }
 
 /**
+ * TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2 — Dryad Greenseeker / Frost Augur / Herald's Horn) — the player
+ * answered a `look-top-take` decision. `choice.cardId` = the matched top card's id → TAKE it (→ hand);
+ * `choice.cardId` null → LEAVE it on top (a LEGAL decline — unlike impulse-dig, declining is offered here and
+ * is not dominated). A non-null id that isn't the offered candidate re-surfaces the same choice (stale/illegal).
+ * Resumes the suspended ability/trigger server-side and returns the next decision.
+ */
+export function applyLookTopTakeChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "look-top-take") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  // A null cardId is a LEGAL "leave it on top" decline. A NON-null id must be the offered candidate; anything
+  // else is stale/illegal → re-surface the same choice (never misapply an unknown id).
+  if (cardId !== null && !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session, opts);
+  }
+
+  let newState;
+  try {
+    newState = settleLookTopTakeChoice(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "look-top-take-choice", took: cardId !== null },
+    auto: false,
+    reasoning: cardId !== null ? "user-took-top-card" : "user-left-top-card",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  }, opts);
+}
+
+/**
  * DIG-LAND-TO-BATTLEFIELD (Silverback Elder mode 2) — the player picked which land to put onto the battlefield
  * from a `dig-land-to-battlefield` decision. Validates the pick against the offered lands, puts it out (ETB +
  * landfall fire) + bottoms the rest in a random order, resumes the program, then re-derives the next decision.
@@ -2821,6 +2896,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice, opts);
   if (kind === "cleanup-discard") return applyCleanupDiscardChoice(session, choice, opts);
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice, opts);
+  if (kind === "look-top-take") return applyLookTopTakeChoice(session, choice, opts);
   if (kind === "dig-land-to-battlefield") return applyDigLandChoice(session, choice, opts);
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice, opts);
   if (kind === "discard") return applyDiscardChoice(session, choice, opts);

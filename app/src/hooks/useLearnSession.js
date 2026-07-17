@@ -631,6 +631,50 @@ export default function useLearnSession() {
   }, [state.sessionId]);
 
   /**
+   * BLITZ LK-2 — submit the player's answer to a `look-top-take` decision (Dryad Greenseeker / Frost Augur /
+   * Herald's Horn, Domri Rade's +1). `cardId` = the matched top card's id → TAKE it (→ hand); `cardId` null →
+   * LEAVE it on top (a legal, non-dominated decline). Resumes the suspended ability/trigger server-side and
+   * returns the next decision.
+   */
+  const applyLookTopTakeChoice = useCallback(async (cardId) => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/learn/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "look-top-take", cardId: cardId ?? null } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        board: data.board || prev.board,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
+  /**
    * EDICTS — submit the player's pick from a `sacrifice-choice` decision (Diabolic Edict / Cruel Edict /
    * Geth's Verdict). Fires when the HUMAN is the edict's target. `cardId` is the chosen creature's
    * permanent id to sacrifice. Resumes the suspended spell server-side and returns the next decision.
@@ -907,6 +951,7 @@ export default function useLearnSession() {
     applyOptionalChoice,
     applyHandDiscardChoice,
     applyImpulseDigChoice,
+    applyLookTopTakeChoice,
     applySacrificeChoice,
     applyDiscardChoice,
     applyDivideChoice,

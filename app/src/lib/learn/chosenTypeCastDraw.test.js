@@ -23,9 +23,10 @@
  * CREED — the FP here is an OVER-FIRE (drawing off an off-type or noncreature cast the print excludes) or a
  * FALSE FLIP off a dropped rider. The classifier (classifyChosenTypeCastDraw) is per-LINE audited with a
  * grant-tail CONSUMPTION check: an anthem tail the static parser silently drops ("and can't be blocked")
- * fails the descriptor count → the whole card stays Arbiter. Herald's Horn (an unroutable upkeep
- * look-trigger) and Icon of Ancestry (an activated ability) stay body-only — their reducer/anthem still
- * apply at runtime; only the flip is withheld (a safe FN).
+ * fails the descriptor count → the whole card stays Arbiter. This classifier declines Herald's Horn (an
+ * upkeep look-trigger, not a cast trigger) and Icon of Ancestry (an activated ability); each flips native
+ * via its OWN slice (Herald → BLITZ LK-2 classifyChosenTypeCostReducer once the upkeep look-trigger routes;
+ * Icon → BLITZ LK-1 classifyChosenTypeAnthemDig).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -90,10 +91,15 @@ describe("CHOSEN-TYPE CAST-DRAW — classification (BLITZ TC-1)", () => {
     expect(classifyCard(CHRONICLE)).toBe("native-mixed");
   });
 
-  it("CREED — Herald's Horn parks (the upkeep look-reveal trigger does not route)", () => {
-    expect(classifyCard(HERALDS_HORN)).toBe("body-only");
+  it("Herald's Horn — this CAST-DRAW classifier declines it (no cast trigger); BLITZ LK-2 owns the flip", () => {
+    // This cast-draw classifier still returns null for Herald (it requires exactly ONE chosen-type CAST
+    // trigger; Herald has an UPKEEP look trigger, not a cast trigger). But as of BLITZ LK-2 that upkeep
+    // trigger's effect IS modeled (the `look-top-take` atom → it routes natively), so the WHOLE card flips
+    // native-mixed via classifyChosenTypeCostReducer (chooser + chosen-type reducer + the native upkeep
+    // trigger). See lookTopTake.test.js.
+    expect(classifyCard(HERALDS_HORN)).toBe("native-mixed");
     const d = detectTriggers(HERALDS_HORN).find((x) => x.event === "upkeep");
-    expect(d && !!triggerRoutesNatively(d)).toBe(false);
+    expect(d && !!triggerRoutesNatively(d)).toBe(true);
   });
   it("Icon of Ancestry — this CAST-DRAW classifier declines it (0 cast triggers); LK-1 owns the flip", () => {
     // The cast-draw classifier still returns null (it requires exactly one chosen-type CAST trigger; Icon has

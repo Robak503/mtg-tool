@@ -97,6 +97,7 @@ const PAUSING_OPS_LIST = [
   "surveil", // library.js applyScrySurveilAtom → setPendingScryChoice (mode "surveil")
   "reorder-top", // library.js applyReorderTopAtom → setPendingScryChoice (reorder mode — Ponder "put them back in any order")
   "impulse-dig", // library.js applyImpulseDigAtom → setPendingImpulseDigChoice
+  "look-top-take", // library.js applyLookTopTakeAtom → setPendingLookTopTakeChoice (BLITZ LK-2 top-card take-or-leave-on-top)
   "discard-chosen", // hand.js applyDiscardChosen → setPendingHandDiscardChoice
   "discard", // hand.js applyDiscard → advanceDiscardChain → setPendingDiscardChoice
   "sacrifice", // removal.js applySacrifice → advanceSacrificeChain → setPendingSacrificeChoice

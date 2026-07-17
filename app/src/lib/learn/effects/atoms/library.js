@@ -5,7 +5,7 @@
 
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
-import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
@@ -335,6 +335,45 @@ export function applyImpulseDigAtom(state, atom, ctx) {
   }
   const cards = pool.map((c) => ({ id: c.id, name: c.name }));
   return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
+}
+
+/**
+ * ===== TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) ===== "Look at the top card of your library. If it's a
+ * <quality> card[ of the chosen type], you may reveal it and put it into your hand." (Dryad Greenseeker,
+ * Frost Augur, Herald's Horn.) A DISTINCT effect from impulse-dig: top-1, and a declined OR non-matching card
+ * STAYS ON TOP with NO rest/bottom/graveyard disposal. Three faithful outcomes:
+ *   - EMPTY library → a clean logged no-op (nothing to look at).
+ *   - top card does NOT match the quality → it can't be taken and simply stays on top: an INLINE no-op with NO
+ *     pause and NO candidate surfaced. HIDDEN-ZONE HONESTY: the non-matching card the controller privately
+ *     looked at is never placed on pendingChoice, so it can NEVER leak to an opponent (mirrors impulse-dig's
+ *     empty-pool inline no-op, the blessed precedent). CREED: never a fabricated take.
+ *   - top card MATCHES → offer the take-or-leave via setPendingLookTopTakeChoice. The candidate is the
+ *     controller's OWN top card (hidden-info safe, like the impulse-dig / scry candidates). The session driver
+ *     PAUSES a human (a real, non-dominated choice — take it now, or leave it on top to draw next) and AUTO-TAKES
+ *     for an AI (the documented deterministic policy: always take — a matched top card to hand is strict card
+ *     advantage at zero cost; declining only leaves it to be drawn anyway, so taking is never worse).
+ * CHOSEN-TYPE (Herald's Horn) — filter.chosenTypeOfSource ANDs the base type with the SOURCE permanent's stored
+ * chosenType (perm.chosenType via ctx.sourceId), identical to applyImpulseDigAtom's chosen-type branch: CR 614.12
+ * membership (front-face subtype OR changeling, CR 702.73a); an unset chosenType matches nothing → a SAFE no-op
+ * (the card stays on top, never a fabricated keep). Pure; a pause is plain JSON (serialize-safe).
+ */
+export function applyLookTopTakeAtom(state, atom, ctx) {
+  const player = state.players[ctx.controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  if (!player.library || player.library.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "look-top-take", controller: ctx.controller, looked: false });
+  }
+  const top = player.library[0];
+  const chosenType = atom.filter?.chosenTypeOfSource
+    ? (findPermanent(state, ctx.sourceId)?.permanent?.chosenType ?? null)
+    : null;
+  const matches = cardMatchesTutorFilter(top, atom.filter)
+    && (!atom.filter?.chosenTypeOfSource || cardHasChosenType(top, chosenType));
+  if (!matches) {
+    // Non-matching top card → can't be taken, stays ON TOP. No pause, no surfacing (hidden-zone honesty).
+    return logEvent(state, { kind: "spell-effect", effect: "look-top-take", controller: ctx.controller, looked: true, match: false });
+  }
+  return setPendingLookTopTakeChoice(state, { controller: ctx.controller, candidate: { id: top.id, name: top.name }, sourceName: ctx.cardName || null });
 }
 
 /**
@@ -1607,6 +1646,7 @@ export const libraryResolvers = {
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "reorder-top": applyReorderTopAtom, // ===== REORDER-TOP (Ponder) ===== look at top N, put them ALL back in any order (reuses the scry-surveil choice in reorder mode — nothing bottomed), with an optional shuffle. Ponder flips native-spell.
   "impulse-dig": applyImpulseDigAtom,
+  "look-top-take": applyLookTopTakeAtom, // TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) — look top 1; if it matches the quality, take-or-leave (declined/non-match stays ON TOP, no disposal). Dryad Greenseeker / Frost Augur (activated) + Herald's Horn (upkeep trigger, chosen-type). Settled by resolveLookTopTakeChoice.
   "dig-land-to-battlefield": applyDigLandToBattlefieldAtom, // DIG-LAND-TO-BATTLEFIELD (Silverback Elder) — look top N, put a land onto the battlefield, rest → bottom random. Settled by resolveDigLandChoice.
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.

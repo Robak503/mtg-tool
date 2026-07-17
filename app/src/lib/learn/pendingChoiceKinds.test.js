@@ -25,6 +25,7 @@ import {
   setPendingScryChoice,
   setPendingHandDiscardChoice,
   setPendingImpulseDigChoice,
+  setPendingLookTopTakeChoice,
   setPendingDigLandChoice,
   setPendingSacrificeChoice,
   setPendingDivideChoice,
@@ -82,6 +83,10 @@ const FIXTURES = {
   ),
   "hand-discard": (s) => setPendingHandDiscardChoice(s, { controller: "ai", victim: "user", candidates: [] }),
   "impulse-dig": (s) => setPendingImpulseDigChoice(s, { controller: "ai", candidates: [], restTo: "graveyard" }),
+  // BLITZ LK-2 — the AI auto-takes (autoPickLookTopTake returns the candidate id); the settler moves it library→hand
+  // only if it's still the top card (an empty/mismatched library is the defensive no-op), then resumes (no resume →
+  // finishSpellResolution) → pendingChoice cleared. One-tick settle.
+  "look-top-take": (s) => setPendingLookTopTakeChoice(s, { controller: "ai", candidate: { id: "ltt-x", name: "Top Card" } }),
   "dig-land-to-battlefield": (s) => setPendingDigLandChoice(s, { controller: "ai", candidates: [], restIds: [] }),
   "sacrifice-choice": (s) => setPendingSacrificeChoice(s, { controller: "ai", candidates: [] }),
   "discard": (s) => setPendingDiscardChoice(s, { controller: "ai", remaining: 0, candidates: [], queue: [] }),

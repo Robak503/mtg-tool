@@ -500,6 +500,7 @@ export default function LearnView({
             onOptionalChoose={session.applyOptionalChoice}
             onHandDiscardChoose={session.applyHandDiscardChoice}
             onImpulseDigChoose={session.applyImpulseDigChoice}
+            onLookTopTakeChoose={session.applyLookTopTakeChoice}
             onSacrificeChoose={session.applySacrificeChoice}
             onDiscardChoose={session.applyDiscardChoice}
             onDivideChoose={session.applyDivideChoice}
@@ -584,6 +585,13 @@ export default function LearnView({
       {session.board && decision?.kind === "impulse-dig" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <ImpulseDigPanel decision={decision} onChoose={session.applyImpulseDigChoice} />
+        </div>
+      )}
+      {/* BLITZ LK-2 — top-card take-or-leave-on-top (Dryad Greenseeker / Frost Augur / Herald's Horn, Domri +1):
+          look at the matched top card of your library → TAKE it (→ hand) or LEAVE it on top. Same side-sheet. */}
+      {session.board && decision?.kind === "look-top-take" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <LookTopTakePanel decision={decision} onChoose={session.applyLookTopTakeChoice} />
         </div>
       )}
       {/* EDICTS — sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict) → the human (the edict's
@@ -819,7 +827,7 @@ function TableStrip({ table, activePlayer }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
+function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onLookTopTakeChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
 
   if (!decision) {
     return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Waiting for engine…</p>;
@@ -844,6 +852,9 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
   }
   if (decision.kind === "impulse-dig") {
     return <ImpulseDigPanel decision={decision} onChoose={onImpulseDigChoose} />;
+  }
+  if (decision.kind === "look-top-take") {
+    return <LookTopTakePanel decision={decision} onChoose={onLookTopTakeChoose} />;
   }
   if (decision.kind === "sacrifice-choice") {
     return <SacrificeChoicePanel decision={decision} onChoose={onSacrificeChoose} />;
@@ -1257,6 +1268,73 @@ function ImpulseDigPanel({ decision, onChoose }) {
       >
         {submitting ? "…" : "Keep"}
       </button>
+    </div>
+  );
+}
+
+/**
+ * BLITZ LK-2 — interactive TOP-CARD take-or-leave-on-top (Dryad Greenseeker / Frost Augur / Herald's Horn,
+ * Domri Rade's +1). The engine only pauses here when the top card ACTUALLY matched the quality, so the panel
+ * shows that one card and offers a real, non-dominated choice: TAKE it (→ hand, via session.applyLookTopTakeChoice
+ * with the card id) or LEAVE it on top (the card stays where it is — resumed with a null id). Same non-blocking
+ * side-sheet as the dig picker. Unlike impulse-dig, LEAVE is a first-class option (declining is not dominated).
+ */
+function LookTopTakePanel({ decision, onChoose }) {
+  const [submitting, setSubmitting] = useState(false);
+  const card = (decision.candidates || [])[0];
+
+  const submit = async (cardId) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+          🔎 Top of library{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          Take it into your hand, or leave it on top of your library.
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "start" }}>
+        {card && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: 4, maxWidth: 180 }}>
+            <img
+              src={`/api/card-image?name=${encodeURIComponent(card.name)}`}
+              alt={card.name}
+              loading="lazy"
+              style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 6, background: "var(--ley-surface-2)" }}
+              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+            />
+            <div style={{ fontSize: 12, color: "var(--ley-text)", lineHeight: 1.25, fontWeight: 600, textAlign: "center" }}>
+              {card.name}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(card?.id ?? null)}
+          disabled={!card || submitting}
+        >
+          {submitting ? "…" : "Take"}
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(null)}
+          disabled={submitting}
+        >
+          Leave on top
+        </button>
+      </div>
     </div>
   );
 }

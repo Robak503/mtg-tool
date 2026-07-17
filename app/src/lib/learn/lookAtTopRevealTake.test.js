@@ -128,8 +128,13 @@ describe("LK-1 (B) runtime — the chosen-type dig surfaces ONLY chosen-type cre
 });
 
 describe("LK-1 FN guards — near-miss carriers STAY parked (false-negative SAFE, false-positive FORBIDDEN)", () => {
-  it("Herald's Horn — the N=1 'if it's a … you may reveal it' shape is a DISTINCT mechanic → body-only (parked)", () => {
-    expect(classifyCard(HERALDS_HORN)).toBe("body-only");
+  it("Herald's Horn — the N=1 take-or-leave-on-top shape is a DISTINCT mechanic (LK-1 parked; LK-2 owns the flip)", () => {
+    // LK-1 correctly parked Herald: the N=1 "look at the top CARD … if it's a <type>, you may reveal it and put
+    // it into your hand" (declined card stays ON TOP, no disposal) is a distinct mechanic LK-1 scoped out. BLITZ
+    // LK-2's `look-top-take` atom now models exactly that, and classifyChosenTypeCostReducer composes Herald's
+    // chooser + chosen-type reducer + this now-native upkeep trigger → native-mixed. This assertion is updated
+    // to that reality (like LK-1's own updates to chosenTypeCastDraw / chosenTypeFlatAnthem). See lookTopTake.test.js.
+    expect(classifyCard(HERALDS_HORN)).toBe("native-mixed");
   });
   it("a 'if you didn't put a card, gain life / draw' rider keeps the card parked (the whole effect isn't the bare dig)", () => {
     expect(classifyCard(BLOSSOM_PRANCER)).toBe("body-only");   // ETB dig + "gain 4 life" rider

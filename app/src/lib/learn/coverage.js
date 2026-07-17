@@ -28,7 +28,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
@@ -2429,11 +2429,16 @@ registerCoverageClassifier((card) => classifySelfCostReduction(card));
 //     replacement, stripped like the Kindred/Banner chooser), and
 //   • the chosen-type reducer (parseStaticAbilities emits its { costReduction: { chosenType } } marker —
 //     clauseProducesStatic confirms it parses; legalChoices applies it at the cast site).
-// NOTHING else may remain — Herald's Horn (an extra upkeep look-trigger) and Gathering Stone (an ETB/upkeep
-// trigger) keep residue → null (their reducer STILL applies at runtime; only the flip is withheld — a safe FN).
-// Returns native-static, or null. Additive-seam single-mechanism flip; mechanism-keyed (a future bare twin
-// flips automatically). The card-type-chooser variants (Cloud Key / Umori / Stenn — "choose a CARD type") are
-// NOT matched (the chooser RE wants a CREATURE type) and stay body-only, since that chooser is unmodeled.
+// NOTHING else may remain — EXCEPT (BLITZ LK-2) a single upkeep TOP-CARD take-or-leave-on-top trigger that
+// routes natively (Herald's Horn: "At the beginning of your upkeep, look at the top card of your library. If
+// it's a creature card of the chosen type, you may reveal it and put it into your hand." → the look-top-take
+// atom). With that trigger now modeled it's Herald's LAST blocker, so the whole card composes → native-mixed
+// (reducer static + native trigger). Gathering Stone (its look-trigger has a decline-to-GRAVEYARD tail — a
+// DIFFERENT mechanic that fails triggerRoutesNatively) and any OTHER trigger keep residue → null (their reducer
+// STILL applies at runtime; only the flip is withheld — a safe FN). A bare reducer (no trigger — Urza's
+// Incubator) is unchanged → native-static. Additive-seam, mechanism-keyed (a future bare twin flips too). The
+// card-type-chooser variants (Cloud Key / Umori / Stenn — "choose a CARD type") are NOT matched (the chooser RE
+// wants a CREATURE type) and stay body-only, since that chooser is unmodeled.
 const CT_COST_REDUCER_RE = /creature spells (?:you cast )?of the chosen type cost \{\d+\} less to cast\.?/i;
 function classifyChosenTypeCostReducer(card) {
   const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
@@ -2443,15 +2448,32 @@ function classifyChosenTypeCostReducer(card) {
   if (!CHOSEN_TYPE_CHOOSER_RE.test(oracle)) return null;           // the ETB creature-type chooser must be present
   if (!CT_COST_REDUCER_RE.test(oracle)) return null;              // the chosen-type reducer must be present
   if (!clauseProducesStatic("Creature spells of the chosen type cost {1} less to cast")) return null; // it parses to a marker
-  // NO residue: strip the chooser + the reducer; nothing else may remain (Herald's upkeep trigger / Gathering
-  // Stone's triggers keep residue → arbiter). A trigger present at all is residue.
-  if (detectTriggers(card).length > 0) return null;
-  const residue = oracle
+  // TRIGGER gate (BLITZ LK-2): the ONLY permitted trigger is exactly ONE natively-routing look-top-take trigger
+  // (Herald's upkeep look). Any second trigger, or a trigger whose effect ISN'T the bare look-top-take atom
+  // (Gathering Stone's decline-to-graveyard look fails triggerRoutesNatively; anything else is out of this
+  // slice's scope), is residue → null (a safe FN — the reducer still applies at runtime).
+  const triggers = detectTriggers(card);
+  let mixed = false;
+  if (triggers.length > 0) {
+    if (triggers.length !== 1) return null;
+    const trig = triggers[0];
+    if (!triggerRoutesNatively(trig)) return null;
+    const prog = parseEffectClause(trig.effectClause, "Instant", { hasX: !!trig.effectHasX });
+    if (!(prog && prog.atoms?.length === 1 && prog.atoms[0].op === "look-top-take")) return null;
+    mixed = true;
+  }
+  // NO residue: strip the chooser + the reducer, and (when mixed) drop the ONE look-top-take trigger LINE (it
+  // spans two sentences — "At … look … . If it's … put it into your hand." — so a line drop is cleaner than a
+  // single-sentence substring strip). Nothing else may remain.
+  let body = oracle
     .replace(CHOSEN_TYPE_CHOOSER_RE, " ")
-    .replace(CT_COST_REDUCER_RE, " ")
-    .replace(/[\s.]+/g, " ").trim();
+    .replace(CT_COST_REDUCER_RE, " ");
+  if (mixed) {
+    body = body.split(/\n+/).filter((line) => !/^\s*(?:When|Whenever|At)\b/i.test(line)).join("\n");
+  }
+  const residue = body.replace(/[\s.]+/g, " ").trim();
   if (residue.length > 0) return null;
-  return "native-static";
+  return mixed ? "native-mixed" : "native-static";
 }
 registerCoverageClassifier((card) => classifyChosenTypeCostReducer(card));
 

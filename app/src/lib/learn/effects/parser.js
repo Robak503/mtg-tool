@@ -1375,6 +1375,42 @@ function matchDigLandToBattlefield(oracle) {
 }
 
 /**
+ * ===== TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) ===== "Look at the top card of your library. If it's a
+ * <quality> card[ of the chosen type], you may reveal it and put it into your hand." (Dryad Greenseeker's
+ * activated dig, Frost Augur's snow dig, Herald's Horn's upkeep trigger.) A DISTINCT mechanic from impulse-dig:
+ * top-1, and a declined OR non-matching card STAYS ON TOP with NO rest / bottom / graveyard disposal — so
+ * declining is NOT strictly dominated (the card is simply drawn next turn either way). The effect spans two
+ * sentences ("Look at … . If it's … , you may …"), so it's collapsed up front to ONE `look-top-take` atom
+ * before splitClauses shatters it. Returns `{ atom, rest }` or null.
+ *
+ * ALL-OR-NOTHING ALLOWLIST (CREED — false-positive FORBIDDEN): the `$`-anchor after "put it into your hand"
+ * (plus an optional trailing period) is LOAD-BEARING — a decline-DISPOSAL tail ("If you don't put the card into
+ * your hand, you may put it on the bottom / into your graveyard" — Vivien's Grizzly, Archghoul, Cabaretti
+ * Ascendancy, Traveling Botanist, …) is a DIFFERENT mechanic (an explicit alternate zone) and must NOT match;
+ * those stay Arbiter/body-only, correctly parked. A MANDATORY reveal ("reveal it and put it" with no "you may"),
+ * a multi-card dig, or a "reveal the top card" (public reveal, not a private "look") all fail the anchor too.
+ * Reminder text is stripped first (Frost Augur trails "({S} can be paid with one mana from a snow source.)").
+ * The quality phrase reuses the tutor filter allowlist (parseTutorFilter) — a tribal / unlisted word → null →
+ * Arbiter. The optional " of the chosen type" qualifier (Herald's Horn) emits filter.chosenTypeOfSource, which
+ * applyLookTopTakeAtom AND-filters at resolution against the source permanent's stored chosenType (perm.chosenType),
+ * exactly like the LK-1 impulse-dig chosen-type path (CR 614.12 membership + changeling, CR 702.73a).
+ */
+function matchLookTopTake(oracle) {
+  const s = stripReminder(oracle).trim();
+  const m = s.match(
+    /^look at the top card of your library\. if it['’]s an? ([a-z][a-z ]*?) card( of the chosen type)?, you may reveal it and put it into your hand\.?$/i,
+  );
+  if (!m) return null;
+  const filter = parseTutorFilter(m[1].trim());
+  if (!filter) return null;                                     // tribal / unlisted quality word → Arbiter
+  const chosen = !!m[2];
+  if (chosen) filter.chosenTypeOfSource = true;                 // AND the source's stored chosenType at resolve time
+  const label = chosen ? `${m[1].trim()} card of the chosen type` : `${m[1].trim()} card`;
+  // The $-anchor guarantees NO trailing text, so `rest` is always empty; returned for collapsed()'s uniform shape.
+  return { atom: { op: "look-top-take", filter, filterLabel: label }, rest: "" };
+}
+
+/**
  * CHOSEN-TYPE DRAW (CR 614.12) — Distant Melody "Choose a creature type. Draw a card for each permanent you
  * control of that type." Two sentences whose effect spans them (the count refers back to the chosen type), so
  * it's matched up front as ONE draw atom like the other collapsed templates. The draw count is a
@@ -3101,6 +3137,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // so order is documentation. HIGH iff every atom (this + any rider) is KNOWN. Not an X spell.
   const reorderTop = matchReorderTop(oracle);
   if (reorderTop) return collapsed(reorderTop);
+  // TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) — "Look at the top card of your library. If it's a <quality>
+  // card[ of the chosen type], you may reveal it and put it into your hand." → ONE look-top-take atom (top-1,
+  // declined/non-matching card stays ON TOP, no disposal). The two sentences span the clause splitter, so it's
+  // collapsed up front like impulse-dig; the $-anchored matcher guarantees no rider (rest is always empty). A
+  // disjoint anchor from impulse-dig ("put it into your hand" WITH no rest-disposal tail vs. "put the rest on
+  // the bottom"), so order is documentation. Dryad Greenseeker / Frost Augur (activated) + Herald's Horn (upkeep
+  // trigger, chosen-type) flip through this.
+  const lookTopTake = matchLookTopTake(oracle);
+  if (lookTopTake) return collapsed(lookTopTake);
   // CHOSEN-TYPE DRAW (Distant Melody) — "Choose a creature type. Draw a card for each permanent you control
   // of that type." spans two sentences, so it's collapsed up front to one chosen-type-count draw atom.
   const ctd = matchChooseTypeDraw(oracle);

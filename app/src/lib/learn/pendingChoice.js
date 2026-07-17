@@ -33,6 +33,7 @@ export const PENDING_CHOICE_KINDS = [
   "commander-return",
   "hand-discard",
   "impulse-dig",
+  "look-top-take",
   "dig-land-to-battlefield",
   "sacrifice-choice",
   "discard",
@@ -236,6 +237,34 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       controller,
       candidates,
       restTo,
+      sourceName,
+    },
+  };
+}
+
+/**
+ * TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) — flag a "look at the top card of your library. If it's a
+ * <quality> card, you may reveal it and put it into your hand." awaiting the controller's TAKE-or-LEAVE
+ * decision (Dryad Greenseeker / Frost Augur / Herald's Horn). Only ever set when the top card ACTUALLY
+ * matches the quality (applyLookTopTakeAtom resolves a non-match inline, with no pause and no surfacing —
+ * hidden-zone honesty), so `candidate` is always the single matched top card as `{ id, name }` — the
+ * controller's OWN library card (hidden-info safe, like the impulse-dig / scry candidates). Stored as a
+ * one-element `candidates` array so the shared decisionWire whitelist + the driver's pending-pick offer
+ * treat it uniformly with the other pick kinds. `restTo: "top"` records the DEFINING trait: a declined
+ * card STAYS ON TOP (no disposal) — distinct from impulse-dig's bottom/graveyard. The driver PAUSES a
+ * human (a real, non-dominated choice) and AUTO-TAKES for an AI (always take — strict card advantage;
+ * autoPickLookTopTake). FIFO: one choice at a time. Plain JSON (serialize-safe).
+ */
+export function setPendingLookTopTakeChoice(state, { controller, candidate, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "look-top-take-pending", controller, cardName: candidate?.name || null, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "look-top-take",
+      controller,
+      candidates: candidate ? [candidate] : [],
+      restTo: "top", // the declined / non-taken card STAYS ON TOP (no disposal) — the defining trait
       sourceName,
     },
   };
