@@ -1,6 +1,25 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~05:50 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.89%, suite 9,576 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~07:00 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 32.07%, suite 9,678 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
+> **CORPUS CROSSED 32%.** **Landed since the 05:50 entry below**: **LF-1** landfall/"another target you control
+> gets +P/+T" pump (370468b0, +10) · **EX-1** chosen-target explore + Map token (3c85ed50, +7; cite 701.53→
+> 701.44) · **CD-2** trailing-if riders (40b4e0dc, +4 — CD-1 mirror; Plan-the-Heist unified byte-identical) ·
+> **SL-1** the SOULBOND subsystem (0faaf3b4, +13 — a real pairing subsystem: soulbondPartner state, ETB
+> auto-pair, layer bond-grant, teardown closed TWICE — explicit clear at leave + control-change AND a liveness
+> guard; cite 702.96→702.95) · **AC-1** additional-cost count-N (b1e81a67, +3 — SE-1's "42" was really 4;
+> N=1 byte-identical, program-fingerprint confirmed) · **TR-1** the becomes-tapped SELF event (d2084f7a, +24
+> — new tap event mirroring the untap event, records only real untapped→tapped transitions; DESK: cite
+> 701.20a→701.26a (701.20a is REVEAL not tap) + 701.15a→701.19a (goad→regenerate)). Slices integrated: **54**
+> (+ the Opus FP-removal); night NET native **+407** (30.87%→32.07%), suite 8,932→9,678, LOST=0 on genuine
+> natives (1 phantom-mana FP removed), FOURTEEN loose/wrong CR cites caught at the desk.
+> **IN FLIGHT (3 Opus seats)**: **MOD-1** modular dies-move-counters · **LB-1** library-effect residue census ·
+> **ST-2** non-anthem static census (round 2). Standing flake chip + repo-wide stale cites (701.8 discard,
+> 701.15a-for-regeneration) still open for a cleanup pass; phantom-mana FP sweep worth a future pass.
+
+## (superseded ~70 min later) — 31.89%, suite 9,576 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
