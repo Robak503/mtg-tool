@@ -1091,9 +1091,13 @@ export function applyRevealTopConditional(state, atom, ctx) {
     const preds = atom.predicates || [atom.predicate];
     if (!preds.every((p) => TYPE_TESTS[p])) return state; // unknown predicate — defensive no-op
     const route = preds.some((p) => TYPE_TESTS[p](top)) ? atom.thenRoute : atom.elseRoute;
-    if (route === "battlefield") {
-      const r = enterCardFromZone(state, { playerId: controller, cardId: top.id, fromZone: "library" });
-      return logEvent(r.state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBattlefield: r.entered });
+    if (route === "battlefield" || route === "battlefield-tapped") {
+      // "put it onto the battlefield[ tapped]" — enterCardFromZone removes the revealed card from the
+      // library and enters it as a permanent, firing its ETB / permanent-enters / landfall watchers (the
+      // same put-onto-the-battlefield seam reanimation and ramp use). The tapped variant (Thrasios,
+      // Triton Hero: "put it onto the battlefield tapped") enters it already tapped.
+      const r = enterCardFromZone(state, { playerId: controller, cardId: top.id, fromZone: "library", tapped: route === "battlefield-tapped" });
+      return logEvent(r.state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBattlefield: r.entered, tapped: route === "battlefield-tapped" });
     }
     if (route === "hand" || route === "graveyard") {
       const r = moveCardToZone(state, { playerId: controller, cardId: top.id, fromZone: "library", toZone: route });

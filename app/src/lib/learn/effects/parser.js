@@ -2259,17 +2259,25 @@ function matchRevealTopConditional(oracle) {
   if (/^reveal the top card of your library\. if it's a creature card, put it onto the battlefield\. otherwise, you may put that card on the bottom of your library$/.test(s)) {
     return { atom: { op: "reveal-top-conditional", targetType: null } };
   }
-  // ===== TOP-CARD ROUTER (the parameterized family) ===== "Reveal the top card of your library. If it's
-  // a <TYPE> card, put it <onto the battlefield|into your hand>. Otherwise, put <it|that card> into your
-  // <graveyard|hand>." (Zoologist / Call of the Wild: creature→battlefield else graveyard; Neurok
-  // Familiar: artifact→hand else graveyard.) Exact-anchored ^…$ like every fused matcher here — a "you
-  // may" then-branch (Matter Reshaper), an MV cap, a name-match predicate (Candles of Leng), a
-  // "then shuffle" rider, or ANY other variant leaves residue → null → low → Arbiter (CREED whole-effect).
-  // A same-zone else ("into your hand" when then is also hand) is fine; then=battlefield is only emitted
-  // for permanent types (all four predicate words are permanent card types).
-  const rt = s.match(/^reveal the top card of your library\. if it's an? (creature|artifact|land|enchantment) card, put it (onto the battlefield|into your hand)\. otherwise, put (?:it|that card) into your (graveyard|hand)$/);
+  // ===== TOP-CARD ROUTER (the parameterized family) ===== "[Scry N, then ]Reveal the top card of your
+  // library. If it's a <TYPE> card, put it <onto the battlefield[ tapped]|into your hand|into your
+  // graveyard>. Otherwise, <put <it|that card> into your <graveyard|hand>|put it onto the battlefield[
+  // tapped]|draw a card>." (Zoologist / Call of the Wild: creature→battlefield else graveyard; Neurok
+  // Familiar: artifact→hand else graveyard; Thrasios, Triton Hero: scry 1, then land→battlefield TAPPED
+  // else draw a card.) Both branches map through REVEAL_THEN/REVEAL_ELSE — a CLOSED route vocabulary
+  // (each key resolves to a real modeled atom: put-onto-battlefield tapped/untapped rides
+  // enterCardFromZone and fires ETB, put-into-hand/graveyard rides moveCardToZone and is NEITHER a draw
+  // nor a mill, draw is a REAL draw). Exact-anchored ^…$ like every fused matcher here — a "you may"
+  // then-branch (Matter Reshaper), an MV cap, a name-match predicate (Candles of Leng), a "then shuffle"
+  // rider, or ANY other variant leaves residue → null → low → Arbiter (CREED whole-effect). An optional
+  // leading "Scry N, then " prepends a REAL scry atom (returned as the {atoms} multi-atom shape, same as
+  // the no-else rt2 branch below).
+  const rt = s.match(/^(?:scry (\d+), then )?reveal the top card of your library\. if it's an? (creature|artifact|land|enchantment) card, put it (onto the battlefield tapped|onto the battlefield|into your hand|into your graveyard)\. otherwise, (?:put (?:it|that card) (into your graveyard|into your hand|onto the battlefield tapped|onto the battlefield)|(draw a card))$/);
   if (rt) {
-    return { atom: { op: "reveal-top-conditional", targetType: null, predicate: rt[1], thenRoute: rt[2] === "onto the battlefield" ? "battlefield" : "hand", elseRoute: rt[3] } };
+    const REVEAL_ROUTE = { "onto the battlefield tapped": "battlefield-tapped", "onto the battlefield": "battlefield", "into your hand": "hand", "into your graveyard": "graveyard" };
+    const router = { op: "reveal-top-conditional", targetType: null, predicate: rt[2], thenRoute: REVEAL_ROUTE[rt[3]], elseRoute: rt[5] ? "draw" : REVEAL_ROUTE[rt[4]] };
+    if (rt[1]) return { atoms: [{ op: "scry", amount: parseInt(rt[1], 10), targetType: null }, router] };
+    return { atom: router };
   }
   // NO-ELSE forms (router v2): "Reveal the top card of your library. If it's a <T1>[ or <T2>] card,
   // <put it into your hand|draw a card>." — the absent otherwise-branch is CR-literal: nothing happens,
