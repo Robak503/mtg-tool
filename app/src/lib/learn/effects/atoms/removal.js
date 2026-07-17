@@ -490,6 +490,22 @@ export function destroyExileClauseParser(clause) {
     const op = /^(greater|more)$/.test(mvm[4]) ? ">=" : "<=";
     return { op: mvm[1] === "destroy" ? "destroy" : "exile", targetType: TT[mvm[2]], restrictions: [{ kind: "manaValue", op, value: parseInt(mvm[3], 10) }] };
   }
+  // POWER-FILTERED exile (BLITZ PX-1, CR 601.2c) — "exile target creature with power N or (greater|more|
+  // less)" (≤: Reaver Ambush / Grotesque Demise / Complete Disregard, all N=3; ≥: Abzan Charm's mode, The
+  // Wanderer's −2 — both directions corpus-evidenced). The power rides as the SAME { kind:"power" } target
+  // restriction the DESTROY twin already enforces (parser.js's legacy restriction fold — Defeat / Swat /
+  // Smite the Monstrous are native today; destroy is deliberately NOT re-anchored here so its proven path
+  // stays byte-identical), evaluated LAYER-AWARE at enumeration via creatureSatisfiesRestrictions →
+  // creaturePower — a creature pumped to 4 is NOT a legal ≤3 target even if printed 2 (CR 601.2c cast-time
+  // legality). Matching the incumbent discipline (the destroy twin + MV-filtered removal): restrictions are
+  // ENUMERATION gates; resolution re-checks target EXISTENCE (CR 608.2b fail-safe) but does not re-validate
+  // the restriction. Exact `$` anchor — an X-power form ("power X or less", Killing Glare), a controller
+  // scope, a toughness variant, or any rider fails → low → Arbiter (FN-safe).
+  const pxm = t.match(/^exile target creature with power (\d+) or (greater|more|less)$/);
+  if (pxm) {
+    const op = /^(greater|more)$/.test(pxm[2]) ? ">=" : "<=";
+    return { op: "exile", targetType: "creature", restrictions: [{ kind: "power", op, value: parseInt(pxm[1], 10) }] };
+  }
   // MULTI-COUNT + COLLECTIVE-X-MV destroy (CR 601.2c "any number of target" + the TOTAL-MV target restriction) —
   // "destroy any number of target artifacts and/or enchantments with total mana value X or less" (Rampaging Yao
   // Guai's {X}-cast ETB). "any number of target" is the unbounded multi-count form (minTargets:0, maxTargets = an
