@@ -1,6 +1,26 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~05:00 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.73%, suite 9,463 — 3 OPUS seats hot
+## 🌃 2026-07-17 ~05:50 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 31.89%, suite 9,576 — 3 OPUS seats hot
+
+> Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
+> shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
+> **Landed since the 05:00 entry below**: **DI-1** dies/leaves triggers (ae0b639f, +10 — 3 new scopes:
+> enchantment-PiG, creature-any-leaves, another-nontoken-dies) · **CD-1** conditional spell riders (ab7b5261,
+> **+21** — leading "If <board-cond>, <effect>" as a condition-gated atom; metric⇄runtime share evaluateInterveningIf;
+> the split-guard prevents a severed unconditional orphan) · **CB-1** single-sided can't-attack/block-alone
+> (e31a49f3, +5 — SM-2 gate reused) · **INST-1** condition-gated "instead" amount upgrades (1445bcc1, +8 —
+> Brimstone Volley kin; CURATED ability-word→reader map avoids a broken-graveyard-reader FP) · **EQ-2** (was
+> 04:05, already logged) · **DN-1** toughness-assigns-damage (41692ea8, +3 — Doran/Arcades family; a
+> combat-damage-reader change, VERIFIED byte-identical on the no-static path) · **CNT-1** counter-predicate
+> scope (bc579d21, +8 — "creature you control with a +1/+1 counter dies/attacks"; caught+fixed an FP where the
+> dies look-back didn't carry counters, firing on any death; bolster/support now 0 body-only = saturated).
+> Slices integrated: **45** (+ the Opus FP-removal); night NET native **+346** (30.87%→31.89%), suite
+> 8,932→9,576, LOST=0 on genuine natives (1 phantom-mana FP removed), TWELVE loose/wrong CR cites caught.
+> **IN FLIGHT (3 Opus seats)**: **CD-2** trailing-if riders (CD-1 mirror) · **EX-1** chosen-target explore +
+> Map token · **LF-1** landfall payoff census. Standing flake chip + repo-wide stale "701.8" discard cites
+> still open (below); a phantom-mana FP sweep worth a future pass.
+
+## (superseded ~50 min later) — 31.73%, suite 9,463 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
