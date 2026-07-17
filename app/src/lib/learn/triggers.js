@@ -2617,6 +2617,22 @@ export function detectTriggers(card) {
       optional: false, sourceText: `blocks-or-blocked ${dg.tag} delayed destroy`,
     });
   }
+  // BECOMES-BLOCKED-BY-A-CREATURE self-pump (BLITZ CT-1 — Cave Tiger / Rabid Wolverines / Viashino
+  // Weaponsmith / Pygmy Troll; Retaliation grants the same line). CR 509.3d: the "by a creature" wording
+  // triggers ONCE FOR EACH BLOCKING CREATURE — unlike the bare "becomes blocked" (509.3c, once per
+  // combat) — so the event is DISTINCT ("becomesBlockedByCreature") and checkBlockTriggers fires it per
+  // block PAIR through triggersForEvent (printed AND granted lines ride — the Retaliation group grant).
+  // The effect is the printed self-pump, passed through verbatim (the rampage sentinel vocabulary).
+  // SENTENCE-END anchored: a rider ("for each creature blocking it" — the perBlockerPump form, which
+  // also lacks "by a creature") never matches (CREED, FN-safe).
+  const cbp = oracle.replace(/\([^)]*\)/g, " ").match(/(?:^|[\n.;]\s*)whenever this creature becomes blocked by a creature, (?:it|this creature) gets \+(\d+)\/\+(\d+) until end of turn(?=\s*(?:\.|\n|$))/i);
+  if (cbp) {
+    out.push({
+      event: "becomesBlockedByCreature", scope: "self", whose: "any",
+      effect: null, effectClause: `this creature gets +${cbp[1]}/+${cbp[2]} until end of turn`,
+      optional: false, sourceText: `becomes-blocked-by-a-creature pump +${cbp[1]}/+${cbp[2]}`,
+    });
+  }
   // SOULSHIFT (CR 702.46a — BLITZ SS-1) — KEYWORD→TRIGGER synthesis, the CU/BUSHIDO precedent. "Soulshift N"
   // is a keyword whose triggered ability lives entirely in REMINDER parens ("(When this creature dies, you
   // may return target Spirit card with mana value N or less from your graveyard to your hand.)"). Synthesize
@@ -3712,6 +3728,22 @@ export function checkBlockTriggers(state) {
     const attackerRec = (state.combat?.attackers || []).find((a) => a?.permanentId === b.attackerId);
     const context = attackerRec?.defender ? { defenderId: attackerRec.defender } : {};
     fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
+  }
+  // BECOMES-BLOCKED-BY-A-CREATURE (BLITZ CT-1, CR 509.3d) — the "by a creature" wording triggers ONCE
+  // FOR EACH creature that blocks (a double-block = two triggers = the self-pump twice), so this loop is
+  // per block PAIR with NO attacker dedup — the deliberate contrast with the seenAttacker-deduped
+  // becomesBlocked loop above (CR 509.3c — the bare wording is once per combat). The ATTACKER is both
+  // source and triggering permanent (the scope:"self" contract — its "this creature" self-pump binds to
+  // it, exactly like the becomesBlocked loop above); the per-BLOCKER multiplicity is carried by the
+  // per-pair fire count, and the modeled effect never reads the blocker. Routed through
+  // triggersForEvent so printed AND granted lines fire (Retaliation's group grant re-detects on the
+  // quoted body via grantedTriggersForGroup).
+  for (const b of blockers) {
+    if (!b?.blockerId || !b?.attackerId) continue;
+    const att = findPermanent(state, b.attackerId);
+    const blk = findPermanent(state, b.blockerId);
+    if (!att || !blk) continue;
+    fired = fired.concat(triggersForEvent(state, { event: "becomesBlockedByCreature", sourcePermanent: att.permanent, triggeringPermanent: att.permanent, triggeringContext: {} }));
   }
   // BUSHIDO (subsystem 2) — the combined "blocks OR becomes blocked" event fires for a creature in EITHER
   // role: each blocker AND each blocked attacker. Deduped across both roles so a creature that somehow
