@@ -8,6 +8,44 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.145.0] — 2026-07-17
+
+### Added
+- **+674 more cards join native rules coverage** (corpus 30.87% → 32.85% — 11,221 of 34,161),
+  harvested from an overnight fleet of build agents and finished slice-by-slice at the desk —
+  53 engine mechanics, every one audited line-by-line with a tier-fingerprint flip-diff proving
+  zero native regressions (a card that already played correctly never started playing wrong).
+  The headline additions, grouped:
+  - **New subsystems** — **Soulbond** (real pairing state with ETB auto-pair, a layer-driven
+    bond grant, and teardown closed on both leave and control-change); **Level up** (level
+    counters with banded characteristics per level); **Sliver group grants**; the **Ordeal**
+    attack→counter→threshold-sacrifice→payoff cycle; **Modular** (dies, move its +1/+1 counters).
+  - **Combat math** — double/triple combat damage (modeled on the CR 614 replacement seam so
+    trample still distributes correctly); toughness-assigns-damage (the Doran family); saboteur
+    combat-damage-to-a-player payoffs; the "can't be blocked **except by** flying/color" evasion
+    inverse; single-sided can't-attack/block-alone.
+  - **Anthems & statics** — anthem **subject-filters** (legendary / colorless / multicolored /
+    non-⟨color⟩ / tapped / untapped, layer-aware with a live tap-state read); **global
+    each-creature** anthems and debuffs (Bad Moon, Crusade, Ascendant Evincar's two-sided
+    buff/debuff); source-gated group anthems (level bands, hellbent); equipment/aura grants
+    including ward {N}.
+  - **Triggers** — a becomes-tapped self event; dies/leaves-the-battlefield scopes;
+    attacks-triggers with non-self attacker scopes; cast/copy/draw-count triggers (**magecraft's
+    copy half** now fires, Flurry's second-spell, typal cast-draw); ETB support-N and
+    source-excluding board sweeps; intervening-if conditions (monarch, opponent-lost-life,
+    hellbent, a creature died under your control).
+  - **Library, graveyard & loyalty** — reorder-top and impulse-exile with duration-first
+    anchors; reveal-top-conditional and look-at-top dig; top-card take-or-leave (Dryad
+    Greenseeker, Domri +1); filtered graveyard reanimation; damaged-player reanimation
+    (saboteur graveyard theft); planeswalker loyalty abilities (reanimate-by-MV, untap-N-lands,
+    destroy-by-power).
+  - **Counters, keywords & mana** — counter-predicate dies/attacks payoffs; counter
+    multiplication (self-scope, Mowu); bolster-N and endure-N; a life-gained-this-turn ledger;
+    the nonland mana doubler (Kinnan-class); snow {S} mana from snow sources.
+  - **Random effects** — a **seeded RNG primitive** underpinning random discard, so shuffle- and
+    coin-flip-adjacent effects resolve deterministically and reproducibly instead of parking.
+  - **Spell riders** — conditional "if ⟨board⟩" riders in both leading and trailing positions.
+
 ## [0.144.0] — 2026-07-16
 
 ### Added

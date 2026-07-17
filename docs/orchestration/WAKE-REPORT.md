@@ -1,6 +1,23 @@
 # WAKE REPORT — live resume anchor
 
-## 🌃 2026-07-17 ~08:10 (night shift, RUNNING — Colton asleep, NO wind-down until he calls it) — 32.78%, suite 9,771 — 3 OPUS seats hot
+## 🌅 2026-07-17 ~08:40 — WIND-DOWN (Colton called it) — FLOOR EMPTY, v0.145.0 CUT — 32.85%, suite 9,820
+
+> Colton stopped the floor and asked to wind down. All three in-flight seats harvested clean and swept:
+> **EV-2** evasion "can't be blocked except by flying/color" (93b0fa09, +8; cite 702.9b verbatim) · **GA-1**
+> global each-creature anthems/debuffs (77377b21, +14; the all-players sibling of SF-1, opponent-creature
+> lethal-toughness pin) · **CTR-2** self-scope counter multiplication (50f79460, +1 Mowu; the doubler seam was
+> already 18/26 saturated — a full seat for +1, the diminishing-returns signal). **No agent worktrees remain.**
+> **FINAL NIGHT STATE: 32.85% native = 11,221 / 34,161, suite 9,820 green, LOST=0 on every genuine native.**
+> **v0.145.0 CUT** = 53 engine slices since v0.144.0 (30.87% → 32.85%, +674 native); CHANGELOG [0.145.0] written.
+> Two main-tree cherry-pick slips tonight (stray `cd` into the stale main checkout) — both caught in a second,
+> nothing pushed, reset clean; hard rule now: cherry-picks run ONLY in the worktree seat.
+> **NEXT SESSION — the 1.0 pivot decision is Colton's** (posed at wind-down, awaiting his read): keep nibbling
+> corpus (diminishing returns) vs. pivot to the 1.0 feature shelf he blessed — the reworked **Vault** zone (1.0
+> req), the **Academy** play/teaching fix, moving the **sim center to the playable shelf**, and **random effects**
+> (already seeded tonight: the RNG primitive + random discard landed). The DEFERRED CITE-CLEANUP below is now
+> runnable on the empty floor — pre-verified target numbers are in that note; do it as the first clean pass.
+
+## (superseded) — 32.78%, suite 9,771 — 3 OPUS seats hot
 
 > Standing order (Colton, bedtime): fully autonomous, 3 Opus seats, hand-held briefs + hard desk audits,
 > shelf-first then frontier, NO release and NO wind-down until he stops the floor himself. Chat + agents Opus.
