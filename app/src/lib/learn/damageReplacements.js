@@ -101,6 +101,46 @@ export function parseDamageReplacements(card) {
     out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", enteredThisTurn: true } });
   }
 
+  // SYMMETRIC-ALL double (BLITZ CM-1 — Furnace of Rath / Dictate of the Twin Gods): "If a source would deal
+  // damage to a permanent or player, it deals double that damage to that permanent or player instead." The
+  // UN-scoped Furnace family — EVERY source's damage to EVERY permanent/player is doubled (both players, both
+  // directions of combat). Distinct from the "you control" (source-scoped, above) and the "to you" (target-
+  // scoped, above) shapes: the anchor "a source would deal damage to a permanent or player" carries no
+  // controller/affected-player restriction, so its scope is {side:"any"} (buildSourceFilter → always applies).
+  // A CR 614 replacement effect, so it rides the deal-time consult (correct trample: lethal is assigned off
+  // normal toughness and only DEALT amounts are doubled) — NOT the CR 510.1a assignment seam (which would
+  // double the ASSIGNED amount and mis-distribute trample — a forbidden FP).
+  if (/if a source would deal damage to a permanent or player,? it deals double that damage/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "any" } });
+  }
+
+  // SOURCE-you-control TRIPLE (BLITZ CM-1 — Fiery Emancipation / City on Fire): the TRIPLE sibling of the
+  // "source you control … double" shape above — same source-controller scope, factor 3. Anchored on "triple"
+  // so it can't collide with the double shape (a card is one or the other, never both).
+  if (/if a source you control would deal damage[^.]*deals? triple/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 3 }, scope: { side: "source", controller: "you" } });
+  }
+
+  // CREATURE-you-control double (BLITZ CM-1 — Gratuitous Violence): "If a creature you control would deal damage
+  // to a permanent or player, it deals double that damage instead." NARROWER than the Furnace "source you
+  // control" shape — only damage whose SOURCE is a CREATURE you control is doubled (your burn spells / noncreature
+  // pingers are NOT), so it carries a sourceIsCreature flag consumed by buildSourceFilter (an inline live-source
+  // type check). In combat every source is a creature, so this doubles all your creatures' combat damage; the
+  // creature gate only bites on the noncombat path (keeping your Lightning Bolt un-doubled — an over-fire FP).
+  if (/if a creature you control would deal damage[^.]*deals? double/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", sourceIsCreature: true } });
+  }
+
+  // SELF combat-damage-to-a-player double (BLITZ CM-1 — Charging Tuskodon): "If this creature would deal combat
+  // damage to a player, it deals double that damage to that player instead." Self-source, but scoped to COMBAT
+  // damage dealt to a PLAYER only — its damage to blockers (creatures) and any noncombat damage are NOT doubled.
+  // combatOnly + targetPlayerOnly flags gate buildSourceFilter's self predicate on event.isCombat &&
+  // targetKind==="player". With trample this is the textbook CR 510.1c case: lethal is assigned to the blocker
+  // off normal toughness (un-doubled), and only the excess SPILLED to the player is doubled at deal time.
+  if (/if this creature would deal combat damage to a player,? it deals double that damage/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", self: true, combatOnly: true, targetPlayerOnly: true } });
+  }
+
   return out;
 }
 
@@ -140,6 +180,14 @@ export function stripDamageReplacementClauses(oracle, card) {
   t = t.replace(/if a source would deal damage to you[^.]*deals? double[^.]*\.?/i, " ");
   // SOURCE-SCOPED entered-this-turn (Neriv), whole sentence — mirrors the parse anchor above.
   t = t.replace(/if a creature you control that entered this turn would deal damage,? it deals twice that much damage instead[^.]*\.?/i, " ");
+  // CM-1 SYMMETRIC-ALL double (Furnace of Rath / Dictate), whole sentence.
+  t = t.replace(/if a source would deal damage to a permanent or player[^.]*\.?/i, " ");
+  // CM-1 SOURCE-you-control TRIPLE (Fiery Emancipation / City on Fire), whole sentence.
+  t = t.replace(/if a source you control would deal damage[^.]*deals? triple[^.]*\.?/i, " ");
+  // CM-1 CREATURE-you-control double (Gratuitous Violence), whole sentence.
+  t = t.replace(/if a creature you control would deal damage[^.]*deals? double[^.]*\.?/i, " ");
+  // CM-1 SELF combat-to-player double (Charging Tuskodon), whole sentence.
+  t = t.replace(/if this creature would deal combat damage to a player[^.]*\.?/i, " ");
   return t;
 }
 
@@ -195,6 +243,11 @@ export function boardHasDamageReplacement(state) {
  */
 export function buildSourceFilter(entry, _state) {
   const scope = entry?.scope || {};
+  // SYMMETRIC-ALL (CM-1 — Furnace of Rath / Dictate): no source/target restriction — every damage event is
+  // doubled. Checked first so the un-scoped shape can't fall through to the source-side branches below.
+  if (scope.side === "any") {
+    return () => true;
+  }
   if (scope.side === "target") {
     // Affected-player scoped: the replacement's controller is the player being dealt to.
     return (event) => event?.targetKind === "player"
@@ -202,8 +255,16 @@ export function buildSourceFilter(entry, _state) {
   }
   // Source-side (default).
   if (scope.self) {
-    // This-permanent-only (Wolverine): the damage source must BE this permanent.
-    return (event) => event?.sourceId != null && event.sourceId === entry.permanentId;
+    // This-permanent-only (Wolverine / Charging Tuskodon): the damage source must BE this permanent. CM-1 adds
+    // two OPTIONAL gates — combatOnly (event.isCombat) and targetPlayerOnly (targetKind==="player") — so a self
+    // doubler scoped to "combat damage to a player" (Charging Tuskodon) doesn't double its damage to blockers or
+    // any noncombat damage. Wolverine (neither flag set) is byte-identical: both gates are skipped.
+    return (event) => {
+      if (event?.sourceId == null || event.sourceId !== entry.permanentId) return false;
+      if (scope.combatOnly && !event.isCombat) return false;
+      if (scope.targetPlayerOnly && event.targetKind !== "player") return false;
+      return true;
+    };
   }
   if (scope.controller === "you") {
     // Controller-wide: any source the entry's controller controls. When the entry is gated to creatures that
@@ -222,6 +283,25 @@ export function buildSourceFilter(entry, _state) {
           if (src) break;
         }
         return !!src && src.enteredOnTurn === turn;
+      };
+    }
+    if (scope.sourceIsCreature) {
+      // CM-1 (Gratuitous Violence): controller-wide, but the live SOURCE permanent must be a CREATURE — re-read
+      // from state (an inline battlefield scan, mirroring the enteredThisTurn branch; keeps this a pure leaf with
+      // no gameState import). A noncreature source you control (a burn spell, an artifact pinger) is NOT doubled;
+      // a source not on the battlefield (a spell — never a permanent) can't be found → not doubled. In combat
+      // every source IS a creature, so this doubles all your creatures' combat damage.
+      return (event) => {
+        if (event?.sourceController == null || event.sourceController !== entry.permanentController) return false;
+        if (event.sourceId == null) return false;
+        let src = null;
+        for (const pid of Object.keys(_state?.players || {})) {
+          src = (_state.players[pid].battlefield || []).find((p) => p.id === event.sourceId);
+          if (src) break;
+        }
+        if (!src) return false;
+        const type = String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase();
+        return /\bcreature\b/.test(type);
       };
     }
     return (event) => event?.sourceController != null
