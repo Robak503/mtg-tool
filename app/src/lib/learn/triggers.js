@@ -729,6 +729,24 @@ function classifyCondition(condRaw, cardName, cardType) {
       return null; // the batch shape with a keyword the engine can't check — Arbiter (never an over-fire)
     }
   }
+  // WITH-KEYWORD ATTACKS (BLITZ AT-1 — "Whenever a creature you control WITH <combat-kw> attacks, <effect>":
+  // Stonebrow "with trample" → it gets +2/+2; Ognis "with haste" → create a tapped Treasure; Hooded Blightfang
+  // "with deathtouch" → each opponent loses 1 life). Carved out BEFORE the generic "with …" reject below, exactly
+  // like the qualified-ETB keyword filter and the keyword-batch combat-damage shape above: the "with <kw>" is a
+  // PRECISELY-checkable keyword restriction (parseEtbKeywordFilter → FILTERABLE_ETB_KEYWORDS, the
+  // permanentHasKeyword-checkable combat keywords + defender — layer-aware, so an equipment-granted trample
+  // counts). The creatureYouControlKeyword scope is event-agnostic in scopeMatches (gates on the ATTACKER's
+  // permanentHasKeyword + controller) and in NONSELF_TRIGGERING_SCOPES (so the attacker pronoun "it gets/gains …"
+  // binds via TRIG-PRONOUN-IT → target:"thatCreature"). Fires for EVERY attacker the player controls that HAS the
+  // keyword, INCLUDING the source itself when it carries it (CR — "a creature you control" includes the source;
+  // checkAttackTriggers' per-attacker fire matches the scope). A scope-INEXPRESSIBLE quality ("with power equal to
+  // its toughness", "with a +1/+1 counter on it") → parseEtbKeywordFilter returns null → falls through to the
+  // reject → Arbiter (CREED FN-safe — never an over-fire on an uncheckable quality). Anchored to the exact
+  // subject; the effect is re-gated all-or-nothing by triggerRoutesNatively downstream.
+  if (/\battacks\s*$/.test(c) && !/\balone\b/.test(c)) {
+    const atkKw = parseEtbKeywordFilter(subjectBefore(c, "attacks"));
+    if (atkKw) return { event: "attacks", scope: "creatureYouControlKeyword", whose: "any", keywordFilter: atkKw };
+  }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
@@ -1127,6 +1145,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     // upstream) leaves residue → UNDETECTED → Arbiter (a SAFE false-negative). whose:"any" like the
     // equipped form (checkAttackTriggers only scans the attacking player's watchers anyway).
     if (/^enchanted creature attacks$/.test(c)) return { event: "attacks", scope: "equippedCreature", whose: "any" };
+    // ANOTHER-CREATURE attacks (BLITZ AT-1) — "Whenever ANOTHER creature you control attacks, <effect>"
+    // (Glory Bearers "it gets +0/+1 until end of turn"; Stonehoof Chieftain "it gains trample and
+    // indestructible until end of turn"). The otherCreatureYouControl scope (already in scopeMatches +
+    // NONSELF_TRIGGERING_SCOPES) fires for every OTHER creature the attacking player controls
+    // (checkAttackTriggers' other-watchers loop threads the attacker as triggeringPermanent), NEVER the
+    // source's own attack (the scope's id check). The attacker pronoun in the effect ("it gets/gains … until
+    // end of turn") binds via TRIG-PRONOUN-IT (target:"thatCreature" → the triggering attacker). Anchored ^…$
+    // so any rider/compound stays UNDETECTED → Arbiter (a SAFE false-negative), mirroring the bare forms above.
+    if (/^another creature you control attacks$/.test(c)) return { event: "attacks", scope: "otherCreatureYouControl", whose: "any" };
     // SUBTYPE attacks (tribal payoffs — Utvara Hellkite / Sanctum Seeker / Grolnok). Single-word subtype
     // filter reusing subtypeYouControl; checkAttackTriggers threads the attacker as triggeringPermanent.
     const atkSub = c.match(/^a ([a-z]{3,}) you control attacks$/);
