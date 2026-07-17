@@ -14,7 +14,22 @@
 > restored), until he stops me or interjects from his phone. 1.0 roadmap + Vault deferred to a full weekend
 > sitting. Floor relit: 3 Fable seats.
 >
-> **~13:00 checkpoint — 33.67% (11,502), suite 10,136, day-shift +281. Fable credits ran out ~12:00 → agents
+> **~14:45 checkpoint — 33.85% (11,565), suite 10,243, day-shift +344, all Opus.** Since 13:00: **AU-2**
+> pacifism-locks (8a080e04, +12 — mana-leak FP closed via 605.1a) · **RG-1** regenerate (29cdfe72, +5 — the
+> shield subsystem already existed; swept 36 stale 701.15→701.19 regen cites off the cleanup queue; flagged
+> totem-armor 702.116→702.89 as task_3329dfa8) · **TK-1** tokens (08a4faf4, +8 — keyword tokens already won;
+> quoted dies-triggers + plural mana tokens; flagged a detectTriggers period-truncation bug for a future
+> [TRG] slice) · **CDP-1** CDA P/T (28455101, +27 — Tarmogoyf/Maro/Lhurgoyf; closed a latent 0/0 FP: */*
+> creatures were native but computed 0/0 for non-you-control counts) · **FB-1** flashback (c7fbf2ab, **+0
+> native** — HONEST: flashback flip-ceiling already realized by the strip, so the graveyard-recast+exile flow
+> is a runtime CAPABILITY not coverage; 85 cards now recastable, foundation for jump-start/retrace — ALT-CAST
+> DROPPED from the coverage queue) · **AU-3** aura-own triggers (5da1064f, +9 — classifier-only gate,
+> runtime-verified all 9 fire+resolve) · **PV-1** damage prevention (2ba6311c, +2 — Fog Bank; prevention
+> machinery mostly pre-existed). **IN FLIGHT (3 Opus)**: **PR-1** proliferate · **TR-3** trigger scopes R2
+> (end-step/artifact-to-gy/historic-cast/crime) · **UT-1** untap-control. Agents keep hitting the MTG_APP_ROOT
+> main-tree-edit confusion but self-correct; my desk flip-diff is the authoritative backstop.
+>
+> **(superseded ~13:00) — 33.67% (11,502), suite 10,136, day-shift +281. Fable credits ran out ~12:00 → agents
 > switched to OPUS (Colton's standing "keep working set to opus").** Since 11:30: **EK-1** connive+suspect
 > (6e496cb3, +20 — honest learn/incubate parks; flagged ~184 digital/Un-set denominator noise) · **CC-2**
 > counter-cost activations (f2f7a791, +26 — Thallid tribe) · **CC-3** self-NAME counter costs (c0a83f68, +1
