@@ -53,9 +53,12 @@ describe("PX-1 parser — both power directions parse for exile; near-misses sta
     expect(classifyCard(GROTESQUE_DEMISE)).toBe("native-spell");
     expect(classifyCard({ name: "Defeat", type: "Sorcery", mana: "{1}{B}", oracle: "Destroy target creature with power 2 or less." })).toBe("native-spell");
   });
-  it("PARK pin: Complete Disregard (Devoid line) stays arbiter-spell — the keyword line is not stripped for spells", () => {
+  it("park LIFTED (BLITZ DV-1): Complete Disregard flips native-spell — parseEffectProgram now strips the Devoid keyword line", () => {
+    // Previously pinned as arbiter-spell because the leading "Devoid (…)" line dragged this HIGH exile body to
+    // LOW. DV-1 strips that resolution-invariant CDA keyword line (stripDevoidLine) so the power-filtered exile
+    // body parses on its own — the metric + runtime agree on the devoid-free body. See devoidPolicy.test.js.
     expect(classifyCard({ name: "Complete Disregard", type: "Instant", mana: "{2}{B}",
-      oracle: "Devoid (This card has no color.)\nExile target creature with power 3 or less." })).toBe("arbiter-spell");
+      oracle: "Devoid (This card has no color.)\nExile target creature with power 3 or less." })).toBe("native-spell");
   });
 });
 

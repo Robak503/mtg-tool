@@ -1543,6 +1543,25 @@ function stripStormKeywordLine(oracle) {
     : oracle;
 }
 
+// DEVOID (CR 702.114, BLITZ DV-1) — strip the whole "Devoid (This card has no color.)" KEYWORD line before
+// parsing an instant/sorcery's effect. Devoid is a CHARACTERISTIC-DEFINING ability (layer 1) that makes the
+// card colorless in every zone; it carries NO parseable atom and has ZERO effect on the spell's resolution
+// (the colorless status is already baked into the card's colors:[] and honored by every color chokepoint —
+// colorsOf/colorsOfSpell/permanentColors + the cast-time sourceColors). Without the strip, a devoid keyword
+// clause drags an otherwise-HIGH body (Complete Disregard's power-filtered exile, Void Shatter's counter+exile)
+// to LOW — exactly the residue trap stripStormKeywordLine fixes for storm, and the resolution-invariant strip
+// stripCastKeywordLines makes for madness/foretell. The runtime cast path (actionDispatcher.applyCastSpell /
+// legalChoices) and the coverage classifier (spellIsNative) BOTH parse through parseEffectProgram, so they
+// agree on the devoid-free body — no metric-vs-runtime drift (the CREED). Line-anchored on a WHOLE "Devoid"
+// line (+ optional reminder paren), so a GRANT ("Slivers you control have devoid and annihilator 1.") or a
+// "cast a spell with devoid" reference is never touched — and those live on permanents/lands anyway, for which
+// parseEffectProgram returns null. Byte-identical body for a spell without the line.
+function stripDevoidLine(oracle) {
+  return /^[ \t]*devoid\b[ \t]*(?:\([^)]*\))?[ \t]*$/im.test(String(oracle || ""))
+    ? String(oracle).replace(/(?:^|\n)[ \t]*devoid\b[ \t]*(?:\([^)]*\))?[ \t]*(?=\n|$)/i, "\n")
+    : oracle;
+}
+
 /**
  * ===== KICKED-SPELL-EFFECT (CR 702.33e) ===== an instant/sorcery with a clean single Kicker cost whose
  * kicked payoff is an ADDITIVE extra effect — "<base>. If this spell was kicked, <extra>." (Runic Shot
@@ -1715,7 +1734,7 @@ function stripReboundLine(oracle) {
 
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-  const rawOracle = stripStormKeywordLine(stripSelfCostReduction(oracleOf(card)));
+  const rawOracle = stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(oracleOf(card))));
   // SELF-SHUFFLE DISPOSITION (Green Sun's Zenith + the Sun's Zenith / Beacon family) — peel a trailing "Shuffle
   // <this> into its owner's library." sentence up front so the BODY parses through the normal pipeline, and stamp
   // the resulting program `selfShuffle` (runEffectProgram's GY-1 then tucks the spell into the library instead of

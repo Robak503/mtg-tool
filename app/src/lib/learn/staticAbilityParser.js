@@ -2551,6 +2551,15 @@ export function activatedCostReductionForCost(reducers, cost) {
 const _WUBRG = ["W", "U", "B", "R", "G"];
 function colorsOfSpell(card) {
   if (Array.isArray(card?.colors)) return card.colors.map((c) => String(c).toUpperCase());
+  // DEVOID (CR 702.114, BLITZ DV-1) — a characteristic-defining ability makes the card colorless in EVERY zone
+  // regardless of its mana-cost pips. Real cards carry Scryfall's baked colors:[] (returned above); this guards
+  // only a fixture lacking a colors array so a devoid {2}{R} spell isn't mis-derived as red. Colorless is always
+  // correct for a devoid card — this can only REMOVE a wrong color, never add one (the CREED). Anchored to a
+  // WHOLE "Devoid" keyword line (or the Scryfall keyword), so a devoid REFERENCE is never matched.
+  if ((card?.keywords || []).some((k) => String(k).toLowerCase() === "devoid")
+      || /^[ \t]*devoid\b[ \t]*(?:\([^)]*\))?[ \t]*$/im.test(String(card?.oracle || card?.oracle_text || ""))) {
+    return [];
+  }
   const cost = String(card?.mana || card?.mana_cost || "");
   const out = [];
   for (const pip of cost.match(/\{[^}]+\}/g) || []) {

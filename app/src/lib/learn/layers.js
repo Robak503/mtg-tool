@@ -251,10 +251,24 @@ function gateMet(state, perm, gate) {
 }
 
 const COLOR_PIPS = ["W", "U", "B", "R", "G"];
+// DEVOID (CR 702.114, BLITZ DV-1) — a standalone "Devoid (This card has no color.)" keyword line. Detected via
+// the Scryfall `keywords` array (authoritative) OR a whole-line oracle match (for a fixture that sets oracle but
+// not keywords). Anchored to the WHOLE keyword line (+ optional reminder), so a grant ("Slivers you control have
+// devoid …") or a "cast a spell with devoid" reference never matches.
+function _isDevoidCard(card) {
+  if ((card?.keywords || []).some(k => String(k).toLowerCase() === "devoid")) return true;
+  return /^[ \t]*devoid\b[ \t]*(?:\([^)]*\))?[ \t]*$/im.test(String(card?.oracle || card?.oracle_text || ""));
+}
 /** A card's colors (the Scryfall `colors` array, else derived from mana-cost pips). Exported so the
  * targeting/protection path can read a SPELL's colors (CR 702.16b protection-from-color). */
 export function colorsOf(card) {
   if (Array.isArray(card?.colors)) return card.colors.map(String);
+  // DEVOID (CR 702.114) is a CHARACTERISTIC-DEFINING ability: the card is colorless in EVERY zone regardless of
+  // its mana-cost pips. Real cards carry Scryfall's baked colors:[] (returned above), so this guards only a
+  // fixture / reconstructed card that lacks a colors array — without it, colorsOf would wrongly derive ["R"]
+  // from a devoid {2}{R} cost and (e.g.) let protection-from-red stop a colorless spell. Colorless is ALWAYS
+  // correct for a devoid card, so this can only REMOVE a wrong color, never add one (the CREED).
+  if (_isDevoidCard(card)) return [];
   const cost = String(card?.mana || card?.mana_cost || "");
   return COLOR_PIPS.filter(c => cost.includes(`{${c}}`));
 }

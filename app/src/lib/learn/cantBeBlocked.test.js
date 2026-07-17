@@ -10,8 +10,9 @@
  *
  * Coverage: combat-trick spells (Infiltrate, Artful Dodge, Trailblazer) + mana/tap/sac activated abilities
  * (Coralhelm Guide, Wormhole Serpent, Cephalid Pathmage) + ETB/attack/constellation triggers flip native.
- * A qualified "…except by <X>", a conditional ("if it's attacking"), or an unmodeled keyword (Devoid) stays
- * on the Arbiter.
+ * A qualified "…except by <X>" or a conditional ("if it's attacking") stays on the Arbiter. (A leading Devoid
+ * keyword line no longer parks the spell — BLITZ DV-1 strips that resolution-invariant CDA line, so Slip
+ * Through Space's "can't be blocked + draw" body flips native; see devoidPolicy.test.js.)
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { parseEffectClause, programConfidence, atomTargetIntent, programTriggerTargetsResolvable, parseEffectProgram } from "./effects/parser.js";
