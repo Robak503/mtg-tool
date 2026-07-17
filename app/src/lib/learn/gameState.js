@@ -36,12 +36,20 @@ import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR
 
 let _idCounter = 0;
 
+/**
+ * Legacy no-id fallback minter — DETERMINISTIC on purpose (flake root-cause pass,
+ * 2026-07-17). It used to embed `crypto.randomUUID()` (or `Date.now()`), which made
+ * any id minted through this path RANDOM per process. Ids feed sort tie-breaks in
+ * opponentAI/legalChoices (`String(a.id) < String(b.id)`), so one random id reaching
+ * a compared structure silently breaks the "same seed ⇒ byte-identical game" replay
+ * invariant. Every production path threads the state-carried `mintId` below (perm-7,
+ * stk-8 — serialize-stable); this fallback exists only for legacy/no-id callers and
+ * hand-built test fixtures, and the module-global counter keeps it unique per process.
+ * The engine bans Date.now()/Math.random() in state paths — this was the last one.
+ */
 function nextId(prefix) {
   _idCounter += 1;
-  if (typeof globalThis.crypto?.randomUUID === "function") {
-    return `${prefix}-${globalThis.crypto.randomUUID().slice(0, 8)}-${_idCounter}`;
-  }
-  return `${prefix}-${Date.now().toString(36)}-${_idCounter}`;
+  return `${prefix}-legacy-${_idCounter}`;
 }
 
 /**

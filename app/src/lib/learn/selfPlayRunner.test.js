@@ -30,6 +30,19 @@ import {
 } from "./selfPlayRunner.js";
 import { FEATURE_KEYS } from "./gameFeatures.js";
 
+// HEAVY-RUNNER FILE (flake root-cause pass, 2026-07-17): several tests here drive FULL
+// Expert games to termination — the balanced-seating test alone runs 24 games, its
+// commander sibling 8 four-seat pod games. In isolation the file finishes in seconds,
+// but the suite runs ~770 files in parallel forks, and under MULTI-SUITE contention
+// (agent worktrees running their own gates concurrently on the same box) a 24-game
+// test has been observed past the global 20s ceiling — the exact spurious-timeout
+// class vitest.config.js documents for rules-retrieval ("passes in isolation and on
+// a full-suite rerun"). 90s is margin, not a mask: a genuinely hung run is still
+// killed by scripts/test-with-timeout.cjs's 5-minute wall-clock guard, and the
+// engine-determinism invariant itself is pinned load-independently in
+// selfPlaySeatingDeterminism.test.js.
+vi.setConfig({ testTimeout: 90_000 });
+
 beforeEach(() => _resetIdsForTests());
 
 function forest(i) {
