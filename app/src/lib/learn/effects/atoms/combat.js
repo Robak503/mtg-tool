@@ -1144,6 +1144,22 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(anotherKw[1]);
     return kws ? { op: "pump", targetType: "creatureYouControl", excludeSource: true, ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ANOTHER-TARGET-YOU-CONTROL pt bonus (CR 109.5) — "another target creature you control gets +P/+T[ and gains
+  // KW] until end of turn" (Gladiolus Amicitia's landfall, Hardened Escort / Imperial Aerosaur / Yotian
+  // Frontliner attack triggers). The P/T sibling of the keyword-grant shape above: same "creatureYouControl" +
+  // excludeSource targeting (the source permanent is never a legal target — enumerateTargets drops ctx.sourceId),
+  // and the SAME applyPumpEffect target-id path (atomTargets → ctx.targets) as the plain "target creature you
+  // control gets …" form (pctrl above), so no resolver change. POSITIVE deltas only (\+): a buff you point at
+  // your OWN creature is unambiguously own-side (atomTargetIntent pump → "own"); a negative "another … you
+  // control" is not a real printed shape and would fight the own-only enumeration, so it isn't credited. A
+  // present-but-ungrantable keyword → parseGrantedKeywords null → the whole clause drops (CREED — no fabricated
+  // grant), exactly like the keyword-only and pctrl forms.
+  const anotherPt = t.match(/^another target creature you control gets (\+\d+)\/(\+\d+)(?: and gains (.+))? until end of turn$/);
+  if (anotherPt) {
+    const kws = anotherPt[3] ? parseGrantedKeywords(anotherPt[3]) : null;
+    if (anotherPt[3] && !kws) return null;
+    return { op: "pump", targetType: "creatureYouControl", excludeSource: true, ptDelta: { p: parseInt(anotherPt[1], 10), t: parseInt(anotherPt[2], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
   // ===== MULTI-COUNT PUMP (VERIFY PROTOTYPE) ===== "up to N target creatures[ you control] each get ±P/±T[ and gain KW] until end of turn"
   let mc = t.match(/^up to (two|three|four|five) target creatures(?: (you control))? each get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
   if (mc) {
