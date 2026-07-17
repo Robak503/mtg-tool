@@ -84,9 +84,22 @@ export function parseGraveyardExileAbility(card) {
 export function parseGraveyardSelfRecursion(card) {
   const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
   for (const line of oracle.split("\n")) {
-    const m = line.trim().match(/^((?:\{[^}]+\})+): return this card from your graveyard to (your hand|the battlefield)( tapped)?\.?$/i);
+    // GR-1 (BLITZ — Stitchwing Skaab / Advanced Stitchwing / Ghoulsteed / Geralf's Masterpiece): an
+    // optional ", Discard N card(s)" COST RIDER between the mana and the colon. BARE "card(s)" only —
+    // a TYPED discard ("Discard a creature card" — Kraul Swarm) has a word between the article and
+    // "card", fails the anchor, and the whole line stays unmodeled (FN-safe; a typed victim filter is
+    // its own vocabulary). Every other rider (sacrifice / exile / tap — the probed family) likewise
+    // fails → body-only. The bare mana-only form is byte-identical to before (the rider group optional).
+    const m = line.trim().match(/^((?:\{[^}]+\})+)(?:, discard (a|two|three|four) cards?)?: return this card from your graveyard to (your hand|the battlefield)( tapped)?\.?$/i);
     if (m) {
-      return { manaPips: m[1], dest: m[2].toLowerCase() === "your hand" ? "hand" : "battlefield", entersTapped: !!m[3], raw: line.trim() };
+      const W = { a: 1, two: 2, three: 3, four: 4 };
+      return {
+        manaPips: m[1],
+        discardCards: m[2] ? (W[m[2].toLowerCase()] || 0) : 0,
+        dest: m[3].toLowerCase() === "your hand" ? "hand" : "battlefield",
+        entersTapped: !!m[4],
+        raw: line.trim(),
+      };
     }
   }
   return null;

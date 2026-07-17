@@ -701,7 +701,15 @@ function applyActivateGyRecursion(state, action) {
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in graveyard`, "CARD_NOT_FOUND");
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
-  const working = commitPaymentPlan(state, action.playerId, plan);
+  let working = commitPaymentPlan(state, action.playerId, plan);
+  // GR-1 — the ", Discard N cards" cost rider (Stitchwing Skaab kin, CR 601.2h — costs pay BEFORE the
+  // ability stacks): re-verify each enumerated victim is still in hand, then discard it. A vanished
+  // victim (hand changed between enumeration and dispatch) aborts — an underpaid cost must never stack.
+  for (const did of action.discardIds || []) {
+    const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === did);
+    if (!inHand) throw new DispatcherError(`Discard victim ${did} not in hand`, "COST_UNPAYABLE");
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: did });
+  }
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({
     id: stkId,

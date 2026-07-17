@@ -2106,9 +2106,21 @@ function actionsActivateGraveyardRecursion(state, playerId) {
     if (!rec) continue;
     const cost = parseManaCost(rec.manaPips);
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    // GR-1 — the ", Discard N cards" cost rider (Stitchwing Skaab kin): payable only with N cards in
+    // hand (CR 601.2h — an unpayable cost is never offered). WHICH cards: the first N by hand order,
+    // auto-picked at enumeration and carried on the action — the sacCount slice discipline (the
+    // incumbent multi-victim cost pattern; DC-1's per-victim offers stay the single-discard
+    // precedent for battlefield activations). The ids ride the action so the dispatcher pays exactly
+    // these and the UI can show them.
+    let discardIds = null;
+    if (rec.discardCards > 0) {
+      if ((player.hand || []).length < rec.discardCards) continue;
+      discardIds = player.hand.slice(0, rec.discardCards).map((c) => c.id);
+    }
     out.push({
       kind: "activate-gy-recursion", playerId, cardId: card.id, name: card.name,
       cost, cmc: totalCmc(cost), dest: rec.dest, entersTapped: rec.entersTapped,
+      ...(discardIds ? { discardIds } : {}),
       abilityText: rec.raw,
     });
   }
