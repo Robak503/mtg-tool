@@ -450,6 +450,16 @@ export function addCounterClauseParser(clause) {
   // discipline ("…on this creature$", target:"self"). Only +1/+1; anchored ^…$ so a rider → low → Arbiter.
   const enrageM = t.match(/^put that many \+1\/\+1 counters? on this creature$/);
   if (enrageM) return { op: "add-counter", counterType: "+1/+1", countContext: "combatDamageAmount", target: "self" };
+  // ===== LIFEGAIN-SCALED self counters (BLITZ EC-1b — Sunbond / Light of Promise) ===== "put that many
+  // lifegain +1/+1 counters on this creature" — the EVENT-SPECIFIC SENTINEL detectTriggers rewrites the
+  // lifegain trigger's payoff to (a phrase in ZERO printed oracle text — the counters-placed discipline), so
+  // the raw ENRAGE-identical wording above never mis-binds across events. "that many" = the life just gained
+  // (ctx.lifegainAmount, threaded per gain event by checkLifegainTriggers); recipient is the SOURCE
+  // (target:"self" → ctx.sourceId — for an aura-granted body the HOST). combatDamageReferentSatisfied pins
+  // countContext:"lifegainAmount" to the lifegain event, so a spell / any other trigger (absent referent → 0)
+  // can never over-place. +1/+1 only (the enforced kind); anchored ^…$ — a rider → low → Arbiter.
+  const lgSelfM = t.match(/^put that many lifegain \+1\/\+1 counters? on this creature$/);
+  if (lgSelfM) return { op: "add-counter", counterType: "+1/+1", countContext: "lifegainAmount", target: "self" };
   // ===== DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon) ===== "put X +1/+1
   // counters on each of up to two target creatures, where X is the result" — X is the just-rolled d20 value
   // (countFor diceResult, read off state.diceRoll, paired with a preceding roll-d20 by the parser's CREED

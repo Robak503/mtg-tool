@@ -537,7 +537,7 @@ export function spellIsNative(card) {
     // spell resolution — the clause silently no-ops. Without this, the storm branch credited native a body
     // the plain path correctly parks (verified: the same body without the Storm line returns false).
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner") return false;
       if (a?.who === "defendingPlayer") return false;
     }
     return true;
@@ -570,7 +570,7 @@ export function spellIsNative(card) {
     // Same combat-referent guard as the normal spell path (a spell never supplies the combat-damage referent).
     // Flattened via programCombatReferentAtoms so a MODAL mode-level referent can't slip through.
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || a?.who === "defendingPlayer") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || a?.who === "defendingPlayer") return false;
     }
     return true;
   }
@@ -602,7 +602,7 @@ export function spellIsNative(card) {
   // damage spell (Ozai's Cruelty) — where "that player" is a back-reference to the countered-spell controller
   // / damaged target, NOT the combat referent — keeps the whole spell on the Arbiter (a SAFE false-negative).
   for (const a of programCombatReferentAtoms(program)) {
-    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner") return false;
+    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner") return false;
     // who:"defendingPlayer" (CR 509.1a) is the ATTACKS-event referent (ctx.defenderId) — a spell never supplies
     // it, so such an atom would silently drop. Keep the spell on the Arbiter (a SAFE false-negative).
     if (a?.who === "defendingPlayer") return false;

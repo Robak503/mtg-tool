@@ -1620,6 +1620,17 @@ const SELF_SAC_IT_RE = /^sacrifice it$/i;
 // then discard") leaves residue → no match → no rewrite → LOW → Arbiter (a SAFE false-negative).
 const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain that much life)(?:\.\s*do this only once each turn)?\.?$/i;
 
+// LIFEGAIN-SCALED SELF COUNTERS (BLITZ EC-1b — Sunbond / Light of Promise): "Whenever you gain life, put
+// that many +1/+1 counters on this creature." — "that many" is the amount of life just gained
+// (ctx.lifegainAmount, threaded by checkLifegainTriggers), NOT a combat-damage amount. The raw clause is
+// byte-identical to the ENRAGE payoff (Hungering Hydra's dealtDamage form binds the SAME words to
+// countContext:"combatDamageAmount"), so the clause parser alone cannot disambiguate — the rewrite (below,
+// gated to the lifegain EVENT) inserts the event-specific sentinel ("lifegain +1/+1 counters") the counter
+// parser maps to countContext:"lifegainAmount"; combatDamageReferentSatisfied then pins that countContext
+// to the lifegain event (the counters-placed/milled discipline exactly). Whole-clause anchored — a rider
+// ("…, then you gain 2 life") leaves residue → no rewrite → LOW → Arbiter (a SAFE false-negative).
+const LIFEGAIN_SELF_COUNTER_PAYOFF_RE = /^put that many \+1\/\+1 counters? on this creature\.?$/i;
+
 // MILLED "that many" TOKEN PAYOFF (Screeching Scorchbeast, SHELF M1b) — "you may create that many 2/2 black
 // Zombie Mutant creature tokens[. Do this only once each turn]" on a MILLED trigger: "that many" is the count
 // of milled cards matching the trigger's filter, so the rewrite (below) inserts the event-specific sentinel
@@ -2361,6 +2372,16 @@ export function detectTriggers(card) {
         effectClause = effectClause
           .replace(/\bdraw that many cards\b/i, "draw that many counters-placed cards")
           .replace(/\bgain that much life\b/i, "gain that much counters-placed life");
+      } else if (cls.event === "lifegain" && LIFEGAIN_SELF_COUNTER_PAYOFF_RE.test(effectClause)) {
+        // ===== LIFEGAIN-SCALED SELF COUNTERS (BLITZ EC-1b — Sunbond / Light of Promise) ===== "Whenever you
+        // gain life, put that many +1/+1 counters on this creature." — "that many" = the life just gained
+        // (ctx.lifegainAmount, threaded per gain event by checkLifegainTriggers — each gain triggers
+        // separately with its own amount, CR 603.2). The raw clause is byte-identical to the ENRAGE payoff
+        // (which binds combatDamageAmount), so rewrite → the event-specific sentinel the counter parser maps
+        // to countContext:"lifegainAmount"; the referent gate (combatDamageReferentSatisfied) pins it to the
+        // lifegain event so no other event/spell can ever read an absent referent (the counters-placed
+        // discipline exactly). Whole-clause anchored — a rider leaves residue → no rewrite → LOW → Arbiter.
+        effectClause = "put that many lifegain +1/+1 counters on this creature";
       } else if (cls.event === "milled"
         && String(split.interveningIf || "").toLowerCase().trim() === "this creature is in your graveyard"
         && /^you may return it to your hand$/i.test(effectClause.trim())) {
@@ -4307,7 +4328,10 @@ export function checkLifegainTriggers(state, gainingPlayerId, amount = 0) {
   if (!gainingPlayerId || !(amount > 0) || !state.players?.[gainingPlayerId]) return state;
   let fired = [];
   for (const perm of triggerSourcesOf(state, gainingPlayerId)) {
-    fired = fired.concat(triggersForEvent(state, { event: "lifegain", sourcePermanent: perm, triggeringContext: { gainingPlayerId, amount } }));
+    // lifegainAmount — the event-specific ctx key the EC-1b "that many" counter atom reads (countContext:
+    // "lifegainAmount" via resolveScaledAmount); named distinctly (never the generic `amount`) so the referent
+    // gate can pin it to THIS event, the combatDamageAmount/countersPlaced discipline exactly.
+    fired = fired.concat(triggersForEvent(state, { event: "lifegain", sourcePermanent: perm, triggeringContext: { gainingPlayerId, amount, lifegainAmount: amount } }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };

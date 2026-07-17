@@ -72,6 +72,10 @@ export function combatDamageReferentSatisfied(program, event) {
     if ((a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount") && event !== "milled") return false;
     // LIFE-LOSS referents (Mindcrank, SHELF M3): the loser + amount are set ONLY by checkLifeLossTriggers.
     if ((a?.who === "lifeLostPlayer" || a?.countContext === "lifeLostAmount") && event !== "lifeLost") return false;
+    // LIFEGAIN amount (BLITZ EC-1b — Sunbond / Light of Promise): "that many" = the life just gained, set
+    // ONLY by checkLifegainTriggers' lifegain event. Any other event leaves the referent unset (a silent
+    // 0-counter → dropped clause, a forbidden FP) → not native there (a SAFE FN).
+    if (a?.countContext === "lifegainAmount" && event !== "lifegain") return false;
     // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
     if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     // UNTAPPED-CONTROLLER (Mesmeric Orb, SHELF S6): the mill's referent is the just-untapped permanent's
