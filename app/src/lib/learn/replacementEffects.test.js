@@ -29,7 +29,7 @@ const TEXT = {
   // (1v1 + FFA only, no teammates) "your team" == you, so Pir is you-scoped.
   pir: ["Legendary Creature — Human", "Partner with Toothy, Imaginary Friend (When this creature enters, target player may put Toothy into their hand from their library, then shuffle.)\nIf one or more counters would be put on a permanent your team controls, that many plus one of each of those kinds of counters are put on that permanent instead."],
   // ── Idle-audit (full 33-card runtime-surface scan) false-detection guards ──
-  // Mowu: a SELF-NAME doubler ("put on Mowu") — must NOT be read as global (would leak +1 onto EVERY creature).
+  // Mowu: a SELF-NAME doubler ("put on Mowu") — SELF-scoped (CTR-2): the +1 lands only on Mowu, never global.
   mowu: ["Legendary Creature — Dog", "Vigilance, trample\nIf one or more +1/+1 counters would be put on Mowu, that many plus one +1/+1 counters are put on it instead."],
   // Innkeeper's Talent: the doubler is the LEVEL-3 Class ability — must NOT apply unconditionally (Class type skip).
   innkeepersTalent: ["Enchantment — Class", "(Gain the next level as a sorcery to add its ability.)\nAt the beginning of combat on your turn, put a +1/+1 counter on target creature you control.\n{G}: Level 2\nPermanents you control with counters on them have ward {1}.\n{3}{G}: Level 3\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead."],
@@ -74,11 +74,15 @@ describe("doublerProfile / isPureDoubler — detection over real text", () => {
     expect(doublerProfile({ type: "Creature", oracle: "Flying" })).toBeNull();
     expect(isPureDoubler({ type: "Creature", oracle: "Flying" })).toBe(false);
   });
-  it("false-detection guards (idle full-surface audit): self-name / Class-level / date-gated doublers do NOT mis-detect", () => {
-    // Mowu "put on Mowu" is self-only — must NOT become a global doubler (that leaked +1 onto everyone's counters).
-    expect(doublerProfile(cardOf("mowu"))?.counter ?? null).toBeNull();
-    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "me", "+1/+1", 1)).toBe(1);  // own creatures: NOT boosted
-    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "opp", "+1/+1", 1)).toBe(1); // opponents: NOT boosted
+  it("scope guards (idle full-surface audit): Mowu is SELF-scoped; Class-level / date-gated doublers still skip", () => {
+    // Mowu "put on Mowu" is SELF-scoped (BLITZ CTR-2) — the +1 lands ONLY on Mowu itself, NEVER leaked onto
+    // everyone's counters. The runtime applies it ONLY when the recipient permanent IS the source
+    // (recipientPermId === the doubler's own permId), so a bare / other-permanent recipient is untouched.
+    expect(doublerProfile(cardOf("mowu")).counter).toMatchObject({ op: "additive", kind: "+1/+1", scope: "self" });
+    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "me", "+1/+1", 1)).toBe(1);              // no recipientPermId → NOT boosted
+    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "me", "+1/+1", 1, "other")).toBe(1);     // a different permanent → NOT boosted
+    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "opp", "+1/+1", 1)).toBe(1);             // opponents: NOT boosted
+    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "me", "+1/+1", 1, "dbl-mowu")).toBe(2);  // Mowu ITSELF → that many plus one
     // Innkeeper's Talent — Class (the doubler is its Level-3 ability); the layer can't track levels → skip entirely.
     expect(doublerProfile(cardOf("innkeepersTalent"))).toBeNull();
     // Hosting Season — date-gated; the "While it's October …" gate can't be evaluated → no token doubler.

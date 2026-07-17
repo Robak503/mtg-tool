@@ -32,6 +32,21 @@ function oracleOf(card) {
   return String(card?.oracle ?? card?.oracle_text ?? card?.text ?? "").toLowerCase();
 }
 
+function escapeReLit(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// SELF-scope recipient (Mowu, Loyal Companion — "…would be put on Mowu, that many plus one …"): the counter-
+// placement replacement's recipient is the SOURCE permanent ITSELF — referenced by its own (short) name, or by
+// "this creature"/"this permanent"/"itself". SINGLE SOURCE OF TRUTH shared by doublerProfile (scope detection)
+// and isModeledDoublerSentence (residue strip) so the two never drift. `shortName` is the lowercased pre-comma
+// card name; absent → only the name-free self pronouns match (FN-safe — a self-name card just under-models).
+function isSelfRecipient(s, shortName) {
+  if (/\b(?:put on|on) (?:this creature|this permanent|itself)\b/.test(s)) return true;
+  if (!shortName) return false;
+  return new RegExp(`\\b(?:put on|on) ${escapeReLit(shortName)}\\b`).test(s);
+}
+
 // A doubler's RECIPIENT must be GENERIC (the noun right after the determiner is creature/permanent/artifact/…),
 // never a subtype list. A "you"-scoped doubler whose recipient is a subtype ("an Army, Goblin, or Orc you
 // control" — Mauhúr) would otherwise over-apply to EVERY permanent the controller has, since the runtime layer
@@ -53,6 +68,7 @@ const RECIPIENT_GENERIC = /\bon (?:a|an|each|any|that|another)\s+(?:(?:nontoken|
 export function doublerProfile(card) {
   const o = oracleOf(card);
   if (!o) return null;
+  const shortName = String(card?.name ?? "").split(",")[0].trim().toLowerCase(); // SELF-recipient (Mowu) detection
   // CLASS doublers are LEVEL-gated (Innkeeper's Talent: the doubling is its Level-3 ability). The runtime layer
   // can't track Class levels, so an always-on doubler would over-apply from Level 1 — a forbidden FP. Skip the
   // whole card (FN-safe: under-model the rare Class doubler rather than mis-resolve every counter while it's
@@ -89,15 +105,20 @@ export function doublerProfile(card) {
         //    teammates in 1v1/FFA, so "your team" == you; without this Pir's +1 leaked onto opponents).
         //  • global: ONLY a genuinely generic recipient ("on a/each/any creature|permanent|planeswalker|
         //    player|spacecraft|planet", e.g. Primal Vigor "put on a creature").
-        //  • neither → a SELF-NAME recipient ("would be put on Mowu") or other restricted form. Modeling that
-        //    as global would leak the doubler onto EVERY player (Mowu's +1 hitting all counters) — a forbidden
-        //    FP. Leave scope null → no counter profile (FN-safe: a self-only doubler is under-modeled, never
-        //    over-applied).
+        //  • self-scope: a SELF-NAME recipient ("would be put on Mowu") / "this creature" / "this permanent".
+        //    The replacement affects ONLY the source permanent itself — the SAFEST scope (it can never touch
+        //    another permanent or a player). applyCounterDoubling gates it on recipientPermId === the doubler's
+        //    own permId (the exact inverse of excludeSource), so a null-recipient caller merely under-applies.
+        //  • neither → a subtype-restricted ("Army, Goblin, or Orc you control" — Mauhúr) / other unmodeled
+        //    form. Leave scope null → no counter profile (FN-safe: never over-applied).
         let scope = null;
         // "you" scope requires a GENERIC recipient (RECIPIENT_GENERIC) — a subtype-restricted recipient
         // ("Army, Goblin, or Orc you control") would over-fire onto every permanent you control.
         if (RECIPIENT_GENERIC.test(s) && (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s))) scope = "you";
         else if (/\b(?:put on|on) (?:a|an|each|any|that) (?:creature|permanent|planeswalker|player|spacecraft|planet)\b/.test(s)) scope = "global";
+        // SELF-scope (Mowu) — checked LAST so a generic you/global recipient is never mis-read as self; only a
+        // genuine self-name / self-pronoun recipient (nothing else matched) lands here.
+        else if (isSelfRecipient(s, shortName)) scope = "self";
         // SELF-EXCLUSION (CR 109.5) — "ANOTHER/OTHER creature you control" (Benevolent Hydra) means the
         // replacement never applies to counters placed on the SOURCE permanent itself. Captured so
         // applyCounterDoubling can skip this profile when the recipient IS its own source (a self-exclusion the
@@ -187,15 +208,18 @@ export function isPureDoubler(card) {
  * additive (generic recipient + you/global scope), the Vorinclex opponent-counter HALVE, and the token-creation
  * doubler. A token-HALVE (Halving Season "an opponent would create … half that many … tokens") is NOT modeled
  * (tokenMultiplier has no halving) → returns false → the clause is NOT stripped → the card stays non-native.
+ * `shortName` (lowercased pre-comma card name, threaded by stripModeledDoublerClauses) enables the SELF-scope
+ * clause (Mowu) to be recognized/stripped; absent → only the name-free self pronouns are matched.
  */
-export function isModeledDoublerSentence(s) {
+export function isModeledDoublerSentence(s, shortName = null) {
   const counterPut = /counters? would be put on/.test(s) || /would put (?:one or more )?counters? on/.test(s);
   if (counterPut) {
     if (/(an opponent would put|an opponent controls)/.test(s) && /half that many/.test(s)) return true; // opponent counter-halve
     if (/twice that many/.test(s) || /that many plus (one|1)/.test(s)) {
       const youScope = RECIPIENT_GENERIC.test(s) && (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s));
       const globalScope = /\b(?:put on|on) (?:a|an|each|any|that) (?:creature|permanent|planeswalker|player|spacecraft|planet)\b/.test(s);
-      return youScope || globalScope;
+      // SELF-scope (Mowu) — the source-permanent recipient; mirrors doublerProfile's isSelfRecipient exactly.
+      return youScope || globalScope || isSelfRecipient(s, shortName);
     }
   }
   if ((/(?:create|creates) one or more tokens?/.test(s) || /one or more tokens? would be created/.test(s)) && /twice that many/.test(s)) return true;
@@ -218,12 +242,14 @@ export function isModeledDoublerSentence(s) {
  * over-permits the residue check — e.g. Solid Ground's earthbend reminder). Each `…sentence.` is tested by
  * isModeledDoublerSentence; a match is excised (its leading separator kept), everything else passes through
  * untouched. Only removes what the runtime applies — an unmodeled doubler-shaped clause (token-halve) survives
- * as residue, keeping its card off the native tier (CREED).
+ * as residue, keeping its card off the native tier (CREED). `card` (optional) threads the pre-comma short name
+ * so a SELF-scope clause (Mowu — "put on Mowu") is recognized and stripped, exactly as the runtime applies it.
  */
-export function stripModeledDoublerClauses(oracle) {
+export function stripModeledDoublerClauses(oracle, card = null) {
+  const shortName = card?.name ? String(card.name).split(",")[0].trim().toLowerCase() : null;
   return String(oracle || "").replace(
     /(^|[\n.]\s*)([^.\n]*\.)/g,
-    (m, sep, sentence) => (isModeledDoublerSentence(sentence.trim().toLowerCase()) ? sep : m),
+    (m, sep, sentence) => (isModeledDoublerSentence(sentence.trim().toLowerCase(), shortName) ? sep : m),
   );
 }
 
@@ -240,9 +266,14 @@ function allDoublers(state) {
   return out;
 }
 
-/** A counter doubler applies to a recipient when it is global, or "you" and the owner controls the recipient. */
-function counterDoublerApplies(d, ownerId, recipientId) {
+/** A counter doubler applies to a recipient when it is global, or "you" and the owner controls the recipient, or
+ *  "self" and the recipient permanent IS the doubler's own source (Mowu — both perm ids must be known). */
+function counterDoublerApplies(d, ownerId, recipientId, permId, recipientPermId) {
   if (!d) return false;
+  // SELF-scope (Mowu, CR 614) — applies ONLY to counters landing on the doubler's OWN source permanent. Needs
+  // both the doubler permanent (permId) and the recipient permanent (recipientPermId); an unknown recipient
+  // can't be proven to be the source, so it does NOT apply (FN-safe under-apply, never an over-fire elsewhere).
+  if (d.scope === "self") return permId != null && recipientPermId != null && permId === recipientPermId;
   return d.scope === "global" || ownerId === recipientId;
 }
 
@@ -305,7 +336,7 @@ export function applyCounterDoubling(state, recipientControllerId, counterType, 
     // (FN-safe under-apply, never an over-fire on a land/planeswalker counter).
     const typeGated = c?.recipientTypes
       && !(recipientPermId != null && recipientTypeMatches(state, recipientPermId, c.recipientTypes));
-    if (c && !selfExcluded && !typeGated && (c.kind !== "+1/+1" || counterType === "+1/+1") && counterDoublerApplies(c, ownerId, recipientControllerId)) {
+    if (c && !selfExcluded && !typeGated && (c.kind !== "+1/+1" || counterType === "+1/+1") && counterDoublerApplies(c, ownerId, recipientControllerId, permId, recipientPermId)) {
       if (c.op === "additive") additive += c.factor;
       else multiplier *= c.factor;
     }

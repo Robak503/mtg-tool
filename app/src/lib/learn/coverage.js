@@ -1971,7 +1971,9 @@ export function coverageSummary(cards) {
 function doublerCardTier(card) {
   if (!doublerProfile(card)) return null;
   if (isPureDoubler(card)) return "native-static";
-  const strippedOracle = stripModeledDoublerClauses(card?.oracle || "");
+  // Pass `card` so a SELF-scope doubler clause (Mowu — "…would be put on Mowu…") is recognized by its short
+  // name and stripped, leaving only the keyword body (Vigilance, trample) for the isKeywordOnly check below.
+  const strippedOracle = stripModeledDoublerClauses(card?.oracle || "", card);
   if (isKeywordOnly(strippedOracle, card?.name)) return "native-static"; // doubler + vanilla/keyword body
   if (permanentFullyCovered({ ...card, oracle: strippedOracle })) return "native-mixed"; // doubler + other modeled abilities
   return null;
