@@ -1,6 +1,20 @@
 # WAKE REPORT — live resume anchor
 
-## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.7%, campaign +891**: 57 slices, LOST=0 — batch 3 landed (+56 this cycle)
+## ⚙️ 2026-07-16 (day 2, RUNNING) — **30.7%, campaign +900**: 59 slices, LOST=0 — the limit hit and the desk restarted on OPUS seats
+
+> Census **10,483 of 34,161 (30.69%)** — campaign +900 exactly. The session limit hit mid-batch-4
+> (~17:45, reset 18:50); all three Fable agents died mid-lane. Post-reset salvage: **LU-1** LURE
+> (0f03aa80, +6 — the long-parked block-requirements lane shipped at the MUST-ATTACK bar: opponentAI.
+> pickBlockers force-assigns every legal blocker of a lured attacker; Taunting Elf / Elvish Bard /
+> Ochran Assassin / Prized Unicorn / Breaker of Armies / Treeshaker Chimera; the this-turn/targeted/
+> "it" variants all pinned off the anchor) — gated pre-limit, committed post-reset · **MA-1** the
+> madness AURAS (3c40b189, +3 — harvested COMMITTED from the dead static seat's worktree, re-gated
+> whole at the director's desk: Senseless Rage / Strength of Isolation / Strength of Lunacy via the
+> FA-1-precedent auraResidueClauses admission on MD-1's rationale).
+> Batch 4 RELAUNCHED on OPUS seats (Colton's call — Fable budget to the director): AF-2 afterlife +
+> MN-1 mentor (with the dead seat's partial diff as reference) · DV-1 devoid correctness-first +
+> BB-1 same-name debuff · RT-1 riot. The combat seat's dead AF-2 work and the zones seat's DV-1
+> probes were captured before relaunch; MA-1's worktree commit was the only finished piece.
 
 > Census **10,474 of 34,161 (30.66%)**, baseline scratchpad cand71.txt. This cycle: director solos —
 > **TD-1** the tapped-count draw (0c6a5761, +2, Theft of Dreams kin) · **GR-1** the discard-N graveyard
