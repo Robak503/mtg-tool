@@ -524,6 +524,13 @@ function splitClauses(oracle) {
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
     // as one clause so the clause parse binds the pump + grant to the SAME target.
     if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SAME-NAME MASS PUMP (BLITZ BB-1, CR 611.2c — Bile Blight / Echoing Decay / Echoing Courage) — "Target
+    // creature and all other creatures with the same name as that creature get ±N/±N until end of turn". The
+    // internal " and " (between the ONE chosen target and its same-name fanout set) is NOT a top-level effect
+    // boundary — keep the whole sentence so pumpClauseParser binds the single nameFanout pump atom. Anchored on
+    // the ±N/±N pump tail so a damage/exile fanout ("…deals 4 damage to target creature and each other creature
+    // with the same name…") never captures here (that's a different, un-modeled shape → stays on the Arbiter).
+    if (/^target creature and all other creatures with the same name as that creature get [+-]\d+\/[+-]\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // CAUSATIVE pump + keyword grant ("have target creature get +2/+0 and gain deathtouch until end of turn" —
     // Painsmith, the inner of "you may have …"): the " and " joins the P/T bump to the grant within ONE causative
     // instruction, not a top-level boundary. Keep it whole so pumpClauseParser binds the pump + grant to the SAME

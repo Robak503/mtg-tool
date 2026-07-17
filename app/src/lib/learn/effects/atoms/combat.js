@@ -1170,6 +1170,17 @@ export function pumpClauseParser(clause) {
       ptDelta: fixed,
     };
   }
+  // SAME-NAME MASS PUMP (BLITZ BB-1, CR 611.2c) — "target creature and all other creatures with the same name as
+  // that creature get ±N/±N until end of turn" (Bile Blight -3/-3, Echoing Decay -2/-2, Echoing Courage +2/+2).
+  // ONE chosen target (targetType:"creature" → the normal single-creature enumeration; the internal " and " is
+  // kept whole by a splitClauses guard in parser.js). The nameFanout flag makes atomTargets read the chosen
+  // creature's NAME AT RESOLUTION and fan the ±N/±N endOfTurn layer-7c effect out to every battlefield creature
+  // sharing that card name (all players; tokens count — the fixed set, CR 611.2c). applyPumpEffect's lethal SBA
+  // already kills a creature dropped to <=0 toughness (the -3/-3 debuff case). Whole-clause anchored ($): a
+  // controller-scoped ("its controller controls" — Declaration in Stone / Legion's End) or rider variant, or a
+  // damage/exile fanout (Homing Lightning / Sever the Bloodline), never matches → low → Arbiter (FN-safe).
+  const nf = t.match(/^target creature and all other creatures with the same name as that creature get ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (nf) return { op: "pump", targetType: "creature", nameFanout: true, ptDelta: { p: parseInt(nf[1], 10), t: parseInt(nf[2], 10) } };
   let m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
   let tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) and gain (.+) until end of turn$/);

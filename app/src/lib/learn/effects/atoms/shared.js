@@ -76,6 +76,26 @@ export function massCreatureTargets(state, opts = {}) {
 }
 
 /**
+ * SAME-NAME MASS SET (BLITZ BB-1, CR 611.2c) — every battlefield creature (all players; tokens count) whose
+ * card NAME equals `name`, as `{type:"creature", id, controller}` descriptors. The fixed set for the same-name
+ * mass pump (Bile Blight / Echoing Decay / Echoing Courage): the ONE chosen target's name is read AT RESOLUTION
+ * and every creature sharing it (the target itself + all others) gets the ±N/±N. EXACT card-name match (CR
+ * 201.2 — two objects have the same name iff their names are identical); an empty/absent name → [] (a nameless
+ * object shares its name with nothing — never a fabricated all-board sweep). Pure name/type-line read (strict
+ * leaf). Players-then-battlefield order (stable, serialize-deterministic), mirroring massCreatureTargets.
+ */
+export function sameNameCreatureTargets(state, name) {
+  if (!name) return [];
+  const out = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const perm of state.players[pid].battlefield) {
+      if (isCreatureCard(perm.card) && perm.card?.name === name) out.push({ type: "creature", id: perm.id, controller: pid });
+    }
+  }
+  return out;
+}
+
+/**
  * MASS-NC — every permanent matching `matches(card)` on EVERY battlefield, as `{type:"permanent"}`
  * descriptors (the type applyDestroyEffect accepts; it re-checks isCreature for the CR 603.10a dies
  * look-back, so an artifact/enchantment CREATURE swept this way still dies + fires its dies-trigger).
@@ -197,6 +217,18 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachOpponentCreature") {
     const cap = atom.toughnessAtMostCount ? countForSpec(state, ctx, atom.toughnessAtMostCount) : undefined;
     return opponentCreatureTargets(state, ctx.controller, { toughnessAtMost: cap });
+  }
+  // SAME-NAME MASS PUMP (BLITZ BB-1, CR 611.2c — Bile Blight / Echoing Decay / Echoing Courage) — the atom carries
+  // ONE chosen target (ctx.targets, targetType:"creature"); read its NAME AT RESOLUTION and fan the ±N/±N out to
+  // EVERY battlefield creature sharing that card name (the target itself + all others, all players, tokens
+  // included), the fixed set locked HERE (CR 611.2c). A chosen target that vanished before resolution (killed in
+  // response, CR 608.2b — a single-target spell with an illegal target doesn't resolve) → [] (a clean fizzle: the
+  // same-name others are NOT independent targets, so they get nothing when the sole target is gone).
+  if (atom.nameFanout) {
+    const chosen = (ctx.targets || []).find((tt) => tt.type === "creature" && findPermanent(state, tt.id));
+    if (!chosen) return [];
+    const nm = findPermanent(state, chosen.id)?.permanent?.card?.name;
+    return sameNameCreatureTargets(state, nm);
   }
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
   // EACH-CREATURE-TARGET-PLAYER-CONTROLS (Contagion Engine — "put a -1/-1 counter on each creature target
