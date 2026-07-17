@@ -739,6 +739,11 @@ export function manaSources(state, playerId) {
   const sources = [];
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
+    // ACTIVATED-LOCK (BLITZ AU-2, CR 605.1a): a mana ability IS an activated ability, so a permanent under the
+    // layer-6 "activatedAbilitiesLocked" grant (an Arrest-class Aura, or Koma mode 1) is NOT a mana source —
+    // the mana-path twin of the stack-ability gate in legalChoices. Board-rare (only that grant sets it), so
+    // this is a no-op for the common case; mirrors the NR-1 artifact-lock skip just below.
+    if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue; // AU-2
     if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue; // NR-1
     let prod = manaProduction(perm.card);
     // GROUP-GRANT: a permanent with NO own mana ability can have a {T}: Add … MANA ability GRANTED by a lord

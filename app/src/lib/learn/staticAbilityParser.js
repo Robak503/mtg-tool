@@ -3562,13 +3562,30 @@ function parseAttachedClause(c, subject) {
   // grants of the cantAttack/cantBlock pseudo-keywords, permanent for as long as the attachment holds
   // (the layer engine scopes attached bonuses to the host). Block-side enforcement is the SAME
   // canBlockAttacker read the until-EOT cant-block atom uses; attack-side is actionsDeclareAttacker's
-  // cantAttack gate (added with this class). Anchored whole-clause: a compound tail (Arrest's "and its
-  // activated abilities can't be activated") fails the match → the whole bonus drops (safe FN).
-  const cantM = rest.match(/^can't (attack or block|attack|block)\.?$/);
+  // cantAttack gate.
+  //
+  // ARREST TAIL (BLITZ AU-2, CR 602.5 — "a player can't begin to activate an ability that's prohibited
+  // from being activated"): the pacifism clause may carry the compound restriction tail
+  // ", and its activated abilities can't be activated" (Arrest / Lawmage's Binding / Demotion). The tail is
+  // a layer-6 grant of the "activatedAbilitiesLocked" pseudo-keyword — the SAME keyword Koma's mode-1 lock
+  // grants (effects/atoms/combat.js applyTapEffect) — enforced at BOTH activation chokepoints: stack-activated
+  // abilities (legalChoices' activatedAbilitiesLocked gate) AND mana abilities (manaModel.manaSources gates on
+  // it too, added with this class, since a mana ability IS an activated ability — CR 605.1a — so a locked
+  // mana-dork produces nothing). Scoped to the host by staticEffectsOf exactly like cantAttack/cantBlock.
+  // Anchored whole-clause ($): any OTHER rider leaves residue → the whole bonus drops (safe FN).
+  const cantM = rest.match(/^can't (attack or block|attack|block)(, and its activated abilities can't be activated)?\.?$/);
   if (cantM) {
     if (cantM[1] !== "block") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantAttack" }, duration: { kind: "permanent" } });
     if (cantM[1] !== "attack") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantBlock" }, duration: { kind: "permanent" } });
+    if (cantM[2]) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "activatedAbilitiesLocked" }, duration: { kind: "permanent" } });
     return out;
+  }
+  // ARREST POSSESSIVE (BLITZ AU-2 — Stupefying Touch / Detainment Spell): the bare "<subject> creature's
+  // activated abilities can't be activated" form. Matched on the ORIGINAL clause `c` because the possessive
+  // "'s" defeats the `${subject} creature ` subject-strip above (no whitespace after "creature"), so `rest`
+  // still holds the whole clause. Same activatedAbilitiesLocked grant, same dual-chokepoint enforcement.
+  if (new RegExp(`^${subject} creature's activated abilities can't be activated\\.?$`).test(c)) {
+    return [{ layer: 6, op: { layerOp: "addKeyword", keyword: "activatedAbilitiesLocked" }, duration: { kind: "permanent" } }];
   }
 
   // EQUIP-BASE-PT-SET (layer 7b): "has base power and toughness N/N" (literal), OPTIONALLY composed with a
@@ -3610,6 +3627,17 @@ function parseAttachedClause(c, subject) {
   if (ptMatch) {
     out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: signed(ptMatch[1]), toughness: signed(ptMatch[2]) }, duration: { kind: "permanent" } });
     rest = rest.slice(ptMatch[0].length).trim().replace(/^and\s+/, "").trim(); // "+1/+1 and has flying"
+    // PUMP + RESTRICTION (BLITZ AU-2): "gets +X/+Y and can't attack/block" (Cagemail / Maniacal Rage /
+    // Crippling Blight / Cast into Darkness / Undying Rage). The pump rides layer-7c above; the tail is the
+    // SAME cantAttack/cantBlock layer-6 grant the PA-1 standalone class emits (enforced at the declare gates,
+    // scoped to the host). Anchored whole-clause — any other tail falls through to the have-keyword check (safe
+    // FN). Placed before losesMatch so a "can't" tail is never mistaken for a keyword removal.
+    const pumpCantM = rest.match(/^can't (attack or block|attack|block)\.?$/);
+    if (pumpCantM) {
+      if (pumpCantM[1] !== "block") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantAttack" }, duration: { kind: "permanent" } });
+      if (pumpCantM[1] !== "attack") out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "cantBlock" }, duration: { kind: "permanent" } });
+      return out;
+    }
     // EQUIP-LOSES-KW (layer 6 removeKeyword): "+N/+N and loses <combat keyword>" (Colossus Hammer "loses
     // flying"). Only a known combat keyword removes; an unknown/ungrantable word leaves residue → the tail
     // check below rejects the whole clause (CREED). keywordSet applies removeKeyword (last-wins, 613.9).
