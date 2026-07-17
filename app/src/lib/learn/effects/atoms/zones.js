@@ -289,18 +289,28 @@ export function graveyardReturnClauseParser(clause) {
   if (/^return two target creature cards that share a creature type from your graveyard to your hand$/.test(t)) {
     return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature", maxTargets: 2, minTargets: 2, sharesCreatureType: true };
   }
-  // SOULSHIFT-CLASS subtype+MV recursion (BLITZ SS-1, CR 702.46a): "return target Spirit card with mana
-  // value N or less from your graveyard to your hand" — the synthesized soulshift trigger's effect clause.
-  // A STRUCTURED cardFilter {subtype, mvMax} rides the SAME return-from-graveyard resolver + the ONE
-  // cardMatchesGraveyardFilter chokepoint (enumeration + flush chooser can't drift). The subtype word is
-  // allowlisted (spirit only — the only word the soulshift reminder prints; "Spirit" appears in corpus
-  // type lines exclusively as a creature subtype). An unlisted word falls through → LOW → Arbiter.
-  const ssm = /^return target ([a-z]+) card with mana value (\d+) or less from your graveyard to your hand$/.exec(t);
-  if (ssm) {
-    if (ssm[1] === "spirit") {
-      return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: { subtype: "spirit", mvMax: parseInt(ssm[2], 10) } };
-    }
-    return null; // an unlisted subtype/word → the whole clause stays unmodeled (never a mis-match)
+  // RETURN-TO-HAND MV/TYPE filter (BLITZ GY-1, CR 608) — "return target <X> card with mana value N or less
+  // from your graveyard to your hand": the OWN-graveyard return-to-hand (Leonin Squire, Pillardrop Rescuer,
+  // Auriok Salvagers, Disciple of the Sun) NARROWED by a mana-value cap. The return-to-hand analog of PW-1's
+  // reanimate-MV: a STRUCTURED cardFilter rides the SAME return-from-graveyard resolver + the ONE
+  // cardMatchesGraveyardFilter chokepoint (cast / activate / trigger-flush chooser all read it, so a
+  // wrong-MV / wrong-type card is NEVER offered — CR 601.2c target restriction, CR 202.3 mana value, CR
+  // 712.8a a card in the graveyard has only its front-face characteristics). The SS-1 soulshift subtype
+  // ("spirit" — the only word that reminder prints) keeps the {subtype, mvMax} branch; every other filter
+  // <X> runs through parseGraveyardFilter → a modeled basic type / " or "-union / "permanent" / bare "card"
+  // (→ "any") becomes {typeFilter, mvMax}. A subtype / color / negation / intersection ("goblin", "nonland
+  // permanent", "creature or Vehicle") → parseGraveyardFilter null → the WHOLE clause stays unmodeled →
+  // LOW → Arbiter (CREED whole-clause, FN-safe; never a mis-match). The exact `$` anchor rejects a count
+  // ("up to two"), a dynamic cap ("lesser mana value"), another zone/destination ("to the battlefield"), or
+  // any trailing rider.
+  const mvHandM = /^return target (.*?)card with mana value (\d+) or less from your graveyard to your hand$/.exec(t);
+  if (mvHandM) {
+    const mvMax = parseInt(mvHandM[2], 10);
+    const word = mvHandM[1].trim();
+    if (word === "spirit") return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: { subtype: "spirit", mvMax } };
+    const typeFilter = parseGraveyardFilter(word);
+    if (typeFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: { typeFilter, mvMax } };
+    return null; // an unmodeled filter word → the whole clause stays unmodeled (never a mis-match)
   }
   const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
   if (gm) {

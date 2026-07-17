@@ -95,6 +95,15 @@ export function parseGraveyardFilter(phrase) {
  * Profane Prince" (Land // Creature) is a LAND in the graveyard and must NOT match a creature filter.
  * Mirrors the tutor (cardMatchesTutorFilter) + counter front-face discipline.
  */
+// Does a front-face type line satisfy a parseGraveyardFilter STRING token? "" / "any" → no restriction;
+// "permanent" → any permanent card type; a single type or a "|"-joined union → literal front-face
+// containment of any member. Shared by BOTH the string-token cardFilter path and the structured
+// {typeFilter, mvMax} object (BLITZ GY-1), so the two can never drift.
+function matchesGyTypeToken(front, token) {
+  if (!token || token === "any") return true;
+  if (token === "permanent") return /\b(?:Creature|Artifact|Enchantment|Land|Planeswalker|Battle)\b/.test(front);
+  return token.split("|").some((tok) => GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok]));
+}
 function cardMatchesGraveyardFilter(card, cardFilter) {
   if (!cardFilter || cardFilter === "any") return true;
   const front = String(card?.type || card?.type_line || "").split(" // ")[0];
@@ -115,14 +124,18 @@ function cardMatchesGraveyardFilter(card, cardFilter) {
       const word = GY_TYPE_WORD[cardFilter.cardType];
       if (!word || !front.includes(word)) return false;
     }
+    // TYPE-TOKEN gate (BLITZ GY-1 — the return-to-hand MV filter {typeFilter, mvMax:N}): the SAME
+    // string-token type matching the bare-recursion path uses (basic type / " or "-union / "permanent" /
+    // "any"), so a wrong-type card is never returned. Shares matchesGyTypeToken with the string-token
+    // branch below — no drift.
+    if (cardFilter.typeFilter && !matchesGyTypeToken(front, cardFilter.typeFilter)) return false;
     if (typeof cardFilter.mvMax === "number") {
       const mv = card?.cmc ?? card?.mana_value ?? 0; // CR 202.3 — an absent cost reads MV 0
       if (mv > cardFilter.mvMax) return false;
     }
     return true;
   }
-  if (cardFilter === "permanent") return /\b(?:Creature|Artifact|Enchantment|Land|Planeswalker|Battle)\b/.test(front);
-  return cardFilter.split("|").some((tok) => GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok]));
+  return matchesGyTypeToken(front, cardFilter);
 }
 
 // ─── Parse ──────────────────────────────────────────────────────────────────
