@@ -95,8 +95,11 @@ describe("CHOSEN-TYPE CAST-DRAW — classification (BLITZ TC-1)", () => {
     const d = detectTriggers(HERALDS_HORN).find((x) => x.event === "upkeep");
     expect(d && !!triggerRoutesNatively(d)).toBe(false);
   });
-  it("CREED — Icon of Ancestry parks (an activated look-tutor ability is unmodeled)", () => {
-    expect(classifyCard(ICON)).toBe("body-only");
+  it("Icon of Ancestry — this CAST-DRAW classifier declines it (0 cast triggers); LK-1 owns the flip", () => {
+    // The cast-draw classifier still returns null (it requires exactly one chosen-type CAST trigger; Icon has
+    // none). As of BLITZ LK-1 the activated chosen-type look-tutor IS modeled (impulse-dig chosenTypeOfSource),
+    // so the WHOLE card flips native-mixed via classifyChosenTypeAnthemDig — see lookAtTopRevealTake.test.js.
+    expect(classifyCard(ICON)).toBe("native-mixed");
   });
   it("CREED — an anthem grant-tail the parser silently drops fails the CONSUMPTION check (no partial flip)", () => {
     // parseStaticAbilities keeps the +1/+1 and drops "and can't be blocked" — the per-line descriptor

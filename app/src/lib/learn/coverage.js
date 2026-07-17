@@ -885,6 +885,21 @@ export function permanentTriggersCovered(card) {
     // hand."; the draw-then form), incl. the OR-predicate (Track Down "creature or land"). Same FN-safe
     // discipline: only a follow-up the HIGH gate already vouched for reaches this strip.
     .replace(/\bif it['’]s an? (?:creature|artifact|land|enchantment)(?: or (?:creature|artifact|land|enchantment))? card, (?:put it into your hand|draw a card)\b\.?\s*/gi, " ")
+    // LK-1 IMPULSE-DIG REVEAL-TAKE (Arcanist's Owl, Faerie Mechanist, Augur of Bolas, Foul Emissary, Glint-Nest
+    // Crane, …) — a triggered ability whose effect is the FILTERED impulse-dig ("look at the top N cards … you
+    // may reveal a <type> card from among them and put it into your hand. Put the rest on the bottom …") SPANS
+    // three sentences. detectTriggers keeps the whole span in the effectClause, and it parses HIGH via the
+    // effects/parser.js matchImpulseDig FILTERED matcher (matcher 2 — the SAME atom the runtime plays, proven by
+    // the native-spell Commune with Nature / native-activated Brightwood Tracker), so allTriggerSentencesModeled
+    // vouched it above — an UNmodeled continuation (a decline-to-graveyard rider, an "if you didn't put a card,
+    // draw/gain-life" tail, a multi-keep "put those cards", a tribal/comma filter parseTutorFilter rejects) fails
+    // triggerRoutesNatively and NEVER reaches this strip (FN-safe). The When/Whenever/At strip above stops at the
+    // first period after "…of your library.", leaving the "You may reveal … Put the rest …" tail as apparent
+    // residue. Strip the EXACT modeled continuation (mirroring matcher 2's tail: an optional OR-pair type phrase,
+    // "put it/that card into your hand", rest to the bottom in any/a random order) so a carrier whose OTHER text
+    // is keyword-only (Owl/Crane/Mechanist = Flying) reads keyword-only → native-trigger. Anchored to the modeled
+    // shape, so it can only consume a follow-up the HIGH gate already vouched for.
+    .replace(/\byou may reveal an? [a-z][a-z ]*? card from among them and put (?:it|that card) into your hand\. put the rest on the bottom of your library(?: in (?:any|a random) order)?\b\.?\s*/gi, " ")
     // SELF-CAST HALF-X ROUNDING (CR 107.3) — a trailing "Round down/up each time." directive is part of the
     // self-cast trigger's effect (it governs the "half X" magnitudes the parser models via the halve flag, so
     // the WHOLE effect parses HIGH in allTriggerSentencesModeled above — proven before this residue check runs),
@@ -2314,6 +2329,64 @@ function classifyChosenTypeCastDraw(card) {
   return "native-mixed";
 }
 registerCoverageClassifier((card) => classifyChosenTypeCastDraw(card));
+
+// ─── CHOSEN-TYPE ANTHEM + LOOK-AT-TOP DIG — Icon of Ancestry / Patchwork Banner (BLITZ LK-1) ─────────────────
+// The activated-ability sibling of the cast-draw classifier above: a choose-a-creature-type artifact/enchantment
+// whose payoffs are a FLAT chosen-type anthem AND an activated "{cost}: Look at the top N cards … you may reveal
+// a creature card OF THE CHOSEN TYPE … put the rest on the bottom" impulse-dig (the effects/parser.js matchImpulseDig
+// chosen-type branch → the applyImpulseDigAtom chosenTypeOfSource filter, which AND-matches the looked-at set
+// against the SOURCE's perm.chosenType via ctx.sourceId). WHOLE-CARD (CREED) — every line is one of exactly three
+// modeled shapes:
+//   • "As this <permanent> enters, choose a creature type." — the ETB auto-pick (resolvers.autoPickCreatureType →
+//     perm.chosenType, CR 614.12), LINE-anchored (CT_CHOOSER_LINE_RE), so a compound chooser line stays residue.
+//   • the FLAT anthem line — CONSUMPTION-CHECKED exactly like the cast-draw classifier (the parseStaticAbilities
+//     chosen-type descriptor count must equal the P/T + keyword tally, so a silently-dropped grant tail can't be
+//     credited); every parsed static must be chosen-type-scoped.
+//   • the activated impulse-dig ability line(s) — validated by permanentActivatedCovered on the chooser+anthem-
+//     stripped body (the SAME gate the runtime offers on: every activated ability modeled, its effect HIGH,
+//     non-modal/non-X; nothing else left but keyword-only). So a SECOND unmodeled activated ability → null.
+// NOTHING else may remain (keyword-only lines aside) — a card with an extra trigger (Vanquisher's Banner) or an
+// unmodeled activated ability keeps residue → null (its anthem STILL applies at runtime; only the flip is withheld,
+// a safe FN). Returns native-mixed (static + activated), or null. Additive-seam, mechanism-keyed (a future bare
+// twin flips automatically). Ordered AFTER classifyChosenTypeCastDraw so a trigger-carrier is owned there first
+// (this fn requires 0 triggers), and its anthem consumption reuses CT_CAST_ANTHEM_LINE_RE / CT_CHOOSER_LINE_RE.
+function classifyChosenTypeAnthemDig(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (!/\b(?:artifact|enchantment)\b/.test(type) || /\bcreature\b/.test(type)) return null;
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  if (!oracle || !CHOSEN_TYPE_CHOOSER_RE.test(oracle)) return null;   // the ETB chooser must be present
+  if (detectTriggers(card).length > 0) return null;                  // no triggers (cast-draw owns those)
+  // Every activated ability must be modeled (the SAME .modeled gate permanentActivatedCovered rides); ≥1.
+  const acts = parseActivatedAbilities(card);
+  if (acts.length === 0 || !acts.every((a) => a.modeled)) return null;
+  // ≥1 static, and EVERY parsed static is a chosen-type anthem descriptor (a stray non-chosen static rejects).
+  const statics = parseStaticAbilities(card);
+  if (!statics.length || !statics.every((d) => d?.affects?.selector?.chosenTypeOfSource === true)) return null;
+  // Per-line audit: chooser + ONE-OR-MORE consumption-checked anthem lines get stripped; the remainder must be
+  // activated-abilities-fully-covered (permanentActivatedCovered — modeled abilities + keyword-only residue).
+  const kept = [];
+  for (const rawLine of oracle.split(/\n+/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (CT_CHOOSER_LINE_RE.test(line)) continue;                      // the whole-line ETB chooser
+    const anthemM = line.match(CT_CAST_ANTHEM_LINE_RE);
+    if (anthemM) {
+      const hasPt = /get \+\d+\/\+\d+/i.test(line);
+      const kwList = anthemM[1] ?? anthemM[2] ?? null;
+      const kwCount = kwList ? kwList.split(/,\s*(?:and\s+)?|\s+and\s+/).filter((w) => w.trim()).length : 0;
+      const lineStatics = parseStaticAbilities({ name: card?.name, type: card?.type ?? card?.type_line, oracle: line });
+      if (lineStatics.length !== (hasPt ? 1 : 0) + kwCount) return null;      // a dropped tail → null
+      if (!lineStatics.every((d) => d?.affects?.selector?.chosenTypeOfSource === true)) return null;
+      continue;
+    }
+    kept.push(line);
+  }
+  // The chooser+anthem-stripped body must be exactly modeled activated abilities (+ keyword-only). This re-runs
+  // the runtime-mirroring activated gate, so a second UNmodeled activated ability or any static/trigger residue → null.
+  if (!permanentActivatedCovered({ ...card, oracle: kept.join("\n") })) return null;
+  return "native-mixed";
+}
+registerCoverageClassifier((card) => classifyChosenTypeAnthemDig(card));
 
 // ─── SELF-METRIC COST-REDUCTION — Ghalta, Primal Hunger (cross-deck big-mana payoff) ────────────────────────
 // A permanent SPELL whose only non-keyword text is a modeled self cost-reduction ("This spell costs {X} less to

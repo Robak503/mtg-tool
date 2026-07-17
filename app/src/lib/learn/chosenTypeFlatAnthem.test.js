@@ -87,9 +87,12 @@ describe("CHOSEN-TYPE FLAT ANTHEM — classification", () => {
     const v = { name: "Vanquisher's Banner", type: "Artifact", oracle: "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\nWhenever you cast a creature spell of the chosen type, draw a card." };
     expect(classifyCard(v)).toBe("native-mixed");
   });
-  it("CREED — Icon of Ancestry parks (an activated ability is residue)", () => {
+  it("Icon of Ancestry — this FLAT-ANTHEM classifier declines it (activated ability is residue); LK-1 owns the flip", () => {
+    // The flat-anthem classifier still returns null (its parseActivatedAbilities gate rejects the {3},{T} dig).
+    // As of BLITZ LK-1 the WHOLE card flips native-mixed via classifyChosenTypeAnthemDig (chooser + flat anthem
+    // + the modeled chosen-type impulse-dig activated ability) — see lookAtTopRevealTake.test.js.
     const icon = { name: "Icon of Ancestry", type: "Artifact", oracle: "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\n{3}, {T}: Look at the top three cards of your library. You may reveal a creature card of the chosen type from among them and put it into your hand. Put the rest on the bottom of your library in a random order." };
-    expect(classifyCard(icon)).toBe("body-only");
+    expect(classifyCard(icon)).toBe("native-mixed");
   });
   it("CREED — Radiant Destiny parks (a city's-blessing keyword rider on the same clause is unmodeled residue)", () => {
     const rd = { name: "Radiant Destiny", type: "Enchantment", oracle: "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nAs this enchantment enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1. As long as you have the city's blessing, they also have vigilance." };

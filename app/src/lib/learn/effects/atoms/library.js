@@ -4,6 +4,7 @@
  */
 
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
+import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
@@ -68,6 +69,22 @@ export function tutorManaValue(card) {
  * `colors` array (cardIndex stamps it on every real card; CR 105 / 202.2). A `green` color requires the card
  * to BE that color; `nonwhite` requires the card NOT be that color. A card lacking a `colors` array fails a
  * positive color gate (FN-safe — never a fabricated match; the rare un-enriched stub stays out of the pool). */
+// LK-1 CHOSEN-TYPE membership (CR 614.12) — does a library card carry the creature type `chosenType`?
+// Subtype word-bounded on the FRONT-face type line OR a changeling (CR 702.73a). Mirrors resolvers.
+// cardHasChosenType / triggers.permHasChosenType / layers.permHasChosenTypeLayer (kept local so the atoms
+// barrel stays leaf-ish — no back-import of resolvers/triggers). An unset chosenType → false (SAFE no-op).
+function creatureSubtypesOfCard(card) {
+  const ts = String(card?.type || card?.type_line || "").split(" // ")[0]; // front face only (library cards)
+  if (!/Creature/.test(ts)) return [];
+  const dash = ts.indexOf("—");
+  if (dash === -1) return [];
+  return ts.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
+}
+function cardHasChosenType(card, chosenType) {
+  if (!chosenType || !card) return false;
+  if (hasKeyword(card, "changeling")) return true;
+  return creatureSubtypesOfCard(card).some((s) => s.toLowerCase() === String(chosenType).toLowerCase());
+}
 export function cardMatchesTutorFilter(card, filter) {
   if (!filter) return true;
   // MV gate first (cheap, and applies even when there are no type groups). tutorManaValue reads the
@@ -298,7 +315,18 @@ export function applyImpulseDigAtom(state, atom, ctx) {
   // DIG-1 — FILTERED reveal-dig ("you may reveal a <type> card …"): only TYPE-MATCHING cards are keepable
   // to hand; the rest (incl. non-matching) go to `restTo`. An unfiltered dig keeps the whole looked-at set
   // as candidates (the legacy δ-2 path).
-  const pool = atom.filter ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter)) : top;
+  // LK-1 — CHOSEN-TYPE reveal-dig (Icon of Ancestry: "reveal a creature card of the chosen type …"): AND the
+  // base type filter with the SOURCE permanent's stored chosenType (perm.chosenType, auto-picked at the
+  // chooser's ETB). The source is found via ctx.sourceId; an unset chosenType (a malformed/look-back source)
+  // matches NOTHING → the whole looked-at set goes to the bottom (a SAFE reveal-nothing, never a fabricated
+  // keep). CR 614.12 membership: the card's front-face creature subtypes OR changeling (CR 702.73a).
+  const chosenType = atom.filter?.chosenTypeOfSource
+    ? (findPermanent(state, ctx.sourceId)?.permanent?.chosenType ?? null)
+    : null;
+  const matchesChosen = (c) => cardHasChosenType(c, chosenType);
+  const pool = atom.filter
+    ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter) && (!atom.filter.chosenTypeOfSource || matchesChosen(c)))
+    : top;
   if (pool.length === 0) {
     // Looked at N, nothing matching to reveal → the whole set goes to the bottom (a clean reveal-nothing,
     // no picker — chosenId null disposes all of the top N). Only reachable on the filtered reveal-dig path.

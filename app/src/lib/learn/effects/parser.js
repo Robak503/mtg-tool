@@ -1302,14 +1302,24 @@ function matchImpulseDig(oracle) {
   // the tutor filter allowlist (parseTutorFilter); a tribal ("dinosaur") / unlisted word → null → Arbiter.
   // Plural "put the revealed CARDS" (multi-keep) / "any number" / "onto the battlefield" don't match "put
   // it into your hand" → low → Arbiter (those are different effects, deferred).
+  // LK-1 CHOSEN-TYPE (CR 614.12) — an OPTIONAL " of the chosen type" qualifier after "card" (Icon of Ancestry's
+  // "reveal a creature card OF THE CHOSEN TYPE from among them …"). The chooser (CHOSEN_TYPE_CHOOSER) stored the
+  // controller's pick on the source permanent at ETB (perm.chosenType); the resolver AND-filters the looked-at
+  // set by BOTH the base type (creature) AND that stored chosenType via ctx.sourceId (applyImpulseDigAtom's
+  // chosenTypeOfSource branch). A card carrying the qualifier without a chosen-type source (impossible in the
+  // real corpus — the qualifier only appears on chooser cards) would filter nothing → all to the bottom (a SAFE
+  // reveal-nothing). Group 3 records whether the qualifier is present.
   const rd = String(oracle).match(
-    /^look at the top (\w+) cards? of your library\. you may reveal an? ([a-z][a-z ]*?) card from among them and put (?:it|that card) into your hand\. put the rest on the bottom of your library(?: in (?:any|a random) order)?\.?/i,
+    /^look at the top (\w+) cards? of your library\. you may reveal an? ([a-z][a-z ]*?) card( of the chosen type)? from among them and put (?:it|that card) into your hand\. put the rest on the bottom of your library(?: in (?:any|a random) order)?\.?/i,
   );
   if (rd) {
     const amount = DIG_NUM[rd[1].toLowerCase()];
     const filter = parseTutorFilter(rd[2].trim());
     if (!amount || !filter) return null;                        // unspelled N / tribal-or-unlisted type → Arbiter
-    return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: `${rd[2].trim()} card` }, rest: oracle.slice(rd[0].length).trim() };
+    const chosen = !!rd[3];
+    if (chosen) filter.chosenTypeOfSource = true;               // AND the source's stored chosenType at resolve time
+    const label = chosen ? `${rd[2].trim()} card of the chosen type` : `${rd[2].trim()} card`;
+    return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: label }, rest: oracle.slice(rd[0].length).trim() };
   }
   return null;
 }
