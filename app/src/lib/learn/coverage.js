@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1578,9 +1578,24 @@ export function classifyCard(card) {
   // LINE-START anchored (the parseCrewCost shape exactly): only the printed "Crew N …" keyword line strips.
   // A clause merely CONTAINING "crew N" (Imposter Mech's clone rider "…enter as a copy … with crew 3 and it
   // loses all other card types") must NOT be eaten — that residue keeps such a card parked (CREED).
+  // KW-RIOT (BLITZ RT-1, CR 702.136) — "Riot (This creature enters with your choice of a +1/+1 counter or
+  // haste.)" is an ENTERS-WITH-CHOICE replacement (CR 702.136a) MODELED at the entry chokepoint
+  // (resolvers.enterPermanent): the deterministic house auto-pick picks HASTE when the permanent enters on
+  // its controller's own turn at/before the declare-attackers step (so it could swing this turn — a layer-6
+  // permanent-duration addKeyword Haste grant, honored by every summoning-sick gate that pairs with
+  // permanentHasKeyword("Haste")), else an additional +1/+1 counter added AS it enters (applyCounterDoubling,
+  // CR 616). Strip the whole printed "Riot …" keyword LINE (line-initial, reminder and all) — the plot/warp/
+  // crew precedent — so a carrier whose OTHER text is modeled reaches the downstream gates on its bare body
+  // (Zhur-Taa Goblin → native-body; Frenzied Arynx = Trample + self-pump → native-activated). GATED on
+  // riotKeywordCount>0 (structural, grant-safe) so a "…have riot" GRANT line (Rhythm of the Wild / Uncivil
+  // Unrest / Spider-Punk's grant — never line-initial "Riot", never counted) is NEVER stripped → those stay
+  // body-only (their grant is unmodeled). LINE-START anchored so only the printed keyword line strips; a
+  // clause merely CONTAINING "riot" is untouched. LOST-safe (a strip only ever adds coverage).
+  const riotN = riotKeywordCount(card);
+  const riotOracle = riotN > 0 ? baseOracle.replace(/(?:^|\n)[ \t]*riot\b[^\n]*(?=\n|$)/gi, "\n") : baseOracle;
   const crewRe = /(?:^|\n)\s*crew \d+\b[^\n]*(?=\n|$)/gi;
   const hasCrew = /\bvehicle\b/.test(type) && parseCrewCost(card) != null;
-  const crewOracle = hasCrew ? baseOracle.replace(crewRe, "\n") : baseOracle;
+  const crewOracle = hasCrew ? riotOracle.replace(crewRe, "\n") : riotOracle;
   const etOracle = isTapped ? crewOracle.replace(tapRe, "\n").trim() : crewOracle;
   const etCard = crewOracle !== oracle || isTapped
     ? { ...card, oracle: (isTapped ? crewOracle.replace(tapRe, "\n") : crewOracle).trim() }

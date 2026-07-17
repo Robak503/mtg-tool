@@ -28,7 +28,8 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl)
+import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
 import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) — "If this creature was kicked, it enters with N +1/+1 counters"; added only when opts.kicked
@@ -193,6 +194,23 @@ function autoPickManaColor(state, controller) {
   return best || "G";
 }
 
+// KW-RIOT (CR 702.136a) — the DETERMINISTIC, DOCUMENTED house auto-pick for riot's enters-with choice
+// ("an additional +1/+1 counter" vs "gains haste"). The controller chooses AS the permanent enters
+// (CR 702.136a — its controller chooses), so the pick is decided here against the PRE-entry state.
+// POLICY: choose HASTE when the permanent could still attack THIS turn — it enters on its controller's
+// OWN turn at or before the declare-attackers step (the beginning / precombat-main phases, or combat's
+// beginning-of-combat step). Once declare-attackers has passed, or on any other player's turn, haste can
+// no longer buy a swing this turn, so take the durable +1/+1 counter instead. Deterministic + pure over
+// (activePlayer, phase, step) — BOTH branches are pinned in riot.test.js. Mirrors the sacCount / oneYouControl
+// house auto-pick discipline (a documented policy at the choice site, no per-card hacks).
+function riotPicksHaste(state, controller) {
+  if (state?.activePlayer !== controller) return false;      // not your turn → can't attack this turn → counter
+  const phase = state?.phase;
+  if (phase === "beginning" || phase === "precombat-main") return true; // before combat on your turn → could swing
+  if (phase === "combat" && state?.step === "beginning-of-combat") return true; // combat, attackers not yet declared
+  return false;                                              // declare-attackers passed / postcombat / ending → counter
+}
+
 export function enterPermanent(state, card, controller, opts = {}) {
   const player = state.players[controller];
   if (!player) return state;
@@ -322,6 +340,18 @@ export function enterPermanent(state, card, controller, opts = {}) {
     const raw = metricCtr.fixed + metricCtr.perUnit * countForSpec(state, ctx, metricCtr.metric);
     if (raw > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", raw) };
   }
+  // KW-RIOT (CR 702.136a + 614.1c) — "Riot" is an ENTERS-WITH-CHOICE replacement: as the permanent enters,
+  // its controller chooses an additional +1/+1 counter OR haste (riotPicksHaste — the deterministic house
+  // auto-pick above). COUNTER branch handled HERE, on `perm`, BEFORE it's on the battlefield + before the
+  // lethal SBA — exactly like every other enters-with-counter write above — through applyCounterDoubling
+  // (CR 616 — Doubling Season doubles riot's entry counter too). CR 702.136b: multiple riot instances each
+  // work separately, so N instances add N counters. The HASTE branch is a durable layer-6 addKeyword grant
+  // applied AFTER the permanent is on the battlefield (below). A non-riot permanent leaves both untouched.
+  const riotCount = riotKeywordCount(card);
+  const riotHaste = riotCount > 0 && riotPicksHaste(state, controller);
+  if (riotCount > 0 && !riotHaste) {
+    perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", riotCount) };
+  }
   // CHOSEN-TYPE state primitive (CR 614.12, Kindred Discovery family) — "As ~ enters, choose a creature
   // type": the self-play engine auto-picks the controller's most-common creature subtype (autoPickCreatureType
   // reads the PRE-entry `state`) and stores it DURABLY on the permanent as `chosenType`. Plain string, so it
@@ -382,6 +412,22 @@ export function enterPermanent(state, card, controller, opts = {}) {
     },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller });
+  // KW-RIOT (CR 702.136a) HASTE branch — when the auto-pick chose haste, the permanent "gains haste": a
+  // layer-6 addKeyword Haste continuous effect scoped to THIS permanent with a permanent duration (the exact
+  // earthbend/animate shape), added now that it's on the battlefield. permanentHasKeyword("Haste") reads it,
+  // so every summoning-sick gate that pairs summoningSick with a Haste check (legalChoices declare-attacker /
+  // {T}-ability, opponentAI attack plan) lets it act the turn it enters. Persists until it leaves (its id is
+  // monotonic + never reused, so the effect is inert the instant the permanent is gone). One grant regardless
+  // of instance count (CR 702.136b — extra haste is redundant). The counter branch already ran on `perm` above.
+  if (riotHaste) {
+    next = addContinuousEffect(next, {
+      layer: 6,
+      op: { layerOp: "addKeyword", keyword: "Haste" },
+      affects: { mode: "fixed", permanentIds: [permId] },
+      duration: { kind: "permanent" },
+      source: { kind: "resolution", permanentId: permId, cardName: card?.name || null },
+    }).state;
+  }
   // KW-FABRICATE (CR 702.111a) SERVO branch — when decideFabricate chose "servos", mint N 1/1 colorless Servo
   // artifact creature tokens now that the source is on the battlefield, firing each Servo's ETB watchers (the
   // shared fireTokenEnterTriggers seam) + applying the CR 616 token multiplier. Runs BEFORE the source's own ETB

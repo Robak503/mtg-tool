@@ -550,6 +550,29 @@ export function entersWithXCounters(card) {
   return false;
 }
 
+/**
+ * KW-RIOT (CR 702.136) — the number of PRINTED riot instances on this card. Riot is a static ability
+ * ("You may have this permanent enter with an additional +1/+1 counter on it. If you don't, it gains
+ * haste." — CR 702.136a), an ENTERS-WITH-CHOICE replacement; CR 702.136b: multiple instances each work
+ * separately, so the counter branch adds N counters for N instances. STRUCTURAL like undyingKeywordCount /
+ * flankingKeywordCount: a whole comma-segment of a (reminder-stripped) line must be exactly "riot", so a
+ * GRANT ("Nontoken creatures you control have riot" — Rhythm of the Wild / Uncivil Unrest; "Other Spiders
+ * you control have riot" — Spider-Punk's grant clause) or Domri's "it gains riot" never counts as a
+ * printed instance (those grant forms are NOT modeled — they stay body-only, a safe FN). Falls back to the
+ * Scryfall `keywords` array ONLY when the structural scan finds nothing (test-shaped cards that carry the
+ * keyword array but a bare oracle) — never double-counts. Returns an integer ≥ 0. Leaf (no engine import).
+ * The resolver applies exactly this at ETB; coverage strips exactly this line — the SINGLE source of truth.
+ */
+export function riotKeywordCount(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  let n = 0;
+  for (const line of oracle.split("\n")) {
+    for (const seg of line.split(",")) if (seg.trim().toLowerCase() === "riot") n++;
+  }
+  if (n === 0 && Array.isArray(card?.keywords) && card.keywords.some((k) => String(k).toLowerCase() === "riot")) n = 1;
+  return n;
+}
+
 // ─── ETB-XCOUNTERS-FROM-METRIC: enters-with-counters where the count is a BOARD METRIC ───
 // Map the "for each <X>" tail of a metric enters-with clause to a SERIALIZABLE countForSpec spec, or null.
 // DELIBERATELY NARROW: only the dup-free, unambiguous board sources countForSpec already resolves —
