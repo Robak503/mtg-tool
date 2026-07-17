@@ -4255,6 +4255,31 @@ export function programTriggerTargetsResolvable(program) {
 }
 
 /**
+ * CHOOSE-ONE PARTIAL-RESOLVABILITY (BLITZ ML-1, CR 700.2b). For a "Choose one —" modal TRIGGER the
+ * controller chooses exactly ONE mode as the ability is put on the stack, and "if one of the modes would be
+ * illegal (due to an inability to choose legal targets, for example), that mode can't be chosen" — so a mode
+ * whose target the α1 flush chooser can't place on a provably-correct side (an "ambiguous" atom — bounce, an
+ * exile-from-ANY-graveyard, a reanimate-from-any) is simply DECLINED, exactly as the controller would decline
+ * an illegal mode. The card still routes natively as long as AT LEAST ONE mode is fully resolvable (all its
+ * atoms enemy/own/non-targeting). This is STRICTLY narrower than programTriggerTargetsResolvable (which
+ * demands EVERY mode resolvable): it only relaxes the SINGLE-pick "choose one" form — never "choose two /
+ * one or both / one or more", where more than one mode must resolve and an ambiguous mode can't be dodged, so
+ * those keep the every-mode-resolvable gate (a SAFE false-negative). The flush chooser (gameEngine.
+ * chooseTriggerTargets) skips the ambiguous-mode candidates and picks a resolvable mode; the metric
+ * (triggerRoutesNatively) and the runtime (buildTriggerStack) consult THIS same helper so they can't drift.
+ * Declining a mode the AI can't safely target is a play-QUALITY false-negative on that one mode, never a
+ * wrong-mode / mis-targeted resolution (CREED — false-positive forbidden). Pure.
+ */
+export function modalChooseOneRoutable(program) {
+  if (!program || program.structure !== "modal") return false;
+  if ((program.modal?.chooseCount || 1) !== 1) return false; // choose-TWO/one-or-both/one-or-more excluded
+  if (program.modal?.upTo || program.modal?.atLeastOne) return false; // "one or both/more" (chooseCount 1 never set with these, belt)
+  const modes = program.modal?.modes || [];
+  // ≥1 mode with NO ambiguous atom is the fully-resolvable fallback the chooser can always pick.
+  return modes.length > 0 && modes.some(m => (m.atoms || []).every(a => atomTargetIntent(a) !== "ambiguous"));
+}
+
+/**
  * Does the program contain a MASS removal atom — destroy / exile / -X-X scoped to a whole permanent
  * class on every battlefield (`eachCreature` board wipe, or MASS-NC's `eachArtifact` / `eachEnchantment`
  * / `eachLand` / `eachArtifactOrEnchantment`)? The AI HOLDS these (opponentAI.pickCastAction): the engine

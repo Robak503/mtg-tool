@@ -13,7 +13,7 @@
  * (Wave 3b) carve-outs. Pure.
  */
 
-import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
+import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, modalChooseOneRoutable } from "./effects/parser.js";
 import { winConditionParseable } from "./effects/atoms/winGame.js";
 import { interveningIfParseable } from "./interveningIf.js";
 import { detectTriggers } from "./triggers.js";
@@ -145,8 +145,14 @@ export function triggerRoutesNatively(d) {
   // so dropping the old `structure !== "modal"` exclusion keeps the metric in lockstep with the runtime —
   // never an over-claim (a partially-modeled modal is LOW and excluded; an ambiguous-mode modal fails the
   // resolvable gate and stays on the Arbiter).
+  // CHOOSE-ONE PARTIAL (BLITZ ML-1, CR 700.2b): a SINGLE-pick "choose one" modal need not have EVERY mode
+  // resolvable — the controller declines an unsafe-to-target mode (CR 700.2b — an illegal mode can't be
+  // chosen) and picks a fully-resolvable one, so the card routes when ≥1 mode is resolvable
+  // (modalChooseOneRoutable). buildTriggerStack consults the SAME helper + its chooser skips the ambiguous
+  // modes, so metric and runtime stay in lockstep. "Choose two / one or both / one or more" is unchanged
+  // (chooseCount ≠ 1 → the helper is false → the every-mode-resolvable gate still applies).
   return !!p && programConfidence(p) === "high"
-    && (!programNeedsChosenTarget(p) || programTriggerTargetsResolvable(p))
+    && (!programNeedsChosenTarget(p) || programTriggerTargetsResolvable(p) || modalChooseOneRoutable(p))
     && combatDamageReferentSatisfied(p, d.event);
 }
 

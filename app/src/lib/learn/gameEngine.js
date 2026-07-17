@@ -53,7 +53,7 @@ import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkTapTriggers, checkGraveyardEventTriggers, checkSagaChapterTriggers, checkSacrificeTriggers } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
 import { expireContinuousEffects } from "./layers.js";
-import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
+import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, modalChooseOneRoutable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
@@ -995,8 +995,12 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // and the enemy/own chooser picks the first candidate whose targets all sit on their atom's correct side.
     // The chosen mode + its targets ride onto the EFFECT_PROGRAM payload as `chosenMode`; the executor
     // (runProgram.programAtoms) resolves ONLY that mode's atoms, so a mode the player didn't pick never fires.
+    // CHOOSE-ONE PARTIAL (BLITZ ML-1, CR 700.2b): a single-pick "choose one" also routes when only SOME modes
+    // are resolvable (modalChooseOneRoutable) — chooseTriggerTargets skips the ambiguous-mode candidates (its
+    // targetOk rejects ambiguous atoms) and picks a resolvable mode; if none is safe → NO_SAFE_TARGET →
+    // Arbiter below. triggerRouting.triggerRoutesNatively mirrors this exact gate so the metric can't drift.
     if (program && programConfidence(program) === "high" && program.structure === "modal"
-      && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))
+      && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program) || modalChooseOneRoutable(program))
       && combatDamageReferentSatisfied(program, trigger.descriptor?.event)) {
       const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null });
       // No mode is castable (every mode needs a target none of which is legal) → the ability is removed
@@ -1089,7 +1093,13 @@ export function chooseTriggerTargets(candidates, info) {
     const intent = atomTargetIntent(atoms[t.atomIndex]);
     if (intent === "enemy") { const s = sideOf(t); return s != null && enemies.has(s); }
     if (intent === "own") return sideOf(t) === controller;
-    return true; // null/ambiguous: ambiguous is gated upstream; null = a non-targeting atom
+    // AMBIGUOUS → reject: the chooser can't place this target on a provably-correct side. For non-modal /
+    // choose-two triggers an ambiguous atom is already gated upstream so no such candidate reaches here; for
+    // the BLITZ ML-1 choose-one partial gate (modalChooseOneRoutable) an ambiguous MODE's candidate DOES
+    // arrive, and rejecting it makes the chooser fall through to a resolvable mode (CR 700.2b — decline the
+    // unsafe mode). Never picks the ambiguous mode → never mis-targets (CREED). null = non-targeting atom → ok.
+    if (intent === "ambiguous") return false;
+    return true;
   };
   return candidates.find((c) => (c.targets || []).every(targetOk(atomsFor(c)))) || NO_SAFE_TARGET;
 }
