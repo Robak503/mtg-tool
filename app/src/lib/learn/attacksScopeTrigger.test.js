@@ -134,9 +134,12 @@ describe("BLITZ AT-1 — CREED / false-negative guards", () => {
     expect(detectTriggers(card).some((x) => /attacks/.test(String(x.event)))).toBe(false);
   });
 
-  it("scope-inexpressible 'with a +1/+1 counter on it attacks' stays undetected (never an over-fire)", () => {
+  it("scope-inexpressible 'with a -1/-1 counter on it attacks' stays undetected (never an over-fire)", () => {
+    // NOTE: the +1/+1 counter-predicate ("with a +1/+1 counter on it attacks/dies") IS now modeled by
+    // BLITZ CNT-1 (requiresCounter scope filter — see counterPredicateScope.test.js). A -1/-1 predicate is
+    // still scope-inexpressible here (the carve-out admits +1/+1 only) → the reject leaves it undetected.
     const card = { name: "Synth", type: "Creature — Beast", power: 2, toughness: 2,
-      oracle: "Whenever a creature you control with a +1/+1 counter on it attacks, draw a card." };
+      oracle: "Whenever a creature you control with a -1/-1 counter on it attacks, draw a card." };
     expect(detectTriggers(card).some((x) => /attacks/.test(String(x.event)))).toBe(false);
   });
 });

@@ -712,8 +712,9 @@ function classifyCondition(condRaw, cardName, cardType) {
   //    subject is modeled, so the "or another …" half would be dropped (drains/recurs only on self-death).
   //  - "dealt damage by <…>" (Sengir Vampire / Sengir Bats / Vampiric Dragon / Blood Cultist) — a
   //    restriction the broad selfRef misreads as a bare self-dies (fires when the SOURCE dies, never works).
-  //  - a scope-inexpressible restriction: "with <…>" (Tenured Inkcaster "with a +1/+1 counter on it"),
-  //    "while <…>" (Seasoned Warrenguard), "the player with <…>" (Preacher of the Schism), "named <…>",
+  //  - a scope-inexpressible restriction: "with <…>" (a "-1/-1 counter on it" quality; the "+1/+1 counter on
+  //    it" attacks/dies predicate is now the CNT-1 carve-out below, BEFORE this reject), "while <…>" (Seasoned
+  //    Warrenguard), "the player with <…>" (Preacher of the Schism), "named <…>",
   //    "during <…>" (Mongrel Pack "dies during combat"). The modeled clean forms (this/<name>/a-creature-
   //    you-control + bare enters/dies/attacks/blocks, upkeep/end/draw step, cast-a-spell) carry NONE of
   //    these tokens, so this is purely additive (confirmed collateral-free by the corpus A/B sweep).
@@ -762,6 +763,27 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\battacks\s*$/.test(c) && !/\balone\b/.test(c)) {
     const atkKw = parseEtbKeywordFilter(subjectBefore(c, "attacks"));
     if (atkKw) return { event: "attacks", scope: "creatureYouControlKeyword", whose: "any", keywordFilter: atkKw };
+  }
+  // COUNTER-PREDICATE SCOPE (BLITZ CNT-1 — "Whenever a creature you control WITH A +1/+1 COUNTER ON IT
+  // dies/attacks, <effect>": Meltstrider Eulogist / Tributary Instructor draw on such a death; Tenured
+  // Inkcaster drains on such an attack). The "with a +1/+1 counter on it" is a LIVE-STATE predicate
+  // scopeMatches CAN faithfully enforce — it reads the triggering creature's own +1/+1 counter bag (the
+  // attacker LIVE on the battlefield; the dead creature's CR-603.10a look-back `counters` snapshot, threaded
+  // by checkDiesTriggers). Carved out BEFORE the generic "with …" reject below, exactly like the WITH-KEYWORD
+  // ATTACKS carve-out above. requiresCounter:"+1/+1" is enforced as a pre-switch filter in scopeMatches
+  // (mirrors nontokenFilter/attachedOnly), composing with the creatureYouControl controller scope; the
+  // "nontoken" qualifier (Rayblade Trooper / Alharu) ALSO sets nontokenFilter (CR 111.1). ONLY +1/+1, the
+  // bare "you control" controller scope, and the attacks/dies verbs are admitted — an "another" self-exclusion
+  // (needs an id gate + the effect's "that creature" pronoun binding, out of this slice), a "deals combat
+  // damage"/"leaves the battlefield" verb, or any other counter kind fails the `^…$` anchor → falls to the
+  // reject → Arbiter (CREED FN-safe). The effect is re-gated all-or-nothing by triggerRoutesNatively downstream.
+  {
+    const cpm = c.match(/^(a|a nontoken) creature you control with a \+1\/\+1 counter on it (attacks|dies)$/);
+    if (cpm) {
+      const desc = { event: cpm[2], scope: "creatureYouControl", whose: "any", requiresCounter: "+1/+1" };
+      if (cpm[1] === "a nontoken") desc.nontokenFilter = true;
+      return desc;
+    }
   }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
@@ -2602,6 +2624,7 @@ export function detectTriggers(card) {
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
+        requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
@@ -3107,6 +3130,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // descriptor chose, like nontokenFilter. An un-attached attacker must NOT fire (the restriction the old
   // non-anchored subject match silently dropped).
   if (descriptor.attachedOnly && !(Array.isArray(triggeringPermanent?.attachments) && triggeringPermanent.attachments.length > 0)) return false;
+  // COUNTER-PREDICATE gate (BLITZ CNT-1, CR 122.1) — "a creature you control WITH A +1/+1 COUNTER ON IT
+  // dies/attacks": the triggering creature must currently carry ≥1 of the named counter, read off its LIVE
+  // counter bag (the attacker on-battlefield; the dead creature's CR-603.10a look-back `counters` snapshot,
+  // threaded onto the dies look-back by checkDiesTriggers). Runs BEFORE the scope switch so it composes with
+  // the creatureYouControl controller scope (mirrors nontokenFilter/attachedOnly). A triggering permanent
+  // with 0 of the counter must NOT fire (the restriction the reject would otherwise drop).
+  if (descriptor.requiresCounter && !((triggeringPermanent?.counters?.[descriptor.requiresCounter] || 0) > 0)) return false;
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
@@ -3681,7 +3711,12 @@ export function checkDiesTriggers(state, dead) {
     // (a watcher that doesn't use it simply ignores the ctx key). A dead entry with no captured power (PW SBA,
     // an unsized CDA) carries `undefined` → the payoff resolves to 0 (a clean no-op, never a fabricated count).
     // All fires read `state2` (post-checkLeavesTriggers, consistent with the return below).
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [] };
+    // COUNTER-PREDICATE dies scope (BLITZ CNT-1, CR 603.10a/603.6e last-known-info): carry the dying
+    // creature's `counters` snapshot on the look-back so scopeMatches' requiresCounter gate ("a creature you
+    // control WITH A +1/+1 COUNTER ON IT dies" — Meltstrider Eulogist) reads its last-known counter bag. The
+    // undying/persist intervening-if already relies on d.counters being captured by every death constructor;
+    // this exposes the same snapshot on the triggering permanent (mirrors `attachments`). Absent → {} (0 of any).
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {} };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so

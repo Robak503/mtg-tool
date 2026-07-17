@@ -222,7 +222,9 @@ describe("classifyCondition — restricted / alternate-subject guard (FIX-TRIG-C
     zero("Sengir Vampire", "Whenever a creature dealt damage by Sengir Vampire this turn dies, put a +1/+1 counter on Sengir Vampire.");
   });
   it("does NOT detect a scope-inexpressible restriction (with / while / during / the player with)", () => {
-    zero("Tenured Inkcaster", "Whenever a creature you control with a +1/+1 counter on it attacks, each opponent loses 1 life.");
+    // NOTE: the +1/+1 counter-predicate ("with a +1/+1 counter on it attacks/dies") IS now modeled by BLITZ
+    // CNT-1 (requiresCounter scope — counterPredicateScope.test.js). A -1/-1 predicate remains inexpressible.
+    zero("Frostbite Champion", "Whenever a creature you control with a -1/-1 counter on it attacks, each opponent loses 1 life.");
     zero("Seasoned Warrenguard", "Whenever a creature you control attacks while you control a token, put a +1/+1 counter on this creature.");
     zero("Mongrel Pack", "When Mongrel Pack dies during combat, create four 1/1 green Hound creature tokens.");
     zero("Preacher of the Schism", "Whenever this creature attacks the player with the most life, draw a card.");

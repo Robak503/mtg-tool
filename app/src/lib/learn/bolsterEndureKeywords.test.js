@@ -81,9 +81,10 @@ describe("BOLSTER N — recognition (real oracle)", () => {
   });
 
   it("WHOLE-CARD FN (CREED): a bolster creature with an unmodeled second ability stays body-only", () => {
-    // Elite Scaleguard — bolster 2 (modeled) + a "whenever a creature with a +1/+1 counter attacks, tap target"
-    // trigger the engine does NOT model → the whole card correctly parks.
-    expect(classifyCard({ name: "Elite Scaleguard", type: "Creature — Human Soldier", oracle: "When this creature enters, bolster 2. (Choose a creature with the least toughness among creatures you control and put two +1/+1 counters on it.)\nWhenever a creature you control with a +1/+1 counter on it attacks, tap target creature defending player controls." })).toBe("body-only");
+    // bolster 2 (modeled) + a control-exchange activated ability the engine does NOT model → the whole card
+    // correctly parks. (Elite Scaleguard — the prior bolster + "with a +1/+1 counter on it attacks, tap"
+    // example — now flips native via BLITZ CNT-1's counter-predicate scope, so a still-unmodeled rider is used.)
+    expect(classifyCard({ name: "Bolster Warden", type: "Creature — Human Soldier", oracle: "When this creature enters, bolster 2. (Choose a creature with the least toughness among creatures you control and put two +1/+1 counters on it.)\n{3}, {T}: Exchange control of target creature you control and target creature an opponent controls." })).toBe("body-only");
   });
 });
 

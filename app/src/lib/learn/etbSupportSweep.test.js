@@ -77,9 +77,10 @@ describe("SUPPORT N — recognition (real oracle)", () => {
   });
 
   it("WHOLE-CARD FN (CREED): a support creature with an unmodeled second ability stays body-only", () => {
-    // Gladehart Cavalry — support 6 (modeled) + a dies-trigger whose "with a +1/+1 counter on it" condition
-    // detectTriggers does NOT recognize → shaped≠detected → the whole card correctly parks.
-    expect(classifyCard({ name: "Gladehart Cavalry", type: "Creature — Elf Knight", oracle: "When this creature enters, support 6. (Put a +1/+1 counter on each of up to six other target creatures.)\nWhenever a creature you control with a +1/+1 counter on it dies, you gain 2 life." })).toBe("body-only");
+    // support 6 (modeled) + a control-exchange activated ability the engine does NOT model → the whole card
+    // correctly parks. (Gladehart Cavalry — the prior support + "with a +1/+1 counter on it dies, gain life"
+    // example — now flips native via BLITZ CNT-1's counter-predicate scope, so a still-unmodeled rider is used.)
+    expect(classifyCard({ name: "Support Warden", type: "Creature — Elf Knight", oracle: "When this creature enters, support 6. (Put a +1/+1 counter on each of up to six other target creatures.)\n{3}, {T}: Exchange control of target creature you control and target creature an opponent controls." })).toBe("body-only");
   });
 });
 
