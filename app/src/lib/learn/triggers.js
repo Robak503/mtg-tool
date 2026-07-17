@@ -271,8 +271,15 @@ export function stripTriggerAbilityLabel(oracle) {
   // newer-set flavor names — not in this CR snapshot's 207.2c list, but corpus-verified pure flavor (the
   // trigger is written out in full after each), so they strip on the same FN-safe + FP-closing basis. Ordered
   // longest-first so "flurry of blows" is consumed whole before the bare "flurry" alternative can partial-match.
+  // "opus" (CR 207.2c) is the ability-word label on the cast-a-spell family ("Opus — Whenever you cast an
+  // instant or sorcery spell, …" — Molten-Core Maestro). Stripping it reveals the cast trigger to the shaped
+  // count — same FN-safe + FP-closing basis: without it, Molten-Core Maestro's UNMODELED Opus trigger (the
+  // "if five or more mana was spent … add {R} equal to power" conditional) was hidden, and its lone "add {R}"
+  // clause got MIS-READ as a standing mana source → a phantom-mana native-mana false positive. Revealing the
+  // trigger drops the card to body-only (correct); a modeled Opus trigger would stay native, revealed to the
+  // counter. (Director FP-removal, 2026-07-17 — CC-1 census surfaced it, deferred to keep its slice LOST=0.)
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia)\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus)\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
