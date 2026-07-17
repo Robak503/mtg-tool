@@ -272,6 +272,27 @@ export const atomTargets = (state, atom, ctx) => {
     }
     return [best];
   }
+  // LEAST-TOUGHNESS-YOU-CONTROL — BOLSTER N (CR 701.39a — BLITZ KW-1): "Choose a creature you control with the
+  // least toughness OR TIED FOR least toughness among creatures you control. Put N +1/+1 counters on that
+  // creature." A NON-targeted controller choice; a +1/+1 counter is purely beneficial and it's the controller's
+  // OWN pick, so the deterministic auto-pick is the least-EFFECTIVE-toughness own creature (creatureToughness —
+  // LAYER-AWARE, so counters + anthems + -N/-N are all counted, CR 613 / 608.2h — NOT the printed type-line
+  // stat). Ties ("or tied for least") are broken by battlefield order (serialize-stable), a LEGAL pick the
+  // controller is entitled to make. The SOURCE is eligible if it's a creature you control (701.39a has no
+  // "other" — unlike Support). Non-finite toughness (a */star creature) never wins the min (stays the initial
+  // best only if it's the sole/first candidate). Empty own board → [] (a clean no-op, never a fabricated
+  // target). Read AT RESOLUTION.
+  if (atom.scope === "leastToughnessYouControl") {
+    const own = controllerCreatureTargets(state, ctx.controller);
+    if (own.length === 0) return [];
+    let best = own[0], bestTuf = Infinity;
+    for (const t of own) {
+      const lk = findPermanent(state, t.id);
+      const tuf = lk ? creatureToughness(lk.permanent, state) : Infinity;
+      if (Number.isFinite(tuf) && tuf < bestTuf) { bestTuf = tuf; best = t; }
+    }
+    return [best];
+  }
   // DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon's "put X +1/+1 counters on
   // each of up to two TARGET creatures"). Modeled as a controller-scoped optimal pick: a +1/+1 counter is
   // purely beneficial, so the controller buffs up to two of ITS OWN creatures (never an opponent's). The

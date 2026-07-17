@@ -5,7 +5,7 @@
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
 import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
-import { applyCreateNamedToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver
+import { applyCreateNamedToken, applyCreateToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver; applyCreateToken — ENDURE mode B (N/N white Spirit token when the source has left)
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
 import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source + curated MTG-subtype allowlist (filtered mass-counter scope)
@@ -513,6 +513,17 @@ export function addCounterClauseParser(clause) {
   // the controller's own creatures — never an FP. Whole-clause anchored ($); a rider → no match → LOW → Arbiter.
   m = t.match(/^support (\d+|one|two|three|four|five)$/);
   if (m) return { op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature", maxTargets: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), minTargets: 0, excludeSource: true };
+  // BOLSTER N (CR 701.39 / 701.39a — BLITZ KW-1) — the keyword action "Bolster N". Its reminder ("Choose a
+  // creature you control with the least toughness … put N +1/+1 counters on it") is parenthetical, stripped
+  // before clause parsing, so detectTriggers / the splitter hands us the BARE "bolster N". Unlike Support this is
+  // NON-targeted: the controller CHOOSES the least-effective-toughness own creature (ties are their pick). Modeled
+  // with the existing +1/+1 add-counter atom scoped to the new leastToughnessYouControl selector (shared.js
+  // atomTargets — layer-aware creatureToughness, tie-broken by battlefield order). NO targetType → non-chosen →
+  // routes native on triggers exactly like a self/team pump; NO excludeSource (701.39a has no "other", so the
+  // source is eligible if it's a creature you control). N is a printed numeral/word; a "bolster X" (variable
+  // count) never matches → LOW → Arbiter (parked). Whole-clause anchored ($) — any rider fails the anchor.
+  m = t.match(/^bolster (\d+|one|two|three|four|five)$/);
+  if (m) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "leastToughnessYouControl" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
   // ANOTHER-TARGET-YOU-CONTROL (CR 109.5, "another target creature you control" — Benevolent Hydra's
@@ -849,8 +860,51 @@ export function evolveCounterSelfClauseParser(clause) {
     : null;
 }
 
+/**
+ * ENDURE N (CR 701.63 / 701.63a — BLITZ KW-1) — "<permanent> endures N" means "creates an N/N white Spirit
+ * creature token UNLESS they put N +1/+1 counters on that permanent." A MODAL controller choice between two
+ * modes, BOTH fully modeled here. The mode is auto-picked deterministically (a controller free choice, resolved
+ * like proliferate / oneYouControl / the edict AI): if the enduring permanent (ctx.sourceId — every fixed-N
+ * corpus carrier is a SELF endure, so the source IS the enduring permanent) is still on the battlefield, put N
+ * +1/+1 counters on it (MODE A — grows the standing threat, keeps its keywords; the strictly-legal common line);
+ * if it has LEFT the battlefield (a dies/LTB-triggered endure whose source is gone — the counters have no legal
+ * home), create the N/N white Spirit token instead (MODE B). Whichever fires resolves correctly because both are
+ * real modeled atoms (self add-counter / create-token). endure 0 does nothing (CR 701.63b).
+ */
+export function applyEndure(state, atom, ctx) {
+  const n = Math.max(0, atom.amount || 0);
+  if (n <= 0) return state; // CR 701.63b — endure 0: no counters, no token
+  const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (src) {
+    // MODE A — put N +1/+1 counters on the enduring permanent (the standard target:"self" placement path:
+    // Doubling Season / Hardened Scales doubler + the counters-placed watcher + the lethal SBA all compose).
+    return applyAddCounter(state, { op: "add-counter", counterType: "+1/+1", amount: n, target: "self" }, ctx);
+  }
+  // MODE B — the source has left the battlefield: create an N/N white Spirit creature token (the standard
+  // create-token minting path; the token doubler + ETB triggers compose exactly as any create-token).
+  return applyCreateToken(state, { op: "create-token", count: 1, power: n, toughness: n, descriptor: "white spirit" }, ctx);
+}
+
+/**
+ * ENDURE clause parser (CR 701.63a — BLITZ KW-1). The reminder ("Put N +1/+1 counters on it or create an N/N
+ * white Spirit creature token") is parenthetical, stripped before clause parsing, so detectTriggers hands us the
+ * BARE "it endures N" (self-referential — every fixed-N corpus carrier is a SELF endure: the entering / attacking
+ * creature is its own source). No targetType (self-scoped via ctx.sourceId) → routes native on triggers like a
+ * self pump. N is a printed numeral/word; an "endure X" (variable count — Warden of the Grove / Hamza / Krumar
+ * Initiate) never matches → LOW → Arbiter (parked). The optional "it "/"this creature " prefix is the only self
+ * lead detectTriggers emits; a non-self referent ("target creature endures …") never starts with these and so
+ * never matches (no such fixed-N card exists in corpus regardless). Whole-clause anchored ($).
+ */
+export function endureClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^(?:it |this creature )?endures? (\d+|one|two|three|four|five)$/);
+  if (m) return { op: "endure", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
+  return null;
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "endure": applyEndure, // ENDURE N (CR 701.63 — BLITZ KW-1) — modal keyword action: N +1/+1 counters on the source, or an N/N white Spirit token when the source has left
   "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
