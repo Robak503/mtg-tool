@@ -76,6 +76,20 @@ function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
 }
 
+/**
+ * SNOW SOURCE DETECTOR (BLITZ SN-1, CR 205.4a + 106.3): a permanent is a snow source when the SUPERTYPE
+ * "Snow" is printed on its type line — Snow-Covered basics ("Basic Snow Land — Island"), snow lands
+ * ("Snow Land"), snow artifacts/creatures ("Snow Artifact Creature — Golem"). Mana produced by such a
+ * permanent can pay a {S} pip (CR 107.4h). Read off the TYPE LINE only (never oracle text or name),
+ * word-anchored and case-sensitive on the capitalized supertype, so a lowercase "snow" in reminder/rules
+ * text ("{S} can be paid with one mana from a snow source") never counts. A plain Forest is NOT snow; a
+ * Snow-Covered Forest IS. This is the PRINTED supertype — a permanent MADE snow by a continuous effect
+ * (Rimefeather Owl's ice-counter static) is not credited here, a safe under-count (CREED), not modeled.
+ */
+export function isSnowPermanent(card) {
+  return /\bSnow\b/.test(typeLineOf(card));
+}
+
 // Strip reminder text (parentheses). Used TYPE-AWARELY in manaProduction — see the note there.
 function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ");
@@ -778,7 +792,10 @@ export function manaSources(state, playerId) {
     // reads stay exact (no new color reach) and its sameAsProduced pick binds the bonus to the primary color.
     const bonus = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)]
       .map((b) => (b.sameAsProduced ? { sameAsProduced: true, colors: [...prod.colors], amount: b.amount } : b));
-    sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices, ...(bonus.length ? { bonus } : {}) });
+    // SNOW (SN-1, CR 107.4h): stamp sources produced by a snow permanent so planPayment can pay a {S} pip
+    // with one mana from here (a {S} is NEVER paid from a non-snow source). The snow flag is the SOURCE
+    // permanent's printed supertype — independent of what color/amount it makes.
+    sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
   }
   return sources;
 }
@@ -840,6 +857,7 @@ export function planPayment(pool, sources, cost) {
       // MANA FLARE (MF-1): a sameAsProduced bonus keeps its marker — tapSource binds its color to the
       // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
       bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
+      snow: !!s.snow,   // SNOW (SN-1): a source produced by a snow permanent — the only kind that can pay a {S} pip
       used: false,
     }))
     .filter(s => s.amount > 0);
@@ -915,6 +933,29 @@ export function planPayment(pool, sources, cost) {
     }
     return null;
   };
+
+  // 0. SNOW pips ({S}, CR 107.4h / 106.3): each {S} must be paid with ONE mana from a snow source. Snow is
+  // STRICTLY the most-constrained requirement (only snow-stamped sources qualify), so it is satisfied FIRST —
+  // tapping the LEAST color-flexible snow source (fewest distinct colors) so a snow dual stays free for a
+  // colored pip below. The tapped source's mana enters `working`; one unit is spent on the {S} pip (surplus
+  // floats). No untapped snow source ⇒ the whole cost is unaffordable (null) — a {S} is NEVER fake-paid from
+  // non-snow mana (THE CREED forbidden FP). Pool mana carries no snow provenance, so a {S} is paid only by a
+  // fresh snow tap here; a floating snow mana that could legally pay it is a safe under-count (FN, CREED).
+  let snowNeeded = cost.snow || 0;
+  while (snowNeeded > 0) {
+    let best = -1;
+    let bestLen = Infinity;
+    for (let i = 0; i < avail.length; i++) {
+      const s = avail[i];
+      if (s.used || !s.snow) continue;
+      const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
+      if (flex < bestLen) { bestLen = flex; best = i; }
+    }
+    if (best === -1) return null;                 // no untapped snow source → {S} unpayable
+    const color = tapSource(avail[best], null);   // tap it; its mana enters `working`
+    spendOne(color);                              // one mana from the snow source pays this {S} pip
+    snowNeeded -= 1;
+  }
 
   // 1. Colored + colorless pips, scarcest color first. Scarcity = how many sources (plus current pool)
   // can produce it; paying the scarce color first avoids stranding the only source of a color on a

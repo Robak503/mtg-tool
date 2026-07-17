@@ -160,8 +160,10 @@ describe("LK-2 runtime — take / leave / non-match, on the controller's OWN lib
 });
 
 describe("LK-2 FN guards — near-miss carriers STAY parked (false-negative SAFE, false-positive FORBIDDEN)", () => {
-  it("Frost Augur — the EFFECT is native, but the {S} snow-mana activation cost is unmodeled → body-only", () => {
-    expect(classifyCard(FROST_AUGUR)).toBe("body-only");
+  it("Frost Augur — the snow-dig EFFECT (LK-2) is native, and BLITZ SN-1 now models the '{S}, {T}' cost → native-activated", () => {
+    // Was parked here solely on the unmodeled {S} pip; SN-1 makes {S} payable from a snow source, so
+    // the whole card is now modeled. See snowMana.test.js for the {S} primitive + the CREED payment guard.
+    expect(classifyCard(FROST_AUGUR)).toBe("native-activated");
   });
   it("a decline-to-BOTTOM tail (Vivien's Grizzly) is a different mechanic → body-only (parked)", () => {
     expect(classifyCard(VIVIENS_GRIZZLY)).toBe("body-only");

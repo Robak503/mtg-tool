@@ -132,22 +132,28 @@ function normalizeSelfName(clause, card) {
   return out;
 }
 
-/** A single pip the engine's mana model understands. {X}/{Q}/{S}/{E} are deliberately NOT mana. */
+/**
+ * A single pip the engine's mana model understands. {X}/{Q}/{E} are deliberately NOT mana. {S} (snow,
+ * CR 107.4h / 106.3) IS a modeled mana pip as of BLITZ SN-1: it flows verbatim into `manaPips`, and
+ * parseManaCost records it as `cost.snow`, which planPayment can satisfy ONLY from a snow source's mana
+ * (never fake-paid from non-snow mana — THE CREED). So a cost carrying {S} is no longer dropped to null.
+ */
 function pipIsMana(pipRaw) {
   const P = String(pipRaw).trim().toUpperCase();
   return /^\d+$/.test(P) ||
-    ["W", "U", "B", "R", "G", "C"].includes(P) ||
+    ["W", "U", "B", "R", "G", "C", "S"].includes(P) ||
     /^[WUBRG]\/P$/.test(P) ||           // phyrexian
     /^[WUBRG2]\/[WUBRG]$/.test(P);       // hybrid (incl. {2/C}-style)
 }
 
 /**
  * Parse an ability cost (the text before the colon) into `{ manaPips, tapSelf }`, or
- * null when ANY cost item is outside the modeled subset (mana pips + `{T}`). The
+ * null when ANY cost item is outside the modeled subset (mana pips — incl. `{S}` snow — + `{T}`). The
  * ALLOWLIST discipline: every comma-separated item must be exactly `{T}` or a run of
  * pure mana pips — a leftover word (Sacrifice/Discard/Pay) or a non-mana symbol
- * ({X}/{Q}/{S}/{E}) drops the whole cost to null, so we never offer an ability whose
- * cost we can't pay.
+ * ({X}/{Q}/{E}) drops the whole cost to null, so we never offer an ability whose
+ * cost we can't pay. A `{S}` pip flows into `manaPips` and becomes `cost.snow`, which
+ * planPayment satisfies ONLY from a snow source (SN-1).
  */
 export function parseAbilityCost(costStr) {
   const items = String(costStr || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -287,7 +293,7 @@ export function parseAbilityCost(costStr) {
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
-    if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
+    if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
   return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, discardCard, costX };

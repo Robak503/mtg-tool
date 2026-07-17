@@ -114,6 +114,7 @@ export function parseManaCost(costString) {
     hybrid: [],     // [["W","U"], ...]
     phyrexian: [],  // ["U","B",...] — can be paid with 2 life
     anyColor: 0,    // count of "any color" pips (rare)
+    snow: 0,        // SNOW PIPS ({S}, CR 107.4h) — each payable with one mana from a snow source (planPayment enforces it)
   };
   if (typeof costString !== "string" || !costString) return cost;
 
@@ -139,6 +140,13 @@ export function parseManaCost(costString) {
     }
     if (pip === "C") {
       cost.C += 1;
+      continue;
+    }
+    // SNOW ({S}, CR 107.4h / 106.3): a snow mana pip — payable with one mana produced by a snow source.
+    // Tracked as its own requirement (NOT generic) so planPayment can enforce the snow-source restriction;
+    // it is NEVER fake-paid from non-snow mana (THE CREED — the forbidden FP).
+    if (pip === "S") {
+      cost.snow += 1;
       continue;
     }
     // Phyrexian pip — "{U/P}" or "{W/P}"
@@ -170,6 +178,7 @@ export function totalCmc(cost) {
   return (cost.generic || 0)
     + (cost.W || 0) + (cost.U || 0) + (cost.B || 0) + (cost.R || 0) + (cost.G || 0)
     + (cost.C || 0)
+    + (cost.snow || 0)   // SNOW ({S}) contributes 1 to mana value each (CR 202.3a)
     + cost.hybrid.length
     + cost.phyrexian.length;
 }
@@ -195,6 +204,7 @@ export function mergeManaCost(base, add) {
     hybrid: [...(base.hybrid || []), ...(add.hybrid || [])],
     phyrexian: [...(base.phyrexian || []), ...(add.phyrexian || [])],
     anyColor: (base.anyColor || 0) + (add.anyColor || 0),
+    snow: (base.snow || 0) + (add.snow || 0),
   };
 }
 
