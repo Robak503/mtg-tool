@@ -12,19 +12,36 @@
  * new mass targetType now goes HERE once; nothing can drift.
  *
  * Leaf module: pure strings, no imports → importable everywhere with no cycle risk.
+ *
+ * PARTITIONED (2026-07-18): NON_CHOSEN_TARGET_TYPES is now BUILT from two exported halves, so a new
+ * mass targetType cannot be added without deciding its AI-hold classification — the residual drift the
+ * central set didn't close. MASS_WIPE_SCOPES had lived as a hardcoded twin in parser.js:4352; a new
+ * permanent-class scope added there-not-here (or here-not-there) meant the AI would blind-cast a
+ * symmetric wipe — a play-quality regression NO classifier FP guard can catch. Same guard idiom as
+ * effectAtoms.js's PAUSING_OPS_LIST: validate at module load, throw on drift.
  */
-export const NON_CHOSEN_TARGET_TYPES = new Set([
-  "eachOpponent",               // "each opponent" — mass player scope
+
+/** Permanent-class MASS WIPES — the AI HOLDS these (parser.programContainsMassRemoval → opponentAI
+ * pickCastAction): the engine resolves a symmetric wipe correctly, but the AI can't yet weigh whether
+ * nuking the board helps or hurts it. Mass DAMAGE / player scopes are intentionally NOT here (small
+ * symmetric burn is often a fine aggressive play — see parser.js's programContainsMassRemoval doc). */
+export const MASS_WIPE_SCOPES = new Set([
   "eachCreature",               // board wipes — every creature on every battlefield
+  "eachArtifact",               // MASS-NC — "destroy all artifacts"
+  "eachEnchantment",            // MASS-NC — "destroy all enchantments"
+  "eachLand",                   // MASS-NC — "destroy all lands"
+  "eachArtifactOrEnchantment",  // MASS-NC — "destroy all artifacts and enchantments"
+]);
+
+/** Non-chosen scopes that are NOT AI-held wipes — player scopes, context-bound players, and
+ * opponent-only / source-excluding sweeps (asymmetric: they never nuke the caster's own board). */
+export const NON_WIPE_MASS_SCOPES = new Set([
+  "eachOpponent",               // "each opponent" — mass player scope
   "eachOtherCreature",          // ETB-1 — source-excluding board sweep ("it deals N damage to each OTHER
   //                               creature" — Chaos Maw / Crater Hellion / Raging Swordtooth). Every creature
   //                               EXCEPT the source (ctx.sourceId); non-chosen, so the trigger flush routes it
   //                               on confidence (no target pick) exactly like eachCreature.
   "eachCreatureAndPlayer",      // SYMBURN-1 — symmetric burn (every creature AND every player)
-  "eachArtifact",               // MASS-NC — "destroy all artifacts"
-  "eachEnchantment",            // MASS-NC — "destroy all enchantments"
-  "eachLand",                   // MASS-NC — "destroy all lands"
-  "eachArtifactOrEnchantment",  // MASS-NC — "destroy all artifacts and enchantments"
   "eachOpponentCreature",       // R1.2 (audit 2026-07-09) — mass bounce over every OPPONENT creature
   //                               (Scourge-of-Fleets class, zones.js). Was emitted but missing here, so
   //                               "needs a chosen target?" checks treated it as targeted and the live
@@ -33,6 +50,14 @@ export const NON_CHOSEN_TARGET_TYPES = new Set([
   "defendingPlayer",            // ATTACKS-DAMAGE — the attacked player (ctx.defenderId), NOT a chosen target
   "damagedPlayer",              // CDMG-DAMAGE — the just-damaged player (ctx.damagedPlayerId), NOT a chosen target
 ]);
+
+export const NON_CHOSEN_TARGET_TYPES = new Set([...MASS_WIPE_SCOPES, ...NON_WIPE_MASS_SCOPES]);
+
+// Load-time drift guard — the two halves must PARTITION (an entry in both means someone classified a
+// scope twice with different intents; fail loud at import, not silently at play time).
+for (const tt of MASS_WIPE_SCOPES) {
+  if (NON_WIPE_MASS_SCOPES.has(tt)) throw new Error(`targetTypes: "${tt}" is in BOTH MASS_WIPE_SCOPES and NON_WIPE_MASS_SCOPES — pick one`);
+}
 
 /** True iff `tt` is a mass / auto-scoped target type that needs NO chosen target. */
 export function isNonChosenTargetType(tt) {

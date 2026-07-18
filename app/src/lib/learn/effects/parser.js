@@ -27,7 +27,7 @@
  */
 
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
-import { isNonChosenTargetType } from "../targetTypes.js";
+import { isNonChosenTargetType, MASS_WIPE_SCOPES } from "../targetTypes.js"; // MASS_WIPE_SCOPES centralized 2026-07-18 — was a hardcoded local twin (the drift trap)
 import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
 // module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
@@ -4348,8 +4348,9 @@ export function modalChooseOneRoutable(program) {
  * plays terribly. The player casts wipes normally. Narrow + deferred — lift it once a board-state-aware
  * wipe heuristic exists. (Mass DAMAGE, e.g. Pyroclasm, is intentionally NOT gated here — it's a
  * pre-existing cast and small symmetric burn is often a fine aggressive play.)
+ * MASS_WIPE_SCOPES lives in targetTypes.js since 2026-07-18 (imported above) — it and the non-wipe
+ * scopes now BUILD the central non-chosen set, so a new mass type can't skip its hold classification.
  */
-const MASS_WIPE_SCOPES = new Set(["eachCreature", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment"]);
 export function programContainsMassRemoval(program) {
   if (!program) return false;
   const atoms = program.structure === "modal"

@@ -7,6 +7,7 @@
  */
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
+import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
 import { permanentIsCreature } from "../../layers.js"; // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
@@ -204,7 +205,24 @@ export function opponentCreatureTargets(state, controller, opts = {}) {
  * The atom's effective target list: every creature for a mass atom (`eachCreature`), every
  * creature the controller controls for a team pump (`scope:"youControl"`), every creature the
  * opponents control for a mass debuff (`scope:"eachOpponentCreature"`), else the chosen targets.
+ *
+ * ⚠️ DRIFT GUARD (2026-07-18): the if-chain below is the RESOLUTION side of the mass-scope triangle
+ * (castability = targetTypes.NON_CHOSEN_TARGET_TYPES · AI hold = targetTypes.MASS_WIPE_SCOPES ·
+ * resolution = here). ATOM_TARGETS_MASS_HANDLED enumerates exactly the mass targetTypes this chain
+ * resolves; the load-time check beneath it throws if a wipe scope exists that this chain can't
+ * resolve — the "classifies native but silently does nothing" failure mode. Add a branch → add the
+ * string, in the same edit.
  */
+const ATOM_TARGETS_MASS_HANDLED = new Set([
+  "eachCreature", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment",
+  "eachOpponentCreature",
+]);
+for (const tt of MASS_WIPE_SCOPES) {
+  if (!ATOM_TARGETS_MASS_HANDLED.has(tt)) {
+    throw new Error(`atoms/shared.js: MASS_WIPE_SCOPES has "${tt}" but atomTargets has no branch resolving it — the wipe would classify native and silently resolve to nothing`);
+  }
+}
+
 export const atomTargets = (state, atom, ctx) => {
   // CRUX — a subtype-filtered mass set ("destroy all Dragon creatures" / "all non-Dragon creatures"). The bare
   // "destroy all creatures" wipe carries no subtypeFilter, so it passes EVERY creature (unchanged byte-for-byte).
