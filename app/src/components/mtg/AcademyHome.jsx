@@ -19,6 +19,19 @@ const HALLS = [
     ),
   },
   {
+    id: "mulligan-reps",
+    title: "Mulligan Reps",
+    badge: "preview",
+    blurb: "Judge real opening hands, keep or ship — sharpen the call that starts every game.",
+    icon: (
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="2.5" y="7" width="9" height="13" rx="1.6" transform="rotate(-14 7 13.5)" />
+        <rect x="8" y="6" width="9" height="13" rx="1.6" />
+        <rect x="12.5" y="7" width="9" height="13" rx="1.6" transform="rotate(14 17 13.5)" />
+      </svg>
+    ),
+  },
+  {
     id: "judge",
     title: "Judge Trials",
     badge: "beta",

@@ -63,6 +63,7 @@ import DeckReadyView from "./mtg/DeckReadyView";
 import RecordsView from "./mtg/RecordsView";
 import PostMortemView from "./mtg/PostMortemView";
 import JudgeTrialsView from "./mtg/JudgeTrialsView";
+import MulliganRepsView from "./mtg/MulliganRepsView";
 import LibraryView from "./mtg/LibraryView";
 import CardInspector from "./mtg/CardInspector";
 import CommandPalette from "./mtg/CommandPalette";
@@ -1446,6 +1447,8 @@ export default function MTGAssistant() {
               <RecordsView onBack={() => setCenterView("proving-home")} fontFamily={F} />
             ):centerView==="postmortem"?(
               <PostMortemView onBack={() => setCenterView("proving-home")} fontFamily={F} />
+            ):centerView==="mulligan-reps"?(
+              <MulliganRepsView onBack={() => setCenterView("academy-home")} fontFamily={F} />
             ):centerView==="judge"?(
               <JudgeTrialsView onBack={() => setCenterView("academy-home")} fontFamily={F} />
             ):centerView==="library-home"?(
