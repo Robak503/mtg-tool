@@ -25,84 +25,18 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { dataPath } from "../../../../lib/server/paths";
+// Shared validation + storage + digest layer — extracted to lib/server/feedbackStore.js
+// (2026-07-18, slate B2): the import path MUST clamp exactly like the write path (the clamps
+// limit prompt-injection blast radius) and MUST emit the identical FEEDBACK.md format. Only
+// the bundle schema + import path-safety guards stay here.
+import {
+  FEEDBACK_DIR, MAX_MESSAGE_LENGTH,
+  VALID_CATEGORIES, clampString, normaliseContext, generateFileId,
+  atomicWriteJson, readAllEntries, regenerateDigest,
+} from "../../../../lib/server/feedbackStore";
 
-const FEEDBACK_DIR = dataPath("feedback");
 const SCHEMA_VERSION = 1;
 const MAX_BUNDLE_ENTRIES = 5000;
-const MAX_MESSAGE_LENGTH = 4000;
-const MAX_CONTEXT_FIELD_LENGTH = 400;
-const VALID_CATEGORIES = new Set(["bug", "feature", "agent-quality", "ui", "other"]);
-const VALID_AGENTS = new Set(["jace", "karn", "tibalt", "arbiter", "garfield"]);
-const VALID_PAGES = new Set(["chat", "deck", "import", "garfield"]);
-
-function clampString(value, limit) {
-  if (typeof value !== "string") return "";
-  return value.slice(0, limit);
-}
-
-function normaliseContext(context = {}) {
-  if (!context || typeof context !== "object") return {};
-  const out = {};
-  if (VALID_AGENTS.has(context.agent)) out.agent = context.agent;
-  if (typeof context.sessionId === "string" && context.sessionId) {
-    out.sessionId = clampString(context.sessionId, 100);
-  }
-  if (typeof context.sessionName === "string" && context.sessionName) {
-    out.sessionName = clampString(context.sessionName, MAX_CONTEXT_FIELD_LENGTH);
-  }
-  if (typeof context.deckName === "string" && context.deckName) {
-    out.deckName = clampString(context.deckName, MAX_CONTEXT_FIELD_LENGTH);
-  }
-  if (typeof context.deckCommander === "string" && context.deckCommander) {
-    out.deckCommander = clampString(context.deckCommander, MAX_CONTEXT_FIELD_LENGTH);
-  }
-  if (VALID_PAGES.has(context.page)) out.page = context.page;
-  if (typeof context.appVersion === "string" && context.appVersion) {
-    out.appVersion = clampString(context.appVersion, 32);
-  }
-  if (typeof context.userAgent === "string" && context.userAgent) {
-    out.userAgent = clampString(context.userAgent, MAX_CONTEXT_FIELD_LENGTH);
-  }
-  return out;
-}
-
-async function readAllEntries() {
-  let files;
-  try {
-    files = await fs.readdir(FEEDBACK_DIR);
-  } catch (error) {
-    if (error.code === "ENOENT") return [];
-    throw error;
-  }
-  const entries = [];
-  for (const file of files) {
-    if (!file.endsWith(".json") || file.endsWith(".tmp.json")) continue;
-    try {
-      const raw = await fs.readFile(path.join(FEEDBACK_DIR, file), "utf8");
-      const parsed = JSON.parse(raw);
-      entries.push({ filename: file, ...parsed });
-    } catch {
-      /* skip unreadable file */
-    }
-  }
-  entries.sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")));
-  return entries;
-}
-
-async function atomicWriteJson(filePath, payload) {
-  const body = JSON.stringify(payload, null, 2);
-  const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}`;
-  await fs.writeFile(tmp, body, "utf8");
-  await fs.rename(tmp, filePath);
-}
-
-function generateFileId() {
-  if (typeof globalThis.crypto?.randomUUID === "function") {
-    return globalThis.crypto.randomUUID().slice(0, 8);
-  }
-  return Math.random().toString(16).slice(2, 10);
-}
 
 // Strict ISO-8601 (with or without milliseconds), e.g. 2026-05-31T01:02:03.456Z.
 // An imported timestamp is untrusted display metadata — we only let it shape the
@@ -131,70 +65,6 @@ function safeFeedbackPath(filename) {
   const dir = path.resolve(FEEDBACK_DIR);
   const target = path.resolve(dir, filename);
   return path.dirname(target) === dir ? target : null;
-}
-
-// ─── Digest regen (kept duplicate-free with the main route by re-reading
-//     everything from disk after a merge) ─────────────────────────────
-const DIGEST_FILE = path.join(FEEDBACK_DIR, "FEEDBACK.md");
-
-const CATEGORY_LABEL = {
-  bug: "Bug",
-  feature: "Feature idea",
-  "agent-quality": "Agent quality",
-  ui: "UI / UX",
-  other: "Note",
-};
-
-function formatEntryAsMarkdown(entry) {
-  const ts = entry.timestamp || "";
-  const friendlyTs = ts ? new Date(ts).toLocaleString() : "(no timestamp)";
-  const categoryLabel = CATEGORY_LABEL[entry.category] || "Note";
-  const ctx = entry.context || {};
-  const ctxBits = [];
-  if (ctx.agent) ctxBits.push(`agent=${ctx.agent}`);
-  if (ctx.sessionName) ctxBits.push(`session="${ctx.sessionName}"`);
-  if (ctx.deckName) ctxBits.push(`deck="${ctx.deckName}"`);
-  if (ctx.deckCommander) ctxBits.push(`commander="${ctx.deckCommander}"`);
-  if (ctx.page) ctxBits.push(`page=${ctx.page}`);
-  if (ctx.appVersion) ctxBits.push(`v${ctx.appVersion}`);
-  const ctxLine = ctxBits.length ? `\n— context: ${ctxBits.join(", ")} · ${ts}` : `\n— ${ts}`;
-  const headerBits = [`[${friendlyTs}]`, categoryLabel];
-  if (ctx.agent) headerBits.push(ctx.agent);
-  if (ctx.deckName) headerBits.push(`deck: ${ctx.deckName}`);
-  const header = `## ${headerBits.join(" · ")}`;
-  return `${header}\n\n${entry.message}${ctxLine}`;
-}
-
-function buildDigest(entries) {
-  const header = [
-    "# MTG Tool — Feedback Log",
-    "",
-    "Consolidated dump of all in-app feedback captured locally. Newest at the top.",
-    "Auto-regenerated on every submission by `/api/feedback`. Paste this whole file",
-    "into a fresh Claude Code session and say \"fix all of this\" — every entry has",
-    "enough context (agent, session, deck, page) to find the relevant code path.",
-    "",
-    `_${entries.length} entr${entries.length === 1 ? "y" : "ies"} as of ${new Date().toISOString()}_`,
-    "",
-    "---",
-    "",
-  ];
-  if (entries.length === 0) {
-    header.push("_(no feedback yet — submit one to populate this file)_");
-    return header.join("\n") + "\n";
-  }
-  const blocks = entries.map(formatEntryAsMarkdown).join("\n\n---\n\n");
-  return header.join("\n") + blocks + "\n";
-}
-
-async function regenerateDigest() {
-  const entries = await readAllEntries();
-  await fs.mkdir(FEEDBACK_DIR, { recursive: true });
-  const body = buildDigest(entries);
-  const tmp = `${DIGEST_FILE}.tmp.${process.pid}.${Date.now()}`;
-  await fs.writeFile(tmp, body, "utf8");
-  await fs.rename(tmp, DIGEST_FILE);
-  return entries.length;
 }
 
 // ─── HTTP handlers ─────────────────────────────────────────────────────
