@@ -59,6 +59,10 @@ jobs:
 
       - name: Run tests (gate the release on a green suite)
         working-directory: app
+        # See ci.yml: the wrapper's 5-minute default wall was killing HEALTHY runs once the suite grew
+        # past ~300s on this runner. It exists to catch a hang, not to time the suite.
+        env:
+          VITEST_TIMEOUT_MS: "900000"
         run: npm test
 
       - name: Sync version to tag (tauri.conf.json + package.json)

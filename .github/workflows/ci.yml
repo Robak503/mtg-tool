@@ -43,4 +43,12 @@ jobs:
 
       - name: Run tests
         working-directory: app
+        # The wrapper's wall exists to kill a HUNG run (a leaked handle once deadlocked a run for ~5
+        # hours), not to enforce a speed budget. Its 5-minute default was calibrated when the suite was
+        # far smaller; by 2026-07-18 the suite legitimately took 296-302s on this runner (~76s locally),
+        # so the wall started killing HEALTHY runs — four red builds in a row, and one green that
+        # squeaked in at 299s. A wall that fails good runs is worse than none, because it trains everyone
+        # to ignore red. 15 minutes still catches a real hang (which is unbounded) with honest headroom.
+        env:
+          VITEST_TIMEOUT_MS: "900000"
         run: npm test
