@@ -58,4 +58,65 @@ describe("/api/rules-retrieval — module load and request handling", () => {
     expect(body.rules.length).toBeGreaterThan(0);
     expect(body.context).toContain("cr_current.json");
   }, 30000);
+
+  // ── Response-shape CONTRACT (added 2026-07-18, improvement slate B1) ────────
+  // The prior tests prove the route ANSWERS; nothing proved WHAT it answers.
+  // That gap matters because both consumers fail SILENTLY on shape drift:
+  // deckContextBuilder.fetchEngineContext reads only `data.context || ""` (agent
+  // rules-grounding would quietly degrade to nothing), and LibraryView renders
+  // `rules`/`results`. Pin the full contract so the planned consolidation onto
+  // lib/server/rulesRetrieval.js (B1 follow-up) cannot silently change it.
+
+  it("POST semantic query honors the full response contract", async () => {
+    const mod = await import("./route.js");
+    const req = new Request("http://localhost/api/rules-retrieval", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "does deathtouch let a trampler assign one damage to a blocker", limit: 4 }),
+    });
+    const resp = await mod.POST(req);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+
+    // rules: CR hits with real rule numbers + text + source
+    expect(Array.isArray(body.rules)).toBe(true);
+    for (const rule of body.rules) {
+      expect(rule.number).toMatch(/^\d{3}(\.\d+[a-z]?)?$/);
+      expect(typeof rule.text).toBe("string");
+      expect(rule.text.length).toBeGreaterThan(0);
+      expect(typeof rule.source).toBe("string");
+    }
+
+    // results: doc chunks with title + chunk + score
+    expect(Array.isArray(body.results)).toBe(true);
+    expect(body.results.length).toBeGreaterThan(0);
+    expect(body.results.length).toBeLessThanOrEqual(4);
+    for (const r of body.results) {
+      expect(typeof r.title).toBe("string");
+      expect(typeof r.chunk).toBe("string");
+      expect(typeof r.score).toBe("number");
+    }
+
+    // context: the agent-grounding string deckContextBuilder consumes
+    expect(typeof body.context).toBe("string");
+    expect(body.context.length).toBeGreaterThan(0);
+
+    // stats: the doc inventory the route claims to have searched
+    expect(body.stats.engineFileCount).toBeGreaterThan(0);
+    expect(body.stats.crRuleCount).toBeGreaterThan(0);
+    expect(body.stats.chunkCount).toBeGreaterThan(0);
+  }, 30000);
+
+  it("POST empty query short-circuits with the documented empty shape", async () => {
+    const mod = await import("./route.js");
+    const req = new Request("http://localhost/api/rules-retrieval", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "   " }),
+    });
+    const resp = await mod.POST(req);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body).toEqual({ results: [], rules: [], context: "" });
+  });
 });
