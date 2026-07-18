@@ -310,6 +310,16 @@ function isFollowupSentence(sentence) {
   // natively and SILENTLY DROPPING the payoff (a CREED FP). A "then"/"if"-led sentence is never itself a
   // card-level activated ability (those never begin with then/if), so this can't swallow a real one.
   if (/^(then|if)\b/.test(t)) return true;
+  // TOKEN GRANT (TK-1, 2026-07-18) — "It has \"<ability>\"" / "They have \"<ability>\"" grants the ability
+  // to the token THIS effect just created, so it is part of this trigger's effect. The colon INSIDE the
+  // quoted ability tripped the generic activated-ability guard below, which dropped the sentence and left
+  // the trigger claiming HIGH while minting a VANILLA token — a live false positive, not a safe park
+  // (Incubator Drone's Eldrazi Scion and Dread Drone's Spawn could never be sacrificed for mana, so the AI
+  // never ramped off them). The parser already models the whole shape (create-token + tokenOracle, verified
+  // HIGH), so appending it either binds the ability correctly or re-gates LOW → Arbiter. Anchored to the
+  // grant shape, so a genuine card-level activated ability (never led by "it has"/"they have") still breaks
+  // the loop below.
+  if (/^(it has|they have)\s+"/.test(t)) return true;
   if (t.includes(":")) return false;                  // an activated ability (or a quoted granted-ability descriptor — modeled by its own atom)
   return true;                                         // any other same-line sentence continues the effect
 }
