@@ -28,6 +28,22 @@ to answer "am I looking at the filesystem I think I am?".
 | `replay-canary.mjs` | Per-epoch determinism tripwire: samples stored games and replays them. The 100GB prune-and-regenerate lifecycle assumes determinism; this is what verifies it. |
 | `allowlist-guard.mjs` | Tamper guard on the self-certifying keyword allowlist (adding to `COVERED_KEYWORDS` credits coverage — this stops that being silent). |
 
+## Playability — "can a human finish a game?"
+
+| Script | What it does |
+|---|---|
+| `playability-sweep.mjs` | Drives the **human** path (beginner/intermediate, where the driver PAUSES for a person) through whole games with real top-1200 cards, answering every decision with the exact payload shapes `useLearnSession` posts. Reports completion rate, the turn each game ended, and on a wedge exactly which decision kind stopped it. Also prints which decision kinds were actually **exercised** — a green run that never hit a hard decision proves nothing, so read that block before trusting the pass rate. |
+
+```bash
+node scripts/playability-sweep.mjs 12 beginner commander   # games, difficulty, mode
+```
+
+This is deliberately **not** self-play and deliberately **not** in the test suite. Self-play runs at
+Expert, where the driver answers everything itself — which is exactly why tens of thousands of green
+self-play games said nothing about whether a human could finish one (the CR 514.1 cleanup discard froze
+every real game for a week while self-play stayed green). It's kept out of `npm test` because a dozen
+commander games is far too slow for a suite already near its CI wall.
+
 ## QA / false-positive hunting
 
 | Script | What it does |
