@@ -8,6 +8,38 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.147.0] — 2026-07-18
+
+### Fixed
+- **The Academy play loop no longer freezes.** Playing against the engine could stop dead at the end
+  of your first turn with nothing on screen to click. The rules engine had correctly started asking
+  you to discard down to your maximum hand size (CR 514.1), but the app had no way to show you that
+  question — so the game simply waited forever for an answer you couldn't give. Because that check
+  happens every single turn, it hit essentially every game.
+- **Seven more decision types could freeze a game the same way** and are now playable: choosing a land
+  to put onto the battlefield, distributing counters among your creatures, optional draw-then-discard,
+  paying a discard as a cost, "sacrifice this unless you pay", paying a tax on an opponent's spell
+  (Rhystic Study and friends), and choosing how to pay an edict. Each one now gets a proper prompt.
+  The "sacrifice unless you pay" prompt deliberately names what you lose on the decline button, since
+  that is the one where a misread costs you a permanent.
+- **Tokens created by a triggered ability keep the abilities they were printed with.** A trigger
+  reading *create a token — it has "…"* was dropping the quoted ability, so the game made a plain
+  vanilla token instead: Eldrazi Scions and Spawn couldn't be sacrificed for mana (so the AI never
+  ramped off them), and Deathpact Angel's token silently lost the reanimation that is the whole point
+  of the card. 22 cards now play as printed; anything whose granted ability still can't be modeled
+  now routes to the Arbiter instead of quietly playing it wrong.
+
+### Added
+- **The Academy gains "Mulligan Reps"** — a hall for practising the call that starts every game. It
+  deals you a real opening seven from your own decks, fanned like a held hand, and you call Keep or
+  Ship with no hint from the engine. Hands outside two-to-five lands are silently re-dealt so you
+  never burn a rep on an auto-ship, there's a note box for your reasoning, a flag for hands that
+  shouldn't have been dealt at all, and a running count of how many you've judged.
+
+### Changed
+- Coverage reporting now prints every tier it can classify. Two internal tier lists had drifted apart,
+  which meant one whole category never appeared in any breakdown.
+
 ## [0.146.0] — 2026-07-17
 
 ### Added
