@@ -2177,7 +2177,20 @@ export function applyDistributeChoice(session, choice, opts = {}) {
       if (!validIds.has(d?.id)) return spent;
       return spent + Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
     }, 0);
-    if (cappedSum < (pc.amount || 0)) {
+    // The required total is what is ACTUALLY ASSIGNABLE, not the raw amount. Two different rules shapes
+    // share this settler:
+    //   - "distribute N counters among one/two/three target creatures" (Armament Corps) — a CR division:
+    //     all N must be placed. perTargetCap is null, so assignableMax is unbounded and required === N.
+    //   - "put a +1/+1 counter on EACH OF UP TO X target creatures" (The Wise Mothman) — X caps the number
+    //     of TARGETS, each getting exactly one counter (perTargetCap 1). Choosing fewer targets than X is
+    //     legal: with X=3 and only 2 creatures on board you target 2 and place 2.
+    // Demanding the raw amount in the second shape is unsatisfiable, and because this choice is mandatory
+    // the picker re-surfaced forever — a genuine SOFT-LOCK for a human seat (found live by
+    // scripts/playability-sweep.mjs: amount=3 perTargetCap=1 candidates=2, turn 47).
+    const perCap = pc.perTargetCap ?? Infinity;
+    const targetSlots = Math.min((pc.candidates || []).length, pc.maxTargets ?? (pc.candidates || []).length);
+    const required = Math.min(pc.amount || 0, targetSlots * perCap);
+    if (cappedSum < required) {
       return { session, decision: { kind: "distribute-counters", ...pc } }; // under-assigned — re-surface the picker
     }
   }

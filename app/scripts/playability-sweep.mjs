@@ -22,12 +22,59 @@ const { allCards, publicCard } = await import("../src/lib/server/cardIndex.js");
 // REAL cards, weighted to what actually gets played — a realistic deck is ~14% non-native
 // (Arbiter/body-only), which is the mix that exercises the pendingChoice + arbiter paths a
 // synthetic Forest/Bears deck never touches.
+const POOL_ALL = allCards()
+  .filter((c) => typeof c.oracle_text === "string")
+  .map(publicCard);
 const POOL = allCards()
   .filter((c) => typeof c.oracle_text === "string" && Number.isInteger(c.edhrec_rank)
     && !/\b(Token|Emblem|Scheme|Plane|Vanguard|Dungeon|Conspiracy)\b/.test(c.type_line || ""))
   .sort((a, b) => a.edhrec_rank - b.edhrec_rank)
   .slice(0, 1200)
   .map(publicCard);
+
+
+// ─── TARGETED MODE ────────────────────────────────────────────────────────────────────────────
+// Random top-played decks complete 100% of games but never surface the RARE pendingChoice kinds —
+// each needs a specific card in play. These are real corpus cards verified to produce the atom that
+// raises each kind, so a targeted deck proves those prompts both FIRE and are ANSWERABLE in a live
+// game (unit + render tests prove the contract; only this proves the game keeps going).
+const TARGET_CARDS = [
+  // dig-land-to-battlefield
+  "Elvish Rejuvenator", "Ignis Scientia",
+  // distribute-counters
+  "Armament Corps", "Armament Dragon", "Case of the Trampled Garden", "The Wise Mothman",
+  // optional-draw-discard
+  "Academy Wall", "Smuggler's Copter", "Marauding Looter", "Skeleton Key",
+  // optional-discard-payment
+  "Keldon Raider", "Vaultbreaker", "Bitter Reunion", "Viashino Racketeer",
+  // sac-unless-pay
+  "Justice", "Phantasmal Forces", "Sunken City", "Haazda Shield Mate",
+  // taxed-payment (payer = the OPPONENT who casts; needs opponents casting spells)
+  "Rhystic Study", "Mystic Remora", "Smothering Tithe",
+  // edict-mode
+  "Torment of Hailfire",
+];
+
+function basicsOf(prefix) {
+  const kinds = [["Forest","G"],["Island","U"],["Swamp","B"],["Mountain","R"],["Plains","W"]];
+  const out = [];
+  for (let i = 0; i < 40; i++) {
+    const [name, sym] = kinds[i % kinds.length];
+    out.push({ id: `${prefix}-L${i}`, name, type: `Basic Land — ${name}`, oracle: `{T}: Add {${sym}}.`, mana: "", cmc: 0, keywords: [] });
+  }
+  return out;
+}
+
+function targetedDeck(prefix, rng) {
+  const byName = new Map(POOL_ALL.map((c) => [c.name, c]));
+  const out = basicsOf(prefix);
+  const found = TARGET_CARDS.map((n) => byName.get(n)).filter(Boolean);
+  // 3 copies each so they reliably show up, then top up with played cards.
+  let i = 0;
+  for (const c of found) for (let k = 0; k < 3; k++) out.push({ ...c, id: `${prefix}-t${i++}` });
+  while (out.length < 100) { const c = POOL[Math.floor(rng() * POOL.length)]; out.push({ ...c, id: `${prefix}-r${i++}` }); }
+  return out;
+}
 
 function realDeck(prefix, rng) {
   const out = [];
@@ -43,6 +90,7 @@ function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; 
 const GAMES = Number(process.argv[2] || 20);
 const DIFFICULTY = process.argv[3] || "beginner";
 const MODE = process.argv[4] || "standard";
+const TARGETED = (process.argv[5] || "") === "targeted";
 const MAX_STEPS = 6000;
 
 /** Decision kinds that mean the run is in trouble rather than progressing. */
@@ -55,14 +103,28 @@ function forest(i) { return { id: `f-${i}`, name: "Forest", type: "Basic Land �
 function answer(session, decision) {
   const kind = decision?.kind;
 
-  // pendingChoice-family: answered through applyPendingChoice with the hook's payload shape.
-  if (Array.isArray(decision?.candidates) && decision.candidates.length > 0) {
-    return applyPendingChoice(session, { kind, cardId: decision.candidates[0].id });
-  }
   if (kind === "distribute-counters" || kind === "divide-damage") {
+    // MUST assign the FULL amount — these are mandatory and the engine re-surfaces an under-assignment
+    // (correctly: the UI panel gates its submit on remaining === 0 for the same reason). An earlier
+    // version of this driver assigned 1 and spun the same decision 29,794 times; that was this
+    // script's bug, not the engine's. Spread across candidates honouring maxTargets/perTargetCap.
     const c = decision.candidates || [];
-    if (!c.length) return null;
-    return applyPendingChoice(session, { kind, distribution: [{ id: c[0].id, amount: decision.amount || 1 }] });
+    if (!c.length) { UNANSWERABLE.reason = `${kind}: EMPTY candidates`; return null; }
+    // Assign the MAXIMUM the board can take, matching learnSession.applyDistributeChoice + the panel:
+    // "each of up to X targets" caps TARGETS, so with fewer creatures than X you place fewer counters.
+    const cap = decision.perTargetCap ?? Infinity;
+    const maxT = decision.maxTargets ?? c.length;
+    const slots = Math.min(c.length, maxT);
+    let left = Math.min(decision.amount || 0, slots * cap);
+    const dist = [];
+    for (const cand of c.slice(0, maxT)) {
+      if (left <= 0) break;
+      const give = Math.min(cap, left);
+      dist.push({ id: cand.id, amount: give });
+      left -= give;
+    }
+    if (left > 0) { UNANSWERABLE.reason = `${kind}: UNSATISFIABLE amount=${decision.amount} maxTargets=${decision.maxTargets} perTargetCap=${decision.perTargetCap} candidates=${c.length}`; return null; } // a REAL soft-lock if it happens
+    return applyPendingChoice(session, { kind, distribution: dist });
   }
   if (kind === "edict-mode") {
     const modes = decision.modes || [];
@@ -77,24 +139,40 @@ function answer(session, decision) {
   if (kind === "commander-return") return applyPendingChoice(session, { kind, return: true });
   if (kind === "scry-surveil") return applyPendingChoice(session, { kind, keepTop: [], toBottom: [] });
 
-  // priority-action family: pick a legal option, preferring progress over passing.
-  const opts = decision?.options || decision?.actions || [];
-  if (opts.length > 0) {
-    const idx = opts.length > 1 ? 0 : 0;
-    return applyChoice(session, opts[idx]);
+  // GENERIC card-pick fallback — LAST, because several kinds (distribute-counters, edict-mode)
+  // also carry `candidates` but need their own payload. Putting this first silently swallowed them
+  // and sent {cardId} to a settler expecting {distribution}, which the engine correctly rejected and
+  // re-surfaced forever (29,794 iterations of the same decision).
+  if (Array.isArray(decision?.candidates) && decision.candidates.length > 0) {
+    return applyPendingChoice(session, { kind, cardId: decision.candidates[0].id });
   }
-  return null;
+
+  // priority-action family. Option [0] is ALWAYS pass-priority, so taking it blindly models a
+  // player who never plays anything — the user seat then casts nothing and its cards never fire
+  // (which is exactly why an earlier version of this sweep saw only opponent-side prompts). Play
+  // like a person instead: land first, then something castable, and pass only when there's nothing
+  // better. Repeat-activations are avoided by preferring cast/play over activate.
+  const opts = decision?.options || decision?.actions || [];
+  if (opts.length === 0) return null;
+  const pick =
+    opts.find((o) => o.kind === "play-land")
+    || opts.find((o) => /^cast/.test(String(o.kind || "")))
+    || opts.find((o) => o.kind !== "pass-priority" && !/activate/i.test(String(o.kind || "")))
+    || opts[0];
+  return applyChoice(session, pick);
 }
 
+const UNANSWERABLE = { reason: "" };
 const results = [];
 const kindCounts = {};
 for (let g = 0; g < GAMES; g++) {
   let session, decision;
   try {
     const rng = mulberry32(9000 + g);
+    const mk = TARGETED ? targetedDeck : realDeck;
     session = MODE === "commander"
-      ? createLearnSession({ userDeck: realDeck(`u${g}`, rng), opponentDecks: [realDeck(`a${g}`, rng), realDeck(`b${g}`, rng), realDeck(`c${g}`, rng)], difficulty: DIFFICULTY, mode: "commander", seed: 1000 + g })
-      : createLearnSession({ userDeck: realDeck(`u${g}`, rng), opponentDeck: realDeck(`a${g}`, rng), difficulty: DIFFICULTY, seed: 1000 + g });
+      ? createLearnSession({ userDeck: mk(`u${g}`, rng), opponentDecks: [mk(`a${g}`, rng), mk(`b${g}`, rng), mk(`c${g}`, rng)], difficulty: DIFFICULTY, mode: "commander", seed: 1000 + g })
+      : createLearnSession({ userDeck: mk(`u${g}`, rng), opponentDeck: mk(`a${g}`, rng), difficulty: DIFFICULTY, seed: 1000 + g });
     ({ session, decision } = advanceUntilDecision(session));
   } catch (e) {
     results.push({ g, outcome: "throw-on-start", detail: e.message, turn: 0, steps: 0 });
@@ -114,7 +192,7 @@ for (let g = 0; g < GAMES; g++) {
     let next;
     try { next = answer(session, decision); }
     catch (e) { outcome = "WEDGE:throw"; detail = `${kind}: ${e.message}`.slice(0, 90); break; }
-    if (!next) { outcome = "WEDGE:unanswerable"; detail = `${kind} (no options/candidates)`; break; }
+    if (!next) { outcome = "WEDGE:unanswerable"; detail = UNANSWERABLE.reason || `${kind} (no options/candidates)`; break; }
 
     session = next.session; decision = next.decision; steps++;
   }

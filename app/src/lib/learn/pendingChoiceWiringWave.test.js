@@ -223,3 +223,44 @@ describe("WI-7 — the kind echo-check protects every new method", () => {
     expect(decision.kind).toBe("edict-mode");
   });
 });
+
+describe("distribute-counters SOFT-LOCK — 'each of up to X targets' with fewer creatures than X", () => {
+  // Found live by scripts/playability-sweep.mjs (commander, turn 47): amount=3, perTargetCap=1,
+  // candidates=2. The Wise Mothman's "put a +1/+1 counter on EACH OF UP TO X target creatures" caps
+  // TARGETS, not counters — with only 2 creatures you legally target 2 and place 2. The settler used to
+  // demand the raw amount, which is unsatisfiable, and because the choice is MANDATORY it re-surfaced
+  // forever: the human could never enable submit and the game could not continue.
+  const pendingCapped = () => session(setPendingDistributeChoice(baseState(), {
+    controller: "user", amount: 3, counterType: "+1/+1", maxTargets: 3, perTargetCap: 1,
+    candidates: [{ id: "c-1", name: "Bear" }, { id: "c-2", name: "Elf" }], sourceName: "The Wise Mothman",
+  }));
+
+  it("accepts the MAXIMUM the board can take (2 of 3) instead of re-surfacing forever", () => {
+    const { session: after } = applyPendingChoice(pendingCapped(), {
+      kind: "distribute-counters",
+      distribution: [{ id: "c-1", amount: 1 }, { id: "c-2", amount: 1 }],
+    });
+    expect(after.state.pendingChoice).toBeUndefined();
+  });
+
+  it("still rejects a genuine under-assignment (1 of an achievable 2)", () => {
+    const { decision } = applyPendingChoice(pendingCapped(), {
+      kind: "distribute-counters",
+      distribution: [{ id: "c-1", amount: 1 }],
+    });
+    expect(decision.kind).toBe("distribute-counters");
+  });
+
+  it("an uncapped division (Armament Corps) still requires the FULL amount — no regression", () => {
+    const uncapped = () => session(setPendingDistributeChoice(baseState(), {
+      controller: "user", amount: 2, counterType: "+1/+1", maxTargets: 2, perTargetCap: null,
+      candidates: [{ id: "c-1", name: "Bear" }, { id: "c-2", name: "Elf" }], sourceName: "Armament Corps",
+    }));
+    // 1 of 2 must still re-surface...
+    expect(applyPendingChoice(uncapped(), { kind: "distribute-counters", distribution: [{ id: "c-1", amount: 1 }] }).decision.kind)
+      .toBe("distribute-counters");
+    // ...and the full 2 settles.
+    expect(applyPendingChoice(uncapped(), { kind: "distribute-counters", distribution: [{ id: "c-1", amount: 2 }] }).session.state.pendingChoice)
+      .toBeUndefined();
+  });
+});

@@ -1315,7 +1315,15 @@ export function DistributeCountersPanel({ decision, onChoose }) {
   useEffect(() => { setAmounts({}); }, [resetKey]);
 
   const assigned = Object.values(amounts).reduce((s, n) => s + (n || 0), 0);
-  const remaining = total - assigned;
+  // What the board can actually take. "Put a counter on EACH OF UP TO X targets" (The Wise Mothman) caps
+  // TARGETS, not counters — with X=3 and only 2 creatures you legally place 2. Gating submit on the raw
+  // amount left the player unable to ever satisfy it, and the choice is mandatory, so the game soft-locked.
+  // Mirrors the same cap in learnSession.applyDistributeChoice; a plain "distribute N among …" division
+  // has no perTargetCap, so this is identity for that shape.
+  const perCap = perTargetCap ?? Infinity;
+  const targetSlots = Math.min(candidates.length, maxTargets ?? candidates.length);
+  const placeable = Math.min(total, targetSlots * perCap);
+  const remaining = placeable - assigned;
   const chosenCount = Object.values(amounts).filter((n) => n > 0).length;
 
   const bump = (id, delta) => setAmounts((prev) => {
@@ -1339,9 +1347,10 @@ export function DistributeCountersPanel({ decision, onChoose }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <ChoiceBanner icon="🎯" title={`Distribute ${total} ${counterType} counter${total === 1 ? "" : "s"}${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
-        Assign all {total} among your creatures
+        Assign all {placeable} among your creatures
         {maxTargets != null ? `, up to ${maxTargets} of them` : ""}
-        {perTargetCap != null ? ` (max ${perTargetCap} each)` : ""}. Remaining:{" "}
+        {perTargetCap != null ? ` (max ${perTargetCap} each)` : ""}
+        {placeable < total ? ` — only ${placeable} of ${total} can be placed on the board you have` : ""}. Remaining:{" "}
         <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>{remaining}</b>
       </ChoiceBanner>
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
