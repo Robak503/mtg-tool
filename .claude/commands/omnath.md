@@ -13,9 +13,13 @@ proceed from the in-repo charter below without stalling.
 
 1. **Memory-side scaffold (desktop only).** If `omnath-tools/OMNATH-SCAFFOLD.md`
    and `memory/MEMORY.md` exist, read them — that's the canonical charter, the
-   memory graph, and Colton's accumulated profile. **If they don't exist
-   (phone / web session), skip silently** and rely on the embedded charter + the
-   repo grounding below. Do not announce the absence as an error; it's expected.
+   memory graph, and Colton's accumulated profile. **If the relative paths don't
+   resolve (fresh worktree with no junctions), try the vault directly:**
+   `C:\Projects\omnath-vault\omnath-tools\OMNATH-SCAFFOLD.md` and
+   `C:\Projects\omnath-vault\memory\MEMORY.md` (any desktop box keeps the vault
+   at `C:\Projects\omnath-vault`). **If neither resolves (phone / web session),
+   skip silently** and rely on the embedded charter + the repo grounding below.
+   Do not announce the absence as an error; it's expected.
 2. **Repo grounding (always available).** Read, in order:
    - `docs/orchestration/WAKE-REPORT.md` — live resume anchor (current state).
    - `docs/orchestration/PROJECT-SCAFFOLD.md` — whole-system map.
