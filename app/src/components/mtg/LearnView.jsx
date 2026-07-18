@@ -499,6 +499,7 @@ export default function LearnView({
             onScryChoose={session.applyScryChoice}
             onOptionalChoose={session.applyOptionalChoice}
             onHandDiscardChoose={session.applyHandDiscardChoice}
+            onCleanupDiscardChoose={session.applyCleanupDiscardChoice}
             onImpulseDigChoose={session.applyImpulseDigChoice}
             onLookTopTakeChoose={session.applyLookTopTakeChoice}
             onSacrificeChoose={session.applySacrificeChoice}
@@ -571,6 +572,12 @@ export default function LearnView({
       {session.board && decision?.kind === "commander-return" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <CommanderReturnPanel decision={decision} onChoose={session.applyCommanderReturnChoice} />
+        </div>
+      )}
+      {/* CR 514.1 — cleanup discard: you ended the turn over max hand size. Mandatory, re-raised per pick. */}
+      {session.board && decision?.kind === "cleanup-discard" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <CleanupDiscardPanel decision={decision} onChoose={session.applyCleanupDiscardChoice} />
         </div>
       )}
       {/* δ-1b — hand disruption (Duress / Thoughtseize) → pick a card from the targeted opponent's
@@ -827,7 +834,7 @@ function TableStrip({ table, activePlayer }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onLookTopTakeChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
+function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onCleanupDiscardChoose, onImpulseDigChoose, onLookTopTakeChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
 
   if (!decision) {
     return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Waiting for engine…</p>;
@@ -846,6 +853,9 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
   }
   if (decision.kind === "optional-effect") {
     return <OptionalChoicePanel decision={decision} onChoose={onOptionalChoose} />;
+  }
+  if (decision.kind === "cleanup-discard") {
+    return <CleanupDiscardPanel decision={decision} onChoose={onCleanupDiscardChoose} />;
   }
   if (decision.kind === "hand-discard") {
     return <HandDiscardPanel decision={decision} onChoose={onHandDiscardChoose} />;
@@ -1130,6 +1140,84 @@ function TutorSearchPanel({ decision, onChoose }) {
  * tutor picker; unlike a tutor, there's no "find nothing" — a hand-discard always strips one card (the
  * engine only pauses here when ≥1 legal card was revealed).
  */
+/**
+ * CR 514.1 cleanup discard — you ended your turn over your maximum hand size, so you choose and discard
+ * down to it. Mandatory (no decline) and repeatable: the server settles ONE pick per submit and re-raises
+ * this same decision while still over the max, so `decision.count` is the number STILL to discard.
+ *
+ * Distinct from HandDiscardPanel (δ-1b), which strips a card from an OPPONENT's revealed hand — this one
+ * is your own hand and cannot be dismissed. The engine half shipped with CR-remediation B3 (2026-07-11);
+ * this panel is the missing client half that stranded the play loop at the first over-full cleanup.
+ */
+function CleanupDiscardPanel({ decision, onChoose }) {
+  const [selected, setSelected] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const candidates = decision.candidates || [];
+  const remaining = decision.count ?? 1;
+
+  // Reset the selection whenever the hand changes (each settled pick re-raises this panel).
+  const candidateKey = candidates.map((c) => c.id).join("|");
+  useEffect(() => { setSelected(null); }, [candidateKey]);
+
+  const submit = async (cardId) => {
+    if (submitting || !cardId) return;
+    setSubmitting(true);
+    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+          🧹 Cleanup — discard to hand size
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          You&rsquo;re over your maximum hand size. Choose {remaining === 1 ? "a card" : `${remaining} cards`} to
+          discard{remaining > 1 ? " (one at a time)" : ""} — CR 514.1.
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+        {candidates.map((c) => {
+          const isSel = selected === c.id;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setSelected(c.id)}
+              title={c.name}
+              style={{
+                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8, cursor: "pointer", textAlign: "left",
+              }}
+            >
+              <img
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
+                alt={c.name}
+                loading="lazy"
+                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+              />
+              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+                {c.name}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={() => submit(selected)}
+        disabled={!selected || submitting}
+      >
+        {submitting ? "…" : remaining > 1 ? `Discard (${remaining} left)` : "Discard"}
+      </button>
+    </div>
+  );
+}
+
 function HandDiscardPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
