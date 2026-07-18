@@ -1997,6 +1997,29 @@ export function classifyCard(card) {
 export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mana-aura", "native-clone", "native-mixed", "native-planeswalker"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
+/**
+ * EVERY tier classifyCard can return, in display order (natives, then playable, then the gap).
+ *
+ * THE SINGLE SOURCE for any tier breakdown. Before this existed, measure-coverage.mjs carried TWO
+ * hardcoded tier arrays that had already drifted apart: `native-mana-aura` was missing from BOTH (so
+ * those cards were silently absent from every reported breakdown), and the deck-level array was also
+ * missing `native-planeswalker` + `playable-pw`. A tier that no dashboard prints is a tier nobody
+ * notices is wrong — the same drift genus as the mass-scope trap.
+ *
+ * coverageTiers.test.js asserts this list matches the tier literals classifyCard actually returns, so
+ * adding a tier without adding it here fails the suite instead of quietly vanishing from the reports.
+ */
+export const ALL_TIERS = Object.freeze([
+  // native
+  "native-mana", "native-body", "native-spell", "native-trigger", "native-activated",
+  "native-static", "native-equipment", "native-aura", "native-mana-aura", "native-mixed",
+  "native-clone", "native-planeswalker", "land",
+  // playable but not native
+  "playable-pw",
+  // the gap
+  "body-only", "arbiter-spell", "arbiter-pw",
+]);
+
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.
 const BUCKETS = [
   ["ETB trigger", /when(ever)?\b[^.]{0,50}enters/i],

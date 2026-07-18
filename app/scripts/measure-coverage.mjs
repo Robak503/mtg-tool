@@ -17,7 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { lookupCard, publicCard, allCards } from "../src/lib/server/cardIndex.js";
-import { coverageSummary, classifyCard, isNativeTier, mechanismBucket } from "../src/lib/learn/coverage.js";
+import { coverageSummary, classifyCard, isNativeTier, mechanismBucket, ALL_TIERS } from "../src/lib/learn/coverage.js";
 
 const filter = (process.argv[2] || "").toLowerCase();
 const profilesDir = path.join("data", "profiles");
@@ -57,7 +57,7 @@ function reportCorpus() {
   console.log("=== CORPUS-WIDE NATIVE COVERAGE (the north-star metric) ===");
   console.log(`  CORPUS: ${pct}% native  (${native}/${total} real cards in the active index)`);
   console.log("\n  TIER BREAKDOWN (corpus):");
-  for (const k of ["native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed", "native-clone", "native-planeswalker", "land", "playable-pw", "body-only", "arbiter-spell", "arbiter-pw"]) {
+  for (const k of ALL_TIERS) {
     if (tier[k]) console.log(`  ${String(tier[k]).padStart(6)}  ${k}`);
   }
   console.log("\n  CORPUS GAP: unmodeled cards by mechanism (the corpus-primary roadmap signal)");
@@ -154,7 +154,7 @@ const grand = perDeck.reduce((a, d) => ({ n: a.n + d.native, t: a.t + d.total })
 console.log(`\n  AGGREGATE: ${grand.t ? Math.round((grand.n / grand.t) * 100) : 0}% native  (${grand.n}/${grand.t} slots across ${decks.length} decks)`);
 
 console.log("\n=== TIER BREAKDOWN (deck card-slots) ===");
-for (const k of ["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed", "native-clone", "body-only", "arbiter-spell", "arbiter-pw"]) {
+for (const k of ALL_TIERS) {
   if (tierTotals[k]) console.log(`  ${String(tierTotals[k]).padStart(4)}  ${k}`);
 }
 

@@ -25,7 +25,7 @@ Every rule block has two files:
 | Layer | Name | Core Question | Rules Covered |
 |---|---|---|---|
 | 0 | Engine Orchestration | How do all layers combine into one loop? | (spans all) |
-| 1 | Source | What does the CR actually say? | Full CR (00_cr.md) |
+| 1 | Source | What does the CR actually say? | Full CR (`mtg-judge/data/cr/cr_current.json`) |
 | 2 | Time | When does something happen? | 500–514, 703 |
 | 3 | Event | What would happen / what actually happened? | 609–616 |
 | 4 | Trigger | What fired as a result of that event? | 603 |
@@ -51,7 +51,12 @@ Every rule block has two files:
 
 | File | Contents | Status |
 |---|---|---|
-| `00_cr.md` *(CR upload, not in zip)* | Full CR, February 27, 2026 — do not edit | ✅ |
+| `knowledge/mtg-judge/data/cr/cr_current.json` | Full CR, machine-readable — do not edit | ✅ |
+
+> **Layer 1 lives OUTSIDE this directory.** There is no `00_cr.md` here and never has been in this tree —
+> earlier revisions of this index pointed at one, which sent anyone following the routing table to a file
+> that does not exist. The authoritative CR source is the JSON above, which is what the app actually reads
+> (`paths.mtgJudgePath`) and what CLAUDE.md §1.2 requires every rule citation to trace back to.
 
 ---
 
@@ -310,3 +315,6 @@ L10 (Variant)         →  All core layers
 | **Total** | **All CR sections** | **88 rule files + 4 META** | **✅ Complete** |
 
 **Open gaps: 0 | Stubs: 0 | Stale entries: 0**
+*(Audited 2026-07-18: all 88 referenced `L*` layer files verified present on disk. The one stale entry —
+Layer 1 pointing at a `00_cr.md` that does not exist in this tree — was corrected to the real CR source
+above. This line is a claim; re-run the existence check before trusting it again.)*

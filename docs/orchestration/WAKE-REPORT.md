@@ -710,12 +710,19 @@ top-1k **67.1 → 67.4%** · top-2.5k **48.7 → 48.9%** · top-5k **37.9 → 38
 - OA-1/RE-1 + PA-1 rode one gate and one push (the intermediate commit was never pushed alone).
 - No release tag, per the order — see NEEDS COLTON.
 
-### 5 · ☀️ NEEDS COLTON (ranked)
-1. **The C5 taste walk** (carried) — and with it the release call: tonight's +208 rides the same
-   unreleased train as the Vault Phase 2 + Crucible batch. One walk → one fat release.
-2. **Rograkh in the grind pool?** (carried from 07-15.)
-3. **Real Omnath-deck reconciliation** (Newt→Last March — dev copy done, your AppData deck awaits you).
-4. **Golden-hands review** (120 mulligan hands, ~20 min, carried).
+### 5 · ☀️ NEEDS COLTON (ranked) — ⚠️ STALE AS WRITTEN; reconciled 2026-07-18, see below
+> **This block is historical.** Two of its four items were resolved days after it was written and kept
+> being re-read as open. Audited against CONTINUITY/COMMS on 2026-07-18 (Cindy):
+> 1. ~~C5 taste walk + the release call~~ — **CLOSED 2026-07-16**: Colton LIFTED the C5 taste-gate (the
+>    Vault is getting a full rework instead), v0.143.0 + v0.144.0 shipped, and v0.145.0/v0.146.0 followed.
+> 2. **Rograkh in the grind pool?** — **STILL OPEN** (carried from 07-15).
+> 3. **Real Omnath-deck reconciliation** (Newt→Last March) — **STILL OPEN**; dev copy done, his AppData
+>    deck awaits him. NOTE: this box has no app install / AppData, so it can only be done where one exists.
+> 4. ~~Golden-hands review (120 hands)~~ — **CLOSED 2026-07-17**: all 100 non-combo hands judged, 77% agree,
+>    policy banked in `user_colton_mulligan_philosophy`. The 20-hand combo lane stays parked pending Rog/Thras.
+>
+> The two genuinely-open asks are **2** and **3**. Live open questions belong in CONTINUITY's top entry,
+> not here — this section is a snapshot of one night and goes stale by design.
 
 ### 6 · PARKED WITH ANALYSIS (the written next step for each)
 - **Prevention shields (healers, 9)** — design: a `preventNextDamage` floating replacement keyed
