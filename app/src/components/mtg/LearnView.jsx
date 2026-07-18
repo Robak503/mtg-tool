@@ -500,6 +500,13 @@ export default function LearnView({
             onOptionalChoose={session.applyOptionalChoice}
             onHandDiscardChoose={session.applyHandDiscardChoice}
             onCleanupDiscardChoose={session.applyCleanupDiscardChoice}
+            onDigLandChoose={session.applyDigLandChoice}
+            onDistributeCountersChoose={session.applyDistributeCountersChoice}
+            onOptionalDrawDiscardChoose={session.applyOptionalDrawDiscardChoice}
+            onOptionalDiscardPaymentChoose={session.applyOptionalDiscardPaymentChoice}
+            onSacUnlessPayChoose={session.applySacUnlessPayChoice}
+            onTaxedPaymentChoose={session.applyTaxedPaymentChoice}
+            onEdictModeChoose={session.applyEdictModeChoice}
             onImpulseDigChoose={session.applyImpulseDigChoice}
             onLookTopTakeChoose={session.applyLookTopTakeChoice}
             onSacrificeChoose={session.applySacrificeChoice}
@@ -578,6 +585,42 @@ export default function LearnView({
       {session.board && decision?.kind === "cleanup-discard" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <CleanupDiscardPanel decision={decision} onChoose={session.applyCleanupDiscardChoice} />
+        </div>
+      )}
+      {/* WI-7 — the seven kinds wired 2026-07-18; each previously soft-locked a human seat. */}
+      {session.board && decision?.kind === "dig-land-to-battlefield" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <DigLandPanel decision={decision} onChoose={session.applyDigLandChoice} />
+        </div>
+      )}
+      {session.board && decision?.kind === "distribute-counters" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <DistributeCountersPanel decision={decision} onChoose={session.applyDistributeCountersChoice} />
+        </div>
+      )}
+      {session.board && decision?.kind === "optional-draw-discard" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <OptionalDrawDiscardPanel decision={decision} onChoose={session.applyOptionalDrawDiscardChoice} />
+        </div>
+      )}
+      {session.board && decision?.kind === "optional-discard-payment" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <OptionalDiscardPaymentPanel decision={decision} onChoose={session.applyOptionalDiscardPaymentChoice} />
+        </div>
+      )}
+      {session.board && decision?.kind === "sac-unless-pay" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <SacUnlessPayPanel decision={decision} onChoose={session.applySacUnlessPayChoice} />
+        </div>
+      )}
+      {session.board && decision?.kind === "taxed-payment" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <TaxedPaymentPanel decision={decision} onChoose={session.applyTaxedPaymentChoice} />
+        </div>
+      )}
+      {session.board && decision?.kind === "edict-mode" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <EdictModePanel decision={decision} onChoose={session.applyEdictModeChoice} />
         </div>
       )}
       {/* δ-1b — hand disruption (Duress / Thoughtseize) → pick a card from the targeted opponent's
@@ -834,7 +877,7 @@ function TableStrip({ table, activePlayer }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onCleanupDiscardChoose, onImpulseDigChoose, onLookTopTakeChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
+function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onCleanupDiscardChoose, onDigLandChoose, onDistributeCountersChoose, onOptionalDrawDiscardChoose, onOptionalDiscardPaymentChoose, onSacUnlessPayChoose, onTaxedPaymentChoose, onEdictModeChoose, onImpulseDigChoose, onLookTopTakeChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
 
   if (!decision) {
     return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Waiting for engine…</p>;
@@ -856,6 +899,27 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
   }
   if (decision.kind === "cleanup-discard") {
     return <CleanupDiscardPanel decision={decision} onChoose={onCleanupDiscardChoose} />;
+  }
+  if (decision.kind === "dig-land-to-battlefield") {
+    return <DigLandPanel decision={decision} onChoose={onDigLandChoose} />;
+  }
+  if (decision.kind === "distribute-counters") {
+    return <DistributeCountersPanel decision={decision} onChoose={onDistributeCountersChoose} />;
+  }
+  if (decision.kind === "optional-draw-discard") {
+    return <OptionalDrawDiscardPanel decision={decision} onChoose={onOptionalDrawDiscardChoose} />;
+  }
+  if (decision.kind === "optional-discard-payment") {
+    return <OptionalDiscardPaymentPanel decision={decision} onChoose={onOptionalDiscardPaymentChoose} />;
+  }
+  if (decision.kind === "sac-unless-pay") {
+    return <SacUnlessPayPanel decision={decision} onChoose={onSacUnlessPayChoose} />;
+  }
+  if (decision.kind === "taxed-payment") {
+    return <TaxedPaymentPanel decision={decision} onChoose={onTaxedPaymentChoose} />;
+  }
+  if (decision.kind === "edict-mode") {
+    return <EdictModePanel decision={decision} onChoose={onEdictModeChoose} />;
   }
   if (decision.kind === "hand-discard") {
     return <HandDiscardPanel decision={decision} onChoose={onHandDiscardChoose} />;
@@ -1140,6 +1204,299 @@ function TutorSearchPanel({ decision, onChoose }) {
  * tutor picker; unlike a tutor, there's no "find nothing" — a hand-discard always strips one card (the
  * engine only pauses here when ≥1 legal card was revealed).
  */
+/* ─── WI-7 (2026-07-18) — the seven pendingChoice kinds that had no client half ───────────────────
+ * Each of these pauses a HUMAN seat in advanceUntilDecision, but had no panel and no hook method, so
+ * the board rendered with nothing actionable when one fired (a soft-lock). The engine + settle side
+ * was already complete and tested for all seven; only the client was missing. Contracts read from
+ * pendingChoice.js (decision fields) and learnSession.js (answer payloads) — see
+ * pendingChoiceWiringWave.test.js, which pins both halves per kind.
+ * ─────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** A small shared shell so seven panels don't each re-declare the same banner chrome. */
+function ChoiceBanner({ icon, title, children }) {
+  return (
+    <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>{icon} {title}</div>
+      <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>{children}</div>
+    </div>
+  );
+}
+
+/** Two-button commit used by the four pay/decline-shaped kinds. */
+function YesNoChoice({ yesLabel, noLabel, onYes, onNo, yesDisabled = false }) {
+  const [submitting, setSubmitting] = useState(false);
+  const go = async (fn) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try { await fn(); } finally { setSubmitting(false); }
+  };
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => go(onYes)} disabled={submitting || yesDisabled}>{yesLabel}</button>
+      <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => go(onNo)} disabled={submitting}>{noLabel}</button>
+    </div>
+  );
+}
+
+/** A reusable card-picker grid (name + art) for the pick-one kinds. */
+function CardPickGrid({ candidates, selected, onSelect }) {
+  return (
+    <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      {candidates.map((c) => {
+        const isSel = selected === c.id;
+        return (
+          <button
+            key={c.id}
+            onClick={() => onSelect(c.id)}
+            title={c.name}
+            style={{
+              display: "flex", flexDirection: "column", gap: 4, padding: 4,
+              background: isSel ? "var(--ley-green-dim)" : "transparent",
+              border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+              borderRadius: 8, cursor: "pointer", textAlign: "left",
+            }}
+          >
+            <img
+              src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
+              alt=""
+              style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
+              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+            />
+            <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>{c.name}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** DIG-LAND-TO-BATTLEFIELD — put one revealed land onto the battlefield; the rest go to the bottom. */
+export function DigLandPanel({ decision, onChoose }) {
+  const candidates = decision.candidates || [];
+  const [selected, setSelected] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const key = candidates.map((c) => c.id).join("|");
+  useEffect(() => { setSelected(null); }, [key]);
+
+  const submit = async () => {
+    if (submitting || !selected) return;
+    setSubmitting(true);
+    try { await onChoose?.(selected); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🏔" title={`Put a land onto the battlefield${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        Choose one to put onto the battlefield{decision.entersTapped ? " (it enters tapped)" : ""}; the rest go to the bottom of your library.
+      </ChoiceBanner>
+      <CardPickGrid candidates={candidates} selected={selected} onSelect={setSelected} />
+      <button className="btn btn-primary btn-sm" onClick={submit} disabled={!selected || submitting}>
+        {submitting ? "…" : "Put onto the battlefield"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * DISTRIBUTE-COUNTERS — allot `amount` counters among your own creatures. Mirrors DivideDamagePanel
+ * (the same full-assignment rule), plus this kind's two extra limits: `maxTargets` (how many creatures
+ * may receive any) and `perTargetCap` (the ceiling each one may receive).
+ */
+export function DistributeCountersPanel({ decision, onChoose }) {
+  const candidates = decision.candidates || [];
+  const total = decision.amount || 0;
+  const counterType = decision.counterType || "+1/+1";
+  const maxTargets = decision.maxTargets ?? null;
+  const perTargetCap = decision.perTargetCap ?? null;
+  const [amounts, setAmounts] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const resetKey = `${candidates.map((c) => c.id).join("|")}:${total}`;
+  useEffect(() => { setAmounts({}); }, [resetKey]);
+
+  const assigned = Object.values(amounts).reduce((s, n) => s + (n || 0), 0);
+  const remaining = total - assigned;
+  const chosenCount = Object.values(amounts).filter((n) => n > 0).length;
+
+  const bump = (id, delta) => setAmounts((prev) => {
+    const cur = prev[id] || 0;
+    if (delta > 0) {
+      if (remaining <= 0) return prev;
+      if (perTargetCap != null && cur >= perTargetCap) return prev;
+      if (cur === 0 && maxTargets != null && chosenCount >= maxTargets) return prev; // a new target would exceed the target cap
+      return { ...prev, [id]: cur + 1 };
+    }
+    return { ...prev, [id]: Math.max(0, cur - 1) };
+  });
+
+  const submit = async () => {
+    if (submitting || remaining !== 0) return;
+    const distribution = candidates.filter((c) => (amounts[c.id] || 0) > 0).map((c) => ({ id: c.id, amount: amounts[c.id] }));
+    setSubmitting(true);
+    try { await onChoose?.(distribution); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🎯" title={`Distribute ${total} ${counterType} counter${total === 1 ? "" : "s"}${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        Assign all {total} among your creatures
+        {maxTargets != null ? `, up to ${maxTargets} of them` : ""}
+        {perTargetCap != null ? ` (max ${perTargetCap} each)` : ""}. Remaining:{" "}
+        <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>{remaining}</b>
+      </ChoiceBanner>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        {candidates.map((c) => {
+          const amt = amounts[c.id] || 0;
+          const capped = perTargetCap != null && amt >= perTargetCap;
+          const blockedByTargets = amt === 0 && maxTargets != null && chosenCount >= maxTargets;
+          return (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: amt > 0 ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${amt > 0 ? "var(--ley-green)" : "var(--ley-line)"}`, borderRadius: 6 }}>
+              <span style={{ fontSize: 12, color: "var(--ley-text)" }}>{c.name}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, -1)} disabled={amt <= 0}>−</button>
+                <span style={{ minWidth: 16, textAlign: "center", fontSize: 13, color: "var(--ley-green)", fontWeight: 700 }}>{amt}</span>
+                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, +1)} disabled={remaining <= 0 || capped || blockedByTargets}>+</button>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <button className="btn btn-primary btn-sm" onClick={submit} disabled={remaining !== 0 || submitting}>
+        {remaining === 0 ? "Place counters" : `Assign ${remaining} more`}
+      </button>
+    </div>
+  );
+}
+
+/** OPTIONAL-DRAW-DISCARD — an optional "draw, then discard" the controller may take or skip. */
+export function OptionalDrawDiscardPanel({ decision, onChoose }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🔁" title={`Draw, then discard?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        You may draw a card and then discard a card. Declining leaves your hand as it is.
+      </ChoiceBanner>
+      <YesNoChoice yesLabel="Draw, then discard" noLabel="Decline" onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+    </div>
+  );
+}
+
+/** OPTIONAL-DISCARD-PAYMENT — the DISCARD is the cost; the payoff only happens if you actually pay it. */
+export function OptionalDiscardPaymentPanel({ decision, onChoose }) {
+  const available = decision.available !== false;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🗃" title={`Discard a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        You may discard a card as a cost. If you do, the effect resolves.
+        {!available && <span style={{ color: "var(--ley-gold)" }}> You have no card to discard.</span>}
+      </ChoiceBanner>
+      <YesNoChoice yesLabel="Discard a card" noLabel="Decline" yesDisabled={!available} onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+    </div>
+  );
+}
+
+/**
+ * SAC-UNLESS-PAY — INVERTED polarity, and the panel says so plainly: paying KEEPS the permanent and
+ * DECLINING sacrifices it. Every other pay/decline here is "pay for a bonus"; misreading this one
+ * costs the player a permanent, so the decline button names the consequence instead of saying "No".
+ */
+export function SacUnlessPayPanel({ decision, onChoose }) {
+  const costLabel = wardCostLabel(decision);
+  const name = decision.sourceName || "this permanent";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="⚠️" title={`${costLabel} or sacrifice ${name}`}>
+        Upkeep cost — if you don&rsquo;t {costLabel.toLowerCase()}, you sacrifice <b>{name}</b>.
+      </ChoiceBanner>
+      <YesNoChoice yesLabel={`${costLabel} (keep it)`} noLabel={`Sacrifice ${name}`} onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+    </div>
+  );
+}
+
+/** TAXED-PAYMENT (Rhystic Study class) — YOU are the payer; declining gives the caster the payoff. */
+export function TaxedPaymentPanel({ decision, onChoose }) {
+  const costLabel = wardCostLabel(decision);
+  const payoff = decision.declinePayoff === "draw" ? "draws a card" : "gets the effect";
+  const who = decision.beneficiary === "user" ? "You" : "Its controller";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="💰" title={`${costLabel}?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        Unless you {costLabel.toLowerCase()}, {who.toLowerCase()} {payoff}.
+      </ChoiceBanner>
+      <YesNoChoice yesLabel={costLabel} noLabel="Decline" onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+    </div>
+  );
+}
+
+/**
+ * EDICT-MODE (Torment of Hailfire class) — you pick which way to pay. A sac/discard mode needs a
+ * target, so picking it reveals its own pool; "life" resolves on its own.
+ */
+export function EdictModePanel({ decision, onChoose }) {
+  const modes = decision.modes || [];
+  const [mode, setMode] = useState(null);
+  const [target, setTarget] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const key = modes.join("|");
+  useEffect(() => { setMode(null); setTarget(null); }, [key]);
+
+  const pool = mode === "sacrifice" ? (decision.sac || []) : mode === "discard" ? (decision.disc || []) : [];
+  const needsTarget = pool.length > 0;
+  const label = (m) => (m === "life" ? "Lose life" : m === "sacrifice" ? "Sacrifice a nonland permanent" : m === "discard" ? "Discard a card" : m);
+
+  const submit = async () => {
+    if (submitting || !mode || (needsTarget && !target)) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(mode, mode === "sacrifice" ? { permId: target } : mode === "discard" ? { cardId: target } : {});
+    } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="☠️" title={`Choose how to pay${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        Pick one. {needsTarget ? "Then choose which one." : ""}
+      </ChoiceBanner>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {modes.map((m) => (
+          <button
+            key={m}
+            onClick={() => { setMode(m); setTarget(null); }}
+            style={{
+              textAlign: "left", padding: "8px 10px", fontSize: 12.5, cursor: "pointer", borderRadius: 6,
+              background: mode === m ? "var(--ley-green-dim)" : "transparent",
+              border: `1px solid ${mode === m ? "var(--ley-green)" : "var(--ley-line)"}`,
+              color: mode === m ? "var(--ley-green)" : "var(--ley-text)",
+            }}
+          >
+            {label(m)}
+          </button>
+        ))}
+      </div>
+      {needsTarget && (
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+          {pool.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setTarget(c.id)}
+              style={{
+                textAlign: "left", padding: "6px 8px", fontSize: 12, cursor: "pointer", borderRadius: 6,
+                background: target === c.id ? "var(--ley-green-dim)" : "transparent",
+                border: `1px solid ${target === c.id ? "var(--ley-green)" : "var(--ley-line)"}`,
+                color: "var(--ley-text)",
+              }}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+      <button className="btn btn-primary btn-sm" onClick={submit} disabled={!mode || (needsTarget && !target) || submitting}>
+        {submitting ? "…" : "Confirm"}
+      </button>
+    </div>
+  );
+}
+
 /**
  * CR 514.1 cleanup discard — you ended your turn over your maximum hand size, so you choose and discard
  * down to it. Mandatory (no decline) and repeatable: the server settles ONE pick per submit and re-raises
@@ -1149,7 +1506,7 @@ function TutorSearchPanel({ decision, onChoose }) {
  * is your own hand and cannot be dismissed. The engine half shipped with CR-remediation B3 (2026-07-11);
  * this panel is the missing client half that stranded the play loop at the first over-full cleanup.
  */
-function CleanupDiscardPanel({ decision, onChoose }) {
+export function CleanupDiscardPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];

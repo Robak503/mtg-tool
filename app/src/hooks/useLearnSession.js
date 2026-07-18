@@ -588,6 +588,73 @@ export default function useLearnSession() {
   }, [state.sessionId]);
 
   /**
+   * Shared submitter for the WI-7 pending-choice methods below (the seven kinds wired 2026-07-18).
+   *
+   * Every apply* method in this hook posts the same request and folds the same response fields; the
+   * older methods each spell that out longhand. Rather than add seven more copies, these share one
+   * helper. `kind` is ALWAYS stamped into the payload — applyPendingChoice's kind echo-check
+   * (learnSession.js) drops a submit whose kind doesn't match the CURRENT pendingChoice, which is what
+   * stops a double-click race from answering a decision the player never saw.
+   */
+  const submitPendingChoice = useCallback(async (kind, payload) => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+    try {
+      const response = await fetch("/api/learn/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind, ...payload } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        board: data.board || prev.board,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
+  /** DIG-LAND-TO-BATTLEFIELD — put one of the revealed lands onto the battlefield. `cardId` is the pick. */
+  const applyDigLandChoice = useCallback((cardId) => submitPendingChoice("dig-land-to-battlefield", { cardId: cardId ?? null }), [submitPendingChoice]);
+
+  /** DISTRIBUTE-COUNTERS — `distribution` is [{ id, amount }], and must assign the full amount (CR 121.5-shaped). */
+  const applyDistributeCountersChoice = useCallback((distribution) => submitPendingChoice("distribute-counters", { distribution: distribution || [] }), [submitPendingChoice]);
+
+  /** OPTIONAL-DRAW-DISCARD — take the optional draw-then-discard, or decline. */
+  const applyOptionalDrawDiscardChoice = useCallback((draw) => submitPendingChoice("optional-draw-discard", { draw: draw === true }), [submitPendingChoice]);
+
+  /** OPTIONAL-DISCARD-PAYMENT — pay the discard COST to get the payoff, or decline. */
+  const applyOptionalDiscardPaymentChoice = useCallback((discard) => submitPendingChoice("optional-discard-payment", { discard: discard === true }), [submitPendingChoice]);
+
+  /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
+  const applySacUnlessPayChoice = useCallback((pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }), [submitPendingChoice]);
+
+  /** TAXED-PAYMENT (Rhystic Study class) — the PAYER pays the tax, or declines and the caster gets the payoff. */
+  const applyTaxedPaymentChoice = useCallback((pay) => submitPendingChoice("taxed-payment", { pay: pay === true }), [submitPendingChoice]);
+
+  /** EDICT-MODE — pick the mode; a sac/discard mode carries the chosen `permId` / `cardId` with it. */
+  const applyEdictModeChoice = useCallback((mode, target = {}) => submitPendingChoice("edict-mode", { mode, permId: target.permId ?? null, cardId: target.cardId ?? null }), [submitPendingChoice]);
+
+  /**
    * Submit the player's pick from a `cleanup-discard` decision (CR 514.1 — discard down to maximum hand
    * size at cleanup). `cardId` is the chosen card in the player's OWN hand. Mandatory and repeatable: the
    * server settles one pick at a time and RE-RAISES the picker while still over the max, so the caller
@@ -999,6 +1066,14 @@ export default function useLearnSession() {
     applyOptionalChoice,
     applyHandDiscardChoice,
     applyCleanupDiscardChoice,
+    // WI-7 — the seven kinds that previously had no client half (soft-locked a human seat).
+    applyDigLandChoice,
+    applyDistributeCountersChoice,
+    applyOptionalDrawDiscardChoice,
+    applyOptionalDiscardPaymentChoice,
+    applySacUnlessPayChoice,
+    applyTaxedPaymentChoice,
+    applyEdictModeChoice,
     applyImpulseDigChoice,
     applyLookTopTakeChoice,
     applySacrificeChoice,

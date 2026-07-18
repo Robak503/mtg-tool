@@ -1,5 +1,5 @@
 /**
- * CLEANUP-DISCARD UI WIRING (WI-5) — the CR 514.1 hand-size discard is the pendingChoice kind that
+ * CLEANUP-DISCARD UI WIRING (WI-7) — the CR 514.1 hand-size discard is the pendingChoice kind that
  * stranded the Academy play loop for a human seat: the ENGINE half shipped with CR-remediation B3
  * (ea5a2b08, 2026-07-11, covered by crB3.test.js) and `advanceUntilDecision` duly paused a beginner seat
  * on it — but `useLearnSession` had no submit method and `LearnView` had no panel, so the board rendered
@@ -103,17 +103,12 @@ describe("cleanup-discard — /api/learn/choose resolution (the payload the hook
  * soft-lock a human seat if their card comes up. The list may only SHRINK: adding a kind to
  * PENDING_CHOICE_KINDS without a client half (or re-breaking a wired one) fails this test.
  */
-const KNOWN_UNWIRED = [
-  "dig-land-to-battlefield",
-  "distribute-counters",
-  "optional-draw-discard",
-  "optional-discard-payment",
-  "sac-unless-pay",
-  "taxed-payment",
-  "edict-mode",
-];
+// EMPTY as of 2026-07-18 (WI-7): the seven kinds that lived here are all wired now — panel + hook
+// method each, pinned per-kind in pendingChoiceWiringWave.test.js. The list may only SHRINK, so an
+// empty list is the strongest form of this guard: ANY registered kind lacking a client half now fails.
+const KNOWN_UNWIRED = [];
 
-describe("WI-5 CLIENT CONTRACT — every human-pausable pendingChoice kind has a panel + a hook method", () => {
+describe("WI-7 CLIENT CONTRACT — every human-pausable pendingChoice kind has a panel + a hook method", () => {
   const learnView = readFileSync(new URL("../../components/mtg/LearnView.jsx", import.meta.url), "utf8");
   const hook = readFileSync(new URL("../../hooks/useLearnSession.js", import.meta.url), "utf8");
 
