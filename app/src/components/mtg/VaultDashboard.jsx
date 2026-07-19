@@ -224,6 +224,29 @@ const HALLS = [
 
 const mono = { fontFamily: "var(--font-mono), monospace" };
 
+/* Colton's display rule for long set names (2026-07-19): flip a trailing qualifier to the
+   front — "Lost Caverns of Ixalan Special Guests" → "Special Guests - Lost Caverns of Ixalan" —
+   then cut at a word boundary to fit the column, dropping dangling connectives:
+   "Special Guests - Lost Caverns". Reorder + trim only; the name's own words are never
+   rewritten, and the untouched full name rides the cell tooltip. */
+const SET_QUALIFIERS = ["Special Guests", "Commander", "Art Series", "Promos", "Tokens"];
+export function formatSetName(name, max = 30) {
+  if (!name) return null;
+  let out = name;
+  if (out.length > max) {
+    for (const q of SET_QUALIFIERS) {
+      if (out.endsWith(` ${q}`)) { out = `${q} - ${out.slice(0, -(q.length + 1))}`; break; }
+    }
+  }
+  if (out.length > max) {
+    let cut = out.slice(0, max + 1);
+    if (cut.includes(" ")) cut = cut.slice(0, cut.lastIndexOf(" "));
+    cut = cut.replace(/[\s:,–-]+$/, "").replace(/\s+(of|the|at|a|an|and|in|for)$/i, "");
+    out = cut || out.slice(0, max);
+  }
+  return out;
+}
+
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 /** "2026-07-01" → "JUL" (annotation margins under the value chart). */
 function monthLabel(point) {
@@ -503,8 +526,8 @@ export default function VaultDashboard({ onPick, fontFamily }) {
                     onClick={() => onPick?.("collection")}
                   >
                     <td style={{ padding: "8px 7px", color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</td>
-                    <td style={{ padding: "8px 7px", fontSize: 11.5, color: "var(--ley-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 210 }} title={r.set || undefined}>
-                      {r.setName || r.set || "—"}
+                    <td style={{ padding: "8px 7px", fontSize: 11.5, color: "var(--ley-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 210 }} title={r.setName ? `${r.setName}${r.set ? ` (${r.set})` : ""}` : r.set || undefined}>
+                      {formatSetName(r.setName) || r.set || "—"}
                     </td>
                     <td style={{ ...mono, padding: "8px 7px", fontSize: 10.5, color: "var(--ley-text-dim)", whiteSpace: "nowrap" }}>{r.collectorNumber || "—"}</td>
                     <td style={{ padding: "8px 7px", fontSize: 11, color: r.finish === "nonfoil" ? "var(--ley-text-dim)" : "#a7f3d0", whiteSpace: "nowrap" }}>

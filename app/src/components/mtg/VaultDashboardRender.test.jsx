@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import VaultDashboard from "./VaultDashboard.jsx";
+import VaultDashboard, { formatSetName } from "./VaultDashboard.jsx";
 import VaultRail from "./VaultRail.jsx";
 
 const noop = () => {};
@@ -68,6 +68,24 @@ describe("VaultDashboard — static chrome renders", () => {
     expect(raw).not.toMatch(/\binfinite\b/);
     expect(raw).toMatch(/vd-pane/);    // the material kit actually rendered (guards against a hollow pass
     expect(raw).toMatch(/vd-title/);   // where the styling was deleted along with the loops)
+  });
+});
+
+describe("formatSetName — Colton's long-set-name display rule (qualifier-first, clean cut)", () => {
+  it("flips a trailing qualifier to the front, then cuts at a word boundary (his exact example)", () => {
+    expect(formatSetName("Lost Caverns of Ixalan Special Guests")).toBe("Special Guests - Lost Caverns");
+  });
+  it("Commander decks read qualifier-first too", () => {
+    expect(formatSetName("Murders at Karlov Manor Commander")).toBe("Commander - Murders at Karlov");
+  });
+  it("plain long names cut without a dangling connective; short names pass untouched", () => {
+    expect(formatSetName("The Lord of the Rings: Tales of Middle-earth")).toBe("The Lord of the Rings: Tales");
+    expect(formatSetName("Throne of Eldraine")).toBe("Throne of Eldraine");
+    expect(formatSetName("Commander 2021")).toBe("Commander 2021"); // qualifier at the START is the name itself
+  });
+  it("null/empty → null (the cell falls back to the set code)", () => {
+    expect(formatSetName(null)).toBeNull();
+    expect(formatSetName("")).toBeNull();
   });
 });
 
