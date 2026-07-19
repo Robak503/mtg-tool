@@ -21,14 +21,13 @@ export default function LandingScreen({
 }) {
   return (
     <div
+      className="ley-stage"
       style={{
         height: "100vh",
         display: "flex",
         flexDirection: "column",
         fontFamily,
         color: "var(--ley-text)",
-        background:
-          "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.08) 0%, rgba(86,214,93,0.015) 36%, transparent 62%), var(--ley-bg)",
         position: "relative",
         overflow: "hidden",
       }}
@@ -37,9 +36,10 @@ export default function LandingScreen({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px" }}>
         <span
           style={{
-            fontFamily: "var(--font-display), sans-serif",
+            fontFamily: "var(--font-hero), serif",
             fontSize: 18,
-            fontWeight: 700,
+            fontWeight: 900,
+            letterSpacing: "0.08em",
             color: "transparent",
             backgroundImage: "linear-gradient(180deg,var(--ley-green-bright) 0%,var(--ley-green) 52%,var(--ley-green-deep) 100%)",
             WebkitBackgroundClip: "text",
@@ -88,13 +88,13 @@ export default function LandingScreen({
           flexWrap: "wrap",
         }}
       >
-        {AREAS.map((area) => {
+        {AREAS.map((area, i) => {
           const Icon = area.icon;
           return (
             <button
               key={area.id}
               onClick={() => onEnterArea(area.id)}
-              className="ley-card ley-glass"
+              className="ley-glass ley-pane ley-door ley-rise"
               style={{
                 width: 300,
                 height: 340,
@@ -110,6 +110,7 @@ export default function LandingScreen({
                 color: "var(--ley-text)",
                 fontFamily,
                 padding: 24,
+                animationDelay: `${90 + i * 80}ms`,
               }}
             >
               <span
@@ -120,9 +121,10 @@ export default function LandingScreen({
               </span>
               <span
                 style={{
-                  fontFamily: "var(--font-display), sans-serif",
-                  fontSize: 24,
+                  fontFamily: "var(--font-hero), serif",
+                  fontSize: 22,
                   fontWeight: 700,
+                  letterSpacing: "0.04em",
                   color: "var(--ley-text)",
                 }}
               >

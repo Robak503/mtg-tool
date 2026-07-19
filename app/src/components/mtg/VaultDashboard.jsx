@@ -22,6 +22,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import useCountUp from "../../hooks/useCountUp";
 import RoomHeader from "./RoomHeader";
 import VaultRail from "./VaultRail";
 
@@ -58,23 +59,6 @@ const VD_CSS = `
   padding: 2px 6px; border-radius: 999px; box-shadow: 0 0 12px rgba(57,245,126,0.5); }
 
 `;
-
-/** Boot-up count: the tiles tick from 0 to value on mount (one-shot, not a loop). */
-function useCountUp(target, ms = 900) {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    if (!Number.isFinite(target)) return;
-    let raf; const t0 = performance.now();
-    const tick = (t) => {
-      const k = Math.min(1, (t - t0) / ms);
-      setN(target * (1 - Math.pow(1 - k, 3))); // ease-out cubic
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, ms]);
-  return n;
-}
 
 const HALLS = [
   { id: "collection", label: "The Stacks" },

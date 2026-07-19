@@ -10,7 +10,8 @@
 import { useEffect, useState } from "react";
 import { LearnLogEntry, groupLogByTurn } from "./LearnLogEntry.jsx";
 
-const seatLine = (meta) => {
+// Shared with the Crucible home + Teferi's rail — ONE interpretation of a record's seats.
+export const seatLine = (meta) => {
   if (!meta) return "—";
   if (Array.isArray(meta.seatNames) && meta.seatNames.length) return meta.seatNames.join(" vs ");
   if (meta.deckName) return meta.oppName ? `${meta.deckName} vs ${meta.oppName}` : meta.deckName;
