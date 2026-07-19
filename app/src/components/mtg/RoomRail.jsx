@@ -124,7 +124,7 @@ export default function RoomRail({ fontFamily, guide, payload }) {
       </div>
 
       {/* Widget canvas — the chat's top pane; chat drops to half height while docked */}
-      {widget && (
+      {widget && Widget && (
         <div className="ley-glass-strong ley-glass-lit ley-pane" style={{ padding: "12px 14px", position: "relative", flexShrink: 0 }}>
           <button
             onClick={() => setWidget(null)}
@@ -140,6 +140,11 @@ export default function RoomRail({ fontFamily, guide, payload }) {
       {/* Chat — full height alone, half height when a widget is docked (the cut behavior) */}
       <div className="ley-glass ley-pane" style={{ flex: widget ? 1 : 2, display: "flex", flexDirection: "column", minHeight: 120, overflow: "hidden" }}>
         <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {messages.length === 0 && guide.greeting && (
+            <div style={{ alignSelf: "flex-start", maxWidth: "92%", padding: "7px 10px", borderRadius: 8, fontSize: 12, lineHeight: 1.45, background: "var(--ley-surface-2)", color: "var(--ley-text)", border: "1px solid var(--ley-line)" }}>
+              {guide.greeting}
+            </div>
+          )}
           {messages.length === 0 && (
             <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
               {guide.emptyChatHint}
@@ -152,9 +157,9 @@ export default function RoomRail({ fontFamily, guide, payload }) {
           ))}
         </div>
 
-        {/* Quick chips */}
+        {/* Quick chips (a guide may have none — the Keeper is pure concierge) */}
         <div style={{ display: "flex", gap: 6, padding: "0 10px 8px", flexWrap: "wrap" }}>
-          {guide.chips.map((c) => (
+          {(guide.chips || []).map((c) => (
             <button
               key={c.kind}
               onClick={() => setWidget((w) => (w === c.kind ? null : c.kind))}

@@ -7,12 +7,31 @@
  * agents live in the rails now (Karn's bench stays reachable from the bottom
  * bar until the bench itself goes rail-first).
  *
+ * ONE SET OF DOORS (his follow-up: "we have 2 sets of buttons for the doors on
+ * this one page"): the squares are the ONLY navigation, and they carry the live
+ * house numbers themselves (games kept · judge cases · vault worth — the same
+ * local APIs the rooms use, honest "…" until read). The Keeper's rail is pure
+ * concierge chat; the ledger feeds his charter, not a second row of buttons.
+ *
  * Material register: machined doors (ley-pane + ley-door), staggered one-shot
  * entrances, hero-face wordmark. Driven by the AREAS registry minus "agents".
  */
+import { useEffect, useState } from "react";
+
 import { AREAS } from "./areas";
 import KeeperRail from "./KeeperRail";
 import ProfileMenu from "./ProfileMenu";
+
+const usd = (n) => `$${(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** The live line each door wears — honest per-state, never invented. */
+function doorStatus(areaId, house) {
+  if (!house) return "…";
+  if (areaId === "proving") return house.games === 1 ? "1 game kept, full tail" : `${house.games ?? 0} games kept, full tails`;
+  if (areaId === "academy") return house.judgeReady ? `${house.judgeCases} judge cases ready to try you` : "trial corpus awaits a data sync";
+  if (areaId === "vault") return house.printings > 0 ? `${house.printings.toLocaleString()} printings · ${usd(house.vaultValue)} under glass` : "the shelves await your first cards";
+  return null;
+}
 
 export default function LandingScreen({
   appVersion,
@@ -27,6 +46,32 @@ export default function LandingScreen({
   profileColors,
 }) {
   const zones = AREAS.filter((a) => a.id !== "agents");
+
+  // The house ledger — three light local GETs; feeds the doors' status lines
+  // AND the Keeper's charter. null = still reading (doors show "…").
+  const [house, setHouse] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const grab = async (url) => {
+        try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch { return null; }
+      };
+      const [records, quiz, dash] = await Promise.all([
+        grab("/api/records"),
+        grab("/api/judge-quiz"),
+        grab("/api/collection/dashboard"),
+      ]);
+      if (!alive) return;
+      setHouse({
+        games: records?.records?.length ?? 0,
+        judgeReady: !!quiz?.ready,
+        judgeCases: quiz?.total ?? 0,
+        printings: dash?.uniquePrintings ?? 0,
+        vaultValue: dash?.vaultValue ?? 0,
+      });
+    })();
+    return () => { alive = false; };
+  }, []);
 
   return (
     <div
@@ -141,6 +186,9 @@ export default function LandingScreen({
                   <span style={{ fontSize: 12.5, color: "var(--ley-text-dim)", textAlign: "center", lineHeight: 1.5 }}>
                     {area.tagline}
                   </span>
+                  <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10.5, color: "var(--ley-green)", textAlign: "center", minHeight: 14 }}>
+                    {doorStatus(area.id, house)}
+                  </span>
                   <span
                     style={{
                       fontFamily: "var(--font-mono), monospace",
@@ -190,8 +238,8 @@ export default function LandingScreen({
           </div>
         </div>
 
-        {/* the Keeper minds the front hall */}
-        <KeeperRail fontFamily={fontFamily} onEnterArea={onEnterArea} />
+        {/* the Keeper minds the front hall — pure concierge, no second set of doors */}
+        <KeeperRail fontFamily={fontFamily} house={house} />
       </div>
     </div>
   );
