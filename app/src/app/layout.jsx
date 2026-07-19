@@ -17,7 +17,8 @@ const display = Space_Grotesk({
 // jewel-&-machine register without sci-fi. Swap the whole app's hero type here.
 const hero = Cinzel({
   subsets: ["latin"],
-  weight: ["700"],
+  // 900 (Black) carries the chrome gradient — 700's thin strokes read flat under it.
+  weight: ["700", "900"],
   variable: "--font-hero",
   display: "swap"
 });

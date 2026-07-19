@@ -153,7 +153,9 @@ function vihaanSystem(dashboard) {
 }
 
 export default function VaultRail({ fontFamily, dashboard }) {
-  const [widget, setWidget] = useState(null);          // null | "value" | "movers" | "grails"
+  // Boots with the value widget DOCKED (Colton's mock shows the rail alive on entry —
+  // an empty black column reads flat); dismiss returns the chat to full height.
+  const [widget, setWidget] = useState("value");        // null | "value" | "movers" | "grails"
   const [messages, setMessages] = useState([]);         // {role, content}
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);

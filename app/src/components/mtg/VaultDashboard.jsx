@@ -86,7 +86,7 @@ const VD_CSS = `
 /* ── Header: chrome title in the app-wide hero face (dial + rule cut — Colton, 2026-07-19) ── */
 .vd-title {
   font-family: var(--font-hero), serif;
-  font-size: 27px; font-weight: 700; letter-spacing: 0.1em; line-height: 1;
+  font-size: 30px; font-weight: 900; letter-spacing: 0.1em; line-height: 1;
   background: linear-gradient(180deg, #f2fff8 8%, #a7f3d0 34%, var(--ley-green) 56%, #128a45 88%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 1px 0 rgba(0,0,0,0.8)) drop-shadow(0 0 16px rgba(57,245,126,0.3));
@@ -149,6 +149,23 @@ const VD_CSS = `
   color: #03140a; background: linear-gradient(180deg, #6dffa1, #21b45f);
   padding: 2px 6px; border-radius: 999px; box-shadow: 0 0 12px rgba(57,245,126,0.5); }
 
+/* ── Cards: the jewel-case facsimile UNDER every card image (Colton: "we went back flat" —
+      the flat black no-art tile was the killer; art windows glow even before/without art) ── */
+.vd-card { position: relative; aspect-ratio: 63 / 88; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+  background: linear-gradient(168deg, #102316, #071108);
+  border: 1px solid rgba(167,243,208,0.22);
+  box-shadow: inset 0 1px 0 rgba(214,255,236,0.14), inset 0 0 18px rgba(0,0,0,0.6), 0 8px 18px -8px rgba(0,0,0,0.9); }
+.vd-card-art { position: absolute; left: 7%; right: 7%; top: 9%; height: 46%; border-radius: 4px;
+  border: 1px solid rgba(167,243,208,0.16);
+  background: radial-gradient(120% 90% at 30% 20%, rgba(57,245,126,0.34), rgba(13,60,30,0.9) 60%, #051007 100%);
+  box-shadow: inset 0 0 14px rgba(0,0,0,0.65); }
+.vd-card-name { position: absolute; left: 8%; right: 8%; bottom: 7%; text-align: center; color: #a7f3d0;
+  font-weight: 600; line-height: 1.25; text-shadow: 0 1px 2px #000; }
+.vd-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vd-card::after { /* specular glass over whatever shows — facsimile or real art */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(118deg, transparent 30%, rgba(234,255,243,0.14) 41%, transparent 52%); }
+
 /* ── Chart margins + the engraved ledger table ── */
 .vd-chart-notes { display: flex; justify-content: space-between; margin-top: 5px;
   font-family: var(--font-mono), monospace; font-size: 9.5px; font-weight: 500;
@@ -168,7 +185,9 @@ const VD_CSS = `
 .vd-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .vd-avatar .vd-avatar-fallback { position: absolute; inset: 0; display: flex; align-items: center;
   justify-content: center; font-family: var(--font-mono), monospace; font-weight: 700; font-size: 14px;
-  color: var(--ley-green); }
+  color: var(--ley-green);
+  background: radial-gradient(120% 90% at 30% 20%, rgba(57,245,126,0.3), rgba(13,60,30,0.9) 60%, #051007 100%);
+  text-shadow: 0 0 8px rgba(57,245,126,0.6); }
 
 @media (prefers-reduced-motion: reduce) {
   .vd-rise, .vd-chart-line { animation: none; }
@@ -269,13 +288,15 @@ function Sparkline({ series, width = 620, height = 150, grid = false }) {
 }
 
 function CardThumb({ scryfallId, name, size = 92 }) {
+  // The facsimile layers (art window + name plate) sit UNDER the real image: they carry the
+  // frame while art loads and whenever it can't resolve — a card is never a black void.
   return (
-    <div style={{ width: size, aspectRatio: "63 / 88", borderRadius: 6, overflow: "hidden", background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", position: "relative", flexShrink: 0 }}>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 4, textAlign: "center", fontSize: 9, lineHeight: 1.25, color: "var(--ley-text)" }}>{name}</div>
+    <div className="vd-card" style={{ width: size }}>
+      <div className="vd-card-art" aria-hidden="true" />
+      <div className="vd-card-name" style={{ fontSize: Math.max(6.5, size / 10) }}>{name}</div>
       <img
         src={scryfallId ? `/api/card-image?id=${encodeURIComponent(scryfallId)}` : `/api/card-image?name=${encodeURIComponent(name || "")}`}
         alt=""
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
         onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
       />
     </div>
