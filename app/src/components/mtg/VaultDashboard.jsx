@@ -18,6 +18,84 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import VaultRail from "./VaultRail";
 
+
+/* THE VAULT "boot sequence" — original-Xbox-startup energy (Colton: "up to 11, show off").
+   Organic breathing light, not sci-fi lines: plasma blobs drifting in the void, staggered
+   emergence from darkness, a chrome-green title with a light sweep, pedestals that pulse.
+   Motion is transform/opacity/shadow only; every animation dies under reduced-motion. */
+const VD_CSS = `
+@keyframes vdPlasma {
+  0%   { transform: translate(0, 0) scale(1);      opacity: 0.55; }
+  50%  { transform: translate(4%, 6%) scale(1.18); opacity: 0.95; }
+  100% { transform: translate(-3%, -2%) scale(1);  opacity: 0.55; }
+}
+@keyframes vdPlasma2 {
+  0%   { transform: translate(0, 0) scale(1.1);      opacity: 0.35; }
+  50%  { transform: translate(-5%, -4%) scale(0.92); opacity: 0.7; }
+  100% { transform: translate(2%, 5%) scale(1.1);    opacity: 0.35; }
+}
+@keyframes vdRise {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes vdTitleSheen {
+  0%, 55% { background-position: -220% 0; }
+  100%    { background-position: 220% 0; }
+}
+@keyframes vdBreatheGlow {
+  0%, 100% { box-shadow: var(--ley-aura-soft), var(--ley-top-edge), inset 0 0 22px rgba(57,245,126,0.04); }
+  50%      { box-shadow: var(--ley-aura), var(--ley-top-edge), inset 0 0 30px rgba(57,245,126,0.08); }
+}
+@keyframes vdPedestal {
+  0%, 100% { box-shadow: 0 0 14px 3px var(--ley-green-glow); opacity: 0.75; }
+  50%      { box-shadow: 0 0 26px 7px var(--ley-green-glow); opacity: 1; }
+}
+@keyframes vdDrawLine { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes vdEndPulse {
+  0%, 100% { r: 3;   opacity: 0.9; }
+  50%      { r: 5.5; opacity: 0.45; }
+}
+.vd-plasma, .vd-plasma2 { position: absolute; border-radius: 50%; pointer-events: none; will-change: transform, opacity; }
+.vd-plasma  { animation: vdPlasma 13s ease-in-out infinite; }
+.vd-plasma2 { animation: vdPlasma2 19s ease-in-out infinite; }
+.vd-rise { opacity: 0; animation: vdRise 640ms var(--ease-snap) forwards; }
+.vd-title {
+  background: linear-gradient(100deg, var(--ley-green-text) 20%, #ffffff 38%, var(--ley-green) 46%, var(--ley-green-text) 62%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: vdTitleSheen 5.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 14px rgba(57,245,126,0.35));
+}
+.vd-tile { animation: vdBreatheGlow 4.8s ease-in-out infinite; }
+.vd-pedestal { animation: vdPedestal 3.6s ease-in-out infinite; }
+.vd-grail { transition: transform 220ms var(--ease-snap), filter 220ms var(--ease-snap); }
+.vd-grail:hover { transform: translateY(-8px); filter: drop-shadow(0 0 18px rgba(57,245,126,0.4)); }
+.vd-chart-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: vdDrawLine 1400ms var(--ease-snap) 250ms forwards; }
+.vd-end-dot { animation: vdEndPulse 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .vd-plasma, .vd-plasma2, .vd-rise, .vd-title, .vd-tile, .vd-pedestal, .vd-chart-line, .vd-end-dot { animation: none; }
+  .vd-rise { opacity: 1; }
+  .vd-chart-line { stroke-dasharray: none; stroke-dashoffset: 0; }
+}
+`;
+
+/** Boot-up count: the tiles tick from 0 to value on mount (the startup feel). */
+function useCountUp(target, ms = 900) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!Number.isFinite(target)) return;
+    let raf; const t0 = performance.now();
+    const tick = (t) => {
+      const k = Math.min(1, (t - t0) / ms);
+      setN(target * (1 - Math.pow(1 - k, 3))); // ease-out cubic
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return n;
+}
+
 const HALLS = [
   { id: "collection", label: "The Stacks" },
   { id: "vault-ledger", label: "The Ledger" },
@@ -40,7 +118,7 @@ function Sparkline({ series, width = 620, height = 150, stroke = "var(--ley-gree
     const span = max - min || 1;
     const ys = vals.map((v) => height - 6 - ((v - min) / span) * (height - 24));
     const d = xs.map((x, i) => `${i ? "L" : "M"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
-    return { d, area: `${d} L${xs[xs.length - 1].toFixed(1)},${height - 4} L${xs[0].toFixed(1)},${height - 4} Z` };
+    return { d, area: `${d} L${xs[xs.length - 1].toFixed(1)},${height - 4} L${xs[0].toFixed(1)},${height - 4} Z`, end: [xs[xs.length - 1], ys[ys.length - 1]] };
   }, [series, width, height]);
 
   if (!path) return null;
@@ -60,7 +138,8 @@ function Sparkline({ series, width = 620, height = 150, stroke = "var(--ley-gree
       </defs>
       <path d={path.area} fill={`url(#${gid})`} stroke="none" />
       <path d={path.d} fill="none" stroke={stroke} strokeWidth="3" strokeLinejoin="round" opacity="0.55" filter={`url(#${gid}-blur)`} />
-      <path d={path.d} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+      <path className="vd-chart-line" pathLength="1" d={path.d} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+      {path.end && <circle className="vd-end-dot" cx={path.end[0]} cy={path.end[1]} r="3" fill={stroke} />}
     </svg>
   );
 }
@@ -108,14 +187,20 @@ export default function VaultDashboard({ onPick, fontFamily }) {
   const doorish = { cursor: "pointer" };
 
   const movers = data?.movers;
+  const countPrintings = useCountUp(data?.uniquePrintings ?? 0);
+  const countValue = useCountUp(data?.vaultValue ?? 0);
 
   return (
-    <div style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.08) 0%, rgba(86,214,93,0.015) 36%, transparent 62%), var(--ley-bg)" }}>
+    <div style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, position: "relative", background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.08) 0%, rgba(86,214,93,0.015) 36%, transparent 62%), var(--ley-bg)" }}>
+      <style>{VD_CSS}</style>
+      {/* The living light — plasma drifting in the void behind the glass (the boot-screen heartbeat). */}
+      <div className="vd-plasma" aria-hidden="true" style={{ width: "55%", height: "60%", left: "8%", top: "-18%", background: "radial-gradient(circle, rgba(57,245,126,0.11) 0%, rgba(57,245,126,0.035) 45%, transparent 70%)" }} />
+      <div className="vd-plasma2" aria-hidden="true" style={{ width: "45%", height: "55%", right: "12%", bottom: "-20%", background: "radial-gradient(circle, rgba(57,245,126,0.08) 0%, rgba(57,245,126,0.02) 50%, transparent 72%)" }} />
       {/* ── Main column ─────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
         {/* Header: title + Rooms dropdown */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: 22, fontWeight: 700, color: "var(--ley-text)", letterSpacing: "0.04em" }}>THE VAULT</span>
+          <span className="vd-title" style={{ fontFamily: "var(--font-display), sans-serif", fontSize: 24, fontWeight: 800, letterSpacing: "0.09em" }}>THE VAULT</span>
           <div style={{ marginLeft: "auto", position: "relative" }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setRoomsOpen((o) => !o)} aria-expanded={roomsOpen}>
               Rooms ▾
@@ -142,25 +227,25 @@ export default function VaultDashboard({ onPick, fontFamily }) {
 
         {/* ── Tile row ──────────────────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 1.6fr", gap: 12 }}>
-          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-census")} title="Open The Census">
+          <div className="ley-glass vd-tile vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "60ms" }} onClick={() => onPick?.("vault-census")} title="Open The Census">
             <div style={tileLabel}>Unique printings</div>
             <div style={{ ...mono, ...glowNum, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
-              {data ? data.uniquePrintings.toLocaleString() : "—"}
+              {data ? Math.round(countPrintings).toLocaleString() : "—"}
             </div>
             <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)" }}>{data ? `${data.totalQuantity.toLocaleString()} total copies` : ""}</div>
           </div>
 
-          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+          <div className="ley-glass vd-tile vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "140ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
             <div style={tileLabel}>Vault value</div>
             <div style={{ ...mono, ...glowNum, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
-              {data ? usd(data.vaultValue) : "—"}
+              {data ? usd(countValue) : "—"}
             </div>
             <div style={{ height: 18, marginTop: 2 }}>
               {data?.valueSeries?.length >= 2 && <Sparkline series={data.valueSeries} width={220} height={18} />}
             </div>
           </div>
 
-          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px", display: "flex", gap: 14 }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+          <div className="ley-glass vd-tile vd-rise" style={{ ...doorish, padding: "14px 16px", display: "flex", gap: 14, animationDelay: "220ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
             {movers?.status === "ok" ? (
               <>
                 <div style={{ flex: 1, display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
@@ -194,14 +279,14 @@ export default function VaultDashboard({ onPick, fontFamily }) {
 
         {/* ── Grails + value graph ──────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12 }}>
-          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-gallery")} title="Open The Gallery">
+          <div className="ley-glass vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "320ms" }} onClick={() => onPick?.("vault-gallery")} title="Open The Gallery">
             <div style={tileLabel}>Collection grails</div>
             {data?.grails?.length ? (
               <div style={{ display: "flex", gap: 12, marginTop: 12, alignItems: "flex-end" }}>
                 {data.grails.map((g) => (
-                  <div key={g.scryfallId || g.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div key={g.scryfallId || g.name} className="vd-grail" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                     <CardThumb scryfallId={g.scryfallId} name={g.name} size={92} />
-                    <div style={{ width: 70, height: 5, borderRadius: "50%", background: "var(--ley-green-dim)", boxShadow: "0 0 18px 4px var(--ley-green-glow)" }} />
+                    <div className="vd-pedestal" style={{ width: 70, height: 5, borderRadius: "50%", background: "var(--ley-green-dim)", animationDelay: `${(data.grails.indexOf(g) % 5) * 500}ms` }} />
                   </div>
                 ))}
               </div>
@@ -212,7 +297,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
             )}
           </div>
 
-          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+          <div className="ley-glass vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "400ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
             <div style={tileLabel}>Value</div>
             {data?.valueSeries?.length >= 2 ? (
               <div style={{ marginTop: 8 }}><Sparkline series={data.valueSeries} width={340} height={140} /></div>
@@ -225,7 +310,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
         </div>
 
         {/* ── My Collection table ───────────────────────────────────────────────── */}
-        <div className="ley-glass" style={{ padding: "14px 16px" }}>
+        <div className="ley-glass vd-rise" style={{ padding: "14px 16px", animationDelay: "480ms" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <div style={tileLabel}>My collection</div>
             <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => onPick?.("collection")}>
