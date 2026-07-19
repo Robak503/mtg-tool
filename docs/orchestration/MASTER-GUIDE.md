@@ -132,6 +132,33 @@ each learned the hard way):
     root-cause (`/investigate`), never a third identical retry.
 12. UI waves prove the engine fence: tier fp 0-diff + trajectory hash byte-identical, even
     when "it's only CSS".
+13. **THE HOLLOW-GATE LAW** (2026-07-18 — seven documented instances, three authors; see the
+    block below). A gate that passes while measuring nothing is worse than no gate.
+
+**§3b The hollow-gate law (#13 expanded).** The most dangerous failure mode this repo has
+produced is a green check that never touched the thing it claims to check: the fabricated-winner
+era (70.7% of ai-win labels fiction while standings printed clean) · the RulesChunk verify
+(`pass = n > 0` → ✓ at 1 of 3,138 rules) · self-play (40k green games/night for a week while a
+human couldn't finish turn 1 — the Expert driver auto-answers every human prompt, so the human
+path is never in the sample) · a string-match wiring guard that passed a structurally-perfect
+BLANK panel · a sweep reporting 8/8 complete while 5 of 7 target prompts never fired · a snapshot
+baseline that froze `undefined` as "correct" for nine unexported helpers. Three rules, all cheap:
+
+- **SEEN-TO-FAIL** — no new/changed gate is done until you broke the guarded thing on purpose,
+  watched the gate go red, and restored it. Record it in the commit message as a
+  `Mutation-checked:` line naming what was broken and which test caught it. Absent line = the
+  work isn't done (same class as lint 0). *A gate you have never seen fail is a hypothesis.*
+- **COVERAGE WITNESS** — any harness that samples (sweeps, sims, ingest verifies) must print
+  WHAT it exercised (kinds fired, rows counted against source) and assert a floor on it. The
+  pass rate is never the load-bearing number; the witness is.
+- **ABSENCE ≠ VALUE** — in a harness, a missing subject THROWS, never defaults: no `?.` on the
+  thing under measurement, no `|| 0`, no `pass = n > 0`. Absence is the most important thing a
+  harness can detect; don't let syntax swallow it.
+
+The dual failure — a gate that fails HEALTHY runs (the 300s CI test wall, fixed 31201b8d) — is
+the same disease mirrored: both teach people to ignore the color. A gate's output must mean
+exactly one thing. Read-time corollary of #6: before trusting any green, ask *"show me the
+witness — what did this touch?"*
 
 **Where live numbers come from** (trust no stale number — derive):
 
