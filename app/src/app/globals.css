@@ -632,3 +632,160 @@ progress.ley-gel:indeterminate::-webkit-progress-value {
 
 /* (the legacy .aether-* utility classes were deleted once zero usages
    remained — P3 close-out; .ley-row / .ley-card are the replacements) */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   JEWEL & MACHINE — the app-wide material register (promoted from the Vault
+   V2 pass, Colton-approved 2026-07-19; feedback_ui_nuance_ledger has the law).
+
+   THE PULSE BAN: no looping motion in this kit, ever. Motion is (a) a fast
+   ONE-SHOT entrance (.ley-rise / .ley-draw-line) and (b) hover response.
+   The only sanctioned infinite animations in this file are the FUNCTIONAL
+   state indicators that predate the ban: ley-spin, ley-pulse, ley-gel-scroll.
+   A test gate (leyline-no-loop) pins that allowlist — add a loop and it fails.
+
+   Richness is MATERIAL: machined pane edges + corner brackets + baked
+   specular, chrome/jewel gradient type, engraved labels and grooves, card
+   facsimiles that glow before art loads. Rooms compose these ON .ley-glass.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── One-shot motion ── */
+@keyframes leyRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes leyDrawLine { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.ley-rise { opacity: 0; animation: leyRise 520ms var(--ease-snap) forwards; }
+.ley-draw-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: leyDrawLine 1200ms var(--ease-snap) 250ms forwards; }
+
+/* ── The room ground: static layered light + brushed machining. No drift. ── */
+.ley-stage {
+  background:
+    radial-gradient(ellipse 90% 60% at 30% -12%, rgba(57, 245, 126, 0.10), transparent 60%),
+    radial-gradient(ellipse 70% 55% at 85% 108%, rgba(57, 245, 126, 0.05), transparent 65%),
+    var(--ley-bg);
+}
+.ley-stage::before { /* brushed-metal hairlines, barely there */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(115deg, rgba(167, 243, 208, 0.016) 0 1px, transparent 1px 7px);
+}
+
+/* ── Machined glass: layer ON .ley-glass — dual edge, corner brackets, specular ── */
+.ley-pane {
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(214, 255, 236, 0.14),
+    inset 0 -14px 24px -18px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(57, 245, 126, 0.05),
+    0 22px 44px -28px rgba(0, 0, 0, 0.9);
+}
+.ley-pane::before { /* baked specular streak — the jewel face */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(112deg, transparent 32%, rgba(214, 255, 236, 0.05) 42%, rgba(214, 255, 236, 0.012) 50%, transparent 58%);
+}
+.ley-pane::after { /* corner brackets — machined, engraved */
+  content: ""; position: absolute; inset: 5px; border-radius: 9px; pointer-events: none;
+  background:
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) top left / 14px 1px,
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) top left / 1px 14px,
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) top right / 14px 1px,
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) top right / 1px 14px,
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) bottom left / 14px 1px,
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) bottom left / 1px 14px,
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) bottom right / 14px 1px,
+    linear-gradient(rgba(57, 245, 126, 0.34), rgba(57, 245, 126, 0.34)) bottom right / 1px 14px;
+  background-repeat: no-repeat; opacity: 0.55;
+}
+.ley-door { cursor: pointer; transition: transform 180ms var(--ease-snap), box-shadow 180ms; }
+.ley-door:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px 0 rgba(214, 255, 236, 0.18),
+    inset 0 -14px 24px -18px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(57, 245, 126, 0.22),
+    0 0 34px rgba(57, 245, 126, 0.14),
+    0 26px 48px -26px rgba(0, 0, 0, 0.95);
+}
+
+/* ── Chrome hero title (the room name) — static metal, no sweep ── */
+.ley-hero-title {
+  font-family: var(--font-hero), serif;
+  font-size: 30px; font-weight: 900; letter-spacing: 0.1em; line-height: 1;
+  background: linear-gradient(180deg, #f2fff8 8%, #a7f3d0 34%, var(--ley-green) 56%, #128a45 88%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.8)) drop-shadow(0 0 16px rgba(57, 245, 126, 0.3));
+}
+
+/* ── Engraved small-caps label with a tick-ruler tail ── */
+.ley-lab {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono), monospace; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.17em; color: var(--ley-green); text-transform: uppercase;
+}
+.ley-lab::after { content: ""; flex: 1; height: 3px;
+  background: repeating-linear-gradient(90deg, var(--ley-line) 0 1px, transparent 1px 6px) bottom / 100% 1px no-repeat,
+              repeating-linear-gradient(90deg, var(--ley-line) 0 1px, transparent 1px 24px) bottom / 100% 3px no-repeat; }
+
+/* ── Jeweled numerals + metal deltas + engraved groove ── */
+.ley-num {
+  font-family: var(--font-mono), monospace; font-weight: 700; font-size: 30px; line-height: 1.15;
+  font-variant-numeric: tabular-nums; margin-top: 5px;
+  background: linear-gradient(180deg, #f2fff8 0%, #a7f3d0 40%, var(--ley-green) 78%, #21b45f 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 14px rgba(57, 245, 126, 0.35));
+}
+.ley-delta { font-family: var(--font-mono), monospace; font-weight: 700; font-size: 20px; line-height: 1.1; }
+.ley-delta-up { background: linear-gradient(180deg, #6dffa1, #21b45f);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 12px rgba(57, 245, 126, 0.4)); }
+.ley-delta-down { background: linear-gradient(180deg, #ffb4b4, var(--ley-red));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 12px rgba(248, 113, 113, 0.35)); }
+.ley-groove { width: 2px; margin: 2px 0; border-radius: 1px; flex-shrink: 0;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.8) 20% 80%, transparent);
+  box-shadow: 1px 0 0 rgba(167, 243, 208, 0.10); }
+
+/* ── Card facsimile: the jewel-case frame UNDER every card image.
+      A card is never a black void — the art window glows before/without art. ── */
+.ley-cardface { position: relative; aspect-ratio: 63 / 88; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+  background: linear-gradient(168deg, #102316, #071108);
+  border: 1px solid rgba(167, 243, 208, 0.22);
+  box-shadow: inset 0 1px 0 rgba(214, 255, 236, 0.14), inset 0 0 18px rgba(0, 0, 0, 0.6), 0 8px 18px -8px rgba(0, 0, 0, 0.9); }
+.ley-cardface-art { position: absolute; left: 7%; right: 7%; top: 9%; height: 46%; border-radius: 4px;
+  border: 1px solid rgba(167, 243, 208, 0.16);
+  background: radial-gradient(120% 90% at 30% 20%, rgba(57, 245, 126, 0.34), rgba(13, 60, 30, 0.9) 60%, #051007 100%);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.65); }
+.ley-cardface-name { position: absolute; left: 8%; right: 8%; bottom: 7%; text-align: center; color: #a7f3d0;
+  font-weight: 600; line-height: 1.25; text-shadow: 0 1px 2px #000; }
+.ley-cardface img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ley-cardface::after { /* specular glass over whatever shows — facsimile or real art */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(118deg, transparent 30%, rgba(234, 255, 243, 0.14) 41%, transparent 52%); }
+
+/* ── Ledger details: engraved rows, qty chips, chart margins ── */
+.ley-ledger-row { transition: background 130ms, box-shadow 130ms; cursor: pointer; }
+.ley-ledger-row:hover { background: rgba(57, 245, 126, 0.06); box-shadow: inset 2px 0 0 var(--ley-green); }
+.ley-qty { display: inline-block; min-width: 20px; text-align: center;
+  font-family: var(--font-mono), monospace; font-weight: 700; font-size: 10.5px; color: #a7f3d0;
+  padding: 2px 6px; border-radius: 5px; background: rgba(57, 245, 126, 0.08);
+  border: 1px solid var(--ley-line); box-shadow: inset 0 1px 0 rgba(214, 255, 236, 0.08); }
+.ley-chart-notes { display: flex; justify-content: space-between; margin-top: 5px;
+  font-family: var(--font-mono), monospace; font-size: 9.5px; font-weight: 500;
+  color: var(--ley-text-dim); letter-spacing: 0.04em; }
+
+/* ── Guide avatar: little artwork in a machined frame (never a colored ball) ── */
+.ley-avatar { width: 32px; height: 32px; border-radius: 8px; position: relative; flex-shrink: 0;
+  overflow: hidden; background: var(--ley-surface-2);
+  border: 1px solid rgba(57, 245, 126, 0.34);
+  box-shadow: 0 0 12px rgba(57, 245, 126, 0.22), inset 0 1px 0 rgba(214, 255, 236, 0.14); }
+.ley-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; position: relative; }
+.ley-avatar .ley-avatar-fallback { position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-family: var(--font-mono), monospace; font-weight: 700; font-size: 14px;
+  color: var(--ley-green);
+  background: radial-gradient(120% 90% at 30% 20%, rgba(57, 245, 126, 0.3), rgba(13, 60, 30, 0.9) 60%, #051007 100%);
+  text-shadow: 0 0 8px rgba(57, 245, 126, 0.6); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ley-rise, .ley-draw-line { animation: none; }
+  .ley-rise { opacity: 1; }
+  .ley-draw-line { stroke-dasharray: none; stroke-dashoffset: 0; }
+}

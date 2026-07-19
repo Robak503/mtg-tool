@@ -1,25 +1,21 @@
 "use client";
 
 /**
- * VaultRail — Vihaan's rail: live chat + the widget canvas (V1 of the Room Guides pattern).
+ * VaultRail — Vihaan's rail: the Vault's guide config riding the shared RoomRail
+ * (the Room Guides pattern this rail pioneered — see RoomRail.jsx for the shell).
  *
- * Colton's design, verbatim from the sketch session (vault-dashboard-rework-spec.md): chat rides the
- * rail full-height; when an answer needs a visual, THE CHAT CUTS TO HALF SIZE and the widget loads
- * ABOVE it. Widget stays pinned until replaced or dismissed; dismiss → chat returns to full height.
+ * Colton's design, verbatim from the sketch session (vault-dashboard-rework-spec.md):
+ * chat rides the rail full-height; when an answer needs a visual, THE CHAT CUTS TO
+ * HALF SIZE and the widget loads ABOVE it. The deterministic reports ARE the widgets —
+ * chips and chat summon the same three V1 canvases, all fed from the dashboard payload
+ * (no new endpoints, no fabricated numbers): value · movers · grails.
  *
- * The deterministic reports ARE the widgets — the quick chips and the chat summon the same three
- * V1 canvases, all fed from the dashboard payload (no new endpoints, no fabricated numbers):
- *   value   — the collection value series
- *   movers  — the weekly winner/loser detail (honest empty state per the hollow-gate law)
- *   grails  — the showpiece shelf
- *
- * LANE LAW (Colton): Vihaan is the COLLECTOR's guide. Deck power / deck building = Karn's bench —
- * the system prompt routes those instead of answering out of lane.
- *
- * Material note: the vd-* classes (vd-pane machining, vd-gem avatar) are defined in
- * VaultDashboard's VD_CSS — this rail only renders inside the dashboard, so they resolve.
+ * LANE LAW (Colton): Vihaan is the COLLECTOR's guide. Deck power / deck building =
+ * Karn's bench — the system prompt routes those instead of answering out of lane.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+
+import RoomRail from "./RoomRail";
 
 const mono = { fontFamily: "var(--font-mono), monospace" };
 
@@ -68,7 +64,7 @@ function RailSparkline({ series, height = 110 }) {
 const usd = (n) => `$${(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** The three V1 widgets, rendered from the dashboard payload. */
-function Widget({ kind, dashboard }) {
+function VihaanWidget({ kind, payload: dashboard }) {
   if (!dashboard) return <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)" }}>Loading vault data…</div>;
   if (kind === "value") {
     return (
@@ -126,12 +122,6 @@ function Widget({ kind, dashboard }) {
   return null;
 }
 
-const CHIPS = [
-  { kind: "value", label: "Value history" },
-  { kind: "movers", label: "Week's movers" },
-  { kind: "grails", label: "Grail shelf" },
-];
-
 /** Vihaan's V1 charter: collector scope, grounded numbers, lane discipline. */
 function vihaanSystem(dashboard) {
   const facts = dashboard ? {
@@ -152,157 +142,30 @@ function vihaanSystem(dashboard) {
   ].join("\n");
 }
 
+export const VIHAAN_GUIDE = {
+  agentName: "vihaan",
+  name: "VIHAAN",
+  role: "the Vault's guide",
+  artCard: "Vihaan, Goldwaker",
+  monogram: "V",
+  systemPrompt: vihaanSystem,
+  chips: [
+    { kind: "value", label: "Value history" },
+    { kind: "movers", label: "Week's movers" },
+    { kind: "grails", label: "Grail shelf" },
+  ],
+  defaultWidget: "value",
+  widgetRouter: (lower) => {
+    if (/\b(value|worth).*(history|graph|chart|over time)|history of.*value/.test(lower)) return "value";
+    if (/\b(mover|winner|loser|gain|drop|spike)/.test(lower)) return "movers";
+    if (/\b(grail|showpiece|shelf|signed)/.test(lower)) return "grails";
+    return null;
+  },
+  Widget: VihaanWidget,
+  emptyChatHint: "Ask about your collection — value, movers, grails, trades. (Deck questions live with Karn at the bench.)",
+  placeholder: "Ask about your collection…",
+};
+
 export default function VaultRail({ fontFamily, dashboard }) {
-  // Boots with the value widget DOCKED (Colton's mock shows the rail alive on entry —
-  // an empty black column reads flat); dismiss returns the chat to full height.
-  const [widget, setWidget] = useState("value");        // null | "value" | "movers" | "grails"
-  const [messages, setMessages] = useState([]);         // {role, content}
-  const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const scrollRef = useRef(null);
-  const abortRef = useRef(null);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
-  useEffect(() => { scrollRef.current?.scrollTo?.(0, 1e9); }, [messages]);
-
-  const send = async (text) => {
-    const content = String(text || "").trim();
-    if (!content || streaming) return;
-    setInput("");
-
-    // The chat can summon widgets too — same three canvases the chips trigger.
-    const lower = content.toLowerCase();
-    if (/\b(value|worth).*(history|graph|chart|over time)|history of.*value/.test(lower)) setWidget("value");
-    else if (/\b(mover|winner|loser|gain|drop|spike)/.test(lower)) setWidget("movers");
-    else if (/\b(grail|showpiece|shelf|signed)/.test(lower)) setWidget("grails");
-
-    const next = [...messages, { role: "user", content }];
-    setMessages([...next, { role: "assistant", content: "" }]);
-    setStreaming(true);
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      const response = await fetch("/api/chat-stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          provider: "auto",
-          agentName: "vihaan",
-          max_tokens: 700,
-          system: vihaanSystem(dashboard),
-          messages: next.map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
-      if (!response.ok || !response.body) throw new Error("Could not reach the model endpoint.");
-      const reader = response.body.getReader();
-      const dec = new TextDecoder();
-      let buf = "", streamed = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop();
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          let event;
-          try { event = JSON.parse(line.slice(6)); } catch { continue; }
-          if (event.type === "text_delta") {
-            streamed += event.text;
-            setMessages((prev) => prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: streamed } : m)));
-          } else if (event.type === "error") {
-            streamed += streamed ? `\n\n(${event.error})` : `The model isn't reachable right now — ${event.error}`;
-            setMessages((prev) => prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: streamed, isError: true } : m)));
-          }
-        }
-      }
-    } catch (e) {
-      if (e.name !== "AbortError") {
-        setMessages((prev) => prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: `The model isn't reachable right now — ${e.message}`, isError: true } : m)));
-      }
-    } finally {
-      setStreaming(false);
-      abortRef.current = null;
-    }
-  };
-
-  return (
-    <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10, fontFamily, minHeight: 0 }}>
-      {/* Nameplate — Vihaan wears his own card art (little artworks, not a green ball) */}
-      <div className="ley-glass vd-pane" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div className="vd-avatar" aria-hidden="true">
-          <span className="vd-avatar-fallback">V</span>
-          <img
-            src={`/api/art-crop?name=${encodeURIComponent("Vihaan, Goldwaker")}`}
-            alt=""
-            style={{ position: "relative" }}
-            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
-          />
-        </div>
-        <div>
-          <div style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: "var(--ley-green)" }}>VIHAAN</div>
-          <div style={{ fontSize: 10, color: "var(--ley-text-dim)" }}>the Vault's guide</div>
-        </div>
-      </div>
-
-      {/* Widget canvas — the chat's top pane; chat drops to half height while docked */}
-      {widget && (
-        <div className="ley-glass-strong ley-glass-lit vd-pane" style={{ padding: "12px 14px", position: "relative", flexShrink: 0 }}>
-          <button
-            onClick={() => setWidget(null)}
-            title="Dismiss"
-            style={{ position: "absolute", top: 6, right: 8, background: "transparent", border: "none", color: "var(--ley-text-dim)", cursor: "pointer", fontSize: 13 }}
-          >
-            ×
-          </button>
-          <Widget kind={widget} dashboard={dashboard} />
-        </div>
-      )}
-
-      {/* Chat — full height alone, half height when a widget is docked (Colton's cut behavior) */}
-      <div className="ley-glass vd-pane" style={{ flex: widget ? 1 : 2, display: "flex", flexDirection: "column", minHeight: 120, overflow: "hidden" }}>
-        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-          {messages.length === 0 && (
-            <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
-              Ask about your collection — value, movers, grails, trades. (Deck questions live with Karn at the bench.)
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "92%", padding: "7px 10px", borderRadius: 8, fontSize: 12, lineHeight: 1.45, whiteSpace: "pre-wrap", background: m.role === "user" ? "var(--ley-green-dim)" : "var(--ley-surface-2)", color: m.isError ? "var(--ley-red)" : "var(--ley-text)", border: `1px solid ${m.role === "user" ? "var(--ley-green)" : "var(--ley-line)"}` }}>
-              {m.content || (streaming && i === messages.length - 1 ? "…" : "")}
-            </div>
-          ))}
-        </div>
-
-        {/* Quick chips */}
-        <div style={{ display: "flex", gap: 6, padding: "0 10px 8px", flexWrap: "wrap" }}>
-          {CHIPS.map((c) => (
-            <button
-              key={c.kind}
-              onClick={() => setWidget((w) => (w === c.kind ? null : c.kind))}
-              style={{ fontSize: 10.5, padding: "3px 9px", borderRadius: 999, cursor: "pointer", background: widget === c.kind ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${widget === c.kind ? "var(--ley-green)" : "var(--ley-line)"}`, color: widget === c.kind ? "var(--ley-green)" : "var(--ley-text-dim)", boxShadow: widget === c.kind ? "var(--ley-aura-soft)" : "none" }}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Input */}
-        <form
-          onSubmit={(e) => { e.preventDefault(); send(input); }}
-          style={{ display: "flex", gap: 6, padding: "0 10px 10px" }}
-        >
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your collection…"
-            style={{ flex: 1, fontFamily, fontSize: 12, padding: "8px 10px", background: "var(--ley-surface-2)", color: "var(--ley-text)", border: "1px solid var(--ley-line)", borderRadius: 8, outline: "none" }}
-          />
-          <button className="btn btn-primary btn-sm" type="submit" disabled={streaming || !input.trim()}>➤</button>
-        </form>
-      </div>
-    </div>
-  );
+  return <RoomRail fontFamily={fontFamily} guide={VIHAAN_GUIDE} payload={dashboard} />;
 }

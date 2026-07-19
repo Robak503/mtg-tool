@@ -14,9 +14,28 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import VaultDashboard, { formatSetName } from "./VaultDashboard.jsx";
 import VaultRail from "./VaultRail.jsx";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+// THE PULSE BAN, app-wide (the JEWEL & MACHINE kit lives in globals.css now): the ONLY
+// sanctioned infinite animations are the FUNCTIONAL state indicators that predate the ban.
+// Adding any looping animation to globals.css fails here — decorative loops are law-banned
+// (feedback_ui_nuance_ledger; Colton 2026-07-19 "not a fan of the pulsing").
+describe("globals.css — the decorative-loop allowlist", () => {
+  it("only the sanctioned functional loops use `infinite`", () => {
+    const css = fs.readFileSync(path.join(HERE, "../../app/globals.css"), "utf8");
+    const names = new Set(
+      [...css.matchAll(/animation:\s*([a-zA-Z-]+)[^;]*\binfinite\b/g)].map((m) => m[1]),
+    );
+    expect([...names].sort()).toEqual(["ley-gel-scroll", "ley-pulse", "ley-spin"]);
+  });
+});
 
 const noop = () => {};
 const text = (el) => renderToStaticMarkup(el).replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/g, "'").replace(/\s+/g, " ").trim();
@@ -50,24 +69,24 @@ const EMPTY = {
 // The dashboard fetches on mount; SSR renders the pre-fetch frame. So the DATA states are
 // asserted through VaultRail (prop-driven) and the dashboard is asserted for its static chrome.
 describe("VaultDashboard — static chrome renders", () => {
-  it("shows the room title, the Rooms dropdown, and the tile labels", () => {
+  it("shows the room title, the Halls dropdown, and the tile labels", () => {
     const out = text(createElement(VaultDashboard, { onPick: noop, fontFamily: "Inter" }));
     expect(out).toContain("THE VAULT");
-    expect(out).toContain("Rooms");
+    expect(out).toContain("Halls");   // the renamed switcher (rooms = the four wings; halls = spaces inside)
     expect(out).toContain("Unique printings");
     expect(out).toContain("Vault value");
     expect(out).toContain("My collection");
   });
 
-  // THE PULSE BAN (Colton, 2026-07-19: "not a fan of the pulsing") — standing design law for this
-  // room: no looping motion, ever. The component inlines all its CSS in a <style> tag, so the
-  // rendered markup IS the animation surface — any `infinite` animation is a law violation the
-  // suite must catch, not a taste note a future session has to remember.
+  // THE PULSE BAN (Colton, 2026-07-19: "not a fan of the pulsing") — standing design law:
+  // no looping motion, ever. The Vault's remaining inline CSS (the grail case) plus its
+  // markup must carry zero `infinite` animations; the promoted app-wide kit is guarded
+  // separately by the globals.css allowlist test below.
   it("emits ZERO looping animations — motion is hover + one-shot entrance only", () => {
     const raw = renderToStaticMarkup(createElement(VaultDashboard, { onPick: noop, fontFamily: "Inter" }));
     expect(raw).not.toMatch(/\binfinite\b/);
-    expect(raw).toMatch(/vd-pane/);    // the material kit actually rendered (guards against a hollow pass
-    expect(raw).toMatch(/vd-title/);   // where the styling was deleted along with the loops)
+    expect(raw).toMatch(/ley-pane/);       // the material kit actually rendered (guards against a hollow
+    expect(raw).toMatch(/ley-hero-title/); // pass where the styling was deleted along with the loops)
   });
 });
 
