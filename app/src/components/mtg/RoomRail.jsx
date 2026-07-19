@@ -13,8 +13,9 @@
  *   agentName      chat-stream agent id (model-tier passthrough is name-safe)
  *   name / role    nameplate text ("VIHAAN" / "the Vault's guide")
  *   artCard        the guide's own card — little artwork in the machined avatar
- *                  frame (/api/art-crop by name; monogram fallback, never a void)
- *   monogram       fallback letter while/if art can't resolve
+ *                  frame (/api/art-crop by name; monogram fallback, never a void).
+ *                  OMIT for non-Magic personas (the Keeper): monogram-only avatar.
+ *   monogram       fallback letter/glyph while/if art can't resolve
  *   systemPrompt   (payload) => lane-lawed charter grounded in LIVE data only
  *   chips          [{ kind, label }] deterministic widget summons
  *   defaultWidget  kind docked on entry (the rail boots alive, never a black column)
@@ -108,11 +109,13 @@ export default function RoomRail({ fontFamily, guide, payload }) {
       <div className="ley-glass ley-pane" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
         <div className="ley-avatar" aria-hidden="true">
           <span className="ley-avatar-fallback">{guide.monogram}</span>
-          <img
-            src={`/api/art-crop?name=${encodeURIComponent(guide.artCard)}`}
-            alt=""
-            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
-          />
+          {guide.artCard && (
+            <img
+              src={`/api/art-crop?name=${encodeURIComponent(guide.artCard)}`}
+              alt=""
+              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+            />
+          )}
         </div>
         <div>
           <div style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: "var(--ley-green)" }}>{guide.name}</div>

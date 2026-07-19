@@ -1,10 +1,17 @@
+"use client";
+
 /**
- * LandingScreen — the kiosk HOME. First thing after the profile gate:
- * one big card per area (driven by the AREAS registry in areas.jsx —
- * adding an entry there automatically adds a card here). No other chrome:
- * wordmark + version top-left, profile chip top-right, cards center.
+ * LandingScreen — the FRONT HALL (Colton's morning verdict, 2026-07-19): THREE
+ * zone doors — Crucible · Academy · Vault — plus THE KEEPER's rail, so a lost
+ * visitor always has someone to ask. The Agents door is gone from the landing:
+ * agents live in the rails now (Karn's bench stays reachable from the bottom
+ * bar until the bench itself goes rail-first).
+ *
+ * Material register: machined doors (ley-pane + ley-door), staggered one-shot
+ * entrances, hero-face wordmark. Driven by the AREAS registry minus "agents".
  */
 import { AREAS } from "./areas";
+import KeeperRail from "./KeeperRail";
 import ProfileMenu from "./ProfileMenu";
 
 export default function LandingScreen({
@@ -19,6 +26,8 @@ export default function LandingScreen({
   onManageProfiles,
   profileColors,
 }) {
+  const zones = AREAS.filter((a) => a.id !== "agents");
+
   return (
     <div
       className="ley-stage"
@@ -76,116 +85,113 @@ export default function LandingScreen({
         )}
       </div>
 
-      {/* the three doors */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 28,
-          padding: "0 32px 60px",
-          flexWrap: "wrap",
-        }}
-      >
-        {AREAS.map((area, i) => {
-          const Icon = area.icon;
-          return (
-            <button
-              key={area.id}
-              onClick={() => onEnterArea(area.id)}
-              className="ley-glass ley-pane ley-door ley-rise"
-              style={{
-                width: 300,
-                height: 340,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 20,
-                cursor: "pointer",
-                background: "var(--ley-glass)",
-                border: "1px solid var(--ley-line)",
-                borderRadius: "var(--r-xl)",
-                color: "var(--ley-text)",
-                fontFamily,
-                padding: 24,
-                animationDelay: `${90 + i * 80}ms`,
-              }}
-            >
-              <span
-                aria-hidden
-                style={{ filter: "drop-shadow(0 0 12px var(--ley-green-glow))" }}
-              >
-                <Icon size={84} />
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-hero), serif",
-                  fontSize: 22,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  color: "var(--ley-text)",
-                }}
-              >
-                {area.title}
-              </span>
-              <span
-                style={{
-                  fontSize: 12.5,
-                  color: "var(--ley-text-dim)",
-                  textAlign: "center",
-                  lineHeight: 1.5,
-                }}
-              >
-                {area.tagline}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono), monospace",
-                  fontSize: 10,
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  color: "var(--ley-green)",
-                }}
-              >
-                Enter ▸
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* the hall: three zone doors + the Keeper */}
+      <div style={{ flex: 1, display: "flex", gap: 16, padding: "0 22px 12px", minHeight: 0 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 28,
+              padding: "0 10px",
+              flexWrap: "wrap",
+            }}
+          >
+            {zones.map((area, i) => {
+              const Icon = area.icon;
+              return (
+                <button
+                  key={area.id}
+                  onClick={() => onEnterArea(area.id)}
+                  className="ley-glass ley-pane ley-door ley-rise"
+                  style={{
+                    width: 280,
+                    height: 330,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 20,
+                    cursor: "pointer",
+                    background: "var(--ley-glass)",
+                    border: "1px solid var(--ley-line)",
+                    borderRadius: "var(--r-xl)",
+                    color: "var(--ley-text)",
+                    fontFamily,
+                    padding: 24,
+                    animationDelay: `${90 + i * 80}ms`,
+                  }}
+                >
+                  <span aria-hidden style={{ filter: "drop-shadow(0 0 12px var(--ley-green-glow))" }}>
+                    <Icon size={84} />
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-hero), serif",
+                      fontSize: 22,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      color: "var(--ley-text)",
+                    }}
+                  >
+                    {area.title}
+                  </span>
+                  <span style={{ fontSize: 12.5, color: "var(--ley-text-dim)", textAlign: "center", lineHeight: 1.5 }}>
+                    {area.tagline}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono), monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color: "var(--ley-green)",
+                    }}
+                  >
+                    Enter ▸
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-      {/* continue where you left off (K8) */}
-      {resume.length > 0 && (
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", padding: "0 20px 14px" }}>
-          {resume.map((r, i) => (
-            <button
-              key={i}
-              onClick={r.onClick}
-              className="btn btn-ghost btn-sm"
-              style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, padding: "6px 12px", textAlign: "left" }}
-            >
-              <span style={{ fontSize: 12, color: "var(--ley-text)" }}>{r.label}</span>
-              <span style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-text-faint)", fontFamily: "var(--font-mono), monospace" }}>{r.sub}</span>
-            </button>
-          ))}
+          {/* continue where you left off (K8) */}
+          {resume.length > 0 && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", padding: "0 20px 14px" }}>
+              {resume.map((r, i) => (
+                <button
+                  key={i}
+                  onClick={r.onClick}
+                  className="btn btn-ghost btn-sm"
+                  style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, padding: "6px 12px", textAlign: "left" }}
+                >
+                  <span style={{ fontSize: 12, color: "var(--ley-text)" }}>{r.label}</span>
+                  <span style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-text-faint)", fontFamily: "var(--font-mono), monospace" }}>{r.sub}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* footer line */}
+          <div
+            style={{
+              textAlign: "center",
+              padding: "0 0 14px",
+              fontFamily: "var(--font-mono), monospace",
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--ley-text-faint)",
+            }}
+          >
+            Local-first · your table, your data
+          </div>
         </div>
-      )}
 
-      {/* footer line */}
-      <div
-        style={{
-          textAlign: "center",
-          padding: "0 0 18px",
-          fontFamily: "var(--font-mono), monospace",
-          fontSize: 10,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          color: "var(--ley-text-faint)",
-        }}
-      >
-        Local-first · your table, your data
+        {/* the Keeper minds the front hall */}
+        <KeeperRail fontFamily={fontFamily} onEnterArea={onEnterArea} />
       </div>
     </div>
   );

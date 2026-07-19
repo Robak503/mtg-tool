@@ -144,8 +144,8 @@ export default function ProvingHome({ onPick, fontFamily }) {
           </div>
         </div>
 
-        {/* ── Recent tables ledger + hall doors ─────────────────────────────────── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12 }}>
+        {/* ── Recent tables ledger + hall doors — stretches to the floor (no dead space) ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12, flex: 1, minHeight: 340 }}>
           <div className="ley-glass ley-pane ley-rise" style={{ padding: "14px 16px", animationDelay: "180ms" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div className="ley-lab" style={{ flex: 1 }}>Recent tables</div>

@@ -78,16 +78,25 @@ describe("AgentsHome — the specialists' hall in the register", () => {
   });
 });
 
-describe("LandingScreen — material doors", () => {
-  it("all four room doors render machined with one-shot entrances", () => {
+describe("LandingScreen — the front hall: three zones + the Keeper", () => {
+  it("exactly three zone doors render — the Agents door is gone (agents live in rails now)", () => {
     const raw = renderToStaticMarkup(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
     const out = text(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
-    expect(out).toContain("The Agents");
     expect(out).toContain("The Crucible");
     expect(out).toContain("The Academy");
     expect(out).toContain("The Vault");
+    expect(out).not.toContain("The Agents");   // Colton's call: the agent box is gone from the landing
     expect(raw).toMatch(/ley-pane/);
     expect(raw).toMatch(/ley-rise/);
     expect(raw).not.toMatch(/\binfinite\b/);
+  });
+
+  it("THE KEEPER minds the hall — non-Magic guide, map docked, routing lanes visible", () => {
+    const raw = renderToStaticMarkup(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
+    const out = text(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
+    expect(out).toContain("THE KEEPER");
+    expect(out).toContain("Map of the house");
+    expect(out).toContain("Karn");                  // deck lane routed, never answered here
+    expect(raw).not.toMatch(/art-crop\?name=/);     // non-Magic persona: NO card art on his avatar
   });
 });

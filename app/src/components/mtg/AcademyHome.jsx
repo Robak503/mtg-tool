@@ -129,8 +129,8 @@ export default function AcademyHome({ onPick, fontFamily }) {
           </div>
         </div>
 
-        {/* ── Today's trial (the showpiece) + hall doors ────────────────────────── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12 }}>
+        {/* ── Today's trial (the showpiece) + hall doors — stretches to the floor ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12, flex: 1, minHeight: 340 }}>
           <div className="ley-glass ley-pane ley-door ley-rise" style={{ padding: "14px 16px", animationDelay: "180ms" }} onClick={() => onPick?.("judge")} title="Take today's trial">
             <div className="ley-lab">Today's trial</div>
             {trial ? (
