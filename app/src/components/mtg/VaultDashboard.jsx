@@ -44,9 +44,22 @@ function Sparkline({ series, width = 620, height = 150, stroke = "var(--ley-gree
   }, [series, width, height]);
 
   if (!path) return null;
+  // Depth = light: a blurred phosphor underlay beneath the crisp line + a fading area gradient —
+  // the flat fill/stroke first cut is why the chart read stale next to the mock.
+  const gid = `vd-grad-${width}x${height}`;
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto", display: "block" }} aria-hidden="true">
-      <path d={path.area} fill="var(--ley-green-faint)" stroke="none" />
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(57,245,126,0.28)" />
+          <stop offset="100%" stopColor="rgba(57,245,126,0)" />
+        </linearGradient>
+        <filter id={`${gid}-blur`} x="-20%" y="-40%" width="140%" height="180%">
+          <feGaussianBlur stdDeviation="3.5" />
+        </filter>
+      </defs>
+      <path d={path.area} fill={`url(#${gid})`} stroke="none" />
+      <path d={path.d} fill="none" stroke={stroke} strokeWidth="3" strokeLinejoin="round" opacity="0.55" filter={`url(#${gid}-blur)`} />
       <path d={path.d} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
     </svg>
   );
@@ -87,17 +100,17 @@ export default function VaultDashboard({ onPick, fontFamily }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const glass = {
-    background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-    border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)",
-  };
+  // Depth = light (Colton, 2026-07-19): panels use the SYSTEM glass classes (.ley-glass — gradient
+  // wash + aura + lit top edge), never a flat fill with a hairline. The flat first cut read as stale
+  // next to the mock; the recipe already existed and simply wasn't used.
   const tileLabel = { ...mono, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-green)" };
+  const glowNum = { textShadow: "0 0 16px var(--ley-green-glow), 0 0 2px var(--ley-green-glow)" };
   const doorish = { cursor: "pointer" };
 
   const movers = data?.movers;
 
   return (
-    <div style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0 }}>
+    <div style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.08) 0%, rgba(86,214,93,0.015) 36%, transparent 62%), var(--ley-bg)" }}>
       {/* ── Main column ─────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
         {/* Header: title + Rooms dropdown */}
@@ -108,7 +121,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
               Rooms ▾
             </button>
             {roomsOpen && (
-              <div style={{ ...glass, position: "absolute", right: 0, top: "110%", zIndex: 30, minWidth: 170, padding: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div className="ley-glass-strong ley-glass-lit" style={{ position: "absolute", right: 0, top: "110%", zIndex: 30, minWidth: 170, padding: 6, display: "flex", flexDirection: "column", gap: 2 }}>
                 {HALLS.map((h) => (
                   <button
                     key={h.id}
@@ -125,21 +138,21 @@ export default function VaultDashboard({ onPick, fontFamily }) {
           </div>
         </div>
 
-        {error && <div style={{ ...glass, padding: 12, fontSize: 12.5, color: "var(--ley-red)", borderColor: "var(--ley-red)" }}>{error}</div>}
+        {error && <div className="ley-glass" style={{ padding: 12, fontSize: 12.5, color: "var(--ley-red)", borderColor: "var(--ley-red)" }}>{error}</div>}
 
         {/* ── Tile row ──────────────────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 1.6fr", gap: 12 }}>
-          <div style={{ ...glass, ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-census")} title="Open The Census">
+          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-census")} title="Open The Census">
             <div style={tileLabel}>Unique printings</div>
-            <div style={{ ...mono, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
+            <div style={{ ...mono, ...glowNum, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
               {data ? data.uniquePrintings.toLocaleString() : "—"}
             </div>
             <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)" }}>{data ? `${data.totalQuantity.toLocaleString()} total copies` : ""}</div>
           </div>
 
-          <div style={{ ...glass, ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
             <div style={tileLabel}>Vault value</div>
-            <div style={{ ...mono, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
+            <div style={{ ...mono, ...glowNum, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
               {data ? usd(data.vaultValue) : "—"}
             </div>
             <div style={{ height: 18, marginTop: 2 }}>
@@ -147,14 +160,14 @@ export default function VaultDashboard({ onPick, fontFamily }) {
             </div>
           </div>
 
-          <div style={{ ...glass, ...doorish, padding: "14px 16px", display: "flex", gap: 14 }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px", display: "flex", gap: 14 }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
             {movers?.status === "ok" ? (
               <>
                 <div style={{ flex: 1, display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
                   <CardThumb scryfallId={movers.winner.scryfallId} name={movers.winner.name} size={40} />
                   <div style={{ minWidth: 0 }}>
                     <div style={tileLabel}>Week's winner</div>
-                    <div style={{ ...mono, fontSize: 20, fontWeight: 700, color: "var(--ley-green)" }}>+{movers.winner.pctChange.toFixed(0)}%</div>
+                    <div style={{ ...mono, ...glowNum, fontSize: 20, fontWeight: 700, color: "var(--ley-green)" }}>+{movers.winner.pctChange.toFixed(0)}%</div>
                     <div style={{ fontSize: 10, color: "var(--ley-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{movers.winner.name}</div>
                   </div>
                 </div>
@@ -163,7 +176,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
                   <CardThumb scryfallId={movers.loser.scryfallId} name={movers.loser.name} size={40} />
                   <div style={{ minWidth: 0 }}>
                     <div style={tileLabel}>Week's loser</div>
-                    <div style={{ ...mono, fontSize: 20, fontWeight: 700, color: "var(--ley-red)" }}>{movers.loser.pctChange.toFixed(0)}%</div>
+                    <div style={{ ...mono, fontSize: 20, fontWeight: 700, color: "var(--ley-red)", textShadow: "0 0 14px rgba(248,113,113,0.4)" }}>{movers.loser.pctChange.toFixed(0)}%</div>
                     <div style={{ fontSize: 10, color: "var(--ley-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{movers.loser.name}</div>
                   </div>
                 </div>
@@ -181,14 +194,14 @@ export default function VaultDashboard({ onPick, fontFamily }) {
 
         {/* ── Grails + value graph ──────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12 }}>
-          <div style={{ ...glass, ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-gallery")} title="Open The Gallery">
+          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-gallery")} title="Open The Gallery">
             <div style={tileLabel}>Collection grails</div>
             {data?.grails?.length ? (
               <div style={{ display: "flex", gap: 12, marginTop: 12, alignItems: "flex-end" }}>
                 {data.grails.map((g) => (
                   <div key={g.scryfallId || g.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                     <CardThumb scryfallId={g.scryfallId} name={g.name} size={92} />
-                    <div style={{ width: 70, height: 5, borderRadius: "50%", background: "var(--ley-green-dim)", boxShadow: "0 0 12px var(--ley-green-dim)" }} />
+                    <div style={{ width: 70, height: 5, borderRadius: "50%", background: "var(--ley-green-dim)", boxShadow: "0 0 18px 4px var(--ley-green-glow)" }} />
                   </div>
                 ))}
               </div>
@@ -199,7 +212,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
             )}
           </div>
 
-          <div style={{ ...glass, ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+          <div className="ley-glass" style={{ ...doorish, padding: "14px 16px" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
             <div style={tileLabel}>Value</div>
             {data?.valueSeries?.length >= 2 ? (
               <div style={{ marginTop: 8 }}><Sparkline series={data.valueSeries} width={340} height={140} /></div>
@@ -212,7 +225,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
         </div>
 
         {/* ── My Collection table ───────────────────────────────────────────────── */}
-        <div style={{ ...glass, padding: "14px 16px" }}>
+        <div className="ley-glass" style={{ padding: "14px 16px" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <div style={tileLabel}>My collection</div>
             <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => onPick?.("collection")}>

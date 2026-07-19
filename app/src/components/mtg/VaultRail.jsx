@@ -35,7 +35,17 @@ function RailSparkline({ series, height = 110 }) {
   if (!path) return <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>The value line draws itself as daily snapshots accumulate.</div>;
   return (
     <svg viewBox={`0 0 300 ${height}`} style={{ width: "100%", height: "auto", display: "block" }} aria-hidden="true">
-      <path d={path.area} fill="var(--ley-green-faint)" stroke="none" />
+      <defs>
+        <linearGradient id="vr-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(57,245,126,0.28)" />
+          <stop offset="100%" stopColor="rgba(57,245,126,0)" />
+        </linearGradient>
+        <filter id="vr-blur" x="-20%" y="-40%" width="140%" height="180%">
+          <feGaussianBlur stdDeviation="3" />
+        </filter>
+      </defs>
+      <path d={path.area} fill="url(#vr-grad)" stroke="none" />
+      <path d={path.d} fill="none" stroke="var(--ley-green)" strokeWidth="3" strokeLinejoin="round" opacity="0.55" filter="url(#vr-blur)" />
       <path d={path.d} fill="none" stroke="var(--ley-green)" strokeWidth="2" strokeLinejoin="round" />
     </svg>
   );
@@ -202,15 +212,10 @@ export default function VaultRail({ fontFamily, dashboard }) {
     }
   };
 
-  const glass = {
-    background: "var(--ley-glass)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-    border: "1px solid var(--ley-line)", borderRadius: "var(--r-lg)",
-  };
-
   return (
     <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10, fontFamily, minHeight: 0 }}>
       {/* Nameplate */}
-      <div style={{ ...glass, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="ley-glass" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--ley-green-dim)", border: "1px solid var(--ley-green)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>💎</div>
         <div>
           <div style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: "var(--ley-green)" }}>VIHAAN</div>
@@ -220,7 +225,7 @@ export default function VaultRail({ fontFamily, dashboard }) {
 
       {/* Widget canvas — the chat's top pane; chat drops to half height while docked */}
       {widget && (
-        <div style={{ ...glass, padding: "12px 14px", position: "relative", flexShrink: 0 }}>
+        <div className="ley-glass-strong ley-glass-lit" style={{ padding: "12px 14px", position: "relative", flexShrink: 0 }}>
           <button
             onClick={() => setWidget(null)}
             title="Dismiss"
@@ -233,7 +238,7 @@ export default function VaultRail({ fontFamily, dashboard }) {
       )}
 
       {/* Chat — full height alone, half height when a widget is docked (Colton's cut behavior) */}
-      <div style={{ ...glass, flex: widget ? 1 : 2, display: "flex", flexDirection: "column", minHeight: 120, overflow: "hidden" }}>
+      <div className="ley-glass" style={{ flex: widget ? 1 : 2, display: "flex", flexDirection: "column", minHeight: 120, overflow: "hidden" }}>
         <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
           {messages.length === 0 && (
             <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
@@ -253,7 +258,7 @@ export default function VaultRail({ fontFamily, dashboard }) {
             <button
               key={c.kind}
               onClick={() => setWidget((w) => (w === c.kind ? null : c.kind))}
-              style={{ fontSize: 10.5, padding: "3px 9px", borderRadius: 999, cursor: "pointer", background: widget === c.kind ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${widget === c.kind ? "var(--ley-green)" : "var(--ley-line)"}`, color: widget === c.kind ? "var(--ley-green)" : "var(--ley-text-dim)" }}
+              style={{ fontSize: 10.5, padding: "3px 9px", borderRadius: 999, cursor: "pointer", background: widget === c.kind ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${widget === c.kind ? "var(--ley-green)" : "var(--ley-line)"}`, color: widget === c.kind ? "var(--ley-green)" : "var(--ley-text-dim)", boxShadow: widget === c.kind ? "var(--ley-aura-soft)" : "none" }}
             >
               {c.label}
             </button>
