@@ -98,7 +98,7 @@ export default function AcademyHome({ onPick, fontFamily }) {
     <div className="ley-stage" style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, position: "relative" }}>
       {/* ── Main column ─────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
-        <RoomHeader title="THE ACADEMY" halls={HALLS} onPick={onPick} />
+        <RoomHeader title="THE ACADEMY" tagline="Learn the game · know the rules" halls={HALLS} onPick={onPick} />
 
         {error && <div className="ley-glass" style={{ padding: 12, fontSize: 12.5, color: "var(--ley-red)", borderColor: "var(--ley-red)" }}>{error}</div>}
 

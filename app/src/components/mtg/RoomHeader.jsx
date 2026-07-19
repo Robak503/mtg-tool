@@ -18,7 +18,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 
-export default function RoomHeader({ title, halls = [], onPick, menuLabel = "Halls", right = null }) {
+export default function RoomHeader({ title, tagline = null, halls = [], onPick, menuLabel = "Halls", right = null }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -34,7 +34,14 @@ export default function RoomHeader({ title, halls = [], onPick, menuLabel = "Hal
 
   return (
     <div className="ley-rise" style={{ display: "flex", alignItems: "center", gap: 14, animationDelay: "40ms", position: "relative", zIndex: 50 }}>
-      <span className="ley-hero-title">{title}</span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <span className="ley-hero-title">{title}</span>
+        {tagline && (
+          <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9.5, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--ley-text-faint)" }}>
+            {tagline}
+          </span>
+        )}
+      </div>
       {right}
       <div ref={rootRef} style={{ marginLeft: "auto", position: "relative" }}>
         {halls.length > 0 && (

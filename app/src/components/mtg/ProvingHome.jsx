@@ -105,7 +105,7 @@ export default function ProvingHome({ onPick, fontFamily }) {
     <div className="ley-stage" style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, position: "relative" }}>
       {/* ── Main column ─────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
-        <RoomHeader title="THE CRUCIBLE" halls={HALLS} onPick={onPick} />
+        <RoomHeader title="THE CRUCIBLE" tagline="Run it · rank it · record it" halls={HALLS} onPick={onPick} />
 
         {error && <div className="ley-glass" style={{ padding: 12, fontSize: 12.5, color: "var(--ley-red)", borderColor: "var(--ley-red)" }}>{error}</div>}
 
@@ -137,7 +137,9 @@ export default function ProvingHome({ onPick, fontFamily }) {
             <div className="ley-lab">Win rate</div>
             <div className="ley-num">{winPct != null ? `${winPct}%` : "—"}</div>
             <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)", marginTop: 2 }}>
-              {decided.length ? `across ${decided.length} decided game${decided.length === 1 ? "" : "s"}` : "no decided games yet"}
+              {decided.length
+                ? `${rows.filter((r) => r.status === "user-wins").length}W · ${rows.filter((r) => r.status === "ai-wins").length}L across ${decided.length} decided`
+                : "no decided games yet"}
             </div>
           </div>
         </div>

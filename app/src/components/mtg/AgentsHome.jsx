@@ -38,7 +38,7 @@ export default function AgentsHome({ onPickAgent, fontFamily }) {
 
   return (
     <div className="ley-stage" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, padding: "20px 22px", overflowY: "auto", fontFamily, minHeight: 0, position: "relative" }}>
-      <RoomHeader title="THE AGENTS" halls={halls} onPick={onPickAgent} />
+      <RoomHeader title="THE AGENTS" tagline="Three specialists · one table" halls={halls} onPick={onPickAgent} />
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", maxWidth: 1100 }}>

@@ -204,7 +204,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
       <style>{VD_CSS}</style>
       {/* ── Main column ─────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
-        <RoomHeader title="THE VAULT" halls={HALLS} onPick={onPick} />
+        <RoomHeader title="THE VAULT" tagline="Your collection · under glass" halls={HALLS} onPick={onPick} />
 
         {error && <div className="ley-glass" style={{ padding: 12, fontSize: 12.5, color: "var(--ley-red)", borderColor: "var(--ley-red)" }}>{error}</div>}
 
