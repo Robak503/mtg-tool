@@ -17,9 +17,11 @@
  *                        picks favoring provenance (signed/alt) over price, role:"supporting".
  *                        Both rotate daily (deterministic on the UTC day). Hero first in the array.
  *   - valueSeries      — whole-collection value over time (collectionValueSeries).
- *   - rows             — the table: owned rows sorted by value, name/set/qty/unit price
- *                        (set = uppercase code off the row; setName best-effort from the
- *                        printings index for the tooltip, null when the index is absent).
+ *   - rows             — the ledger: ONE LINE PER OWNED FINISH (Colton, 2026-07-19: full
+ *                        provenance per line — a printing held in normal AND foil is two
+ *                        lines, each priced at ITS finish). Fields: name, set (uppercase
+ *                        code), setName (best-effort from the printings index, null when
+ *                        absent), collectorNumber, finish, qty, unit. Sorted by line value.
  *
  * Composition only — every number comes from an existing, tested lib function
  * (collectionPrices / showpiece / enrichCollectionPrices). No new math invented here.
@@ -32,7 +34,7 @@ import fs from "node:fs/promises";
 import { loadCollection, CollectionVersionMismatch } from "../../../../lib/server/collectionStorage.js";
 import { enrichCollectionPrices } from "../../../../lib/server/priceResolution.js";
 import { parseHistory, computeCardMovers, collectionValueSeries } from "../../../../lib/server/collectionPrices.js";
-import { buildDailyShelf, rowUnitValue } from "../../../../lib/showpiece.js";
+import { buildDailyShelf, rowUnitValue, finishUnitValue } from "../../../../lib/showpiece.js";
 import { lookupById } from "../../../../lib/server/printingIndex.js";
 import { profilePath, dataPath } from "../../../../lib/server/paths.js";
 
@@ -119,14 +121,18 @@ export async function GET() {
   };
 
   const rows = owned
-    .map((r) => ({
-      scryfallId: r.scryfallId,
-      name: r.name,
-      set: r.setCode ? String(r.setCode).toUpperCase() : null,
-      setName: setNameOf(r),
-      qty: ownedQty(r),
-      unit: rowUnitValue(r),
-    }))
+    .flatMap((r) => (r.stacks || [])
+      .filter((s) => (s.quantity || 0) > 0)
+      .map((s) => ({
+        scryfallId: r.scryfallId,
+        name: r.name,
+        set: r.setCode ? String(r.setCode).toUpperCase() : null,
+        setName: setNameOf(r),
+        collectorNumber: r.collectorNumber || null,
+        finish: s.finish || "nonfoil",
+        qty: s.quantity,
+        unit: finishUnitValue(r, s.finish),
+      })))
     .sort((a, b) => b.unit * b.qty - a.unit * a.qty);
 
   return Response.json({

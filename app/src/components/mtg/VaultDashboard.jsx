@@ -483,35 +483,39 @@ export default function VaultDashboard({ onPick, fontFamily }) {
             </button>
           </div>
           {data?.rows?.length ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 26, marginTop: 8 }}>
-              {[0, 1].map((col) => (
-                <table key={col} style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-                  <thead>
-                    <tr style={{ ...mono, fontSize: 9.5, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--ley-text-dim)" }}>
-                      <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Card</th>
-                      <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Set</th>
-                      <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Qty</th>
-                      <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.rows.slice(col * 6, col * 6 + 6).map((r) => (
-                      <tr
-                        key={r.scryfallId || r.name}
-                        className="vd-row"
-                        style={{ borderTop: "1px solid var(--ley-line)" }}
-                        onClick={() => onPick?.("collection")}
-                      >
-                        <td style={{ padding: "8px 7px", color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{r.name}</td>
-                        <td style={{ ...mono, padding: "8px 7px", fontSize: 10.5, color: "var(--ley-text-dim)", whiteSpace: "nowrap" }} title={r.setName || undefined}>{r.set || "—"}</td>
-                        <td style={{ padding: "8px 7px", textAlign: "right" }}><span className="vd-qty">{r.qty}</span></td>
-                        <td style={{ ...mono, padding: "8px 7px", textAlign: "right", color: "#a7f3d0", fontVariantNumeric: "tabular-nums" }}>{usd(r.unit)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ))}
-            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, marginTop: 8 }}>
+              <thead>
+                <tr style={{ ...mono, fontSize: 9.5, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--ley-text-dim)" }}>
+                  <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Card</th>
+                  <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Set</th>
+                  <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>#</th>
+                  <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Finish</th>
+                  <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Qty</th>
+                  <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.slice(0, 12).map((r) => (
+                  <tr
+                    key={`${r.scryfallId || r.name}-${r.finish}`}
+                    className="vd-row"
+                    style={{ borderTop: "1px solid var(--ley-line)" }}
+                    onClick={() => onPick?.("collection")}
+                  >
+                    <td style={{ padding: "8px 7px", color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</td>
+                    <td style={{ padding: "8px 7px", fontSize: 11.5, color: "var(--ley-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 210 }} title={r.set || undefined}>
+                      {r.setName || r.set || "—"}
+                    </td>
+                    <td style={{ ...mono, padding: "8px 7px", fontSize: 10.5, color: "var(--ley-text-dim)", whiteSpace: "nowrap" }}>{r.collectorNumber || "—"}</td>
+                    <td style={{ padding: "8px 7px", fontSize: 11, color: r.finish === "nonfoil" ? "var(--ley-text-dim)" : "#a7f3d0", whiteSpace: "nowrap" }}>
+                      {r.finish === "nonfoil" ? "Normal" : `✦ ${r.finish[0].toUpperCase()}${r.finish.slice(1)}`}
+                    </td>
+                    <td style={{ padding: "8px 7px", textAlign: "right" }}><span className="vd-qty">{r.qty}</span></td>
+                    <td style={{ ...mono, padding: "8px 7px", textAlign: "right", color: "#a7f3d0", fontVariantNumeric: "tabular-nums" }}>{usd(r.unit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 10, lineHeight: 1.5 }}>
               The vault is empty — open The Stacks and add your first cards (paste a list works).

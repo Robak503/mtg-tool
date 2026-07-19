@@ -27,6 +27,18 @@ export function rowUnitValue(row) {
 }
 
 /**
+ * Per-copy price for ONE owned finish — the ledger's per-line price. Falls back to the
+ * nonfoil price when the store has no finish-specific key (a foil copy is worth at least
+ * its nonfoil floor; $0.00 for an owned foil would read as broken, not honest).
+ */
+export function finishUnitValue(row, finish) {
+  const keyed = parseFloat(row?.prices?.[FINISH_PRICE_KEY[finish] || "usd"] || 0);
+  if (Number.isFinite(keyed) && keyed > 0) return keyed;
+  const base = parseFloat(row?.prices?.usd || 0);
+  return Number.isFinite(base) && base > 0 ? base : 0;
+}
+
+/**
  * The shelf: every provenance-flagged row (value-sorted), then up to
  * `valuePicks` unflagged owned rows at or above `valueFloor`, value-sorted.
  * Returns [{ row, value, flagged }] — empty array when the collection has no

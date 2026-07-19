@@ -30,13 +30,14 @@ const stamp = (daysAgo) => {
   return d.toISOString().slice(0, 10);
 };
 
-function row(id, name, price, { qty = 1, signed = false, setCode } = {}) {
+function row(id, name, price, { qty = 1, signed = false, setCode, collectorNumber, stacks, prices } = {}) {
   return {
     scryfallId: id, oracleId: `o-${id}`, name,
-    prices: { usd: String(price) },
-    stacks: [{ finish: "nonfoil", quantity: qty }],
+    prices: prices || { usd: String(price) },
+    stacks: stacks || [{ finish: "nonfoil", quantity: qty }],
     signed,
     ...(setCode ? { setCode } : {}),
+    ...(collectorNumber ? { collectorNumber } : {}),
   };
 }
 
@@ -153,15 +154,37 @@ describe("grails + rows", () => {
     expect(body.rows[0].name).toBe("Big Ticket");       // rows sort by total value: 120 > 30 > 5
   });
 
-  it("rows carry the set code (uppercase) with a null setName when the printings index is absent", async () => {
+  it("rows carry set code, collector number, and finish; setName null when the printings index is absent", async () => {
     writeCollection([
-      row("aaa", "Sol Ring", 2, { setCode: "c21" }),
+      row("aaa", "Sol Ring", 2, { setCode: "c21", collectorNumber: "263" }),
       row("bbb", "Rhystic Study", 40),
     ]);
     const body = await (await route.GET()).json();
     const byName = Object.fromEntries(body.rows.map((r) => [r.name, r]));
     expect(byName["Sol Ring"].set).toBe("C21");
+    expect(byName["Sol Ring"].collectorNumber).toBe("263");
+    expect(byName["Sol Ring"].finish).toBe("nonfoil");
     expect(byName["Rhystic Study"].set).toBeNull();     // no code on the row → null, never invented
+    expect(byName["Rhystic Study"].collectorNumber).toBeNull();
     expect(byName["Sol Ring"].setName).toBeNull();      // tmp sandbox has no printings index
+  });
+
+  it("ONE LINE PER OWNED FINISH: normal + foil = two lines, each priced at ITS finish", async () => {
+    writeCollection([
+      row("aaa", "Sol Ring", 0, {
+        setCode: "c21",
+        stacks: [{ finish: "nonfoil", quantity: 3 }, { finish: "foil", quantity: 1 }, { finish: "etched", quantity: 0 }],
+        prices: { usd: "1.86", usdFoil: "12.40" },
+      }),
+    ]);
+    const body = await (await route.GET()).json();
+    // Zero-qty etched stack never becomes a line; the two owned finishes each get one.
+    expect(body.rows).toHaveLength(2);
+    const byFinish = Object.fromEntries(body.rows.map((r) => [r.finish, r]));
+    expect(byFinish.nonfoil.qty).toBe(3);
+    expect(byFinish.nonfoil.unit).toBeCloseTo(1.86, 2);
+    expect(byFinish.foil.qty).toBe(1);
+    expect(byFinish.foil.unit).toBeCloseTo(12.4, 2);    // the foil line wears the FOIL price
+    expect(body.rows[0].finish).toBe("foil");           // sorted by line value: 12.40 > 3×1.86
   });
 });
