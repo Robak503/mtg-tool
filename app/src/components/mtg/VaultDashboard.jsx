@@ -83,36 +83,14 @@ const VD_CSS = `
     0 26px 48px -26px rgba(0,0,0,0.95);
 }
 
-/* ── Header: safe-dial ornament + chrome title ── */
-.vd-dial {
-  width: 44px; height: 44px; border-radius: 50%; position: relative; flex-shrink: 0;
-  background:
-    radial-gradient(circle at 34% 30%, rgba(214,255,236,0.25), transparent 42%),
-    radial-gradient(circle, var(--ley-surface-2) 58%, var(--ley-bg) 60%);
-  border: 1px solid rgba(57,245,126,0.34);
-  box-shadow: inset 0 0 12px rgba(57,245,126,0.18), 0 0 22px rgba(57,245,126,0.14);
-}
-.vd-dial::before { /* tick ring — the combination wheel */
-  content: ""; position: absolute; inset: 4px; border-radius: 50%;
-  background: repeating-conic-gradient(rgba(167,243,208,0.5) 0deg 1.6deg, transparent 1.6deg 30deg);
-  -webkit-mask: radial-gradient(circle, transparent 62%, #000 63% 78%, transparent 79%);
-  mask: radial-gradient(circle, transparent 62%, #000 63% 78%, transparent 79%);
-}
-.vd-dial::after { /* the jewel core */
-  content: ""; position: absolute; inset: 14px; border-radius: 50%;
-  background: radial-gradient(circle at 36% 32%, #6dffa1, var(--ley-green) 38%, #0c4d27 88%);
-  box-shadow: 0 0 14px rgba(57,245,126,0.55), inset 0 -3px 6px rgba(0,0,0,0.55);
-}
+/* ── Header: chrome title in the app-wide hero face (dial + rule cut — Colton, 2026-07-19) ── */
 .vd-title {
-  font-size: 26px; font-weight: 800; letter-spacing: 0.13em; line-height: 1;
+  font-family: var(--font-hero), serif;
+  font-size: 27px; font-weight: 700; letter-spacing: 0.1em; line-height: 1;
   background: linear-gradient(180deg, #f2fff8 8%, #a7f3d0 34%, var(--ley-green) 56%, #128a45 88%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 1px 0 rgba(0,0,0,0.8)) drop-shadow(0 0 16px rgba(57,245,126,0.3));
 }
-.vd-title-rule { flex: 1; height: 1px; position: relative;
-  background: linear-gradient(90deg, rgba(57,245,126,0.34), var(--ley-line) 60%, transparent); }
-.vd-title-rule::before { content: ""; position: absolute; left: 84px; top: -2.5px; width: 6px; height: 6px;
-  transform: rotate(45deg); background: var(--ley-green); box-shadow: 0 0 10px rgba(57,245,126,0.7); }
 
 /* ── Labels: engraved small-caps with a tick-ruler tail ── */
 .vd-lab {
@@ -182,13 +160,15 @@ const VD_CSS = `
   padding: 2px 6px; border-radius: 5px; background: rgba(57,245,126,0.08);
   border: 1px solid var(--ley-line); box-shadow: inset 0 1px 0 rgba(214,255,236,0.08); }
 
-/* ── Vihaan's gem (rail nameplate) ── */
-.vd-gem { width: 28px; height: 28px; border-radius: 50%; position: relative; flex-shrink: 0;
-  background: radial-gradient(circle at 34% 30%, #6dffa1, var(--ley-green) 42%, #0b4b25 90%);
+/* ── Vihaan's nameplate portrait: little artwork, not a green ball (Colton, 2026-07-19) ── */
+.vd-avatar { width: 32px; height: 32px; border-radius: 8px; position: relative; flex-shrink: 0;
+  overflow: hidden; background: var(--ley-surface-2);
   border: 1px solid rgba(57,245,126,0.34);
-  box-shadow: 0 0 16px rgba(57,245,126,0.45), inset 0 -4px 7px rgba(0,0,0,0.5); }
-.vd-gem::before { content: ""; position: absolute; left: 22%; top: 16%; width: 26%; height: 18%;
-  border-radius: 50%; background: rgba(240,255,248,0.75); filter: blur(1px); }
+  box-shadow: 0 0 12px rgba(57,245,126,0.22), inset 0 1px 0 rgba(214,255,236,0.14); }
+.vd-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vd-avatar .vd-avatar-fallback { position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-family: var(--font-mono), monospace; font-weight: 700; font-size: 14px;
+  color: var(--ley-green); }
 
 @media (prefers-reduced-motion: reduce) {
   .vd-rise, .vd-chart-line { animation: none; }
@@ -334,12 +314,10 @@ export default function VaultDashboard({ onPick, fontFamily }) {
       <style>{VD_CSS}</style>
       {/* ── Main column ─────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
-        {/* Header: safe dial + chrome title + Rooms dropdown */}
+        {/* Header: chrome title + Rooms dropdown */}
         <div className="vd-rise" style={{ display: "flex", alignItems: "center", gap: 14, animationDelay: "40ms" }}>
-          <div className="vd-dial" title="The Vault" aria-hidden="true" />
-          <span className="vd-title" style={{ fontFamily: "var(--font-display), sans-serif" }}>THE VAULT</span>
-          <div className="vd-title-rule" aria-hidden="true" />
-          <div style={{ position: "relative" }}>
+          <span className="vd-title">THE VAULT</span>
+          <div style={{ marginLeft: "auto", position: "relative" }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setRoomsOpen((o) => !o)} aria-expanded={roomsOpen}>
               Rooms ▾
             </button>
@@ -423,20 +401,31 @@ export default function VaultDashboard({ onPick, fontFamily }) {
               <>
                 <div className="vd-spotlight" aria-hidden="true" />
                 <div className="vd-shelf">
-                  {data.grails.map((g) => (
-                    <div key={g.scryfallId || g.name} className="vd-grail" style={{ width: 92 }}>
-                      {g.flagged && <div className="vd-gtag" title="Provenance piece — signed, altered, or showcase">★</div>}
-                      <CardThumb scryfallId={g.scryfallId} name={g.name} size={92} />
-                      <div className="vd-refl" aria-hidden="true">
-                        <div className="vd-refl-inner">
-                          <CardThumb scryfallId={g.scryfallId} name={g.name} size={92} />
+                  {(() => {
+                    // Daily case: hero (role:"hero", first in payload) stands large center-stage;
+                    // supporting picks flank it two a side, so the nth-child fan tilts frame the
+                    // straight-standing hero in slot 3.
+                    const hero = data.grails.find((g) => g.role === "hero") || data.grails[0];
+                    const sup = data.grails.filter((g) => g !== hero);
+                    const arranged = [...sup.slice(0, 2), hero, ...sup.slice(2, 4)];
+                    return arranged.map((g) => {
+                      const size = g === hero ? 128 : 76;
+                      return (
+                        <div key={g.scryfallId || g.name} className="vd-grail" style={{ width: size }}>
+                          {g.flagged && <div className="vd-gtag" title="Provenance piece — signed, altered, or showcase">★</div>}
+                          <CardThumb scryfallId={g.scryfallId} name={g.name} size={size} />
+                          <div className="vd-refl" aria-hidden="true">
+                            <div className="vd-refl-inner">
+                              <CardThumb scryfallId={g.scryfallId} name={g.name} size={size} />
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
                 <div className="vd-floorline" aria-hidden="true" />
-                <div style={{ height: 56 }} aria-hidden="true" />
+                <div style={{ height: 62 }} aria-hidden="true" />
               </>
             ) : (
               <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 10, lineHeight: 1.5 }}>
@@ -479,6 +468,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
                   <thead>
                     <tr style={{ ...mono, fontSize: 9.5, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--ley-text-dim)" }}>
                       <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Card</th>
+                      <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Set</th>
                       <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Qty</th>
                       <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Price</th>
                     </tr>
@@ -491,7 +481,8 @@ export default function VaultDashboard({ onPick, fontFamily }) {
                         style={{ borderTop: "1px solid var(--ley-line)" }}
                         onClick={() => onPick?.("collection")}
                       >
-                        <td style={{ padding: "8px 7px", color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{r.name}</td>
+                        <td style={{ padding: "8px 7px", color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{r.name}</td>
+                        <td style={{ ...mono, padding: "8px 7px", fontSize: 10.5, color: "var(--ley-text-dim)", whiteSpace: "nowrap" }} title={r.setName || undefined}>{r.set || "—"}</td>
                         <td style={{ padding: "8px 7px", textAlign: "right" }}><span className="vd-qty">{r.qty}</span></td>
                         <td style={{ ...mono, padding: "8px 7px", textAlign: "right", color: "#a7f3d0", fontVariantNumeric: "tabular-nums" }}>{usd(r.unit)}</td>
                       </tr>

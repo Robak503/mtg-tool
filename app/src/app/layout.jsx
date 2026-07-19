@@ -1,6 +1,6 @@
 import "./globals.css";
 
-import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, Inter, JetBrains_Mono, Cinzel } from "next/font/google";
 
 import DailySnapshotTrigger from "../components/DailySnapshotTrigger";
 
@@ -10,6 +10,15 @@ const display = Space_Grotesk({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-display",
+  display: "swap"
+});
+// The HERO face — big room titles only ("THE VAULT" chrome type and its siblings).
+// Cinzel = engraved Roman capitals: reads as metal plate / bank door, fits the
+// jewel-&-machine register without sci-fi. Swap the whole app's hero type here.
+const hero = Cinzel({
+  subsets: ["latin"],
+  weight: ["700"],
+  variable: "--font-hero",
   display: "swap"
 });
 const body = Inter({
@@ -32,7 +41,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable} ${hero.variable}`}>
       {/* suppressHydrationWarning: browser extensions (Grammarly's data-gr-*, etc.)
           inject attributes onto <body> before React hydrates, which would otherwise
           throw a dev-only hydration mismatch. This suppresses only <body>'s own

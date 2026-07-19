@@ -30,12 +30,13 @@ const stamp = (daysAgo) => {
   return d.toISOString().slice(0, 10);
 };
 
-function row(id, name, price, { qty = 1, signed = false } = {}) {
+function row(id, name, price, { qty = 1, signed = false, setCode } = {}) {
   return {
     scryfallId: id, oracleId: `o-${id}`, name,
     prices: { usd: String(price) },
     stacks: [{ finish: "nonfoil", quantity: qty }],
     signed,
+    ...(setCode ? { setCode } : {}),
   };
 }
 
@@ -135,15 +136,32 @@ describe("weekly movers — the hollow-gate distinction", () => {
 });
 
 describe("grails + rows", () => {
-  it("flagged showpieces lead the shelf; rows sort by total value", async () => {
+  it("the daily case leads with a big-dollar hero; provenance rides the supporting slots", async () => {
     writeCollection([
       row("aaa", "Signed Beauty", 5, { signed: true }),
       row("bbb", "Big Ticket", 120),
       row("ccc", "Bulk Rare", 1, { qty: 30 }),
     ]);
     const body = await (await route.GET()).json();
-    expect(body.grails[0].name).toBe("Signed Beauty"); // provenance beats price
-    expect(body.grails[0].flagged).toBe(true);
-    expect(body.rows[0].name).toBe("Big Ticket");       // 120 > 30 > 5
+    expect(body.grails[0].role).toBe("hero");
+    // The hero slot is the CHASE: only Big Ticket clears the $50 hero floor here, so it
+    // holds the slot every day — bulk and cheap provenance never headline.
+    expect(body.grails[0].name).toBe("Big Ticket");
+    const supporting = body.grails.slice(1);
+    expect(supporting.every((g) => g.role === "supporting")).toBe(true);
+    expect(body.grails.map((g) => g.name)).toContain("Signed Beauty"); // provenance always on the shelf
+    expect(body.rows[0].name).toBe("Big Ticket");       // rows sort by total value: 120 > 30 > 5
+  });
+
+  it("rows carry the set code (uppercase) with a null setName when the printings index is absent", async () => {
+    writeCollection([
+      row("aaa", "Sol Ring", 2, { setCode: "c21" }),
+      row("bbb", "Rhystic Study", 40),
+    ]);
+    const body = await (await route.GET()).json();
+    const byName = Object.fromEntries(body.rows.map((r) => [r.name, r]));
+    expect(byName["Sol Ring"].set).toBe("C21");
+    expect(byName["Rhystic Study"].set).toBeNull();     // no code on the row → null, never invented
+    expect(byName["Sol Ring"].setName).toBeNull();      // tmp sandbox has no printings index
   });
 });

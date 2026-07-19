@@ -88,6 +88,7 @@
   --font-display: "Segoe UI", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "Consolas", "Menlo", monospace;
+  --font-hero: "Palatino Linotype", Georgia, serif; /* hero room titles — Cinzel via next/font */
 }
 
 * {

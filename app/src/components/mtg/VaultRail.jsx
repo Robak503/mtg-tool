@@ -228,9 +228,17 @@ export default function VaultRail({ fontFamily, dashboard }) {
 
   return (
     <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10, fontFamily, minHeight: 0 }}>
-      {/* Nameplate */}
+      {/* Nameplate — Vihaan wears his own card art (little artworks, not a green ball) */}
       <div className="ley-glass vd-pane" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div className="vd-gem" aria-hidden="true" />
+        <div className="vd-avatar" aria-hidden="true">
+          <span className="vd-avatar-fallback">V</span>
+          <img
+            src={`/api/art-crop?name=${encodeURIComponent("Vihaan, Goldwaker")}`}
+            alt=""
+            style={{ position: "relative" }}
+            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+          />
+        </div>
         <div>
           <div style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: "var(--ley-green)" }}>VIHAAN</div>
           <div style={{ fontSize: 10, color: "var(--ley-text-dim)" }}>the Vault's guide</div>

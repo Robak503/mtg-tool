@@ -66,8 +66,8 @@ describe("VaultDashboard — static chrome renders", () => {
   it("emits ZERO looping animations — motion is hover + one-shot entrance only", () => {
     const raw = renderToStaticMarkup(createElement(VaultDashboard, { onPick: noop, fontFamily: "Inter" }));
     expect(raw).not.toMatch(/\binfinite\b/);
-    expect(raw).toMatch(/vd-pane/);   // the material kit actually rendered (guards against a hollow pass
-    expect(raw).toMatch(/vd-dial/);   // where the styling was deleted along with the loops)
+    expect(raw).toMatch(/vd-pane/);    // the material kit actually rendered (guards against a hollow pass
+    expect(raw).toMatch(/vd-title/);   // where the styling was deleted along with the loops)
   });
 });
 

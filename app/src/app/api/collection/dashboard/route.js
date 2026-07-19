@@ -12,10 +12,14 @@
  *                        HOLLOW-GATE LAW: when history can't support the window the payload says
  *                        `status:"insufficient-history"` with a reason — a fabricated 0-delta and
  *                        "no data" must never look alike.
- *   - grails           — the showpiece shelf (lib/showpiece.buildShelf: provenance-flagged rows
- *                        first, then top value picks ≥ $50).
+ *   - grails           — the DAILY grail case (lib/showpiece.buildDailyShelf): ONE hero — the
+ *                        big-dollar chase, role:"hero", rendered large — plus up to 4 supporting
+ *                        picks favoring provenance (signed/alt) over price, role:"supporting".
+ *                        Both rotate daily (deterministic on the UTC day). Hero first in the array.
  *   - valueSeries      — whole-collection value over time (collectionValueSeries).
- *   - rows             — the table: owned rows sorted by value, name/qty/unit price.
+ *   - rows             — the table: owned rows sorted by value, name/set/qty/unit price
+ *                        (set = uppercase code off the row; setName best-effort from the
+ *                        printings index for the tooltip, null when the index is absent).
  *
  * Composition only — every number comes from an existing, tested lib function
  * (collectionPrices / showpiece / enrichCollectionPrices). No new math invented here.
@@ -28,7 +32,8 @@ import fs from "node:fs/promises";
 import { loadCollection, CollectionVersionMismatch } from "../../../../lib/server/collectionStorage.js";
 import { enrichCollectionPrices } from "../../../../lib/server/priceResolution.js";
 import { parseHistory, computeCardMovers, collectionValueSeries } from "../../../../lib/server/collectionPrices.js";
-import { buildShelf, rowUnitValue } from "../../../../lib/showpiece.js";
+import { buildDailyShelf, rowUnitValue } from "../../../../lib/showpiece.js";
+import { lookupById } from "../../../../lib/server/printingIndex.js";
 import { profilePath, dataPath } from "../../../../lib/server/paths.js";
 
 const WEEK = 7;
@@ -97,15 +102,31 @@ export async function GET() {
     }
   }
 
-  // ── Grails shelf + value series + table rows ─────────────────────────────────────────────
-  const grails = buildShelf(owned).slice(0, 5).map(({ row, value, flagged }) => ({
-    scryfallId: row.scryfallId, name: row.name, value, flagged,
-  }));
+  // ── Grail case (daily hero + supporting) + value series + table rows ─────────────────────
+  const shelf = buildDailyShelf(owned);
+  const grailEntry = (e, role) => ({ scryfallId: e.row.scryfallId, name: e.row.name, value: e.value, flagged: e.flagged, role });
+  const grails = shelf.hero
+    ? [grailEntry(shelf.hero, "hero"), ...shelf.supporting.map((e) => grailEntry(e, "supporting"))]
+    : [];
 
   const valueSeries = collectionValueSeries(enriched, history, { maxPoints: 90 });
 
+  // Best-effort full set name for the tooltip; the printings index is absent in a fresh dev
+  // tree, so null (UI shows the code alone) rather than a guessed name.
+  const setNameOf = (r) => {
+    if (!r.scryfallId) return null;
+    try { return lookupById(r.scryfallId)?.setName || null; } catch { return null; }
+  };
+
   const rows = owned
-    .map((r) => ({ scryfallId: r.scryfallId, name: r.name, qty: ownedQty(r), unit: rowUnitValue(r) }))
+    .map((r) => ({
+      scryfallId: r.scryfallId,
+      name: r.name,
+      set: r.setCode ? String(r.setCode).toUpperCase() : null,
+      setName: setNameOf(r),
+      qty: ownedQty(r),
+      unit: rowUnitValue(r),
+    }))
     .sort((a, b) => b.unit * b.qty - a.unit * a.qty);
 
   return Response.json({
