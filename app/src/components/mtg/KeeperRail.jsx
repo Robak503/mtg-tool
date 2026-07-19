@@ -9,65 +9,74 @@
  * housekeeper of the whole exe: he knows every wing and hall, he helps a lost
  * visitor find the right door, and he routes every Magic question to the guide
  * whose lane it is (Jace/Academy · Teferi/Crucible · Vihaan/Vault · Karn at
- * the bench). Warm, unhurried, dignified — the house's steady hand.
+ * the bench).
+ *
+ * REDUNDANCY LAW (Colton, 2026-07-19: "the rail and the square is redundant"):
+ * a rail widget must never repeat what the page already shows. The landing's
+ * doors say what the rooms ARE — so the Keeper's board says what's IN them
+ * TODAY: games kept, the vault's worth, the trial corpus. Live numbers off the
+ * same local APIs the rooms use; honest dashes before data exists.
  *
  * Persona brief seed: memory orders/keeper-hearth-persona.md (Omnath owns the
- * voice work; this V1 charter is the placeholder that holds the door).
+ * voice; this V1 charter holds the door).
  */
+import { useEffect, useState } from "react";
+
 import RoomRail from "./RoomRail";
 
 const mono = { fontFamily: "var(--font-mono), monospace" };
-
-/* The house map — compile-time truth, mirrors the AREAS registry + halls. */
-const WINGS = [
-  {
-    id: "proving",
-    title: "The Crucible",
-    line: "Run your decks, rank them, keep every game.",
-    halls: "Sim Center · Pod Balance · Table Records · The Reflecting Pool",
-  },
-  {
-    id: "academy",
-    title: "The Academy",
-    line: "Learn the game, sharpen your rules.",
-    halls: "Learn to Play · Mulligan Reps · Judge Trials · Rules & Rulings",
-  },
-  {
-    id: "vault",
-    title: "The Vault",
-    line: "Your collection, under glass.",
-    halls: "The Stacks · Ledger · Census · Atlas · Gallery · Forge",
-  },
-];
+const usd = (n) => `$${(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function KeeperWidget({ kind, payload }) {
-  if (kind === "map") {
-    return (
-      <div>
-        <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ley-green)" }}>The house</span>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-          {WINGS.map((w) => (
-            <button
-              key={w.id}
-              onClick={() => payload?.onEnterArea?.(w.id)}
-              style={{ textAlign: "left", background: "transparent", border: "1px solid var(--ley-line)", borderRadius: 8, padding: "8px 10px", cursor: "pointer" }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--ley-green)"; e.currentTarget.style.background = "var(--ley-green-faint)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--ley-line)"; e.currentTarget.style.background = "transparent"; }}
-            >
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ley-text)" }}>{w.title}</div>
-              <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)", marginTop: 1 }}>{w.line}</div>
-              <div style={{ ...mono, fontSize: 9, color: "var(--ley-text-faint)", marginTop: 3, letterSpacing: "0.04em" }}>{w.halls}</div>
-            </button>
-          ))}
-        </div>
+  if (kind !== "house") return null;
+  const { house, onEnterArea } = payload || {};
+  const rows = [
+    {
+      id: "proving",
+      title: "The Crucible",
+      line: house
+        ? (house.games === 1 ? "1 game kept, full tail" : `${house.games ?? 0} games kept, full tails`)
+        : "counting the archive…",
+    },
+    {
+      id: "academy",
+      title: "The Academy",
+      line: house
+        ? (house.judgeReady ? `${house.judgeCases} judge cases ready to try you` : "the trial corpus awaits a data sync")
+        : "opening the corpus…",
+    },
+    {
+      id: "vault",
+      title: "The Vault",
+      line: house
+        ? (house.printings > 0 ? `${house.printings.toLocaleString()} printings · ${usd(house.vaultValue)} under glass` : "the shelves stand ready for your first cards")
+        : "taking inventory…",
+    },
+  ];
+  return (
+    <div>
+      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ley-green)" }}>The house today</span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 8 }}>
+        {rows.map((w) => (
+          <button
+            key={w.id}
+            onClick={() => onEnterArea?.(w.id)}
+            style={{ textAlign: "left", background: "transparent", border: "1px solid var(--ley-line)", borderRadius: 8, padding: "8px 10px", cursor: "pointer" }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--ley-green)"; e.currentTarget.style.background = "var(--ley-green-faint)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--ley-line)"; e.currentTarget.style.background = "transparent"; }}
+          >
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ley-text)" }}>{w.title}</div>
+            <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)", marginTop: 2 }}>{w.line}</div>
+          </button>
+        ))}
       </div>
-    );
-  }
-  return null;
+    </div>
+  );
 }
 
 /** The Keeper's V1 charter: the house's steady hand — routes, never poaches a lane. */
-function keeperSystem() {
+function keeperSystem(payload) {
+  const house = payload?.house || null;
   return [
     "You are the Keeper of this house — the stately gentleman who minds the front hall of a Magic: The Gathering desktop app called MTG Tool. You are NOT a Magic character and you do not pretend to be one.",
     "Voice: warm, unhurried, dignified — an old-fashioned housekeeper's courtesy. Address the visitor kindly; never rush them.",
@@ -79,6 +88,9 @@ function keeperSystem() {
     "When a visitor is lost, ask what they're trying to DO, then point them to the right wing — one or two sentences, then let them go.",
     "LANE RULE: you never answer Magic questions yourself — no rules, no deck advice, no prices. Route to the wing whose guide owns it, by name, courteously.",
     "Keep answers short (1-4 sentences). Plain text only.",
+    house
+      ? `HOUSE LEDGER (live, cite honestly): ${JSON.stringify(house)}`
+      : "HOUSE LEDGER: not read yet this visit — say so if asked for numbers.",
   ].join("\n");
 }
 
@@ -88,10 +100,10 @@ export const KEEPER_GUIDE = {
   role: "of the house",
   monogram: "⌂",
   systemPrompt: keeperSystem,
-  chips: [{ kind: "map", label: "Map of the house" }],
-  defaultWidget: "map",
+  chips: [{ kind: "house", label: "The house today" }],
+  defaultWidget: "house",
   widgetRouter: (lower) => {
-    if (/\b(where|lost|find|map|rooms?|halls?|go)\b/.test(lower)) return "map";
+    if (/\b(where|lost|find|map|rooms?|halls?|go|house|status)\b/.test(lower)) return "house";
     return null;
   },
   Widget: KeeperWidget,
@@ -100,5 +112,32 @@ export const KEEPER_GUIDE = {
 };
 
 export default function KeeperRail({ fontFamily, onEnterArea }) {
-  return <RoomRail fontFamily={fontFamily} guide={KEEPER_GUIDE} payload={{ onEnterArea }} />;
+  // The Keeper reads the house ledger himself — three light local GETs, honest
+  // dashes until they land. null = still reading (the widget says so per line).
+  const [house, setHouse] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const grab = async (url) => {
+        try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch { return null; }
+      };
+      const [records, quiz, dash] = await Promise.all([
+        grab("/api/records"),
+        grab("/api/judge-quiz"),
+        grab("/api/collection/dashboard"),
+      ]);
+      if (!alive) return;
+      setHouse({
+        games: records?.records?.length ?? 0,
+        judgeReady: !!quiz?.ready,
+        judgeCases: quiz?.total ?? 0,
+        printings: dash?.uniquePrintings ?? 0,
+        vaultValue: dash?.vaultValue ?? 0,
+      });
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  return <RoomRail fontFamily={fontFamily} guide={KEEPER_GUIDE} payload={{ house, onEnterArea }} />;
 }

@@ -91,12 +91,15 @@ describe("LandingScreen — the front hall: three zones + the Keeper", () => {
     expect(raw).not.toMatch(/\binfinite\b/);
   });
 
-  it("THE KEEPER minds the hall — non-Magic guide, map docked, routing lanes visible", () => {
+  it("THE KEEPER minds the hall — non-Magic guide, the house board docked, routing lanes visible", () => {
     const raw = renderToStaticMarkup(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
     const out = text(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
     expect(out).toContain("THE KEEPER");
-    expect(out).toContain("Map of the house");
+    expect(out).toContain("The house today");       // STATUS board, not a second map of the doors
     expect(out).toContain("Karn");                  // deck lane routed, never answered here
     expect(raw).not.toMatch(/art-crop\?name=/);     // non-Magic persona: NO card art on his avatar
+    // REDUNDANCY LAW (Colton): the rail must not repeat the page. The doors carry the
+    // taglines; the Keeper's board must NOT re-print them.
+    expect(out).not.toContain("Run your decks, rank them");
   });
 });
