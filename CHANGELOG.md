@@ -8,7 +8,53 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.148.0] — 2026-07-19
+
+The whole app moves into one visual and structural language — "jewel & machine" — with a room
+guide riding every zone. This is the release where the house becomes a house.
+
+### Added
+- **The Vault dashboard, rebuilt twice over.** The collection's front door is now a live room:
+  unique-printings / vault-value / weekly winner-and-loser tiles with honest empty states, a
+  DAILY grail case (one big-dollar chase standing center, four provenance picks flanking it,
+  rotating every day, with real mirror-floor reflections under the cards), a gridded value chart
+  with first/peak/now margins, and a full-width collection ledger: full set names (long ones read
+  qualifier-first, e.g. "Special Guests - Lost Caverns"), exact collector numbers, one line per
+  owned finish — and every foil named for what it really is (Surge Foil, Halo Foil, Oil Slick…)
+  straight off the printings data, never guessed.
+- **Room guides — an AI rail in every zone.** Vihaan keeps the Vault (value, movers, grails),
+  Teferi keeps the Crucible's records, Jace teaches in the Academy, and Karn runs the Foundry
+  bench — each with their real card art, live room data grounding their answers, and strict lane
+  discipline: a deck question asked in the Vault gets walked to Karn, not answered out of lane.
+- **THE KEEPER.** The front hall has a butler now — a non-Magic gentleman who greets you on the
+  landing, knows what's in every wing (live numbers ride the zone doors themselves), and walks
+  lost visitors to the right room. He never answers Magic questions; he knows whose job that is.
+- **THE FOUNDRY — a new zone for building decks.** Karn's workshop: the bench lists every work in
+  progress with its color pie, commander, and locked-card count toward 100 (the commander is
+  always lock #1), one green "Start a new deck" button, and URL import verified working against
+  live Archidekt lists.
+- **OMNATH'S ZONE.** The old Agents page is gone; its slot in the bottom bar now belongs to
+  Omnath — one tap opens a straight conversation with the house's companion (Hearth register by
+  default, Roil when the game demands), and the app now boots into his chat.
+- **Today's Trial** in the Academy: one real judge case per day (verdict sealed until you take
+  it), beside the 500-case corpus and its difficulty ladder.
+- **The Crucible's front door is a dashboard**: games recorded, last table, win rate with the
+  actual W–L, and the recent-tables ledger — all off the real archive.
+
+### Changed
+- **Every room wears the same machined register**: chrome room titles in a new engraved display
+  face, machined glass panels with corner brackets and baked specular light, card faces that glow
+  before their art loads (a card is never a black rectangle), and a strict motion law — nothing
+  in the interface blinks, pulses, or loops; motion only answers your hand or plays once on entry.
+- **Halls, not Rooms**: each zone's inner spaces live in a "Halls ▾" switcher in its masthead
+  (and the dropdown no longer hides behind the tiles).
+- **The landing icons are green scans of real objects** — crossed swords, an open book, a real
+  anvil, a bank-vault door — replacing the pixel art.
+
 ### Internal
+- The jewel & machine kit is now LEYLINE system CSS with an enforced decorative-loop allowlist;
+  the rail is one config-driven component (`RoomRail`) every guide rides; render gates pin each
+  room's masthead, guide, material, and zero-loop invariants.
 - **The engine can no longer quietly grow roots into the Windows shell.** A new structural guard
   (`src/lib/enginePortability.test.js`) walks the durable engine surface — the rules/play engine,
   the server-side data layer, the API routes, and everything they transitively import — and fails
