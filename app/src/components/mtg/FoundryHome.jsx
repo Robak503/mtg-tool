@@ -24,8 +24,6 @@ import useCountUp from "../../hooks/useCountUp";
 import FoundryRail from "./FoundryRail";
 import RoomHeader from "./RoomHeader";
 
-const mono = { fontFamily: "var(--font-mono), monospace" };
-
 const HALLS = [
   { id: "import", label: "New deck / Import" },
 ];
@@ -98,29 +96,16 @@ export default function FoundryHome({ savedDecks = [], onOpenDeck, onImport, fon
           onPick={(id) => { if (id === "import") onImport?.(); }}
         />
 
-        {/* ── Tile row ──────────────────────────────────────────────────────────── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
-          <div className="ley-glass ley-pane ley-rise" style={{ padding: "14px 16px", animationDelay: "110ms" }}>
-            <div className="ley-lab">Decks on the bench</div>
-            <div className="ley-num">{Math.round(countDecks).toLocaleString()}</div>
-            <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)", marginTop: 2 }}>works in progress, kept and crafted</div>
-          </div>
-          <div className="ley-glass ley-pane ley-door ley-rise" style={{ padding: "14px 16px", animationDelay: "110ms" }} onClick={() => onImport?.()} title="Start a new deck">
-            <div className="ley-lab">Start something</div>
-            <div style={{ fontSize: 12.5, color: "var(--ley-text-dim)", marginTop: 8, lineHeight: 1.5 }}>
-              Paste a list, import from a URL, or bring Karn a commander and build from nothing.
-            </div>
-            <div style={{ ...mono, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-green)", marginTop: 6 }}>
-              New deck / import ▸
-            </div>
-          </div>
-        </div>
-
-        {/* ── The bench: the works-in-progress ledger ───────────────────────────── */}
-        <div className="ley-glass ley-pane ley-rise" style={{ padding: "14px 16px", animationDelay: "180ms", flex: 1, minHeight: 340 }}>
+        {/* ── The bench: the works-in-progress ledger (the tile row was cut — Colton:
+              "cut those squares all together and just add the deck count into the deck
+              list section"; ONE start button, the green one) ── */}
+        <div className="ley-glass ley-pane ley-rise" style={{ padding: "14px 16px", animationDelay: "120ms", flex: 1, minHeight: 340 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div className="ley-lab" style={{ flex: 1 }}>The bench</div>
-            <button className="btn btn-secondary btn-sm" onClick={() => onImport?.()}>＋ Start a new deck</button>
+            <span className="ley-qty" style={{ fontSize: 11, padding: "3px 10px" }}>
+              {Math.round(countDecks)} deck{savedDecks.length === 1 ? "" : "s"}
+            </span>
+            <button className="btn btn-primary btn-sm" onClick={() => onImport?.()}>＋ Start a new deck</button>
           </div>
           {savedDecks.length ? (
             <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
@@ -153,12 +138,10 @@ export default function FoundryHome({ savedDecks = [], onOpenDeck, onImport, fon
               })}
             </div>
           ) : (
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
-              <div style={{ fontSize: 12, color: "var(--ley-text-dim)", lineHeight: 1.6 }}>
-                The bench is empty — start your first build. Paste a list or import from a URL, and it lives here
-                as a work in progress: Karn at your shoulder, Tibalt on call for the roast.
-              </div>
-              <button className="btn btn-primary btn-sm" onClick={() => onImport?.()}>＋ Start your first deck</button>
+            <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 12, lineHeight: 1.6 }}>
+              The bench is empty — hit <b style={{ color: "var(--ley-green)" }}>the green button above</b>.
+              Paste a list or import from a URL, and it lives here as a work in progress: Karn at your
+              shoulder, Tibalt on call for the roast.
             </div>
           )}
         </div>

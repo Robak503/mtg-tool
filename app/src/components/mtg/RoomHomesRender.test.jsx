@@ -74,15 +74,19 @@ describe("AcademyHome — The Academy in the register", () => {
 });
 
 describe("FoundryHome — Karn's zone in the register", () => {
-  it("masthead + the bench + Karn's rail render; empty bench invites AND has the start button", () => {
+  it("masthead + the bench + Karn's rail render; ONE green start button, count in the bench header", () => {
     const raw = renderToStaticMarkup(createElement(FoundryHome, { savedDecks: [], onOpenDeck: noop, onImport: noop, fontFamily: "Inter" }));
     const out = text(createElement(FoundryHome, { savedDecks: [], onOpenDeck: noop, onImport: noop, fontFamily: "Inter" }));
     expect(out).toContain("THE FOUNDRY");
     expect(out).toContain("The bench");
+    expect(out).toContain("0 decks");                       // the count lives IN the bench header now
     expect(out).toContain("KARN");
     expect(out).toContain("Tibalt");                        // the roast is a standing offer
     expect(out).toContain("The bench is empty");            // honest empty state
-    expect(out).toContain("Start your first deck");         // Colton: a start button IN the bench
+    expect(out).not.toContain("Start something");           // the tile row is CUT (Colton)
+    // ONE make-a-deck button — the green one (btn-primary), no duplicates:
+    expect(raw.match(/Start a new deck/g)).toHaveLength(1);
+    expect(raw).toMatch(/btn-primary[^>]*>＋ Start a new deck|＋ Start a new deck/);
     expect(raw).toMatch(/ley-pane/);
     expect(raw).not.toMatch(/\binfinite\b/);
   });
