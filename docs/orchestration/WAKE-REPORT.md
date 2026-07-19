@@ -1,5 +1,41 @@
 # WAKE REPORT — live resume anchor
 
+## 🌱 2026-07-18 — LADDER RUNG 0.6 "ROOTS THAT TRAVEL" SHIPPED — engine/shell seam is now ENFORCED, suite 10,422
+
+> **What landed:** `app/src/lib/enginePortability.test.js` — a structural guard that fails the build if the
+> durable engine surface ever couples to the Tauri shell. Surface = `src/lib/learn/**`, `src/lib/server/**`,
+> `src/app/api/**` + `src/middleware.js` + `src/instrumentation.js`, **plus everything they transitively
+> import** (255 seeds → 260 files scanned). The seam is now written down in
+> [PROJECT-SCAFFOLD §2.3](PROJECT-SCAFFOLD.md), per step 2 of the portability plan.
+>
+> **This closes step 1 of the vault's `plan_engine_portability` roadmap** (the highest-leverage move: turn an
+> accidentally-clean boundary into a guaranteed one). Steps 3–6 (Ollama adapter shape, request-level headless
+> smoke test, Mac bundle targets) remain open and are still box-gated or low-urgency.
+>
+> **Mutation-checked** (per the HOLLOW-GATE LAW — every probe reverted, `git status` verified clean):
+> direct `@tauri-apps` import in `cardIndex.js` → RED · backtick dynamic import → RED · **transitive** leak
+> (engine → `hooks/useTauriAppVersion.js` → Tauri), chain reported → RED · `window.__TAURI_INTERNALS__` with
+> **no import at all** → RED · moved engine root → RED with an actionable message · stale exception → RED.
+>
+> **Two things the adversarial review caught that the original audit did not, both now fixed:**
+> 1. **The globals are a real bypass.** The vault audit scoped the risk to `@tauri-apps` *imports*, but this
+>    repo's own shell idiom is `window.__TAURI__ || window.__TAURI_INTERNALS__` (used in all 5 shell files).
+>    An engine file copying that pattern couples to the shell with zero imports. The guard now forbids the
+>    globals inside the surface too — this is the likeliest real-world leak, not the import.
+> 2. **The guard was nearly a hollow gate itself.** Only 5 files are reached transitively on the live tree,
+>    so if the resolver regressed to always-null the whole graph-walk feature would die while the file-count
+>    floor still cleared and the suite stayed green. Fixed with a fixture-tree SEEN-TO-FAIL that proves a
+>    2-hop violation is caught and its chain reported, plus resolver unit tests and a cycle test.
+>
+> **One live finding, judged NOT a break:** `src/lib/server/originGuard.js:36` carries `"tauri://localhost"`
+> in its CSRF Origin allowlist. That is an inert string in a pure, dependency-free module — it never matches
+> on a Mac and needs no shell present — so it is a `DOCUMENTED_EXCEPTIONS` entry with a written rationale,
+> not a violation. The exception list is self-policing: an allowance that stops matching fails the suite, so
+> it can't quietly become a dumping ground.
+>
+> **Gate:** full suite **10,422 green / 801 files**, lint 0 warnings, prettier clean. No new public surface,
+> no secrets, no endpoints — test + docs only.
+
 ## 🌇 2026-07-17 ~15:30 — DAY-SHIFT WIND-DOWN (Colton called it) — FLOOR EMPTY — 34.01%, suite 10,307, v0.146.0 cut
 
 > Colton called the wind-down and asked for memory + push + omnath comms. All three in-flight seats harvested

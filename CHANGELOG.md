@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Internal
+- **The engine can no longer quietly grow roots into the Windows shell.** A new structural guard
+  (`src/lib/enginePortability.test.js`) walks the durable engine surface — the rules/play engine,
+  the server-side data layer, the API routes, and everything they transitively import — and fails
+  the build if any of it reaches Tauri, either by importing `@tauri-apps/*` or by touching the
+  `window.__TAURI__` / `__TAURI_INTERNALS__` / `tauri://` globals. That boundary was already clean,
+  but only by accident; it is now enforced, so the app stays portable to a non-Windows box instead
+  of drifting one PR at a time. The engine/shell line is written down in
+  [PROJECT-SCAFFOLD §2.3](docs/orchestration/PROJECT-SCAFFOLD.md).
+
 ## [0.147.0] — 2026-07-18
 
 ### Fixed

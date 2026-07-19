@@ -127,6 +127,32 @@ SimCenter** drive `/api/self-play`. Reference client-mutation pattern worth
 copying: `CollectionView`'s optimistic stepper (`collectionRef` + per-row seq +
 reconcile).
 
+### 2.3 The engine/shell seam — where the portability line is
+
+**The ENGINE must stay platform-agnostic.** It is `src/lib/learn/**` (rules +
+play engine), `src/lib/server/**` (card index, `paths.js`, model provider, rules
+retrieval, all stores), `src/app/api/**`, plus `src/middleware.js` and
+`src/instrumentation.js`. This code runs in the spawned Node server and under bare
+`npm test`, where Tauri's APIs do not exist — so it must never reach
+`@tauri-apps/*` **or** the `window.__TAURI__` / `__TAURI_INTERNALS__` / `tauri://`
+globals, directly or through anything it imports.
+
+**The SHELL is allowed to know about Tauri**: `src-tauri/**` (the Rust process,
+updater, NSIS packaging, tray, Job-Object supervisor) and the shell-facing UI —
+`MTGAssistant.jsx`, `mtg/UpdatesModal.jsx`, `mtg/FeedbackPanel.jsx`,
+`hooks/useTauriAppVersion.js`. Platform-specific work belongs here, or behind a
+`process.platform` gate in a single named file (`server/ollamaBinary.js` and
+`api/install-ollama/` are the existing pattern; `api/feedback/open/` shows the
+`win32`/`darwin` branch shape).
+
+This boundary is **enforced, not documented-and-hoped**: `src/lib/enginePortability.test.js`
+walks the engine surface and everything it transitively imports and fails the build
+on any Tauri coupling, reporting the full import chain. It carries its own
+coverage witness and a fixture-backed proof that the graph walk still works, so it
+cannot rot into a green no-op. If you need a genuine exception, add it to
+`DOCUMENTED_EXCEPTIONS` there with a reason that answers "would this still work on
+a Mac?" — unused exceptions fail the suite and must be deleted.
+
 ---
 
 ## 3. THE BUILD + RELEASE PIPELINE
