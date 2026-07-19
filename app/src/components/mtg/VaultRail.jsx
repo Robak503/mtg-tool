@@ -15,6 +15,9 @@
  *
  * LANE LAW (Colton): Vihaan is the COLLECTOR's guide. Deck power / deck building = Karn's bench —
  * the system prompt routes those instead of answering out of lane.
+ *
+ * Material note: the vd-* classes (vd-pane machining, vd-gem avatar) are defined in
+ * VaultDashboard's VD_CSS — this rail only renders inside the dashboard, so they resolve.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -30,7 +33,7 @@ function RailSparkline({ series, height = 110 }) {
     const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
     const ys = vals.map((v) => H - 6 - ((v - min) / span) * (H - 20));
     const d = xs.map((x, i) => `${i ? "L" : "M"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
-    return { d, area: `${d} L${xs[xs.length - 1].toFixed(1)},${H - 4} L${xs[0].toFixed(1)},${H - 4} Z`, last: vals[vals.length - 1] };
+    return { d, area: `${d} L${xs[xs.length - 1].toFixed(1)},${H - 4} L${xs[0].toFixed(1)},${H - 4} Z`, last: vals[vals.length - 1], end: [xs[xs.length - 1], ys[ys.length - 1]] };
   }, [series, height]);
   if (!path) return <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>The value line draws itself as daily snapshots accumulate.</div>;
   return (
@@ -40,13 +43,24 @@ function RailSparkline({ series, height = 110 }) {
           <stop offset="0%" stopColor="rgba(57,245,126,0.28)" />
           <stop offset="100%" stopColor="rgba(57,245,126,0)" />
         </linearGradient>
+        <linearGradient id="vr-stroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#1d9e54" />
+          <stop offset="75%" stopColor="#39f57e" />
+          <stop offset="100%" stopColor="#6dffa1" />
+        </linearGradient>
         <filter id="vr-blur" x="-20%" y="-40%" width="140%" height="180%">
           <feGaussianBlur stdDeviation="3" />
         </filter>
       </defs>
+      <g stroke="rgba(167,243,208,0.07)" strokeWidth="1">
+        {[0.25, 0.5, 0.75].map((k) => (
+          <line key={k} x1="0" y1={height * k} x2="300" y2={height * k} />
+        ))}
+      </g>
       <path d={path.area} fill="url(#vr-grad)" stroke="none" />
       <path d={path.d} fill="none" stroke="var(--ley-green)" strokeWidth="3" strokeLinejoin="round" opacity="0.55" filter="url(#vr-blur)" />
-      <path d={path.d} fill="none" stroke="var(--ley-green)" strokeWidth="2" strokeLinejoin="round" />
+      <path d={path.d} fill="none" stroke="url(#vr-stroke)" strokeWidth="2" strokeLinejoin="round" />
+      {path.end && <circle cx={path.end[0]} cy={path.end[1]} r="2.8" fill="#6dffa1" />}
     </svg>
   );
 }
@@ -215,8 +229,8 @@ export default function VaultRail({ fontFamily, dashboard }) {
   return (
     <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10, fontFamily, minHeight: 0 }}>
       {/* Nameplate */}
-      <div className="ley-glass" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--ley-green-dim)", border: "1px solid var(--ley-green)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>💎</div>
+      <div className="ley-glass vd-pane" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="vd-gem" aria-hidden="true" />
         <div>
           <div style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: "var(--ley-green)" }}>VIHAAN</div>
           <div style={{ fontSize: 10, color: "var(--ley-text-dim)" }}>the Vault's guide</div>
@@ -225,7 +239,7 @@ export default function VaultRail({ fontFamily, dashboard }) {
 
       {/* Widget canvas — the chat's top pane; chat drops to half height while docked */}
       {widget && (
-        <div className="ley-glass-strong ley-glass-lit" style={{ padding: "12px 14px", position: "relative", flexShrink: 0 }}>
+        <div className="ley-glass-strong ley-glass-lit vd-pane" style={{ padding: "12px 14px", position: "relative", flexShrink: 0 }}>
           <button
             onClick={() => setWidget(null)}
             title="Dismiss"
@@ -238,7 +252,7 @@ export default function VaultRail({ fontFamily, dashboard }) {
       )}
 
       {/* Chat — full height alone, half height when a widget is docked (Colton's cut behavior) */}
-      <div className="ley-glass" style={{ flex: widget ? 1 : 2, display: "flex", flexDirection: "column", minHeight: 120, overflow: "hidden" }}>
+      <div className="ley-glass vd-pane" style={{ flex: widget ? 1 : 2, display: "flex", flexDirection: "column", minHeight: 120, overflow: "hidden" }}>
         <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
           {messages.length === 0 && (
             <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>

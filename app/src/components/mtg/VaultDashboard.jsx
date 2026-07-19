@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * VaultDashboard — The Vault's new front door (V1 of the rework).
+ * VaultDashboard — The Vault's front door (V2: "jewel & machine").
  *
  * Spec: memory/orders/vault-dashboard-rework-spec.md — Colton's mock translated to LEYLINE, his
  * final layout calls baked in:
@@ -13,73 +13,191 @@
  *   - Grails shelf (buildShelf server-side) · VALUE graph · MY COLLECTION table.
  *   - Blocks-as-doors: shelf → Gallery, table → Stacks, tiles/graph → Ledger.
  *   - Right rail = VaultRail (Vihaan: chat + widget canvas), its own component.
+ *
+ * V2 design law (Colton, 2026-07-19 — "not a fan of the pulsing"): NO LOOPING MOTION anywhere.
+ * Richness is MATERIAL, not light shows — machined panel edges with corner brackets, baked
+ * specular streaks, chrome/jewel gradient type, a safe-dial ornament, and a mirror-floor grail
+ * case with real card reflections. Motion exists only as hover response and one fast one-shot
+ * entrance, all killed under prefers-reduced-motion.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import VaultRail from "./VaultRail";
 
-
-/* THE VAULT "boot sequence" — original-Xbox-startup energy (Colton: "up to 11, show off").
-   Organic breathing light, not sci-fi lines: plasma blobs drifting in the void, staggered
-   emergence from darkness, a chrome-green title with a light sweep, pedestals that pulse.
-   Motion is transform/opacity/shadow only; every animation dies under reduced-motion. */
 const VD_CSS = `
-@keyframes vdPlasma {
-  0%   { transform: translate(0, 0) scale(1);      opacity: 0.55; }
-  50%  { transform: translate(4%, 6%) scale(1.18); opacity: 0.95; }
-  100% { transform: translate(-3%, -2%) scale(1);  opacity: 0.55; }
-}
-@keyframes vdPlasma2 {
-  0%   { transform: translate(0, 0) scale(1.1);      opacity: 0.35; }
-  50%  { transform: translate(-5%, -4%) scale(0.92); opacity: 0.7; }
-  100% { transform: translate(2%, 5%) scale(1.1);    opacity: 0.35; }
-}
+/* ── One-shot motion only: entrance rise + chart draw-in. Nothing loops. ── */
 @keyframes vdRise {
-  from { opacity: 0; transform: translateY(16px) scale(0.985); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes vdTitleSheen {
-  0%, 55% { background-position: -220% 0; }
-  100%    { background-position: 220% 0; }
-}
-@keyframes vdBreatheGlow {
-  0%, 100% { box-shadow: var(--ley-aura-soft), var(--ley-top-edge), inset 0 0 22px rgba(57,245,126,0.04); }
-  50%      { box-shadow: var(--ley-aura), var(--ley-top-edge), inset 0 0 30px rgba(57,245,126,0.08); }
-}
-@keyframes vdPedestal {
-  0%, 100% { box-shadow: 0 0 14px 3px var(--ley-green-glow); opacity: 0.75; }
-  50%      { box-shadow: 0 0 26px 7px var(--ley-green-glow); opacity: 1; }
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes vdDrawLine { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes vdEndPulse {
-  0%, 100% { r: 3;   opacity: 0.9; }
-  50%      { r: 5.5; opacity: 0.45; }
+.vd-rise { opacity: 0; animation: vdRise 520ms var(--ease-snap) forwards; }
+.vd-chart-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: vdDrawLine 1200ms var(--ease-snap) 250ms forwards; }
+
+/* ── The ground: static layered light + brushed machining. No drift. ── */
+.vd-stage {
+  background:
+    radial-gradient(ellipse 90% 60% at 30% -12%, rgba(57,245,126,0.10), transparent 60%),
+    radial-gradient(ellipse 70% 55% at 85% 108%, rgba(57,245,126,0.05), transparent 65%),
+    var(--ley-bg);
 }
-.vd-plasma, .vd-plasma2 { position: absolute; border-radius: 50%; pointer-events: none; will-change: transform, opacity; }
-.vd-plasma  { animation: vdPlasma 13s ease-in-out infinite; }
-.vd-plasma2 { animation: vdPlasma2 19s ease-in-out infinite; }
-.vd-rise { opacity: 0; animation: vdRise 640ms var(--ease-snap) forwards; }
+.vd-stage::before { /* brushed-metal hairlines, barely there */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(115deg, rgba(167,243,208,0.016) 0 1px, transparent 1px 7px);
+}
+
+/* ── Machined glass: layered on .ley-glass — dual edge, corner brackets, baked specular ── */
+.vd-pane {
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(214,255,236,0.14),
+    inset 0 -14px 24px -18px rgba(0,0,0,0.9),
+    0 0 0 1px rgba(57,245,126,0.05),
+    0 22px 44px -28px rgba(0,0,0,0.9);
+}
+.vd-pane::before { /* baked specular streak — the jewel face */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(112deg, transparent 32%, rgba(214,255,236,0.05) 42%, rgba(214,255,236,0.012) 50%, transparent 58%);
+}
+.vd-pane::after { /* corner brackets — machined, engraved */
+  content: ""; position: absolute; inset: 5px; border-radius: 9px; pointer-events: none;
+  background:
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) top left / 14px 1px,
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) top left / 1px 14px,
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) top right / 14px 1px,
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) top right / 1px 14px,
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) bottom left / 14px 1px,
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) bottom left / 1px 14px,
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) bottom right / 14px 1px,
+    linear-gradient(rgba(57,245,126,0.34), rgba(57,245,126,0.34)) bottom right / 1px 14px;
+  background-repeat: no-repeat; opacity: 0.55;
+}
+.vd-door { cursor: pointer; transition: transform 180ms var(--ease-snap), box-shadow 180ms; }
+.vd-door:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px 0 rgba(214,255,236,0.18),
+    inset 0 -14px 24px -18px rgba(0,0,0,0.9),
+    0 0 0 1px rgba(57,245,126,0.22),
+    0 0 34px rgba(57,245,126,0.14),
+    0 26px 48px -26px rgba(0,0,0,0.95);
+}
+
+/* ── Header: safe-dial ornament + chrome title ── */
+.vd-dial {
+  width: 44px; height: 44px; border-radius: 50%; position: relative; flex-shrink: 0;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(214,255,236,0.25), transparent 42%),
+    radial-gradient(circle, var(--ley-surface-2) 58%, var(--ley-bg) 60%);
+  border: 1px solid rgba(57,245,126,0.34);
+  box-shadow: inset 0 0 12px rgba(57,245,126,0.18), 0 0 22px rgba(57,245,126,0.14);
+}
+.vd-dial::before { /* tick ring — the combination wheel */
+  content: ""; position: absolute; inset: 4px; border-radius: 50%;
+  background: repeating-conic-gradient(rgba(167,243,208,0.5) 0deg 1.6deg, transparent 1.6deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 63% 78%, transparent 79%);
+  mask: radial-gradient(circle, transparent 62%, #000 63% 78%, transparent 79%);
+}
+.vd-dial::after { /* the jewel core */
+  content: ""; position: absolute; inset: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 32%, #6dffa1, var(--ley-green) 38%, #0c4d27 88%);
+  box-shadow: 0 0 14px rgba(57,245,126,0.55), inset 0 -3px 6px rgba(0,0,0,0.55);
+}
 .vd-title {
-  background: linear-gradient(100deg, var(--ley-green-text) 20%, #ffffff 38%, var(--ley-green) 46%, var(--ley-green-text) 62%);
-  background-size: 220% 100%;
+  font-size: 26px; font-weight: 800; letter-spacing: 0.13em; line-height: 1;
+  background: linear-gradient(180deg, #f2fff8 8%, #a7f3d0 34%, var(--ley-green) 56%, #128a45 88%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: vdTitleSheen 5.5s ease-in-out infinite;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.8)) drop-shadow(0 0 16px rgba(57,245,126,0.3));
+}
+.vd-title-rule { flex: 1; height: 1px; position: relative;
+  background: linear-gradient(90deg, rgba(57,245,126,0.34), var(--ley-line) 60%, transparent); }
+.vd-title-rule::before { content: ""; position: absolute; left: 84px; top: -2.5px; width: 6px; height: 6px;
+  transform: rotate(45deg); background: var(--ley-green); box-shadow: 0 0 10px rgba(57,245,126,0.7); }
+
+/* ── Labels: engraved small-caps with a tick-ruler tail ── */
+.vd-lab {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono), monospace; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.17em; color: var(--ley-green); text-transform: uppercase;
+}
+.vd-lab::after { content: ""; flex: 1; height: 3px;
+  background: repeating-linear-gradient(90deg, var(--ley-line) 0 1px, transparent 1px 6px) bottom / 100% 1px no-repeat,
+              repeating-linear-gradient(90deg, var(--ley-line) 0 1px, transparent 1px 24px) bottom / 100% 3px no-repeat; }
+
+/* ── Jeweled numerals + winner/loser metalwork ── */
+.vd-num {
+  font-family: var(--font-mono), monospace; font-weight: 700; font-size: 30px; line-height: 1.15;
+  font-variant-numeric: tabular-nums; margin-top: 5px;
+  background: linear-gradient(180deg, #f2fff8 0%, #a7f3d0 40%, var(--ley-green) 78%, #21b45f 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 0 14px rgba(57,245,126,0.35));
 }
-.vd-tile { animation: vdBreatheGlow 4.8s ease-in-out infinite; }
-.vd-pedestal { animation: vdPedestal 3.6s ease-in-out infinite; }
-.vd-grail { transition: transform 220ms var(--ease-snap), filter 220ms var(--ease-snap); }
-.vd-grail:hover { transform: translateY(-8px); filter: drop-shadow(0 0 18px rgba(57,245,126,0.4)); }
-.vd-chart-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: vdDrawLine 1400ms var(--ease-snap) 250ms forwards; }
-.vd-end-dot { animation: vdEndPulse 2.4s ease-in-out infinite; }
+.vd-delta { font-family: var(--font-mono), monospace; font-weight: 700; font-size: 20px; line-height: 1.1; }
+.vd-delta-up { background: linear-gradient(180deg, #6dffa1, #21b45f);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 12px rgba(57,245,126,0.4)); }
+.vd-delta-down { background: linear-gradient(180deg, #ffb4b4, var(--ley-red));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 12px rgba(248,113,113,0.35)); }
+.vd-groove { width: 2px; margin: 2px 0; border-radius: 1px; flex-shrink: 0;
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,0.8) 20% 80%, transparent);
+  box-shadow: 1px 0 0 rgba(167,243,208,0.10); }
+
+/* ── The jewel case: tilted fan, static spotlight, glossy floor with real reflections ── */
+.vd-spotlight { position: absolute; left: 12%; right: 12%; top: 4%; bottom: 18%; pointer-events: none;
+  background: radial-gradient(55% 75% at 50% 18%, rgba(57,245,126,0.13), transparent 70%); }
+.vd-shelf { display: flex; gap: 24px; justify-content: center; align-items: flex-end; padding: 22px 6px 0; position: relative; }
+.vd-grail { position: relative; transition: transform 220ms var(--ease-snap), filter 220ms; }
+.vd-grail:hover { transform: translateY(-8px) scale(1.03); filter: drop-shadow(0 0 20px rgba(57,245,126,0.45)); z-index: 3; }
+.vd-grail:nth-child(1) { transform: rotate(-6deg) translateY(6px); }
+.vd-grail:nth-child(2) { transform: rotate(-2.6deg) translateY(1px); }
+.vd-grail:nth-child(4) { transform: rotate(2.6deg) translateY(1px); }
+.vd-grail:nth-child(5) { transform: rotate(6deg) translateY(6px); }
+.vd-grail:nth-child(1):hover, .vd-grail:nth-child(5):hover { transform: rotate(0deg) translateY(-7px) scale(1.03); }
+.vd-grail:nth-child(2):hover, .vd-grail:nth-child(4):hover { transform: rotate(0deg) translateY(-8px) scale(1.03); }
+.vd-refl { /* the mirror floor — a flipped copy of the real card, bottom-aligned so the mirror is true */
+  position: absolute; top: calc(100% + 3px); left: 0; right: 0; height: 56%;
+  overflow: hidden; border-radius: 6px; pointer-events: none; opacity: 0.45;
+  transform: scaleY(-1);
+  -webkit-mask-image: linear-gradient(180deg, transparent 12%, rgba(0,0,0,0.35) 58%, rgba(0,0,0,0.55) 100%);
+  mask-image: linear-gradient(180deg, transparent 12%, rgba(0,0,0,0.35) 58%, rgba(0,0,0,0.55) 100%);
+}
+.vd-refl-inner { position: absolute; left: 0; right: 0; bottom: 0; }
+.vd-floorline { height: 1px; margin: 6px 4px 0; position: relative; z-index: 2;
+  background: linear-gradient(90deg, transparent, rgba(214,255,236,0.28) 18% 82%, transparent);
+  box-shadow: 0 1px 8px rgba(57,245,126,0.25); }
+.vd-gtag { position: absolute; top: -7px; right: -7px; z-index: 4;
+  font-family: var(--font-mono), monospace; font-weight: 700; font-size: 9px; letter-spacing: 0.06em;
+  color: #03140a; background: linear-gradient(180deg, #6dffa1, #21b45f);
+  padding: 2px 6px; border-radius: 999px; box-shadow: 0 0 12px rgba(57,245,126,0.5); }
+
+/* ── Chart margins + the engraved ledger table ── */
+.vd-chart-notes { display: flex; justify-content: space-between; margin-top: 5px;
+  font-family: var(--font-mono), monospace; font-size: 9.5px; font-weight: 500;
+  color: var(--ley-text-dim); letter-spacing: 0.04em; }
+.vd-row { transition: background 130ms, box-shadow 130ms; cursor: pointer; }
+.vd-row:hover { background: rgba(57,245,126,0.06); box-shadow: inset 2px 0 0 var(--ley-green); }
+.vd-qty { display: inline-block; min-width: 20px; text-align: center;
+  font-family: var(--font-mono), monospace; font-weight: 700; font-size: 10.5px; color: #a7f3d0;
+  padding: 2px 6px; border-radius: 5px; background: rgba(57,245,126,0.08);
+  border: 1px solid var(--ley-line); box-shadow: inset 0 1px 0 rgba(214,255,236,0.08); }
+
+/* ── Vihaan's gem (rail nameplate) ── */
+.vd-gem { width: 28px; height: 28px; border-radius: 50%; position: relative; flex-shrink: 0;
+  background: radial-gradient(circle at 34% 30%, #6dffa1, var(--ley-green) 42%, #0b4b25 90%);
+  border: 1px solid rgba(57,245,126,0.34);
+  box-shadow: 0 0 16px rgba(57,245,126,0.45), inset 0 -4px 7px rgba(0,0,0,0.5); }
+.vd-gem::before { content: ""; position: absolute; left: 22%; top: 16%; width: 26%; height: 18%;
+  border-radius: 50%; background: rgba(240,255,248,0.75); filter: blur(1px); }
+
 @media (prefers-reduced-motion: reduce) {
-  .vd-plasma, .vd-plasma2, .vd-rise, .vd-title, .vd-tile, .vd-pedestal, .vd-chart-line, .vd-end-dot { animation: none; }
+  .vd-rise, .vd-chart-line { animation: none; }
   .vd-rise { opacity: 1; }
   .vd-chart-line { stroke-dasharray: none; stroke-dashoffset: 0; }
 }
 `;
 
-/** Boot-up count: the tiles tick from 0 to value on mount (the startup feel). */
+/** Boot-up count: the tiles tick from 0 to value on mount (one-shot, not a loop). */
 function useCountUp(target, ms = 900) {
   const [n, setN] = useState(0);
   useEffect(() => {
@@ -107,8 +225,16 @@ const HALLS = [
 
 const mono = { fontFamily: "var(--font-mono), monospace" };
 
-/** A tiny inline sparkline/area chart — no chart lib, pure SVG off the series. */
-function Sparkline({ series, width = 620, height = 150, stroke = "var(--ley-green)" }) {
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+/** "2026-07-01" → "JUL" (annotation margins under the value chart). */
+function monthLabel(point) {
+  const s = point?.snappedAt || point?.date || "";
+  const m = Number(String(s).slice(5, 7));
+  return m >= 1 && m <= 12 ? MONTHS[m - 1] : "";
+}
+
+/** Inline value chart — engraved grid, gradient stroke that brightens toward now, static endpoint. */
+function Sparkline({ series, width = 620, height = 150, grid = false }) {
   const path = useMemo(() => {
     const pts = (series || []).filter((p) => Number.isFinite(p?.value));
     if (pts.length < 2) return null;
@@ -122,8 +248,8 @@ function Sparkline({ series, width = 620, height = 150, stroke = "var(--ley-gree
   }, [series, width, height]);
 
   if (!path) return null;
-  // Depth = light: a blurred phosphor underlay beneath the crisp line + a fading area gradient —
-  // the flat fill/stroke first cut is why the chart read stale next to the mock.
+  // Depth = light: blurred phosphor underlay beneath the crisp line + fading area gradient;
+  // the stroke itself is a gradient (deep → hot) so the line brightens as it approaches today.
   const gid = `vd-grad-${width}x${height}`;
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto", display: "block" }} aria-hidden="true">
@@ -132,14 +258,32 @@ function Sparkline({ series, width = 620, height = 150, stroke = "var(--ley-gree
           <stop offset="0%" stopColor="rgba(57,245,126,0.28)" />
           <stop offset="100%" stopColor="rgba(57,245,126,0)" />
         </linearGradient>
+        <linearGradient id={`${gid}-stroke`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#1d9e54" />
+          <stop offset="75%" stopColor="#39f57e" />
+          <stop offset="100%" stopColor="#6dffa1" />
+        </linearGradient>
         <filter id={`${gid}-blur`} x="-20%" y="-40%" width="140%" height="180%">
           <feGaussianBlur stdDeviation="3.5" />
         </filter>
       </defs>
+      {grid && (
+        <g stroke="rgba(167,243,208,0.07)" strokeWidth="1">
+          {[0.25, 0.5, 0.75].map((k) => (
+            <line key={k} x1="0" y1={height * k} x2={width} y2={height * k} />
+          ))}
+          <line x1="0" y1={height - 4} x2={width} y2={height - 4} stroke="rgba(167,243,208,0.12)" />
+        </g>
+      )}
       <path d={path.area} fill={`url(#${gid})`} stroke="none" />
-      <path d={path.d} fill="none" stroke={stroke} strokeWidth="3" strokeLinejoin="round" opacity="0.55" filter={`url(#${gid}-blur)`} />
-      <path className="vd-chart-line" pathLength="1" d={path.d} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-      {path.end && <circle className="vd-end-dot" cx={path.end[0]} cy={path.end[1]} r="3" fill={stroke} />}
+      <path d={path.d} fill="none" stroke="var(--ley-green)" strokeWidth="3" strokeLinejoin="round" opacity="0.55" filter={`url(#${gid}-blur)`} />
+      <path className="vd-chart-line" pathLength="1" d={path.d} fill="none" stroke={`url(#${gid}-stroke)`} strokeWidth="2.2" strokeLinejoin="round" />
+      {path.end && (
+        <>
+          <circle cx={path.end[0]} cy={path.end[1]} r="3.2" fill="#6dffa1" />
+          <circle cx={path.end[0]} cy={path.end[1]} r="7" fill="none" stroke="rgba(109,255,161,0.35)" strokeWidth="1" />
+        </>
+      )}
     </svg>
   );
 }
@@ -179,29 +323,23 @@ export default function VaultDashboard({ onPick, fontFamily }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Depth = light (Colton, 2026-07-19): panels use the SYSTEM glass classes (.ley-glass — gradient
-  // wash + aura + lit top edge), never a flat fill with a hairline. The flat first cut read as stale
-  // next to the mock; the recipe already existed and simply wasn't used.
-  const tileLabel = { ...mono, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-green)" };
-  const glowNum = { textShadow: "0 0 16px var(--ley-green-glow), 0 0 2px var(--ley-green-glow)" };
-  const doorish = { cursor: "pointer" };
-
   const movers = data?.movers;
   const countPrintings = useCountUp(data?.uniquePrintings ?? 0);
   const countValue = useCountUp(data?.vaultValue ?? 0);
+  const series = data?.valueSeries || [];
+  const seriesPeak = series.length >= 2 ? Math.max(...series.map((p) => p.value)) : null;
 
   return (
-    <div style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, position: "relative", background: "radial-gradient(ellipse 100% 70% at 50% -10%, rgba(86,214,93,0.08) 0%, rgba(86,214,93,0.015) 36%, transparent 62%), var(--ley-bg)" }}>
+    <div className="vd-stage" style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, position: "relative" }}>
       <style>{VD_CSS}</style>
-      {/* The living light — plasma drifting in the void behind the glass (the boot-screen heartbeat). */}
-      <div className="vd-plasma" aria-hidden="true" style={{ width: "55%", height: "60%", left: "8%", top: "-18%", background: "radial-gradient(circle, rgba(57,245,126,0.11) 0%, rgba(57,245,126,0.035) 45%, transparent 70%)" }} />
-      <div className="vd-plasma2" aria-hidden="true" style={{ width: "45%", height: "55%", right: "12%", bottom: "-20%", background: "radial-gradient(circle, rgba(57,245,126,0.08) 0%, rgba(57,245,126,0.02) 50%, transparent 72%)" }} />
       {/* ── Main column ─────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
-        {/* Header: title + Rooms dropdown */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span className="vd-title" style={{ fontFamily: "var(--font-display), sans-serif", fontSize: 24, fontWeight: 800, letterSpacing: "0.09em" }}>THE VAULT</span>
-          <div style={{ marginLeft: "auto", position: "relative" }}>
+        {/* Header: safe dial + chrome title + Rooms dropdown */}
+        <div className="vd-rise" style={{ display: "flex", alignItems: "center", gap: 14, animationDelay: "40ms" }}>
+          <div className="vd-dial" title="The Vault" aria-hidden="true" />
+          <span className="vd-title" style={{ fontFamily: "var(--font-display), sans-serif" }}>THE VAULT</span>
+          <div className="vd-title-rule" aria-hidden="true" />
+          <div style={{ position: "relative" }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setRoomsOpen((o) => !o)} aria-expanded={roomsOpen}>
               Rooms ▾
             </button>
@@ -227,48 +365,48 @@ export default function VaultDashboard({ onPick, fontFamily }) {
 
         {/* ── Tile row ──────────────────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 1.6fr", gap: 12 }}>
-          <div className="ley-glass vd-tile vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "60ms" }} onClick={() => onPick?.("vault-census")} title="Open The Census">
-            <div style={tileLabel}>Unique printings</div>
-            <div style={{ ...mono, ...glowNum, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
+          <div className="ley-glass vd-pane vd-door vd-rise" style={{ padding: "14px 16px", animationDelay: "110ms" }} onClick={() => onPick?.("vault-census")} title="Open The Census">
+            <div className="vd-lab">Unique printings</div>
+            <div className="vd-num">
               {data ? Math.round(countPrintings).toLocaleString() : "—"}
             </div>
-            <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)" }}>{data ? `${data.totalQuantity.toLocaleString()} total copies` : ""}</div>
+            <div style={{ fontSize: 10.5, color: "var(--ley-text-dim)", marginTop: 2 }}>{data ? `${data.totalQuantity.toLocaleString()} total copies` : ""}</div>
           </div>
 
-          <div className="ley-glass vd-tile vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "140ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
-            <div style={tileLabel}>Vault value</div>
-            <div style={{ ...mono, ...glowNum, fontSize: 30, fontWeight: 700, color: "var(--ley-text)", marginTop: 4 }}>
+          <div className="ley-glass vd-pane vd-door vd-rise" style={{ padding: "14px 16px", animationDelay: "110ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+            <div className="vd-lab">Vault value</div>
+            <div className="vd-num">
               {data ? usd(countValue) : "—"}
             </div>
             <div style={{ height: 18, marginTop: 2 }}>
-              {data?.valueSeries?.length >= 2 && <Sparkline series={data.valueSeries} width={220} height={18} />}
+              {series.length >= 2 && <Sparkline series={series} width={220} height={18} />}
             </div>
           </div>
 
-          <div className="ley-glass vd-tile vd-rise" style={{ ...doorish, padding: "14px 16px", display: "flex", gap: 14, animationDelay: "220ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+          <div className="ley-glass vd-pane vd-door vd-rise" style={{ padding: "14px 16px", display: "flex", gap: 15, animationDelay: "110ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
             {movers?.status === "ok" ? (
               <>
                 <div style={{ flex: 1, display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
                   <CardThumb scryfallId={movers.winner.scryfallId} name={movers.winner.name} size={40} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={tileLabel}>Week's winner</div>
-                    <div style={{ ...mono, ...glowNum, fontSize: 20, fontWeight: 700, color: "var(--ley-green)" }}>+{movers.winner.pctChange.toFixed(0)}%</div>
+                    <div className="vd-lab">Week's winner</div>
+                    <div className="vd-delta vd-delta-up" style={{ marginTop: 4 }}>+{movers.winner.pctChange.toFixed(0)}%</div>
                     <div style={{ fontSize: 10, color: "var(--ley-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{movers.winner.name}</div>
                   </div>
                 </div>
-                <div style={{ width: 1, background: "var(--ley-line)" }} />
+                <div className="vd-groove" aria-hidden="true" />
                 <div style={{ flex: 1, display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
                   <CardThumb scryfallId={movers.loser.scryfallId} name={movers.loser.name} size={40} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={tileLabel}>Week's loser</div>
-                    <div style={{ ...mono, fontSize: 20, fontWeight: 700, color: "var(--ley-red)", textShadow: "0 0 14px rgba(248,113,113,0.4)" }}>{movers.loser.pctChange.toFixed(0)}%</div>
+                    <div className="vd-lab">Week's loser</div>
+                    <div className="vd-delta vd-delta-down" style={{ marginTop: 4 }}>{movers.loser.pctChange.toFixed(0)}%</div>
                     <div style={{ fontSize: 10, color: "var(--ley-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{movers.loser.name}</div>
                   </div>
                 </div>
               </>
             ) : (
               <div style={{ flex: 1 }}>
-                <div style={tileLabel}>Week's winner · loser</div>
+                <div className="vd-lab">Week's winner · loser</div>
                 <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 6, lineHeight: 1.45 }}>
                   Building a week of price history… {movers?.reason ? `(${movers.reason})` : ""}
                 </div>
@@ -277,19 +415,29 @@ export default function VaultDashboard({ onPick, fontFamily }) {
           </div>
         </div>
 
-        {/* ── Grails + value graph ──────────────────────────────────────────────── */}
+        {/* ── Grail case + value graph ──────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12 }}>
-          <div className="ley-glass vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "320ms" }} onClick={() => onPick?.("vault-gallery")} title="Open The Gallery">
-            <div style={tileLabel}>Collection grails</div>
+          <div className="ley-glass vd-pane vd-door vd-rise" style={{ padding: "14px 16px", animationDelay: "180ms" }} onClick={() => onPick?.("vault-gallery")} title="Open The Gallery">
+            <div className="vd-lab">Collection grails</div>
             {data?.grails?.length ? (
-              <div style={{ display: "flex", gap: 12, marginTop: 12, alignItems: "flex-end" }}>
-                {data.grails.map((g) => (
-                  <div key={g.scryfallId || g.name} className="vd-grail" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    <CardThumb scryfallId={g.scryfallId} name={g.name} size={92} />
-                    <div className="vd-pedestal" style={{ width: 70, height: 5, borderRadius: "50%", background: "var(--ley-green-dim)", animationDelay: `${(data.grails.indexOf(g) % 5) * 500}ms` }} />
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="vd-spotlight" aria-hidden="true" />
+                <div className="vd-shelf">
+                  {data.grails.map((g) => (
+                    <div key={g.scryfallId || g.name} className="vd-grail" style={{ width: 92 }}>
+                      {g.flagged && <div className="vd-gtag" title="Provenance piece — signed, altered, or showcase">★</div>}
+                      <CardThumb scryfallId={g.scryfallId} name={g.name} size={92} />
+                      <div className="vd-refl" aria-hidden="true">
+                        <div className="vd-refl-inner">
+                          <CardThumb scryfallId={g.scryfallId} name={g.name} size={92} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="vd-floorline" aria-hidden="true" />
+                <div style={{ height: 56 }} aria-hidden="true" />
+              </>
             ) : (
               <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 10, lineHeight: 1.5 }}>
                 No treasure on the shelf yet — flag a card as signed, altered, or ★ showcase in The Stacks, or add cards worth $50+.
@@ -297,10 +445,17 @@ export default function VaultDashboard({ onPick, fontFamily }) {
             )}
           </div>
 
-          <div className="ley-glass vd-rise" style={{ ...doorish, padding: "14px 16px", animationDelay: "400ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
-            <div style={tileLabel}>Value</div>
-            {data?.valueSeries?.length >= 2 ? (
-              <div style={{ marginTop: 8 }}><Sparkline series={data.valueSeries} width={340} height={140} /></div>
+          <div className="ley-glass vd-pane vd-door vd-rise" style={{ padding: "14px 16px", animationDelay: "250ms" }} onClick={() => onPick?.("vault-ledger")} title="Open The Ledger">
+            <div className="vd-lab">Value</div>
+            {series.length >= 2 ? (
+              <div style={{ marginTop: 8 }}>
+                <Sparkline series={series} width={340} height={140} grid />
+                <div className="vd-chart-notes">
+                  <span>{monthLabel(series[0])} · {usd(series[0].value)}</span>
+                  <span>PEAK {usd(seriesPeak)}</span>
+                  <span>NOW · {usd(series[series.length - 1].value)}</span>
+                </div>
+              </div>
             ) : (
               <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 10, lineHeight: 1.5 }}>
                 The value line draws itself as daily price snapshots accumulate — check back tomorrow.
@@ -310,36 +465,35 @@ export default function VaultDashboard({ onPick, fontFamily }) {
         </div>
 
         {/* ── My Collection table ───────────────────────────────────────────────── */}
-        <div className="ley-glass vd-rise" style={{ padding: "14px 16px", animationDelay: "480ms" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-            <div style={tileLabel}>My collection</div>
-            <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => onPick?.("collection")}>
+        <div className="ley-glass vd-pane vd-rise" style={{ padding: "14px 16px", animationDelay: "320ms" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="vd-lab" style={{ flex: 1 }}>My collection</div>
+            <button className="btn btn-ghost btn-sm" onClick={() => onPick?.("collection")}>
               Open The Stacks →
             </button>
           </div>
           {data?.rows?.length ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 22, marginTop: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 26, marginTop: 8 }}>
               {[0, 1].map((col) => (
                 <table key={col} style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                   <thead>
-                    <tr style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ley-text-dim)" }}>
-                      <th style={{ textAlign: "left", padding: "4px 6px" }}>Card</th>
-                      <th style={{ textAlign: "right", padding: "4px 6px" }}>Qty</th>
-                      <th style={{ textAlign: "right", padding: "4px 6px" }}>Price</th>
+                    <tr style={{ ...mono, fontSize: 9.5, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--ley-text-dim)" }}>
+                      <th style={{ textAlign: "left", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Card</th>
+                      <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Qty</th>
+                      <th style={{ textAlign: "right", padding: "5px 7px", borderBottom: "1px solid rgba(57,245,126,0.34)" }}>Price</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.rows.slice(col * 6, col * 6 + 6).map((r) => (
                       <tr
                         key={r.scryfallId || r.name}
-                        style={{ borderTop: "1px solid var(--ley-line)", cursor: "pointer" }}
+                        className="vd-row"
+                        style={{ borderTop: "1px solid var(--ley-line)" }}
                         onClick={() => onPick?.("collection")}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--ley-green-faint)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                       >
-                        <td style={{ padding: "7px 6px", color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{r.name}</td>
-                        <td style={{ ...mono, padding: "7px 6px", textAlign: "right", color: "var(--ley-text-dim)" }}>{r.qty}</td>
-                        <td style={{ ...mono, padding: "7px 6px", textAlign: "right", color: "var(--ley-text)" }}>{usd(r.unit)}</td>
+                        <td style={{ padding: "8px 7px", color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{r.name}</td>
+                        <td style={{ padding: "8px 7px", textAlign: "right" }}><span className="vd-qty">{r.qty}</span></td>
+                        <td style={{ ...mono, padding: "8px 7px", textAlign: "right", color: "#a7f3d0", fontVariantNumeric: "tabular-nums" }}>{usd(r.unit)}</td>
                       </tr>
                     ))}
                   </tbody>

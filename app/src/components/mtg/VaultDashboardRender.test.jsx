@@ -58,6 +58,17 @@ describe("VaultDashboard — static chrome renders", () => {
     expect(out).toContain("Vault value");
     expect(out).toContain("My collection");
   });
+
+  // THE PULSE BAN (Colton, 2026-07-19: "not a fan of the pulsing") — standing design law for this
+  // room: no looping motion, ever. The component inlines all its CSS in a <style> tag, so the
+  // rendered markup IS the animation surface — any `infinite` animation is a law violation the
+  // suite must catch, not a taste note a future session has to remember.
+  it("emits ZERO looping animations — motion is hover + one-shot entrance only", () => {
+    const raw = renderToStaticMarkup(createElement(VaultDashboard, { onPick: noop, fontFamily: "Inter" }));
+    expect(raw).not.toMatch(/\binfinite\b/);
+    expect(raw).toMatch(/vd-pane/);   // the material kit actually rendered (guards against a hollow pass
+    expect(raw).toMatch(/vd-dial/);   // where the styling was deleted along with the loops)
+  });
 });
 
 describe("VaultRail — the widget canvases in both data states", () => {
