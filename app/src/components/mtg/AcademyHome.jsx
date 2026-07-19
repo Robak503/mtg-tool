@@ -67,9 +67,21 @@ const DOORS = [
 
 const mono = { fontFamily: "var(--font-mono), monospace" };
 
+/* The showpiece carousel's three screens (Colton: "different things we could switch
+   through… today's trial, then the mulligan hands, then 3 weird rules of the day").
+   Each page keeps the whole pane as a DOOR to its own hall. */
+const PAGES = [
+  { key: "trial", label: "Today's trial", door: "judge" },
+  { key: "hands", label: "Mulligan hands", door: "mulligan-reps" },
+  { key: "weird", label: "Weird rules of the day", door: "library" },
+];
+
 export default function AcademyHome({ onPick, fontFamily }) {
   const [stats, setStats] = useState(null);   // { total, levels, ready } | null while loading
   const [trial, setTrial] = useState(null);   // today's sealed case | null
+  const [hand, setHand] = useState(null);     // { deck, cards } | { none: true } | null while loading
+  const [weird, setWeird] = useState(null);   // { ready, rules } | null while loading
+  const [page, setPage] = useState(0);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -89,10 +101,29 @@ export default function AcademyHome({ onPick, fontFamily }) {
         if (alive) setError(e.message);
       }
     })();
+    // The other two screens load independently — a failure in one never blanks the others.
+    (async () => {
+      try {
+        const w = await (await fetch("/api/weird-rules")).json();
+        if (alive) setWeird(w);
+      } catch { if (alive) setWeird({ ready: false, rules: [] }); }
+    })();
+    (async () => {
+      try {
+        const post = (body) => fetch("/api/golden-hands", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+        const d = await post({ action: "decks" });
+        if (!alive) return;
+        if (!d?.decks?.length) { setHand({ none: true }); return; }
+        const dealt = await post({ action: "deal" });
+        if (alive) setHand(dealt?.cards ? dealt : { none: true });
+      } catch { if (alive) setHand({ none: true }); }
+    })();
     return () => { alive = false; };
   }, []);
 
   const countCases = useCountUp(stats?.total ?? 0);
+  const pg = PAGES[page];
+  const flip = (dir) => (e) => { e.stopPropagation(); setPage((p) => (p + dir + PAGES.length) % PAGES.length); };
 
   return (
     <div className="ley-stage" style={{ flex: 1, display: "flex", gap: 16, padding: "20px 22px", overflow: "hidden", fontFamily, minHeight: 0, position: "relative" }}>
@@ -131,9 +162,20 @@ export default function AcademyHome({ onPick, fontFamily }) {
 
         {/* ── Today's trial (the showpiece) + hall doors — stretches to the floor ── */}
         <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 12, flex: 1, minHeight: 340 }}>
-          <div className="ley-glass ley-pane ley-door ley-rise" style={{ padding: "14px 16px", animationDelay: "180ms" }} onClick={() => onPick?.("judge")} title="Take today's trial">
-            <div className="ley-lab">Today's trial</div>
-            {trial ? (
+          <div className="ley-glass ley-pane ley-door ley-rise" style={{ padding: "14px 16px", animationDelay: "180ms", display: "flex", flexDirection: "column" }} onClick={() => onPick?.(pg.door)} title={`Open ${pg.label}`}>
+            {/* Carousel masthead: label + pager (arrows never fire the door) */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div className="ley-lab" style={{ flex: 1 }}>{pg.label}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                {PAGES.map((p, i) => (
+                  <span key={p.key} aria-hidden style={{ width: 5, height: 5, borderRadius: "50%", background: i === page ? "var(--ley-green)" : "var(--ley-line)", boxShadow: i === page ? "0 0 6px var(--ley-green-glow)" : "none" }} />
+                ))}
+                <button className="btn btn-ghost btn-sm" aria-label="Previous screen" onClick={flip(-1)} style={{ padding: "1px 8px" }}>◂</button>
+                <button className="btn btn-ghost btn-sm" aria-label="Next screen" onClick={flip(1)} style={{ padding: "1px 8px" }}>▸</button>
+              </div>
+            </div>
+
+            {pg.key === "trial" && (trial ? (
               <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                 {/* RulesGuru titles ARE the question — only render a title when it adds something. */}
                 {trial.title && !String(trial.scenario || "").startsWith(String(trial.title).slice(0, 30)) && (
@@ -160,7 +202,52 @@ export default function AcademyHome({ onPick, fontFamily }) {
                   ? "The judge corpus isn't bundled on this install — sync data from the Updates panel to open the trials."
                   : "Drawing today's case from the corpus…"}
               </div>
-            )}
+            ))}
+
+            {pg.key === "hands" && (hand?.cards ? (
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)" }}>
+                  A real seven off <b style={{ color: "var(--ley-text)" }}>{hand.deck?.name || "your deck"}</b> — would you keep it?
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {hand.cards.map((c, i) => (
+                    <div key={`${c.name}-${i}`} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5, borderTop: i ? "1px solid var(--ley-line)" : "none", paddingTop: i ? 4 : 0 }}>
+                      <span style={{ color: "var(--ley-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                      <span style={{ ...mono, fontSize: 10.5, color: "var(--ley-text-dim)", flexShrink: 0 }}>{c.mana_cost || ""}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ ...mono, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-green)", marginTop: 4 }}>
+                  Keep or ship? — judge it in Mulligan Reps ▸
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 10, lineHeight: 1.5 }}>
+                {hand?.none
+                  ? "No decks on the shelf yet — import a deck and real opening hands will be dealt here."
+                  : "Dealing a hand…"}
+              </div>
+            ))}
+
+            {pg.key === "weird" && (weird?.ready && weird.rules?.length ? (
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+                {weird.rules.map((r) => (
+                  <div key={r.ruleNumber}>
+                    <span className="ley-qty" style={{ fontSize: 10.5, padding: "2px 8px", marginRight: 8 }}>CR {r.ruleNumber}</span>
+                    <span style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.55 }}>{r.ruleText}</span>
+                  </div>
+                ))}
+                <div style={{ ...mono, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ley-green)", marginTop: 2 }}>
+                  Straight from the Comprehensive Rules — read more in Rules & Rulings ▸
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 10, lineHeight: 1.5 }}>
+                {weird && !weird.ready
+                  ? "The rules corpus isn't readable on this install — sync data from the Updates panel."
+                  : "Leafing through the odd corners of the rules…"}
+              </div>
+            ))}
           </div>
 
           {/* Hall doors — machined, engraved */}

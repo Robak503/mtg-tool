@@ -29,6 +29,7 @@ function doorStatus(areaId, house) {
   if (!house) return "…";
   if (areaId === "proving") return house.games === 1 ? "1 game kept, full tail" : `${house.games ?? 0} games kept, full tails`;
   if (areaId === "academy") return house.judgeReady ? `${house.judgeCases} judge cases ready to try you` : "trial corpus awaits a data sync";
+  if (areaId === "foundry") return house.decks > 0 ? `${house.decks} deck${house.decks === 1 ? "" : "s"} on the bench` : "the bench awaits its first build";
   if (areaId === "vault") return house.printings > 0 ? `${house.printings.toLocaleString()} printings · ${usd(house.vaultValue)} under glass` : "the shelves await your first cards";
   return null;
 }
@@ -56,10 +57,11 @@ export default function LandingScreen({
       const grab = async (url) => {
         try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch { return null; }
       };
-      const [records, quiz, dash] = await Promise.all([
+      const [records, quiz, dash, decks] = await Promise.all([
         grab("/api/records"),
         grab("/api/judge-quiz"),
         grab("/api/collection/dashboard"),
+        grab("/api/decks"),
       ]);
       if (!alive) return;
       setHouse({
@@ -68,6 +70,7 @@ export default function LandingScreen({
         judgeCases: quiz?.total ?? 0,
         printings: dash?.uniquePrintings ?? 0,
         vaultValue: dash?.vaultValue ?? 0,
+        decks: Array.isArray(decks?.decks) ? decks.decks.length : 0,
       });
     })();
     return () => { alive = false; };

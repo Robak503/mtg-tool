@@ -56,6 +56,7 @@ import { AREAS } from "./mtg/areas";
 import LandingScreen from "./mtg/LandingScreen";
 import AreaBar from "./mtg/AreaBar";
 import AgentsHome from "./mtg/AgentsHome";
+import FoundryHome from "./mtg/FoundryHome";
 import ProvingHome from "./mtg/ProvingHome";
 import AcademyHome from "./mtg/AcademyHome";
 import VaultDashboard from "./mtg/VaultDashboard";
@@ -1557,6 +1558,16 @@ export default function MTGAssistant() {
                 onKarn={() => { pickAgent("karn"); setCenterView("chat"); }}
                 onTibalt={() => { pickAgent("tibalt"); setCenterView("chat"); }}
                 onPodBalance={() => { setArea("proving"); setCenterView("podbalance"); }}
+                fontFamily={F}
+              />
+            ):centerView==="foundry-home"?(
+              /* THE FOUNDRY (Karn's zone): the bench front door. Opening a deck jumps into the
+                 proven deck surfaces under their existing area chrome — zero regression while
+                 the bench itself migrates rail-first (transitional, flagged with Colton). */
+              <FoundryHome
+                savedDecks={savedDecks}
+                onOpenDeck={(deckId) => { setActiveDeckId(deckId); setArea("agents"); setCenterView("deck"); }}
+                onImport={() => { setArea("agents"); setCenterView("import"); }}
                 fontFamily={F}
               />
             ):centerView==="vault-home"?(

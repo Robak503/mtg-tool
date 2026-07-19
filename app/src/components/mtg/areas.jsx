@@ -196,6 +196,29 @@ export function VaultIcon({ size = 64 }) {
   );
 }
 
+/* The Foundry — an anvil throwing a hot spark. */
+export function FoundryIcon({ size = 64 }) {
+  const g = "#56d65d", dim = "#2e9a3f", hi = "#74ff86";
+  return (
+    <PixelSvg
+      size={size}
+      label="Foundry icon"
+      rows={[
+        [10, 1, 1, hi],
+        [9, 2, 1, hi], [11, 2, 1, hi],
+        [2, 3, 8, dim],
+        [1, 4, 10, g],
+        [2, 5, 8, g],
+        [4, 6, 4, dim],
+        [4, 7, 4, dim],
+        [3, 8, 6, g],
+        [2, 9, 8, dim],
+        [1, 10, 10, dim],
+      ]}
+    />
+  );
+}
+
 /* The Library — an open book. */
 export function LibraryIcon({ size = 64 }) {
   const g = "#56d65d", dim = "#2e9a3f", hi = "#74ff86";
@@ -242,6 +265,15 @@ export const AREAS = [
     tagline: "Learn to play · Judge Trials · Rules",
     icon: LibraryIcon,
     defaultView: "academy-home",
+  },
+  {
+    // Karn's zone (Colton, 2026-07-19): building + theorycrafting decks — the bench
+    // done right. Decks live here as CRAFTED objects; the Vault keeps the finance view.
+    id: "foundry",
+    title: "The Foundry",
+    tagline: "Build decks · theorycraft · Karn's bench",
+    icon: FoundryIcon,
+    defaultView: "foundry-home",
   },
   {
     id: "vault",

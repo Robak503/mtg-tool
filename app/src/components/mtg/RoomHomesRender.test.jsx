@@ -17,6 +17,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ProvingHome from "./ProvingHome.jsx";
 import AcademyHome from "./AcademyHome.jsx";
 import AgentsHome from "./AgentsHome.jsx";
+import FoundryHome from "./FoundryHome.jsx";
 import LandingScreen from "./LandingScreen.jsx";
 
 const noop = () => {};
@@ -62,6 +63,51 @@ describe("AcademyHome — The Academy in the register", () => {
     expect(out).toContain("Karn");
     expect(out).toContain("Teferi");
   });
+
+  it("the showpiece is a CAROUSEL: pager present, trial page first (Colton: trial ▸ hands ▸ weird rules)", () => {
+    const raw = renderToStaticMarkup(createElement(AcademyHome, { onPick: noop, fontFamily: "Inter" }));
+    const out = text(createElement(AcademyHome, { onPick: noop, fontFamily: "Inter" }));
+    expect(out).toContain("Today's trial");                 // page 1 renders in the pre-fetch frame
+    expect(raw).toContain('aria-label="Next screen"');      // the pager exists
+    expect(raw).toContain('aria-label="Previous screen"');
+  });
+});
+
+describe("FoundryHome — Karn's zone in the register", () => {
+  it("masthead + the bench + Karn's rail render; empty bench invites AND has the start button", () => {
+    const raw = renderToStaticMarkup(createElement(FoundryHome, { savedDecks: [], onOpenDeck: noop, onImport: noop, fontFamily: "Inter" }));
+    const out = text(createElement(FoundryHome, { savedDecks: [], onOpenDeck: noop, onImport: noop, fontFamily: "Inter" }));
+    expect(out).toContain("THE FOUNDRY");
+    expect(out).toContain("The bench");
+    expect(out).toContain("KARN");
+    expect(out).toContain("Tibalt");                        // the roast is a standing offer
+    expect(out).toContain("The bench is empty");            // honest empty state
+    expect(out).toContain("Start your first deck");         // Colton: a start button IN the bench
+    expect(raw).toMatch(/ley-pane/);
+    expect(raw).not.toMatch(/\binfinite\b/);
+  });
+
+  it("the bench is a WIP LEDGER: name · commander · x/100 locked (commander = lock #1)", () => {
+    const decks = [
+      { id: "d1", name: "Omnath Stomp", cards: [
+        { name: "Omnath, Locus of Mana", qty: 1, section: "Commander" },
+        { name: "Forest", qty: 40, section: "Main" },
+      ] },
+      { id: "d2", name: "Fresh Start", cards: [
+        { name: "Vihaan, Goldwaker", qty: 1, section: "Commander" },
+      ] },
+      { id: "d3", name: "Headless Pile", cards: [
+        { name: "Forest", qty: 5, section: "Main" },
+      ] },
+    ];
+    const out = text(createElement(FoundryHome, { savedDecks: decks, onOpenDeck: noop, onImport: noop, fontFamily: "Inter" }));
+    expect(out).toContain("Omnath Stomp");
+    expect(out).toContain("Omnath, Locus of Mana");
+    expect(out).toContain("41/100");                        // locked count off the real rows
+    expect(out).toContain("1/100");                         // commander alone = the first lock
+    expect(out).toContain("no commander locked");           // headless deck says so — no invented floor
+    expect(out).toContain("Start a new deck");              // the bench button, populated state too
+  });
 });
 
 describe("AgentsHome — the specialists' hall in the register", () => {
@@ -79,11 +125,12 @@ describe("AgentsHome — the specialists' hall in the register", () => {
 });
 
 describe("LandingScreen — the front hall: three zones + the Keeper", () => {
-  it("exactly three zone doors render — the Agents door is gone (agents live in rails now)", () => {
+  it("four zone doors — Crucible · Academy · Foundry · Vault; the Agents door stays gone", () => {
     const raw = renderToStaticMarkup(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
     const out = text(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
     expect(out).toContain("The Crucible");
     expect(out).toContain("The Academy");
+    expect(out).toContain("The Foundry");      // Karn's zone joins the hall
     expect(out).toContain("The Vault");
     expect(out).not.toContain("The Agents");   // Colton's call: the agent box is gone from the landing
     expect(raw).toMatch(/ley-pane/);
