@@ -87,6 +87,20 @@ export function bestFoilTreatment(foilTypes) {
 }
 
 /**
+ * Display label for one OWNED finish line (the Vault ledger's Finish column —
+ * Colton, 2026-07-19: "basic foil just label being foil… but we also have halo
+ * foil, surge foil, mana foil, oil slick"). Plain finishes stay plain; a foil
+ * line is upgraded to the printing's special treatment name when its foilTypes
+ * name one. Unknown/absent foilTypes degrade to "Foil" — never invented.
+ */
+export function finishDisplayLabel(finish, foilTypes) {
+  if (finish === "etched") return "Etched";
+  if (finish !== "foil") return "Normal";
+  const special = bestFoilTreatment(foilTypes);
+  return special ? foilTreatmentLabel(special) : "Foil";
+}
+
+/**
  * Ordered, selectable treatment buttons for one printing.
  * Returns [{ finish, label, treatment }] — Normal first, then the (special or
  * plain) Foil, then Etched — driven by the printing's `finishes`. The foil

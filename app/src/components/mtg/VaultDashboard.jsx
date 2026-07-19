@@ -531,7 +531,7 @@ export default function VaultDashboard({ onPick, fontFamily }) {
                     </td>
                     <td style={{ ...mono, padding: "8px 7px", fontSize: 10.5, color: "var(--ley-text-dim)", whiteSpace: "nowrap" }}>{r.collectorNumber || "—"}</td>
                     <td style={{ padding: "8px 7px", fontSize: 11, color: r.finish === "nonfoil" ? "var(--ley-text-dim)" : "#a7f3d0", whiteSpace: "nowrap" }}>
-                      {r.finish === "nonfoil" ? "Normal" : `✦ ${r.finish[0].toUpperCase()}${r.finish.slice(1)}`}
+                      {r.finish === "nonfoil" ? "Normal" : `✦ ${r.finishLabel || `${r.finish[0].toUpperCase()}${r.finish.slice(1)}`}`}
                     </td>
                     <td style={{ padding: "8px 7px", textAlign: "right" }}><span className="vd-qty">{r.qty}</span></td>
                     <td style={{ ...mono, padding: "8px 7px", textAlign: "right", color: "#a7f3d0", fontVariantNumeric: "tabular-nums" }}>{usd(r.unit)}</td>

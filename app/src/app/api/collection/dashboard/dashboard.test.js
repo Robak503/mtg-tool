@@ -186,5 +186,9 @@ describe("grails + rows", () => {
     expect(byFinish.foil.qty).toBe(1);
     expect(byFinish.foil.unit).toBeCloseTo(12.4, 2);    // the foil line wears the FOIL price
     expect(body.rows[0].finish).toBe("foil");           // sorted by line value: 12.40 > 3×1.86
+    // Finish labels are honest: plain names in a sandbox with no printings index —
+    // a special treatment ("Surge Foil" etc.) may only ever come off the real index.
+    expect(byFinish.nonfoil.finishLabel).toBe("Normal");
+    expect(byFinish.foil.finishLabel).toBe("Foil");
   });
 });

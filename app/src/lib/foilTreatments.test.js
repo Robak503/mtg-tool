@@ -5,7 +5,30 @@ import {
   foilTreatmentLabel,
   bestFoilTreatment,
   treatmentButtons,
+  finishDisplayLabel,
 } from "./foilTreatments.js";
+
+describe("finishDisplayLabel — the Vault ledger's Finish column (Colton, 2026-07-19)", () => {
+  it("names his exact examples: halo / surge / mana / oil slick", () => {
+    expect(finishDisplayLabel("foil", ["halofoil"])).toBe("Halo Foil");
+    expect(finishDisplayLabel("foil", ["surgefoil"])).toBe("Surge Foil");
+    expect(finishDisplayLabel("foil", ["manafoil"])).toBe("Mana Foil");
+    expect(finishDisplayLabel("foil", ["oilslick"])).toBe("Oil Slick Foil");
+  });
+  it("basic foil stays plain 'Foil' — index absent or no treatment → never a guessed name", () => {
+    expect(finishDisplayLabel("foil", [])).toBe("Foil");
+    expect(finishDisplayLabel("foil", null)).toBe("Foil");
+    expect(finishDisplayLabel("foil", undefined)).toBe("Foil");
+  });
+  it("nonfoil is Normal, etched is Etched — foilTypes noise never leaks across finishes", () => {
+    expect(finishDisplayLabel("nonfoil", ["surgefoil"])).toBe("Normal");
+    expect(finishDisplayLabel(undefined, null)).toBe("Normal");
+    expect(finishDisplayLabel("etched", ["halofoil"])).toBe("Etched");
+  });
+  it("a specific treatment beats a generic substrate descriptor", () => {
+    expect(finishDisplayLabel("foil", ["raisedfoil", "oilslick"])).toBe("Oil Slick Foil");
+  });
+});
 
 describe("isFoilTreatment", () => {
   it("accepts *foil promo_types", () => {

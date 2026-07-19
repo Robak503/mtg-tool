@@ -35,6 +35,7 @@ import { loadCollection, CollectionVersionMismatch } from "../../../../lib/serve
 import { enrichCollectionPrices } from "../../../../lib/server/priceResolution.js";
 import { parseHistory, computeCardMovers, collectionValueSeries } from "../../../../lib/server/collectionPrices.js";
 import { buildDailyShelf, rowUnitValue, finishUnitValue } from "../../../../lib/showpiece.js";
+import { finishDisplayLabel } from "../../../../lib/foilTreatments.js";
 import { lookupById } from "../../../../lib/server/printingIndex.js";
 import { profilePath, dataPath } from "../../../../lib/server/paths.js";
 
@@ -113,26 +114,31 @@ export async function GET() {
 
   const valueSeries = collectionValueSeries(enriched, history, { maxPoints: 90 });
 
-  // Best-effort full set name for the tooltip; the printings index is absent in a fresh dev
-  // tree, so null (UI shows the code alone) rather than a guessed name.
-  const setNameOf = (r) => {
+  // Best-effort printing lookup for display extras (full set name, special foil type);
+  // the index is absent in a fresh dev tree, so degrade to null/plain — never guessed.
+  const printingOf = (r) => {
     if (!r.scryfallId) return null;
-    try { return lookupById(r.scryfallId)?.setName || null; } catch { return null; }
+    try { return lookupById(r.scryfallId) || null; } catch { return null; }
   };
 
   const rows = owned
-    .flatMap((r) => (r.stacks || [])
-      .filter((s) => (s.quantity || 0) > 0)
-      .map((s) => ({
-        scryfallId: r.scryfallId,
-        name: r.name,
-        set: r.setCode ? String(r.setCode).toUpperCase() : null,
-        setName: setNameOf(r),
-        collectorNumber: r.collectorNumber || null,
-        finish: s.finish || "nonfoil",
-        qty: s.quantity,
-        unit: finishUnitValue(r, s.finish),
-      })))
+    .flatMap((r) => {
+      const printing = printingOf(r);
+      return (r.stacks || [])
+        .filter((s) => (s.quantity || 0) > 0)
+        .map((s) => ({
+          scryfallId: r.scryfallId,
+          name: r.name,
+          set: r.setCode ? String(r.setCode).toUpperCase() : null,
+          setName: printing?.setName || null,
+          collectorNumber: r.collectorNumber || null,
+          finish: s.finish || "nonfoil",
+          // "Halo Foil" / "Surge Foil" / … off the printing's foilTypes; plain "Foil" without them.
+          finishLabel: finishDisplayLabel(s.finish || "nonfoil", printing?.foilTypes),
+          qty: s.quantity,
+          unit: finishUnitValue(r, s.finish),
+        }));
+    })
     .sort((a, b) => b.unit * b.qty - a.unit * a.qty);
 
   return Response.json({
