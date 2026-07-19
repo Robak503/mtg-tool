@@ -127,115 +127,170 @@ export function TibaltPixel({ size = 96 }) {
   );
 }
 
-/* ── Area icons (same pixel language, LEYLINE green family) ─────────── */
+/* ── Area icons — GREEN SCAN style (Colton, 2026-07-19: "move away from the
+   pixel art… make them look like a green scan of what the object is — the
+   anvil looks like a real anvil with a green scan-style wash over it").
+   Real object contours, drawn as stroke paths, washed in a phosphor gradient
+   with SCANLINES clipped to the silhouette. Matrix/Xbox green kept. Inline SVG
+   only — the .exe still ships zero image assets. ─────────────────────── */
 
-/* The Agents — a speech rune. */
-export function AgentsIcon({ size = 64 }) {
-  const g = "#56d65d", dim = "#2e9a3f";
+/* Shared scan treatment: per-icon unique id prefix (several render per page). */
+function ScanDefs({ p }) {
   return (
-    <PixelSvg
+    <defs>
+      <linearGradient id={`${p}-stroke`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#a7f3d0" />
+        <stop offset="55%" stopColor="#56d65d" />
+        <stop offset="100%" stopColor="#1d9e54" />
+      </linearGradient>
+      <linearGradient id={`${p}-wash`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="rgba(86,214,93,0.26)" />
+        <stop offset="100%" stopColor="rgba(86,214,93,0.05)" />
+      </linearGradient>
+      <pattern id={`${p}-scan`} width="4" height="3" patternUnits="userSpaceOnUse">
+        <rect width="4" height="1" fill="rgba(167,243,208,0.45)" />
+      </pattern>
+    </defs>
+  );
+}
+
+/** One scanned object: silhouette gets the wash + scanlines, contours get the gradient stroke. */
+function ScanSvg({ size, label, p, silhouette, contours }) {
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} role="img" aria-label={label} style={{ display: "block" }}>
+      <ScanDefs p={p} />
+      <clipPath id={`${p}-clip`}>{silhouette}</clipPath>
+      <g clipPath={`url(#${p}-clip)`}>
+        <rect x="0" y="0" width="64" height="64" fill={`url(#${p}-wash)`} />
+        <rect x="0" y="0" width="64" height="64" fill={`url(#${p}-scan)`} opacity="0.5" />
+      </g>
+      <g fill="none" stroke={`url(#${p}-stroke)`} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round">
+        {contours}
+      </g>
+    </svg>
+  );
+}
+
+/* Omnath's mark — a hearth flame (his zone lives in the bottom bar, not the landing). */
+export function OmnathIcon({ size = 64 }) {
+  const flame = "M32 6 C38 16 47 22 47 36 C47 48 40 56 32 56 C24 56 17 48 17 36 C17 28 21 24 24 17 C26 23 29 25 31 22 C28 16 30 10 32 6 Z";
+  const inner = "M32 30 C36 35 39 38 39 44 C39 50 36 53 32 53 C28 53 25 50 25 44 C25 39 28 35 32 30 Z";
+  return (
+    <ScanSvg
       size={size}
-      label="Agents icon"
-      rows={[
-        [2, 1, 8, dim],
-        [1, 2, 10, g],
-        [1, 3, 10, g],
-        [1, 4, 2, g], [4, 4, 1, "#05130a"], [6, 4, 1, "#05130a"], [8, 4, 3, g],
-        [1, 5, 10, g],
-        [1, 6, 10, g],
-        [2, 7, 9, dim],
-        [3, 8, 2, g],
-        [3, 9, 1, dim],
-      ]}
+      label="Omnath icon"
+      p="scan-om"
+      silhouette={<path d={flame} />}
+      contours={<><path d={flame} /><path d={inner} /></>}
     />
   );
 }
 
-/* The Proving Grounds — crossed blades. */
+/* The Crucible — crossed swords, real blades. */
 export function ProvingIcon({ size = 64 }) {
-  const g = "#56d65d", dim = "#2e9a3f", hi = "#74ff86";
+  const bladeA = "M10 8 L16 6 L46 36 L42 42 Z";
+  const bladeB = "M54 8 L48 6 L18 36 L22 42 Z";
   return (
-    <PixelSvg
+    <ScanSvg
       size={size}
-      label="Proving Grounds icon"
-      rows={[
-        [1, 1, 1, hi], [10, 1, 1, hi],
-        [2, 2, 1, g], [9, 2, 1, g],
-        [3, 3, 1, g], [8, 3, 1, g],
-        [4, 4, 1, g], [7, 4, 1, g],
-        [5, 5, 2, hi],
-        [5, 6, 2, hi],
-        [4, 7, 1, g], [7, 7, 1, g],
-        [3, 8, 1, g], [8, 8, 1, g],
-        [2, 9, 2, dim], [8, 9, 2, dim],
-        [1, 10, 2, dim], [9, 10, 2, dim],
-      ]}
+      label="Crucible icon"
+      p="scan-cru"
+      silhouette={<><path d={bladeA} /><path d={bladeB} /></>}
+      contours={
+        <>
+          <path d={bladeA} />
+          <path d={bladeB} />
+          {/* crossguards, grips, pommels */}
+          <path d="M38 44 L50 32" strokeWidth="2.5" />
+          <path d="M26 44 L14 32" strokeWidth="2.5" />
+          <path d="M46 40 L54 48" strokeWidth="3" />
+          <path d="M18 40 L10 48" strokeWidth="3" />
+          <circle cx="56" cy="50" r="2.4" />
+          <circle cx="8" cy="50" r="2.4" />
+        </>
+      }
     />
   );
 }
 
-/* The Vault — a chest with a glowing gem. */
+/* The Vault — a round bank-vault door: rings, spoke wheel, bolts. */
 export function VaultIcon({ size = 64 }) {
-  const g = "#56d65d", dim = "#2e9a3f", hi = "#74ff86", dark = "#123516";
   return (
-    <PixelSvg
+    <ScanSvg
       size={size}
       label="Vault icon"
-      rows={[
-        [2, 2, 8, dim],
-        [1, 3, 10, g],
-        [1, 4, 10, g],
-        [1, 5, 4, g], [5, 5, 2, hi], [7, 5, 4, g],
-        [1, 6, 10, dark],
-        [1, 7, 10, g],
-        [1, 8, 10, g],
-        [1, 9, 10, g],
-        [2, 10, 8, dim],
-      ]}
+      p="scan-vau"
+      silhouette={<circle cx="32" cy="32" r="26" />}
+      contours={
+        <>
+          <circle cx="32" cy="32" r="26" />
+          <circle cx="32" cy="32" r="19" />
+          <circle cx="32" cy="32" r="6" />
+          {/* the spoke wheel */}
+          {[0, 60, 120, 180, 240, 300].map((deg) => {
+            const rad = (deg * Math.PI) / 180;
+            const x1 = 32 + 6 * Math.cos(rad), y1 = 32 + 6 * Math.sin(rad);
+            const x2 = 32 + 19 * Math.cos(rad), y2 = 32 + 19 * Math.sin(rad);
+            return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth="2.2" />;
+          })}
+          {/* rim bolts */}
+          {[30, 90, 150, 210, 270, 330].map((deg) => {
+            const rad = (deg * Math.PI) / 180;
+            return <circle key={deg} cx={32 + 22.5 * Math.cos(rad)} cy={32 + 22.5 * Math.sin(rad)} r="1.4" />;
+          })}
+        </>
+      }
     />
   );
 }
 
-/* The Foundry — an anvil throwing a hot spark. */
+/* The Foundry — a real anvil: horn, face, waist, flared base. */
 export function FoundryIcon({ size = 64 }) {
-  const g = "#56d65d", dim = "#2e9a3f", hi = "#74ff86";
+  const body =
+    "M6 21 C11 16 19 15 26 15 L52 15 C56 15 58 17 58 20 L58 24 C58 27 55 29 51 29 L42 29 " +
+    "L44 35 C44 37 42 38 40 39 L40 44 C40 45 41 46 43 47 L48 49 C51 50 52 52 52 56 L12 56 " +
+    "C12 52 13 50 16 49 L21 47 C23 46 24 45 24 44 L24 39 C22 38 20 37 20 35 L22 29 L16 29 " +
+    "C11 29 8 25 6 21 Z";
   return (
-    <PixelSvg
+    <ScanSvg
       size={size}
       label="Foundry icon"
-      rows={[
-        [10, 1, 1, hi],
-        [9, 2, 1, hi], [11, 2, 1, hi],
-        [2, 3, 8, dim],
-        [1, 4, 10, g],
-        [2, 5, 8, g],
-        [4, 6, 4, dim],
-        [4, 7, 4, dim],
-        [3, 8, 6, g],
-        [2, 9, 8, dim],
-        [1, 10, 10, dim],
-      ]}
+      p="scan-fou"
+      silhouette={<path d={body} />}
+      contours={
+        <>
+          <path d={body} />
+          {/* the face line + hardy hole */}
+          <path d="M14 21 L54 21" strokeWidth="1.2" opacity="0.8" />
+          <rect x="46" y="17" width="3.5" height="3.5" strokeWidth="1.2" />
+        </>
+      }
     />
   );
 }
 
-/* The Library — an open book. */
+/* The Academy — an open book, real perspective. */
 export function LibraryIcon({ size = 64 }) {
-  const g = "#56d65d", dim = "#2e9a3f", hi = "#74ff86";
+  const leftPage = "M32 18 C26 13 15 12 7 15 L7 46 C15 43 26 44 32 49 Z";
+  const rightPage = "M32 18 C38 13 49 12 57 15 L57 46 C49 43 38 44 32 49 Z";
   return (
-    <PixelSvg
+    <ScanSvg
       size={size}
-      label="Library icon"
-      rows={[
-        [2, 2, 3, dim], [7, 2, 3, dim],
-        [1, 3, 4, g], [7, 3, 4, g],
-        [1, 4, 4, hi], [7, 4, 4, hi],
-        [1, 5, 4, g], [7, 5, 4, g],
-        [1, 6, 4, g], [7, 6, 4, g],
-        [1, 7, 4, g], [7, 7, 4, g],
-        [1, 8, 4, dim], [7, 8, 4, dim],
-        [5, 3, 2, dim], [5, 8, 2, dim],
-      ]}
+      label="Academy icon"
+      p="scan-aca"
+      silhouette={<><path d={leftPage} /><path d={rightPage} /></>}
+      contours={
+        <>
+          <path d={leftPage} />
+          <path d={rightPage} />
+          <path d="M32 18 L32 49" strokeWidth="1.2" />
+          {/* board edges under the pages */}
+          <path d="M7 46 L5 49 C14 46 26 47 32 52 C38 47 50 46 59 49 L57 46" strokeWidth="1.2" />
+          {/* text lines */}
+          <path d="M12 22 C18 20 24 20 28 22 M12 28 C18 26 24 26 28 28 M12 34 C18 32 24 32 28 34" strokeWidth="1" opacity="0.7" />
+          <path d="M52 22 C46 20 40 20 36 22 M52 28 C46 26 40 26 36 28 M52 34 C46 32 40 32 36 34" strokeWidth="1" opacity="0.7" />
+        </>
+      }
     />
   );
 }
@@ -244,11 +299,15 @@ export function LibraryIcon({ size = 64 }) {
 
 export const AREAS = [
   {
+    // OMNATH'S ZONE (Colton, 2026-07-19: "cut the agents page… just a chat zone
+    // with my homie omnath — the hearth/roil version"). Id stays "agents"
+    // internally (routing/saved-state keys on it); the USER sees "Omnath".
+    // No landing square — his door is the bottom bar; the room IS the chat.
     id: "agents",
-    title: "The Agents",
-    tagline: "Jace · Karn · Tibalt — rules, builds, roasts",
-    icon: AgentsIcon,
-    defaultView: "agents-home",
+    title: "Omnath",
+    tagline: "Hearth & Roil — your companion at the table",
+    icon: OmnathIcon,
+    defaultView: "chat",
   },
   {
     // id stays "proving" internally (all routing/saved-state keys on it); the USER sees "The Crucible".

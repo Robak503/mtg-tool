@@ -55,7 +55,6 @@ import { applyDeckChange } from "../lib/deck/deckApply";
 import { AREAS } from "./mtg/areas";
 import LandingScreen from "./mtg/LandingScreen";
 import AreaBar from "./mtg/AreaBar";
-import AgentsHome from "./mtg/AgentsHome";
 import FoundryHome from "./mtg/FoundryHome";
 import ProvingHome from "./mtg/ProvingHome";
 import AcademyHome from "./mtg/AcademyHome";
@@ -71,7 +70,7 @@ import CommandPalette from "./mtg/CommandPalette";
 import DeckMenu from "./mtg/DeckMenu";
 
 export default function MTGAssistant() {
-  const [agent, setAgent]   = useState("jace");
+  const [agent, setAgent]   = useState("omnath");
   const [centerView, setCenterView] = useState("chat");
   // Kiosk IA: which top-level AREA is active. "home" = the landing screen;
   // every other value comes from the AREAS registry (mtg/areas.jsx). The
@@ -1438,9 +1437,10 @@ export default function MTGAssistant() {
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
             {/* AREA ROUTING — the center switch. Area front doors first,
                 then the individual surfaces. */}
-            {centerView==="agents-home"?(
-              <AgentsHome onPickAgent={pickAgent} fontFamily={F} />
-            ):centerView==="proving-home"?(
+            {/* "agents-home" was CUT (Colton, 2026-07-19) — the area is Omnath's chat zone
+                now (defaultView "chat"); a stale persisted "agents-home" falls through to
+                the chat default at the end of this chain. */}
+            {centerView==="proving-home"?(
               <ProvingHome onPick={pickProvingGround} fontFamily={F} />
             ):centerView==="academy-home"?(
               <AcademyHome onPick={pickAcademy} fontFamily={F} />

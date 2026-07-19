@@ -16,7 +16,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import ProvingHome from "./ProvingHome.jsx";
 import AcademyHome from "./AcademyHome.jsx";
-import AgentsHome from "./AgentsHome.jsx";
 import FoundryHome from "./FoundryHome.jsx";
 import LandingScreen from "./LandingScreen.jsx";
 
@@ -114,17 +113,20 @@ describe("FoundryHome — Karn's zone in the register", () => {
   });
 });
 
-describe("AgentsHome — the specialists' hall in the register", () => {
-  it("masthead + all three agent doors render (no rail — the room IS the chat)", () => {
-    const raw = renderToStaticMarkup(createElement(AgentsHome, { onPickAgent: noop, fontFamily: "Inter" }));
-    const out = text(createElement(AgentsHome, { onPickAgent: noop, fontFamily: "Inter" }));
-    expect(out).toContain("THE AGENTS");
-    expect(out).toContain("Jace");
-    expect(out).toContain("Karn");
-    expect(out).toContain("Tibalt");
-    expect(raw).toMatch(/ley-pane/);
-    expect(raw).toMatch(/art-crop\?name=/);     // real card art requested for the faces
-    expect(raw).not.toMatch(/\binfinite\b/);
+// AgentsHome was CUT (Colton, 2026-07-19): the area is OMNATH'S CHAT ZONE now —
+// the registry gate below pins the rename + chat default instead.
+describe("the area registry — Omnath's zone", () => {
+  it("the agents slot reads Omnath, opens straight into chat, and keeps its internal id", async () => {
+    const { AREAS } = await import("./areas.jsx");
+    const omnath = AREAS.find((a) => a.id === "agents");
+    expect(omnath.title).toBe("Omnath");
+    expect(omnath.defaultView).toBe("chat");        // no front-door page — the room IS the chat
+    const { AGENTS } = await import("../../lib/agents.js");
+    expect(AGENTS.omnath.name).toBe("Omnath");
+    expect(AGENTS.omnath.title).toBe("Hearth & Roil");
+    expect(AGENTS.omnath.prompt).toMatch(/HEARTH/);  // both registers chartered
+    expect(AGENTS.omnath.prompt).toMatch(/ROIL/);
+    expect(AGENTS.omnath.prompt).toMatch(/[Nn]ever invent card text/);
   });
 });
 
