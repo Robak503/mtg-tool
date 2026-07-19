@@ -30,6 +30,10 @@ import { fetchArbiterTrace } from "../../lib/arbiterUtils";
 import { stableActionKey } from "../../lib/learn/actionKey.js";
 import { LearnLogEntry } from "./LearnLogEntry.jsx";
 import { evaluatePuzzle, puzzleGoalLabel } from "../../lib/learn/puzzleGoal.js";
+import {
+  tutorSheetStyle, containerStyle, headerStyle, labelStyle, sectionLabelStyle,
+  selectStyle, unresolvedSheetStyle, floatErrorStyle, errorBoxStyle,
+} from "./learnViewStyles.js"; // LEYLINE layout tokens (decomposition slice 1) — pure, no React
 
 /**
  * A short human-readable pip string for a KW-WARD-PR2 STRUCTURED cost descriptor
@@ -40,7 +44,7 @@ import { evaluatePuzzle, puzzleGoalLabel } from "../../lib/learn/puzzleGoal.js";
  * decision.amount (the legacy fixed-generic path — Force Spike / Mana Leak) when no structured cost
  * is present.
  */
-function wardCostLabel(decision) {
+export function wardCostLabel(decision) {
   const cost = decision?.cost;
   if (cost?.kind === "life") return `Pay ${cost.life} life`;
   if (cost?.kind === "mana") {
@@ -832,7 +836,7 @@ function AskPanel({ sessionId, avoidSheet = false }) {
 
 // ─── Table strip (all seats: life / zones / commander damage) ─────────────────
 
-function TableStrip({ table, activePlayer }) {
+export function TableStrip({ table, activePlayer }) {
   if (!table || table.length === 0) return null;
   return (
     <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--ley-surface-1)", borderBottom: "1px solid var(--ley-line)", overflowX: "auto" }}>
@@ -1025,7 +1029,7 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
  * it as a teaching moment, and let the player continue. The engine never made a
  * network call — this component does, exactly as the design intends.
  */
-function UnresolvedPanel({ decision, onContinue }) {
+export function UnresolvedPanel({ decision, onContinue }) {
   const [ruling, setRuling] = useState({ trace: "", status: null, loading: true, error: null });
   const [continuing, setContinuing] = useState(false);
 
@@ -1110,7 +1114,7 @@ function UnresolvedPanel({ decision, onContinue }) {
  * nothing. Resumes the suspended spell via session.applyTutorChoice. The board behind
  * stays visible (non-blocking sheet), but the game is paused until the choice is made.
  */
-function TutorSearchPanel({ decision, onChoose }) {
+export function TutorSearchPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1213,7 +1217,7 @@ function TutorSearchPanel({ decision, onChoose }) {
  * ─────────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** A small shared shell so seven panels don't each re-declare the same banner chrome. */
-function ChoiceBanner({ icon, title, children }) {
+export function ChoiceBanner({ icon, title, children }) {
   return (
     <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>{icon} {title}</div>
@@ -1223,7 +1227,7 @@ function ChoiceBanner({ icon, title, children }) {
 }
 
 /** Two-button commit used by the four pay/decline-shaped kinds. */
-function YesNoChoice({ yesLabel, noLabel, onYes, onNo, yesDisabled = false }) {
+export function YesNoChoice({ yesLabel, noLabel, onYes, onNo, yesDisabled = false }) {
   const [submitting, setSubmitting] = useState(false);
   const go = async (fn) => {
     if (submitting) return;
@@ -1239,7 +1243,7 @@ function YesNoChoice({ yesLabel, noLabel, onYes, onNo, yesDisabled = false }) {
 }
 
 /** A reusable card-picker grid (name + art) for the pick-one kinds. */
-function CardPickGrid({ candidates, selected, onSelect }) {
+export function CardPickGrid({ candidates, selected, onSelect }) {
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
       {candidates.map((c) => {
@@ -1584,7 +1588,7 @@ export function CleanupDiscardPanel({ decision, onChoose }) {
   );
 }
 
-function HandDiscardPanel({ decision, onChoose }) {
+export function HandDiscardPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1659,7 +1663,7 @@ function HandDiscardPanel({ decision, onChoose }) {
  * non-blocking side-sheet as the tutor picker; the keep is mandatory (the engine only pauses here when
  * ≥1 card was revealed), so there's no "keep nothing".
  */
-function ImpulseDigPanel({ decision, onChoose }) {
+export function ImpulseDigPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1733,7 +1737,7 @@ function ImpulseDigPanel({ decision, onChoose }) {
  * with the card id) or LEAVE it on top (the card stays where it is — resumed with a null id). Same non-blocking
  * side-sheet as the dig picker. Unlike impulse-dig, LEAVE is a first-class option (declining is not dominated).
  */
-function LookTopTakePanel({ decision, onChoose }) {
+export function LookTopTakePanel({ decision, onChoose }) {
   const [submitting, setSubmitting] = useState(false);
   const card = (decision.candidates || [])[0];
 
@@ -1806,7 +1810,7 @@ function LookTopTakePanel({ decision, onChoose }) {
  * via per-target steppers bounded by a live "remaining" budget. Submit is gated until the whole amount is
  * assigned (CR 601.2d — all of it must be divided). Submits `[{ id, type, amount }]` via session.applyDivideChoice.
  */
-function DivideDamagePanel({ decision, onChoose }) {
+export function DivideDamagePanel({ decision, onChoose }) {
   const candidates = decision.candidates || [];
   const total = decision.amount || 0;
   const [amounts, setAmounts] = useState({});
@@ -1870,7 +1874,7 @@ function DivideDamagePanel({ decision, onChoose }) {
  * Shown to the player whose spell is targeted: pay {N} to save it, or let it be countered. "Pay" is disabled
  * when `decision.affordable` is false (not enough untapped mana). Submits the boolean via applySoftCounterChoice.
  */
-function SoftCounterPanel({ decision, onChoose }) {
+export function SoftCounterPanel({ decision, onChoose }) {
   const costLabel = wardCostLabel(decision);
   const affordable = decision.affordable !== false;
   const [submitting, setSubmitting] = useState(false);
@@ -1911,7 +1915,7 @@ function SoftCounterPanel({ decision, onChoose }) {
  * enough untapped mana — the driver enriches this at pause time). Submits the boolean via
  * applyOptionalManaPaymentChoice. Structurally a SoftCounterPanel variant (same yes/no shape).
  */
-function OptionalManaPaymentPanel({ decision, onChoose }) {
+export function OptionalManaPaymentPanel({ decision, onChoose }) {
   const costLabel = wardCostLabel(decision);
   const affordable = decision.affordable !== false;
   const [submitting, setSubmitting] = useState(false);
@@ -1952,7 +1956,7 @@ function OptionalManaPaymentPanel({ decision, onChoose }) {
  * is false (no matching permanent to give up — set at suspend time, pendingChoice.js). Submits the boolean
  * via applyOptionalSacChoice. Structurally a SoftCounterPanel variant (same yes/no shape).
  */
-function OptionalSacPanel({ decision, onChoose }) {
+export function OptionalSacPanel({ decision, onChoose }) {
   const subtype = decision.subtype || "permanent";
   const available = decision.available !== false;
   const [submitting, setSubmitting] = useState(false);
@@ -1986,7 +1990,7 @@ function OptionalSacPanel({ decision, onChoose }) {
   );
 }
 
-function SacrificeChoicePanel({ decision, onChoose }) {
+export function SacrificeChoicePanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -2061,7 +2065,7 @@ function SacrificeChoicePanel({ decision, onChoose }) {
  * mandatory (the engine only pauses here when there's a real choice — a hand ≤ remaining is pitched
  * whole with no panel), so there's no decline.
  */
-function DiscardChoicePanel({ decision, onChoose }) {
+export function DiscardChoicePanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -2133,7 +2137,7 @@ function DiscardChoicePanel({ decision, onChoose }) {
  * onChoose(false) declines. Only ever shown for the human player's own optional (beginner/
  * intermediate); Expert + opponents auto-take it in the engine.
  */
-function OptionalChoicePanel({ decision, onChoose }) {
+export function OptionalChoicePanel({ decision, onChoose }) {
   const opLabel = {
     "draw": "draw a card", "gain-life": "gain life", "lose-life": "lose life", "create-token": "create a token",
     "deal-damage": "deal the damage", "destroy": "destroy the target", "exile": "exile the target",
@@ -2161,7 +2165,7 @@ function OptionalChoicePanel({ decision, onChoose }) {
  * it can be recast, paying the higher commander tax) or leave it in the graveyard (e.g. to reanimate it).
  * A yes/no, mirroring OptionalChoicePanel; finishes server-side via session.applyCommanderReturnChoice.
  */
-function CommanderReturnPanel({ decision, onChoose }) {
+export function CommanderReturnPanel({ decision, onChoose }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ley-text)" }}>Commander down</div>
@@ -2186,7 +2190,7 @@ function CommanderReturnPanel({ decision, onChoose }) {
  * must be made (a null submit is server-rejected too). Finishes the entry server-side via
  * session.applyCloneChoice. Same non-blocking side-sheet as the tutor picker.
  */
-function CloneCopyPanel({ decision, onChoose }) {
+export function CloneCopyPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -2273,7 +2277,7 @@ function CloneCopyPanel({ decision, onChoose }) {
  * or the graveyard (surveil). Submits the ordered keep-list via session.applyScryChoice. Same
  * non-blocking side-sheet as the tutor/clone pickers.
  */
-function ScrySurveilPanel({ decision, onChoose }) {
+export function ScrySurveilPanel({ decision, onChoose }) {
   const cards = decision.cards || [];
   const surveil = decision.mode === "surveil";
   const awayLabel = surveil ? "graveyard" : "bottom";
@@ -2350,131 +2354,8 @@ function ScrySurveilPanel({ decision, onChoose }) {
   );
 }
 
-// ─── Style helpers (LEYLINE — layout + tokens only; glass panels come from
-//     the .ley-glass-strong/.ley-glass-lit classes on the elements) ───────────
-
-function tutorSheetStyle() {
-  return {
-    position: "absolute",
-    top: 70,
-    right: 16,
-    bottom: 64,
-    width: 440,
-    maxWidth: "52%",
-    padding: 16,
-    display: "flex",
-    flexDirection: "column",
-    zIndex: 45,
-  };
-}
-
-function containerStyle(fontFamily) {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    background: "var(--ley-bg)",
-    fontFamily,
-    position: "relative", // anchors the floating Ask-Jace pop-out
-  };
-}
-
-function headerStyle() {
-  return {
-    padding: "10px 16px",
-    borderBottom: "1px solid var(--ley-line)",
-    background: "var(--ley-surface-1)",
-    color: "var(--ley-green)",
-    fontFamily: "var(--font-display), Georgia, serif",
-    fontSize: 18,
-    fontWeight: 700,
-    letterSpacing: "-0.01em",
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  };
-}
-
-function labelStyle() {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    fontFamily: "var(--font-mono)",
-    fontSize: 10,
-    color: "var(--ley-text-faint)",
-    textTransform: "uppercase",
-    letterSpacing: "0.18em",
-  };
-}
-
-// Tracked mono section label (the LEYLINE label treatment).
-function sectionLabelStyle() {
-  return {
-    fontFamily: "var(--font-mono)",
-    fontSize: 10,
-    color: "var(--ley-text-faint)",
-    textTransform: "uppercase",
-    letterSpacing: "0.18em",
-  };
-}
-
-function selectStyle(fontFamily) {
-  return {
-    padding: "8px 10px",
-    background: "var(--ley-surface-2)",
-    color: "var(--ley-text)",
-    border: "1px solid var(--ley-line)",
-    borderRadius: 6,
-    fontSize: 13,
-    fontFamily,
-  };
-}
-
-// Floating Arbiter side-sheet — sits over the right of the board, non-blocking
-// (the board behind stays visible + interactive). Anchored by containerStyle's
-// position:relative.
-function unresolvedSheetStyle() {
-  return {
-    position: "absolute",
-    top: 70,
-    right: 16,
-    bottom: 64,
-    width: 372,
-    maxWidth: "44%",
-    padding: 16,
-    overflowY: "auto",
-    zIndex: 40,
-  };
-}
-
-// Floating engine-error banner over the board (replaces the old drop-to-text).
-// Red accents on glass — the element also carries .ley-glass-strong.
-function floatErrorStyle() {
-  return {
-    position: "absolute",
-    top: 70,
-    left: "50%",
-    transform: "translateX(-50%)",
-    maxWidth: 560,
-    border: "1px solid var(--ley-red)",
-    color: "var(--ley-red)",
-    borderRadius: 8,
-    padding: "10px 16px",
-    fontSize: 12.5,
-    lineHeight: 1.5,
-    zIndex: 41,
-  };
-}
-
-function errorBoxStyle() {
-  return {
-    padding: "10px 12px",
-    background: "var(--ley-red-dim)",
-    border: "1px solid var(--ley-red)",
-    color: "var(--ley-red)",
-    borderRadius: 6,
-    fontSize: 12,
-  };
-}
-
+// Re-exported so existing importers and the render fingerprint keep one surface.
+export {
+  tutorSheetStyle, containerStyle, headerStyle, labelStyle, sectionLabelStyle,
+  selectStyle, unresolvedSheetStyle, floatErrorStyle, errorBoxStyle,
+} from "./learnViewStyles.js";
