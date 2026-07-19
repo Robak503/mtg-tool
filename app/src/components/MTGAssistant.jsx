@@ -58,7 +58,7 @@ import AreaBar from "./mtg/AreaBar";
 import AgentsHome from "./mtg/AgentsHome";
 import ProvingHome from "./mtg/ProvingHome";
 import AcademyHome from "./mtg/AcademyHome";
-import VaultHome from "./mtg/VaultHome";
+import VaultDashboard from "./mtg/VaultDashboard";
 import DeckReadyView from "./mtg/DeckReadyView";
 import RecordsView from "./mtg/RecordsView";
 import PostMortemView from "./mtg/PostMortemView";
@@ -1560,7 +1560,7 @@ export default function MTGAssistant() {
                 fontFamily={F}
               />
             ):centerView==="vault-home"?(
-              <VaultHome onPick={setCenterView} fontFamily={F} />
+              <VaultDashboard onPick={setCenterView} fontFamily={F} />
             ):centerView==="collection"?(
               <CollectionView surface="collection" onNavigate={setCenterView} onBuildCommander={buildFromVault} />
             ):centerView==="vault-gallery"?(
