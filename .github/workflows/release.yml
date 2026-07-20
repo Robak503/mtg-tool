@@ -198,7 +198,61 @@ jobs:
           Copy-Item $exeFile.FullName -Destination 'MTG-Tool-Setup.exe'
           Copy-Item $sigFile.FullName -Destination 'MTG-Tool-Setup.exe.sig'
 
+      # PUBLISH — retried, because this one API call can throw away a ~25-minute
+      # signed build. Seen twice on 2026-07-19 (v0.148.0): every build step green,
+      # then "No server is currently available to service your request" during a
+      # GitHub API/Actions partial outage. The artifacts are NOT uploaded as
+      # workflow artifacts, so a failure here means rebuilding from scratch —
+      # two spaced retries are far cheaper than that.
       - name: Create GitHub Release
+        id: publish
+        uses: softprops/action-gh-release@v3
+        continue-on-error: true
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: MTG Tool ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            app/src-tauri/target/release/bundle/nsis/*.exe
+            app/src-tauri/target/release/bundle/nsis/*.exe.sig
+            latest.json
+            MTG-Tool-Setup.exe
+            MTG-Tool-Setup.exe.sig
+
+      - name: Wait out a transient publish failure
+        if: steps.publish.outcome == 'failure'
+        run: |
+          Write-Host "Publish failed (likely a transient GitHub API error). Waiting 90s before retry 1."
+          Start-Sleep -Seconds 90
+
+      - name: Create GitHub Release (retry 1)
+        id: publish_retry1
+        if: steps.publish.outcome == 'failure'
+        uses: softprops/action-gh-release@v3
+        continue-on-error: true
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: MTG Tool ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            app/src-tauri/target/release/bundle/nsis/*.exe
+            app/src-tauri/target/release/bundle/nsis/*.exe.sig
+            latest.json
+            MTG-Tool-Setup.exe
+            MTG-Tool-Setup.exe.sig
+
+      - name: Wait out a transient publish failure (second)
+        if: steps.publish.outcome == 'failure' && steps.publish_retry1.outcome == 'failure'
+        run: |
+          Write-Host "Retry 1 failed. Waiting 240s before the final attempt."
+          Start-Sleep -Seconds 240
+
+      # Final attempt — NOT continue-on-error: if this one fails the release
+      # genuinely could not be published and the run must go red.
+      - name: Create GitHub Release (final attempt)
+        if: steps.publish.outcome == 'failure' && steps.publish_retry1.outcome == 'failure'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
