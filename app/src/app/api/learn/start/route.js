@@ -35,8 +35,15 @@
 
 export const runtime = "nodejs";
 
-import { createLearnSession, advanceUntilDecision } from "../../../../lib/learn/learnSession.js";
-import { decisionViewForWire } from "../../../../lib/learn/decisionWire.js";
+import {
+  createLearnSession,
+  advanceUntilDecision,
+  mulliganDecision,
+} from "../../../../lib/learn/learnSession.js";
+import {
+  decisionViewForWire,
+  mulliganDecisionForWire,
+} from "../../../../lib/learn/decisionWire.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
@@ -55,14 +62,26 @@ export async function POST(request) {
   const mode = body?.mode === "commander" ? "commander" : "standard";
 
   if (!Array.isArray(body?.userDeck) || body.userDeck.length === 0) {
-    return Response.json({ error: "userDeck is required and must be a non-empty array." }, { status: 400 });
+    return Response.json(
+      { error: "userDeck is required and must be a non-empty array." },
+      { status: 400 },
+    );
   }
   if (mode === "commander") {
     if (!Array.isArray(body?.opponentDecks) || body.opponentDecks.length !== 3) {
-      return Response.json({ error: "commander mode requires opponentDecks: an array of exactly 3 opponent decks (the pod)." }, { status: 400 });
+      return Response.json(
+        {
+          error:
+            "commander mode requires opponentDecks: an array of exactly 3 opponent decks (the pod).",
+        },
+        { status: 400 },
+      );
     }
   } else if (!Array.isArray(body?.opponentDeck) || body.opponentDeck.length === 0) {
-    return Response.json({ error: "opponentDeck is required and must be a non-empty array." }, { status: 400 });
+    return Response.json(
+      { error: "opponentDeck is required and must be a non-empty array." },
+      { status: 400 },
+    );
   }
 
   // Enrich every deck card from the LOCAL oracle index before the engine sees it.
@@ -79,26 +98,27 @@ export async function POST(request) {
       opponentDeck: enrichDeck(body.opponentDeck),
       opponentDecks: body.opponentDecks ? enrichDecks(body.opponentDecks) : null,
       userCommanders: enrichDeck(body.userCommanders || []),
-      opponentCommanders: mode === "commander"
-        ? enrichDecks(body.opponentCommanders || [])
-        : enrichDeck(body.opponentCommanders || []),
+      opponentCommanders:
+        mode === "commander"
+          ? enrichDecks(body.opponentCommanders || [])
+          : enrichDeck(body.opponentCommanders || []),
       userCompanion: enrichOne(body.userCompanion),
-      opponentCompanions: mode === "commander"
-        ? (body.opponentCompanions || []).map(enrichOne)
-        : enrichOne(body.opponentCompanions),
+      opponentCompanions:
+        mode === "commander"
+          ? (body.opponentCompanions || []).map(enrichOne)
+          : enrichOne(body.opponentCompanions),
       difficulty: body.difficulty || "beginner",
       activePlayer: body.activePlayer || "user",
+      // HUMAN LONDON MULLIGAN (opt-in). When true, the session is dealt but NOT opened — the
+      // user seat resolves keep/ship/bottom via /api/learn/mulligan before the game begins.
+      humanMulligan: body.humanMulligan === true,
       mode,
     });
   } catch (error) {
-    return Response.json({ error: error.message || "Could not start learn session." }, { status: 400 });
-  }
-
-  let advanced;
-  try {
-    advanced = advanceUntilDecision(session);
-  } catch (error) {
-    return Response.json({ error: error.message || "Engine error advancing to first decision." }, { status: 500 });
+    return Response.json(
+      { error: error.message || "Could not start learn session." },
+      { status: 400 },
+    );
   }
 
   // Capture deck identity at the route boundary (the pure engine never sees it)
@@ -108,20 +128,44 @@ export async function POST(request) {
     userDeckId: typeof body.userDeckId === "string" ? body.userDeckId : null,
     userDeckName: typeof body.userDeckName === "string" ? body.userDeckName : null,
     opponentNames: Array.isArray(body.opponentDeckNames)
-      ? body.opponentDeckNames.filter(n => typeof n === "string")
+      ? body.opponentDeckNames.filter((n) => typeof n === "string")
       : [],
   };
-  session = { ...advanced.session, meta };
+
+  // HUMAN LONDON MULLIGAN: when opted in, the session is dealt but NOT opened — surface the
+  // keep/ship ask and let the client drive /api/learn/mulligan. Skip advanceUntilDecision (it
+  // requires status "active"; the game hasn't begun). Everything else is the standard flow.
+  let decision;
+  if (session.status === "mulligan") {
+    session = { ...session, meta };
+    decision = mulliganDecisionForWire(mulliganDecision(session));
+  } else {
+    let advanced;
+    try {
+      advanced = advanceUntilDecision(session);
+    } catch (error) {
+      return Response.json(
+        { error: error.message || "Engine error advancing to first decision." },
+        { status: 500 },
+      );
+    }
+    session = { ...advanced.session, meta };
+    decision = decisionViewForWire(enrichUnresolvedDecision(advanced.decision, session.state));
+  }
 
   putSession(session);
   // Autosave so the game survives a server restart. Awaited but error-swallowed:
   // a failed save must never break a playable game, but awaiting keeps the save
   // deterministic (it's a small atomic write on a user-paced turn).
-  try { await autosaveSession(session); } catch { /* never block play on a save */ }
+  try {
+    await autosaveSession(session);
+  } catch {
+    /* never block play on a save */
+  }
 
   return Response.json({
     sessionId: session.id,
-    decision: decisionViewForWire(enrichUnresolvedDecision(advanced.decision, session.state)),
+    decision,
     status: session.status,
     mode: session.mode,
     difficulty: session.difficulty,

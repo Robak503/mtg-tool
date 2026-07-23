@@ -85,3 +85,21 @@ export function decisionViewForWire(decision) {
   if (optional !== undefined) out.optional = optional;
   return out;
 }
+
+/**
+ * Wire view of the interactive human-mulligan ask (kind:"mulligan"). This pre-game decision
+ * isn't a state.pendingChoice, so decisionViewForWire would pass it through untouched — but its
+ * `hand` carries full engine card objects (whole oracle text, keyword atoms, …). Slim the hand
+ * to exactly what the fanned-hand render + bottom-picker need: `id` (the selection key the
+ * bottom-pick submits) + `name` (card art via /api/card-image) + `type_line` (tooltip). The
+ * scalar fields (phase / seat / mulligans / options / bottomCount) are already wire-safe.
+ * Non-mulligan decisions defer to decisionViewForWire (null-safe).
+ */
+export function mulliganDecisionForWire(decision) {
+  if (!decision || decision.kind !== "mulligan") return decisionViewForWire(decision);
+  const hand = (decision.hand || []).map((c) => {
+    const typeLine = c.type_line || c.type;
+    return { id: c.id, name: c.name, ...(typeLine ? { type_line: typeLine } : {}) };
+  });
+  return { ...decision, hand };
+}

@@ -3597,7 +3597,11 @@ export function abandon(session, reason = "user-abandoned") {
 }
 
 export function isComplete(session) {
-  return session?.status !== "active";
+  // "active" = a game in progress; "mulligan" = the pre-game human London phase (also in
+  // progress — the game hasn't opened yet). Every OTHER status is terminal (a win/draw/timeout/
+  // abandoned), which is what the routes record + clean up. Excluding "mulligan" is essential:
+  // without it the routes would treat a mid-mulligan session as a finished game and delete it.
+  return session?.status !== "active" && session?.status !== "mulligan";
 }
 
 // N6: kinds an AUTO-DECIDED decisionLog entry can carry that are pure bookkeeping noise — every
