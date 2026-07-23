@@ -30,15 +30,27 @@ describe("tableSnapshot", () => {
       },
     };
     const snap = tableSnapshot(state);
-    expect(snap.map(s => s.id)).toEqual(["user", "ai1", "ai2", "ai3"]);
-    expect(snap[0]).toMatchObject({ id: "user", isUser: true, isActive: false, life: 38, handCount: 5, boardCount: 7, graveyardCount: 2 });
+    expect(snap.map((s) => s.id)).toEqual(["user", "ai1", "ai2", "ai3"]);
+    expect(snap[0]).toMatchObject({
+      id: "user",
+      isUser: true,
+      isActive: false,
+      life: 38,
+      handCount: 5,
+      boardCount: 7,
+      graveyardCount: 2,
+    });
     expect(snap[1]).toMatchObject({ id: "ai1", isUser: false, isActive: true });
     expect(snap[2].commanderDamage).toEqual({ user: 6 });
   });
 
   it("falls back to player keys when turnOrder is missing", () => {
     const state = { activePlayer: "user", players: { user: player(), ai: player() } };
-    expect(tableSnapshot(state).map(s => s.id).sort()).toEqual(["ai", "user"]);
+    expect(
+      tableSnapshot(state)
+        .map((s) => s.id)
+        .sort(),
+    ).toEqual(["ai", "user"]);
   });
 
   it("omits a seat that's been removed from players but lingers in turnOrder", () => {
@@ -47,7 +59,7 @@ describe("tableSnapshot", () => {
       activePlayer: "user",
       players: { user: player(), ai2: player() },
     };
-    expect(tableSnapshot(state).map(s => s.id)).toEqual(["user", "ai2"]);
+    expect(tableSnapshot(state).map((s) => s.id)).toEqual(["user", "ai2"]);
   });
 
   it("CMD-DAMAGE: maps a commander-card-id key to the commander's NAME for display (not a raw id)", () => {
@@ -61,5 +73,24 @@ describe("tableSnapshot", () => {
       },
     };
     expect(tableSnapshot(state)[0].commanderDamage).toEqual({ "Omnath, Locus of Mana": 14 });
+  });
+
+  it("flags a seat as eliminated when it is dead but still in the snapshot (no more '-4 life')", () => {
+    const state = {
+      turnOrder: ["user", "ai1", "ai2", "ai3", "ai4"],
+      activePlayer: "user",
+      players: {
+        user: player({ life: 30 }), // alive
+        ai1: player({ life: -4 }), // dead by damage — the reported "-4 life" case
+        ai2: { ...player({ life: 12 }), poison: 10 }, // dead by poison
+        ai3: player({ life: 20, cmd: { "cmdr-x": 21 } }), // dead by 21 commander damage
+        ai4: { ...player({ life: 8 }), lostGame: true }, // explicit loss (e.g. Door to Nothingness)
+      },
+    };
+    const snap = tableSnapshot(state);
+    const by = Object.fromEntries(snap.map((s) => [s.id, s.eliminated]));
+    expect(by).toEqual({ user: false, ai1: true, ai2: true, ai3: true, ai4: true });
+    // Life is still carried (the UI shows the badge instead, but the datum is intact).
+    expect(snap.find((s) => s.id === "ai1").life).toBe(-4);
   });
 });

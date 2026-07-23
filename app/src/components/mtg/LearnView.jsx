@@ -70,7 +70,11 @@ import {
 const DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "Beginner", blurb: "Ask every decision with full narration." },
   { value: "intermediate", label: "Intermediate", blurb: "Auto-play lands; surface real choices." },
-  { value: "expert", label: "Expert", blurb: "Silent autopilot; post-game analysis." },
+  {
+    value: "expert",
+    label: "Autopilot",
+    blurb: "The engine plays the whole game itself — you just watch, then review after.",
+  },
 ];
 
 const MODE_OPTIONS = [
@@ -648,6 +652,28 @@ export default function LearnView({
       </header>
 
       <TableStrip table={session.table} activePlayer={session.activePlayer} />
+
+      {/* CR 103.8c teaching note: in games with more than two players the starting player DOES draw
+          on their first turn (unlike 1v1), so an 8-card opening hand on turn 1 is correct — not a
+          bug. Shown only on commander turn 1, once the game is actually being played. */}
+      {session.mode === "commander" &&
+        session.turn === 1 &&
+        session.board &&
+        decision?.kind !== "mulligan" && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--ley-text-dim)",
+              textAlign: "center",
+              padding: "5px 12px",
+              background: "var(--ley-surface-1)",
+              borderBottom: "1px solid var(--ley-line)",
+            }}
+          >
+            In 4-player games you draw on your first turn (CR 103.8c) — an 8-card opening hand is
+            correct.
+          </div>
+        )}
 
       {decision?.kind === "mulligan" ? (
         // Pre-game London mulligan — a full takeover of the play area until the player keeps and
@@ -1228,19 +1254,35 @@ export function TableStrip({ table, activePlayer }) {
                 </span>
               )}
             </div>
-            <div
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                color: seat.life <= 5 ? "var(--ley-red)" : "var(--ley-text)",
-                lineHeight: 1.15,
-              }}
-            >
-              {seat.life}{" "}
-              <span style={{ fontSize: 10, color: "var(--ley-text-dim)", fontWeight: 400 }}>
-                life
-              </span>
-            </div>
+            {seat.eliminated ? (
+              <div
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: 800,
+                  color: "var(--ley-red)",
+                  lineHeight: 1.15,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                }}
+                title="This player has left the game (life 0 or less, poison, or commander damage)."
+              >
+                ☠ Eliminated
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: seat.life <= 5 ? "var(--ley-red)" : "var(--ley-text)",
+                  lineHeight: 1.15,
+                }}
+              >
+                {seat.life}{" "}
+                <span style={{ fontSize: 10, color: "var(--ley-text-dim)", fontWeight: 400 }}>
+                  life
+                </span>
+              </div>
+            )}
             <div
               style={{
                 display: "flex",

@@ -15,6 +15,15 @@ summarizes the notable changes.
   exactly which cards go to the bottom — a real fanned hand with a tap-to-pick bottom step, not an
   automatic guess. Closes the one real playability gap from the first live 4-player session (a dead
   opening hand with no recourse). Fully local; the AI seats keep their sevens.
+- **Turn-1 draw note in 4-player games.** A one-line reminder now appears on your first turn of a
+  Commander game: in games with more than two players the starting player *does* draw on turn 1
+  (CR 103.8c), so an 8-card opening hand is correct — not a bug.
+
+### Changed
+- **Eliminated players now read "☠ Eliminated"** in the seat strip instead of a raw negative life
+  total (e.g. "-4 life") while a dead seat lingers in a free-for-all before it's cleared.
+- **The "Expert" difficulty is now labelled "Autopilot"** with clearer copy — the engine plays the
+  whole game itself and you review afterward — so it no longer reads as a harder version of manual play.
 
 ## [0.148.0] — 2026-07-19
 
