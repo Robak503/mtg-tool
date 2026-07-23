@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Changed
+- **Faster first card lookup after launch.** The card and rulings indexes now warm up in the
+  background right after the app starts, so the first thing that needs them (a chat, opening a deck,
+  the coverage view) doesn't pay the load. Non-blocking — it never delays the window from appearing.
+
 ### Fixed
 - **A single "Scryfall bulk" data sync now rebuilds its derived indexes.** Refreshing just the
   Scryfall bulk data (rather than "everything") used to leave the slim oracle index and the
