@@ -50,10 +50,30 @@ import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers, checkBecomesTargetTriggers, checkUntapTriggers, checkTapTriggers, checkGraveyardEventTriggers, checkSagaChapterTriggers, checkSacrificeTriggers } from "./triggers.js";
+import {
+  checkStepTriggers,
+  checkAttackTriggers,
+  checkBlockTriggers,
+  checkCardDrawnTriggers,
+  checkLeavesTriggers,
+  checkMilledTriggers,
+  checkBecomesTargetTriggers,
+  checkUntapTriggers,
+  checkTapTriggers,
+  checkGraveyardEventTriggers,
+  checkSagaChapterTriggers,
+  checkSacrificeTriggers,
+} from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
 import { expireContinuousEffects } from "./layers.js";
-import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, modalChooseOneRoutable, atomTargetIntent } from "./effects/parser.js";
+import {
+  parseEffectClause,
+  programConfidence,
+  programNeedsChosenTarget,
+  programTriggerTargetsResolvable,
+  modalChooseOneRoutable,
+  atomTargetIntent,
+} from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
@@ -99,10 +119,10 @@ const EMPTY_COMBAT = { attackers: [], blockers: [] };
  * The engine walks this list. After the last entry, the turn ends and
  * the next player gets a turn.
  */
-const TURN_SEQUENCE = PHASES.flatMap(phase => STEPS[phase].map(step => ({ phase, step })));
+const TURN_SEQUENCE = PHASES.flatMap((phase) => STEPS[phase].map((step) => ({ phase, step })));
 
 function findSequenceIndex(phase, step) {
-  return TURN_SEQUENCE.findIndex(entry => entry.phase === phase && entry.step === step);
+  return TURN_SEQUENCE.findIndex((entry) => entry.phase === phase && entry.step === step);
 }
 
 // ─── Priority ────────────────────────────────────────────────────────────────
@@ -190,7 +210,7 @@ export function emptyManaPools(state) {
     const keep = manaDoesNotEmpty(state, pid);
     const pool = state.players[pid].manaPool;
     const newPool = {};
-    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? (pool[c] || 0) : 0;
+    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? pool[c] || 0 : 0;
     nextPlayers[pid] = { ...state.players[pid], manaPool: newPool };
   }
   return { ...state, players: nextPlayers };
@@ -315,7 +335,12 @@ export function runStepActions(state) {
       // the Seedborn/Murkfiend hooks into pending triggers HERE; they naturally wait for the upkeep's
       // priority to go on the stack (no priority exists during the untap step — CR-correct).
       next = checkUntapTriggers(next);
-      next = logEvent(next, { kind: "step", phase: "beginning", step: "untap", player: state.activePlayer });
+      next = logEvent(next, {
+        kind: "step",
+        phase: "beginning",
+        step: "untap",
+        player: state.activePlayer,
+      });
       break;
 
     case "draw":
@@ -323,8 +348,18 @@ export function runStepActions(state) {
       // of their first turn. CR 103.8c: MULTIPLAYER games don't skip — the 4-seat
       // Commander pod's starting player draws normally. Gate on turnOrder length
       // so only true 1v1 (Standard, or a 2-player duel) applies the skip.
-      if (next.turn === 1 && state.activePlayer === state.startingPlayer && (state.turnOrder?.length || 0) === 2) {
-        next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer, skipped: "first-turn-draw" });
+      if (
+        next.turn === 1 &&
+        state.activePlayer === state.startingPlayer &&
+        (state.turnOrder?.length || 0) === 2
+      ) {
+        next = logEvent(next, {
+          kind: "step",
+          phase: "beginning",
+          step: "draw",
+          player: state.activePlayer,
+          skipped: "first-turn-draw",
+        });
       } else {
         const drawnBefore = next.players[state.activePlayer].cardsDrawnThisTurn;
         next = drawCards(next, { playerId: state.activePlayer, count: 1 });
@@ -333,7 +368,12 @@ export function runStepActions(state) {
         if (next.players[state.activePlayer].cardsDrawnThisTurn > drawnBefore) {
           next = checkCardDrawnTriggers(next, state.activePlayer, 1);
         }
-        next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer });
+        next = logEvent(next, {
+          kind: "step",
+          phase: "beginning",
+          step: "draw",
+          player: state.activePlayer,
+        });
       }
       // SAGA (CR 714.3b — Vault 12, SHELF S7): after the active player's draw step, each of their Sagas
       // gets a lore counter (through the doubler, CR 616 — Doubling Season can skip a chapter, correctly
@@ -347,7 +387,9 @@ export function runStepActions(state) {
         // addCounter applies the doubler INTERNALLY (the central counter chokepoint) — read the real
         // post-placement count back for the transition range, never pre-compute (a double-double FP).
         next = addCounter(next, { permanentId: sperm.id, type: "lore", amount: 1 });
-        const after = (next.players[state.activePlayer]?.battlefield || []).find((p) => p.id === sperm.id);
+        const after = (next.players[state.activePlayer]?.battlefield || []).find(
+          (p) => p.id === sperm.id,
+        );
         next = checkSagaChapterTriggers(next, sperm.id, from, after?.counters?.lore ?? from);
       }
       break;
@@ -369,7 +411,12 @@ export function runStepActions(state) {
       // (end-of-combat is the real clearing point; this guards odd paths).
       next = { ...next, combat: { ...EMPTY_COMBAT } };
       next = clearRemovedFromCombatFlags(next);
-      next = logEvent(next, { kind: "step", phase: "combat", step: "beginning-of-combat", player: state.activePlayer });
+      next = logEvent(next, {
+        kind: "step",
+        phase: "combat",
+        step: "beginning-of-combat",
+        player: state.activePlayer,
+      });
       break;
 
     case "first-strike-damage":
@@ -378,7 +425,12 @@ export function runStepActions(state) {
       // first combat-damage step). Lethal first-strike damage kills before the
       // regular step, so those creatures never deal back.
       next = resolveCombatDamage(next, { firstStrikeStep: true });
-      next = logEvent(next, { kind: "step", phase: "combat", step: "first-strike-damage", player: state.activePlayer });
+      next = logEvent(next, {
+        kind: "step",
+        phase: "combat",
+        step: "first-strike-damage",
+        player: state.activePlayer,
+      });
       break;
 
     case "combat-damage":
@@ -386,7 +438,12 @@ export function runStepActions(state) {
       // strikers again). Kills lethally-damaged creatures, drops unblocked /
       // trample damage onto the defending player.
       next = resolveCombatDamage(next, { firstStrikeStep: false });
-      next = logEvent(next, { kind: "step", phase: "combat", step: "combat-damage", player: state.activePlayer });
+      next = logEvent(next, {
+        kind: "step",
+        phase: "combat",
+        step: "combat-damage",
+        player: state.activePlayer,
+      });
       break;
 
     case "end-of-combat":
@@ -394,7 +451,12 @@ export function runStepActions(state) {
       // REGEN (CR 701.19a): removal-from-combat lasts only this combat — clear the per-permanent
       // removedFromCombat flag here so combatResolution stops skipping the creature in later combats.
       next = clearRemovedFromCombatFlags(next);
-      next = logEvent(next, { kind: "step", phase: "combat", step: "end-of-combat", player: state.activePlayer });
+      next = logEvent(next, {
+        kind: "step",
+        phase: "combat",
+        step: "end-of-combat",
+        player: state.activePlayer,
+      });
       break;
 
     case "main": {
@@ -412,16 +474,36 @@ export function runStepActions(state) {
         const libBefore = state.players[state.activePlayer]?.library || [];
         const radMilled = libBefore.slice(0, Math.min(radBefore, libBefore.length));
         next = applyRadiation(next, { playerId: state.activePlayer });
-        if (radBefore > 0) next = logEvent(next, { kind: "radiation", phase: state.phase, player: state.activePlayer, radCounters: radBefore });
-        if (radMilled.length > 0) next = checkMilledTriggers(next, { milledByPlayer: state.activePlayer, milledCards: radMilled });
+        if (radBefore > 0)
+          next = logEvent(next, {
+            kind: "radiation",
+            phase: state.phase,
+            player: state.activePlayer,
+            radCounters: radBefore,
+          });
+        if (radMilled.length > 0)
+          next = checkMilledTriggers(next, {
+            milledByPlayer: state.activePlayer,
+            milledCards: radMilled,
+          });
       }
-      next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
+      next = logEvent(next, {
+        kind: "step",
+        phase: state.phase,
+        step: state.step,
+        player: state.activePlayer,
+      });
       break;
     }
 
     default:
       // upkeep, other combat steps — no automatic state mutation.
-      next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
+      next = logEvent(next, {
+        kind: "step",
+        phase: state.phase,
+        step: state.step,
+        player: state.activePlayer,
+      });
       break;
   }
 
@@ -462,7 +544,8 @@ export function runStepActions(state) {
   // right after the combatBegin step trigger so the now-creature Treasures are full combat participants for the
   // attack/block declarations that follow this step.
   if (next.step === "beginning-of-combat") next = applyVihaanCombatAnimate(next);
-  if (next.phase === "precombat-main" && next.step === "main") next = checkStepTriggers(next, "firstMain");
+  if (next.phase === "precombat-main" && next.step === "main")
+    next = checkStepTriggers(next, "firstMain");
   if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
     // NOTE (subsystem 2): block / becomes-blocked / bushido / rampage triggers do NOT fire here — at the
@@ -544,7 +627,12 @@ export function finishCleanupActions(state) {
   // toughness the expired pump was propping up is now ≤0; an Equipment on a man-land whose animation
   // just ended sits on a non-creature). Checked and applied HERE, per the rule.
   next = checkAllStateBasedActions(next);
-  return logEvent(next, { kind: "step", phase: "ending", step: "cleanup", player: next.activePlayer });
+  return logEvent(next, {
+    kind: "step",
+    phase: "ending",
+    step: "cleanup",
+    player: next.activePlayer,
+  });
 }
 
 /** Cleanup entry: the 514.1 discard check first, then the 514.2 tail (deferred when a choice is raised). */
@@ -573,7 +661,12 @@ export function settleCleanupDiscardChoice(state, cardId) {
   const { pendingChoice: _drop, ...cleared } = state;
   let next = cleared;
   if ((next.players[pc.controller]?.hand || []).some((c) => c.id === cardId)) {
-    next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "graveyard", cardId });
+    next = moveCardToZone(next, {
+      playerId: pc.controller,
+      fromZone: "hand",
+      toZone: "graveyard",
+      cardId,
+    });
     next = logEvent(next, { kind: "cleanup-discard", controller: pc.controller, turn: next.turn });
   }
   const excess = cleanupDiscardExcess(next, pc.controller);
@@ -760,13 +853,28 @@ function sweepFinishedSagas(state) {
   for (const pid of Object.keys(next.players || {})) {
     for (const perm of [...(next.players[pid]?.battlefield || [])]) {
       if (!perm.sagaFinal || (perm.counters?.lore || 0) < perm.sagaFinal) continue;
-      const pendingOwn = (next.pendingTriggers || []).some((t) => t.event === "sagaChapter" && t.source?.permanentId === perm.id);
-      const stackOwn = (next.stack || []).some((o) => o.payload?.params?.sourceId === perm.id || o.payload?.params?.sourcePermanentId === perm.id);
+      const pendingOwn = (next.pendingTriggers || []).some(
+        (t) => t.event === "sagaChapter" && t.source?.permanentId === perm.id,
+      );
+      const stackOwn = (next.stack || []).some(
+        (o) =>
+          o.payload?.params?.sourceId === perm.id ||
+          o.payload?.params?.sourcePermanentId === perm.id,
+      );
       if (pendingOwn || stackOwn) continue;
-      next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+      next = moveCardToZone(next, {
+        playerId: pid,
+        fromZone: "battlefield",
+        toZone: "graveyard",
+        cardId: perm.id,
+      });
       next = checkLeavesTriggers(next);
       next = checkSacrificeTriggers(next, pid, { id: perm.id, controller: pid, card: perm.card });
-      next = logEvent(next, { kind: "saga-sacrificed", cardName: perm.card?.name, controller: pid });
+      next = logEvent(next, {
+        kind: "saga-sacrificed",
+        cardName: perm.card?.name,
+        controller: pid,
+      });
     }
   }
   return next;
@@ -813,7 +921,7 @@ function orderTriggersAPNAP(state, pending) {
   const startIdx = order.indexOf(state.activePlayer);
   const rotated = startIdx >= 0 ? order.slice(startIdx).concat(order.slice(0, startIdx)) : order;
   const out = [];
-  for (const pid of rotated) out.push(...pending.filter(t => t.controller === pid));
+  for (const pid of rotated) out.push(...pending.filter((t) => t.controller === pid));
   return out;
 }
 
@@ -876,9 +984,16 @@ function buildTriggerStack(state, trigger, chooseTargets) {
   // re-check (the applyWinGame resolver re-evaluates, the SECOND CR 603.4 check, closing the premature-win FP).
   const interveningIf = trigger.descriptor?.interveningIf;
   if (clause && interveningIf) {
-    const condProgram = parseEffectClause(clause, "Instant", { hasX: !!trigger.descriptor?.effectHasX });
+    const condProgram = parseEffectClause(clause, "Instant", {
+      hasX: !!trigger.descriptor?.effectHasX,
+    });
     const winAtom = condProgram?.atoms?.length === 1 ? condProgram.atoms[0] : null;
-    if (winAtom && winAtom.op === "win-game" && winAtom.who === "controller" && programConfidence(condProgram) === "high") {
+    if (
+      winAtom &&
+      winAtom.op === "win-game" &&
+      winAtom.who === "controller" &&
+      programConfidence(condProgram) === "high"
+    ) {
       const met = evaluateWinThreshold(state, interveningIf, trigger.controller);
       if (met === null) {
         // The condition is outside the strict vocabulary — never fail-open a win → Arbiter no-op (SAFE FN).
@@ -894,7 +1009,16 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // resolution re-check (applyWinGame re-evaluates; if a Treasure was sac'd in response, no win).
       const boundProgram = { ...condProgram, atoms: [{ ...winAtom, condition: interveningIf }] };
       return {
-        payload: { resolver: "effect-program", params: { program: boundProgram, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, targets: [] } },
+        payload: {
+          resolver: "effect-program",
+          params: {
+            program: boundProgram,
+            controller: trigger.controller,
+            context: trigger.context,
+            sourceId: trigger.source?.permanentId,
+            targets: [],
+          },
+        },
         targets: [],
       };
     }
@@ -911,22 +1035,47 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       const met = evaluateInterveningIf(state, interveningIf, trigger.controller, trigger.context);
       if (met === null) return { payload: { resolver: "manual" }, targets: [] };
       if (met !== true) return TRIGGER_CONDITION_NOT_MET; // CR 603.4 — condition not met → the ability never goes on the stack (a correct skip, NOT a no-target fizzle)
-      if (condProgram && programConfidence(condProgram) === "high" && condProgram.structure !== "modal"
-        && (!programNeedsChosenTarget(condProgram) || programTriggerTargetsResolvable(condProgram))
-        && combatDamageReferentSatisfied(condProgram, trigger.descriptor?.event)) {
-        const baseParams = { program: condProgram, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, condition: interveningIf };
+      if (
+        condProgram &&
+        programConfidence(condProgram) === "high" &&
+        condProgram.structure !== "modal" &&
+        (!programNeedsChosenTarget(condProgram) || programTriggerTargetsResolvable(condProgram)) &&
+        combatDamageReferentSatisfied(condProgram, trigger.descriptor?.event)
+      ) {
+        const baseParams = {
+          program: condProgram,
+          controller: trigger.controller,
+          context: trigger.context,
+          sourceId: trigger.source?.permanentId,
+          condition: interveningIf,
+        };
         if (!programNeedsChosenTarget(condProgram)) {
-          return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
+          return {
+            payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } },
+            targets: [],
+          };
         }
-        const candidates = expandCastChoices(state, trigger.controller, condProgram, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null });
+        const candidates = expandCastChoices(state, trigger.controller, condProgram, [], {
+          ...(trigger.context || {}),
+          sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
+        });
         if (candidates.length === 0) return null; // no legal target → removed (CR 603.3c)
-        const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program: condProgram, state }) : undefined;
+        const picked =
+          typeof chooseTargets === "function"
+            ? chooseTargets(candidates, { trigger, program: condProgram, state })
+            : undefined;
         if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
-        const choice = (typeof picked === "number" && candidates[picked]) ? candidates[picked]
-          : (picked && Array.isArray(picked.targets)) ? picked
-          : firstLegalChoice(candidates);
+        const choice =
+          typeof picked === "number" && candidates[picked]
+            ? candidates[picked]
+            : picked && Array.isArray(picked.targets)
+              ? picked
+              : firstLegalChoice(candidates);
         const targets = choice?.targets || [];
-        return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
+        return {
+          payload: { resolver: "effect-program", params: { ...baseParams, targets } },
+          targets,
+        };
       }
       // Condition met but the effect isn't fully modeled (LOW / ambiguous target) → Arbiter no-op (FN-safe).
       return { payload: { resolver: "manual" }, targets: [] };
@@ -942,7 +1091,9 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // SELF-CAST (CR 603.2): descriptor.effectHasX (set only for an {X}-spell self-cast trigger) unlocks the
     // half-X/X-amount clause parsers so Hydroid Krasis's "gain half X life and draw half X cards" parses HIGH;
     // every other trigger leaves it undefined → hasX:false → byte-identical.
-    const program = parseEffectClause(clause, "Instant", { hasX: !!trigger.descriptor?.effectHasX });
+    const program = parseEffectClause(clause, "Instant", {
+      hasX: !!trigger.descriptor?.effectHasX,
+    });
     // α1 ALLOWLIST: route a HIGH non-modal trigger natively only when every chosen-target atom is
     // intent-resolvable — i.e. the enemy/own chooser (chooseTriggerTargets, wired in at the live
     // flush call-sites) can prove a correct-side pick: removal/damage/counter/tap/-X-X → an opponent,
@@ -951,8 +1102,13 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // first-legal friendly target (CLAUDE.md §1.2). Non-targeted programs always route (no chosen
     // target to mis-pick). This SUBSUMES the old counter / chosen-permanent-removal denylist AND
     // closes the latent first-legal-friendly hazard on unrestricted creature-destroy / damage triggers.
-    if (program && programConfidence(program) === "high" && program.structure !== "modal" && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))
-      && combatDamageReferentSatisfied(program, trigger.descriptor?.event)) {
+    if (
+      program &&
+      programConfidence(program) === "high" &&
+      program.structure !== "modal" &&
+      (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program)) &&
+      combatDamageReferentSatisfied(program, trigger.descriptor?.event)
+    ) {
       // sourceId = the trigger's SOURCE permanent (CR 113.7) — lets a "this creature gets …" /
       // "put a +1/+1 counter on this creature" self atom resolve to the source on the non-targeted path.
       // SELF-CAST (CR 603.2): a "When you cast this spell, …" trigger threads the cast's chosen X via
@@ -960,9 +1116,18 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // X cards") resolves at the real X — runEffectProgram reads params.xValue. A no-op for every other
       // trigger (none set context.xValue → xValue stays undefined → the FIXED-N / for-each amount resolvers
       // are byte-identical).
-      const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, xValue: trigger.context?.xValue ?? null };
+      const baseParams = {
+        program,
+        controller: trigger.controller,
+        context: trigger.context,
+        sourceId: trigger.source?.permanentId,
+        xValue: trigger.context?.xValue ?? null,
+      };
       if (!programNeedsChosenTarget(program)) {
-        return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
+        return {
+          payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } },
+          targets: [],
+        };
       }
       // Targeted trigger: choose targets as it's put on the stack (CR 603.3c). The
       // restriction-aware enumerator (expandCastChoices → enumerateTargets) only
@@ -973,18 +1138,30 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // SOURCE THREADING (skeptic-caught FP): excludeSource/notSource restrictions ("another target ...")
       // were inert on the TRIGGER path — ctx carried no sourceId, so Prowler's counter landed on Prowler.
       // Thread the trigger's source permanent (the same id baseParams carries) into the enumeration ctx.
-      const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null });
+      const candidates = expandCastChoices(state, trigger.controller, program, [], {
+        ...(trigger.context || {}),
+        sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
+      });
       if (candidates.length === 0) return null; // no legal target → removed from the stack (CR 603.3c)
-      const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
+      const picked =
+        typeof chooseTargets === "function"
+          ? chooseTargets(candidates, { trigger, program, state })
+          : undefined;
       // NO_SAFE_TARGET: the enemy/own chooser found no correct-side target → route to the Arbiter
       // no-op rather than first-legal a friendly (false-negative SAFE). A numeric index or a candidate
       // object is honored; anything else (a generic / absent chooser) keeps the legacy first-legal pick.
       if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
-      const choice = (typeof picked === "number" && candidates[picked]) ? candidates[picked]
-        : (picked && Array.isArray(picked.targets)) ? picked
-        : firstLegalChoice(candidates);
+      const choice =
+        typeof picked === "number" && candidates[picked]
+          ? candidates[picked]
+          : picked && Array.isArray(picked.targets)
+            ? picked
+            : firstLegalChoice(candidates);
       const targets = choice?.targets || [];
-      return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
+      return {
+        payload: { resolver: "effect-program", params: { ...baseParams, targets } },
+        targets,
+      };
     }
     // ===== MODAL TRIGGER (CR 700.2) ===== a "choose one/two/one or more/… —" triggered ability where EVERY
     // mode parses HIGH (the parser's all-or-nothing modal gate — one unmodeled mode → LOW → handled below)
@@ -999,25 +1176,50 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // are resolvable (modalChooseOneRoutable) — chooseTriggerTargets skips the ambiguous-mode candidates (its
     // targetOk rejects ambiguous atoms) and picks a resolvable mode; if none is safe → NO_SAFE_TARGET →
     // Arbiter below. triggerRouting.triggerRoutesNatively mirrors this exact gate so the metric can't drift.
-    if (program && programConfidence(program) === "high" && program.structure === "modal"
-      && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program) || modalChooseOneRoutable(program))
-      && combatDamageReferentSatisfied(program, trigger.descriptor?.event)) {
-      const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null });
+    if (
+      program &&
+      programConfidence(program) === "high" &&
+      program.structure === "modal" &&
+      (!programNeedsChosenTarget(program) ||
+        programTriggerTargetsResolvable(program) ||
+        modalChooseOneRoutable(program)) &&
+      combatDamageReferentSatisfied(program, trigger.descriptor?.event)
+    ) {
+      const candidates = expandCastChoices(state, trigger.controller, program, [], {
+        ...(trigger.context || {}),
+        sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
+      });
       // No mode is castable (every mode needs a target none of which is legal) → the ability is removed
       // from the stack (CR 603.3c / 700.2d). A non-targeted mode is always castable, so this only fires
       // when EVERY mode is fully target-gated and unsatisfiable.
       if (candidates.length === 0) return null;
-      const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
+      const picked =
+        typeof chooseTargets === "function"
+          ? chooseTargets(candidates, { trigger, program, state })
+          : undefined;
       // No mode resolves to a provably-correct-side target (every mode is targeted + mis-sideable) → Arbiter
       // no-op rather than risk friendly fire (false-negative SAFE). A non-targeted mode would be a safe
       // candidate, so this only happens when no safe mode exists at all.
       if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
-      const choice = (typeof picked === "number" && candidates[picked]) ? candidates[picked]
-        : (picked && (Array.isArray(picked.targets) || picked.chosenMode != null)) ? picked
-        : firstLegalChoice(candidates);
+      const choice =
+        typeof picked === "number" && candidates[picked]
+          ? candidates[picked]
+          : picked && (Array.isArray(picked.targets) || picked.chosenMode != null)
+            ? picked
+            : firstLegalChoice(candidates);
       const targets = choice?.targets || [];
       return {
-        payload: { resolver: "effect-program", params: { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, chosenMode: choice.chosenMode, targets } },
+        payload: {
+          resolver: "effect-program",
+          params: {
+            program,
+            controller: trigger.controller,
+            context: trigger.context,
+            sourceId: trigger.source?.permanentId,
+            chosenMode: choice.chosenMode,
+            targets,
+          },
+        },
         targets,
       };
     }
@@ -1033,7 +1235,12 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     //     event (Memory Erosion's CAST "that player mills two cards"): the referent is unset, so resolving
     //     it would silently drop the clause. Explicit no-op (→ Arbiter); false-negative SAFE (CREED).
     // (MODAL / intervening-if still use the fallback below — that's deliberate.)
-    if (program.structure !== "modal" && (programConfidence(program) === "low" || (programNeedsChosenTarget(program) && !programTriggerTargetsResolvable(program)) || !combatDamageReferentSatisfied(program, trigger.descriptor?.event))) {
+    if (
+      program.structure !== "modal" &&
+      (programConfidence(program) === "low" ||
+        (programNeedsChosenTarget(program) && !programTriggerTargetsResolvable(program)) ||
+        !combatDamageReferentSatisfied(program, trigger.descriptor?.event))
+    ) {
       return { payload: { resolver: "manual" }, targets: [] };
     }
   }
@@ -1070,7 +1277,11 @@ export function chooseTriggerTargets(candidates, info) {
   const program = info?.program;
   if (!state || !controller || !candidates?.length) return undefined;
   let enemies;
-  try { enemies = new Set(opponentsOf(state, controller)); } catch { return undefined; }
+  try {
+    enemies = new Set(opponentsOf(state, controller));
+  } catch {
+    return undefined;
+  }
   const sideOf = (t) => {
     if (t.type === "player") return t.id;
     if (t.type === "spell") return (state.stack || []).find((o) => o.id === t.id)?.controller;
@@ -1091,7 +1302,10 @@ export function chooseTriggerTargets(candidates, info) {
   };
   const targetOk = (atoms) => (t) => {
     const intent = atomTargetIntent(atoms[t.atomIndex]);
-    if (intent === "enemy") { const s = sideOf(t); return s != null && enemies.has(s); }
+    if (intent === "enemy") {
+      const s = sideOf(t);
+      return s != null && enemies.has(s);
+    }
     if (intent === "own") return sideOf(t) === controller;
     // AMBIGUOUS → reject: the chooser can't place this target on a provably-correct side. For non-modal /
     // choose-two triggers an ambiguous atom is already gated upstream so no such candidate reaches here; for
@@ -1143,10 +1357,17 @@ export function flushTriggers(state, { chooseTargets } = {}) {
     if (trigger.descriptor?.oncePerTurnTrigger) {
       const otKey = `otpt_${trigger.source?.permanentId}_${trigger.event}`;
       if ((s.onceTriggersFiredThisTurn || {})[otKey]) {
-        s = logEvent(s, { kind: "trigger-once-per-turn-latched", source: trigger.source?.name || trigger.source, controller: trigger.controller });
+        s = logEvent(s, {
+          kind: "trigger-once-per-turn-latched",
+          source: trigger.source?.name || trigger.source,
+          controller: trigger.controller,
+        });
         continue;
       }
-      s = { ...s, onceTriggersFiredThisTurn: { ...(s.onceTriggersFiredThisTurn || {}), [otKey]: true } };
+      s = {
+        ...s,
+        onceTriggersFiredThisTurn: { ...(s.onceTriggersFiredThisTurn || {}), [otKey]: true },
+      };
     }
     const built = buildTriggerStack(s, trigger, chooseTargets);
     if (built === TRIGGER_CONDITION_NOT_MET) {
@@ -1241,10 +1462,12 @@ const STARTING_HAND_SIZE = 7;
  *
  * BOTTOM-N v2 (SIM-INTEGRITY Phase 2): on keep after N ships we bottom the N WORST cards by
  * the hand). This is a legal, deterministic London bottom (CR 103.5 lets the player choose
- * the order/which cards — "any order"). TODO(mulligan-bottom-picker): make the bottom-N an
- * INTERACTIVE decide point (a human picker / a value-heuristic pilot choice) — a future
- * follow-on, NOT built here. Until then the tail-bottom keeps the deck-size invariant and
- * never fabricates a different rule.
+ * the order/which cards — "any order"). INTERACTIVE BOTTOM (closes the old
+ * TODO(mulligan-bottom-picker)): pass an optional `chooseBottom({ state, seat, count, hand })
+ * -> cardIds[]` in the mulligan config and the keep step bottoms exactly those (validated —
+ * a bad return silently falls back to the worst-N heuristic, so a garbage UI payload can
+ * never break setup). Absent (every bot/self-play caller) ⇒ the worst-N heuristic, byte-
+ * identical. This is the seam the human London flow drives.
  *
  * DECK-SIZE INVARIANT (asserted by the caller's tests): library.length + hand.length is
  * conserved across every ship (shuffle-in then redraw is a pure move) and across the keep
@@ -1254,7 +1477,107 @@ const STARTING_HAND_SIZE = 7;
  * { turn:0, seat, pilot, decision:"keep"|"ship", mulligans } so the trajectory recorder
  * can tag the pre-game mulligan choices by pilot. Append-only + crash-isolated.
  */
-function runMulliganPhaseForSeat(state, seat, { decideMulligan, pilot = null, recordMulligan = null }) {
+/**
+ * One London SHIP: shuffle the seat's hand back into the library, redraw a fresh
+ * STARTING_HAND_SIZE, log the mulligan. `priorShips` is the count BEFORE this ship (the log
+ * records `priorShips + 1`, matching the pre-extraction behavior). shuffleControllerLibrary
+ * advances the threaded rngSeed so the redraw is deterministic per seed and serialize-stable.
+ * Move-only ⇒ the deck-size invariant (library + hand conserved) holds. Pure.
+ */
+export function applyMulliganShip(state, seat, priorShips = 0) {
+  let next = state;
+  const hand = next.players[seat]?.hand || [];
+  next = putCardsOnBottom(next, { playerId: seat, cardIds: hand.map((c) => c.id) }); // hand → library
+  next = shuffleControllerLibrary(next, seat);
+  // Reset cardsDrawnThisTurn so the redraw doesn't inflate it (the opening draw is not a
+  // "draw this turn"); the original deal already set it via drawCards, so zero it first.
+  next = {
+    ...next,
+    players: { ...next.players, [seat]: { ...next.players[seat], cardsDrawnThisTurn: 0 } },
+  };
+  next = drawCards(next, { playerId: seat, count: STARTING_HAND_SIZE });
+  next = logEvent(next, { kind: "mulligan-ship", player: seat, mulligans: priorShips + 1 });
+  return next;
+}
+
+/**
+ * London KEEP: bottom `ships` cards (CR 103.5 — one per mulligan taken), stamp the seat's
+ * final mulligan count, log. `ships === 0` ⇒ a kept first 7, no bottoming.
+ *
+ * WHICH cards go to the bottom:
+ *   - `chooseBottom({ state, seat, count, hand }) -> cardIds[]` provided (the human London
+ *     picker) ⇒ bottom exactly those, AFTER validation (an array of `count` distinct ids all
+ *     present in hand). A malformed return silently falls back to the heuristic — a bad UI
+ *     payload can never strand setup or bottom the wrong count.
+ *   - absent (every bot / self-play caller) ⇒ rankBottomCandidates: the N WORST by the
+ *     mulligan evaluator's rank. Byte-identical to the pre-seam engine.
+ * `forcedFloor` only tags the log (a ship requested at the zero-hand floor, resolved as a keep).
+ * Pure.
+ */
+export function applyMulliganKeep(
+  state,
+  seat,
+  { ships = 0, pilot = null, chooseBottom = null, forcedFloor = false } = {},
+) {
+  let next = state;
+  if (ships > 0) {
+    const hand = next.players[seat]?.hand || [];
+    let bottomIds = null;
+    if (typeof chooseBottom === "function") {
+      let picked;
+      try {
+        picked = chooseBottom({ state: next, seat, count: ships, hand });
+      } catch (err) {
+        if (typeof console !== "undefined" && console.warn) {
+          console.warn(
+            `[learn] chooseBottom threw (falling back to heuristic): ${err?.message || err}`,
+          );
+        }
+        picked = null;
+      }
+      // Validate: exactly `ships` distinct ids, every one currently in hand. Anything off ⇒ heuristic.
+      const handIds = new Set(hand.map((c) => c.id));
+      if (
+        Array.isArray(picked) &&
+        picked.length === ships &&
+        new Set(picked).size === ships &&
+        picked.every((id) => handIds.has(id))
+      ) {
+        bottomIds = picked;
+      }
+    }
+    if (bottomIds === null) {
+      // Heuristic bottom: N WORST by rank (excess lands beyond the playbook window first, then
+      // uncastable / highest-MV spells). Deterministic; the self-play / bot path.
+      bottomIds = rankBottomCandidates(hand, ships, pilot?.playbook ?? null);
+    }
+    next = putCardsOnBottom(next, { playerId: seat, cardIds: bottomIds });
+    next = logEvent(next, {
+      kind: "mulligan-keep",
+      player: seat,
+      mulligans: ships,
+      bottomed: bottomIds.length,
+      ...(forcedFloor ? { forcedFloor: true } : {}),
+    });
+  } else {
+    next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: 0, bottomed: 0 });
+  }
+  // Stamp the seat's final mulligan count (a metric the recorder/UI reads).
+  next = {
+    ...next,
+    players: {
+      ...next.players,
+      [seat]: { ...next.players[seat], mulligans: ships, hasMulliganed: ships > 0 || forcedFloor },
+    },
+  };
+  return next;
+}
+
+function runMulliganPhaseForSeat(
+  state,
+  seat,
+  { decideMulligan, pilot = null, recordMulligan = null, chooseBottom = null },
+) {
   let next = state;
   let ships = 0; // = the seat's mulligan count; bottom this many on keep (CR 103.5 London)
 
@@ -1278,7 +1601,13 @@ function runMulliganPhaseForSeat(state, seat, { decideMulligan, pilot = null, re
     // Record the decision (opt-in, crash-isolated).
     if (typeof recordMulligan === "function") {
       try {
-        recordMulligan({ turn: 0, seat, pilot, decision: wantsShip ? "ship" : "keep", mulligans: ships });
+        recordMulligan({
+          turn: 0,
+          seat,
+          pilot,
+          decision: wantsShip ? "ship" : "keep",
+          mulligans: ships,
+        });
       } catch (err) {
         if (typeof console !== "undefined" && console.warn) {
           console.warn(`[learn] recordMulligan threw (ignored): ${err?.message || err}`);
@@ -1286,49 +1615,18 @@ function runMulliganPhaseForSeat(state, seat, { decideMulligan, pilot = null, re
       }
     }
 
+    // KEEP (chosen, or forced at the zero-hand floor — CR 103.5: once shipped
+    // STARTING_HAND_SIZE times, the next keep would bottom all 7 → 0 cards; a further ship
+    // is not allowed, so treat a ship request at the floor as a forced keep).
     if (!wantsShip) {
-      // KEEP — bottom `ships` cards (London). Bottom the LAST `ships` drawn (the tail);
-      // see TODO(mulligan-bottom-picker) above. Zero ships → no bottoming (a kept first 7).
-      if (ships > 0) {
-        const hand = next.players[seat]?.hand || [];
-        // BOTTOM-PICKER (SIM-INTEGRITY Phase 2 — closes the TODO): bottom the N WORST cards by
-        // the mulligan evaluator's rank (excess lands beyond the playbook window first, then
-        // uncastable/highest-MV spells) instead of the blind tail — a smart ship-to-6 no longer
-        // bottoms semi-randomly. Deterministic; same log shape; deck-size invariant unchanged.
-        const bottomIds = rankBottomCandidates(hand, ships, pilot?.playbook ?? null);
-        next = putCardsOnBottom(next, { playerId: seat, cardIds: bottomIds });
-        next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: ships, bottomed: bottomIds.length });
-      } else {
-        next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: 0, bottomed: 0 });
-      }
-      // Stamp the seat's final mulligan count (a metric the recorder/UI reads).
-      next = { ...next, players: { ...next.players, [seat]: { ...next.players[seat], mulligans: ships, hasMulliganed: ships > 0 } } };
-      return next;
+      return applyMulliganKeep(next, seat, { ships, pilot, chooseBottom });
     }
-
-    // SHIP — but never below a zero-card opening hand (CR 103.5 floor): once the seat has
-    // shipped STARTING_HAND_SIZE times, the next keep would bottom all 7 → 0 cards, and no
-    // further mulligan is allowed. Treat a ship request at the floor as a forced KEEP.
     if (ships >= STARTING_HAND_SIZE) {
-      const hand = next.players[seat]?.hand || [];
-      const bottomIds = rankBottomCandidates(hand, ships, pilot?.playbook ?? null);
-      next = putCardsOnBottom(next, { playerId: seat, cardIds: bottomIds });
-      next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: ships, bottomed: bottomIds.length, forcedFloor: true });
-      next = { ...next, players: { ...next.players, [seat]: { ...next.players[seat], mulligans: ships, hasMulliganed: true } } };
-      return next;
+      return applyMulliganKeep(next, seat, { ships, pilot, chooseBottom, forcedFloor: true });
     }
 
-    // Shuffle the hand back into the library, redraw a fresh STARTING_HAND_SIZE, count the
-    // mulligan. shuffleControllerLibrary advances the threaded rngSeed so the redraw is
-    // deterministic per seed and serialize-stable. Move-only ⇒ deck-size invariant holds.
-    const hand = next.players[seat]?.hand || [];
-    next = putCardsOnBottom(next, { playerId: seat, cardIds: hand.map((c) => c.id) }); // hand → library
-    next = shuffleControllerLibrary(next, seat);
-    // Reset cardsDrawnThisTurn so the redraw doesn't inflate it (the opening draw is not a
-    // "draw this turn"); the original deal already set it via drawCards, so zero it first.
-    next = { ...next, players: { ...next.players, [seat]: { ...next.players[seat], cardsDrawnThisTurn: 0 } } };
-    next = drawCards(next, { playerId: seat, count: STARTING_HAND_SIZE });
-    next = logEvent(next, { kind: "mulligan-ship", player: seat, mulligans: ships + 1 });
+    // SHIP — reshuffle, redraw, count.
+    next = applyMulliganShip(next, seat, ships);
     ships += 1;
   }
 }
@@ -1392,24 +1690,24 @@ export function startGame(state, { skipMulliganDraw = false, seed = null, mullig
     // advances rngSeed after each shuffle (an LCG step), so seat N is shuffled with a seed derived
     // deterministically from the prior — same `seed` ⇒ identical multi-seat shuffle, serialize-stable.
     next = { ...next, rngSeed: seed >>> 0 };
-    for (const playerId of (state.turnOrder || Object.keys(state.players))) {
+    for (const playerId of state.turnOrder || Object.keys(state.players)) {
       next = shuffleControllerLibrary(next, playerId);
     }
   }
   if (!skipMulliganDraw) {
     // Deal opening hands to every seat in turn order. Standard draws
     // user + ai (unchanged); Commander deals all four pod members.
-    for (const playerId of (state.turnOrder || Object.keys(state.players))) {
+    for (const playerId of state.turnOrder || Object.keys(state.players)) {
       next = drawCards(next, { playerId, count: 7 });
     }
     // London mulligan (opt-in). OFF (mulliganCfg null) ⇒ the dealt 7s are kept untouched —
     // byte-identical to before. ON ⇒ each seat runs the keep/ship loop in turn order.
     const mulliganCfg = resolveMulligan(mulligan);
     if (mulliganCfg) {
-      for (const playerId of (state.turnOrder || Object.keys(state.players))) {
+      for (const playerId of state.turnOrder || Object.keys(state.players)) {
         next = runMulliganPhaseForSeat(next, playerId, {
           decideMulligan: mulliganCfg.decide,
-          pilot: mulliganCfg.pilots ? (mulliganCfg.pilots[playerId] || null) : null,
+          pilot: mulliganCfg.pilots ? mulliganCfg.pilots[playerId] || null : null,
           recordMulligan: mulliganCfg.recordMulligan,
         });
       }
