@@ -18,13 +18,21 @@
 > - **Academy findings trio** (`61716d78`): tableSnapshot `eliminated` flag → "☠ Eliminated" badge (no
 >   more "-4 life") · a CR-103.8c turn-1 draw note (commander, turn 1) · "Expert" difficulty → "Autopilot".
 >
+> **v0.149.0 CI succeeded + PUBLISHED** (24m) — signed installer + `.sig` + `latest.json` live; the
+> mulligan feature is on the auto-updater.
+>
 > **Post-release, on master (WAVE 5 health — next release will carry these):**
 > - **B3 cold-start, both halves.** Cheap half (`a996572f`): a lone `scryfall-bulk` sync now rebuilds the
 >   derived oracle-index + printings-index (the "all" sequence already did; the single-action path left
 >   them stale) — a failed rebuild fails loud, never a silent "refreshed". Fuller half (`aaf4c52f`): a
 >   non-blocking `setImmediate` boot pre-warm of the card + rulings indexes so the first lookup is hot.
+> - **B4 god-component decomp — CollectionView pass (`2d726b0a`).** The 6 pure presentational panels
+>   (Conflicts/CenterMessage/EmptyState/BulkActionBar/HeaderOverflowMenu/ShowpieceShelf) moved to
+>   `collectionViewPanels.jsx` (1,240→~930 lines), **byte-identical proven** by a new render-fingerprint
+>   gate. MTGAssistant.jsx (the stateful shell) is the harder remaining B4 target — no clean fingerprint,
+>   stale-closure risk; do it in a focused session, not a fast autonomous pass.
 >
-> **Gate:** full suite green (was 10,514 at v0.149.0; WAVE 5 added a few more), lint 0, prettier clean.
+> **Gate:** full suite green — **807 files / 10,527** at the current master tip, lint 0, prettier clean.
 >
 > **☀️ Next unblocked (queue):** WAVE 2 / WAVE 3-core / WAVE 4 are GATED on Omnath (Room-Guide voices ·
 > Foundry deck-model schema · docket-RAG seam). Remaining unblocked lanes: WAVE 5 (B4 god-component
