@@ -1,5 +1,38 @@
 # WAKE REPORT — live resume anchor
 
+## 🃏 2026-07-23 — v0.149.0 SHIPPED: the game lets you MULLIGAN (+ academy fixes + B3 cold-start) — suite 10,514
+
+> **Autonomous grind (Colton: "grind 4 hrs, get as much done as you can").** Master is well ahead of
+> v0.149.0 now; tip carries WAVE 5 health work not yet in a release.
+>
+> **v0.149.0 (tagged, CI built) — WAVE 1 of the [[cindy-roadmap-v2]] queue:**
+> - **The free-play human London mulligan** — the one real playability gap from Colton's first live 4P
+>   (a dead 7 with no recourse). Built in 4 verified slices: engine step-primitives (`applyMulliganShip`/
+>   `applyMulliganKeep`) + an interactive `chooseBottom` seam (`3804040f`) · a session-level
+>   `advanceMulligan` state machine that deals-don't-open → keep/ship/bottom → opens the game, off a
+>   `startGame` split into `prepareStart`/`dealOpeningHands`/`openFirstPriority` (`7f9a8663`) ·
+>   `/api/learn/start` `humanMulligan` + new `POST /api/learn/mulligan` (`64c8a976`) · `MulliganPanel`
+>   UI — fanned hand, Keep/Ship, tap-to-pick bottom (`5c05d739`). Verified live against the running dev
+>   server end-to-end, not just vitest. **A real bug the wiring test caught:** `isComplete` treated the
+>   new "mulligan" status as a finished game → the routes DELETED the session mid-mulligan; fixed.
+> - **Academy findings trio** (`61716d78`): tableSnapshot `eliminated` flag → "☠ Eliminated" badge (no
+>   more "-4 life") · a CR-103.8c turn-1 draw note (commander, turn 1) · "Expert" difficulty → "Autopilot".
+>
+> **Post-release, on master (WAVE 5 health — next release will carry these):**
+> - **B3 cold-start, both halves.** Cheap half (`a996572f`): a lone `scryfall-bulk` sync now rebuilds the
+>   derived oracle-index + printings-index (the "all" sequence already did; the single-action path left
+>   them stale) — a failed rebuild fails loud, never a silent "refreshed". Fuller half (`aaf4c52f`): a
+>   non-blocking `setImmediate` boot pre-warm of the card + rulings indexes so the first lookup is hot.
+>
+> **Gate:** full suite green (was 10,514 at v0.149.0; WAVE 5 added a few more), lint 0, prettier clean.
+>
+> **☀️ Next unblocked (queue):** WAVE 2 / WAVE 3-core / WAVE 4 are GATED on Omnath (Room-Guide voices ·
+> Foundry deck-model schema · docket-RAG seam). Remaining unblocked lanes: WAVE 5 (B4 god-component
+> decomp · small bundle — but the coverage-classifier dedup is FP-risky, park it for a Colton-present
+> session) or WAVE 6 corpus grind ([[cindy-corpus-roadmap]] — Phase 0 re-baseline first). The mulligan
+> UI's browser SCREENSHOT is still owed (dev profile had no decks to reach it live; API round-trip was
+> verified instead) — grab it next time a profile with decks is loaded.
+
 ## 🌱 2026-07-18 — LADDER RUNG 0.6 "ROOTS THAT TRAVEL" SHIPPED — engine/shell seam is now ENFORCED, suite 10,422
 
 > **What landed:** `app/src/lib/enginePortability.test.js` — a structural guard that fails the build if the
