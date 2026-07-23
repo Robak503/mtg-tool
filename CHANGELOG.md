@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **A single "Scryfall bulk" data sync now rebuilds its derived indexes.** Refreshing just the
+  Scryfall bulk data (rather than "everything") used to leave the slim oracle index and the
+  collection printings index pointing at the old data until the next full sync. That single-action
+  sync now rebuilds both automatically, and reports a clear failure if a rebuild doesn't complete
+  instead of quietly claiming success.
+
 ## [0.149.0] — 2026-07-23
 
 The game finally lets you mulligan. Free-play in the Academy now opens with your seven cards and a

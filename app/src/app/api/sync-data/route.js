@@ -36,55 +36,78 @@ import { dataPath, appRoot } from "../../../lib/server/paths";
 import { invalidateCachesFor } from "../../../lib/server/syncCacheInvalidation";
 
 const SCRIPTS = {
-  "scryfall-bulk":     "sync-scryfall-bulk.cjs",
-  "spellbook":         "sync-spellbook.cjs",
-  "edhrec-salt":       "sync-edhrec-salt.cjs",
+  "scryfall-bulk": "sync-scryfall-bulk.cjs",
+  spellbook: "sync-spellbook.cjs",
+  "edhrec-salt": "sync-edhrec-salt.cjs",
   "cardkingdom-prices": "sync-cardkingdom-prices.cjs",
-  "oracle-index":      "build-oracle-index.cjs",
-  "printings-index":   "build-collection-printings-index.cjs",
-  "rules-index":       "build-rules-index.cjs",
+  "oracle-index": "build-oracle-index.cjs",
+  "printings-index": "build-collection-printings-index.cjs",
+  "rules-index": "build-rules-index.cjs",
 };
 
 const PHASE_LABELS = {
-  "scryfall-bulk":     "Scryfall bulk data",
-  "spellbook":         "Commander Spellbook combos",
-  "edhrec-salt":       "EDHREC salt scores",
+  "scryfall-bulk": "Scryfall bulk data",
+  spellbook: "Commander Spellbook combos",
+  "edhrec-salt": "EDHREC salt scores",
   "cardkingdom-prices": "Card Kingdom fallback prices",
-  "oracle-index":      "Slim oracle index",
-  "printings-index":   "Collection card index (printings)",
-  "rules-index":       "Rules retrieval index",
+  "oracle-index": "Slim oracle index",
+  "printings-index": "Collection card index (printings)",
+  "rules-index": "Rules retrieval index",
+};
+
+// COLD-START HARDENING (B3): indexes DERIVED from a dataset — they are rebuilt FROM the primary
+// file and go stale the instant it's refreshed on its own. The full ("all") sequence already
+// rebuilds them in order; this map closes the SINGLE-action gap so a lone "scryfall-bulk" sync
+// (which rewrites oracle_cards.json + the printings source) can't leave the slim oracle-index /
+// printings-index pointing at the old data. streamSingle chains these after the primary succeeds.
+const DERIVED_FOLLOWUPS = {
+  "scryfall-bulk": ["oracle-index", "printings-index"],
 };
 
 // Datasets surfaced by GET — file → label + freshness source
 const DATASETS = [
-  { key: "scryfall-bulk",
+  {
+    key: "scryfall-bulk",
     file: ["scryfall-bulk", "manifest.json"],
     label: "Scryfall bulk data",
-    timestampField: "generatedAt" },
-  { key: "spellbook",
+    timestampField: "generatedAt",
+  },
+  {
+    key: "spellbook",
     file: ["spellbook-meta.local.json"],
     label: "Commander Spellbook combos",
-    timestampField: "syncedAt" },
-  { key: "edhrec-salt",
+    timestampField: "syncedAt",
+  },
+  {
+    key: "edhrec-salt",
     file: ["edhrec-salt-meta.local.json"],
     label: "EDHREC salt scores",
-    timestampField: "syncedAt" },
-  { key: "cardkingdom-prices",
+    timestampField: "syncedAt",
+  },
+  {
+    key: "cardkingdom-prices",
     file: ["cardkingdom-prices.json"],
     label: "Card Kingdom fallback prices",
-    timestampField: "generatedAt" },
-  { key: "oracle-index",
+    timestampField: "generatedAt",
+  },
+  {
+    key: "oracle-index",
     file: ["scryfall-bulk", "oracle-index.json"],
     label: "Slim oracle index",
-    timestampField: "generatedAt" },
-  { key: "printings-index",
+    timestampField: "generatedAt",
+  },
+  {
+    key: "printings-index",
     file: ["scryfall-bulk", "printings-index.json"],
     label: "Collection card index (printings)",
-    timestampField: "generatedAt" },
-  { key: "rules-index",
+    timestampField: "generatedAt",
+  },
+  {
+    key: "rules-index",
     file: ["rules-index.json"],
     label: "Rules retrieval index",
-    timestampField: null /* uses file mtime */ },
+    timestampField: null /* uses file mtime */,
+  },
 ];
 
 function findScriptsDir() {
@@ -99,11 +122,19 @@ function findScriptsDir() {
 }
 
 async function statOrNull(p) {
-  try { return await fs.stat(p); } catch { return null; }
+  try {
+    return await fs.stat(p);
+  } catch {
+    return null;
+  }
 }
 
 async function readJsonOrNull(p) {
-  try { return JSON.parse(await fs.readFile(p, "utf8")); } catch { return null; }
+  try {
+    return JSON.parse(await fs.readFile(p, "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 export async function GET() {
@@ -148,7 +179,9 @@ function runScriptToStream(phase, scriptName, controller) {
   const send = (obj) => {
     try {
       controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
-    } catch { /* stream closed by client */ }
+    } catch {
+      /* stream closed by client */
+    }
   };
 
   return new Promise((resolve) => {
@@ -203,14 +236,33 @@ function streamSingle(action, scriptName) {
       // Drop stale server caches so the freshly-written data is visible without
       // a restart (A5). Only on success — a failed sync left the old files.
       if (result.ok) invalidateCachesFor(action);
-      send({
-        done: true,
-        ok: result.ok,
-        exitCode: result.exitCode,
-        summary: result.ok
-          ? `${PHASE_LABELS[action] || action} refreshed`
-          : `${PHASE_LABELS[action] || action} failed (exit ${result.exitCode})`,
-      });
+
+      // COLD-START HARDENING (B3): rebuild any indexes DERIVED from this dataset so a lone
+      // single-action sync leaves a self-consistent set. A derived rebuild that FAILS is worse
+      // than not syncing (the index now points at data that moved), so it flips the whole sync
+      // to not-ok with a summary that names the stale index — never silently "refreshed".
+      let ok = result.ok;
+      let summary = result.ok
+        ? `${PHASE_LABELS[action] || action} refreshed`
+        : `${PHASE_LABELS[action] || action} failed (exit ${result.exitCode})`;
+      if (result.ok) {
+        for (const dep of DERIVED_FOLLOWUPS[action] || []) {
+          if (!SCRIPTS[dep]) continue;
+          send({
+            phase: dep,
+            text: `↳ rebuilding ${PHASE_LABELS[dep] || dep} (derived from ${PHASE_LABELS[action] || action})`,
+          });
+          const depResult = await runScriptToStream(dep, SCRIPTS[dep], controller);
+          if (depResult.ok) {
+            invalidateCachesFor(dep);
+          } else {
+            ok = false;
+            summary = `${PHASE_LABELS[action] || action} refreshed, but the ${PHASE_LABELS[dep] || dep} rebuild failed (exit ${depResult.exitCode}) — that index may now be stale; re-run it.`;
+          }
+        }
+      }
+
+      send({ done: true, ok, exitCode: result.exitCode, summary });
       controller.close();
     },
   });
@@ -218,7 +270,7 @@ function streamSingle(action, scriptName) {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 }
@@ -228,13 +280,13 @@ function streamFullSequence() {
   // and printings-index off the fresh data; spellbook + salt next; rules-index
   // last (independent of card data, just needs the bundled mtg-judge codex).
   const sequence = [
-    ["scryfall-bulk",      SCRIPTS["scryfall-bulk"]],
-    ["oracle-index",       SCRIPTS["oracle-index"]],
-    ["printings-index",    SCRIPTS["printings-index"]],
-    ["spellbook",          SCRIPTS["spellbook"]],
-    ["edhrec-salt",        SCRIPTS["edhrec-salt"]],
+    ["scryfall-bulk", SCRIPTS["scryfall-bulk"]],
+    ["oracle-index", SCRIPTS["oracle-index"]],
+    ["printings-index", SCRIPTS["printings-index"]],
+    ["spellbook", SCRIPTS["spellbook"]],
+    ["edhrec-salt", SCRIPTS["edhrec-salt"]],
     ["cardkingdom-prices", SCRIPTS["cardkingdom-prices"]],
-    ["rules-index",        SCRIPTS["rules-index"]],
+    ["rules-index", SCRIPTS["rules-index"]],
   ];
 
   const stream = new ReadableStream({
@@ -249,7 +301,12 @@ function streamFullSequence() {
       let failures = 0;
       for (let i = 0; i < sequence.length; i++) {
         const [action, scriptName] = sequence[i];
-        send({ phase: action, step: i + 1, totalSteps, text: `[${i + 1}/${totalSteps}] ${PHASE_LABELS[action]}` });
+        send({
+          phase: action,
+          step: i + 1,
+          totalSteps,
+          text: `[${i + 1}/${totalSteps}] ${PHASE_LABELS[action]}`,
+        });
         const result = await runScriptToStream(action, scriptName, controller);
         if (result.ok) invalidateCachesFor(action);
         else failures += 1;
@@ -257,9 +314,10 @@ function streamFullSequence() {
       send({
         done: true,
         ok: failures === 0,
-        summary: failures === 0
-          ? `All ${totalSteps} datasets refreshed`
-          : `${failures} of ${totalSteps} steps failed — see log`,
+        summary:
+          failures === 0
+            ? `All ${totalSteps} datasets refreshed`
+            : `${failures} of ${totalSteps} steps failed — see log`,
       });
       controller.close();
     },
@@ -268,7 +326,7 @@ function streamFullSequence() {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 }
@@ -284,7 +342,10 @@ export async function POST(req) {
   if (action === "all") return streamFullSequence();
   if (SCRIPTS[action]) return streamSingle(action, SCRIPTS[action]);
   return Response.json(
-    { ok: false, error: `Unknown action: ${action}. Try: ${["all", ...Object.keys(SCRIPTS)].join(", ")}` },
+    {
+      ok: false,
+      error: `Unknown action: ${action}. Try: ${["all", ...Object.keys(SCRIPTS)].join(", ")}`,
+    },
     { status: 400 },
   );
 }
