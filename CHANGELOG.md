@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.0] — 2026-07-23
+
+The game finally lets you mulligan. Free-play in the Academy now opens with your seven cards and a
+real keep-or-ship call — the one thing a proving ground can't be missing.
+
 ### Added
 - **Mulligan on the human path (free-play London mulligan).** Starting a game in the Academy's
   Learn-to-Play now deals your opening seven and lets you decide before the game begins: keep it,
