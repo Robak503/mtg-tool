@@ -1446,37 +1446,13 @@ export function flushTriggers(state, { chooseTargets } = {}) {
 // a real-rules floor, not an arbitrary safety latch.
 const STARTING_HAND_SIZE = 7;
 
-/**
- * Run the London mulligan keep/ship phase for ONE seat (opt-in; default path never
- * calls this). CR 103.5 (London variant): the seat already has its opening 7. We
- * repeatedly OFFER a keep/ship decision; on SHIP we shuffle the hand back into the
- * library, redraw 7, and increment that seat's mulligan count; on KEEP we put N cards
- * on the bottom where N = the number of ships taken (the London "bottom N on keep").
- *
- * The decision is surfaced through the SAME pluggable seam shape the in-game decide
- * uses: `decideMulligan({ state, legalActions, seat, pilot }) -> action`, where
- * legalActions is `[{kind:"mulligan-keep"}, {kind:"mulligan-ship"}]`. A return that is
- * NOT one of those two → treated as KEEP (the safe default: never strands the game, never
- * over-mulligans on a garbage/learned pilot). A throw is swallowed → KEEP. Deterministic
- * given a seed (the redraw reshuffles via the threaded rngSeed).
- *
- * BOTTOM-N v2 (SIM-INTEGRITY Phase 2): on keep after N ships we bottom the N WORST cards by
- * the hand). This is a legal, deterministic London bottom (CR 103.5 lets the player choose
- * the order/which cards — "any order"). INTERACTIVE BOTTOM (closes the old
- * TODO(mulligan-bottom-picker)): pass an optional `chooseBottom({ state, seat, count, hand })
- * -> cardIds[]` in the mulligan config and the keep step bottoms exactly those (validated —
- * a bad return silently falls back to the worst-N heuristic, so a garbage UI payload can
- * never break setup). Absent (every bot/self-play caller) ⇒ the worst-N heuristic, byte-
- * identical. This is the seam the human London flow drives.
- *
- * DECK-SIZE INVARIANT (asserted by the caller's tests): library.length + hand.length is
- * conserved across every ship (shuffle-in then redraw is a pure move) and across the keep
- * bottom (a pure hand→library move). No card is lost or duplicated.
- *
- * `recordMulligan` (optional) is invoked once per DECISION (keep or ship) with
- * { turn:0, seat, pilot, decision:"keep"|"ship", mulligans } so the trajectory recorder
- * can tag the pre-game mulligan choices by pilot. Append-only + crash-isolated.
- */
+// ─── London mulligan step-primitives (CR 103.5) ──────────────────────────────
+// Shared by the synchronous bot loop (runMulliganPhaseForSeat, below) AND the human
+// interactive flow (learnSession advances the human seat one step at a time). A ship
+// reshuffles + redraws + counts; a keep bottoms N (= the mulligan count) and stamps.
+// DECK-SIZE INVARIANT: library.length + hand.length is conserved across every ship and
+// keep (both are pure moves) — no card lost or duplicated.
+
 /**
  * One London SHIP: shuffle the seat's hand back into the library, redraw a fresh
  * STARTING_HAND_SIZE, log the mulligan. `priorShips` is the count BEFORE this ship (the log
@@ -1573,6 +1549,20 @@ export function applyMulliganKeep(
   return next;
 }
 
+/**
+ * Run the whole London mulligan keep/ship phase for ONE seat SYNCHRONOUSLY (opt-in; the
+ * default path never calls this). This is the BOT / self-play driver: it loops, calling
+ * `decideMulligan({ state, legalActions, seat, pilot }) -> action` (legalActions =
+ * `[{kind:"mulligan-keep"},{kind:"mulligan-ship"}]`) until the seat keeps or hits the
+ * zero-hand floor, composing applyMulliganShip / applyMulliganKeep for each step. A return
+ * that isn't a clean "mulligan-ship" → KEEP (safe default; a garbage/learned-pilot value can
+ * never strand setup or over-mulligan); a throw is swallowed → KEEP. `chooseBottom` (optional)
+ * is forwarded to the keep step so a caller can pick the bottomed cards; absent ⇒ the worst-N
+ * heuristic (byte-identical). `recordMulligan` (optional) is invoked once per decision.
+ *
+ * The HUMAN path does NOT use this — it can't block on a synchronous decider — and instead
+ * drives applyMulliganShip / applyMulliganKeep one step per HTTP round-trip (learnSession).
+ */
 function runMulliganPhaseForSeat(
   state,
   seat,
@@ -1683,28 +1673,61 @@ function resolveMulligan(mulligan) {
  * When `mulligan` is OFF this function is byte-identical to before: the caller is
  * then expected to have already locked opening hands (or accept the dealt 7).
  */
-export function startGame(state, { skipMulliganDraw = false, seed = null, mulligan = null } = {}) {
+/**
+ * PREPARE the start: stamp startingPlayer (the draw-step skip reads it) and, when a `seed`
+ * is given, deterministically shuffle every library in turn order. No deal, no open. Pure.
+ * Extracted from startGame so the human-mulligan session can deal WITHOUT opening the game.
+ */
+export function prepareStart(state, { seed = null } = {}) {
   let next = { ...state, startingPlayer: state.activePlayer };
   if (seed != null) {
     // Stamp the deterministic seed, then shuffle each seat in turn order. shuffleControllerLibrary
     // advances rngSeed after each shuffle (an LCG step), so seat N is shuffled with a seed derived
     // deterministically from the prior — same `seed` ⇒ identical multi-seat shuffle, serialize-stable.
     next = { ...next, rngSeed: seed >>> 0 };
-    for (const playerId of state.turnOrder || Object.keys(state.players)) {
+    for (const playerId of next.turnOrder || Object.keys(next.players)) {
       next = shuffleControllerLibrary(next, playerId);
     }
   }
+  return next;
+}
+
+/**
+ * DEAL opening hands: draw 7 to every seat in turn order (standard = user + ai; commander =
+ * all four pod members). No mulligan, no open — the hands are on the table, nothing decided.
+ * Call after prepareStart. Pure. This is the middle stage the human-mulligan flow pauses on.
+ */
+export function dealOpeningHands(state) {
+  let next = state;
+  for (const playerId of next.turnOrder || Object.keys(next.players)) {
+    next = drawCards(next, { playerId, count: 7 });
+  }
+  return next;
+}
+
+/**
+ * OPEN the game at the first priority window: log game-start, then run the untap step's
+ * automatic actions (which include skipping the starting player's first draw). Call once the
+ * opening hands are locked — dealt-and-kept, or resolved through the mulligan phase. Reads the
+ * startingPlayer prepareStart stamped. Extracted from startGame so the human-mulligan session
+ * can open the game after the player finishes keep/ship/bottom.
+ */
+export function openFirstPriority(state) {
+  const next = logEvent(state, { kind: "game-start", startingPlayer: state.startingPlayer });
+  // First step is untap — run its actions (which include skipping the
+  // first draw for the starting player).
+  return runStepActions(next);
+}
+
+export function startGame(state, { skipMulliganDraw = false, seed = null, mulligan = null } = {}) {
+  let next = prepareStart(state, { seed });
   if (!skipMulliganDraw) {
-    // Deal opening hands to every seat in turn order. Standard draws
-    // user + ai (unchanged); Commander deals all four pod members.
-    for (const playerId of state.turnOrder || Object.keys(state.players)) {
-      next = drawCards(next, { playerId, count: 7 });
-    }
+    next = dealOpeningHands(next);
     // London mulligan (opt-in). OFF (mulliganCfg null) ⇒ the dealt 7s are kept untouched —
     // byte-identical to before. ON ⇒ each seat runs the keep/ship loop in turn order.
     const mulliganCfg = resolveMulligan(mulligan);
     if (mulliganCfg) {
-      for (const playerId of state.turnOrder || Object.keys(state.players)) {
+      for (const playerId of next.turnOrder || Object.keys(next.players)) {
         next = runMulliganPhaseForSeat(next, playerId, {
           decideMulligan: mulliganCfg.decide,
           pilot: mulliganCfg.pilots ? mulliganCfg.pilots[playerId] || null : null,
@@ -1713,10 +1736,7 @@ export function startGame(state, { skipMulliganDraw = false, seed = null, mullig
       }
     }
   }
-  next = logEvent(next, { kind: "game-start", startingPlayer: state.activePlayer });
-  // First step is untap — run its actions (which include skipping the
-  // first draw for the starting player).
-  return runStepActions(next);
+  return openFirstPriority(next);
 }
 
 // ─── Misc reads ──────────────────────────────────────────────────────────────

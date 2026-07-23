@@ -28,22 +28,28 @@
  * this; the UI (PR6.4) consumes the routes.
  */
 
-import {
-  createGameState,
-  loseLife,
-  logEvent,
-  moveCardToZone,
-  MODES,
-} from "./gameState.js";
+import { createGameState, loseLife, logEvent, moveCardToZone, MODES } from "./gameState.js";
 import { setPendingCommanderReturnChoice, clearPendingChoice } from "./pendingChoice.js";
 import {
   startGame,
+  prepareStart,
+  dealOpeningHands,
+  openFirstPriority,
+  applyMulliganShip,
+  applyMulliganKeep,
   nextStep,
   runStepActions,
   finalizeStackResolution,
   settleCleanupDiscardChoice,
   finishCleanupActions,
 } from "./gameEngine.js";
+
+// The human seat id (createGameState always names the player's seat "user"; opponents are
+// "ai" / the pod). Used by the interactive human-mulligan phase below.
+const HUMAN_SEAT = "user";
+// London floor (CR 103.5): once a seat has shipped this many times, a further ship would bottom
+// all 7 → a 0-card hand, so no more shipping is allowed. Mirrors gameEngine's STARTING_HAND_SIZE.
+const HAND_SIZE = 7;
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
@@ -53,7 +59,43 @@ import { isLandCard } from "./effects/atoms/shared.js"; // death capture: count 
 import { checkAllStateBasedActions } from "./sba.js"; // CR 704.3 (B2) — the comprehensive permanent-SBA fixpoint at the priority checkpoint
 import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: apply a cached verdict's atoms (applyArbiterVerdict)
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickLookTopTake, resolveLookTopTakeChoice, autoPickDigLandCandidate, resolveDigLandChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice, autoPickTaxedPayment, resolveTaxedPaymentChoice, autoPickEdictMode, resolveEdictModeChoice } from "./effects/runProgram.js";
+import {
+  autoPickTutorCandidate,
+  resolveTutorChoice,
+  resolveScryChoice,
+  resolveOptionalChoice,
+  autoPickHandDiscardCandidate,
+  resolveHandDiscardChoice,
+  resolveImpulseDigChoice,
+  autoPickLookTopTake,
+  resolveLookTopTakeChoice,
+  autoPickDigLandCandidate,
+  resolveDigLandChoice,
+  autoPickSacrificeCandidate,
+  resolveSacrificeChoice,
+  autoPickDiscardCandidate,
+  resolveDiscardChoice,
+  autoPickDivideDistribution,
+  resolveDivideChoice,
+  autoPickDistributeCounters,
+  resolveDistributeChoice,
+  autoPickSoftCounterPay,
+  resolveSoftCounterChoice,
+  autoPickOptionalManaPayment,
+  resolveOptionalManaPaymentChoice,
+  autoPickOptionalSac,
+  resolveOptionalSacChoice,
+  autoPickOptionalDrawDiscard,
+  resolveOptionalDrawDiscardChoice,
+  autoPickOptionalDiscard,
+  resolveOptionalDiscardPaymentChoice,
+  autoPickSacUnlessPay,
+  resolveSacUnlessPayChoice,
+  autoPickTaxedPayment,
+  resolveTaxedPaymentChoice,
+  autoPickEdictMode,
+  resolveEdictModeChoice,
+} from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -108,6 +150,12 @@ export function createLearnSession({
   mode = "standard",
   seed = null, // opt-in seeded opening shuffle (default null ⇒ deck-list order, byte-identical to before)
   mulligan = null, // opt-in London mulligan (default null ⇒ keep the dealt 7, byte-identical); { decide, pilots?, recordMulligan? }
+  // HUMAN LONDON MULLIGAN (opt-in, free-play/Academy human path). true ⇒ deal the opening hands
+  // but DON'T open the game: the "user" seat resolves keep/ship/bottom-N INTERACTIVELY via
+  // advanceMulligan (the session sits at status "mulligan" until the player finishes), then the
+  // game opens. AI/pod seats keep their dealt 7 (no bot mulligan here). Distinct from the `mulligan`
+  // config above, which is the synchronous bot/self-play driver. Default false ⇒ byte-identical.
+  humanMulligan = false,
   // FFA-SOLE-SURVIVOR (HARNESS-DATA wave 1b; default fixed in CR-remediation B4): when true, a 4P
   // pod plays to the LAST PLAYER STANDING — the user seat dying is an elimination like any other,
   // not the end of the game. DEFAULT (null): resolved to `mode === "commander"` — CR 104.2a says a
@@ -122,7 +170,9 @@ export function createLearnSession({
     throw new Error("createLearnSession: userDeck must be a non-empty array");
   }
   if (!VALID_DIFFICULTIES.has(difficulty)) {
-    throw new Error(`createLearnSession: difficulty must be one of ${[...VALID_DIFFICULTIES].join(", ")}`);
+    throw new Error(
+      `createLearnSession: difficulty must be one of ${[...VALID_DIFFICULTIES].join(", ")}`,
+    );
   }
   if (!MODES.includes(mode)) {
     throw new Error(`createLearnSession: mode must be one of ${MODES.join(", ")}`);
@@ -131,7 +181,9 @@ export function createLearnSession({
   let state;
   if (mode === "commander") {
     if (!Array.isArray(opponentDecks) || opponentDecks.length !== 3) {
-      throw new Error("createLearnSession: commander mode requires opponentDecks to be an array of exactly 3 decks");
+      throw new Error(
+        "createLearnSession: commander mode requires opponentDecks to be an array of exactly 3 decks",
+      );
     }
     opponentDecks.forEach((deck, i) => {
       if (!Array.isArray(deck) || deck.length === 0) {
@@ -163,13 +215,23 @@ export function createLearnSession({
       mode,
     });
   }
-  state = startGame(state, { seed, mulligan });
+  let status = "active";
+  let mulliganMarker = undefined;
+  if (humanMulligan) {
+    // Deal opening hands to every seat but STOP before opening the game — the user seat resolves
+    // its London mulligan interactively (advanceMulligan) and openFirstPriority runs afterward.
+    state = dealOpeningHands(prepareStart(state, { seed }));
+    status = "mulligan";
+    mulliganMarker = { seat: HUMAN_SEAT, mulligans: 0, phase: "decide" };
+  } else {
+    state = startGame(state, { seed, mulligan });
+  }
 
   // Carry the FFA rule ON THE STATE so every status surface (recordOutcomeIfChanged here,
   // gameStatus in gameApi.js) reads the same flag and can never drift — and so a serialized
   // save replays under the semantics it was played with. Absent (legacy saves) ⇒ user-pivot.
   // B4: null (the default) resolves to the mode — commander pods play sole-survivor per CR 104.2a.
-  if (ffaSoleSurvivor ?? (mode === "commander")) {
+  if (ffaSoleSurvivor ?? mode === "commander") {
     state = { ...state, rules: { ...(state.rules || {}), ffaSoleSurvivor: true } };
   }
 
@@ -180,8 +242,99 @@ export function createLearnSession({
     mode,
     state,
     decisionLog: [],
-    status: "active",
+    status,
+    ...(mulliganMarker ? { mulligan: mulliganMarker } : {}),
   };
+}
+
+// ─── Interactive human London mulligan (CR 103.5) ────────────────────────────
+// A pre-game phase that lives on the SESSION (status "mulligan" + a `session.mulligan` marker),
+// NOT on state.pendingChoice — it happens before the game opens, so it can't ride the in-game
+// decision loop. The routes surface `mulliganDecision(session)` and answer it with
+// `advanceMulligan(session, action)`, which drives the slice-1 engine step-primitives one step
+// per call and, when the player finishes, opens the game and hands off to advanceUntilDecision.
+
+/**
+ * The decision view for the current mulligan step (the ask the UI renders).
+ *   phase "decide" → the fanned hand + keep/ship options (ship omitted at the CR 103.5 floor).
+ *   phase "bottom" → the fanned hand + how many cards to put on the bottom (= the mulligan count).
+ * `hand` is the seat's current hand (full card objects; the route slims it for the wire).
+ */
+export function mulliganDecision(session) {
+  const m = session.mulligan || {};
+  const seat = m.seat || HUMAN_SEAT;
+  const mulligans = m.mulligans || 0;
+  const hand = session.state.players[seat]?.hand || [];
+  if (m.phase === "bottom") {
+    return { kind: "mulligan", phase: "bottom", seat, mulligans, bottomCount: mulligans, hand };
+  }
+  const options = [{ kind: "mulligan-keep" }];
+  if (mulligans < HAND_SIZE) options.push({ kind: "mulligan-ship" });
+  return { kind: "mulligan", phase: "decide", seat, mulligans, hand, options };
+}
+
+/**
+ * Open the game after the human's opening hand is locked, then run to the first real decision.
+ * Clears the mulligan marker and flips the session to "active" (advanceUntilDecision requires it).
+ */
+function openAndAdvance(session, opts) {
+  const opened = openFirstPriority(session.state);
+  const { mulligan: _drop, ...rest } = session;
+  return advanceUntilDecision({ ...rest, state: opened, status: "active" }, opts);
+}
+
+/**
+ * Answer the current mulligan step. Actions:
+ *   { kind: "mulligan-ship" } — reshuffle + redraw 7, count the mulligan, re-ask (decide phase).
+ *                               Ignored at the CR 103.5 floor (7 ships) → falls through to keep.
+ *   { kind: "mulligan-keep" } — keep the current hand. 0 mulligans ⇒ open the game immediately;
+ *                               >0 ⇒ advance to the bottom-pick phase (must bottom `mulligans` cards).
+ *   { kind: "mulligan-bottom", cardIds: [...] } — bottom exactly those cards (validated in the
+ *                               engine — a bad set silently falls back to the worst-N heuristic),
+ *                               then open the game.
+ * Returns { session, decision } like every other apply* handler. A call outside the mulligan phase
+ * re-derives (double-submit safe): active ⇒ advanceUntilDecision, otherwise a game-over view.
+ */
+export function advanceMulligan(session, action = {}, opts = {}) {
+  if (session.status !== "mulligan" || !session.mulligan) {
+    if (session.status === "active") return advanceUntilDecision(session, opts);
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const { seat, mulligans, phase } = session.mulligan;
+  const kind = action?.kind;
+
+  if (phase === "bottom") {
+    // The player has chosen which `mulligans` cards to put on the bottom (London). A malformed or
+    // missing set is validated + heuristic-backstopped inside applyMulliganKeep — never strands setup.
+    const cardIds = Array.isArray(action?.cardIds) ? action.cardIds : [];
+    const kept = applyMulliganKeep(session.state, seat, {
+      ships: mulligans,
+      chooseBottom: () => cardIds,
+    });
+    return openAndAdvance({ ...session, state: kept }, opts);
+  }
+
+  // phase === "decide"
+  const canShip = mulligans < HAND_SIZE;
+  if (kind === "mulligan-ship" && canShip) {
+    const shipped = applyMulliganShip(session.state, seat, mulligans);
+    const next = {
+      ...session,
+      state: shipped,
+      mulligan: { seat, mulligans: mulligans + 1, phase: "decide" },
+    };
+    return { session: next, decision: mulliganDecision(next) };
+  }
+
+  // KEEP (any non-ship action, or a ship at the floor).
+  if (mulligans === 0) {
+    // Kept the opening 7 — record the keep (mulligans 0, nothing bottomed) and open the game.
+    const kept = applyMulliganKeep(session.state, seat, { ships: 0 });
+    return openAndAdvance({ ...session, state: kept }, opts);
+  }
+  // Kept after ≥1 ship — the player must now choose `mulligans` cards to bottom.
+  const next = { ...session, mulligan: { seat, mulligans, phase: "bottom" } };
+  return { session: next, decision: mulliganDecision(next) };
 }
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
@@ -235,7 +388,7 @@ function removePlayerFromGame(state, playerId) {
   // card ids across every zone and drop those entries from each survivor's tracker.
   const goneCommanderIds = new Set();
   for (const zone of ["command", "battlefield", "graveyard", "exile", "hand", "library"]) {
-    for (const entry of (_gone?.[zone] || [])) {
+    for (const entry of _gone?.[zone] || []) {
       const card = entry?.card || entry; // battlefield holds permanents (entry.card); other zones hold cards
       if (card?.isCommander) goneCommanderIds.add(card.commanderInstanceId || card.id);
     }
@@ -243,7 +396,12 @@ function removePlayerFromGame(state, playerId) {
   for (const id of turnOrder) {
     const dmg = players[id]?.commanderDamageFrom;
     if (dmg && Object.keys(dmg).some((k) => goneCommanderIds.has(k))) {
-      players[id] = { ...players[id], commanderDamageFrom: Object.fromEntries(Object.entries(dmg).filter(([k]) => !goneCommanderIds.has(k))) };
+      players[id] = {
+        ...players[id],
+        commanderDamageFrom: Object.fromEntries(
+          Object.entries(dmg).filter(([k]) => !goneCommanderIds.has(k)),
+        ),
+      };
     }
   }
 
@@ -279,7 +437,10 @@ function removePlayerFromGame(state, playerId) {
         landsInHand: (_gone.hand || []).filter(isLandCard).length,
       }
     : {};
-  const log = [...state.log, { turn: state.turn, kind: "player-eliminated", player: playerId, ...goneVitals }];
+  const log = [
+    ...state.log,
+    { turn: state.turn, kind: "player-eliminated", player: playerId, ...goneVitals },
+  ];
   let base = { ...state, players, turnOrder, stack, combat, log };
   // PLAYER-AURA sweep (Fraying Sanity / the Curse class — SHELF S7, CR 704.5n analog): an Aura enchanting
   // the departed player has nothing legal to enchant — it's put into its controller's graveyard. Routed
@@ -287,7 +448,12 @@ function removePlayerFromGame(state, playerId) {
   for (const pid of Object.keys(base.players)) {
     for (const perm of [...(base.players[pid]?.battlefield || [])]) {
       if (perm.enchantedPlayerId === playerId) {
-        base = moveCardToZone(base, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+        base = moveCardToZone(base, {
+          playerId: pid,
+          fromZone: "battlefield",
+          toZone: "graveyard",
+          cardId: perm.id,
+        });
       }
     }
   }
@@ -312,7 +478,10 @@ function removePlayerFromGame(state, playerId) {
     let nextActive = turnOrder[0] || null;
     for (let k = 1; k <= oldOrder.length; k++) {
       const cand = oldOrder[(idx + k) % oldOrder.length];
-      if (cand !== playerId && players[cand]) { nextActive = cand; break; }
+      if (cand !== playerId && players[cand]) {
+        nextActive = cand;
+        break;
+      }
     }
     return runStepActions({
       ...finishCleanupActions(base),
@@ -328,7 +497,7 @@ function removePlayerFromGame(state, playerId) {
   // Bystander left — keep the current turn going.
   let priorityHolder = state.priorityHolder;
   if (priorityHolder === playerId || (priorityHolder && !players[priorityHolder])) {
-    priorityHolder = players[state.activePlayer] ? state.activePlayer : (turnOrder[0] || null);
+    priorityHolder = players[state.activePlayer] ? state.activePlayer : turnOrder[0] || null;
   }
   return { ...base, priorityHolder, consecutivePasses: 0 };
 }
@@ -377,7 +546,11 @@ function recordOutcomeIfChanged(session) {
       return { ...session, status: "draw", endedAt: new Date().toISOString() };
     }
     if (liveSeats.length === 1) {
-      return { ...session, status: liveSeats[0] === "user" ? "user-wins" : "ai-wins", endedAt: new Date().toISOString() };
+      return {
+        ...session,
+        status: liveSeats[0] === "user" ? "user-wins" : "ai-wins",
+        endedAt: new Date().toISOString(),
+      };
     }
     const deadSeats = order.filter((id) => isPlayerDead(state, id));
     if (deadSeats.length > 0) {
@@ -471,12 +644,14 @@ const TIME_PRESSURE_DEFAULTS = Object.freeze({
 function resolveTimePressure(timePressure) {
   if (!timePressure) return null;
   if (timePressure === true) return { ...TIME_PRESSURE_DEFAULTS };
-  const softCapTurn = Number.isInteger(timePressure.softCapTurn) && timePressure.softCapTurn > 0
-    ? timePressure.softCapTurn
-    : TIME_PRESSURE_DEFAULTS.softCapTurn;
-  const lifeLossStep = Number.isFinite(timePressure.lifeLossStep) && timePressure.lifeLossStep > 0
-    ? timePressure.lifeLossStep
-    : TIME_PRESSURE_DEFAULTS.lifeLossStep;
+  const softCapTurn =
+    Number.isInteger(timePressure.softCapTurn) && timePressure.softCapTurn > 0
+      ? timePressure.softCapTurn
+      : TIME_PRESSURE_DEFAULTS.softCapTurn;
+  const lifeLossStep =
+    Number.isFinite(timePressure.lifeLossStep) && timePressure.lifeLossStep > 0
+      ? timePressure.lifeLossStep
+      : TIME_PRESSURE_DEFAULTS.lifeLossStep;
   return { softCapTurn, lifeLossStep };
 }
 
@@ -528,13 +703,23 @@ function progressSignature(state) {
   const handCount = active ? active.hand.length : 0;
   const poolTotal = active ? Object.values(active.manaPool).reduce((a, b) => a + b, 0) : 0;
   const bfCount = Object.values(state.players).reduce((sum, p) => sum + p.battlefield.length, 0);
-  const distinctAttackers = new Set((state.combat?.attackers || []).map(a => a.permanentId)).size;
-  const distinctBlockers = new Set((state.combat?.blockers || []).map(b => b.blockerId)).size;
-  const pendings = (state.pendingFreeCast ? 1 : 0) + (state.pendingCascade ? 2 : 0) + (state.pendingDiscover ? 4 : 0);
+  const distinctAttackers = new Set((state.combat?.attackers || []).map((a) => a.permanentId)).size;
+  const distinctBlockers = new Set((state.combat?.blockers || []).map((b) => b.blockerId)).size;
+  const pendings =
+    (state.pendingFreeCast ? 1 : 0) +
+    (state.pendingCascade ? 2 : 0) +
+    (state.pendingDiscover ? 4 : 0);
   return [
-    state.turn, state.phase, state.step,
-    distinctAttackers, distinctBlockers, state.stack.length,
-    handCount, poolTotal, bfCount, pendings,
+    state.turn,
+    state.phase,
+    state.step,
+    distinctAttackers,
+    distinctBlockers,
+    state.stack.length,
+    handCount,
+    poolTotal,
+    bfCount,
+    pendings,
   ].join("|");
 }
 
@@ -564,16 +749,21 @@ export function applyArbiterVerdict(state, verdict, pa) {
   const cardName = pa?.cardName ?? null;
   let next = state;
   for (const atom of atoms) {
-    if (!atom || typeof atom.op !== "string") return null;      // malformed atom → reject the whole verdict
-    if (atom.optional || atom.targetType) return null;          // would pause / needs a chosen target → SAFE FN (reject)
+    if (!atom || typeof atom.op !== "string") return null; // malformed atom → reject the whole verdict
+    if (atom.optional || atom.targetType) return null; // would pause / needs a chosen target → SAFE FN (reject)
     const ctx = { controller, targets: [], cardName, xValue: null, sourceId };
     const after = resolveAtom(next, atom, ctx);
-    if (after == null) return null;                             // no resolver for this op → reject (never fabricate)
-    if (after.pendingChoice) return null;                       // an atom paused mid-apply → reject (verdict must resolve cleanly)
+    if (after == null) return null; // no resolver for this op → reject (never fabricate)
+    if (after.pendingChoice) return null; // an atom paused mid-apply → reject (verdict must resolve cleanly)
     next = after;
   }
   next = clearPendingArbiter(next);
-  return logEvent(next, { kind: "arbiter-resolved", cardName, source: verdict.source || "arbiter", atomCount: atoms.length });
+  return logEvent(next, {
+    kind: "arbiter-resolved",
+    cardName,
+    source: verdict.source || "arbiter",
+    atomCount: atoms.length,
+  });
 }
 
 /**
@@ -709,15 +899,27 @@ function settleOptionalChoice(state, doIt) {
 export function returnCommandersToZone(state) {
   for (const pid of Object.keys(state.players || {})) {
     for (const zone of ["graveyard", "exile"]) {
-      const card = (state.players[pid]?.[zone] || []).find((c) => c?.isCommander && !c._returnHandled);
+      const card = (state.players[pid]?.[zone] || []).find(
+        (c) => c?.isCommander && !c._returnHandled,
+      );
       if (!card) continue;
       if (pid === "user") {
         // Human owner → offer the choice (the loop applies the pause / Expert-auto split).
-        return setPendingCommanderReturnChoice(state, { controller: pid, zone, cardId: card.id, cardName: card.name });
+        return setPendingCommanderReturnChoice(state, {
+          controller: pid,
+          zone,
+          cardId: card.id,
+          cardName: card.name,
+        });
       }
       // AI owner → auto-return so it can recast. The card keeps isCommander; commanderCastCount (the tax,
       // CR 903.8) lives on the player and is untouched, so it persists across the return.
-      return moveCardToZone(state, { playerId: pid, fromZone: zone, toZone: "command", cardId: card.id });
+      return moveCardToZone(state, {
+        playerId: pid,
+        fromZone: zone,
+        toZone: "command",
+        cardId: card.id,
+      });
     }
   }
   return state;
@@ -733,7 +935,12 @@ export function settleCommanderReturnChoice(state, doReturn) {
   if (!pc || pc.kind !== "commander-return") return state;
   const cleared = clearPendingChoice(state);
   if (doReturn) {
-    return moveCardToZone(cleared, { playerId: pc.controller, fromZone: pc.zone, toZone: "command", cardId: pc.cardId });
+    return moveCardToZone(cleared, {
+      playerId: pc.controller,
+      fromZone: pc.zone,
+      toZone: "command",
+      cardId: pc.cardId,
+    });
   }
   return {
     ...cleared,
@@ -741,7 +948,9 @@ export function settleCommanderReturnChoice(state, doReturn) {
       ...cleared.players,
       [pc.controller]: {
         ...cleared.players[pc.controller],
-        [pc.zone]: (cleared.players[pc.controller]?.[pc.zone] || []).map((c) => (c.id === pc.cardId ? { ...c, _returnHandled: true } : c)),
+        [pc.zone]: (cleared.players[pc.controller]?.[pc.zone] || []).map((c) =>
+          c.id === pc.cardId ? { ...c, _returnHandled: true } : c,
+        ),
       },
     },
   };
@@ -886,16 +1095,25 @@ function actionInOfferedSet(action, offered) {
  * substrate). Recording is opt-in and pure (featurizeState reads, mutates nothing);
  * default (no recorder) adds zero overhead.
  */
-function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackAction, recordDecision }) {
+function resolveDecideAction({
+  decide,
+  state,
+  offered,
+  seat,
+  pilot,
+  fallbackAction,
+  recordDecision,
+}) {
   let chosen = fallbackAction;
   // ENGINE-COMPUTED FEATURES to the pilot (Omnath's eval-net seam ask, 2026-07-10): the SAME
   // featurizeState object the recorder row carries is passed INTO decide — a persona consuming
   // engine-computed features instead of re-deriving them from raw state can't drift from the
   // training substrate (the digest-saga lesson). Computed ONCE per decision and shared with the
   // recorder below (pure read); older pilots ignore the extra key (the additive-options pattern).
-  const features = (typeof decide === "function" || typeof recordDecision === "function")
-    ? featurizeState(state, seat)
-    : null;
+  const features =
+    typeof decide === "function" || typeof recordDecision === "function"
+      ? featurizeState(state, seat)
+      : null;
   // PREVIEW-FEATURES (O1 seam, Omnath's eval-net lookahead ask 2026-07-11): a LAZY closure the pilot
   // may call per candidate action — the engine-computed feature vector of the state AFTER applying
   // that action (dispatchAction is pure; nothing here mutates the live state). HONEST SEMANTICS: this
@@ -907,15 +1125,16 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
   // dispatchAction — previewing one always returns null; the cast/attack/block/activate/pass classes
   // (the decisions the eval net actually nudges) preview cleanly. Cost is caller-controlled: nothing
   // is computed unless invoked.
-  const previewFeatures = (typeof decide === "function")
-    ? (action) => {
-        try {
-          return featurizeState(dispatchAction(state, action), seat);
-        } catch {
-          return null;
+  const previewFeatures =
+    typeof decide === "function"
+      ? (action) => {
+          try {
+            return featurizeState(dispatchAction(state, action), seat);
+          } catch {
+            return null;
+          }
         }
-      }
-    : null;
+      : null;
   if (typeof decide === "function") {
     let candidate;
     try {
@@ -945,11 +1164,16 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
       // the threshold is the consumer's call). Non-cast decisions stay null — the honest
       // scored-class scope (combat plans/pending windows have no uniform score).
       const castRanking = takeLastCastRanking();
-      const castMatch = castRanking && chosen?.kind === "cast-spell" && castRanking.some((r) => r.cardId === chosen.cardId);
+      const castMatch =
+        castRanking &&
+        chosen?.kind === "cast-spell" &&
+        castRanking.some((r) => r.cardId === chosen.cardId);
       recordDecision({
         turn: state.turn,
         seat,
-        pilot: pilot ? { playbook: pilot.playbook ?? null, temperament: pilot.temperament ?? null } : null,
+        pilot: pilot
+          ? { playbook: pilot.playbook ?? null, temperament: pilot.temperament ?? null }
+          : null,
         features, // the SAME object decide() received — pilot view and training row can't diverge
 
         action: serializeAction(chosen),
@@ -957,8 +1181,15 @@ function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackActi
         rank: Math.max(0, offered.indexOf(chosen)),
         stackDepth: state.stack?.length ?? 0,
         forced: offered.length === 1,
-        castScores: castMatch ? castRanking.slice(0, 3).map((r) => ({ cardId: r.cardId, name: r.name, score: +Number(r.score).toFixed(3) })) : null,
-        scoreGap: castMatch && castRanking.length > 1 ? +(castRanking[1].score - castRanking[0].score).toFixed(3) : null,
+        castScores: castMatch
+          ? castRanking
+              .slice(0, 3)
+              .map((r) => ({ cardId: r.cardId, name: r.name, score: +Number(r.score).toFixed(3) }))
+          : null,
+        scoreGap:
+          castMatch && castRanking.length > 1
+            ? +(castRanking[1].score - castRanking[0].score).toFixed(3)
+            : null,
       });
     } catch (err) {
       // Recording is observational — a faulty recorder can never corrupt or abort a game.
@@ -1007,12 +1238,28 @@ export function serializeAction(action) {
 // actions; `fallbackAction` is the normalized form of the auto-pick (so a no-/bad-pilot path
 // resolves to the identical auto-pick value). Returns the chosen normalized action; the
 // caller reads `picked.candidateId` / `picked.value` and feeds it to the settler.
-function decidePendingChoice({ decide, state, seat, pilot, recordDecision, buildOffered, fallbackAction }) {
+function decidePendingChoice({
+  decide,
+  state,
+  seat,
+  pilot,
+  recordDecision,
+  buildOffered,
+  fallbackAction,
+}) {
   // Pure pass-through when neither a pilot nor a recorder is engaged — the byte-identical
   // default. Skipping buildOffered() here keeps the default path allocation-free.
   if (typeof decide !== "function" && typeof recordDecision !== "function") return fallbackAction;
   const offered = buildOffered();
-  return resolveDecideAction({ decide, state, offered, seat, pilot, fallbackAction, recordDecision });
+  return resolveDecideAction({
+    decide,
+    state,
+    offered,
+    seat,
+    pilot,
+    fallbackAction,
+    recordDecision,
+  });
 }
 
 /** Normalized legal-candidate actions for a PICK-ONE pendingChoice (tutor / clone / hand-
@@ -1021,8 +1268,13 @@ function decidePendingChoice({ decide, state, seat, pilot, recordDecision, build
  *  CR 701.23b — or a "you may" clone copy). The ids come straight from `pc.candidates`, so every offered
  *  action maps to a candidate the settler accepts; nothing is fabricated. */
 function pendingPickActions(pc, { allowDecline = false } = {}) {
-  const actions = (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, candidateId: c.id }));
-  if (allowDecline) actions.push({ kind: "pending-choice", choiceKind: pc.kind, candidateId: null });
+  const actions = (pc.candidates || []).map((c) => ({
+    kind: "pending-choice",
+    choiceKind: pc.kind,
+    candidateId: c.id,
+  }));
+  if (allowDecline)
+    actions.push({ kind: "pending-choice", choiceKind: pc.kind, candidateId: null });
   return actions;
 }
 
@@ -1043,10 +1295,17 @@ function pendingYesNoActions(pc) {
 function pendingEdictModeActions(pc) {
   const actions = [{ kind: "pending-choice", choiceKind: pc.kind, mode: "life" }];
   if ((pc.modes || []).includes("sacrifice")) {
-    for (const c of pc.sac || []) actions.push({ kind: "pending-choice", choiceKind: pc.kind, mode: "sacrifice", permId: c.id });
+    for (const c of pc.sac || [])
+      actions.push({
+        kind: "pending-choice",
+        choiceKind: pc.kind,
+        mode: "sacrifice",
+        permId: c.id,
+      });
   }
   if ((pc.modes || []).includes("discard")) {
-    for (const c of pc.disc || []) actions.push({ kind: "pending-choice", choiceKind: pc.kind, mode: "discard", cardId: c.id });
+    for (const c of pc.disc || [])
+      actions.push({ kind: "pending-choice", choiceKind: pc.kind, mode: "discard", cardId: c.id });
   }
   return actions;
 }
@@ -1111,7 +1370,17 @@ function pendingEdictModeActions(pc) {
  */
 export function advanceUntilDecision(
   session,
-  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null, policy = null, resolveArbiter = null, turnTickBudget = 2000 } = {},
+  {
+    archetype = null,
+    onTurnStart = null,
+    timePressure = null,
+    decide = null,
+    pilot = null,
+    recordDecision = null,
+    policy = null,
+    resolveArbiter = null,
+    turnTickBudget = 2000,
+  } = {},
 ) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
   const timeCfg = resolveTimePressure(timePressure);
@@ -1169,13 +1438,21 @@ export function advanceUntilDecision(
     // counter whenever state.turn advances; a turn that never advances but keeps ticking is a
     // stall. Ending it here (not at SAFETY_CAP) bounds the event-loop block + decisionLog size.
     const curTurnForTicks = current.state?.turn ?? null;
-    if (curTurnForTicks !== turnForTicks) { turnForTicks = curTurnForTicks; ticksThisTurn = 0; }
+    if (curTurnForTicks !== turnForTicks) {
+      turnForTicks = curTurnForTicks;
+      ticksThisTurn = 0;
+    }
     ticksThisTurn += 1;
     if (ticksThisTurn > maxTurnTicks) maxTurnTicks = ticksThisTurn;
     if (ticksThisTurn > turnTickBudget) {
       return {
         session: current,
-        decision: { kind: "engine-stuck", reason: `turn stall (${ticksThisTurn} ticks in a single turn — non-terminating loop)`, ticks, maxTurnTicks },
+        decision: {
+          kind: "engine-stuck",
+          reason: `turn stall (${ticksThisTurn} ticks in a single turn — non-terminating loop)`,
+          ticks,
+          maxTurnTicks,
+        },
       };
     }
 
@@ -1255,11 +1532,19 @@ export function advanceUntilDecision(
           current = {
             ...current,
             state: resolved, // pendingArbiter already cleared + `arbiter-resolved` logged by the applier
-            decisionLog: [...current.decisionLog, {
-              ts: Date.now(), turn: current.state.turn, phase: current.state.phase, step: current.state.step,
-              actor: pa.controller, action: { kind: "arbiter-resolved", name: pa.cardName }, auto: true,
-              reasoning: "resolved from Arbiter verdict cache",
-            }],
+            decisionLog: [
+              ...current.decisionLog,
+              {
+                ts: Date.now(),
+                turn: current.state.turn,
+                phase: current.state.phase,
+                step: current.state.step,
+                actor: pa.controller,
+                action: { kind: "arbiter-resolved", name: pa.cardName },
+                auto: true,
+                reasoning: "resolved from Arbiter verdict cache",
+              },
+            ],
           };
           continue;
         }
@@ -1305,10 +1590,16 @@ export function advanceUntilDecision(
       }
       // The pre-refactor default pick (byte-identical when no decide). The pluggable
       // decide may substitute another offered action; an out-of-set return falls back here.
-      const dFallback = dDecision.action || dActions.find((a) => a.kind === "discover-to-hand") || dActions[0];
+      const dFallback =
+        dDecision.action || dActions.find((a) => a.kind === "discover-to-hand") || dActions[0];
       const dAction = resolveDecideAction({
-        decide, state: current.state, offered: dActions, seat: dc, pilot,
-        fallbackAction: dFallback, recordDecision,
+        decide,
+        state: current.state,
+        offered: dActions,
+        seat: dc,
+        pilot,
+        fallbackAction: dFallback,
+        recordDecision,
       });
       current = dAction
         ? { ...current, state: dispatchAction(current.state, dAction) }
@@ -1336,11 +1627,20 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "clone-search", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           // WI-2 (CR 707.9): a MANDATORY clone (optional === false) is never offered the illegal
           // null/decline action — pilots can only pick a real copy target.
-          buildOffered: () => pendingPickActions(pc, { allowDecline: pc.resume?.optional !== false }),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickCloneCandidate(current.state, pc) },
+          buildOffered: () =>
+            pendingPickActions(pc, { allowDecline: pc.resume?.optional !== false }),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickCloneCandidate(current.state, pc),
+          },
         });
         current = { ...current, state: settleCloneChoice(current.state, picked.candidateId) };
         continue;
@@ -1355,7 +1655,13 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "scry-surveil", ...pc } };
         }
-        current = { ...current, state: settleScryChoice(current.state, (pc.cards || []).map((c) => c.id)) };
+        current = {
+          ...current,
+          state: settleScryChoice(
+            current.state,
+            (pc.cards || []).map((c) => c.id),
+          ),
+        };
         continue;
       }
       // α2 — optional "you may <effect>": the player's OWN optional surfaces a yes/no; Expert
@@ -1366,7 +1672,11 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "optional-effect", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: true },
         });
@@ -1381,7 +1691,11 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "commander-return", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: true },
         });
@@ -1397,9 +1711,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "hand-discard", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickHandDiscardCandidate(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickHandDiscardCandidate(current.state, pc),
+          },
         });
         current = { ...current, state: settleHandDiscardChoice(current.state, picked.candidateId) };
         continue;
@@ -1413,11 +1735,22 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "cleanup-discard", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickDiscardCandidate(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickDiscardCandidate(current.state, pc),
+          },
         });
-        current = { ...current, state: settleCleanupDiscardStep(current.state, picked.candidateId) };
+        current = {
+          ...current,
+          state: settleCleanupDiscardStep(current.state, picked.candidateId),
+        };
         continue;
       }
       // δ-2 — impulse-dig (Anticipate / Strategic Planning): the player's OWN dig surfaces a pick-one
@@ -1428,9 +1761,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "impulse-dig", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickTutorCandidate(current.state, pc),
+          },
         });
         current = { ...current, state: settleImpulseDigChoice(current.state, picked.candidateId) };
         continue;
@@ -1444,9 +1785,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "look-top-take", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc, { allowDecline: true }), // LEAVE (candidateId null) is legal here
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickLookTopTake(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickLookTopTake(current.state, pc),
+          },
         });
         current = { ...current, state: settleLookTopTakeChoice(current.state, picked.candidateId) };
         continue;
@@ -1459,9 +1808,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "dig-land-to-battlefield", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickDigLandCandidate(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickDigLandCandidate(current.state, pc),
+          },
         });
         current = { ...current, state: settleDigLandChoice(current.state, picked.candidateId) };
         continue;
@@ -1474,9 +1831,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "sacrifice-choice", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickSacrificeCandidate(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickSacrificeCandidate(current.state, pc),
+          },
         });
         current = { ...current, state: settleSacrificeChoice(current.state, picked.candidateId) };
         continue;
@@ -1490,9 +1855,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "discard", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickDiscardCandidate(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickDiscardCandidate(current.state, pc),
+          },
         });
         current = { ...current, state: settleDiscardChoice(current.state, picked.candidateId) };
         continue;
@@ -1507,14 +1880,23 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "divide-damage", ...pc } };
         }
-        current = { ...current, state: settleDivideChoice(current.state, autoPickDivideDistribution(current.state, pc)) };
+        current = {
+          ...current,
+          state: settleDivideChoice(current.state, autoPickDivideDistribution(current.state, pc)),
+        };
         continue;
       }
       if (pc.kind === "distribute-counters") {
         if (pause) {
           return { session: current, decision: { kind: "distribute-counters", ...pc } };
         }
-        current = { ...current, state: settleDistributeChoice(current.state, autoPickDistributeCounters(current.state, pc)) };
+        current = {
+          ...current,
+          state: settleDistributeChoice(
+            current.state,
+            autoPickDistributeCounters(current.state, pc),
+          ),
+        };
         continue;
       }
       // ===== SOFT-CNT ===== — soft counter "unless its controller pays {N}" (Force Spike / Mana Leak /
@@ -1533,9 +1915,17 @@ export function advanceUntilDecision(
         // spell be countered) or "pay" when broke — settleSoftCounterChoice never fabricates mana, so an
         // unaffordable pay still counters the spell (CR-honest), never an illegal free save.
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickSoftCounterPay(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickSoftCounterPay(current.state, pc),
+          },
         });
         current = { ...current, state: settleSoftCounterChoice(current.state, picked.value) };
         continue;
@@ -1550,14 +1940,28 @@ export function advanceUntilDecision(
         if (pause) {
           // Enrich with affordability so the picker can disable "Pay" when the human can't cover the cost.
           const affordable = autoPickOptionalManaPayment(current.state, pc);
-          return { session: current, decision: { kind: "optional-mana-payment", ...pc, affordable } };
+          return {
+            session: current,
+            decision: { kind: "optional-mana-payment", ...pc, affordable },
+          };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalManaPayment(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickOptionalManaPayment(current.state, pc),
+          },
         });
-        current = { ...current, state: settleOptionalManaPaymentChoice(current.state, picked.value) };
+        current = {
+          ...current,
+          state: settleOptionalManaPaymentChoice(current.state, picked.value),
+        };
         continue;
       }
       // ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
@@ -1570,9 +1974,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "optional-sac-payment", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalSac(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickOptionalSac(current.state, pc),
+          },
         });
         current = { ...current, state: settleOptionalSacChoice(current.state, picked.value) };
         continue;
@@ -1582,11 +1994,22 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "optional-draw-discard", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalDrawDiscard(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickOptionalDrawDiscard(current.state, pc),
+          },
         });
-        current = { ...current, state: settleOptionalDrawDiscardChoice(current.state, picked.value) };
+        current = {
+          ...current,
+          state: settleOptionalDrawDiscardChoice(current.state, picked.value),
+        };
         continue;
       }
       if (pc.kind === "optional-discard-payment") {
@@ -1594,9 +2017,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "optional-discard-payment", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalDiscard(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickOptionalDiscard(current.state, pc),
+          },
         });
         current = { ...current, state: settleOptionalDiscardChoice(current.state, picked.value) };
         continue;
@@ -1606,9 +2037,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "sac-unless-pay", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickSacUnlessPay(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickSacUnlessPay(current.state, pc),
+          },
         });
         current = { ...current, state: settleSacUnlessPayChoice(current.state, picked.value) };
         continue;
@@ -1619,9 +2058,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "taxed-payment", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickTaxedPayment(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickTaxedPayment(current.state, pc),
+          },
         });
         current = { ...current, state: settleTaxedPaymentChoice(current.state, picked.value) };
         continue;
@@ -1636,9 +2083,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "edict-mode", ...pc } };
         }
         const picked = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingEdictModeActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, ...autoPickEdictMode(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            ...autoPickEdictMode(current.state, pc),
+          },
         });
         current = { ...current, state: settleEdictModeChoice(current.state, picked) };
         continue;
@@ -1663,9 +2118,17 @@ export function advanceUntilDecision(
           return { session: current, decision: { kind: "tutor-search", ...pc } };
         }
         const tutorPick = decidePendingChoice({
-          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
           buildOffered: () => pendingPickActions(pc, { allowDecline: pc.mayFailToFind !== false }),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickTutorCandidate(current.state, pc),
+          },
         });
         current = { ...current, state: settleTutorChoice(current.state, tutorPick.candidateId) };
         continue;
@@ -1678,12 +2141,17 @@ export function advanceUntilDecision(
       // engine-stuck decision immediately (no spin, no silent no-op).
       {
         const loggedState = logEvent(current.state, {
-          kind: "pending-choice-unhandled", choiceKind: pc.kind, controller: pc.controller ?? null,
+          kind: "pending-choice-unhandled",
+          choiceKind: pc.kind,
+          controller: pc.controller ?? null,
         });
         current = { ...current, state: clearPendingChoice(loggedState) };
         return {
           session: current,
-          decision: { kind: "engine-stuck", reason: `no driver branch for pendingChoice kind "${pc.kind}"` },
+          decision: {
+            kind: "engine-stuck",
+            reason: `no driver branch for pendingChoice kind "${pc.kind}"`,
+          },
         };
       }
     }
@@ -1705,14 +2173,20 @@ export function advanceUntilDecision(
     if (current.state.turn > MAX_TURNS) {
       const status = timeCfg ? "timeout" : "draw";
       if (typeof console !== "undefined" && console.warn) {
-        console.warn(`[learn] turn limit (${MAX_TURNS}) reached at turn ${current.state.turn} — ending as a ${status}`);
+        console.warn(
+          `[learn] turn limit (${MAX_TURNS}) reached at turn ${current.state.turn} — ending as a ${status}`,
+        );
       }
       return {
         session: { ...current, status, endedAt: new Date().toISOString() },
         decision: {
           kind: "game-over",
           reason: timeCfg ? "timeout" : "turn-limit",
-          diagnostic: { turn: current.state.turn, phase: current.state.phase, step: current.state.step },
+          diagnostic: {
+            turn: current.state.turn,
+            phase: current.state.phase,
+            step: current.state.step,
+          },
         },
       };
     }
@@ -1755,13 +2229,21 @@ export function advanceUntilDecision(
       // wedged game). If the offered set carries the window's safe non-cast resolution
       // (decline / to-hand), dispatch THAT instead: it clears the flag and play proceeds.
       const declineKinds = new Set(["free-cast-decline", "cascade-decline", "discover-to-hand"]);
-      const fallback = actions.find(a => declineKinds.has(a.kind)) || { kind: "pass-priority", playerId: actor };
+      const fallback = actions.find((a) => declineKinds.has(a.kind)) || {
+        kind: "pass-priority",
+        playerId: actor,
+      };
       try {
         current = { ...current, state: dispatchAction(state, fallback) };
       } catch {
         return {
           session: current,
-          decision: { kind: "engine-stuck", reason: "no legal action and no pass available", ticks, maxTurnTicks },
+          decision: {
+            kind: "engine-stuck",
+            reason: "no legal action and no pass available",
+            ticks,
+            maxTurnTicks,
+          },
         };
       }
       continue;
@@ -1772,8 +2254,13 @@ export function advanceUntilDecision(
     // another offered action, and an out-of-set / throwing return falls back to it. Also
     // records the full-trajectory row (when recordDecision is set) for THIS decision.
     const chosenAction = resolveDecideAction({
-      decide, state, offered: actions, seat: actor, pilot,
-      fallbackAction: decision.action, recordDecision,
+      decide,
+      state,
+      offered: actions,
+      seat: actor,
+      pilot,
+      fallbackAction: decision.action,
+      recordDecision,
     });
 
     try {
@@ -1819,7 +2306,12 @@ export function advanceUntilDecision(
 
   return {
     session: current,
-    decision: { kind: "engine-stuck", reason: `safety cap (${SAFETY_CAP} ticks) hit`, ticks, maxTurnTicks },
+    decision: {
+      kind: "engine-stuck",
+      reason: `safety cap (${SAFETY_CAP} ticks) hit`,
+      ticks,
+      maxTurnTicks,
+    },
   };
 }
 
@@ -1869,7 +2361,11 @@ export function applyChoice(session, choice, opts = {}) {
   // else" — validating against the priorityHolder made the human's ask UNANSWERABLE
   // (INVALID_CHOICE forever, a hard wedge). Validate against the window controller.
   const s = session.state;
-  const actor = s.pendingDiscover?.controller ?? s.pendingFreeCast?.controller ?? s.pendingCascade?.controller ?? s.priorityHolder;
+  const actor =
+    s.pendingDiscover?.controller ??
+    s.pendingFreeCast?.controller ??
+    s.pendingCascade?.controller ??
+    s.priorityHolder;
   if (!actor) {
     return {
       session,
@@ -1882,7 +2378,11 @@ export function applyChoice(session, choice, opts = {}) {
   if (!matched) {
     return {
       session,
-      decision: { kind: "dispatch-error", reason: "Choice doesn't match any legal action", code: "INVALID_CHOICE" },
+      decision: {
+        kind: "dispatch-error",
+        reason: "Choice doesn't match any legal action",
+        code: "INVALID_CHOICE",
+      },
     };
   }
 
@@ -1952,11 +2452,14 @@ export function continueFromArbiter(session, opts = {}) {
     reasoning: "arbiter-acknowledged",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: logged,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: logged,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -1989,7 +2492,10 @@ export function applyTutorChoice(session, choice, opts = {}) {
   try {
     newState = settleTutorChoice(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2003,11 +2509,14 @@ export function applyTutorChoice(session, choice, opts = {}) {
     reasoning: "user-chose-tutor",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2039,7 +2548,10 @@ export function applyCloneChoice(session, choice, opts = {}) {
   try {
     newState = settleCloneChoice(session.state, permId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2053,11 +2565,14 @@ export function applyCloneChoice(session, choice, opts = {}) {
     reasoning: "user-chose-copy-target",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2077,13 +2592,18 @@ export function applyScryChoice(session, choice, opts = {}) {
   // Keep only ids that are actually among the looked-at cards, each at most once (defensive
   // against a stale/duplicate-id UI submit — keeps the library mutation + the log count honest).
   const valid = new Set((pc.cards || []).map((c) => c.id));
-  const keep = [...new Set((Array.isArray(choice?.keep) ? choice.keep : []).filter((id) => valid.has(id)))];
+  const keep = [
+    ...new Set((Array.isArray(choice?.keep) ? choice.keep : []).filter((id) => valid.has(id))),
+  ];
 
   let newState;
   try {
     newState = settleScryChoice(session.state, keep);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2092,16 +2612,24 @@ export function applyScryChoice(session, choice, opts = {}) {
     phase: session.state.phase,
     step: session.state.step,
     actor: "user",
-    action: { kind: "scry-choice", mode: pc.mode, kept: keep.length, looked: (pc.cards || []).length },
+    action: {
+      kind: "scry-choice",
+      mode: pc.mode,
+      kept: keep.length,
+      looked: (pc.cards || []).length,
+    },
     auto: false,
     reasoning: "user-chose-scry",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2141,7 +2669,10 @@ export function applyDivideChoice(session, choice, opts = {}) {
   try {
     newState = settleDivideChoice(session.state, distribution);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2153,7 +2684,10 @@ export function applyDivideChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-assigned-divide",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2188,7 +2722,10 @@ export function applyDistributeChoice(session, choice, opts = {}) {
     // the picker re-surfaced forever — a genuine SOFT-LOCK for a human seat (found live by
     // scripts/playability-sweep.mjs: amount=3 perTargetCap=1 candidates=2, turn 47).
     const perCap = pc.perTargetCap ?? Infinity;
-    const targetSlots = Math.min((pc.candidates || []).length, pc.maxTargets ?? (pc.candidates || []).length);
+    const targetSlots = Math.min(
+      (pc.candidates || []).length,
+      pc.maxTargets ?? (pc.candidates || []).length,
+    );
     const required = Math.min(pc.amount || 0, targetSlots * perCap);
     if (cappedSum < required) {
       return { session, decision: { kind: "distribute-counters", ...pc } }; // under-assigned — re-surface the picker
@@ -2198,7 +2735,10 @@ export function applyDistributeChoice(session, choice, opts = {}) {
   try {
     newState = settleDistributeChoice(session.state, distribution);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2210,7 +2750,10 @@ export function applyDistributeChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-assigned-distribute",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2232,7 +2775,10 @@ export function applySoftCounterChoice(session, choice, opts = {}) {
   try {
     newState = settleSoftCounterChoice(session.state, pay);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2244,7 +2790,10 @@ export function applySoftCounterChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-soft-counter-pay",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2267,7 +2816,10 @@ export function applyOptionalManaPaymentChoice(session, choice, opts = {}) {
   try {
     newState = settleOptionalManaPaymentChoice(session.state, pay);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2279,7 +2831,10 @@ export function applyOptionalManaPaymentChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-optional-mana-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2302,7 +2857,10 @@ export function applyOptionalSacChoice(session, choice, opts = {}) {
   try {
     newState = settleOptionalSacChoice(session.state, sac);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2314,7 +2872,10 @@ export function applyOptionalSacChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-optional-sac-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2335,7 +2896,10 @@ export function applyOptionalDrawDiscardChoice(session, choice, opts = {}) {
   try {
     newState = settleOptionalDrawDiscardChoice(session.state, doDraw);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2347,7 +2911,10 @@ export function applyOptionalDrawDiscardChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-optional-draw-discard",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2368,7 +2935,10 @@ export function applyOptionalDiscardPaymentChoice(session, choice, opts = {}) {
   try {
     newState = settleOptionalDiscardChoice(session.state, doDiscard);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2380,7 +2950,10 @@ export function applyOptionalDiscardPaymentChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-optional-discard-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2401,7 +2974,10 @@ export function applySacUnlessPayChoice(session, choice, opts = {}) {
   try {
     newState = settleSacUnlessPayChoice(session.state, pay);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2413,7 +2989,10 @@ export function applySacUnlessPayChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-sac-unless-pay",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2435,7 +3014,10 @@ export function applyTaxedPaymentChoice(session, choice, opts = {}) {
   try {
     newState = settleTaxedPaymentChoice(session.state, pay);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2447,7 +3029,10 @@ export function applyTaxedPaymentChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-taxed-payment",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2467,9 +3052,16 @@ export function applyEdictModeChoice(session, choice, opts = {}) {
   const mode = (pc.modes || []).includes(choice?.mode) ? choice.mode : "life";
   let newState;
   try {
-    newState = settleEdictModeChoice(session.state, { mode, permId: choice?.permId ?? null, cardId: choice?.cardId ?? null });
+    newState = settleEdictModeChoice(session.state, {
+      mode,
+      permId: choice?.permId ?? null,
+      cardId: choice?.cardId ?? null,
+    });
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
   const logEntry = {
     ts: Date.now(),
@@ -2481,7 +3073,10 @@ export function applyEdictModeChoice(session, choice, opts = {}) {
     auto: false,
     reasoning: "user-chose-edict-mode",
   };
-  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
 }
 
 /**
@@ -2503,7 +3098,10 @@ export function applyOptionalChoice(session, choice, opts = {}) {
   try {
     newState = settleOptionalChoice(session.state, take);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2517,11 +3115,14 @@ export function applyOptionalChoice(session, choice, opts = {}) {
     reasoning: "user-chose-optional",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2543,7 +3144,10 @@ export function applyCommanderReturnChoice(session, choice, opts = {}) {
   try {
     newState = settleCommanderReturnChoice(session.state, doReturn);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2557,11 +3161,14 @@ export function applyCommanderReturnChoice(session, choice, opts = {}) {
     reasoning: doReturn ? "user-returned-commander" : "user-left-commander-in-graveyard",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2587,7 +3194,10 @@ export function applyHandDiscardChoice(session, choice, opts = {}) {
   try {
     newState = settleHandDiscardChoice(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2601,11 +3211,14 @@ export function applyHandDiscardChoice(session, choice, opts = {}) {
     reasoning: "user-chose-discard",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2631,7 +3244,10 @@ export function applyCleanupDiscardChoice(session, choice, opts = {}) {
   try {
     newState = settleCleanupDiscardStep(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2645,11 +3261,14 @@ export function applyCleanupDiscardChoice(session, choice, opts = {}) {
     reasoning: "user-chose-cleanup-discard",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2675,7 +3294,10 @@ export function applyImpulseDigChoice(session, choice, opts = {}) {
   try {
     newState = settleImpulseDigChoice(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2689,11 +3311,14 @@ export function applyImpulseDigChoice(session, choice, opts = {}) {
     reasoning: "user-chose-dig",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2722,7 +3347,10 @@ export function applyLookTopTakeChoice(session, choice, opts = {}) {
   try {
     newState = settleLookTopTakeChoice(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2736,11 +3364,14 @@ export function applyLookTopTakeChoice(session, choice, opts = {}) {
     reasoning: cardId !== null ? "user-took-top-card" : "user-left-top-card",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2767,7 +3398,10 @@ export function applyDigLandChoice(session, choice, opts = {}) {
   try {
     newState = settleDigLandChoice(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2781,11 +3415,14 @@ export function applyDigLandChoice(session, choice, opts = {}) {
     reasoning: "user-chose-dig-land",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2813,7 +3450,10 @@ export function applySacrificeChoice(session, choice, opts = {}) {
   try {
     newState = settleSacrificeChoice(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2827,11 +3467,14 @@ export function applySacrificeChoice(session, choice, opts = {}) {
     reasoning: "user-chose-sacrifice",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2859,7 +3502,10 @@ export function applyDiscardChoice(session, choice, opts = {}) {
   try {
     newState = settleDiscardChoice(session.state, cardId);
   } catch (error) {
-    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
   }
 
   const logEntry = {
@@ -2873,11 +3519,14 @@ export function applyDiscardChoice(session, choice, opts = {}) {
     reasoning: "user-chose-discard-own",
   };
 
-  return advanceUntilDecision({
-    ...session,
-    state: newState,
-    decisionLog: [...session.decisionLog, logEntry],
-  }, opts);
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
 }
 
 /**
@@ -2916,10 +3565,13 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "divide-damage") return applyDivideChoice(session, choice, opts);
   if (kind === "distribute-counters") return applyDistributeChoice(session, choice, opts);
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice, opts);
-  if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice, opts);
+  if (kind === "optional-mana-payment")
+    return applyOptionalManaPaymentChoice(session, choice, opts);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
-  if (kind === "optional-draw-discard") return applyOptionalDrawDiscardChoice(session, choice, opts);
-  if (kind === "optional-discard-payment") return applyOptionalDiscardPaymentChoice(session, choice, opts);
+  if (kind === "optional-draw-discard")
+    return applyOptionalDrawDiscardChoice(session, choice, opts);
+  if (kind === "optional-discard-payment")
+    return applyOptionalDiscardPaymentChoice(session, choice, opts);
   if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice, opts);
   if (kind === "taxed-payment") return applyTaxedPaymentChoice(session, choice, opts);
   if (kind === "edict-mode") return applyEdictModeChoice(session, choice, opts);
@@ -2963,7 +3615,9 @@ const NOISY_AUTO_ACTION_KINDS = new Set(["pass-priority", "tap-for-mana"]);
  */
 export function filteredDecisionLogTail(session, limit = 5) {
   const log = session?.decisionLog || [];
-  const interesting = log.filter((entry) => !entry.auto || !NOISY_AUTO_ACTION_KINDS.has(entry.action?.kind));
+  const interesting = log.filter(
+    (entry) => !entry.auto || !NOISY_AUTO_ACTION_KINDS.has(entry.action?.kind),
+  );
   return interesting.slice(-limit);
 }
 

@@ -20,7 +20,7 @@
 
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { _resetIdsForTests } from "./gameState.js";
-import { createLearnSession } from "./learnSession.js";
+import { createLearnSession, advanceMulligan, mulliganDecision } from "./learnSession.js";
 import { startGame, applyMulliganShip, applyMulliganKeep } from "./gameEngine.js";
 import { createGameState } from "./gameState.js";
 import { runSelfPlayGame } from "./selfPlayRunner.js";
@@ -458,5 +458,85 @@ describe("mulligan — the chooseBottom seam (human London picker)", () => {
         (e) => e.kind === "mulligan-ship" && e.player === "user" && e.mulligans === 1,
       ),
     ).toBe(true);
+  });
+});
+
+// ── The interactive human London flow at the SESSION layer (slice 2) ───────────────────────
+//
+// createLearnSession({ humanMulligan: true }) deals but does NOT open the game — the "user" seat
+// resolves keep/ship/bottom one step per advanceMulligan call, then the game opens and hands off
+// to the normal decision loop. This is the flow the free-play routes + UI drive (slices 3–4).
+describe("mulligan — the interactive human flow (session layer)", () => {
+  const startHuman = () =>
+    createLearnSession({
+      userDeck: uniqueDeck("u"),
+      opponentDeck: uniqueDeck("a"),
+      difficulty: "beginner",
+      mode: "standard",
+      seed: 7,
+      humanMulligan: true,
+    });
+
+  const isOpened = (state) => state.log.some((e) => e.kind === "game-start");
+
+  it("deals but does NOT open — session sits at status 'mulligan' with a keep/ship ask for the user seat", () => {
+    const s = startHuman();
+    expect(s.status).toBe("mulligan");
+    expect(s.mulligan).toEqual({ seat: "user", mulligans: 0, phase: "decide" });
+    expect(s.state.players.user.hand).toHaveLength(7);
+    expect(isOpened(s.state)).toBe(false); // game NOT opened yet — no game-start log
+
+    const view = mulliganDecision(s);
+    expect(view.kind).toBe("mulligan");
+    expect(view.phase).toBe("decide");
+    expect(view.hand).toHaveLength(7);
+    expect(view.options.map((o) => o.kind).sort()).toEqual(["mulligan-keep", "mulligan-ship"]);
+  });
+
+  it("KEEP at 0 opens the game untouched — 7-card hand, status active, mulligan marker cleared", () => {
+    const s = startHuman();
+    const handBefore = s.state.players.user.hand.map((c) => c.id);
+    const { session, decision } = quiet(() => advanceMulligan(s, { kind: "mulligan-keep" }));
+
+    expect(session.status).toBe("active");
+    expect(session.mulligan).toBeUndefined();
+    expect(isOpened(session.state)).toBe(true);
+    expect(session.state.players.user.hand.map((c) => c.id)).toEqual(handBefore); // untouched
+    expect(decision).toBeTruthy(); // a real first decision (or terminal) was produced
+  });
+
+  it("SHIP → KEEP → BOTTOM: redraws, then bottoms EXACTLY the player's chosen card, then opens", () => {
+    const preDealtIds = uniqueDeck("u")
+      .map((c) => c.id)
+      .sort();
+    let s = startHuman();
+
+    // Ship once — fresh 7, mulligan count 1, still in the decide phase (ship still offered).
+    let step = quiet(() => advanceMulligan(s, { kind: "mulligan-ship" }));
+    s = step.session;
+    expect(s.mulligan).toEqual({ seat: "user", mulligans: 1, phase: "decide" });
+    expect(step.decision.options.map((o) => o.kind)).toContain("mulligan-ship");
+    expect(s.state.players.user.hand).toHaveLength(7);
+
+    // Keep — with 1 ship taken, advance to the bottom-pick phase (must bottom 1).
+    step = quiet(() => advanceMulligan(s, { kind: "mulligan-keep" }));
+    s = step.session;
+    expect(s.mulligan).toEqual({ seat: "user", mulligans: 1, phase: "bottom" });
+    expect(step.decision).toMatchObject({ kind: "mulligan", phase: "bottom", bottomCount: 1 });
+
+    // The player picks a specific card to bottom.
+    const chosen = s.state.players.user.hand[3].id;
+    step = quiet(() => advanceMulligan(s, { kind: "mulligan-bottom", cardIds: [chosen] }));
+    const opened = step.session;
+
+    expect(opened.status).toBe("active");
+    expect(opened.mulligan).toBeUndefined();
+    expect(isOpened(opened.state)).toBe(true);
+    // The chosen card is bottomed: gone from hand, present in library; hand is 6 (7 − 1 bottomed).
+    expect(opened.state.players.user.hand.map((c) => c.id)).not.toContain(chosen);
+    expect(opened.state.players.user.library.map((c) => c.id)).toContain(chosen);
+    expect(opened.state.players.user.hand).toHaveLength(6);
+    // Deck-size invariant across the whole flow: all 60 original cards conserved.
+    expect(libHandIds(opened.state, "user")).toEqual(preDealtIds);
   });
 });
