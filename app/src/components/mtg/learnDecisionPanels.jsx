@@ -68,52 +68,91 @@ export function UnresolvedPanel({ decision, onContinue }) {
       cardNames: decision.cardName ? [decision.cardName] : undefined,
       provider: "ollama", // local-only — never spends API credits
     })
-      .then(res => {
+      .then((res) => {
         if (cancelled) return;
-        if (res.trace) setRuling({ trace: res.trace, status: res.status, loading: false, error: null });
-        else setRuling({ trace: "", status: res.status, loading: false, error: "Arbiter is offline — make sure Ollama is running, or continue without a ruling." });
+        if (res.trace)
+          setRuling({ trace: res.trace, status: res.status, loading: false, error: null });
+        else
+          setRuling({
+            trace: "",
+            status: res.status,
+            loading: false,
+            error:
+              "Arbiter is offline — make sure Ollama is running, or continue without a ruling.",
+          });
       })
-      .catch(e => { if (!cancelled) setRuling({ trace: "", status: null, loading: false, error: e.message }); });
-    return () => { cancelled = true; };
-  }, [decision.stackObjectId, decision.question, decision.oracle, decision.context, decision.cardName]);
+      .catch((e) => {
+        if (!cancelled) setRuling({ trace: "", status: null, loading: false, error: e.message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    decision.stackObjectId,
+    decision.question,
+    decision.oracle,
+    decision.context,
+    decision.cardName,
+  ]);
 
   const handleContinue = async () => {
     if (continuing) return;
     setContinuing(true);
-    try { await onContinue?.(); } finally { setContinuing(false); }
+    try {
+      await onContinue?.();
+    } finally {
+      setContinuing(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{
-        padding: "12px 14px",
-        background: "var(--ley-green-faint)",
-        border: "1px solid var(--ley-line-bright)",
-        borderRadius: 6,
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           ⚖ Rules check — {decision.cardName || "this card"}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5 }}>
-          The simulator can&rsquo;t fully model this card yet, so rather than guess it asked
-          the Arbiter (the local rules engine) for a ruling. Read it, apply it on your board
-          if you like, then continue.
+          The simulator can&rsquo;t fully model this card yet, so rather than guess it asked the
+          Arbiter (the local rules engine) for a ruling. Read it, apply it on your board if you
+          like, then continue.
         </div>
       </div>
 
-      <div style={{
-        padding: "12px 14px",
-        background: "var(--ley-surface-2)",
-        border: "1px solid var(--ley-line)",
-        borderRadius: 6,
-        minHeight: 60,
-      }}>
-        {ruling.loading && <div style={{ fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>Asking the Arbiter…</div>}
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-surface-2)",
+          border: "1px solid var(--ley-line)",
+          borderRadius: 6,
+          minHeight: 60,
+        }}
+      >
+        {ruling.loading && (
+          <div style={{ fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>
+            Asking the Arbiter…
+          </div>
+        )}
         {!ruling.loading && ruling.trace && (
-          <div style={{ fontSize: 12, color: "var(--ley-text)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{ruling.trace}</div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--ley-text)",
+              lineHeight: 1.55,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {ruling.trace}
+          </div>
         )}
         {!ruling.loading && !ruling.trace && ruling.error && (
           <div style={{ fontSize: 12, color: "var(--ley-gold)" }}>⚠ {ruling.error}</div>
@@ -148,29 +187,59 @@ export function TutorSearchPanel({ decision, onChoose }) {
   // this the stale selection from the first search could be submitted to the second
   // (a non-candidate → rejected). Keyed on the candidate ids (a new search → new set).
   const candidateKey = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [candidateKey]);
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
 
   const submit = async (cardId) => {
     if (submitting) return;
     setSubmitting(true);
-    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🔍 Search your library{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Choose {decision.filterLabel ? `a ${decision.filterLabel}` : "a card"} to put into your hand
-          ({candidates.length} match{candidates.length === 1 ? "" : "es"}). Then your library is shuffled.
+          Choose {decision.filterLabel ? `a ${decision.filterLabel}` : "a card"} to put into your
+          hand ({candidates.length} match{candidates.length === 1 ? "" : "es"}). Then your library
+          is shuffled.
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
         {candidates.length === 0 && (
-          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              fontSize: 12,
+              color: "var(--ley-text-dim)",
+              fontStyle: "italic",
+            }}
+          >
             No matching cards in your library.
           </div>
         )}
@@ -182,20 +251,40 @@ export function TutorSearchPanel({ decision, onChoose }) {
               onClick={() => setSelected(c.id)}
               title={c.name}
               style={{
-                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
                 background: isSel ? "var(--ley-green-dim)" : "transparent",
                 border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-                borderRadius: 8, cursor: "pointer", textAlign: "left",
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
               }}
             >
               <img
                 src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
-              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
                 {c.name}
               </div>
             </button>
@@ -212,11 +301,7 @@ export function TutorSearchPanel({ decision, onChoose }) {
         >
           {submitting ? "…" : "Put in hand"}
         </button>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => submit(null)}
-          disabled={submitting}
-        >
+        <button className="btn btn-ghost btn-sm" onClick={() => submit(null)} disabled={submitting}>
           Find nothing
         </button>
       </div>
@@ -243,9 +328,20 @@ export function TutorSearchPanel({ decision, onChoose }) {
 /** A small shared shell so seven panels don't each re-declare the same banner chrome. */
 export function ChoiceBanner({ icon, title, children }) {
   return (
-    <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>{icon} {title}</div>
-      <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>{children}</div>
+    <div
+      style={{
+        padding: "12px 14px",
+        background: "var(--ley-green-faint)",
+        border: "1px solid var(--ley-line-bright)",
+        borderRadius: 6,
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+        {icon} {title}
+      </div>
+      <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -256,12 +352,30 @@ export function YesNoChoice({ yesLabel, noLabel, onYes, onNo, yesDisabled = fals
   const go = async (fn) => {
     if (submitting) return;
     setSubmitting(true);
-    try { await fn(); } finally { setSubmitting(false); }
+    try {
+      await fn();
+    } finally {
+      setSubmitting(false);
+    }
   };
   return (
     <div style={{ display: "flex", gap: 8 }}>
-      <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => go(onYes)} disabled={submitting || yesDisabled}>{yesLabel}</button>
-      <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => go(onNo)} disabled={submitting}>{noLabel}</button>
+      <button
+        className="btn btn-primary btn-sm"
+        style={{ flex: 1 }}
+        onClick={() => go(onYes)}
+        disabled={submitting || yesDisabled}
+      >
+        {yesLabel}
+      </button>
+      <button
+        className="btn btn-ghost btn-sm"
+        style={{ flex: 1 }}
+        onClick={() => go(onNo)}
+        disabled={submitting}
+      >
+        {noLabel}
+      </button>
     </div>
   );
 }
@@ -269,7 +383,16 @@ export function YesNoChoice({ yesLabel, noLabel, onYes, onNo, yesDisabled = fals
 /** A reusable card-picker grid (name + art) for the pick-one kinds. */
 export function CardPickGrid({ candidates, selected, onSelect }) {
   return (
-    <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+    <div
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 8,
+        alignContent: "start",
+      }}
+    >
       {candidates.map((c) => {
         const isSel = selected === c.id;
         return (
@@ -278,19 +401,41 @@ export function CardPickGrid({ candidates, selected, onSelect }) {
             onClick={() => onSelect(c.id)}
             title={c.name}
             style={{
-              display: "flex", flexDirection: "column", gap: 4, padding: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              padding: 4,
               background: isSel ? "var(--ley-green-dim)" : "transparent",
               border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-              borderRadius: 8, cursor: "pointer", textAlign: "left",
+              borderRadius: 8,
+              cursor: "pointer",
+              textAlign: "left",
             }}
           >
             <img
               src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
               alt=""
-              style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+              style={{
+                width: "100%",
+                aspectRatio: "63 / 88",
+                objectFit: "cover",
+                borderRadius: 4,
+                background: "var(--ley-surface-2)",
+              }}
+              onError={(e) => {
+                e.currentTarget.style.visibility = "hidden";
+              }}
             />
-            <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>{c.name}</div>
+            <div
+              style={{
+                fontSize: 11,
+                color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                lineHeight: 1.25,
+                fontWeight: isSel ? 700 : 400,
+              }}
+            >
+              {c.name}
+            </div>
           </button>
         );
       })}
@@ -304,21 +449,35 @@ export function DigLandPanel({ decision, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const key = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [key]);
+  useEffect(() => {
+    setSelected(null);
+  }, [key]);
 
   const submit = async () => {
     if (submitting || !selected) return;
     setSubmitting(true);
-    try { await onChoose?.(selected); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(selected);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <ChoiceBanner icon="🏔" title={`Put a land onto the battlefield${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
-        Choose one to put onto the battlefield{decision.entersTapped ? " (it enters tapped)" : ""}; the rest go to the bottom of your library.
+      <ChoiceBanner
+        icon="🏔"
+        title={`Put a land onto the battlefield${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
+        Choose one to put onto the battlefield{decision.entersTapped ? " (it enters tapped)" : ""};
+        the rest go to the bottom of your library.
       </ChoiceBanner>
       <CardPickGrid candidates={candidates} selected={selected} onSelect={setSelected} />
-      <button className="btn btn-primary btn-sm" onClick={submit} disabled={!selected || submitting}>
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={submit}
+        disabled={!selected || submitting}
+      >
         {submitting ? "…" : "Put onto the battlefield"}
       </button>
     </div>
@@ -340,7 +499,9 @@ export function DistributeCountersPanel({ decision, onChoose }) {
   const [submitting, setSubmitting] = useState(false);
 
   const resetKey = `${candidates.map((c) => c.id).join("|")}:${total}`;
-  useEffect(() => { setAmounts({}); }, [resetKey]);
+  useEffect(() => {
+    setAmounts({});
+  }, [resetKey]);
 
   const assigned = Object.values(amounts).reduce((s, n) => s + (n || 0), 0);
   // What the board can actually take. "Put a counter on EACH OF UP TO X targets" (The Wise Mothman) caps
@@ -354,32 +515,47 @@ export function DistributeCountersPanel({ decision, onChoose }) {
   const remaining = placeable - assigned;
   const chosenCount = Object.values(amounts).filter((n) => n > 0).length;
 
-  const bump = (id, delta) => setAmounts((prev) => {
-    const cur = prev[id] || 0;
-    if (delta > 0) {
-      if (remaining <= 0) return prev;
-      if (perTargetCap != null && cur >= perTargetCap) return prev;
-      if (cur === 0 && maxTargets != null && chosenCount >= maxTargets) return prev; // a new target would exceed the target cap
-      return { ...prev, [id]: cur + 1 };
-    }
-    return { ...prev, [id]: Math.max(0, cur - 1) };
-  });
+  const bump = (id, delta) =>
+    setAmounts((prev) => {
+      const cur = prev[id] || 0;
+      if (delta > 0) {
+        if (remaining <= 0) return prev;
+        if (perTargetCap != null && cur >= perTargetCap) return prev;
+        if (cur === 0 && maxTargets != null && chosenCount >= maxTargets) return prev; // a new target would exceed the target cap
+        return { ...prev, [id]: cur + 1 };
+      }
+      return { ...prev, [id]: Math.max(0, cur - 1) };
+    });
 
   const submit = async () => {
     if (submitting || remaining !== 0) return;
-    const distribution = candidates.filter((c) => (amounts[c.id] || 0) > 0).map((c) => ({ id: c.id, amount: amounts[c.id] }));
+    const distribution = candidates
+      .filter((c) => (amounts[c.id] || 0) > 0)
+      .map((c) => ({ id: c.id, amount: amounts[c.id] }));
     setSubmitting(true);
-    try { await onChoose?.(distribution); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(distribution);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <ChoiceBanner icon="🎯" title={`Distribute ${total} ${counterType} counter${total === 1 ? "" : "s"}${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+      <ChoiceBanner
+        icon="🎯"
+        title={`Distribute ${total} ${counterType} counter${total === 1 ? "" : "s"}${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
         Assign all {placeable} among your creatures
         {maxTargets != null ? `, up to ${maxTargets} of them` : ""}
         {perTargetCap != null ? ` (max ${perTargetCap} each)` : ""}
-        {placeable < total ? ` — only ${placeable} of ${total} can be placed on the board you have` : ""}. Remaining:{" "}
-        <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>{remaining}</b>
+        {placeable < total
+          ? ` — only ${placeable} of ${total} can be placed on the board you have`
+          : ""}
+        . Remaining:{" "}
+        <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>
+          {remaining}
+        </b>
       </ChoiceBanner>
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
         {candidates.map((c) => {
@@ -387,18 +563,58 @@ export function DistributeCountersPanel({ decision, onChoose }) {
           const capped = perTargetCap != null && amt >= perTargetCap;
           const blockedByTargets = amt === 0 && maxTargets != null && chosenCount >= maxTargets;
           return (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: amt > 0 ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${amt > 0 ? "var(--ley-green)" : "var(--ley-line)"}`, borderRadius: 6 }}>
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "6px 8px",
+                background: amt > 0 ? "var(--ley-green-dim)" : "transparent",
+                border: `1px solid ${amt > 0 ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 6,
+              }}
+            >
               <span style={{ fontSize: 12, color: "var(--ley-text)" }}>{c.name}</span>
               <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, -1)} disabled={amt <= 0}>−</button>
-                <span style={{ minWidth: 16, textAlign: "center", fontSize: 13, color: "var(--ley-green)", fontWeight: 700 }}>{amt}</span>
-                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, +1)} disabled={remaining <= 0 || capped || blockedByTargets}>+</button>
+                <button
+                  className="btn btn-secondary btn-sm btn-icon"
+                  style={{ width: 24, height: 24 }}
+                  onClick={() => bump(c.id, -1)}
+                  disabled={amt <= 0}
+                >
+                  −
+                </button>
+                <span
+                  style={{
+                    minWidth: 16,
+                    textAlign: "center",
+                    fontSize: 13,
+                    color: "var(--ley-green)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {amt}
+                </span>
+                <button
+                  className="btn btn-secondary btn-sm btn-icon"
+                  style={{ width: 24, height: 24 }}
+                  onClick={() => bump(c.id, +1)}
+                  disabled={remaining <= 0 || capped || blockedByTargets}
+                >
+                  +
+                </button>
               </span>
             </div>
           );
         })}
       </div>
-      <button className="btn btn-primary btn-sm" onClick={submit} disabled={remaining !== 0 || submitting}>
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={submit}
+        disabled={remaining !== 0 || submitting}
+      >
         {remaining === 0 ? "Place counters" : `Assign ${remaining} more`}
       </button>
     </div>
@@ -409,10 +625,18 @@ export function DistributeCountersPanel({ decision, onChoose }) {
 export function OptionalDrawDiscardPanel({ decision, onChoose }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <ChoiceBanner icon="🔁" title={`Draw, then discard?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+      <ChoiceBanner
+        icon="🔁"
+        title={`Draw, then discard?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
         You may draw a card and then discard a card. Declining leaves your hand as it is.
       </ChoiceBanner>
-      <YesNoChoice yesLabel="Draw, then discard" noLabel="Decline" onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+      <YesNoChoice
+        yesLabel="Draw, then discard"
+        noLabel="Decline"
+        onYes={() => onChoose?.(true)}
+        onNo={() => onChoose?.(false)}
+      />
     </div>
   );
 }
@@ -422,11 +646,22 @@ export function OptionalDiscardPaymentPanel({ decision, onChoose }) {
   const available = decision.available !== false;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <ChoiceBanner icon="🗃" title={`Discard a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+      <ChoiceBanner
+        icon="🗃"
+        title={`Discard a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
         You may discard a card as a cost. If you do, the effect resolves.
-        {!available && <span style={{ color: "var(--ley-gold)" }}> You have no card to discard.</span>}
+        {!available && (
+          <span style={{ color: "var(--ley-gold)" }}> You have no card to discard.</span>
+        )}
       </ChoiceBanner>
-      <YesNoChoice yesLabel="Discard a card" noLabel="Decline" yesDisabled={!available} onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+      <YesNoChoice
+        yesLabel="Discard a card"
+        noLabel="Decline"
+        yesDisabled={!available}
+        onYes={() => onChoose?.(true)}
+        onNo={() => onChoose?.(false)}
+      />
     </div>
   );
 }
@@ -444,7 +679,12 @@ export function SacUnlessPayPanel({ decision, onChoose }) {
       <ChoiceBanner icon="⚠️" title={`${costLabel} or sacrifice ${name}`}>
         Upkeep cost — if you don&rsquo;t {costLabel.toLowerCase()}, you sacrifice <b>{name}</b>.
       </ChoiceBanner>
-      <YesNoChoice yesLabel={`${costLabel} (keep it)`} noLabel={`Sacrifice ${name}`} onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+      <YesNoChoice
+        yesLabel={`${costLabel} (keep it)`}
+        noLabel={`Sacrifice ${name}`}
+        onYes={() => onChoose?.(true)}
+        onNo={() => onChoose?.(false)}
+      />
     </div>
   );
 }
@@ -456,10 +696,18 @@ export function TaxedPaymentPanel({ decision, onChoose }) {
   const who = decision.beneficiary === "user" ? "You" : "Its controller";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <ChoiceBanner icon="💰" title={`${costLabel}?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+      <ChoiceBanner
+        icon="💰"
+        title={`${costLabel}?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
         Unless you {costLabel.toLowerCase()}, {who.toLowerCase()} {payoff}.
       </ChoiceBanner>
-      <YesNoChoice yesLabel={costLabel} noLabel="Decline" onYes={() => onChoose?.(true)} onNo={() => onChoose?.(false)} />
+      <YesNoChoice
+        yesLabel={costLabel}
+        noLabel="Decline"
+        onYes={() => onChoose?.(true)}
+        onNo={() => onChoose?.(false)}
+      />
     </div>
   );
 }
@@ -474,32 +722,58 @@ export function EdictModePanel({ decision, onChoose }) {
   const [target, setTarget] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const key = modes.join("|");
-  useEffect(() => { setMode(null); setTarget(null); }, [key]);
+  useEffect(() => {
+    setMode(null);
+    setTarget(null);
+  }, [key]);
 
-  const pool = mode === "sacrifice" ? (decision.sac || []) : mode === "discard" ? (decision.disc || []) : [];
+  const pool =
+    mode === "sacrifice" ? decision.sac || [] : mode === "discard" ? decision.disc || [] : [];
   const needsTarget = pool.length > 0;
-  const label = (m) => (m === "life" ? "Lose life" : m === "sacrifice" ? "Sacrifice a nonland permanent" : m === "discard" ? "Discard a card" : m);
+  const label = (m) =>
+    m === "life"
+      ? "Lose life"
+      : m === "sacrifice"
+        ? "Sacrifice a nonland permanent"
+        : m === "discard"
+          ? "Discard a card"
+          : m;
 
   const submit = async () => {
     if (submitting || !mode || (needsTarget && !target)) return;
     setSubmitting(true);
     try {
-      await onChoose?.(mode, mode === "sacrifice" ? { permId: target } : mode === "discard" ? { cardId: target } : {});
-    } finally { setSubmitting(false); }
+      await onChoose?.(
+        mode,
+        mode === "sacrifice" ? { permId: target } : mode === "discard" ? { cardId: target } : {},
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <ChoiceBanner icon="☠️" title={`Choose how to pay${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+      <ChoiceBanner
+        icon="☠️"
+        title={`Choose how to pay${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
         Pick one. {needsTarget ? "Then choose which one." : ""}
       </ChoiceBanner>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {modes.map((m) => (
           <button
             key={m}
-            onClick={() => { setMode(m); setTarget(null); }}
+            onClick={() => {
+              setMode(m);
+              setTarget(null);
+            }}
             style={{
-              textAlign: "left", padding: "8px 10px", fontSize: 12.5, cursor: "pointer", borderRadius: 6,
+              textAlign: "left",
+              padding: "8px 10px",
+              fontSize: 12.5,
+              cursor: "pointer",
+              borderRadius: 6,
               background: mode === m ? "var(--ley-green-dim)" : "transparent",
               border: `1px solid ${mode === m ? "var(--ley-green)" : "var(--ley-line)"}`,
               color: mode === m ? "var(--ley-green)" : "var(--ley-text)",
@@ -510,13 +784,19 @@ export function EdictModePanel({ decision, onChoose }) {
         ))}
       </div>
       {needsTarget && (
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div
+          style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}
+        >
           {pool.map((c) => (
             <button
               key={c.id}
               onClick={() => setTarget(c.id)}
               style={{
-                textAlign: "left", padding: "6px 8px", fontSize: 12, cursor: "pointer", borderRadius: 6,
+                textAlign: "left",
+                padding: "6px 8px",
+                fontSize: 12,
+                cursor: "pointer",
+                borderRadius: 6,
                 background: target === c.id ? "var(--ley-green-dim)" : "transparent",
                 border: `1px solid ${target === c.id ? "var(--ley-green)" : "var(--ley-line)"}`,
                 color: "var(--ley-text)",
@@ -527,7 +807,11 @@ export function EdictModePanel({ decision, onChoose }) {
           ))}
         </div>
       )}
-      <button className="btn btn-primary btn-sm" onClick={submit} disabled={!mode || (needsTarget && !target) || submitting}>
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={submit}
+        disabled={!mode || (needsTarget && !target) || submitting}
+      >
         {submitting ? "…" : "Confirm"}
       </button>
     </div>
@@ -551,27 +835,50 @@ export function CleanupDiscardPanel({ decision, onChoose }) {
 
   // Reset the selection whenever the hand changes (each settled pick re-raises this panel).
   const candidateKey = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [candidateKey]);
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
 
   const submit = async (cardId) => {
     if (submitting || !cardId) return;
     setSubmitting(true);
-    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🧹 Cleanup — discard to hand size
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          You&rsquo;re over your maximum hand size. Choose {remaining === 1 ? "a card" : `${remaining} cards`} to
-          discard{remaining > 1 ? " (one at a time)" : ""} — CR 514.1.
+          You&rsquo;re over your maximum hand size. Choose{" "}
+          {remaining === 1 ? "a card" : `${remaining} cards`} to discard
+          {remaining > 1 ? " (one at a time)" : ""} — CR 514.1.
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
         {candidates.map((c) => {
           const isSel = selected === c.id;
           return (
@@ -580,20 +887,40 @@ export function CleanupDiscardPanel({ decision, onChoose }) {
               onClick={() => setSelected(c.id)}
               title={c.name}
               style={{
-                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
                 background: isSel ? "var(--ley-green-dim)" : "transparent",
                 border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-                borderRadius: 8, cursor: "pointer", textAlign: "left",
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
               }}
             >
               <img
                 src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
-              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
                 {c.name}
               </div>
             </button>
@@ -619,27 +946,49 @@ export function HandDiscardPanel({ decision, onChoose }) {
 
   // Reset the selection whenever the revealed hand changes (a fresh hand-discard reuses this panel).
   const candidateKey = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [candidateKey]);
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
 
   const submit = async (cardId) => {
     if (submitting || !cardId) return;
     setSubmitting(true);
-    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🗯 Hand disruption{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          {decision.victim ? `${decision.victim}'s` : "Your opponent's"} hand is revealed. Choose a card to discard
-          ({candidates.length} eligible).
+          {decision.victim ? `${decision.victim}'s` : "Your opponent's"} hand is revealed. Choose a
+          card to discard ({candidates.length} eligible).
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
         {candidates.map((c) => {
           const isSel = selected === c.id;
           return (
@@ -648,20 +997,40 @@ export function HandDiscardPanel({ decision, onChoose }) {
               onClick={() => setSelected(c.id)}
               title={c.name}
               style={{
-                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
                 background: isSel ? "var(--ley-green-dim)" : "transparent",
                 border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-                borderRadius: 8, cursor: "pointer", textAlign: "left",
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
               }}
             >
               <img
                 src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
-              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
                 {c.name}
               </div>
             </button>
@@ -694,17 +1063,30 @@ export function ImpulseDigPanel({ decision, onChoose }) {
   const restWord = decision.restTo === "graveyard" ? "graveyard" : "bottom of your library";
 
   const candidateKey = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [candidateKey]);
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
 
   const submit = async (cardId) => {
     if (submitting || !cardId) return;
     setSubmitting(true);
-    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🔮 Dig{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
@@ -713,7 +1095,16 @@ export function ImpulseDigPanel({ decision, onChoose }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
         {candidates.map((c) => {
           const isSel = selected === c.id;
           return (
@@ -722,20 +1113,40 @@ export function ImpulseDigPanel({ decision, onChoose }) {
               onClick={() => setSelected(c.id)}
               title={c.name}
               style={{
-                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
                 background: isSel ? "var(--ley-green-dim)" : "transparent",
                 border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-                borderRadius: 8, cursor: "pointer", textAlign: "left",
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
               }}
             >
               <img
                 src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
-              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
                 {c.name}
               </div>
             </button>
@@ -768,12 +1179,23 @@ export function LookTopTakePanel({ decision, onChoose }) {
   const submit = async (cardId) => {
     if (submitting) return;
     setSubmitting(true);
-    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🔎 Top of library{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
@@ -782,17 +1204,43 @@ export function LookTopTakePanel({ decision, onChoose }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "start",
+        }}
+      >
         {card && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: 4, maxWidth: 180 }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: 4, padding: 4, maxWidth: 180 }}
+          >
             <img
               src={`/api/card-image?name=${encodeURIComponent(card.name)}`}
               alt={card.name}
               loading="lazy"
-              style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 6, background: "var(--ley-surface-2)" }}
-              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+              style={{
+                width: "100%",
+                aspectRatio: "63 / 88",
+                objectFit: "cover",
+                borderRadius: 6,
+                background: "var(--ley-surface-2)",
+              }}
+              onError={(e) => {
+                e.currentTarget.style.visibility = "hidden";
+              }}
             />
-            <div style={{ fontSize: 12, color: "var(--ley-text)", lineHeight: 1.25, fontWeight: 600, textAlign: "center" }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--ley-text)",
+                lineHeight: 1.25,
+                fontWeight: 600,
+                textAlign: "center",
+              }}
+            >
               {card.name}
             </div>
           </div>
@@ -841,42 +1289,102 @@ export function DivideDamagePanel({ decision, onChoose }) {
   const [submitting, setSubmitting] = useState(false);
 
   const resetKey = candidates.map((c) => c.id).join("|") + ":" + total;
-  useEffect(() => { setAmounts({}); }, [resetKey]);
+  useEffect(() => {
+    setAmounts({});
+  }, [resetKey]);
 
   const assigned = Object.values(amounts).reduce((s, n) => s + (n || 0), 0);
   const remaining = total - assigned;
-  const bump = (id, delta) => setAmounts((prev) => {
-    const cur = prev[id] || 0;
-    const next = Math.max(0, delta > 0 ? Math.min(cur + delta, cur + Math.max(0, remaining)) : cur + delta);
-    return { ...prev, [id]: next };
-  });
+  const bump = (id, delta) =>
+    setAmounts((prev) => {
+      const cur = prev[id] || 0;
+      const next = Math.max(
+        0,
+        delta > 0 ? Math.min(cur + delta, cur + Math.max(0, remaining)) : cur + delta,
+      );
+      return { ...prev, [id]: next };
+    });
   const submit = async () => {
     if (submitting || remaining !== 0) return;
-    const distribution = candidates.filter((c) => (amounts[c.id] || 0) > 0).map((c) => ({ id: c.id, type: c.type, amount: amounts[c.id] }));
+    const distribution = candidates
+      .filter((c) => (amounts[c.id] || 0) > 0)
+      .map((c) => ({ id: c.id, type: c.type, amount: amounts[c.id] }));
     setSubmitting(true);
-    try { await onChoose?.(distribution); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(distribution);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🎯 Divide {total} damage{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Assign all {total} among any number of targets. Remaining: <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>{remaining}</b>
+          Assign all {total} among any number of targets. Remaining:{" "}
+          <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>
+            {remaining}
+          </b>
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
         {candidates.map((c) => {
           const amt = amounts[c.id] || 0;
           return (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: amt > 0 ? "var(--ley-green-dim)" : "transparent", border: `1px solid ${amt > 0 ? "var(--ley-green)" : "var(--ley-line)"}`, borderRadius: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--ley-text)" }}>{c.type === "player" ? `🧑 ${c.name}` : c.name}</span>
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "6px 8px",
+                background: amt > 0 ? "var(--ley-green-dim)" : "transparent",
+                border: `1px solid ${amt > 0 ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 6,
+              }}
+            >
+              <span style={{ fontSize: 12, color: "var(--ley-text)" }}>
+                {c.type === "player" ? `🧑 ${c.name}` : c.name}
+              </span>
               <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, -1)} disabled={amt <= 0}>−</button>
-                <span style={{ minWidth: 16, textAlign: "center", fontSize: 13, color: "var(--ley-green)", fontWeight: 700 }}>{amt}</span>
-                <button className="btn btn-secondary btn-sm btn-icon" style={{ width: 24, height: 24 }} onClick={() => bump(c.id, +1)} disabled={remaining <= 0}>+</button>
+                <button
+                  className="btn btn-secondary btn-sm btn-icon"
+                  style={{ width: 24, height: 24 }}
+                  onClick={() => bump(c.id, -1)}
+                  disabled={amt <= 0}
+                >
+                  −
+                </button>
+                <span
+                  style={{
+                    minWidth: 16,
+                    textAlign: "center",
+                    fontSize: 13,
+                    color: "var(--ley-green)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {amt}
+                </span>
+                <button
+                  className="btn btn-secondary btn-sm btn-icon"
+                  style={{ width: 24, height: 24 }}
+                  onClick={() => bump(c.id, +1)}
+                  disabled={remaining <= 0}
+                >
+                  +
+                </button>
               </span>
             </div>
           );
@@ -906,25 +1414,49 @@ export function SoftCounterPanel({ decision, onChoose }) {
   const submit = async (pay) => {
     if (submitting) return;
     setSubmitting(true);
-    try { await onChoose?.(pay); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(pay);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🛡️ {costLabel} or be countered{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          {decision.spellName ? <b>{decision.spellName}</b> : "Your spell"} will be countered unless you {costLabel.toLowerCase()}.
-          {!affordable && <span style={{ color: "var(--ley-gold)" }}> You don’t have that available.</span>}
+          {decision.spellName ? <b>{decision.spellName}</b> : "Your spell"} will be countered unless
+          you {costLabel.toLowerCase()}.
+          {!affordable && (
+            <span style={{ color: "var(--ley-gold)" }}> You don’t have that available.</span>
+          )}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => submit(true)} disabled={submitting || !affordable}>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(true)}
+          disabled={submitting || !affordable}
+        >
           {costLabel}
         </button>
-        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => submit(false)} disabled={submitting}>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(false)}
+          disabled={submitting}
+        >
           Let it be countered
         </button>
       </div>
@@ -947,25 +1479,49 @@ export function OptionalManaPaymentPanel({ decision, onChoose }) {
   const submit = async (pay) => {
     if (submitting) return;
     setSubmitting(true);
-    try { await onChoose?.(pay); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(pay);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
-          ✨ You may {costLabel.toLowerCase()}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+          ✨ You may {costLabel.toLowerCase()}
+          {decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           You may {costLabel.toLowerCase()}. If you do, the effect resolves.
-          {!affordable && <span style={{ color: "var(--ley-gold)" }}> You don’t have that available.</span>}
+          {!affordable && (
+            <span style={{ color: "var(--ley-gold)" }}> You don’t have that available.</span>
+          )}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => submit(true)} disabled={submitting || !affordable}>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(true)}
+          disabled={submitting || !affordable}
+        >
           {costLabel}
         </button>
-        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => submit(false)} disabled={submitting}>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(false)}
+          disabled={submitting}
+        >
           Decline
         </button>
       </div>
@@ -988,25 +1544,52 @@ export function OptionalSacPanel({ decision, onChoose }) {
   const submit = async (sac) => {
     if (submitting) return;
     setSubmitting(true);
-    try { await onChoose?.(sac); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(sac);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
-          💀 You may sacrifice a {subtype}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+          💀 You may sacrifice a {subtype}
+          {decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
           You may sacrifice a {subtype}. If you do, the effect resolves.
-          {!available && <span style={{ color: "var(--ley-gold)" }}> You don’t control a {subtype} to sacrifice.</span>}
+          {!available && (
+            <span style={{ color: "var(--ley-gold)" }}>
+              {" "}
+              You don’t control a {subtype} to sacrifice.
+            </span>
+          )}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => submit(true)} disabled={submitting || !available}>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(true)}
+          disabled={submitting || !available}
+        >
           Sacrifice a {subtype}
         </button>
-        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => submit(false)} disabled={submitting}>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(false)}
+          disabled={submitting}
+        >
           Decline
         </button>
       </div>
@@ -1020,17 +1603,30 @@ export function SacrificeChoicePanel({ decision, onChoose }) {
   const candidates = decision.candidates || [];
 
   const candidateKey = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [candidateKey]);
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
 
   const submit = async (cardId) => {
     if (submitting || !cardId) return;
     setSubmitting(true);
-    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           💀 Sacrifice{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
@@ -1039,7 +1635,16 @@ export function SacrificeChoicePanel({ decision, onChoose }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
         {candidates.map((c) => {
           const isSel = selected === c.id;
           return (
@@ -1048,20 +1653,40 @@ export function SacrificeChoicePanel({ decision, onChoose }) {
               onClick={() => setSelected(c.id)}
               title={c.name}
               style={{
-                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
                 background: isSel ? "var(--ley-green-dim)" : "transparent",
                 border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-                borderRadius: 8, cursor: "pointer", textAlign: "left",
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
               }}
             >
               <img
                 src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
-              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
                 {c.name}
               </div>
             </button>
@@ -1096,26 +1721,49 @@ export function DiscardChoicePanel({ decision, onChoose }) {
   const remaining = decision.remaining || 1;
 
   const candidateKey = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [candidateKey]);
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
 
   const submit = async (cardId) => {
     if (submitting || !cardId) return;
     setSubmitting(true);
-    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🃏 Discard{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Choose a card from your hand to discard{remaining > 1 ? ` (${remaining} more to discard)` : ""}.
+          Choose a card from your hand to discard
+          {remaining > 1 ? ` (${remaining} more to discard)` : ""}.
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
         {candidates.map((c) => {
           const isSel = selected === c.id;
           return (
@@ -1124,20 +1772,40 @@ export function DiscardChoicePanel({ decision, onChoose }) {
               onClick={() => setSelected(c.id)}
               title={c.name}
               style={{
-                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
                 background: isSel ? "var(--ley-green-dim)" : "transparent",
                 border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-                borderRadius: 8, cursor: "pointer", textAlign: "left",
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
               }}
             >
               <img
                 src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
-              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
                 {c.name}
               </div>
             </button>
@@ -1162,23 +1830,52 @@ export function DiscardChoicePanel({ decision, onChoose }) {
  * intermediate); Expert + opponents auto-take it in the engine.
  */
 export function OptionalChoicePanel({ decision, onChoose }) {
-  const opLabel = {
-    "draw": "draw a card", "gain-life": "gain life", "lose-life": "lose life", "create-token": "create a token",
-    "deal-damage": "deal the damage", "destroy": "destroy the target", "exile": "exile the target",
-    "pump": "apply the boost", "add-counter": "add the counter(s)", "tap": "tap the target",
-    "untap": "untap the target", "bounce": "return it to hand", "mill": "mill", "scry": "scry", "surveil": "surveil",
-    "return-from-graveyard": "return the card", "counter": "counter the spell",
-  }[decision?.effectOp] || "apply this effect";
+  const opLabel =
+    {
+      draw: "draw a card",
+      "gain-life": "gain life",
+      "lose-life": "lose life",
+      "create-token": "create a token",
+      "deal-damage": "deal the damage",
+      destroy: "destroy the target",
+      exile: "exile the target",
+      pump: "apply the boost",
+      "add-counter": "add the counter(s)",
+      tap: "tap the target",
+      untap: "untap the target",
+      bounce: "return it to hand",
+      mill: "mill",
+      scry: "scry",
+      surveil: "surveil",
+      "return-from-graveyard": "return the card",
+      counter: "counter the spell",
+    }[decision?.effectOp] || "apply this effect";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ley-text)" }}>You may…</div>
       <div style={{ fontSize: 13, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
-        {decision?.cardName ? <strong style={{ color: "var(--ley-text)" }}>{decision.cardName}</strong> : "This effect"} lets you{" "}
-        <strong style={{ color: "var(--ley-green)" }}>{opLabel}</strong>. Do it?
+        {decision?.cardName ? (
+          <strong style={{ color: "var(--ley-text)" }}>{decision.cardName}</strong>
+        ) : (
+          "This effect"
+        )}{" "}
+        lets you <strong style={{ color: "var(--ley-green)" }}>{opLabel}</strong>. Do it?
       </div>
       <div style={{ display: "flex", gap: 10 }}>
-        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => onChoose(true)}>Yes, do it</button>
-        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => onChoose(false)}>No, skip</button>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => onChoose(true)}
+        >
+          Yes, do it
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => onChoose(false)}
+        >
+          No, skip
+        </button>
       </div>
     </div>
   );
@@ -1194,13 +1891,27 @@ export function CommanderReturnPanel({ decision, onChoose }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ley-text)" }}>Commander down</div>
       <div style={{ fontSize: 13, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
-        Your commander <strong style={{ color: "var(--ley-text)" }}>{decision?.cardName || "commander"}</strong> is in the{" "}
-        {decision?.zone === "exile" ? "exile zone" : "graveyard"}. Put it back in the{" "}
-        <strong style={{ color: "var(--ley-green)" }}>command zone</strong>? (You can recast it, paying the {"{2}"} commander tax.)
+        Your commander{" "}
+        <strong style={{ color: "var(--ley-text)" }}>{decision?.cardName || "commander"}</strong> is
+        in the {decision?.zone === "exile" ? "exile zone" : "graveyard"}. Put it back in the{" "}
+        <strong style={{ color: "var(--ley-green)" }}>command zone</strong>? (You can recast it,
+        paying the {"{2}"} commander tax.)
       </div>
       <div style={{ display: "flex", gap: 10 }}>
-        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => onChoose(true)}>Return to command zone</button>
-        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => onChoose(false)}>Leave it</button>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => onChoose(true)}
+        >
+          Return to command zone
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => onChoose(false)}
+        >
+          Leave it
+        </button>
       </div>
     </div>
   );
@@ -1221,27 +1932,49 @@ export function CloneCopyPanel({ decision, onChoose }) {
   const mandatory = (decision.optional ?? decision.resume?.optional) === false; // WI-2 (CR 707.9)
 
   const candidateKey = candidates.map((c) => c.id).join("|");
-  useEffect(() => { setSelected(null); }, [candidateKey]);
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
 
   const submit = async (permId) => {
     if (submitting) return;
     setSubmitting(true);
-    try { await onChoose?.(permId); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(permId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
           🧬 Enter as a copy{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Choose a creature for {decision.sourceName || "this creature"} to enter as a copy of
-          ({candidates.length} option{candidates.length === 1 ? "" : "s"}).
+          Choose a creature for {decision.sourceName || "this creature"} to enter as a copy of (
+          {candidates.length} option{candidates.length === 1 ? "" : "s"}).
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
         {candidates.map((c) => {
           const isSel = selected === c.id;
           return (
@@ -1250,20 +1983,40 @@ export function CloneCopyPanel({ decision, onChoose }) {
               onClick={() => setSelected(c.id)}
               title={c.name}
               style={{
-                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
                 background: isSel ? "var(--ley-green-dim)" : "transparent",
                 border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
-                borderRadius: 8, cursor: "pointer", textAlign: "left",
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
               }}
             >
               <img
                 src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
                 alt={c.name}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
-              <div style={{ fontSize: 11, color: isSel ? "var(--ley-green)" : "var(--ley-text)", lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
                 {c.name}
               </div>
             </button>
@@ -1312,21 +2065,31 @@ export function ScrySurveilPanel({ decision, onChoose }) {
   // Reset the keep-list to "keep all" when a NEW scry surfaces (keyed on the card ids), mirroring
   // the tutor panel's reset-on-candidate-change. `cards` is stable per scry, so the key is enough.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setKept(cards.map((c) => c.id)); }, [key]);
+  useEffect(() => {
+    setKept(cards.map((c) => c.id));
+  }, [key]);
 
   const byId = (id) => cards.find((c) => c.id === id);
   const moved = cards.filter((c) => !kept.includes(c.id));
   const setMove = (id) => setKept((k) => k.filter((x) => x !== id));
   const setKeep = (id) => setKept((k) => (k.includes(id) ? k : [...k, id]));
-  const move = (id, dir) => setKept((k) => {
-    const i = k.indexOf(id); const j = i + dir;
-    if (i < 0 || j < 0 || j >= k.length) return k;
-    const n = [...k]; [n[i], n[j]] = [n[j], n[i]]; return n;
-  });
+  const move = (id, dir) =>
+    setKept((k) => {
+      const i = k.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= k.length) return k;
+      const n = [...k];
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
   const submit = async () => {
     if (submitting) return;
     setSubmitting(true);
-    try { await onChoose?.(kept); } finally { setSubmitting(false); }
+    try {
+      await onChoose?.(kept);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const CardRow = ({ id, where }) => {
@@ -1334,19 +2097,76 @@ export function ScrySurveilPanel({ decision, onChoose }) {
     if (!c) return null;
     const i = kept.indexOf(id);
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 4, border: "1px solid var(--ley-line)", borderRadius: 8, background: where === "keep" ? "var(--ley-green-dim)" : "transparent" }}>
-        <img src={`/api/card-image?name=${encodeURIComponent(c.name)}`} alt={c.name} loading="lazy"
-          style={{ width: 64, aspectRatio: "63 / 88", objectFit: "cover", borderRadius: 4, background: "var(--ley-surface-2)" }}
-          onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
-        <div style={{ flex: 1, fontSize: 12, color: "var(--ley-text)", fontWeight: where === "keep" ? 600 : 400 }}>{c.name}</div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: 4,
+          border: "1px solid var(--ley-line)",
+          borderRadius: 8,
+          background: where === "keep" ? "var(--ley-green-dim)" : "transparent",
+        }}
+      >
+        <img
+          src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
+          alt={c.name}
+          loading="lazy"
+          style={{
+            width: 64,
+            aspectRatio: "63 / 88",
+            objectFit: "cover",
+            borderRadius: 4,
+            background: "var(--ley-surface-2)",
+          }}
+          onError={(e) => {
+            e.currentTarget.style.visibility = "hidden";
+          }}
+        />
+        <div
+          style={{
+            flex: 1,
+            fontSize: 12,
+            color: "var(--ley-text)",
+            fontWeight: where === "keep" ? 600 : 400,
+          }}
+        >
+          {c.name}
+        </div>
         {where === "keep" ? (
           <>
-            <button className="btn btn-ghost btn-sm btn-icon" onClick={() => move(id, -1)} disabled={i <= 0} title="Move up">▲</button>
-            <button className="btn btn-ghost btn-sm btn-icon" onClick={() => move(id, 1)} disabled={i >= kept.length - 1} title="Move down">▼</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setMove(id)} title={`Put on ${awayLabel}`}>→ {awayLabel}</button>
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              onClick={() => move(id, -1)}
+              disabled={i <= 0}
+              title="Move up"
+            >
+              ▲
+            </button>
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              onClick={() => move(id, 1)}
+              disabled={i >= kept.length - 1}
+              title="Move down"
+            >
+              ▼
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setMove(id)}
+              title={`Put on ${awayLabel}`}
+            >
+              → {awayLabel}
+            </button>
           </>
         ) : (
-          <button className="btn btn-secondary btn-sm" onClick={() => setKeep(id)} title="Keep on top">↑ keep on top</button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setKeep(id)}
+            title="Keep on top"
+          >
+            ↑ keep on top
+          </button>
         )}
       </div>
     );
@@ -1354,26 +2174,250 @@ export function ScrySurveilPanel({ decision, onChoose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
-          {surveil ? "📜 Surveil" : "🔮 Scry"} {cards.length}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+          {surveil ? "📜 Surveil" : "🔮 Scry"} {cards.length}
+          {decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Top of your library. Keep cards on top (drag order with ▲▼) or send them to the {awayLabel}.
+          Top of your library. Keep cards on top (drag order with ▲▼) or send them to the{" "}
+          {awayLabel}.
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={sectionLabelStyle()}>On top ({kept.length}) — top first</div>
-        {kept.length === 0 && <div style={{ fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>(nothing kept)</div>}
-        {kept.map((id) => <CardRow key={id} id={id} where="keep" />)}
-        {moved.length > 0 && <div style={{ ...sectionLabelStyle(), marginTop: 6 }}>To {awayLabel} ({moved.length})</div>}
-        {moved.map((c) => <CardRow key={c.id} id={c.id} where="away" />)}
+        {kept.length === 0 && (
+          <div style={{ fontSize: 12, color: "var(--ley-text-dim)", fontStyle: "italic" }}>
+            (nothing kept)
+          </div>
+        )}
+        {kept.map((id) => (
+          <CardRow key={id} id={id} where="keep" />
+        ))}
+        {moved.length > 0 && (
+          <div style={{ ...sectionLabelStyle(), marginTop: 6 }}>
+            To {awayLabel} ({moved.length})
+          </div>
+        )}
+        {moved.map((c) => (
+          <CardRow key={c.id} id={c.id} where="away" />
+        ))}
       </div>
 
       <button className="btn btn-primary btn-sm" onClick={submit} disabled={submitting}>
         {submitting ? "…" : "Done"}
       </button>
+    </div>
+  );
+}
+
+// ─── Pre-game London mulligan gate (interactive human flow, CR 103.5) ──────────
+
+/**
+ * The pre-game London mulligan. Two phases the server surfaces on decision.phase:
+ *   "decide" → the fanned opening hand + Keep / Ship (Ship is hidden at the 7-mulligan floor,
+ *              signalled by the absence of a "mulligan-ship" option).
+ *   "bottom" → the same hand, now selectable: choose exactly `bottomCount` cards (= mulligans
+ *              taken) to put on the bottom of the library, then confirm.
+ * onKeep / onShip / onBottom(cardIds) each post to /api/learn/mulligan via useLearnSession.mulligan.
+ * The hand is the slimmed wire shape [{ id, name, type_line }]; art loads from /api/card-image with
+ * the readable name-face underneath (offline-safe — same pattern as MulliganRepsView).
+ *
+ * Unlike the pending-choice panels this is a PRE-GAME gate (the game hasn't opened), so LearnView
+ * renders it in place of the board rather than as a side-sheet over it.
+ */
+export function MulliganPanel({ decision, onKeep, onShip, onBottom, busy = false }) {
+  const [selected, setSelected] = useState([]);
+  const phase = decision?.phase;
+  const hand = decision?.hand || [];
+  const mulligans = decision?.mulligans || 0;
+  const bottomCount = decision?.bottomCount || 0;
+  const isBottom = phase === "bottom";
+  const canShip = (decision?.options || []).some((o) => o.kind === "mulligan-ship");
+  const handKey = hand.map((c) => c.id).join(",");
+
+  // Clear the selection whenever the ask changes — a fresh hand after a ship, or entering the
+  // bottom phase — so stale picks never carry over into a different hand.
+  useEffect(() => {
+    setSelected([]);
+  }, [phase, handKey]);
+
+  const toggle = (id) => {
+    if (!isBottom || busy) return;
+    setSelected((cur) =>
+      cur.includes(id)
+        ? cur.filter((x) => x !== id)
+        : cur.length < bottomCount
+          ? [...cur, id]
+          : cur,
+    );
+  };
+  const readyToConfirm = isBottom && selected.length === bottomCount;
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: "22px 20px 30px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ley-text)" }}>
+          {isBottom ? "Put cards on the bottom" : "Mulligan"}
+        </div>
+        <div style={{ fontSize: 12, color: "var(--ley-text-dim)", marginTop: 4 }}>
+          {isBottom
+            ? `You mulliganed ${mulligans} — choose ${bottomCount} card${bottomCount === 1 ? "" : "s"} to put on the bottom of your library (${selected.length}/${bottomCount}).`
+            : mulligans > 0
+              ? `Mulligan ${mulligans} taken. Keep this hand, or ship for a fresh seven.`
+              : "Keep your opening seven, or ship it back for a new hand (London mulligan)."}
+        </div>
+      </div>
+
+      {/* THE HAND — fanned like a held hand; in the bottom phase each card toggles a bottom pick. */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-end",
+          paddingLeft: 46,
+          minHeight: 260,
+        }}
+      >
+        {hand.map((c, i) => {
+          const mid = (hand.length - 1) / 2;
+          const off = i - mid;
+          const picked = selected.includes(c.id);
+          const dimmed = isBottom && !picked && selected.length >= bottomCount;
+          return (
+            <div
+              key={c.id}
+              title={`${c.name}${c.type_line ? ` — ${c.type_line}` : ""}`}
+              onClick={() => toggle(c.id)}
+              style={{
+                width: 132,
+                marginLeft: -46,
+                transformOrigin: "bottom center",
+                transform: `rotate(${off * 4.5}deg) translateY(${Math.abs(off) * 9 - (picked ? 26 : 0)}px)`,
+                transition: "transform 140ms ease",
+                borderRadius: 9,
+                overflow: "hidden",
+                cursor: isBottom && !busy ? "pointer" : "default",
+                boxShadow: picked
+                  ? "0 0 0 2px var(--ley-gold), 0 8px 22px rgba(0,0,0,0.5)"
+                  : "0 6px 18px rgba(0,0,0,0.45)",
+                background: "var(--ley-surface-2)",
+                opacity: dimmed ? 0.55 : 1,
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  aspectRatio: "63 / 88",
+                  border: "1px solid var(--ley-line)",
+                  borderRadius: 9,
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    padding: 8,
+                    fontSize: 11.5,
+                    lineHeight: 1.3,
+                    color: "var(--ley-text)",
+                  }}
+                >
+                  {c.name}
+                </div>
+                <img
+                  src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
+                  alt=""
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: 9,
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
+                />
+                {picked && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      background: "var(--ley-gold)",
+                      color: "#000",
+                      fontSize: 9.5,
+                      fontWeight: 800,
+                      padding: "2px 5px",
+                      borderRadius: 4,
+                    }}
+                  >
+                    ↓ BOTTOM
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* The call — Keep / Ship in the decide phase; Confirm in the bottom phase. */}
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>
+        {isBottom ? (
+          <button
+            className="btn btn-primary"
+            style={{ minWidth: 180 }}
+            disabled={!readyToConfirm || busy}
+            onClick={() => onBottom(selected)}
+          >
+            {busy ? "…" : `Bottom ${selected.length}/${bottomCount} & play`}
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn btn-primary"
+              style={{ minWidth: 120 }}
+              disabled={busy}
+              onClick={onKeep}
+            >
+              Keep
+            </button>
+            {canShip && (
+              <button
+                className="btn btn-secondary"
+                style={{ minWidth: 120 }}
+                disabled={busy}
+                onClick={onShip}
+              >
+                Ship
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

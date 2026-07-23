@@ -30,18 +30,42 @@ import { stableActionKey } from "../../lib/learn/actionKey.js";
 import { LearnLogEntry } from "./LearnLogEntry.jsx";
 import { evaluatePuzzle, puzzleGoalLabel } from "../../lib/learn/puzzleGoal.js";
 import {
-  UnresolvedPanel, TutorSearchPanel,
-  DigLandPanel, DistributeCountersPanel, OptionalDrawDiscardPanel, OptionalDiscardPaymentPanel,
-  SacUnlessPayPanel, TaxedPaymentPanel, EdictModePanel, CleanupDiscardPanel,
-  HandDiscardPanel, ImpulseDigPanel, LookTopTakePanel, DivideDamagePanel, SoftCounterPanel,
-  OptionalManaPaymentPanel, OptionalSacPanel, SacrificeChoicePanel, DiscardChoicePanel,
-  OptionalChoicePanel, CommanderReturnPanel, CloneCopyPanel, ScrySurveilPanel,
+  UnresolvedPanel,
+  TutorSearchPanel,
+  DigLandPanel,
+  DistributeCountersPanel,
+  OptionalDrawDiscardPanel,
+  OptionalDiscardPaymentPanel,
+  SacUnlessPayPanel,
+  TaxedPaymentPanel,
+  EdictModePanel,
+  CleanupDiscardPanel,
+  HandDiscardPanel,
+  ImpulseDigPanel,
+  LookTopTakePanel,
+  DivideDamagePanel,
+  SoftCounterPanel,
+  OptionalManaPaymentPanel,
+  OptionalSacPanel,
+  SacrificeChoicePanel,
+  DiscardChoicePanel,
+  OptionalChoicePanel,
+  CommanderReturnPanel,
+  CloneCopyPanel,
+  ScrySurveilPanel,
+  MulliganPanel,
 } from "./learnDecisionPanels.jsx"; // the decision-panel layer (decomposition slice 2) — dispatch stays here
 import {
-  tutorSheetStyle, containerStyle, headerStyle, labelStyle, sectionLabelStyle,
-  selectStyle, unresolvedSheetStyle, floatErrorStyle, errorBoxStyle,
+  tutorSheetStyle,
+  containerStyle,
+  headerStyle,
+  labelStyle,
+  sectionLabelStyle,
+  selectStyle,
+  unresolvedSheetStyle,
+  floatErrorStyle,
+  errorBoxStyle,
 } from "./learnViewStyles.js"; // LEYLINE layout tokens (decomposition slice 1) — pure, no React
-
 
 const DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "Beginner", blurb: "Ask every decision with full narration." },
@@ -51,7 +75,11 @@ const DIFFICULTY_OPTIONS = [
 
 const MODE_OPTIONS = [
   { value: "standard", label: "Standard 1v1", blurb: "You vs one opponent, 20 life." },
-  { value: "commander", label: "Commander 4P", blurb: "You + three opponents, 40 life, free-for-all." },
+  {
+    value: "commander",
+    label: "Commander 4P",
+    blurb: "You + three opponents, 40 life, free-for-all.",
+  },
 ];
 
 const SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "AI 1", ai2: "AI 2", ai3: "AI 3" };
@@ -70,7 +98,13 @@ function deckToCardArray(deck) {
   if (!deck?.cards) return [];
   const out = [];
   for (const entry of deck.cards) {
-    if (entry.section === "Sideboard" || entry.section === "Tokens" || entry.section === "Commander" || entry.section === "Companion") continue;
+    if (
+      entry.section === "Sideboard" ||
+      entry.section === "Tokens" ||
+      entry.section === "Commander" ||
+      entry.section === "Companion"
+    )
+      continue;
     for (let i = 0; i < (entry.qty || 1); i++) {
       out.push({
         id: `${deck.id || "deck"}-${entry.name}-${i}`,
@@ -87,8 +121,8 @@ function deckToCardArray(deck) {
 function commandersOf(deck) {
   if (!deck?.cards) return [];
   return deck.cards
-    .filter(c => c.section === "Commander")
-    .map(c => ({
+    .filter((c) => c.section === "Commander")
+    .map((c) => ({
       id: `cmd-${deck.id || "deck"}-${c.name}`,
       name: c.name,
       type: c.type || "Legendary Creature",
@@ -102,7 +136,7 @@ function commandersOf(deck) {
 // companion card ({ id, name }) or null; the route enriches type/mana from the local oracle index.
 function companionOf(deck) {
   if (!deck?.cards) return null;
-  const c = deck.cards.find(card => card.section === "Companion");
+  const c = deck.cards.find((card) => card.section === "Companion");
   return c ? { id: `comp-${deck.id || "deck"}-${c.name}`, name: c.name } : null;
 }
 
@@ -138,16 +172,22 @@ export default function LearnView({
   }, [session.decision, session.turn]);
 
   const applyChoiceFn = session.applyChoice; // stable per session (useLearnSession memoizes it)
-  const trackedApplyChoice = useCallback((choice) => {
-    const { decision: d, turn } = latestRef.current;
-    // Record real strategic picks only: an `ask` with a suggestion, excluding
-    // tap-for-mana (its own priority window in beginner mode — plumbing, not a play).
-    if (d && d.kind === "ask" && d.metadata?.suggestion && choice?.kind !== "tap-for-mana") {
-      const matched = stableActionKey(choice) === stableActionKey(d.metadata.suggestion);
-      setDebrief(prev => [...prev, { turn, userAction: choice, suggestion: d.metadata.suggestion, matched }]);
-    }
-    return applyChoiceFn(choice);
-  }, [applyChoiceFn]);
+  const trackedApplyChoice = useCallback(
+    (choice) => {
+      const { decision: d, turn } = latestRef.current;
+      // Record real strategic picks only: an `ask` with a suggestion, excluding
+      // tap-for-mana (its own priority window in beginner mode — plumbing, not a play).
+      if (d && d.kind === "ask" && d.metadata?.suggestion && choice?.kind !== "tap-for-mana") {
+        const matched = stableActionKey(choice) === stableActionKey(d.metadata.suggestion);
+        setDebrief((prev) => [
+          ...prev,
+          { turn, userAction: choice, suggestion: d.metadata.suggestion, matched },
+        ]);
+      }
+      return applyChoiceFn(choice);
+    },
+    [applyChoiceFn],
+  );
 
   // P6: seed the user-deck picker from a DeckView "Practice" handoff, once.
   useEffect(() => {
@@ -159,21 +199,22 @@ export default function LearnView({
   }, [initialUserDeckId]);
 
   const oppCount = mode === "commander" ? 3 : 1;
-  const userDeck = savedDecks.find(d => d.id === userDeckId);
-  const oppDecks = oppIds.slice(0, oppCount).map(id => savedDecks.find(d => d.id === id));
+  const userDeck = savedDecks.find((d) => d.id === userDeckId);
+  const oppDecks = oppIds.slice(0, oppCount).map((id) => savedDecks.find((d) => d.id === id));
   const canStart = userDeck && oppDecks.every(Boolean) && session.status !== "starting";
 
-  const setOppId = (index, id) => setOppIds(prev => prev.map((v, i) => (i === index ? id : v)));
+  const setOppId = (index, id) => setOppIds((prev) => prev.map((v, i) => (i === index ? id : v)));
 
   const handleStart = async () => {
     if (!canStart) return;
     setDebrief([]); // fresh game → fresh tally
-    setPuzzleMsg(null); setPuzzleDismissed(false);
+    setPuzzleMsg(null);
+    setPuzzleDismissed(false);
     // Deck identity for the saved-game list ("Sliver Hivelord · turn 4").
     const meta = {
       userDeckId: userDeck?.id,
       userDeckName: userDeck?.name,
-      opponentDeckNames: oppDecks.map(d => d?.name),
+      opponentDeckNames: oppDecks.map((d) => d?.name),
     };
     if (mode === "commander") {
       await session.start({
@@ -185,6 +226,7 @@ export default function LearnView({
         userCompanion: companionOf(userDeck),
         opponentCompanions: oppDecks.map(companionOf),
         difficulty,
+        humanMulligan: true, // free-play offers the London mulligan (proving-ground default)
         ...meta,
       });
     } else {
@@ -197,28 +239,43 @@ export default function LearnView({
         userCompanion: companionOf(userDeck),
         opponentCompanions: companionOf(oppDecks[0]),
         difficulty,
+        humanMulligan: true, // free-play offers the London mulligan (proving-ground default)
         ...meta,
       });
     }
   };
 
-  const handleAbandon = () => { setDebrief([]); setPuzzleMsg(null); setPuzzleDismissed(false); session.reset(); };
+  const handleAbandon = () => {
+    setDebrief([]);
+    setPuzzleMsg(null);
+    setPuzzleDismissed(false);
+    session.reset();
+  };
 
   // Saved-game list for the "Continue a game" panel on the idle screen.
   useEffect(() => {
     let cancelled = false;
     if (session.status === "idle") {
-      session.listSaves().then(list => { if (!cancelled) setSaves(list); });
-      session.listPuzzles().then(list => { if (!cancelled) setPuzzles(list); });
+      session.listSaves().then((list) => {
+        if (!cancelled) setSaves(list);
+      });
+      session.listPuzzles().then((list) => {
+        if (!cancelled) setPuzzles(list);
+      });
     }
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // session.listSaves/listPuzzles are stable (useCallback); refresh only on status change.
   }, [session.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleResume = (sessionId) => { setDebrief([]); return session.resume(sessionId); };
+  const handleResume = (sessionId) => {
+    setDebrief([]);
+    return session.resume(sessionId);
+  };
   const handleDeleteSave = async (sessionId) => {
     await session.deleteSave(sessionId);
-    setSaves(prev => prev.filter(s => s.sessionId !== sessionId));
+    setSaves((prev) => prev.filter((s) => s.sessionId !== sessionId));
   };
 
   // P9 — capture the current live position as a puzzle (win-this-turn goal for v1).
@@ -228,7 +285,11 @@ export default function LearnView({
     setPuzzleMsg(res.ok ? "✓ Saved as a puzzle" : `⚠ ${res.error}`);
   };
   // P9 — load a saved puzzle into a fresh attempt.
-  const handleSolvePuzzle = (puzzleId) => { setDebrief([]); setPuzzleDismissed(false); return session.resumePuzzle(puzzleId); };
+  const handleSolvePuzzle = (puzzleId) => {
+    setDebrief([]);
+    setPuzzleDismissed(false);
+    return session.resumePuzzle(puzzleId);
+  };
 
   // ─── Idle / setup screen ──────────────────────────────────────────────────
 
@@ -238,7 +299,10 @@ export default function LearnView({
         <header style={{ ...headerStyle(), justifyContent: "space-between" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
             The Academy
-            <StabilityBadge level="preview" title="Preview — the Academy is early and still being built out" />
+            <StabilityBadge
+              level="preview"
+              title="Preview — the Academy is early and still being built out"
+            />
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
             {setCenterView && (
@@ -251,38 +315,72 @@ export default function LearnView({
                 Stress test → Sim Center
               </button>
             )}
-            {session.status === "starting" && <span style={{ fontSize: 12, color: "var(--ley-text-dim)" }}>starting…</span>}
+            {session.status === "starting" && (
+              <span style={{ fontSize: 12, color: "var(--ley-text-dim)" }}>starting…</span>
+            )}
           </span>
         </header>
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
-          <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div
+            style={{
+              maxWidth: 640,
+              margin: "0 auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
             <p style={{ fontSize: 14, color: "var(--ley-text)", lineHeight: 1.5 }}>
-              Pick a deck to learn, an opponent to play against, and a difficulty.
-              The session runs locally — every decision is narrated by Jace at
-              Beginner difficulty, lighter at higher difficulties.
+              Pick a deck to learn, an opponent to play against, and a difficulty. The session runs
+              locally — every decision is narrated by Jace at Beginner difficulty, lighter at higher
+              difficulties.
             </p>
 
             {saves.length > 0 && (
-              <div style={{ border: "1px solid var(--ley-line)", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div
+                style={{
+                  border: "1px solid var(--ley-line)",
+                  borderRadius: 6,
+                  padding: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
                 <div style={{ ...labelStyle(), padding: 0 }}>Continue a game</div>
-                {saves.map(s => (
+                {saves.map((s) => (
                   <div
                     key={s.sessionId}
                     className="ley-row"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      padding: "6px 10px",
+                      borderRadius: 4,
+                      background: "var(--ley-surface-2)",
+                    }}
                   >
                     <span style={{ fontSize: 12, color: "var(--ley-text)" }}>
-                      {(s.userDeckName || "Untitled deck")}
-                      {" · "}{s.mode === "commander" ? "Commander" : "Standard"}
-                      {" · turn "}{s.turn ?? "?"}
-                      {" · "}{s.difficulty || "beginner"}
+                      {s.userDeckName || "Untitled deck"}
+                      {" · "}
+                      {s.mode === "commander" ? "Commander" : "Standard"}
+                      {" · turn "}
+                      {s.turn ?? "?"}
+                      {" · "}
+                      {s.difficulty || "beginner"}
                     </span>
                     <span style={{ display: "inline-flex", gap: 6 }}>
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => handleResume(s.sessionId)}
                         disabled={!s.resumable || session.status === "starting"}
-                        title={s.resumable ? "Resume this game" : "Saved on an incompatible version — start a new game"}
+                        title={
+                          s.resumable
+                            ? "Resume this game"
+                            : "Saved on an incompatible version — start a new game"
+                        }
                       >
                         Resume
                       </button>
@@ -300,25 +398,51 @@ export default function LearnView({
             )}
 
             {puzzles.length > 0 && (
-              <div style={{ border: "1px solid var(--ley-line)", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ ...labelStyle(), padding: 0 }}>🧩 Puzzles — solve a saved position</div>
-                {puzzles.map(p => (
+              <div
+                style={{
+                  border: "1px solid var(--ley-line)",
+                  borderRadius: 6,
+                  padding: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div style={{ ...labelStyle(), padding: 0 }}>
+                  🧩 Puzzles — solve a saved position
+                </div>
+                {puzzles.map((p) => (
                   <div
                     key={p.id}
                     className="ley-row"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", borderRadius: 4, background: "var(--ley-surface-2)" }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      padding: "6px 10px",
+                      borderRadius: 4,
+                      background: "var(--ley-surface-2)",
+                    }}
                   >
                     <span style={{ fontSize: 12, color: "var(--ley-text)" }}>
                       {p.label || puzzleGoalLabel(p.goal)}
-                      {" · "}{p.meta?.userDeckName || "position"}
-                      {" · turn "}{p.startTurn ?? "?"}
-                      {" · "}<span style={{ color: "var(--ley-gold)" }}>{puzzleGoalLabel(p.goal)}</span>
+                      {" · "}
+                      {p.meta?.userDeckName || "position"}
+                      {" · turn "}
+                      {p.startTurn ?? "?"}
+                      {" · "}
+                      <span style={{ color: "var(--ley-gold)" }}>{puzzleGoalLabel(p.goal)}</span>
                     </span>
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => handleSolvePuzzle(p.id)}
                       disabled={!p.resumable || session.status === "starting"}
-                      title={p.resumable ? "Load this puzzle and try to solve it" : "Saved on an incompatible version"}
+                      title={
+                        p.resumable
+                          ? "Load this puzzle and try to solve it"
+                          : "Saved on an incompatible version"
+                      }
                     >
                       Solve
                     </button>
@@ -327,23 +451,49 @@ export default function LearnView({
               </div>
             )}
 
-            <fieldset style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "none", padding: 0 }}>
+            <fieldset
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                border: "none",
+                padding: 0,
+              }}
+            >
               <legend style={{ ...labelStyle(), padding: 0, gridColumn: "1 / -1" }}>Format</legend>
-              {MODE_OPTIONS.map(opt => (
+              {MODE_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
                   style={{
-                    display: "flex", flexDirection: "column", padding: "10px 12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    padding: "10px 12px",
                     border: `1px solid ${mode === opt.value ? "var(--ley-green)" : "var(--ley-line)"}`,
                     background: mode === opt.value ? "var(--ley-green-dim)" : "transparent",
-                    borderRadius: 6, cursor: "pointer",
+                    borderRadius: 6,
+                    cursor: "pointer",
                   }}
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="radio" name="mode" value={opt.value} checked={mode === opt.value} onChange={e => setMode(e.target.value)} />
+                    <input
+                      type="radio"
+                      name="mode"
+                      value={opt.value}
+                      checked={mode === opt.value}
+                      onChange={(e) => setMode(e.target.value)}
+                    />
                     <strong style={{ color: "var(--ley-green)", fontSize: 13 }}>{opt.label}</strong>
                   </span>
-                  <span style={{ fontSize: 11, color: "var(--ley-text-dim)", marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--ley-text-dim)",
+                      marginLeft: 26,
+                      marginTop: 2,
+                    }}
+                  >
+                    {opt.blurb}
+                  </span>
                 </label>
               ))}
             </fieldset>
@@ -352,11 +502,15 @@ export default function LearnView({
               Your deck
               <select
                 value={userDeckId}
-                onChange={e => setUserDeckId(e.target.value)}
+                onChange={(e) => setUserDeckId(e.target.value)}
                 style={selectStyle(fontFamily)}
               >
                 <option value="">(pick a saved deck)</option>
-                {savedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                {savedDecks.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
               </select>
             </label>
 
@@ -365,18 +519,22 @@ export default function LearnView({
                 {oppCount === 1 ? "Opponent's deck" : `Opponent ${i + 1}'s deck`}
                 <select
                   value={oppIds[i] || ""}
-                  onChange={e => setOppId(i, e.target.value)}
+                  onChange={(e) => setOppId(i, e.target.value)}
                   style={selectStyle(fontFamily)}
                 >
                   <option value="">(pick a saved deck)</option>
-                  {savedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {savedDecks.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
                 </select>
               </label>
             ))}
 
             <fieldset style={{ display: "grid", gap: 8, border: "none", padding: 0 }}>
               <legend style={{ ...labelStyle(), padding: 0 }}>Difficulty</legend>
-              {DIFFICULTY_OPTIONS.map(opt => (
+              {DIFFICULTY_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
                   style={{
@@ -395,11 +553,20 @@ export default function LearnView({
                       name="difficulty"
                       value={opt.value}
                       checked={difficulty === opt.value}
-                      onChange={e => setDifficulty(e.target.value)}
+                      onChange={(e) => setDifficulty(e.target.value)}
                     />
                     <strong style={{ color: "var(--ley-green)", fontSize: 13 }}>{opt.label}</strong>
                   </span>
-                  <span style={{ fontSize: 11, color: "var(--ley-text-dim)", marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--ley-text-dim)",
+                      marginLeft: 26,
+                      marginTop: 2,
+                    }}
+                  >
+                    {opt.blurb}
+                  </span>
                 </label>
               ))}
             </fieldset>
@@ -413,9 +580,7 @@ export default function LearnView({
               {session.status === "starting" ? "Starting…" : "Start game"}
             </button>
 
-            {session.error && (
-              <div style={errorBoxStyle()}>⚠ {session.error}</div>
-            )}
+            {session.error && <div style={errorBoxStyle()}>⚠ {session.error}</div>}
           </div>
         </div>
       </div>
@@ -431,35 +596,70 @@ export default function LearnView({
   // P9 — evaluate the puzzle goal from observable session facts (pure). Drives the
   // result overlay; null when this isn't a puzzle attempt.
   const puzzleOutcome = session.puzzle
-    ? evaluatePuzzle({ goal: session.puzzle.goal, startTurn: session.puzzle.startTurn, status: session.status, turn: session.turn, reason: decision?.reason })
+    ? evaluatePuzzle({
+        goal: session.puzzle.goal,
+        startTurn: session.puzzle.startTurn,
+        status: session.status,
+        turn: session.turn,
+        reason: decision?.reason,
+      })
     : null;
-  const showPuzzleResult = session.puzzle && !puzzleDismissed && (puzzleOutcome === "solved" || puzzleOutcome === "failed");
+  const showPuzzleResult =
+    session.puzzle &&
+    !puzzleDismissed &&
+    (puzzleOutcome === "solved" || puzzleOutcome === "failed");
 
   return (
     <div style={containerStyle(fontFamily)}>
       <header style={{ ...headerStyle(), justifyContent: "space-between" }}>
-        <span>The Academy · {session.mode === "commander" ? "Commander 4P pod" : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}</span>
+        <span>
+          The Academy ·{" "}
+          {session.mode === "commander"
+            ? "Commander 4P pod"
+            : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}
+        </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
           {session.puzzle && (
-            <span style={{ fontSize: 11, color: "var(--ley-gold)", fontWeight: 700 }} title={`Puzzle goal: ${puzzleGoalLabel(session.puzzle.goal)}`}>
+            <span
+              style={{ fontSize: 11, color: "var(--ley-gold)", fontWeight: 700 }}
+              title={`Puzzle goal: ${puzzleGoalLabel(session.puzzle.goal)}`}
+            >
               🧩 {puzzleGoalLabel(session.puzzle.goal)}
             </span>
           )}
-          {puzzleMsg && <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>{puzzleMsg}</span>}
+          {puzzleMsg && (
+            <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>{puzzleMsg}</span>
+          )}
           {session.status === "active" && !session.puzzle && (
-            <button className="btn btn-ghost btn-sm" onClick={handleSavePuzzle} title="Capture this position as a puzzle to solve later">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleSavePuzzle}
+              title="Capture this position as a puzzle to solve later"
+            >
               🧩 Save as puzzle
             </button>
           )}
           <span style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>
-            Turn {session.turn} · {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`} {session.step}
+            Turn {session.turn} ·{" "}
+            {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`}{" "}
+            {session.step}
           </span>
         </span>
       </header>
 
       <TableStrip table={session.table} activePlayer={session.activePlayer} />
 
-      {session.board ? (
+      {decision?.kind === "mulligan" ? (
+        // Pre-game London mulligan — a full takeover of the play area until the player keeps and
+        // the game opens (the board exists behind it but must not show through this gate).
+        <MulliganPanel
+          decision={decision}
+          onKeep={() => session.mulligan({ kind: "mulligan-keep" })}
+          onShip={() => session.mulligan({ kind: "mulligan-ship" })}
+          onBottom={(cardIds) => session.mulligan({ kind: "mulligan-bottom", cardIds })}
+          busy={session.status === "starting"}
+        />
+      ) : session.board ? (
         <LearnBoard
           board={session.board}
           decision={decision}
@@ -473,60 +673,72 @@ export default function LearnView({
           debrief={debrief}
         />
       ) : (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Decision area */}
-        <main style={{ flex: 2, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
-          <DecisionPrompt
-            decision={decision}
-            onChoose={trackedApplyChoice}
-            onContinue={session.continueGame}
-            onTutorChoose={session.applyTutorChoice}
-            onCloneChoose={session.applyCloneChoice}
-            onScryChoose={session.applyScryChoice}
-            onOptionalChoose={session.applyOptionalChoice}
-            onHandDiscardChoose={session.applyHandDiscardChoice}
-            onCleanupDiscardChoose={session.applyCleanupDiscardChoice}
-            onDigLandChoose={session.applyDigLandChoice}
-            onDistributeCountersChoose={session.applyDistributeCountersChoice}
-            onOptionalDrawDiscardChoose={session.applyOptionalDrawDiscardChoice}
-            onOptionalDiscardPaymentChoose={session.applyOptionalDiscardPaymentChoice}
-            onSacUnlessPayChoose={session.applySacUnlessPayChoice}
-            onTaxedPaymentChoose={session.applyTaxedPaymentChoice}
-            onEdictModeChoose={session.applyEdictModeChoice}
-            onImpulseDigChoose={session.applyImpulseDigChoice}
-            onLookTopTakeChoose={session.applyLookTopTakeChoice}
-            onSacrificeChoose={session.applySacrificeChoice}
-            onDiscardChoose={session.applyDiscardChoice}
-            onDivideChoose={session.applyDivideChoice}
-            onSoftCounterChoose={session.applySoftCounterChoice}
-            onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
-            onOptionalSacChoose={session.applyOptionalSacChoice}
-            onCommanderReturnChoose={session.applyCommanderReturnChoice}
-          />
-        </main>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          {/* Decision area */}
+          <main
+            style={{
+              flex: 2,
+              padding: 20,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            <DecisionPrompt
+              decision={decision}
+              onChoose={trackedApplyChoice}
+              onContinue={session.continueGame}
+              onTutorChoose={session.applyTutorChoice}
+              onCloneChoose={session.applyCloneChoice}
+              onScryChoose={session.applyScryChoice}
+              onOptionalChoose={session.applyOptionalChoice}
+              onHandDiscardChoose={session.applyHandDiscardChoice}
+              onCleanupDiscardChoose={session.applyCleanupDiscardChoice}
+              onDigLandChoose={session.applyDigLandChoice}
+              onDistributeCountersChoose={session.applyDistributeCountersChoice}
+              onOptionalDrawDiscardChoose={session.applyOptionalDrawDiscardChoice}
+              onOptionalDiscardPaymentChoose={session.applyOptionalDiscardPaymentChoice}
+              onSacUnlessPayChoose={session.applySacUnlessPayChoice}
+              onTaxedPaymentChoose={session.applyTaxedPaymentChoice}
+              onEdictModeChoose={session.applyEdictModeChoice}
+              onImpulseDigChoose={session.applyImpulseDigChoice}
+              onLookTopTakeChoose={session.applyLookTopTakeChoice}
+              onSacrificeChoose={session.applySacrificeChoice}
+              onDiscardChoose={session.applyDiscardChoice}
+              onDivideChoose={session.applyDivideChoice}
+              onSoftCounterChoose={session.applySoftCounterChoice}
+              onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
+              onOptionalSacChoose={session.applyOptionalSacChoice}
+              onCommanderReturnChoose={session.applyCommanderReturnChoice}
+            />
+          </main>
 
-        {/* Auto-played feed */}
-        <aside style={{
-          width: 280,
-          borderLeft: "1px solid var(--ley-line)",
-          background: "var(--ley-surface-1)",
-          padding: 14,
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-        }}>
-          <div style={sectionLabelStyle()}>
-            Recent actions
-          </div>
-          {(session.decisionLogTail || []).slice().reverse().map((entry, i) => (
-            <LearnLogEntry key={`${entry.ts}-${i}`} entry={entry} />
-          ))}
-          {!(session.decisionLogTail || []).length && (
-            <div style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>No actions yet.</div>
-          )}
-        </aside>
-      </div>
+          {/* Auto-played feed */}
+          <aside
+            style={{
+              width: 280,
+              borderLeft: "1px solid var(--ley-line)",
+              background: "var(--ley-surface-1)",
+              padding: 14,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <div style={sectionLabelStyle()}>Recent actions</div>
+            {(session.decisionLogTail || [])
+              .slice()
+              .reverse()
+              .map((entry, i) => (
+                <LearnLogEntry key={`${entry.ts}-${i}`} entry={entry} />
+              ))}
+            {!(session.decisionLogTail || []).length && (
+              <div style={{ fontSize: 11, color: "var(--ley-text-dim)" }}>No actions yet.</div>
+            )}
+          </aside>
+        </div>
       )}
 
       {/* Unresolved spell → Arbiter ruling as a NON-BLOCKING side-sheet over the
@@ -581,17 +793,26 @@ export default function LearnView({
       )}
       {session.board && decision?.kind === "distribute-counters" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
-          <DistributeCountersPanel decision={decision} onChoose={session.applyDistributeCountersChoice} />
+          <DistributeCountersPanel
+            decision={decision}
+            onChoose={session.applyDistributeCountersChoice}
+          />
         </div>
       )}
       {session.board && decision?.kind === "optional-draw-discard" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
-          <OptionalDrawDiscardPanel decision={decision} onChoose={session.applyOptionalDrawDiscardChoice} />
+          <OptionalDrawDiscardPanel
+            decision={decision}
+            onChoose={session.applyOptionalDrawDiscardChoice}
+          />
         </div>
       )}
       {session.board && decision?.kind === "optional-discard-payment" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
-          <OptionalDiscardPaymentPanel decision={decision} onChoose={session.applyOptionalDiscardPaymentChoice} />
+          <OptionalDiscardPaymentPanel
+            decision={decision}
+            onChoose={session.applyOptionalDiscardPaymentChoice}
+          />
         </div>
       )}
       {session.board && decision?.kind === "sac-unless-pay" && (
@@ -662,7 +883,10 @@ export default function LearnView({
           Bestiary / Mind's Eye / Inheritance / …) → pay or decline. Same side-sheet. */}
       {session.board && decision?.kind === "optional-mana-payment" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
-          <OptionalManaPaymentPanel decision={decision} onChoose={session.applyOptionalManaPaymentChoice} />
+          <OptionalManaPaymentPanel
+            decision={decision}
+            onChoose={session.applyOptionalManaPaymentChoice}
+          />
         </div>
       )}
       {/* REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
@@ -674,48 +898,108 @@ export default function LearnView({
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
           to text, and never leaves the stale board looking silently interactive). */}
-      {session.board && (session.status === "error" || decision?.kind === "dispatch-error" || decision?.kind === "engine-stuck") && (
-        <div className="ley-glass-strong" style={floatErrorStyle()}>
-          ⚠ {session.status === "error"
-            ? (session.error || "Lost the connection to the game.")
-            : `${decision.kind === "engine-stuck" ? "The engine got stuck" : "The engine rejected that"}: ${decision.reason}${decision.code ? ` (${decision.code})` : ""}`}
-          {" — use “Abandon game” below to start over."}
-        </div>
-      )}
+      {session.board &&
+        (session.status === "error" ||
+          decision?.kind === "dispatch-error" ||
+          decision?.kind === "engine-stuck") && (
+          <div className="ley-glass-strong" style={floatErrorStyle()}>
+            ⚠{" "}
+            {session.status === "error"
+              ? session.error || "Lost the connection to the game."
+              : `${decision.kind === "engine-stuck" ? "The engine got stuck" : "The engine rejected that"}: ${decision.reason}${decision.code ? ` (${decision.code})` : ""}`}
+            {" — use “Abandon game” below to start over."}
+          </div>
+        )}
 
-      <footer style={{ padding: "10px 16px", borderTop: "1px solid var(--ley-line)", background: "var(--ley-surface-1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <footer
+        style={{
+          padding: "10px 16px",
+          borderTop: "1px solid var(--ley-line)",
+          background: "var(--ley-surface-1)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <button className="btn btn-danger btn-sm" onClick={handleAbandon}>
           Abandon game
         </button>
-        {session.error && <span style={{ fontSize: 11, color: "var(--ley-red)" }}>⚠ {session.error}</span>}
+        {session.error && (
+          <span style={{ fontSize: 11, color: "var(--ley-red)" }}>⚠ {session.error}</span>
+        )}
       </footer>
 
       {showPuzzleResult && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--ley-glass-strong)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--ley-glass-strong)",
+            backdropFilter: "blur(3px)",
+            WebkitBackdropFilter: "blur(3px)",
+          }}
           onClick={() => setPuzzleDismissed(true)}
         >
-          <div className="ley-glass-strong ley-glass-lit" style={{ textAlign: "center", maxWidth: 460, padding: "30px 34px", borderRadius: "var(--r-lg)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 30, fontWeight: 800, marginBottom: 10, color: puzzleOutcome === "solved" ? "var(--ley-green)" : "var(--ley-red)" }}>
+          <div
+            className="ley-glass-strong ley-glass-lit"
+            style={{
+              textAlign: "center",
+              maxWidth: 460,
+              padding: "30px 34px",
+              borderRadius: "var(--r-lg)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                fontSize: 30,
+                fontWeight: 800,
+                marginBottom: 10,
+                color: puzzleOutcome === "solved" ? "var(--ley-green)" : "var(--ley-red)",
+              }}
+            >
               {puzzleOutcome === "solved" ? "🧩 Puzzle solved!" : "Puzzle failed"}
             </div>
-            <p style={{ fontSize: 13, color: "var(--ley-text-dim)", lineHeight: 1.55, margin: "0 0 20px" }}>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--ley-text-dim)",
+                lineHeight: 1.55,
+                margin: "0 0 20px",
+              }}
+            >
               {puzzleOutcome === "solved"
                 ? `You hit the goal — ${puzzleGoalLabel(session.puzzle.goal)} — from the captured position. Nicely solved.`
                 : `Goal missed — ${puzzleGoalLabel(session.puzzle.goal)}. The turn passed or the game slipped away. Run the line again.`}
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               {puzzleOutcome === "failed" && (
-                <button className="btn btn-primary" onClick={() => handleSolvePuzzle(session.puzzle.id)}>Retry puzzle</button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleSolvePuzzle(session.puzzle.id)}
+                >
+                  Retry puzzle
+                </button>
               )}
-              <button className="btn btn-secondary" onClick={() => setPuzzleDismissed(true)}>Keep playing</button>
-              <button className="btn btn-ghost" onClick={handleAbandon}>Back to Academy</button>
+              <button className="btn btn-secondary" onClick={() => setPuzzleDismissed(true)}>
+                Keep playing
+              </button>
+              <button className="btn btn-ghost" onClick={handleAbandon}>
+                Back to Academy
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <AskPanel sessionId={session.sessionId} avoidSheet={!!session.board && decision?.kind === "unresolved"} />
+      <AskPanel
+        sessionId={session.sessionId}
+        avoidSheet={!!session.board && decision?.kind === "unresolved"}
+      />
     </div>
   );
 }
@@ -738,8 +1022,11 @@ function AskPanel({ sessionId, avoidSheet = false }) {
     if (!question || busy || !sessionId) return;
     setBusy(true);
     setQ("");
-    setHistory(h => [...h, { q: question, a: null, error: null, pending: true }]);
-    const finish = patch => setHistory(h => h.map((it, i) => (i === h.length - 1 ? { ...it, ...patch, pending: false } : it)));
+    setHistory((h) => [...h, { q: question, a: null, error: null, pending: true }]);
+    const finish = (patch) =>
+      setHistory((h) =>
+        h.map((it, i) => (i === h.length - 1 ? { ...it, ...patch, pending: false } : it)),
+      );
     try {
       const resp = await fetch("/api/learn/ask", {
         method: "POST",
@@ -770,45 +1057,113 @@ function AskPanel({ sessionId, avoidSheet = false }) {
   }
 
   return (
-    <div className="ley-glass-strong ley-glass-lit" style={{
-      position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ,
-      width: 330, maxWidth: "calc(100% - 36px)", maxHeight: 400,
-      display: "flex", flexDirection: "column",
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderBottom: "1px solid var(--ley-line)" }}>
+    <div
+      className="ley-glass-strong ley-glass-lit"
+      style={{
+        position: "absolute",
+        bottom: 60,
+        right: dockRight,
+        zIndex: dockZ,
+        width: 330,
+        maxWidth: "calc(100% - 36px)",
+        maxHeight: 400,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "10px 12px",
+          borderBottom: "1px solid var(--ley-line)",
+        }}
+      >
         <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ley-green)" }}>Ask Jace</span>
-        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setOpen(false)} aria-label="Close">×</button>
+        <button
+          className="btn btn-ghost btn-sm btn-icon"
+          onClick={() => setOpen(false)}
+          aria-label="Close"
+        >
+          ×
+        </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "10px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
         {history.length === 0 && (
           <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
-            Ask anything about the current board — &ldquo;what can I play?&rdquo;, &ldquo;is it safe to attack?&rdquo;, &ldquo;what does this step do?&rdquo;. Jace reads the live game to answer.
+            Ask anything about the current board — &ldquo;what can I play?&rdquo;, &ldquo;is it safe
+            to attack?&rdquo;, &ldquo;what does this step do?&rdquo;. Jace reads the live game to
+            answer.
           </div>
         )}
         {history.map((item, i) => (
           <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontSize: 12, color: "var(--ley-text)", fontWeight: 600 }}>{item.q}</div>
-            {item.pending && <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", fontStyle: "italic" }}>Jace is thinking…</div>}
-            {item.a && <div style={{ fontSize: 12, color: "var(--ley-text)", lineHeight: 1.5, background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: 6, padding: "7px 9px", whiteSpace: "pre-wrap" }}>{item.a}</div>}
-            {item.error && <div style={{ fontSize: 11.5, color: "var(--ley-red)" }}>⚠ {item.error}</div>}
+            {item.pending && (
+              <div style={{ fontSize: 11.5, color: "var(--ley-text-dim)", fontStyle: "italic" }}>
+                Jace is thinking…
+              </div>
+            )}
+            {item.a && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--ley-text)",
+                  lineHeight: 1.5,
+                  background: "var(--ley-surface-2)",
+                  border: "1px solid var(--ley-line)",
+                  borderRadius: 6,
+                  padding: "7px 9px",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {item.a}
+              </div>
+            )}
+            {item.error && (
+              <div style={{ fontSize: 11.5, color: "var(--ley-red)" }}>⚠ {item.error}</div>
+            )}
           </div>
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderTop: "1px solid var(--ley-line)" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          padding: "10px 12px",
+          borderTop: "1px solid var(--ley-line)",
+        }}
+      >
         <input
           value={q}
-          onChange={e => setQ(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !busy) ask(); }}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !busy) ask();
+          }}
           placeholder="Ask about the board…"
-          style={{ flex: 1, padding: "7px 10px", background: "var(--ley-surface-2)", border: "1px solid var(--ley-line)", borderRadius: 6, color: "var(--ley-text)", fontSize: 12.5 }}
+          style={{
+            flex: 1,
+            padding: "7px 10px",
+            background: "var(--ley-surface-2)",
+            border: "1px solid var(--ley-line)",
+            borderRadius: 6,
+            color: "var(--ley-text)",
+            fontSize: 12.5,
+          }}
         />
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={ask}
-          disabled={busy || !q.trim()}
-        >
+        <button className="btn btn-secondary btn-sm" onClick={ask} disabled={busy || !q.trim()}>
           {busy ? "…" : "Ask"}
         </button>
       </div>
@@ -821,8 +1176,17 @@ function AskPanel({ sessionId, avoidSheet = false }) {
 export function TableStrip({ table, activePlayer }) {
   if (!table || table.length === 0) return null;
   return (
-    <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--ley-surface-1)", borderBottom: "1px solid var(--ley-line)", overflowX: "auto" }}>
-      {table.map(seat => {
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        padding: "8px 12px",
+        background: "var(--ley-surface-1)",
+        borderBottom: "1px solid var(--ley-line)",
+        overflowX: "auto",
+      }}
+    >
+      {table.map((seat) => {
         const active = seat.id === activePlayer;
         const cmd = Object.entries(seat.commanderDamage || {}).filter(([, n]) => n > 0);
         return (
@@ -830,21 +1194,62 @@ export function TableStrip({ table, activePlayer }) {
             key={seat.id}
             className={active ? "ley-live" : undefined}
             style={{
-              minWidth: 118, flexShrink: 0, padding: "8px 10px", borderRadius: 6,
+              minWidth: 118,
+              flexShrink: 0,
+              padding: "8px 10px",
+              borderRadius: 6,
               background: "var(--ley-surface-2)",
               border: `1px solid ${active ? "var(--ley-green)" : "var(--ley-line)"}`,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: seat.isUser ? "var(--ley-green-text)" : "var(--ley-text)" }}>
+            <div
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: seat.isUser ? "var(--ley-green-text)" : "var(--ley-text)",
+                }}
+              >
                 {seatLabel(seat.id)}
               </span>
-              {active && <span style={{ fontSize: 8, color: "var(--ley-green)", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.08em" }}>turn</span>}
+              {active && (
+                <span
+                  style={{
+                    fontSize: 8,
+                    color: "var(--ley-green)",
+                    fontFamily: "var(--font-mono)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  turn
+                </span>
+              )}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: seat.life <= 5 ? "var(--ley-red)" : "var(--ley-text)", lineHeight: 1.15 }}>
-              {seat.life} <span style={{ fontSize: 10, color: "var(--ley-text-dim)", fontWeight: 400 }}>life</span>
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: seat.life <= 5 ? "var(--ley-red)" : "var(--ley-text)",
+                lineHeight: 1.15,
+              }}
+            >
+              {seat.life}{" "}
+              <span style={{ fontSize: 10, color: "var(--ley-text-dim)", fontWeight: 400 }}>
+                life
+              </span>
             </div>
-            <div style={{ display: "flex", gap: 9, fontSize: 10, color: "var(--ley-text-dim)", marginTop: 2 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 9,
+                fontSize: 10,
+                color: "var(--ley-text-dim)",
+                marginTop: 2,
+              }}
+            >
               <span title="cards in hand">✋ {seat.handCount}</span>
               <span title="permanents on board">▦ {seat.boardCount}</span>
               <span title="cards in graveyard">⚰ {seat.graveyardCount}</span>
@@ -863,8 +1268,33 @@ export function TableStrip({ table, activePlayer }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onCleanupDiscardChoose, onDigLandChoose, onDistributeCountersChoose, onOptionalDrawDiscardChoose, onOptionalDiscardPaymentChoose, onSacUnlessPayChoose, onTaxedPaymentChoose, onEdictModeChoose, onImpulseDigChoose, onLookTopTakeChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
-
+function DecisionPrompt({
+  decision,
+  onChoose,
+  onContinue,
+  onTutorChoose,
+  onCloneChoose,
+  onScryChoose,
+  onOptionalChoose,
+  onHandDiscardChoose,
+  onCleanupDiscardChoose,
+  onDigLandChoose,
+  onDistributeCountersChoose,
+  onOptionalDrawDiscardChoose,
+  onOptionalDiscardPaymentChoose,
+  onSacUnlessPayChoose,
+  onTaxedPaymentChoose,
+  onEdictModeChoose,
+  onImpulseDigChoose,
+  onLookTopTakeChoose,
+  onSacrificeChoose,
+  onDiscardChoose,
+  onDivideChoose,
+  onSoftCounterChoose,
+  onOptionalManaPaymentChoose,
+  onOptionalSacChoose,
+  onCommanderReturnChoose,
+}) {
   if (!decision) {
     return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Waiting for engine…</p>;
   }
@@ -896,7 +1326,9 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
     return <OptionalDrawDiscardPanel decision={decision} onChoose={onOptionalDrawDiscardChoose} />;
   }
   if (decision.kind === "optional-discard-payment") {
-    return <OptionalDiscardPaymentPanel decision={decision} onChoose={onOptionalDiscardPaymentChoose} />;
+    return (
+      <OptionalDiscardPaymentPanel decision={decision} onChoose={onOptionalDiscardPaymentChoose} />
+    );
   }
   if (decision.kind === "sac-unless-pay") {
     return <SacUnlessPayPanel decision={decision} onChoose={onSacUnlessPayChoose} />;
@@ -949,24 +1381,34 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
     return <div style={errorBoxStyle()}>⚠ Engine got stuck: {decision.reason}</div>;
   }
   if (decision.kind === "auto-decided") {
-    return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Engine auto-decided ({decision.metadata?.reasoning || "no reason"})…</p>;
+    return (
+      <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>
+        Engine auto-decided ({decision.metadata?.reasoning || "no reason"})…
+      </p>
+    );
   }
   if (decision.kind !== "ask") {
-    return <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>Unknown decision kind: {decision.kind}</p>;
+    return (
+      <p style={{ color: "var(--ley-text-dim)", fontSize: 13 }}>
+        Unknown decision kind: {decision.kind}
+      </p>
+    );
   }
 
   return (
     <>
-      <div style={{
-        whiteSpace: "pre-wrap",
-        fontSize: 13,
-        color: "var(--ley-text)",
-        lineHeight: 1.6,
-        padding: "12px 14px",
-        background: "var(--ley-surface-2)",
-        border: "1px solid var(--ley-line)",
-        borderRadius: 6,
-      }}>
+      <div
+        style={{
+          whiteSpace: "pre-wrap",
+          fontSize: 13,
+          color: "var(--ley-text)",
+          lineHeight: 1.6,
+          padding: "12px 14px",
+          background: "var(--ley-surface-2)",
+          border: "1px solid var(--ley-line)",
+          borderRadius: 6,
+        }}
+      >
         {decision.prompt}
       </div>
 
@@ -986,14 +1428,24 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
                 ...(isRecommended ? { background: "var(--ley-green-dim)" } : {}),
               }}
             >
-              <span style={{ color: isRecommended ? "var(--ley-green)" : "var(--ley-text-faint)", fontSize: 10, marginRight: 8 }}>
+              <span
+                style={{
+                  color: isRecommended ? "var(--ley-green)" : "var(--ley-text-faint)",
+                  fontSize: 10,
+                  marginRight: 8,
+                }}
+              >
                 {i + 1}.
               </span>
               {opt.name || opt.kind}
               {opt.kind === "declare-attacker" && opt.defenderId && (
                 <span style={{ color: "var(--ley-text-dim)" }}> → {seatLabel(opt.defenderId)}</span>
               )}
-              {isRecommended && <span style={{ fontSize: 10, color: "var(--ley-green)", marginLeft: 8 }}>(recommended)</span>}
+              {isRecommended && (
+                <span style={{ fontSize: 10, color: "var(--ley-green)", marginLeft: 8 }}>
+                  (recommended)
+                </span>
+              )}
             </button>
           );
         })}
@@ -1002,11 +1454,17 @@ function DecisionPrompt({ decision, onChoose, onContinue, onTutorChoose, onClone
   );
 }
 
-
 // Re-exported so existing importers and the render fingerprint keep one surface.
 export {
-  tutorSheetStyle, containerStyle, headerStyle, labelStyle, sectionLabelStyle,
-  selectStyle, unresolvedSheetStyle, floatErrorStyle, errorBoxStyle,
+  tutorSheetStyle,
+  containerStyle,
+  headerStyle,
+  labelStyle,
+  sectionLabelStyle,
+  selectStyle,
+  unresolvedSheetStyle,
+  floatErrorStyle,
+  errorBoxStyle,
 } from "./learnViewStyles.js";
 
 // Panel layer re-exported so existing importers (tests, the render fingerprint) keep one surface.

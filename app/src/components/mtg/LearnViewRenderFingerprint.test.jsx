@@ -24,35 +24,104 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as LV from "./LearnView.jsx";
 
 const noop = () => {};
-const MANA_2 = { kind: "mana", mana: { generic: 2, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } };
-const CARDS2 = [{ id: "x-1", name: "Island" }, { id: "x-2", name: "Mountain" }];
+const MANA_2 = {
+  kind: "mana",
+  mana: { generic: 2, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] },
+};
+const CARDS2 = [
+  { id: "x-1", name: "Island" },
+  { id: "x-2", name: "Mountain" },
+];
 const CARDS3 = [...CARDS2, { id: "x-3", name: "Forest" }];
 
 /** component name -> the props it renders with. */
 const CASES = {
-  DigLandPanel: { decision: { kind: "dig-land-to-battlefield", candidates: CARDS2, entersTapped: true, sourceName: "S" } },
-  DistributeCountersPanel: { decision: { kind: "distribute-counters", amount: 3, counterType: "+1/+1", maxTargets: 3, perTargetCap: 1, candidates: CARDS2, sourceName: "S" } },
+  DigLandPanel: {
+    decision: {
+      kind: "dig-land-to-battlefield",
+      candidates: CARDS2,
+      entersTapped: true,
+      sourceName: "S",
+    },
+  },
+  DistributeCountersPanel: {
+    decision: {
+      kind: "distribute-counters",
+      amount: 3,
+      counterType: "+1/+1",
+      maxTargets: 3,
+      perTargetCap: 1,
+      candidates: CARDS2,
+      sourceName: "S",
+    },
+  },
   OptionalDrawDiscardPanel: { decision: { kind: "optional-draw-discard", sourceName: "S" } },
-  OptionalDiscardPaymentPanel: { decision: { kind: "optional-discard-payment", available: true, sourceName: "S" } },
+  OptionalDiscardPaymentPanel: {
+    decision: { kind: "optional-discard-payment", available: true, sourceName: "S" },
+  },
   SacUnlessPayPanel: { decision: { kind: "sac-unless-pay", cost: MANA_2, sourceName: "S" } },
-  TaxedPaymentPanel: { decision: { kind: "taxed-payment", cost: MANA_2, beneficiary: "ai", declinePayoff: "draw", sourceName: "S" } },
-  EdictModePanel: { decision: { kind: "edict-mode", modes: ["life", "sacrifice"], sac: CARDS2, disc: [], sourceName: "S" } },
+  TaxedPaymentPanel: {
+    decision: {
+      kind: "taxed-payment",
+      cost: MANA_2,
+      beneficiary: "ai",
+      declinePayoff: "draw",
+      sourceName: "S",
+    },
+  },
+  EdictModePanel: {
+    decision: {
+      kind: "edict-mode",
+      modes: ["life", "sacrifice"],
+      sac: CARDS2,
+      disc: [],
+      sourceName: "S",
+    },
+  },
   CleanupDiscardPanel: { decision: { kind: "cleanup-discard", candidates: CARDS3, count: 2 } },
-  HandDiscardPanel: { decision: { kind: "hand-discard", candidates: CARDS2, victim: "ai", sourceName: "S" } },
+  HandDiscardPanel: {
+    decision: { kind: "hand-discard", candidates: CARDS2, victim: "ai", sourceName: "S" },
+  },
   ImpulseDigPanel: { decision: { kind: "impulse-dig", candidates: CARDS2, sourceName: "S" } },
   LookTopTakePanel: { decision: { kind: "look-top-take", candidates: CARDS2, sourceName: "S" } },
-  DivideDamagePanel: { decision: { kind: "divide-damage", amount: 3, candidates: CARDS2, sourceName: "S" } },
+  DivideDamagePanel: {
+    decision: { kind: "divide-damage", amount: 3, candidates: CARDS2, sourceName: "S" },
+  },
   SoftCounterPanel: { decision: { kind: "soft-counter", cost: MANA_2, sourceName: "S" } },
-  OptionalManaPaymentPanel: { decision: { kind: "optional-mana-payment", cost: MANA_2, affordable: true, sourceName: "S" } },
-  OptionalSacPanel: { decision: { kind: "optional-sac-payment", subtype: "Food", available: true, sourceName: "S" } },
-  SacrificeChoicePanel: { decision: { kind: "sacrifice-choice", candidates: CARDS2, sourceName: "S" } },
-  DiscardChoicePanel: { decision: { kind: "discard", candidates: CARDS2, count: 1, sourceName: "S" } },
-  OptionalChoicePanel: { decision: { kind: "optional-effect", prompt: "Do the thing?", sourceName: "S" } },
-  CommanderReturnPanel: { decision: { kind: "commander-return", cardName: "Commander", sourceName: "S" } },
+  OptionalManaPaymentPanel: {
+    decision: { kind: "optional-mana-payment", cost: MANA_2, affordable: true, sourceName: "S" },
+  },
+  OptionalSacPanel: {
+    decision: { kind: "optional-sac-payment", subtype: "Food", available: true, sourceName: "S" },
+  },
+  SacrificeChoicePanel: {
+    decision: { kind: "sacrifice-choice", candidates: CARDS2, sourceName: "S" },
+  },
+  DiscardChoicePanel: {
+    decision: { kind: "discard", candidates: CARDS2, count: 1, sourceName: "S" },
+  },
+  OptionalChoicePanel: {
+    decision: { kind: "optional-effect", prompt: "Do the thing?", sourceName: "S" },
+  },
+  CommanderReturnPanel: {
+    decision: { kind: "commander-return", cardName: "Commander", sourceName: "S" },
+  },
   CloneCopyPanel: { decision: { kind: "clone-search", candidates: CARDS2, sourceName: "S" } },
-  ScrySurveilPanel: { decision: { kind: "scry-surveil", candidates: CARDS2, count: 2, sourceName: "S" } },
+  ScrySurveilPanel: {
+    decision: { kind: "scry-surveil", candidates: CARDS2, count: 2, sourceName: "S" },
+  },
   TutorSearchPanel: { decision: { kind: "tutor-search", candidates: CARDS2, sourceName: "S" } },
   UnresolvedPanel: { decision: { kind: "unresolved", reason: "why", cardName: "C" } },
+  MulliganPanel: {
+    decision: {
+      kind: "mulligan",
+      phase: "decide",
+      seat: "user",
+      mulligans: 0,
+      hand: CARDS3,
+      options: [{ kind: "mulligan-keep" }, { kind: "mulligan-ship" }],
+    },
+  },
   ChoiceBanner: { icon: "X", title: "T", children: "body" },
   YesNoChoice: { yesLabel: "Yes", noLabel: "No" },
   CardPickGrid: { candidates: CARDS2, selected: null, onSelect: noop },
@@ -67,9 +136,16 @@ const CASES = {
  * real. Calling them directly means an unexported helper now throws instead of freezing a hole.
  */
 const HELPER_ARGS = {
-  tutorSheetStyle: [], containerStyle: ["Inter"], headerStyle: [], labelStyle: [],
-  sectionLabelStyle: [], selectStyle: ["Inter"], unresolvedSheetStyle: [],
-  floatErrorStyle: [], errorBoxStyle: [], wardCostLabel: [{ cost: MANA_2 }],
+  tutorSheetStyle: [],
+  containerStyle: ["Inter"],
+  headerStyle: [],
+  labelStyle: [],
+  sectionLabelStyle: [],
+  selectStyle: ["Inter"],
+  unresolvedSheetStyle: [],
+  floatErrorStyle: [],
+  errorBoxStyle: [],
+  wardCostLabel: [{ cost: MANA_2 }],
 };
 const HELPERS = Object.fromEntries(
   Object.entries(HELPER_ARGS).map(([name, args]) => [name, () => LV[name](...args)]),
@@ -92,6 +168,28 @@ describe("LearnView render fingerprint — markup must not change when a panel m
   }
 });
 
+describe("MulliganPanel — the bottom-pick phase renders its own markup", () => {
+  it("bottom phase renders the picker (selectable hand + confirm)", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LV.MulliganPanel, {
+        decision: {
+          kind: "mulligan",
+          phase: "bottom",
+          seat: "user",
+          mulligans: 2,
+          bottomCount: 2,
+          hand: CARDS3,
+        },
+      }),
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(markup).toMatchSnapshot();
+    // A real render, not a frozen blank (mirrors the honesty guard on CASES).
+    expect(markup.length).toBeGreaterThan(20);
+  });
+});
+
 describe("LearnView helper fingerprint — style/label output must not change when helpers move", () => {
   for (const name of Object.keys(HELPERS).sort()) {
     it(`${name}() returns identically`, () => {
@@ -112,7 +210,9 @@ describe("the fingerprint itself stays honest", () => {
   });
 
   it("every helper is exported and returns a real value — the hole that made the first baseline useless", () => {
-    const bad = Object.keys(HELPER_ARGS).filter((n) => typeof LV[n] !== "function" || HELPERS[n]() === undefined);
+    const bad = Object.keys(HELPER_ARGS).filter(
+      (n) => typeof LV[n] !== "function" || HELPERS[n]() === undefined,
+    );
     expect(bad).toEqual([]);
   });
 });

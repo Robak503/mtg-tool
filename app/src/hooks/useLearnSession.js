@@ -24,16 +24,16 @@ import { useCallback, useRef, useState } from "react";
 const INITIAL_STATE = {
   sessionId: null,
   decision: null,
-  status: "idle",        // idle → starting → active → ended → error
-  mode: null,            // "standard" | "commander"
-  difficulty: null,      // "beginner" | "intermediate" | "expert" (echoed by the routes)
+  status: "idle", // idle → starting → active → ended → error
+  mode: null, // "standard" | "commander"
+  difficulty: null, // "beginner" | "intermediate" | "expert" (echoed by the routes)
   turn: null,
   activePlayer: null,
   step: null,
-  table: [],             // per-seat snapshot (life / zone counts / cmd damage)
-  board: null,           // full board view model (hands/permanents/zones/stack) for LearnBoard
+  table: [], // per-seat snapshot (life / zone counts / cmd damage)
+  board: null, // full board view model (hands/permanents/zones/stack) for LearnBoard
   decisionLogTail: [],
-  puzzle: null,          // P9: { id, goal, startTurn } when this session is a puzzle attempt; null otherwise
+  puzzle: null, // P9: { id, goal, startTurn } when this session is a puzzle attempt; null otherwise
   error: null,
 };
 
@@ -51,119 +51,135 @@ export default function useLearnSession() {
    * available via the hook's state). Subsequent calls reset and
    * start fresh.
    */
-  const start = useCallback(async ({
-    userDeck,
-    opponentDeck,
-    opponentDecks,
-    userCommanders,
-    opponentCommanders,
-    userCompanion,
-    opponentCompanions,
-    difficulty = "beginner",
-    activePlayer = "user",
-    mode = "standard",
-    userDeckId,
-    userDeckName,
-    opponentDeckNames,
-  }) => {
-    if (inFlightRef.current) return null;
-    inFlightRef.current = true;
-    setState({ ...INITIAL_STATE, status: "starting" });
+  const start = useCallback(
+    async ({
+      userDeck,
+      opponentDeck,
+      opponentDecks,
+      userCommanders,
+      opponentCommanders,
+      userCompanion,
+      opponentCompanions,
+      difficulty = "beginner",
+      activePlayer = "user",
+      mode = "standard",
+      userDeckId,
+      userDeckName,
+      opponentDeckNames,
+      humanMulligan = false, // opt-in London mulligan on the human path (free-play passes true)
+    }) => {
+      if (inFlightRef.current) return null;
+      inFlightRef.current = true;
+      setState({ ...INITIAL_STATE, status: "starting" });
 
-    try {
-      const response = await fetch("/api/learn/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userDeck,
-          opponentDeck,
-          opponentDecks,
-          userCommanders,
-          opponentCommanders,
-          userCompanion,
-          opponentCompanions,
-          difficulty,
-          activePlayer,
-          mode,
-          userDeckId,
-          userDeckName,
-          opponentDeckNames,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState({ ...INITIAL_STATE, status: "error", error: data.error || `Start failed: ${response.status}` });
+      try {
+        const response = await fetch("/api/learn/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userDeck,
+            opponentDeck,
+            opponentDecks,
+            userCommanders,
+            opponentCommanders,
+            userCompanion,
+            opponentCompanions,
+            difficulty,
+            activePlayer,
+            mode,
+            userDeckId,
+            userDeckName,
+            opponentDeckNames,
+            humanMulligan,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState({
+            ...INITIAL_STATE,
+            status: "error",
+            error: data.error || `Start failed: ${response.status}`,
+          });
+          return null;
+        }
+        const next = {
+          sessionId: data.sessionId,
+          decision: data.decision,
+          status: data.decision?.kind === "game-over" ? "ended" : "active",
+          mode: data.mode || mode,
+          difficulty: data.difficulty || difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || [],
+          board: data.board || null,
+          decisionLogTail: [],
+          error: null,
+        };
+        setState(next);
+        return next.decision;
+      } catch (error) {
+        setState({ ...INITIAL_STATE, status: "error", error: error.message || "network error" });
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const next = {
-        sessionId: data.sessionId,
-        decision: data.decision,
-        status: data.decision?.kind === "game-over" ? "ended" : "active",
-        mode: data.mode || mode,
-        difficulty: data.difficulty || difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || [],
-        board: data.board || null,
-        decisionLogTail: [],
-        error: null,
-      };
-      setState(next);
-      return next.decision;
-    } catch (error) {
-      setState({ ...INITIAL_STATE, status: "error", error: error.message || "network error" });
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, []);
+    },
+    [],
+  );
 
   /**
    * Apply a chosen action. Returns the next decision (also written
    * to state). No-op when there's no active session or a request is
    * already in flight.
    */
-  const applyChoice = useCallback(async (choice) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyChoice = useCallback(
+    async (choice) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/step", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: state.sessionId,
-          choice,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Step failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/step", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Step failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * Continue after the player has seen the Arbiter's ruling for an `unresolved`
@@ -181,11 +197,15 @@ export default function useLearnSession() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Continue failed: ${response.status}` }));
+        setState((prev) => ({
+          ...prev,
+          status: "error",
+          error: data.error || `Continue failed: ${response.status}`,
+        }));
         return null;
       }
       const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         decision: data.decision,
         status: isOver ? "ended" : "active",
@@ -200,7 +220,7 @@ export default function useLearnSession() {
       }));
       return data.decision;
     } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
       return null;
     } finally {
       inFlightRef.current = false;
@@ -212,380 +232,473 @@ export default function useLearnSession() {
    * "search your library for a card"). `cardId` is the chosen library card id, or null
    * to find nothing. Resumes the suspended spell server-side and returns the next decision.
    */
-  const applyTutorChoice = useCallback(async (cardId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyTutorChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "tutor-search", cardId: cardId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "tutor-search", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * Submit the player's pick from an interactive `clone-search` decision (CR 707 — "which creature
    * to copy"). `permId` is the chosen battlefield permanent id, or null to decline a "you may"
    * clone (it then enters as a 0/0 and dies). Finishes the clone entry server-side + next decision.
    */
-  const applyCloneChoice = useCallback(async (permId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyCloneChoice = useCallback(
+    async (permId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "clone-search", permId: permId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "clone-search", permId: permId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * Submit the player's scry/surveil reorder (CR 701.22 / 701.25). `keep` is the ordered list of
    * top-card ids to keep on top; everything else among the looked-at cards goes to the bottom
    * (scry) or graveyard (surveil). Applies the reorder + resumes the spell server-side.
    */
-  const applyScryChoice = useCallback(async (keep) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyScryChoice = useCallback(
+    async (keep) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "scry-surveil", keep: Array.isArray(keep) ? keep : [] } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "scry-surveil", keep: Array.isArray(keep) ? keep : [] },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * ===== DIVIDE ===== (MT-1) — submit the player's divide-damage division. `distribution` is
    * `[{ id, type, amount }]` (each chosen target + how much of the spell's total it takes). The engine
    * validates it against the candidates + caps the running total, then applies + resumes server-side.
    */
-  const applyDivideChoice = useCallback(async (distribution) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyDivideChoice = useCallback(
+    async (distribution) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "divide-damage", distribution: Array.isArray(distribution) ? distribution : [] } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: {
+              kind: "divide-damage",
+              distribution: Array.isArray(distribution) ? distribution : [],
+            },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * SOFT-CNT — submit the pay-or-be-countered decision for a `soft-counter` (Force Spike / Mana Leak /
    * Spell Pierce): `pay` is true to pay {N} and save the spell, false to let it be countered. Charges the
    * mana + resumes server-side and returns the next decision.
    */
-  const applySoftCounterChoice = useCallback(async (pay) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applySoftCounterChoice = useCallback(
+    async (pay) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "soft-counter", pay: pay === true } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "soft-counter", pay: pay === true },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   // OPTIONAL-MANA-PAYMENT (CR 603.7c) — answer "you may pay {cost}. If you do, <effect>" (Lifecrafter's
   // Bestiary / Mind's Eye / Inheritance / …). `pay` true charges the cost + runs the payoff, false skips it.
   // Mirrors applySoftCounterChoice.
-  const applyOptionalManaPaymentChoice = useCallback(async (pay) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyOptionalManaPaymentChoice = useCallback(
+    async (pay) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "optional-mana-payment", pay: pay === true } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "optional-mana-payment", pay: pay === true },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — answer "you may sacrifice a <subtype>. If you do, <effect>"
   // (The Goose Mother / Wedding Security). `sac` true pitches one matching permanent + runs the payoff,
   // false declines. Mirrors applySoftCounterChoice.
-  const applyOptionalSacChoice = useCallback(async (sac) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyOptionalSacChoice = useCallback(
+    async (sac) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "optional-sac-payment", sac: sac === true } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "optional-sac-payment", sac: sac === true },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   // CMD-RETURN (CR 903.9) — answer the "return your commander to the command zone?" yes/no. `doReturn`
   // true sends it back (recastable, taxed), false leaves it in the graveyard. Mirrors applySoftCounterChoice.
-  const applyCommanderReturnChoice = useCallback(async (doReturn) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyCommanderReturnChoice = useCallback(
+    async (doReturn) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "commander-return", return: doReturn === true } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "commander-return", return: doReturn === true },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * Submit the player's pick from a `hand-discard` decision (δ-1b — Duress / Thoughtseize). `cardId`
    * is the chosen card in the targeted opponent's revealed hand to strip. Discards it + resumes the
    * caster's riders server-side and returns the next decision.
    */
-  const applyHandDiscardChoice = useCallback(async (cardId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyHandDiscardChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "hand-discard", cardId: cardId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "hand-discard", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * Shared submitter for the WI-7 pending-choice methods below (the seven kinds wired 2026-07-18).
@@ -596,63 +709,97 @@ export default function useLearnSession() {
    * (learnSession.js) drops a submit whose kind doesn't match the CURRENT pendingChoice, which is what
    * stops a double-click race from answering a decision the player never saw.
    */
-  const submitPendingChoice = useCallback(async (kind, payload) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind, ...payload } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+  const submitPendingChoice = useCallback(
+    async (kind, payload) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: state.sessionId, choice: { kind, ...payload } }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /** DIG-LAND-TO-BATTLEFIELD — put one of the revealed lands onto the battlefield. `cardId` is the pick. */
-  const applyDigLandChoice = useCallback((cardId) => submitPendingChoice("dig-land-to-battlefield", { cardId: cardId ?? null }), [submitPendingChoice]);
+  const applyDigLandChoice = useCallback(
+    (cardId) => submitPendingChoice("dig-land-to-battlefield", { cardId: cardId ?? null }),
+    [submitPendingChoice],
+  );
 
   /** DISTRIBUTE-COUNTERS — `distribution` is [{ id, amount }], and must assign the full amount (CR 121.5-shaped). */
-  const applyDistributeCountersChoice = useCallback((distribution) => submitPendingChoice("distribute-counters", { distribution: distribution || [] }), [submitPendingChoice]);
+  const applyDistributeCountersChoice = useCallback(
+    (distribution) =>
+      submitPendingChoice("distribute-counters", { distribution: distribution || [] }),
+    [submitPendingChoice],
+  );
 
   /** OPTIONAL-DRAW-DISCARD — take the optional draw-then-discard, or decline. */
-  const applyOptionalDrawDiscardChoice = useCallback((draw) => submitPendingChoice("optional-draw-discard", { draw: draw === true }), [submitPendingChoice]);
+  const applyOptionalDrawDiscardChoice = useCallback(
+    (draw) => submitPendingChoice("optional-draw-discard", { draw: draw === true }),
+    [submitPendingChoice],
+  );
 
   /** OPTIONAL-DISCARD-PAYMENT — pay the discard COST to get the payoff, or decline. */
-  const applyOptionalDiscardPaymentChoice = useCallback((discard) => submitPendingChoice("optional-discard-payment", { discard: discard === true }), [submitPendingChoice]);
+  const applyOptionalDiscardPaymentChoice = useCallback(
+    (discard) => submitPendingChoice("optional-discard-payment", { discard: discard === true }),
+    [submitPendingChoice],
+  );
 
   /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
-  const applySacUnlessPayChoice = useCallback((pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }), [submitPendingChoice]);
+  const applySacUnlessPayChoice = useCallback(
+    (pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }),
+    [submitPendingChoice],
+  );
 
   /** TAXED-PAYMENT (Rhystic Study class) — the PAYER pays the tax, or declines and the caster gets the payoff. */
-  const applyTaxedPaymentChoice = useCallback((pay) => submitPendingChoice("taxed-payment", { pay: pay === true }), [submitPendingChoice]);
+  const applyTaxedPaymentChoice = useCallback(
+    (pay) => submitPendingChoice("taxed-payment", { pay: pay === true }),
+    [submitPendingChoice],
+  );
 
   /** EDICT-MODE — pick the mode; a sac/discard mode carries the chosen `permId` / `cardId` with it. */
-  const applyEdictModeChoice = useCallback((mode, target = {}) => submitPendingChoice("edict-mode", { mode, permId: target.permId ?? null, cardId: target.cardId ?? null }), [submitPendingChoice]);
+  const applyEdictModeChoice = useCallback(
+    (mode, target = {}) =>
+      submitPendingChoice("edict-mode", {
+        mode,
+        permId: target.permId ?? null,
+        cardId: target.cardId ?? null,
+      }),
+    [submitPendingChoice],
+  );
 
   /**
    * Submit the player's pick from a `cleanup-discard` decision (CR 514.1 — discard down to maximum hand
@@ -664,86 +811,106 @@ export default function useLearnSession() {
    * CR-remediation B3 (ea5a2b08, 2026-07-11); this client half was missing, which stranded the play loop at
    * the first cleanup with an over-full hand — the "breaks at turn 1" report (Colton, 2026-07-12).
    */
-  const applyCleanupDiscardChoice = useCallback(async (cardId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyCleanupDiscardChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "cleanup-discard", cardId: cardId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "cleanup-discard", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * Submit the player's pick from an `impulse-dig` decision (δ-2 — Strategic Planning / Anticipate).
    * `cardId` is the looked-at card to keep (→ hand); the rest go to the bottom / graveyard. Resumes the
    * suspended spell server-side and returns the next decision.
    */
-  const applyImpulseDigChoice = useCallback(async (cardId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyImpulseDigChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "impulse-dig", cardId: cardId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "impulse-dig", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * BLITZ LK-2 — submit the player's answer to a `look-top-take` decision (Dryad Greenseeker / Frost Augur /
@@ -751,86 +918,106 @@ export default function useLearnSession() {
    * LEAVE it on top (a legal, non-dominated decline). Resumes the suspended ability/trigger server-side and
    * returns the next decision.
    */
-  const applyLookTopTakeChoice = useCallback(async (cardId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyLookTopTakeChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "look-top-take", cardId: cardId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "look-top-take", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * EDICTS — submit the player's pick from a `sacrifice-choice` decision (Diabolic Edict / Cruel Edict /
    * Geth's Verdict). Fires when the HUMAN is the edict's target. `cardId` is the chosen creature's
    * permanent id to sacrifice. Resumes the suspended spell server-side and returns the next decision.
    */
-  const applySacrificeChoice = useCallback(async (cardId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applySacrificeChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "sacrifice-choice", cardId: cardId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "sacrifice-choice", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /**
    * EACH-PLAYER discard (EP-2) — submit the player's pick from a `discard` decision (Mind Rot / Fugue /
@@ -838,82 +1025,154 @@ export default function useLearnSession() {
    * `cardId` is the chosen hand card id to pitch. Resumes the chain (more cards / the caster's riders)
    * server-side and returns the next decision.
    */
-  const applyDiscardChoice = useCallback(async (cardId) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyDiscardChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "discard", cardId: cardId ?? null } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "discard", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
 
   /** Resolve an "optional-effect" decision ("you may <effect>", α2): take it (true) or decline. */
-  const applyOptionalChoice = useCallback(async (take) => {
-    if (inFlightRef.current || !state.sessionId) return null;
-    inFlightRef.current = true;
+  const applyOptionalChoice = useCallback(
+    async (take) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
 
-    try {
-      const response = await fetch("/api/learn/choose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "optional-effect", take: take === true } }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "optional-effect", take: take === true },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
         return null;
+      } finally {
+        inFlightRef.current = false;
       }
-      const isOver = data.decision?.kind === "game-over";
-      setState(prev => ({
-        ...prev,
-        decision: data.decision,
-        status: isOver ? "ended" : "active",
-        difficulty: data.difficulty ?? prev.difficulty,
-        turn: data.turn,
-        activePlayer: data.activePlayer,
-        step: data.step,
-        table: data.table || prev.table,
-        board: data.board || prev.board,
-        decisionLogTail: data.decisionLogTail || [],
-        error: null,
-      }));
-      return data.decision;
-    } catch (error) {
-      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
-      return null;
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.sessionId]);
+    },
+    [state.sessionId],
+  );
+
+  /**
+   * Answer a step of the interactive human London mulligan (CR 103.5). `action` is one of
+   * `{ kind: "mulligan-ship" }`, `{ kind: "mulligan-keep" }`, or
+   * `{ kind: "mulligan-bottom", cardIds: string[] }`. The response is either another mulligan
+   * ask (decision.kind stays "mulligan") or, once the player keeps, the game's first real
+   * decision. Fired from the pre-game MulliganPanel, before status leaves the mulligan phase.
+   */
+  const mulligan = useCallback(
+    async (action) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
+
+      try {
+        const response = await fetch("/api/learn/mulligan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: state.sessionId, action }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Mulligan failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
+        return null;
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [state.sessionId],
+  );
 
   /** List resumable saved games for the active profile (Phase-7 PR-4a). */
   const listSaves = useCallback(async () => {
@@ -940,7 +1199,11 @@ export default function useLearnSession() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setState({ ...INITIAL_STATE, status: "error", error: data.error || `Resume failed: ${response.status}` });
+        setState({
+          ...INITIAL_STATE,
+          status: "error",
+          error: data.error || `Resume failed: ${response.status}`,
+        });
         return null;
       }
       const next = {
@@ -986,21 +1249,25 @@ export default function useLearnSession() {
    * in-memory session (only the id crosses the wire). Returns { ok, id? , error? };
    * does NOT change game state. `goal` defaults to "win-this-turn" server-side.
    */
-  const saveAsPuzzle = useCallback(async ({ goal, label } = {}) => {
-    if (!state.sessionId) return { ok: false, error: "No active game to capture." };
-    try {
-      const response = await fetch("/api/puzzles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, goal, label }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) return { ok: false, error: data.error || `Save failed: ${response.status}` };
-      return { ok: true, id: data.id };
-    } catch (error) {
-      return { ok: false, error: error.message || "network error" };
-    }
-  }, [state.sessionId]);
+  const saveAsPuzzle = useCallback(
+    async ({ goal, label } = {}) => {
+      if (!state.sessionId) return { ok: false, error: "No active game to capture." };
+      try {
+        const response = await fetch("/api/puzzles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: state.sessionId, goal, label }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok)
+          return { ok: false, error: data.error || `Save failed: ${response.status}` };
+        return { ok: true, id: data.id };
+      } catch (error) {
+        return { ok: false, error: error.message || "network error" };
+      }
+    },
+    [state.sessionId],
+  );
 
   /** P9 — list saved puzzles for the active profile (newest first). */
   const listPuzzles = useCallback(async () => {
@@ -1027,7 +1294,11 @@ export default function useLearnSession() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setState({ ...INITIAL_STATE, status: "error", error: data.error || `Load failed: ${response.status}` });
+        setState({
+          ...INITIAL_STATE,
+          status: "error",
+          error: data.error || `Load failed: ${response.status}`,
+        });
         return null;
       }
       const next = {
@@ -1083,6 +1354,7 @@ export default function useLearnSession() {
     applyOptionalManaPaymentChoice,
     applyOptionalSacChoice,
     applyCommanderReturnChoice,
+    mulligan,
     reset,
     listSaves,
     resume,

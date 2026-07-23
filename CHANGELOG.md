@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Mulligan on the human path (free-play London mulligan).** Starting a game in the Academy's
+  Learn-to-Play now deals your opening seven and lets you decide before the game begins: keep it,
+  or ship it back for a fresh hand (CR 103.5 London). When you keep after mulliganing, you choose
+  exactly which cards go to the bottom — a real fanned hand with a tap-to-pick bottom step, not an
+  automatic guess. Closes the one real playability gap from the first live 4-player session (a dead
+  opening hand with no recourse). Fully local; the AI seats keep their sevens.
+
 ## [0.148.0] — 2026-07-19
 
 The whole app moves into one visual and structural language — "jewel & machine" — with a room
