@@ -20,7 +20,17 @@ import { lookupCard, publicCard, allCards } from "../src/lib/server/cardIndex.js
 import { coverageSummary, classifyCard, isNativeTier, mechanismBucket, ALL_TIERS } from "../src/lib/learn/coverage.js";
 
 const filter = (process.argv[2] || "").toLowerCase();
-const profilesDir = path.join("data", "profiles");
+// Mirrors the MTG_APP_ROOT-with-cwd-fallback convention every sync script uses (sync-edhrec-salt.cjs,
+// sync-scryfall-bulk.cjs, ...): allCards()/lookupCard() below already resolve through cardIndex.js,
+// which DOES respect MTG_APP_ROOT, so the corpus-wide pass worked regardless — but this bare
+// path.join("data", "profiles") silently only found decks when CWD itself had a data/profiles/
+// dir, which is true for the dev tree but not a worktree pointed at a real install's AppData. Found
+// live 2026-07-23: real saved decks existed at MTG_APP_ROOT/data/profiles/*/decks.local.json and the
+// per-deck pass reported "No saved decks found" anyway.
+const APP_ROOT = (process.env.MTG_APP_ROOT && process.env.MTG_APP_ROOT.trim())
+  ? process.env.MTG_APP_ROOT.trim()
+  : process.cwd();
+const profilesDir = path.join(APP_ROOT, "data", "profiles");
 
 // A "real" playable card for the corpus denominator — excludes tokens, emblems,
 // and the various non-deck supplemental card types that aren't part of normal play.
@@ -119,7 +129,7 @@ if (!filter) reportCorpus();
 
 const decks = loadDecks();
 if (decks.length === 0) {
-  console.log(filter ? `No saved decks match "${filter}".` : "No saved decks found under data/profiles/*/decks.local.json.");
+  console.log(filter ? `No saved decks match "${filter}".` : `No saved decks found under ${profilesDir}/*/decks.local.json.`);
   process.exit(0);
 }
 

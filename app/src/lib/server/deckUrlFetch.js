@@ -84,13 +84,29 @@ const ARCHIDEKT_FORMATS = {
 };
 
 export function normalizeArchidektDeck(json) {
+  // "PLACEMENT BEATS TYPE": a top-level deck.categories[] entry carries includedInDeck, and a
+  // card's OWN categories[] tags can include an excluded bucket ALONGSIDE a real type tag (e.g.
+  // both "Creature" and "Tokens & Extras") — Archidekt keeps a card's type category even when it
+  // also sits in an excluded board, so a naive per-card type check reads it as in-deck. Verified
+  // live 2026-07-23 on a real deck (Zaxara, id 19510972): 8 cards tagged ONLY "Tokens & Extras"
+  // (includedInDeck:false) were silently counted as real deck cards, inflating a ~100-card
+  // Commander deck to 108 — the exact hollow-count class the vault's separate export tool had
+  // already learned to guard against (any excluded-bucket tag means the card is out, whatever
+  // else it carries), which this importer never picked up. The literal "Maybeboard" string check
+  // stays as a defensive fallback for a response that's missing the deck-level categories array.
+  const excludedCategoryNames = new Set(
+    (Array.isArray(json?.categories) ? json.categories : [])
+      .filter(cat => cat?.includedInDeck === false)
+      .map(cat => cat?.name)
+      .filter(Boolean),
+  );
+
   const cards = [];
   for (const entry of json?.cards || []) {
     const name = entry?.card?.oracleCard?.name;
     if (!name) continue;
     const categories = Array.isArray(entry.categories) ? entry.categories : [];
-    // Maybeboard is a wishlist, not part of the 60/99 — skip it.
-    if (categories.includes("Maybeboard")) continue;
+    if (categories.includes("Maybeboard") || categories.some(cat => excludedCategoryNames.has(cat))) continue;
     let section = "Mainboard";
     if (categories.includes("Commander")) section = "Commander";
     else if (categories.includes("Sideboard")) section = "Sideboard";
