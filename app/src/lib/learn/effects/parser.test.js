@@ -891,7 +891,10 @@ const MUST_DROP_TO_LOW = [
   "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", // Arcane Denial (delayed draw)
   "Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying and you gain 2 life.", // a rider tail past the keyword → low
   "Search your library for a basic land card, put it on top of your library, then shuffle.",       // top-of-library
-  "Search your library for up to two basic land cards, put them into your hand, then shuffle.",     // multi-card
+  // NOTE (2026-07-24): "Search your library for up to N <type> cards[, reveal them,] put them into
+  // your hand[, then shuffle]" moved OUT of this drop-to-low gate — it now parses HIGH via the
+  // mfh RAMP-MULTI-TO-HAND matcher (16 real corpus cards, incl. Land Tax; 9 flip to a native tier
+  // once their other clauses are also modeled). Its positive pin: rampMultiToHand.test.js.
   "Search your library for a nonland card, put it into your hand, then shuffle.",                   // "nonland" not in any type line
   "Search your library for a card named Lightning Bolt, put it into your hand, then shuffle.",      // by-name
   "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]

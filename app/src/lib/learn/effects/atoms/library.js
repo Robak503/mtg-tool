@@ -1623,6 +1623,28 @@ export function tutorClauseParser(clause, ctx = {}) {
     }
     return null; // a non-land / non-plain-creature / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
   }
+  // mfh — RAMP-MULTI-TO-HAND (2026-07-24): "search your library for up to N <type> cards[, reveal
+  // them,] put them into your hand[, then shuffle]" (Land Tax, Yavimaya Elder, Kura the Boundless
+  // Sky, Tooth and Nail, Ignite the Beacon, Plea for Guidance, Gift of Estates, Journey of
+  // Discovery, Armillary Sphere, Seek the Horizon, You Happen On a Glade, Gaea's Bounty, Boseiju
+  // Reaches Skyward, Archaeomancer's Map, Wild-Field Scarecrow, Vorinclex // The Grand Evolution —
+  // 16 real corpus cards sharing this exact clause shape, all previously unparsed). Unlike `mf`
+  // (battlefield destination), a HAND destination has no entering-the-battlefield legality concern
+  // (no tapped-state, no ETB-timing question) — resolveTutorChoice's hand path is plain
+  // moveCardToZone, the identical machinery the single-card `tm` fetch already uses, just chained
+  // via `remaining` (the SAME up-to-N re-suspend loop RAMP-MULTI already runs regardless of
+  // destination — verified in runProgram.resolveTutorChoice before writing this). So unlike `mf`,
+  // no guaranteedLand gate is needed: any parseTutorFilter-recognized type (creature/planeswalker/
+  // enchantment/land/basic-subtype/generic "card") is safe to fetch to hand. An unrecognized filter
+  // phrase still falls through to null → low → Arbiter (FN-safe, CREED).
+  const mfh = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,?(?: reveal (?:them|those cards),?)? put them into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (mfh) {
+    const phrase = mfh[2];
+    const count = UP_TO_N_WORD[mfh[1]];
+    const filter = parseTutorFilter(phrase);
+    if (!filter) return null; // an unmodeled filter phrase → low → Arbiter
+    return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "hand", remaining: count, targetType: null };
+  }
   // mfx — RAMP-MULTI-X up-to-X LANDS to battlefield, count from a board source (Traverse the Outlands "X =
   // greatest power among creatures you control"; Boundless Realms "X = number of lands you control"). The X is
   // a CARDINALITY (how many to fetch), resolved at resolution via countForSpec — mirrors the for-each token
