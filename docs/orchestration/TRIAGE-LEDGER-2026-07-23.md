@@ -78,8 +78,17 @@ Grouped where a lever covers more than one card; otherwise one row each.
   Dominion — 7 cards, NOT built). Both needed the SAME missing piece — "commander" is a game-state
   designation, not a card type, so the generic "you control <type>" filter correctly rejects it
   (NON_TYPE_WORDS) — but each lives in a DIFFERENT parser (interveningIf.js for the trigger form,
-  now fixed; staticAbilityParser.js's GATED-SELFBUFF family for the continuous form, still needs its
-  own equivalent "commander" special-case). Real, precisely scoped next slice.
+  now fixed; staticAbilityParser.js's GATED-SELFBUFF family for the continuous form).
+  **⚠️ Checked closer before claiming this as a clean next slice (2026-07-24) — it ISN'T one.** Every
+  one of the 7 static-form carriers has a SEPARATE, ADDITIONAL gap beyond the gate-source itself:
+  Demon of Wailing Agonies / Tyrant's Familiar / Stormsurge Kraken gate a whole GRANTED triggered
+  ability (not just P/T); Angelic Field Marshal / Thunderfoot Baloth gate a TEAM buff, and
+  GATED-SELFBUFF is self-only (`affects: {mode:"self"}` throughout); Skyhunter Strike Force grants
+  "melee" — not in GRANTABLE_KEYWORDS (grepped, zero hits), a separate keyword-modeling gap;
+  Convergence of Dominion is a cost-REDUCTION static, a different effect family entirely. Adding the
+  "your commander" gate-source alone would flip ZERO of these 7 — real infra, zero immediate payoff.
+  Not built tonight; the honest next slice is whichever ONE of these 6 additional gaps gets tackled
+  first, THEN the gate-source fix has something to unlock.
 - **Kellogg, Dangerous Mind** — sacrifice-N-of-a-kind → temporary control-change, duration tied to
   the source staying in play.
 - **Agent of the Iron Throne** — group-grant scoped specifically to "Commander creatures you own."
