@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23 late — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0 re-baselined — suite 810/10,547
+## 🌙 2026-07-23 late — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + a real flip — suite 809/10,551
 
 > **Colton, from his phone mid-session:** "run all night, full auto, your own recommendation, don't
 > stop — v1 roadmap first, corpus grind if you run out." First-ever `/cindy` boot on the always-on
@@ -49,7 +49,7 @@
 > data-loading gap. **Aggregate per-deck coverage: 92% (458/499 slots)** — Slivers 99% (98/99, deck
 > is honestly 99 cards on Archidekt — 2 real token-tracking entries excluded, not a missing spell;
 > matches the established Mothman-98-card precedent, not silently patched), Omnath 94%, Vihaan 93%,
-> Zaxara 93%, "cdh" (Rograkh/Thrasios) 80%. **Open:** Koma's registered Archidekt id (18157040) 404s
+> Zaxara 93%, "cdh" (Rograkh/Thrasios) 80% (→81% after tonight's Gamble flip, below). **Open:** Koma's registered Archidekt id (18157040) 404s
 > — stale, needs a fresh link from Colton; Joe's 11 Moxfield decks not yet reimported tonight (time
 > budget + Moxfield-specific fetch quirks — clean next session's first move); no grind history exists
 > on this box yet, so the "newest spell-unresolved ranking" and "trigger-label residue" Phase-0 items
@@ -60,9 +60,33 @@
 > `state.pendingArbiter` — the UI (not the grind loop) is what hands a gated card to the Ollama-only
 > Arbiter for a ruling.
 >
-> **Gate:** full suite **808 files / 10,547 green** at commit `1ca400c7`, lint 0. **NEXT:** WAVE 6
-> Phase 1/Phase 3 grind, using the slice manifest's ranked levers + the now-5-deck shelf data as
-> targeting signal. Continuing per Colton's "don't stop" order.
+> **WAVE 6 Phase 1A: dispositioned triage ledger for the 5 loaded decks** —
+> [TRIAGE-LEDGER-2026-07-23.md](TRIAGE-LEDGER-2026-07-23.md). 41 non-native slots, every one read
+> against real oracle text (never memory) and tagged BUILD / INTERACTION / PARK-CANDIDATE, zero
+> left blank. Reading every card's actual text (not just its mechanism bucket) surfaced four
+> cross-deck "build-once-flip-many" groups: counter-proofing (3 cards), cast-as-flash (2 cards),
+> redirect-a-stack-object (2 buildable + 1 parked), excess-damage-linked payoff (2 cards). Also
+> flags Battle cards (Invasion of Ikoria // Zilortha) as a whole uncounted corpus vein — not on any
+> existing D-vein list, worth a fresh census before scoping.
+>
+> **A real flip landed: Gamble, native (`c98bd172`).** Diagnosed in the ledger, then actually built:
+> both sub-clauses (tutor-to-hand, discard-at-random) already parsed HIGH individually, but the
+> composed sentence failed entirely because `splitClauses` kept "any search-your-library sentence"
+> whole (correct for most tutors) and the tutor matchers are end-anchored right after "into your
+> hand" — an interposed clause before the trailing "then shuffle" broke the whole match. Fixed with
+> a narrow, exact-wording-anchored split rule (no new atom type, the tutor matcher itself untouched)
+> and verified with a **whole-corpus `program-fingerprint` diff** (the full rigor this file
+> demands): 34,245 cards, identical count, **exactly one line changed** — Gamble. Nothing else
+> shifted by a byte. A live corpus check also caught that "Night Out in Vegas" prints the identical
+> phrase in a modal bullet (a different, verified-untouched parse path) — corrected an initial
+> "corpus's only such card" claim before it shipped. Corpus 11,459→11,460; the cdh (Rograkh/
+> Thrasios) deck 80%→81%. Pinned in `splitClauses.test.js`.
+>
+> **Gate:** full suite **809 files / 10,551 green** at commit `936d484f`, lint 0. **NEXT:** WAVE 6
+> Phase 1/Phase 3 grind — the ledger's remaining BUILD items (grouped levers first: counter-
+> proofing, cast-as-flash, redirect-a-stack-object, excess-damage) + the slice manifest's ranked
+> subsystems, using the now-5-deck shelf data as targeting signal. Continuing per Colton's "don't
+> stop" order.
 
 ## 🃏 2026-07-23 — v0.149.0 SHIPPED: the game lets you MULLIGAN (+ academy fixes + B3 cold-start) — suite 10,514
 
