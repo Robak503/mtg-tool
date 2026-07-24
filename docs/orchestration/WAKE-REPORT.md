@@ -1,6 +1,30 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23 late — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + a real flip — suite 809/10,551
+## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + a real flip + shelf 1→16 — suite 809/10,551
+
+> **LATE ADDENDUM:** after the diagnostic wind-down below, reimported Joe's all 11 Moxfield decks
+> (same verified pipeline as Colton's Archidekt reimport, reference_deck_sources.md's IDs) — a
+> genuinely different, lower-risk task than more static-ability-parser archaeology, deliberately
+> chosen after two self-corrected diagnostic passes on the same mechanism area in one night (the
+> "two failed attempts, change approach" signal, even though both were caught before shipping).
+> **Shelf census: 1→16 decks loaded on this box tonight, all real.** Found a SECOND instance of the
+> same bug CLASS as the Archidekt maybeboard fix (not the same bug — checked properly this time
+> before concluding anything): Kinnan Mana Overload and Hulk Smash imported with 121/111 raw cards
+> respectively, both explained exactly by `mainboard(99) + commander(1) = 100` legal plus Joe's
+> Moxfield "sideboard" board holding a real wishlist (Worldly Tutor, Mystical Tutor, Counterspell,
+> Sylvan Library, Walking Ballista — clearly "considering" cards, not the actual 100). Verified this
+> is NOT a bug before touching anything: `deckAnalytics.js`, `deckContextBuilder.js`,
+> `deckMemory.js`, AND `measure-coverage.mjs` all already, consistently filter `section !== 
+> "Sideboard"` — the store correctly preserves Joe's tracking data, every real consumer already
+> ignores it. Confirmed empirically post-save: Kinnan measures 75/100, Hulk Smash 69/100, Mothman
+> 88/98 (its known, documented 2-basics-short state) — all against the correct denominators.
+> **Full fresh per-deck census, 16 real decks:** Slivers 99%, Omnath 94%, Vihaan 93%, Zaxara 93%,
+> Mothman 90% (88/98), cdh 81%, Earth Bent 79%, Did you say Dragons? 76%, Kinnan 75%, Believe it!
+> 73%, Jurassic Ramp 72%, Kellan/Captain America/Wolverine/Hulk Smash all 69%, Halfshell heroes 55%.
+> **Aggregate: 78% native, 1,253/1,597 slots.** Only Koma remains unloaded (its registered Archidekt
+> id still 404s — needs a fresh link from Colton) plus Veyran (no ID, scoping-only per the registry).
+> No code changed this pass — pure data operations through the running server's own API, backed up
+> before every save (`decks.local.*.reimport-*.json` under the profile's `backups/`).
 
 > **Colton, from his phone mid-session:** "run all night, full auto, your own recommendation, don't
 > stop — v1 roadmap first, corpus grind if you run out." First-ever `/cindy` boot on the always-on
@@ -99,14 +123,18 @@
 > cards flip as OTHER subsystems land, not from a "DFC support" project. Same lesson twice tonight:
 > a shared bucket label isn't a shared fix size — check the real parse before trusting a ranking.
 >
-> **Gate:** full suite **809 files / 10,551 green** at commit `4655bcad`, lint 0 (no code landed this
-> last pass — purely diagnostic, and deliberately so at this point in a very long session). **NEXT:**
-> three precisely-scoped candidates ready to open properly (Hexing Squelcher's Ward-grant, Vexing
-> Shusher's activated grant, Mondrak's activated ability) — each needs real build time, not another
-> spot-check. Otherwise: real subsystem work off the manifest (tutors/counterspells/wheels, Phase 2
-> GREENLIT) rather than the DFC/transform framing. Joe's 11 Moxfield decks + Koma's dead Archidekt
-> link are the clean next move for shelf completeness. Session wound down here by choice — the safe,
-> gate-verifiable slices are exhausted for tonight, not the work.
+> **Gate:** full suite **809 files / 10,551 green** at commit `cb23861f`, lint 0 (no code landed after
+> the Gamble flip — the rest of the night was diagnostic + data work, deliberately: two self-
+> corrected mistakes on the same static-ability code area was the "change approach" signal, and deck
+> reimport was the safe, different, still-valuable pivot). **Shelf census is DONE** (16/17ish decks,
+> only Koma missing on a dead link) — that's real Phase 1 targeting data for the next session, not
+> just a to-do. **NEXT:** three precisely-scoped build candidates ready to open properly (Hexing
+> Squelcher's Ward-grant, Vexing Shusher's activated grant, Mondrak's activated ability) — each
+> needs real build time, not another spot-check. Otherwise: real subsystem work off the manifest
+> (tutors/counterspells/wheels, Phase 2 GREENLIT) rather than the DFC/transform framing, now backed
+> by a full 16-deck coverage picture to prioritize against. Koma's dead Archidekt link needs a fresh
+> one from Colton. Session wound down here by choice — the safe, gate-verifiable slices are exhausted
+> for tonight, not the work.
 
 ## 🃏 2026-07-23 — v0.149.0 SHIPPED: the game lets you MULLIGAN (+ academy fixes + B3 cold-start) — suite 10,514
 
