@@ -1,6 +1,32 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + SIX real flips + shelf 1→16 — suite 811/10,579
+## ☀️ 2026-07-24 MIDDAY — THE CENSUS ERA OPENS: +144 in one slice (zone-option keywords) — corpus 33.5%→33.9% — suite 814/10,608
+
+> **The strategy pivot Colton called this morning is now the standing method** — subsystem-first,
+> ranked by the parser's own confessions instead of hand-hunting cards. Full chain shipped today:
+> - **`build-residue-census.mjs` (`b56c3810`)** — deletion-probing census: remove one oracle line,
+>   re-classify; a flip means the classifier itself named that line THE blocker. v1's line-heuristic
+>   approach mis-blamed built subsystems on its first run and was rebuilt classifier-exact the same
+>   hour. Headline: **12,067 of 22,775 non-native cards are ONE clause from flipping**; no single
+>   shape >18 sole-blockers remains; the aggregate keyword-cost-line family was the top lever.
+> - **`RESIDUE-GRIND-RUNBOOK.md` (`28b45f32`)** — the whole method written model-agnostic
+>   (Colton's ask: near-identical results from any seat), registered in MASTER-GUIDE; 5 laws, the
+>   owning-pipeline table, the full gate battery, a 10-row failure-mode table where every row is a
+>   real incident from this shift.
+> - **First census-ranked slice (`6a524e47`): +144 flips, zero down** — ten optional-cost /
+>   zone-option keywords (unearth, evoke, disturb, embalm, scavenge, mayhem, dredge, kicker/
+>   multikicker/offspring, improvise, typecycling) credited on the existing ninjutsu/flashback
+>   rationale, every flip mechanically audited against a family-line check, suspend deliberately
+>   refused (a no-cost suspend card can't be hard-cast at all), four stale park-pins updated with
+>   NOTEs, composed negatives (Skizzik, Hexmark) verified still parked. Corpus 11,477 → 11,621
+>   native (33.9%).
+> - **Overnight grind data closed out:** two full 6-hour pools, **159,798 games** total
+>   (81,386 + 78,412), stuck <0.11%, 0 rejected — totals posted to COMMS for Omnath's data-trust
+>   ledger. Not relaunched; the box's cores now belong to the census grind.
+> - **NEXT (queued):** the spell-side siblings (buyback/entwine/kicker-on-spells via the
+>   COST_ONLY_KEYWORD_LINE family) · then the gy-phase-return build (23+5 carriers, plan in the
+>   triage ledger) · then the delayed-trigger spell family (Pact/Mana Drain — 15 sole + 25 co,
+>   exactly sized by the census).
 
 > **LATE ADDENDUM 8 — Colton woke up, asked "how is Nev hard," and that question found a sixth real
 > flip (`538d0a86`).** Re-checked both of Nev's clauses properly instead of re-defending the 2am
