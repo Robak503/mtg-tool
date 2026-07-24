@@ -1,6 +1,23 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + FIVE real flips + shelf 1→16 — suite 810/10,573
+## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + SIX real flips + shelf 1→16 — suite 811/10,579
+
+> **LATE ADDENDUM 8 — Colton woke up, asked "how is Nev hard," and that question found a sixth real
+> flip (`538d0a86`).** Re-checked both of Nev's clauses properly instead of re-defending the 2am
+> read. The trigger half really is hard (two separate systems — `castNth` ordinal counting and the
+> `{X}`-cost cast filter — that have never been composed, plus no generic way to hand a cast
+> spell's own X value to a THIRD permanent's payoff; Zaxara's precedent is a bespoke hook, not a
+> reusable one). But the STATIC half ("creatures you control with counters on them have trample")
+> was NOT hard and I was wrong to lump it in — Cathedral Acolyte already proved the exact selector
+> (`requiresAnyCounter`) generically wired into the layer engine, just never generalized past
+> `addWard`. Generalized it to any grantable keyword. Full-corpus grep found 6 real carriers sharing
+> the selector; **Winged Hive Tyrant flips clean** (needed one more ability-word label added to the
+> STATIC-side strip list too — a separate small gap, same root cause as the Lieutenant fix earlier
+> tonight). The other four (Nev, Tesak, Rishkar, Matt Murdock) correctly stay body-only on their own
+> separate residue — confirmed, not assumed, via isolated-clause tests proving the selector itself
+> works. Whole-corpus tier-fingerprint: 34,210 cards, exactly 1 changed, zero collateral. Full suite
+> 811/10,579, lint 0. **Also relaunched the grind pool** — the first 6-hour run finished clean
+> (81,386 games, 81 stuck, 0 rejected) while everyone was asleep; a second one is running now.
 
 > **LATE ADDENDUM 7 — first grind pool run completed clean; a second launched behind it.** The
 > standing self-play pool (`--max-hours=6 --mode=commander`, 10 workers) ran its full cap and

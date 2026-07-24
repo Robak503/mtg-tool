@@ -115,8 +115,14 @@ Grouped where a lever covers more than one card; otherwise one row each.
   room to verify both against the real atom code rather than reasoning from comments alone.
 - **Unbound Flourishing** — an X-value doubler variant (distinct from counter/mana doublers) + a
   copy-a-spell/ability-with-X trigger.
-- **Nev, the Practical Dean** — counters-present-gated group grant + once-per-turn X-tracking
-  trigger.
+- **Nev, the Practical Dean — re-checked 2026-07-24 (Colton asked, rightly, "how is this hard"),
+  split into its real two halves.** The static half ("creatures you control with counters on them
+  have trample") was NOT hard and is now BUILT (`538d0a86` — see the new COUNTER-GATED GROUP
+  KEYWORD entry below); lumping it in here originally was under-checked. The trigger half ("cast
+  your first spell with {X}, put X counters on Nev") IS genuinely hard: `castNth` (ordinal
+  per-turn counting) and the `{X}`-cost cast filter are two separate, uncomposed systems, and
+  there's no generic way to thread a cast spell's own X value to a DIFFERENT permanent's payoff
+  (Zaxara's precedent is a bespoke hook). Whole card stays body-only on this half alone.
 - **Kozilek, Butcher of Truth** — cast-trigger draw (not a resolve-trigger) + Annihilator + an
   anywhere-to-graveyard shuffle-back trigger; three real pieces, sizable as one card.
 
@@ -132,6 +138,13 @@ Grouped where a lever covers more than one card; otherwise one row each.
   stay body-only — each has a separate, different, unrelated unmodeled ability (attack-triggered
   power-scaled reanimation, a defending-player edict, a 4-way creature-type attack filter, a
   fractional ETB edict) — real, distinct residues, not a shared lever; not chased further tonight.
+- **Counter-gated group keyword — BUILT (`538d0a86`, +1: Winged Hive Tyrant).** Cathedral Acolyte
+  already proved a `requiresAnyCounter` dynamic selector generically wired into the layer engine
+  ("each creature you control with a counter on it has ward {N}"); generalized past `addWard` to
+  any GRANTABLE_KEYWORDS keyword, plus an "other" prefix onto `excludeSelf` (already a real
+  selector field elsewhere, just not wired here). 6 real carriers share this selector; Nev, Tesak,
+  and Rishkar/Matt Murdock correctly stay body-only on separate residue each (see their own
+  entries above/below).
 
 ## INTERACTION (Phase 2, greenlit — tutors / counterspells / wheels)
 
