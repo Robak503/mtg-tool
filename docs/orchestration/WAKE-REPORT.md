@@ -1,7 +1,31 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + TWO real flips + shelf 1→16 — suite 810/10,554
+## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + TWO real flips + shelf 1→16 — suite 810/10,556
 
+> **LATE ADDENDUM 3 — pivoted from corpus-hunting back to the roadmap queue (cindy-roadmap-v2's own
+> rule: the queue outranks grinding).** Two findings, both the same shape as the Koma surprise above
+> — the vault-side roadmap doc lagging real shipped state:
+> - **WAVE 1 items 1+2 were ALREADY SHIPPED** — Colton's laptop session built the free-play London
+>   mulligan flow (`64c8a976` HTTP surface, `5c05d739` the fanned-hand/keep-ship/bottom-N screen) +
+>   the academy-findings trio (`61716d78`), released as **v0.149.0** ("the game lets you mulligan",
+>   `41a256d3`) — this IS the "149" Colton flagged at the top of tonight's session. Verified, didn't
+>   just trust: 55/55 targeted tests green, `LearnView.jsx` passes `humanMulligan:true`
+>   unconditionally on both start paths, `MulliganPanel` wiring reads clean end to end. Roadmap
+>   closed out with commit citations (cindy-roadmap-v2 §Wave 1).
+> - **WAVE 3 item 9 "Karn's eyes" was ALSO mostly already built** — `deckOracleContext` already
+>   attaches full oracle text for every locked-deck card via `buildCardContextForNames`; the
+>   "names/counts only" premise was stale. The one genuinely open half — "sized to a per-chat context
+>   budget" — was real and unaddressed: measured live on a 100-card deck, the old 2-rulings/card
+>   default nearly doubled the block to ~35%+ of the 32,768 default Ollama context window. Fixed
+>   (`be034185`): rulings dropped from the bulk attachment (a specific card's rulings already attach
+>   in full the moment the user asks about it directly), oracle text alone now ~15% of the window.
+>   Also closes a live per-card Scryfall-rulings-fallback call storm (up to 30/100 cards in the
+>   measured deck) that fired on every message. New mutation-checked test pair on
+>   `buildCardContextForNames`'s `includeRulings` flag (none existed before).
+> - **Lesson banked twice tonight now:** before building ANY roadmap item, verify it isn't already
+>   done — the vault doc and the repo's actual shipped state can diverge fast when work happens
+>   outside the session that owns the doc (laptop sessions, this session's own earlier corpus work).
+>
 > **LATE ADDENDUM 2 (Colton, live): "koma is no longer a deck i tore it down."** Retired properly —
 > `deck_koma.md` → `deck_koma_retired.md` (memory-side, mirrors the Meren-retired precedent),
 > `project_colton_deck_shelf.md`/`reference_deck_sources.md`/`MEMORY.md` all corrected. The dead
