@@ -1399,7 +1399,11 @@ function parseClause(clause, out, selfName, selfType) {
   // Skirge) and Infusion ("Infusion — … as long as you gained life this turn", Tenured Concocter) — like
   // every CR 207.2c ability word, the CONDITION is always restated in the rules text that follows, so
   // the label itself is pure flavor and stripping it is universally safe.
-  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|hellbent|corrupted|infusion|unlock ability)\s*[—–-]\s*/, "");
+  // "The Will of the Hive Mind" (Winged Hive Tyrant) — CR 207.2c flavor over the SAME counter-gated group
+  // keyword shape as "Unlock Ability" above ("…Other creatures you control with counters on them have
+  // flying and haste."); pure label, the static itself is unconditional. Verified against the bundled
+  // oracle text, not guessed.
+  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|hellbent|corrupted|infusion|unlock ability|the will of the hive mind)\s*[—–-]\s*/, "");
 
   // ── FLASH-CAST-PERMISSION (Yeva; Vedalken Orrery; Leyline of Anticipation; Prophet of Kruphix; …) ──────
   // "You may cast <FILTER> spells as though they had flash." A STATIC casting-permission (CR 601.3e / 702.8f
@@ -1981,6 +1985,34 @@ function parseClause(clause, out, selfName, selfType) {
         duration: { kind: "permanent" },
       });
       return;
+    }
+    // ── COUNTER-GATED GROUP KEYWORD (Nev, the Practical Dean — "Creatures you control with counters on
+    // them have trample."; Tesak, Judith's Hellhound — "…have haste."; Winged Hive Tyrant — "OTHER
+    // creatures you control with counters on them have flying and haste."): the keyword-grant
+    // generalization of the ward grant just above — the SAME requiresAnyCounter dynamic selector (re-read
+    // live, so a counter arriving/leaving moves a creature in or out), any GRANTABLE_KEYWORDS keyword(s)
+    // instead of only ward. Plural "creatures...have" (vs. the ward grant's singular "each creature...has")
+    // — CR draws no distinction, both read the same live counter-presence query. Optional leading "other"
+    // maps to excludeSelf (matchesSelector's generic self-exclusion field — Winged Hive Tyrant is itself a
+    // creature that could carry counters, so it must not buff itself). ALL-OR-NOTHING (CREED, mirrors the
+    // your-turn keyword grant's own guard): every segment must be a grantable keyword or nothing is
+    // emitted — a P/T-set or non-keyword rider (Rishkar's granted mana ability) stays residue →
+    // body-only, never a fabricated grant.
+    const cgkM = c.match(/^(other )?creatures? you control with (?:a counter on it|counters on them) (?:has|have) (.+)$/);
+    if (cgkM) {
+      const segs = cgkM[2].split(/,|\band\b/).map((s) => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
+      if (segs.length && segs.every((s) => GRANTABLE_KEYWORDS.has(s))) {
+        const selector = { controllerScope: "you", cardTypes: ["Creature"], requiresAnyCounter: true, ...(cgkM[1] && { excludeSelf: true }) };
+        for (const s of segs) {
+          out.push({
+            layer: 6,
+            op: { layerOp: "addKeyword", keyword: canonicalKeyword(s) },
+            affects: { mode: "dynamic", selector },
+            duration: { kind: "permanent" },
+          });
+        }
+        return;
+      }
     }
   }
 
