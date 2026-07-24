@@ -1,5 +1,69 @@
 # WAKE REPORT — live resume anchor
 
+## 🌙 2026-07-23 late — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0 re-baselined — suite 810/10,547
+
+> **Colton, from his phone mid-session:** "run all night, full auto, your own recommendation, don't
+> stop — v1 roadmap first, corpus grind if you run out." First-ever `/cindy` boot on the always-on
+> box itself, not the laptop — matters because this box has the real Scryfall/profile data the
+> laptop lacked, unblocking WAVE 6 for the first time.
+>
+> **WAVE 5 closed out.** Baseline verify caught a real gap: lint was 2 warnings dirty (an orphaned
+> `eslint-disable-next-line` in `ScrySurveilPanel`, one line off after the mulligan commit touched
+> that `useEffect`) despite the standing "lint 0" claim — fixed (`4bc0f102`), a genuine hollow-gate
+> instance. **B5 and C3 (07-18 improvement slate) turned out already done** — just never marked
+> closed in the memory-side doc; saved real time, only needed one missing `sync:cardkingdom` alias
+> (`162b6ca9`). **C4 broadened**: new `triggerTierPins.test.js`, 16 real corpus cards live-verified
+> before hardcoding, pins the native-trigger residue gate — the most complex chain in `coverage.js`,
+> zero dedicated pins before tonight (`e5ea27fe`). Found but NOT pinned (ambiguous whether deliberate
+> park or a real gap): **Skullclamp classifies body-only** — equipment+trigger combo the runtime
+> doesn't credit as a unit; flagged as a corpus-grind lead. **B1 phase 2 — the real work of the
+> night** (`f154e94d`): `/api/rules-retrieval` deleted its own duplicate CR-rule pipeline, now calls
+> the shared `lib/server/rulesRetrieval.js` instead — card-name-awareness (`[[Card Name]]` syntax)
+> and RulesGuru precedent matching reach this endpoint for the first time. Verified with real
+> before/after query snapshots, not just the pinned shape contract — caught and fixed a live
+> regression (route.js's curated topic→anchor knowledge, e.g. "legend rule"→704.x, wasn't reaching
+> the merged ranking) by seeding those anchors into the query text so the shared engine's own
+> exact-rule-number scoring picks them up. **Two real bugs found and fixed along the way, not just
+> refactor risk:** CI never built `data/rules-index.json` before running tests (added the step to
+> `ci.yml`, pure local transform, zero network cost) · the shared engine's card-name-seeking
+> hard-throws when the local oracle repo is absent (legitimate in CI/fresh checkouts) — now degrades
+> to "no names detected," scoped narrowly to an ENOENT-only catch.
+>
+> **WAVE 6 Phase 0 re-baseline.** Fresh corpus-wide census: **33.5% native (11,459/34,245)**; play-
+> weighted top-1000=69.3%, top-2500=51.3%, top-5000=41%, top-10000=33.8%. **The slice manifest is
+> built** (`build-slice-manifest.mjs`): ladder-matched 2,369 cards project to 40.4% if fully built;
+> biggest levers by EDHREC-weighted count — transform/DFC (669), tutors (389, Phase-2 GREENLIT),
+> loyalty-activated (312), token-copies (215), counterspells (207). Full per-subsystem table with
+> top-1k/2.5k/5k breakdowns in the manifest JSON (not yet committed to the repo — regenerate with
+> `MTG_APP_ROOT=<AppData root> node scripts/build-slice-manifest.mjs`).
+>
+> **Shelf census: 5 of 15 decks now loaded** on this box (was 1 — a fresh profile as of 07-19 per
+> `reference_deck_sources.md`; laptop data doesn't travel). Reimporting the rest surfaced a genuine,
+> previously-unknown bug: `normalizeArchidektDeck` only excluded a card tagged literally
+> `"Maybeboard"`, not Archidekt's real signal (a deck-level `categories[]` array with
+> `includedInDeck` per category — a deck's own "Tokens & Extras" bucket, or any custom board name,
+> can independently be excluded, and a card can carry BOTH a real type tag and an excluded-bucket
+> tag at once). Verified live: Zaxara imported at 108 cards (8 phantom "Tokens & Extras" token-
+> tracking entries counted as real) before the fix, 100 after. Fixed + regression-tested
+> (`1ca400c7`) — this was a live correctness bug in the shipped `.exe`'s import feature, not just a
+> data-loading gap. **Aggregate per-deck coverage: 92% (458/499 slots)** — Slivers 99% (98/99, deck
+> is honestly 99 cards on Archidekt — 2 real token-tracking entries excluded, not a missing spell;
+> matches the established Mothman-98-card precedent, not silently patched), Omnath 94%, Vihaan 93%,
+> Zaxara 93%, "cdh" (Rograkh/Thrasios) 80%. **Open:** Koma's registered Archidekt id (18157040) 404s
+> — stale, needs a fresh link from Colton; Joe's 11 Moxfield decks not yet reimported tonight (time
+> budget + Moxfield-specific fetch quirks — clean next session's first move); no grind history exists
+> on this box yet, so the "newest spell-unresolved ranking" and "trigger-label residue" Phase-0 items
+> are genuinely N/A until Phase 1 generates the first data here.
+>
+> **Arbiter-in-runner status (stated, per Phase 0):** the engine never calls Ollama/network at
+> runtime, in self-play or otherwise. An unresolved cast is logged honestly as `spell-unresolved` +
+> `state.pendingArbiter` — the UI (not the grind loop) is what hands a gated card to the Ollama-only
+> Arbiter for a ruling.
+>
+> **Gate:** full suite **808 files / 10,547 green** at commit `1ca400c7`, lint 0. **NEXT:** WAVE 6
+> Phase 1/Phase 3 grind, using the slice manifest's ranked levers + the now-5-deck shelf data as
+> targeting signal. Continuing per Colton's "don't stop" order.
+
 ## 🃏 2026-07-23 — v0.149.0 SHIPPED: the game lets you MULLIGAN (+ academy fixes + B3 cold-start) — suite 10,514
 
 > **Autonomous grind (Colton: "grind 4 hrs, get as much done as you can").** Master is well ahead of
