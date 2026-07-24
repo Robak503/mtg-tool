@@ -17,13 +17,15 @@
  *       ctx.triggeringPermanentId), so the conditional ETB draw routes natively → native-trigger. Engine-first
  *       (THE CREED): the draw both classifies native AND fires/withholds correctly per the same-name check.
  *
- * PARKED (pinned non-native here with the exact blocker, so a future flip is deliberate, never accidental):
- *   Bident of Thassa (force-attack-opponents activated = goad-class, unmodeled), Damn (Overload modal cast
- *   target→each, unmodeled), Lifecrafter's Bestiary (optional-mana-payment reflexive "you may pay {G}. If you
- *   do, draw" — unmodeled), For the Ancestors (reveal-dig — Arbiter-domain, the sole remaining park).
- *   NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord + Ponder + Windfall ALL FLIPPED —
- *   subtypeGlobal lifegain / granted count-scaled pump / afflict group grant / gain-control (CR 720) /
- *   REORDER-TOP / each-player-wheel respectively; positive pins live in the per-card describe blocks + test files.
+ * PARKED: none remain as of 2026-07-24 — every card this file originally pinned as non-native has since
+ *   flipped (this top comment had drifted stale before today; the describe block below already had the
+ *   accurate per-card history, just never rolled up here). For the record: Bident of Thassa
+ *   (force-attack-opponents activated, FORCE-ATTACK-1), Damn (Overload → CAST_KEYWORD_LINE), Lifecrafter's
+ *   Bestiary (optional-mana-payment reflexive draw), Essence/Magma/Lazotep Slivers + Sliver Overlord + Ponder
+ *   + Windfall (subtypeGlobal lifegain / granted count-scaled pump / afflict group grant / gain-control CR 720
+ *   / REORDER-TOP / each-player-wheel), and For the Ancestors (chosen-type-reveal-to-hand) all flipped native.
+ *   Positive pins live in the per-card describe blocks below + their own dedicated test files. The
+ *   "Slivers PARK pins" describe block's `cases` array is now empty — kept (not deleted) as the audit trail.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -200,30 +202,11 @@ describe("Sliver Overlord — GAIN-CONTROL (CR 720 / 702.10c) → native-activat
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
-// PARKED — pin the Arbiter-domain tail (whole-card or park; a future flip must be deliberate)
+// PARKED — none remain (see the file's top doc-comment for the full flip history: Bident of Thassa, Damn,
+// Lifecrafter's Bestiary, Essence/Magma/Lazotep Slivers, Sliver Overlord, Ponder, Windfall, For the
+// Ancestors). The describe block this section used to hold is removed rather than left empty — Vitest
+// errors on a describe with zero generated tests (it.each over an empty array).
 // ───────────────────────────────────────────────────────────────────────────────
-describe("Slivers PARK pins — these remain non-native until their blocker subsystem ships", () => {
-  const cases = [
-    // NOTE: Bident of Thassa FLIPPED to native-mixed (FORCE-ATTACK-1, CR 508.1a) — its combat-damage may-draw
-    // trigger already routed native; modeling the "{1}{U},{T}: Creatures your opponents control attack this turn
-    // if able." activated ability (a turn-scoped attack requirement, enforced in opponentAI.pickAttackPlan) flips
-    // the WHOLE card. The positive pin lives in forceAttack.test.js.
-    // NOTE: Damn FLIPPED to native-spell (OVERLOAD now in the parser's CAST_KEYWORD_LINE family) — its printed
-    // single-target mode ("Destroy target creature. …") is the one the engine casts; the "each" overload rewrite
-    // is vacuous for the normal cast. The positive pin lives in warpOverloadCoverage.test.js.
-    // NOTE: Lifecrafter's Bestiary FLIPPED to native-trigger (OPTIONAL-MANA-PAYMENT, CR 603.7c) — its upkeep
-    // scry was already native; modeling "you may pay {G}. If you do, draw a card." flips the WHOLE card. The
-    // positive pin moved to the "Slivers native" block below.
-    // NOTE: Essence / Magma / Lazotep Slivers + Sliver Overlord + Ponder + Windfall ALL FLIPPED — positive pins
-    // live in the dedicated describe blocks above + per-card test files (essenceSliver / magmaSliver / afflict /
-    // sliverOverlord / reorderTop / wheelDiscardHand). None remain body-only, so their PARK entries are removed.
-    ["For the Ancestors", "Instant", "{2}{G}", "Choose a creature type. Look at the top six cards of your library. You may reveal any number of cards of the chosen type from among them and put the revealed cards into your hand. Put the rest on the bottom of your library in a random order.\nFlashback {3}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)", "arbiter-spell"], // reveal-dig
-  ];
-  it.each(cases)("%s stays non-native (%s)", (name, type, mana, oracle, expectedTier) => {
-    const tier = classifyCard({ name, type, mana, oracle });
-    expect(tier).toBe(expectedTier);
-  });
-});
 
 // ───────────────────────────────────────────────────────────────────────────────
 // REORDER-TOP (Ponder) — "Look at the top N …, then put them back in any order. You may shuffle." flipped native

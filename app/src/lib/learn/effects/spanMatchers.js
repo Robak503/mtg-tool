@@ -21,7 +21,7 @@
  * rider paths (parseControllerRider / matchRemovalControllerRider).
  */
 import { stripReminder } from "./textNormalize.js";
-import { parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js";
+import { parseTutorFilter, parseTokenKeywords, NUM_WORD } from "./parseHelpers.js";
 import { destroyExileClauseParser } from "./atoms/removal.js";
 import { counterClauseParser } from "./atoms/stack.js";
 
@@ -395,6 +395,30 @@ export function matchChooseTypeDraw(oracle) {
   if (!m) return null;
   return {
     atom: { op: "draw", amountCount: { kind: "chosenTypePermanents", per: 1 }, targetType: null },
+    rest: oracle.slice(m[0].length).trim(),
+  };
+}
+
+/**
+ * CHOSEN-TYPE REVEAL TO HAND (For the Ancestors) — "Choose a creature type. Look at the top N cards of
+ * your library. You may reveal any number of cards of the chosen type from among them and put the
+ * revealed cards into your hand. Put the rest on the bottom of your library in a random order." Four
+ * sentences whose effect spans them (the reveal/take/bottom all key off the SAME chosen type), collapsed
+ * up front like the chosen-type draw just above. The type choice itself is resolved deterministically at
+ * resolution (applyChosenTypeRevealToHand — the type with the most matches among the revealed cards,
+ * mirroring the chosen-type draw's own maximizing-count policy); the parser only needs the fixed reveal
+ * count. Whole-string anchored (optional trailing period) so any rider/variant leaves residue → the
+ * normal pipeline drops an unmodeled rider to LOW → Arbiter, never a partial.
+ */
+export function matchChosenTypeRevealToHand(oracle) {
+  const m = String(oracle).match(
+    /^choose a creature type\. look at the top (\w+) cards of your library\. you may reveal any number of cards of the chosen type from among them and put the revealed cards into your hand\. put the rest on the bottom of your library in a random order\.?\s*/i,
+  );
+  if (!m) return null;
+  const n = NUM_WORD[m[1].toLowerCase()] ?? parseInt(m[1], 10);
+  if (!Number.isFinite(n)) return null; // an un-parseable count word → safe FN, never a fabricated amount
+  return {
+    atom: { op: "chosen-type-reveal-to-hand", amount: n, targetType: null },
     rest: oracle.slice(m[0].length).trim(),
   };
 }
