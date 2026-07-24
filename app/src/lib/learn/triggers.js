@@ -278,8 +278,14 @@ export function stripTriggerAbilityLabel(oracle) {
   // clause got MIS-READ as a standing mana source → a phantom-mana native-mana false positive. Revealing the
   // trigger drops the card to body-only (correct); a modeled Opus trigger would stay native, revealed to the
   // counter. (Director FP-removal, 2026-07-17 — CC-1 census surfaced it, deferred to keep its slice LOST=0.)
+  // "lieutenant" (CR 207.2c, 2018 Commander cycle) is the ability-word label on the commander-control family
+  // ("Lieutenant — At the beginning of combat on your turn, if you control your commander, …" — Loyal Drake/
+  // Subordinate/Apprentice/Guardian, Siege-Gang Lieutenant, Ironwill Forger; also gates the "as long as"
+  // continuous-static half of the same cycle, unrelated to THIS trigger-detection strip). Stripping it lets
+  // the boundary-anchored trigger regex see the bare "At the beginning" so YOU_CONTROL_YOUR_COMMANDER_RE
+  // (interveningIf.js, added the same slice) can evaluate the condition.
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus)\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant)\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 

@@ -405,6 +405,76 @@ describe("BLITZ IF-1 — evaluator correctness (new families)", () => {
   });
 });
 
+// ─── 6. Lieutenant cycle: "you control your commander" (CR 903) — 2026-07-24 ──────────────────────
+// isCommander is a game-STATE quality that rides the CARD, not the permanent wrapper (card.isCommander,
+// stamped at seat build — the same field layers.js/legalChoices.js/targeting.js all read via
+// p.card?.isCommander), so the probe permanent needs it nested under `card`, not top-level.
+const cmdrPerm = (id, type, over = {}) => perm(id, type, { card: { id, name: id, type, isCommander: true }, ...over });
+describe("LIEUTENANT — 'you control your commander' evaluator correctness", () => {
+  it("true iff the controller's board carries an isCommander permanent", () => {
+    expect(evaluateInterveningIf(withBoard([]), "you control your commander", "user")).toBe(false);
+    expect(evaluateInterveningIf(withBoard([cmdrPerm("cmd", "Legendary Creature")]), "you control your commander", "user")).toBe(true);
+    // a non-commander permanent on the board does NOT satisfy it
+    expect(evaluateInterveningIf(withBoard([perm("x", "Creature")]), "you control your commander", "user")).toBe(false);
+  });
+  it("scoped to the CONTROLLER's own board — an opponent's commander doesn't count", () => {
+    const s = withBoard([]);
+    const s2 = { ...s, players: { ...s.players, ai: { ...s.players.ai, battlefield: [cmdrPerm("cmd", "Legendary Creature", { controller: "ai" })] } } };
+    expect(evaluateInterveningIf(s2, "you control your commander", "user")).toBe(false);
+    expect(evaluateInterveningIf(s2, "you control your commander", "ai")).toBe(true);
+  });
+  it("'commanders' plural also parses (partner/background pods)", () => {
+    expect(evaluateInterveningIf(withBoard([cmdrPerm("cmd", "Legendary Creature")]), "you control your commanders", "user")).toBe(true);
+  });
+  it("distinct from the REJECTED 'you control A commander' type-filter phrasing (NON_TYPE_WORDS guard, unchanged)", () => {
+    expect(evaluateInterveningIf(withBoard([cmdrPerm("cmd", "Legendary Creature")]), "you control a commander", "user")).toBe(null);
+  });
+  it("interveningIfParseable recognizes it via the shared probe", () => {
+    expect(interveningIfParseable("you control your commander")).toBe(true);
+  });
+});
+
+describe("LIEUTENANT — coverage: real cards flip native (whole-card, LOST=0)", () => {
+  it("beginning-of-combat + commander-control → native-trigger (Loyal Drake, Loyal Subordinate, Loyal Guardian)", () => {
+    expect(classifyCard(C("Loyal Drake", "Flying\nLieutenant — At the beginning of combat on your turn, if you control your commander, draw a card.", "Creature — Drake"))).toBe("native-trigger");
+    expect(classifyCard(C("Loyal Subordinate", "Menace (This creature can't be blocked except by two or more creatures.)\nLieutenant — At the beginning of combat on your turn, if you control your commander, each opponent loses 3 life.", "Creature — Human Soldier"))).toBe("native-trigger");
+    expect(classifyCard(C("Loyal Guardian", "Trample\nLieutenant — At the beginning of combat on your turn, if you control your commander, put a +1/+1 counter on each creature you control.", "Creature — Elephant Soldier"))).toBe("native-trigger");
+  });
+  it("the label strip alone doesn't fabricate a flip — an unrelated unmodeled rider still parks the whole card (Loyal Apprentice's token-then-buff-that-token gap)", () => {
+    expect(classifyCard(C("Loyal Apprentice", "Haste\nLieutenant — At the beginning of combat on your turn, if you control your commander, create a 1/1 colorless Thopter artifact creature token with flying. That token gains haste until end of turn.", "Creature — Human Wizard"))).toBe("body-only");
+  });
+});
+
+describe("LIEUTENANT — runtime: the condition gates the trigger at flush AND resolution (CR 603.4)", () => {
+  it("commander MET (a commander permanent on the board) → fires (draws)", () => {
+    let st = createGameState({ userDeck: [], aiDeck: [] });
+    const lib = [{ id: "topcard", name: "Forest", type: "Basic Land — Forest" }];
+    st = { ...st, players: { ...st.players, user: { ...st.players.user, battlefield: [cmdrPerm("cmd", "Legendary Creature")], library: lib, hand: [] } } };
+    st = { ...st, pendingTriggers: [{
+      event: "combatBegin", source: { name: "Probe", permanentId: "src" }, controller: "user",
+      descriptor: { event: "combatBegin", scope: "you", whose: "yours", effectClause: "draw a card", interveningIf: "you control your commander" },
+      context: {}, targets: [], payload: {},
+    }] };
+    let out = flushTriggers(st, { chooseTargets: chooseTriggerTargets });
+    expect(out.stack.length).toBe(1); // condition MET at flush → on the stack
+    while (out.stack.length) out = resolveTopOfStack(out);
+    expect(out.players.user.hand.map((c) => c.id)).toContain("topcard");
+  });
+  it("commander NOT met (no commander on the board) → never goes on the stack", () => {
+    let st = createGameState({ userDeck: [], aiDeck: [] });
+    const lib = [{ id: "topcard", name: "Forest", type: "Basic Land — Forest" }];
+    st = { ...st, players: { ...st.players, user: { ...st.players.user, battlefield: [], library: lib, hand: [] } } };
+    st = { ...st, pendingTriggers: [{
+      event: "combatBegin", source: { name: "Probe", permanentId: "src" }, controller: "user",
+      descriptor: { event: "combatBegin", scope: "you", whose: "yours", effectClause: "draw a card", interveningIf: "you control your commander" },
+      context: {}, targets: [], payload: {},
+    }] };
+    const out = flushTriggers(st, { chooseTargets: chooseTriggerTargets });
+    expect(out.stack.length).toBe(0);
+    expect(out.players.user.hand.length).toBe(0);
+  });
+});
+
 describe("BLITZ IF-1 — coverage: real cards flip native (whole-card, LOST=0)", () => {
   it("monarch-status end-step → native-trigger (Throne Warden, Garrulous Sycophant)", () => {
     expect(classifyCard(C("Throne Warden", "At the beginning of your end step, if you're the monarch, put a +1/+1 counter on this creature.", "Creature — Human Soldier"))).toBe("native-trigger");

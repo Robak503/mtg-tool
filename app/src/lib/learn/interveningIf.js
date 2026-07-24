@@ -367,6 +367,18 @@ const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
 // not a typed permanent — still rejected by NON_TYPE_WORDS); this anchors the monarch STATUS predicate.
 const MONARCH_STATUS_RE = /^you(?:'?re| are) the monarch$/;
 
+// ===== YOU-CONTROL-YOUR-COMMANDER (CR 903 + 603.4 — the Lieutenant cycle) ====================
+// "if you control your commander" (Loyal Drake, Loyal Subordinate, Loyal Apprentice, Loyal Guardian,
+// Siege-Gang Lieutenant, Ironwill Forger — all "At the beginning of combat on your turn, if you control your
+// commander, …"; the "Lieutenant —" prefix on each is a pure CR 207.2c ability-word label, stripped upstream
+// like Landfall/Raid/Enrage). A LIVE read of whether the controller's board carries a permanent stamped
+// `isCommander: true` (gameState.js tags every commander card at command-zone→battlefield, travels with the
+// permanent for its lifetime there) — NOT the generic "you control a commander" TYPE filter (rejected by
+// NON_TYPE_WORDS above; a commander is a designation, not a card type, same distinction as MONARCH-STATUS).
+// Layer-irrelevant board-presence read, identical at flush AND resolution. Loyal Unicorn's "creatures you
+// control gain vigilance" half rides the SAME condition on the same trigger line — covered by this one check.
+const YOU_CONTROL_YOUR_COMMANDER_RE = /^you control your commanders?$/;
+
 // ===== NO-CARDS-IN-HAND (CR 603.4 — BLITZ IF-1) ==============================================
 // "you have no cards in hand" (Bloodhall Priest, Hollowborn Barghest, Hollow One shape …) — the controller's
 // hand is empty. Reuses the SAME controllerMetric "cards in hand" reader (player.hand.length) the opponent
@@ -465,6 +477,12 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   // read of state.monarchId (the field manaModel's Regal Behemoth gate reads); no monarch → false (CR 603.4
   // drop). Layer-irrelevant, identical at flush AND resolution.
   if (MONARCH_STATUS_RE.test(c)) return state?.monarchId === controllerId;
+
+  // YOU-CONTROL-YOUR-COMMANDER (CR 903 — the Lieutenant cycle) — true iff any permanent on the controller's
+  // board carries the isCommander stamp. It's a game-STATE quality that rides the CARD, not the permanent
+  // wrapper (card.isCommander, stamped at seat build — the same field layers.js/legalChoices.js/targeting.js
+  // all read via p.card?.isCommander). Board-presence read, identical at flush AND resolution.
+  if (YOU_CONTROL_YOUR_COMMANDER_RE.test(c)) return controllerBoard(state, controllerId).some((p) => p.card?.isCommander === true);
 
   // NO-CARDS-IN-HAND (CR 603.4 — BLITZ IF-1) — the controller's hand is empty. Reuses controllerMetric's
   // "cards in hand" reader (player.hand.length); true iff 0. Identical at flush AND resolution.
