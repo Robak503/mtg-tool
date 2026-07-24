@@ -2,6 +2,20 @@
 
 ## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + FIVE real flips + shelf 1→16 — suite 810/10,573
 
+> **LATE ADDENDUM 7 — first grind pool run completed clean; a second launched behind it.** The
+> standing self-play pool (`--max-hours=6 --mode=commander`, 10 workers) ran its full cap and
+> finished on its own: **81,386 games (81,305 trusted, 81 stuck, 0 rejected) in exactly 360.0 min,
+> 226.1 games/min average, seed 2466789311.** Stuck rate held under 0.1% the entire run — a clean,
+> healthy, uneventful 6 hours, exactly as designed. No corpus-code changes riding on this run
+> specifically; it's standing WAVE 6 Phase 1 shelf-grind data accumulation. Relaunched a second
+> identical 6-hour pool immediately after (no sign yet that Colton's up, and the standing order was
+> to keep grinding until he is) — new log, fresh monitor, same throttled heartbeat-plus-anomaly
+> pattern (learned mid-shift: an untouched per-tick monitor is way too chatty for an unattended
+> multi-hour stretch — throttled to every ~10th tick, immediate passthrough on any real error
+> signature). Whoever reads this next: check `data/self-play/` counts against this run's numbers to
+> confirm both pools' data landed, and note the run boundary (seed 2466789311 marks the first pool's
+> end) if segmenting the accumulated games for analysis.
+
 > **LATE ADDENDUM 6 — fifth real flip, a one-card fix found while scoping a dead end (`2e4738c7`).**
 > While checking whether the Lieutenant static half's gate mechanism could reach further (it can't —
 > see the correction above), traced a "Commander creatures you own have '...'" grant (Agent of the
