@@ -1,6 +1,21 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + FOUR real flips + shelf 1→16 — suite 810/10,571
+## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + FIVE real flips + shelf 1→16 — suite 810/10,573
+
+> **LATE ADDENDUM 6 — fifth real flip, a one-card fix found while scoping a dead end (`2e4738c7`).**
+> While checking whether the Lieutenant static half's gate mechanism could reach further (it can't —
+> see the correction above), traced a "Commander creatures you own have '...'" grant (Agent of the
+> Iron Throne) into the existing creature-or-artifact PiG family (Marionette Apprentice's "put into a
+> graveyard from the battlefield" scope) and found the ONE gap: the existing code only matched
+> "creature or artifact" word order; Agent prints the reverse ("artifact or creature"). The original
+> author's own comment on the symmetric branch said "no live corpus card" for that shape — this one
+> just uses the OTHER symmetric form. One-line fix, exactly 1 real carrier (confirmed via corpus grep
+> before claiming it), zero collateral. **Small note on process:** the full suite's first run after
+> this threw 15 unrelated failures (versionAlignment.test.js among them — a pure file-diff check with
+> no possible connection to this change) — pure CPU contention with the grind pool's 10 background
+> workers, confirmed by re-running every failed file in isolation (46/46 green). Worth remembering:
+> a red run under heavy background load isn't automatically a real regression, but it still has to be
+> RE-VERIFIED in isolation before trusting that read, never just assumed.
 
 > **LATE ADDENDUM 5 — fourth real flip, the Lieutenant cycle's triggered half (+3, `71ba3a66`).** "At
 > the beginning of combat on your turn, if you control your commander" had a double gap: the
