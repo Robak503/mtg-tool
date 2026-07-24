@@ -161,6 +161,39 @@ export function splitClauses(oracle) {
     // "if" survives and gates the match exactly as before).
     sentence = sentence.replace(/^then\s+(?!,)(?!if\b)/i, "");
     if (!sentence) continue;
+    // TUTOR + INTERPOSED RANDOM DISCARD (Gamble, 2026-07-23) — "search your library for a card, put
+    // that card into your hand, discard a card at random, then shuffle" is a real SEQUENCE of two
+    // independent instructions (a plain tutor + a random discard), not one instruction — but the
+    // tutor keep-whole rule right below (any "search your library" sentence stays glued, since MOST
+    // tutors' internal " and "/commas are part of their own grammar — "reveal it, and put it into
+    // your hand") would otherwise swallow the interposed discard clause: tm/ttm/bfm/mf are all
+    // end-anchored right after "into your hand"/"onto the battlefield", so an interposed clause
+    // between the destination and the trailing "then shuffle" fails the WHOLE sentence, not just
+    // the extra part (verified live before this fix: atoms: [], unparsedTail = the entire sentence,
+    // confidence "low"). Excise the discard clause here so each half takes its OWN already-modeled
+    // path: the tutor half (with "then shuffle" reattached) matches `tm` byte-identical to Demonic
+    // Tutor's shape (verified: parses to the same {op:"tutor", filter:null, destination:"hand"}
+    // atom); "discard a card at random" is already a clean, separately-modeled discard atom
+    // (verified: {op:"discard", amount:1, atRandom:true}). Anchored to Gamble's EXACT wording, not
+    // generalized to a numeric/plural form — a live corpus check (42 cards print "discard a card at
+    // random" somewhere) found exactly one OTHER card with the identical phrase, Night Out in Vegas,
+    // but embedded inside a modal bullet ("• Play Games — Search your library...") rather than as a
+    // bare top-level sentence, so it never reaches this per-sentence rule at all (a different parse
+    // path entirely — untouched, verified not to match this anchor). Two OTHER cards (Reckless
+    // Handling, Wild Research) print a related but differently-ordered shape ("...into your hand,
+    // shuffle, then discard a card at random" — discard AFTER the shuffle, not interposed before
+    // it) that also doesn't match this anchor; a real, separate future lever, not this fix. So this
+    // rule can only PROMOTE Gamble; no other tutor's internal grammar is touched.
+    {
+      const gambleShape = sentence.match(
+        /^(search your library for a card, put that card into your hand), discard a card at random, (then shuffle)$/i,
+      );
+      if (gambleShape) {
+        clauses.push(`${gambleShape[1]}, ${gambleShape[2]}`);
+        clauses.push("discard a card at random");
+        continue;
+      }
+    }
     // A sentence that STARTS with "search your library" — or a "you may search your library" optional
     // tutor (RAMP-1: Farhaven Elf's "you may search … put it onto the battlefield … then shuffle") — is
     // ONE tutor instruction (P3.2 / α2): its internal " and " ("reveal it, and put it into your hand",
