@@ -393,11 +393,32 @@ function pinnedRuleHintsFromText(text) {
   return [...hints];
 }
 
+// Card-name-aware seeding needs the local Scryfall oracle repository (cardIndex.js) loaded, which
+// is legitimately ABSENT in CI and a fresh dev checkout (multi-hundred-MB bulk files, gitignored,
+// synced on demand — never committed). Detecting/seeding card names is a best-effort ENRICHMENT
+// on top of rule retrieval, not a hard requirement of it (a query with zero card names in it is
+// completely ordinary), so a missing repository should degrade to "no names detected/seeded" —
+// same as if the query genuinely mentioned no cards — rather than failing retrieveRules entirely.
+// Narrowly scoped to the ENOENT the repository-missing case raises (cardIndex.js's readJson);
+// any OTHER thrown error (a real bug, a corrupt-but-present file) still propagates.
+function withoutOracleRepo(fn, fallback) {
+  try {
+    return fn();
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+    return fallback;
+  }
+}
+
 export function extractCardNamesForRules(query, explicitCardNames = []) {
+  const detected = withoutOracleRepo(
+    () => detectCardNamesInText(String(query || "").replace(/\[\[([^\]]+)\]\]/g, " ")),
+    [],
+  );
   const names = [
     ...explicitCardNames,
     ...extractBracketedCardNames(query),
-    ...detectCardNamesInText(String(query || "").replace(/\[\[([^\]]+)\]\]/g, " ")),
+    ...detected,
   ];
   return [...new Set(names.filter(Boolean))];
 }
@@ -406,12 +427,12 @@ function cardSeedText(cardNames) {
   const chunks = [];
 
   for (const name of cardNames) {
-    const card = lookupCard(name);
+    const card = withoutOracleRepo(() => lookupCard(name), null);
     if (!card) continue;
     chunks.push(card.name);
     chunks.push(card.type_line || "");
     chunks.push(oracleText(card));
-    for (const ruling of lookupRulingsForCard(card).slice(0, 8)) {
+    for (const ruling of withoutOracleRepo(() => lookupRulingsForCard(card), []).slice(0, 8)) {
       chunks.push(ruling.comment || "");
     }
   }

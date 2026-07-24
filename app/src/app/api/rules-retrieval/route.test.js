@@ -119,4 +119,49 @@ describe("/api/rules-retrieval — module load and request handling", () => {
     const body = await resp.json();
     expect(body).toEqual({ results: [], rules: [], context: "" });
   });
+
+  // ── B1 phase 2 consolidation (2026-07-23) ────────────────────────────────
+  // This route used to run its own second CR-rule pipeline (loadCr/collectRules/relatedRules,
+  // keyed off ROUTE_DEFINITIONS' 16 hand-curated topics) instead of the shared, tested, more
+  // capable lib/server/rulesRetrieval.js — duplicating retrieval logic while being strictly LESS
+  // able: no card-name-awareness, no RulesGuru precedents, a thinner pinned-hint library. These
+  // two tests are regression guards for the two things a before/after comparison against real
+  // queries (not just the shape contract above) proved: (1) card-name-in-query awareness is a
+  // genuinely new capability, verified live to return ZERO rules before this consolidation; (2)
+  // route.js's own curated topic->anchor knowledge (ROUTE_DEFINITIONS) must still reach the final
+  // rule set even though rule SELECTION no longer runs through route.js's own code — it's folded
+  // into the shared engine's query text instead (see route.ruleAnchors / anchorSeed in route.js).
+
+  it("POST recognizes a bracketed card name and grounds the answer in its rules (previously: zero rules for any card-only query)", async () => {
+    const mod = await import("./route.js");
+    const req = new Request("http://localhost/api/rules-retrieval", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "[[Blood Artist]] whenever a creature dies" }),
+    });
+    const resp = await mod.POST(req);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    // Blood Artist is one of rulesRetrieval.js's own pinned exemplars for the "dies" trigger rule
+    // (700.4) — proves the bracketed name actually reached the shared engine's card-seeded scoring,
+    // not just that the query happened to contain the word "dies".
+    expect(body.rules.map((r) => r.number)).toContain("700.4");
+  }, 30000);
+
+  it("POST still surfaces a route's hand-curated rule anchors even for a query with no card name (the legend rule regression)", async () => {
+    const mod = await import("./route.js");
+    const req = new Request("http://localhost/api/rules-retrieval", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "how does the legend rule work" }),
+    });
+    const resp = await mod.POST(req);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    // 704.5a is the legend-rule SBA itself. rulesRetrieval.js's OWN pinned/generic hint libraries
+    // have no "legend rule" pattern at all — this only survives because route.js's ROUTE_DEFINITIONS
+    // anchors get folded into the query text the shared engine scores (anchorSeed in route.js). A
+    // regression here means that fold-in broke, not that the shared engine's hints improved.
+    expect(body.rules.map((r) => r.number)).toContain("704.5a");
+  }, 30000);
 });

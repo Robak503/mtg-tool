@@ -37,6 +37,15 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - name: Build rules index
+        working-directory: app
+        # Pure local transform of the committed knowledge/mtg-judge CR JSON -- no network call, no
+        # Scryfall bulk data needed, ~5s. /api/rules-retrieval's route.test.js exercises the shared
+        # rulesRetrieval.js engine for real (B1 phase 2 consolidation, 2026-07-23) instead of reading
+        # the CR JSON directly, so it now needs data/rules-index.json to exist -- same artifact the
+        # release pipeline already builds as its own step, just never needed by CI before this.
+        run: npm run build:rules-index
+
       - name: Lint
         working-directory: app
         run: npm run lint

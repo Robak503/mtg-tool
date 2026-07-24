@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { mtgJudgePath, mtgEnginePath, mtgJudgeDir, mtgEngineDir } from "../../../lib/server/paths";
+import { retrieveRules } from "../../../lib/server/rulesRetrieval";
 
 const CR_FILE = mtgJudgePath("data", "cr", "cr_current.json");
 const ROUTER_FILE = mtgEnginePath("META_query_router.md");
@@ -258,37 +259,16 @@ async function loadDocs() {
   return docsCache;
 }
 
-function ruleRecord(raw, fallbackNumber) {
-  const number = String(raw?.ruleNumber || raw?.number || fallbackNumber || "").trim();
-  const text = String(raw?.ruleText || raw?.text || "").trim();
-  if (!number || !text) return null;
-  return {
-    number,
-    text,
-    examples: raw?.examples || null,
-  };
-}
-
-function compareRuleNumbers(a, b) {
-  const tokenize = value => String(value)
-    .match(/\d+|[a-z]+/gi)
-    ?.map(part => (/^\d+$/.test(part) ? Number(part) : part.toLowerCase())) || [];
-  const left = tokenize(a);
-  const right = tokenize(b);
-  const length = Math.max(left.length, right.length);
-  for (let index = 0; index < length; index += 1) {
-    if (left[index] === undefined) return -1;
-    if (right[index] === undefined) return 1;
-    if (left[index] === right[index]) continue;
-    if (typeof left[index] === "number" && typeof right[index] === "number") {
-      return left[index] - right[index];
-    }
-    return String(left[index]).localeCompare(String(right[index]));
-  }
-  return 0;
-}
-
-async function loadCr() {
+// GET's health/debug stats only — count + freshness of the raw CR JSON, nothing more. The
+// actual RETRIEVAL (rule scoring/selection) lives entirely in rulesRetrieval.js now (B1 phase
+// 2 consolidation, 2026-07-23): this route used to carry its own second copy of that pipeline
+// (loadCr/ruleRecord/compareRuleNumbers/collectRules/relatedRules), duplicating
+// lib/server/rulesRetrieval.js's retrieveRules() while being strictly LESS capable (no
+// card-name-awareness, no RulesGuru precedents, a thinner pinned-hint library). Keeping a tiny
+// stat-only reader here (rather than exporting one more thing off rulesRetrieval.js) because
+// it reads a genuinely different file for a genuinely different purpose: "how many rules, how
+// fresh" for the debug GET, not rule selection.
+async function crStats() {
   if (crCache) return crCache;
 
   const [raw, stat] = await Promise.all([
@@ -296,20 +276,10 @@ async function loadCr() {
     fs.stat(CR_FILE),
   ]);
   const parsed = JSON.parse(raw);
-  const byNumber = new Map();
 
-  for (const [key, value] of Object.entries(parsed || {})) {
-    const rule = ruleRecord(value, key);
-    if (rule) byNumber.set(rule.number, rule);
-  }
-
-  const rules = [...byNumber.values()].sort((left, right) => compareRuleNumbers(left.number, right.number));
   crCache = {
-    loadedAt: new Date().toISOString(),
     updatedAt: stat.mtime.toISOString(),
-    ruleCount: rules.length,
-    byNumber,
-    rules,
+    ruleCount: Object.keys(parsed || {}).length,
   };
 
   return crCache;
@@ -348,56 +318,21 @@ function routeHints(query) {
   };
 }
 
-function relatedRules(cr, anchor, max = 6) {
-  const found = [];
-  const add = rule => {
-    if (rule && !found.some(existing => existing.number === rule.number)) found.push(rule);
+// Reshapes lib/server/rulesRetrieval.js's retrieveRules() output (rules-index.json entries —
+// {ruleNumber, text, keywords, examples} — plus {score, reasons}) into this route's long-
+// standing {number, text, examples, source, score} contract (pinned by route.test.js). `source`
+// used to mean "found via an explicit rule number vs. a route anchor" (collectRules, removed
+// above); the shared engine's `reasons` array is richer provenance (exact-rule-number /
+// pinned-rule-hint / rulesguru-precedent:<id> / rule-hint / query-keywords / card-seed-keywords)
+// so this folds them into one string rather than picking just one.
+function toRouteRuleShape(retrievedRule) {
+  return {
+    number: retrievedRule.ruleNumber,
+    text: retrievedRule.text,
+    examples: retrievedRule.examples || null,
+    source: (retrievedRule.reasons || []).join("+") || "match",
+    score: retrievedRule.score,
   };
-
-  const exact = cr.byNumber.get(anchor);
-  add(exact);
-
-  const childPrefix = `${anchor}.`;
-  for (const rule of cr.rules) {
-    if (found.length >= max) break;
-    if (rule.number !== anchor && rule.number.startsWith(childPrefix)) add(rule);
-  }
-
-  if (!exact && anchor.includes(".")) {
-    const parent = anchor.replace(/\.[^.]+$/, "");
-    add(cr.byNumber.get(parent));
-  }
-
-  return found.slice(0, max);
-}
-
-function collectRules(cr, route, max = 18) {
-  const collected = [];
-  const addRules = (rules, score, source) => {
-    for (const rule of rules) {
-      if (collected.some(existing => existing.number === rule.number)) continue;
-      collected.push({ ...rule, score, source, order: collected.length });
-      if (collected.length >= max) return;
-    }
-  };
-
-  for (const anchor of route.explicitRules) {
-    addRules(relatedRules(cr, anchor, 10), 40, "explicit");
-    if (collected.length >= max) break;
-  }
-
-  if (collected.length < max) {
-    for (const anchor of route.ruleAnchors) {
-      const perAnchorLimit = anchor.includes(".") ? 4 : 6;
-      addRules(relatedRules(cr, anchor, perAnchorLimit), 25, "route");
-      if (collected.length >= max) break;
-    }
-  }
-
-  return collected.sort((left, right) => {
-    if (right.score !== left.score) return right.score - left.score;
-    return left.order - right.order;
-  });
 }
 
 function wantsValidationDocs(query) {
@@ -556,7 +491,7 @@ function formatContext(results, rules, route) {
 
 export async function GET() {
   try {
-    const [docs, cr] = await Promise.all([loadDocs(), loadCr()]);
+    const [docs, cr] = await Promise.all([loadDocs(), crStats()]);
     return Response.json({
       generatedAt: docs.generatedAt,
       engineFileCount: docs.engineFileCount,
@@ -582,11 +517,29 @@ export async function POST(request) {
     const query = String(body.query || "").trim();
     if (!query) return Response.json({ results: [], rules: [], context: "" });
 
-    const [docs, cr] = await Promise.all([loadDocs(), loadCr()]);
+    const [docs, cr] = await Promise.all([loadDocs(), crStats()]);
     const terms = queryTerms(query);
     const limit = Math.max(1, Math.min(Number(body.limit) || 4, 8));
     const route = routeHints(query);
-    const rules = collectRules(cr, route);
+    // The CR-rule half now runs entirely through the shared engine (B1 phase 2, 2026-07-23):
+    // card-name-aware seeding ([[Card Name]] / detected names -> oracle text + rulings folds
+    // into the ranking), RulesGuru precedent matching, and a much more heavily-tuned pinned-hint
+    // library all apply here for the first time — this route used to run its own thinner,
+    // route-anchor-only rule collector. Route inference (routeHints, above) is UNCHANGED and
+    // still drives which of the 92 engine-layer doc chunks get boosted below; rulesRetrieval.js
+    // has no equivalent for that half, so it stays here.
+    //
+    // route.ruleAnchors carries THIS route's hand-curated topic->CR-anchor knowledge (the 16
+    // ROUTE_DEFINITIONS buckets — e.g. "legend rule" -> 704.3-704.6), which retrieveRules' own
+    // pinned/generic hint libraries don't fully cover (verified live: without this, "how does the
+    // legend rule work" lost its 704.x citations entirely once route.js stopped walking its own
+    // anchors). Appending them to the query text folds them in via retrieveRules' OWN
+    // exact-rule-number path (extractRuleNumbers matches any \d{3}\.\d+ token found ANYWHERE in
+    // the text and gives it the top score tier) rather than reimplementing anchor-walking here —
+    // one scoring mechanism, fed two knowledge sources.
+    const anchorSeed = route.ruleAnchors.length ? ` ${route.ruleAnchors.join(" ")}` : "";
+    const { rules: retrieved } = retrieveRules(`${query}${anchorSeed}`, [], { limit: 8 });
+    const rules = retrieved.map(toRouteRuleShape);
     const includeValidationDocs = wantsValidationDocs(query);
 
     const scoredDocs = docs.docs
@@ -597,12 +550,7 @@ export async function POST(request) {
 
     return Response.json({
       route: summarizeRoute(route),
-      rules: rules.map(rule => ({
-        number: rule.number,
-        text: rule.text,
-        source: rule.source,
-        score: rule.score,
-      })),
+      rules,
       results,
       context: formatContext(results, rules, route),
       stats: {
