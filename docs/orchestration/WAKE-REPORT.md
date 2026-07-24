@@ -82,11 +82,31 @@
 > "corpus's only such card" claim before it shipped. Corpus 11,459→11,460; the cdh (Rograkh/
 > Thrasios) deck 80%→81%. Pinned in `splitClauses.test.js`.
 >
-> **Gate:** full suite **809 files / 10,551 green** at commit `936d484f`, lint 0. **NEXT:** WAVE 6
-> Phase 1/Phase 3 grind — the ledger's remaining BUILD items (grouped levers first: counter-
-> proofing, cast-as-flash, redirect-a-stack-object, excess-damage) + the slice manifest's ranked
-> subsystems, using the now-5-deck shelf data as targeting signal. Continuing per Colton's "don't
-> stop" order.
+> **Deep-scoped three more ledger candidates rather than rushing a second flip** (see
+> [TRIAGE-LEDGER-2026-07-23.md](TRIAGE-LEDGER-2026-07-23.md) for the full, twice-corrected diagnosis):
+> the counter-proofing cluster turned out to be a SPLIT verdict — Vexing Shusher's and Hexing
+> Squelcher's SELF/controller-scope "can't be countered" clauses already classify `native-static`
+> (already built, already enforced at the counter-target-enumeration chokepoint); Hexing Squelcher's
+> whole remaining gap narrows to exactly one clause (a static group-grant of Ward); Vexing Shusher's
+> is a different one (an activated grant to another spell); Veil of Summer is genuinely unbuilt (it's
+> an instant, so identical-looking words hit a different code path than a permanent's static). Also
+> precisely scoped Mondrak's residue (an activated ability, not the doubler — that already works).
+>
+> **Also censused the slice manifest's #1-ranked lever (transform/DFC, 669 cards) and it's not one
+> project**: 871 DFC cards in the corpus, 170 native (19.5%), and the gap spans every mechanism
+> bucket roughly evenly — DFC cards just skew toward complex/named templating and inherit whatever's
+> unbuilt corpus-wide. The manifest's raw count overstates this as a standalone target; most of those
+> cards flip as OTHER subsystems land, not from a "DFC support" project. Same lesson twice tonight:
+> a shared bucket label isn't a shared fix size — check the real parse before trusting a ranking.
+>
+> **Gate:** full suite **809 files / 10,551 green** at commit `4655bcad`, lint 0 (no code landed this
+> last pass — purely diagnostic, and deliberately so at this point in a very long session). **NEXT:**
+> three precisely-scoped candidates ready to open properly (Hexing Squelcher's Ward-grant, Vexing
+> Shusher's activated grant, Mondrak's activated ability) — each needs real build time, not another
+> spot-check. Otherwise: real subsystem work off the manifest (tutors/counterspells/wheels, Phase 2
+> GREENLIT) rather than the DFC/transform framing. Joe's 11 Moxfield decks + Koma's dead Archidekt
+> link are the clean next move for shelf completeness. Session wound down here by choice — the safe,
+> gate-verifiable slices are exhausted for tonight, not the work.
 
 ## 🃏 2026-07-23 — v0.149.0 SHIPPED: the game lets you MULLIGAN (+ academy fixes + B3 cold-start) — suite 10,514
 
