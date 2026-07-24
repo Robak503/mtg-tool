@@ -1,7 +1,24 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + TWO real flips + shelf 1→16 — suite 810/10,556
+## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + THREE real flips + shelf 1→16 — suite 810/10,562
 
+> **LATE ADDENDUM 4 — back to corpus after the roadmap-queue pass: third real flip tonight, any-player
+> sacrifice triggers (+4, `e68a3df3`).** "Whenever A PLAYER sacrifices a permanent/creature" (Mayhem
+> Devil, Mazirek Kraul Death Priest, Merchant of Venom, Mortician Beetle) had zero support —
+> `checkSacrificeTriggers` structurally only ever scanned the SACRIFICER's own battlefield, so a
+> watcher controlled by a different player could never fire no matter what the parser recognized.
+> Mirrored the dies-trigger's existing cross-player scan (checkDiesTriggers already iterates every
+> player for "eachCreature"-scope watchers) via a new `scope:"anyPlayerSac"` value — same
+> architecture, not new. Full-corpus grep (not just the ledger's single named card) found 8 real
+> carriers; 4 flip, the other 4 (Carmen/Thraximundar/Fumulus/Zodiark) correctly stay body-only on
+> separate, unrelated residue each. **Bug caught by the tier-fingerprint gate itself:** first attempt
+> invented a field name (`sacNontokenFilter`) instead of reusing the codebase's existing generic
+> `nontokenFilter` convention (already used by dies/etb scopes) — detectTriggers' whitelist
+> reconstruction step silently dropped the unknown field, which the fingerprint diff would have
+> masked as "0 residual gap" had the test suite not caught it first (the nontoken-exclusion test
+> failed outright). Renamed to match convention; refixed. Whole-corpus tier-fingerprint: 34,210
+> cards, exactly 4 changed, zero collateral. Full suite 810/10,562, lint 0.
+>
 > **LATE ADDENDUM 3 — pivoted from corpus-hunting back to the roadmap queue (cindy-roadmap-v2's own
 > rule: the queue outranks grinding).** Two findings, both the same shape as the Koma surprise above
 > — the vault-side roadmap doc lagging real shipped state:

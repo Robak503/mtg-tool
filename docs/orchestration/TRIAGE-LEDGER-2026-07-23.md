@@ -90,6 +90,19 @@ Grouped where a lever covers more than one card; otherwise one row each.
 - **Kozilek, Butcher of Truth** — cast-trigger draw (not a resolve-trigger) + Annihilator + an
   anywhere-to-graveyard shuffle-back trigger; three real pieces, sizable as one card.
 
+## BUILD — flips shipped after this ledger was first written
+
+- **Mayhem Devil family — BUILT (`e68a3df3`, +4: Mayhem Devil, Mazirek Kraul Death Priest, Merchant
+  of Venom, Mortician Beetle).** Not on this ledger's original BUILD list (it only names Mayhem
+  Devil under a different context) — a full-corpus grep for "a player sacrifices" turned up 8 real
+  carriers total. Root cause: `checkSacrificeTriggers` structurally only ever scanned the
+  sacrificer's OWN battlefield, so a watcher controlled by a DIFFERENT player could never fire
+  regardless of parsing — same shape as the dies-trigger's existing cross-player scan, just never
+  extended to sacrifice. The other 4 carriers (Carmen, Thraximundar, Fumulus, Zodiark) correctly
+  stay body-only — each has a separate, different, unrelated unmodeled ability (attack-triggered
+  power-scaled reanimation, a defending-player edict, a 4-way creature-type attack filter, a
+  fractional ETB edict) — real, distinct residues, not a shared lever; not chased further tonight.
+
 ## INTERACTION (Phase 2, greenlit — tutors / counterspells / wheels)
 
 - **Gamble — BUILT tonight (`c98bd172`).** Diagnosed the composition gap (both sub-clauses parse
