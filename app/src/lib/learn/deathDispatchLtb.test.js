@@ -103,6 +103,15 @@ describe("LTB/PiG — detection + classification", () => {
     expect(detectTriggers(card).map((t) => t.scope)).toEqual(["creatureOrArtifactYouControlPiG"]);
     expect(classifyCard(card)).toMatch(/^native/);
   });
+  it("the REVERSED word order ('an artifact or creature you control', Agent of the Iron Throne) also detects — same union, same scope, CR draws no distinction on printed order", () => {
+    const card = { type: "Creature — Human Artificer", name: "X", mana: "{2}{B}", oracle: "Whenever an artifact or creature you control is put into a graveyard from the battlefield, each opponent loses 1 life." };
+    expect(detectTriggers(card).map((t) => t.scope)).toEqual(["creatureOrArtifactYouControlPiG"]);
+    expect(classifyCard(card)).toMatch(/^native/);
+  });
+  it("Agent of the Iron Throne — the granted ability (Commander creatures you own have '...') flips the WHOLE card native, not just the isolated clause", () => {
+    const card = { type: "Legendary Enchantment — Background", name: "Agent of the Iron Throne", mana: "{1}{B}", oracle: "Commander creatures you own have \"Whenever an artifact or creature you control is put into a graveyard from the battlefield, each opponent loses 1 life.\"" };
+    expect(classifyCard(card)).toMatch(/^native/);
+  });
   it("SELF-LTB now detects as leavesSelf (BLITZ LV-1 graduation — the engine fires it on ANY exit)", () => {
     // (City Pigeon sat here as the never-fires-LTB pin until LV-1 added the leavesSelf event, fired by
     // checkLeavesTriggers off the leave look-back for every exit — pinned end-to-end in leavesSelf.test.js.)

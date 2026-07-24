@@ -1041,6 +1041,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     // The non-"another" union (no live corpus card, but the symmetric form) — "a creature or artifact you control".
     if (pigSubj === "a creature or artifact you control")
       return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any", includeSelf: true };
+    // The REVERSED word order (Agent of the Iron Throne — "an artifact or creature you control"), granted onto
+    // Commander creatures by a Background enchantment. Same union, same scope — CR draws no distinction between
+    // "creature or artifact" and "artifact or creature"; only the printed word order differs.
+    if (pigSubj === "an artifact or creature you control")
+      return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any", includeSelf: true };
+    if (pigSubj === "another artifact or creature you control")
+      return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any" };
     // Marionette Master — "an artifact you control" (the source is a creature, never an artifact → never self-fires).
     if (pigSubj === "an artifact you control")
       return { event: "permanentLeaves", scope: "artifactYouControlPiG", whose: "any" };
