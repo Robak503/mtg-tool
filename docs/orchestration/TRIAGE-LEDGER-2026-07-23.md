@@ -191,3 +191,20 @@ Grouped where a lever covers more than one card; otherwise one row each.
 Related: [WAKE-REPORT.md](WAKE-REPORT.md) · `cindy-corpus-roadmap.md` (memory-side, Phase 1A's
 definition — not part of this repo) · [ARBITER-IN-RUNNER-SPEC.md](ARBITER-IN-RUNNER-SPEC.md) (the
 authoritative spec for the Arbiter-in-runner status noted in tonight's WAKE-REPORT entry).
+
+## NEXT SLICE (scoped + censused 2026-07-24 morning, Colton-directed): the graveyard-phase-return family
+
+Old One Eye's Fast Healing decomposed into its REAL families (Colton's push — "this isn't the only
+card that's gonna have either of these effects" — proved correct by census):
+- **Phase-timed graveyard self-return: 23 real carriers** (Squee Goblin Nabob, Charmbreaker Devils,
+  Palace Siege, Wort Boggart Auntie, …) — "At the beginning of <phase>, [you may] return this card
+  from your graveyard to your hand." Needs: ① a gy-functioning scan for PHASE events (checkStepTriggers
+  walks battlefields only; mirror checkMilledTriggers' existing graveyard scan + functionsFromGraveyard
+  stamp — the Radroach precedent, CR 113.6c) · ② a self-return-from-gy-to-hand atom (parses LOW today).
+- **Optional-discard-cost reflexive: 5 carriers** (Old One Eye, Erebos's Titan, Gigapede, Toph,
+  Jadzi) — "you may discard N cards. If you do, <effect>": extend the existing optional-mana-payment
+  atom family (only {mana} costs today) with a discard-N cost variant.
+- **"Fast Healing —" label strip** (1 card) rides along.
+- **Timing prerequisite SHIPPED (`dd6ff026`):** the firstMain event already existed
+  (triggerScheduler.detectPhaseTrigger — grep before building, lesson re-banked); the vanishing-reminder
+  + compound-at-beginning fixes unlocked Four Knocks + Crack in Time (+2).
