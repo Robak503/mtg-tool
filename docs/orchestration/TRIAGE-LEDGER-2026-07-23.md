@@ -17,21 +17,27 @@ Reading every card's real oracle text (not just its mechanism bucket) surfaced f
 single lever flips multiple carriers across different decks at once — exactly the roadmap's own
 "build-once-flip-every-carrier" principle:
 
-| Lever | Carriers | Shape | Real scope (checked post-write, see note) |
+| Lever | Carriers | Shape | Real scope (triple-checked — see the methodology note below) |
 |---|---|---|---|
-| Counter-proofing | Vexing Shusher, Hexing Squelcher, Veil of Summer | "can't be countered" (self and/or granted) + Ward-grant | **Bigger than it looks.** Checked live: EVERY clause on all three cards fails to parse at all (not even a partial atom) — "can't be countered" needs enforcement at the actual counterspell-resolution chokepoint (a spell-level protection, architecturally different from a permanent's static), which doesn't exist today. A real subsystem, not a quick lever. |
-| Cast-as-though-flash | Valley Floodcaller, Borne Upon a Wind | Temporary flash grant to a spell class | **Bigger than it looks.** Checked live: "cast as though it had flash" fails to parse on both cards — this needs a hook into the casting-legality check itself (what's castable and when), not just a resolver-side effect. A real subsystem, not a quick lever. |
-| Redirect a stack object | Deflecting Swat, Flare of Duplication (Chain of Vapor shares the shape but is parked — see below) | "Choose new targets for target spell/ability" already on the stack | Not re-checked live tonight — treat the "buildable" read as unverified until someone opens the file, per the lesson two rows up. |
+| Counter-proofing | Vexing Shusher, Hexing Squelcher, Veil of Summer | "can't be countered" (self and/or granted) + Ward-grant | **Split verdict, precisely scoped.** On the two CREATURES (permanent statics, tested via the correct `parseStaticAbilities`/`classifyCard` pair): "This spell can't be countered" (self) and "Spells you control can't be countered" (controller-scope) ALREADY classify `native-static` individually and combined — `staticAbilityParser.js` already has both (`cantBeCountered: {scope:"self"\|"youControl"}`), and `spellEffects.js:581`+`:570-572` already ENFORCE both at the counter-target-enumeration chokepoint. Ward-on-self also already works. **Vexing Shusher's sole real gap: the ACTIVATED "{R/G}: Target spell can't be countered" — a temporary GRANT to another spell, which the engine explicitly doesn't model yet** (spellEffects.js's own comment: "granted/external can't be countered isn't modeled"). **Hexing Squelcher's sole real gap: "Other creatures you control have \"Ward—Pay 2 life.\"" — a static GROUP-grant of a quoted keyword-with-cost**, confirmed empirically (isolating every other clause combination classifies `native-static`; only this one clause drags the whole card to body-only) — no existing recognizer for this shape in `staticAbilityParser.js` (grepped, zero matches), and it's unverified whether the RUNTIME even honors a granted (vs. printed) Ward the same way. **Veil of Summer is genuinely the "bigger than it looks" case**: it's an INSTANT (a one-shot spell effect, not a permanent static), so the identical words go through `parseEffectClause` instead — and there, all three clauses (temporary "this turn" counter-protection, a cast-this-turn-conditional draw, temporary hexproof-from-specific-colors) are unbuilt. Same phrase, two totally different code paths depending on card type — don't assume printed-on-a-permanent and printed-on-a-spell share a fix. |
+| Cast-as-though-flash | Valley Floodcaller, Borne Upon a Wind | Temporary flash grant to a spell class | Checked via `parseEffectClause` (both are spell/trigger effects, the right tool here): both fail to parse. This needs a hook into the casting-legality check itself (what's castable and when), not just a resolver-side effect. A real subsystem, not a quick lever — unlike counter-proofing, there's no permanent-static escape hatch here since both carriers are temporary spell/ability grants. |
+| Redirect a stack object | Deflecting Swat, Flare of Duplication (Chain of Vapor shares the shape but is parked — see below) | "Choose new targets for target spell/ability" already on the stack | Not re-checked live tonight — treat the "buildable" read as unverified until someone opens the file, per the methodology note below. |
 | Excess-damage payoff | Contest of Claws, Hell to Pay | A derived "damage beyond lethal" metric feeding discover/Treasure | Not re-checked live tonight — same caveat. |
 
-**Lesson learned live tonight, banked here so it isn't relearned the hard way twice:** grouping by
-shared THEME (what the ledger did above) is not the same as grouping by shared FIX SIZE. Spot-checking
-the first two levers' actual parse state (`parseEffectClause` on every clause) found BOTH were real,
-unbuilt subsystems requiring resolver/legality-level plumbing, not the narrow parser extension Gamble
-turned out to be — the "likely quick" / grouped-lever framing in the first draft of this doc
-overpromised. Don't trust a grouping or a mechanism-bucket label as a size estimate; check the actual
-parse before scoping a build. The Mondrak row below got the same live-check treatment and came back
-with a MUCH more precise answer as a result.
+**Methodology lesson, banked so it isn't relearned the hard way a third time:** this row went through
+three passes tonight before landing on the accurate scope, and the mistake both earlier passes made
+was the SAME one: testing a permanent's static-ability clause through `parseEffectClause` (the
+spell/trigger/activated-ability effect parser) instead of `parseStaticAbilities` + `classifyCard`
+(the actual static-ability pipeline) — `parseEffectClause` will honestly report "unparsed" for text
+that a DIFFERENT, correct parser already handles fine, and that false negative looks identical to a
+real gap unless you check which pipeline actually owns the clause's card type. Rule of thumb: a
+permanent's own printed static ability → `parseStaticAbilities`/`classifyCard`; a spell, triggered,
+or activated EFFECT → `parseEffectClause`. Grouping by shared THEME (what this ledger did on first
+draft) is also not the same as grouping by shared FIX SIZE or even shared CODE PATH — Vexing Shusher
+and Hexing Squelcher's SELF clauses already work today; their SECOND clauses are two DIFFERENT unbuilt
+mechanisms (activated-grant vs. static-group-grant); and Veil of Summer's identical-looking words are
+a third, unrelated code path entirely because it's a spell, not a creature. The Mondrak row below got
+this same rigor and came back with an equally precise answer.
 
 ## BUILD
 
