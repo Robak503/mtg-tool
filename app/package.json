@@ -42,7 +42,8 @@
     "sync:spellbook": "node scripts/sync-spellbook.cjs",
     "sync:spellbook-cards": "node scripts/sync-spellbook.cjs --cards-only",
     "sync:edhrec-salt": "node scripts/sync-edhrec-salt.cjs",
-    "sync:edhrec-salt-all": "node scripts/sync-edhrec-salt.cjs --all"
+    "sync:edhrec-salt-all": "node scripts/sync-edhrec-salt.cjs --all",
+    "sync:cardkingdom": "node scripts/sync-cardkingdom-prices.cjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.26",
