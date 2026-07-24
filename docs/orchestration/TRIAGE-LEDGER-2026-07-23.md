@@ -17,12 +17,21 @@ Reading every card's real oracle text (not just its mechanism bucket) surfaced f
 single lever flips multiple carriers across different decks at once — exactly the roadmap's own
 "build-once-flip-every-carrier" principle:
 
-| Lever | Carriers | Shape |
-|---|---|---|
-| Counter-proofing | Vexing Shusher, Hexing Squelcher, Veil of Summer | "can't be countered" (self and/or granted) + Ward-grant |
-| Cast-as-though-flash | Valley Floodcaller, Borne Upon a Wind | Temporary flash grant to a spell class |
-| Redirect a stack object | Deflecting Swat, Flare of Duplication (Chain of Vapor shares the shape but is parked — see below) | "Choose new targets for target spell/ability" already on the stack |
-| Excess-damage payoff | Contest of Claws, Hell to Pay | A derived "damage beyond lethal" metric feeding discover/Treasure |
+| Lever | Carriers | Shape | Real scope (checked post-write, see note) |
+|---|---|---|---|
+| Counter-proofing | Vexing Shusher, Hexing Squelcher, Veil of Summer | "can't be countered" (self and/or granted) + Ward-grant | **Bigger than it looks.** Checked live: EVERY clause on all three cards fails to parse at all (not even a partial atom) — "can't be countered" needs enforcement at the actual counterspell-resolution chokepoint (a spell-level protection, architecturally different from a permanent's static), which doesn't exist today. A real subsystem, not a quick lever. |
+| Cast-as-though-flash | Valley Floodcaller, Borne Upon a Wind | Temporary flash grant to a spell class | **Bigger than it looks.** Checked live: "cast as though it had flash" fails to parse on both cards — this needs a hook into the casting-legality check itself (what's castable and when), not just a resolver-side effect. A real subsystem, not a quick lever. |
+| Redirect a stack object | Deflecting Swat, Flare of Duplication (Chain of Vapor shares the shape but is parked — see below) | "Choose new targets for target spell/ability" already on the stack | Not re-checked live tonight — treat the "buildable" read as unverified until someone opens the file, per the lesson two rows up. |
+| Excess-damage payoff | Contest of Claws, Hell to Pay | A derived "damage beyond lethal" metric feeding discover/Treasure | Not re-checked live tonight — same caveat. |
+
+**Lesson learned live tonight, banked here so it isn't relearned the hard way twice:** grouping by
+shared THEME (what the ledger did above) is not the same as grouping by shared FIX SIZE. Spot-checking
+the first two levers' actual parse state (`parseEffectClause` on every clause) found BOTH were real,
+unbuilt subsystems requiring resolver/legality-level plumbing, not the narrow parser extension Gamble
+turned out to be — the "likely quick" / grouped-lever framing in the first draft of this doc
+overpromised. Don't trust a grouping or a mechanism-bucket label as a size estimate; check the actual
+parse before scoping a build. The Mondrak row below got the same live-check treatment and came back
+with a MUCH more precise answer as a result.
 
 ## BUILD
 
@@ -32,10 +41,15 @@ Grouped where a lever covers more than one card; otherwise one row each.
 - **Vexing Shusher, Hexing Squelcher, Veil of Summer** — counter-proofing (self + grant).
 - **Valley Floodcaller, Borne Upon a Wind** — cast-as-flash grant.
 - **Deflecting Swat, Flare of Duplication** — redirect-target-of-a-stack-object.
-- **Mondrak, Glory Dominus** — token-doubler registration; doublers are an established, tracked class
-  (`doublerProfile`/`isPureDoubler` per `runtime-fingerprint.mjs`'s own header) — likely quick, a
-  registration more than new architecture. Directly serves the slice manifest's token-copies lever
-  (215 cards corpus-wide).
+- **Mondrak, Glory Dominus** — **precisely scoped tonight, not built.** The token-doubler clause is
+  ALREADY correctly recognized — `doublerProfile`'s own header names Mondrak by name as a covered
+  example, and `coverage.js`'s `doublerCardTier` already runs it. The card stays body-only for a
+  DIFFERENT, already-documented reason: `coverage.js:2082`'s own comment names "an unmodeled
+  activated on Mondrak" as the residue. That activated ability — "{1}{W/P}{W/P}, Sacrifice two
+  other artifacts and/or creatures: Put an indestructible counter on Mondrak" — combines a
+  Phyrexian-mana cost with a type-UNION multi-sacrifice cost ("artifacts and/or creatures", not one
+  fixed type); neither piece was checked live tonight, so treat this as scoped-not-verified-buildable.
+  A real next slice, now with a precise target instead of a vague "registration" guess.
 - **Ragavan, Nimble Pilferer** — combat-damage impulse-exile + Dash; both pieces look individually
   common elsewhere in the corpus — likely quick.
 - **Tervigon** — Ravenous is already modeled (`isRavenous`/`entersWithXCounters`); the gap is only
