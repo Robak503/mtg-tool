@@ -72,16 +72,14 @@ Grouped where a lever covers more than one card; otherwise one row each.
 
 ## INTERACTION (Phase 2, greenlit — tutors / counterspells / wheels)
 
-- **Gamble** — tutor + random-discard composition. **Diagnosed in full tonight, not built.** Both
-  sub-clauses (tutor-to-hand, discard-at-random) parse HIGH-confidence individually
-  (`parseEffectClause` on each in isolation returns a clean single atom); the combined sentence
-  parses as one unrecognized run-on — `splitClauses` doesn't split it, and `tutorClauseParser`'s
-  regex is end-anchored on "...into your hand, then shuffle," which the interposed discard clause
-  breaks. The actual fix lives inside `atoms/library.js` / `parser.js` — the single most sensitive
-  file in the codebase, where a change needs a whole-corpus `program-fingerprint` diff, not just a
-  tier diff, to rule out a silent false-positive elsewhere. Deliberately not attempted at this hour
-  without that full verification harness carefully re-checked; queued as a clean, well-specified
-  next slice — the hard diagnostic work is already done.
+- **Gamble — BUILT tonight (`c98bd172`).** Diagnosed the composition gap (both sub-clauses parse
+  HIGH individually; the combined sentence failed because `splitClauses` kept it whole and the
+  tutor matchers are end-anchored past the interposed discard clause), then fixed it: a narrow
+  `splitClauses` rule excises the interposed "discard a card at random" and reattaches "then
+  shuffle" to the tutor half, so each half takes its own already-modeled path unmodified. Verified
+  with a whole-corpus `program-fingerprint` diff (34,245 cards, exactly one line changed) — the
+  full rigor this file demands, not skipped. Flip-diff GAINED=1/LOST=0; corpus 11459→11460; the cdh
+  (Rograkh/Thrasios) deck 80%→81%. Pinned in `splitClauses.test.js`.
 - **Vibrance, Sowing Mycospawn** — tutor-shaped (auto-tagged by the slice manifest's pattern match;
   not independently re-verified against oracle text tonight — re-check before building).
 - **Pact of Negation, Mana Drain** — counterspell-shaped (auto-tagged; same caveat).
