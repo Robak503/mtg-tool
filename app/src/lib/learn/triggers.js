@@ -1162,6 +1162,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // — a restriction the engine can't check exactly, CLAUDE.md §1.2). "another" excludes the source permanent.
   const sacM = c.match(/^you sacrifice (a|an|another) (permanent|creature|artifact)$/);
   if (sacM) return { event: "sacrifice", scope: "you", whose: "any", sacScope: sacM[2], sacAnother: sacM[1] === "another" };
+  // TRIG-SACRIFICE ANY-PLAYER (Mayhem Devil, Carmen/Mazirek/Zodiark/Thraximundar/Mortician Beetle/Fumulus/
+  // Merchant of Venom — 8 real corpus carriers) — "Whenever A PLAYER sacrifices a <X>", as opposed to "you
+  // sacrifice" above: this fires off ANY player's sacrifice, including the watcher's own controller's (the
+  // subject is a generic player, not "you"). scope:"anyPlayerSac" is a distinct value from "you" so
+  // checkSacrificeTriggers can scan every player's battlefield for it (mirrors the dies-trigger cross-player
+  // scan at checkDiesTriggers), not just the sacrificer's own side. Optional "nontoken" filter (Fumulus,
+  // "sacrifices a nontoken creature") — checked in sacScopeMatches alongside the existing type predicate.
+  const sacAnyM = c.match(/^a player sacrifices (a|an|another) (nontoken )?(permanent|creature|artifact)$/);
+  if (sacAnyM) {
+    return {
+      event: "sacrifice", scope: "anyPlayerSac", whose: "any",
+      sacScope: sacAnyM[3], sacAnother: sacAnyM[1] === "another", nontokenFilter: !!sacAnyM[2],
+    };
+  }
   // TRIG-SELF-SACRIFICE (BLITZ OC-1, the Ordeal cycle) — "When YOU SACRIFICE THIS Aura/enchantment,
   // <payoff>". A zone-change trigger that LOOKS BACK IN TIME (CR 603.10a — abilities that trigger when a
   // player sacrifices a permanent), on the sacrificed permanent ITSELF: by the time it fires the source has
@@ -4950,6 +4964,10 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
  */
 function sacScopeMatches(d, watcher, sacrificed) {
   if (d.sacAnother && sacrificed.id === watcher.id) return false;
+  // NONTOKEN filter (Fumulus, the Infestation — "a player sacrifices a NONTOKEN creature"): a sacrificed
+  // TOKEN never satisfies this descriptor (CR 111.1 — a token is still the stated card type, so it isn't
+  // the type check that excludes it, just the printed "nontoken" restriction itself).
+  if (d.nontokenFilter && sacrificed.card?.token) return false;
   // SUBTYPE sac scope (Captain Lannery Storm "sacrifice a Treasure") — the sac'd permanent's TYPE LINE must
   // carry the subtype word-bounded (CR 205.3 — subtypes follow the "—"; a substring check would mis-match,
   // e.g. "Treasure" within a longer word). A Treasure token's type line is "Token Artifact — Treasure", so
@@ -4969,13 +4987,16 @@ function sacScopeMatches(d, watcher, sacrificed) {
 
 /**
  * TRIG-SACRIFICE — enqueue "Whenever you sacrifice a <permanent|creature|artifact>" triggers for the player
- * who just sacrificed. Fired at each sacrifice chokepoint (the effect/edict sac + the cost sac), AFTER the
- * permanent has moved to the graveyard, with the captured permanent passed as `sacrificed` (a lookBack so
- * its type is readable post-move). Scans the SACRIFICING player's surviving watchers — the common case is a
- * separate watcher ("Whenever you sacrifice another permanent, …" on a DIFFERENT permanent); a permanent's
- * trigger on its OWN sacrifice is a SAFE false-negative (it already left → not a watcher). Each watcher's
- * sacScope is matched EXACTLY against the sacrificed permanent's type (so creature-scope never fires on an
- * artifact sac, and vice-versa). whose:"any" is moot (only the sacrificer's sources are scanned). Pure.
+ * who just sacrificed, PLUS "Whenever A PLAYER sacrifices a <X>" (Mayhem Devil et al., scope:"anyPlayerSac")
+ * for every player's watchers regardless of who did the sacrificing. Fired at each sacrifice chokepoint (the
+ * effect/edict sac + the cost sac), AFTER the permanent has moved to the graveyard, with the captured
+ * permanent passed as `sacrificed` (a lookBack so its type is readable post-move). The "you"-scope half scans
+ * only the SACRIFICING player's surviving watchers — the common case is a separate watcher ("Whenever you
+ * sacrifice another permanent, …" on a DIFFERENT permanent); a permanent's trigger on its OWN sacrifice is a
+ * SAFE false-negative (it already left → not a watcher, true for both scopes). Each watcher's sacScope is
+ * matched EXACTLY against the sacrificed permanent's type (so creature-scope never fires on an artifact sac,
+ * and vice-versa). whose:"any" is moot for both scopes (player-scope is carried on `scope` itself here, not
+ * `whose`). Pure.
  */
 export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   if (!sacrificed?.card || !state.players?.[sacrificingPlayerId]) return state;
@@ -4987,12 +5008,24 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   const sacIsToken = !!sacrificed.card?.token;
   let fired = [];
   for (const watcher of triggerSourcesOf(state, sacrificingPlayerId)) {
-    for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice")) {
+    for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice" && x.scope !== "anyPlayerSac")) {
       if (!sacScopeMatches(d, watcher, sacrificed)) continue;
       fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
     }
     if (sacIsToken) {
       for (const d of detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onSacrifice)) {
+        fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
+      }
+    }
+  }
+  // ANY-PLAYER SAC WATCHERS (Mayhem Devil et al.) — scanned across EVERY player's battlefield, mirroring
+  // checkDiesTriggers' cross-player scan: the ability cares WHO sacrificed, not who controls the watcher, so
+  // it must also fire for a watcher the sacrificing player DOESN'T control. sacScopeMatches' "another" check
+  // (sacrificed.id === watcher.id) still correctly excludes a permanent seeing its own sacrifice.
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice" && x.scope === "anyPlayerSac")) {
+        if (!sacScopeMatches(d, watcher, sacrificed)) continue;
         fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
       }
     }
