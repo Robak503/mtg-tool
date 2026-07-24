@@ -2064,9 +2064,9 @@ export function ScrySurveilPanel({ decision, onChoose }) {
   const key = cards.map((c) => c.id).join("|");
   // Reset the keep-list to "keep all" when a NEW scry surfaces (keyed on the card ids), mirroring
   // the tutor panel's reset-on-candidate-change. `cards` is stable per scry, so the key is enough.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setKept(cards.map((c) => c.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   const byId = (id) => cards.find((c) => c.id === id);
