@@ -1,7 +1,28 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + THREE real flips + shelf 1→16 — suite 810/10,562
+## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + FOUR real flips + shelf 1→16 — suite 810/10,571
 
+> **LATE ADDENDUM 5 — fourth real flip, the Lieutenant cycle's triggered half (+3, `71ba3a66`).** "At
+> the beginning of combat on your turn, if you control your commander" had a double gap: the
+> "Lieutenant —" ability-word label wasn't in the strip list (so the trigger regex never saw the bare
+> sentence), and "you control your commander" itself was flat missing from interveningIf.js's
+> vocabulary — a genuine, previously-undiscovered condition, not a listed Arbiter exception. Full-corpus
+> grep found 16 real carriers of the underlying condition (not just the named Lieutenant cards); 7 use
+> this TRIGGERED form, 3 flip clean (Loyal Drake/Guardian/Subordinate), 4 stay body-only on separate
+> unrelated residue each. The other 9 carriers use a DIFFERENT mechanism (a continuous "as long as…"
+> static buff — Thunderfoot Baloth + 6 more, plus Convergence of Dominion) needing the same fix in a
+> different parser (staticAbilityParser.js) — scoped, not built this slice.
+>
+> **Third bug in a row tonight caught by a test before commit, not after — worth naming as a pattern:**
+> Karn's-eyes invented a field name the whitelist reconstruction silently dropped; Mayhem Devil's
+> nontoken filter hit the identical class of bug; this one read `permanent.isCommander` instead of
+> `permanent.card.isCommander` (the field rides the card everywhere else in the codebase). All three
+> would have shipped invisibly — the classification-level tier-fingerprint doesn't see any of them
+> (a wrong-but-defined field, or a runtime-only miswiring, still produces A definite answer on the
+> probe board, so the coverage metric can't tell the difference). Only the DEDICATED runtime/behavior
+> test caught each one. The lesson banked plainly: a tier flip is necessary evidence, never sufficient
+> — write the test that actually exercises the new code path, every time, not just the census diff.
+>
 > **LATE ADDENDUM 4 — back to corpus after the roadmap-queue pass: third real flip tonight, any-player
 > sacrifice triggers (+4, `e68a3df3`).** "Whenever A PLAYER sacrifices a permanent/creature" (Mayhem
 > Devil, Mazirek Kraul Death Priest, Merchant of Venom, Mortician Beetle) had zero support —

@@ -69,7 +69,17 @@ Grouped where a lever covers more than one card; otherwise one row each.
   tonight as a MUST_NOT_OVER-CLAIM pin exemplar in `triggerTierPins.test.js` — same reason it's
   genuinely hard (the comparison condition needs "greatest power among all creatures," dynamically,
   per entry event).
-- **Thunderfoot Baloth** — "Lieutenant" ability word (commander-conditional static buff class).
+- **Thunderfoot Baloth** — **re-scoped 2026-07-24, half BUILT (`71ba3a66`).** "Lieutenant" is a pure CR
+  207.2c flavor label (now stripped) over TWO different mechanisms in this one cycle: a TRIGGERED
+  "at the beginning of combat, if you control your commander" form (7 cards — BUILT, 3 flip: Loyal
+  Drake/Guardian/Subordinate; the other 4 have separate unrelated residue) and a CONTINUOUS "as long
+  as you control your commander, <static buff>" form (Thunderfoot Baloth + Demon of Wailing Agonies,
+  Angelic Field Marshal, Tyrant's Familiar, Stormsurge Kraken, Skyhunter Strike Force, Convergence of
+  Dominion — 7 cards, NOT built). Both needed the SAME missing piece — "commander" is a game-state
+  designation, not a card type, so the generic "you control <type>" filter correctly rejects it
+  (NON_TYPE_WORDS) — but each lives in a DIFFERENT parser (interveningIf.js for the trigger form,
+  now fixed; staticAbilityParser.js's GATED-SELFBUFF family for the continuous form, still needs its
+  own equivalent "commander" special-case). Real, precisely scoped next slice.
 - **Kellogg, Dangerous Mind** — sacrifice-N-of-a-kind → temporary control-change, duration tied to
   the source staying in play.
 - **Agent of the Iron Throne** — group-grant scoped specifically to "Commander creatures you own."
@@ -80,8 +90,20 @@ Grouped where a lever covers more than one card; otherwise one row each.
 - **The Cabbage Merchant** — opponent-cast trigger + reactive sacrifice-on-damage-taken + a
   multi-permanent-tap mana ability — three real pieces.
 - **Mindbreak Trap** — count-this-turn-gated free-cast + variable-target-count exile.
-- **For the Ancestors** — flashback already modeled (a runtime capability per the 07-17 census);
-  gap is the type-filtered multi-reveal impulse-dig.
+- **For the Ancestors** — **re-scoped 2026-07-24 (Cindy), not built.** flashback already modeled;
+  the dig itself is CLOSE but not free: `applyImpulseDigAtom`/`applyLookTopTakeAtom` already support
+  a `filter.chosenTypeOfSource` branch (Herald's Horn precedent — ANDs a base filter with the source
+  permanent's stored `chosenType`) and `applyRevealPutFiltered` already does "reveal top N, take
+  EVERY matching card, bottom the rest in random order" — but for the BATTLEFIELD, via
+  `enterCardFromZone`, not hand. **Real remaining gap:** a hand-destination sibling of
+  `applyRevealPutFiltered` (swap the battlefield "enter" for a hand move) — a plausible small
+  extension, not verified end-to-end tonight. **Icon of Ancestry** shares the "chosen type + random
+  order" phrasing (found via the same full-corpus grep habit that found Mayhem Devil's siblings) but
+  is a DIFFERENT shape — "reveal AT MOST ONE creature card of the chosen type" (singular, an
+  activated ability) vs. For the Ancestors' "any number" (plural, a spell) — closer to
+  `applyImpulseDigAtom`'s existing multi-candidate choice than the battlefield atom's "take-all"
+  resolution. Two related but genuinely different builds, not one lever; parked for a session with
+  room to verify both against the real atom code rather than reasoning from comments alone.
 - **Mayhem Devil** — any-player (not just self) sacrifice-triggered ping.
 - **Unbound Flourishing** — an X-value doubler variant (distinct from counter/mana doublers) + a
   copy-a-spell/ability-with-X trigger.
