@@ -113,7 +113,6 @@ Grouped where a lever covers more than one card; otherwise one row each.
   `applyImpulseDigAtom`'s existing multi-candidate choice than the battlefield atom's "take-all"
   resolution. Two related but genuinely different builds, not one lever; parked for a session with
   room to verify both against the real atom code rather than reasoning from comments alone.
-- **Mayhem Devil** — any-player (not just self) sacrifice-triggered ping.
 - **Unbound Flourishing** — an X-value doubler variant (distinct from counter/mana doublers) + a
   copy-a-spell/ability-with-X trigger.
 - **Nev, the Practical Dean** — counters-present-gated group grant + once-per-turn X-tracking
@@ -144,12 +143,20 @@ Grouped where a lever covers more than one card; otherwise one row each.
   with a whole-corpus `program-fingerprint` diff (34,245 cards, exactly one line changed) — the
   full rigor this file demands, not skipped. Flip-diff GAINED=1/LOST=0; corpus 11459→11460; the cdh
   (Rograkh/Thrasios) deck 80%→81%. Pinned in `splitClauses.test.js`.
-- **Vibrance, Sowing Mycospawn** — tutor-shaped (auto-tagged by the slice manifest's pattern match;
-  not independently re-verified against oracle text tonight — re-check before building).
-- **Pact of Negation, Mana Drain** — counterspell-shaped (auto-tagged; same caveat).
-- **Land Tax** — conditional-upkeep multi-basic-fetch-to-hand; tutor-adjacent in spirit but the
-  manifest's pattern match didn't catch it (the phrasing isn't "search your library for a/an ...
-  card"). Same family, worth building alongside the tagged tutors.
+- **Land Tax — ALREADY FLIPPED**, no action needed. Caught by RAMP-MULTI-TO-HAND (`60a8618c`,
+  same night) — it's literally the pin card in `rampMultiToHand.test.js`. This ledger entry
+  predates that build; leaving the correction here so nobody re-chases it.
+- **Vibrance, Sowing Mycospawn — re-checked 2026-07-24 (Cindy), NOT the quick tutor-reuse the
+  auto-tag implied.** Vibrance's gap is a "which color pips were SPENT to cast it" condition (mana
+  actually paid, not mana available) — a different tracking axis than anything tutor-shaped.
+  Sowing Mycospawn's is a "When you CAST this spell" trigger (fires pre-resolution, a distinct
+  timing from ETB) plus a kicked-conditional second effect. Both real, both separate small builds,
+  neither is "the same tutor matcher, just re-run it."
+- **Pact of Negation, Mana Drain — re-checked 2026-07-24 (Cindy), NOT quick either.** Both already
+  classify `arbiter-spell` (a real, working, INTENTIONAL Arbiter route, not an undetected gap) — the
+  base "counter target spell" half is fine; what's missing is a genuinely new mechanism: a
+  RESOLVING SPELL setting up its own delayed trigger ("at the beginning of your next upkeep/main
+  phase, <effect>"). That's an engine capability, not a parser regex — sizable, not a slice.
 
 ## PARK-CANDIDATE (genuinely bespoke, or a whole new subsystem — not a quick slice)
 
