@@ -1132,6 +1132,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     const event = /end step/.test(c) ? "endStep" : /draw step/.test(c) ? "draw" : "upkeep";
     return { event, scope: "you", whose };
   }
+  // (The "beginning of your first main phase" timing is owned by the REGISTERED detector —
+  // triggerScheduler.detectPhaseTrigger → event "firstMain", fired at gameEngine's precombat-main entry.
+  // It is deliberately NOT duplicated here: classifyCondition has priority over the registry, so an
+  // inline copy would shadow the canonical event name. Lesson re-learned 2026-07-24: grep for the
+  // existing mechanism before adding a timing.)
   // TRIG-LIFEGAIN — the lifegain event (CR 119.3, a player gaining life). BARE "you gain life" only,
   // anchored: a conditional ("…for the first time each turn") or compound ("…gain or lose life") leaves
   // residue and stays UNDETECTED → Arbiter (a SAFE false-negative). whose:"any" NOT "yours" — life gain
@@ -2331,6 +2336,16 @@ export function registerTriggerDetector(fn) {
 // Cascade keyword bumps), so if EITHER half's event is unmodeled the detected count under-runs shaped → the whole
 // card routes to the Arbiter (a SAFE false-negative) — an unmodeled half is NEVER silently dropped (the cardinal FP).
 const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)?\\s+(.+?),\\s+(.+?\\.)";
+// "When A and AT THE BEGINNING OF B, E" (Crack in Time / Mystic Barrier / Noble Heritage — 53 corpus
+// carriers, most of them Planechase planes outside the real-card denominator): the SAME two-abilities-
+// sharing-one-effect shape as the "and when(ever)" connective above, with a phase/step timing as the
+// second trigger. Split to "When A, E\nAt B, E" so each half detects independently — CRITICAL, because
+// before this split existed the unsplit compound leaked through the UNANCHORED `\benters\b` self-ETB
+// containment check as a bare etb descriptor: the card CLASSIFIED native on the ETB half alone while the
+// runtime silently never fired the recurring half (a live CREED FP, masked on Crack in Time by the
+// vanishing-reminder phantom until 2026-07-24). Same safety contract as every split here: coverage bumps
+// shaped by compoundTriggerCount, so an unmodeled half under-runs detected → the whole card parks (FN-safe).
+const COMPOUND_AT_BEGINNING_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+at\\s+(the\\s+beginning\\s+of\\s+[^,\\n]+?),\\s+(.+?\\.)";
 // ===== EVENT-DISJUNCTION SPLIT (SHELF C1 — "enters or attacks", CR 603.2b: an ability can trigger on
 // either of two events) ===== "When[ever] <subject> enters[ the battlefield] or attacks, <effect…>" →
 // TWO sentences, one per event, each carrying the WHOLE same-line effect (riders/follow-up sentences
@@ -2393,6 +2408,7 @@ function splitCompoundTriggerSentences(oracle) {
   const { masked, restore } = maskQuotedSpans(oracle);
   return restore(masked
     .replace(new RegExp(COMPOUND_TRIGGER_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nWhenever ${condB}, ${eff}`)
+    .replace(new RegExp(COMPOUND_AT_BEGINNING_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nAt ${condB}, ${eff}`)
     .replace(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi"), (m, _kw, subj, eff) =>
       /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`)
     .replace(new RegExp(DISJUNCTION_DIES_SRC, "gi"), (_m, _kw, subj, eff) =>
@@ -2414,7 +2430,8 @@ export function compoundTriggerCount(oracle) {
   // inside a quoted grant is neither split nor detected, so it must not be counted either (else the
   // shaped===detected reconciliation would park every granter of a quoted compound body).
   const s = maskQuotedSpans(String(oracle || "")).masked;
-  const andJoins = (s.match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length;
+  const andJoins = (s.match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length
+    + (s.match(new RegExp(COMPOUND_AT_BEGINNING_SRC, "gi")) || []).length;
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
   const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
@@ -2444,8 +2461,11 @@ export function detectTriggers(card) {
   // itself is engine-enforced (fading.applyFadeVanishUpkeep) and keyword-credited. Strip EXACTLY that
   // reminder shape before detection; every other reminder is left as-is (Ravenous deliberately keys on its
   // reminder signature — see the KW-RAVENOUS synthesis).
+  // Subject alternation covers every wording the corpus actually prints (censused 2026-07-24: creature 23 ·
+  // enchantment 8 · artifact 2 · aura 1 · land 1 — "this enchantment" was MISSING, so every vanishing
+  // ENCHANTMENT's reminder leaked through as a phantom unroutable upkeep descriptor, parking Four Knocks).
   const oracle = splitCompoundTriggerSentences(stripTriggerAbilityLabel(
-    String(oracleOf(card) || "").replace(/\((?:this (?:creature|permanent) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, ""),
+    String(oracleOf(card) || "").replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, ""),
   ));
   const out = [];
   if (oracle) {
