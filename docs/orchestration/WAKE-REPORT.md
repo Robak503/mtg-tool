@@ -21,8 +21,10 @@
 > **Full fresh per-deck census, 16 real decks:** Slivers 99%, Omnath 94%, Vihaan 93%, Zaxara 93%,
 > Mothman 90% (88/98), cdh 81%, Earth Bent 79%, Did you say Dragons? 76%, Kinnan 75%, Believe it!
 > 73%, Jurassic Ramp 72%, Kellan/Captain America/Wolverine/Hulk Smash all 69%, Halfshell heroes 55%.
-> **Aggregate: 78% native, 1,253/1,597 slots.** Only Koma remains unloaded (its registered Archidekt
-> id still 404s — needs a fresh link from Colton) plus Veyran (no ID, scoping-only per the registry).
+> **Aggregate: 78% native, 1,253/1,597 slots.** **UPDATE (Colton, live): Koma is retired — "no longer
+> a deck i tore it down."** The 404 wasn't a stale link, it was the deck being gone; shelf is
+> genuinely 5 Colton decks (not 6) + Joe's 11 now. Historical decklist kept memory-side
+> (`deck_koma_retired.md`). Veyran still has no ID (scoping-only per the registry).
 > No code changed this pass — pure data operations through the running server's own API, backed up
 > before every save (`decks.local.*.reimport-*.json` under the profile's `backups/`).
 
@@ -73,9 +75,11 @@
 > data-loading gap. **Aggregate per-deck coverage: 92% (458/499 slots)** — Slivers 99% (98/99, deck
 > is honestly 99 cards on Archidekt — 2 real token-tracking entries excluded, not a missing spell;
 > matches the established Mothman-98-card precedent, not silently patched), Omnath 94%, Vihaan 93%,
-> Zaxara 93%, "cdh" (Rograkh/Thrasios) 80% (→81% after tonight's Gamble flip, below). **Open:** Koma's registered Archidekt id (18157040) 404s
-> — stale, needs a fresh link from Colton; Joe's 11 Moxfield decks not yet reimported tonight (time
-> budget + Moxfield-specific fetch quirks — clean next session's first move); no grind history exists
+> Zaxara 93%, "cdh" (Rograkh/Thrasios) 80% (→81% after tonight's Gamble flip, below). **Open (at the
+> time):** Koma's registered Archidekt id (18157040) 404s — later resolved live: Colton confirmed the
+> deck is retired, not a stale link (see the shelf-census addendum below); Joe's 11 Moxfield decks
+> not yet reimported at this point (time budget + Moxfield-specific fetch quirks — done later
+> tonight, see below); no grind history exists
 > on this box yet, so the "newest spell-unresolved ranking" and "trigger-label residue" Phase-0 items
 > are genuinely N/A until Phase 1 generates the first data here.
 >
@@ -126,14 +130,15 @@
 > **Gate:** full suite **809 files / 10,551 green** at commit `cb23861f`, lint 0 (no code landed after
 > the Gamble flip — the rest of the night was diagnostic + data work, deliberately: two self-
 > corrected mistakes on the same static-ability code area was the "change approach" signal, and deck
-> reimport was the safe, different, still-valuable pivot). **Shelf census is DONE** (16/17ish decks,
-> only Koma missing on a dead link) — that's real Phase 1 targeting data for the next session, not
-> just a to-do. **NEXT:** three precisely-scoped build candidates ready to open properly (Hexing
-> Squelcher's Ward-grant, Vexing Shusher's activated grant, Mondrak's activated ability) — each
-> needs real build time, not another spot-check. Otherwise: real subsystem work off the manifest
-> (tutors/counterspells/wheels, Phase 2 GREENLIT) rather than the DFC/transform framing, now backed
-> by a full 16-deck coverage picture to prioritize against. Koma's dead Archidekt link needs a fresh
-> one from Colton. Session wound down here by choice — the safe, gate-verifiable slices are exhausted
+> reimport was the safe, different, still-valuable pivot). **Shelf census is DONE — genuinely
+> complete**, not just "16/17ish": Koma's dead link turned out to mean the deck is retired (Colton,
+> live: "no longer a deck i tore it down"), so 16 real decks IS the whole active shelf (5 Colton + 11
+> Joe), no gap remaining there. **NEXT:** three precisely-scoped build candidates ready to open
+> properly (Hexing Squelcher's Ward-grant, Vexing Shusher's activated grant, Mondrak's activated
+> ability) — each needs real build time, not another spot-check. Otherwise: real subsystem work off
+> the manifest (tutors/counterspells/wheels, Phase 2 GREENLIT) rather than the DFC/transform framing,
+> now backed by a full 16-deck coverage picture to prioritize against. Session wound down here by
+> choice — the safe, gate-verifiable slices are exhausted
 > for tonight, not the work.
 
 ## 🃏 2026-07-23 — v0.149.0 SHIPPED: the game lets you MULLIGAN (+ academy fixes + B3 cold-start) — suite 10,514
