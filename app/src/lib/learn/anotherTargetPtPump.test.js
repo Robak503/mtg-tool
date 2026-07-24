@@ -104,9 +104,14 @@ describe("ANOTHER-PT-PUMP — native classification (real Scryfall oracle)", () 
     expect(isNativeTier(classifyCard({ name: "Hovel Hurler", type: "Creature — Giant Warrior", mana: "{3}{R/W}",
       oracle: "This creature enters with two -1/-1 counters on it.\n{R/W}{R/W}, Remove a counter from this creature: Another target creature you control gets +1/+0 and gains flying until end of turn. Activate only as a sorcery." }))).toBe(false);
   });
-  it("Yotian Frontliner (Unearth rider) stays body-only", () => {
+  it("Yotian Frontliner FLIPS native once Unearth is credited (zone-option family, 2026-07-24)", () => {
+    // NOTE: this pin originally asserted body-only with Unearth as the blocker. Unearth is now a
+    // credited GY zone-option (coverage.js reGyZoneOptionCost — the flashback/transmute rationale:
+    // an option the engine never offers; the hard-cast body plays as printed), so the attack-pump —
+    // already modeled by this file's own slice — is the whole remaining card. Positive pin lives in
+    // zoneOptionKeywords.test.js; this one keeps the original card as the composed proof.
     expect(isNativeTier(classifyCard({ name: "Yotian Frontliner", type: "Artifact Creature — Soldier", mana: "{1}",
-      oracle: "Whenever this creature attacks, another target creature you control gets +1/+1 until end of turn.\nUnearth {W} ({W}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)" }))).toBe(false);
+      oracle: "Whenever this creature attacks, another target creature you control gets +1/+1 until end of turn.\nUnearth {W} ({W}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)" }))).toBe(true);
   });
 });
 

@@ -296,6 +296,12 @@ export function isKeywordOnly(oracle, name) {
     rePrototypeCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
+    // ZONE-OPTION / OPTIONAL-COST family (census slice 2026-07-24 — see the block comment above the consts)
+    reGyZoneOptionCost.test(c) ||
+    reDredgeCost.test(c) ||
+    reOptionalAddlCost.test(c) ||
+    reImproviseBare.test(c) ||
+    reTypecyclingCost.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
     // name was already normalized to "this creature" above). ENFORCED in opponentAI.pickAttackPlan (the
     // creature is force-declared as an attacker when able), so it's a modeled static, not residue.
@@ -397,6 +403,40 @@ const reMadnessCost = /^madness (?:\{[^}]+\})+$/;
 // never takes — so recognizing the line is CREED-safe (the ninjutsu/morph rationale). Anchored on the "{cost} —
 // X/Y" shape so it can only match a true prototype line.
 const rePrototypeCost = /^prototype (?:\{[^}]+\})+ [—–-] \d+\/\d+$/;
+
+// ===== ZONE-OPTION / OPTIONAL-COST KEYWORD FAMILY (census slice, 2026-07-24) ==========================
+// Ten keywords from the residue census's top clusters, every one credited on the SAME blessed test the
+// ninjutsu/morph/madness/flashback/transmute precedents shipped with: the keyword's entire text is an
+// OPTIONAL entry, payment, or zone-option with NO engine lane, and a normal hard-cast resolves the card
+// byte-identically to its printed self — the unmodeled part is an option the player loses (a safe FN),
+// never a mis-resolution (the forbidden FP). The caller still validates every OTHER clause all-or-nothing,
+// so a carrier whose second ability is unmodeled stays body-only regardless of these credits.
+//
+// GY/hand ZONE-OPTIONS (the flashback/transmute rationale — an ability usable only from a non-battlefield
+// zone the engine never offers; on the battlefield the line is inert):
+//   evoke (CR 702.74 — alt cost whose sac-on-ETB applies ONLY to an evoked cast; hard-cast = normal body)
+//   unearth (702.84 — GY-activated one-shot return; census #1 sole-blocker at 18)
+//   disturb (702.146 — cast transformed from GY) · embalm (702.128) / eternalize-style token casts are
+//   NOT included (eternalize uncensused — add only with its own audit) · scavenge (702.96 — GY-activated
+//   counters) · mayhem (discarded-this-turn GY cast window)
+const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|scavenge|mayhem) (?:\{[^}]+\})+$/;
+// dredge N (CR 702.52) — a REPLACEMENT OPTION on draws while in the GY ("instead of drawing, return this
+// and mill N"). Never offered → every draw stays a normal draw, resolution faithful. Digit tail, not brace.
+const reDredgeCost = /^dredge \d+$/;
+// OPTIONAL ADDITIONAL COSTS at cast (CR 702.33 kicker / 702.174 offspring): unpaid = the printed base mode,
+// which IS a complete, real game mode (an unkicked Skizzik is exactly what the card says it is). The engine
+// never pays them → base mode always → faithful. A body clause conditioned on kicked-ness ("if it was
+// kicked") is a SEPARATE clause judged on its own gate — crediting the cost line cannot force-flip those.
+const reOptionalAddlCost = /^(?:kicker|multikicker|offspring) (?:\{[^}]+\})+$/;
+// IMPROVISE (CR 702.126) — convoke's artifact twin, pure cost-reduction (tap artifacts to help pay).
+// The spell-side strip already ships convoke/affinity on exactly this basis (parseHelpers
+// COST_ONLY_KEYWORD_LINE); this is the permanent-side mirror for artifact creatures (Fen Hauler).
+const reImproviseBare = /^improvise$/;
+// TYPECYCLING (CR 702.29e-f — plains/island/swamp/mountain/forest/land/basic-landcycling + the tribal
+// slivercycling/wizardcycling): the same hand-only discard-activated option as cycling (already credited
+// above), tutoring the named type instead of drawing. Never offered → the card in hand plays as printed.
+// Curated alternation, brace-cost tail — a typecycling-cost-reducer static never matches.
+const reTypecyclingCost = /^(?:plains|island|swamp|mountain|forest|land|basic land|sliver|wizard)cycling (?:\{[^}]+\})+$/;
 
 // KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
 // isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),

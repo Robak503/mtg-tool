@@ -117,13 +117,20 @@ describe("EV-3 classification — the audited flips", () => {
 });
 
 describe("EV-3 CREED — whole-card-or-park (the evasion arm alone can't carry an unmodeled sibling)", () => {
-  it("≥3 carriers with unmodeled siblings park body-only", () => {
+  it("≥3 carriers with unmodeled siblings park body-only; Troll of Khazad-dûm FLIPS once typecycling is credited", () => {
     expect(classifyCard(GUILE)).toBe("body-only");              // counter-replacement + shuffle-back
     expect(classifyCard(CERBERUS)).toBe("body-only");           // graveyard-shroud static + mass-return dies trigger
-    expect(classifyCard(TROLL_KHAZAD)).toBe("body-only");       // swampcycling (typecycling tutor unmodeled)
+    // NOTE (zone-option family, 2026-07-24): swampcycling is now credited (coverage.js
+    // reTypecyclingCost — hand-only option the engine never offers; parseCyclingCost still nulls it
+    // so it can never mis-dispatch as a draw-cycle). The ≥3-blocker evasion arm was already modeled
+    // by this file's slice — typecycling was Troll's sole remaining park reason.
+    expect(classifyCard(TROLL_KHAZAD)).toMatch(/^native/);
     expect(classifyCard(RELENTLESS)).toBe("body-only");         // {8} graveyard recursion
     expect(classifyCard(PHYREXIAN_COLOSSUS)).toBe("body-only"); // no-untap static + pay-life untap
-    expect(classifyCard(HEXMARK)).toBe("body-only");            // ability-word prefix (clause unrecognized) + unearth
+    // Hexmark Destroyer STILL parks — its unearth half is now credited but the ability-word-prefixed
+    // clause remains unrecognized: the whole-card law holding under a mass keyword credit, exactly
+    // the composed negative this describe exists for.
+    expect(classifyCard(HEXMARK)).toBe("body-only");
   });
   it("compound/subtype carriers with unmodeled siblings or subjects park body-only", () => {
     expect(classifyCard(SEEKER)).toBe("body-only");   // aura grant — no aura except-by plumbing exists

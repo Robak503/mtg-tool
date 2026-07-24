@@ -54,9 +54,12 @@ describe("parse + classify", () => {
     expect(classifyCard(BANISHER_PRIEST)).toBe("native-trigger");
     expect(classifyCard(SEAL_AWAY)).toBe("native-trigger");
   });
-  it("CREED — the old two-trigger O-Ring wording and an embalm rider stay parked; up-to-one stays LOW", () => {
+  it("CREED — the old two-trigger O-Ring wording stays parked; up-to-one stays LOW; Angel of Sanctions FLIPS once embalm is credited", () => {
     expect(classifyCard(OBLIVION_RING)).toBe("body-only");        // "return the exiled card" cross-trigger — a different frame
-    expect(classifyCard(ANGEL_OF_SANCTIONS)).toBe("body-only");   // embalm is unmodeled — whole card parks
+    // NOTE (zone-option family, 2026-07-24): embalm is now a credited GY zone-option
+    // (coverage.js reGyZoneOptionCost), so Angel of Sanctions' O-Ring-frame exile trigger — modeled
+    // by THIS file's slice all along — is the whole remaining card. The park reason was embalm alone.
+    expect(classifyCard(ANGEL_OF_SANCTIONS)).toBe("native-trigger");
     expect(parseEffectClause("exile up to one target nonland permanent an opponent controls until this enchantment leaves the battlefield").confidence).toBe("low");
   });
 });
