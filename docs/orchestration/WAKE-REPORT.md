@@ -1,6 +1,70 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + a real flip + shelf 1→16 — suite 809/10,551
+## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + TWO real flips + shelf 1→16 — suite 810/10,554
+
+> **LATE ADDENDUM 2 (Colton, live): "koma is no longer a deck i tore it down."** Retired properly —
+> `deck_koma.md` → `deck_koma_retired.md` (memory-side, mirrors the Meren-retired precedent),
+> `project_colton_deck_shelf.md`/`reference_deck_sources.md`/`MEMORY.md` all corrected. The dead
+> Archidekt link wasn't stale, the deck's just gone. Shelf is genuinely 5 Colton + 11 Joe = 16.
+>
+> **Second real coverage flip: RAMP-MULTI-TO-HAND (+9, `60a8618c`).** "Search your library for up to
+> N &lt;type&gt; cards[, reveal them,] put them into your hand[, then shuffle]" (Land Tax, Yavimaya
+> Elder, Ignite the Beacon, Armillary Sphere, Seek the Horizon, Gaea's Bounty, You Happen On a
+> Glade, Wild-Field Scarecrow, Plea for Guidance, +7 more — 16 real carriers) had zero parser
+> support; only the battlefield-destination sibling existed. Verified the runtime's chain-until-N
+> resolver was already destination-agnostic BEFORE writing anything (hand/battlefield/top all reuse
+> the identical re-suspend loop) — a proven-infrastructure parser extension, not new architecture,
+> found only because a corpus check was run before assuming scope (unlike the very next few
+> candidates, below). Whole-corpus program-fingerprint: 11 changed, all expected, zero collateral.
+> 9 of 16 carriers flip to native; the other 7 have separate residue and correctly stay non-native.
+> Also fixed a stale MUST_DROP_TO_LOW gate entry in parser.test.js (removed with a NOTE per the
+> file's own retirement convention — it was pinning the old unmodeled behavior). Vihaan 93%→94%,
+> corpus 11460→11469, aggregate 78%→79%.
+>
+> **Six more candidates precisely scoped, deliberately not built tonight** — real diagnostic value,
+> clear reasons each stopped short of a ship, banked so a future session doesn't re-derive any of
+> this from scratch:
+> - **Mondrak / Keskit, the Flesh Sculptor** (sacrifice "two other artifacts and/or creatures") —
+>   the codebase's OWN comment already documents this as a deliberate non-build: a count-sacrifice
+>   of a distinguishable (non-fungible) type is a REAL choice the auto-pick can't make faithfully;
+>   needs a genuine new interactive multi-pick-by-filter sacrifice mechanism (tutors have one,
+>   sacrifice doesn't). 2-card lever, real new architecture required.
+> - **Hexing Squelcher's Ward-group-grant** / **Vexing Shusher's activated counter-protection
+>   grant** — both re-scoped correctly this time (the counter-proofing SELF/controller-scope statics
+>   already work, per the earlier entry below): each remaining gap is a genuine 1-card lever
+>   requiring new architecture (a static group-keyword-grant recognizer; a temporary spell-protection
+>   grant tracked through the SAME counter-target-enumeration chokepoint). Not worth the build cost
+>   at 1 card each relative to tonight's other finds.
+> - **Redirect-a-stack-object** (Deflecting Swat, Insidious Will, Redirect, Emissary of Grudges) —
+>   a real 4-card lever, but "choose new targets for target spell/ability already on the stack" has
+>   ZERO existing runtime support anywhere (grepped) — needs a new atom + a new two-stage
+>   interactive choice + stack-object mutation logic. Moderate leverage, substantial new build.
+> - **Cumulative upkeep** (88 corpus cards, only 8 native) — the bare keyword already works
+>   (native-body alone); the 80 non-native cards have DIVERSE, unrelated residue, not one shared
+>   gap. Same "shared label ≠ shared fix" trap as transform/DFC earlier tonight, rediscovered here.
+> - **The "steal top card of an opponent's library" family** (15 cards matching the phrase,
+>   incl. Ragavan, Nimble Pilferer) — turned out to be the SAME trap at a finer grain: reading all
+>   15 cards' full text shows genuinely heterogeneous compositions (permanent vs. this-turn exile
+>   duration, modal wrappers, granted/quoted triggered abilities, conditional sacrifice-to-unlock,
+>   some with NO cast permission at all). Ragavan's own specific shape ("create a Treasure token and
+>   exile...") needs a bespoke new compound matcher + a runtime extension to read `ctx.damagedPlayerId`
+>   (an existing, proven context field other atoms already consume) for the library source while
+>   keeping the exile zone/cast permission on the controller — real, ~1-2 card yield, worse
+>   effort-to-value than tonight's two ships.
+> - **Tervigon's "Spawn Termagants —" label** — `detectTriggers` doesn't even see this trigger at
+>   all; ability-word labels are a deliberate, hand-verified allowlist (NOT a generic strip — the
+>   codebase's own comment: "a blanket strip would mis-normalize hundreds of cards"), and each real
+>   CR ability word needs its own hand-coded trigger-shape handler, not just an allowlist entry.
+>   Tervigon-only (1 card) in the corpus.
+>
+> **Methodology note for whoever picks up the ladder next:** a shared oracle-text PHRASE across
+> cards is a weak signal for a shared FIX — six candidates tonight looked like clean multi-card
+> levers from a `grep` count and turned out to be heterogeneous under the hood once the full text
+> was actually read. Check the real parse state and read full oracle text before estimating a
+> candidate's size; the BLEND ranking (most-played × live grind-breakage) the standing corpus
+> roadmap already calls for is a better prioritization signal than phrase-matching.
+>
+> **Gate:** full suite **810 files / 10,554 green** at commit `60a8618c`, lint 0.
 
 > **LATE ADDENDUM:** after the diagnostic wind-down below, reimported Joe's all 11 Moxfield decks
 > (same verified pipeline as Colton's Archidekt reimport, reference_deck_sources.md's IDs) — a
