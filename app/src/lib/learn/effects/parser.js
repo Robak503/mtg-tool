@@ -32,7 +32,7 @@ import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_
 import { typeOf, isInstantOrSorcery, oracleOf, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST } from "./textNormalize.js"; // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
-import { matchHandDisruption, matchRemovalControllerRider, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
+import { matchHandDisruption, matchRemovalControllerRider, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
 import { matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchWindfallMaxDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
@@ -1221,6 +1221,32 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // sentences, collapsed the same way as the chosen-type draw just above.
   const cthh = matchChosenTypeRevealToHand(oracle);
   if (cthh) return collapsed(cthh);
+  // DELAYED TRIGGER (CR 603.7) — "At the beginning of <next step>, <effect>" / "<effect> at the
+  // beginning of <next step>". CREED GATE: emit the scheduling atom ONLY when the INNER clause
+  // itself parses HIGH — a scheduled ability must never fire an effect the engine can't model, so an
+  // unreadable inner clause leaves the whole card LOW → Arbiter (a safe FN). The inner parse runs on
+  // the same "Instant" lane every trigger payoff uses.
+  const dly = matchDelayedTrigger(oracle);
+  if (dly) {
+    const inner = parseEffectClause(dly.delayedClause, "Instant");
+    if (programConfidence(inner) === "high") {
+      const scheduleAtom = {
+        op: "schedule-delayed", fireStep: dly.fireStep, fireScope: dly.fireScope,
+        delayedClause: dly.delayedClause, targetType: null,
+      };
+      // No leading sentence → the whole clause is the delayed ability.
+      if (!dly.immediateClause) {
+        return makeProgram({ confidence: "high", atoms: [scheduleAtom], xSpell: false, unparsedTail: null });
+      }
+      // Leading sentences resolve NOW, the final one is scheduled: emit [immediate…, schedule].
+      // ALL-OR-NOTHING — an unmodeled immediate half drops the WHOLE program to low (falling through
+      // to the normal pipeline), so a spell can never half-resolve with its delayed half silently lost.
+      const imm = parseEffectClause(dly.immediateClause, "Instant");
+      if (programConfidence(imm) === "high" && imm.atoms.length) {
+        return makeProgram({ confidence: "high", atoms: [...imm.atoms, scheduleAtom], xSpell: false, unparsedTail: null });
+      }
+    }
+  }
   const emb = matchEmblem(oracle);
   if (emb) return collapsed(emb);
   // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== Lifeblood Hydra "you gain life and draw cards equal to its

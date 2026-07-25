@@ -1011,7 +1011,12 @@ const MUST_DROP_TO_LOW = [
   // Pinned HIGH in multiCountTarget.test.js. A trailing rider ("Those creatures can't block") still stays LOW.
   "Tiered (Choose one additional cost.)\n• Thunder — {0} — Thunder Magic deals 2 damage to target creature.\n• Thundara — {3} — Thunder Magic deals 4 damage to target creature.", // bulleted NON-modal (tiers) → not a 2-damage sequence
   "Two target players each draw a card.",                                       // draw, but a DIFFERENT subject draws — not the controller
-  "Target creature gets +2/+0 until end of turn. Draw a card at the beginning of the next turn's upkeep.", // DELAYED draw rider
+  // NOTE (2026-07-25): "Target creature gets +2/+0 until end of turn. Draw a card at the beginning of the
+  // next turn's upkeep." MOVED OUT of this gate — the DELAYED-TRIGGER subsystem (CR 603.7,
+  // atoms/delayedTrigger.js) now models it as [pump NOW, schedule-delayed{draw}]. This entry earned its
+  // keep on the way out: the first draft of that matcher greedily swallowed the pump INTO the delayed
+  // clause (deferring an immediate effect — a resolution-order FP), and THIS pin is what caught it.
+  // Positive pin + the immediate/delayed split: delayedTrigger.test.js.
   "Wither (This deals damage to creatures in the form of -1/-1 counters.)\nGut Punch deals 3 damage to any target.", // wither changes the damage TYPE
   // ── P2.8b (flush-time target chooser) review catch: "at random" is a selection the
   // engine doesn't model. Picking first-legal would be DETERMINISTIC, not random — so a
@@ -1770,6 +1775,10 @@ describe("parseEffectProgram — SELF-SACRIFICE self-referential sacrifice atom"
   });
   it("MUST STAY LOW: forms with riders or conditions (FP-GUARD)", () => {
     lo("sacrifice this creature unless you pay {X}"); // {X} cost — parseFixedManaPips → null → unmodeled
-    lo("sacrifice this creature at the beginning of the next end step"); // deferred trigger
+    // NOTE (2026-07-25): "sacrifice this creature at the beginning of the next end step" moved OUT of
+    // this guard — the deferred sacrifice it names is now genuinely MODELED (CR 603.7 scheduler,
+    // atoms/delayedTrigger.js): it parses to schedule-delayed{sacrifice this creature} on the end step,
+    // which is exactly what the card says. Pyric Salamander and Transluminant flip on this shape.
+    // The guard's REAL subject — an unmodeled rider/condition — is still pinned by the {X} case above.
   });
 });

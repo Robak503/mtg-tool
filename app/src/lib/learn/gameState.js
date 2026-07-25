@@ -472,6 +472,13 @@ export function createGameState({
     step: "untap",
     stack: [],
     pendingTriggers: [],
+    // DELAYED TRIGGERS (CR 603.7) — abilities a resolving spell/ability SCHEDULES for a future step
+    // ("At the beginning of the next end step, sacrifice it"; "draw a card at the beginning of the
+    // next turn's upkeep"). Each entry is plain JSON: { id, controller, fireStep, fireScope,
+    // effectClause, sourceName, sourceCardId, createdTurn }. gameEngine drains matching entries at
+    // step entry into `pendingTriggers` (so they ride the SAME flush→stack→resolve pipeline every
+    // printed trigger uses) and REMOVES them — CR 603.7's "triggers only once, then ceases to exist".
+    delayedTriggers: [],
     // CR 613 continuous-effects/layers state (Phase-7 PR-9). `continuousEffects`
     // holds resolution-generated effects (pump-until-EOT); static-ability effects
     // (anthems/lords) are synthesized on read, never stored. `timestampCounter` is

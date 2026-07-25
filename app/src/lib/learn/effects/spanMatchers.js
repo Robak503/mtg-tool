@@ -400,6 +400,61 @@ export function matchChooseTypeDraw(oracle) {
 }
 
 /**
+ * DELAYED TRIGGER (CR 603.7) — a resolving spell/ability schedules an ability for a future step.
+ * Two printed word orders, same meaning:
+ *   LEAD:    "At the beginning of the next end step, <effect>."      (the blink/sacrifice family)
+ *   TRAIL:   "<effect> at the beginning of the next turn's upkeep."  (Heal / Bone Harvest — 40 carriers)
+ *
+ * Returns `{ atom: {op:"schedule-delayed", fireStep, fireScope, delayedClause}, rest }`. The INNER
+ * clause is left as text; parser.js gates it — the atom is emitted only when the inner clause itself
+ * parses HIGH, so a scheduled ability can never fire an unmodeled effect (CREED). The scheduler runs
+ * on state.delayedTriggers (atoms/delayedTrigger.js) and drains at step entry in gameEngine.
+ *
+ * TIMING MAP (only these; anything else fails the anchor → the whole card routes to the Arbiter):
+ *   "the next end step"                → end   / any    "your next end step"      → end   / yours
+ *   "the next turn's upkeep"           → upkeep/ any    "your next upkeep"        → upkeep/ yours
+ *   "the next turn's main phase"       → main  / any    "your next main phase"    → main  / yours
+ *   ("your next PRECOMBAT main phase" also maps to main/yours — same phase, CR 505.1a.)
+ * DELIBERATELY EXCLUDED: "the beginning of the next cleanup step" (CR 514 has no priority window —
+ * a trigger there would need the special 514.3a extra-step handling this engine doesn't model) and
+ * every "your next combat" wording (the engine's combat entry has its own combatBegin lane).
+ */
+const DELAYED_TIMING = "(?:the next end step|your next end step|the next turn's upkeep|your next upkeep|the next turn's main phase|your next (?:precombat )?main phase)";
+function delayedTimingSpec(raw) {
+  const t = String(raw).toLowerCase().trim();
+  const scope = /^your\b/.test(t) ? "yours" : "any";
+  const step = /end step/.test(t) ? "end" : /upkeep/.test(t) ? "upkeep" : /main phase/.test(t) ? "main" : null;
+  return step ? { fireStep: step, fireScope: scope } : null;
+}
+export function matchDelayedTrigger(oracle) {
+  const text = String(oracle).trim();
+  // LEAD form — "At the beginning of <timing>, <effect>." The WHOLE clause is the delayed ability.
+  let m = text.match(new RegExp(`^at the beginning of ${DELAYED_TIMING},\\s+(.+?)\\.?\\s*$`, "i"));
+  if (m) {
+    const spec = delayedTimingSpec(m[0].slice("at the beginning of ".length).split(",")[0]);
+    if (!spec) return null;
+    return { immediateClause: null, delayedClause: m[1].trim(), ...spec };
+  }
+  // TRAIL form — "[<immediate sentences>. ]<final effect> at the beginning of <timing>."
+  // ONLY THE FINAL SENTENCE IS DELAYED. Everything before it is part of the spell's own resolution
+  // and happens IMMEDIATELY (CR 603.7 — the resolving spell creates the delayed ability; the rest of
+  // that spell still resolves now). Ideas Unbound — "Draw three cards. Discard three cards at the
+  // beginning of the next end step." — draws NOW and discards later; a greedy capture of both
+  // sentences into the delayed clause would defer the draw too, a resolution-order FP (CREED).
+  // `(.*\.)` is greedy so it consumes every complete leading sentence; `[^.]+?` keeps the delayed
+  // half to the final period-free sentence. The caller parses the two halves separately and requires
+  // BOTH to be modeled before emitting anything.
+  m = text.match(new RegExp(`^(?:(.*\\.)\\s+)?([^.]+?)\\s+at the beginning of ${DELAYED_TIMING}\\.?\\s*$`, "i"));
+  if (m) {
+    const timing = text.slice(text.lastIndexOf(m[2]) + m[2].length).replace(/^\s*at the beginning of\s*/i, "").replace(/\.\s*$/, "");
+    const spec = delayedTimingSpec(timing);
+    if (!spec) return null;
+    return { immediateClause: m[1] ? m[1].trim() : null, delayedClause: m[2].trim(), ...spec };
+  }
+  return null;
+}
+
+/**
  * CHOSEN-TYPE REVEAL TO HAND (For the Ancestors) — "Choose a creature type. Look at the top N cards of
  * your library. You may reveal any number of cards of the chosen type from among them and put the
  * revealed cards into your hand. Put the rest on the bottom of your library in a random order." Four
