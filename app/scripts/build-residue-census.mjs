@@ -78,6 +78,7 @@ function credit(kindKey, norm, { sole, popular, name }) {
   if (c.examples.length < 4 && !c.examples.includes(name)) c.examples.push(name);
 }
 
+const multiFlip = []; // cards where >1 single-line deletion flips native — a tier-composition failure
 const nativeShapes = new Map(); // normalized clause -> how many NATIVE cards carry it
 let scanned = 0, nonNative = 0, soleFlips = 0, multiBlocker = 0, probes = 0;
 const t0 = Date.now();
@@ -111,6 +112,13 @@ for (const raw of allCards()) {
     const variant = lines.filter((_, j) => j !== i).join("\n");
     probes += 1;
     if (isNativeTier(classifyCard({ ...base, oracle: variant }))) flips.push(i);
+  }
+  if (flips.length > 1) {
+    // TWO-FLIP SIGNATURE (2026-07-25): more than one single-line deletion flips this card native, so every
+    // piece is demonstrably understood in isolation — what's broken is how the TIERS COMPOSE, not a missing
+    // mechanic. Slice 20 (the kicker gate hard-coding native-body) came straight off this. Usually a cheaper
+    // and more valuable fix than a new lane, so it gets its own report.
+    multiFlip.push({ name: pc.name, lines: flips.map((i) => normalizeClause(lines[i], pc.name)) });
   }
   if (flips.length) {
     soleFlips += 1;
@@ -157,4 +165,11 @@ BUG SIGNATURES — shapes that block cards yet appear on NATIVE cards (native | 
 if (!suspects.length) console.log("   (none — every blocking shape is genuinely unbuilt)");
 for (const c of suspects.slice(0, 15)) {
   console.log(`${String(c.nativeCarriers).padStart(6)} | ${String(c.soleBlockers).padStart(4)} | ${c.norm.slice(0, 96)}${c.norm.length > 96 ? "…" : ""}  [${c.examples.slice(0, 2).join(" · ")}]`);
+}
+
+console.log(`
+TWO-FLIP SIGNATURE — >1 single-line deletion flips these native (tier COMPOSITION failure, not a missing mechanic): ${multiFlip.length}`);
+for (const c of multiFlip.slice(0, 12)) {
+  console.log(`   ${c.name}`);
+  for (const l of c.lines) console.log(`      · ${l.slice(0, 92)}`);
 }
