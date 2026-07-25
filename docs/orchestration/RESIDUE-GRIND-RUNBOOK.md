@@ -81,6 +81,19 @@ MTG_APP_ROOT="C:/Users/colto/AppData/Roaming/com.colton.mtg-tool" \
   spread across three unrelated code paths — permanent statics, spell effects, activated grants.)
   The census sizes the candidate; Phase 3 decides what it actually is.
 
+**READ THE TWO DEFECT REPORTS FIRST — before the ranked list.** They were added 2026-07-25 and produced
+most of that day's slices. They point at BUGS, which are almost always cheaper and more valuable than
+building a new lane:
+
+- **BUG SIGNATURES** — shapes that block some cards while OTHER cards carrying the same shape classify
+  native. Such a shape cannot be an unbuilt mechanic; it is built, and something upstream mis-binds it.
+  (`nativeCarriers × soleBlockers`, ranked.)
+- **TWO-FLIP SIGNATURE** — cards where MORE THAN ONE single-line deletion flips them native. Every piece
+  is demonstrably understood in isolation, so the defect is in how the TIERS COMPOSE.
+
+Both are printed by the same run at no extra cost. A high `nativeCarriers` count next to a nonzero
+`soleBlockers` is the single strongest lead the tool produces.
+
 The tool itself is deletion-probing (asks `classifyCard`, zero drift possible). Its v1 used
 line-level heuristics and mis-blamed built subsystems ("enchant creature" #1 at 619) — if you ever
 modify it, keep it classifier-grounded or it will lie to you the same way.
