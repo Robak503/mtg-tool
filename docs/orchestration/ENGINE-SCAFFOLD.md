@@ -425,6 +425,27 @@ selector/filter/subtype against a *closed* vocabulary (or corpus reality) before
 it counts.** A word you don't recognize should route to the Arbiter (null), never
 silently match zero.
 
+### THE SECOND FAILURE MODE — a judgement implemented in two places (found 2026-07-25)
+
+Distinct from the open-vocabulary class above, and it produced **eleven sites in one sweep**: the same
+question gets answered in several code paths, one copy is corrected when somebody hits it, and the others
+quietly keep the old behaviour. It only shows on inputs that need BOTH paths at once, so it accumulates.
+
+The concrete instance was **`isCreatureCard` (the PRINTED card) vs `permanentIsCreature` (LAYER-AWARE,
+CR 613)**. Combat asked the live question; targeting, four referent resolvers and the mass filters asked
+the printed one. Consequence: an animated land could ATTACK every turn but could never be TARGETED by
+removal — an invulnerable attacker, and the asymmetry favoured its controller, so it was not the safe
+direction an under-offer usually is.
+
+**Rule: on a permanent you have ALREADY looked up on the battlefield, the question is about the OBJECT,
+not the card.** A bare `isCreatureCard(perm.card)` there is nearly always a bug. And when a comment says
+a function "mirrors" another, go read the other one — two documented mirror pairs had silently diverged.
+
+**Why this class survives the gate battery:** none of it moves a single tier. The tier and program
+fingerprints compare the parse pipeline against the parse pipeline, so a runtime function returning an
+empty list is STRUCTURALLY invisible to them. Any change to a resolver, enumerator or legality gate must
+be proven by driving a card on a board — a green fingerprint means the gates couldn't see it.
+
 Other live seams (documented, mostly benign, listed so you don't rediscover them):
 the `land` tier is unconditional (§2.1); resolved instants/sorceries now reach their
 owner's graveyard (CR 608.2m — fixed in the overhaul pass; Arbiter-routed spells still
