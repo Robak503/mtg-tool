@@ -413,3 +413,29 @@ the four atom-level mass filters now read `isCreatureCard(card) || permanentIsCr
 suite was UNCHANGED by both — no pin anywhere asserted an animated permanent should be untargetable, which
 is itself the evidence this was an oversight rather than a decision. Eleven sites fixed across slices 22-27;
 all were invisible to the metric, which is why they accumulated.
+
+---
+
+## MOBILIZE — status changed 2026-07-25: BOTH prerequisites now exist
+
+Banked that morning as "not buildable — `entersAttacking` is a dead write". That is still true, but it was
+only HALF the reason, and the other half has since been built. Recording so the next session doesn't re-park
+it on stale grounds.
+
+**Mobilize N** ("Whenever this creature attacks, create N 1/1 red Warrior creature tokens that are tapped and
+attacking. Sacrifice them at end of combat.") needs exactly two things:
+
+1. **Register the minted tokens as attackers.** `atom.entersAttacking` sets `permanent.attacking`, which
+   NOTHING reads — attacking-ness is membership in `state.combat.attackers` (verified by grep; the warning
+   block above applyCreateTokenCopy in tokens.js records this). The build must push the minted ids into that
+   list with a defender. The defender IS known at that moment: mobilize triggers on attack, so combat is live.
+2. **Sacrifice them at end of combat.** ← **THIS NOW EXISTS.** The CR 603.7 delayed-trigger scheduler shipped
+   this morning as slice `c93b6d56` (`effects/atoms/delayedTrigger.js` — `applyScheduleDelayed` /
+   `drainDelayedTriggers`). When mobilize was parked, there was no way to express "at end of combat, sacrifice
+   these"; there is now.
+
+9 sole blockers + 5 co-blockers. The remaining risk is entirely in (1): registering attackers mid-combat has
+to not disturb the already-declared attack, and the tokens must be excluded from any "attacking creatures you
+control" count that was locked earlier in the step. Verify at RUNTIME that the tokens actually deal combat
+damage — a classification that the runtime never honours is precisely the trap the runbook's failure table
+names, and it is the trap this card family sits on.
