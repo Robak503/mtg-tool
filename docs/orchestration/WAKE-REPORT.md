@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-SEVEN slices (+369) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 832/10,791
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-EIGHT slices (+373) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 832/10,796
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,11 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 28 `63c72372` (+4)** — dredge was credited on PERMANENTS but missing from the spell-side keyword
+> strip, so the identical keyword parked every dredge SPELL (Darkblast, Shenanigans, Life from the Loam,
+> Nightmare Void). No costless hazard unlike suspend — dredge never replaces CASTING, so every carrier has a
+> normal mana cost.
 >
 > **🚨 SLICES 26-27 `53247f2c` `81664b6a` — the engine had an INVULNERABLE ATTACKER.** An animated land
 > could attack (combat reads the layer-aware check) but could NOT be targeted by "destroy target creature"
