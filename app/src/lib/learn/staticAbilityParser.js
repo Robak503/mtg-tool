@@ -532,7 +532,12 @@ const FIRST_WORD_SELF_STOPWORDS_STATIC = new Set(["the", "a", "an", "of", "and"]
  * those tribal lords from native (a regression the full corpus flip-diff caught). Skip any candidate form
  * that appears as a subtype on the card's own type line; the full name is always still rewritten.
  */
-function selfNormalizeOracle(oracle, name, type) {
+// Exported (census slice 21) so coverage.permanentFullyCovered can normalize its residue EXACTLY the way
+// staticAbilitiesCoverCard does. The composite tier was passing RAW clauses to clauseProducesStatic, whose
+// CDA anchor is "^this creature's power and toughness …" — so a legacy printing that names itself
+// ("Mortivore's power and toughness …", CR 201.4) read as unmodeled residue in the composite while the
+// single-mechanism static tier credited it fine. Two paths, one grammar: they must normalize identically.
+export function selfNormalizeOracle(oracle, name, type) {
   // Strip parenthetical reminder text (CR 207.2 — reminder text is never functional) so a fully-modeled
   // static isn't judged "uncovered" by its own reminder ("Sliver creatures you control have double strike.
   // (They deal both first-strike and regular combat damage.)"). Removing it changes NO behavior — the

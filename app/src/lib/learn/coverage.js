@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -1214,7 +1214,14 @@ export function permanentFullyCovered(card) {
   // dangling "…any one color" + orphan-quote fragment (neither parses → false residue → a false body-only on a
   // fully-modeled MIXED card). Walking quote depth keeps the quoted ability intact. Behavior-identical to the
   // old `/[\n.;]+/` split for quote-free residue (the common case — every existing native-mixed card).
-  for (const clause of abilityClauses(afterActivated)) {
+  // SELF-NAME NORMALIZATION (census slice 21) — normalize the residue EXACTLY as staticAbilitiesCoverCard
+  // does before splitting it. clauseProducesStatic's grammar is anchored on the modern self reference
+  // ("this creature's power and toughness are each equal to …"), so a legacy printing that names ITSELF
+  // (Mortivore, Psychosis Crawler — CR 201.4) read as unmodeled residue here while the single-mechanism
+  // static tier credited the very same line. That mismatch is why a card with a modeled STATIC plus a
+  // modeled ACTIVATED ability fell between both tiers and landed in body-only despite every piece being
+  // understood. Same normalizer, same grammar, both paths.
+  for (const clause of abilityClauses(selfNormalizeOracle(afterActivated, card?.name, card?.type || card?.type_line))) {
     if (clauseProducesStatic(clause)) continue;  // a modeled static clause
     if (isKeywordOnly(clause, card?.name)) continue;  // keyword-only / vanilla
     return false;                                 // unmodeled residue
