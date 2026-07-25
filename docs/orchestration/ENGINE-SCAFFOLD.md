@@ -441,6 +441,19 @@ direction an under-offer usually is.
 not the card.** A bare `isCreatureCard(perm.card)` there is nearly always a bug. And when a comment says
 a function "mirrors" another, go read the other one — two documented mirror pairs had silently diverged.
 
+**THE REFERENCE IMPLEMENTATION — copy this shape.** `groupNoUntap.js` (the Winter Orb / Meekstone lock
+family) is a LEAF module exporting `groupNoUntapFiltersOf`, and BOTH `coverage.js` and `gameState.js`
+import it. There is no second copy, so there is nothing to drift — verified 2026-07-25 rather than taken
+on trust, because two other "mirrors" claims in this codebase turned out to be false the same day. When a
+judgement is needed by both the metric and the runtime, put it in a leaf module and import it twice; do
+not reimplement it on the second side, however small it looks.
+
+**How to CHECK a pair you inherit — the drift probe.** Two functions answering one question can be run
+against each other across the whole corpus: iterate real cards, call both, print disagreements. No fixture
+design needed. Three runs on 2026-07-25 found three real divergences (conditional no-untap statics, the
+attached-form subject set, and 159 cards claiming `native-mana` the engine cannot tap). It costs minutes
+and it sees the one class the fingerprints structurally cannot.
+
 **Why this class survives the gate battery:** none of it moves a single tier. The tier and program
 fingerprints compare the parse pipeline against the parse pipeline, so a runtime function returning an
 empty list is STRUCTURALLY invisible to them. Any change to a resolver, enumerator or legality gate must
