@@ -21,10 +21,10 @@ const ROOTWALLA = { id: "rw", name: "Rootwalla", type: "Creature — Lizard", ma
   power: "2", toughness: "2", oracle: "{1}{G}: This creature gets +2/+2 until end of turn. Activate only once each turn." };
 
 describe("parse + classify", () => {
-  it("the rider strips for the parse and marks oncePerTurn on the ability", () => {
+  it("the rider strips for the parse and records activationLimit 1 on the ability", () => {
     const abs = parseActivatedAbilities(ROOTWALLA);
     expect(abs).toHaveLength(1);
-    expect(abs[0].oncePerTurn).toBe(true);
+    expect(abs[0].activationLimit).toBe(1);
     expect(abs[0].modeled).toBe(true);
     expect(abs[0].effectClause.toLowerCase()).not.toContain("activate only");
   });
@@ -52,7 +52,7 @@ describe("runtime — offered once per turn, ledger self-expires", () => {
     expect(offers.length).toBe(1);
     expect(offers[0].oncePerTurnKey).toBe(`wperm:${parseActivatedAbilities(ROOTWALLA)[0].raw}`);
     s = dispatchAction(s, offers[0]);
-    expect(s.activatedOncePerTurn?.[offers[0].oncePerTurnKey]).toBe(3);
+    expect(s.activatedOncePerTurn?.[offers[0].oncePerTurnKey]).toEqual({ turn: 3, n: 1 });
     // Same turn: the pump is spent (mana pool refilled for a clean affordability read).
     s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => ({ ...p, tapped: false })) } } };
     expect(pumpOffers(s)).toHaveLength(0);

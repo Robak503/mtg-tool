@@ -1029,10 +1029,16 @@ function applyActivateAbility(state, action) {
   });
 
   let next = { ...working2, stack: [...working2.stack, stackObject] };
-  // ONCE-PER-TURN (BLITZ ONCE-1): stamp the activation ledger the moment the ability is on the stack —
-  // keyed permId:rawLine against the CURRENT turn (self-expiring; legalChoices' offer gate reads it).
+  // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): stamp the activation ledger the
+  // moment the ability is on the stack — keyed permId:rawLine, recording { turn, n } so a limit above one
+  // ("Activate no more than twice each turn.") can be counted rather than merely latched. A record from an
+  // earlier turn restarts at 1, which is what makes the ledger self-expiring; legalChoices' offer gate
+  // reads the same shape. (The state key keeps its historical `activatedOncePerTurn` name — renaming a
+  // serialized game-state field would break saved self-play trajectories for no behavioral gain.)
   if (action.oncePerTurnKey) {
-    next = { ...next, activatedOncePerTurn: { ...(next.activatedOncePerTurn || {}), [action.oncePerTurnKey]: next.turn } };
+    const prev = next.activatedOncePerTurn?.[action.oncePerTurnKey];
+    const n = (prev && prev.turn === next.turn ? prev.n : 0) + 1;
+    next = { ...next, activatedOncePerTurn: { ...(next.activatedOncePerTurn || {}), [action.oncePerTurnKey]: { turn: next.turn, n } } };
   }
   next = logEvent(next, {
     kind: "activate-ability",

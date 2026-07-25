@@ -8,9 +8,13 @@
  * card would allow) — a safe false-negative, never an FP.
  *
  * CREED FP guard: a rider that carries an EXTRA, un-enforced condition — "…during your turn, before attackers
- * are declared." / "…no more than twice each turn." / "…only if <condition>." — must NOT strip, because
- * offering it in the engine's main-step window would VIOLATE that extra constraint. Real oracle fixtures
- * (bundled Scryfall, verified 2026-07-17).
+ * are declared." / "…only if <condition>." — must NOT strip, because offering it in the engine's main-step
+ * window would VIOLATE that extra constraint. Real oracle fixtures (bundled Scryfall, verified 2026-07-17).
+ *
+ * The test is "does the runtime enforce it", not "is it a rider": "…no more than twice each turn." was in
+ * that list until census slice 11 built the counted cap, and it GRADUATED out (see the case below). A guard
+ * here is a statement about engine capability at a point in time — when the capability lands, the guard is
+ * supposed to flip, and the principle it protects is untouched by that.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -74,11 +78,18 @@ describe("AA-1 — CREED FP guards: an EXTRA un-enforced condition must NOT stri
     expect(classifyCard(c)).toBe("body-only");
     expect(parseActivatedAbilities(c)[0].modeled).toBe(false);
   });
-  it("\"…no more than twice each turn.\" (Pit Imp) — the runtime has no twice-per-turn cap; spammable if stripped", () => {
+  it("GRADUATED — \"…no more than twice each turn.\" (Pit Imp) now strips, because the cap is enforced", () => {
+    // This case used to live here as an FP guard on the grounds that "the runtime has no twice-per-turn cap;
+    // spammable if stripped". That premise ended with census slice 11: the frequency restriction is parsed as
+    // a COUNT (activationLimit) and legalChoices stops offering the ability once the per-turn ledger reaches
+    // it. The guard's PRINCIPLE is unchanged and its siblings above/below still hold — strip only what the
+    // runtime enforces. What changed is that the runtime now enforces this one. The cap itself (including the
+    // exact N-vs-N+1 boundary and the turn reset) is pinned in activationLimitCount.test.js.
     const c = { name: "Pit Imp", type: "Creature — Imp",
       oracle: "Flying\n{B}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn." };
-    expect(classifyCard(c)).toBe("body-only");
-    expect(parseActivatedAbilities(c)[0].modeled).toBe(false);
+    expect(classifyCard(c)).toBe("native-activated");
+    expect(parseActivatedAbilities(c)[0].modeled).toBe(true);
+    expect(parseActivatedAbilities(c)[0].activationLimit).toBe(2);
   });
   it("\"…only if this creature is blocked.\" (Cinder Crawler) — a conditional gate the runtime doesn't evaluate", () => {
     const c = { name: "Cinder Crawler", type: "Creature — Salamander",

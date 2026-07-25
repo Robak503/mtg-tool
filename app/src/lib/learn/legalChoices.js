@@ -1649,10 +1649,17 @@ function actionsActivateAbility(state, playerId) {
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {
       if (!ab.modeled) continue;
-      // ONCE-PER-TURN (BLITZ ONCE-1): an "Activate only once each turn." ability already activated this
-      // turn is not offered again. Keyed permId:rawLine (raw is unique per ability, printed OR granted —
-      // an index would collide across the two lists) against state.turn, so the ledger self-expires.
-      if (ab.oncePerTurn && state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`] === state.turn) continue;
+      // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): an ability already activated its
+      // limit-many times THIS turn is not offered again. Keyed permId:rawLine (raw is unique per ability,
+      // printed OR granted — an index would collide across the two lists). The ledger records { turn, n };
+      // a record from an earlier turn counts as ZERO uses, so it self-expires without a cleanup pass.
+      // `used >= limit` (not `>`) is the whole safety property — off by one here hands out a free
+      // activation, i.e. an engine more permissive than the card, which is the forbidden direction.
+      if (ab.activationLimit) {
+        const rec = state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`];
+        const used = rec && rec.turn === state.turn ? rec.n : 0;
+        if (used >= ab.activationLimit) continue;
+      }
       // LEVEL-BAND gate (BLITZ LV-1, CR 711.2a/b): a leveler band's activated ability exists ONLY while
       // the source's level-counter count is inside the band ({LEVEL N1-N2} ⇒ N1 <= level <= N2; the open
       // {LEVEL N3+} band carries atMost null). Read live from the permanent's own counter pile, so the
@@ -1747,7 +1754,7 @@ function actionsActivateAbility(state, playerId) {
               sacCreatureName: null,
               sacCountIds: null,
               xValue: x,                                  // γ1f — the chosen X threads into the effect (ctx.xValue)
-              ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
+              ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
               program: ab.program,
               targets: ch.targets,
               chosenMode: ch.chosenMode ?? null,
@@ -2003,7 +2010,7 @@ function actionsActivateAbility(state, playerId) {
                 sacCreatureName: null,
                 sacCountIds: sacXIds,                       // γ1e — the X fungible victims to sacrifice (cost)
                 xValue: x,                                  // γ1e — the chosen X threads into the effect (ctx.xValue)
-                ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
+                ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
                 program: ab.program,
                 targets: ch.targets,
                 chosenMode: ch.chosenMode ?? null,
@@ -2037,7 +2044,7 @@ function actionsActivateAbility(state, playerId) {
             returnLandName: returnLandVictim?.card?.name ?? null,
             discardCardId: discardVictim?.id ?? null,    // γ1h (DC-1) — the chosen hand card to pitch (cost)
             discardCardName: discardVictim?.name ?? null,
-            ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
+            ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
             targets: ch.targets,
             chosenMode: ch.chosenMode ?? null,
