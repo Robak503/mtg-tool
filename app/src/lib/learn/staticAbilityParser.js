@@ -4347,6 +4347,28 @@ export function auraEnchantRestrictions(card) {
   const subject = auraEnchantSubject(card);
   if (subject === "creature") return [];
   if (subject === "creature you control") return [{ kind: "controller", who: "you" }];
+  // QUALIFIED SUBJECTS (CR 303.4a) — three more restrictions, admitted because each maps EXACTLY onto a
+  // restriction creatureSatisfiesRestrictions already enforces, layer-aware and fail-closed. No new
+  // targeting machinery: this is wiring, which is why it can't introduce a wrongly-legal target.
+  //   "tapped creature"           → Entangling Vines, Glimmerdust Nap
+  //   "creature without flying"   → Roots, Trapped in the Tower
+  //   "creature with power N or less" → Runner's Bane
+  //
+  // FALL-OFF, stated plainly: these are enforced at CAST. The CR 704.5n sweep in sba.js checks only
+  // "Enchant creature|land|permanent" and treats any qualified subject as host-existence-only, so an Aura
+  // does NOT fall off if its host later stops matching (a pumped creature keeps Runner's Bane). That is the
+  // module's EXISTING, documented policy — "a missed fall-off is the safe direction; a wrong kill is the
+  // forbidden one" — and it already applies to the shipped "creature you control" subject. Followed here
+  // rather than reversed: widening the sweep would trade a safe miss for the forbidden failure mode.
+  //
+  // Everything else still returns null → the Aura is NOT native (Arbiter): positive COLOR subjects ("green
+  // creature") have no positive-color restriction kind, type unions ("creature or vehicle") can't be
+  // expressed against a fixed targetType:"creature", and the exotic subjects ("modified creature",
+  // "creature with another Aura attached to it") have no predicate at all.
+  if (subject === "tapped creature") return [{ kind: "tapped", value: true }];
+  if (subject === "creature without flying") return [{ kind: "hasKeyword", keyword: "flying", negate: true }];
+  const pw = subject && subject.match(/^creature with power (\d+) or less$/);
+  if (pw) return [{ kind: "power", op: "<=", value: parseInt(pw[1], 10) }];
   return null;
 }
 
