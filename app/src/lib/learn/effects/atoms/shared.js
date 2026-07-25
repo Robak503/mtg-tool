@@ -368,8 +368,18 @@ export function selfTargets(state, ctx) {
   // LAYER-AWARE (BLITZ SC-1 catch): an ANIMATED source (Creeping Tar Pit mid-activation — a land that
   // became a creature) counts too; the printed-card check alone silently dropped self effects on it
   // (the metric said HIGH while the runtime no-opped — the exact FP class the CREED forbids).
-  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.sourceId))
-    ? [{ type: "creature", id: ctx.sourceId, controller: lk.controller }] : [];
+  if (!lk) return [];
+  if (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.sourceId)) {
+    return [{ type: "creature", id: ctx.sourceId, controller: lk.controller }];
+  }
+  // NON-CREATURE SELF (census slice 22) — the same catch as the animated-land case above, one type wider.
+  // An Aura / artifact / enchantment referring to ITSELF ("At the beginning of the end step, return this Aura
+  // to its owner's hand.") parses to a HIGH self-targeted atom, but returning [] here made the effect a
+  // SILENT NO-OP: measured on Mark of Fury, the trigger fired, resolved, and the Aura simply stayed attached.
+  // The metric says HIGH while the runtime does nothing — exactly the FP class the comment above forbids.
+  // Typed "permanent" (not "creature"), which is the type applyZoneMove and the other permanent-scoped atoms
+  // already accept; a creature source is unchanged, so no existing self effect moves.
+  return [{ type: "permanent", id: ctx.sourceId, controller: lk.controller }];
 }
 
 /**
