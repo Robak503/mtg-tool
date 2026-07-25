@@ -288,3 +288,33 @@ on turn change grants an EXTRA activation — a permissive engine, which is the 
 Pin both boundaries: the Nth activation must be legal and the N+1th must not, and the counter must
 reset across a turn boundary. Also pin one of the 56 existing "only once" carriers unchanged — that
 regression is the real risk here, not the new cards.
+
+---
+
+## OPEN POLICY CALL — should an UNCASTABLE card count as native? (31 cards)
+
+Raised 2026-07-25 by census slice 18, which fixed the runtime half (CR 202.1a: a card with no mana
+cost can't be cast; the engine was offering Ancestral Vision as a free draw-three). Deliberately NOT
+bundled into that fix — it is a metric-policy question, not a defect.
+
+**The situation.** 31 REAL cards (excluding tokens / art-series / emblems) have no mana cost anywhere,
+are not lands, and still classify native. The engine can no longer cast any of them:
+
+- **Suspend-only spells** — Ancestral Vision, Crashing Footfalls, Wheel of Fate, Profane Tutor,
+  Evermind (splice-only). Genuinely unplayable without a mechanic the engine doesn't model.
+- **Archenemy / Hero cards** — The Harvester, The Avenger, Bow of the Hunter, Spear of the General …
+  Not castable in any format the app supports.
+- **Meld results and similar** — Chittering Host. Never cast; it ARRIVES via melding, and the engine
+  may well play it correctly once it is on the battlefield.
+
+**Why it isn't obvious.** The three groups want different answers. A suspend-only spell claiming
+native is a clean overclaim — the engine cannot play it at all. A meld result is the opposite: parking
+it would understate an entity the engine handles fine once it exists. The Hero cards are out of scope
+entirely and arguably shouldn't be in the denominator.
+
+**What NOT to do:** blanket-park everything with an empty mana cost. That is one line and it is wrong
+for at least the meld group, and it silently moves the corpus number for reasons unrelated to
+capability.
+
+Cost if fixed: at most -31 native (~0.26%), and the honest direction. Needs Colton-level agreement on
+what "native" claims for a card that can never be cast, since the corpus % is a headline number.
