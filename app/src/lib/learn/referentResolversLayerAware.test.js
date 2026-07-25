@@ -88,3 +88,26 @@ describe("the guards that must NOT loosen", () => {
     expect(selfTargets(board(), { sourceId: "gone" })).toEqual([]);   // findPermanent misses → no referent
   });
 });
+
+describe("the counters-path MIRROR must agree too (slice 24)", () => {
+  /**
+   * counters.triggeringCreatureTargets and shared.triggeringTargets are documented mirrors of each other —
+   * the same "that creature" pronoun, one for counter placement and one for pump/bounce. They had DRIFTED:
+   * only the shared one was made layer-aware. An animated land that dealt combat damage would get its
+   * pump but never its counter. Driven through the public atom rather than the private function.
+   */
+  it("a counter lands on an ANIMATED land that triggered the ability", async () => {
+    const { applyAddCounter } = await import("./effects/atoms/counters.js");
+    const st = animate(board(), "L1");
+    const out = applyAddCounter(st, { op: "add-counter", target: "thatCreature", counterType: "+1/+1", amount: 1 },
+      { controller: "user", triggeringPermanentId: "L1" });
+    expect(out.players.user.battlefield.find((p) => p.id === "L1").counters?.["+1/+1"]).toBe(1);
+  });
+
+  it("…and NOT on the same land before it is animated (the guard still holds)", async () => {
+    const { applyAddCounter } = await import("./effects/atoms/counters.js");
+    const out = applyAddCounter(board(), { op: "add-counter", target: "thatCreature", counterType: "+1/+1", amount: 1 },
+      { controller: "user", triggeringPermanentId: "L1" });
+    expect(out.players.user.battlefield.find((p) => p.id === "L1").counters?.["+1/+1"]).toBeFalsy();
+  });
+});

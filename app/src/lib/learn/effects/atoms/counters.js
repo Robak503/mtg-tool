@@ -3,7 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
-import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
+import { addContinuousEffect, permanentIsCreature } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
 import { applyCreateNamedToken, applyCreateToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver; applyCreateToken — ENDURE mode B (N/N white Spirit token when the source has left)
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
@@ -21,7 +21,11 @@ import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js";
  */
 function triggeringCreatureTargets(state, ctx) {
   const lk = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
-  return lk && isCreatureCard(lk.permanent.card)
+  // LAYER-AWARE (census slice 24) — this function and shared.triggeringTargets are documented MIRRORS of
+  // each other, and they had drifted: the printed-card check alone drops a permanent that is a creature only
+  // BY LAYERS (an animated land that dealt the combat damage, a crewed Vehicle), so the counter was silently
+  // never placed while the metric read HIGH. Same catch selfTargets carries; CR 613 decides creature-ness.
+  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.triggeringPermanentId))
     ? [{ type: "creature", id: ctx.triggeringPermanentId, controller: lk.controller }]
     : [];
 }
