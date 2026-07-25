@@ -227,3 +227,28 @@ dealing damage. Classic "classification right, runtime never fires" (runbook fai
 **The honest build:** the token atom must register minted tokens in `state.combat.attackers` with the
 correct defender, during the declare-attackers window. That is real combat-state work, not a regex.
 A dead-field warning has been added at the atom so the next person doesn't trust the field on sight.
+
+## AFTERMATH — scoped 2026-07-25, deliberately NOT lifted (a reasoned park, plus a real hazard found)
+
+27 carriers, 10 sole-blockers by census. It looks exactly like the flashback class ("Cast this spell only
+from your graveyard. Then exile it." — a zone option the engine never offers), which is the basis on which
+flashback/transmute/unearth are all credited. It is NOT the same, and there are two separate findings:
+
+**1. There is already a deliberate park, with a stated reason.** `splitCard.parseSplitCard` explicitly
+returns null for aftermath: *"an aftermath card's second half casts only from the graveyard (an unmodeled
+zone). Either makes the card not-fully-modeled → null → it stays an Arbiter spell (safe FN)."* So the
+blocker is NOT the keyword residue — a coverage credit alone changes nothing, because the card never
+reaches the split-card lane at all. Left standing: whether "a card whose second half we can never cast is
+fully played" counts as native is a SCOPE call the original author already made deliberately, not a bug.
+Unlike flashback (one spell, one extra zone option), an aftermath card's back half is a DIFFERENT spell
+with different effects — never casting it means always playing a strictly weaker card.
+
+**2. If that park is ever lifted, a from-hand filter MUST land in the same change.** `legalChoices`'
+`actionsCastSplitFromHand` offers BOTH faces of any native split card from hand, with no aftermath check.
+The moment aftermath cards classify native they become castable from HAND — an ILLEGAL play (CR 702.127a),
+not a missing option. The fix is small (skip the face whose reminder-stripped text is the bare "aftermath"
+keyword) but it is load-bearing and must precede, not follow, the credit. Verified live this session; no
+live bug today only because the park keeps these cards non-native.
+
+Written up rather than built: lifting a reasoned park is Colton's scope call, and shipping the guard alone
+would have added an unreachable code path (the entersAttacking lesson from the same session).
