@@ -78,6 +78,7 @@ function credit(kindKey, norm, { sole, popular, name }) {
   if (c.examples.length < 4 && !c.examples.includes(name)) c.examples.push(name);
 }
 
+const nativeShapes = new Map(); // normalized clause -> how many NATIVE cards carry it
 let scanned = 0, nonNative = 0, soleFlips = 0, multiBlocker = 0, probes = 0;
 const t0 = Date.now();
 for (const raw of allCards()) {
@@ -86,7 +87,19 @@ for (const raw of allCards()) {
   scanned += 1;
   const base = { name: pc.name, type: pc.type, oracle: pc.oracle, mana: pc.mana, keywords: pc.keywords };
   probes += 1;
-  if (isNativeTier(classifyCard(base))) continue;
+  if (isNativeTier(classifyCard(base))) {
+    // BUG-SIGNATURE INPUT (2026-07-25): record every clause shape that appears on a card the engine ALREADY
+    // plays faithfully. A shape that is simultaneously a sole BLOCKER elsewhere cannot be an unbuilt
+    // mechanic — it is built, and something upstream mis-binds it on the blocked cards. Three consecutive
+    // slices (14/15/16) were found exactly this way, by eye; this column makes it mechanical.
+    for (const line of String(pc.oracle || "").split(/\n/)) {
+      const t = line.trim();
+      if (!t) continue;
+      const shape = normalizeClause(t, pc.name);
+      nativeShapes.set(shape, (nativeShapes.get(shape) || 0) + 1);
+    }
+    continue;
+  }
   nonNative += 1;
   const popular = Number.isFinite(raw.edhrec_rank) && raw.edhrec_rank <= 5000;
   const lines = String(pc.oracle || "").split("\n").filter((l) => l.trim());
@@ -115,12 +128,17 @@ for (const raw of allCards()) {
   }
 }
 
+for (const c of clusters.values()) c.nativeCarriers = nativeShapes.get(c.norm) || 0;
 const ranked = [...clusters.values()].sort((a, b) => b.soleBlockers - a.soleBlockers || b.popular - a.popular || b.coBlockers - a.coBlockers);
+// THE BUG-SIGNATURE REPORT: a shape that BLOCKS cards while other cards carrying it classify native.
+const suspects = [...clusters.values()].filter((c) => c.soleBlockers > 0 && c.nativeCarriers > 0)
+  .sort((a, b) => (b.nativeCarriers * b.soleBlockers) - (a.nativeCarriers * a.soleBlockers));
 const payload = {
   method: "deletion probing (v2): sole-blocker = removing the line flips the card native (classifier-exact, whole-card law); co-blocker = line independently unreadable on a multi-blocker card",
   scanned, nonNative, soleBlockerCards: soleFlips, multiBlockerCards: multiBlocker, probes,
   elapsedMs: Date.now() - t0,
   clusters: ranked,
+  suspects,
 };
 if (typeof argv.out === "string") fs.writeFileSync(argv.out, JSON.stringify(payload, null, 1));
 
@@ -128,4 +146,15 @@ console.log(`scanned=${scanned} nonNative=${nonNative} soleBlockerCards=${soleFl
 console.log(`\nTOP ${TOP} by SOLE-BLOCKER count (sole | pop≤5k | co | kind | shape | examples):`);
 for (const c of ranked.slice(0, TOP)) {
   console.log(`${String(c.soleBlockers).padStart(5)} | ${String(c.popular).padStart(4)} | ${String(c.coBlockers).padStart(4)} | ${c.kind.padEnd(12)} | ${c.norm.slice(0, 100)}${c.norm.length > 100 ? "…" : ""}  [${c.examples.slice(0, 2).join(" · ")}]`);
+}
+
+// ===== BUG-SIGNATURE REPORT =====
+// A shape that BLOCKS some cards while OTHER cards carrying the same shape classify native cannot be an
+// unbuilt mechanic — it is built, and something upstream mis-binds it. Read this list BEFORE the ranked
+// list: these are defect reports, and they are usually cheaper and more valuable than a new lane.
+console.log(`
+BUG SIGNATURES — shapes that block cards yet appear on NATIVE cards (native | sole | shape):`);
+if (!suspects.length) console.log("   (none — every blocking shape is genuinely unbuilt)");
+for (const c of suspects.slice(0, 15)) {
+  console.log(`${String(c.nativeCarriers).padStart(6)} | ${String(c.soleBlockers).padStart(4)} | ${c.norm.slice(0, 96)}${c.norm.length > 96 ? "…" : ""}  [${c.examples.slice(0, 2).join(" · ")}]`);
 }
