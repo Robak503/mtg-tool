@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: SIXTEEN slices (+330) — corpus 33.5%→34.5% — suite 825/10,733
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: EIGHTEEN slices (+335) + a SEVERE live FP killed — corpus 33.5%→34.5% — suite 827/10,751
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,25 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **🚨 SLICE 18 `7505e6a3` — THE BIG ONE: the engine was casting FREE Ancestral Visions.** CR 202.1a says a
+> card with no mana cost can't be cast. manaCostOf correctly returned "" for such a card, but
+> parseManaCost("") built an all-ZERO cost, which the cast loop offered as legal. Measured, not reasoned:
+> Ancestral Vision produced **4 cast actions with ZERO lands on the battlefield** before the fix, and none
+> after. Crashing Footfalls (two 4/4 tramplers), Wheel of Fate and Profane Tutor were the same. The earlier
+> empty-mana_cost audit fixed the DFC half of this landmine but its tripwire required cmc>0, so genuinely
+> costless cards walked past it — don't assume that audit closed the area.
+>
+> **SLICE 17 `1d837dd9` (+5)** — qualified "Enchant <X>" Aura subjects (tapped / without flying / power N or
+> less), each mapping onto a restriction the target filter already enforces. Pinned at the OFFER layer,
+> because the FP here is a wrongly-LEGAL target: Roots must not be castable on a flier. Its first harness
+> filtered on `a.card?.name` when the action carries `a.name`, so three assertions passed VACUOUSLY against
+> an empty array — the hollow-gate trap, caught by mutation-checking.
+>
+> **THE CENSUS NOW FINDS THESE ITSELF.** `build-residue-census.mjs` gained a BUG SIGNATURES report: any shape
+> that blocks cards while OTHER cards carrying it classify native cannot be an unbuilt mechanic — it is
+> built, and something upstream mis-binds it. Slices 17 and 18 both came straight off that report on its
+> first run. Read it BEFORE the ranked list.
 >
 > **SLICES 11-16 — the shift turned from adding lanes to REPAIRING them.** Six more slices, and the last
 > four were bug fixes the census surfaced rather than coverage gaps:
