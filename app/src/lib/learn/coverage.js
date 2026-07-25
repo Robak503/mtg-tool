@@ -280,8 +280,24 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  */
 const SELF_NO_UNTAP_NOUNS_METRIC = "creature|artifact|permanent|land|enchantment|equipment|vehicle";
 export function stripModeledSelfNoUntap(oracle, name) {
+  // END-ANCHORED, exactly like gameState.selfPreventsUntap. Without the anchor a CONDITIONAL variant
+  // ("…doesn't untap during your untap step IF IT HAS A DEPLETION COUNTER ON IT" — Veldt, Lava Tubes,
+  // River Delta, Timberline Ridge, Land Cap; "…if an opponent controls two or more creatures" — Walking
+  // Dream) matched its PREFIX and left a dangling "if …" fragment behind. No card flipped on it, because
+  // that fragment survives as residue — but the runtime refuses those conditionals outright, so the metric
+  // was crediting something the engine never honors and only an unrelated leftover was keeping the card
+  // parked. A loaded gun of exactly the kind slice 10 removed. Found by probing the two implementations
+  // against each other corpus-wide: 11 disagreements, now zero.
   let out = String(oracle || "").replace(
-    new RegExp(`\\bthis (?:${SELF_NO_UNTAP_NOUNS_METRIC}) doesn['’]t untap during your untap step\\b\\.?\\s*`, "gi"),
+  // The trailing `\s*` matters: without it the strip leaves a blank leading line, which downstream clause
+  // splitting reads as an empty residue clause and parks the card (caught by the fingerprint — Island Fish
+  // Jasconius dropped native-trigger → body-only on the first cut of this anchor).
+    // The guard is a NEGATIVE LOOKAHEAD for a trailing "if …", not an end-of-clause anchor. Requiring a
+    // terminator looked cleaner but was wrong: this helper also runs on ALREADY-STRIPPED intermediate
+    // residue, where an earlier strip may have consumed the sentence's period, so the anchor silently
+    // stopped matching and dropped Island Fish Jasconius native-trigger → body-only. The lookahead refuses
+    // exactly the conditional variants the runtime refuses and changes nothing else.
+    new RegExp(`\\bthis (?:${SELF_NO_UNTAP_NOUNS_METRIC}) doesn['’]t untap during your untap step\\b(?!\\s+if\\b)\\.?\\s*`, "gi"),
     " ",
   );
   const n = String(name || "");
@@ -289,7 +305,10 @@ export function stripModeledSelfNoUntap(oracle, name) {
     const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/'/g, "['’]");
     out = out.replace(new RegExp(`\\b${esc} doesn['’]t untap during your untap step\\b\\.?\\s*`, "gi"), " ");
   }
-  return out;
+  // The separator the replacements emit is a SPACE, which is right mid-text but leaves a leading one when
+  // the stripped line was first on the card. Downstream clause reads anchor on `^`, so that stray space is
+  // load-bearing: it dropped Island Fish Jasconius native-trigger → body-only until this trim.
+  return out.replace(/^\s+/, "");
 }
 
 export function isKeywordOnly(oracle, name) {

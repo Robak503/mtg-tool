@@ -122,3 +122,38 @@ describe("RUNTIME — the flip is EARNED: both halves of the untap-tax card real
     expect(offers(fed)).toHaveLength(1);
   });
 });
+
+describe("CONDITIONAL variants are refused, matching the runtime (slice 29)", () => {
+  /**
+   * The metric's strip and gameState.selfPreventsUntap are TWO implementations of one judgement. Probing
+   * them against each other across all 248 corpus no-untap carriers found 11 disagreements, every one a
+   * CONDITIONAL static — "…doesn't untap during your untap step IF IT HAS A DEPLETION COUNTER ON IT"
+   * (Veldt, Lava Tubes, River Delta, Timberline Ridge, Land Cap), "…if an opponent controls two or more
+   * creatures" (Walking Dream), "…if it has a +1/+1 counter on it" (Steel Dromedary).
+   *
+   * The runtime refuses all of them; the metric was matching their PREFIX. No card flipped on it — the
+   * orphaned "if …" fragment survived as residue and kept them parked — but the metric was crediting
+   * something the engine never honors, with only an unrelated leftover preventing the false positive.
+   * That is a loaded gun, the same kind slice 10 removed.
+   *
+   * The guard is a negative lookahead, NOT an end-of-clause anchor: this helper also runs on already-
+   * stripped intermediate residue where the sentence's period may already be gone, and requiring a
+   * terminator silently stopped matching there (it dropped Island Fish Jasconius on the way to this).
+   */
+  const conditionals = [
+    ["Veldt", "Land", "This land doesn't untap during your untap step if it has a depletion counter on it."],
+    ["Walking Dream", "Creature — Illusion", "This creature doesn't untap during your untap step if an opponent controls two or more creatures."],
+    ["Steel Dromedary", "Artifact Creature — Camel", "This creature doesn't untap during your untap step if it has a +1/+1 counter on it."],
+  ];
+  it.each(conditionals)("%s — the conditional line is NOT stripped", (name, type, line) => {
+    expect(stripModeledSelfNoUntap(line, name)).toContain("doesn't untap during your untap step");
+  });
+
+  it("the UNCONDITIONAL line is still stripped (the credit that slice 16 added)", () => {
+    expect(stripModeledSelfNoUntap("This creature doesn't untap during your untap step.", "X")).not.toContain("doesn't untap");
+  });
+
+  it("and a card whose only text is the unconditional static still reads native-body", () => {
+    expect(classifyCard(golem(STATIC))).toBe("native-body");
+  });
+});
