@@ -179,8 +179,25 @@ Take the top un-attempted cluster. Then, IN ORDER:
 | Stale regression pin | For the Ancestors park pin | a PASSING test asserts your new fix doesn't exist |
 | Unanchored containment match | `\benters\b` swallowing compound conditions | a compound sentence yields ONE descriptor |
 | Count typos in docs | suite counts miswritten twice | any number not copied from command output |
+| **Dead write** (field set, nothing reads it) | `entersAttacking` sets `permanent.attacking`; only `state.combat.attackers` is ever read | an existing field makes your slice look free — grep for READERS, not just the field |
+| **Credit gated behind a deliberate park** | aftermath: the blocker was a reasoned `parseSplitCard` early-return, not the keyword | your credit changes nothing when you test it — the card never reaches that lane |
+| **Stale fail-safe** (guard outlived its reason) | `sacrificeDropsTrigger`'s self-PiG clause; the runtime fires it now | a guard's COMMENT states a limitation you can disprove at runtime |
+| **Startswith credit swallows a variant** | `bloodthirst` also matched "Bloodthirst X", whose count can't be produced | the per-flip audit shows an orphan the synthesizer returns null for |
 
 ---
 
 *Written by Cindy (Sonnet seat), 2026-07-24, from the receipts of the 07-23/24 overnight+morning
 shift. If you improve the method, update THIS file in the same commit as the improvement.*
+
+## 9. WHEN A CANDIDATE IS *NOT* A SLICE (bank it, don't force it)
+
+Today's nine slices produced four honest refusals; each is worth more banked than forced:
+- **A restriction on OPPONENTS** (split second) — ignoring it makes the engine wrongly PERMISSIVE, which
+  is an FP, not a missing capability. Not the same as an unoffered optional cost.
+- **A credit whose runtime hook is a dead write** (mobilize) — the classification would be right and the
+  behavior absent. Verify a reader exists before counting the cards.
+- **A reasoned park by a previous author** (aftermath) — new information (a safe filter is possible) is a
+  reason to WRITE UP the recipe, not to unilaterally reverse a documented scope call.
+- **A card that literally cannot be played without the keyword** (suspend) — crediting marks unplayable
+  cards native. Contrast eternalize/reinforce, whose only no-cost carriers are LANDS (played, not cast):
+  same question, opposite answer, both settled by a live corpus check rather than intuition.
