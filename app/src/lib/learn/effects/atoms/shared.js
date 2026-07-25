@@ -65,7 +65,8 @@ export function massCreatureTargets(state, opts = {}) {
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      if (!isCreatureCard(perm.card)) continue;
+      // LAYER-AWARE (slice 27, CR 613): an animated land / crewed Vehicle IS a creature right now.
+      if (!(isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))) continue;
       if (subRes) {
         const face = typeLineStr(perm.card).split(" // ")[0]; // front face only (CR 712.4a)
         const has = subRes.some((re) => re.test(face)); // carries ANY listed subtype
@@ -98,7 +99,7 @@ export function sameNameCreatureTargets(state, name) {
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      if (isCreatureCard(perm.card) && perm.card?.name === name) out.push({ type: "creature", id: perm.id, controller: pid });
+      if ((isCreatureCard(perm.card) || permanentIsCreature(state, perm.id)) && perm.card?.name === name) out.push({ type: "creature", id: perm.id, controller: pid });
     }
   }
   return out;
@@ -146,7 +147,7 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   // subtype is a curated allowlist word (parser-side), so the \b match credits exactly the non-<Subtype> creatures.
   const negRe = opts.subtypeNegate ? new RegExp(`\\b${opts.subtypeNegate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
   return player.battlefield
-    .filter((perm) => isCreatureCard(perm.card))
+    .filter((perm) => isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
     .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card))))
     .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
@@ -193,7 +194,7 @@ export function opponentCreatureTargets(state, controller, opts = {}) {
     const opp = state.players?.[oppId];
     if (!opp) continue;
     for (const perm of opp.battlefield) {
-      if (!isCreatureCard(perm.card)) continue;
+      if (!(isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))) continue;
       if (cap != null && creatureToughness(perm, state) > cap) continue; // above the count-derived bound → spared
       out.push({ type: "creature", id: perm.id, controller: oppId });
     }

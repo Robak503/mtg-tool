@@ -157,3 +157,17 @@ describe("TARGETING must agree with COMBAT about what is a creature (slice 26)",
     expect(attackers).toContain("L1");
   });
 });
+
+describe("the atom-level MASS filters agree too (slice 27)", () => {
+  /**
+   * The one-shot mass filters in shared.js ("creatures you control", "each creature your opponents
+   * control", the same-name fan-out) were the last printed-only creature reads. A one-shot pump or wipe
+   * simply skipped an animated land — the same class as slices 22-26, at the set level rather than the
+   * single-permanent level.
+   */
+  it("controllerCreatureTargets picks up an animated land", async () => {
+    const { controllerCreatureTargets } = await import("./effects/atoms/shared.js");
+    expect(controllerCreatureTargets(board(), "user", {}).map((t) => t.id)).not.toContain("L1");
+    expect(controllerCreatureTargets(animate(board(), "L1"), "user", {}).map((t) => t.id)).toContain("L1");
+  });
+});
