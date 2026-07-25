@@ -49,6 +49,12 @@ describe("zone-option / optional-cost keywords — real carriers flip (one per f
     ["Rust-Shield Rampager", "Creature — Crocodile",
       "Offspring {1} (You may pay an additional {1} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)",
       "offspring — optional additional cost; unpaid = the printed base creature"],
+    ["Proven Combatant", "Creature — Human Warrior",
+      "Eternalize {4}{U}{U} ({4}{U}{U}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Human Warrior with no mana cost. Eternalize only as a sorcery.)",
+      "eternalize — embalm's twin (added 2026-07-25 with the castability audit the first pass deferred)"],
+    ["Burrenton Bombardier", "Creature — Kithkin Soldier",
+      "Flying\nReinforce 1—{1}{W} ({1}{W}, Discard this card: Put a +1/+1 counter on target creature.)",
+      "reinforce — a hand-only discard-activated option, the cycling class"],
   ];
   for (const [name, type, oracle, why, expected] of CASES) {
     it(`${name} — ${why}`, () => {
@@ -94,6 +100,13 @@ describe("CREED guards — what this family deliberately does NOT credit", () =>
     const skizzik = C("Skizzik", "Creature — Elemental",
       "Trample, haste\nKicker {R} (You may pay an additional {R} as you cast this spell.)\nAt the beginning of the end step, sacrifice this creature unless it was kicked.", "{3}{R}");
     expect(classifyCard(skizzik)).toBe("body-only");
+  });
+  it("the castability audit that separates eternalize/reinforce from suspend (the rule, pinned)", () => {
+    // Both eternalize and reinforce have exactly one no-mana-cost carrier, and BOTH are LANDS — played,
+    // not cast, so fully playable; the keyword is a pure extra option. That is why they are credited and
+    // suspend is not: suspend's no-cost carriers (Lotus Bloom) cannot be PLAYED at all without it.
+    expect(classifyCard(C("Lazotep Archway", "Land",
+      "Lazotep Archway enters the battlefield tapped.\n{T}: Add {W} or {B}.\nEternalize {3}{W}{B}", ""))).toMatch(/^(native|land)/);
   });
   it("SUSPEND is deliberately EXCLUDED — a no-mana-cost suspend card cannot be hard-cast at all", () => {
     // Lotus Bloom: crediting suspend would mark a card native that the engine literally cannot play.

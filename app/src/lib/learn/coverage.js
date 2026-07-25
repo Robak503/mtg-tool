@@ -298,6 +298,7 @@ export function isKeywordOnly(oracle, name) {
     rePartnerBare.test(c) ||
     // ZONE-OPTION / OPTIONAL-COST family (census slice 2026-07-24 — see the block comment above the consts)
     reGyZoneOptionCost.test(c) ||
+    reReinforceCost.test(c) ||
     reDredgeCost.test(c) ||
     reOptionalAddlCost.test(c) ||
     reImproviseBare.test(c) ||
@@ -416,10 +417,19 @@ const rePrototypeCost = /^prototype (?:\{[^}]+\})+ [—–-] \d+\/\d+$/;
 // zone the engine never offers; on the battlefield the line is inert):
 //   evoke (CR 702.74 — alt cost whose sac-on-ETB applies ONLY to an evoked cast; hard-cast = normal body)
 //   unearth (702.84 — GY-activated one-shot return; census #1 sole-blocker at 18)
-//   disturb (702.146 — cast transformed from GY) · embalm (702.128) / eternalize-style token casts are
-//   NOT included (eternalize uncensused — add only with its own audit) · scavenge (702.96 — GY-activated
+//   disturb (702.146 — cast transformed from GY) · embalm (702.128) · scavenge (702.96 — GY-activated
 //   counters) · mayhem (discarded-this-turn GY cast window)
-const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|scavenge|mayhem) (?:\{[^}]+\})+$/;
+//   eternalize (702.129, ADDED 2026-07-25 with the audit its first pass deferred): embalm's exact twin —
+//   exile from the GY for a token copy. Audited per the suspend rule: of 11 carriers only Lazotep Archway
+//   lacks a mana cost, and it's a LAND (played, not cast) — so every carrier is normally playable and the
+//   keyword is a pure extra option. (Suspend stays refused: its no-mana-cost carriers CANNOT be played at all.)
+const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|eternalize|scavenge|mayhem) (?:\{[^}]+\})+$/;
+// REINFORCE N—{cost} (CR 702.77) — a HAND-only discard-activated ability ("{cost}, Discard this card: Put N
+// +1/+1 counters on target creature"), the cycling/typecycling class: an option from hand the engine never
+// offers, so the card on the battlefield plays exactly as printed. Same castability audit as eternalize —
+// of 9 carriers only Rustic Clachan lacks a mana cost, and it too is a LAND. The number-then-em-dash shape
+// mirrors the prototype/suspend templating; anchored so a reinforce-referencing static can never match.
+const reReinforceCost = /^reinforce \d+\s*[—–-]\s*(?:\{[^}]+\})+$/;
 // dredge N (CR 702.52) — a REPLACEMENT OPTION on draws while in the GY ("instead of drawing, return this
 // and mill N"). Never offered → every draw stays a normal draw, resolution faithful. Digit tail, not brace.
 const reDredgeCost = /^dredge \d+$/;

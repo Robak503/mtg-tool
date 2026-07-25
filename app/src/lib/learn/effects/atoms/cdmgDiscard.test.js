@@ -236,9 +236,14 @@ describe("CDMG-DISCARD-SCALED — coverage classification", () => {
     expect(classifyCard({ name: "Dreamstealer", type: "Creature — Human Wizard", mana: "{1}{B}",
       oracle: "Menace\nWhenever Dreamstealer deals combat damage to a player, that player discards that many cards." })).toBe("native-trigger");
   });
-  it("CREED — the PRINTED Dreamstealer (with Eternalize) stays body-only (Eternalize unmodeled, residue gate holds)", () => {
+  it("the PRINTED Dreamstealer (with Eternalize) now flips — Eternalize is a credited zone-option keyword (2026-07-25)", () => {
+    // NOTE: this pin asserted body-only with "Eternalize unmodeled" as the stated blocker. Eternalize is
+    // now credited (coverage.js reGyZoneOptionCost) on the embalm/flashback basis — a GY exile-for-a-token
+    // option the engine never offers, so the printed card plays exactly as its body says. The residue gate
+    // this test really guards is unchanged and still proven by the case above (the combat-damage discard
+    // must itself be modeled); only the keyword's status changed. Positive pin: zoneOptionKeywords.test.js.
     expect(classifyCard({ name: "Dreamstealer", type: "Creature — Human Wizard", mana: "{1}{B}",
-      oracle: "Menace\nWhenever this creature deals combat damage to a player, that player discards that many cards.\nEternalize {4}{B}{B} ({4}{B}{B}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Human Wizard with no mana cost. Eternalize only as a sorcery.)" })).toBe("body-only");
+      oracle: "Menace\nWhenever this creature deals combat damage to a player, that player discards that many cards.\nEternalize {4}{B}{B} ({4}{B}{B}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Human Wizard with no mana cost. Eternalize only as a sorcery.)" })).toBe("native-trigger");
   });
 });
 
