@@ -473,12 +473,21 @@ them to agree, and they don't.
   standing-mana reader deliberately refuses these.
 - **A TRIGGERED mana ability** — "When this creature enters, add {R}" (Akki Rockspeaker). Not a standing
   source at all; this is the shape the phantom-mana FP was about, so tread carefully.
-- **A card with extra text the reader won't parse past** — The Eternity Elevator's "{T}: Add {C}{C}{C}"
-  works in isolation and returns null once its "Station" line is present. **This one is a plain bug**, not
-  a policy question, and is the cheapest place to start.
+- **A SECOND, unmodeled mana ability on the same card** — The Eternity Elevator prints "{T}: Add {C}{C}{C}"
+  AND a station-threshold "20+ | {T}: Add X mana of any one color, where X is the number of charge
+  counters". **CORRECTION (same session): I first wrote this up as "extra text defeats the reader" and
+  that was wrong** — the reader handles extra lines fine, and it is right to bail on a card whose second
+  mana ability it cannot model. The runtime is correct here; the METRIC is the only side over-claiming.
 - **A choice-dependent color** — "Add one mana of the chosen color" (Sol Grail).
 
-**Do this first:** re-run the probe grouped by sub-cause before touching anything — the fix for the
-extra-text case (widen the reader) is the opposite of the fix for the costed case (narrow the metric).
-`scratchpad/probe-drift3.mjs` is the starting point; note its first draft misled me by testing a
-hand-simplified oracle instead of the real `publicCard`, so keep it on real card text.
+**Where this most likely lands.** In every sub-cause checked, the RUNTIME's refusal was correct and the
+METRIC was the permissive side. That points at one fix — gate `native-mana` on `manaProduction` actually
+returning something, i.e. point both at the single reader, the same "one judgement, one helper" move that
+resolved eleven bugs this session. It is a HONEST correction, and it drops up to 159 cards (~1.3% of the
+corpus) off a headline number, so it wants Colton's eyes before it ships rather than after.
+
+**Do this first:** re-run the probe grouped by sub-cause and confirm the direction holds for all four —
+I checked six cards, not 159. `scratchpad/probe-drift3.mjs` is the starting point, and TWO of my readings
+in this thread were wrong before they were right: the first draft tested a hand-simplified oracle instead
+of the real `publicCard`, and the sub-cause above was misdiagnosed. Keep it on real card text, and
+re-derive rather than trusting the table.
