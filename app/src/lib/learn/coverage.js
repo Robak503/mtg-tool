@@ -264,6 +264,34 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  * ("Invisible Stalker can't be blocked.") reads as a covered self-clause; a nameless caller simply
  * under-claims such self-clauses (safe — false-negative).
  */
+/**
+ * SELF NO-UNTAP STATIC (BLITZ UP-1, CR 302.6) — "This <permanent> doesn't untap during your untap step."
+ * The runtime HONORS this (gameState.selfPreventsUntap skips the source at the untap step), so the metric
+ * must credit it wherever it appears, or the two diverge in the FN direction. It was previously stripped by
+ * an inline copy inside permanentTriggersCovered ONLY, which is why a card whose other text was a modeled
+ * TRIGGER flipped while the identical card with a modeled ACTIVATED ability parked — a pure path accident.
+ * One shared helper now, so the three residue paths cannot drift apart again.
+ *
+ * The subject anchors MIRROR selfPreventsUntap exactly and deliberately:
+ *   - "this <noun>"     — the modern self reference;
+ *   - the CARD'S OWN NAME — legacy printings templated it (Goblin Sharpshooter, Mana Vault; CR 201.4).
+ * It must NOT match "Enchanted creature doesn't untap …" (the ATTACHED form, a different runtime path) nor
+ * the "your NEXT untap step" wording (a one-shot rider on a mana ability that the runtime refuses).
+ */
+const SELF_NO_UNTAP_NOUNS_METRIC = "creature|artifact|permanent|land|enchantment|equipment|vehicle";
+export function stripModeledSelfNoUntap(oracle, name) {
+  let out = String(oracle || "").replace(
+    new RegExp(`\\bthis (?:${SELF_NO_UNTAP_NOUNS_METRIC}) doesn['’]t untap during your untap step\\b\\.?\\s*`, "gi"),
+    " ",
+  );
+  const n = String(name || "");
+  if (n) {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/'/g, "['’]");
+    out = out.replace(new RegExp(`\\b${esc} doesn['’]t untap during your untap step\\b\\.?\\s*`, "gi"), " ");
+  }
+  return out;
+}
+
 export function isKeywordOnly(oracle, name) {
   let t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
@@ -924,14 +952,14 @@ export function permanentTriggersCovered(card) {
     // apostrophe tolerated); the "enchanted …" attached form (line ~806-region attachmentPreventsUntap) and the
     // "each other player's untap step" Seedborn phase static are DISJOINT and untouched. FN-safe: a card whose
     // ONLY residue is this line reads keyword-only after the strip and the runtime plays it faithfully.
-    // CREED HARDENING (desk audit, census day 2): the "your NEXT untap step" wording is EXCLUDED here to match
-    // the runtime exactly. selfPreventsUntap (gameState.js) deliberately refuses that form — it is a ONE-SHOT
-    // rider printed inside an activated ability ("{T}: Add {W} or {U}. This land doesn't untap during your next
-    // untap step." — the Cloudcrest Lake slow-dual family), not a continuous lock, and no lane applies it when
-    // the ability is activated. Crediting it here while the runtime ignores it is precisely the metric-says-
-    // faithful / plays-wrong divergence the CREED forbids. No card flips tier on this narrowing today (verified
-    // corpus-wide: zero native carriers of the "next" wording) — it removes a loaded gun, not a false positive.
-    .replace(/\bthis (?:creature|artifact|permanent|land|enchantment|equipment|vehicle) doesn['’]t untap during your untap step\b\.?\s*/gi, " ")
+    // SELF NO-UNTAP STATIC — delegated to the shared stripModeledSelfNoUntap helper (defined near
+    // isKeywordOnly) so this path, permanentActivatedCovered's residue, and the native-body check all credit
+    // the SAME wording. They used to differ: only this one stripped it, which is why a card with a modeled
+    // TRIGGER flipped while the identical card with a modeled ACTIVATED ability parked.
+    // The helper's anchors mirror gameState.selfPreventsUntap exactly, including its deliberate refusal of the
+    // "your NEXT untap step" wording — that is a one-shot rider on a mana ability (the Cloudcrest Lake
+    // slow-dual family) with no runtime lane, and crediting what the runtime ignores is the
+    // metric-says-faithful / plays-wrong divergence the CREED forbids.
     // DICE-ROLL (CR 726) — the result-scaled payoff sentences that FOLLOW a combat-damage trigger's "roll a
     // d20." are part of THAT trigger's effect (detectTriggers folds them into the effectClause, which parses
     // HIGH in allTriggerSentencesModeled above — proven before this residue check runs), but the trigger
@@ -1036,7 +1064,7 @@ export function permanentTriggersCovered(card) {
     // Flying/trample + the enters-with-X line, both handled by isKeywordOnly). FN-safe: anchored to the exact
     // directive, and the HIGH gate above already vouched the half-X effect is modeled.
     .replace(/\bround (?:down|up) each time\b\.?\s*/gi, " ");
-  return isKeywordOnly(residue, card?.name);
+  return isKeywordOnly(stripModeledSelfNoUntap(residue, card?.name), card?.name);
 }
 
 /**
@@ -1102,9 +1130,12 @@ export function permanentActivatedCovered(card) {
   // modal activated ability — Koma — is stripped as ONE line, not left as mode-bullet residue; same fold the
   // parser uses), then drop every activated-ability-shaped line (the same shape the parser detects).
   // The remainder (keywords, and any trigger/static text) must be keyword-only/empty.
-  const residue = foldModalBulletLines(stripReminder(card.oracle || ""))
-    .filter((line) => !isActivatedAbilityLine(line, card))
-    .join("\n");
+  const residue = stripModeledSelfNoUntap(
+    foldModalBulletLines(stripReminder(card.oracle || ""))
+      .filter((line) => !isActivatedAbilityLine(line, card))
+      .join("\n"),
+    card?.name,
+  );
   return isKeywordOnly(residue, card?.name);
 }
 
@@ -2051,7 +2082,7 @@ export function classifyCard(card) {
   const etCard = crewOracle !== oracle || isTapped
     ? { ...card, oracle: (isTapped ? crewOracle.replace(tapRe, "\n") : crewOracle).trim() }
     : card;
-  if (isKeywordOnly(etOracle, card?.name)) return "native-body";
+  if (isKeywordOnly(stripModeledSelfNoUntap(etOracle, card?.name), card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
   // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via

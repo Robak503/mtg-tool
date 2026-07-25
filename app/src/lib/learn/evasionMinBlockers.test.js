@@ -126,7 +126,13 @@ describe("EV-3 CREED — whole-card-or-park (the evasion arm alone can't carry a
     // by this file's slice — typecycling was Troll's sole remaining park reason.
     expect(classifyCard(TROLL_KHAZAD)).toMatch(/^native/);
     expect(classifyCard(RELENTLESS)).toBe("body-only");         // {8} graveyard recursion
-    expect(classifyCard(PHYREXIAN_COLOSSUS)).toBe("body-only"); // no-untap static + pay-life untap
+    // GRADUATED (census slice 16). Both halves of Phyrexian Colossus are modeled and were VERIFIED AT
+    // RUNTIME before this pin was flipped, not inferred from the parse: untapAll leaves it tapped (the
+    // self no-untap static is honored by selfPreventsUntap), the "Pay 8 life: Untap this creature."
+    // ability is offered only when payable, and resolving it really does untap the creature. The static
+    // was previously credited in only ONE residue path, so this card parked for a path accident rather
+    // than a capability gap — see selfNoUntapCreditParity.test.js.
+    expect(classifyCard(PHYREXIAN_COLOSSUS)).toMatch(/^native/);
     // Hexmark Destroyer STILL parks — its unearth half is now credited but the ability-word-prefixed
     // clause remains unrecognized: the whole-card law holding under a mass keyword credit, exactly
     // the composed negative this describe exists for.
