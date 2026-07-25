@@ -1808,6 +1808,23 @@ export function evolveKeywordCount(oracle) {
   return 0;
 }
 
+/**
+ * KW-RENOWN (CR 702.111) — "Renown N" on its own line (reminder text stripped, the undying/evolve idiom).
+ * Returns N (the counter count), or 0 when the card doesn't carry a printed renown keyword. A GRANTED
+ * renown ("creatures you control have renown 1") is a different shape and never matches the anchor, so it
+ * contributes 0 here and 0 to the detected count — the pair stays reconciled.
+ */
+export function renownKeywordValue(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^renown (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
 export function undyingKeywordCount(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -3292,6 +3309,25 @@ export function detectTriggers(card) {
       interveningIf: "that creature has greater power or toughness than this creature",
       optional: false, sourceText: "Evolve",
     });
+  }
+  // KW-RENOWN (CR 702.111, census slice 2026-07-25) — the SAME keyword→trigger synthesis as evolve above.
+  // "Renown N (When this creature deals combat damage to a player, if it isn't renowned, put N +1/+1
+  // counters on it and it becomes renowned.)" — the ability lives entirely in reminder parens, unreachable
+  // by the boundary-anchored trigger regex. The "isn't renowned" gate is a LATCH, not a board query, so it
+  // is NOT expressed as an intervening-if (interveningIf.js has no per-permanent renown vocabulary and a
+  // fail-open there would re-renown every combat): the latch lives INSIDE the atom, exactly like
+  // monstrosity's `monstrous` flag, which is the same shape (check flag → counters → set flag).
+  {
+    const renownN = renownKeywordValue(oracle);
+    if (renownN > 0) {
+      out.push({
+        event: "combatDamageToPlayer", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `[renown] put ${renownN} +1/+1 counters on this creature`,
+        interveningIf: null,
+        optional: false, sourceText: `Renown ${renownN}`,
+      });
+    }
   }
   // SAGA CHAPTERS (CR 714 — Vault 12, SHELF S7): a Saga's numbered chapters are triggered abilities that
   // fire as the lore count crosses each number. Synthesize ONE descriptor per chapter (the keyword-synthesis

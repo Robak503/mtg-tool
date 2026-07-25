@@ -894,6 +894,36 @@ export function evolveCounterSelfClauseParser(clause) {
 }
 
 /**
+ * KW-RENOWN (CR 702.111) — the kind-tagged sentinel detectTriggers synthesizes from the printed keyword
+ * ("[renown] put N +1/+1 counters on this creature"). Only this parser models that sentinel, so no printed
+ * clause can route here. Mirrors evolveCounterSelfClauseParser exactly.
+ */
+export function renownClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[renown\] put (\d+) \+1\/\+1 counters on this creature$/i);
+  return m ? { op: "renown", amount: parseInt(m[1], 10), targetType: null } : null;
+}
+
+/**
+ * KW-RENOWN resolution (CR 702.111a) — "if it isn't renowned, put N +1/+1 counters on it and it becomes
+ * renowned." A ONE-SHOT LATCH exactly like monstrosity (applyMonstrosity above is the template): an
+ * already-renowned creature dealing combat damage again does NOTHING, so the flag gate lives here rather
+ * than in an intervening-if (a fail-open board query would re-renown every combat — the forbidden FP).
+ * Self-scoped: the renowned creature is the trigger's own source (ctx.sourceId). A source that has since
+ * left the battlefield is a clean logged no-op — never a counter placed on a stale id.
+ */
+export function applyRenown(state, atom, ctx) {
+  const lk = findPermanent(state, ctx.sourceId);
+  if (!lk) return logEvent(state, { kind: "spell-effect", effect: "renown", note: "source absent", permanentId: ctx.sourceId });
+  if (lk.permanent.renowned) return logEvent(state, { kind: "spell-effect", effect: "renown", note: "already renowned", permanentId: ctx.sourceId });
+  const n = atom.amount || 1;
+  // Counters go through addCounter — the central chokepoint, so doubling effects and counter-placed
+  // watchers compose exactly as they do for monstrosity/evolve.
+  let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: n });
+  next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, renowned: true }));
+  return logEvent(next, { kind: "spell-effect", effect: "renown", permanentId: ctx.sourceId, amount: n });
+}
+
+/**
  * ENDURE N (CR 701.63 / 701.63a — BLITZ KW-1) — "<permanent> endures N" means "creates an N/N white Spirit
  * creature token UNLESS they put N +1/+1 counters on that permanent." A MODAL controller choice between two
  * modes, BOTH fully modeled here. The mode is auto-picked deterministically (a controller free choice, resolved
@@ -939,6 +969,7 @@ export const counterResolvers = {
   "add-counter": applyAddCounter,
   "endure": applyEndure, // ENDURE N (CR 701.63 — BLITZ KW-1) — modal keyword action: N +1/+1 counters on the source, or an N/N white Spirit token when the source has left
   "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
+  "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
 
