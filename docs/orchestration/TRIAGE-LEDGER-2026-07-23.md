@@ -252,3 +252,39 @@ live bug today only because the park keeps these cards non-native.
 
 Written up rather than built: lifting a reasoned park is Colton's scope call, and shipping the guard alone
 would have added an unreachable code path (the entersAttacking lesson from the same session).
+
+---
+
+## READY-TO-BUILD — activation limit as a COUNT (`Activate no more than N times each turn`)
+
+Scoped 2026-07-25 at the tail of census day 2. Not built because it touches the action-LEGALITY
+path (the simulator's most load-bearing seam) for a 7-card yield, at the end of a long shift. It is
+fully scoped here so the next session can start cold.
+
+**The gap.** The engine models the frequency restriction as a BOOLEAN (`oncePerTurn`), so only the
+"Activate only once each turn." frame is expressible. The counted frames have no lane:
+
+| wording | native | non-native |
+|---|---|---|
+| `activate only once each turn` | 56 | 52 (blocked on other text) |
+| `activate no more than twice each turn` | 0 | **5** (Pit Imp, Phyrexian Battleflies, …) |
+| `activate no more than three times each turn` | 1 | **2** (Soul Kiss, …) |
+
+**Exactly three sites** (verified by grep; no others read the ledger):
+
+1. `effects/abilities.js:673` — `ONCE_RIDER` regex + the `oncePerTurn` flag set at :674, surfaced
+   on the parsed ability at :741. Generalize to `activationsPerTurn: N`, with the existing "only
+   once" frame parsing as N=1 so the 56 native carriers keep byte-identical behavior.
+2. `legalChoices.js:1655` — the gate. Today:
+   `if (ab.oncePerTurn && state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`] === state.turn) continue;`
+   Becomes a count comparison against N.
+3. `actionDispatcher.js:1034-1035` — the record. Stores `[key] = turn`; needs `{ turn, n }` (or a
+   turn-scoped counter) so the gate can compare.
+
+**Coupling is low:** only `activateOncePerTurn.test.js` touches the stored shape (3 references).
+
+**The FP to avoid.** Getting the comparison backwards (`>` vs `>=`) or failing to reset the counter
+on turn change grants an EXTRA activation — a permissive engine, which is the forbidden direction.
+Pin both boundaries: the Nth activation must be legal and the N+1th must not, and the counter must
+reset across a turn boundary. Also pin one of the 56 existing "only once" carriers unchanged — that
+regression is the real risk here, not the new cards.
