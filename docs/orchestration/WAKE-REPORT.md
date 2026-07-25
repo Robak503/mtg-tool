@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TEN slices, two new engine subsystems (+295) — corpus 33.5%→34.4% — suite 820/10,682
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: SIXTEEN slices (+330) — corpus 33.5%→34.5% — suite 825/10,733
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,32 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICES 11-16 — the shift turned from adding lanes to REPAIRING them.** Six more slices, and the last
+> four were bug fixes the census surfaced rather than coverage gaps:
+> - **11 `5e2f24cc` (+7)** — the per-turn activation limit became a COUNT, not a boolean. A boolean cannot
+>   say "twice", so Pit Imp / Soul Kiss and five siblings had no lane. `used >= limit` is the whole safety
+>   property; off by one hands out a free activation, the forbidden direction.
+> - **12 `661f47f8` (+5)** — attach printed as a plain "{cost}: Attach this Equipment …" activated ability
+>   (the Cranial Plating cycle). Routes to the SAME ATTACH resolver; the engine only under-offers it
+>   (own-main ⊂ any-priority), a safe FN.
+> - **13 `0122de3a` (+7)** — "create a token, then attach this Equipment to it", the spelled-out Living
+>   Weapon. Deliberately NOT routed through livingWeaponToken: these carry a real printed trigger, so the
+>   keyword path would have minted the token TWICE.
+> - **14 `585a9562` (+4)** — **a bug I introduced in slice 10**: the fold ate the rider's terminating period
+>   and glued the NEXT sentence on. Invisible to the fingerprint, which only shows cards that MOVE — these
+>   were held back without changing tier.
+> - **15 `0e65ccc9` (+3)** — RIDER-REMOVAL was anchored to end-of-oracle, so an ordinary trailing "Draw a
+>   card." killed the match. A pin calling that draw an "unmodeled rider" was simply a misreading: the
+>   CASTER draws.
+> - **16 `ab0dfcd5` (+4)** — the self no-untap static was credited in ONE residue path only, so the same
+>   static flipped a trigger card and parked an activated-ability card. Three paths now share one helper.
+>
+> **THE READING HABIT THAT PAID FOR 14/15/16 — an OBVIOUSLY MODELED shape in the census is a BUG SIGNATURE.**
+> When the census lists `draw a card` as a sole blocker on 8 cards, it is not saying draw is unmodeled; it is
+> saying that deleting an already-built line FLIPS the card, so something upstream mis-binds it. That one row
+> paid out twice for two unrelated root causes. Scan the census for shapes you KNOW are built and treat each
+> as a defect report. Now standing guidance in the runbook.
 >
 > **THE HEURISTIC THAT OPENED SLICE 10 — SIBLING ASYMMETRY.** Frost Trickster classified native and Frost
 > Lynx parked, and the two cards are identical modulo the word "Flying". A card penalized for having LESS
