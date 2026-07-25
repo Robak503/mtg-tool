@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-FIVE slices (+369) + a RUNTIME no-op class swept — corpus 33.5%→34.6% — suite 832/10,787
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-SEVEN slices (+369) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 832/10,791
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,13 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **🚨 SLICES 26-27 `53247f2c` `81664b6a` — the engine had an INVULNERABLE ATTACKER.** An animated land
+> could attack (combat reads the layer-aware check) but could NOT be targeted by "destroy target creature"
+> (the enumerator read the printed card). That is not the safe direction an under-offer usually is — the two
+> halves disagreed IN THE CONTROLLER'S FAVOUR, giving self-play a threat no removal could answer. Fixed in
+> the enumerator and in the four atom-level mass filters; the full suite was UNCHANGED by both, and no pin
+> anywhere asserted an animated permanent should be untargetable — evidence it was an oversight, not a call.
 >
 > **SLICES 23-25 `1fb2ce42` `99e44a78` `820f5a12` — the same defect, swept.** Slice 22's root cause turned
 > out to be a CLASS: a permanent looked up on the battlefield and then gated on its PRINTED card rather than

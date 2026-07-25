@@ -373,7 +373,7 @@ Non-native ENCHANTMENTS and CREATURES do reach the battlefield, which makes the 
 
 ---
 
-## ⚠️ OPEN — an ANIMATED permanent can ATTACK but cannot be TARGETED (asymmetry, favours its controller)
+## ✅ RESOLVED same-day (slices 26-27) — an ANIMATED permanent can ATTACK but cannot be TARGETED
 
 Found 2026-07-25 while sweeping the printed-vs-layer-aware creature checks (slices 22-25). NOT fixed
 in-session: the fix lands on the single most-used path in the engine and deserves its own slice.
@@ -406,3 +406,10 @@ nothing downstream assumes a "creature" target has printed P/T.
 `isCreatureCard(card) || permanentIsCreature(state, perm.id)`, then diff the full suite and drive a removal
 spell at an animated land end-to-end. Expect existing pins that assert an animated land is NOT targetable to
 need re-examination — check whether each is a deliberate CREED guard or just a snapshot of this bug.
+
+
+**RESOLVED 2026-07-25, slices 26 (`53247f2c`) and 27 (`81664b6a`).** The enumerator's creature branch and
+the four atom-level mass filters now read `isCreatureCard(card) || permanentIsCreature(state, id)`. The full
+suite was UNCHANGED by both — no pin anywhere asserted an animated permanent should be untargetable, which
+is itself the evidence this was an oversight rather than a decision. Eleven sites fixed across slices 22-27;
+all were invisible to the metric, which is why they accumulated.
