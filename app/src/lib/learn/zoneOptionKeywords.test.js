@@ -59,6 +59,34 @@ describe("zone-option / optional-cost keywords — real carriers flip (one per f
   }
 });
 
+/**
+ * SPELL-SIDE SIBLINGS (census slice 2, 2026-07-24/25) — the same class on instants/sorceries, credited
+ * through the parser's strip families instead of isKeywordOnly: CAST_KEYWORD_LINE gains buyback /
+ * entwine / conspire / mayhem (joining spectacle/prowl/surge/overload — each changes resolution ONLY
+ * when its optional cost was paid, and the engine never pays it), COST_ONLY_KEYWORD_LINE gains
+ * improvise (convoke's twin). 37 flips, zero down, all 37 mechanically attributed to a family line
+ * (13 buyback · 12 entwine · 6 conspire · 4 improvise · 2 mayhem).
+ */
+describe("spell-side siblings — real carriers flip", () => {
+  const S = (name, oracle, mana = "{1}{U}") => ({ name, type: "Instant", oracle, mana, keywords: [] });
+  it("buyback — Capsize (the printed bounce is the whole normal cast)", () => {
+    expect(classifyCard(S("Capsize", "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nReturn target permanent to its owner's hand.", "{1}{U}{U}"))).toBe("native-spell");
+  });
+  it("entwine — Rain of Rust (normal cast is the printed choose-one; the modal engine already owns it)", () => {
+    expect(classifyCard(S("Rain of Rust", "Choose one —\n• Destroy target artifact.\n• Destroy target land.\nEntwine {2} (Choose both if you pay the entwine cost.)", "{3}{R}"))).toBe("native-spell");
+  });
+  it("conspire — Ghastly Discovery (bare keyword after reminder-strip; copy only if the cost was paid)", () => {
+    expect(classifyCard(S("Ghastly Discovery", "Draw a card, then discard a card.\nConspire (As you cast this spell, you may tap two untapped creatures you control that share a color with it. When you do, copy it.)", "{1}{B}"))).toBe("native-spell");
+  });
+  it("improvise on a SPELL — Reverse Engineer (cost-reduction only, convoke's basis)", () => {
+    expect(classifyCard(S("Reverse Engineer", "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nDraw three cards.", "{3}{U}{U}"))).toBe("native-spell");
+  });
+  it("CREED: a spell whose OTHER clause is unmodeled still parks (the cost credit can't carry it)", () => {
+    // Spell Burst's X-scaled counter + Whir of Invention's X-tutor: real unmodeled bodies, both stay Arbiter.
+    expect(classifyCard(S("Spell Burst", "Counter target spell with mana value X.\nBuyback {3}", "{X}{U}"))).not.toMatch(/^native/);
+  });
+});
+
 describe("CREED guards — what this family deliberately does NOT credit", () => {
   it("a kicked-CONDITIONAL body clause still parks the whole card (the cost line credit can't force-flip it)", () => {
     // Skizzik: the kicker COST line is credited, but "sacrifice it unless it was kicked" is a separate,
