@@ -1,5 +1,35 @@
 # WAKE REPORT — live resume anchor
 
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: the delayed-trigger SUBSYSTEM + 3 keyword slices (+213 total) — corpus 33.5%→34.1% — suite 815/10,631
+
+> Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
+> each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
+> audit · stale-pin sweep · suite · lint):
+> - **Slice 1 `6a524e47` (+144)** — zone-option / optional-cost keywords (unearth, evoke, dredge, kicker,
+>   improvise, typecycling…), the permanent side.
+> - **Slice 2 `23140a7f` (+37)** — the spell-side siblings (buyback / entwine / conspire / mayhem +
+>   improvise), completing the WIP checkpoint left at the power-down pause.
+> - **Slice 3 `c93b6d56` (+23) — DELAYED TRIGGERED ABILITIES (CR 603.7), a NEW ENGINE SUBSYSTEM.** 679
+>   corpus carriers schedule an ability for a future step and there was no scheduler at all. Built
+>   `state.delayedTriggers` + a `schedule-delayed` atom + a step-entry drain that hands fired records to the
+>   EXISTING flush→stack→resolve pipeline (zero new resolution code — targeting, the Arbiter fallback and
+>   serialization all inherited). **A real resolution-order FP was caught mid-build by an existing
+>   MUST_DROP_TO_LOW pin**: the trail matcher first folded a spell's IMMEDIATE effect into the delayed
+>   clause (Ideas Unbound would have deferred its own draw-three). Fixing it nearly tripled the yield, 8→23.
+> - **Slice 4 `5d3e8d2a` (+9)** — eternalize + reinforce, closing slice 1's explicit deferral with the
+>   castability audit that separates them from suspend (their only no-mana-cost carriers are LANDS —
+>   played, not cast; suspend's genuinely cannot be played at all, so it stays refused).
+>
+> **Method notes worth keeping:** the census re-ranks after every slice, so the queue stays honest as the
+> corpus moves. Four stale pins updated with NOTEs across the day — each had been RIGHT until its slice
+> landed, and two earned their keep by catching real bugs on the way out. Full-suite runs under CPU
+> contention produced ~13 spurious failures that all passed in isolation: the runbook's "red under load
+> proves nothing" rule, honored rather than assumed.
+>
+> **NEXT on the ranked queue:** backup N (15 sole) · bloodthirst N (13 — needs a damage-specific per-turn
+> ledger; reusing life-loss tracking would over-fire on non-damage loss, an FP) · renown N (12 — needs a
+> renowned state flag) · aftermath (10) · the Aura self-bounce activated (12 across two cost shapes).
+
 ## ☀️ 2026-07-24 MIDDAY — THE CENSUS ERA OPENS: +144 in one slice (zone-option keywords) — corpus 33.5%→33.9% — suite 814/10,608
 
 > **The strategy pivot Colton called this morning is now the standing method** — subsystem-first,
