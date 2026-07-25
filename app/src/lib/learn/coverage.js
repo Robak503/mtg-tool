@@ -236,6 +236,9 @@ export const COVERED_KEYWORDS = [
   // damage again does nothing. The keyword prints as "renown N", so it matches via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count (renownShaped).
   "renown",
+  // (KW-BLOODTHIRST is NOT credited here — it needs a DIGIT-anchored gate, see reBloodthirstFixed below.
+  //  A startsWith("bloodthirst ") credit would also accept "Bloodthirst X", whose counters the runtime
+  //  cannot place — caught by the per-flip audit on Petrified Wood-Kin before it shipped.)
   // CASCADE (CR 702.85) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers (a selfCast
   // `cascade` trigger) + fired by checkCastTriggers (dig the library to a cheaper nonland, park the free-cast/
   // decline decision at the action layer). A SINGLE "cascade" line matches via the `=== "cascade"` check; the
@@ -306,6 +309,7 @@ export function isKeywordOnly(oracle, name) {
     // ZONE-OPTION / OPTIONAL-COST family (census slice 2026-07-24 — see the block comment above the consts)
     reGyZoneOptionCost.test(c) ||
     reReinforceCost.test(c) ||
+    reBloodthirstFixed.test(c) ||
     reDredgeCost.test(c) ||
     reOptionalAddlCost.test(c) ||
     reImproviseBare.test(c) ||
@@ -437,6 +441,13 @@ const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|eternalize|scavenge
 // of 9 carriers only Rustic Clachan lacks a mana cost, and it too is a LAND. The number-then-em-dash shape
 // mirrors the prototype/suspend templating; anchored so a reinforce-referencing static can never match.
 const reReinforceCost = /^reinforce \d+\s*[—–-]\s*(?:\{[^}]+\})+$/;
+// KW-BLOODTHIRST (CR 702.54) — credited ONLY for a FIXED digit count, mirroring the cycling gate's
+// exact-shape discipline: entersWithConditionalCounters synthesizes {n, condition} from "Bloodthirst N"
+// and resolvers.js places those counters as the creature enters, so the keyword is genuinely enforced.
+// "Bloodthirst X" (Petrified Wood-Kin — X = damage dealt to your opponents this turn) is DELIBERATELY
+// excluded: the synthesizer returns null for it, so a startsWith-style credit would mark the card native
+// while the runtime placed nothing. Caught by this slice's own per-flip audit before it shipped.
+const reBloodthirstFixed = /^bloodthirst \d+$/;
 // dredge N (CR 702.52) — a REPLACEMENT OPTION on draws while in the GY ("instead of drawing, return this
 // and mill N"). Never offered → every draw stays a normal draw, resolution faithful. Digit tail, not brace.
 const reDredgeCost = /^dredge \d+$/;

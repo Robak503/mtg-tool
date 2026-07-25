@@ -357,6 +357,15 @@ const OPP_LOST_LIFE_RE = new RegExp(`^an opponent lost ${NUM_RE} or more life th
 // the identical ledger (identical at flush AND resolution), differing only in the threshold (≥1 vs ≥N).
 const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
 
+// ===== OPPONENT-DEALT-DAMAGE (CR 120.3 — KW-BLOODTHIRST, 2026-07-25) ==========================
+// "an opponent was dealt damage this turn" (the bloodthirst condition, 26 corpus carriers). Reads the
+// per-seat damageTakenThisTurn ledger — DAMAGE ONLY, deliberately NOT lifeLostThisTurn: a drain, a
+// pay-life cost, or "each player loses 1 life" all lose life without ANY damage being dealt, and
+// crediting those would fire bloodthirst on a turn nobody was damaged (the forbidden FP). gameState's
+// loseLife tallies this ledger only when its `combatDamage` flag is defined — which exactly the two
+// damage callers pass and no non-damage loss does. Absent tally = 0 = false (fail-closed).
+const OPP_DEALT_DAMAGE_RE = /^an opponent was dealt damage this turn$/;
+
 // ===== MONARCH-STATUS (CR 725.1 + 603.4 — BLITZ IF-1) ========================================
 // "you're the monarch" (Throne Warden, Garrulous Sycophant, Skyline Despot, Faramir Steward of Gondor …) —
 // the controller currently holds the monarch designation (CR 725.1: "The monarch is a designation a player
@@ -471,6 +480,10 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   // any life this turn). Distinct anchor from the "N or more" form; both read lifeLostThisTurn identically.
   if (OPP_LOST_LIFE_ANY_RE.test(c)) {
     return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.lifeLostThisTurn || 0) >= 1);
+  }
+  // OPPONENT-DEALT-DAMAGE (KW-BLOODTHIRST) — the DAMAGE-only sibling of the life-loss read above.
+  if (OPP_DEALT_DAMAGE_RE.test(c)) {
+    return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.damageTakenThisTurn || 0) >= 1);
   }
 
   // MONARCH-STATUS (CR 725.1 — BLITZ IF-1) — the controller holds the monarch designation right now. A live

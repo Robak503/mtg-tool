@@ -362,6 +362,10 @@ describe("byte-identical negative (the CREED proof)", () => {
     const expected = structuredClone(before.players);
     expected.ai.life = 38; // 40 - 2, un-doubled
     expected.ai.lifeLostThisTurn = 2; // the loseLife-chokepoint ledger (Bloodchief Ascension — SHELF S7) stamps combat damage too
+    expected.ai.damageTakenThisTurn = 2; // KW-BLOODTHIRST's DAMAGE-only sibling ledger (2026-07-25) — same chokepoint,
+    // but tallied ONLY when loseLife's `combatDamage` flag is defined, so a drain/pay-life never stamps it.
+    // This assertion is the point of the test: a new per-turn ledger IS a real state change and must be
+    // declared here, exactly like lifeLostThisTurn above, rather than silently widening the byte-identical claim.
     expect(out.players).toStrictEqual(expected);
     expect(out.log.some((e) => /wolverine|double|replace/i.test(String(e.kind)))).toBe(false);
   });

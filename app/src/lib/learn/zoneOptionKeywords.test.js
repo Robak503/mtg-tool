@@ -35,7 +35,7 @@ describe("zone-option / optional-cost keywords — real carriers flip (one per f
       "dredge — a draw-replacement OPTION from the GY; never offered → every draw stays normal"],
     ["Skarrgan Pit-Skulk", "Creature — Human Warrior",
       "Bloodthirst 1 (If an opponent was dealt damage this turn, this creature enters with a +1/+1 counter on it.)\nCreatures with power less than this creature's power can't block it.",
-      "NEGATIVE CONTROL — bloodthirst is deliberately NOT in this family (a real ETB state change, not an option); stays parked",
+      "NEGATIVE CONTROL — bloodthirst is not an OPTION keyword (it's a real ETB state change) so it was never in this family. It has since been BUILT properly on the conditional-enter-counters lane (bloodthirst.test.js); this carrier still parks on its OTHER clause, the power-comparison block restriction",
       "body-only"],
     ["Enraged Giant", "Creature — Giant",
       "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nHaste",

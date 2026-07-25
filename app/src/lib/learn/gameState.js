@@ -1476,6 +1476,14 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
     return {
       ...p, life: newLife,
       ...(amount > 0 && { lifeLostThisTurn: (p.lifeLostThisTurn || 0) + amount }),
+      // DAMAGE-TAKEN-THIS-TURN (CR 119.3 vs 120.3 — the DAMAGE-only ledger, added 2026-07-25 for
+      // bloodthirst). Deliberately NOT the same thing as lifeLostThisTurn: a drain, a pay-life cost or a
+      // "each player loses 1 life" effect all lose life WITHOUT damage, and bloodthirst's "if an opponent
+      // was dealt DAMAGE this turn" must not fire on those (a forbidden FP). The discriminator is free and
+      // exact: both damage callers pass `combatDamage` (true from combat resolution, false from the
+      // burn/ability damage atom) while every non-damage loss leaves it undefined — so tallying only when
+      // it is defined tracks damage and nothing else. Reset for all seats at untap beside the siblings.
+      ...(combatDamage !== undefined && amount > 0 && { damageTakenThisTurn: (p.damageTakenThisTurn || 0) + amount }),
       ...(combatDamage !== undefined && amount > 0 && newLife <= 0 && { lethalDamageCombat: combatDamage }),
     };
   });
@@ -1949,7 +1957,7 @@ export function resetCreatureDeathsAllPlayers(state) {
     // lifeLostThisTurn + lifeGainedThisTurn + gyEnteredThisTurn reset on the SAME per-game-turn cadence
     // (Bloodchief Ascension's end-step check / Regal Bloodlord's end-step "if you gained life this turn" /
     // Fraying Sanity's end-step mill — any can accrue on any player's turn, so all seats clear each turn).
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0 };
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, damageTakenThisTurn: 0 };
   }
   return { ...state, players };
 }

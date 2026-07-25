@@ -675,6 +675,17 @@ export function isHonestEnterCounterKind(kind) {
  */
 export function entersWithConditionalCounters(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  // KW-BLOODTHIRST (CR 702.54, 2026-07-25) — the keyword IS this exact shape, but its text lives entirely
+  // in reminder parens ("Bloodthirst N (If an opponent was dealt damage this turn, this creature enters
+  // with N +1/+1 counters on it.)"), which the strip above removes before the sentence matcher ever runs.
+  // Synthesizing the {n, condition} pair here — rather than in a separate lane — means the EXISTING
+  // machinery on both sides picks it up unchanged: coverage's condEnterCtr gate credits it, and
+  // resolvers.js's condCtr applies the counters at enter time. The condition string is the one
+  // interveningIf.js now reads off the damage-only ledger.
+  for (const line of oracle.split("\n")) {
+    const bt = line.trim().match(/^bloodthirst (\d+)$/i);
+    if (bt) return { n: parseInt(bt[1], 10), condition: "an opponent was dealt damage this turn" };
+  }
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
     const m = sentence.trim().match(/^[^.]*?\benters with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her) if ([^.]+?)\.?$/i);
     if (!m) continue;
