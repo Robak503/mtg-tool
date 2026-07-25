@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-EIGHT slices (+373) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 832/10,796
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-NINE slices (+373) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 833/10,801
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,15 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 29 `a71de406` — I turned the day's lesson on MY OWN work, and it caught something.** The metric
+> strip added in slice 16 and the runtime's `selfPreventsUntap` are two implementations of one judgement —
+> the exact shape that produced eleven bugs earlier. Probing them against each other across all 248 corpus
+> carriers found ELEVEN disagreements, all CONDITIONAL statics ("…doesn't untap during your untap step IF IT
+> HAS A DEPLETION COUNTER ON IT"). No card had flipped, because an orphaned "if …" fragment happened to keep
+> them parked — the metric was crediting what the engine refuses, with only an unrelated leftover preventing
+> a false positive. Drift now 0/248, zero tier movement. **The drift probe is worth reusing: any two
+> functions answering one question can be run against each other corpus-wide.**
 >
 > **SLICE 28 `63c72372` (+4)** — dredge was credited on PERMANENTS but missing from the spell-side keyword
 > strip, so the identical keyword parked every dredge SPELL (Darkblast, Shenanigans, Life from the Loam,
