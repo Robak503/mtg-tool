@@ -25,6 +25,7 @@ import {
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, colorsOf } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
+import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
 function oracleOf(card) {
@@ -1143,6 +1144,17 @@ function classifyCondition(condRaw, cardName, cardType) {
   // isn't tied to the active player's turn (lifelink / an instant resolve on ANY turn), and the activePlayer
   // gate on "yours" (triggersForEvent) would wrongly drop an off-turn gain. checkLifegainTriggers instead
   // scans ONLY the gaining player's sources, so "you gain life" still fires for the gainer alone.
+  // STATE TRIGGER (CR 603.8) — "When you control no <X>, <effect>." (Seasinger's "no Islands", Barbarian
+  // Outcast's "no Swamps"; 19 corpus carriers, all one shape). Unlike every other event here this is not a
+  // discrete happening: the condition is CHECKED continuously and the ability triggers whenever it is true,
+  // at the same cadence as state-based actions (checkStateTriggers, fired from the CR 704.3 fixpoint).
+  // CREED: detected ONLY when interveningIf.js can actually READ the condition — the "you control no
+  // <filter>" vocabulary it already owns — so a shape the evaluator can't judge stays undetected → Arbiter.
+  // The latch that stops it re-firing every SBA pass lives in the checker (CR 603.8: it triggers again only
+  // after the condition stops being true), exactly like renown's flag rather than a fail-open board read.
+  if (/^you control no /.test(c) && interveningIfParseable(c)) {
+    return { event: "stateTrigger", scope: "self", whose: "any", stateCondition: c };
+  }
   if (/^you gain life$/.test(c)) return { event: "lifegain", scope: "you", whose: "any" };
   // TRIG-DRAW — the card-draw event (CR 121.1, drawing a card). BARE "you draw a card" only, anchored: a
   // conditional ("…your second card each turn"), scaled, or compound variant leaves residue and stays
@@ -2918,6 +2930,7 @@ export function detectTriggers(card) {
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
+        stateCondition: cls.stateCondition,   // STATE TRIGGER (CR 603.8) — the continuously-checked board condition string, read by checkStateTriggers via the shared interveningIf evaluator
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacSubtype: cls.sacSubtype,           // TRIG-SACRIFICE SUBTYPE: capitalized subtype (e.g. "Treasure") — type-line scan
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
@@ -5900,3 +5913,47 @@ registerTriggerDetector(detectSubtypeGlobalCombatDamageToCreature);
 // opponent" shapes, and the self-scope "deals damage to a player/opponent" — none match "a <Subtype> deals
 // damage"), so this is purely additive (no existing classification changes).
 registerTriggerDetector(detectSubtypeGlobalDamageLifegain);
+
+/**
+ * STATE TRIGGERS (CR 603.8) — "When you control no Islands, sacrifice this creature." (Seasinger,
+ * Barbarian Outcast; 19 corpus carriers, all one shape). Unlike every other trigger here the condition is
+ * not a discrete event: it is CHECKED CONTINUOUSLY and the ability triggers whenever the state exists, at
+ * the same cadence as state-based actions — so this is called from the CR 704.3 fixpoint (sba.js).
+ *
+ * THE LATCH (CR 603.8): a state trigger does NOT re-trigger every time the state is re-checked. It fires
+ * when the condition becomes true, and only becomes eligible again once the condition has been FALSE. The
+ * flag rides the permanent (`_stateTrigArmed`), mirroring renown's `renowned` / monstrosity's `monstrous`:
+ * a latch inside the checker rather than a fail-open board read that would enqueue a fresh copy on every
+ * single SBA pass (an unbounded-trigger FP, and this checker runs several times per priority window).
+ *
+ * The condition is evaluated by the SHARED interveningIf evaluator, so the metric and the runtime agree by
+ * construction — a condition it can't read was never detected in the first place (classifyCondition gates
+ * on interveningIfParseable), so `null` here is unreachable-by-construction and treated as "not met".
+ * Pure: returns new state with any fired triggers appended to pendingTriggers.
+ */
+export function checkStateTriggers(state) {
+  let fired = [];
+  let players = null;
+  for (const pid of Object.keys(state.players || {})) {
+    for (const perm of triggerSourcesOf(state, pid)) {
+      const descriptors = detectTriggers(perm.card).filter((d) => d.event === "stateTrigger");
+      if (!descriptors.length) continue;
+      for (const d of descriptors) {
+        const met = evaluateInterveningIf(state, d.stateCondition, perm.controller, { sourcePermanentId: perm.id }) === true;
+        const armed = perm._stateTrigArmed === true;
+        if (met && !armed) {
+          fired.push(makePendingTrigger(d, perm, perm, {}));
+          players = players || { ...state.players };
+          players[pid] = { ...players[pid], battlefield: (players[pid].battlefield || []).map((p) => (p.id === perm.id ? { ...p, _stateTrigArmed: true } : p)) };
+        } else if (!met && armed) {
+          // The state stopped being true — re-arm so a later re-entry into the state triggers again.
+          players = players || { ...state.players };
+          players[pid] = { ...players[pid], battlefield: (players[pid].battlefield || []).map((p) => (p.id === perm.id ? { ...p, _stateTrigArmed: false } : p)) };
+        }
+      }
+    }
+  }
+  if (!fired.length && !players) return state;
+  const base = players ? { ...state, players } : state;
+  return fired.length ? { ...base, pendingTriggers: [...(base.pendingTriggers || []), ...fired] } : base;
+}

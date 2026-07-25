@@ -34,9 +34,13 @@ describe("the detector + the metric", () => {
     expect(attackDefenderLandRequirement(RONOM_STYLE)).toBe("snow land");
     expect(attackDefenderLandRequirement({ oracle: "Flying" })).toBe(null);
   });
-  it("Armored Galleon (single-line) flips native; Sea Serpent (the two-line sac frame) stays body-only", () => {
+  it("Armored Galleon (single-line) flips native; Sea Serpent's two-line sac frame ALSO flips now (2026-07-25)", () => {
     expect(classifyCard(ARMORED_GALLEON)).toBe("native-body");
-    expect(classifyCard(SEA_SERPENT)).toBe("body-only");
+    // NOTE: the "two-line sac frame" this pin named as Sea Serpent's blocker is "When you control no
+    // Islands, sacrifice this creature" — a CR 603.8 STATE TRIGGER, now built (stateTrigger.test.js):
+    // detected off the shared interveningIf condition reader and fired from the SBA fixpoint with an
+    // arm/disarm latch. Islandhome itself is unchanged; only its companion line became modeled.
+    expect(classifyCard(SEA_SERPENT)).toMatch(/^native/);
   });
 });
 

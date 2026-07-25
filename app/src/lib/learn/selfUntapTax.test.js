@@ -155,8 +155,12 @@ describe("UP-1 coverage — the self-untap tax family flips native-trigger; extr
   it("CREED PARK — Mana Vault stays body-only (draw-step self-damage trigger + {T}:Add are unmodeled; 'untap this artifact' is LOW anyway)", () => {
     expect(classifyCard(MANA_VAULT)).toBe("body-only");
   });
-  it("CREED PARK — Island Fish Jasconius stays body-only (the can't-attack-unless-Island + no-Islands sacrifice lines are unmodeled)", () => {
-    expect(classifyCard(ISLAND_FISH)).toBe("body-only");
+  it("Island Fish Jasconius FLIPS now — both lines this pin named as blockers are modeled (2026-07-25)", () => {
+    // NOTE: the two stated blockers were islandhome ("can't attack unless defending player controls an
+    // Island", since built) and "When you control no Islands, sacrifice this creature" — a CR 603.8 STATE
+    // TRIGGER, built this slice (stateTrigger.test.js). The self-untap tax this file actually guards is
+    // untouched; only its companion lines became modeled, so the park reason is gone rather than waived.
+    expect(classifyCard(ISLAND_FISH)).toMatch(/^native/);
   });
   it("CREED — the enters-tapped-AND-no-untap combined sentence does NOT flip (the self-anchor is a standalone line)", () => {
     // coverage.test.js:308 guard: "This creature enters tapped and doesn't untap during your untap step." is ONE
