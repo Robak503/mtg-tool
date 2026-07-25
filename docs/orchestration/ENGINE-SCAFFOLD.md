@@ -244,6 +244,40 @@ effect and requires HIGH + resolvable targets + combat-referent satisfied + a
 strict intervening-if vocabulary. Single source of truth ⇒ the classifier can't
 claim native for a trigger the runtime would drop.
 
+#### 4.4b Trigger classes beyond the event trigger (added 2026-07-25)
+
+Three kinds of trigger do NOT fire off a discrete event, and each has its own lane:
+
+- **DELAYED triggers (CR 603.7)** — `effects/atoms/delayedTrigger.js`. "At the beginning of the next
+  end step, sacrifice it." `applyScheduleDelayed` pushes a plain-JSON record onto
+  `state.delayedTriggers`; `drainDelayedTriggers(state, step, activePlayer)` returns
+  `{state, fired}` shaped like pending triggers, so the ordinary flush handles them. Records are
+  serializable on purpose — self-play trajectories round-trip through JSON.
+  ⚠️ The matcher must split the IMMEDIATE half from the delayed half: a greedy match folded a spell's
+  own draw into the delayed clause and would have deferred it.
+- **STATE triggers (CR 603.8)** — `checkStateTriggers` in `triggers.js`, run from the CR 704.3 SBA
+  fixpoint in `sba.js`. "When you control no Islands, sacrifice this creature" is a continuously-checked
+  CONDITION, not an event. ⚠️ The fixpoint runs several times per priority window, so the condition
+  carries an arm/disarm LATCH on the permanent (`_stateTrigArmed`) — without it every pass enqueues
+  another copy. It re-arms only after the condition goes false, exactly as 603.8 requires.
+- **SYNTHESIZED keyword triggers** — renown, bloodthirst, evolve, undying, monstrosity. The rules live in
+  REMINDER text, so `detectTriggers` synthesizes a descriptor with a kind-tagged sentinel `effectClause`
+  that exactly one clause parser models. ⚠️ `detectTriggers` reconstructs descriptors from a FIELD
+  WHITELIST — an unknown field is SILENTLY DROPPED. That has cost three separate slices; add the field
+  to the whitelist in the same edit that introduces it.
+
+Two per-permanent LATCH flags follow the same one-shot convention and live inside the atoms, never as
+intervening-ifs (a fail-open board read would re-fire unboundedly): `renowned`, `monstrous`.
+
+#### 4.4c Per-turn ledgers
+
+- **`damageTakenThisTurn`** — tallied at the loseLife chokepoint ONLY when its `combatDamage` flag is
+  defined, so a drain or a pay-life cost can never satisfy bloodthirst.
+- **`activatedOncePerTurn`** — the activation-limit ledger, `{ turn, n }` keyed `permId:rawLine`. An
+  ability carries `activationLimit` (a COUNT, 1 for the "Activate only once each turn" frame); the offer
+  gate refuses at `used >= limit` and the dispatcher increments, restarting when the stored turn is
+  stale. ⚠️ `>=` not `>`: off by one hands out a free activation, an engine more permissive than the card.
+
 ### 4.5 Resolution (`resolvers.js` + `effects/runProgram.js`)
 
 `RESOLVERS` maps a resolver key → a `(state, params) => state` function.
