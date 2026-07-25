@@ -183,11 +183,20 @@ Take the top un-attempted cluster. Then, IN ORDER:
 | **Credit gated behind a deliberate park** | aftermath: the blocker was a reasoned `parseSplitCard` early-return, not the keyword | your credit changes nothing when you test it — the card never reaches that lane |
 | **Stale fail-safe** (guard outlived its reason) | `sacrificeDropsTrigger`'s self-PiG clause; the runtime fires it now | a guard's COMMENT states a limitation you can disprove at runtime |
 | **Startswith credit swallows a variant** | `bloodthirst` also matched "Bloodthirst X", whose count can't be produced | the per-flip audit shows an orphan the synthesizer returns null for |
+| **Fold without a keep-whole guard** | slice 10 joined the tap+lockdown rider with " and ", then the top-level " and " split shattered it right back | you add a normalization, re-measure, and get EXACTLY ZERO flips — the fold fired, something downstream undid it |
+| **Two names for one referent** | the rider prints as both "It doesn't untap …" and "That creature doesn't untap …"; only the first was stripped | near-identical cards split across tiers — one flips, its twin doesn't |
 
 ---
 
 *Written by Cindy (Sonnet seat), 2026-07-24, from the receipts of the 07-23/24 overnight+morning
 shift. If you improve the method, update THIS file in the same commit as the improvement.*
+
+> **A free lead worth checking every time: SIBLING ASYMMETRY.** If two cards differ only by a line you
+> did NOT touch and land in different tiers, that difference is a bug, not a fact. Slice 10 opened when
+> Frost Trickster (native) and Frost Lynx (parked) turned out to be the same card modulo the word
+> "Flying" — a card penalized for having LESS text always means a strip or residue gate is keying on the
+> wrong thing. It's the cheapest signal in the census because it needs no probe: read two examples from
+> the same cluster side by side.
 
 ## 9. WHEN A CANDIDATE IS *NOT* A SLICE (bank it, don't force it)
 
