@@ -656,6 +656,30 @@ export function parseActivatedAbilities(card) {
       });
       continue;
     }
+    // ATTACH-AS-A-PLAIN-ACTIVATED-ABILITY (CR 701.3 — Cranial Plating / Horned Helm / Sparring Collar /
+    // Healer's Headdress / Neurok Stealthsuit, one Mirrodin cycle). Mechanically identical to Equip, but
+    // printed as an ordinary "{cost}: <effect>" line instead of the keyword, so the three colon-less Equip
+    // branches above can't see it. Carrying isEquipAbility routes it to the SAME ATTACH resolver — no new
+    // runtime lane, no new resolver, no new legality path.
+    //
+    // TIMING IS THE ONE REAL DIFFERENCE, and it lands on the safe side. The printed ability has NO
+    // sorcery-speed restriction (instant-speed re-equipping is the entire reason this cycle exists), while
+    // the engine offers activated abilities only in the controller's own main step. Own-main is a strict
+    // SUBSET of "whenever you have priority", so the engine can only ever UNDER-offer it — a safe false
+    // negative, the same argument AA-1 makes for "Activate only during your turn."
+    //
+    // Mana-only cost, anchored whole-line ($): a typed or additional cost, or any trailing rider, falls
+    // through to the generic parse and lands wherever its effect really parses (CREED — whole line or nothing).
+    const am = line.match(/^((?:\{[^}]+\})+):\s*attach this equipment to target creature you control\.?$/i);
+    if (am) {
+      const cost = parseAbilityCost(am[1]);
+      out.push({
+        index: index++, raw: line, costStr: am[1], effectClause: "",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+      });
+      continue;
+    }
     const ci = line.indexOf(":");
     if (ci === -1) continue;
     // QUOTED-GRANT GUARD (CR 113.7) — a GROUP-GRANT / attached static grants a quoted ability to OTHER

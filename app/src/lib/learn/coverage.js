@@ -1242,10 +1242,16 @@ export function permanentEquipmentCovered(card) {
   // to a commander you control) and "legendary creature" (equipQuality:"legendary", restricted to a Legendary
   // target — Excalibur, Sword of Eden). Any OTHER "Equip <quality> …" stays residue → body-only (never over-claimed).
   const modeledEquipLine = /^equip(?:\s+commander|\s+legendary\s+creature)?\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
+  // ATTACH-AS-A-PLAIN-ACTIVATED-ABILITY (CR 701.3 — the Cranial Plating / Horned Helm cycle): the same attach
+  // effect as Equip, printed as "{cost}: Attach this Equipment to target creature you control." parseActivated-
+  // Abilities returns it as isEquipAbility, so the all-abilities gate above ALREADY required it to be modeled;
+  // it just isn't shaped like an "Equip {cost}" line, so without this the residue loop rejects the whole card.
+  // Anchored to the exact modeled wording + a mana-only cost, so it can only admit the form the parser models.
+  const modeledAttachAbility = /^(?:\{[^}]+\})+:\s*attach this equipment to target creature you control\.?$/i;
   for (const clause of equipmentAbilityClauses(stripReminder(noTrig.oracle || ""))) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;
-    if (modeledEquipLine.test(c)) continue;
+    if (modeledEquipLine.test(c) || modeledAttachAbility.test(c)) continue;
     // A leftover trigger-shaped clause (When/Whenever/At) is an UNCOUNTED trigger and must NOT be whitelisted
     // by the "equipped creature" clause below. When two triggers share a line (Novel Nunchaku: "When this
     // Equipment enters, attach it … . When you do, equipped creature fights …"), the noTrig strip's regex
