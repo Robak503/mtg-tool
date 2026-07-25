@@ -193,6 +193,18 @@ Take the top un-attempted cluster. Then, IN ORDER:
 *Written by Cindy (Sonnet seat), 2026-07-24, from the receipts of the 07-23/24 overnight+morning
 shift. If you improve the method, update THIS file in the same commit as the improvement.*
 
+> **⚠️ RUNTIME-ONLY BUGS ARE INVISIBLE TO EVERY GATE IN THIS RUNBOOK.** The tier and program fingerprints
+> both compare the parse pipeline against the parse pipeline. A runtime function that returns an empty list,
+> or skips a loop iteration, changes NOTHING they can see — the metric never disagrees with itself. Slices
+> 22-25 were all this: a card classified native whose effect silently did nothing. The only way they surface
+> is DRIVING the card on a board. If a slice touches a resolver, add a runtime pin; a classification test
+> proves the parse and nothing else.
+>
+> **The specific trap that produced four of them: `isCreatureCard` (PRINTED) vs `permanentIsCreature`
+> (LAYER-AWARE).** A bare `isCreatureCard` on a permanent already looked up on the battlefield is nearly
+> always wrong — it asks about the card when the question is about the object (CR 613: an animated land or a
+> crewed Vehicle IS a creature right now). Grep for it before starting anything in the atoms layer.
+>
 > **THE TWO-FLIP SIGNATURE — a card with MORE THAN ONE single-line deletion that flips it native is a
 > COMPOSITION failure, never a missing mechanic.** Each piece is demonstrably understood in isolation, so
 > what's broken is how the tiers combine. Slice 20 came straight off this: Urborg Skeleton flipped when you
