@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: EIGHTEEN slices (+335) + a SEVERE live FP killed — corpus 33.5%→34.5% — suite 827/10,751
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: NINETEEN slices (+351) + a SEVERE live FP killed — corpus 33.5%→34.6% — suite 828/10,758
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,12 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 19 `c98553e8` (+16) — suspend, correctly split.** The keyword is vacuous on a card WITH a mana
+> cost (the hard cast resolves identically — the shipped flashback/escape rationale) and must NOT be credited
+> on a costless one, which can only ever be suspended. The earlier blanket refusal of suspend was right for
+> the wrong reason: "its carriers can't be played at all" describes about a fifth of the family. Corpus
+> crossed 34.6% on this one.
 >
 > **🚨 SLICE 18 `7505e6a3` — THE BIG ONE: the engine was casting FREE Ancestral Visions.** CR 202.1a says a
 > card with no mana cost can't be cast. manaCostOf correctly returned "" for such a card, but
