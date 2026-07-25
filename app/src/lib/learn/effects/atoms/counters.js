@@ -814,7 +814,10 @@ export function applyShieldCounter(state, atom, ctx) {
   const placed = [];
   for (const t of targets) {
     const lk = findPermanent(next, t.id);
-    if (!lk || !isCreatureCard(lk.permanent.card)) continue;
+  // LAYER-AWARE (census slice 25) — same catch as the referent resolvers: a permanent that is a creature
+  // only BY LAYERS (an animated land, a crewed Vehicle) is a creature right now (CR 613). The printed-card
+  // check alone made this a silent no-op on exactly those permanents.
+    if (!lk || !(isCreatureCard(lk.permanent.card) || permanentIsCreature(next, t.id))) continue;
     next = addCounter(next, { permanentId: t.id, type: "shield", amount: 1 });
     placed.push(t.id);
   }

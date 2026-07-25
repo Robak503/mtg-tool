@@ -7,6 +7,7 @@ import { applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
+import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
@@ -587,7 +588,8 @@ function applySourcePowerFanout(state, atom, ctx) {
   // targetType:"creature" + controller:you restriction; the cast/flush path binds exactly one).
   const chosen = (ctx.targets || []).find((t) => t.type === "creature");
   const lk = chosen?.id ? findPermanent(state, chosen.id) : null;
-  if (!lk || !isCreatureCard(lk.permanent.card)) {
+  // LAYER-AWARE (slice 25): an ANIMATED source still fans out its power rather than silently dealing 0.
+  if (!lk || !(isCreatureCard(lk.permanent.card) || permanentIsCreature(state, chosen.id))) {
     return logEvent(state, { kind: "spell-effect", effect: "source-power-fanout", controller: ctx.controller, amount: 0 });
   }
   const sourceId = chosen.id;

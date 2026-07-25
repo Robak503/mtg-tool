@@ -4,6 +4,7 @@
  */
 
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
+import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
@@ -1292,7 +1293,8 @@ export function applyExplore(state, atom, ctx) {
       next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: top.name, land: true });
     } else {
       // Nonland → +1/+1 on the exploring creature (only if still on the battlefield), card kept on top.
-      if (lk && isCreatureCard(lk.permanent.card)) {
+      // LAYER-AWARE (slice 25): an ANIMATED land that explores still gets its +1/+1 counter (CR 613).
+      if (lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(next, subjectId))) {
         next = addCounter(next, { permanentId: subjectId, type: "+1/+1", amount: 1 });
       }
       next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: top.name, land: false });

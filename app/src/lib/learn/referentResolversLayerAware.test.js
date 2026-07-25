@@ -111,3 +111,23 @@ describe("the counters-path MIRROR must agree too (slice 24)", () => {
     expect(out.players.user.battlefield.find((p) => p.id === "L1").counters?.["+1/+1"]).toBeFalsy();
   });
 });
+
+describe("the remaining single-permanent creature gates (slice 25)", () => {
+  /**
+   * Three more sites resolved a permanent by id and then gated on its PRINTED card: the shield counter, the
+   * explore +1/+1, and the source-power fan-out. Each was a silent no-op on a permanent that is a creature
+   * only by layers, in the same way the referent resolvers were. Swept together because they are one class.
+   */
+  it("a shield counter lands on an ANIMATED land", async () => {
+    const { applyShieldCounter } = await import("./effects/atoms/counters.js");
+    const st = animate(board(), "L1");
+    const out = applyShieldCounter(st, { op: "shield-counter" }, { controller: "user", targets: [{ type: "creature", id: "L1" }] });
+    expect(out.players.user.battlefield.find((p) => p.id === "L1").counters?.shield).toBe(1);
+  });
+
+  it("…and NOT before it is animated (the guard holds)", async () => {
+    const { applyShieldCounter } = await import("./effects/atoms/counters.js");
+    const out = applyShieldCounter(board(), { op: "shield-counter" }, { controller: "user", targets: [{ type: "creature", id: "L1" }] });
+    expect(out.players.user.battlefield.find((p) => p.id === "L1").counters?.shield).toBeFalsy();
+  });
+});
