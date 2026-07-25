@@ -121,3 +121,26 @@ describe("CREED guards — what this family deliberately does NOT credit", () =>
     expect(classifyCard(reducer)).toBe("body-only");
   });
 });
+
+/**
+ * SELF-BOUNCE NOUN WIDENING (census slice 5, 2026-07-25) — "return this <noun> to its owner's hand".
+ * The self-target bounce atom bounces the SOURCE, so the noun is pure templating; the alternation just
+ * said creature|permanent. Widening it to aura/enchantment/artifact/equipment/land flipped 22 cards
+ * (Shackles & the Aura cycle, the Trials cycle, the Dragonstorm cycle, Batterskull) with zero new
+ * runtime code — the atom, resolver and bounce path already handled every one.
+ */
+describe("self-bounce noun widening — the source bounces regardless of its printed noun", () => {
+  const B = (name, type, oracle, mana) => ({ name, type, oracle, mana, keywords: [] });
+  it("Aura wording flips (Shackles / Cage of Hands / Mourning)", () => {
+    expect(classifyCard(B("Shackles", "Enchantment — Aura",
+      "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\n{W}: Return this Aura to its owner's hand.", "{W}"))).toMatch(/^native/);
+  });
+  it("Equipment wording flips (Batterskull's living-weapon body)", () => {
+    expect(classifyCard(B("Batterskull", "Artifact — Equipment",
+      "Living weapon\nEquipped creature gets +4/+4 and has vigilance and lifelink.\nEquip {5}\n{3}: Return this Equipment to its owner's hand.", "{5}"))).toMatch(/^native/);
+  });
+  it("the pre-existing creature/permanent wordings still parse identically (no regression)", () => {
+    expect(classifyCard(B("SelfBouncer", "Creature — Spirit",
+      "Flying\n{2}: Return this creature to its owner's hand.", "{1}{U}"))).toMatch(/^native/);
+  });
+});
