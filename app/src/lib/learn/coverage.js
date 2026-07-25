@@ -910,7 +910,12 @@ export function permanentTriggersCovered(card) {
     // wording so the card reads keyword-only (Junk Winder's only other text is the stripped Affinity line).
     // Anchored to the exact untap-lockdown phrasing, so it can only consume this modeled follow-up (FN-safe).
     // Curly apostrophe tolerated.
-    .replace(/\bit doesn['’]t untap during its controller['’]s next untap step\b\.?\s*/gi, " ")
+    // Both printed pronouns for the SAME rider: Junk Winder's "It doesn't untap …" and the single-target
+    // creature family's "That creature doesn't untap …" (Frost Lynx / Kor Hookmaster / Watertrap Weaver — the
+    // ETB shape refers to the tapped creature by noun, not pronoun). Identical justification and identical
+    // anchoring: the rider is part of a trigger effect already proven HIGH by allTriggerSentencesModeled above,
+    // and the trigger-sentence strip stops at the first period, leaving it as apparent residue.
+    .replace(/\b(?:it|that creature) doesn['’]t untap during its controller['’]s next untap step\b\.?\s*/gi, " ")
     // SELF NO-UNTAP LOCKDOWN (BLITZ UP-1) — the CONTINUOUS static "This <permanent> doesn't untap during your
     // untap step." on the untap-tax family (Brass Man / Brass Gnat / Goblin War Wagon / Goblin Dirigible; the
     // pay-to-untap escape is the upkeep trigger, stripped by the "if you do" tail below). NOW MODELED in the
@@ -919,7 +924,14 @@ export function permanentTriggersCovered(card) {
     // apostrophe tolerated); the "enchanted …" attached form (line ~806-region attachmentPreventsUntap) and the
     // "each other player's untap step" Seedborn phase static are DISJOINT and untouched. FN-safe: a card whose
     // ONLY residue is this line reads keyword-only after the strip and the runtime plays it faithfully.
-    .replace(/\bthis (?:creature|artifact|permanent|land|enchantment|equipment|vehicle) doesn['’]t untap during your(?: next)? untap step\b\.?\s*/gi, " ")
+    // CREED HARDENING (desk audit, census day 2): the "your NEXT untap step" wording is EXCLUDED here to match
+    // the runtime exactly. selfPreventsUntap (gameState.js) deliberately refuses that form — it is a ONE-SHOT
+    // rider printed inside an activated ability ("{T}: Add {W} or {U}. This land doesn't untap during your next
+    // untap step." — the Cloudcrest Lake slow-dual family), not a continuous lock, and no lane applies it when
+    // the ability is activated. Crediting it here while the runtime ignores it is precisely the metric-says-
+    // faithful / plays-wrong divergence the CREED forbids. No card flips tier on this narrowing today (verified
+    // corpus-wide: zero native carriers of the "next" wording) — it removes a loaded gun, not a false positive.
+    .replace(/\bthis (?:creature|artifact|permanent|land|enchantment|equipment|vehicle) doesn['’]t untap during your untap step\b\.?\s*/gi, " ")
     // DICE-ROLL (CR 726) — the result-scaled payoff sentences that FOLLOW a combat-damage trigger's "roll a
     // d20." are part of THAT trigger's effect (detectTriggers folds them into the effectClause, which parses
     // HIGH in allTriggerSentencesModeled above — proven before this residue check runs), but the trigger

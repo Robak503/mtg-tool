@@ -839,6 +839,19 @@ export function combatKeywordClauseParser(clause) {
   if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/.test(t)) {
     return { op: "tap", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "opponent" }], noUntapNext: true };
   }
+  // TAP-CREATURE-LOCKDOWN (CR 302.6) — the single-target creature sibling of the nonland-permanent form above
+  // (Ojutai's Breath / Crippling Chill as a bare spell; Frost Lynx / Frost Trickster / Spire Patrol off an ETB
+  // trigger). splitClauses folds the rider sentence on with " and it …" (normalizing the ETB shape's "That
+  // creature" pronoun to "it"), so the lockdown rides the SAME tap atom — no cross-atom "it" to resolve —
+  // and applyTapEffect flags each tapped target via setDoesNotUntapNext. untapAll then skips exactly ONE untap
+  // step and clears the flag as it skips (self-clearing, verified in gameState.untapAll), so this cannot
+  // freeze a creature permanently. Restriction set mirrors the stun sibling below. Whole-clause anchored ($):
+  // a bare tap without the rider, or any other rider, falls through → low → Arbiter (CREED: whole clause or
+  // nothing) — which is what keeps the conditional variants (Guardian of Tazeem, Celestial Regulator) out.
+  const tapLockM = t.match(/^tap target creature(?:\s+(an opponent controls|you don't control|defending player controls))? and it doesn't untap during its controller's next untap step$/);
+  if (tapLockM) {
+    return { op: "tap", targetType: "creature", restrictions: tapLockM[1] ? [{ kind: "controller", who: "opponent" }] : [], noUntapNext: true };
+  }
   // STUN (CR 122.1c) — "tap target creature [an opponent controls] and put a stun counter on it" (Gilded
   // Scuttler, Grappling Kraken, Frostfist Strider) / "tap up to N target creature and put a stun counter on
   // it" (Splash Lasher, Utrom Scientists). The stun rider FOLDS onto the SAME tap atom (splitClauses joins the

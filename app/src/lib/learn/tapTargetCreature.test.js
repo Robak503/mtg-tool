@@ -73,12 +73,16 @@ describe("TAP-TARGET-CREATURE — parser", () => {
     expect(r).toMatchObject({ confidence: "high", atoms: [{ op: "tap", targetType: "creature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: false }] }] });
   });
 
-  it("combined effect still LOW (Frost Lynx doesn't untap rider)", () => {
+  it("combined tap + no-untap rider now parses HIGH (census slice 10 — tap-creature-lockdown)", () => {
+    // Was pinned LOW while the rider had no lane. splitClauses now folds the rider onto the tap sentence and
+    // the atom carries noUntapNext; the FN boundary moved to CONDITIONAL riders, pinned in
+    // tapCreatureLockdown.test.js (Guardian of Tazeem / Celestial Regulator stay LOW).
     const r = parseEffectClause(
       "tap target creature an opponent controls. that creature doesn't untap during its controller's next untap step.",
       "Instant"
     );
-    expect(r.confidence).toBe("low");
+    expect(r.confidence).toBe("high");
+    expect(r.atoms).toMatchObject([{ op: "tap", targetType: "creature", noUntapNext: true }]);
   });
 
   it("unless-conditional still LOW (Vectis Dominator)", () => {
@@ -186,13 +190,13 @@ describe("TAP-TARGET-CREATURE — coverage flips", () => {
     })).toBe("native-activated");
   });
 
-  it("combined tap + rider is still body-only (Frost Lynx — that creature doesn't untap)", () => {
+  it("combined tap + rider now flips native-trigger (Frost Lynx — census slice 10)", () => {
     expect(classifyCard({
       type: "Creature — Elemental Cat",
       name: "Test Lynx",
       mana: "{2}{U}",
       oracle: "When this creature enters, tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step.",
-    })).toBe("body-only");
+    })).toBe("native-trigger");
   });
 });
 
