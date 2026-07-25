@@ -12,7 +12,7 @@ CLAUDE.md §1.2 (never fabricate) and §8 (forbidden patterns) override everythi
 
 ---
 
-## 0. THE FIVE LAWS (every slice, no exceptions)
+## 0. THE SIX LAWS (every slice, no exceptions)
 
 1. **THE CREED:** false-negative SAFE, false-positive FORBIDDEN. A card the engine can't fully play
    routes to the Arbiter — that is correct behavior, not a bug. Never credit a card native unless
@@ -30,6 +30,22 @@ CLAUDE.md §1.2 (never fabricate) and §8 (forbidden patterns) override everythi
 5. **Every flip is audited, both directions.** The whole-corpus fingerprint diff is read line by
    line; every gained card is confirmed expected, every lost card is a deliberate FP-removal or the
    slice does not ship.
+6. **A slice that flips ZERO cards can be the most valuable one you ship.** Laws 4 and 5 both assume
+   movement — but the metric gates compare the parse pipeline against the parse pipeline, so a RUNTIME
+   function that returns an empty list or skips a loop iteration is STRUCTURALLY invisible to every one
+   of them. On 2026-07-25 the six highest-value findings moved the corpus number by exactly nothing:
+   an engine casting free Ancestral Visions, an Aura whose self-return silently no-opped, and an
+   animated land that could attack but could never be targeted. **If a slice touches a resolver,
+   enumerator, or legality gate, the ONLY evidence that counts is driving it on a board.** A green
+   fingerprint diff on such a slice means the gates couldn't see it, not that nothing changed.
+
+**Two corollaries earned the same day:**
+
+- **When a comment says "mirrors X", go read X.** It was false twice in one shift — two pairs of
+  functions documented as mirrors had silently diverged, and only the copy nobody re-read stayed wrong.
+- **A judgement implemented in two places will drift, and the drift only shows on inputs that need
+  BOTH.** Eleven sites of one bug came from this. The fix is always to point both at a single shared
+  helper, never to patch the second copy.
 
 ---
 
