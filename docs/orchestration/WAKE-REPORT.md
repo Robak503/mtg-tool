@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-NINE slices (+373) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 833/10,801
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY slices (+373) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 833/10,801
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,13 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 30 `f6addce6` — the drift probe found something on its SECOND run too.** The attached-form pair
+> (`attachedNoUntapOf` metric vs `attachmentPreventsUntap` runtime) disagreed on 7 of 72 Auras: the runtime
+> accepts "Enchanted creature|permanent", the metric only "creature". Safe direction (under-credit), zero
+> cards flip — all seven also park on their "Enchant permanent" SUBJECT, a separate honest gap — but a
+> metric narrower than its runtime twin is a latent divergence the next person to widen enchant subjects
+> would have inherited silently. **Two runs, two finds: point it at any metric/runtime pair.**
 >
 > **SLICE 29 `a71de406` — I turned the day's lesson on MY OWN work, and it caught something.** The metric
 > strip added in slice 16 and the runtime's `selfPreventsUntap` are two implementations of one judgement —
