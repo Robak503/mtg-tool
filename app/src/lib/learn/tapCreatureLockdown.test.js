@@ -122,3 +122,40 @@ describe("RUNTIME — the lock applies for exactly ONE untap step, then lifts", 
     expect(victim(s).tapped).toBe(false);
   });
 });
+
+describe("THE FOLD MUST NOT EAT THE SENTENCE BOUNDARY", () => {
+  /**
+   * Regression from this slice's own first cut. The fold's `\.?` consumed the rider's terminating period
+   * and the replacement didn't put one back, so any FOLLOWING sentence was glued onto the joined clause
+   * ("…next untap step Draw a card.") and the whole spell dropped to Arbiter. Every card in the family that
+   * carries a second sentence was silently held back — Chill of the Grave, Crippling Chill, Grip of the Roil,
+   * Press for Answers, all of which pair the tap-and-lock with a cycling-style draw.
+   *
+   * The same latent flaw sits in the Junk Winder rule this generalizes; it never surfaced only because no
+   * carrier of THAT wording has a following sentence. Fixed across the family rather than just where it bit.
+   */
+  const LOCK = "Tap target creature. It doesn't untap during its controller's next untap step.";
+
+  it("a following sentence stays its OWN clause", () => {
+    expect(splitClauses(`${LOCK} Draw a card.`)).toEqual([
+      "Tap target creature and it doesn't untap during its controller's next untap step",
+      "Draw a card",
+    ]);
+  });
+
+  it("and with nothing following, the joined clause is unchanged (no stray empty clause)", () => {
+    expect(splitClauses(LOCK)).toEqual(["Tap target creature and it doesn't untap during its controller's next untap step"]);
+  });
+
+  it("the real carriers classify native (Chill of the Grave — cost reducer + lock + draw)", () => {
+    expect(classifyCard({ name: "Chill of the Grave", type: "Instant", mana: "{3}{U}",
+      oracle: `This spell costs {1} less to cast if you control a Zombie.\n${LOCK}\nDraw a card.` })).toBe("native-spell");
+  });
+
+  it("the opponent-restricted sibling keeps its boundary too", () => {
+    expect(splitClauses("Tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step. Draw a card.")).toEqual([
+      "Tap target creature an opponent controls and it doesn't untap during its controller's next untap step",
+      "Draw a card",
+    ]);
+  });
+});

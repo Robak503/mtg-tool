@@ -70,7 +70,7 @@ export function splitClauses(oracle) {
     // SAME single target ("It" = the tapped permanent) rather than orphaning it into a separate, unbindable
     // clause (the same fold as TAP-PERMANENT-LOCK / PUMP-UNTAP above). Anchored to the exact tap-nonland +
     // rider pair, so it can only PROMOTE this already-low shape, never regress another card.
-    .replace(/(tap target nonland permanent an opponent controls)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step")
+    .replace(/(tap target nonland permanent an opponent controls)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step.")
     // TAP-CREATURE-LOCKDOWN — the SINGLE-TARGET creature sibling of the Junk Winder fold above. Two printed
     // shapes carry it, differing only in the rider's pronoun: the bare spell ("Tap target creature. It doesn't
     // untap …" — Ojutai's Breath / Crippling Chill class) and the opponent-restricted ETB ("… tap target
@@ -82,8 +82,8 @@ export function splitClauses(oracle) {
     // PROMOTE these already-low shapes. Conditional riders ("If that land is an Island, that creature doesn't
     // untap …" — Guardian of Tazeem; "If you control a creature with a counter on it, …" — Celestial Regulator)
     // do NOT match: the rider must follow the tap sentence directly, so those stay LOW → Arbiter (FN-safe).
-    .replace(/(tap target creature an opponent controls)\.\s+that creature doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step")
-    .replace(/(tap target creature)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step")
+    .replace(/(tap target creature an opponent controls)\.\s+that creature doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step.")
+    .replace(/(tap target creature)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step.")
     // TAP-FREEZE (BLITZ TP-1 — Frost Breath / Sudden Storm / Decision Paralysis / Snow Day class): fold the
     // separate "Those creatures don't untap during their controller's next untap step[s]." sentence that
     // follows "Tap up to two target creatures." into the tap sentence, normalizing BOTH printed possessives
