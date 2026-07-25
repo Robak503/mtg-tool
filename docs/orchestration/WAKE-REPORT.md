@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY slices (+355) + a SEVERE live FP killed — corpus 33.5%→34.6% — suite 829/10,765
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-ONE slices (+369) + a SEVERE live FP killed — corpus 33.5%→34.6% — suite 830/10,772
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,13 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 21 `277f558b` (+14)** — the COMPOSITE tier didn't normalize self-names, so a legacy card that
+> names itself ("Mortivore's power and toughness …") read as unmodeled residue there while the static tier
+> credited the identical line. Cards with a modeled static AND a modeled activated ability fell between both
+> tiers. **This was the FOURTH one-path-only credit found today** (after slices 10, 16 and 20) — when two
+> code paths implement one judgement, the newer gets the normalization and the older doesn't, and the
+> disagreement only shows on cards needing BOTH at once. The fix is always to point both at one helper.
 >
 > **SLICE 20 `b3a4a87a` (+4)** — the kicked-counter credit no longer depends on the base body. Urborg
 > Skeleton parked with EVERY line individually credited; the gate hard-coded native-body and rejected any
