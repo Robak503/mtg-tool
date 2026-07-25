@@ -300,6 +300,16 @@ export function applyCreateNamedToken(state, atom, ctx) {
  * COUNT: routed through tokenMultiplier (Wave-3a) so a Doubling-Season-style doubler composes (2^k copies).
  * The minted copy is itself token:true, so it can never be a doubler — the multiply is computed once here.
  *
+ * ⚠️ DEAD-FIELD WARNING (verified 2026-07-25, census scoping for mobilize): `atom.entersAttacking` sets
+ * `permanent.attacking = true`, and NOTHING READS THAT PROPERTY. Attacking-ness is determined solely by
+ * membership in `state.combat.attackers` — combatResolution iterates that list for every damage step, and
+ * layers.js's `attacking` selector queries it too (grep confirms zero other readers). So a token minted
+ * "tapped and attacking" today would sit inert: never dealing combat damage, never seen by an attacking
+ * selector. Any future slice crediting mobilize / "create N tapped and attacking tokens" MUST also register
+ * the minted tokens in state.combat.attackers with a defender, or it ships a classification that the
+ * runtime silently never honors (the exact trap the runbook's failure table row 4 names). Left as-is rather
+ * than deleted: the field is the right shape for that build, it just isn't wired yet.
+ *
  * RIDERS (atom.entersTapped / atom.entersAttacking) are COMBAT STATE, not card characteristics, so they're
  * applied to the PERMANENT, never to the copied card — a TYPE-ADDITION rider (subtype / "4/4 Hero") is
  * FORBIDDEN here (it would feed the live subtype-ETB/attacks/dies scopes) and the parser routes such a card

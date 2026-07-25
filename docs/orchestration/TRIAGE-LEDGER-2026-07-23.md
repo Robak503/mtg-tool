@@ -208,3 +208,22 @@ card that's gonna have either of these effects" — proved correct by census):
 - **Timing prerequisite SHIPPED (`dd6ff026`):** the firstMain event already existed
   (triggerScheduler.detectPhaseTrigger — grep before building, lesson re-banked); the vanishing-reminder
   + compound-at-beginning fixes unlocked Four Knocks + Crack in Time (+2).
+
+## MOBILIZE — scoped 2026-07-25, NOT built (a landmine found, not a slice)
+
+14 carriers (Zurgo Stormrender, Nightblade Brigade, Zurgo Thunder's Decree…). Two of its three pieces
+are now DONE: the attack trigger exists, and the "Sacrifice them at the beginning of the next end step"
+half is covered by the new delayed-trigger scheduler (`c93b6d56`). The remaining piece looked like a
+one-line parser widening — the token matcher just doesn't allow the "tapped and attacking" riders that
+print BEFORE the P/T, and `atom.entersAttacking` already exists.
+
+**It is not a one-line fix, and the reason is worth remembering: `entersAttacking` IS A DEAD WRITE.**
+It sets `permanent.attacking = true`, and grep confirms NOTHING reads that property — attacking-ness is
+membership in `state.combat.attackers` (combatResolution iterates that list at every damage step;
+layers.js's `attacking` selector queries it; zero other readers exist). Crediting mobilize off the
+parser alone would classify 14 cards native while their tokens sit inert — never attacking, never
+dealing damage. Classic "classification right, runtime never fires" (runbook failure table, row 4).
+
+**The honest build:** the token atom must register minted tokens in `state.combat.attackers` with the
+correct defender, during the declare-attackers window. That is real combat-state work, not a regex.
+A dead-field warning has been added at the atom so the next person doesn't trust the field on sight.
