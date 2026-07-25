@@ -185,12 +185,21 @@ Take the top un-attempted cluster. Then, IN ORDER:
 | **Startswith credit swallows a variant** | `bloodthirst` also matched "Bloodthirst X", whose count can't be produced | the per-flip audit shows an orphan the synthesizer returns null for |
 | **Fold without a keep-whole guard** | slice 10 joined the tap+lockdown rider with " and ", then the top-level " and " split shattered it right back | you add a normalization, re-measure, and get EXACTLY ZERO flips — the fold fired, something downstream undid it |
 | **Two names for one referent** | the rider prints as both "It doesn't untap …" and "That creature doesn't untap …"; only the first was stripped | near-identical cards split across tiers — one flips, its twin doesn't |
+| **A fold that eats its own sentence boundary** | slice 10's `\.?` consumed the rider's period and the replacement didn't restore it, gluing the NEXT sentence on | a card whose tier DIDN'T change is silently held back — invisible to the fingerprint diff, which only shows movers |
+| **A whole-oracle `$` anchor on a span matcher** | RIDER-REMOVAL matched "Destroy X. Its controller <rider>." only as the LAST text on the card | the card parses HIGH when you delete an ordinary trailing sentence like "Draw a card." |
 
 ---
 
 *Written by Cindy (Sonnet seat), 2026-07-24, from the receipts of the 07-23/24 overnight+morning
 shift. If you improve the method, update THIS file in the same commit as the improvement.*
 
+> **READING HABIT — an OBVIOUSLY MODELED shape in the census is a BUG SIGNATURE, not a gap.** When the
+> census reports something like `draw a card` as a sole blocker (8 cards, zero co-blockers), it is not
+> telling you draw is unmodeled. It is telling you that deleting an already-modeled line FLIPS the card,
+> which means something upstream is mis-binding that line. That single census row paid out twice on
+> 2026-07-25 for two unrelated root causes (slices 14 and 15). Scan the census for shapes you KNOW are
+> built and treat each one as a defect report.
+>
 > **A free lead worth checking every time: SIBLING ASYMMETRY.** If two cards differ only by a line you
 > did NOT touch and land in different tiers, that difference is a bug, not a fact. Slice 10 opened when
 > Frost Trickster (native) and Frost Lynx (parked) turned out to be the same card modulo the word
