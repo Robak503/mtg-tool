@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-ONE slices (+369) + a SEVERE live FP killed — corpus 33.5%→34.6% — suite 830/10,772
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY-TWO slices (+369) + TWO live FPs killed — corpus 33.5%→34.6% — suite 830/10,776
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,19 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **🚨 SLICE 22 `f285dd14` — a NON-CREATURE permanent's self-reference silently did NOTHING.** selfTargets
+> returned [] unless the source was a creature, so an Aura / artifact / enchantment saying "return this Aura
+> to its owner's hand" parsed HIGH and then no-opped. Measured on Mark of Fury: trigger detected, stacked,
+> resolved — Aura still attached. Zero coverage change (runtime-only), which is exactly why it survived: the
+> metric never disagreed with itself. The comment directly above that function already warns about this FP
+> class for animated lands; this was the same catch one card type wider.
+>
+> **TWO FALSE TRAILS RULED OUT en route, recorded in the triage ledger so nobody re-walks them:** a
+> non-native Aura appearing to VANISH on cast is the intended `pendingArbiter` seam, and auras use a narrow
+> own-trigger ALLOWLIST (rather than equipment's general gate) because `isNativeAura` lives in a leaf module
+> that cannot import coverage. Also reverted a no-op: extending that allowlist with the aura-ETB-draw shape
+> changed ZERO cards, because the shape was already admitted by another route.
 >
 > **SLICE 21 `277f558b` (+14)** — the COMPOSITE tier didn't normalize self-names, so a legacy card that
 > names itself ("Mortivore's power and toughness …") read as unmodeled residue there while the static tier
