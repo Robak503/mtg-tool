@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: NINE slices, two new engine subsystems (+283) — corpus 33.5%→34.3% — suite 819/10,668
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TEN slices, two new engine subsystems (+295) — corpus 33.5%→34.4% — suite 820/10,682
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -50,6 +50,20 @@
 >   parked the Spellbomb/Implement cycles; its "zone-LTB the detector misses" clause was no longer true for
 >   the SELF form. Verified at RUNTIME (drove the exact move the cost path performs) before narrowing, and
 >   only the self subject is exempt — the watcher shapes it was really written for stay flagged, pinned.
+>
+> - **Slice 10 `c75d9159` (+12) — the single-target TAP-AND-LOCK family, and a CREED hardening.** The
+>   runtime already owned every piece (setDoesNotUntapNext + a self-clearing skip in untapAll); only the
+>   recognition lane was missing. Needed THREE seams, and the first attempt shipped two of them and measured
+>   ZERO flips — the fold joined the rider with " and " and the top-level " and " split shattered it right
+>   back, so a keep-whole guard was the load-bearing third piece. The residue strip also knew only one of the
+>   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
+>   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
+>   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **THE HEURISTIC THAT OPENED SLICE 10 — SIBLING ASYMMETRY.** Frost Trickster classified native and Frost
+> Lynx parked, and the two cards are identical modulo the word "Flying". A card penalized for having LESS
+> text is always a strip or residue gate keying on the wrong thing. It costs nothing to check (read two
+> examples from one census cluster side by side) and it is now written into the runbook as a standing lead.
 >
 > **SCOPED, NOT BUILT (banked with reasons so nobody re-derives them):**
 > - **backup N** (15 sole) — grants the card's OWN remaining text to a target conditionally; a new
