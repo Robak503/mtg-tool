@@ -849,6 +849,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       : canCastInstantSpeed(state, playerId);
     if (!freeCast && !timingOk) continue;
 
+    // CR 202.1a — A CARD WITH NO MANA COST CAN'T BE CAST unless an effect allows it. manaCostOf correctly
+    // returns "" for a genuinely costless card (a suspend-only spell — Ancestral Vision, Crashing Footfalls,
+    // Wheel of Fate, Profane Tutor — whose ONLY legal entry is paying its suspend cost), but
+    // parseManaCost("") yields an all-ZERO cost, which this loop then happily offers. The engine would
+    // hand-cast Ancestral Vision for nothing, with no lands, on any turn, every turn. Found 2026-07-25 by
+    // the census bug-signature report; the earlier empty-mana_cost audit fixed the DFC/enrichment half of
+    // this landmine but its tripwire required cmc>0, so the truly costless cards slipped past it.
+    //
+    // Precise on both sides: a real zero cost prints as "{0}" and is NOT empty, so Ornithopter / Memnite are
+    // untouched; `freeCast` is the legitimate effect-granted permission path and is deliberately exempt (that
+    // IS "unless an effect allows it"). Lands never reach here (skipped above).
+    if (!freeCast && !String(manaCostOf(card) || "").trim()) continue;
     let cost = parseManaCost(manaCostOf(card));
     // Mana value is a card characteristic the commander tax does NOT change (CR 202.3b) — capture it from
     // the PRINTED cost before the tax is folded into `cost` (which becomes the payable amount).
