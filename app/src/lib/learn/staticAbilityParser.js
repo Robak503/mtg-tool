@@ -4185,7 +4185,7 @@ const ATT_NO_UNTAP_CLAUSE_RE = /^enchanted creature doesn't untap during its con
 /** Does this Aura print the modeled attached tap-lock line? (gameState.untapAll enforces it.) */
 export function attachedNoUntapOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
-  return /(?:^|[\n.;])\s*enchanted creature doesn't untap during its controller's untap step\s*(?:\.|$)/i.test(o);
+  return /(?:^|[\n.;])\s*enchanted (?:creature|permanent) doesn't untap during its controller's untap step\s*(?:\.|$)/i.test(o);
 }
 /** Single-LINE form of the tap-lock check (UT-1) — for coverage residue walks over oracle lines. */
 export function isAttachedNoUntapLine(line) {
