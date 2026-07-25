@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: NINETEEN slices (+351) + a SEVERE live FP killed — corpus 33.5%→34.6% — suite 828/10,758
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: TWENTY slices (+355) + a SEVERE live FP killed — corpus 33.5%→34.6% — suite 829/10,765
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,12 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 20 `b3a4a87a` (+4)** — the kicked-counter credit no longer depends on the base body. Urborg
+> Skeleton parked with EVERY line individually credited; the gate hard-coded native-body and rejected any
+> base body that wasn't keyword-only. It now re-classifies the stripped body and takes that tier. **New
+> reusable signature: a card with TWO different single-line deletions that each flip it native is a
+> COMPOSITION failure, never a missing mechanic** — now in the runbook.
 >
 > **SLICE 19 `c98553e8` (+16) — suspend, correctly split.** The keyword is vacuous on a card WITH a mana
 > cost (the hard cast resolves identically — the shipped flashback/escape rationale) and must NOT be credited

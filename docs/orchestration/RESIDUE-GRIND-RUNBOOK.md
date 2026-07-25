@@ -193,6 +193,13 @@ Take the top un-attempted cluster. Then, IN ORDER:
 *Written by Cindy (Sonnet seat), 2026-07-24, from the receipts of the 07-23/24 overnight+morning
 shift. If you improve the method, update THIS file in the same commit as the improvement.*
 
+> **THE TWO-FLIP SIGNATURE — a card with MORE THAN ONE single-line deletion that flips it native is a
+> COMPOSITION failure, never a missing mechanic.** Each piece is demonstrably understood in isolation, so
+> what's broken is how the tiers combine. Slice 20 came straight off this: Urborg Skeleton flipped when you
+> deleted its regenerate line AND when you deleted its kicked-counter line — the kicker gate was hard-coding
+> native-body and refusing any base body that wasn't keyword-only. Cheap to check: the census probe already
+> computes every line's flip, so just look for cards with a flip COUNT above one.
+>
 > **READING HABIT — an OBVIOUSLY MODELED shape in the census is a BUG SIGNATURE, not a gap.** When the
 > census reports something like `draw a card` as a sole blocker (8 cards, zero co-blockers), it is not
 > telling you draw is unmodeled. It is telling you that deleting an already-modeled line FLIPS the card,
