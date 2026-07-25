@@ -1779,6 +1779,22 @@ export function classifyCard(card) {
       oracle: String(card.oracle).replace(/If this card is in your opening hand, you may begin the game with it on the battlefield\.?\s*/i, "").trim(),
     };
   }
+  // SUSPEND pre-strip (CR 702.62), gated on the card HAVING A PRINTED MANA COST. Suspend is an optional
+  // alternative way to start casting a card — "Rather than cast this card from your hand, pay {cost} and
+  // exile it with N time counters". For a card with a real mana cost the HARD CAST resolves byte-identically,
+  // so the line is vacuous exactly like flashback / escape / awaken, which textNormalize already strips on
+  // the SPELL path (CAST_KEYWORD_LINE). Permanents never pass through that strip, so a creature whose only
+  // other text was "Suspend 4—{1}{G}" (Durkwood Baloth, Ivory Giant, Duskrider Peregrine …) parked for a
+  // line that cannot change how it plays. Not offering suspend stays a SAFE false negative.
+  //
+  // THE GATE IS THE WHOLE POINT. A card with NO mana cost — Lotus Bloom, Ancestral Vision, Crashing
+  // Footfalls — can ONLY be played by suspending it (CR 202.1a: no mana cost means it can't be cast at all,
+  // which slice 18 just enforced in legalChoices). Stripping the line there would claim a card the engine
+  // can never put on the stack by any route. So the strip requires a non-empty printed cost, and those cards
+  // keep the line as honest residue.
+  if (String(card?.mana ?? card?.mana_cost ?? "").trim() && /^[ \t]*suspend \d+\s*[—–-]/im.test(card?.oracle || "")) {
+    card = { ...card, oracle: String(card.oracle).replace(/^[ \t]*suspend \d+\s*[—–-][^\n]*$/gim, "").replace(/\n{2,}/g, "\n").trim() };
+  }
   const type = String(card?.type || "").toLowerCase();
   const oracle = card?.oracle || "";
   // A planeswalker (PW-1) — keyed on the FRONT face (castsAsPlaneswalker) so a creature-front DFC
