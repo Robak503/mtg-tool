@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: the delayed-trigger SUBSYSTEM + 5 more slices (+247 total) — corpus 33.5%→34.2% — suite 816/10,644
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: NINE slices, two new engine subsystems (+283) — corpus 33.5%→34.3% — suite 819/10,668
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -34,6 +34,22 @@
 >   precedent. The design note worth keeping: CR 702.111a's "if it isn't renowned" is a ONE-SHOT LATCH, so
 >   it lives inside the atom beside monstrosity's `monstrous` flag — NOT as an intervening-if, where a
 >   fail-open board read would re-renown the creature every combat (unbounded counters, the forbidden FP).
+>
+> - **Slice 7 `ae0c1c3c` (+13) — the DAMAGE-TAKEN-THIS-TURN ledger + KW-BLOODTHIRST.** New per-seat ledger
+>   tallied at the loseLife chokepoint but ONLY when its `combatDamage` flag is defined — the two damage
+>   callers pass it, every non-damage loss leaves it undefined, so a drain/pay-life turn can never fire
+>   bloodthirst. Its own audit caught an FP mid-slice: the first pass credited the keyword via startsWith,
+>   which also swallowed "Bloodthirst X" (a count the synthesizer can't produce → native card, nothing
+>   placed). Gate is now digit-anchored.
+> - **Slice 8 `60773d7a` (+13) — STATE TRIGGERS (CR 603.8), a new trigger class.** "When you control no
+>   Islands, sacrifice this creature" is a continuously-checked condition, not an event; checkStateTriggers
+>   runs from the CR 704.3 SBA fixpoint with an arm/disarm latch (that fixpoint runs several times per
+>   priority window — a naive check would enqueue a trigger per pass, an unbounded-trigger FP). Three stale
+>   pins updated, all of which had named this exact sac frame as their blocker.
+> - **Slice 9 `3e4f7b90` (+10) — narrowed a STALE fail-safe.** The γ1 sacrifice-drops-a-trigger guard
+>   parked the Spellbomb/Implement cycles; its "zone-LTB the detector misses" clause was no longer true for
+>   the SELF form. Verified at RUNTIME (drove the exact move the cost path performs) before narrowing, and
+>   only the self subject is exempt — the watcher shapes it was really written for stay flagged, pinned.
 >
 > **SCOPED, NOT BUILT (banked with reasons so nobody re-derives them):**
 > - **backup N** (15 sole) — grants the card's OWN remaining text to a target conditionally; a new
