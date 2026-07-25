@@ -345,11 +345,28 @@ one-path-only shape as slices 10, 16, 20 and 21.
 **Carriers visible in the two-flip report** (51 cards total, auras are the largest cluster): Mark of Fury,
 Fiery Mantle, Compulsory Rest, Nurturing Presence, Verdant Haven. Expect more once the gate generalizes.
 
-**Do it in this order:**
-1. Mirror the equipment pattern in `isNativeAura`: require `allTriggerSentencesModeled`, strip trigger
-   sentences, THEN run the existing bonus / touch-clause checks on what's left.
-2. Keep `auraEnchantRestrictions` untouched — the target set must not move. Re-run
-   `auraEnchantRestrictions.test.js` and confirm the offer-layer pins still hold.
-3. **Verify one thing first:** an aura whose ONLY text is a return-to-hand trigger currently reads
-   `native-trigger`, which means the TRIGGER tier is claiming an aura without checking it attaches. That
-   may itself be an over-claim and is worth settling before widening anything.
+**WHY AURAS USE AN ALLOWLIST AND EQUIPMENT DOESN'T** (investigated 2026-07-25 — do not re-derive):
+equipment nativeness is gated by `coverage.permanentEquipmentCovered`, which INDEPENDENTLY requires every
+trigger sentence to route (`allTriggerSentencesModeled`). That separate gate is what makes it safe for the
+bonus parse to skip ALL trigger sentences. Auras have no equivalent independent gate, because
+`isNativeAura` lives in `staticAbilityParser.js` — a LEAF module that cannot import coverage without
+creating a cycle. Hence the narrow `AURA_OWN_MODELED_TRIGGER_RE` allowlist instead.
+
+**Do it in one of these two ways:**
+1. *(cheap, same architecture)* EXTEND the allowlist, one verified shape at a time. The bar the allowlist
+   holds itself to is end-to-end RUNTIME proof: attach the aura, advance to the trigger's timing, confirm
+   it fires and its effect resolves (for Mark of Fury: the aura detaches and returns to hand). Cheap per
+   shape, no architectural risk.
+2. *(proper, larger)* Inject the trigger validator. Give `isNativeAura` an optional
+   `triggersAllModeled` parameter supplied by its callers — coverage.js and legalChoices.js both already
+   import coverage-side helpers — and skip ALL trigger sentences in the bonus parse when it's provided.
+   Preserves the leaf-module boundary and generalizes in one move.
+
+Either way: keep `auraEnchantRestrictions` untouched — the TARGET set must not move — and re-run
+`auraEnchantRestrictions.test.js` to confirm the offer-layer pins still hold.
+
+**FALSE ALARM, recorded so nobody chases it:** a non-native Aura cast appears to make the card VANISH — it
+leaves hand, goes on the stack, and lands in no zone. That is INTENDED. Resolution sets `state.pendingArbiter`
+(the "engine can't model this, ask the Arbiter" seam) rather than creating a do-nothing permanent, and
+`aura.test.js` pins exactly that. A probe that doesn't check `pendingArbiter` misreads it as a lost card.
+Non-native ENCHANTMENTS and CREATURES do reach the battlefield, which makes the asymmetry look like a bug.
