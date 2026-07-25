@@ -318,3 +318,38 @@ capability.
 
 Cost if fixed: at most -31 native (~0.26%), and the honest direction. Needs Colton-level agreement on
 what "native" claims for a card that can never be cast, since the corpus % is a headline number.
+
+---
+
+## READY-TO-BUILD — AURA composition: an aura with a bonus AND a trigger (census slice 22 candidate)
+
+Scoped 2026-07-25 off the census TWO-FLIP report. Not built in-session because `isNativeAura` also drives
+legalChoices' aura TARGET enumeration (slice 17 wired qualified subjects through it), so a careless
+widening risks a wrongly-legal target — the forbidden direction — rather than merely a tier change.
+
+**The gap, measured.** Mark of Fury ("Enchant creature" / "Enchanted creature has haste." / "At the
+beginning of the end step, return this Aura to its owner's hand."):
+
+| card text | tier |
+|---|---|
+| Enchant + the haste bonus | `native-aura` |
+| Enchant + the return trigger | `native-trigger` |
+| **all three together** | **`body-only`** |
+
+**Root cause.** Auras admit triggers through a narrow ALLOWLIST — `isModeledAuraOwnTrigger` (SL-1, the
+Spirit Link / Vampiric Link watcher shapes) — while EQUIPMENT already does the general thing:
+`permanentEquipmentCovered` runs `allTriggerSentencesModeled`, then STRIPS the trigger sentences before its
+bonus and residue checks. The aura gate should do what the equipment gate does. This is the same
+one-path-only shape as slices 10, 16, 20 and 21.
+
+**Carriers visible in the two-flip report** (51 cards total, auras are the largest cluster): Mark of Fury,
+Fiery Mantle, Compulsory Rest, Nurturing Presence, Verdant Haven. Expect more once the gate generalizes.
+
+**Do it in this order:**
+1. Mirror the equipment pattern in `isNativeAura`: require `allTriggerSentencesModeled`, strip trigger
+   sentences, THEN run the existing bonus / touch-clause checks on what's left.
+2. Keep `auraEnchantRestrictions` untouched — the target set must not move. Re-run
+   `auraEnchantRestrictions.test.js` and confirm the offer-layer pins still hold.
+3. **Verify one thing first:** an aura whose ONLY text is a return-to-hand trigger currently reads
+   `native-trigger`, which means the TRIGGER tier is claiming an aura without checking it attaches. That
+   may itself be an over-claim and is worth settling before widening anything.
