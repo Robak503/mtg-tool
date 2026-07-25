@@ -352,7 +352,11 @@ export function enchantedTargets(state, ctx) {
   const hostId = auraLk?.permanent?.attachedTo;
   if (!hostId) return [];
   const hostLk = findPermanent(state, hostId);
-  return hostLk && isCreatureCard(hostLk.permanent.card)
+  // LAYER-AWARE (census slice 23) — "enchanted creature" still requires the host to BE a creature, but that
+  // is a LIVE question, not a printed one: an Aura on a permanent that has been animated (or a Vehicle that
+  // is currently crewed) has a creature host right now. The printed-card check alone no-opped the effect
+  // while the metric read HIGH — the same catch selfTargets already carries.
+  return hostLk && (isCreatureCard(hostLk.permanent.card) || permanentIsCreature(state, hostId))
     ? [{ type: "creature", id: hostId, controller: hostLk.controller }]
     : [];
 }
@@ -393,7 +397,12 @@ export function selfTargets(state, ctx) {
 export function triggeringTargets(state, ctx) {
   const id = ctx.triggeringPermanentId;
   const lk = id ? findPermanent(state, id) : null;
-  return lk && isCreatureCard(lk.permanent.card) ? [{ type: "creature", id, controller: lk.controller }] : [];
+  // LAYER-AWARE (census slice 23) — the same catch selfTargets already carries. The PRINTED-card check alone
+  // silently dropped the referent for a permanent that is a creature only BY LAYERS (an animated land that
+  // triggered something), so the effect no-opped while the metric read HIGH. Verified: with an animated land
+  // as the triggering permanent this returned [] while selfTargets on the same permanent returned it.
+  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, id))
+    ? [{ type: "creature", id, controller: lk.controller }] : [];
 }
 
 // ===== HALF-X (CR 107.3 — "half X, rounded down/up") ===== a HALVING post-transform applied to an already-
