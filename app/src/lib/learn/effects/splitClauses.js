@@ -411,6 +411,12 @@ export function splitClauses(oracle) {
     // which is exactly what the lockdown rider needs to avoid — the " and " here is INTERNAL to one tap
     // instruction ("it" = the just-tapped creature), not an effect boundary.
     if (/^tap target creature(?: an opponent controls| you don't control| defending player controls)? and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ATTACH-TO-CREATED-TOKEN (Ancestral Blade / Hook Swords / Foot Chopper class) — "create a <token>, then
+    // attach this Equipment to it." The ", then" is INTERNAL to a single instruction ("it" = the token this
+    // very clause mints), not a top-level effect boundary, so the split would strand "attach this Equipment
+    // to it" as an unbindable clause → low. createTokenClauseParser peels the rider off the whole sentence
+    // and stamps attachSourceToCreated on the create-token atom.
+    if (/^(?:you )?create .*, then attach this equipment to it\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TAP-FREEZE (BLITZ TP-1 — Frost Breath class) — the normalize fold above joined "Tap up to two target
     // creatures. Those creatures don't untap during their controller('s|s') next untap step(s)." into one
     // sentence with an internal " and "; that " and " is INTERNAL to the one tap+lockdown instruction

@@ -2,7 +2,7 @@
  * effects/atoms/tokens.js — token-minting atoms (create-token, create-named-token).
  */
 
-import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent } from "../../gameState.js";
 import { tokenMultiplier, tokenAdditive, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
@@ -144,6 +144,14 @@ export function applyCreateToken(state, atom, ctx) {
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
     mintedIds.push(minted.id);
+  }
+  // ATTACH-TO-CREATED-TOKEN (CR 701.3) — "…, then attach this Equipment to it." Attach BEFORE the ETB fire
+  // and the lethal SBA below, exactly like the Living Weapon path in resolvers.enterPermanent: a token whose
+  // survival depends on the Equipment's bonus (a 0/0 germ-shaped token) must already be wearing it when the
+  // SBA runs, or it dies before the buff applies (CR 613 — the layer engine reads the attached bonus).
+  // ctx.sourceId is the Equipment whose trigger this is; the parser guarantees exactly one minted token.
+  if (atom.attachSourceToCreated && ctx.sourceId && mintedIds.length === 1 && findPermanent(next, ctx.sourceId)) {
+    next = attachPermanent(next, { equipId: ctx.sourceId, targetId: mintedIds[0] });
   }
   // ETB (CR 603.6a) — a created token ENTERS, so it fires "enters" triggers: its own (rare) plus every
   // watcher (Soul Warden / Impact Tremors / Cathars' Crusade) AND the subtype-ETB scopes (Pantlaza off a
@@ -508,7 +516,35 @@ function landTokenManaOracle(descriptor) {
  * Pure; uses parseCountSource/SMALL_NUM/parseTokenManaAbility/parseTokenKeywords from the leaf. Registered via
  * registerClauseParser in parser.js.
  */
+/**
+ * ATTACH-TO-CREATED-TOKEN (CR 701.3) — the printed, spelled-out form of what Living Weapon / For Mirrodin!
+ * do as a keyword: "When this Equipment enters, create a 1/1 white Soldier creature token, then attach this
+ * Equipment to it." (Ancestral Blade, Hook Swords, Foot Chopper, Barbed Spike, Kyoshi Battle Fan …).
+ *
+ * The keyword forms mint a FIXED token in resolvers.enterPermanent; these print their token spec, so they
+ * route through the ordinary create-token atom instead — the rider just has to survive the parse. Peel it
+ * here, parse the remainder with the unchanged core, and stamp the flag onto the resulting atom (the same
+ * fold shape as the tap+noUntapNext rider): "it" is the token this very atom mints, so there is no
+ * cross-atom reference to resolve.
+ *
+ * DELIBERATELY NOT routed through livingWeaponToken: these cards carry a REAL printed trigger sentence, so
+ * minting from the keyword path as well would create the token TWICE the moment this clause parses HIGH.
+ *
+ * Guarded to a single, statically-counted token — "it" presupposes exactly one. A dynamic or multiple count
+ * returns null (park → Arbiter) rather than guessing which token the Equipment lands on.
+ */
 export function createTokenClauseParser(clause) {
+  const m = String(clause || "").replace(/[’]/g, "'").match(/^(.*?),?\s*then attach this equipment to it\.?\s*$/i);
+  if (!m) return createTokenClauseParserCore(clause);
+  const inner = createTokenClauseParserCore(m[1]);
+  if (!inner || inner.op !== "create-token") return null;
+  const singleStaticToken = (inner.count == null || inner.count === 1)
+    && !inner.countX && !inner.countContext && !inner.countFor;
+  if (!singleStaticToken) return null;
+  return { ...inner, attachSourceToCreated: true };
+}
+
+function createTokenClauseParserCore(clause) {
   // A leading "you " is a redundant subject — the token's controller is ALWAYS the effect's controller
   // (CR 111.1), so "you create …" ≡ "create …". The conjoined payload form ("you create a … token and …",
   // e.g. Sword of Body and Mind) carries it on the first sub-clause; strip it so the create anchors below
