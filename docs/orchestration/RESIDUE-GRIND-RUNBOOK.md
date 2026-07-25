@@ -39,6 +39,13 @@ CLAUDE.md §1.2 (never fabricate) and §8 (forbidden patterns) override everythi
    enumerator, or legality gate, the ONLY evidence that counts is driving it on a board.** A green
    fingerprint diff on such a slice means the gates couldn't see it, not that nothing changed.
 
+**THE DRIFT PROBE — reusable, and it caught a bug in my own slice the same day I wrote it.** Whenever two
+functions answer ONE question (a metric gate and its runtime twin; two documented "mirrors"), run them
+against each other across the whole corpus and print the disagreements. It needs no fixture design: iterate
+the real cards, call both, diff. Slice 29 did this to `stripModeledSelfNoUntap` vs `selfPreventsUntap` and
+found 11 conditional statics the metric credited and the engine refuses. Cheap, mechanical, and it finds the
+one class the fingerprints structurally cannot see.
+
 **Two corollaries earned the same day:**
 
 - **When a comment says "mirrors X", go read X.** It was false twice in one shift — two pairs of
