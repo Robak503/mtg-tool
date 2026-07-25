@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: the delayed-trigger SUBSYSTEM + 3 keyword slices (+213 total) — corpus 33.5%→34.1% — suite 815/10,631
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: the delayed-trigger SUBSYSTEM + 5 more slices (+247 total) — corpus 33.5%→34.2% — suite 816/10,644
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -25,6 +25,27 @@
 > landed, and two earned their keep by catching real bugs on the way out. Full-suite runs under CPU
 > contention produced ~13 spurious failures that all passed in isolation: the runbook's "red under load
 > proves nothing" rule, honored rather than assumed.
+>
+> - **Slice 5 `efdcd659` (+22)** — self-bounce noun widening. "Return this <noun> to its owner's hand" was
+>   credited only for creature|permanent; the atom bounces the SOURCE, so the noun is pure templating.
+>   Widening it to aura/enchantment/artifact/equipment/land flipped 22 (Shackles + the Aura cycle, the five
+>   Trials, the Dragonstorm cycle, Batterskull) with ZERO new runtime code.
+> - **Slice 6 `11a85ca7` (+12) — KW-RENOWN (CR 702.111)**, keyword→trigger synthesis on the evolve
+>   precedent. The design note worth keeping: CR 702.111a's "if it isn't renowned" is a ONE-SHOT LATCH, so
+>   it lives inside the atom beside monstrosity's `monstrous` flag — NOT as an intervening-if, where a
+>   fail-open board read would re-renown the creature every combat (unbounded counters, the forbidden FP).
+>
+> **SCOPED, NOT BUILT (banked with reasons so nobody re-derives them):**
+> - **backup N** (15 sole) — grants the card's OWN remaining text to a target conditionally; a new
+>   value-threading path between objects, which the runbook says to bank rather than rush.
+> - **bloodthirst N** (13) / **sunburst** (6) — both need ledgers the engine lacks: damage-dealt-this-turn
+>   and mana-colors-spent. Reusing `lifeLostThisTurn` for bloodthirst would over-fire on non-damage life
+>   loss — an FP, so it stays parked until the real ledger exists.
+> - **mobilize N** (9) — its delayed-sac half is NOW covered by the new scheduler; the remaining blocker is
+>   tokens created **tapped and attacking** (real combat-state creation).
+> - **split second** (7) — deliberately NOT credited: unlike the optional-cost family it's a restriction on
+>   OPPONENTS, so ignoring it makes the engine wrongly permissive rather than merely less capable.
+> - **suspend** (12+6) — still refused; its no-mana-cost carriers cannot be played at all without it.
 >
 > **NEXT on the ranked queue:** backup N (15 sole) · bloodthirst N (13 — needs a damage-specific per-turn
 > ledger; reusing life-loss tracking would over-fire on non-damage loss, an FP) · renown N (12 — needs a
