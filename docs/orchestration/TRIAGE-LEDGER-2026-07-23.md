@@ -439,3 +439,46 @@ to not disturb the already-declared attack, and the tokens must be excluded from
 control" count that was locked earlier in the step. Verify at RUNTIME that the tokens actually deal combat
 damage — a classification that the runtime never honours is precisely the trap the runbook's failure table
 names, and it is the trap this card family sits on.
+
+---
+
+## 🚨 OPEN — 159 cards claim `native-mana` but the engine sees NO mana source (metric over-claim)
+
+Found 2026-07-25 by the drift probe's THIRD run (metric gate vs runtime twin). Verified end-to-end, not
+inferred. NOT fixed in-session: the honest fix is a real decision about which side moves, and it changes a
+headline number either way.
+
+**The evidence.** Of 679 cards the metric tiers `native-mana`, `manaProduction(publicCard)` returns
+null/empty for **159**. Spot-checked six on a real board — tier vs `manaSources(state, player).length`:
+
+| card | tier | mana sources seen |
+|---|---|---|
+| The Eternity Elevator | native-mana | **0** |
+| Heritage Druid | native-mana | **0** |
+| Bloom Tender | native-mana | **0** |
+| Staff of Compleation | native-mana | **0** |
+| Sol Grail | native-mana | **0** |
+| Akki Rockspeaker | native-mana | **0** |
+
+The metric says "this card's defining ability is modeled"; the engine cannot tap any of them for a single
+mana. That is the CREED's forbidden direction — claiming faithful play we do not deliver.
+
+**Root cause is the familiar one: two implementations of one judgement.** The metric gates on
+`hasManaAbility` (a TEXT check) plus a residue check; the runtime reads `manaProduction`. Nothing forces
+them to agree, and they don't.
+
+**The 159 are not one bug — at least four sub-causes, and they want different answers:**
+- **A costed mana ability** — "Tap three untapped Elves you control: Add {G}{G}{G}" (Heritage Druid),
+  "{T}, Pay 2 life" (Staff of Compleation), "{T}, Sacrifice a Forest" (Goblin Clearcutter). The runtime's
+  standing-mana reader deliberately refuses these.
+- **A TRIGGERED mana ability** — "When this creature enters, add {R}" (Akki Rockspeaker). Not a standing
+  source at all; this is the shape the phantom-mana FP was about, so tread carefully.
+- **A card with extra text the reader won't parse past** — The Eternity Elevator's "{T}: Add {C}{C}{C}"
+  works in isolation and returns null once its "Station" line is present. **This one is a plain bug**, not
+  a policy question, and is the cheapest place to start.
+- **A choice-dependent color** — "Add one mana of the chosen color" (Sol Grail).
+
+**Do this first:** re-run the probe grouped by sub-cause before touching anything — the fix for the
+extra-text case (widen the reader) is the opposite of the fix for the costed case (narrow the metric).
+`scratchpad/probe-drift3.mjs` is the starting point; note its first draft misled me by testing a
+hand-simplified oracle instead of the real `publicCard`, so keep it on real card text.
