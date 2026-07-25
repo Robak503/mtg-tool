@@ -131,3 +131,29 @@ describe("the remaining single-permanent creature gates (slice 25)", () => {
     expect(out.players.user.battlefield.find((p) => p.id === "L1").counters?.shield).toBeFalsy();
   });
 });
+
+describe("TARGETING must agree with COMBAT about what is a creature (slice 26)", () => {
+  /**
+   * The engine let an animated land ATTACK (combat reads permanentIsCreature) but not be TARGETED by
+   * "destroy target creature" (the enumerator read the printed card). That is not the safe direction a
+   * normal under-offer would be: the two halves disagree IN THE CONTROLLER'S FAVOUR, so the sim had an
+   * attacker no removal could ever answer. CR 613 says the layer read is the truth.
+   */
+  it("an animated land is a legal 'target creature'", async () => {
+    const { enumerateTargets } = await import("./spellEffects.js");
+    const st = animate(board(), "L1");
+    expect(enumerateTargets(st, "user", { targetType: "creature", restrictions: [] }, []).map((t) => t.id)).toContain("L1");
+  });
+
+  it("…and is NOT a legal target before it is animated", async () => {
+    const { enumerateTargets } = await import("./spellEffects.js");
+    expect(enumerateTargets(board(), "user", { targetType: "creature", restrictions: [] }, []).map((t) => t.id)).not.toContain("L1");
+  });
+
+  it("the same permanent can be declared as an attacker once animated (the half that already worked)", async () => {
+    const { legalActionsForPlayer } = await import("./legalChoices.js");
+    const st = { ...animate(board(), "L1"), step: "declare-attackers", activePlayer: "user", priorityHolder: "user" };
+    const attackers = legalActionsForPlayer(st, "user").filter((a) => a.kind === "declare-attacker").map((a) => a.permanentId);
+    expect(attackers).toContain("L1");
+  });
+});
