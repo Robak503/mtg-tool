@@ -118,7 +118,14 @@ export function parseControllerRider(t) {
   return null; // an unmodeled controller rider → low → Arbiter
 }
 export function matchRemovalControllerRider(oracle) {
-  const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller (.+?)\.?$/i);
+  // A TRAILING sentence is handed back as `rest` rather than blocking the match. The rider itself is always
+  // period-free (every shape parseControllerRider models is a single clause, and its anchors are ^…$ — a
+  // rider containing a period could never have matched one), so `[^.]+` greedily takes exactly the rider and
+  // stops at its terminator; whatever follows becomes rest, which collapsed() parses into further atoms and
+  // fails cleanly on if it doesn't parse. Without this the whole-oracle `$` anchor meant a perfectly ordinary
+  // second sentence — "Draw a card." on Geomancer's Gambit / Price of Freedom — sent the card to the Arbiter
+  // even though both halves were individually modeled.
+  const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller ([^.]+)\.?(?:\s+([\s\S]+))?$/i);
   if (!m) return null;
   // The bare destroy/exile lead lives in atoms/removal.destroyExileClauseParser (seam batch 27), so resolve
   // the rider-stripped lead via that clause parser directly. (The old parseExtendedAtom() || fallback was
@@ -127,7 +134,7 @@ export function matchRemovalControllerRider(oracle) {
   if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null; // lead must be a modeled removal
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                   // unmodeled rider → low → Arbiter
-  return { atom: { ...lead, controllerRider: rider }, rest: "" };
+  return { atom: { ...lead, controllerRider: rider }, rest: (m[3] || "").trim() };
 }
 // ===== DESTROY-DAMAGE-RIDER ===== — targeted DESTROY whose SECOND sentence is the SPELL ITSELF dealing damage
 // to the TARGET's controller (CR — "that <noun>'s controller" = the just-destroyed permanent's controller):
