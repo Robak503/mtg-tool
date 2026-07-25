@@ -67,7 +67,7 @@ import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the emin
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic
-import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
+import { parseKickerCounterCreature, parseKickerEtbCreature, stripKickerText } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
 import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.96) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
 
@@ -2481,7 +2481,26 @@ registerCoverageClassifier((card) => classifyWolverine(card));
 // parseKickerCounterCreature is all-or-nothing (multikicker / variable cost / a non-counter kicked payoff /
 // any extra unmodeled body clause → null), so the credit is honest — exactly the cards the engine plays.
 // isKeywordOnly is passed in (the same predicate the dispatch body uses) to keep kicker.js a leaf module.
-registerCoverageClassifier((card) => (parseKickerCounterCreature(card, isKeywordOnly) ? "native-body" : null));
+registerCoverageClassifier((card) => {
+  if (parseKickerCounterCreature(card, isKeywordOnly)) return "native-body";
+  // GENERALIZATION (census slice 20) — the gate above credits the kicked-counter payoff only when the BASE
+  // BODY is keyword-only, so Urborg Skeleton ("Kicker {3}" + the kicked counter + "{B}: Regenerate this
+  // creature.") parked even though EVERY line was individually credited: kicker+counter reads native-body on
+  // its own, and the regenerate ability reads native-activated on its own. Nothing about the kicker half
+  // depends on what the rest of the body is — so re-classify the stripped body and let the card take THAT
+  // tier. Same shape as the self-no-untap parity fix: a credit that existed in one path and not another.
+  //
+  // Re-classification is an established pattern here (parseTributeCreature does the same). Passing a
+  // permissive predicate bypasses ONLY the keyword-only body check while keeping every other gate —
+  // creature-ness, a clean single kicker cost, and an all-or-nothing modeled kicked payoff.
+  if (!parseKickerCounterCreature(card, () => true)) return null;
+  const body = stripKickerText(card?.oracle || card?.oracle_text || "").trim();
+  if (!body) return null;
+  // Terminates in one step: the stripped body carries no kicker line, so this classifier returns null on the
+  // recursive call. A body that ISN'T fully modeled yields a non-native tier and the card parks as before.
+  const tier = classifyCard({ ...card, oracle: body });
+  return /^native/.test(tier) ? tier : null;
+});
 
 // ─── KICKER (CR 702.33) — creature kicker whose kicked payoff is an ETB TRIGGER ──────────────────────────────
 // A CREATURE with a clean single "Kicker {cost}" optional cast cost whose kicked payoff is a TRIGGERED ability
