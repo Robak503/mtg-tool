@@ -370,3 +370,39 @@ leaves hand, goes on the stack, and lands in no zone. That is INTENDED. Resoluti
 (the "engine can't model this, ask the Arbiter" seam) rather than creating a do-nothing permanent, and
 `aura.test.js` pins exactly that. A probe that doesn't check `pendingArbiter` misreads it as a lost card.
 Non-native ENCHANTMENTS and CREATURES do reach the battlefield, which makes the asymmetry look like a bug.
+
+---
+
+## ⚠️ OPEN — an ANIMATED permanent can ATTACK but cannot be TARGETED (asymmetry, favours its controller)
+
+Found 2026-07-25 while sweeping the printed-vs-layer-aware creature checks (slices 22-25). NOT fixed
+in-session: the fix lands on the single most-used path in the engine and deserves its own slice.
+
+**Measured, both directions:**
+
+| question | answer |
+|---|---|
+| `permanentIsCreature(state, animatedLand)` | `true` |
+| can it be declared as an attacker? | **yes** (`animate.framework.test.js` pins this) |
+| `enumerateTargets(state, pid, {targetType:"creature"})` | **`[]`** — not offered |
+| `controllerCreatureTargets(...)` | **`[]`** — not offered |
+
+**Why this is worse than a normal false negative.** The usual FN posture ("the engine under-offers, which
+is safe") does NOT hold here, because the two halves disagree in the SAME direction as the controller's
+interest: an animated land can attack every turn and no removal in the engine can ever target it. In
+self-play that is an invulnerable attacker, which distorts exactly the signal the sim exists to produce.
+
+**Root cause.** Creature-ness for TARGETING is read from the printed card (`isCreatureCard`) throughout
+`spellEffects.enumerateTargets` and the `shared.js` battlefield filters, while COMBAT reads the layer-aware
+`permanentIsCreature`. CR 613 says the layer read is the truth.
+
+**Why it wasn't done as part of slices 22-25.** Those were single-permanent referent lookups — each a
+one-line change with a bounded blast radius. This is the enumerator every targeted effect in the game
+funnels through; widening it changes which targets are legal for every removal spell, pump, aura and
+trigger at once. It needs its own tier-and-runtime gate battery, and probably a deliberate check that
+nothing downstream assumes a "creature" target has printed P/T.
+
+**Suggested approach:** change the base creature filter in `enumerateTargets` and the `shared.js` filters to
+`isCreatureCard(card) || permanentIsCreature(state, perm.id)`, then diff the full suite and drive a removal
+spell at an animated land end-to-end. Expect existing pins that assert an animated land is NOT targetable to
+need re-examination — check whether each is a deliberate CREED guard or just a snapshot of this bug.
