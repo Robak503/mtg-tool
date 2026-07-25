@@ -168,6 +168,13 @@ Take the top un-attempted cluster. Then, IN ORDER:
 4. **Full suite + lint.** Under background load, re-verify failures in isolation (see §1).
 5. **Reminder-text paranoia:** if any carrier has parenthetical reminder text, confirm no phantom
    descriptors leak (instance: vanishing enchantments' reminders parked Four Knocks for months).
+   **Fixture text is COPIED from the index, never paraphrased** — an abbreviated reminder classified
+   differently twice on 2026-07-25 and both times looked like a bug in the change under test.
+6. **If the slice touched a RESOLVER, ENUMERATOR or LEGALITY GATE, gates 2 and 3 prove nothing** (law
+   6). Those diffs compare the parse pipeline against itself and cannot see a runtime function that
+   returns an empty list. Drive the card on a board and assert the effect actually happened — and when
+   the runtime "proves" a NEGATIVE, check the export exists before believing it (a guarded call to a
+   function that lives in another module no-ops silently and reads exactly like a real failure).
 
 ## 6. RECORD
 
@@ -194,7 +201,7 @@ Take the top un-attempted cluster. Then, IN ORDER:
 - Token diet (grind sessions): targeted reads over bulk dumps, one family per session, outputs to
   disk with summaries in context.
 
-## 8. KNOWN FAILURE MODES (all real, all from one shift — check yourself against this list)
+## 8. KNOWN FAILURE MODES (all real, all earned on this project — check yourself against this list)
 
 | Trap | Instance | Tell |
 |---|---|---|
