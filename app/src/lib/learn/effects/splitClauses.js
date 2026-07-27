@@ -57,6 +57,13 @@ export function splitClauses(oracle) {
     // the untap to the SAME single target ("it" = the pumped creature) rather than orphaning it into a
     // separate, unbindable "untap it" clause. Only a +N/+N-with-keyword pump (the exact combat-trick shape).
     .replace(/(gets [+-]\d+\/[+-]\d+ and gains [^.]*?\buntil end of turn)\.\s+untap it\b\.?/gi, "$1 and untap it")
+    // HELD-MANA — fold the printed duration sentence onto the add that made the mana: "Add {R}. This mana
+    // lasts until end of combat." → "add {R} lasting until end of combat". Without the fold the period splits
+    // it in two and the duration is orphaned into an unbindable clause, which is precisely how a plain,
+    // WRONG "add {R}" would end up credited — the mana would evaporate a step earlier than the card promises.
+    // Folded to a form carrying NO period, so the top-level sentence split cannot shatter it again (the
+    // lesson from the slice-10 fold that measured zero flips because " and " re-split it).
+    .replace(/(add (?:\{[wubrgc]\})+)\.\s+this mana lasts until end of combat\.?/gi, "$1 lasting until end of combat")
     // TAP-PERMANENT-LOCK — fold Koma's separate "Its activated abilities can't be activated this turn."
     // sentence that follows "Tap target permanent." into the tap sentence as " and its activated abilities
     // …", so combatKeywordClauseParser binds the activated-ability LOCK to the SAME single target ("Its" =

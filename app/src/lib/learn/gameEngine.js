@@ -39,6 +39,7 @@ import {
   untapAll,
   clearCombatDamage,
   clearRemovedFromCombatFlags,
+  clearManaHolds,
   logEvent,
   mintId,
   opponentsOf,
@@ -210,8 +211,17 @@ export function emptyManaPools(state) {
   for (const pid of Object.keys(state.players)) {
     const keep = manaDoesNotEmpty(state, pid);
     const pool = state.players[pid].manaPool;
+    // MANA-HOLD — the SECOND, bounded preservation: mana printed as outliving the step that made it
+    // ("This mana lasts until end of combat"). Unlike the card-name registry above (Omnath keeps green,
+    // permanently, in full), this keeps at most `hold[c]` of a color and is cleared at end of combat.
+    //
+    // The known imprecision, stated rather than hidden: the hold caps a COLOR, not specific mana. Float 2
+    // firebending red, spend it, then tap a Mountain in the same step and 1 red survives that shouldn't.
+    // It can never preserve MORE than the printed effect promised, so it cannot manufacture mana out of
+    // nothing — the failure mode is a rare 1-mana carry, not a leak.
+    const hold = state.players[pid].manaHold || {};
     const newPool = {};
-    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? pool[c] || 0 : 0;
+    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? pool[c] || 0 : Math.min(pool[c] || 0, hold[c] || 0);
     nextPlayers[pid] = { ...state.players[pid], manaPool: newPool };
   }
   return { ...state, players: nextPlayers };
@@ -452,6 +462,12 @@ export function runStepActions(state) {
       // REGEN (CR 701.19a): removal-from-combat lasts only this combat — clear the per-permanent
       // removedFromCombat flag here so combatResolution stops skipping the creature in later combats.
       next = clearRemovedFromCombatFlags(next);
+      // MANA-HOLD EXPIRY — "This mana lasts until end of combat" ends HERE. Clearing the hold (not the
+      // pool) is deliberate: advanceStep's own emptyManaPools call, running as this step ends, is what
+      // actually drains the mana, and it now sees hold=0. This is the ONE expiry point, and a combat-less
+      // turn still reaches it — advanceStep skips the blockers/damage steps straight to end-of-combat
+      // rather than past it, so the hold can never survive into a later turn.
+      next = clearManaHolds(next);
       next = logEvent(next, {
         kind: "step",
         phase: "combat",

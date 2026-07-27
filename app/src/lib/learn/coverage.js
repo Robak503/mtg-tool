@@ -251,6 +251,10 @@ export const COVERED_KEYWORDS = [
   // only creature) and makes the "if that's another creature" grant vacuous, so the engine plays a real
   // legal line. It simply never offers backup on ANOTHER creature — an under-offer, the safe direction.
   "backup",
+  // (KW-FIREBENDING is NOT credited by this list — it needs a DIGIT-anchored gate, exactly like bloodthirst
+  //  below. A startsWith("firebending ") credit would also swallow "Firebending X, where X is this creature's
+  //  power", whose amount the add-mana atom cannot express; the engine would then add a WRONG fixed amount of
+  //  mana. See reFirebendingFixed.)
   // (KW-BLOODTHIRST is NOT credited here — it needs a DIGIT-anchored gate, see reBloodthirstFixed below.
   //  A startsWith("bloodthirst ") credit would also accept "Bloodthirst X", whose counters the runtime
   //  cannot place — caught by the per-flip audit on Petrified Wood-Kin before it shipped.)
@@ -389,6 +393,7 @@ export function isKeywordOnly(oracle, name) {
     reGyZoneOptionCost.test(c) ||
     reReinforceCost.test(c) ||
     reBloodthirstFixed.test(c) ||
+    reFirebendingFixed.test(c) ||
     reDredgeCost.test(c) ||
     reOptionalAddlCost.test(c) ||
     reImproviseBare.test(c) ||
@@ -532,6 +537,12 @@ const reReinforceCost = /^reinforce \d+\s*[—–-]\s*(?:\{[^}]+\})+$/;
 // excluded: the synthesizer returns null for it, so a startsWith-style credit would mark the card native
 // while the runtime placed nothing. Caught by this slice's own per-flip audit before it shipped.
 const reBloodthirstFixed = /^bloodthirst \d+$/;
+// firebending N (census slice 41) — "Whenever this creature attacks, add {R}. This mana lasts until end of
+// combat." ENFORCED: detectTriggers synthesizes the self-scoped attacks descriptor and misc.js resolves it to
+// the add-mana atom carrying the end-of-combat hold, so the mana is really added AND really survives the rest
+// of combat. Digit-anchored for the same reason as bloodthirst above: "Firebending X, where X is this
+// creature's power" is a dynamic amount the atom cannot express, and it must keep failing this gate.
+const reFirebendingFixed = /^firebending \d+$/;
 // dredge N (CR 702.52) — a REPLACEMENT OPTION on draws while in the GY ("instead of drawing, return this
 // and mill N"). Never offered → every draw stays a normal draw, resolution faithful. Digit tail, not brace.
 const reDredgeCost = /^dredge \d+$/;

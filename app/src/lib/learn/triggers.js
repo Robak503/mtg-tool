@@ -1867,6 +1867,32 @@ export function mobilizeKeywordValue(oracle) {
  * that would have to be threaded onto another permanent. That is an under-offer: safe, and the same shape as
  * not offering an awaken or bestow mode. Never the reverse.
  */
+/**
+ * Returns N for a printed numeric "Firebending N", else 0.
+ *
+ * "Firebending 1 (Whenever this creature attacks, add {R}. This mana lasts until end of combat.)" — like
+ * renown / mobilize / backup, the whole ability lives in reminder parens where the boundary-anchored trigger
+ * regex cannot reach it, so it is synthesized from the keyword line.
+ *
+ * NUMERIC ONLY, on purpose. The corpus also prints "Firebending X, where X is this creature's power" (and X =
+ * experience counters / creatures you control). Those need a dynamic amount the add-mana atom has no shape
+ * for, and guessing a fixed number would print the WRONG amount of mana every time — so they fail the anchor
+ * and stay on the Arbiter. False-negative safe, per the creed.
+ */
+export function firebendingKeywordValue(oracle) {
+  // Reminder parens stripped FIRST, exactly like renownKeywordValue — the keyword line is printed as
+  // "Firebending 1 (Whenever this creature attacks, …)", and the comma inside those parens would otherwise
+  // leave the first segment as "firebending 1 (whenever this creature attacks", which matches nothing.
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^firebending (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
 export function backupKeywordValue(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -3413,6 +3439,23 @@ export function detectTriggers(card) {
         effectClause: `[mobilize] create ${mobilizeN} tapped attacking warrior tokens`,
         interveningIf: null,
         optional: false, sourceText: `Mobilize ${mobilizeN}`,
+      });
+    }
+  }
+  // KW-FIREBENDING (census slice 41) — synthesized from the printed keyword like renown / mobilize / backup.
+  // Following BACKUP's precedent the effectClause is ORDINARY MODELED TEXT, not a kind-tagged sentinel: the
+  // sentence it emits is the one actually printed inside the reminder, and misc.js parses it to the add-mana
+  // atom with the end-of-combat hold. That means the same lane also credits any non-keyword card printing the
+  // same sentence, instead of a sentinel only this keyword can reach.
+  {
+    const firebendingN = firebendingKeywordValue(oracle);
+    if (firebendingN > 0) {
+      out.push({
+        event: "attacks", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `add ${"{R}".repeat(firebendingN)}. this mana lasts until end of combat`,
+        interveningIf: null,
+        optional: false, sourceText: `Firebending ${firebendingN}`,
       });
     }
   }

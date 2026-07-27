@@ -391,6 +391,11 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     commanderDamageFrom: {},  // CR 903.10a — { commanderInstanceId (fallback: cardId): combatDamage } (per-commander, 21 = a loss)
     commanderCastCount: {},   // CMD-CAST (CR 903.8): { commanderCardId: timesCastFromCommandZone } — drives the {2} tax
     manaPool: emptyManaPool(),
+    // MANA-HOLD (CR 500.4 exception) — a per-color CAP on how much mana survives step/phase-end emptying,
+    // for mana printed as lasting longer than the step that made it ("Firebending N … This mana lasts until
+    // end of combat"). The mana itself stays in the NORMAL pool, so every existing payment path spends it
+    // unchanged; only gameEngine.emptyManaPools reads this, and the end-of-combat step clears it.
+    manaHold: emptyManaPool(),
     library: [...library],
     hand: [],
     battlefield: [],
@@ -1439,6 +1444,30 @@ export function addMana(state, { playerId, color, amount = 1 }) {
     ...p,
     manaPool: { ...p.manaPool, [color]: (p.manaPool[color] || 0) + amount },
   }));
+}
+
+/**
+ * MANA-HOLD — raise the per-color cap of mana that survives step/phase-end emptying (CR 500.4's printed
+ * exceptions: "This mana lasts until end of combat"). Deliberately a CAP and not a tagged sub-pool: the
+ * mana stays in the ordinary pool so no payment path needs to learn a second currency, and emptyManaPools
+ * keeps min(pool, hold) per color. The bounded imprecision that buys is documented at emptyManaPools —
+ * it can only ever preserve UP TO what the printed effect promised, never more.
+ */
+export function holdMana(state, { playerId, color, amount = 1 }) {
+  assertPlayer(playerId);
+  if (!MANA_COLORS.includes(color)) throw new Error(`Invalid mana color "${color}"`);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("holdMana: amount must be a non-negative integer");
+  return withPlayer(state, playerId, p => ({
+    ...p,
+    manaHold: { ...(p.manaHold || emptyManaPool()), [color]: ((p.manaHold || {})[color] || 0) + amount },
+  }));
+}
+
+/** Drop every player's mana hold — the end-of-combat expiry point for "lasts until end of combat" mana. */
+export function clearManaHolds(state) {
+  const nextPlayers = {};
+  for (const pid of Object.keys(state.players)) nextPlayers[pid] = { ...state.players[pid], manaHold: emptyManaPool() };
+  return { ...state, players: nextPlayers };
 }
 
 // R7 (audit 2026-07-09): emptyManaPoolForPlayer/emptyAllManaPools removed — dead exports
