@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-ONE slices (+382) + an 11-site RUNTIME class swept — corpus 33.5%→34.7% — suite 834/10,811
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-THREE slices (+384) + an 11-site RUNTIME class swept — corpus 33.5%→34.7% — suite 836/10,830
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,18 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 33 `07928070` (net −1) — a slice worth MORE than its card count.** Added the graveyard-exile
+> additional cost (ADDCOST-3, +1), and building it surfaced that `extractAdditionalCosts` is consumed ONLY
+> on the spell program path — so an additional cost is charged for instants and sorceries AND NOTHING ELSE.
+> A PERMANENT carrying one is castable for its bare mana cost, the same over-permissive shape as the free
+> Ancestral Visions cast. Two cards had reached native that way and are now parked (−2). **Losing a card to
+> delete an over-permissiveness is the correct trade.**
+>
+> **SLICE 32 `004be245` (+3)** — the bare "You have no maximum hand size" static. The runtime already
+> suspended the CR 514.1 cleanup discard for it; only the one-shot dice-roll variant was credited. Cursed
+> Rack's "maximum hand size is four" stays parked — the engine suspends enforcement rather than guess, so
+> crediting it would claim a number never applied.
 >
 > **SLICE 31 `272fa79a` (+9) — MOBILIZE, the slice that was correctly REFUSED in the morning and correctly
 > built by evening.** It needed two things that didn't exist when it was first scoped: tokens that genuinely
