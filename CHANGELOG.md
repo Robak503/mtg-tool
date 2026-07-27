@@ -43,6 +43,9 @@ rather than bigger.
 - **A spell with split second now actually stops responses.** While one is on the stack, nobody can cast
   spells or activate abilities that aren't mana abilities — including you. Previously the restriction was
   printed on the card and ignored by the game.
+- **"Creatures with power less than this creature's power can't block it" is now respected.** Attackers
+  carrying that line were being blocked by creatures too small to legally block them. The comparison uses
+  current power on both sides, so counters, Auras and Equipment all count.
 - **A single "Scryfall bulk" data sync now rebuilds its derived indexes.** Refreshing just the
   Scryfall bulk data (rather than "everything") used to leave the slim oracle index and the
   collection printings index pointing at the old data until the next full sync. That single-action
