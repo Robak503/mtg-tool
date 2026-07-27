@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -2472,6 +2472,24 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
 }
 
 /**
+ * PLAY-LANDS-FROM-GRAVEYARD (CR 118.6, census slice 44) — the runtime half of the Crucible of Worlds
+ * permission. Offers every LAND in the player's graveyard as a real play-land action from that zone.
+ *
+ * The permission changes the ZONE and nothing else, so this deliberately reuses the same two gates
+ * actionsPlayLand applies: sorcery timing, and an unspent land drop. Crucible does not grant an extra land
+ * drop, and a version of this that forgot either gate would hand the player free lands every turn.
+ */
+function actionsPlayLandFromGraveyard(state, playerId) {
+  if (!playLandFromGraveyardPermission(state, playerId)) return [];
+  if (!canCastSorcerySpeed(state, playerId)) return [];
+  const player = state.players[playerId];
+  if (player.landsPlayedThisTurn >= landDropAllowance(state, playerId)) return [];
+  return (player.graveyard || [])
+    .filter((card) => isLand(card))
+    .map((card) => ({ kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "graveyard" }));
+}
+
+/**
  * ADVENTURE step 1 — cast the ADVENTURE (instant/sorcery) HALF from hand (CR 715.3). Offered ONLY for an
  * Adventure card whose BOTH halves are modeled (classifyCard returns a native tier — the metric's own
  * authority, so the runtime and coverage can't disagree; a card with an unmodeled half is body-only and is
@@ -2987,6 +3005,9 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
 
   // Lands, spells, mana.
   actions.push(...actionsPlayLand(state, playerId)); // playing a land is NOT casting a spell — never suppressed
+  // PLAY-LANDS-FROM-GRAVEYARD (CR 118.6, Crucible of Worlds) — same zone-agnostic special action, sourced
+  // from the graveyard under the static permission. Also never cast-suppressed, for the same reason.
+  actions.push(...actionsPlayLandFromGraveyard(state, playerId));
   if (!cantCast) {
     actions.push(...actionsCastSpell(state, playerId));
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
