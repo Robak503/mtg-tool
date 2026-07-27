@@ -323,6 +323,14 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Discard card ${action.discardCardId} not in hand`, "CARD_NOT_IN_HAND");
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
+    } else if (ac.kind === "exileFromGraveyard") {
+      // ADDCOST-3 (CR 601.2h) — the chosen graveyard card is EXILED as the cost is paid. legalChoices froze
+      // the id on the action; re-check membership here so a stale id can never exile something else.
+      if (!action.exileGyCardId) throw new DispatcherError("Spell requires an additional graveyard-exile cost but no card was chosen", "ADDCOST_UNPAID");
+      if (!working.players[action.playerId]?.graveyard.some(c => c.id === action.exileGyCardId)) {
+        throw new DispatcherError(`Exile-cost card ${action.exileGyCardId} not in graveyard`, "CARD_NOT_IN_GRAVEYARD");
+      }
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: action.exileGyCardId });
     } else {
       throw new DispatcherError(`Unsupported additional cost kind: ${ac.kind}`, "ADDCOST_UNSUPPORTED");
     }

@@ -232,6 +232,21 @@ function isCreature(card)    { return typeLineOf(card).includes("Creature"); }
  * CR 205.3). The parser emits type:"permanent" for a subtype sac (a subtype can sit on a creature, a land, or
  * an artifact), so baseOk is true and the subtype gate does the narrowing — a permanent without the subtype is
  * excluded, exactly as the cost demands. */
+/**
+ * ADDCOST-3 — does this GRAVEYARD card satisfy an "exile a <type> card from your graveyard" cost?
+ * Deliberately separate from sacTypeMatches: that one answers about a PERMANENT on the battlefield, and
+ * this one about a CARD in a graveyard. Merging them would be the one-judgement-two-meanings trap — the
+ * types read the same but "permanent" is meaningless in a graveyard, so the vocabularies must not be shared.
+ */
+function cardMatchesAddCostType(card, type) {
+  const t = typeLineOf(card);
+  if (type === "creature") return t.includes("Creature");
+  if (type === "artifact") return t.includes("Artifact");
+  if (type === "land") return t.includes("Land");
+  if (type === "instant or sorcery") return t.includes("Instant") || t.includes("Sorcery");
+  return false;
+}
+
 function sacTypeMatches(card, type, subtype = null) {
   if (type === "permanent" && !subtype) return true;
   const t = typeLineOf(card);
@@ -1047,6 +1062,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           for (const dc of discardable) for (const ch of combos) {
             emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
           }
+        }
+      } else if (addCost.kind === "exileFromGraveyard") {
+        // ADDCOST-3 (CR 601.2h) — exile a typed card from your OWN graveyard. A graveyard is a public zone
+        // and every candidate is equally legal, so this offers one cast per candidate exactly like the N=1
+        // discard branch above (a real in-game pick, not an auto-choice). No candidate → uncastable, which
+        // is the whole point of the gate: without it the engine would cast the spell for free.
+        if (!affordable) continue; // R1.5 — same printed-cost re-check as the branches above
+        const gy = player.graveyard || [];
+        const candidates = gy.filter((g) => cardMatchesAddCostType(g, addCost.cardType));
+        if (candidates.length === 0) continue;
+        for (const gc of candidates) for (const ch of combos) {
+          emit(ch, { exileGyCardId: gc.id, exileGyCardName: gc.name ?? null, exileGyName: gc.name ? `exile ${gc.name}` : undefined });
         }
       } else {
         continue; // unknown cost kind — programConfidence already gates unsupported kinds to low (defensive)

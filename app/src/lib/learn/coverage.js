@@ -2151,6 +2151,13 @@ export function classifyCard(card) {
   const etCard = crewOracle !== oracle || isTapped
     ? { ...card, oracle: (isTapped ? crewOracle.replace(tapRe, "\n") : crewOracle).trim() }
     : card;
+  // CREED — AN ADDITIONAL CAST COST ON A PERMANENT IS NOT ENFORCED (census slice 33). extractAdditionalCosts
+  // is consumed ONLY on the spell program path (parser.js), so legalChoices gates and the dispatcher charges
+  // these costs for instants/sorceries and for nothing else. A permanent carrying one is therefore castable
+  // for its bare mana cost — strictly cheaper than printed, the same over-permissive shape as the free
+  // Ancestral Visions cast. Two cards reached native this way (Soulbright Seeker, Lys Alana Dignitary, both
+  // "behold an X or pay {2}") and are parked here until the permanent cast path charges the cost too.
+  if (/\bas an additional cost to cast this spell,/i.test(oracle)) return "body-only";
   if (isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(etOracle, card?.name)), card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
