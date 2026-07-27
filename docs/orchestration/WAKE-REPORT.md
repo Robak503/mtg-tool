@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-SIX slices (+412) + an 11-site RUNTIME class swept — corpus 33.5%→34.8% — suite 839/10,854
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-SEVEN slices (+418) + an 11-site RUNTIME class swept — corpus 33.5%→34.8% — suite 840/10,863
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,13 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 37 `7d0ce6ee` (+6) — counter transfer on death, and a THIRD seam worth remembering.** The clause
+> parsed HIGH and the card STILL read body-only, because `atomTargetIntent` had no entry for the new op:
+> the trigger-flush chooser refuses to route a targeted op whose SIDE it cannot name, so a new targeted op
+> silently stays on the Arbiter until its intent is declared. Parser + resolver is only two thirds of a
+> targeted-trigger slice. The effect itself moves the dying object's WHOLE counter bag (CR 603.6e LKI), not
+> just +1/+1 — a +1/+1-only build passes every test in the file except the shield-counter one.
 >
 > **SLICE 36 `a4936d05` (+11) — the lesson from a REVERT, applied immediately.** Between 35 and 36 I built
 > a sacrifice-cost lane off a GROUPED count (5 carriers), verified it end to end, measured ZERO flips
