@@ -8,9 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.1] — 2026-07-27
+
+A grind release: more of your deck plays itself correctly, and the coverage number got more honest
+rather than bigger.
+
 ### Changed
 - **More of your deck plays correctly in the simulator.** Several hundred more cards are handled natively
-  instead of being handed off, including the mobilize, backup, renown, bloodthirst and dredge keywords,
+  instead of being handed off, including the mobilize, backup, renown, bloodthirst, dredge, firebending
+  and split second keywords,
   delayed "at the beginning of the next end step" abilities, and creatures that sacrifice themselves when a
   condition stops holding.
 - **The coverage number is stricter, and lower, on purpose.** A card only counts as a native mana source now
@@ -31,6 +37,12 @@ summarizes the notable changes.
   nothing to such creatures (counters, shields, explore, and several "that creature" effects).
 - **An Aura that returns itself to your hand now actually does.** Cards like Mark of Fury reached their end
   step, the ability resolved, and the Aura just stayed put.
+- **Mana that's meant to last through combat now does.** Attacking with a firebending creature makes red
+  mana the card says lasts until end of combat — it now survives to the end of combat instead of
+  disappearing the moment the attack step ends, and it correctly disappears after.
+- **A spell with split second now actually stops responses.** While one is on the stack, nobody can cast
+  spells or activate abilities that aren't mana abilities — including you. Previously the restriction was
+  printed on the card and ignored by the game.
 - **A single "Scryfall bulk" data sync now rebuilds its derived indexes.** Refreshing just the
   Scryfall bulk data (rather than "everything") used to leave the slim oracle index and the
   collection printings index pointing at the old data until the next full sync. That single-action
