@@ -133,7 +133,12 @@ function applyPlayLand(state, action) {
   // not from hand — the same land-drop rules apply, only the source zone differs. PLAY-FROM-TOP (Future Sight,
   // CR 118.6): a land played from the TOP of the library (action.fromZone === "library"). Default "hand" keeps
   // every existing play-land call byte-identical. The card is found in whichever zone the action names.
-  const fromZone = action.fromZone === "exile" ? "exile" : action.fromZone === "library" ? "library" : "hand";
+  // PLAY-LANDS-FROM-GRAVEYARD (CR 118.6, census slice 44): a land played from the GRAVEYARD under the
+  // Crucible of Worlds permission (action.fromZone === "graveyard"). Joins exile/library on the same
+  // zone-parameterized path — the card is looked up in, and removed from, whichever zone it came from.
+  const fromZone = action.fromZone === "exile" ? "exile"
+    : action.fromZone === "library" ? "library"
+      : action.fromZone === "graveyard" ? "graveyard" : "hand";
   const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
 

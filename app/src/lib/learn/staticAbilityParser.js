@@ -1838,6 +1838,23 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // PLAY-LANDS-FROM-GRAVEYARD (Crucible of Worlds / Ramunap Excavator / Icetill Explorer — 9 carriers, census
+  // slice 44) — the graveyard sibling of the play-from-top permission above, and modeled the same way: a
+  // coverage + enforcement MARKER whose runtime is legalChoices.actionsPlayLandFromGraveyard, so the credited
+  // static can never be a claimed-native no-op. The land still costs a land drop and still needs sorcery
+  // timing; the permission changes the ZONE, nothing else (CR 118.6).
+  //
+  // BARE FORM ONLY. Every richer printed variant stays body-only → Arbiter, deliberately:
+  //   • "…play lands AND CAST SPELLS from your graveyard" (Yawgmoth's Agenda / Gaea's Will) — the spell half
+  //     is a whole separate permission this marker does not grant, and crediting the card would silently
+  //     drop it.
+  //   • "…and cast Insect spells" / "…creature spells" / surveil- or life-gated forms — same reason.
+  //   • "Your opponents can't play land cards from graveyards" (Tomik) — a RESTRICTION, not a permission.
+  if (/^you may play lands from your graveyard$/.test(c)) {
+    out.push({ playLandFromGraveyard: true });
+    return;
+  }
+
   // ── GROUP-BLOCK-RESTRICTION (Shifting Sliver / Serpent of Yawning Depths) — the SYMMETRIC tribal
   // "<subtypes> [you control] can't be blocked except by <same subtypes>" static (CR 509.1b). Emitted as
   // a coverage MARKER ({ blockRestriction } with NO `affects`/`op`, so the layer engine ignores it —
@@ -3601,6 +3618,19 @@ export function playFromTopPermission(state, playerId) {
     for (const d of parseStaticAbilities(perm.card)) if (d.playFromTop) return d.playFromTop;
   }
   return null;
+}
+
+/**
+ * PLAY-LANDS-FROM-GRAVEYARD — true when the player controls a permanent granting the bare "You may play
+ * lands from your graveyard" permission (Crucible of Worlds and kin). Read live off the battlefield, exactly
+ * like playFromTopPermission above, so the permission ends the moment the source leaves.
+ */
+export function playLandFromGraveyardPermission(state, playerId) {
+  for (const perm of state?.players?.[playerId]?.battlefield || []) {
+    if (!perm?.card) continue;
+    for (const d of parseStaticAbilities(perm.card)) if (d.playLandFromGraveyard) return true;
+  }
+  return false;
 }
 
 /**
