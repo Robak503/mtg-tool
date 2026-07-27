@@ -52,6 +52,31 @@ describe("each keyword is credited, and the CARD BODY is what decides", () => {
   it("fuse on a split half", () => {
     expect(classifyCard({ ...SPELL, name: "Fused", oracle: "Fuse (You may cast one or both halves of this card from your hand.)\nDraw a card." })).toMatch(/^native/);
   });
+
+  it("enlist on a creature (slice 49)", () => {
+    expect(classifyCard({ ...CREATURE, name: "Coalition Warbrute", type: "Creature — Orc Warrior", oracle: "Enlist (As this creature attacks, you may tap a nonattacking creature you control without summoning sickness. When you do, add its power to this creature's until end of turn.)" })).toMatch(/^native/);
+  });
+
+  it("extort on a creature (slice 49)", () => {
+    expect(classifyCard({ ...CREATURE, name: "Syndicate Heavy", type: "Creature — Human Soldier", oracle: "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)" })).toMatch(/^native/);
+  });
+});
+
+describe("CREED — UNLEASH is refused, and the reason is the sharp edge of this whole family", () => {
+  it("unleash stays parked", () => {
+    // "Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it
+    // has a +1/+1 counter on it.)"
+    //
+    // The first sentence IS an option in this family's sense. The second is not — it is a real conditional
+    // static. Declining the entry counter is faithful only for as long as the creature never gains a +1/+1
+    // counter from ANY other source; the moment one arrives (a +1/+1 anthem, a counter effect, its own
+    // other text), the printed card can no longer block and a credited card still would.
+    //
+    // That is the false-positive direction, and it is the exact line separating this family from the rest
+    // of the census. The option has to be one you may decline WITH NO CONSEQUENCE to the rest of the card.
+    const unleash = { ...CREATURE, name: "Rakdos Drake", type: "Creature — Drake", oracle: "Flying\nUnleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)" };
+    expect(classifyCard(unleash)).not.toMatch(/^native/);
+  });
 });
 
 describe("CREED — crediting the keyword never force-flips the rest of the card", () => {
