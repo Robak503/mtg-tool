@@ -2166,6 +2166,13 @@ export function classifyCard(card) {
   // for its bare mana cost — strictly cheaper than printed, the same over-permissive shape as the free
   // Ancestral Visions cast. Two cards reached native this way (Soulbright Seeker, Lys Alana Dignitary, both
   // "behold an X or pay {2}") and are parked here until the permanent cast path charges the cost too.
+  //
+  //   DO NOT WIDEN THIS TO ALTERNATIVE COSTS. An ADDITIONAL cost makes the card MORE expensive, so skipping
+  //   it is cheaper-than-printed — the forbidden direction. An ALTERNATIVE cost ("You may pay {1} and return
+  //   a basic land rather than pay this spell's mana cost" — the Borderpost cycle) is OPTIONAL and usually
+  //   cheaper, so not offering it means the engine pays the FULL printed cost: an under-offer, which is the
+  //   safe direction. Five Borderposts read native for exactly that reason and are correct (checked
+  //   2026-07-25) — parking them would lose real cards to fix nothing.
   if (/\bas an additional cost to cast this spell,/i.test(oracle)) return "body-only";
   if (isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(etOracle, card?.name)), card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
