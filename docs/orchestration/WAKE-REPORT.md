@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-EIGHT slices (net +275 after an HONEST −143) — corpus 33.5%→34.4% — suite 841/10,873
+## ☀️ 2026-07-25/27 — CENSUS-DRIVEN GRIND: FORTY slices (net +301 after an HONEST −143) — corpus 33.5%→34.4% — suite 843/10,887
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,16 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 40 `07b3fcbc` (+14) — the Thriving cycle, via an ALLOWLIST not a denylist.** The optional-payment
+> lane already existed; only the bare pronoun failed ("you may pay {E}{E}. If you do, put a +1/+1 counter on
+> IT"). A denylist would have to anticipate every way another object enters the sentence — "create a 2/2
+> Robot token … it gains haste" slips through and pumps the WRONG permanent. Same trap that made
+> "sacrifice it at the beginning of the next end step" unsafe (1 safe card vs 48 landmines, refused). Only
+> the two printed self-shapes are rewritten; the token-maker hazard is pinned as a CREED negative.
+>
+> **SLICE 39 `95226f8f` (+12)** — ENCORE joins the graveyard zone-option family (unearth/scavenge class).
+> The list's required castability audit was RUN, not assumed: all 26 carriers have a printed mana cost.
 >
 > **🚨 SLICE 38 `9bf6db43` (−143, DELIBERATELY) — the number now means what it says.** `hasManaAbility` is a
 > TEXT check; the runtime produces mana through `manaProduction`. Crediting on text alone tiered 154 cards
