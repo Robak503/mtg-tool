@@ -563,7 +563,12 @@ const reDredgeCost = /^dredge \d+$/;
 // which IS a complete, real game mode (an unkicked Skizzik is exactly what the card says it is). The engine
 // never pays them → base mode always → faithful. A body clause conditioned on kicked-ness ("if it was
 // kicked") is a SEPARATE clause judged on its own gate — crediting the cost line cannot force-flip those.
-const reOptionalAddlCost = /^(?:kicker|multikicker|offspring) (?:\{[^}]+\})+$/;
+// SQUAD (CR 702.152a, census slice 47) joins the family on exactly the same reasoning: "Squad {2} (As an
+// additional cost to cast this spell, you may pay {2} any number of times. When this creature enters, create
+// that many tokens that are copies of it.)" — the ENTIRE ability lives in the reminder, and paying zero times
+// is the printed base mode: a real, complete creature with no token copies. The engine never pays optional
+// additional costs, so "that many" is always zero and the resolution is faithful, not approximated.
+const reOptionalAddlCost = /^(?:kicker|multikicker|offspring|squad) (?:\{[^}]+\})+$/;
 // IMPROVISE (CR 702.126) — convoke's artifact twin, pure cost-reduction (tap artifacts to help pay).
 // The spell-side strip already ships convoke/affinity on exactly this basis (parseHelpers
 // COST_ONLY_KEYWORD_LINE); this is the permanent-side mirror for artifact creatures (Fen Hauler).
