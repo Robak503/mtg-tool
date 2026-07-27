@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.5] — 2026-07-27
+
+### Fixed
+- **Creatures that do something on the battlefield *and* something from your graveyard now play natively.**
+  Magma Phoenix, Teacher's Pest, Valiant Veteran, the Soul cycle and others were being handed off purely
+  because they had one ability of each kind — each ability worked on its own, but the two together were
+  read as too much for the game to handle. They aren't: the battlefield half works while the creature is
+  in play, the graveyard half works from the graveyard, and they can never both apply at once.
+
 ## [0.149.4] — 2026-07-27
 
 ### Changed

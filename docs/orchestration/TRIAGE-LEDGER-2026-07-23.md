@@ -780,3 +780,80 @@ Unleash is therefore native for the OPPOSITE reason to the rest of the family: n
 untaken, but because the static is enforced. The membership test above still stands unchanged, and `outlast`
 is now the standing example of a keyword that fails it with no enforcement to fall back on.
 
+
+---
+
+## 🔎 SYSTEMIC LEAD — the GRAVEYARD-ABILITY composition gap (62 cards) — DIAGNOSIS CORRECTED 2026-07-27
+
+The census's "TWO-FLIP SIGNATURE" bucket is not a pile of missing mechanics. It is ONE bug, and it is now
+diagnosed rather than merely counted.
+
+**The rule that's wrong:** a card carrying BOTH a triggered ability and an activated ability classifies
+`body-only` — even when each ability is individually fully modeled. The tiers behave as mutually exclusive
+where they should COMPOSE.
+
+**Evidence** (classify each line alone, then the card without it — `scratchpad/probe-twoflip.mjs`):
+
+| card | line alone | other line alone | whole card |
+|---|---|---|---|
+| Haunted Dead | `native-trigger` | `native-activated` | **`body-only`** |
+| Teacher's Pest | `native-trigger` | `native-activated` | **`body-only`** |
+| Postmortem Professor | `native-trigger` | `native-activated` | **`body-only`** |
+| Compulsory Rest | `native-aura` | `native-activated` | **`body-only`** |
+| Mark of Fury | `native-aura` | `native-trigger` | **`body-only`** |
+
+That is the whole signature: every pair is two DIFFERENT native tiers meeting on one card.
+
+**Why this is worth real care rather than a quick fix.** The tiers are not just labels — each one is a
+claim about which runtime lane plays the card. Letting them compose means asserting that BOTH lanes fire
+for the same permanent, and that is a runtime question, not a classifier one. The dangerous version of this
+fix is a one-line change to the tier resolver that makes 62 cards go green while the engine only ever runs
+one of the two abilities. That would be a textbook false positive — a card claimed native whose trigger (or
+whose activated ability) silently never happens.
+
+**So the order of work is fixed, and it is not negotiable:**
+1. Prove at the RUNTIME that a single permanent can carry a modeled trigger AND a modeled activated ability,
+   and that both actually fire/are offered. Drive a board; do not read the parser.
+2. Only then relax the composition rule, and only for the pairs proven in step 1.
+3. Per-flip audit the resulting cards — 62 is far too many to eyeball as a batch.
+
+Nothing about this is hard. It is just the exact shape of bug where "it went green" is the least
+trustworthy signal available.
+
+### ⚠️ THE DIAGNOSIS ABOVE IS WRONG AS STATED. Corrected within the hour, by my own fix-order.
+
+I wrote that "a card carrying both a triggered ability and an activated ability classifies body-only". Step
+1 of the plan above — *prove it at the runtime before touching the resolver* — disproved it immediately:
+
+    tier(trigger alone)                    = native-trigger
+    tier(battlefield-activated alone)      = native-activated
+    tier(BOTH)                             = native-mixed      <-- composes FINE
+    runtime: activated ability offered = YES, attack trigger fired = YES
+
+`native-mixed` already exists and both lanes genuinely run. Had I "fixed" the resolver on the strength of
+the first diagnosis, I would have changed working code to chase a bug that wasn't there.
+
+**The REAL boundary, measured** (`scratchpad/probe-composition-narrow.mjs`):
+
+| combination | tier |
+|---|---|
+| trigger + BATTLEFIELD-activated | `native-mixed` ✅ |
+| trigger + **GRAVEYARD**-activated | `body-only` ❌ |
+| battlefield-activated + **GRAVEYARD**-activated | `body-only` ❌ |
+| keyword + GRAVEYARD-activated | `native-activated` ✅ |
+| keyword + trigger | `native-trigger` ✅ |
+
+So the gap is specific and small: **a graveyard-recursion ability composes with KEYWORDS but not with any
+other ABILITY.** That is why Haunted Dead / Teacher's Pest / Postmortem Professor park — each pairs a
+battlefield ability with a graveyard one.
+
+**Why this pair is the SAFEST possible composition**, and worth saying before anyone gets nervous: the two
+abilities are active in DIFFERENT ZONES and can never both apply to the same object at the same time. The
+battlefield ability functions while it's a permanent; the graveyard ability functions while it's a card in
+the graveyard. There is no interaction to get wrong — which is the opposite of the usual composition risk.
+(Separately verified earlier this session: graveyard-activated abilities are correctly NOT offered while the
+card is on the battlefield.)
+
+**Still required before relaxing it:** drive a board where the same card fires its battlefield ability, dies,
+and is then offered its graveyard ability — both halves, one card, one test. Then per-flip audit the result.
+
