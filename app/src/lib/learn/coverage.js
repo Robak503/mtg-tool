@@ -251,6 +251,24 @@ export const COVERED_KEYWORDS = [
   // only creature) and makes the "if that's another creature" grant vacuous, so the engine plays a real
   // legal line. It simply never offers backup on ANOTHER creature — an under-offer, the safe direction.
   "backup",
+  // KW-ENLIST (CR 702.151a, census slice 49) — "As this creature attacks, YOU MAY tap a nonattacking
+  // creature you control without summoning sickness. When you do, add its power to this creature's until
+  // end of turn." Wholly optional, and declining leaves a complete, legal attack with the printed power.
+  // The engine declines, so the combat it plays is a real one — the myriad rationale exactly.
+  "enlist",
+  // KW-EXTORT (CR 702.99a, census slice 49) — "Whenever you cast a spell, YOU MAY pay {W/B}. If you do,
+  // each opponent loses 1 life and you gain that much life." An optional payment on an already-modeled
+  // event; declining costs nothing and changes nothing else on the card.
+  //
+  "extort",
+  // KW-UNLEASH (CR 702.86a, census slice 50) — credited ONLY because it is now ENFORCED, not as an untaken
+  // option. Slice 49 refused it on exactly that grounds: its second sentence ("It can't block as long as it
+  // has a +1/+1 counter on it") is a conditional static, so a free credit would let the creature block when
+  // the printed card forbids it. combatEvasion.canBlockAttacker now reads the permanent's counters LIVE at
+  // block declaration, which binds whether the counter came from unleash's own entry choice or from anywhere
+  // else — the case that made the free credit unsafe. The entry-counter half stays declined (the engine
+  // never takes optional entry choices), which is a legal printed mode.
+  "unleash",
   // KW-DELVE (CR 702.66a, census slice 48) — "Each card you exile from your graveyard while casting this
   // spell pays for {1}." A pure, OPTIONAL cost reduction; the engine hard-casts at full cost, which is a
   // real legal play, so the option it never takes cannot change what resolves. Same basis as convoke /
