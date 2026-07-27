@@ -22,7 +22,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { detectTriggers, mobilizeKeywordValue } from "./triggers.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
-import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent, moveCardToZone } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { advanceStep, runStepActions, resolveTopOfStack } from "./gameEngine.js";
@@ -118,5 +118,32 @@ describe("RUNTIME — the tokens are REAL attackers, not inert permanents", () =
     expect(s.players.user.battlefield.filter((p) => p.card?.name === "Warrior")).toHaveLength(0);
     expect(s.delayedTriggers || []).toHaveLength(0);   // fired once, then ceased to exist
     expect(s.players.user.battlefield.map((p) => p.card?.name)).toContain("Zurgo Stormrender"); // source survives
+  });
+});
+
+describe("ADVERSARIAL — the tokens are independent of their source", () => {
+  /**
+   * Checked because the whole slice rests on the tokens being REAL combat.attackers entries rather than
+   * something owned by the source. If they were bookkeeping hung off the source, removing it mid-combat
+   * would silently drop their damage or strand the delayed sacrifice.
+   */
+  it("the source leaving combat does NOT stop the Warriors dealing damage, and the sacrifice still fires", () => {
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const z = createPermanent({ id: "z", card: ZURGO, controller: "user", summoningSick: false });
+    let s = { ...s0, phase: "combat", step: "declare-attackers", activePlayer: "user", priorityHolder: "user", turn: 5,
+      players: { ...s0.players, user: { ...s0.players.user, battlefield: [z] } } };
+    s = dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.kind === "declare-attacker"));
+    s = runStepActions(advanceStep(s));
+    let g = 0; while (s.stack.length && g++ < 10) s = resolveTopOfStack(s);
+
+    s = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "z" });
+    const before = s.players.ai1.life;
+    let h = 0;
+    while (h++ < 30 && s.step !== "end") {
+      s = runStepActions(advanceStep(s));
+      let k = 0; while (s.stack.length && k++ < 10) s = resolveTopOfStack(s);
+    }
+    expect(before - s.players.ai1.life).toBe(2);   // the two 1/1s connected without their source
+    expect(s.players.user.battlefield.filter((p) => p.card?.name === "Warrior")).toHaveLength(0);
   });
 });

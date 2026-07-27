@@ -101,3 +101,29 @@ describe("RUNTIME — firing and the CR 603.8 latch", () => {
     expect(nFired(checkStateTriggers(s))).toBe(1); // still fires — YOU control no Swamps
   });
 });
+
+describe("ADVERSARIAL — the latch under repetition and object identity", () => {
+  /**
+   * The failure this guards is unbounded triggers: checkAllStateBasedActions runs many times per priority
+   * window, so a latch that leaked would enqueue a copy per pass. Hammering it is the only honest check —
+   * a single call proves nothing about a fixpoint.
+   */
+  it("25 consecutive SBA passes with the condition TRUE still yield exactly ONE trigger", () => {
+    let s = board({ swamps: 0 });
+    for (let i = 0; i < 25; i++) s = checkStateTriggers(s);
+    expect(nFired(s)).toBe(1);
+  });
+
+  it("the latch is PER-PERMANENT, not per-card: a fresh copy fires its own", () => {
+    // The old permanent leaves; a NEW one of the same card enters. The new object has never fired, so it
+    // must — a card-keyed latch would wrongly suppress it.
+    let s = checkStateTriggers(board({ swamps: 0 }));
+    expect(nFired(s)).toBe(1);
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [] } } };
+    s = checkStateTriggers(s);
+    const fresh = createPermanent({ id: "oc2", card: { id: "c-oc2", ...OUTCAST }, controller: "user", summoningSick: false });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [fresh] } } };
+    s = checkStateTriggers(s);
+    expect(nFired(s)).toBe(2);
+  });
+});
