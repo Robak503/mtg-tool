@@ -71,10 +71,19 @@ export function parseSplitCard(card) {
   // BOTH halves must be instant/sorcery (CR 709.2). Anything else (a split with a non-spell half — none in
   // the real corpus) is not ours.
   if (!/\b(Instant|Sorcery)\b/i.test(left.typeLine) || !/\b(Instant|Sorcery)\b/i.test(right.typeLine)) return null;
-  // PARK fuse + aftermath (SCOPE) — a fuse card lets you cast BOTH halves at once (an unmodeled option);
-  // an aftermath card's second half casts only from the graveyard (an unmodeled zone). Either makes the card
-  // not-fully-modeled → null → it stays an Arbiter spell (safe FN).
-  if (/\bFuse\b/i.test(oracle)) return null;
+  // FUSE — UNPARKED (census slice 54). The original park read "a fuse card lets you cast BOTH halves at once
+  // (an unmodeled option)", which was the right call before the optional-mode family existed and is the
+  // wrong one now. Fuse (CR 702.102a) only ADDS a casting mode: both halves remain individually castable
+  // from hand exactly as on any other split card, and the engine already offers each of them
+  // (actionsCastSplitFromHand). Declining the fused mode therefore leaves a real, complete, legal cast —
+  // the same test delve / myriad / replicate / squad / devour are credited under. Not offering it is an
+  // under-offer, which is the safe direction.
+  //
+  // AFTERMATH stays parked, and the difference is worth stating because the two look alike. An aftermath
+  // card's second half is castable ONLY from the graveyard (CR 702.127a). This engine's split-card lane
+  // offers BOTH halves from HAND, so unparking aftermath would not merely under-offer — it would let the
+  // engine cast the aftermath half from a zone the card forbids. That is an illegal play, i.e. the
+  // false-positive direction, and it stays refused until the hand-cast lane learns to withhold that half.
   if (/\bAftermath\b/i.test(type) || /\bAftermath\b/i.test(oracle)) return null;
   return {
     left: { name: left.name, type: left.typeLine, oracle: left.oracle, mana: left.mana },
