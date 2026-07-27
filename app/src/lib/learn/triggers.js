@@ -1855,6 +1855,29 @@ export function mobilizeKeywordValue(oracle) {
   return 0;
 }
 
+/**
+ * BACKUP N (CR 702.166) — "When this creature enters, put N +1/+1 counters on target creature. If that's
+ * another creature, it gains the following ability until end of turn." The whole ability is in reminder
+ * parens, so it is synthesized like renown / mobilize.
+ *
+ * MODELED AS THE SELF-TARGET LINE ONLY, and that is a deliberate, stated narrowing. Self-target is one of
+ * the card's own legal choices (and the FORCED one when it is your only creature), and choosing it makes the
+ * "if that's another creature" grant vacuous — so the engine plays a real, legal line faithfully. What it
+ * does NOT do is offer backup on a DIFFERENT creature, because "the following ability" is card-specific text
+ * that would have to be threaded onto another permanent. That is an under-offer: safe, and the same shape as
+ * not offering an awaken or bestow mode. Never the reverse.
+ */
+export function backupKeywordValue(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^backup (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
 export function undyingKeywordCount(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -3357,6 +3380,22 @@ export function detectTriggers(card) {
         effectClause: `[renown] put ${renownN} +1/+1 counters on this creature`,
         interveningIf: null,
         optional: false, sourceText: `Renown ${renownN}`,
+      });
+    }
+  }
+  // KW-BACKUP (CR 702.166) — synthesized from the printed keyword like renown/mobilize. The effectClause is
+  // ORDINARY MODELED TEXT, not a kind-tagged sentinel: "put N +1/+1 counters on this creature" already parses
+  // HIGH to the existing self-scoped add-counter atom, so this keyword needs no new resolver and inherits a
+  // runtime path that is already proven. See backupKeywordValue for why the SELF target is the modeled line.
+  {
+    const backupN = backupKeywordValue(oracle);
+    if (backupN > 0) {
+      out.push({
+        event: "etb", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `put ${backupN} +1/+1 counters on this creature`,
+        interveningIf: null,
+        optional: false, sourceText: `Backup ${backupN}`,
       });
     }
   }
