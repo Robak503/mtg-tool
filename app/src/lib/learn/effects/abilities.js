@@ -123,6 +123,24 @@ export function parseGraveyardSelfRecursion(card) {
         raw: line.trim(),
       };
     }
+    // GR-2 (census slice 35) — the EXILE-FROM-GRAVEYARD cost rider: "<mana>, Exile a/an/another <type> card
+    // from your graveyard: Return this card …" (Scrapheap Scrounger, Bin Chicken, Postmortem Professor).
+    // SINGULAR ONLY, the same way every other cost lane here started — the count forms ("exile two other
+    // creature cards", "exile seven other cards") stay unmodeled → body-only, a safe FN.
+    // SELF IS ALWAYS EXCLUDED as a victim, for "a/an" as well as "another": the card being returned is
+    // itself sitting in this graveyard, and paying the cost with it would exile the very object the ability
+    // returns. Excluding it is both the sane line and the one that can't produce a self-referential paradox.
+    const ex = line.trim().match(/^((?:\{[^}]+\})+), exile (?:a|an|another) (creature|artifact|land|enchantment|instant or sorcery) card from your graveyard: return this card from your graveyard to (your hand|the battlefield)( tapped)?\.?$/i);
+    if (ex) {
+      return {
+        manaPips: ex[1],
+        discardCards: 0,
+        exileFromGy: { cardType: ex[2].toLowerCase(), count: 1 },
+        dest: ex[3].toLowerCase() === "your hand" ? "hand" : "battlefield",
+        entersTapped: !!ex[4],
+        raw: line.trim(),
+      };
+    }
   }
   return null;
 }

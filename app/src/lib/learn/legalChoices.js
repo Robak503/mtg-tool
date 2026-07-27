@@ -2289,10 +2289,22 @@ function actionsActivateGraveyardRecursion(state, playerId) {
       if ((player.hand || []).length < rec.discardCards) continue;
       discardIds = player.hand.slice(0, rec.discardCards).map((c) => c.id);
     }
+    // GR-2 — the EXILE-FROM-GRAVEYARD cost rider. The victim comes from the SAME graveyard the card is
+    // sitting in, so the card itself is excluded (paying with it would exile the object being returned).
+    // No legal victim → the cost is unpayable and the ability is never offered (CR 601.2h), which is the
+    // gate that stops this becoming a free recursion.
+    let exileGyIds = null;
+    if (rec.exileFromGy) {
+      const victims = (player.graveyard || [])
+        .filter((g) => g.id !== card.id && !g.token && cardMatchesAddCostType(g, rec.exileFromGy.cardType));
+      if (victims.length < rec.exileFromGy.count) continue;
+      exileGyIds = victims.slice(0, rec.exileFromGy.count).map((g) => g.id);
+    }
     out.push({
       kind: "activate-gy-recursion", playerId, cardId: card.id, name: card.name,
       cost, cmc: totalCmc(cost), dest: rec.dest, entersTapped: rec.entersTapped,
       ...(discardIds ? { discardIds } : {}),
+      ...(exileGyIds ? { exileGyIds } : {}),
       abilityText: rec.raw,
     });
   }

@@ -772,6 +772,14 @@ function applyActivateGyRecursion(state, action) {
     if (!inHand) throw new DispatcherError(`Discard victim ${did} not in hand`, "COST_UNPAYABLE");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: did });
   }
+  // GR-2 — the exile-from-graveyard cost rider. Same re-verification posture as the discard loop above:
+  // the victim must still be in the graveyard at dispatch, and it must not be the card being returned.
+  for (const xid of action.exileGyIds || []) {
+    if (xid === action.cardId) throw new DispatcherError("Exile-cost victim is the card being returned", "COST_UNPAYABLE");
+    const inGy = (working.players[action.playerId]?.graveyard || []).some((c) => c.id === xid);
+    if (!inGy) throw new DispatcherError(`Exile victim ${xid} not in graveyard`, "COST_UNPAYABLE");
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: xid });
+  }
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({
     id: stkId,
