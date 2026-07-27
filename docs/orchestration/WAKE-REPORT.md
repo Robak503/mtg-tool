@@ -1,5 +1,33 @@
 # WAKE REPORT — live resume anchor
 
+## ☀️ 2026-07-27 — PR #421 MERGED (`d407ec96`) + slices 41–42 — corpus 34.4%→34.5% (11,785) — suite 845/10,914
+
+> The forty-slice grind below is now **on master**. `gh` was installed and authorized on the box this
+> morning, which unblocked the merge that had been waiting on a human click; master's tree verified
+> byte-identical to the tested branch tree before the merge went in.
+>
+> Two slices since, both keyword work with a subsystem underneath:
+> - **Slice 41 `3aacb283` (+7)** — **firebending N**, and with it a real MANA-DURATION mechanism. The
+>   trigger was the easy half (reminder-paren synthesis, the renown/mobilize/backup pattern). The point was
+>   "This mana lasts until end of combat" — a printed exception to CR 500.4. Crediting the card with a plain
+>   `add {R}` would have handed the player mana that evaporates a step EARLY while the metric claimed the
+>   card was modeled, which is the exact over-claim the native-mana correction spent two days undoing. Built
+>   as a per-color survival CAP (`manaHold`) read only by `emptyManaPools` and cleared at end of combat, so
+>   the mana stays in the ordinary pool and no payment path learns a second currency. Serves all 30 corpus
+>   cards carrying a mana-duration clause.
+> - **Slice 42 `17dcb6a0` (+7)** — **split second**, credited because it is genuinely ENFORCED. Unlike the
+>   zone-option keywords (credited for being vacuous), the engine really does grant opponents priority with
+>   a non-empty stack, so an unenforced split second would be a live divergence. Note it could NOT reuse the
+>   Grand Abolisher lane: that one is scoped to "your opponents" and could lean on own-turn activation
+>   gating, while split second binds the caster too.
+>
+> **Two process notes worth keeping.** (1) Slice 42's first draft silently dropped `"backup"` from
+> COVERED_KEYWORDS — the edit anchored on that line — un-crediting 19 cards. The full suite caught it; a
+> targeted-test-only run would not have. (2) Both slices' raw-index flip counts (11 and 9) exceeded their
+> corpus deltas (+7 and +7). Rather than assume, the slice-42 delta was isolated by disabling only its
+> classification changes and re-measuring: 11778 ⇄ 11785 exactly. The gap is the metric's denominator
+> excluding token-typed entries, not a regression.
+
 ## ☀️ 2026-07-25/27 — CENSUS-DRIVEN GRIND: FORTY slices (net +301 after an HONEST −143) — corpus 33.5%→34.4% — suite 843/10,887
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
