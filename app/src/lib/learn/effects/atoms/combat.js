@@ -1141,6 +1141,17 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ENCHANTED-SUBJECT keyword grant (census slice 36) — "Enchanted creature gains hexproof until end of
+  // turn", the effect of an Aura's own ETB trigger (Starlit Mantle, Accelerated Evolution). Identical to the
+  // targeted form above except the referent: no target is CHOSEN, it is the Aura's host, resolved at
+  // resolution by shared.enchantedTargets off the source's `attachedTo`. That referent already existed (and
+  // was made layer-aware earlier the same day), so this is a subject widening rather than new machinery.
+  // A detached Aura, or a host that has left, resolves to [] — a clean no-op, never a fabricated grant.
+  pg = t.match(/^enchanted creature gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", target: "enchanted", targetType: null, ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
   if (pctrl) {
     const who = pctrl[1] === "you control" ? "you" : "opponent";
