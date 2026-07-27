@@ -88,10 +88,16 @@ describe("coverage — the whole-card permanent-reanimate carriers flip native; 
       oracle: "Flying\nWhen this creature enters, return target permanent card with mana value 2 or less from your graveyard to the battlefield.\nForetell {3}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)" })).toBe("native-trigger");
   });
 
-  it("CREED — an unmodeled surround (Encore / conditional anthem / grant+sac / subtype filter / intervening-if) stays NON-native", () => {
-    // Angel of Indemnity — permanent-MV reanimate BUT an unmodeled Encore keyword
-    expect(classifyCard({ type: "Creature — Angel Warrior", name: "Angel of Indemnity",
-      oracle: "Flying, lifelink\nWhen this creature enters, return target permanent card with mana value 4 or less from your graveyard to the battlefield.\nEncore {6}{W}{W} ({6}{W}{W}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)" })).not.toMatch(/^native-|^land$/);
+  it("GRADUATED — Angel of Indemnity now flips: its Encore surround became modeled (slice 39)", () => {
+    // This was the ENCORE entry in the CREED list below. Encore joined the graveyard zone-option family
+    // (the unearth / scavenge / embalm class — a GY-activated ability that is inert while the creature is on
+    // the battlefield), so the surround is no longer unmodeled and the reanimate half carries the card.
+    // The list's PURPOSE is untouched: four other surrounds still hold it, each genuinely unmodeled.
+    expect(classifyCard({ type: "Creature — Angel Warrior", name: "Angel of Indemnity", keywords: [],
+      oracle: "Flying, lifelink\nWhen this creature enters, return target permanent card with mana value 4 or less from your graveyard to the battlefield.\nEncore {6}{W}{W} ({6}{W}{W}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)" })).toBe("native-trigger");
+  });
+
+  it("CREED — an unmodeled surround (conditional anthem / grant+sac / subtype filter / intervening-if) stays NON-native", () => {
     // Hero of the Dunes — artifact-or-creature reanimate BUT an unmodeled MV-conditional anthem
     expect(classifyCard({ type: "Creature — Human Soldier", name: "Hero of the Dunes",
       oracle: "When this creature enters, return target artifact or creature card with mana value 3 or less from your graveyard to the battlefield.\nCreatures you control with mana value 3 or less get +1/+0." })).not.toMatch(/^native-|^land$/);

@@ -513,7 +513,12 @@ const rePrototypeCost = /^prototype (?:\{[^}]+\})+ [—–-] \d+\/\d+$/;
 //   exile from the GY for a token copy. Audited per the suspend rule: of 11 carriers only Lazotep Archway
 //   lacks a mana cost, and it's a LAND (played, not cast) — so every carrier is normally playable and the
 //   keyword is a pure extra option. (Suspend stays refused: its no-mana-cost carriers CANNOT be played at all.)
-const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|eternalize|scavenge|mayhem) (?:\{[^}]+\})+$/;
+//   encore (702.130, ADDED 2026-07-27): "{cost}, Exile this card from your graveyard: For each opponent,
+//   create a token copy that attacks that opponent this turn if able." A GY-activated ability in the exact
+//   unearth/scavenge class — while the creature is on the BATTLEFIELD, the only place the engine plays it,
+//   the line is inert. Audited per the suspend rule: ALL 26 carriers are creatures with a printed mana cost
+//   (zero exceptions, not even a land), so every one is normally castable and encore is a pure extra option.
+const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|eternalize|scavenge|mayhem|encore) (?:\{[^}]+\})+$/;
 // REINFORCE N—{cost} (CR 702.77) — a HAND-only discard-activated ability ("{cost}, Discard this card: Put N
 // +1/+1 counters on target creature"), the cycling/typecycling class: an option from hand the engine never
 // offers, so the card on the battlefield plays exactly as printed. Same castability audit as eternalize —
