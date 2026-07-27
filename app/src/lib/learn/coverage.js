@@ -269,6 +269,20 @@ export const COVERED_KEYWORDS = [
   // else — the case that made the free credit unsafe. The entry-counter half stays declined (the engine
   // never takes optional entry choices), which is a legal printed mode.
   "unleash",
+  // Census slice 51 — the permanent-side halves of the same four. Each was read off the printed corpus line
+  // before crediting, and each is an option whose declined state is the printed card:
+  //   provoke  (CR 702.38a)  — "Whenever this creature attacks, YOU MAY have target creature defending
+  //                            player controls untap and block it if able." Declined: an ordinary attack.
+  //   assist   (CR 702.132a) — cost help from another player the engine never offers; full price is paid.
+  //   casualty (CR 702.153a) — an optional additional cost; declined, the spell is copied zero times.
+  //   ripple   (CR 702.60a)  — an optional reveal; declined, the library is untouched.
+  //
+  // (LEARN is deliberately absent despite 13 parked carriers. Its reminder reads "You may reveal a Lesson
+  //  card you own from outside the game and put it into your hand, OR discard a card to draw a card" — and
+  //  I could not establish from the printed text alone that declining BOTH options is legal. Crediting on an
+  //  uncertain rule reading is exactly what this project forbids, so it stays on the Arbiter until someone
+  //  checks the rule properly. A false negative costs 13 cards; a false positive costs trust.)
+  "provoke", "assist", "casualty", "ripple",
   // KW-DELVE (CR 702.66a, census slice 48) — "Each card you exile from your graveyard while casting this
   // spell pays for {1}." A pure, OPTIONAL cost reduction; the engine hard-casts at full cost, which is a
   // real legal play, so the option it never takes cannot change what resolves. Same basis as convoke /

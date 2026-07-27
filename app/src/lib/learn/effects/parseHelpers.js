@@ -55,7 +55,17 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 //   • fuse (CR 702.102a)     — "You may cast one or both halves of this card from your hand." The engine
 //                              already casts either half (actionsCastSplitFromHand); fuse only adds the
 //                              BOTH mode. Declining it leaves a real, complete, legal cast.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|affinity for [a-z]+|replicate (?:\{[^}]+\})+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
+// Census slice 51 adds three more, all read off the printed corpus text before crediting:
+//   • assist   (CR 702.132a) — "Another player can pay up to {N} of this spell's cost." Cost help from a
+//                              player who, in this engine, never offers it; the caster pays full price,
+//                              which is the printed spell. Resolution-invariant, convoke's exact basis.
+//   • casualty (CR 702.153a) — "As you cast this spell, YOU MAY sacrifice a creature with power N or
+//                              greater. When you do, copy this spell." Optional additional cost; declined,
+//                              the spell is copied zero times, which is the printed spell.
+//   • ripple   (CR 702.60a)  — "When you cast this spell, YOU MAY reveal the top N cards of your library…
+//                              Put the rest on the bottom." Declined, the library is untouched and nothing
+//                              else on the card changes.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|assist|affinity for [a-z]+|casualty \d+|ripple \d+|replicate (?:\{[^}]+\})+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the
