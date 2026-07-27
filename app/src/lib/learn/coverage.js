@@ -283,6 +283,12 @@ export const COVERED_KEYWORDS = [
   //  uncertain rule reading is exactly what this project forbids, so it stays on the Arbiter until someone
   //  checks the rule properly. A false negative costs 13 cards; a false positive costs trust.)
   "provoke", "assist", "casualty", "ripple",
+  // KW-TRAINING (CR 702.148a, census slice 52) — NOT a member of the optional-mode family above it: training
+  // is a MANDATORY trigger, so it is credited by being MODELED, not by being declined. detectTriggers
+  // synthesizes the self-scoped attacks descriptor (ordinary add-counter effectClause) gated by the "another
+  // attacking creature has greater power" intervening-if, which compares layer-aware power against the other
+  // ATTACKERS — a bigger creature staying home trains nothing.
+  "training",
   // KW-DELVE (CR 702.66a, census slice 48) — "Each card you exile from your graveyard while casting this
   // spell pays for {1}." A pure, OPTIONAL cost reduction; the engine hard-casts at full cost, which is a
   // real legal play, so the option it never takes cannot change what resolves. Same basis as convoke /

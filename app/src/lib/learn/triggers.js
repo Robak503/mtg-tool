@@ -1911,6 +1911,21 @@ export function hasDethrone(oracle) {
   return false;
 }
 
+/**
+ * KW-TRAINING (CR 702.148a) — does the card print the bare keyword? Parens stripped first, like dethrone.
+ * Unlike the optional-mode family, training is a MANDATORY trigger with a real condition, so it is credited
+ * by being modeled (synthesized descriptor + intervening-if), never by being declined.
+ */
+export function hasTraining(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      if (seg.trim().toLowerCase() === "training") return true;
+    }
+  }
+  return false;
+}
+
 export function backupKeywordValue(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -3478,6 +3493,23 @@ export function detectTriggers(card) {
       effectClause: "put a +1/+1 counter on this creature",
       interveningIf: "that player has the most life or is tied for most life",
       optional: false, sourceText: "Dethrone",
+    });
+  }
+  // KW-TRAINING (CR 702.148a, census slice 52) — "Whenever this creature attacks with another creature with
+  // greater power, put a +1/+1 counter on this creature." Same synthesis shape as dethrone: an ordinary
+  // modeled effectClause plus a condition. The condition compares against the OTHER ATTACKERS, not the
+  // board, so a bigger creature staying home trains nothing.
+  //
+  // Same honest timing note as dethrone: printed, the comparison belongs to the trigger EVENT; here it is an
+  // intervening-if, so it is re-checked on resolution (CR 603.4). It can only ever REMOVE a counter that
+  // should have been placed — a false negative, which the creed permits.
+  if (hasTraining(oracle)) {
+    out.push({
+      event: "attacks", scope: "self", whose: "any",
+      effect: null,
+      effectClause: "put a +1/+1 counter on this creature",
+      interveningIf: "another attacking creature has greater power",
+      optional: false, sourceText: "Training",
     });
   }
   // KW-FIREBENDING (census slice 41) — synthesized from the printed keyword like renown / mobilize / backup.
