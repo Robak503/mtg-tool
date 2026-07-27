@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY slices (+373) + an 11-site RUNTIME class swept — corpus 33.5%→34.6% — suite 833/10,801
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-ONE slices (+382) + an 11-site RUNTIME class swept — corpus 33.5%→34.7% — suite 834/10,811
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,14 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 31 `272fa79a` (+9) — MOBILIZE, the slice that was correctly REFUSED in the morning and correctly
+> built by evening.** It needed two things that didn't exist when it was first scoped: tokens that genuinely
+> join `state.combat.attackers` (the `entersAttacking` field is a dead write — attacking-ness is combat
+> membership, so "tapped and attacking" tokens would otherwise be inert), and a delayed sacrifice, which the
+> CR 603.7 scheduler built earlier the same day now provides. Proven by asserting the defender loses exactly
+> 4 life — a number only reachable if the minted 1/1s really attacked. Reading the printed reminder also
+> corrected my own scoping note: it sacrifices at the next END STEP, not end of combat.
 >
 > **SLICE 30 `f6addce6` — the drift probe found something on its SECOND run too.** The attached-form pair
 > (`attachedNoUntapOf` metric vs `attachmentPreventsUntap` runtime) disagreed on 7 of 72 Auras: the runtime

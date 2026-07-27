@@ -416,7 +416,7 @@ all were invisible to the metric, which is why they accumulated.
 
 ---
 
-## MOBILIZE — status changed 2026-07-25: BOTH prerequisites now exist
+## ✅ MOBILIZE — BUILT same-day (slice 31, `272fa79a`)
 
 Banked that morning as "not buildable — `entersAttacking` is a dead write". That is still true, but it was
 only HALF the reason, and the other half has since been built. Recording so the next session doesn't re-park
@@ -439,6 +439,14 @@ to not disturb the already-declared attack, and the tokens must be excluded from
 control" count that was locked earlier in the step. Verify at RUNTIME that the tokens actually deal combat
 damage — a classification that the runtime never honours is precisely the trap the runbook's failure table
 names, and it is the trap this card family sits on.
+
+
+**BUILT 2026-07-25 (slice 31, `272fa79a`), +9 cards.** Both predicted requirements were real and both were
+met: the minted tokens are registered in `state.combat.attackers` against the source's defender
+(`ctx.defenderId`), and the sacrifice rides the CR 603.7 scheduler. One correction to the note above — the
+printed reminder says "at the beginning of the next END STEP", not end of combat; reading the real oracle
+fixed that before it reached code. Proven at runtime by asserting the defender loses exactly 4 life (a 2/2
+source plus two 1/1 Warriors), a number only reachable if the tokens genuinely entered combat.
 
 ---
 
