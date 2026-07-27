@@ -783,7 +783,7 @@ is now the standing example of a keyword that fails it with no enforcement to fa
 
 ---
 
-## 🔎 SYSTEMIC LEAD — the TIER COMPOSITION failure (62 cards, root cause identified 2026-07-27)
+## 🔎 SYSTEMIC LEAD — the GRAVEYARD-ABILITY composition gap (62 cards) — DIAGNOSIS CORRECTED 2026-07-27
 
 The census's "TWO-FLIP SIGNATURE" bucket is not a pile of missing mechanics. It is ONE bug, and it is now
 diagnosed rather than merely counted.
@@ -819,3 +819,41 @@ whose activated ability) silently never happens.
 
 Nothing about this is hard. It is just the exact shape of bug where "it went green" is the least
 trustworthy signal available.
+
+### ⚠️ THE DIAGNOSIS ABOVE IS WRONG AS STATED. Corrected within the hour, by my own fix-order.
+
+I wrote that "a card carrying both a triggered ability and an activated ability classifies body-only". Step
+1 of the plan above — *prove it at the runtime before touching the resolver* — disproved it immediately:
+
+    tier(trigger alone)                    = native-trigger
+    tier(battlefield-activated alone)      = native-activated
+    tier(BOTH)                             = native-mixed      <-- composes FINE
+    runtime: activated ability offered = YES, attack trigger fired = YES
+
+`native-mixed` already exists and both lanes genuinely run. Had I "fixed" the resolver on the strength of
+the first diagnosis, I would have changed working code to chase a bug that wasn't there.
+
+**The REAL boundary, measured** (`scratchpad/probe-composition-narrow.mjs`):
+
+| combination | tier |
+|---|---|
+| trigger + BATTLEFIELD-activated | `native-mixed` ✅ |
+| trigger + **GRAVEYARD**-activated | `body-only` ❌ |
+| battlefield-activated + **GRAVEYARD**-activated | `body-only` ❌ |
+| keyword + GRAVEYARD-activated | `native-activated` ✅ |
+| keyword + trigger | `native-trigger` ✅ |
+
+So the gap is specific and small: **a graveyard-recursion ability composes with KEYWORDS but not with any
+other ABILITY.** That is why Haunted Dead / Teacher's Pest / Postmortem Professor park — each pairs a
+battlefield ability with a graveyard one.
+
+**Why this pair is the SAFEST possible composition**, and worth saying before anyone gets nervous: the two
+abilities are active in DIFFERENT ZONES and can never both apply to the same object at the same time. The
+battlefield ability functions while it's a permanent; the graveyard ability functions while it's a card in
+the graveyard. There is no interaction to get wrong — which is the opposite of the usual composition risk.
+(Separately verified earlier this session: graveyard-activated abilities are correctly NOT offered while the
+card is on the battlefield.)
+
+**Still required before relaxing it:** drive a board where the same card fires its battlefield ability, dies,
+and is then offered its graveyard ability — both halves, one card, one test. Then per-flip audit the result.
+
