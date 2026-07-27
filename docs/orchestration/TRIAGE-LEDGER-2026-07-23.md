@@ -586,11 +586,14 @@ clean line" — is **36**.
 | `Activate only as a sorcery` | 2 | Summoned Dromedary, Deathless Behemoth |
 | an effect rider (enters with counters, gains an ability) | 2 | Retrofitted Transmogrant, Llanowar Greenwidow |
 
-**The timing riders are NOT free, and this is the trap to avoid:** "Activate only during your upkeep" cannot
-just be stripped. The graveyard enumerator offers at the controller's own main phase, so crediting an
-upkeep-only card would OVER-offer — the engine would use it at a time the card forbids. Own-main is not a
-subset of upkeep. `Activate only as a sorcery` IS satisfiable (own main is exactly the sorcery window) and
-is the cheaper of the two.
+**⚠️ BOTH TIMING RIDERS ARE UNSAFE HERE — and I got this wrong once before checking, so read the code.**
+`actionsActivateGraveyardRecursion` offers at INSTANT SPEED (its own comment: "an activated ability may be
+activated whenever the player has priority — no timing rider is in the modeled shape"). It is NOT restricted
+to the controller's own main phase the way the battlefield activated-ability path is. So crediting EITHER
+"Activate only during your upkeep" OR "Activate only as a sorcery" would let the engine use the ability at a
+time the card forbids — an over-offer, the forbidden direction. My first pass through this assumed the
+own-main window and concluded the sorcery rider was free; it is not. Teaching the enumerator a timing gate
+is a prerequisite for both, and it is its own slice.
 
 **Suggested order:** the exile-from-graveyard cost first — census slice 33 just built that exact cost kind
 for the SPELL additional-cost lane, so the vocabulary and its victim-selection policy already exist and
