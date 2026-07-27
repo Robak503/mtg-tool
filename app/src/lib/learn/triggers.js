@@ -4168,6 +4168,13 @@ export function checkDiesTriggers(state, dead) {
     // upkeep) moves its FULL total. Stamped only when the snapshot was captured; an entry without one leaves the
     // key undefined → resolveScaledAmount reads 0 → a clean no-op (never a fabricated count).
     if (d.counters) diesCtx.triggeringPlusCounterCount = d.counters["+1/+1"] || 0;
+    // COUNTER-TRANSFER (census slice 37, CR 603.6e LKI): the dying object's WHOLE counter bag, for
+    // "put ITS counters on target creature you control" (Star Pupil, Essence Channeler, Spiteful Squad).
+    // Distinct from triggeringPlusCounterCount above, which is only the +1/+1 magnitude the MODULAR payoff
+    // moves — this shape moves every counter type the creature had, so it needs the bag, not a number.
+    // Copied (not aliased) off the same death look-back snapshot, so a later mutation can't reach back
+    // into it. Stamped only when a snapshot exists; absent → the resolver moves nothing, never invents.
+    if (d.counters) diesCtx.triggeringCounterBag = { ...d.counters };
     // POWER-DIFFERED (Jason Bright, CR 603.6e LKI): the dies intervening-if "its power was different from
     // its base power" compares the look-back's EFFECTIVE power (counters + anthems + pumps) against its
     // BASE power (printed / 7b-set). Stamped only when BOTH were captured; a missing capture leaves the

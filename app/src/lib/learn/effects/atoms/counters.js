@@ -974,6 +974,7 @@ export function endureClauseParser(clause) {
 
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "transfer-counters": applyTransferCounters, // slice 37 — the dying object's LKI counter bag onto a chosen creature
   "endure": applyEndure, // ENDURE N (CR 701.63 — BLITZ KW-1) — modal keyword action: N +1/+1 counters on the source, or an N/N white Spirit token when the source has left
   "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
   "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
@@ -989,3 +990,49 @@ export const counterResolvers = {
   "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main
   "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks
 };
+
+// ─── COUNTER-TRANSFER (census slice 37) ──────────────────────────────────────────
+/**
+ * "When this creature dies, put its counters on target creature you control." (Star Pupil, Essence
+ * Channeler, Spiteful Squad, Hei Bai.) The destination half already parsed — what was missing is the
+ * "ITS counters" referent, which is the DYING object's whole counter bag under CR 603.6e last-known
+ * information, since the source has left the battlefield by the time this resolves.
+ *
+ * Distinct from the MODULAR payoff ("put its +1/+1 counters on target artifact creature"), which moves a
+ * single magnitude and already rides `triggeringPlusCounterCount`. This moves EVERY counter type the
+ * creature had, so it reads the bag `checkDiesTriggers` stamps as `triggeringCounterBag`.
+ */
+export function transferCountersClauseParser(clause) {
+  return /^put its counters on target creature you control$/i.test(String(clause || "").trim())
+    ? { op: "transfer-counters", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] }
+    : null;
+}
+
+/**
+ * Move the dying object's last-known counter bag onto the chosen creature. Each type goes through the
+ * shared addCounter chokepoint, so counter-doublers and counters-placed watchers compose exactly as they
+ * do for any other placement.
+ *
+ * NO BAG, NO EFFECT. An absent snapshot (or an empty one) is a clean logged no-op — a creature that died
+ * with no counters transfers nothing, which is both the rule and the FN-safe default. Never a fabricated
+ * counter, and never a guess at what it "probably" had.
+ */
+export function applyTransferCounters(state, atom, ctx) {
+  const bag = ctx.triggeringCounterBag;
+  const targets = atomTargets(state, atom, ctx);
+  if (!bag || !targets.length) {
+    return logEvent(state, { kind: "spell-effect", effect: "transfer-counters", moved: 0, controller: ctx.controller });
+  }
+  let next = state;
+  let moved = 0;
+  for (const t of targets) {
+    if (!findPermanent(next, t.id)) continue;   // target gone by resolution (CR 608.2b) → nothing moves
+    for (const [type, amount] of Object.entries(bag)) {
+      const n = Number(amount) || 0;
+      if (n <= 0) continue;
+      next = addCounter(next, { permanentId: t.id, type, amount: n });
+      moved += n;
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "transfer-counters", moved, controller: ctx.controller });
+}
