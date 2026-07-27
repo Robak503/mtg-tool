@@ -62,8 +62,17 @@ describe("each keyword is credited, and the CARD BODY is what decides", () => {
   });
 });
 
-describe("CREED — UNLEASH is refused, and the reason is the sharp edge of this whole family", () => {
-  it("unleash stays parked", () => {
+describe("UNLEASH — refused by THIS family, then admitted by ENFORCEMENT instead (slices 49 → 50)", () => {
+  it("is NOT credited as an untaken option — it is credited because canBlockAttacker enforces it", () => {
+    // The pin below moved when slice 50 built the enforcement. It is kept, not deleted, because the REASON
+    // is the thing worth pinning: unleash never belonged to this family, and the fact that it is now
+    // native must not be mistaken for the family having widened. See unleashKeyword.test.js for the
+    // enforcement itself, and note it still parks when a genuinely unmodeled clause is present.
+    const withResidue = { ...CREATURE, name: "Rakdos Drake", type: "Creature — Drake", oracle: "Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)\nEach opponent glorbulates." };
+    expect(classifyCard(withResidue)).not.toMatch(/^native/);
+  });
+
+  it("the family's membership test, stated as an assertion", () => {
     // "Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it
     // has a +1/+1 counter on it.)"
     //
@@ -74,8 +83,10 @@ describe("CREED — UNLEASH is refused, and the reason is the sharp edge of this
     //
     // That is the false-positive direction, and it is the exact line separating this family from the rest
     // of the census. The option has to be one you may decline WITH NO CONSEQUENCE to the rest of the card.
-    const unleash = { ...CREATURE, name: "Rakdos Drake", type: "Creature — Drake", oracle: "Flying\nUnleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)" };
-    expect(classifyCard(unleash)).not.toMatch(/^native/);
+    //
+    // OUTLAST is the standing example of a keyword that fails that test and has NO enforcement either, so
+    // it is still parked — the state unleash was in before slice 50 built its runtime.
+    expect(classifyCard({ ...CREATURE, name: "Abzan Falconer", type: "Creature — Human Soldier", oracle: "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.)" })).not.toMatch(/^native/);
   });
 });
 

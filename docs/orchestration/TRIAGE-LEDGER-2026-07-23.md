@@ -745,7 +745,7 @@ but well-defined, and it would also unlock the "gain control until end of turn" 
 
 ---
 
-## 🚧 REFUSED — unleash (17 carriers, 11 sole) — the sharp edge of the optional-mode family
+## ✅ BUILT (was REFUSED, same day) — unleash (17 carriers, +11) — the sharp edge of the optional-mode family
 
 Slice 48/49 credited a family of keywords on one rule: the keyword offers an OPTION the engine never takes,
 and declining it leaves a real, complete, legal play (delve, myriad, replicate, fuse, squad, enlist, extort).
@@ -768,3 +768,15 @@ later, the keyword needs a lane that models it, not a credit.
 **What it would take:** model "can't block as long as it has a +1/+1 counter" as a counter-gated block
 restriction. The machinery exists — the counter-gated group keyword grant (Winged Hive Tyrant) is the same
 shape — so this is a real slice, not a subsystem. It just is not a free one, and must not be taken as one.
+
+**RESOLVED the same session (slice 50).** The refusal above was right, and the fix was to build the
+enforcement rather than widen the credit. `canBlockAttacker` now reads the permanent's `+1/+1` counters LIVE
+at block declaration, so the restriction binds no matter where the counter came from — which is precisely the
+case that made a free credit unsafe. A flag stamped at entry would have passed the easy tests and still been
+wrong, because the engine never takes unleash's own entry option: every counter an unleash creature carries
+here arrives from somewhere else.
+
+Unleash is therefore native for the OPPOSITE reason to the rest of the family: not because the option is
+untaken, but because the static is enforced. The membership test above still stands unchanged, and `outlast`
+is now the standing example of a keyword that fails it with no enforcement to fall back on.
+

@@ -372,6 +372,18 @@ function permIsSubtype(state, permId, subtype) {
 const reBareUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked\s*(?:\.|$)/;
 const reCantBlock = /(?:^|[\n.;])\s*(?:this creature|it) can't block\s*(?:\.|$)/;
 const reBlockOnlyFlying = /(?:^|[\n.;])\s*(?:this creature|it) can block only creatures with flying\s*(?:\.|$)/;
+// KW-UNLEASH (CR 702.86a, census slice 50) — "You may have this creature enter with a +1/+1 counter on it.
+// It can't block as long as it has a +1/+1 counter on it."
+//
+// The keyword was REFUSED by the optional-mode family (slice 49) precisely because that second sentence is
+// not an option — it is a conditional static, and crediting the keyword while ignoring it would let a
+// creature block when the printed card forbids it. So it is enforced here instead of credited for free: a
+// LIVE read of the permanent's counters at block declaration, which means it binds whether the counter came
+// from unleash itself or from anywhere else (an anthem, a counter effect, another card's trigger) — the very
+// case that made the free credit unsafe.
+const reUnleash = /(?:^|[\n.;])\s*unleash\s*(?:\.|$)/;
+/** Does this card print the unleash keyword? (Reminder text is stripped by selfOracle before matching.) */
+export function hasUnleash(card) { return reUnleash.test(selfOracle(card)); }
 // SELF-POWER BLOCK GATE (CR 509.1b, census slice 43) — "Creatures with power less than this creature's power
 // can't block it." (Wandering Wolf class, 10 cards) and its printed inverse "…with power greater than…"
 // (Silumgar Assassin). A DYNAMIC comparison against the attacker's own power, re-read live at block
@@ -910,6 +922,10 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
 
   // Blocker-side restrictions.
   if (isSelfCantBlock(bCard)) return false;
+  // KW-UNLEASH (CR 702.86a) — "It can't block as long as it has a +1/+1 counter on it." A LIVE counter read,
+  // deliberately not a flag set at entry: the restriction binds no matter where the counter came from, which
+  // is exactly why the keyword could not simply be credited as an untaken option (slice 49's refusal).
+  if (hasUnleash(bCard) && (bLook.permanent?.counters?.["+1/+1"] || 0) > 0) return false;
   // CANT-BLOCK — a GRANTED "can't block this turn" (Goblin Shortcutter / Crossway Vampire's targeted
   // trigger → a layer-6 endOfTurn "cantBlock" keyword). Layer-aware via permanentHasKeyword, so it tracks
   // the temporary grant exactly like the printed restriction above and wears off at cleanup (CR 514.2).
