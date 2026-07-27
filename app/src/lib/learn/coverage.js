@@ -2188,7 +2188,22 @@ export function classifyCard(card) {
   // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool — admitted to the
   // native-mana tier alongside "Add …" sources (the runtime resolves it via applyDoubleManaPool). The same
   // residue gate applies, so a variant with unmodeled non-mana body text (none in the corpus) stays Arbiter.
-  if ((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
+  // ⚠️ REACHABILITY (census slice 38) — `hasManaAbility` is a TEXT check: it sees "Add {G}" and says yes.
+  // The RUNTIME produces mana through manaProduction, which refuses anything that isn't a standing source —
+  // a costed activation ("{T}, Sacrifice a Forest: Add …"), a dynamic amount ("Add {C} for each charge
+  // counter"), a colour chosen as the permanent entered, a second mana ability on the same card. Crediting
+  // on text alone claimed 154 cards whose mana the engine cannot obtain BY ANY PATH — verified by driving
+  // each on a board and asking manaSources AND the trigger path, not by reading.
+  //
+  // The same principle is already applied to the variable-X admission on the line above; this extends it to
+  // the plain "Add …" case, which is where the over-claim lived. hasModeledVariableXMana and
+  // hasDoubleManaPoolAbility keep their own admissions — the doubler produces no mana of its own, so
+  // manaProduction is correctly silent for it.
+  //
+  // A card whose mana is TRIGGERED (Burning-Tree Emissary's "When this creature enters, add {R}{G}") is not
+  // dropped by this: it falls through to the trigger tier below, which is where it belonged — the mana
+  // really is delivered, just not by a standing source. Losing the native-MANA label is the correction.
+  if (((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) && manaProduction(etCard)) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers
