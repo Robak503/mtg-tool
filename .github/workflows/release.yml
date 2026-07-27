@@ -57,6 +57,20 @@ jobs:
         working-directory: app
         run: npm ci
 
+      # The rules-retrieval ROUTE test drives the real rulesRetrieval.js engine (B1 phase 2 consolidation,
+      # 2026-07-23) rather than reading the CR JSON directly, so it needs data/rules-index.json to EXIST
+      # before the suite runs. ci.yml was fixed for this; release.yml was not, and its own index step sits
+      # ~70 lines below, AFTER the test gate — so the gate ran against a missing index and the route
+      # answered 500. That is what failed the v0.149.1 release. Building it here, before the gate, mirrors
+      # ci.yml exactly so the two pipelines agree about what "green" means.
+      #
+      # The later "Build rules retrieval index" step STAYS: this one runs off the checked-in CR data purely
+      # to satisfy the tests, while that one runs after the reference-data sync and may rebuild from fresher
+      # CR JSON. It is idempotent, and the shipped bundle must use the post-sync build, not this one.
+      - name: Build rules retrieval index (the test gate needs it — see ci.yml)
+        working-directory: app
+        run: npm run build:rules-index
+
       - name: Run tests (gate the release on a green suite)
         working-directory: app
         # See ci.yml: the wrapper's 5-minute default wall was killing HEALTHY runs once the suite grew
