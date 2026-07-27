@@ -560,3 +560,38 @@ trigger still fires and still logs. So:
 - The runtime pins must cover BOTH shapes end to end: a stolen creature really returning/being sacrificed,
   AND a created token really leaving. Assert the permanent is GONE, not merely that the trigger fired.
 - Pin the negative too: a card whose immediate clause binds nothing must stay non-native.
+
+---
+
+## MAPPED — the GY-1 graveyard self-recursion lane: 36 cards behind COST VOCABULARY
+
+Investigated 2026-07-25. The lane itself is FINE and end-to-end (`parseGraveyardSelfRecursion` is the
+single source for the offer, the payment and the metric). Clean forms already classify native-activated:
+`{1}{B}: Return this card from your graveyard to the battlefield tapped.` works today.
+
+**⚠️ DO NOT TRUST A LINE-DELETION PROBE HERE.** Deleting the recursion line and re-classifying reports ~60
+flips, but that conflates two different cards: ones whose LINE is unparseable, and ones whose line is fine
+while the REST of the card is unmodeled (The Sound of Drums parses its line perfectly and parks on goad +
+double-damage). The honest measure — "the line fails the GY-1 parse AND the card would be native with a
+clean line" — is **36**.
+
+**What actually blocks them is the COST vocabulary, not the effect.** GY-1 accepts mana-only plus a bare
+`, discard N cards` rider. The corpus wants more:
+
+| blocker | cards | example |
+|---|---|---|
+| non-mana cost: sacrifice N of a type | 5 | Gangrenous Goliath (`{2}{B}, Sacrifice three Zombies`) |
+| non-mana cost: exile N cards from your graveyard | 4 | Scrapheap Scrounger, Despoiler of Souls |
+| `Activate only during your upkeep` | 2 | Eternal Dragon, Undead Gladiator |
+| `Activate only as a sorcery` | 2 | Summoned Dromedary, Deathless Behemoth |
+| an effect rider (enters with counters, gains an ability) | 2 | Retrofitted Transmogrant, Llanowar Greenwidow |
+
+**The timing riders are NOT free, and this is the trap to avoid:** "Activate only during your upkeep" cannot
+just be stripped. The graveyard enumerator offers at the controller's own main phase, so crediting an
+upkeep-only card would OVER-offer — the engine would use it at a time the card forbids. Own-main is not a
+subset of upkeep. `Activate only as a sorcery` IS satisfiable (own main is exactly the sorcery window) and
+is the cheaper of the two.
+
+**Suggested order:** the exile-from-graveyard cost first — census slice 33 just built that exact cost kind
+for the SPELL additional-cost lane, so the vocabulary and its victim-selection policy already exist and
+only need porting to the activated-cost parser.
