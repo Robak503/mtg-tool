@@ -780,3 +780,42 @@ Unleash is therefore native for the OPPOSITE reason to the rest of the family: n
 untaken, but because the static is enforced. The membership test above still stands unchanged, and `outlast`
 is now the standing example of a keyword that fails it with no enforcement to fall back on.
 
+
+---
+
+## 🔎 SYSTEMIC LEAD — the TIER COMPOSITION failure (62 cards, root cause identified 2026-07-27)
+
+The census's "TWO-FLIP SIGNATURE" bucket is not a pile of missing mechanics. It is ONE bug, and it is now
+diagnosed rather than merely counted.
+
+**The rule that's wrong:** a card carrying BOTH a triggered ability and an activated ability classifies
+`body-only` — even when each ability is individually fully modeled. The tiers behave as mutually exclusive
+where they should COMPOSE.
+
+**Evidence** (classify each line alone, then the card without it — `scratchpad/probe-twoflip.mjs`):
+
+| card | line alone | other line alone | whole card |
+|---|---|---|---|
+| Haunted Dead | `native-trigger` | `native-activated` | **`body-only`** |
+| Teacher's Pest | `native-trigger` | `native-activated` | **`body-only`** |
+| Postmortem Professor | `native-trigger` | `native-activated` | **`body-only`** |
+| Compulsory Rest | `native-aura` | `native-activated` | **`body-only`** |
+| Mark of Fury | `native-aura` | `native-trigger` | **`body-only`** |
+
+That is the whole signature: every pair is two DIFFERENT native tiers meeting on one card.
+
+**Why this is worth real care rather than a quick fix.** The tiers are not just labels — each one is a
+claim about which runtime lane plays the card. Letting them compose means asserting that BOTH lanes fire
+for the same permanent, and that is a runtime question, not a classifier one. The dangerous version of this
+fix is a one-line change to the tier resolver that makes 62 cards go green while the engine only ever runs
+one of the two abilities. That would be a textbook false positive — a card claimed native whose trigger (or
+whose activated ability) silently never happens.
+
+**So the order of work is fixed, and it is not negotiable:**
+1. Prove at the RUNTIME that a single permanent can carry a modeled trigger AND a modeled activated ability,
+   and that both actually fire/are offered. Drive a board; do not read the parser.
+2. Only then relax the composition rule, and only for the pairs proven in step 1.
+3. Per-flip audit the resulting cards — 62 is far too many to eyeball as a batch.
+
+Nothing about this is hard. It is just the exact shape of bug where "it went green" is the least
+trustworthy signal available.
