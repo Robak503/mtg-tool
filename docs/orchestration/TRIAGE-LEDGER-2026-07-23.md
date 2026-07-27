@@ -581,6 +581,15 @@ clean line" — is **36**.
 | blocker | cards | example |
 |---|---|---|
 | non-mana cost: sacrifice N of a type | 5 | Gangrenous Goliath (`{2}{B}, Sacrifice three Zombies`) |
+
+**⚠️ THE SACRIFICE-COST ROW IS A TRAP — BUILT, MEASURED AT ZERO, AND REVERTED (2026-07-25).** I implemented
+the N=1 type forms across all three sites and verified it end to end (no victim → not offered; with a
+victim → offered, the victim sacrificed, the card returned). It flipped **ZERO cards**: every carrier is
+blocked by OTHER text as well — Necrosavant by "Activate only as a sorcery", Tymaret / Earthquake Dragon /
+Grafted Butcher by further abilities. Reverted rather than kept, because working-but-unused capability is
+still speculative surface. **Before building any row in this table, delete-probe the carriers to confirm the
+COST is their only blocker** — the row counts say a cost shape appears, not that fixing it flips anything.
+The exile row (GR-2) was worth it only because Scrapheap Scrounger had no second blocker.
 | non-mana cost: exile N cards from your graveyard | 4 | Scrapheap Scrounger, Despoiler of Souls |
 | `Activate only during your upkeep` | 2 | Eternal Dragon, Undead Gladiator |
 | `Activate only as a sorcery` | 2 | Summoned Dromedary, Deathless Behemoth |
