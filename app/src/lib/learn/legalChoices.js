@@ -2889,6 +2889,28 @@ function opponentsCantActAgainst(state, playerId) {
   return { cantCast: false };
 }
 
+// ─── SPLIT SECOND (CR 702.19a) ────────────────────────────────────────────────
+
+/**
+ * True while a spell with split second sits on the stack: "As long as this spell is on the stack, players
+ * can't cast spells or activate abilities that aren't mana abilities."
+ *
+ * Note how this DIFFERS from the Grand Abolisher lane above, which is why it cannot reuse it: that
+ * restriction is scoped to "your opponents", so the engine's own-turn-only activation gating already
+ * covered its activated-ability half for free. Split second restricts EVERY player — including the one who
+ * cast it, on their own turn — so the activation half has to be enforced explicitly at the call site.
+ *
+ * Anchored on the printed keyword line (parens stripped, exact segment match) rather than a substring
+ * search of the oracle, so a card that merely mentions split second in rules text cannot impose it.
+ */
+function splitSecondOnStack(state) {
+  return (state.stack || []).some((obj) => {
+    if (obj?.kind !== "spell") return false;                    // only a SPELL with split second imposes it
+    const oracle = String(obj?.source?.oracle || "").replace(/\([^)]*\)/g, " ");
+    return oracle.split("\n").some((line) => line.split(",").some((seg) => seg.trim().toLowerCase() === "split second"));
+  });
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -2952,7 +2974,11 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // untap). Lands / activations / special actions are untouched — casting alone is limited (CR 601).
   const castLimited = (state.players[playerId]?.spellsCastThisTurn || 0) >= 1
     && Object.values(state.players).some((pl) => (pl.battlefield || []).some((perm) => castsPerTurnLimitOf(perm.card) != null));
-  const cantCast = opponentsCantActAgainst(state, playerId).cantCast || castLimited;
+  // SPLIT SECOND (CR 702.19a) — suppresses casting for EVERY player while such a spell is on the stack.
+  // Special actions are untouched (playing a land, plotting, the companion {3}): the rule names casting and
+  // activating, and CR 116.2 special actions are neither.
+  const splitSecondLock = splitSecondOnStack(state);
+  const cantCast = opponentsCantActAgainst(state, playerId).cantCast || castLimited || splitSecondLock;
 
   // Pass priority — always available IF the player has priority.
   if (state.priorityHolder === playerId) {
@@ -2978,12 +3004,17 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   }
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
   actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.171a): exile from hand for the plot cost — a SPECIAL action, not casting
+  // MANA ABILITIES stay legal under split second (CR 702.19a exempts them by name).
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
-  actions.push(...actionsActivateAbility(state, playerId));
-  actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
-  actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
-  actions.push(...actionsActivateLoyalty(state, playerId));
+  // …every OTHER activated ability does not. Crew (CR 702.121c), cycling (702.29a) and loyalty (606.1) are
+  // all activated abilities, so they go dark with the rest while a split-second spell is on the stack.
+  if (!splitSecondLock) {
+    actions.push(...actionsActivateAbility(state, playerId));
+    actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
+    actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
+    actions.push(...actionsActivateLoyalty(state, playerId));
+  }
 
   // Combat actions.
   actions.push(...actionsDeclareAttacker(state, playerId));

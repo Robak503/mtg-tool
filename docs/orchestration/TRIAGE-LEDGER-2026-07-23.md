@@ -715,3 +715,30 @@ about the probe until each hit is explained individually.**
 
 Do not re-run this without also supplying: a spell on the stack, attached auras, cards in the graveyard AND
 the card itself in the graveyard for GY abilities, an attacking creature, and the relevant counters.
+
+---
+
+## 🚧 SCOPED, NOT BUILT — "You control enchanted creature" (28 cards: 7 sole + 21 co)
+
+The biggest single cluster left in the census, and it is a SUBSYSTEM, not a parser slice. Recording the
+reason so the next seat doesn't rediscover it by shipping a bug.
+
+The engine has a one-shot `gain-control` atom (`effects/atoms/control.js`, Sliver Overlord's activated
+ability). It does NOT have layer-2 control (CR 613.1b). Those are not the same thing, and the difference is
+exactly where the false positive lives:
+
+- **One-shot** "Gain control of target creature" — control changes and simply stays changed. Modeling this
+  by reassigning the permanent is fine, because nothing is supposed to give it back.
+- **Static** "You control enchanted creature" (Mind Control / Control Magic / Confiscate) — control is a
+  CONTINUOUS effect that exists only while the Aura is attached. Kill the Aura and the creature goes home.
+
+Reusing the one-shot atom for the static shape would therefore produce **permanent control theft**: destroy
+the Mind Control and the engine keeps the creature. That is a worse outcome than leaving all 28 cards on the
+Arbiter, so they stay there until layer 2 exists.
+
+**What it actually needs:** a controller-override in the layer engine (there is currently no
+`controlledBy` / `controllerOverride` field on a permanent — checked), recomputed like any other continuous
+effect, so detaching the Aura restores the printed controller with no explicit "give it back" step. Sizeable
+but well-defined, and it would also unlock the "gain control until end of turn" (Threaten) family.
+
+**Do not** approach this by moving permanents between battlefields.

@@ -161,8 +161,18 @@ const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|freerunning\s*\{|suspend\s+\d
 // rider and correctly routes to the Arbiter. Madness itself (cast-from-exile on discard) is vacuous for the
 // normal cast, so a madness-alone body resolves identically.
 const MADNESS_LINE = /^[ \t]*madness\s*(?:\{[^}]*\})+[ \t]*(?:\([^\n]*\))?[ \t]*$/gim;
+// SPLIT_SECOND_LINE — the spell-side twin of the COVERED_KEYWORDS credit for permanents (census slice 42).
+// Split second prints with NO cost, so it cannot ride CAST_KEYWORD_LINE, whose every alternative anchors on a
+// cost brace or dash; and a greedy `[^\n]*$` tail would be unsafe on a costless keyword. So it takes the
+// TIGHT MADNESS_LINE shape instead: the bare keyword, an optional reminder paren, end of line. A compound
+// line stays intact and the card correctly parks (FN-safe).
+//
+// The restriction itself is really enforced — legalChoices.splitSecondOnStack suppresses casts and non-mana
+// activations for every player while such a spell is on the stack. This strip only stops the printed keyword
+// LINE from parking the spell body, exactly as dredge needed when it hit this same permanent/spell split.
+const SPLIT_SECOND_LINE = /^[ \t]*split second[ \t]*(?:\([^\n]*\))?[ \t]*$/gim;
 export function stripCastKeywordLines(text) {
-  return String(text || "").replace(CAST_KEYWORD_LINE, " ").replace(MADNESS_LINE, " ");
+  return String(text || "").replace(CAST_KEYWORD_LINE, " ").replace(MADNESS_LINE, " ").replace(SPLIT_SECOND_LINE, " ");
 }
 
 /**
