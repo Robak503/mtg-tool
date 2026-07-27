@@ -1837,6 +1837,24 @@ export function renownKeywordValue(oracle) {
   return 0;
 }
 
+/**
+ * MOBILIZE N (CR 702.174) — "Whenever this creature attacks, create N tapped and attacking 1/1 red Warrior
+ * creature tokens. Sacrifice them at the beginning of the next end step." Like renown, the whole ability
+ * lives in reminder parens (and one printing omits the reminder entirely — "Mobilize 1" bare), so the
+ * boundary-anchored trigger regex can never see it. Reminder text is stripped before matching so both
+ * printings read the same. A GRANTED mobilize would not match this self-anchored form.
+ */
+export function mobilizeKeywordValue(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^mobilize (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
 export function undyingKeywordCount(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -3339,6 +3357,23 @@ export function detectTriggers(card) {
         effectClause: `[renown] put ${renownN} +1/+1 counters on this creature`,
         interveningIf: null,
         optional: false, sourceText: `Renown ${renownN}`,
+      });
+    }
+  }
+  // KW-MOBILIZE (CR 702.174) — the printed keyword's ability is entirely inside reminder parens, so it is
+  // synthesized here exactly like renown above. The effect is a kind-tagged sentinel only one clause parser
+  // models, so no printed text can route into it. Scoped SELF on the attacks event, which is what threads
+  // ctx.defenderId — the minted tokens must join the SAME combat against the SAME defender, and without
+  // that referent they would be inert (see the dead-field warning in atoms/tokens.js).
+  {
+    const mobilizeN = mobilizeKeywordValue(oracle);
+    if (mobilizeN > 0) {
+      out.push({
+        event: "attacks", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `[mobilize] create ${mobilizeN} tapped attacking warrior tokens`,
+        interveningIf: null,
+        optional: false, sourceText: `Mobilize ${mobilizeN}`,
       });
     }
   }

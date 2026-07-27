@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
@@ -236,6 +236,14 @@ export const COVERED_KEYWORDS = [
   // damage again does nothing. The keyword prints as "renown N", so it matches via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count (renownShaped).
   "renown",
+  // KW-MOBILIZE (CR 702.174) — ENFORCED end to end: detectTriggers synthesizes the attacks descriptor from
+  // the printed keyword (mobilizeKeywordValue), and the `mobilize` atom mints N tapped 1/1 red Warriors AND
+  // REGISTERS THEM IN state.combat.attackers against the source's defender. That registration is the whole
+  // point: attacking-ness is combat.attackers membership, not a permanent field, so without it the tokens
+  // would be inert and this credit would be a lie. The sacrifice rides the CR 603.7 delayed scheduler at
+  // the next end step. Prints as "mobilize N", so it matches via the startsWith check; the shaped count is
+  // bumped by mobilizeShaped below.
+  "mobilize",
   // (KW-BLOODTHIRST is NOT credited here — it needs a DIGIT-anchored gate, see reBloodthirstFixed below.
   //  A startsWith("bloodthirst ") credit would also accept "Bloodthirst X", whose counters the runtime
   //  cannot place — caught by the per-flip audit on Petrified Wood-Kin before it shipped.)
@@ -829,6 +837,8 @@ function allTriggerSentencesModeled(card, oracle) {
   // KW-RENOWN (census slice 2026-07-25) — the same reminder-text keyword synthesis; bump by 1 when a
   // printed "Renown N" is present so shaped === detected holds (a GRANTED renown contributes 0 to both).
   const renownShaped = renownKeywordValue(oracle) > 0 ? 1 : 0;
+  // KW-MOBILIZE — same reminder-text synthesis; bump by 1 when a printed "Mobilize N" is present.
+  const mobilizeShaped = mobilizeKeywordValue(oracle) > 0 ? 1 : 0;
   // FLANKING (BLITZ FL-1) — one synthesized descriptor PER printed instance (CR 702.25b); bump by the
   // structural count so multiples reconcile (grants and "without flanking" phrases contribute 0).
   const flankingShaped = flankingKeywordCount(oracle);
@@ -851,7 +861,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const modularShaped = modularKeywordValues(oracle).length;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

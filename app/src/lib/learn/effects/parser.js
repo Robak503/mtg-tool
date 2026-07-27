@@ -49,7 +49,7 @@ import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/rol
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js";
+import { createNamedTokenClauseParser, createTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
 import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
@@ -1948,6 +1948,8 @@ registerClauseParser(addCounterClauseParser);
 registerClauseParser(addNamedCounterSelfClauseParser);
 registerClauseParser(evolveCounterSelfClauseParser); // KW-EVOLVE sentinel (SHELF S7) — the synthesized "[evolve] …" clause only
 registerClauseParser(renownClauseParser); // KW-RENOWN sentinel (census slice 2026-07-25) — the synthesized "[renown] …" clause only
+registerClauseParser(mobilizeClauseParser);    // KW-MOBILIZE sentinel — the synthesized "[mobilize] …" clause only
+registerClauseParser(mobilizeSacClauseParser); // …and its CR 603.7 delayed sacrifice half
 // ENDURE N (CR 701.63 — BLITZ KW-1) — the modal keyword action "it endures N" (bare, reminder stripped): N +1/+1
 // counters on the source, or an N/N white Spirit token when the source has left. Self-scoped (no targetType) →
 // routes native on triggers; "endure X" (variable) never matches → LOW → Arbiter. Distinct anchor → no overlap.
