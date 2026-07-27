@@ -372,6 +372,18 @@ function permIsSubtype(state, permId, subtype) {
 const reBareUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked\s*(?:\.|$)/;
 const reCantBlock = /(?:^|[\n.;])\s*(?:this creature|it) can't block\s*(?:\.|$)/;
 const reBlockOnlyFlying = /(?:^|[\n.;])\s*(?:this creature|it) can block only creatures with flying\s*(?:\.|$)/;
+// SELF-POWER BLOCK GATE (CR 509.1b, census slice 43) — "Creatures with power less than this creature's power
+// can't block it." (Wandering Wolf class, 10 cards) and its printed inverse "…with power greater than…"
+// (Silumgar Assassin). A DYNAMIC comparison against the attacker's own power, re-read live at block
+// declaration — the same shape skulk (CR 702.118b) already uses, which is why this is a comparison and not a
+// fixed-N filter (parseExceptBlockerFilters deliberately fails closed on "power" arms).
+//
+// Anchored to the SELF-SUBJECT, WHOLE-BOARD form ending at "it". The corpus siblings that must NOT match:
+//   • "…can't block CREATURES YOU CONTROL"       (Champion of Lambholt — a team-wide grant, not self)
+//   • "power less than the NUMBER OF ISLANDS…"   (Kraken of the Straits — a different dynamic quantity)
+//   • "…with power less than OR EQUAL TO…"       (a different comparison; ≤ is not <)
+// All three end up body-only → Arbiter, which is the safe direction.
+const reSelfPowerCantBlock = /(?:^|[\n.;])\s*creatures with power (less|greater) than this creature's power can't block it\s*(?:\.|$)/;
 // BLOCK-COUNT CAP (CR 509.1c — the menace-INVERSE) — "This creature can't be blocked by more than one creature."
 // A SET-level restriction on how MANY creatures may block this attacker (at most one), the mirror of menace's ≥2.
 // Enforced at block DECLARATION (legalChoices.legalBlockerActions): once this attacker already has one blocker,
@@ -700,6 +712,15 @@ export function defenderMeetsAttackLandRequirement(state, defenderId, requiremen
 export function isSelfUnblockable(card) { return reBareUnblockable.test(selfOracle(card)); }
 export function isSelfCantBlock(card) { return reCantBlock.test(selfOracle(card)); }
 export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfOracle(card)); }
+/**
+ * SELF-POWER BLOCK GATE — "less" | "greater" | null: the comparison under which a creature may NOT block
+ * this attacker, relative to the ATTACKER's power. Read live in canBlockAttacker (both powers layer-aware
+ * via creaturePower), and mirrored by isEnforcedEvasionClause so credit and enforcement flip together.
+ */
+export function selfPowerBlockGateOf(card) {
+  const m = selfOracle(card).match(reSelfPowerCantBlock);
+  return m ? m[1] : null;
+}
 /** BLOCK-COUNT CAP (CR 509.1c) — this attacker "can't be blocked by more than one creature" (menace-inverse). */
 export function isBlockedByAtMostOne(card) { return reBlockedByAtMostOne.test(selfOracle(card)); }
 /** Nightkin Ambusher — unblockable while the DEFENDING player has ≥1 rad counter (corpus-unique). */
@@ -750,6 +771,10 @@ export function isEnforcedEvasionClause(clause) {
   if (/^(?:this creature |it )?can't be blocked$/.test(c)) return true;
   if (/^(?:this creature |it )?can't block$/.test(c)) return true;
   if (/^(?:this creature |it )?can block only creatures with flying$/.test(c)) return true;
+  // SELF-POWER BLOCK GATE (CR 509.1b) — the classifier mirror of selfPowerBlockGateOf; canBlockAttacker
+  // enforces the comparison live, so a body whose only non-keyword text is this static is honestly native.
+  // Same wording, same two directions, same "it" ending — the team-wide and ≤ variants stay uncredited.
+  if (/^creatures with power (?:less|greater) than this creature's power can't block it$/.test(c)) return true;
   // BLOCK-COUNT CAP (CR 509.1c — menace-inverse) — "can't be blocked by more than one creature". Enforced in
   // legalChoices.legalBlockerActions (a 2nd blocker on this attacker is never offered), so a body whose only
   // non-keyword text is this static is honestly native.
@@ -959,6 +984,19 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // Skulk — not blockable by a creature with greater power (CR 702.118b).
   if (permanentHasKeyword(state, attackerId, "Skulk")) {
     if (creaturePower(bLook.permanent, state) > creaturePower(aLook.permanent, state)) return false;
+  }
+
+  // SELF-POWER BLOCK GATE (CR 509.1b) — "Creatures with power less/greater than this creature's power can't
+  // block it." Skulk's printed cousin, and enforced right beside it because it is the same dynamic
+  // comparison; both powers go through creaturePower, so counters, Auras, Equipment and any layer-7 effect
+  // on EITHER side are all accounted for at the moment blockers are declared.
+  {
+    const powGate = selfPowerBlockGateOf(aCard);
+    if (powGate) {
+      const bPow = creaturePower(bLook.permanent, state);
+      const aPow = creaturePower(aLook.permanent, state);
+      if (powGate === "less" ? bPow < aPow : bPow > aPow) return false;
+    }
   }
 
   // Fear — blockable only by artifact and/or black creatures (CR 702.36b).

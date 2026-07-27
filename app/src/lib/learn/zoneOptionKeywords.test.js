@@ -35,8 +35,15 @@ describe("zone-option / optional-cost keywords — real carriers flip (one per f
       "dredge — a draw-replacement OPTION from the GY; never offered → every draw stays normal"],
     ["Skarrgan Pit-Skulk", "Creature — Human Warrior",
       "Bloodthirst 1 (If an opponent was dealt damage this turn, this creature enters with a +1/+1 counter on it.)\nCreatures with power less than this creature's power can't block it.",
-      "NEGATIVE CONTROL — bloodthirst is not an OPTION keyword (it's a real ETB state change) so it was never in this family. It has since been BUILT properly on the conditional-enter-counters lane (bloodthirst.test.js); this carrier still parks on its OTHER clause, the power-comparison block restriction",
-      "body-only"],
+      // STALE PIN, RETIRED 2026-07-27 (census slice 43) — and retired for the RIGHT reason, which is why the
+      // expectation moved instead of the test being deleted. This card was a negative control on two counts:
+      // bloodthirst is not an OPTION keyword (it's a real ETB state change) and was later built properly on
+      // the conditional-enter-counters lane, and its SECOND clause — the power-comparison block restriction —
+      // was unmodeled, which is what kept it body-only. Slice 43 built that clause too (selfPowerBlockGateOf,
+      // enforced live in canBlockAttacker beside skulk). Both of this card's clauses are now genuinely
+      // modeled, so native is the CORRECT answer and the old pin was asserting a gap that no longer exists.
+      "bloodthirst + the power-comparison block restriction — BOTH clauses now modeled (slices earlier + 43)",
+      "native-body"],
     ["Enraged Giant", "Creature — Giant",
       "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nHaste",
       "improvise — convoke's artifact twin, pure cost-reduction"],
