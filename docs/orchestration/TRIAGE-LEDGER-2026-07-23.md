@@ -529,3 +529,34 @@ destroyed, which is about as bad an FP as this engine can produce.
 permanent id the immediate clause acted on) rather than re-parsing a pronoun at fire time. The scheduler's
 record is plain JSON and already carries `sourcePermanentId`, so adding a `boundPermanentId` is the natural
 shape. That is a proper slice with a proper gate — not a regex change.
+
+## READY-TO-BUILD — the BOUND-REFERENT delayed trigger (unlocks the 48 above)
+
+Designed 2026-07-25 while refusing the pronoun normalization. Not built in-session: its failure mode is
+severe enough to want a fresh head, see the FP note at the bottom.
+
+**The shape.** "Gain control of target creature until end of turn. It gains haste. **Sacrifice it** at the
+beginning of the next end step." (Threaten family) and "Create a token… **sacrifice it** at the beginning of
+the next end step." In both, "it" is the object the IMMEDIATE clause acted on — a runtime value, not
+something a parser can resolve from text.
+
+**Why it's tractable: the machinery already exists.** The engine already has a referent for exactly this —
+`target: "thatCreature"` resolves via `shared.triggeringTargets(state, ctx)` off `ctx.triggeringPermanentId`.
+So the delayed path does NOT need a new referent concept:
+
+1. `applyScheduleDelayed` captures the bound id at schedule time (`ctx.targets?.[0]?.id`, or the minted token
+   id for the create-then-sacrifice shape) onto the record as `boundPermanentId`. The record is plain JSON
+   already, so nothing about serialization changes.
+2. `drainDelayedTriggers` threads it into the fired trigger's context AS `triggeringPermanentId`.
+3. The delayed clause "sacrifice it" normalizes to "sacrifice that creature", which already parses HIGH.
+
+**⚠️ THE FP THAT MAKES THIS DANGEROUS, and the reason it wasn't rushed:** if the binding ever fails, the
+scheduled sacrifice silently does nothing — and the player KEEPS the token or the stolen creature forever.
+That is strictly better than printed, the forbidden direction, and it fails SILENTLY because the delayed
+trigger still fires and still logs. So:
+
+- If no bound id was captured, DO NOT SCHEDULE at all (and log it) — the same posture applyMobilize takes
+  when `ctx.defenderId` is absent. A no-op sacrifice is worse than an unmodeled card.
+- The runtime pins must cover BOTH shapes end to end: a stolen creature really returning/being sacrificed,
+  AND a created token really leaving. Assert the permanent is GONE, not merely that the trigger fired.
+- Pin the negative too: a card whose immediate clause binds nothing must stay non-native.
