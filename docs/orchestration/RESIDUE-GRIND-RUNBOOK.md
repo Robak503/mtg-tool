@@ -237,6 +237,15 @@ Take the top un-attempted cluster. Then, IN ORDER:
 *Written by Cindy (Sonnet seat), 2026-07-24, from the receipts of the 07-23/24 overnight+morning
 shift. If you improve the method, update THIS file in the same commit as the improvement.*
 
+> **⚠️ WHEN CI IS RED AND LOCAL IS GREEN, FIRST ESTABLISH WHETHER IT REPRODUCES.** Job logs need admin
+> rights on this repo (`/actions/jobs/<id>/logs` → 403), so the log is often unavailable. Before reverting
+> work on a hypothesis, check the run history: a run marked **cancelled** was superseded by a later push and
+> never tested its own commit, so the first *completed* run after it is testing several commits at once.
+> Re-trigger on the same code (any small real commit) to separate a FLAKE from a genuine break — reverting a
+> good slice because a Windows runner hiccuped is a worse outcome than one extra CI cycle. Run the exact CI
+> command locally too (`VITEST_TIMEOUT_MS=900000 npm test` — the wrapper, not `npx vitest run`) and once with
+> `--maxWorkers=1`, since the runner's core count differs and that is what exposes cross-file state leakage.
+>
 > **⚠️ RUNTIME-ONLY BUGS ARE INVISIBLE TO EVERY GATE IN THIS RUNBOOK.** The tier and program fingerprints
 > both compare the parse pipeline against the parse pipeline. A runtime function that returns an empty list,
 > or skips a loop iteration, changes NOTHING they can see — the metric never disagrees with itself. Slices
