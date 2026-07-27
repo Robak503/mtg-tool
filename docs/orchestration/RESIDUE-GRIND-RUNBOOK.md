@@ -242,7 +242,10 @@ shift. If you improve the method, update THIS file in the same commit as the imp
 > work on a hypothesis, check the run history: a run marked **cancelled** was superseded by a later push and
 > never tested its own commit, so the first *completed* run after it is testing several commits at once.
 > Re-trigger on the same code (any small real commit) to separate a FLAKE from a genuine break — reverting a
-> good slice because a Windows runner hiccuped is a worse outcome than one extra CI cycle. Run the exact CI
+> good slice because a Windows runner hiccuped is a worse outcome than one extra CI cycle. **This is not
+> hypothetical: 2026-07-27, `test` went red on a docs-only commit, three local runs were green (including the
+> exact wrapper command and `--maxWorkers=1`), the re-trigger on IDENTICAL code went green. A flake. Had I
+> reverted the slice the evidence pointed at, 14 verified cards would have been thrown away for nothing.** Run the exact CI
 > command locally too (`VITEST_TIMEOUT_MS=900000 npm test` — the wrapper, not `npx vitest run`) and once with
 > `--maxWorkers=1`, since the runner's core count differs and that is what exposes cross-file state leakage.
 >
