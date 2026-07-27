@@ -607,3 +607,31 @@ is a prerequisite for both, and it is its own slice.
 **Suggested order:** the exile-from-graveyard cost first — census slice 33 just built that exact cost kind
 for the SPELL additional-cost lane, so the vocabulary and its victim-selection policy already exist and
 only need porting to the activated-cost parser.
+
+---
+
+## SCOPED — DETHRONE (CR 702.104), 5 sole blockers, with one real design question
+
+"Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1
+counter on it.)" The keyword's ability is entirely in reminder parens, so it synthesizes like renown /
+mobilize / backup — three precedents built 2026-07-25, all straightforward.
+
+**What is missing is a life-comparison vocabulary.** The engine has no "player with the most life" predicate
+today; `triggers.js` deliberately leaves the equipment rider "attacks the player with the most life"
+(Seraphic Greatsword) UNDETECTED as a safe FN. The comparison itself is trivial — `ctx.defenderId` is
+threaded on the attacks event and life totals are on the players — so the work is small.
+
+**⚠️ THE DESIGN QUESTION, and the reason this was not built on sight: WHEN is the condition evaluated?**
+Dethrone's life check is part of the TRIGGER CONDITION (CR 603.2 — it is checked as the attack is declared),
+not part of the effect. So:
+
+- Putting the check inside the ATOM (the renown/monstrosity pattern, where a latch lives in the resolver)
+  evaluates it at RESOLUTION. If a life total changes between declare-attackers and resolution, the engine
+  gets it wrong — the trigger should already have fired or not.
+- Putting it in an INTERVENING-IF is also wrong: an intervening-if is re-checked at resolution by design,
+  which is the same divergence.
+- The correct home is the FIRE decision — gate it in `checkAttackTriggers`, where the defender is known and
+  the attack has just been declared.
+
+That is a different shape from the three keyword syntheses shipped today, which is why it wants a fresh
+head rather than a tired pattern-match. Everything else about it is routine.
