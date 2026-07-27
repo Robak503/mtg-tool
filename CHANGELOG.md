@@ -8,6 +8,30 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.2] — 2026-07-27
+
+More of your deck plays itself. Around 60 more cards are handled natively instead of being handed off,
+and three rules the game was printing but ignoring are now enforced.
+
+### Changed
+- **Keywords that only ever *cost* you something are no longer a reason to hand a card off.** Delve,
+  replicate, fuse, squad and myriad all give you an option you can simply decline — and declining is a
+  real, complete play. The simulator plays those cards at full price, which is exactly what the card
+  says happens when you don't take the option.
+- **Crucible of Worlds and friends work.** "You may play lands from your graveyard" is now offered as a
+  real play. It still costs your land drop for the turn and still needs to be your main phase — the
+  permission changes where the land comes from, nothing else.
+
+### Fixed
+- **"Creatures your opponents control enter tapped" now applies to the right things.** Cards like
+  Imposing Sovereign and Manglehorn name a specific kind of permanent (creatures, or artifacts), and the
+  game now respects that instead of treating every such effect as covering everything.
+- **Dethrone works, and works correctly in a multiplayer pod.** The creature only gets its counter when
+  you attack the player who's actually ahead — if *you're* the one on the throne, nobody gets dethroned.
+- **A creature that can't be blocked by smaller creatures is now actually hard to block.** "Creatures
+  with power less than this creature's power can't block it" was being ignored. The comparison uses
+  current power on both sides, so counters, Auras and Equipment all count.
+
 ## [0.149.1] — 2026-07-27
 
 A grind release: more of your deck plays itself correctly, and the coverage number got more honest
