@@ -839,6 +839,19 @@ export function combatKeywordClauseParser(clause) {
   if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/.test(t)) {
     return { op: "tap", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "opponent" }], noUntapNext: true };
   }
+  // TAP-CREATURE-LOCKDOWN (CR 302.6) — the single-target creature sibling of the nonland-permanent form above
+  // (Ojutai's Breath / Crippling Chill as a bare spell; Frost Lynx / Frost Trickster / Spire Patrol off an ETB
+  // trigger). splitClauses folds the rider sentence on with " and it …" (normalizing the ETB shape's "That
+  // creature" pronoun to "it"), so the lockdown rides the SAME tap atom — no cross-atom "it" to resolve —
+  // and applyTapEffect flags each tapped target via setDoesNotUntapNext. untapAll then skips exactly ONE untap
+  // step and clears the flag as it skips (self-clearing, verified in gameState.untapAll), so this cannot
+  // freeze a creature permanently. Restriction set mirrors the stun sibling below. Whole-clause anchored ($):
+  // a bare tap without the rider, or any other rider, falls through → low → Arbiter (CREED: whole clause or
+  // nothing) — which is what keeps the conditional variants (Guardian of Tazeem, Celestial Regulator) out.
+  const tapLockM = t.match(/^tap target creature(?:\s+(an opponent controls|you don't control|defending player controls))? and it doesn't untap during its controller's next untap step$/);
+  if (tapLockM) {
+    return { op: "tap", targetType: "creature", restrictions: tapLockM[1] ? [{ kind: "controller", who: "opponent" }] : [], noUntapNext: true };
+  }
   // STUN (CR 122.1c) — "tap target creature [an opponent controls] and put a stun counter on it" (Gilded
   // Scuttler, Grappling Kraken, Frostfist Strider) / "tap up to N target creature and put a stun counter on
   // it" (Splash Lasher, Utrom Scientists). The stun rider FOLDS onto the SAME tap atom (splitClauses joins the
@@ -1127,6 +1140,17 @@ export function pumpClauseParser(clause) {
   if (pg) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // ENCHANTED-SUBJECT keyword grant (census slice 36) — "Enchanted creature gains hexproof until end of
+  // turn", the effect of an Aura's own ETB trigger (Starlit Mantle, Accelerated Evolution). Identical to the
+  // targeted form above except the referent: no target is CHOSEN, it is the Aura's host, resolved at
+  // resolution by shared.enchantedTargets off the source's `attachedTo`. That referent already existed (and
+  // was made layer-aware earlier the same day), so this is a subject widening rather than new machinery.
+  // A detached Aura, or a host that has left, resolves to [] — a clean no-op, never a fabricated grant.
+  pg = t.match(/^enchanted creature gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", target: "enchanted", targetType: null, ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
   let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
   if (pctrl) {

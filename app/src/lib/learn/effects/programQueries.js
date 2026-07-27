@@ -266,6 +266,11 @@ export function atomTargetIntent(atom) {
       // for non-own targets, which is correct for the entire ETB-removal family.
       if (tt.includes("YouControl") || tt.includes("youControl") || tt === "self") return "own";
       return "enemy";
+    case "transfer-counters":
+      // COUNTER-TRANSFER (census slice 37) — "put its counters on target creature you control": the printed
+      // subject is already restricted to your own creatures, and moving a dead creature's counters onto one
+      // of them is purely beneficial. Unambiguously own-side; there is no enemy reading of it at all.
+      return "own";
     case "discard":
     case "discard-chosen":
       // "target player/opponent discards" — harmful, enemy-side (Rottenheart Ghoul, Kemuri-Onna).

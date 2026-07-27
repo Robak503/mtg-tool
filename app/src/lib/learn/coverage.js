@@ -30,10 +30,10 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -67,7 +67,7 @@ import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the emin
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic
-import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
+import { parseKickerCounterCreature, parseKickerEtbCreature, stripKickerText } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
 import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.96) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
 
@@ -229,6 +229,35 @@ export const COVERED_KEYWORDS = [
   // (CR 702.100f — Watchful Radstag's copy rider). The bare "evolve" residue matches via the exact ===
   // check; allTriggerSentencesModeled bumps the shaped count (evolveShaped).
   "evolve",
+  // KW-RENOWN (CR 702.111, census slice 2026-07-25) — ENFORCED end to end: detectTriggers synthesizes the
+  // combat-damage-to-player descriptor from the printed keyword (renownKeywordValue), and the `renown` atom
+  // applies the CR 702.111a latch — if it isn't renowned, place N +1/+1 counters through the standard
+  // addCounter chokepoint (doublers/watchers compose) and set the flag; an already-renowned creature dealing
+  // damage again does nothing. The keyword prints as "renown N", so it matches via the startsWith check;
+  // allTriggerSentencesModeled bumps the shaped count (renownShaped).
+  "renown",
+  // KW-MOBILIZE (CR 702.174) — ENFORCED end to end: detectTriggers synthesizes the attacks descriptor from
+  // the printed keyword (mobilizeKeywordValue), and the `mobilize` atom mints N tapped 1/1 red Warriors AND
+  // REGISTERS THEM IN state.combat.attackers against the source's defender. That registration is the whole
+  // point: attacking-ness is combat.attackers membership, not a permanent field, so without it the tokens
+  // would be inert and this credit would be a lie. The sacrifice rides the CR 603.7 delayed scheduler at
+  // the next end step. Prints as "mobilize N", so it matches via the startsWith check; the shaped count is
+  // bumped by mobilizeShaped below.
+  "mobilize",
+  // KW-BACKUP (CR 702.166) — ENFORCED as the SELF-TARGET line: detectTriggers synthesizes an ETB whose
+  // effectClause is ordinary modeled text ("put N +1/+1 counters on this creature"), so it resolves through
+  // the existing self-scoped add-counter atom with no new runtime code. The narrowing is deliberate and
+  // stated at backupKeywordValue: self-target is one of the card's own legal choices (forced when it is your
+  // only creature) and makes the "if that's another creature" grant vacuous, so the engine plays a real
+  // legal line. It simply never offers backup on ANOTHER creature — an under-offer, the safe direction.
+  "backup",
+  // (KW-FIREBENDING is NOT credited by this list — it needs a DIGIT-anchored gate, exactly like bloodthirst
+  //  below. A startsWith("firebending ") credit would also swallow "Firebending X, where X is this creature's
+  //  power", whose amount the add-mana atom cannot express; the engine would then add a WRONG fixed amount of
+  //  mana. See reFirebendingFixed.)
+  // (KW-BLOODTHIRST is NOT credited here — it needs a DIGIT-anchored gate, see reBloodthirstFixed below.
+  //  A startsWith("bloodthirst ") credit would also accept "Bloodthirst X", whose counters the runtime
+  //  cannot place — caught by the per-flip audit on Petrified Wood-Kin before it shipped.)
   // CASCADE (CR 702.85) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers (a selfCast
   // `cascade` trigger) + fired by checkCastTriggers (dig the library to a cheaper nonland, park the free-cast/
   // decline decision at the action layer). A SINGLE "cascade" line matches via the `=== "cascade"` check; the
@@ -254,6 +283,70 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  * ("Invisible Stalker can't be blocked.") reads as a covered self-clause; a nameless caller simply
  * under-claims such self-clauses (safe — false-negative).
  */
+/**
+ * SELF NO-UNTAP STATIC (BLITZ UP-1, CR 302.6) — "This <permanent> doesn't untap during your untap step."
+ * The runtime HONORS this (gameState.selfPreventsUntap skips the source at the untap step), so the metric
+ * must credit it wherever it appears, or the two diverge in the FN direction. It was previously stripped by
+ * an inline copy inside permanentTriggersCovered ONLY, which is why a card whose other text was a modeled
+ * TRIGGER flipped while the identical card with a modeled ACTIVATED ability parked — a pure path accident.
+ * One shared helper now, so the three residue paths cannot drift apart again.
+ *
+ * The subject anchors MIRROR selfPreventsUntap exactly and deliberately:
+ *   - "this <noun>"     — the modern self reference;
+ *   - the CARD'S OWN NAME — legacy printings templated it (Goblin Sharpshooter, Mana Vault; CR 201.4).
+ * It must NOT match "Enchanted creature doesn't untap …" (the ATTACHED form, a different runtime path) nor
+ * the "your NEXT untap step" wording (a one-shot rider on a mana ability that the runtime refuses).
+ */
+/**
+ * NO-MAXIMUM-HAND-SIZE (CR 402.2 / 514.1 — Reliquary Tower / Spellbook / Kruphix). ENFORCED at runtime:
+ * gameEngine.cleanupDiscardExcess returns 0 for a player who controls ANY permanent printing this line, so
+ * the cleanup discard genuinely never happens. The metric credited only the ONE-SHOT dice-roll variant
+ * ("…for the rest of the game", the Ancient Dragon rider) and not the bare permanent static — the same
+ * one-path-only split this session has hit repeatedly, with the runtime already ahead of the metric.
+ *
+ * Anchored to the exact printed sentence. A card that MODIFIES the maximum instead of removing it
+ * ("Your maximum hand size is four" — Cursed Rack) does NOT match: cleanupDiscardExcess deliberately
+ * SUSPENDS enforcement for everyone when it sees such text rather than guess, so crediting those would
+ * claim a number the engine never applies. Left as residue → Arbiter (FN-safe).
+ */
+const NO_MAX_HAND_METRIC_RE = /(?:^|[\n.;])\s*you have no maximum hand size\s*(?:\.|$)\s*/gi;
+export function stripModeledNoMaxHandSize(oracle) {
+  return String(oracle || "").replace(NO_MAX_HAND_METRIC_RE, " ").replace(/^\s+/, "");
+}
+
+const SELF_NO_UNTAP_NOUNS_METRIC = "creature|artifact|permanent|land|enchantment|equipment|vehicle";
+export function stripModeledSelfNoUntap(oracle, name) {
+  // END-ANCHORED, exactly like gameState.selfPreventsUntap. Without the anchor a CONDITIONAL variant
+  // ("…doesn't untap during your untap step IF IT HAS A DEPLETION COUNTER ON IT" — Veldt, Lava Tubes,
+  // River Delta, Timberline Ridge, Land Cap; "…if an opponent controls two or more creatures" — Walking
+  // Dream) matched its PREFIX and left a dangling "if …" fragment behind. No card flipped on it, because
+  // that fragment survives as residue — but the runtime refuses those conditionals outright, so the metric
+  // was crediting something the engine never honors and only an unrelated leftover was keeping the card
+  // parked. A loaded gun of exactly the kind slice 10 removed. Found by probing the two implementations
+  // against each other corpus-wide: 11 disagreements, now zero.
+  let out = String(oracle || "").replace(
+  // The trailing `\s*` matters: without it the strip leaves a blank leading line, which downstream clause
+  // splitting reads as an empty residue clause and parks the card (caught by the fingerprint — Island Fish
+  // Jasconius dropped native-trigger → body-only on the first cut of this anchor).
+    // The guard is a NEGATIVE LOOKAHEAD for a trailing "if …", not an end-of-clause anchor. Requiring a
+    // terminator looked cleaner but was wrong: this helper also runs on ALREADY-STRIPPED intermediate
+    // residue, where an earlier strip may have consumed the sentence's period, so the anchor silently
+    // stopped matching and dropped Island Fish Jasconius native-trigger → body-only. The lookahead refuses
+    // exactly the conditional variants the runtime refuses and changes nothing else.
+    new RegExp(`\\bthis (?:${SELF_NO_UNTAP_NOUNS_METRIC}) doesn['’]t untap during your untap step\\b(?!\\s+if\\b)\\.?\\s*`, "gi"),
+    " ",
+  );
+  const n = String(name || "");
+  if (n) {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/'/g, "['’]");
+    out = out.replace(new RegExp(`\\b${esc} doesn['’]t untap during your untap step\\b\\.?\\s*`, "gi"), " ");
+  }
+  // The separator the replacements emit is a SPACE, which is right mid-text but leaves a leading one when
+  // the stripped line was first on the card. Downstream clause reads anchor on `^`, so that stray space is
+  // load-bearing: it dropped Island Fish Jasconius native-trigger → body-only until this trim.
+  return out.replace(/^\s+/, "");
+}
+
 export function isKeywordOnly(oracle, name) {
   let t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
@@ -296,6 +389,15 @@ export function isKeywordOnly(oracle, name) {
     rePrototypeCost.test(c) ||
     reNinjutsuCost.test(c) ||
     rePartnerBare.test(c) ||
+    // ZONE-OPTION / OPTIONAL-COST family (census slice 2026-07-24 — see the block comment above the consts)
+    reGyZoneOptionCost.test(c) ||
+    reReinforceCost.test(c) ||
+    reBloodthirstFixed.test(c) ||
+    reFirebendingFixed.test(c) ||
+    reDredgeCost.test(c) ||
+    reOptionalAddlCost.test(c) ||
+    reImproviseBare.test(c) ||
+    reTypecyclingCost.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
     // name was already normalized to "this creature" above). ENFORCED in opponentAI.pickAttackPlan (the
     // creature is force-declared as an attacker when able), so it's a modeled static, not residue.
@@ -397,6 +499,67 @@ const reMadnessCost = /^madness (?:\{[^}]+\})+$/;
 // never takes — so recognizing the line is CREED-safe (the ninjutsu/morph rationale). Anchored on the "{cost} —
 // X/Y" shape so it can only match a true prototype line.
 const rePrototypeCost = /^prototype (?:\{[^}]+\})+ [—–-] \d+\/\d+$/;
+
+// ===== ZONE-OPTION / OPTIONAL-COST KEYWORD FAMILY (census slice, 2026-07-24) ==========================
+// Ten keywords from the residue census's top clusters, every one credited on the SAME blessed test the
+// ninjutsu/morph/madness/flashback/transmute precedents shipped with: the keyword's entire text is an
+// OPTIONAL entry, payment, or zone-option with NO engine lane, and a normal hard-cast resolves the card
+// byte-identically to its printed self — the unmodeled part is an option the player loses (a safe FN),
+// never a mis-resolution (the forbidden FP). The caller still validates every OTHER clause all-or-nothing,
+// so a carrier whose second ability is unmodeled stays body-only regardless of these credits.
+//
+// GY/hand ZONE-OPTIONS (the flashback/transmute rationale — an ability usable only from a non-battlefield
+// zone the engine never offers; on the battlefield the line is inert):
+//   evoke (CR 702.74 — alt cost whose sac-on-ETB applies ONLY to an evoked cast; hard-cast = normal body)
+//   unearth (702.84 — GY-activated one-shot return; census #1 sole-blocker at 18)
+//   disturb (702.146 — cast transformed from GY) · embalm (702.128) · scavenge (702.96 — GY-activated
+//   counters) · mayhem (discarded-this-turn GY cast window)
+//   eternalize (702.129, ADDED 2026-07-25 with the audit its first pass deferred): embalm's exact twin —
+//   exile from the GY for a token copy. Audited per the suspend rule: of 11 carriers only Lazotep Archway
+//   lacks a mana cost, and it's a LAND (played, not cast) — so every carrier is normally playable and the
+//   keyword is a pure extra option. (Suspend stays refused: its no-mana-cost carriers CANNOT be played at all.)
+//   encore (702.130, ADDED 2026-07-27): "{cost}, Exile this card from your graveyard: For each opponent,
+//   create a token copy that attacks that opponent this turn if able." A GY-activated ability in the exact
+//   unearth/scavenge class — while the creature is on the BATTLEFIELD, the only place the engine plays it,
+//   the line is inert. Audited per the suspend rule: ALL 26 carriers are creatures with a printed mana cost
+//   (zero exceptions, not even a land), so every one is normally castable and encore is a pure extra option.
+const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|eternalize|scavenge|mayhem|encore) (?:\{[^}]+\})+$/;
+// REINFORCE N—{cost} (CR 702.77) — a HAND-only discard-activated ability ("{cost}, Discard this card: Put N
+// +1/+1 counters on target creature"), the cycling/typecycling class: an option from hand the engine never
+// offers, so the card on the battlefield plays exactly as printed. Same castability audit as eternalize —
+// of 9 carriers only Rustic Clachan lacks a mana cost, and it too is a LAND. The number-then-em-dash shape
+// mirrors the prototype/suspend templating; anchored so a reinforce-referencing static can never match.
+const reReinforceCost = /^reinforce \d+\s*[—–-]\s*(?:\{[^}]+\})+$/;
+// KW-BLOODTHIRST (CR 702.54) — credited ONLY for a FIXED digit count, mirroring the cycling gate's
+// exact-shape discipline: entersWithConditionalCounters synthesizes {n, condition} from "Bloodthirst N"
+// and resolvers.js places those counters as the creature enters, so the keyword is genuinely enforced.
+// "Bloodthirst X" (Petrified Wood-Kin — X = damage dealt to your opponents this turn) is DELIBERATELY
+// excluded: the synthesizer returns null for it, so a startsWith-style credit would mark the card native
+// while the runtime placed nothing. Caught by this slice's own per-flip audit before it shipped.
+const reBloodthirstFixed = /^bloodthirst \d+$/;
+// firebending N (census slice 41) — "Whenever this creature attacks, add {R}. This mana lasts until end of
+// combat." ENFORCED: detectTriggers synthesizes the self-scoped attacks descriptor and misc.js resolves it to
+// the add-mana atom carrying the end-of-combat hold, so the mana is really added AND really survives the rest
+// of combat. Digit-anchored for the same reason as bloodthirst above: "Firebending X, where X is this
+// creature's power" is a dynamic amount the atom cannot express, and it must keep failing this gate.
+const reFirebendingFixed = /^firebending \d+$/;
+// dredge N (CR 702.52) — a REPLACEMENT OPTION on draws while in the GY ("instead of drawing, return this
+// and mill N"). Never offered → every draw stays a normal draw, resolution faithful. Digit tail, not brace.
+const reDredgeCost = /^dredge \d+$/;
+// OPTIONAL ADDITIONAL COSTS at cast (CR 702.33 kicker / 702.174 offspring): unpaid = the printed base mode,
+// which IS a complete, real game mode (an unkicked Skizzik is exactly what the card says it is). The engine
+// never pays them → base mode always → faithful. A body clause conditioned on kicked-ness ("if it was
+// kicked") is a SEPARATE clause judged on its own gate — crediting the cost line cannot force-flip those.
+const reOptionalAddlCost = /^(?:kicker|multikicker|offspring) (?:\{[^}]+\})+$/;
+// IMPROVISE (CR 702.126) — convoke's artifact twin, pure cost-reduction (tap artifacts to help pay).
+// The spell-side strip already ships convoke/affinity on exactly this basis (parseHelpers
+// COST_ONLY_KEYWORD_LINE); this is the permanent-side mirror for artifact creatures (Fen Hauler).
+const reImproviseBare = /^improvise$/;
+// TYPECYCLING (CR 702.29e-f — plains/island/swamp/mountain/forest/land/basic-landcycling + the tribal
+// slivercycling/wizardcycling): the same hand-only discard-activated option as cycling (already credited
+// above), tutoring the named type instead of drawing. Never offered → the card in hand plays as printed.
+// Curated alternation, brace-cost tail — a typecycling-cost-reducer static never matches.
+const reTypecyclingCost = /^(?:plains|island|swamp|mountain|forest|land|basic land|sliver|wizard)cycling (?:\{[^}]+\})+$/;
 
 // KW-PARTNER (CR 702.124a) — credit ONLY the EXACT bare "partner" keyword (reminder text already stripped by
 // isKeywordOnly). Partner is a DECKBUILDING keyword ("you can have two commanders if both have partner"),
@@ -711,6 +874,13 @@ function allTriggerSentencesModeled(card, oracle) {
   const undyingShaped = undyingKeywordCount(oracle);
   // KW-EVOLVE — the same reminder-text keyword synthesis; bump by 1 so shaped === detected holds.
   const evolveShaped = evolveKeywordCount(oracle);
+  // KW-RENOWN (census slice 2026-07-25) — the same reminder-text keyword synthesis; bump by 1 when a
+  // printed "Renown N" is present so shaped === detected holds (a GRANTED renown contributes 0 to both).
+  const renownShaped = renownKeywordValue(oracle) > 0 ? 1 : 0;
+  // KW-MOBILIZE — same reminder-text synthesis; bump by 1 when a printed "Mobilize N" is present.
+  const mobilizeShaped = mobilizeKeywordValue(oracle) > 0 ? 1 : 0;
+  // KW-BACKUP — same reminder-text synthesis; bump by 1 when a printed "Backup N" is present.
+  const backupShaped = backupKeywordValue(oracle) > 0 ? 1 : 0;
   // FLANKING (BLITZ FL-1) — one synthesized descriptor PER printed instance (CR 702.25b); bump by the
   // structural count so multiples reconcile (grants and "without flanking" phrases contribute 0).
   const flankingShaped = flankingKeywordCount(oracle);
@@ -733,7 +903,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const modularShaped = modularKeywordValues(oracle).length;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
@@ -839,7 +1009,12 @@ export function permanentTriggersCovered(card) {
     // wording so the card reads keyword-only (Junk Winder's only other text is the stripped Affinity line).
     // Anchored to the exact untap-lockdown phrasing, so it can only consume this modeled follow-up (FN-safe).
     // Curly apostrophe tolerated.
-    .replace(/\bit doesn['’]t untap during its controller['’]s next untap step\b\.?\s*/gi, " ")
+    // Both printed pronouns for the SAME rider: Junk Winder's "It doesn't untap …" and the single-target
+    // creature family's "That creature doesn't untap …" (Frost Lynx / Kor Hookmaster / Watertrap Weaver — the
+    // ETB shape refers to the tapped creature by noun, not pronoun). Identical justification and identical
+    // anchoring: the rider is part of a trigger effect already proven HIGH by allTriggerSentencesModeled above,
+    // and the trigger-sentence strip stops at the first period, leaving it as apparent residue.
+    .replace(/\b(?:it|that creature) doesn['’]t untap during its controller['’]s next untap step\b\.?\s*/gi, " ")
     // SELF NO-UNTAP LOCKDOWN (BLITZ UP-1) — the CONTINUOUS static "This <permanent> doesn't untap during your
     // untap step." on the untap-tax family (Brass Man / Brass Gnat / Goblin War Wagon / Goblin Dirigible; the
     // pay-to-untap escape is the upkeep trigger, stripped by the "if you do" tail below). NOW MODELED in the
@@ -848,7 +1023,14 @@ export function permanentTriggersCovered(card) {
     // apostrophe tolerated); the "enchanted …" attached form (line ~806-region attachmentPreventsUntap) and the
     // "each other player's untap step" Seedborn phase static are DISJOINT and untouched. FN-safe: a card whose
     // ONLY residue is this line reads keyword-only after the strip and the runtime plays it faithfully.
-    .replace(/\bthis (?:creature|artifact|permanent|land|enchantment|equipment|vehicle) doesn['’]t untap during your(?: next)? untap step\b\.?\s*/gi, " ")
+    // SELF NO-UNTAP STATIC — delegated to the shared stripModeledSelfNoUntap helper (defined near
+    // isKeywordOnly) so this path, permanentActivatedCovered's residue, and the native-body check all credit
+    // the SAME wording. They used to differ: only this one stripped it, which is why a card with a modeled
+    // TRIGGER flipped while the identical card with a modeled ACTIVATED ability parked.
+    // The helper's anchors mirror gameState.selfPreventsUntap exactly, including its deliberate refusal of the
+    // "your NEXT untap step" wording — that is a one-shot rider on a mana ability (the Cloudcrest Lake
+    // slow-dual family) with no runtime lane, and crediting what the runtime ignores is the
+    // metric-says-faithful / plays-wrong divergence the CREED forbids.
     // DICE-ROLL (CR 726) — the result-scaled payoff sentences that FOLLOW a combat-damage trigger's "roll a
     // d20." are part of THAT trigger's effect (detectTriggers folds them into the effectClause, which parses
     // HIGH in allTriggerSentencesModeled above — proven before this residue check runs), but the trigger
@@ -953,7 +1135,7 @@ export function permanentTriggersCovered(card) {
     // Flying/trample + the enters-with-X line, both handled by isKeywordOnly). FN-safe: anchored to the exact
     // directive, and the HIGH gate above already vouched the half-X effect is modeled.
     .replace(/\bround (?:down|up) each time\b\.?\s*/gi, " ");
-  return isKeywordOnly(residue, card?.name);
+  return isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(residue, card?.name)), card?.name);
 }
 
 /**
@@ -1019,9 +1201,12 @@ export function permanentActivatedCovered(card) {
   // modal activated ability — Koma — is stripped as ONE line, not left as mode-bullet residue; same fold the
   // parser uses), then drop every activated-ability-shaped line (the same shape the parser detects).
   // The remainder (keywords, and any trigger/static text) must be keyword-only/empty.
-  const residue = foldModalBulletLines(stripReminder(card.oracle || ""))
-    .filter((line) => !isActivatedAbilityLine(line, card))
-    .join("\n");
+  const residue = stripModeledSelfNoUntap(
+    foldModalBulletLines(stripReminder(card.oracle || ""))
+      .filter((line) => !isActivatedAbilityLine(line, card))
+      .join("\n"),
+    card?.name,
+  );
   return isKeywordOnly(residue, card?.name);
 }
 
@@ -1100,7 +1285,14 @@ export function permanentFullyCovered(card) {
   // dangling "…any one color" + orphan-quote fragment (neither parses → false residue → a false body-only on a
   // fully-modeled MIXED card). Walking quote depth keeps the quoted ability intact. Behavior-identical to the
   // old `/[\n.;]+/` split for quote-free residue (the common case — every existing native-mixed card).
-  for (const clause of abilityClauses(afterActivated)) {
+  // SELF-NAME NORMALIZATION (census slice 21) — normalize the residue EXACTLY as staticAbilitiesCoverCard
+  // does before splitting it. clauseProducesStatic's grammar is anchored on the modern self reference
+  // ("this creature's power and toughness are each equal to …"), so a legacy printing that names ITSELF
+  // (Mortivore, Psychosis Crawler — CR 201.4) read as unmodeled residue here while the single-mechanism
+  // static tier credited the very same line. That mismatch is why a card with a modeled STATIC plus a
+  // modeled ACTIVATED ability fell between both tiers and landed in body-only despite every piece being
+  // understood. Same normalizer, same grammar, both paths.
+  for (const clause of abilityClauses(selfNormalizeOracle(afterActivated, card?.name, card?.type || card?.type_line))) {
     if (clauseProducesStatic(clause)) continue;  // a modeled static clause
     if (isKeywordOnly(clause, card?.name)) continue;  // keyword-only / vanilla
     return false;                                 // unmodeled residue
@@ -1159,10 +1351,16 @@ export function permanentEquipmentCovered(card) {
   // to a commander you control) and "legendary creature" (equipQuality:"legendary", restricted to a Legendary
   // target — Excalibur, Sword of Eden). Any OTHER "Equip <quality> …" stays residue → body-only (never over-claimed).
   const modeledEquipLine = /^equip(?:\s+commander|\s+legendary\s+creature)?\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
+  // ATTACH-AS-A-PLAIN-ACTIVATED-ABILITY (CR 701.3 — the Cranial Plating / Horned Helm cycle): the same attach
+  // effect as Equip, printed as "{cost}: Attach this Equipment to target creature you control." parseActivated-
+  // Abilities returns it as isEquipAbility, so the all-abilities gate above ALREADY required it to be modeled;
+  // it just isn't shaped like an "Equip {cost}" line, so without this the residue loop rejects the whole card.
+  // Anchored to the exact modeled wording + a mana-only cost, so it can only admit the form the parser models.
+  const modeledAttachAbility = /^(?:\{[^}]+\})+:\s*attach this equipment to target creature you control\.?$/i;
   for (const clause of equipmentAbilityClauses(stripReminder(noTrig.oracle || ""))) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;
-    if (modeledEquipLine.test(c)) continue;
+    if (modeledEquipLine.test(c) || modeledAttachAbility.test(c)) continue;
     // A leftover trigger-shaped clause (When/Whenever/At) is an UNCOUNTED trigger and must NOT be whitelisted
     // by the "equipped creature" clause below. When two triggers share a line (Novel Nunchaku: "When this
     // Equipment enters, attach it … . When you do, equipped creature fights …"), the noTrig strip's regex
@@ -1659,6 +1857,22 @@ export function classifyCard(card) {
       oracle: String(card.oracle).replace(/If this card is in your opening hand, you may begin the game with it on the battlefield\.?\s*/i, "").trim(),
     };
   }
+  // SUSPEND pre-strip (CR 702.62), gated on the card HAVING A PRINTED MANA COST. Suspend is an optional
+  // alternative way to start casting a card — "Rather than cast this card from your hand, pay {cost} and
+  // exile it with N time counters". For a card with a real mana cost the HARD CAST resolves byte-identically,
+  // so the line is vacuous exactly like flashback / escape / awaken, which textNormalize already strips on
+  // the SPELL path (CAST_KEYWORD_LINE). Permanents never pass through that strip, so a creature whose only
+  // other text was "Suspend 4—{1}{G}" (Durkwood Baloth, Ivory Giant, Duskrider Peregrine …) parked for a
+  // line that cannot change how it plays. Not offering suspend stays a SAFE false negative.
+  //
+  // THE GATE IS THE WHOLE POINT. A card with NO mana cost — Lotus Bloom, Ancestral Vision, Crashing
+  // Footfalls — can ONLY be played by suspending it (CR 202.1a: no mana cost means it can't be cast at all,
+  // which slice 18 just enforced in legalChoices). Stripping the line there would claim a card the engine
+  // can never put on the stack by any route. So the strip requires a non-empty printed cost, and those cards
+  // keep the line as honest residue.
+  if (String(card?.mana ?? card?.mana_cost ?? "").trim() && /^[ \t]*suspend \d+\s*[—–-]/im.test(card?.oracle || "")) {
+    card = { ...card, oracle: String(card.oracle).replace(/^[ \t]*suspend \d+\s*[—–-][^\n]*$/gim, "").replace(/\n{2,}/g, "\n").trim() };
+  }
   const type = String(card?.type || "").toLowerCase();
   const oracle = card?.oracle || "";
   // A planeswalker (PW-1) — keyed on the FRONT face (castsAsPlaneswalker) so a creature-front DFC
@@ -1962,7 +2176,26 @@ export function classifyCard(card) {
   const etCard = crewOracle !== oracle || isTapped
     ? { ...card, oracle: (isTapped ? crewOracle.replace(tapRe, "\n") : crewOracle).trim() }
     : card;
-  if (isKeywordOnly(etOracle, card?.name)) return "native-body";
+  // CREED — AN ADDITIONAL CAST COST ON A PERMANENT IS NOT ENFORCED (census slice 33). extractAdditionalCosts
+  // is consumed ONLY on the spell program path (parser.js), so legalChoices gates and the dispatcher charges
+  // these costs for instants/sorceries and for nothing else. A permanent carrying one is therefore castable
+  // for its bare mana cost — strictly cheaper than printed, the same over-permissive shape as the free
+  // Ancestral Visions cast. Two cards reached native this way (Soulbright Seeker, Lys Alana Dignitary, both
+  // "behold an X or pay {2}") and are parked here until the permanent cast path charges the cost too.
+  //
+  //   DO NOT WIDEN THIS TO ALTERNATIVE COSTS. An ADDITIONAL cost makes the card MORE expensive, so skipping
+  //   it is cheaper-than-printed — the forbidden direction. An ALTERNATIVE cost ("You may pay {1} and return
+  //   a basic land rather than pay this spell's mana cost" — the Borderpost cycle) is OPTIONAL and usually
+  //   cheaper, so not offering it means the engine pays the FULL printed cost: an under-offer, which is the
+  //   safe direction. Five Borderposts read native for exactly that reason and are correct (checked
+  //   2026-07-25) — parking them would lose real cards to fix nothing.
+  //   READ THE REMINDER-STRIPPED TEXT. A real additional cost is never inside reminder parens, but the
+  //   PHRASE appears in the reminder text of several keywords, on 16 permanents that print no such cost at
+  //   all (Wasteland Raider, Ruthless Radrat, Securitron Squadron …). Testing the raw oracle would park
+  //   those for a cost they don't have. Latent rather than live today — all 16 are body-only for other
+  //   reasons — but it is the same loaded gun as the "your NEXT untap step" credit, so it is closed here.
+  if (/\bas an additional cost to cast this spell,/i.test(String(oracle || "").replace(/\([^)]*\)/g, " "))) return "body-only";
+  if (isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(etOracle, card?.name)), card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
   // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via
@@ -1971,7 +2204,22 @@ export function classifyCard(card) {
   // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool — admitted to the
   // native-mana tier alongside "Add …" sources (the runtime resolves it via applyDoubleManaPool). The same
   // residue gate applies, so a variant with unmodeled non-mana body text (none in the corpus) stays Arbiter.
-  if ((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
+  // ⚠️ REACHABILITY (census slice 38) — `hasManaAbility` is a TEXT check: it sees "Add {G}" and says yes.
+  // The RUNTIME produces mana through manaProduction, which refuses anything that isn't a standing source —
+  // a costed activation ("{T}, Sacrifice a Forest: Add …"), a dynamic amount ("Add {C} for each charge
+  // counter"), a colour chosen as the permanent entered, a second mana ability on the same card. Crediting
+  // on text alone claimed 154 cards whose mana the engine cannot obtain BY ANY PATH — verified by driving
+  // each on a board and asking manaSources AND the trigger path, not by reading.
+  //
+  // The same principle is already applied to the variable-X admission on the line above; this extends it to
+  // the plain "Add …" case, which is where the over-claim lived. hasModeledVariableXMana and
+  // hasDoubleManaPoolAbility keep their own admissions — the doubler produces no mana of its own, so
+  // manaProduction is correctly silent for it.
+  //
+  // A card whose mana is TRIGGERED (Burning-Tree Emissary's "When this creature enters, add {R}{G}") is not
+  // dropped by this: it falls through to the trigger tier below, which is where it belonged — the mana
+  // really is delivered, just not by a standing source. Losing the native-MANA label is the correction.
+  if (((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) && manaProduction(etCard)) || hasModeledVariableXMana(etCard) || hasDoubleManaPoolAbility(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers
@@ -2345,7 +2593,26 @@ registerCoverageClassifier((card) => classifyWolverine(card));
 // parseKickerCounterCreature is all-or-nothing (multikicker / variable cost / a non-counter kicked payoff /
 // any extra unmodeled body clause → null), so the credit is honest — exactly the cards the engine plays.
 // isKeywordOnly is passed in (the same predicate the dispatch body uses) to keep kicker.js a leaf module.
-registerCoverageClassifier((card) => (parseKickerCounterCreature(card, isKeywordOnly) ? "native-body" : null));
+registerCoverageClassifier((card) => {
+  if (parseKickerCounterCreature(card, isKeywordOnly)) return "native-body";
+  // GENERALIZATION (census slice 20) — the gate above credits the kicked-counter payoff only when the BASE
+  // BODY is keyword-only, so Urborg Skeleton ("Kicker {3}" + the kicked counter + "{B}: Regenerate this
+  // creature.") parked even though EVERY line was individually credited: kicker+counter reads native-body on
+  // its own, and the regenerate ability reads native-activated on its own. Nothing about the kicker half
+  // depends on what the rest of the body is — so re-classify the stripped body and let the card take THAT
+  // tier. Same shape as the self-no-untap parity fix: a credit that existed in one path and not another.
+  //
+  // Re-classification is an established pattern here (parseTributeCreature does the same). Passing a
+  // permissive predicate bypasses ONLY the keyword-only body check while keeping every other gate —
+  // creature-ness, a clean single kicker cost, and an all-or-nothing modeled kicked payoff.
+  if (!parseKickerCounterCreature(card, () => true)) return null;
+  const body = stripKickerText(card?.oracle || card?.oracle_text || "").trim();
+  if (!body) return null;
+  // Terminates in one step: the stripped body carries no kicker line, so this classifier returns null on the
+  // recursive call. A body that ISN'T fully modeled yields a non-native tier and the card parks as before.
+  const tier = classifyCard({ ...card, oracle: body });
+  return /^native/.test(tier) ? tier : null;
+});
 
 // ─── KICKER (CR 702.33) — creature kicker whose kicked payoff is an ETB TRIGGER ──────────────────────────────
 // A CREATURE with a clean single "Kicker {cost}" optional cast cost whose kicked payoff is a TRIGGERED ability

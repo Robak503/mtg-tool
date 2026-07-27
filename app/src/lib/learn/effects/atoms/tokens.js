@@ -2,7 +2,7 @@
  * effects/atoms/tokens.js — token-minting atoms (create-token, create-named-token).
  */
 
-import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, moveCardToZone } from "../../gameState.js";
 import { tokenMultiplier, tokenAdditive, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
@@ -144,6 +144,14 @@ export function applyCreateToken(state, atom, ctx) {
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
     mintedIds.push(minted.id);
+  }
+  // ATTACH-TO-CREATED-TOKEN (CR 701.3) — "…, then attach this Equipment to it." Attach BEFORE the ETB fire
+  // and the lethal SBA below, exactly like the Living Weapon path in resolvers.enterPermanent: a token whose
+  // survival depends on the Equipment's bonus (a 0/0 germ-shaped token) must already be wearing it when the
+  // SBA runs, or it dies before the buff applies (CR 613 — the layer engine reads the attached bonus).
+  // ctx.sourceId is the Equipment whose trigger this is; the parser guarantees exactly one minted token.
+  if (atom.attachSourceToCreated && ctx.sourceId && mintedIds.length === 1 && findPermanent(next, ctx.sourceId)) {
+    next = attachPermanent(next, { equipId: ctx.sourceId, targetId: mintedIds[0] });
   }
   // ETB (CR 603.6a) — a created token ENTERS, so it fires "enters" triggers: its own (rare) plus every
   // watcher (Soul Warden / Impact Tremors / Cathars' Crusade) AND the subtype-ETB scopes (Pantlaza off a
@@ -299,6 +307,16 @@ export function applyCreateNamedToken(state, atom, ctx) {
  *
  * COUNT: routed through tokenMultiplier (Wave-3a) so a Doubling-Season-style doubler composes (2^k copies).
  * The minted copy is itself token:true, so it can never be a doubler — the multiply is computed once here.
+ *
+ * ⚠️ DEAD-FIELD WARNING (verified 2026-07-25, census scoping for mobilize): `atom.entersAttacking` sets
+ * `permanent.attacking = true`, and NOTHING READS THAT PROPERTY. Attacking-ness is determined solely by
+ * membership in `state.combat.attackers` — combatResolution iterates that list for every damage step, and
+ * layers.js's `attacking` selector queries it too (grep confirms zero other readers). So a token minted
+ * "tapped and attacking" today would sit inert: never dealing combat damage, never seen by an attacking
+ * selector. Any future slice crediting mobilize / "create N tapped and attacking tokens" MUST also register
+ * the minted tokens in state.combat.attackers with a defender, or it ships a classification that the
+ * runtime silently never honors (the exact trap the runbook's failure table row 4 names). Left as-is rather
+ * than deleted: the field is the right shape for that build, it just isn't wired yet.
  *
  * RIDERS (atom.entersTapped / atom.entersAttacking) are COMBAT STATE, not card characteristics, so they're
  * applied to the PERMANENT, never to the copied card — a TYPE-ADDITION rider (subtype / "4/4 Hero") is
@@ -498,7 +516,35 @@ function landTokenManaOracle(descriptor) {
  * Pure; uses parseCountSource/SMALL_NUM/parseTokenManaAbility/parseTokenKeywords from the leaf. Registered via
  * registerClauseParser in parser.js.
  */
+/**
+ * ATTACH-TO-CREATED-TOKEN (CR 701.3) — the printed, spelled-out form of what Living Weapon / For Mirrodin!
+ * do as a keyword: "When this Equipment enters, create a 1/1 white Soldier creature token, then attach this
+ * Equipment to it." (Ancestral Blade, Hook Swords, Foot Chopper, Barbed Spike, Kyoshi Battle Fan …).
+ *
+ * The keyword forms mint a FIXED token in resolvers.enterPermanent; these print their token spec, so they
+ * route through the ordinary create-token atom instead — the rider just has to survive the parse. Peel it
+ * here, parse the remainder with the unchanged core, and stamp the flag onto the resulting atom (the same
+ * fold shape as the tap+noUntapNext rider): "it" is the token this very atom mints, so there is no
+ * cross-atom reference to resolve.
+ *
+ * DELIBERATELY NOT routed through livingWeaponToken: these cards carry a REAL printed trigger sentence, so
+ * minting from the keyword path as well would create the token TWICE the moment this clause parses HIGH.
+ *
+ * Guarded to a single, statically-counted token — "it" presupposes exactly one. A dynamic or multiple count
+ * returns null (park → Arbiter) rather than guessing which token the Equipment lands on.
+ */
 export function createTokenClauseParser(clause) {
+  const m = String(clause || "").replace(/[’]/g, "'").match(/^(.*?),?\s*then attach this equipment to it\.?\s*$/i);
+  if (!m) return createTokenClauseParserCore(clause);
+  const inner = createTokenClauseParserCore(m[1]);
+  if (!inner || inner.op !== "create-token") return null;
+  const singleStaticToken = (inner.count == null || inner.count === 1)
+    && !inner.countX && !inner.countContext && !inner.countFor;
+  if (!singleStaticToken) return null;
+  return { ...inner, attachSourceToCreated: true };
+}
+
+function createTokenClauseParserCore(clause) {
   // A leading "you " is a redundant subject — the token's controller is ALWAYS the effect's controller
   // (CR 111.1), so "you create …" ≡ "create …". The conjoined payload form ("you create a … token and …",
   // e.g. Sword of Body and Mind) carries it on the first sub-clause; strip it so the create anchors below
@@ -653,4 +699,112 @@ export const tokenResolvers = {
   "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
   "create-token-copy": applyCreateTokenCopy,   // ===== TOKEN-COPY ===== (Wave 5b) CR 707.1 — token that's a copy
   "create-token-copy-each": applyCreateTokenCopyEach, // ===== TOKEN-COPY-EACH ===== (COPY-RIDER) Second Harvest — copy each token you control
+  "mobilize": applyMobilize,        // KW-MOBILIZE (CR 702.174) — N tapped tokens that JOIN combat.attackers (see below)
+  "mobilize-sac": applyMobilizeSac, // the CR 603.7 delayed half, fired at the next end step
 };
+
+// ─── KW-MOBILIZE (CR 702.174) ────────────────────────────────────────────────────
+/**
+ * The kind-tagged sentinel detectTriggers synthesizes from the printed keyword
+ * ("[mobilize] create N tapped attacking warrior tokens"). Only this parser models that sentinel, so no
+ * printed clause can route here — the same containment renown and evolve use.
+ */
+export function mobilizeClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[mobilize\] create (\d+) tapped attacking warrior tokens$/i);
+  return m ? { op: "mobilize", amount: parseInt(m[1], 10), targetType: null } : null;
+}
+
+/**
+ * KW-MOBILIZE resolution — "create N tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them
+ * at the beginning of the next end step."
+ *
+ * THE PART THAT ACTUALLY MATTERS: "attacking" is NOT a property of the permanent. The engine determines
+ * attacking-ness solely by membership in `state.combat.attackers`; the `permanent.attacking` field is a
+ * DEAD WRITE that nothing reads (see the warning block above applyCreateTokenCopy). So a token minted
+ * "tapped and attacking" without a combat.attackers entry would sit inert — never dealing combat damage,
+ * never seen by an attacking selector — and crediting the card would be a classification the runtime
+ * silently never honors. Each minted token is therefore registered as a real attacker against the SAME
+ * defender the source is attacking (ctx.defenderId, threaded by checkAttackTriggers for the attacks event).
+ *
+ * NO defender in context → mint NOTHING and log it. That can only happen off a non-attacks event, and a
+ * pile of inert tokens is worse than none: it would inflate the board with permanents that are attacking on
+ * paper and inert in fact (CREED — never a half-modeled effect).
+ *
+ * The sacrifice is a genuine CR 603.7 delayed trigger through the shared scheduler, not a bespoke sweep.
+ * Tokens carry `mobilizedToken` so the delayed clause can find exactly them at the next end step.
+ */
+export function applyMobilize(state, atom, ctx) {
+  const n = Math.max(0, atom.amount || 0);
+  const controller = ctx.controller;
+  const defender = ctx.defenderId;
+  if (!n || !state.players?.[controller]) return state;
+  if (!defender) {
+    return logEvent(state, { kind: "spell-effect", effect: "mobilize", note: "no defender in context — nothing minted", controller });
+  }
+  let next = state;
+  const mintedIds = [];
+  for (let i = 0; i < n; i++) {
+    const minted = mintId(next, "tok");
+    next = minted.state;
+    const card = { id: `tok-${minted.id}`, name: "Warrior", type: "Creature — Warrior", power: 1, toughness: 1, colors: ["R"], token: true };
+    // Enters TAPPED and already in combat, so it is never summoning-sick-gated out of attacking.
+    const perm = { ...createPermanent({ id: minted.id, card, controller }), tapped: true, summoningSick: false, mobilizedToken: true };
+    const player = next.players[controller];
+    next = { ...next, players: { ...next.players, [controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+    mintedIds.push(minted.id);
+  }
+  // Join the CURRENT combat against the source's defender (CR 508.1 — put onto the battlefield attacking;
+  // it was never DECLARED as an attacker, so no attack triggers fire for it, which is why this appends to
+  // combat.attackers directly rather than routing through the declare-attacker dispatcher.
+  const entries = mintedIds.map((id) => ({ permanentId: id, attackingPlayer: controller, defender }));
+  next = { ...next, combat: { ...(next.combat || { attackers: [], blockers: [] }), attackers: [...(next.combat?.attackers || []), ...entries] } };
+  // ETB: a minted token still ENTERS, so watchers (Impact Tremors / Cathars' Crusade) fire as usual.
+  next = fireTokenEnterTriggers(next, mintedIds);
+  // CR 603.7 — the sacrifice rides the shared delayed scheduler at the NEXT end step (the printed wording;
+  // it is NOT end-of-combat, which is what the reminder text actually says).
+  const queue = next.delayedTriggers || [];
+  next = {
+    ...next,
+    delayedTriggers: [...queue, {
+      id: `dly-mob-${queue.length + 1}-${next.turn || 0}`,
+      controller,
+      fireStep: "end",
+      fireScope: "any",
+      effectClause: "[mobilize-sac] sacrifice the mobilized tokens",
+      sourceName: ctx.cardName || null,
+      sourceCardId: ctx.sourceCardId || null,
+      sourcePermanentId: ctx.sourceId || null,
+      createdTurn: next.turn || 0,
+    }],
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "mobilize", controller, count: mintedIds.length, defender });
+}
+
+/** The delayed half's sentinel — only this parser models it. */
+export function mobilizeSacClauseParser(clause) {
+  return /^\[mobilize-sac\] sacrifice the mobilized tokens$/i.test(String(clause || "").trim())
+    ? { op: "mobilize-sac", targetType: null } : null;
+}
+
+/**
+ * Sacrifice every mobilized token the controller still has (CR 701.17). Reads the `mobilizedToken` marker
+ * rather than remembering ids, so a token that already left the battlefield is simply absent — never a
+ * sacrifice aimed at a stale id. Routed through moveCardToZone + checkDiesTriggers so death triggers and
+ * the graveyard event log behave exactly as they do for any other sacrifice.
+ */
+export function applyMobilizeSac(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const doomed = player.battlefield.filter((p) => p.mobilizedToken).map((p) => p.id);
+  if (doomed.length === 0) return state;
+  let next = state;
+  for (const id of doomed) {
+    const lk = findPermanent(next, id);
+    if (!lk) continue;
+    next = moveCardToZone(next, { playerId: controller, fromZone: "battlefield", toZone: "graveyard", cardId: id });
+  }
+  const r = destroyLethalCreatures(next);
+  next = checkDiesTriggers(r.state, r.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "mobilize-sac", controller, count: doomed.length });
+}

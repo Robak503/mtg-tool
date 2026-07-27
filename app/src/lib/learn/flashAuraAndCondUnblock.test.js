@@ -25,8 +25,16 @@ describe("FA-1 — flash auras", () => {
       oracle: "Flash\nEnchant creature\nEnchanted creature gets +1/+1 and has trample." })).toBe("native-aura");
     expect(classifyCard({ id: "csp", name: "Capture Sphere", type: "Enchantment — Aura", mana: "{3}{U}",
       oracle: "Flash\nEnchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step." })).toBe("native-aura");
+    // NOTE (2026-07-25): Shimmering Wings FLIPPED — its blocker was the self-bounce activated ("{U}:
+    // Return this Aura to its owner's hand"), which is now modeled (the self-bounce atom's noun
+    // alternation was widened past creature|permanent; zoneOptionKeywords.test.js holds the positive pin).
     expect(classifyCard({ id: "sw", name: "Shimmering Wings", type: "Enchantment — Aura", mana: "{U}",
-      oracle: "Flash\nEnchant creature\nEnchanted creature has flying.\n{U}: Return this Aura to its owner's hand." })).toBe("body-only"); // the self-bounce activated stays unmodeled
+      oracle: "Flash\nEnchant creature\nEnchanted creature has flying.\n{U}: Return this Aura to its owner's hand." })).toMatch(/^native/);
+    // …and the "unmodeled clause still parks" half of this guard keeps a REAL unmodeled subject: a
+    // control-change aura ("You control enchanted creature" — Illusory Gains / Spirit Away, still a live
+    // 7-sole-blocker census cluster). Swapped in deliberately so the negative can't rot into a tautology.
+    expect(classifyCard({ id: "ig", name: "Illusory Gains", type: "Enchantment — Aura", mana: "{2}{U}{U}",
+      oracle: "Flash\nEnchant creature\nYou control enchanted creature.\nWhenever a creature enters, attach this Aura to that creature." })).toBe("body-only");
   });
 });
 

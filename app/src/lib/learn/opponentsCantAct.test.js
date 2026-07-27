@@ -69,8 +69,13 @@ describe("OPPONENTS-CANT-ACT — coverage (CREED: no partial flips)", () => {
     expect(classifyCard(GRAND_ABOLISHER)).toBe("native-static");
   });
 
-  it("Voice of Victory stays body-only (Mobilize unmodeled)", () => {
-    expect(classifyCard(VOICE_OF_VICTORY)).toBe("body-only");
+  it("GRADUATED — Voice of Victory now flips native-static (Mobilize became modeled)", () => {
+    // This pin read "stays body-only (Mobilize unmodeled)" and was correct until census slice 31 built the
+    // keyword end to end (mobilizeKeyword.test.js). Its real subject is the OPPONENTS-CANT-ACT static, and
+    // that half is unchanged — what moved is the sibling clause it was paired with. The CREED negative it
+    // was standing in for is kept alive by Conqueror's Flail below, which still has a genuinely unmodeled
+    // rider, so the "no partial flips" guarantee this describe block exists to prove is not weakened.
+    expect(classifyCard(VOICE_OF_VICTORY)).toBe("native-static");
   });
 
   it("Conqueror's Flail stays body-only (dynamic-PT bonus unmodeled here)", () => {

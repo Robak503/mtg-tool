@@ -67,6 +67,16 @@ function stripEnforcedTimingRider(clause) {
  * THIS parse. Returns { manaPips, program, effectClause, sorceryOnly, raw } or null.
  */
 const GY_EXILE_SORC_RIDER = /\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i;
+
+// PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1) — the two printed frames of the same restriction. The counted
+// frame ("Activate no more than twice each turn." — Pit Imp, Phyrexian Battleflies; "…three times…" —
+// Soul Kiss) is why the parsed value is a COUNT and not a boolean. The word list and the alternation are
+// derived from one source so a word can never match the regex without having a count here.
+const LIMIT_WORDS = { once: 1, twice: 2, "three times": 3, "four times": 4, "five times": 5 };
+const LIMIT_RIDER = new RegExp(
+  `\\.?\\s*Activate (?:this ability )?(?:only once|no more than (${Object.keys(LIMIT_WORDS).join("|")})) each turn\\.?\\s*$`,
+  "i",
+);
 export function parseGraveyardExileAbility(card) {
   const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
   for (const line of oracle.split("\n")) {
@@ -110,6 +120,24 @@ export function parseGraveyardSelfRecursion(card) {
         discardCards: m[2] ? (W[m[2].toLowerCase()] || 0) : 0,
         dest: m[3].toLowerCase() === "your hand" ? "hand" : "battlefield",
         entersTapped: !!m[4],
+        raw: line.trim(),
+      };
+    }
+    // GR-2 (census slice 35) — the EXILE-FROM-GRAVEYARD cost rider: "<mana>, Exile a/an/another <type> card
+    // from your graveyard: Return this card …" (Scrapheap Scrounger, Bin Chicken, Postmortem Professor).
+    // SINGULAR ONLY, the same way every other cost lane here started — the count forms ("exile two other
+    // creature cards", "exile seven other cards") stay unmodeled → body-only, a safe FN.
+    // SELF IS ALWAYS EXCLUDED as a victim, for "a/an" as well as "another": the card being returned is
+    // itself sitting in this graveyard, and paying the cost with it would exile the very object the ability
+    // returns. Excluding it is both the sane line and the one that can't produce a self-referential paradox.
+    const ex = line.trim().match(/^((?:\{[^}]+\})+), exile (?:a|an|another) (creature|artifact|land|enchantment|instant or sorcery) card from your graveyard: return this card from your graveyard to (your hand|the battlefield)( tapped)?\.?$/i);
+    if (ex) {
+      return {
+        manaPips: ex[1],
+        discardCards: 0,
+        exileFromGy: { cardType: ex[2].toLowerCase(), count: 1 },
+        dest: ex[3].toLowerCase() === "your hand" ? "hand" : "battlefield",
+        entersTapped: !!ex[4],
         raw: line.trim(),
       };
     }
@@ -433,7 +461,16 @@ export function sacrificeDropsTrigger(oracle) {
     if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(s)) return true;       // a second embedded when-clause
     if (/\bleaves the battlefield\b/i.test(s)) return true;           // LTB — the dies path won't fire it
     if (/\bwhen(?:ever)? you sacrifice\b/i.test(s)) return true;      // a sacrifice trigger
-    if (/\bput into\b[^.]*\bfrom the battlefield\b/i.test(s)) return true; // CR 700.4 dies-equiv / zone-LTB the detector misses
+    // CR 700.4 dies-equiv / zone-LTB. EXCEPTION (verified 2026-07-25, runtime not by reading): the SELF form
+    // — "When this <artifact|creature|enchantment|permanent|land|aura> is put into a graveyard from the
+    // battlefield, …" — is no longer missed. detectTriggers maps it to the `ltb` event, and the cost-sac path
+    // itself fires it: actionDispatcher.sacrificePermanentForCost calls moveCardToZone (which queues the leave
+    // event) and then checkLeavesTriggers for a non-creature / checkDiesTriggers for a creature, whose first
+    // line drains the same queue. Probed end to end on Implement of Examination before narrowing this.
+    // Every OTHER subject ("another creature you control is put into…", a player/zone variant) stays flagged:
+    // those are watcher shapes this fail-safe was really written for, and none were re-verified here.
+    if (/\bput into\b[^.]*\bfrom the battlefield\b/i.test(s)
+        && !/\bthis (?:artifact|creature|enchantment|permanent|land|aura) is put into a graveyard from the battlefield\b/i.test(s)) return true;
   }
   return false;
 }
@@ -637,6 +674,30 @@ export function parseActivatedAbilities(card) {
       });
       continue;
     }
+    // ATTACH-AS-A-PLAIN-ACTIVATED-ABILITY (CR 701.3 — Cranial Plating / Horned Helm / Sparring Collar /
+    // Healer's Headdress / Neurok Stealthsuit, one Mirrodin cycle). Mechanically identical to Equip, but
+    // printed as an ordinary "{cost}: <effect>" line instead of the keyword, so the three colon-less Equip
+    // branches above can't see it. Carrying isEquipAbility routes it to the SAME ATTACH resolver — no new
+    // runtime lane, no new resolver, no new legality path.
+    //
+    // TIMING IS THE ONE REAL DIFFERENCE, and it lands on the safe side. The printed ability has NO
+    // sorcery-speed restriction (instant-speed re-equipping is the entire reason this cycle exists), while
+    // the engine offers activated abilities only in the controller's own main step. Own-main is a strict
+    // SUBSET of "whenever you have priority", so the engine can only ever UNDER-offer it — a safe false
+    // negative, the same argument AA-1 makes for "Activate only during your turn."
+    //
+    // Mana-only cost, anchored whole-line ($): a typed or additional cost, or any trailing rider, falls
+    // through to the generic parse and lands wherever its effect really parses (CREED — whole line or nothing).
+    const am = line.match(/^((?:\{[^}]+\})+):\s*attach this equipment to target creature you control\.?$/i);
+    if (am) {
+      const cost = parseAbilityCost(am[1]);
+      out.push({
+        index: index++, raw: line, costStr: am[1], effectClause: "",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+      });
+      continue;
+    }
     const ci = line.indexOf(":");
     if (ci === -1) continue;
     // QUOTED-GRANT GUARD (CR 113.7) — a GROUP-GRANT / attached static grants a quoted ability to OTHER
@@ -655,15 +716,21 @@ export function parseActivatedAbilities(card) {
     // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5i) — a WHEN restriction the runtime
     // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the
     // effect parses on its real payload instead of being dragged LOW by the trailing sentence.
-    // ONCE-PER-TURN ACTIVATION (BLITZ ONCE-1 — the modern "Activate only once each turn." frame, Hollow
-    // Scavenger / Drillworks Mole class): a FREQUENCY restriction. Strippable for the effect parse ONLY
-    // because the runtime enforces it — legalChoices' per-turn ledger gate (state.activatedOncePerTurn,
-    // keyed permId:rawLine against state.turn) + the dispatcher stamp. Stripping without that enforcement
-    // would be a spammable FP; the flag rides the ability so both sites key off THIS parse.
+    // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized from a boolean to a COUNT): a FREQUENCY
+    // restriction printed as a trailing rider (Hollow Scavenger / Drillworks Mole class). Strippable for the
+    // effect parse ONLY because the runtime enforces it — legalChoices' per-turn ledger gate
+    // (state.activatedOncePerTurn, keyed permId:rawLine) + the dispatcher stamp. Stripping without that
+    // enforcement would be a spammable FP; the limit rides the ability so both sites key off THIS parse.
+    // Two printed frames carry the restriction: the modern "Activate only once each turn." and the COUNTED
+    // "Activate no more than N times each turn." (Pit Imp, Phyrexian Battleflies, Soul Kiss). activationLimit
+    // is the COUNT, never a boolean — a boolean cannot express "twice", which is exactly the gap here. The
+    // "only once" frame parses as 1, so its 56 native carriers keep byte-identical behavior.
     const rawEffect = line.slice(ci + 1).trim();
-    const ONCE_RIDER = /\.?\s*Activate (?:this ability )?only once each turn\.?\s*$/i;
-    const oncePerTurn = ONCE_RIDER.test(rawEffect);
-    const effectClause = stripEnforcedTimingRider(oncePerTurn ? rawEffect.replace(ONCE_RIDER, "").trim() : rawEffect);
+    const limitM = rawEffect.match(LIMIT_RIDER);
+    // A matched count word is always a LIMIT_WORDS key (the alternation is built from it), but fall back to
+    // "no limit, don't strip" rather than NaN if that ever drifts — a safe false negative.
+    const activationLimit = limitM ? (limitM[1] ? LIMIT_WORDS[limitM[1].toLowerCase()] ?? null : 1) : null;
+    const effectClause = stripEnforcedTimingRider(activationLimit ? rawEffect.replace(LIMIT_RIDER, "").trim() : rawEffect);
     if (!costStr || !effectClause) continue;
 
     // CC-3 — thread the card so a SELF-NAME remove-counter cost item ("Remove a charge counter from
@@ -729,7 +796,7 @@ export function parseActivatedAbilities(card) {
       raw: line,
       costStr,
       effectClause,
-      oncePerTurn, // ONCE-1 — "Activate only once each turn." (runtime-enforced frequency restriction)
+      activationLimit, // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)

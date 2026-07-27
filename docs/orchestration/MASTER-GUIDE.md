@@ -39,6 +39,7 @@ gate green BEFORE changing anything** so any later failure is attributable to yo
 | Work type | Read, in order | Law / gate |
 |---|---|---|
 | Engine / coverage / rules | ENGINE-SCAFFOLD.md (§ how-to-add-a-mechanic) → OVERHAUL-PLAYBOOK.md §2–3 → `memory/orders/clyde-grind-relaunch.md` | CREED + full fingerprint battery at the §3 proof level |
+| **Corpus coverage grind (census-driven — THE standing method as of 2026-07-24)** | [RESIDUE-GRIND-RUNBOOK.md](RESIDUE-GRIND-RUNBOOK.md) — complete, model-agnostic, self-contained (5 laws · census → scope → build → verify → record · failure-mode table) | deletion-probe census ranks the queue; sole-blocker audit + tier-fingerprint both directions per slice |
 | Harness / AI / runner / pilots | OVERHAUL-PLAYBOOK.md first → PLAY-HARNESS-OVERHAUL-PLAYBOOK.md (anchor lineage, A/B probe, census, r11 loop) | trajectory-hash discipline + per-slice A/B evidence |
 | UI / components / styling | PROJECT-SCAFFOLD.md §2.2 → ui-overhaul-log.md §0 (the method) → the hidden `/styleguide` route | LEYLINE law: tokens only, `.btn` system, engine fence proven (tier fp 0-diff + trajectory hash holds) |
 | New kiosk area / surface | docs/HOW-TO-ADD-AN-AREA.md | registry-driven; a new door is ~3 small edits |

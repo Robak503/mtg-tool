@@ -45,7 +45,14 @@ describe("parser — removal + 'its controller' rider (RIDER-REMOVAL)", () => {
     expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // discard rider (Assassin's Strike)
     expect(isHigh("Exile target creature with power 2 or less. Its controller gains 4 life.")).toBe(false);       // fixed gain-life (Last Breath) + MV filter
     expect(isHigh("Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.")).toBe(false); // MULTI-COLOR token (Reduce to Memory) — still unmodeled
-    expect(isHigh("Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle. Draw a card.")).toBe(false); // extra "Draw a card" rider (Geomancer's Gambit)
+    // GRADUATED (census slice 15) — Geomancer's Gambit's "Draw a card." was pinned here as an unmodeled
+    // "extra rider", but it was never a rider at all: an unqualified "Draw a card." is the SPELL's own
+    // effect and the CASTER draws, not the target's controller. It was parked only because the matcher was
+    // anchored to end-of-oracle and had no way to hand a trailing sentence back. It now returns it as `rest`,
+    // which collapsed() parses into a normal draw atom (no player redirect — verified in the program), so
+    // this line asserts the opposite. See removalRiderTrailingSentence.test.js. Every OTHER case in this
+    // block is a genuine controller-rider the engine still cannot express, and stays exactly as it was.
+    expect(isHigh("Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle. Draw a card.")).toBe(true);
     expect(isHigh("Exile target creature. Its controller may search their library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false); // multi-land ramp rider
     // NOTE: KEYWORD tokens (Afterlife's flying Spirit) + NAMED tokens (Buy Your Silence's Treasure) are now
     // MODELED by SOFT-COUNTER-RIDER's token-rider widening — see softCounterRider.test.js.

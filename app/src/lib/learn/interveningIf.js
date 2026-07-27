@@ -357,6 +357,15 @@ const OPP_LOST_LIFE_RE = new RegExp(`^an opponent lost ${NUM_RE} or more life th
 // the identical ledger (identical at flush AND resolution), differing only in the threshold (≥1 vs ≥N).
 const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
 
+// ===== OPPONENT-DEALT-DAMAGE (CR 120.3 — KW-BLOODTHIRST, 2026-07-25) ==========================
+// "an opponent was dealt damage this turn" (the bloodthirst condition, 26 corpus carriers). Reads the
+// per-seat damageTakenThisTurn ledger — DAMAGE ONLY, deliberately NOT lifeLostThisTurn: a drain, a
+// pay-life cost, or "each player loses 1 life" all lose life without ANY damage being dealt, and
+// crediting those would fire bloodthirst on a turn nobody was damaged (the forbidden FP). gameState's
+// loseLife tallies this ledger only when its `combatDamage` flag is defined — which exactly the two
+// damage callers pass and no non-damage loss does. Absent tally = 0 = false (fail-closed).
+const OPP_DEALT_DAMAGE_RE = /^an opponent was dealt damage this turn$/;
+
 // ===== MONARCH-STATUS (CR 725.1 + 603.4 — BLITZ IF-1) ========================================
 // "you're the monarch" (Throne Warden, Garrulous Sycophant, Skyline Despot, Faramir Steward of Gondor …) —
 // the controller currently holds the monarch designation (CR 725.1: "The monarch is a designation a player
@@ -366,6 +375,18 @@ const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
 // single-value read, identical at flush AND resolution. NOT the "you control a monarch" filter (a designation,
 // not a typed permanent — still rejected by NON_TYPE_WORDS); this anchors the monarch STATUS predicate.
 const MONARCH_STATUS_RE = /^you(?:'?re| are) the monarch$/;
+
+// ===== YOU-CONTROL-YOUR-COMMANDER (CR 903 + 603.4 — the Lieutenant cycle) ====================
+// "if you control your commander" (Loyal Drake, Loyal Subordinate, Loyal Apprentice, Loyal Guardian,
+// Siege-Gang Lieutenant, Ironwill Forger — all "At the beginning of combat on your turn, if you control your
+// commander, …"; the "Lieutenant —" prefix on each is a pure CR 207.2c ability-word label, stripped upstream
+// like Landfall/Raid/Enrage). A LIVE read of whether the controller's board carries a permanent stamped
+// `isCommander: true` (gameState.js tags every commander card at command-zone→battlefield, travels with the
+// permanent for its lifetime there) — NOT the generic "you control a commander" TYPE filter (rejected by
+// NON_TYPE_WORDS above; a commander is a designation, not a card type, same distinction as MONARCH-STATUS).
+// Layer-irrelevant board-presence read, identical at flush AND resolution. Loyal Unicorn's "creatures you
+// control gain vigilance" half rides the SAME condition on the same trigger line — covered by this one check.
+const YOU_CONTROL_YOUR_COMMANDER_RE = /^you control your commanders?$/;
 
 // ===== NO-CARDS-IN-HAND (CR 603.4 — BLITZ IF-1) ==============================================
 // "you have no cards in hand" (Bloodhall Priest, Hollowborn Barghest, Hollow One shape …) — the controller's
@@ -460,11 +481,21 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   if (OPP_LOST_LIFE_ANY_RE.test(c)) {
     return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.lifeLostThisTurn || 0) >= 1);
   }
+  // OPPONENT-DEALT-DAMAGE (KW-BLOODTHIRST) — the DAMAGE-only sibling of the life-loss read above.
+  if (OPP_DEALT_DAMAGE_RE.test(c)) {
+    return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.damageTakenThisTurn || 0) >= 1);
+  }
 
   // MONARCH-STATUS (CR 725.1 — BLITZ IF-1) — the controller holds the monarch designation right now. A live
   // read of state.monarchId (the field manaModel's Regal Behemoth gate reads); no monarch → false (CR 603.4
   // drop). Layer-irrelevant, identical at flush AND resolution.
   if (MONARCH_STATUS_RE.test(c)) return state?.monarchId === controllerId;
+
+  // YOU-CONTROL-YOUR-COMMANDER (CR 903 — the Lieutenant cycle) — true iff any permanent on the controller's
+  // board carries the isCommander stamp. It's a game-STATE quality that rides the CARD, not the permanent
+  // wrapper (card.isCommander, stamped at seat build — the same field layers.js/legalChoices.js/targeting.js
+  // all read via p.card?.isCommander). Board-presence read, identical at flush AND resolution.
+  if (YOU_CONTROL_YOUR_COMMANDER_RE.test(c)) return controllerBoard(state, controllerId).some((p) => p.card?.isCommander === true);
 
   // NO-CARDS-IN-HAND (CR 603.4 — BLITZ IF-1) — the controller's hand is empty. Reuses controllerMetric's
   // "cards in hand" reader (player.hand.length); true iff 0. Identical at flush AND resolution.

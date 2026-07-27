@@ -59,7 +59,11 @@ export function detectPhaseTrigger(condition /*, cardName, typeLine */) {
   if (c === "beginning of each combat") {
     return { event: "combatBegin", scope: "you", whose: "any" };
   }
-  if (c === "beginning of your first main phase") {
+  if (c === "beginning of your first main phase"
+      // The pre-2021 templating for the SAME phase (CR 505.1a — the first main phase IS the precombat
+      // one; this engine has no extra-combat phases, so the equivalence is structural). 3 corpus
+      // carriers print it: Radiation, Wrenn and One, Alberix the Trade Planet.
+      || c === "beginning of your precombat main phase") {
     return { event: "firstMain", scope: "you", whose: "yours" };
   }
   if (c === "beginning of each opponent's upkeep") {

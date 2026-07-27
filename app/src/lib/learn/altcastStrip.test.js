@@ -53,8 +53,16 @@ describe("altcast-strip — CREED: a kept/payoff rider keeps the card on the Arb
   it("a madness-cost-paid PAYOFF rider in the body stays arbiter even though the madness line is stripped (Avacyn's Judgment)", () => {
     expect(classifyCard(S("Avacyn's Judgment", "Avacyn's Judgment deals 2 damage divided as you choose among any number of targets. If this spell's madness cost was paid, it deals X damage divided as you choose among those permanents and/or players instead." + MADNESS("{X}{R}"), "Sorcery", "{3}{R}"))).not.toMatch(/^native/);
   });
-  it("an escape spell with an unmodeled body clause stays arbiter (Sleep of the Dead — doesn't untap)", () => {
-    expect(classifyCard(S("Sleep of the Dead", "Tap target creature. It doesn't untap during its controller's next untap step.\nEscape—{2}{U}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)", "Sorcery", "{1}{U}"))).not.toMatch(/^native/);
+  it("an escape spell with an unmodeled body clause stays arbiter (Cling to Dust — conditional payoff)", () => {
+    // The assertion here is about ESCAPE, not about any one card: stripping the escape line must never rescue
+    // a spell whose BODY is unmodeled. Cling to Dust's "If it was a creature card … Otherwise …" branch is the
+    // unmodeled half. (This slot used to hold Sleep of the Dead, whose tap-and-lock body became modeled in the
+    // census slice-10 tap-creature-lockdown build — see the companion assertion below. It was swapped rather
+    // than flipped so the escape invariant keeps a live example.)
+    expect(classifyCard(S("Cling to Dust", "Exile target card from a graveyard. If it was a creature card, you gain 3 life. Otherwise, you draw a card.\nEscape—{3}{B}, Exile five other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)", "Instant", "{B}"))).not.toMatch(/^native/);
+  });
+  it("…but an escape spell whose body IS modeled goes native (Sleep of the Dead — tap-and-lock)", () => {
+    expect(classifyCard(S("Sleep of the Dead", "Tap target creature. It doesn't untap during its controller's next untap step.\nEscape—{2}{U}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)", "Sorcery", "{1}{U}"))).toBe("native-spell");
   });
 });
 

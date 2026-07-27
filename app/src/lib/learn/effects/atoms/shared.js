@@ -65,7 +65,8 @@ export function massCreatureTargets(state, opts = {}) {
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      if (!isCreatureCard(perm.card)) continue;
+      // LAYER-AWARE (slice 27, CR 613): an animated land / crewed Vehicle IS a creature right now.
+      if (!(isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))) continue;
       if (subRes) {
         const face = typeLineStr(perm.card).split(" // ")[0]; // front face only (CR 712.4a)
         const has = subRes.some((re) => re.test(face)); // carries ANY listed subtype
@@ -98,7 +99,7 @@ export function sameNameCreatureTargets(state, name) {
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      if (isCreatureCard(perm.card) && perm.card?.name === name) out.push({ type: "creature", id: perm.id, controller: pid });
+      if ((isCreatureCard(perm.card) || permanentIsCreature(state, perm.id)) && perm.card?.name === name) out.push({ type: "creature", id: perm.id, controller: pid });
     }
   }
   return out;
@@ -146,7 +147,7 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   // subtype is a curated allowlist word (parser-side), so the \b match credits exactly the non-<Subtype> creatures.
   const negRe = opts.subtypeNegate ? new RegExp(`\\b${opts.subtypeNegate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
   return player.battlefield
-    .filter((perm) => isCreatureCard(perm.card))
+    .filter((perm) => isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
     .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card))))
     .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
@@ -193,7 +194,7 @@ export function opponentCreatureTargets(state, controller, opts = {}) {
     const opp = state.players?.[oppId];
     if (!opp) continue;
     for (const perm of opp.battlefield) {
-      if (!isCreatureCard(perm.card)) continue;
+      if (!(isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))) continue;
       if (cap != null && creatureToughness(perm, state) > cap) continue; // above the count-derived bound → spared
       out.push({ type: "creature", id: perm.id, controller: oppId });
     }
@@ -352,7 +353,11 @@ export function enchantedTargets(state, ctx) {
   const hostId = auraLk?.permanent?.attachedTo;
   if (!hostId) return [];
   const hostLk = findPermanent(state, hostId);
-  return hostLk && isCreatureCard(hostLk.permanent.card)
+  // LAYER-AWARE (census slice 23) — "enchanted creature" still requires the host to BE a creature, but that
+  // is a LIVE question, not a printed one: an Aura on a permanent that has been animated (or a Vehicle that
+  // is currently crewed) has a creature host right now. The printed-card check alone no-opped the effect
+  // while the metric read HIGH — the same catch selfTargets already carries.
+  return hostLk && (isCreatureCard(hostLk.permanent.card) || permanentIsCreature(state, hostId))
     ? [{ type: "creature", id: hostId, controller: hostLk.controller }]
     : [];
 }
@@ -368,8 +373,18 @@ export function selfTargets(state, ctx) {
   // LAYER-AWARE (BLITZ SC-1 catch): an ANIMATED source (Creeping Tar Pit mid-activation — a land that
   // became a creature) counts too; the printed-card check alone silently dropped self effects on it
   // (the metric said HIGH while the runtime no-opped — the exact FP class the CREED forbids).
-  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.sourceId))
-    ? [{ type: "creature", id: ctx.sourceId, controller: lk.controller }] : [];
+  if (!lk) return [];
+  if (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.sourceId)) {
+    return [{ type: "creature", id: ctx.sourceId, controller: lk.controller }];
+  }
+  // NON-CREATURE SELF (census slice 22) — the same catch as the animated-land case above, one type wider.
+  // An Aura / artifact / enchantment referring to ITSELF ("At the beginning of the end step, return this Aura
+  // to its owner's hand.") parses to a HIGH self-targeted atom, but returning [] here made the effect a
+  // SILENT NO-OP: measured on Mark of Fury, the trigger fired, resolved, and the Aura simply stayed attached.
+  // The metric says HIGH while the runtime does nothing — exactly the FP class the comment above forbids.
+  // Typed "permanent" (not "creature"), which is the type applyZoneMove and the other permanent-scoped atoms
+  // already accept; a creature source is unchanged, so no existing self effect moves.
+  return [{ type: "permanent", id: ctx.sourceId, controller: lk.controller }];
 }
 
 /**
@@ -383,7 +398,12 @@ export function selfTargets(state, ctx) {
 export function triggeringTargets(state, ctx) {
   const id = ctx.triggeringPermanentId;
   const lk = id ? findPermanent(state, id) : null;
-  return lk && isCreatureCard(lk.permanent.card) ? [{ type: "creature", id, controller: lk.controller }] : [];
+  // LAYER-AWARE (census slice 23) — the same catch selfTargets already carries. The PRINTED-card check alone
+  // silently dropped the referent for a permanent that is a creature only BY LAYERS (an animated land that
+  // triggered something), so the effect no-opped while the metric read HIGH. Verified: with an animated land
+  // as the triggering permanent this returned [] while selfTargets on the same permanent returned it.
+  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, id))
+    ? [{ type: "creature", id, controller: lk.controller }] : [];
 }
 
 // ===== HALF-X (CR 107.3 — "half X, rounded down/up") ===== a HALVING post-transform applied to an already-

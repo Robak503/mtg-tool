@@ -117,13 +117,26 @@ describe("EV-3 classification — the audited flips", () => {
 });
 
 describe("EV-3 CREED — whole-card-or-park (the evasion arm alone can't carry an unmodeled sibling)", () => {
-  it("≥3 carriers with unmodeled siblings park body-only", () => {
+  it("≥3 carriers with unmodeled siblings park body-only; Troll of Khazad-dûm FLIPS once typecycling is credited", () => {
     expect(classifyCard(GUILE)).toBe("body-only");              // counter-replacement + shuffle-back
     expect(classifyCard(CERBERUS)).toBe("body-only");           // graveyard-shroud static + mass-return dies trigger
-    expect(classifyCard(TROLL_KHAZAD)).toBe("body-only");       // swampcycling (typecycling tutor unmodeled)
+    // NOTE (zone-option family, 2026-07-24): swampcycling is now credited (coverage.js
+    // reTypecyclingCost — hand-only option the engine never offers; parseCyclingCost still nulls it
+    // so it can never mis-dispatch as a draw-cycle). The ≥3-blocker evasion arm was already modeled
+    // by this file's slice — typecycling was Troll's sole remaining park reason.
+    expect(classifyCard(TROLL_KHAZAD)).toMatch(/^native/);
     expect(classifyCard(RELENTLESS)).toBe("body-only");         // {8} graveyard recursion
-    expect(classifyCard(PHYREXIAN_COLOSSUS)).toBe("body-only"); // no-untap static + pay-life untap
-    expect(classifyCard(HEXMARK)).toBe("body-only");            // ability-word prefix (clause unrecognized) + unearth
+    // GRADUATED (census slice 16). Both halves of Phyrexian Colossus are modeled and were VERIFIED AT
+    // RUNTIME before this pin was flipped, not inferred from the parse: untapAll leaves it tapped (the
+    // self no-untap static is honored by selfPreventsUntap), the "Pay 8 life: Untap this creature."
+    // ability is offered only when payable, and resolving it really does untap the creature. The static
+    // was previously credited in only ONE residue path, so this card parked for a path accident rather
+    // than a capability gap — see selfNoUntapCreditParity.test.js.
+    expect(classifyCard(PHYREXIAN_COLOSSUS)).toMatch(/^native/);
+    // Hexmark Destroyer STILL parks — its unearth half is now credited but the ability-word-prefixed
+    // clause remains unrecognized: the whole-card law holding under a mass keyword credit, exactly
+    // the composed negative this describe exists for.
+    expect(classifyCard(HEXMARK)).toBe("body-only");
   });
   it("compound/subtype carriers with unmodeled siblings or subjects park body-only", () => {
     expect(classifyCard(SEEKER)).toBe("body-only");   // aura grant — no aura except-by plumbing exists

@@ -575,7 +575,12 @@ export function bounceClauseParser(clause) {
   // "up to one" optionality is the load-bearing faithfulness (never forces a bounce the card leaves optional).
   const uptoB = t.match(/^return up to one (other )?target (permanent|creature) you control to its owner's hand$/);
   if (uptoB) return { op: "bounce", scope: "oneYouControlWorst", optional: true, ...(uptoB[2] === "creature" ? { creatureOnly: true } : {}), ...(uptoB[1] ? { excludeSource: true } : {}) };
-  if (/^return this (?:creature|permanent) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
+  // SELF-BOUNCE — "return this <self-noun> to its owner's hand". The self-target atom bounces the SOURCE, so
+  // the noun is pure templating: an Aura/Enchantment/Artifact/Equipment says it exactly the way a creature
+  // does. Census 2026-07-25 found the Aura wording as a 12-card sole-blocker across two cost shapes
+  // (Shackles / Cage of Hands' "{W}: Return this Aura to its owner's hand") purely because the alternation
+  // was creature|permanent — the atom, the resolver and the bounce path all already handled it.
+  if (/^return this (?:creature|permanent|aura|enchantment|artifact|equipment|land) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
   // SUBTYPE-CREATURE-BOUNCE (CR 205.3m) — "return target <Subtype> you control to its owner's hand" (Kogla,
   // the Titan Ape's activated ability "{1}{G}, …: Return target Human you control to its owner's hand"). The

@@ -9,11 +9,28 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Changed
+- **More of your deck plays correctly in the simulator.** Several hundred more cards are handled natively
+  instead of being handed off, including the mobilize, backup, renown, bloodthirst and dredge keywords,
+  delayed "at the beginning of the next end step" abilities, and creatures that sacrifice themselves when a
+  condition stops holding.
+- **The coverage number is stricter, and lower, on purpose.** A card only counts as a native mana source now
+  if the game can actually produce its mana. Around 140 cards that said "Add {G}" in their text but whose
+  mana the engine could never reach — ones needing a sacrifice, a chosen colour, or an amount that varies —
+  no longer count. Nothing about your decks changed; the number simply stopped over-promising.
 - **Faster first card lookup after launch.** The card and rulings indexes now warm up in the
   background right after the app starts, so the first thing that needs them (a chat, opening a deck,
   the coverage view) doesn't pay the load. Non-blocking — it never delays the window from appearing.
 
 ### Fixed
+- **The simulator was casting some cards for free.** Cards with no printed mana cost, meant to be played
+  only through a special mechanic — Ancestral Visions, Crashing Footfalls, Wheel of Fate, Profane Tutor and
+  their kin — could be cast with no lands at all, repeatedly, on any turn. They are correctly uncastable now.
+- **An animated land could attack but could never be targeted.** A land turned into a creature could attack
+  every turn while no removal in the game could point at it — an attacker nothing could answer. Targeting now
+  agrees with combat about what counts as a creature, which also fixes a family of effects that silently did
+  nothing to such creatures (counters, shields, explore, and several "that creature" effects).
+- **An Aura that returns itself to your hand now actually does.** Cards like Mark of Fury reached their end
+  step, the ability resolved, and the Aura just stayed put.
 - **A single "Scryfall bulk" data sync now rebuilds its derived indexes.** Refreshing just the
   Scryfall bulk data (rather than "everything") used to leave the slim oracle index and the
   collection printings index pointing at the old data until the next full sync. That single-action

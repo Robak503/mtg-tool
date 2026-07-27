@@ -69,6 +69,14 @@ app/data/rules-index.json
 app/data/cardkingdom-prices.json
 app/reports/
 
+# Self-play grind output — IGNORED. Trajectories, crucible transcripts and run JSON are
+# GENERATED artifacts of a grind, not source: they are regenerable, they accumulate fast
+# (the laptop had ~31 GB of them at decommission), and pre-1.0 sim data is disposable by
+# design. Keeping them untracked also stops a long grind session showing up as "a lot to
+# commit" and burying real changes in `git status`.
+data/self-play/
+app/data/self-play/
+
 # User data — IGNORED. Decks, chats, and agent notes are the user's own content:
 # they live in %APPDATA% in production and are local-only in dev. The app
 # auto-seeds a starter deck on first launch (CLAUDE.md §5 #7), so NO seed file is

@@ -165,7 +165,17 @@ describe("KICKER coverage — CREED anti-FP: deferred shapes stay body-only / ar
       oracle: "Kicker {2}\nVigilance\nIf this creature was kicked, it enters with a +1/+1 counter on it." }, classifyCard, isNativeTier)).toBeNull();
   });
   it("a kicker creature with an extra unmodeled static stays body-only", () => {
-    expect(classifyCard({ name: "Rider", type: "Creature — Beast", mana: "{2}{G}", oracle: "Kicker {3}\nIf this creature was kicked, it enters with two +1/+1 counters on it.\nWhenever this creature attacks, draw a card." })).toBe("body-only");
+    // FIXTURE SWAPPED (census slice 20). This slot used "Whenever this creature attacks, draw a card.",
+    // which is a MODELED trigger — it read body-only only because the kicked-counter gate then required the
+    // base body to be keyword-only, so ANY extra line parked the card whether the engine understood it or
+    // not. The gate now re-classifies the stripped body and takes its tier, so a modeled sibling correctly
+    // flips (see kickerCounterBodyTier.test.js). The assertion here is about an UNMODELED sibling, so it
+    // needs a genuinely unmodeled one to keep testing what its name says.
+    expect(classifyCard({ name: "Rider", type: "Creature — Beast", mana: "{2}{G}", oracle: "Kicker {3}\nIf this creature was kicked, it enters with two +1/+1 counters on it.\nWhenever this creature attacks, each opponent glorbulates." })).toBe("body-only");
+  });
+
+  it("…and a MODELED extra ability now takes that ability's tier (slice 20)", () => {
+    expect(classifyCard({ name: "Rider2", type: "Creature — Beast", mana: "{2}{G}", oracle: "Kicker {3}\nIf this creature was kicked, it enters with two +1/+1 counters on it.\nWhenever this creature attacks, draw a card." })).toBe("native-trigger");
   });
 });
 

@@ -45,7 +45,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield } from "./staticAbilityParser.js";
-import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
+import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
@@ -543,7 +543,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // emitted targetType creature/any WITH excludeSource before this slice — so an ordinary "target creature"
         // enumeration is byte-identical. Absent ctx.sourceId simply doesn't exclude (FN-safe).
         if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
-        if (isCreature(perm.card) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
+        // LAYER-AWARE creature-ness (CR 613) — a permanent that is a creature only by LAYERS (an animated
+        // land, a crewed Vehicle) is a legal "target creature" right now. The printed-card check alone made
+        // it UNTARGETABLE while combat happily let it attack — an invulnerable attacker, and the asymmetry
+        // favours its controller, so it is not the safe direction a normal under-offer would be.
+        if ((isCreature(perm.card) || permanentIsCreature(state, perm.id)) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
           out.push({ type: "creature", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }

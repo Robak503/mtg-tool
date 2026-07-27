@@ -3,7 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
-import { addContinuousEffect } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
+import { addContinuousEffect, permanentIsCreature } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
 import { applyCreateNamedToken, applyCreateToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver; applyCreateToken — ENDURE mode B (N/N white Spirit token when the source has left)
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
@@ -21,7 +21,11 @@ import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js";
  */
 function triggeringCreatureTargets(state, ctx) {
   const lk = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
-  return lk && isCreatureCard(lk.permanent.card)
+  // LAYER-AWARE (census slice 24) — this function and shared.triggeringTargets are documented MIRRORS of
+  // each other, and they had drifted: the printed-card check alone drops a permanent that is a creature only
+  // BY LAYERS (an animated land that dealt the combat damage, a crewed Vehicle), so the counter was silently
+  // never placed while the metric read HIGH. Same catch selfTargets carries; CR 613 decides creature-ness.
+  return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, ctx.triggeringPermanentId))
     ? [{ type: "creature", id: ctx.triggeringPermanentId, controller: lk.controller }]
     : [];
 }
@@ -810,7 +814,10 @@ export function applyShieldCounter(state, atom, ctx) {
   const placed = [];
   for (const t of targets) {
     const lk = findPermanent(next, t.id);
-    if (!lk || !isCreatureCard(lk.permanent.card)) continue;
+  // LAYER-AWARE (census slice 25) — same catch as the referent resolvers: a permanent that is a creature
+  // only BY LAYERS (an animated land, a crewed Vehicle) is a creature right now (CR 613). The printed-card
+  // check alone made this a silent no-op on exactly those permanents.
+    if (!lk || !(isCreatureCard(lk.permanent.card) || permanentIsCreature(next, t.id))) continue;
     next = addCounter(next, { permanentId: t.id, type: "shield", amount: 1 });
     placed.push(t.id);
   }
@@ -894,6 +901,36 @@ export function evolveCounterSelfClauseParser(clause) {
 }
 
 /**
+ * KW-RENOWN (CR 702.111) — the kind-tagged sentinel detectTriggers synthesizes from the printed keyword
+ * ("[renown] put N +1/+1 counters on this creature"). Only this parser models that sentinel, so no printed
+ * clause can route here. Mirrors evolveCounterSelfClauseParser exactly.
+ */
+export function renownClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[renown\] put (\d+) \+1\/\+1 counters on this creature$/i);
+  return m ? { op: "renown", amount: parseInt(m[1], 10), targetType: null } : null;
+}
+
+/**
+ * KW-RENOWN resolution (CR 702.111a) — "if it isn't renowned, put N +1/+1 counters on it and it becomes
+ * renowned." A ONE-SHOT LATCH exactly like monstrosity (applyMonstrosity above is the template): an
+ * already-renowned creature dealing combat damage again does NOTHING, so the flag gate lives here rather
+ * than in an intervening-if (a fail-open board query would re-renown every combat — the forbidden FP).
+ * Self-scoped: the renowned creature is the trigger's own source (ctx.sourceId). A source that has since
+ * left the battlefield is a clean logged no-op — never a counter placed on a stale id.
+ */
+export function applyRenown(state, atom, ctx) {
+  const lk = findPermanent(state, ctx.sourceId);
+  if (!lk) return logEvent(state, { kind: "spell-effect", effect: "renown", note: "source absent", permanentId: ctx.sourceId });
+  if (lk.permanent.renowned) return logEvent(state, { kind: "spell-effect", effect: "renown", note: "already renowned", permanentId: ctx.sourceId });
+  const n = atom.amount || 1;
+  // Counters go through addCounter — the central chokepoint, so doubling effects and counter-placed
+  // watchers compose exactly as they do for monstrosity/evolve.
+  let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: n });
+  next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, renowned: true }));
+  return logEvent(next, { kind: "spell-effect", effect: "renown", permanentId: ctx.sourceId, amount: n });
+}
+
+/**
  * ENDURE N (CR 701.63 / 701.63a — BLITZ KW-1) — "<permanent> endures N" means "creates an N/N white Spirit
  * creature token UNLESS they put N +1/+1 counters on that permanent." A MODAL controller choice between two
  * modes, BOTH fully modeled here. The mode is auto-picked deterministically (a controller free choice, resolved
@@ -937,8 +974,10 @@ export function endureClauseParser(clause) {
 
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "transfer-counters": applyTransferCounters, // slice 37 — the dying object's LKI counter bag onto a chosen creature
   "endure": applyEndure, // ENDURE N (CR 701.63 — BLITZ KW-1) — modal keyword action: N +1/+1 counters on the source, or an N/N white Spirit token when the source has left
   "evolve-counter-self": applyEvolveCounterSelf, // KW-EVOLVE (CR 702.100) — self +1/+1 via the standard path, then the evolves watchers
+  "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
 
@@ -951,3 +990,49 @@ export const counterResolvers = {
   "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main
   "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks
 };
+
+// ─── COUNTER-TRANSFER (census slice 37) ──────────────────────────────────────────
+/**
+ * "When this creature dies, put its counters on target creature you control." (Star Pupil, Essence
+ * Channeler, Spiteful Squad, Hei Bai.) The destination half already parsed — what was missing is the
+ * "ITS counters" referent, which is the DYING object's whole counter bag under CR 603.6e last-known
+ * information, since the source has left the battlefield by the time this resolves.
+ *
+ * Distinct from the MODULAR payoff ("put its +1/+1 counters on target artifact creature"), which moves a
+ * single magnitude and already rides `triggeringPlusCounterCount`. This moves EVERY counter type the
+ * creature had, so it reads the bag `checkDiesTriggers` stamps as `triggeringCounterBag`.
+ */
+export function transferCountersClauseParser(clause) {
+  return /^put its counters on target creature you control$/i.test(String(clause || "").trim())
+    ? { op: "transfer-counters", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] }
+    : null;
+}
+
+/**
+ * Move the dying object's last-known counter bag onto the chosen creature. Each type goes through the
+ * shared addCounter chokepoint, so counter-doublers and counters-placed watchers compose exactly as they
+ * do for any other placement.
+ *
+ * NO BAG, NO EFFECT. An absent snapshot (or an empty one) is a clean logged no-op — a creature that died
+ * with no counters transfers nothing, which is both the rule and the FN-safe default. Never a fabricated
+ * counter, and never a guess at what it "probably" had.
+ */
+export function applyTransferCounters(state, atom, ctx) {
+  const bag = ctx.triggeringCounterBag;
+  const targets = atomTargets(state, atom, ctx);
+  if (!bag || !targets.length) {
+    return logEvent(state, { kind: "spell-effect", effect: "transfer-counters", moved: 0, controller: ctx.controller });
+  }
+  let next = state;
+  let moved = 0;
+  for (const t of targets) {
+    if (!findPermanent(next, t.id)) continue;   // target gone by resolution (CR 608.2b) → nothing moves
+    for (const [type, amount] of Object.entries(bag)) {
+      const n = Number(amount) || 0;
+      if (n <= 0) continue;
+      next = addCounter(next, { permanentId: t.id, type, amount: n });
+      moved += n;
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "transfer-counters", moved, controller: ctx.controller });
+}

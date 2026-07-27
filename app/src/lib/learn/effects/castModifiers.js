@@ -38,7 +38,13 @@ const SAC_COUNT_COST_RE = /^sacrifice (two|three|four|five) (creatures|permanent
 const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2 — no-choice life cost (N already numeric)
 const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;            // ADDCOST-2 — the N=1 form
 const DISCARD_COUNT_COST_RE = /^discard (two|three|four|five) cards$/i; // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion)
-export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard"]);
+// ADDCOST-3 (census slice 33) — "exile a <type> card from your graveyard" (Makeshift Mauler, Stitched
+// Drake class). SINGULAR ONLY, exactly how the sacrifice lane started: the count-N forms ("exile two/three
+// creature cards") and every X form ("exile X cards from your graveyard") stay unmodeled → Arbiter, a safe
+// false negative. A graveyard is a public zone and the choice is a free one, so legalChoices picks a victim
+// with the same least-valuable policy the discard cost already uses.
+const EXILE_GY_COST_RE = /^exile (?:a|an) (creature|artifact|land|instant or sorcery) card from your graveyard$/i;
+export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard", "exileFromGraveyard"]);
 
 /**
  * Pull a modeled additional cost off a spell's oracle. Returns `{ costs, rest }`:
@@ -60,6 +66,7 @@ export function extractAdditionalCosts(oracle) {
   const life = PAYLIFE_COST_RE.exec(phrase);
   const disc = DISCARD_COST_RE.exec(phrase);
   const discN = DISCARD_COUNT_COST_RE.exec(phrase); // AC-1 count-of-N
+  const exGy = EXILE_GY_COST_RE.exec(phrase);      // ADDCOST-3 — exile a typed card from your own graveyard
   let cost, selfRef = null;
   if (sac) {
     // Canonicalize the "artifact or creature" / "creature or artifact" union to one sacType key.
@@ -78,6 +85,9 @@ export function extractAdditionalCosts(oracle) {
   else if (life) { cost = { kind: "payLife", amount: parseInt(life[1], 10) }; }       // no-choice: deduct N at cast
   else if (disc) { cost = { kind: "discard", count: 1 }; selfRef = /\bdiscarded\b/i; } // N=1 — BYTE-IDENTICAL
   else if (discN) { cost = { kind: "discard", count: SMALL_NUM[discN[1].toLowerCase()] }; selfRef = /\bdiscarded\b/i; } // AC-1 N>1
+  // ADDCOST-3: the paid card is EXILED, so an effect reading it back ("the exiled card") can't be fed the
+  // cost details — the selfRef guard below drops such a card to LOW exactly like the sacrifice/discard forms.
+  else if (exGy) { cost = { kind: "exileFromGraveyard", cardType: exGy[1].toLowerCase() }; selfRef = /\bexiled\b/i; }
   else return { costs: null, rest: oracle };                   // unmodeled cost-type / count / compound → LOW
   const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
   // Self-reference guard: an effect that reads the paid-cost object ("…damage equal to the sacrificed

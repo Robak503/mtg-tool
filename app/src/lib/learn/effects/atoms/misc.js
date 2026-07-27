@@ -3,7 +3,7 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem, addMana, opponentsOf } from "../../gameState.js";
+import { logEvent, addEmblem, addMana, holdMana, opponentsOf } from "../../gameState.js";
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard } from "./shared.js";
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
@@ -253,6 +253,17 @@ export function miscClauseParser(clause) {
     for (const sym of rit[1].match(/\{([wubrgc])\}/g)) mana[sym.replace(/[{}]/g, "").toUpperCase()]++;
     return { op: "add-mana", mana, targetType: null };
   }
+  // HELD-MANA (CR 500.4's printed exception) — the SAME add, plus the printed promise that it outlives the
+  // step that made it: "Add {R}. This mana lasts until end of combat." (firebending, and every other carrier
+  // of that sentence — all 30 in the corpus use end-of-combat, so the duration is matched literally rather
+  // than parsed into a general timing vocabulary we cannot yet honor). Modeled as a pool CAP via holdMana,
+  // NOT as plain mana: crediting the plain form would hand the player mana that evaporates a step early.
+  const held = t.match(/^add ((?:\{[wubrgc]\})+) lasting until end of combat$/);
+  if (held) {
+    const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+    for (const sym of held[1].match(/\{([wubrgc])\}/g)) mana[sym.replace(/[{}]/g, "").toUpperCase()]++;
+    return { op: "add-mana", mana, holdUntilEndOfCombat: true, targetType: null };
+  }
   const m = t.match(/^.+ deals (\d+) damage divided as you choose among (any number of target creatures and\/or players|any number of target creatures|any number of targets|any number of target players)$/);
   if (m) {
     const GROUP = { "any number of target creatures and/or players": "anyTarget", "any number of target creatures": "creatures", "any number of targets": "anyTarget", "any number of target players": "players" };
@@ -383,7 +394,12 @@ export function selfCastHalfXClauseParser(clause, ctx = {}) {
 export function applyAddMana(state, atom, ctx) {
   let next = state;
   for (const color of Object.keys(atom.mana || {})) {
-    if (atom.mana[color] > 0) next = addMana(next, { playerId: ctx.controller, color, amount: atom.mana[color] });
+    if (atom.mana[color] > 0) {
+      next = addMana(next, { playerId: ctx.controller, color, amount: atom.mana[color] });
+      // HELD-MANA — raise the survival cap alongside the add, so this mana (and only this much of it) is
+      // still there for the rest of combat. Cleared at end-of-combat; see gameEngine.emptyManaPools.
+      if (atom.holdUntilEndOfCombat) next = holdMana(next, { playerId: ctx.controller, color, amount: atom.mana[color] });
+    }
   }
   return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: atom.mana });
 }

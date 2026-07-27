@@ -52,7 +52,12 @@ describe("ritual-mana — coverage + no phantom standing source", () => {
   const C = (name, oracle, type = "Instant", mana = "{B}") => ({ name, oracle, type, keywords: [], mana });
   it("ritual spells + ETB-add permanents flip native", () => {
     expect(classifyCard(C("Dark Ritual", "Add {B}{B}{B}."))).toBe("native-spell");
-    expect(classifyCard(C("Akki Rockspeaker", "When this creature enters, add {R}.", "Creature — Goblin Shaman", "{2}{R}"))).toBe("native-mana");
+    // GRADUATED (census slice 38): Akki is native-TRIGGER, not native-MANA. Its mana is real and is
+    // delivered — by the ETB trigger, which the next test in this very file already asserts is NOT a
+    // standing source (manaProduction returns null). The old pin held both claims at once: "not a standing
+    // source" AND "tier it as a mana source". Tiering it by the mechanism that actually delivers the mana
+    // resolves that, and the card stays native either way.
+    expect(classifyCard(C("Akki Rockspeaker", "When this creature enters, add {R}.", "Creature — Goblin Shaman", "{2}{R}"))).toBe("native-trigger");
   });
   it("a triggered/spell 'Add' is NOT a standing mana source (no phantom mana)", () => {
     const akki = { name: "Akki Rockspeaker", type: "Creature — Goblin Shaman", oracle: "When this creature enters, add {R}.", mana: "{2}{R}" };

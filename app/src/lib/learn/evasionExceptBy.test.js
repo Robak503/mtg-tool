@@ -90,7 +90,10 @@ describe("CREED — 'except by' whole-card law (EV-3 flipped the vetted filters;
     expect(classifyCard(AMROU_SEEKERS)).toBe("native-body");   // "artifact and/or white creatures" — OR of vetted gates
     expect(classifyCard(ELVEN_RIDERS)).toBe("native-body");    // "Walls and/or creatures with flying"
     expect(classifyCard(DEATHCULT_ROGUE)).toBe("native-body"); // subtype "Rogues" (layer-aware permIsSubtype gate)
-    expect(classifyCard(MANTA_RAY)).toBe("body-only");         // islandhome + unmodeled sac trigger — still parked
+    // NOTE (2026-07-25): Manta Ray FLIPPED — its stated blocker was the "unmodeled sac trigger", i.e.
+    // "When you control no Islands, sacrifice this creature", now built as a CR 603.8 state trigger
+    // (stateTrigger.test.js). The except-by evasion half this file guards is untouched.
+    expect(classifyCard(MANTA_RAY)).toMatch(/^native/);
   });
 });
 

@@ -391,6 +391,11 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     commanderDamageFrom: {},  // CR 903.10a — { commanderInstanceId (fallback: cardId): combatDamage } (per-commander, 21 = a loss)
     commanderCastCount: {},   // CMD-CAST (CR 903.8): { commanderCardId: timesCastFromCommandZone } — drives the {2} tax
     manaPool: emptyManaPool(),
+    // MANA-HOLD (CR 500.4 exception) — a per-color CAP on how much mana survives step/phase-end emptying,
+    // for mana printed as lasting longer than the step that made it ("Firebending N … This mana lasts until
+    // end of combat"). The mana itself stays in the NORMAL pool, so every existing payment path spends it
+    // unchanged; only gameEngine.emptyManaPools reads this, and the end-of-combat step clears it.
+    manaHold: emptyManaPool(),
     library: [...library],
     hand: [],
     battlefield: [],
@@ -472,6 +477,13 @@ export function createGameState({
     step: "untap",
     stack: [],
     pendingTriggers: [],
+    // DELAYED TRIGGERS (CR 603.7) — abilities a resolving spell/ability SCHEDULES for a future step
+    // ("At the beginning of the next end step, sacrifice it"; "draw a card at the beginning of the
+    // next turn's upkeep"). Each entry is plain JSON: { id, controller, fireStep, fireScope,
+    // effectClause, sourceName, sourceCardId, createdTurn }. gameEngine drains matching entries at
+    // step entry into `pendingTriggers` (so they ride the SAME flush→stack→resolve pipeline every
+    // printed trigger uses) and REMOVES them — CR 603.7's "triggers only once, then ceases to exist".
+    delayedTriggers: [],
     // CR 613 continuous-effects/layers state (Phase-7 PR-9). `continuousEffects`
     // holds resolution-generated effects (pump-until-EOT); static-ability effects
     // (anthems/lords) are synthesized on read, never stored. `timestampCounter` is
@@ -1434,6 +1446,30 @@ export function addMana(state, { playerId, color, amount = 1 }) {
   }));
 }
 
+/**
+ * MANA-HOLD — raise the per-color cap of mana that survives step/phase-end emptying (CR 500.4's printed
+ * exceptions: "This mana lasts until end of combat"). Deliberately a CAP and not a tagged sub-pool: the
+ * mana stays in the ordinary pool so no payment path needs to learn a second currency, and emptyManaPools
+ * keeps min(pool, hold) per color. The bounded imprecision that buys is documented at emptyManaPools —
+ * it can only ever preserve UP TO what the printed effect promised, never more.
+ */
+export function holdMana(state, { playerId, color, amount = 1 }) {
+  assertPlayer(playerId);
+  if (!MANA_COLORS.includes(color)) throw new Error(`Invalid mana color "${color}"`);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("holdMana: amount must be a non-negative integer");
+  return withPlayer(state, playerId, p => ({
+    ...p,
+    manaHold: { ...(p.manaHold || emptyManaPool()), [color]: ((p.manaHold || {})[color] || 0) + amount },
+  }));
+}
+
+/** Drop every player's mana hold — the end-of-combat expiry point for "lasts until end of combat" mana. */
+export function clearManaHolds(state) {
+  const nextPlayers = {};
+  for (const pid of Object.keys(state.players)) nextPlayers[pid] = { ...state.players[pid], manaHold: emptyManaPool() };
+  return { ...state, players: nextPlayers };
+}
+
 // R7 (audit 2026-07-09): emptyManaPoolForPlayer/emptyAllManaPools removed — dead exports
 // that BYPASSED gameEngine.emptyManaPools' preservation hook (the one legal pool-drain path).
 
@@ -1469,6 +1505,14 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
     return {
       ...p, life: newLife,
       ...(amount > 0 && { lifeLostThisTurn: (p.lifeLostThisTurn || 0) + amount }),
+      // DAMAGE-TAKEN-THIS-TURN (CR 119.3 vs 120.3 — the DAMAGE-only ledger, added 2026-07-25 for
+      // bloodthirst). Deliberately NOT the same thing as lifeLostThisTurn: a drain, a pay-life cost or a
+      // "each player loses 1 life" effect all lose life WITHOUT damage, and bloodthirst's "if an opponent
+      // was dealt DAMAGE this turn" must not fire on those (a forbidden FP). The discriminator is free and
+      // exact: both damage callers pass `combatDamage` (true from combat resolution, false from the
+      // burn/ability damage atom) while every non-damage loss leaves it undefined — so tallying only when
+      // it is defined tracks damage and nothing else. Reset for all seats at untap beside the siblings.
+      ...(combatDamage !== undefined && amount > 0 && { damageTakenThisTurn: (p.damageTakenThisTurn || 0) + amount }),
       ...(combatDamage !== undefined && amount > 0 && newLife <= 0 && { lethalDamageCombat: combatDamage }),
     };
   });
@@ -1942,7 +1986,7 @@ export function resetCreatureDeathsAllPlayers(state) {
     // lifeLostThisTurn + lifeGainedThisTurn + gyEnteredThisTurn reset on the SAME per-game-turn cadence
     // (Bloodchief Ascension's end-step check / Regal Bloodlord's end-step "if you gained life this turn" /
     // Fraying Sanity's end-step mill — any can accrue on any player's turn, so all seats clear each turn).
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0 };
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, damageTakenThisTurn: 0 };
   }
   return { ...state, players };
 }

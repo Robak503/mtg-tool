@@ -43,7 +43,10 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 // applies ONLY to a flashback cast; the normal hard cast + resolution are byte-identical to the printed body.
 // TRANSMUTE (CR 702.53, Muddle the Mixture) likewise: a hand-only activated ability (discard this card →
 // tutor same-MV) the engine never offers — the normal cast + resolution are untouched.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
+// IMPROVISE (CR 702.126, census slice 2026-07-24) — convoke's artifact twin, joining on convoke's exact
+// basis: pure cost-REDUCTION (tap artifacts to help pay), resolution-invariant, the engine hard-casts at
+// full printed cost. The permanent-side mirror (coverage.js reImproviseBare) shipped the same slice.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|affinity for [a-z]+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the

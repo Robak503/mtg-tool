@@ -39,6 +39,7 @@ import {
   untapAll,
   clearCombatDamage,
   clearRemovedFromCombatFlags,
+  clearManaHolds,
   logEvent,
   mintId,
   opponentsOf,
@@ -87,6 +88,7 @@ import { applyMurkfiendUntap } from "./murkfiendUntap.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle)
+import { drainDelayedTriggers } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle)
 import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
@@ -209,8 +211,17 @@ export function emptyManaPools(state) {
   for (const pid of Object.keys(state.players)) {
     const keep = manaDoesNotEmpty(state, pid);
     const pool = state.players[pid].manaPool;
+    // MANA-HOLD — the SECOND, bounded preservation: mana printed as outliving the step that made it
+    // ("This mana lasts until end of combat"). Unlike the card-name registry above (Omnath keeps green,
+    // permanently, in full), this keeps at most `hold[c]` of a color and is cleared at end of combat.
+    //
+    // The known imprecision, stated rather than hidden: the hold caps a COLOR, not specific mana. Float 2
+    // firebending red, spend it, then tap a Mountain in the same step and 1 red survives that shouldn't.
+    // It can never preserve MORE than the printed effect promised, so it cannot manufacture mana out of
+    // nothing — the failure mode is a rare 1-mana carry, not a leak.
+    const hold = state.players[pid].manaHold || {};
     const newPool = {};
-    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? pool[c] || 0 : 0;
+    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? pool[c] || 0 : Math.min(pool[c] || 0, hold[c] || 0);
     nextPlayers[pid] = { ...state.players[pid], manaPool: newPool };
   }
   return { ...state, players: nextPlayers };
@@ -451,6 +462,12 @@ export function runStepActions(state) {
       // REGEN (CR 701.19a): removal-from-combat lasts only this combat — clear the per-permanent
       // removedFromCombat flag here so combatResolution stops skipping the creature in later combats.
       next = clearRemovedFromCombatFlags(next);
+      // MANA-HOLD EXPIRY — "This mana lasts until end of combat" ends HERE. Clearing the hold (not the
+      // pool) is deliberate: advanceStep's own emptyManaPools call, running as this step ends, is what
+      // actually drains the mana, and it now sees hold=0. This is the ONE expiry point, and a combat-less
+      // turn still reaches it — advanceStep skips the blockers/damage steps straight to end-of-combat
+      // rather than past it, so the hold can never survive into a later turn.
+      next = clearManaHolds(next);
       next = logEvent(next, {
         kind: "step",
         phase: "combat",
@@ -513,6 +530,18 @@ export function runStepActions(state) {
   // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): at the active player's upkeep, remove a fade/time
   // counter from each of their fading/vanishing permanents and sacrifice per the rule — BEFORE the upkeep
   // triggers flush, so a vanishing permanent's dies-trigger sits correctly in the queue.
+  // DELAYED TRIGGERS (CR 603.7) — drain every ability a resolving spell/ability scheduled for THIS
+  // step into pendingTriggers, so they ride the same flush→stack→resolve path as printed triggers.
+  // Runs BEFORE the step's own trigger scan so a delayed ability and a printed one that share the
+  // step enter the queue in creation order. Draining removes the record (fires once, then ceases).
+  {
+    const drained = drainDelayedTriggers(next, next.step, next.activePlayer);
+    if (drained.fired.length) {
+      next = { ...drained.state, pendingTriggers: [...(drained.state.pendingTriggers || []), ...drained.fired] };
+    } else {
+      next = drained.state;
+    }
+  }
   if (next.step === "upkeep") next = applyFadeVanishUpkeep(next);
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
   else if (next.step === "draw") next = checkStepTriggers(next, "draw");

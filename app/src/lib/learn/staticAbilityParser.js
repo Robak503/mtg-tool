@@ -532,7 +532,12 @@ const FIRST_WORD_SELF_STOPWORDS_STATIC = new Set(["the", "a", "an", "of", "and"]
  * those tribal lords from native (a regression the full corpus flip-diff caught). Skip any candidate form
  * that appears as a subtype on the card's own type line; the full name is always still rewritten.
  */
-function selfNormalizeOracle(oracle, name, type) {
+// Exported (census slice 21) so coverage.permanentFullyCovered can normalize its residue EXACTLY the way
+// staticAbilitiesCoverCard does. The composite tier was passing RAW clauses to clauseProducesStatic, whose
+// CDA anchor is "^this creature's power and toughness …" — so a legacy printing that names itself
+// ("Mortivore's power and toughness …", CR 201.4) read as unmodeled residue in the composite while the
+// single-mechanism static tier credited it fine. Two paths, one grammar: they must normalize identically.
+export function selfNormalizeOracle(oracle, name, type) {
   // Strip parenthetical reminder text (CR 207.2 — reminder text is never functional) so a fully-modeled
   // static isn't judged "uncovered" by its own reminder ("Sliver creatures you control have double strike.
   // (They deal both first-strike and regular combat damage.)"). Removing it changes NO behavior — the
@@ -675,6 +680,17 @@ export function isHonestEnterCounterKind(kind) {
  */
 export function entersWithConditionalCounters(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  // KW-BLOODTHIRST (CR 702.54, 2026-07-25) — the keyword IS this exact shape, but its text lives entirely
+  // in reminder parens ("Bloodthirst N (If an opponent was dealt damage this turn, this creature enters
+  // with N +1/+1 counters on it.)"), which the strip above removes before the sentence matcher ever runs.
+  // Synthesizing the {n, condition} pair here — rather than in a separate lane — means the EXISTING
+  // machinery on both sides picks it up unchanged: coverage's condEnterCtr gate credits it, and
+  // resolvers.js's condCtr applies the counters at enter time. The condition string is the one
+  // interveningIf.js now reads off the damage-only ledger.
+  for (const line of oracle.split("\n")) {
+    const bt = line.trim().match(/^bloodthirst (\d+)$/i);
+    if (bt) return { n: parseInt(bt[1], 10), condition: "an opponent was dealt damage this turn" };
+  }
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
     const m = sentence.trim().match(/^[^.]*?\benters with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her) if ([^.]+?)\.?$/i);
     if (!m) continue;
@@ -1399,7 +1415,11 @@ function parseClause(clause, out, selfName, selfType) {
   // Skirge) and Infusion ("Infusion — … as long as you gained life this turn", Tenured Concocter) — like
   // every CR 207.2c ability word, the CONDITION is always restated in the rules text that follows, so
   // the label itself is pure flavor and stripping it is universally safe.
-  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|hellbent|corrupted|infusion|unlock ability)\s*[—–-]\s*/, "");
+  // "The Will of the Hive Mind" (Winged Hive Tyrant) — CR 207.2c flavor over the SAME counter-gated group
+  // keyword shape as "Unlock Ability" above ("…Other creatures you control with counters on them have
+  // flying and haste."); pure label, the static itself is unconditional. Verified against the bundled
+  // oracle text, not guessed.
+  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|hellbent|corrupted|infusion|unlock ability|the will of the hive mind)\s*[—–-]\s*/, "");
 
   // ── FLASH-CAST-PERMISSION (Yeva; Vedalken Orrery; Leyline of Anticipation; Prophet of Kruphix; …) ──────
   // "You may cast <FILTER> spells as though they had flash." A STATIC casting-permission (CR 601.3e / 702.8f
@@ -1981,6 +2001,34 @@ function parseClause(clause, out, selfName, selfType) {
         duration: { kind: "permanent" },
       });
       return;
+    }
+    // ── COUNTER-GATED GROUP KEYWORD (Nev, the Practical Dean — "Creatures you control with counters on
+    // them have trample."; Tesak, Judith's Hellhound — "…have haste."; Winged Hive Tyrant — "OTHER
+    // creatures you control with counters on them have flying and haste."): the keyword-grant
+    // generalization of the ward grant just above — the SAME requiresAnyCounter dynamic selector (re-read
+    // live, so a counter arriving/leaving moves a creature in or out), any GRANTABLE_KEYWORDS keyword(s)
+    // instead of only ward. Plural "creatures...have" (vs. the ward grant's singular "each creature...has")
+    // — CR draws no distinction, both read the same live counter-presence query. Optional leading "other"
+    // maps to excludeSelf (matchesSelector's generic self-exclusion field — Winged Hive Tyrant is itself a
+    // creature that could carry counters, so it must not buff itself). ALL-OR-NOTHING (CREED, mirrors the
+    // your-turn keyword grant's own guard): every segment must be a grantable keyword or nothing is
+    // emitted — a P/T-set or non-keyword rider (Rishkar's granted mana ability) stays residue →
+    // body-only, never a fabricated grant.
+    const cgkM = c.match(/^(other )?creatures? you control with (?:a counter on it|counters on them) (?:has|have) (.+)$/);
+    if (cgkM) {
+      const segs = cgkM[2].split(/,|\band\b/).map((s) => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
+      if (segs.length && segs.every((s) => GRANTABLE_KEYWORDS.has(s))) {
+        const selector = { controllerScope: "you", cardTypes: ["Creature"], requiresAnyCounter: true, ...(cgkM[1] && { excludeSelf: true }) };
+        for (const s of segs) {
+          out.push({
+            layer: 6,
+            op: { layerOp: "addKeyword", keyword: canonicalKeyword(s) },
+            affects: { mode: "dynamic", selector },
+            duration: { kind: "permanent" },
+          });
+        }
+        return;
+      }
     }
   }
 
@@ -4137,7 +4185,7 @@ const ATT_NO_UNTAP_CLAUSE_RE = /^enchanted creature doesn't untap during its con
 /** Does this Aura print the modeled attached tap-lock line? (gameState.untapAll enforces it.) */
 export function attachedNoUntapOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
-  return /(?:^|[\n.;])\s*enchanted creature doesn't untap during its controller's untap step\s*(?:\.|$)/i.test(o);
+  return /(?:^|[\n.;])\s*enchanted (?:creature|permanent) doesn't untap during its controller's untap step\s*(?:\.|$)/i.test(o);
 }
 /** Single-LINE form of the tap-lock check (UT-1) — for coverage residue walks over oracle lines. */
 export function isAttachedNoUntapLine(line) {
@@ -4304,6 +4352,28 @@ export function auraEnchantRestrictions(card) {
   const subject = auraEnchantSubject(card);
   if (subject === "creature") return [];
   if (subject === "creature you control") return [{ kind: "controller", who: "you" }];
+  // QUALIFIED SUBJECTS (CR 303.4a) — three more restrictions, admitted because each maps EXACTLY onto a
+  // restriction creatureSatisfiesRestrictions already enforces, layer-aware and fail-closed. No new
+  // targeting machinery: this is wiring, which is why it can't introduce a wrongly-legal target.
+  //   "tapped creature"           → Entangling Vines, Glimmerdust Nap
+  //   "creature without flying"   → Roots, Trapped in the Tower
+  //   "creature with power N or less" → Runner's Bane
+  //
+  // FALL-OFF, stated plainly: these are enforced at CAST. The CR 704.5n sweep in sba.js checks only
+  // "Enchant creature|land|permanent" and treats any qualified subject as host-existence-only, so an Aura
+  // does NOT fall off if its host later stops matching (a pumped creature keeps Runner's Bane). That is the
+  // module's EXISTING, documented policy — "a missed fall-off is the safe direction; a wrong kill is the
+  // forbidden one" — and it already applies to the shipped "creature you control" subject. Followed here
+  // rather than reversed: widening the sweep would trade a safe miss for the forbidden failure mode.
+  //
+  // Everything else still returns null → the Aura is NOT native (Arbiter): positive COLOR subjects ("green
+  // creature") have no positive-color restriction kind, type unions ("creature or vehicle") can't be
+  // expressed against a fixed targetType:"creature", and the exotic subjects ("modified creature",
+  // "creature with another Aura attached to it") have no predicate at all.
+  if (subject === "tapped creature") return [{ kind: "tapped", value: true }];
+  if (subject === "creature without flying") return [{ kind: "hasKeyword", keyword: "flying", negate: true }];
+  const pw = subject && subject.match(/^creature with power (\d+) or less$/);
+  if (pw) return [{ kind: "power", op: "<=", value: parseInt(pw[1], 10) }];
   return null;
 }
 

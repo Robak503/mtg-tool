@@ -32,7 +32,7 @@ import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_
 import { typeOf, isInstantOrSorcery, oracleOf, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST } from "./textNormalize.js"; // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
-import { matchHandDisruption, matchRemovalControllerRider, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
+import { matchHandDisruption, matchRemovalControllerRider, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
 import { matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchWindfallMaxDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
@@ -49,7 +49,7 @@ import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/rol
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js";
+import { createNamedTokenClauseParser, createTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
 import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
@@ -57,7 +57,7 @@ import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTRO
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
-import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, endureClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
+import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
 import { earthbendClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
@@ -871,8 +871,19 @@ function matchOptionalManaPayment(oracle, cardType) {
     if (!mana) return null;                                          // {X} / unknown symbol → unmodeled cost
     cost = { kind: "mana", mana };
   }
-  const payoffText = m[2].trim();
-  if (/\bif you do\b/i.test(payoffText)) return null;                // a SECOND "if you do" — not modeled
+  const rawPayoff = m[2].trim();
+  if (/\bif you do\b/i.test(rawPayoff)) return null;                 // a SECOND "if you do" — not modeled
+  // SELF-PRONOUN (the Thriving cycle, census slice 40) — "…you may pay {E}{E}. If you do, IT gains first
+  // strike / put a +1/+1 counter on IT." On these cards the sentence introduces no other object, so "it" is
+  // the source; the bare pronoun otherwise fails to resolve and the whole card parks.
+  //
+  // An ALLOWLIST of the two printed self-shapes, deliberately NOT a denylist. A denylist would have to
+  // anticipate every way another object can be introduced ("create a token … it gains haste" would slip
+  // straight through and pump the WRONG permanent), which is the same pronoun trap that made
+  // "sacrifice it at the beginning of the next end step" unsafe to normalize. Anything else — a chosen
+  // target, "another", a token-maker — keeps its pronoun, fails to parse, and stays on the Arbiter (FN-safe).
+  const SELF_PRONOUN_PAYOFF = /^(?:it (?:gains|gets)\b[^.]*|put (?:a|one|two|three) [+-]\d+\/[+-]\d+ counters? on it)$/i;
+  const payoffText = SELF_PRONOUN_PAYOFF.test(rawPayoff) ? rawPayoff.replace(/\bit\b/gi, "this creature") : rawPayoff;
   const payoff = parseEffectClauseImpl(payoffText, cardType, { hasX: false });
   if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
   const inner = payoff.atoms || [];
@@ -1216,6 +1227,37 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // of that type." spans two sentences, so it's collapsed up front to one chosen-type-count draw atom.
   const ctd = matchChooseTypeDraw(oracle);
   if (ctd) return collapsed(ctd);
+  // CHOSEN-TYPE REVEAL TO HAND (For the Ancestors) — "Choose a creature type. Look at the top N cards…
+  // reveal any number of the chosen type into your hand. Put the rest on the bottom…" spans four
+  // sentences, collapsed the same way as the chosen-type draw just above.
+  const cthh = matchChosenTypeRevealToHand(oracle);
+  if (cthh) return collapsed(cthh);
+  // DELAYED TRIGGER (CR 603.7) — "At the beginning of <next step>, <effect>" / "<effect> at the
+  // beginning of <next step>". CREED GATE: emit the scheduling atom ONLY when the INNER clause
+  // itself parses HIGH — a scheduled ability must never fire an effect the engine can't model, so an
+  // unreadable inner clause leaves the whole card LOW → Arbiter (a safe FN). The inner parse runs on
+  // the same "Instant" lane every trigger payoff uses.
+  const dly = matchDelayedTrigger(oracle);
+  if (dly) {
+    const inner = parseEffectClause(dly.delayedClause, "Instant");
+    if (programConfidence(inner) === "high") {
+      const scheduleAtom = {
+        op: "schedule-delayed", fireStep: dly.fireStep, fireScope: dly.fireScope,
+        delayedClause: dly.delayedClause, targetType: null,
+      };
+      // No leading sentence → the whole clause is the delayed ability.
+      if (!dly.immediateClause) {
+        return makeProgram({ confidence: "high", atoms: [scheduleAtom], xSpell: false, unparsedTail: null });
+      }
+      // Leading sentences resolve NOW, the final one is scheduled: emit [immediate…, schedule].
+      // ALL-OR-NOTHING — an unmodeled immediate half drops the WHOLE program to low (falling through
+      // to the normal pipeline), so a spell can never half-resolve with its delayed half silently lost.
+      const imm = parseEffectClause(dly.immediateClause, "Instant");
+      if (programConfidence(imm) === "high" && imm.atoms.length) {
+        return makeProgram({ confidence: "high", atoms: [...imm.atoms, scheduleAtom], xSpell: false, unparsedTail: null });
+      }
+    }
+  }
   const emb = matchEmblem(oracle);
   if (emb) return collapsed(emb);
   // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== Lifeblood Hydra "you gain life and draw cards equal to its
@@ -1916,6 +1958,10 @@ registerClauseParser(addCounterClauseParser);
 // Anchored end-to-end; distinct subject ("this artifact/permanent" vs addCounter's "this creature") → no overlap.
 registerClauseParser(addNamedCounterSelfClauseParser);
 registerClauseParser(evolveCounterSelfClauseParser); // KW-EVOLVE sentinel (SHELF S7) — the synthesized "[evolve] …" clause only
+registerClauseParser(renownClauseParser); // KW-RENOWN sentinel (census slice 2026-07-25) — the synthesized "[renown] …" clause only
+registerClauseParser(transferCountersClauseParser); // slice 37 — "put its counters on target creature you control" (dies LKI bag)
+registerClauseParser(mobilizeClauseParser);    // KW-MOBILIZE sentinel — the synthesized "[mobilize] …" clause only
+registerClauseParser(mobilizeSacClauseParser); // …and its CR 603.7 delayed sacrifice half
 // ENDURE N (CR 701.63 — BLITZ KW-1) — the modal keyword action "it endures N" (bare, reminder stripped): N +1/+1
 // counters on the source, or an N/N white Spirit token when the source has left. Self-scoped (no targetType) →
 // routes native on triggers; "endure X" (variable) never matches → LOW → Arbiter. Distinct anchor → no overlap.

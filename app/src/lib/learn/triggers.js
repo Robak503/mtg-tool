@@ -25,6 +25,7 @@ import {
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, colorsOf } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
+import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
 function oracleOf(card) {
@@ -278,8 +279,14 @@ export function stripTriggerAbilityLabel(oracle) {
   // clause got MIS-READ as a standing mana source → a phantom-mana native-mana false positive. Revealing the
   // trigger drops the card to body-only (correct); a modeled Opus trigger would stay native, revealed to the
   // counter. (Director FP-removal, 2026-07-17 — CC-1 census surfaced it, deferred to keep its slice LOST=0.)
+  // "lieutenant" (CR 207.2c, 2018 Commander cycle) is the ability-word label on the commander-control family
+  // ("Lieutenant — At the beginning of combat on your turn, if you control your commander, …" — Loyal Drake/
+  // Subordinate/Apprentice/Guardian, Siege-Gang Lieutenant, Ironwill Forger; also gates the "as long as"
+  // continuous-static half of the same cycle, unrelated to THIS trigger-detection strip). Stripping it lets
+  // the boundary-anchored trigger regex see the bare "At the beginning" so YOU_CONTROL_YOUR_COMMANDER_RE
+  // (interveningIf.js, added the same slice) can evaluate the condition.
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus)\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant)\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
@@ -1035,6 +1042,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     // The non-"another" union (no live corpus card, but the symmetric form) — "a creature or artifact you control".
     if (pigSubj === "a creature or artifact you control")
       return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any", includeSelf: true };
+    // The REVERSED word order (Agent of the Iron Throne — "an artifact or creature you control"), granted onto
+    // Commander creatures by a Background enchantment. Same union, same scope — CR draws no distinction between
+    // "creature or artifact" and "artifact or creature"; only the printed word order differs.
+    if (pigSubj === "an artifact or creature you control")
+      return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any", includeSelf: true };
+    if (pigSubj === "another artifact or creature you control")
+      return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any" };
     // Marionette Master — "an artifact you control" (the source is a creature, never an artifact → never self-fires).
     if (pigSubj === "an artifact you control")
       return { event: "permanentLeaves", scope: "artifactYouControlPiG", whose: "any" };
@@ -1119,12 +1133,28 @@ function classifyCondition(condRaw, cardName, cardType) {
     const event = /end step/.test(c) ? "endStep" : /draw step/.test(c) ? "draw" : "upkeep";
     return { event, scope: "you", whose };
   }
+  // (The "beginning of your first main phase" timing is owned by the REGISTERED detector —
+  // triggerScheduler.detectPhaseTrigger → event "firstMain", fired at gameEngine's precombat-main entry.
+  // It is deliberately NOT duplicated here: classifyCondition has priority over the registry, so an
+  // inline copy would shadow the canonical event name. Lesson re-learned 2026-07-24: grep for the
+  // existing mechanism before adding a timing.)
   // TRIG-LIFEGAIN — the lifegain event (CR 119.3, a player gaining life). BARE "you gain life" only,
   // anchored: a conditional ("…for the first time each turn") or compound ("…gain or lose life") leaves
   // residue and stays UNDETECTED → Arbiter (a SAFE false-negative). whose:"any" NOT "yours" — life gain
   // isn't tied to the active player's turn (lifelink / an instant resolve on ANY turn), and the activePlayer
   // gate on "yours" (triggersForEvent) would wrongly drop an off-turn gain. checkLifegainTriggers instead
   // scans ONLY the gaining player's sources, so "you gain life" still fires for the gainer alone.
+  // STATE TRIGGER (CR 603.8) — "When you control no <X>, <effect>." (Seasinger's "no Islands", Barbarian
+  // Outcast's "no Swamps"; 19 corpus carriers, all one shape). Unlike every other event here this is not a
+  // discrete happening: the condition is CHECKED continuously and the ability triggers whenever it is true,
+  // at the same cadence as state-based actions (checkStateTriggers, fired from the CR 704.3 fixpoint).
+  // CREED: detected ONLY when interveningIf.js can actually READ the condition — the "you control no
+  // <filter>" vocabulary it already owns — so a shape the evaluator can't judge stays undetected → Arbiter.
+  // The latch that stops it re-firing every SBA pass lives in the checker (CR 603.8: it triggers again only
+  // after the condition stops being true), exactly like renown's flag rather than a fail-open board read.
+  if (/^you control no /.test(c) && interveningIfParseable(c)) {
+    return { event: "stateTrigger", scope: "self", whose: "any", stateCondition: c };
+  }
   if (/^you gain life$/.test(c)) return { event: "lifegain", scope: "you", whose: "any" };
   // TRIG-DRAW — the card-draw event (CR 121.1, drawing a card). BARE "you draw a card" only, anchored: a
   // conditional ("…your second card each turn"), scaled, or compound variant leaves residue and stays
@@ -1162,6 +1192,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // — a restriction the engine can't check exactly, CLAUDE.md §1.2). "another" excludes the source permanent.
   const sacM = c.match(/^you sacrifice (a|an|another) (permanent|creature|artifact)$/);
   if (sacM) return { event: "sacrifice", scope: "you", whose: "any", sacScope: sacM[2], sacAnother: sacM[1] === "another" };
+  // TRIG-SACRIFICE ANY-PLAYER (Mayhem Devil, Carmen/Mazirek/Zodiark/Thraximundar/Mortician Beetle/Fumulus/
+  // Merchant of Venom — 8 real corpus carriers) — "Whenever A PLAYER sacrifices a <X>", as opposed to "you
+  // sacrifice" above: this fires off ANY player's sacrifice, including the watcher's own controller's (the
+  // subject is a generic player, not "you"). scope:"anyPlayerSac" is a distinct value from "you" so
+  // checkSacrificeTriggers can scan every player's battlefield for it (mirrors the dies-trigger cross-player
+  // scan at checkDiesTriggers), not just the sacrificer's own side. Optional "nontoken" filter (Fumulus,
+  // "sacrifices a nontoken creature") — checked in sacScopeMatches alongside the existing type predicate.
+  const sacAnyM = c.match(/^a player sacrifices (a|an|another) (nontoken )?(permanent|creature|artifact)$/);
+  if (sacAnyM) {
+    return {
+      event: "sacrifice", scope: "anyPlayerSac", whose: "any",
+      sacScope: sacAnyM[3], sacAnother: sacAnyM[1] === "another", nontokenFilter: !!sacAnyM[2],
+    };
+  }
   // TRIG-SELF-SACRIFICE (BLITZ OC-1, the Ordeal cycle) — "When YOU SACRIFICE THIS Aura/enchantment,
   // <payoff>". A zone-change trigger that LOOKS BACK IN TIME (CR 603.10a — abilities that trigger when a
   // player sacrifices a permanent), on the sacrificed permanent ITSELF: by the time it fires the source has
@@ -1776,6 +1820,90 @@ export function evolveKeywordCount(oracle) {
   return 0;
 }
 
+/**
+ * KW-RENOWN (CR 702.111) — "Renown N" on its own line (reminder text stripped, the undying/evolve idiom).
+ * Returns N (the counter count), or 0 when the card doesn't carry a printed renown keyword. A GRANTED
+ * renown ("creatures you control have renown 1") is a different shape and never matches the anchor, so it
+ * contributes 0 here and 0 to the detected count — the pair stays reconciled.
+ */
+export function renownKeywordValue(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^renown (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
+/**
+ * MOBILIZE N (CR 702.174) — "Whenever this creature attacks, create N tapped and attacking 1/1 red Warrior
+ * creature tokens. Sacrifice them at the beginning of the next end step." Like renown, the whole ability
+ * lives in reminder parens (and one printing omits the reminder entirely — "Mobilize 1" bare), so the
+ * boundary-anchored trigger regex can never see it. Reminder text is stripped before matching so both
+ * printings read the same. A GRANTED mobilize would not match this self-anchored form.
+ */
+export function mobilizeKeywordValue(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^mobilize (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
+/**
+ * BACKUP N (CR 702.166) — "When this creature enters, put N +1/+1 counters on target creature. If that's
+ * another creature, it gains the following ability until end of turn." The whole ability is in reminder
+ * parens, so it is synthesized like renown / mobilize.
+ *
+ * MODELED AS THE SELF-TARGET LINE ONLY, and that is a deliberate, stated narrowing. Self-target is one of
+ * the card's own legal choices (and the FORCED one when it is your only creature), and choosing it makes the
+ * "if that's another creature" grant vacuous — so the engine plays a real, legal line faithfully. What it
+ * does NOT do is offer backup on a DIFFERENT creature, because "the following ability" is card-specific text
+ * that would have to be threaded onto another permanent. That is an under-offer: safe, and the same shape as
+ * not offering an awaken or bestow mode. Never the reverse.
+ */
+/**
+ * Returns N for a printed numeric "Firebending N", else 0.
+ *
+ * "Firebending 1 (Whenever this creature attacks, add {R}. This mana lasts until end of combat.)" — like
+ * renown / mobilize / backup, the whole ability lives in reminder parens where the boundary-anchored trigger
+ * regex cannot reach it, so it is synthesized from the keyword line.
+ *
+ * NUMERIC ONLY, on purpose. The corpus also prints "Firebending X, where X is this creature's power" (and X =
+ * experience counters / creatures you control). Those need a dynamic amount the add-mana atom has no shape
+ * for, and guessing a fixed number would print the WRONG amount of mana every time — so they fail the anchor
+ * and stay on the Arbiter. False-negative safe, per the creed.
+ */
+export function firebendingKeywordValue(oracle) {
+  // Reminder parens stripped FIRST, exactly like renownKeywordValue — the keyword line is printed as
+  // "Firebending 1 (Whenever this creature attacks, …)", and the comma inside those parens would otherwise
+  // leave the first segment as "firebending 1 (whenever this creature attacks", which matches nothing.
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^firebending (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
+export function backupKeywordValue(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      const m = seg.trim().toLowerCase().match(/^backup (\d+)$/);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return 0;
+}
+
 export function undyingKeywordCount(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -2304,6 +2432,16 @@ export function registerTriggerDetector(fn) {
 // Cascade keyword bumps), so if EITHER half's event is unmodeled the detected count under-runs shaped → the whole
 // card routes to the Arbiter (a SAFE false-negative) — an unmodeled half is NEVER silently dropped (the cardinal FP).
 const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)?\\s+(.+?),\\s+(.+?\\.)";
+// "When A and AT THE BEGINNING OF B, E" (Crack in Time / Mystic Barrier / Noble Heritage — 53 corpus
+// carriers, most of them Planechase planes outside the real-card denominator): the SAME two-abilities-
+// sharing-one-effect shape as the "and when(ever)" connective above, with a phase/step timing as the
+// second trigger. Split to "When A, E\nAt B, E" so each half detects independently — CRITICAL, because
+// before this split existed the unsplit compound leaked through the UNANCHORED `\benters\b` self-ETB
+// containment check as a bare etb descriptor: the card CLASSIFIED native on the ETB half alone while the
+// runtime silently never fired the recurring half (a live CREED FP, masked on Crack in Time by the
+// vanishing-reminder phantom until 2026-07-24). Same safety contract as every split here: coverage bumps
+// shaped by compoundTriggerCount, so an unmodeled half under-runs detected → the whole card parks (FN-safe).
+const COMPOUND_AT_BEGINNING_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+at\\s+(the\\s+beginning\\s+of\\s+[^,\\n]+?),\\s+(.+?\\.)";
 // ===== EVENT-DISJUNCTION SPLIT (SHELF C1 — "enters or attacks", CR 603.2b: an ability can trigger on
 // either of two events) ===== "When[ever] <subject> enters[ the battlefield] or attacks, <effect…>" →
 // TWO sentences, one per event, each carrying the WHOLE same-line effect (riders/follow-up sentences
@@ -2366,6 +2504,7 @@ function splitCompoundTriggerSentences(oracle) {
   const { masked, restore } = maskQuotedSpans(oracle);
   return restore(masked
     .replace(new RegExp(COMPOUND_TRIGGER_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nWhenever ${condB}, ${eff}`)
+    .replace(new RegExp(COMPOUND_AT_BEGINNING_SRC, "gi"), (_, kw, condA, condB, eff) => `${kw} ${condA}, ${eff}\nAt ${condB}, ${eff}`)
     .replace(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi"), (m, _kw, subj, eff) =>
       /of the chosen type/i.test(subj) ? m : `Whenever ${subj} enters${eff}\nWhenever ${subj} attacks${eff}`)
     .replace(new RegExp(DISJUNCTION_DIES_SRC, "gi"), (_m, _kw, subj, eff) =>
@@ -2387,7 +2526,8 @@ export function compoundTriggerCount(oracle) {
   // inside a quoted grant is neither split nor detected, so it must not be counted either (else the
   // shaped===detected reconciliation would park every granter of a quoted compound body).
   const s = maskQuotedSpans(String(oracle || "")).masked;
-  const andJoins = (s.match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length;
+  const andJoins = (s.match(new RegExp(COMPOUND_TRIGGER_SRC, "gi")) || []).length
+    + (s.match(new RegExp(COMPOUND_AT_BEGINNING_SRC, "gi")) || []).length;
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
   const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length;
@@ -2417,8 +2557,11 @@ export function detectTriggers(card) {
   // itself is engine-enforced (fading.applyFadeVanishUpkeep) and keyword-credited. Strip EXACTLY that
   // reminder shape before detection; every other reminder is left as-is (Ravenous deliberately keys on its
   // reminder signature — see the KW-RAVENOUS synthesis).
+  // Subject alternation covers every wording the corpus actually prints (censused 2026-07-24: creature 23 ·
+  // enchantment 8 · artifact 2 · aura 1 · land 1 — "this enchantment" was MISSING, so every vanishing
+  // ENCHANTMENT's reminder leaked through as a phantom unroutable upkeep descriptor, parking Four Knocks).
   const oracle = splitCompoundTriggerSentences(stripTriggerAbilityLabel(
-    String(oracleOf(card) || "").replace(/\((?:this (?:creature|permanent) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, ""),
+    String(oracleOf(card) || "").replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, ""),
   ));
   const out = [];
   if (oracle) {
@@ -2854,6 +2997,7 @@ export function detectTriggers(card) {
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
+        stateCondition: cls.stateCondition,   // STATE TRIGGER (CR 603.8) — the continuously-checked board condition string, read by checkStateTriggers via the shared interveningIf evaluator
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacSubtype: cls.sacSubtype,           // TRIG-SACRIFICE SUBTYPE: capitalized subtype (e.g. "Treasure") — type-line scan
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
@@ -3245,6 +3389,75 @@ export function detectTriggers(card) {
       interveningIf: "that creature has greater power or toughness than this creature",
       optional: false, sourceText: "Evolve",
     });
+  }
+  // KW-RENOWN (CR 702.111, census slice 2026-07-25) — the SAME keyword→trigger synthesis as evolve above.
+  // "Renown N (When this creature deals combat damage to a player, if it isn't renowned, put N +1/+1
+  // counters on it and it becomes renowned.)" — the ability lives entirely in reminder parens, unreachable
+  // by the boundary-anchored trigger regex. The "isn't renowned" gate is a LATCH, not a board query, so it
+  // is NOT expressed as an intervening-if (interveningIf.js has no per-permanent renown vocabulary and a
+  // fail-open there would re-renown every combat): the latch lives INSIDE the atom, exactly like
+  // monstrosity's `monstrous` flag, which is the same shape (check flag → counters → set flag).
+  {
+    const renownN = renownKeywordValue(oracle);
+    if (renownN > 0) {
+      out.push({
+        event: "combatDamageToPlayer", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `[renown] put ${renownN} +1/+1 counters on this creature`,
+        interveningIf: null,
+        optional: false, sourceText: `Renown ${renownN}`,
+      });
+    }
+  }
+  // KW-BACKUP (CR 702.166) — synthesized from the printed keyword like renown/mobilize. The effectClause is
+  // ORDINARY MODELED TEXT, not a kind-tagged sentinel: "put N +1/+1 counters on this creature" already parses
+  // HIGH to the existing self-scoped add-counter atom, so this keyword needs no new resolver and inherits a
+  // runtime path that is already proven. See backupKeywordValue for why the SELF target is the modeled line.
+  {
+    const backupN = backupKeywordValue(oracle);
+    if (backupN > 0) {
+      out.push({
+        event: "etb", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `put ${backupN} +1/+1 counters on this creature`,
+        interveningIf: null,
+        optional: false, sourceText: `Backup ${backupN}`,
+      });
+    }
+  }
+  // KW-MOBILIZE (CR 702.174) — the printed keyword's ability is entirely inside reminder parens, so it is
+  // synthesized here exactly like renown above. The effect is a kind-tagged sentinel only one clause parser
+  // models, so no printed text can route into it. Scoped SELF on the attacks event, which is what threads
+  // ctx.defenderId — the minted tokens must join the SAME combat against the SAME defender, and without
+  // that referent they would be inert (see the dead-field warning in atoms/tokens.js).
+  {
+    const mobilizeN = mobilizeKeywordValue(oracle);
+    if (mobilizeN > 0) {
+      out.push({
+        event: "attacks", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `[mobilize] create ${mobilizeN} tapped attacking warrior tokens`,
+        interveningIf: null,
+        optional: false, sourceText: `Mobilize ${mobilizeN}`,
+      });
+    }
+  }
+  // KW-FIREBENDING (census slice 41) — synthesized from the printed keyword like renown / mobilize / backup.
+  // Following BACKUP's precedent the effectClause is ORDINARY MODELED TEXT, not a kind-tagged sentinel: the
+  // sentence it emits is the one actually printed inside the reminder, and misc.js parses it to the add-mana
+  // atom with the end-of-combat hold. That means the same lane also credits any non-keyword card printing the
+  // same sentence, instead of a sentinel only this keyword can reach.
+  {
+    const firebendingN = firebendingKeywordValue(oracle);
+    if (firebendingN > 0) {
+      out.push({
+        event: "attacks", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `add ${"{R}".repeat(firebendingN)}. this mana lasts until end of combat`,
+        interveningIf: null,
+        optional: false, sourceText: `Firebending ${firebendingN}`,
+      });
+    }
   }
   // SAGA CHAPTERS (CR 714 — Vault 12, SHELF S7): a Saga's numbered chapters are triggered abilities that
   // fire as the lore count crosses each number. Synthesize ONE descriptor per chapter (the keyword-synthesis
@@ -3998,6 +4211,13 @@ export function checkDiesTriggers(state, dead) {
     // upkeep) moves its FULL total. Stamped only when the snapshot was captured; an entry without one leaves the
     // key undefined → resolveScaledAmount reads 0 → a clean no-op (never a fabricated count).
     if (d.counters) diesCtx.triggeringPlusCounterCount = d.counters["+1/+1"] || 0;
+    // COUNTER-TRANSFER (census slice 37, CR 603.6e LKI): the dying object's WHOLE counter bag, for
+    // "put ITS counters on target creature you control" (Star Pupil, Essence Channeler, Spiteful Squad).
+    // Distinct from triggeringPlusCounterCount above, which is only the +1/+1 magnitude the MODULAR payoff
+    // moves — this shape moves every counter type the creature had, so it needs the bag, not a number.
+    // Copied (not aliased) off the same death look-back snapshot, so a later mutation can't reach back
+    // into it. Stamped only when a snapshot exists; absent → the resolver moves nothing, never invents.
+    if (d.counters) diesCtx.triggeringCounterBag = { ...d.counters };
     // POWER-DIFFERED (Jason Bright, CR 603.6e LKI): the dies intervening-if "its power was different from
     // its base power" compares the look-back's EFFECTIVE power (counters + anthems + pumps) against its
     // BASE power (printed / 7b-set). Stamped only when BOTH were captured; a missing capture leaves the
@@ -4950,6 +5170,10 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
  */
 function sacScopeMatches(d, watcher, sacrificed) {
   if (d.sacAnother && sacrificed.id === watcher.id) return false;
+  // NONTOKEN filter (Fumulus, the Infestation — "a player sacrifices a NONTOKEN creature"): a sacrificed
+  // TOKEN never satisfies this descriptor (CR 111.1 — a token is still the stated card type, so it isn't
+  // the type check that excludes it, just the printed "nontoken" restriction itself).
+  if (d.nontokenFilter && sacrificed.card?.token) return false;
   // SUBTYPE sac scope (Captain Lannery Storm "sacrifice a Treasure") — the sac'd permanent's TYPE LINE must
   // carry the subtype word-bounded (CR 205.3 — subtypes follow the "—"; a substring check would mis-match,
   // e.g. "Treasure" within a longer word). A Treasure token's type line is "Token Artifact — Treasure", so
@@ -4969,13 +5193,16 @@ function sacScopeMatches(d, watcher, sacrificed) {
 
 /**
  * TRIG-SACRIFICE — enqueue "Whenever you sacrifice a <permanent|creature|artifact>" triggers for the player
- * who just sacrificed. Fired at each sacrifice chokepoint (the effect/edict sac + the cost sac), AFTER the
- * permanent has moved to the graveyard, with the captured permanent passed as `sacrificed` (a lookBack so
- * its type is readable post-move). Scans the SACRIFICING player's surviving watchers — the common case is a
- * separate watcher ("Whenever you sacrifice another permanent, …" on a DIFFERENT permanent); a permanent's
- * trigger on its OWN sacrifice is a SAFE false-negative (it already left → not a watcher). Each watcher's
- * sacScope is matched EXACTLY against the sacrificed permanent's type (so creature-scope never fires on an
- * artifact sac, and vice-versa). whose:"any" is moot (only the sacrificer's sources are scanned). Pure.
+ * who just sacrificed, PLUS "Whenever A PLAYER sacrifices a <X>" (Mayhem Devil et al., scope:"anyPlayerSac")
+ * for every player's watchers regardless of who did the sacrificing. Fired at each sacrifice chokepoint (the
+ * effect/edict sac + the cost sac), AFTER the permanent has moved to the graveyard, with the captured
+ * permanent passed as `sacrificed` (a lookBack so its type is readable post-move). The "you"-scope half scans
+ * only the SACRIFICING player's surviving watchers — the common case is a separate watcher ("Whenever you
+ * sacrifice another permanent, …" on a DIFFERENT permanent); a permanent's trigger on its OWN sacrifice is a
+ * SAFE false-negative (it already left → not a watcher, true for both scopes). Each watcher's sacScope is
+ * matched EXACTLY against the sacrificed permanent's type (so creature-scope never fires on an artifact sac,
+ * and vice-versa). whose:"any" is moot for both scopes (player-scope is carried on `scope` itself here, not
+ * `whose`). Pure.
  */
 export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   if (!sacrificed?.card || !state.players?.[sacrificingPlayerId]) return state;
@@ -4987,12 +5214,24 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   const sacIsToken = !!sacrificed.card?.token;
   let fired = [];
   for (const watcher of triggerSourcesOf(state, sacrificingPlayerId)) {
-    for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice")) {
+    for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice" && x.scope !== "anyPlayerSac")) {
       if (!sacScopeMatches(d, watcher, sacrificed)) continue;
       fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
     }
     if (sacIsToken) {
       for (const d of detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onSacrifice)) {
+        fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
+      }
+    }
+  }
+  // ANY-PLAYER SAC WATCHERS (Mayhem Devil et al.) — scanned across EVERY player's battlefield, mirroring
+  // checkDiesTriggers' cross-player scan: the ability cares WHO sacrificed, not who controls the watcher, so
+  // it must also fire for a watcher the sacrificing player DOESN'T control. sacScopeMatches' "another" check
+  // (sacrificed.id === watcher.id) still correctly excludes a permanent seeing its own sacrifice.
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice" && x.scope === "anyPlayerSac")) {
+        if (!sacScopeMatches(d, watcher, sacrificed)) continue;
         fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
       }
     }
@@ -5798,3 +6037,47 @@ registerTriggerDetector(detectSubtypeGlobalCombatDamageToCreature);
 // opponent" shapes, and the self-scope "deals damage to a player/opponent" — none match "a <Subtype> deals
 // damage"), so this is purely additive (no existing classification changes).
 registerTriggerDetector(detectSubtypeGlobalDamageLifegain);
+
+/**
+ * STATE TRIGGERS (CR 603.8) — "When you control no Islands, sacrifice this creature." (Seasinger,
+ * Barbarian Outcast; 19 corpus carriers, all one shape). Unlike every other trigger here the condition is
+ * not a discrete event: it is CHECKED CONTINUOUSLY and the ability triggers whenever the state exists, at
+ * the same cadence as state-based actions — so this is called from the CR 704.3 fixpoint (sba.js).
+ *
+ * THE LATCH (CR 603.8): a state trigger does NOT re-trigger every time the state is re-checked. It fires
+ * when the condition becomes true, and only becomes eligible again once the condition has been FALSE. The
+ * flag rides the permanent (`_stateTrigArmed`), mirroring renown's `renowned` / monstrosity's `monstrous`:
+ * a latch inside the checker rather than a fail-open board read that would enqueue a fresh copy on every
+ * single SBA pass (an unbounded-trigger FP, and this checker runs several times per priority window).
+ *
+ * The condition is evaluated by the SHARED interveningIf evaluator, so the metric and the runtime agree by
+ * construction — a condition it can't read was never detected in the first place (classifyCondition gates
+ * on interveningIfParseable), so `null` here is unreachable-by-construction and treated as "not met".
+ * Pure: returns new state with any fired triggers appended to pendingTriggers.
+ */
+export function checkStateTriggers(state) {
+  let fired = [];
+  let players = null;
+  for (const pid of Object.keys(state.players || {})) {
+    for (const perm of triggerSourcesOf(state, pid)) {
+      const descriptors = detectTriggers(perm.card).filter((d) => d.event === "stateTrigger");
+      if (!descriptors.length) continue;
+      for (const d of descriptors) {
+        const met = evaluateInterveningIf(state, d.stateCondition, perm.controller, { sourcePermanentId: perm.id }) === true;
+        const armed = perm._stateTrigArmed === true;
+        if (met && !armed) {
+          fired.push(makePendingTrigger(d, perm, perm, {}));
+          players = players || { ...state.players };
+          players[pid] = { ...players[pid], battlefield: (players[pid].battlefield || []).map((p) => (p.id === perm.id ? { ...p, _stateTrigArmed: true } : p)) };
+        } else if (!met && armed) {
+          // The state stopped being true — re-arm so a later re-entry into the state triggers again.
+          players = players || { ...state.players };
+          players[pid] = { ...players[pid], battlefield: (players[pid].battlefield || []).map((p) => (p.id === perm.id ? { ...p, _stateTrigArmed: false } : p)) };
+        }
+      }
+    }
+  }
+  if (!fired.length && !players) return state;
+  const base = players ? { ...state, players } : state;
+  return fired.length ? { ...base, pendingTriggers: [...(base.pendingTriggers || []), ...fired] } : base;
+}

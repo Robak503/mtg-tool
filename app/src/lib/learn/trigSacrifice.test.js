@@ -76,6 +76,57 @@ describe("TRIG-SACRIFICE — scope correctness (the key false-positive guard)", 
   });
 });
 
+/**
+ * TRIG-SACRIFICE ANY-PLAYER (2026-07-24) — "Whenever A PLAYER sacrifices a <X>", the Mayhem Devil family (8
+ * real corpus carriers: Mayhem Devil, Carmen/Mazirek/Zodiark/Thraximundar/Mortician Beetle/Fumulus/Merchant
+ * of Venom). Contrast with the "fires for the SACRIFICING player only" test above — that pins the "you"
+ * scope's exclusivity; these pin the opposite: an anyPlayerSac watcher fires on EVERY player's sacrifice,
+ * including a player who doesn't control it.
+ */
+describe("TRIG-SACRIFICE ANY-PLAYER — detection", () => {
+  it("maps 'a player sacrifices' to scope:anyPlayerSac, distinct from the you-scope", () => {
+    const devil = card("card-devil", "Mayhem Devil", "Creature — Devil", "Whenever a player sacrifices a permanent, this creature deals 1 damage to any target.");
+    expect(detectTriggers(devil).find(d => d.event === "sacrifice")).toMatchObject({ scope: "anyPlayerSac", sacScope: "permanent", sacAnother: false });
+  });
+
+  it("maps 'another' + a bare creature subject (Zodiark, Mazirek)", () => {
+    const zodiark = card("card-zod", "Zodiark, Umbral God", "Legendary Creature — God", "Whenever a player sacrifices another creature, put a +1/+1 counter on Zodiark.");
+    expect(detectTriggers(zodiark).find(d => d.event === "sacrifice")).toMatchObject({ scope: "anyPlayerSac", sacScope: "creature", sacAnother: true });
+  });
+
+  it("maps the 'nontoken' filter (Fumulus, the Infestation)", () => {
+    const fumulus = card("card-fum", "Fumulus, the Infestation", "Legendary Creature — Vampire Insect", "Whenever a player sacrifices a nontoken creature, create a 1/1 black Insect creature token with flying.");
+    expect(detectTriggers(fumulus).find(d => d.event === "sacrifice")).toMatchObject({ scope: "anyPlayerSac", sacScope: "creature", nontokenFilter: true });
+  });
+});
+
+describe("TRIG-SACRIFICE ANY-PLAYER — scope correctness (the key new behavior)", () => {
+  const MAYHEM = () => card("card-devil", "Mayhem Devil", "Creature — Devil", "Whenever a player sacrifices a permanent, this creature deals 1 damage to any target.");
+
+  it("fires when a DIFFERENT player sacrifices — the opposite of the you-scope exclusivity above", () => {
+    const s = board([watcher("w", MAYHEM())]);
+    expect(nFired(checkSacrificeTriggers(s, "ai", sacCreature()))).toBe(1);
+    expect(nFired(checkSacrificeTriggers(s, "user", sacCreature()))).toBe(1); // also fires on its own controller's sac
+  });
+
+  it("'another' excludes the source seeing its own sacrifice, same as the you-scope's GIXIAN case above", () => {
+    // Zodiark's own text uses "another creature" (unlike Mayhem Devil's bare "a permanent"), so sacAnother's
+    // id-check applies here regardless of board state — mirrors the GIXIAN "another" test's exact structure.
+    const zodiark = () => card("card-zod", "Zodiark, Umbral God", "Legendary Creature — God", "Whenever a player sacrifices another creature, put a +1/+1 counter on Zodiark.");
+    const s = board([watcher("card-zod", zodiark())]);
+    expect(nFired(checkSacrificeTriggers(s, "user", sacCreature()))).toBe(1); // a different creature
+    expect(nFired(checkSacrificeTriggers(s, "user", { id: "card-zod", controller: "user", card: zodiark() }))).toBe(0); // "another" excludes saccing itself
+  });
+
+  it("the nontoken filter excludes a token sacrifice but allows a nontoken one", () => {
+    const fumulus = () => card("card-fum", "Fumulus, the Infestation", "Legendary Creature — Vampire Insect", "Whenever a player sacrifices a nontoken creature, create a 1/1 black Insect creature token with flying.");
+    const s = board([watcher("w", fumulus())]);
+    const tokenCreature = { id: "sac-tok", controller: "ai", card: { name: "Squirrel", type: "Token Creature — Squirrel", token: true } };
+    expect(nFired(checkSacrificeTriggers(s, "ai", sacCreature()))).toBe(1); // nontoken creature
+    expect(nFired(checkSacrificeTriggers(s, "ai", tokenCreature))).toBe(0); // token creature — filtered out
+  });
+});
+
 describe("TRIG-SACRIFICE — end to end through the effect/edict sac site", () => {
   it("sacrificing a creature with a Smothering Abomination out draws a card (the sacrifice trigger fires + resolves)", () => {
     const victim = watcher("victim", card("card-victim", "Doomed Traveler", "Creature — Human", ""));

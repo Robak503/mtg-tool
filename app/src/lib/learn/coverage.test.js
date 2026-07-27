@@ -120,12 +120,17 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Bird", "Flying\nCycling {2}"))).toBe("native-body");
     expect(classifyCard(C("Creature — Zombie", "Deathtouch\nCycling {B}"))).toBe("native-body");
   });
-  it("KW-CYCLING FP-GUARD: cycle-trigger card and typecycling are NOT native-body", () => {
+  it("KW-CYCLING FP-GUARD: a cycle-TRIGGER card is NOT native-body; typecycling now IS credited (policy change 2026-07-24)", () => {
     // A cycle trigger leaves non-keyword residue → isKeywordOnly → false → body-only (safe false-negative).
     expect(classifyCard(C("Creature — Drake", "Flying\nCycling {2}\nWhenever you cycle this card, draw a card."))).not.toBe("native-body");
-    // Typecycling ("landcycling", "plainscycling", etc.) does NOT start with "cycling " — not credited.
-    expect(classifyCard(C("Creature — Serpent", "Landcycling {2}"))).not.toBe("native-body");
-    expect(classifyCard(C("Creature — Elemental", "Plainscycling {2}"))).not.toBe("native-body");
+    // NOTE (zone-option family, 2026-07-24): typecycling flipped from deliberately-uncredited to
+    // credited — on a DIFFERENT basis than plain cycling. Plain cycling is runtime-ENFORCED
+    // (applyCycle); typecycling is the flashback/transmute "hand-only option the engine never
+    // offers" basis: parseCyclingCost still returns null for it, so it can never dispatch as a
+    // draw-cycle (THE FP this guard originally protected against — a typecycling card drawing
+    // instead of searching would be a mis-resolution; never offering it is a safe FN).
+    expect(classifyCard(C("Creature — Serpent", "Landcycling {2}"))).toBe("native-body");
+    expect(classifyCard(C("Creature — Elemental", "Plainscycling {2}"))).toBe("native-body");
   });
   it("KW-CYCLING FP-GUARD: a line merely STARTING with 'cycling ' but not 'cycling {cost}' stays body-only (Fluctuator)", () => {
     // Fluctuator (Artifact): "Cycling abilities you activate cost {2} less to activate." — a static

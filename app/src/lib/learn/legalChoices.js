@@ -232,6 +232,21 @@ function isCreature(card)    { return typeLineOf(card).includes("Creature"); }
  * CR 205.3). The parser emits type:"permanent" for a subtype sac (a subtype can sit on a creature, a land, or
  * an artifact), so baseOk is true and the subtype gate does the narrowing — a permanent without the subtype is
  * excluded, exactly as the cost demands. */
+/**
+ * ADDCOST-3 — does this GRAVEYARD card satisfy an "exile a <type> card from your graveyard" cost?
+ * Deliberately separate from sacTypeMatches: that one answers about a PERMANENT on the battlefield, and
+ * this one about a CARD in a graveyard. Merging them would be the one-judgement-two-meanings trap — the
+ * types read the same but "permanent" is meaningless in a graveyard, so the vocabularies must not be shared.
+ */
+function cardMatchesAddCostType(card, type) {
+  const t = typeLineOf(card);
+  if (type === "creature") return t.includes("Creature");
+  if (type === "artifact") return t.includes("Artifact");
+  if (type === "land") return t.includes("Land");
+  if (type === "instant or sorcery") return t.includes("Instant") || t.includes("Sorcery");
+  return false;
+}
+
 function sacTypeMatches(card, type, subtype = null) {
   if (type === "permanent" && !subtype) return true;
   const t = typeLineOf(card);
@@ -849,6 +864,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       : canCastInstantSpeed(state, playerId);
     if (!freeCast && !timingOk) continue;
 
+    // CR 202.1a — A CARD WITH NO MANA COST CAN'T BE CAST unless an effect allows it. manaCostOf correctly
+    // returns "" for a genuinely costless card (a suspend-only spell — Ancestral Vision, Crashing Footfalls,
+    // Wheel of Fate, Profane Tutor — whose ONLY legal entry is paying its suspend cost), but
+    // parseManaCost("") yields an all-ZERO cost, which this loop then happily offers. The engine would
+    // hand-cast Ancestral Vision for nothing, with no lands, on any turn, every turn. Found 2026-07-25 by
+    // the census bug-signature report; the earlier empty-mana_cost audit fixed the DFC/enrichment half of
+    // this landmine but its tripwire required cmc>0, so the truly costless cards slipped past it.
+    //
+    // Precise on both sides: a real zero cost prints as "{0}" and is NOT empty, so Ornithopter / Memnite are
+    // untouched; `freeCast` is the legitimate effect-granted permission path and is deliberately exempt (that
+    // IS "unless an effect allows it"). Lands never reach here (skipped above).
+    if (!freeCast && !String(manaCostOf(card) || "").trim()) continue;
     let cost = parseManaCost(manaCostOf(card));
     // Mana value is a card characteristic the commander tax does NOT change (CR 202.3b) — capture it from
     // the PRINTED cost before the tax is folded into `cost` (which becomes the payable amount).
@@ -1035,6 +1062,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           for (const dc of discardable) for (const ch of combos) {
             emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
           }
+        }
+      } else if (addCost.kind === "exileFromGraveyard") {
+        // ADDCOST-3 (CR 601.2h) — exile a typed card from your OWN graveyard. A graveyard is a public zone
+        // and every candidate is equally legal, so this offers one cast per candidate exactly like the N=1
+        // discard branch above (a real in-game pick, not an auto-choice). No candidate → uncastable, which
+        // is the whole point of the gate: without it the engine would cast the spell for free.
+        if (!affordable) continue; // R1.5 — same printed-cost re-check as the branches above
+        const gy = player.graveyard || [];
+        const candidates = gy.filter((g) => cardMatchesAddCostType(g, addCost.cardType));
+        if (candidates.length === 0) continue;
+        for (const gc of candidates) for (const ch of combos) {
+          emit(ch, { exileGyCardId: gc.id, exileGyCardName: gc.name ?? null, exileGyName: gc.name ? `exile ${gc.name}` : undefined });
         }
       } else {
         continue; // unknown cost kind — programConfidence already gates unsupported kinds to low (defensive)
@@ -1649,10 +1688,17 @@ function actionsActivateAbility(state, playerId) {
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {
       if (!ab.modeled) continue;
-      // ONCE-PER-TURN (BLITZ ONCE-1): an "Activate only once each turn." ability already activated this
-      // turn is not offered again. Keyed permId:rawLine (raw is unique per ability, printed OR granted —
-      // an index would collide across the two lists) against state.turn, so the ledger self-expires.
-      if (ab.oncePerTurn && state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`] === state.turn) continue;
+      // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): an ability already activated its
+      // limit-many times THIS turn is not offered again. Keyed permId:rawLine (raw is unique per ability,
+      // printed OR granted — an index would collide across the two lists). The ledger records { turn, n };
+      // a record from an earlier turn counts as ZERO uses, so it self-expires without a cleanup pass.
+      // `used >= limit` (not `>`) is the whole safety property — off by one here hands out a free
+      // activation, i.e. an engine more permissive than the card, which is the forbidden direction.
+      if (ab.activationLimit) {
+        const rec = state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`];
+        const used = rec && rec.turn === state.turn ? rec.n : 0;
+        if (used >= ab.activationLimit) continue;
+      }
       // LEVEL-BAND gate (BLITZ LV-1, CR 711.2a/b): a leveler band's activated ability exists ONLY while
       // the source's level-counter count is inside the band ({LEVEL N1-N2} ⇒ N1 <= level <= N2; the open
       // {LEVEL N3+} band carries atMost null). Read live from the permanent's own counter pile, so the
@@ -1747,7 +1793,7 @@ function actionsActivateAbility(state, playerId) {
               sacCreatureName: null,
               sacCountIds: null,
               xValue: x,                                  // γ1f — the chosen X threads into the effect (ctx.xValue)
-              ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
+              ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
               program: ab.program,
               targets: ch.targets,
               chosenMode: ch.chosenMode ?? null,
@@ -2003,7 +2049,7 @@ function actionsActivateAbility(state, playerId) {
                 sacCreatureName: null,
                 sacCountIds: sacXIds,                       // γ1e — the X fungible victims to sacrifice (cost)
                 xValue: x,                                  // γ1e — the chosen X threads into the effect (ctx.xValue)
-                ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
+                ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
                 program: ab.program,
                 targets: ch.targets,
                 chosenMode: ch.chosenMode ?? null,
@@ -2037,7 +2083,7 @@ function actionsActivateAbility(state, playerId) {
             returnLandName: returnLandVictim?.card?.name ?? null,
             discardCardId: discardVictim?.id ?? null,    // γ1h (DC-1) — the chosen hand card to pitch (cost)
             discardCardName: discardVictim?.name ?? null,
-            ...(ab.oncePerTurn ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
+            ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
             targets: ch.targets,
             chosenMode: ch.chosenMode ?? null,
@@ -2243,10 +2289,22 @@ function actionsActivateGraveyardRecursion(state, playerId) {
       if ((player.hand || []).length < rec.discardCards) continue;
       discardIds = player.hand.slice(0, rec.discardCards).map((c) => c.id);
     }
+    // GR-2 — the EXILE-FROM-GRAVEYARD cost rider. The victim comes from the SAME graveyard the card is
+    // sitting in, so the card itself is excluded (paying with it would exile the object being returned).
+    // No legal victim → the cost is unpayable and the ability is never offered (CR 601.2h), which is the
+    // gate that stops this becoming a free recursion.
+    let exileGyIds = null;
+    if (rec.exileFromGy) {
+      const victims = (player.graveyard || [])
+        .filter((g) => g.id !== card.id && !g.token && cardMatchesAddCostType(g, rec.exileFromGy.cardType));
+      if (victims.length < rec.exileFromGy.count) continue;
+      exileGyIds = victims.slice(0, rec.exileFromGy.count).map((g) => g.id);
+    }
     out.push({
       kind: "activate-gy-recursion", playerId, cardId: card.id, name: card.name,
       cost, cmc: totalCmc(cost), dest: rec.dest, entersTapped: rec.entersTapped,
       ...(discardIds ? { discardIds } : {}),
+      ...(exileGyIds ? { exileGyIds } : {}),
       abilityText: rec.raw,
     });
   }

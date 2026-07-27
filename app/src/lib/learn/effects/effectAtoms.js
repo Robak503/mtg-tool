@@ -36,6 +36,7 @@ import { winGameResolvers } from "./atoms/winGame.js";
 import { rollResolvers } from "./atoms/roll.js";
 import { freeCastResolvers } from "./atoms/freeCast.js";
 import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
+import { delayedTriggerResolvers } from "./atoms/delayedTrigger.js";
 import { controlResolvers } from "./atoms/control.js";
 import { grantUntilEotResolvers } from "./atoms/grantUntilEot.js";
 import { conniveResolvers } from "./atoms/connive.js";
@@ -75,6 +76,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
   ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain
+  ...delayedTriggerResolvers, // schedule-delayed (CR 603.7) — queue an ability for a future step; gameEngine drains it into pendingTriggers at step entry
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
   ...grantUntilEotResolvers, // grant-until-eot (TG-1, CR 611.2c fixed set) — until-EOT quoted-ability grants (Feign Death / Showstopper family)
   ...conniveResolvers, // connive (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard (pause) → +1/+1 if a nonland was discarded

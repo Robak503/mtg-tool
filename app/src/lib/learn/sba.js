@@ -40,7 +40,7 @@ import {
   removeCounter,
   updatePermanentSafe,
 } from "./gameState.js";
-import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers, checkStateTriggers } from "./triggers.js";
 import { permanentIsCreature } from "./layers.js";
 
 const MAX_PASSES = 10;
@@ -149,5 +149,10 @@ export function checkAllStateBasedActions(state) {
   // Drain any leave events queued by non-death exits this sweep produced (aura falls-off / legend-rule
   // non-creature moves when no dies-pass ran to drain them). No-op on an empty queue.
   if ((cur.pendingLeaveEvents || []).length > 0) cur = checkLeavesTriggers(cur);
+  // STATE TRIGGERS (CR 603.8) — checked at the same cadence as state-based actions, AFTER the fixpoint so
+  // they see the settled board (a creature that just died can't also state-trigger). checkStateTriggers
+  // carries its own arm/disarm latch, so calling this at every priority checkpoint enqueues a trigger only
+  // on a real false->true transition, never once per pass.
+  cur = checkStateTriggers(cur);
   return cur;
 }

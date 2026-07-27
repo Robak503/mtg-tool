@@ -57,6 +57,13 @@ export function splitClauses(oracle) {
     // the untap to the SAME single target ("it" = the pumped creature) rather than orphaning it into a
     // separate, unbindable "untap it" clause. Only a +N/+N-with-keyword pump (the exact combat-trick shape).
     .replace(/(gets [+-]\d+\/[+-]\d+ and gains [^.]*?\buntil end of turn)\.\s+untap it\b\.?/gi, "$1 and untap it")
+    // HELD-MANA — fold the printed duration sentence onto the add that made the mana: "Add {R}. This mana
+    // lasts until end of combat." → "add {R} lasting until end of combat". Without the fold the period splits
+    // it in two and the duration is orphaned into an unbindable clause, which is precisely how a plain,
+    // WRONG "add {R}" would end up credited — the mana would evaporate a step earlier than the card promises.
+    // Folded to a form carrying NO period, so the top-level sentence split cannot shatter it again (the
+    // lesson from the slice-10 fold that measured zero flips because " and " re-split it).
+    .replace(/(add (?:\{[wubrgc]\})+)\.\s+this mana lasts until end of combat\.?/gi, "$1 lasting until end of combat")
     // TAP-PERMANENT-LOCK — fold Koma's separate "Its activated abilities can't be activated this turn."
     // sentence that follows "Tap target permanent." into the tap sentence as " and its activated abilities
     // …", so combatKeywordClauseParser binds the activated-ability LOCK to the SAME single target ("Its" =
@@ -70,7 +77,20 @@ export function splitClauses(oracle) {
     // SAME single target ("It" = the tapped permanent) rather than orphaning it into a separate, unbindable
     // clause (the same fold as TAP-PERMANENT-LOCK / PUMP-UNTAP above). Anchored to the exact tap-nonland +
     // rider pair, so it can only PROMOTE this already-low shape, never regress another card.
-    .replace(/(tap target nonland permanent an opponent controls)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step")
+    .replace(/(tap target nonland permanent an opponent controls)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step.")
+    // TAP-CREATURE-LOCKDOWN — the SINGLE-TARGET creature sibling of the Junk Winder fold above. Two printed
+    // shapes carry it, differing only in the rider's pronoun: the bare spell ("Tap target creature. It doesn't
+    // untap …" — Ojutai's Breath / Crippling Chill class) and the opponent-restricted ETB ("… tap target
+    // creature an opponent controls. That creature doesn't untap …" — Frost Lynx / Frost Trickster class).
+    // Both fold onto the tap sentence with " and it …" so combatKeywordClauseParser binds the one-shot lockdown
+    // to the SAME single target rather than orphaning an unbindable clause. The opponent-restricted form is
+    // listed FIRST: its object is a strict extension of the bare one, and matching bare-first would leave the
+    // " an opponent controls" tail stranded. Both anchored to the exact tap + rider pair, so they can only
+    // PROMOTE these already-low shapes. Conditional riders ("If that land is an Island, that creature doesn't
+    // untap …" — Guardian of Tazeem; "If you control a creature with a counter on it, …" — Celestial Regulator)
+    // do NOT match: the rider must follow the tap sentence directly, so those stay LOW → Arbiter (FN-safe).
+    .replace(/(tap target creature an opponent controls)\.\s+that creature doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step.")
+    .replace(/(tap target creature)\.\s+it doesn[’']t untap during its controller[’']s next untap step\.?/gi, "$1 and it doesn't untap during its controller's next untap step.")
     // TAP-FREEZE (BLITZ TP-1 — Frost Breath / Sudden Storm / Decision Paralysis / Snow Day class): fold the
     // separate "Those creatures don't untap during their controller's next untap step[s]." sentence that
     // follows "Tap up to two target creatures." into the tap sentence, normalizing BOTH printed possessives
@@ -392,6 +412,18 @@ export function splitClauses(oracle) {
     // the tap + no-untap lockdown to the SAME single target (else the top-level split below shatters it into
     // "tap target nonland permanent an opponent controls" + an unbindable "it doesn't untap …" → low).
     if (/^tap target nonland permanent an opponent controls and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TAP-CREATURE-LOCKDOWN — the same keep-whole guard for the single-target CREATURE sibling the normalize
+    // fold above produces (both printed shapes converge on this one joined form). Without it the top-level
+    // " and " split shatters the instruction into "tap target creature …" + an unbindable "it doesn't untap …",
+    // which is exactly what the lockdown rider needs to avoid — the " and " here is INTERNAL to one tap
+    // instruction ("it" = the just-tapped creature), not an effect boundary.
+    if (/^tap target creature(?: an opponent controls| you don't control| defending player controls)? and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ATTACH-TO-CREATED-TOKEN (Ancestral Blade / Hook Swords / Foot Chopper class) — "create a <token>, then
+    // attach this Equipment to it." The ", then" is INTERNAL to a single instruction ("it" = the token this
+    // very clause mints), not a top-level effect boundary, so the split would strand "attach this Equipment
+    // to it" as an unbindable clause → low. createTokenClauseParser peels the rider off the whole sentence
+    // and stamps attachSourceToCreated on the create-token atom.
+    if (/^(?:you )?create .*, then attach this equipment to it\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TAP-FREEZE (BLITZ TP-1 — Frost Breath class) — the normalize fold above joined "Tap up to two target
     // creatures. Those creatures don't untap during their controller('s|s') next untap step(s)." into one
     // sentence with an internal " and "; that " and " is INTERNAL to the one tap+lockdown instruction

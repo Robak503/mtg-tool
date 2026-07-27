@@ -597,14 +597,17 @@ export default function useChatSessions({
 
       try {
         if (deckOracleNames.length) {
+          // No rulings on the bulk deck attachment (context-budget fix, 2026-07-24): measured on
+          // a real 100-card deck, 2 rulings/card (the old default) cost ~26.5k chars vs ~19.5k for
+          // oracle+mana+type alone — nearly DOUBLING this block for marginal value, since a card's
+          // rulings are already attached with full richness by buildCardContext(prompt, ...) the
+          // moment the user actually asks about it. This block's job is "what do my 99 cards do" —
+          // oracle text answers that on its own, at ~15% of the 32,768 default Ollama context
+          // window for a max-size Commander deck instead of ~35%+.
           deckOracleContext = await buildCardContextForNames(deckOracleNames, {
             allowLiveFallback: true,
-            allowLiveRulingsFallback: true,
-            includeRulings: !isPureKarnCutRequest,
-            maxRulingsPerCard: isPureKarnCutRequest ? 0 : 2,
-            heading: isPureKarnCutRequest
-              ? "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text first; rulings omitted for cut-request speed; use ONLY this text for card behavior)"
-              : "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text + local rulings first; use ONLY this text for card behavior)",
+            includeRulings: false,
+            heading: "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text; use ONLY this text for card behavior — ask about a specific card by name for its rulings)",
           });
         }
       } catch { /* deck oracle attachment never blocks */ }

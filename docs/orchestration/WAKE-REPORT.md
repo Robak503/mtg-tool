@@ -1,7 +1,407 @@
 # WAKE REPORT — live resume anchor
 
-## 🌙 2026-07-23/24 — OVERNIGHT AUTONOMOUS GRIND (first boot on the BOX) — WAVE 5 closed, WAVE 6 Phase 0/1A + TWO real flips + shelf 1→16 — suite 810/10,554
+## ☀️ 2026-07-25/27 — CENSUS-DRIVEN GRIND: FORTY slices (net +301 after an HONEST −143) — corpus 33.5%→34.4% — suite 843/10,887
 
+> Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
+> each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
+> audit · stale-pin sweep · suite · lint):
+> - **Slice 1 `6a524e47` (+144)** — zone-option / optional-cost keywords (unearth, evoke, dredge, kicker,
+>   improvise, typecycling…), the permanent side.
+> - **Slice 2 `23140a7f` (+37)** — the spell-side siblings (buyback / entwine / conspire / mayhem +
+>   improvise), completing the WIP checkpoint left at the power-down pause.
+> - **Slice 3 `c93b6d56` (+23) — DELAYED TRIGGERED ABILITIES (CR 603.7), a NEW ENGINE SUBSYSTEM.** 679
+>   corpus carriers schedule an ability for a future step and there was no scheduler at all. Built
+>   `state.delayedTriggers` + a `schedule-delayed` atom + a step-entry drain that hands fired records to the
+>   EXISTING flush→stack→resolve pipeline (zero new resolution code — targeting, the Arbiter fallback and
+>   serialization all inherited). **A real resolution-order FP was caught mid-build by an existing
+>   MUST_DROP_TO_LOW pin**: the trail matcher first folded a spell's IMMEDIATE effect into the delayed
+>   clause (Ideas Unbound would have deferred its own draw-three). Fixing it nearly tripled the yield, 8→23.
+> - **Slice 4 `5d3e8d2a` (+9)** — eternalize + reinforce, closing slice 1's explicit deferral with the
+>   castability audit that separates them from suspend (their only no-mana-cost carriers are LANDS —
+>   played, not cast; suspend's genuinely cannot be played at all, so it stays refused).
+>
+> **Method notes worth keeping:** the census re-ranks after every slice, so the queue stays honest as the
+> corpus moves. Four stale pins updated with NOTEs across the day — each had been RIGHT until its slice
+> landed, and two earned their keep by catching real bugs on the way out. Full-suite runs under CPU
+> contention produced ~13 spurious failures that all passed in isolation: the runbook's "red under load
+> proves nothing" rule, honored rather than assumed.
+>
+> - **Slice 5 `efdcd659` (+22)** — self-bounce noun widening. "Return this <noun> to its owner's hand" was
+>   credited only for creature|permanent; the atom bounces the SOURCE, so the noun is pure templating.
+>   Widening it to aura/enchantment/artifact/equipment/land flipped 22 (Shackles + the Aura cycle, the five
+>   Trials, the Dragonstorm cycle, Batterskull) with ZERO new runtime code.
+> - **Slice 6 `11a85ca7` (+12) — KW-RENOWN (CR 702.111)**, keyword→trigger synthesis on the evolve
+>   precedent. The design note worth keeping: CR 702.111a's "if it isn't renowned" is a ONE-SHOT LATCH, so
+>   it lives inside the atom beside monstrosity's `monstrous` flag — NOT as an intervening-if, where a
+>   fail-open board read would re-renown the creature every combat (unbounded counters, the forbidden FP).
+>
+> - **Slice 7 `ae0c1c3c` (+13) — the DAMAGE-TAKEN-THIS-TURN ledger + KW-BLOODTHIRST.** New per-seat ledger
+>   tallied at the loseLife chokepoint but ONLY when its `combatDamage` flag is defined — the two damage
+>   callers pass it, every non-damage loss leaves it undefined, so a drain/pay-life turn can never fire
+>   bloodthirst. Its own audit caught an FP mid-slice: the first pass credited the keyword via startsWith,
+>   which also swallowed "Bloodthirst X" (a count the synthesizer can't produce → native card, nothing
+>   placed). Gate is now digit-anchored.
+> - **Slice 8 `60773d7a` (+13) — STATE TRIGGERS (CR 603.8), a new trigger class.** "When you control no
+>   Islands, sacrifice this creature" is a continuously-checked condition, not an event; checkStateTriggers
+>   runs from the CR 704.3 SBA fixpoint with an arm/disarm latch (that fixpoint runs several times per
+>   priority window — a naive check would enqueue a trigger per pass, an unbounded-trigger FP). Three stale
+>   pins updated, all of which had named this exact sac frame as their blocker.
+> - **Slice 9 `3e4f7b90` (+10) — narrowed a STALE fail-safe.** The γ1 sacrifice-drops-a-trigger guard
+>   parked the Spellbomb/Implement cycles; its "zone-LTB the detector misses" clause was no longer true for
+>   the SELF form. Verified at RUNTIME (drove the exact move the cost path performs) before narrowing, and
+>   only the self subject is exempt — the watcher shapes it was really written for stay flagged, pinned.
+>
+> - **Slice 10 `c75d9159` (+12) — the single-target TAP-AND-LOCK family, and a CREED hardening.** The
+>   runtime already owned every piece (setDoesNotUntapNext + a self-clearing skip in untapAll); only the
+>   recognition lane was missing. Needed THREE seams, and the first attempt shipped two of them and measured
+>   ZERO flips — the fold joined the rider with " and " and the top-level " and " split shattered it right
+>   back, so a keep-whole guard was the load-bearing third piece. The residue strip also knew only one of the
+>   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
+>   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
+>   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 40 `07b3fcbc` (+14) — the Thriving cycle, via an ALLOWLIST not a denylist.** The optional-payment
+> lane already existed; only the bare pronoun failed ("you may pay {E}{E}. If you do, put a +1/+1 counter on
+> IT"). A denylist would have to anticipate every way another object enters the sentence — "create a 2/2
+> Robot token … it gains haste" slips through and pumps the WRONG permanent. Same trap that made
+> "sacrifice it at the beginning of the next end step" unsafe (1 safe card vs 48 landmines, refused). Only
+> the two printed self-shapes are rewritten; the token-maker hazard is pinned as a CREED negative.
+>
+> **SLICE 39 `95226f8f` (+12)** — ENCORE joins the graveyard zone-option family (unearth/scavenge class).
+> The list's required castability audit was RUN, not assumed: all 26 carriers have a printed mana cost.
+>
+> **🚨 SLICE 38 `9bf6db43` (−143, DELIBERATELY) — the number now means what it says.** `hasManaAbility` is a
+> TEXT check; the runtime produces mana through `manaProduction`. Crediting on text alone tiered 154 cards
+> native-mana whose mana the engine cannot obtain BY ANY PATH — costed activations, dynamic amounts, colours
+> chosen on entry. Corpus 34.8% → 34.4%, Colton's call.
+>
+> **THE FIRST MEASUREMENT WAS WRONG AND WOULD HAVE DELETED WORKING CARDS.** `manaProduction` returning null
+> only answers "is this a standing source". Burning-Tree Emissary fails that and still delivers {R}{G} via
+> its ETB. The honest instrument is to put each card on a board and ask whether the mana is obtainable by ANY
+> path — standing source, offered ability, or a trigger that resolves. 154 by that measure; 0 after the gate.
+> Of 157 cards moved, 15 were RECLASSIFIED to a still-native tier and 142 genuinely dropped.
+>
+> **SLICE 37 `7d0ce6ee` (+6) — counter transfer on death, and a THIRD seam worth remembering.** The clause
+> parsed HIGH and the card STILL read body-only, because `atomTargetIntent` had no entry for the new op:
+> the trigger-flush chooser refuses to route a targeted op whose SIDE it cannot name, so a new targeted op
+> silently stays on the Arbiter until its intent is declared. Parser + resolver is only two thirds of a
+> targeted-trigger slice. The effect itself moves the dying object's WHOLE counter bag (CR 603.6e LKI), not
+> just +1/+1 — a +1/+1-only build passes every test in the file except the shield-counter one.
+>
+> **SLICE 36 `a4936d05` (+11) — the lesson from a REVERT, applied immediately.** Between 35 and 36 I built
+> a sacrifice-cost lane off a GROUPED count (5 carriers), verified it end to end, measured ZERO flips
+> because every carrier had a second blocker, and reverted it. Slice 36 was then picked off the census's
+> HONEST column — 5 sole blockers, 0 co — and flipped 11. **A grouped count says a shape exists; the
+> sole-blocker column says fixing it moves something.** Now a runbook law. The slice itself was a subject
+> widening: "enchanted creature gains <kw> until end of turn" onto the referent slice 23 had just hardened.
+>
+> **SLICE 35 `43539626` (+1)** — the exile-from-graveyard COST on the GY recursion lane. Small yield; the
+> vocabulary is the durable part, and the unpayable-cost gate is mutation-checked (without it the ability is
+> free recursion). The triage ledger maps what the rest of that lane needs — 36 cards behind cost vocabulary,
+> and a WARNING that its enumerator is instant-speed, so the timing riders are NOT free.
+>
+> **SLICE 34 `cdfaeac2` (+16) — the day's biggest single slice, and it needed NO new resolver.** BACKUP N,
+> modeled as its SELF-TARGET line: self-target is one of the card's own legal choices (forced when it is
+> your only creature) and makes the "if that's another creature" ability grant vacuous, so the engine plays
+> a real legal line. It simply never offers backup on another creature — an under-offer, the safe direction.
+> The synthesized clause is ORDINARY MODELED TEXT rather than a sentinel, so it rides the existing
+> self-scoped add-counter atom on a runtime path already proven.
+>
+> **SLICE 33 `07928070` (net −1) — a slice worth MORE than its card count.** Added the graveyard-exile
+> additional cost (ADDCOST-3, +1), and building it surfaced that `extractAdditionalCosts` is consumed ONLY
+> on the spell program path — so an additional cost is charged for instants and sorceries AND NOTHING ELSE.
+> A PERMANENT carrying one is castable for its bare mana cost, the same over-permissive shape as the free
+> Ancestral Visions cast. Two cards had reached native that way and are now parked (−2). **Losing a card to
+> delete an over-permissiveness is the correct trade.**
+>
+> **SLICE 32 `004be245` (+3)** — the bare "You have no maximum hand size" static. The runtime already
+> suspended the CR 514.1 cleanup discard for it; only the one-shot dice-roll variant was credited. Cursed
+> Rack's "maximum hand size is four" stays parked — the engine suspends enforcement rather than guess, so
+> crediting it would claim a number never applied.
+>
+> **SLICE 31 `272fa79a` (+9) — MOBILIZE, the slice that was correctly REFUSED in the morning and correctly
+> built by evening.** It needed two things that didn't exist when it was first scoped: tokens that genuinely
+> join `state.combat.attackers` (the `entersAttacking` field is a dead write — attacking-ness is combat
+> membership, so "tapped and attacking" tokens would otherwise be inert), and a delayed sacrifice, which the
+> CR 603.7 scheduler built earlier the same day now provides. Proven by asserting the defender loses exactly
+> 4 life — a number only reachable if the minted 1/1s really attacked. Reading the printed reminder also
+> corrected my own scoping note: it sacrifices at the next END STEP, not end of combat.
+>
+> **SLICE 30 `f6addce6` — the drift probe found something on its SECOND run too.** The attached-form pair
+> (`attachedNoUntapOf` metric vs `attachmentPreventsUntap` runtime) disagreed on 7 of 72 Auras: the runtime
+> accepts "Enchanted creature|permanent", the metric only "creature". Safe direction (under-credit), zero
+> cards flip — all seven also park on their "Enchant permanent" SUBJECT, a separate honest gap — but a
+> metric narrower than its runtime twin is a latent divergence the next person to widen enchant subjects
+> would have inherited silently. **Two runs, two finds: point it at any metric/runtime pair.**
+>
+> **SLICE 29 `a71de406` — I turned the day's lesson on MY OWN work, and it caught something.** The metric
+> strip added in slice 16 and the runtime's `selfPreventsUntap` are two implementations of one judgement —
+> the exact shape that produced eleven bugs earlier. Probing them against each other across all 248 corpus
+> carriers found ELEVEN disagreements, all CONDITIONAL statics ("…doesn't untap during your untap step IF IT
+> HAS A DEPLETION COUNTER ON IT"). No card had flipped, because an orphaned "if …" fragment happened to keep
+> them parked — the metric was crediting what the engine refuses, with only an unrelated leftover preventing
+> a false positive. Drift now 0/248, zero tier movement. **The drift probe is worth reusing: any two
+> functions answering one question can be run against each other corpus-wide.**
+>
+> **SLICE 28 `63c72372` (+4)** — dredge was credited on PERMANENTS but missing from the spell-side keyword
+> strip, so the identical keyword parked every dredge SPELL (Darkblast, Shenanigans, Life from the Loam,
+> Nightmare Void). No costless hazard unlike suspend — dredge never replaces CASTING, so every carrier has a
+> normal mana cost.
+>
+> **🚨 SLICES 26-27 `53247f2c` `81664b6a` — the engine had an INVULNERABLE ATTACKER.** An animated land
+> could attack (combat reads the layer-aware check) but could NOT be targeted by "destroy target creature"
+> (the enumerator read the printed card). That is not the safe direction an under-offer usually is — the two
+> halves disagreed IN THE CONTROLLER'S FAVOUR, giving self-play a threat no removal could answer. Fixed in
+> the enumerator and in the four atom-level mass filters; the full suite was UNCHANGED by both, and no pin
+> anywhere asserted an animated permanent should be untargetable — evidence it was an oversight, not a call.
+>
+> **SLICES 23-25 `1fb2ce42` `99e44a78` `820f5a12` — the same defect, swept.** Slice 22's root cause turned
+> out to be a CLASS: a permanent looked up on the battlefield and then gated on its PRINTED card rather than
+> the LAYER-AWARE read. Six more sites — the "that creature" referent (in TWO places that a comment claimed
+> were mirrors of each other and weren't), the "enchanted creature" referent, the shield counter, explore's
+> +1/+1, and the source-power fan-out. Every one silently did nothing on an animated land or a crewed
+> Vehicle, which CR 613 says IS a creature right then.
+>
+> **⚠️ WHY THESE SURVIVED — AND THE GATE GAP IT EXPOSES.** All four slices changed ZERO coverage. The tier and
+> program fingerprints compare the parse pipeline against itself, so a runtime function returning an empty
+> list is structurally invisible to them. **Any slice touching a resolver needs a runtime pin; a
+> classification test proves the parse and nothing else.** Now standing guidance in the runbook, along with
+> the specific tell: a bare `isCreatureCard` on an already-resolved permanent is nearly always a bug.
+>
+> **🚨 SLICE 22 `f285dd14` — a NON-CREATURE permanent's self-reference silently did NOTHING.** selfTargets
+> returned [] unless the source was a creature, so an Aura / artifact / enchantment saying "return this Aura
+> to its owner's hand" parsed HIGH and then no-opped. Measured on Mark of Fury: trigger detected, stacked,
+> resolved — Aura still attached. Zero coverage change (runtime-only), which is exactly why it survived: the
+> metric never disagreed with itself. The comment directly above that function already warns about this FP
+> class for animated lands; this was the same catch one card type wider.
+>
+> **TWO FALSE TRAILS RULED OUT en route, recorded in the triage ledger so nobody re-walks them:** a
+> non-native Aura appearing to VANISH on cast is the intended `pendingArbiter` seam, and auras use a narrow
+> own-trigger ALLOWLIST (rather than equipment's general gate) because `isNativeAura` lives in a leaf module
+> that cannot import coverage. Also reverted a no-op: extending that allowlist with the aura-ETB-draw shape
+> changed ZERO cards, because the shape was already admitted by another route.
+>
+> **SLICE 21 `277f558b` (+14)** — the COMPOSITE tier didn't normalize self-names, so a legacy card that
+> names itself ("Mortivore's power and toughness …") read as unmodeled residue there while the static tier
+> credited the identical line. Cards with a modeled static AND a modeled activated ability fell between both
+> tiers. **This was the FOURTH one-path-only credit found today** (after slices 10, 16 and 20) — when two
+> code paths implement one judgement, the newer gets the normalization and the older doesn't, and the
+> disagreement only shows on cards needing BOTH at once. The fix is always to point both at one helper.
+>
+> **SLICE 20 `b3a4a87a` (+4)** — the kicked-counter credit no longer depends on the base body. Urborg
+> Skeleton parked with EVERY line individually credited; the gate hard-coded native-body and rejected any
+> base body that wasn't keyword-only. It now re-classifies the stripped body and takes that tier. **New
+> reusable signature: a card with TWO different single-line deletions that each flip it native is a
+> COMPOSITION failure, never a missing mechanic** — now in the runbook.
+>
+> **SLICE 19 `c98553e8` (+16) — suspend, correctly split.** The keyword is vacuous on a card WITH a mana
+> cost (the hard cast resolves identically — the shipped flashback/escape rationale) and must NOT be credited
+> on a costless one, which can only ever be suspended. The earlier blanket refusal of suspend was right for
+> the wrong reason: "its carriers can't be played at all" describes about a fifth of the family. Corpus
+> crossed 34.6% on this one.
+>
+> **🚨 SLICE 18 `7505e6a3` — THE BIG ONE: the engine was casting FREE Ancestral Visions.** CR 202.1a says a
+> card with no mana cost can't be cast. manaCostOf correctly returned "" for such a card, but
+> parseManaCost("") built an all-ZERO cost, which the cast loop offered as legal. Measured, not reasoned:
+> Ancestral Vision produced **4 cast actions with ZERO lands on the battlefield** before the fix, and none
+> after. Crashing Footfalls (two 4/4 tramplers), Wheel of Fate and Profane Tutor were the same. The earlier
+> empty-mana_cost audit fixed the DFC half of this landmine but its tripwire required cmc>0, so genuinely
+> costless cards walked past it — don't assume that audit closed the area.
+>
+> **SLICE 17 `1d837dd9` (+5)** — qualified "Enchant <X>" Aura subjects (tapped / without flying / power N or
+> less), each mapping onto a restriction the target filter already enforces. Pinned at the OFFER layer,
+> because the FP here is a wrongly-LEGAL target: Roots must not be castable on a flier. Its first harness
+> filtered on `a.card?.name` when the action carries `a.name`, so three assertions passed VACUOUSLY against
+> an empty array — the hollow-gate trap, caught by mutation-checking.
+>
+> **THE CENSUS NOW FINDS THESE ITSELF.** `build-residue-census.mjs` gained a BUG SIGNATURES report: any shape
+> that blocks cards while OTHER cards carrying it classify native cannot be an unbuilt mechanic — it is
+> built, and something upstream mis-binds it. Slices 17 and 18 both came straight off that report on its
+> first run. Read it BEFORE the ranked list.
+>
+> **SLICES 11-16 — the shift turned from adding lanes to REPAIRING them.** Six more slices, and the last
+> four were bug fixes the census surfaced rather than coverage gaps:
+> - **11 `5e2f24cc` (+7)** — the per-turn activation limit became a COUNT, not a boolean. A boolean cannot
+>   say "twice", so Pit Imp / Soul Kiss and five siblings had no lane. `used >= limit` is the whole safety
+>   property; off by one hands out a free activation, the forbidden direction.
+> - **12 `661f47f8` (+5)** — attach printed as a plain "{cost}: Attach this Equipment …" activated ability
+>   (the Cranial Plating cycle). Routes to the SAME ATTACH resolver; the engine only under-offers it
+>   (own-main ⊂ any-priority), a safe FN.
+> - **13 `0122de3a` (+7)** — "create a token, then attach this Equipment to it", the spelled-out Living
+>   Weapon. Deliberately NOT routed through livingWeaponToken: these carry a real printed trigger, so the
+>   keyword path would have minted the token TWICE.
+> - **14 `585a9562` (+4)** — **a bug I introduced in slice 10**: the fold ate the rider's terminating period
+>   and glued the NEXT sentence on. Invisible to the fingerprint, which only shows cards that MOVE — these
+>   were held back without changing tier.
+> - **15 `0e65ccc9` (+3)** — RIDER-REMOVAL was anchored to end-of-oracle, so an ordinary trailing "Draw a
+>   card." killed the match. A pin calling that draw an "unmodeled rider" was simply a misreading: the
+>   CASTER draws.
+> - **16 `ab0dfcd5` (+4)** — the self no-untap static was credited in ONE residue path only, so the same
+>   static flipped a trigger card and parked an activated-ability card. Three paths now share one helper.
+>
+> **THE READING HABIT THAT PAID FOR 14/15/16 — an OBVIOUSLY MODELED shape in the census is a BUG SIGNATURE.**
+> When the census lists `draw a card` as a sole blocker on 8 cards, it is not saying draw is unmodeled; it is
+> saying that deleting an already-built line FLIPS the card, so something upstream mis-binds it. That one row
+> paid out twice for two unrelated root causes. Scan the census for shapes you KNOW are built and treat each
+> as a defect report. Now standing guidance in the runbook.
+>
+> **THE HEURISTIC THAT OPENED SLICE 10 — SIBLING ASYMMETRY.** Frost Trickster classified native and Frost
+> Lynx parked, and the two cards are identical modulo the word "Flying". A card penalized for having LESS
+> text is always a strip or residue gate keying on the wrong thing. It costs nothing to check (read two
+> examples from one census cluster side by side) and it is now written into the runbook as a standing lead.
+>
+> **SCOPED, NOT BUILT (banked with reasons so nobody re-derives them):**
+> - **backup N** (15 sole) — grants the card's OWN remaining text to a target conditionally; a new
+>   value-threading path between objects, which the runbook says to bank rather than rush.
+> - **bloodthirst N** (13) / **sunburst** (6) — both need ledgers the engine lacks: damage-dealt-this-turn
+>   and mana-colors-spent. Reusing `lifeLostThisTurn` for bloodthirst would over-fire on non-damage life
+>   loss — an FP, so it stays parked until the real ledger exists.
+> - **mobilize N** (9) — its delayed-sac half is NOW covered by the new scheduler; the remaining blocker is
+>   tokens created **tapped and attacking** (real combat-state creation).
+> - **split second** (7) — deliberately NOT credited: unlike the optional-cost family it's a restriction on
+>   OPPONENTS, so ignoring it makes the engine wrongly permissive rather than merely less capable.
+> - **suspend** (12+6) — still refused; its no-mana-cost carriers cannot be played at all without it.
+>
+> **NEXT on the ranked queue:** backup N (15 sole) · bloodthirst N (13 — needs a damage-specific per-turn
+> ledger; reusing life-loss tracking would over-fire on non-damage loss, an FP) · renown N (12 — needs a
+> renowned state flag) · aftermath (10) · the Aura self-bounce activated (12 across two cost shapes).
+
+## ☀️ 2026-07-24 MIDDAY — THE CENSUS ERA OPENS: +144 in one slice (zone-option keywords) — corpus 33.5%→33.9% — suite 814/10,608
+
+> **The strategy pivot Colton called this morning is now the standing method** — subsystem-first,
+> ranked by the parser's own confessions instead of hand-hunting cards. Full chain shipped today:
+> - **`build-residue-census.mjs` (`b56c3810`)** — deletion-probing census: remove one oracle line,
+>   re-classify; a flip means the classifier itself named that line THE blocker. v1's line-heuristic
+>   approach mis-blamed built subsystems on its first run and was rebuilt classifier-exact the same
+>   hour. Headline: **12,067 of 22,775 non-native cards are ONE clause from flipping**; no single
+>   shape >18 sole-blockers remains; the aggregate keyword-cost-line family was the top lever.
+> - **`RESIDUE-GRIND-RUNBOOK.md` (`28b45f32`)** — the whole method written model-agnostic
+>   (Colton's ask: near-identical results from any seat), registered in MASTER-GUIDE; 5 laws, the
+>   owning-pipeline table, the full gate battery, a 10-row failure-mode table where every row is a
+>   real incident from this shift.
+> - **First census-ranked slice (`6a524e47`): +144 flips, zero down** — ten optional-cost /
+>   zone-option keywords (unearth, evoke, disturb, embalm, scavenge, mayhem, dredge, kicker/
+>   multikicker/offspring, improvise, typecycling) credited on the existing ninjutsu/flashback
+>   rationale, every flip mechanically audited against a family-line check, suspend deliberately
+>   refused (a no-cost suspend card can't be hard-cast at all), four stale park-pins updated with
+>   NOTEs, composed negatives (Skizzik, Hexmark) verified still parked. Corpus 11,477 → 11,621
+>   native (33.9%).
+> - **Overnight grind data closed out:** two full 6-hour pools, **159,798 games** total
+>   (81,386 + 78,412), stuck <0.11%, 0 rejected — totals posted to COMMS for Omnath's data-trust
+>   ledger. Not relaunched; the box's cores now belong to the census grind.
+> - **NEXT (queued):** the spell-side siblings (buyback/entwine/kicker-on-spells via the
+>   COST_ONLY_KEYWORD_LINE family) · then the gy-phase-return build (23+5 carriers, plan in the
+>   triage ledger) · then the delayed-trigger spell family (Pact/Mana Drain — 15 sole + 25 co,
+>   exactly sized by the census).
+
+> **LATE ADDENDUM 8 — Colton woke up, asked "how is Nev hard," and that question found a sixth real
+> flip (`538d0a86`).** Re-checked both of Nev's clauses properly instead of re-defending the 2am
+> read. The trigger half really is hard (two separate systems — `castNth` ordinal counting and the
+> `{X}`-cost cast filter — that have never been composed, plus no generic way to hand a cast
+> spell's own X value to a THIRD permanent's payoff; Zaxara's precedent is a bespoke hook, not a
+> reusable one). But the STATIC half ("creatures you control with counters on them have trample")
+> was NOT hard and I was wrong to lump it in — Cathedral Acolyte already proved the exact selector
+> (`requiresAnyCounter`) generically wired into the layer engine, just never generalized past
+> `addWard`. Generalized it to any grantable keyword. Full-corpus grep found 6 real carriers sharing
+> the selector; **Winged Hive Tyrant flips clean** (needed one more ability-word label added to the
+> STATIC-side strip list too — a separate small gap, same root cause as the Lieutenant fix earlier
+> tonight). The other four (Nev, Tesak, Rishkar, Matt Murdock) correctly stay body-only on their own
+> separate residue — confirmed, not assumed, via isolated-clause tests proving the selector itself
+> works. Whole-corpus tier-fingerprint: 34,210 cards, exactly 1 changed, zero collateral. Full suite
+> 811/10,579, lint 0. **Also relaunched the grind pool** — the first 6-hour run finished clean
+> (81,386 games, 81 stuck, 0 rejected) while everyone was asleep; a second one is running now.
+
+> **LATE ADDENDUM 7 — first grind pool run completed clean; a second launched behind it.** The
+> standing self-play pool (`--max-hours=6 --mode=commander`, 10 workers) ran its full cap and
+> finished on its own: **81,386 games (81,305 trusted, 81 stuck, 0 rejected) in exactly 360.0 min,
+> 226.1 games/min average, seed 2466789311.** Stuck rate held under 0.1% the entire run — a clean,
+> healthy, uneventful 6 hours, exactly as designed. No corpus-code changes riding on this run
+> specifically; it's standing WAVE 6 Phase 1 shelf-grind data accumulation. Relaunched a second
+> identical 6-hour pool immediately after (no sign yet that Colton's up, and the standing order was
+> to keep grinding until he is) — new log, fresh monitor, same throttled heartbeat-plus-anomaly
+> pattern (learned mid-shift: an untouched per-tick monitor is way too chatty for an unattended
+> multi-hour stretch — throttled to every ~10th tick, immediate passthrough on any real error
+> signature). Whoever reads this next: check `data/self-play/` counts against this run's numbers to
+> confirm both pools' data landed, and note the run boundary (seed 2466789311 marks the first pool's
+> end) if segmenting the accumulated games for analysis.
+
+> **LATE ADDENDUM 6 — fifth real flip, a one-card fix found while scoping a dead end (`2e4738c7`).**
+> While checking whether the Lieutenant static half's gate mechanism could reach further (it can't —
+> see the correction above), traced a "Commander creatures you own have '...'" grant (Agent of the
+> Iron Throne) into the existing creature-or-artifact PiG family (Marionette Apprentice's "put into a
+> graveyard from the battlefield" scope) and found the ONE gap: the existing code only matched
+> "creature or artifact" word order; Agent prints the reverse ("artifact or creature"). The original
+> author's own comment on the symmetric branch said "no live corpus card" for that shape — this one
+> just uses the OTHER symmetric form. One-line fix, exactly 1 real carrier (confirmed via corpus grep
+> before claiming it), zero collateral. **Small note on process:** the full suite's first run after
+> this threw 15 unrelated failures (versionAlignment.test.js among them — a pure file-diff check with
+> no possible connection to this change) — pure CPU contention with the grind pool's 10 background
+> workers, confirmed by re-running every failed file in isolation (46/46 green). Worth remembering:
+> a red run under heavy background load isn't automatically a real regression, but it still has to be
+> RE-VERIFIED in isolation before trusting that read, never just assumed.
+
+> **LATE ADDENDUM 5 — fourth real flip, the Lieutenant cycle's triggered half (+3, `71ba3a66`).** "At
+> the beginning of combat on your turn, if you control your commander" had a double gap: the
+> "Lieutenant —" ability-word label wasn't in the strip list (so the trigger regex never saw the bare
+> sentence), and "you control your commander" itself was flat missing from interveningIf.js's
+> vocabulary — a genuine, previously-undiscovered condition, not a listed Arbiter exception. Full-corpus
+> grep found 16 real carriers of the underlying condition (not just the named Lieutenant cards); 7 use
+> this TRIGGERED form, 3 flip clean (Loyal Drake/Guardian/Subordinate), 4 stay body-only on separate
+> unrelated residue each. The other 9 carriers use a DIFFERENT mechanism (a continuous "as long as…"
+> static buff — Thunderfoot Baloth + 6 more, plus Convergence of Dominion) needing the same fix in a
+> different parser (staticAbilityParser.js) — scoped, not built this slice.
+>
+> **Third bug in a row tonight caught by a test before commit, not after — worth naming as a pattern:**
+> Karn's-eyes invented a field name the whitelist reconstruction silently dropped; Mayhem Devil's
+> nontoken filter hit the identical class of bug; this one read `permanent.isCommander` instead of
+> `permanent.card.isCommander` (the field rides the card everywhere else in the codebase). All three
+> would have shipped invisibly — the classification-level tier-fingerprint doesn't see any of them
+> (a wrong-but-defined field, or a runtime-only miswiring, still produces A definite answer on the
+> probe board, so the coverage metric can't tell the difference). Only the DEDICATED runtime/behavior
+> test caught each one. The lesson banked plainly: a tier flip is necessary evidence, never sufficient
+> — write the test that actually exercises the new code path, every time, not just the census diff.
+>
+> **LATE ADDENDUM 4 — back to corpus after the roadmap-queue pass: third real flip tonight, any-player
+> sacrifice triggers (+4, `e68a3df3`).** "Whenever A PLAYER sacrifices a permanent/creature" (Mayhem
+> Devil, Mazirek Kraul Death Priest, Merchant of Venom, Mortician Beetle) had zero support —
+> `checkSacrificeTriggers` structurally only ever scanned the SACRIFICER's own battlefield, so a
+> watcher controlled by a different player could never fire no matter what the parser recognized.
+> Mirrored the dies-trigger's existing cross-player scan (checkDiesTriggers already iterates every
+> player for "eachCreature"-scope watchers) via a new `scope:"anyPlayerSac"` value — same
+> architecture, not new. Full-corpus grep (not just the ledger's single named card) found 8 real
+> carriers; 4 flip, the other 4 (Carmen/Thraximundar/Fumulus/Zodiark) correctly stay body-only on
+> separate, unrelated residue each. **Bug caught by the tier-fingerprint gate itself:** first attempt
+> invented a field name (`sacNontokenFilter`) instead of reusing the codebase's existing generic
+> `nontokenFilter` convention (already used by dies/etb scopes) — detectTriggers' whitelist
+> reconstruction step silently dropped the unknown field, which the fingerprint diff would have
+> masked as "0 residual gap" had the test suite not caught it first (the nontoken-exclusion test
+> failed outright). Renamed to match convention; refixed. Whole-corpus tier-fingerprint: 34,210
+> cards, exactly 4 changed, zero collateral. Full suite 810/10,562, lint 0.
+>
+> **LATE ADDENDUM 3 — pivoted from corpus-hunting back to the roadmap queue (cindy-roadmap-v2's own
+> rule: the queue outranks grinding).** Two findings, both the same shape as the Koma surprise above
+> — the vault-side roadmap doc lagging real shipped state:
+> - **WAVE 1 items 1+2 were ALREADY SHIPPED** — Colton's laptop session built the free-play London
+>   mulligan flow (`64c8a976` HTTP surface, `5c05d739` the fanned-hand/keep-ship/bottom-N screen) +
+>   the academy-findings trio (`61716d78`), released as **v0.149.0** ("the game lets you mulligan",
+>   `41a256d3`) — this IS the "149" Colton flagged at the top of tonight's session. Verified, didn't
+>   just trust: 55/55 targeted tests green, `LearnView.jsx` passes `humanMulligan:true`
+>   unconditionally on both start paths, `MulliganPanel` wiring reads clean end to end. Roadmap
+>   closed out with commit citations (cindy-roadmap-v2 §Wave 1).
+> - **WAVE 3 item 9 "Karn's eyes" was ALSO mostly already built** — `deckOracleContext` already
+>   attaches full oracle text for every locked-deck card via `buildCardContextForNames`; the
+>   "names/counts only" premise was stale. The one genuinely open half — "sized to a per-chat context
+>   budget" — was real and unaddressed: measured live on a 100-card deck, the old 2-rulings/card
+>   default nearly doubled the block to ~35%+ of the 32,768 default Ollama context window. Fixed
+>   (`be034185`): rulings dropped from the bulk attachment (a specific card's rulings already attach
+>   in full the moment the user asks about it directly), oracle text alone now ~15% of the window.
+>   Also closes a live per-card Scryfall-rulings-fallback call storm (up to 30/100 cards in the
+>   measured deck) that fired on every message. New mutation-checked test pair on
+>   `buildCardContextForNames`'s `includeRulings` flag (none existed before).
+> - **Lesson banked twice tonight now:** before building ANY roadmap item, verify it isn't already
+>   done — the vault doc and the repo's actual shipped state can diverge fast when work happens
+>   outside the session that owns the doc (laptop sessions, this session's own earlier corpus work).
+>
 > **LATE ADDENDUM 2 (Colton, live): "koma is no longer a deck i tore it down."** Retired properly —
 > `deck_koma.md` → `deck_koma_retired.md` (memory-side, mirrors the Meren-retired precedent),
 > `project_colton_deck_shelf.md`/`reference_deck_sources.md`/`MEMORY.md` all corrected. The dead

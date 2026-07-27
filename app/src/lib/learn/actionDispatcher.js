@@ -323,6 +323,14 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Discard card ${action.discardCardId} not in hand`, "CARD_NOT_IN_HAND");
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
+    } else if (ac.kind === "exileFromGraveyard") {
+      // ADDCOST-3 (CR 601.2h) — the chosen graveyard card is EXILED as the cost is paid. legalChoices froze
+      // the id on the action; re-check membership here so a stale id can never exile something else.
+      if (!action.exileGyCardId) throw new DispatcherError("Spell requires an additional graveyard-exile cost but no card was chosen", "ADDCOST_UNPAID");
+      if (!working.players[action.playerId]?.graveyard.some(c => c.id === action.exileGyCardId)) {
+        throw new DispatcherError(`Exile-cost card ${action.exileGyCardId} not in graveyard`, "CARD_NOT_IN_GRAVEYARD");
+      }
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: action.exileGyCardId });
     } else {
       throw new DispatcherError(`Unsupported additional cost kind: ${ac.kind}`, "ADDCOST_UNSUPPORTED");
     }
@@ -764,6 +772,14 @@ function applyActivateGyRecursion(state, action) {
     if (!inHand) throw new DispatcherError(`Discard victim ${did} not in hand`, "COST_UNPAYABLE");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: did });
   }
+  // GR-2 — the exile-from-graveyard cost rider. Same re-verification posture as the discard loop above:
+  // the victim must still be in the graveyard at dispatch, and it must not be the card being returned.
+  for (const xid of action.exileGyIds || []) {
+    if (xid === action.cardId) throw new DispatcherError("Exile-cost victim is the card being returned", "COST_UNPAYABLE");
+    const inGy = (working.players[action.playerId]?.graveyard || []).some((c) => c.id === xid);
+    if (!inGy) throw new DispatcherError(`Exile victim ${xid} not in graveyard`, "COST_UNPAYABLE");
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: xid });
+  }
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({
     id: stkId,
@@ -1029,10 +1045,16 @@ function applyActivateAbility(state, action) {
   });
 
   let next = { ...working2, stack: [...working2.stack, stackObject] };
-  // ONCE-PER-TURN (BLITZ ONCE-1): stamp the activation ledger the moment the ability is on the stack —
-  // keyed permId:rawLine against the CURRENT turn (self-expiring; legalChoices' offer gate reads it).
+  // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): stamp the activation ledger the
+  // moment the ability is on the stack — keyed permId:rawLine, recording { turn, n } so a limit above one
+  // ("Activate no more than twice each turn.") can be counted rather than merely latched. A record from an
+  // earlier turn restarts at 1, which is what makes the ledger self-expiring; legalChoices' offer gate
+  // reads the same shape. (The state key keeps its historical `activatedOncePerTurn` name — renaming a
+  // serialized game-state field would break saved self-play trajectories for no behavioral gain.)
   if (action.oncePerTurnKey) {
-    next = { ...next, activatedOncePerTurn: { ...(next.activatedOncePerTurn || {}), [action.oncePerTurnKey]: next.turn } };
+    const prev = next.activatedOncePerTurn?.[action.oncePerTurnKey];
+    const n = (prev && prev.turn === next.turn ? prev.n : 0) + 1;
+    next = { ...next, activatedOncePerTurn: { ...(next.activatedOncePerTurn || {}), [action.oncePerTurnKey]: { turn: next.turn, n } } };
   }
   next = logEvent(next, {
     kind: "activate-ability",

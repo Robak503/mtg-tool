@@ -4,6 +4,7 @@
  */
 
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
+import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
@@ -981,6 +982,54 @@ export function applyRevealPutFiltered(state, atom, ctx) {
 }
 
 /**
+ * ===== CHOSEN-TYPE REVEAL TO HAND (For the Ancestors) ===== "Choose a creature type. Look at the top N
+ * cards of your library. You may reveal any number of cards of the chosen type from among them and put
+ * the revealed cards into your hand. Put the rest on the bottom of your library in a random order."
+ *
+ * The hand-destination sibling of applyRevealPutFiltered just above (same reveal/bottom-the-rest shape;
+ * the destination is the only real difference — moveCardToZone to hand instead of enterCardFromZone to
+ * the battlefield, so no ETB/landfall ceremony fires for a hand arrival, CR-correct).
+ *
+ * THE TYPE CHOICE — resolved deterministically (same policy as the chosen-type draw's board-count pick,
+ * spanMatchers.js matchChooseTypeDraw): among the revealed cards, choose whichever creature type is held
+ * by the MOST of them (changelings count for every type, mirroring cardHasChosenType elsewhere). This is
+ * the legal, maximizing resolution of "choose a creature type" ahead of "reveal any number of that type" —
+ * the type that gets the most cards into hand IS the correct choice for a card whose whole point is card
+ * advantage, so this is never an under-count. A tie breaks on iteration order (Map insertion = revealed
+ * order) — deterministic, never randomized. No creature revealed → no type to choose → 0 taken, a clean
+ * no-op line (never a fabricated take).
+ */
+export function applyChosenTypeRevealToHand(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const n = Math.max(0, resolveScaledAmount(state, atom, ctx));
+  const lib = player.library || [];
+  const revealed = lib.slice(0, Math.min(n, lib.length));
+  if (revealed.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "chosen-type-reveal-to-hand", controller, count: 0, chosenType: null, put: 0, rest: 0 });
+  }
+  const counts = new Map();
+  for (const c of revealed) {
+    if (hasKeyword(c, "changeling")) continue; // counted implicitly by cardHasChosenType below for every type; don't double-weight one type over another
+    for (const t of creatureSubtypesOfCard(c)) counts.set(t, (counts.get(t) || 0) + 1);
+  }
+  let chosenType = null, best = 0;
+  for (const [t, ct] of counts) if (ct > best) { chosenType = t; best = ct; }
+  const eligibleIds = new Set(revealed.filter((c) => cardHasChosenType(c, chosenType)).map((c) => c.id));
+  let next = state;
+  let put = 0;
+  for (const c of revealed) {
+    if (!eligibleIds.has(c.id)) continue;
+    next = moveCardToZone(next, { playerId: controller, cardId: c.id, fromZone: "library", toZone: "hand" });
+    put += 1;
+  }
+  const rest = revealed.length - put;
+  if (rest > 0) next = bottomTopNInRandomOrder(next, controller, rest);
+  return logEvent(next, { kind: "spell-effect", effect: "chosen-type-reveal-to-hand", controller, count: revealed.length, chosenType, put, rest });
+}
+
+/**
  * ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X}-cost sorcery) — "X can't be greater than the number of
  * players in the game. Reveal cards from the top of your library until you reveal X land cards. Put those land
  * cards onto the battlefield tapped and the rest on the bottom of your library in a random order."
@@ -1244,7 +1293,8 @@ export function applyExplore(state, atom, ctx) {
       next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: top.name, land: true });
     } else {
       // Nonland → +1/+1 on the exploring creature (only if still on the battlefield), card kept on top.
-      if (lk && isCreatureCard(lk.permanent.card)) {
+      // LAYER-AWARE (slice 25): an ANIMATED land that explores still gets its +1/+1 counter (CR 613).
+      if (lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(next, subjectId))) {
         next = addCounter(next, { permanentId: subjectId, type: "+1/+1", amount: 1 });
       }
       next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: top.name, land: false });
@@ -1736,6 +1786,7 @@ export const libraryResolvers = {
   "impulse-exile": applyImpulseExileAtom, // ===== IMPULSE-EXILE-AND-PLAY ===== exile top card → exile face-up, stamp `_impulse`/`_impulseTurn`; play permission offered THIS TURN at the action layer (full-cost cast / play-land from exile), cleared at cleanup. Professional Face-Breaker's sac-Treasure ability flips native-mixed.
   "genesis-wave": applyGenesisWave, // ===== GENESIS-WAVE ===== ({X} spell) reveal top X → put all eligible permanents (MV≤X) onto battlefield → mill the rest. Genesis Wave flips native-spell.
   "reveal-put-filtered": applyRevealPutFiltered, // ===== REVEAL-THAT-MANY-PUT-FILTERED (Gishath) ===== combat-damage trigger: reveal that many (= combatDamageAmount) → put all matching <subtype> creatures onto battlefield → bottom the rest random. Gishath/Pantlaza flip native-trigger.
+  "chosen-type-reveal-to-hand": applyChosenTypeRevealToHand, // ===== CHOSEN-TYPE REVEAL TO HAND (For the Ancestors) ===== choose a creature type (deterministic, maximizing pick) → reveal top N → matching cards to hand → bottom the rest random.
   "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
