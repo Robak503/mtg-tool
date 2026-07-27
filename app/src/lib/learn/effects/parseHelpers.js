@@ -46,7 +46,16 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 // IMPROVISE (CR 702.126, census slice 2026-07-24) — convoke's artifact twin, joining on convoke's exact
 // basis: pure cost-REDUCTION (tap artifacts to help pay), resolution-invariant, the engine hard-casts at
 // full printed cost. The permanent-side mirror (coverage.js reImproviseBare) shipped the same slice.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|affinity for [a-z]+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
+// Census slice 48 adds three more on the SAME rationale the list already runs on — the engine hard-casts at
+// full cost through the printed mode, so an option it never takes cannot change what resolves:
+//   • delve (CR 702.66a)     — "Each card you exile from your graveyard while casting this spell pays for
+//                              {1}." Pure cost REDUCTION, exactly like convoke/improvise above it.
+//   • replicate (CR 702.55a) — an OPTIONAL additional cost; paid zero times, the spell is copied zero times,
+//                              which is the printed base spell (kicker's reasoning, on the spell side).
+//   • fuse (CR 702.102a)     — "You may cast one or both halves of this card from your hand." The engine
+//                              already casts either half (actionsCastSplitFromHand); fuse only adds the
+//                              BOTH mode. Declining it leaves a real, complete, legal cast.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|affinity for [a-z]+|replicate (?:\{[^}]+\})+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the

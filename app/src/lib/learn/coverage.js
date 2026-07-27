@@ -251,6 +251,17 @@ export const COVERED_KEYWORDS = [
   // only creature) and makes the "if that's another creature" grant vacuous, so the engine plays a real
   // legal line. It simply never offers backup on ANOTHER creature — an under-offer, the safe direction.
   "backup",
+  // KW-DELVE (CR 702.66a, census slice 48) — "Each card you exile from your graveyard while casting this
+  // spell pays for {1}." A pure, OPTIONAL cost reduction; the engine hard-casts at full cost, which is a
+  // real legal play, so the option it never takes cannot change what resolves. Same basis as convoke /
+  // improvise. Credited on the permanent side too because delve rides CREATURES as well as spells (Gurmag
+  // Angler), and the spell path gets it via COST_ONLY_KEYWORD_LINE.
+  "delve",
+  // KW-MYRIAD (CR 702.115a, census slice 48) — "Whenever this creature attacks, for each opponent other than
+  // defending player, YOU MAY create a token that's a copy of this creature attacking that player. Exile
+  // those tokens at end of combat." An optional attack rider: declining is a complete, legal attack, and the
+  // tokens would be exiled at end of combat anyway. The engine declines, so the board it plays is a real one.
+  "myriad",
   // KW-DETHRONE (CR 702.104a, census slice 46) — ENFORCED: detectTriggers synthesizes the self-scoped
   // attacks descriptor whose effectClause is ordinary modeled text (the add-counter atom), gated by the
   // "that player has the most life or is tied for most life" intervening-if, which compares across ALL
