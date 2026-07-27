@@ -251,6 +251,13 @@ export const COVERED_KEYWORDS = [
   // only creature) and makes the "if that's another creature" grant vacuous, so the engine plays a real
   // legal line. It simply never offers backup on ANOTHER creature — an under-offer, the safe direction.
   "backup",
+  // KW-SPLIT-SECOND (CR 702.19a) — ENFORCED in legalChoices.js: while a spell with split second is on the
+  // stack, splitSecondOnStack suppresses every player's casts (folded into the same `cantCast` the Grand
+  // Abolisher lane feeds) AND every non-mana activated ability (activate / crew / cycling / loyalty). Mana
+  // abilities and CR 116.2 special actions stay legal, exactly as the rule words it. Credited because the
+  // restriction is really imposed, not because it is vacuous — the engine DOES grant opponents priority
+  // with a non-empty stack, so an unenforced split second would have been a live divergence.
+  "split second",
   // (KW-FIREBENDING is NOT credited by this list — it needs a DIGIT-anchored gate, exactly like bloodthirst
   //  below. A startsWith("firebending ") credit would also swallow "Firebending X, where X is this creature's
   //  power", whose amount the add-mana atom cannot express; the engine would then add a WRONG fixed amount of
