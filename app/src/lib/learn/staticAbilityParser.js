@@ -1971,9 +1971,15 @@ function parseClause(clause, out, selfName, selfType) {
   }
 
   // ── KISMET (BLITZ KM-1, CR 614.1c) — the opponents-enter-tapped imposition, a coverage MARKER (the
-  // castLimit pattern): the RUNTIME lives at every entry chokepoint via impositionEntersTapped. Only the
-  // exact three-type line; any variant leaves residue → body-only (a safe FN).
-  if (/^artifacts, creatures, and lands your opponents control enter (?:the battlefield )?tapped$/.test(c)) {
+  // castLimit pattern): the RUNTIME lives at every entry chokepoint via impositionEntersTapped.
+  //
+  // Slice 45 widened this from the exact three-type line to ANY bare type list, because the narrower
+  // printings are the SAME rule (Imposing Sovereign / Authority of the Consuls / Urabrask the Hidden;
+  // Manglehorn / Dauntless Dismantler). Credit is read from the SAME parser the runtime uses
+  // (opponentsEnterTappedTypesOf), so a card is credited exactly when its type set is enforced — the two
+  // can't drift. A QUALIFIED subject ("nonbasic lands", "snow lands", "played by your opponents") returns
+  // null there, leaves residue here, and stays body-only → Arbiter (safe FN).
+  if (opponentsEnterTappedTypesOf({ oracle: c })) {
     out.push({ entersTappedImposition: true });
     return;
   }
@@ -4257,10 +4263,35 @@ export function artifactActivationsLocked(state) {
 
 // ── KISMET (BLITZ KM-1, CR 614.1c — Kismet / Frozen Aether / Loxodon Gatekeeper): "Artifacts,
 // creatures, and lands your opponents control enter [the battlefield] tapped." ──────────────────────
-const RE_OPP_ENTER_TAPPED = /(?:^|[\n.;])\s*artifacts, creatures, and lands your opponents control enter (?:the battlefield )?tapped\s*(?:\.|$)/i;
-/** Does this card print the Kismet imposition? (The exact three-type symmetric line only.) */
+// GENERALIZED to a TYPE SET (census slice 45). The line was hard-coded to Kismet's three-type form, which
+// left the NARROWER printings of the identical imposition parked: "Creatures your opponents control enter
+// tapped" (Imposing Sovereign / Authority of the Consuls / Urabrask the Hidden) and "Artifacts your opponents
+// control enter tapped" (Manglehorn / Dauntless Dismantler). Same rule, same chokepoint, smaller type list.
+//
+// BARE TYPE WORDS ONLY, which is what keeps this safe. A QUALIFIED subject is a different rule and must not
+// match, because the qualifier would be silently dropped and the imposition would over-apply:
+//   • "creatures and NONBASIC lands …"  (Thalia, Heretic Cathar) — basics must still enter untapped
+//   • "SNOW lands …"                    (Reidane) — non-snow lands must still enter untapped
+//   • "creatures PLAYED BY your opponents" (Uphill Battle) — a different subject clause entirely
+// The alternation admits only artifacts/creatures/lands, so each of those fails closed → body-only.
+const RE_OPP_ENTER_TAPPED = /(?:^|[\n.;])\s*((?:artifacts|creatures|lands)(?:,?\s+(?:and\s+)?(?:artifacts|creatures|lands))*) your opponents control enter (?:the battlefield )?tapped\s*(?:\.|$)/i;
+const ENTER_TAPPED_TYPE_WORD = { artifacts: "Artifact", creatures: "Creature", lands: "Land" };
+
+/**
+ * The TYPE SET an opponents-enter-tapped imposition covers, or null when the card prints none.
+ * e.g. Kismet → {Artifact, Creature, Land}; Imposing Sovereign → {Creature}; Manglehorn → {Artifact}.
+ */
+export function opponentsEnterTappedTypesOf(card) {
+  const m = RE_OPP_ENTER_TAPPED.exec(String(card?.oracle || card?.oracle_text || ""));
+  if (!m) return null;
+  const words = m[1].toLowerCase().match(/artifacts|creatures|lands/g) || [];
+  const types = new Set(words.map((w) => ENTER_TAPPED_TYPE_WORD[w]));
+  return types.size > 0 ? types : null;
+}
+
+/** Does this card print an opponents-enter-tapped imposition at all? (Any width — see the type reader.) */
 export function opponentsEnterTappedOf(card) {
-  return RE_OPP_ENTER_TAPPED.test(String(card?.oracle || card?.oracle_text || ""));
+  return opponentsEnterTappedTypesOf(card) !== null;
 }
 /**
  * Does an opposing Kismet-class static force this entering card in TAPPED? Scans every OTHER player's
@@ -4275,7 +4306,15 @@ export function impositionEntersTapped(state, card, controller) {
   for (const [pid, pl] of Object.entries(state?.players || {})) {
     if (pid === controller) continue; // "your opponents" — the controller's own Kismet never taxes them
     for (const perm of (pl.battlefield || [])) {
-      if (opponentsEnterTappedOf(perm.card)) return true;
+      // Match the entering card against THIS imposition's own type set (slice 45). Previously any
+      // imposition tapped anything artifact/creature/land, which was correct only because the sole
+      // recognized printing happened to cover all three; a creature-only Imposing Sovereign must NOT
+      // tap an entering land.
+      const types = opponentsEnterTappedTypesOf(perm.card);
+      if (!types) continue;
+      for (const t of types) {
+        if (new RegExp(`\\b${t}\\b`, "i").test(tl)) return true;
+      }
     }
   }
   return false;

@@ -28,7 +28,13 @@ function board() {
 describe("reader + classify", () => {
   it("the exact line reads; the three carriers flip native-static; an instant never matches", () => {
     expect(opponentsEnterTappedOf(KISMET)).toBe(true);
-    expect(opponentsEnterTappedOf({ oracle: "Creatures your opponents control enter tapped." })).toBe(false);
+    // PIN MOVED 2026-07-27 (census slice 45), not weakened. This line used to assert that the CREATURE-ONLY
+    // printing was unrecognized — true when the reader was hard-coded to Kismet's three-type form, but it was
+    // pinning a GAP, not a rule: Imposing Sovereign prints the same imposition over a smaller type list. That
+    // form is now read and enforced, so the pin moves to the boundary that still matters — a QUALIFIED
+    // subject, where matching would silently drop the qualifier and over-apply the imposition.
+    expect(opponentsEnterTappedOf({ oracle: "Creatures your opponents control enter tapped." })).toBe(true);
+    expect(opponentsEnterTappedOf({ oracle: "Creatures and nonbasic lands your opponents control enter tapped." })).toBe(false);
     expect(classifyCard(KISMET)).toBe("native-static");
   });
 });

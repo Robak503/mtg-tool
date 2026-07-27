@@ -1893,6 +1893,24 @@ export function firebendingKeywordValue(oracle) {
   return 0;
 }
 
+/**
+ * KW-DETHRONE (CR 702.104a) — does the card print the bare keyword? Parens stripped first, like renown /
+ * firebending, because the whole ability lives inside the reminder text.
+ *
+ * Excluded on purpose: Dack's Duplicate ("…enter as a copy of any creature, except it has haste and
+ * dethrone"), where dethrone is GRANTED to a copy rather than printed as this creature's own keyword — the
+ * comma-segment anchor never matches that sentence, so it stays on the Arbiter.
+ */
+export function hasDethrone(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    for (const seg of line.split(",")) {
+      if (seg.trim().toLowerCase() === "dethrone") return true;
+    }
+  }
+  return false;
+}
+
 export function backupKeywordValue(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -3441,6 +3459,26 @@ export function detectTriggers(card) {
         optional: false, sourceText: `Mobilize ${mobilizeN}`,
       });
     }
+  }
+  // KW-DETHRONE (CR 702.104a, census slice 46) — "Whenever this creature attacks the player with the most
+  // life or tied for most life, put a +1/+1 counter on it." Synthesized from the printed keyword like renown
+  // / firebending, with an ORDINARY modeled effectClause (the self-scoped add-counter atom, backup's
+  // precedent) so no new resolver is needed.
+  //
+  // HONEST NOTE ON THE TIMING. In the printed rule the life comparison is part of the trigger EVENT, so it
+  // is checked once, at declaration. Expressed here as an intervening-if, it is checked at declaration AND
+  // re-checked on resolution (CR 603.4). The divergence only shows if the attacked player's life changes in
+  // response to the trigger, and it can only ever REMOVE a counter that should have been placed — never add
+  // one that shouldn't. A false negative, which the creed permits; the false-positive direction would not
+  // have been acceptable, and this lane cannot produce it.
+  if (hasDethrone(oracle)) {
+    out.push({
+      event: "attacks", scope: "self", whose: "any",
+      effect: null,
+      effectClause: "put a +1/+1 counter on this creature",
+      interveningIf: "that player has the most life or is tied for most life",
+      optional: false, sourceText: "Dethrone",
+    });
   }
   // KW-FIREBENDING (census slice 41) — synthesized from the printed keyword like renown / mobilize / backup.
   // Following BACKUP's precedent the effectClause is ORDINARY MODELED TEXT, not a kind-tagged sentinel: the
