@@ -10,10 +10,12 @@
  * A CLASSIFIER FLIP IS A CLAIM ABOUT THE RUNTIME, so this file checks the runtime rather than the tier. The
  * card being "native" says the engine plays it; these tests are what make that checkable.
  *
- * AFTERMATH IS NOT UNPARKED, and the contrast is the point. Its second half is castable ONLY from the
- * graveyard (CR 702.127a), while this engine's split lane offers both halves from HAND — so unparking it
- * would not under-offer, it would produce an ILLEGAL cast. That is the false-positive direction, and the
- * refusal is pinned below so nobody "finishes the job" by deleting the other line too.
+ * AFTERMATH followed one slice later (55), and the ORDER is the point. Its second half is castable ONLY
+ * from the graveyard (CR 702.127a) while this engine's split lane offered both halves from HAND, so simply
+ * deleting its park would not have under-offered — it would have produced an ILLEGAL cast. Slice 54 refused
+ * it with a stated precondition ("until the hand-cast lane learns to withhold that half"); slice 55 built
+ * exactly that, and only then lifted the refusal. The withholding is tested here as the load-bearing
+ * assertion: delete the skip and this file fails.
  */
 import { describe, expect, it } from "vitest";
 
@@ -35,15 +37,19 @@ const FUSE_CARD = {
   ].join("\n"),
 };
 
+// A REAL corpus aftermath card whose BOTH halves are modeled, so the CREED gate lets it through and the
+// hand-cast behaviour is actually observable. (An earlier draft used Claim // Fame, whose reanimation half
+// is unmodeled — the card was correctly refused outright, which made the "front half still casts" assertion
+// unobservable rather than wrong. The fixture was the bug, not the engine.)
 const AFTERMATH_CARD = {
-  id: "af", name: "Claim // Fame", type: "Sorcery // Sorcery", mana: "{B} // {1}{R}",
+  id: "af", name: "Road // Ruin", type: "Instant // Sorcery", mana: "{2}{G} // {1}{R}{R}",
   oracle: [
-    "Claim - Sorcery {B}",
-    "Return target creature card with mana value 2 or less from your graveyard to the battlefield.",
+    "Road - Instant {2}{G}",
+    "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
     "//",
-    "Fame - Sorcery {1}{R}",
+    "Ruin - Sorcery {1}{R}{R}",
     "Aftermath (Cast this spell only from your graveyard. Then exile it.)",
-    "Target creature gets +2/+0 and gains haste until end of turn.",
+    "Ruin deals damage to target creature equal to the number of lands you control.",
   ].join("\n"),
 };
 
@@ -55,9 +61,13 @@ describe("the shape module now accepts a fuse card", () => {
     expect(parsed.right.name).toBe("Well");
   });
 
-  it("CREED — an AFTERMATH card is still refused", () => {
-    expect(parseSplitCard(AFTERMATH_CARD)).toBeNull();
-    expect(classifyCard(AFTERMATH_CARD)).not.toMatch(/^native/);
+  it("an AFTERMATH card now parses too — but carries its graveyard-only fact (slice 55)", () => {
+    // PIN MOVED, one slice later, and only once its CONDITION was met. Slice 54 refused aftermath with a
+    // stated precondition: "until the hand-cast lane learns to withhold that half". Slice 55 built exactly
+    // that, so the refusal is lifted — but the fact travels with the shape rather than being forgotten.
+    const parsed = parseSplitCard(AFTERMATH_CARD);
+    expect(parsed).not.toBeNull();
+    expect(parsed.rightGraveyardOnly).toBe(true);
   });
 });
 
@@ -86,12 +96,20 @@ describe("RUNTIME — the flip is a claim that the engine plays it, so check the
     expect(names.has("Well")).toBe(true);
   });
 
-  it("the AFTERMATH card is offered NO cast at all — refused end to end, not just in the tier", () => {
-    // The important half of the contrast. If the classifier refused it but the runtime still offered the
-    // graveyard-only half from hand, the engine would be making an illegal play regardless of coverage.
+  it("THE LOAD-BEARING ONE — the aftermath half is NEVER offered from hand", () => {
+    // This is the assertion that makes unparking aftermath legal at all. Its second half casts only from
+    // the graveyard (CR 702.127a); offering it from hand would be an ILLEGAL play, which is strictly worse
+    // than leaving the card on the Arbiter. Delete the `face.graveyardOnly` skip and this fails.
     const casts = legalActionsForPlayer(boardWithCardInHand(AFTERMATH_CARD), "user")
-      .filter((a) => String(a.kind).startsWith("cast") && a.cardId === "af" && a.name === "Fame");
+      .filter((a) => String(a.kind).startsWith("cast") && a.cardId === "af" && a.name === "Ruin");
     expect(casts).toHaveLength(0);
+  });
+
+  it("…while its FRONT half still plays from hand exactly as printed", () => {
+    // The other side of the bargain: withholding the aftermath half must not cost the card its normal cast.
+    const casts = legalActionsForPlayer(boardWithCardInHand(AFTERMATH_CARD), "user")
+      .filter((a) => String(a.kind).startsWith("cast") && a.cardId === "af" && a.name === "Road");
+    expect(casts.length).toBeGreaterThan(0);
   });
 });
 

@@ -87,16 +87,22 @@ describe("SPLIT — shape module", () => {
     expect(r).toMatchObject({ id: "dg1", name: "Gone", type: "Instant", mana: "{2}{R}" });
   });
 
-  it("AFTERMATH split cards are not parsed as plain splits (parked); FUSE now is", () => {
-    // PIN MOVED 2026-07-27 (census slice 54), and only half of it. Fuse was parked as "an unmodeled casting
-    // option"; it only ADDS a mode, and both halves stay individually castable from hand exactly as on any
-    // other split, so declining the fused mode leaves a real complete cast — the optional-mode family's test.
+  it("both FUSE and AFTERMATH parse now — but aftermath carries its graveyard-only fact", () => {
+    // PIN MOVED TWICE IN ONE DAY, in two deliberate steps, and the ORDER is the thing being pinned.
     //
-    // AFTERMATH stays parked, and the contrast is the whole point: its second half casts ONLY from the
-    // graveyard (CR 702.127a) while this engine's split lane offers both halves from HAND. Unparking it
-    // would not under-offer, it would produce an ILLEGAL cast — the false-positive direction.
-    expect(parseSplitCard(DUSK_DAWN)).toBeNull();
+    // Slice 54 unparked FUSE: it only ADDS a casting mode, both halves stay individually castable from
+    // hand, so declining the fused mode leaves a real complete cast — the optional-mode family's test.
+    // It REFUSED aftermath in the same breath, with a stated precondition: its second half casts only from
+    // the graveyard (CR 702.127a) while this engine's split lane offered both halves from HAND, so
+    // unparking it would have produced an ILLEGAL cast rather than a mere under-offer.
+    //
+    // Slice 55 built that precondition — actionsCastSplitFromHand now skips a `graveyardOnly` face — and
+    // only THEN lifted the refusal. The fact travels on the parsed shape instead of being forgotten, and
+    // the withholding is the load-bearing assertion in fuseSplitCard.test.js.
     expect(parseSplitCard(BREAKING_ENTERING)).not.toBeNull();
+    const dd = parseSplitCard(DUSK_DAWN);
+    expect(dd).not.toBeNull();
+    expect(dd.rightGraveyardOnly).toBe(true);
   });
 
   it("…and unparking fuse does NOT force-flip a card whose half is unmodeled (CREED)", () => {
