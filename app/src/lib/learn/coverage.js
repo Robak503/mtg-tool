@@ -455,6 +455,8 @@ export function isKeywordOnly(oracle, name) {
     reGyZoneOptionCost.test(c) ||
     reReinforceCost.test(c) ||
     reBloodthirstFixed.test(c) ||
+    reDevourFixed.test(c) ||
+    reAmplifyFixed.test(c) ||
     reFirebendingFixed.test(c) ||
     reDredgeCost.test(c) ||
     reOptionalAddlCost.test(c) ||
@@ -599,6 +601,19 @@ const reReinforceCost = /^reinforce \d+\s*[—–-]\s*(?:\{[^}]+\})+$/;
 // excluded: the synthesizer returns null for it, so a startsWith-style credit would mark the card native
 // while the runtime placed nothing. Caught by this slice's own per-flip audit before it shipped.
 const reBloodthirstFixed = /^bloodthirst \d+$/;
+// devour N (CR 702.81a, census slice 53) — "As this creature enters, YOU MAY sacrifice any number of
+// creatures. It enters with that many +1/+1 counters on it." (×N for devour 2/3.) The optional-mode family's
+// reasoning, in its purest form: sacrificing ZERO creatures is a legal choice, and "that many" is then zero,
+// so the permanent enters exactly as printed. Squad's twin — pay zero times, get zero copies.
+//
+// Digit-anchored for the same reason as bloodthirst directly above: a hypothetical "Devour X" would be a
+// dynamic amount, and the anchor must keep refusing it rather than crediting a number nobody can compute.
+const reDevourFixed = /^devour \d+$/;
+// amplify N (CR 702.37a, census slice 53) — "As this creature enters, REVEAL ANY NUMBER of cards from your
+// hand that share a creature type with it. This creature enters with N +1/+1 counters on it for each card
+// revealed this way." Devour's hand-side twin: revealing zero is a legal choice, "for each card revealed"
+// is then zero, and the creature enters exactly as printed. Digit-anchored like devour/bloodthirst.
+const reAmplifyFixed = /^amplify \d+$/;
 // firebending N (census slice 41) — "Whenever this creature attacks, add {R}. This mana lasts until end of
 // combat." ENFORCED: detectTriggers synthesizes the self-scoped attacks descriptor and misc.js resolves it to
 // the add-mana atom carrying the end-of-combat hold, so the mana is really added AND really survives the rest

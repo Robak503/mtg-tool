@@ -2563,6 +2563,11 @@ function actionsCastSplitFromHand(state, playerId) {
     const faces = splitFaceCards(card);                         // [left, right] projected face-views (same id)
     if (!faces) continue;
     for (const face of faces) {
+      // AFTERMATH (CR 702.127a, census slice 55) — the second half is castable ONLY from the graveyard, so
+      // it is never offered from HAND. This is the load-bearing half of unparking aftermath: without it the
+      // engine would make an illegal cast, which is worse than leaving the card on the Arbiter. The
+      // graveyard cast itself is simply not offered (the flashback bargain — a safe under-offer).
+      if (face.graveyardOnly) continue;
       for (const a of castActionsFromZone(state, playerId, [face], "hand", null)) {
         actions.push({ ...a, faceCard: face });
       }

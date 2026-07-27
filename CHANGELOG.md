@@ -8,6 +8,19 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.4] — 2026-07-27
+
+### Changed
+- **Devour and amplify creatures play natively.** Both let you sacrifice or reveal cards as they arrive to
+  get counters — and choosing to do neither is a real, legal play, which is what the simulator does.
+- **Split cards with fuse now play.** Both halves are offered from your hand, exactly as on any other
+  split card.
+
+### Fixed
+- **Aftermath cards no longer get handed off wholesale.** The front half plays from your hand as printed,
+  and the aftermath half is correctly never offered from hand — it's a graveyard-only cast, and offering
+  it would have been an illegal play.
+
 ## [0.149.3] — 2026-07-27
 
 Another ~60 cards play themselves, and two combat keywords that were being ignored now work.

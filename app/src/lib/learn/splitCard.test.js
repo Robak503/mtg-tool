@@ -87,9 +87,29 @@ describe("SPLIT — shape module", () => {
     expect(r).toMatchObject({ id: "dg1", name: "Gone", type: "Instant", mana: "{2}{R}" });
   });
 
-  it("fuse and aftermath split cards are NOT parsed as plain splits (parked)", () => {
-    expect(parseSplitCard(BREAKING_ENTERING)).toBeNull();
-    expect(parseSplitCard(DUSK_DAWN)).toBeNull();
+  it("both FUSE and AFTERMATH parse now — but aftermath carries its graveyard-only fact", () => {
+    // PIN MOVED TWICE IN ONE DAY, in two deliberate steps, and the ORDER is the thing being pinned.
+    //
+    // Slice 54 unparked FUSE: it only ADDS a casting mode, both halves stay individually castable from
+    // hand, so declining the fused mode leaves a real complete cast — the optional-mode family's test.
+    // It REFUSED aftermath in the same breath, with a stated precondition: its second half casts only from
+    // the graveyard (CR 702.127a) while this engine's split lane offered both halves from HAND, so
+    // unparking it would have produced an ILLEGAL cast rather than a mere under-offer.
+    //
+    // Slice 55 built that precondition — actionsCastSplitFromHand now skips a `graveyardOnly` face — and
+    // only THEN lifted the refusal. The fact travels on the parsed shape instead of being forgotten, and
+    // the withholding is the load-bearing assertion in fuseSplitCard.test.js.
+    expect(parseSplitCard(BREAKING_ENTERING)).not.toBeNull();
+    const dd = parseSplitCard(DUSK_DAWN);
+    expect(dd).not.toBeNull();
+    expect(dd.rightGraveyardOnly).toBe(true);
+  });
+
+  it("…and unparking fuse does NOT force-flip a card whose half is unmodeled (CREED)", () => {
+    // Breaking // Entering parses now, but its "Entering" half (graveyard reanimation to the battlefield)
+    // is not modeled, so the card stays on the Arbiter. Parsing the shape and modelling the halves are
+    // separate gates, and the second one still has to be earned.
+    expect(classifyCard(BREAKING_ENTERING)).toBe("arbiter-spell");
   });
 });
 

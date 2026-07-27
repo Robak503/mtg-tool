@@ -71,14 +71,29 @@ export function parseSplitCard(card) {
   // BOTH halves must be instant/sorcery (CR 709.2). Anything else (a split with a non-spell half — none in
   // the real corpus) is not ours.
   if (!/\b(Instant|Sorcery)\b/i.test(left.typeLine) || !/\b(Instant|Sorcery)\b/i.test(right.typeLine)) return null;
-  // PARK fuse + aftermath (SCOPE) — a fuse card lets you cast BOTH halves at once (an unmodeled option);
-  // an aftermath card's second half casts only from the graveyard (an unmodeled zone). Either makes the card
-  // not-fully-modeled → null → it stays an Arbiter spell (safe FN).
-  if (/\bFuse\b/i.test(oracle)) return null;
-  if (/\bAftermath\b/i.test(type) || /\bAftermath\b/i.test(oracle)) return null;
+  // FUSE — UNPARKED (census slice 54). The original park read "a fuse card lets you cast BOTH halves at once
+  // (an unmodeled option)", which was the right call before the optional-mode family existed and is the
+  // wrong one now. Fuse (CR 702.102a) only ADDS a casting mode: both halves remain individually castable
+  // from hand exactly as on any other split card, and the engine already offers each of them
+  // (actionsCastSplitFromHand). Declining the fused mode therefore leaves a real, complete, legal cast —
+  // the same test delve / myriad / replicate / squad / devour are credited under. Not offering it is an
+  // under-offer, which is the safe direction.
+  //
+  // AFTERMATH — UNPARKED (census slice 55), but ONLY because the hand-cast lane now withholds the second
+  // half, which is exactly the condition slice 54 set for it. An aftermath card's second half is castable
+  // ONLY from the graveyard (CR 702.127a); this engine's split lane offers both halves from HAND, so simply
+  // deleting the park would have produced an ILLEGAL cast rather than a mere under-offer.
+  //
+  // So the shape carries the fact instead of hiding it: `rightGraveyardOnly` is set, and
+  // legalChoices.actionsCastSplitFromHand skips that face. The result is the FLASHBACK bargain, already the
+  // house precedent — a graveyard cast the engine never offers (a safe under-offer), while the front half
+  // plays from hand exactly as printed. The classifier still requires BOTH halves to be modeled before the
+  // card is credited at all, so nothing is swept under the rug by never offering one of them.
+  const aftermath = /\bAftermath\b/i.test(type) || /\bAftermath\b/i.test(oracle);
   return {
     left: { name: left.name, type: left.typeLine, oracle: left.oracle, mana: left.mana },
     right: { name: right.name, type: right.typeLine, oracle: right.oracle, mana: right.mana },
+    ...(aftermath ? { rightGraveyardOnly: true } : {}),
   };
 }
 
@@ -97,7 +112,9 @@ export function splitFaceCards(card) {
   if (!parsed) return null;
   return [
     { ...card, name: parsed.left.name, type: parsed.left.type, oracle: parsed.left.oracle, mana: parsed.left.mana },
-    { ...card, name: parsed.right.name, type: parsed.right.type, oracle: parsed.right.oracle, mana: parsed.right.mana },
+    // AFTERMATH: the right face carries the graveyard-only fact with it, so any consumer that projects the
+    // faces (not just the hand-cast lane) can see it rather than having to re-parse the card to find out.
+    { ...card, name: parsed.right.name, type: parsed.right.type, oracle: parsed.right.oracle, mana: parsed.right.mana, ...(parsed.rightGraveyardOnly ? { graveyardOnly: true } : {}) },
   ];
 }
 

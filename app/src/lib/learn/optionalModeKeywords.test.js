@@ -73,6 +73,21 @@ describe("each keyword is credited, and the CARD BODY is what decides", () => {
     expect(classifyCard({ ...SPELL, name: "A Little Chat", oracle: "Casualty 1 (As you cast this spell, you may sacrifice a creature with power 1 or greater. When you do, copy this spell.)\nDraw a card." })).toMatch(/^native/);
   });
 
+  it("devour on a creature (slice 53) — sacrificing ZERO is the printed creature", () => {
+    expect(classifyCard({ ...CREATURE, name: "Gluttonous Slime", type: "Creature — Ooze", oracle: "Devour 1 (As this creature enters, you may sacrifice any number of creatures. It enters with that many +1/+1 counters on it.)" })).toMatch(/^native/);
+  });
+
+  it("amplify on a creature (slice 53) — revealing ZERO is the printed creature", () => {
+    expect(classifyCard({ ...CREATURE, name: "Zombie Brute", type: "Creature — Zombie", oracle: "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)" })).toMatch(/^native/);
+  });
+
+  it("CREED — the digit anchor refuses a dynamic amount for both", () => {
+    // Same reasoning as bloodthirst: a non-numeric N is an amount the runtime cannot place, and a
+    // startsWith-style credit would mark the card native while nothing put the counters on.
+    expect(classifyCard({ ...CREATURE, name: "X", oracle: "Devour X (As this creature enters, you may sacrifice any number of creatures.)" })).not.toMatch(/^native/);
+    expect(classifyCard({ ...CREATURE, name: "Y", oracle: "Amplify X (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)" })).not.toMatch(/^native/);
+  });
+
   it("ripple on a spell (slice 51)", () => {
     expect(classifyCard({ ...SPELL, name: "Surging Might", oracle: "Ripple 4 (When you cast this spell, you may reveal the top four cards of your library. You may cast spells with the same name as this spell from among those cards without paying their mana costs. Put the rest on the bottom of your library.)\nDraw a card." })).toMatch(/^native/);
   });
