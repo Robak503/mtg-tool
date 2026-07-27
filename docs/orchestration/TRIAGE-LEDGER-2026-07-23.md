@@ -653,3 +653,39 @@ not part of the effect. So:
 
 That is a different shape from the three keyword syntheses shipped today, which is why it wants a fresh
 head rather than a tired pattern-match. Everything else about it is routine.
+
+---
+
+## SCOPED — two census targets with SEVERE failure modes (do not rush either)
+
+Both examined 2026-07-27. Each is a real slice; each fails dangerously if half-built, which is why they were
+banked rather than started at the tail of a long session.
+
+### 1. Self damage-prevention with a counter cost — the PHANTOM cycle (6 sole, 1 co)
+
+"If damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature."
+(Phantom Nantuko, Phantom Tiger, Phantom Centaur…)
+
+The engine HAS damage prevention, but not this shape: `combatEvasion.attachedDamagePrevention(state, permId)`
+covers the AURA form (Gaseous Form on a host) and `prevent-next-damage` covers one-shot floating shields.
+Phantom is the SELF form, continuous, and it PAYS A COUNTER per instance.
+
+**⚠️ THE FP: modelling the prevention without the counter decrement makes the creature INVULNERABLE FOREVER.**
+Both halves are mandatory, plus the exhaustion case — when the counters run out the damage applies normally,
+and these bodies are printed 0/0, so the creature then dies to the lethal SBA. A build that prevents but
+never decrements is strictly better than printed, which is the forbidden direction. Pin the exhaustion path
+first, before the prevention path.
+
+### 2. Shuffle-into-library instead of the graveyard (5 sole, 0 co)
+
+"If <NAME> would be put into a graveyard from anywhere, reveal <NAME> and shuffle it into its owner's
+library." (Darksteel Colossus, Progenitus, Legacy Weapon, Nexus of Fate…)
+
+There is NO general zone-replacement lane. gameState has replacements for DESTROY (totem armor, shield
+counters) but nothing intercepting a move to the graveyard, so this means instrumenting `moveCardToZone` —
+the chokepoint every zone change in the engine funnels through.
+
+**Blast radius is the whole problem**: five cards against a hook on the hottest path in the state layer. If
+it is built, gate it as narrowly as possible (self-reference only, graveyard destination only) and diff the
+runtime fingerprint, not just the tier fingerprint — a mistake here changes where EVERY card goes when it
+dies, and the metric would not see it.
