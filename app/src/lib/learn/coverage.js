@@ -1315,7 +1315,23 @@ export function permanentFullyCovered(card) {
   if (!allTriggerSentencesModeled(card, oracle)) return false;
   const triggers = detectTriggers(card);
   const activated = parseActivatedAbilities(card);
-  if (!activated.every((a) => a.modeled)) return false;     // an unmodeled activated ability
+  // GRAVEYARD-ABILITY COMPOSITION (census slice 56). A graveyard ability — "…: Return this card from your
+  // graveyard …" (GY-1) / "…, Exile this card from your graveyard: …" (GY-2) — is genuinely MODELED, just by
+  // its own lane rather than this one, so `a.modeled` is false and the guard below used to sink the whole
+  // card to body-only. That is why a graveyard ability composed fine with KEYWORDS (which never reach this
+  // guard) but not with a trigger or a battlefield activated ability. Haunted Dead, Teacher's Pest and
+  // Postmortem Professor all park for exactly this reason and nothing else.
+  //
+  // Admitting it is the SAFEST composition in the file, not the riskiest: the two abilities function in
+  // DIFFERENT ZONES and can never both apply to the same object at once — the battlefield ability while it
+  // is a permanent, the graveyard ability while it is a card in the graveyard. Proven at the runtime before
+  // this line was written, all three halves on one card: the battlefield trigger fires, the graveyard
+  // ability is offered from the graveyard, and it is NOT offered while the card is on the battlefield.
+  const isGraveyardAbility = (a) => {
+    const one = { ...card, oracle: a.raw };
+    return !!(parseGraveyardSelfRecursion(one) || parseGraveyardExileAbility(one));
+  };
+  if (!activated.every((a) => a.modeled || isGraveyardAbility(a))) return false; // an unmodeled activated ability
 
   // Need at least one MODELED ability (else this is keyword-only/vanilla, caught earlier).
   if (triggers.length === 0 && activated.length === 0) {
