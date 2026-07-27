@@ -9,10 +9,14 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Changed
-- **More of your deck plays correctly in the simulator.** Around 400 more cards are now handled natively
+- **More of your deck plays correctly in the simulator.** Several hundred more cards are handled natively
   instead of being handed off, including the mobilize, backup, renown, bloodthirst and dredge keywords,
   delayed "at the beginning of the next end step" abilities, and creatures that sacrifice themselves when a
   condition stops holding.
+- **The coverage number is stricter, and lower, on purpose.** A card only counts as a native mana source now
+  if the game can actually produce its mana. Around 140 cards that said "Add {G}" in their text but whose
+  mana the engine could never reach — ones needing a sacrifice, a chosen colour, or an amount that varies —
+  no longer count. Nothing about your decks changed; the number simply stopped over-promising.
 - **Faster first card lookup after launch.** The card and rulings indexes now warm up in the
   background right after the app starts, so the first thing that needs them (a chat, opening a deck,
   the coverage view) doesn't pay the load. Non-blocking — it never delays the window from appearing.

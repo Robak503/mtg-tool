@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-SEVEN slices (+418) + an 11-site RUNTIME class swept — corpus 33.5%→34.8% — suite 840/10,863
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-EIGHT slices (net +275 after an HONEST −143) — corpus 33.5%→34.4% — suite 841/10,873
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,17 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **🚨 SLICE 38 `9bf6db43` (−143, DELIBERATELY) — the number now means what it says.** `hasManaAbility` is a
+> TEXT check; the runtime produces mana through `manaProduction`. Crediting on text alone tiered 154 cards
+> native-mana whose mana the engine cannot obtain BY ANY PATH — costed activations, dynamic amounts, colours
+> chosen on entry. Corpus 34.8% → 34.4%, Colton's call.
+>
+> **THE FIRST MEASUREMENT WAS WRONG AND WOULD HAVE DELETED WORKING CARDS.** `manaProduction` returning null
+> only answers "is this a standing source". Burning-Tree Emissary fails that and still delivers {R}{G} via
+> its ETB. The honest instrument is to put each card on a board and ask whether the mana is obtainable by ANY
+> path — standing source, offered ability, or a trigger that resolves. 154 by that measure; 0 after the gate.
+> Of 157 cards moved, 15 were RECLASSIFIED to a still-native tier and 142 genuinely dropped.
 >
 > **SLICE 37 `7d0ce6ee` (+6) — counter transfer on death, and a THIRD seam worth remembering.** The clause
 > parsed HIGH and the card STILL read body-only, because `atomTargetIntent` had no entry for the new op:
