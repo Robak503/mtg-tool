@@ -499,3 +499,33 @@ I checked six cards, not 159. `scratchpad/probe-drift3.mjs` is the starting poin
 in this thread were wrong before they were right: the first draft tested a hand-simplified oracle instead
 of the real `publicCard`, and the sub-cause above was misdiagnosed. Keep it on real card text, and
 re-derive rather than trusting the table.
+
+---
+
+## ❌ CHECKED AND REFUSED — normalizing "sacrifice IT at the beginning of the next end step"
+
+Investigated 2026-07-25 (after the CR 603.7 scheduler shipped). Looks like free yield; it is a trap.
+
+**The finding.** The delayed-trigger matcher handles the trailing form correctly — `matchDelayedTrigger`
+returns `{delayedClause:"sacrifice it", fireStep:"end"}`. What fails is the INNER clause: `sacrifice it`
+parses LOW because the pronoun has no referent, while `sacrifice this creature` parses HIGH. So the obvious
+fix is to normalize the pronoun.
+
+**Why not to.** Measured across the corpus:
+
+| the immediate clause before it | cards | what "it" means |
+|---|---|---|
+| acted on the SOURCE ("This creature gets +1/+1…") | **1** | the source — normalization would be correct |
+| acted on SOMETHING ELSE | **48** | a created token, a stolen creature, a cheated-in planeswalker |
+
+Those 48 are the Threaten family ("Gain control of target creature… It gains haste until end of turn.
+Sacrifice it at the beginning of the next end step") and the token-makers. Normalizing "it" to "this
+creature" there would sacrifice the SOURCE instead of the stolen creature or the token — a wrong permanent
+destroyed, which is about as bad an FP as this engine can produce.
+
+**One card of upside against 48 ways to be wrong.** Not a slice.
+
+**What WOULD unlock the 48** is a real feature: a delayed trigger that carries a BOUND REFERENT (the
+permanent id the immediate clause acted on) rather than re-parsing a pronoun at fire time. The scheduler's
+record is plain JSON and already carries `sourcePermanentId`, so adding a `boundPermanentId` is the natural
+shape. That is a proper slice with a proper gate — not a regex change.
