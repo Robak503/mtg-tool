@@ -2173,7 +2173,12 @@ export function classifyCard(card) {
   //   cheaper, so not offering it means the engine pays the FULL printed cost: an under-offer, which is the
   //   safe direction. Five Borderposts read native for exactly that reason and are correct (checked
   //   2026-07-25) — parking them would lose real cards to fix nothing.
-  if (/\bas an additional cost to cast this spell,/i.test(oracle)) return "body-only";
+  //   READ THE REMINDER-STRIPPED TEXT. A real additional cost is never inside reminder parens, but the
+  //   PHRASE appears in the reminder text of several keywords, on 16 permanents that print no such cost at
+  //   all (Wasteland Raider, Ruthless Radrat, Securitron Squadron …). Testing the raw oracle would park
+  //   those for a cost they don't have. Latent rather than live today — all 16 are body-only for other
+  //   reasons — but it is the same loaded gun as the "your NEXT untap step" credit, so it is closed here.
+  if (/\bas an additional cost to cast this spell,/i.test(String(oracle || "").replace(/\([^)]*\)/g, " "))) return "body-only";
   if (isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(etOracle, card?.name)), card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).

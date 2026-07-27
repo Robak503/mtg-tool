@@ -89,3 +89,27 @@ describe("CREED — a PERMANENT's additional cost is NOT enforced, so it must no
       oracle: COST })).toBe("body-only");
   });
 });
+
+describe("the guard reads REMINDER-STRIPPED text (QA pass, same session)", () => {
+  /**
+   * The phrase "as an additional cost to cast this spell," appears in the REMINDER text of several
+   * keywords, on 16 permanents that print no such cost at all. Testing the raw oracle would park those
+   * for a cost they do not have. Latent rather than live when found — all 16 were body-only for other
+   * reasons — but the same loaded-gun shape as crediting a wording the runtime refuses.
+   */
+  it("a permanent whose only occurrence is inside reminder parens is NOT parked by this guard", () => {
+    // A vanilla body plus a keyword whose reminder text happens to contain the phrase.
+    const tier = classifyCard({ name: "Reminder Only", type: "Creature — Human Mercenary", mana: "{2}{B}", power: 3, toughness: 2,
+      oracle: "Casualty 2 (As an additional cost to cast this spell, you may sacrifice a creature with power 2 or greater.)" });
+    // It may still park for other reasons — what matters is WHY, so assert the guard itself lets it through
+    // by checking the same card with the reminder removed classifies identically.
+    const withoutReminder = classifyCard({ name: "Reminder Only", type: "Creature — Human Mercenary", mana: "{2}{B}", power: 3, toughness: 2,
+      oracle: "Casualty 2" });
+    expect(tier).toBe(withoutReminder);
+  });
+
+  it("a REAL printed additional cost on a permanent is still parked", () => {
+    expect(classifyCard({ name: "Soulbright Seeker", type: "Creature — Elemental Sorcerer", mana: "{R}", power: 1, toughness: 1,
+      oracle: "As an additional cost to cast this spell, behold an Elemental or pay {2}.\n{R}: Target creature you control gains trample until end of turn." })).toBe("body-only");
+  });
+});
