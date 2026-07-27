@@ -8,6 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.3] — 2026-07-27
+
+Another ~60 cards play themselves, and two combat keywords that were being ignored now work.
+
+### Changed
+- **More keywords stop being a reason to hand a card off.** Enlist, extort, assist, casualty, provoke and
+  ripple all offer you something you can simply decline — and declining is a real, complete play. The
+  simulator plays those cards at full price, which is exactly what happens when you don't take the option.
+
+### Fixed
+- **Unleash creatures can't block once they carry a +1/+1 counter.** The restriction is checked against the
+  creature's counters as blockers are declared, so it applies no matter where the counter came from — not
+  just the one the card offers you on the way in.
+- **Training works.** A creature with training now gets its +1/+1 counter when it attacks alongside a
+  bigger creature — and correctly gets nothing when the bigger creature stays home.
+
 ## [0.149.2] — 2026-07-27
 
 More of your deck plays itself. Around 60 more cards are handled natively instead of being handed off,
