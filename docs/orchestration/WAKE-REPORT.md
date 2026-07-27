@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-THREE slices (+384) + an 11-site RUNTIME class swept — corpus 33.5%→34.7% — suite 836/10,830
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-FOUR slices (+400) + an 11-site RUNTIME class swept — corpus 33.5%→34.7% — suite 837/10,837
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,13 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 34 `cdfaeac2` (+16) — the day's biggest single slice, and it needed NO new resolver.** BACKUP N,
+> modeled as its SELF-TARGET line: self-target is one of the card's own legal choices (forced when it is
+> your only creature) and makes the "if that's another creature" ability grant vacuous, so the engine plays
+> a real legal line. It simply never offers backup on another creature — an under-offer, the safe direction.
+> The synthesized clause is ORDINARY MODELED TEXT rather than a sentinel, so it rides the existing
+> self-scoped add-counter atom on a runtime path already proven.
 >
 > **SLICE 33 `07928070` (net −1) — a slice worth MORE than its card count.** Added the graveyard-exile
 > additional cost (ADDCOST-3, +1), and building it surfaced that `extractAdditionalCosts` is consumed ONLY
