@@ -689,3 +689,29 @@ the chokepoint every zone change in the engine funnels through.
 it is built, gate it as narrowly as possible (self-reference only, graveyard destination only) and diff the
 runtime fingerprint, not just the tier fingerprint — a mistake here changes where EVERY card goes when it
 dies, and the metric would not see it.
+
+---
+
+## ✅ NEGATIVE RESULT — the `native-activated` tier shows NO over-claim (checked 2026-07-27)
+
+After the `native-mana` correction found 154 cards the engine could not actually produce mana for, the
+obvious next question was whether the ACTIVATED tier had the same disease: is a card tiered
+native-activated actually OFFERED at runtime? Checked 401 of them by driving each on a board.
+
+**Answer: no.** Two rounds of probing, and every apparent hit was a defect in MY BOARD, not the tier:
+
+| first board (92 "hits") | second board (49 "hits") |
+|---|---|
+| one land per colour → `{U}{U}{U}` unaffordable | counterspells need a SPELL ON THE STACK (empty) |
+| empty hand → discard costs unpayable | "Enchanted creature has …" are AURAS, left UNATTACHED |
+| empty graveyard → graveyard-targeting costs dead | graveyard-recursion abilities, put on the BATTLEFIELD |
+| only basics → "destroy target nonbasic land" dead | "target attacking creature" with no combat |
+| no colorless/snow source | "remove a fade counter" with no counters |
+
+**The lesson is the instrument, again.** Both rounds produced a confident-looking number that meant nothing.
+This is the third time in two days that a probe's premise, not the engine, was the thing at fault — the
+mana measurement, the bound-referent count, and now this. **A probe that reports a big number is a claim
+about the probe until each hit is explained individually.**
+
+Do not re-run this without also supplying: a spell on the stack, attached auras, cards in the graveyard AND
+the card itself in the graveyard for GY abilities, an attacking creature, and the relevant counters.
