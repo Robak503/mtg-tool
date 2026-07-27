@@ -60,6 +60,36 @@ describe("each keyword is credited, and the CARD BODY is what decides", () => {
   it("extort on a creature (slice 49)", () => {
     expect(classifyCard({ ...CREATURE, name: "Syndicate Heavy", type: "Creature — Human Soldier", oracle: "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)" })).toMatch(/^native/);
   });
+
+  it("provoke on a creature (slice 51)", () => {
+    expect(classifyCard({ ...CREATURE, name: "Goblin Grappler", type: "Creature — Goblin Warrior", oracle: "Provoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)" })).toMatch(/^native/);
+  });
+
+  it("assist on a spell (slice 51) — cost help from a player who never offers it", () => {
+    expect(classifyCard({ ...SPELL, name: "Bring to Trial", oracle: "Assist (Another player can pay up to {3} of this spell's cost.)\nDraw a card." })).toMatch(/^native/);
+  });
+
+  it("casualty on a spell (slice 51)", () => {
+    expect(classifyCard({ ...SPELL, name: "A Little Chat", oracle: "Casualty 1 (As you cast this spell, you may sacrifice a creature with power 1 or greater. When you do, copy this spell.)\nDraw a card." })).toMatch(/^native/);
+  });
+
+  it("ripple on a spell (slice 51)", () => {
+    expect(classifyCard({ ...SPELL, name: "Surging Might", oracle: "Ripple 4 (When you cast this spell, you may reveal the top four cards of your library. You may cast spells with the same name as this spell from among those cards without paying their mana costs. Put the rest on the bottom of your library.)\nDraw a card." })).toMatch(/^native/);
+  });
+});
+
+describe("CREED — LEARN is left uncredited on an UNCERTAIN rule reading, not a settled one", () => {
+  it("learn stays parked despite 13 carriers", () => {
+    // "Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or
+    // discard a card to draw a card.)"
+    //
+    // This is a deliberate abstention, and the reason is worth pinning. Every other member of this family
+    // was admitted because the printed text makes it plain that declining is legal and complete. For learn
+    // I could not establish from the printed line alone that declining BOTH options is legal — and the
+    // "outside the game" half has no representation here at all. Crediting a card on a rule reading I am
+    // not sure of is the one thing this project forbids outright. 13 cards is a cheap price for that.
+    expect(classifyCard({ ...SPELL, name: "Field Trip", oracle: "Search your library for a basic Forest card, put it onto the battlefield tapped, then shuffle.\nLearn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)" })).not.toMatch(/^native/);
+  });
 });
 
 describe("UNLEASH — refused by THIS family, then admitted by ENFORCEMENT instead (slices 49 → 50)", () => {

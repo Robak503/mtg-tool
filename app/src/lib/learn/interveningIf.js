@@ -653,6 +653,31 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return true;
   }
 
+  // TRAINING (CR 702.148a, census slice 52) — "Whenever this creature attacks WITH ANOTHER CREATURE WITH
+  // GREATER POWER, put a +1/+1 counter on this creature."
+  //
+  // The comparison is against the OTHER ATTACKERS in this combat, not the whole board: a bigger creature
+  // sitting at home does not train anything. So it reads state.combat.attackers, excludes the source itself,
+  // and compares layer-aware power (counters, anthems, Auras and Equipment all count on both sides — a
+  // trainee whose power is being pumped mid-combat must stop qualifying, and does).
+  if (/^another attacking creature has greater power$/.test(c)) {
+    const sourceId = context?.sourcePermanentId;
+    if (!sourceId) return null;                       // no source referent → can't confirm (FN-safe)
+    const byId = new Map();
+    for (const pid of Object.keys(state.players || {})) {
+      for (const p of state.players[pid]?.battlefield || []) byId.set(p.id, p);
+    }
+    const source = byId.get(sourceId);
+    if (!source) return null;                         // source left the battlefield → can't confirm
+    const srcPower = creaturePower(source, state);
+    for (const a of state.combat?.attackers || []) {
+      if (a.permanentId === sourceId) continue;       // "ANOTHER" — never itself
+      const other = byId.get(a.permanentId);
+      if (other && creaturePower(other, state) > srcPower) return true;
+    }
+    return false;
+  }
+
   // DETHRONE (CR 702.104a, census slice 46) — "attacks the player with the most life or tied for most life".
   //
   // Deliberately NOT the SC-1 branch above, though the two look alike. Sword Coast Sailor asks whether no
