@@ -251,6 +251,12 @@ export const COVERED_KEYWORDS = [
   // only creature) and makes the "if that's another creature" grant vacuous, so the engine plays a real
   // legal line. It simply never offers backup on ANOTHER creature — an under-offer, the safe direction.
   "backup",
+  // KW-DETHRONE (CR 702.104a, census slice 46) — ENFORCED: detectTriggers synthesizes the self-scoped
+  // attacks descriptor whose effectClause is ordinary modeled text (the add-counter atom), gated by the
+  // "that player has the most life or is tied for most life" intervening-if, which compares across ALL
+  // players (the attacker included) rather than opponents only. Bare keyword only — a GRANTED dethrone
+  // (Dack's Duplicate) never matches the anchor and stays on the Arbiter.
+  "dethrone",
   // KW-SPLIT-SECOND (CR 702.19a) — ENFORCED in legalChoices.js: while a spell with split second is on the
   // stack, splitSecondOnStack suppresses every player's casts (folded into the same `cantCast` the Grand
   // Abolisher lane feeds) AND every non-mana activated ability (activate / crew / cycling / loyalty). Mana

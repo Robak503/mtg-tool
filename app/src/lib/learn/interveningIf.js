@@ -653,6 +653,26 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return true;
   }
 
+  // DETHRONE (CR 702.104a, census slice 46) — "attacks the player with the most life or tied for most life".
+  //
+  // Deliberately NOT the SC-1 branch above, though the two look alike. Sword Coast Sailor asks whether no
+  // OPPONENT has more life than the attacked player; dethrone asks whether that player has the most life
+  // among ALL players, the attacking player INCLUDED. The difference is live in a pod: at 40 life attacking
+  // an opponent on 30 while a third sits on 20, SC-1's question answers yes and dethrone's answers NO —
+  // you are the one on the throne. Reusing that branch would have put counters on the wrong board states.
+  //
+  // A planeswalker attack is not "attacks a player" (CR) → null, an FN-drop rather than a mis-fire.
+  if (/^that player has the most life or is tied for most life$/.test(c)) {
+    if (context?.defenderPlaneswalkerId) return null;
+    const pid = context?.defenderId;
+    if (!pid || !state?.players?.[pid]) return null;  // no attacked-player referent → can't confirm (FN-safe)
+    const targetLife = state.players[pid].life;
+    for (const pl of Object.values(state.players || {})) {
+      if ((pl?.life ?? 0) > targetLife) return false; // ALL players, controller included — "or tied" allows ==
+    }
+    return true;
+  }
+
   // POWER-DIFFERED-FROM-BASE (Jason Bright, CR 603.6e) — read the dying object's effective-vs-base power
   // comparison off the context flag (stamped by checkDiesTriggers from the death look-back's power +
   // basePower captures). Undefined (an unstamped death path / not a dies trigger) → null (FN-safe).
