@@ -1,6 +1,6 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-FOUR slices (+400) + an 11-site RUNTIME class swept — corpus 33.5%→34.7% — suite 837/10,837
+## ☀️ 2026-07-25 — CENSUS-DRIVEN GRIND, DAY 2: THIRTY-FIVE slices (+401) + an 11-site RUNTIME class swept — corpus 33.5%→34.7% — suite 838/10,847
 
 > Colton's standing order: work autonomously on the census method until told to stop. Four slices shipped,
 > each through the full RESIDUE-GRIND-RUNBOOK battery (fingerprint both directions · mechanical per-flip
@@ -59,6 +59,11 @@
 >   rider's two printed pronouns. Hardening, no yield: coverage credited "doesn't untap during your NEXT untap
 >   step" while the runtime deliberately refuses that wording (a one-shot rider on a mana ability, the
 >   slow-dual family) — zero cards flip on the narrowing, so it removed a loaded gun rather than a live FP.
+>
+> **SLICE 35 `43539626` (+1)** — the exile-from-graveyard COST on the GY recursion lane. Small yield; the
+> vocabulary is the durable part, and the unpayable-cost gate is mutation-checked (without it the ability is
+> free recursion). The triage ledger maps what the rest of that lane needs — 36 cards behind cost vocabulary,
+> and a WARNING that its enumerator is instant-speed, so the timing riders are NOT free.
 >
 > **SLICE 34 `cdfaeac2` (+16) — the day's biggest single slice, and it needed NO new resolver.** BACKUP N,
 > modeled as its SELF-TARGET line: self-target is one of the card's own legal choices (forced when it is
