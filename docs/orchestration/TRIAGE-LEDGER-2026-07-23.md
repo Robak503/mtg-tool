@@ -255,7 +255,7 @@ would have added an unreachable code path (the entersAttacking lesson from the s
 
 ---
 
-## READY-TO-BUILD — activation limit as a COUNT (`Activate no more than N times each turn`)
+## ✅ DONE — activation limit as a COUNT (`Activate no more than N times each turn`)
 
 Scoped 2026-07-25 at the tail of census day 2. Not built because it touches the action-LEGALITY
 path (the simulator's most load-bearing seam) for a 7-card yield, at the end of a long shift. It is
@@ -288,6 +288,12 @@ on turn change grants an EXTRA activation — a permissive engine, which is the 
 Pin both boundaries: the Nth activation must be legal and the N+1th must not, and the counter must
 reset across a turn boundary. Also pin one of the 56 existing "only once" carriers unchanged — that
 regression is the real risk here, not the new cards.
+
+
+**BUILT IN THE SAME SESSION THIS WAS WRITTEN — the entry above is the pre-build scope and was left stale.**
+Verified 2026-07-27: `parseActivatedAbilities` emits `activationLimit: 2` for Pit Imp, the ledger records
+`{turn, n}`, and the third activation is genuinely not offered. Carriers (Pit Imp, Phyrexian Battleflies,
+Fire-Belly Changeling, Roterothopter …) all read native-activated. **Do not re-build this.**
 
 ---
 
@@ -530,7 +536,7 @@ permanent id the immediate clause acted on) rather than re-parsing a pronoun at 
 record is plain JSON and already carries `sourcePermanentId`, so adding a `boundPermanentId` is the natural
 shape. That is a proper slice with a proper gate — not a regex change.
 
-## READY-TO-BUILD — the BOUND-REFERENT delayed trigger (unlocks the 48 above)
+## ⚠️ RE-MEASURED — the BOUND-REFERENT delayed trigger is SIX cards, not 48
 
 Designed 2026-07-25 while refusing the pronoun normalization. Not built in-session: its failure mode is
 severe enough to want a fresh head, see the FP note at the bottom.
@@ -560,6 +566,18 @@ trigger still fires and still logs. So:
 - The runtime pins must cover BOTH shapes end to end: a stolen creature really returning/being sacrificed,
   AND a created token really leaving. Assert the permanent is GONE, not merely that the trigger fired.
 - Pin the negative too: a card whose immediate clause binds nothing must stay non-native.
+
+
+**RE-MEASURED 2026-07-27: SIX cards, not 48** (Hungry for More, Krovikan Elementalist, Deathknell Kami,
+The Fire Crystal, Tidal Wave, Footsteps of the Goryo). The 48 counted the SHAPE — how many cards print
+"sacrifice it at the beginning of the next end step" — not how many would actually flip. 107 of them are
+blocked by other text, and a further chunk went native when mobilize shipped (slice 31), since the mobilize
+reminder text contains that very phrase.
+
+**This is precisely the mistake the runbook now warns about**, made by me, in my own ledger entry: a grouped
+count says a shape exists, not that fixing it flips anything. Six cards against a failure mode where a
+missed binding means the player KEEPS a stolen creature or token forever is a poor trade — the design below
+is still correct, the yield is not what it claimed.
 
 ---
 
