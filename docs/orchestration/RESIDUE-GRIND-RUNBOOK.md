@@ -262,6 +262,17 @@ shift. If you improve the method, update THIS file in the same commit as the imp
 > 2026-07-25 for two unrelated root causes (slices 14 and 15). Scan the census for shapes you KNOW are
 > built and treat each one as a defect report.
 >
+> **BEFORE BUILDING ANY GROUPED ROW, DELETE-PROBE ITS CARRIERS.** A grouped count ("5 cards use this cost
+> shape", "7 auras print this subject") says the SHAPE exists — never that fixing it flips anything. Those
+> carriers may each have a second blocker. On 2026-07-25 a sacrifice-cost lane was implemented across three
+> sites and verified end to end before measuring ZERO flips, because every carrier was also blocked
+> elsewhere; it was reverted. The census's own `soleBlockers` column is the honest number — a count you
+> derive by grepping or grouping is NOT.
+>
+> **And re-measure by SUBSTITUTING a known-good form, not by deleting the line.** Deleting conflates "this
+> line is unparseable" with "this line is fine and the REST of the card is unmodeled". On the
+> graveyard-recursion family that inflated 36 into ~60.
+>
 > **A free lead worth checking every time: SIBLING ASYMMETRY.** If two cards differ only by a line you
 > did NOT touch and land in different tiers, that difference is a bug, not a fact. Slice 10 opened when
 > Frost Trickster (native) and Frost Lynx (parked) turned out to be the same card modulo the word
