@@ -286,6 +286,23 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  * It must NOT match "Enchanted creature doesn't untap …" (the ATTACHED form, a different runtime path) nor
  * the "your NEXT untap step" wording (a one-shot rider on a mana ability that the runtime refuses).
  */
+/**
+ * NO-MAXIMUM-HAND-SIZE (CR 402.2 / 514.1 — Reliquary Tower / Spellbook / Kruphix). ENFORCED at runtime:
+ * gameEngine.cleanupDiscardExcess returns 0 for a player who controls ANY permanent printing this line, so
+ * the cleanup discard genuinely never happens. The metric credited only the ONE-SHOT dice-roll variant
+ * ("…for the rest of the game", the Ancient Dragon rider) and not the bare permanent static — the same
+ * one-path-only split this session has hit repeatedly, with the runtime already ahead of the metric.
+ *
+ * Anchored to the exact printed sentence. A card that MODIFIES the maximum instead of removing it
+ * ("Your maximum hand size is four" — Cursed Rack) does NOT match: cleanupDiscardExcess deliberately
+ * SUSPENDS enforcement for everyone when it sees such text rather than guess, so crediting those would
+ * claim a number the engine never applies. Left as residue → Arbiter (FN-safe).
+ */
+const NO_MAX_HAND_METRIC_RE = /(?:^|[\n.;])\s*you have no maximum hand size\s*(?:\.|$)\s*/gi;
+export function stripModeledNoMaxHandSize(oracle) {
+  return String(oracle || "").replace(NO_MAX_HAND_METRIC_RE, " ").replace(/^\s+/, "");
+}
+
 const SELF_NO_UNTAP_NOUNS_METRIC = "creature|artifact|permanent|land|enchantment|equipment|vehicle";
 export function stripModeledSelfNoUntap(oracle, name) {
   // END-ANCHORED, exactly like gameState.selfPreventsUntap. Without the anchor a CONDITIONAL variant
@@ -1093,7 +1110,7 @@ export function permanentTriggersCovered(card) {
     // Flying/trample + the enters-with-X line, both handled by isKeywordOnly). FN-safe: anchored to the exact
     // directive, and the HIGH gate above already vouched the half-X effect is modeled.
     .replace(/\bround (?:down|up) each time\b\.?\s*/gi, " ");
-  return isKeywordOnly(stripModeledSelfNoUntap(residue, card?.name), card?.name);
+  return isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(residue, card?.name)), card?.name);
 }
 
 /**
@@ -2134,7 +2151,7 @@ export function classifyCard(card) {
   const etCard = crewOracle !== oracle || isTapped
     ? { ...card, oracle: (isTapped ? crewOracle.replace(tapRe, "\n") : crewOracle).trim() }
     : card;
-  if (isKeywordOnly(stripModeledSelfNoUntap(etOracle, card?.name), card?.name)) return "native-body";
+  if (isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(etOracle, card?.name)), card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
   // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via
