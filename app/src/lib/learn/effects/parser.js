@@ -871,8 +871,19 @@ function matchOptionalManaPayment(oracle, cardType) {
     if (!mana) return null;                                          // {X} / unknown symbol → unmodeled cost
     cost = { kind: "mana", mana };
   }
-  const payoffText = m[2].trim();
-  if (/\bif you do\b/i.test(payoffText)) return null;                // a SECOND "if you do" — not modeled
+  const rawPayoff = m[2].trim();
+  if (/\bif you do\b/i.test(rawPayoff)) return null;                 // a SECOND "if you do" — not modeled
+  // SELF-PRONOUN (the Thriving cycle, census slice 40) — "…you may pay {E}{E}. If you do, IT gains first
+  // strike / put a +1/+1 counter on IT." On these cards the sentence introduces no other object, so "it" is
+  // the source; the bare pronoun otherwise fails to resolve and the whole card parks.
+  //
+  // An ALLOWLIST of the two printed self-shapes, deliberately NOT a denylist. A denylist would have to
+  // anticipate every way another object can be introduced ("create a token … it gains haste" would slip
+  // straight through and pump the WRONG permanent), which is the same pronoun trap that made
+  // "sacrifice it at the beginning of the next end step" unsafe to normalize. Anything else — a chosen
+  // target, "another", a token-maker — keeps its pronoun, fails to parse, and stays on the Arbiter (FN-safe).
+  const SELF_PRONOUN_PAYOFF = /^(?:it (?:gains|gets)\b[^.]*|put (?:a|one|two|three) [+-]\d+\/[+-]\d+ counters? on it)$/i;
+  const payoffText = SELF_PRONOUN_PAYOFF.test(rawPayoff) ? rawPayoff.replace(/\bit\b/gi, "this creature") : rawPayoff;
   const payoff = parseEffectClauseImpl(payoffText, cardType, { hasX: false });
   if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
   const inner = payoff.atoms || [];
