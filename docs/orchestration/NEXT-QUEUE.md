@@ -50,11 +50,8 @@ moved code. The residual risk is only the call-site wiring, which the full suite
 
 **Original note, still true:** 11 hardcoded `setArea("agents")` sites; leave the `area` state machine
 alone — re-homing and decomposing in one step is how you get an unreviewable diff.
-1,704 lines, the last god-component, and the **prerequisite for the Foundry re-home** (which is refused
-solo — see C1). 11 hardcoded `setArea("agents")` sites. **Failure mode:** a nav regression nobody notices
-until a room stops opening. Extract presentational panels first (the CollectionView precedent,
-`2d726b0a`), leave the `area` state machine alone in this pass — re-homing and decomposing in one step is
-how you get an unreviewable diff.
+
+**Failure mode:** a nav regression nobody notices until a room stops opening.
 
 ### A3. Forge wiring — ownership into the bench context · ~1h · low risk
 Scoped in the triage ledger. `/api/collection/ownership` is built and has **zero consumers**; the
@@ -104,8 +101,11 @@ lane that already works.
 ### C1. Foundry rail re-home (roadmap wave 3 item 10)
 Stateful navigation across the app's most central, least-decomposed file, with 11 hardcoded call sites.
 A previous session of mine wrote: *"fresh session, live browser QA, ideally with Colton able to eyeball it
-same-day — not a 1am solo pass."* That judgment stands. **Do A2 first regardless** — it is the prerequisite
-and it is safe alone.
+same-day — not a 1am solo pass."* That judgment stands.
+
+**Note the knock-on:** A2 was the prerequisite for this, and A2 has now been re-rated as needing the same
+treatment. So C1 is not merely waiting on a refactor — the whole MTGAssistant surface wants Colton awake
+before it is touched. Both are gated on the same thing, and neither is a solo job.
 
 ### C2. Anything touching secrets, repo visibility, or the signing keys
 Standing rule, no exceptions.
