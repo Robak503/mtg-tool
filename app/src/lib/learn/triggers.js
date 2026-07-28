@@ -1546,6 +1546,23 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "equippedCreature" attached-linkage scope; the per-host correctness is identical to the "to a player"
   // sibling above. Anchored bare-object ("…to an opponent$"); a qualifier leaves residue → undetected → Arbiter.
   if (/^enchanted creature deals combat damage to an opponent$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+  // COMMANDER combat-damage (CR 903.3) — "Whenever a commander you control deals combat damage to an
+  // opponent, <effect>" (Kediss, Emberclaw Familiar). Reuses the per-attacker combatDamageToPlayer event
+  // that combatResolution already fires off real player damage; the ONLY new thing is the subject scope,
+  // which requires the connecting attacker to carry the isCommander designation.
+  //
+  // "To an opponent" is equivalent to "to a player" for THIS event, on the same argument the aura sibling
+  // above makes: the damaged player in a combat-damage-to-player event is always an opponent of the
+  // attacking player (CR 509.1a), and the watcher's controller is that attacking player. So no separate
+  // object check is needed — but it is anchored on the printed object anyway rather than loosened, so a
+  // future "to a player or planeswalker" variant leaves residue → undetected → Arbiter.
+  //
+  // Both printed subjects are matched ("a commander you control" — Kediss; "your commander" — the sibling
+  // shape). A PLURAL batch form ("one or more commanders you control deal…") fires once per combat rather
+  // than per attacker and is a DIFFERENT event, so it stays unmatched → Arbiter (a safe false-negative).
+  if (/^(?:a commander you control|your commander) deals combat damage to (?:a player|an opponent)$/.test(c)) {
+    return { event: "combatDamageToPlayer", scope: "commanderYouControl", whose: "any" };
+  }
 
   // ===== ENRAGE / DAMAGE-RECEIVED (CR 603.2 trigger condition, the ENRAGE family) ===== "Whenever this creature is dealt
   // damage, …" / "Whenever <name> is dealt damage, …". The SOURCE permanent IS the creature that took the
@@ -3711,6 +3728,20 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent);
     case "creatureYouControl":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "commanderYouControl":
+      // COMMANDER-SCOPED subject (CR 903.3) — "a commander you control deals combat damage to an opponent"
+      // (Kediss, Emberclaw Familiar). Narrower than creatureYouControl in exactly one way: the triggering
+      // permanent must carry the isCommander designation, which gameState stamps at seat setup and which a
+      // COPY of a commander deliberately does not inherit (a copy is not a commander, CR 707.2) — so a
+      // cloned commander connecting must NOT fire this, and it doesn't, for free.
+      //
+      // "A commander YOU control" is the controller check, not an ownership one: a commander an opponent
+      // owns but you have gained control of IS a commander you control and does fire (CR 903.3 designates
+      // the card; control is read live). Same controller comparison creatureYouControl uses.
+      return !!triggeringPermanent
+        && isCreaturePerm(triggeringPermanent)
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && !!triggeringPermanent.card?.isCommander;
     case "otherCreatureYouControl":
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOrPwYouControl":
