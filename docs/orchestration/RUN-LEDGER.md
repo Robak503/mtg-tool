@@ -94,12 +94,47 @@ ability is unmodeled. Found the quoted-grant/mana-ability misclassification (+1)
   sacrifice-as-cost ability on a card that also has a sacrifice/LTB trigger stays parked because paying the
   cost would silently drop that trigger. Verified by removing the sibling trigger and watching the card go
   native. **Deliberate refusals, not bugs. No work there.**
-- Signature 1's remaining buckets are keyword-residue cases (cumulative upkeep, evolve, bestow, delirium,
-  renown, firebending) where the blocker is `allTriggerSentencesModeled`, not the strip — i.e. a genuinely
-  unmodeled keyword, not a blindness. Those are real feature work, not mis-parks.
+- Signature 1's remaining buckets are NOT keyword-residue cases — I wrote that and it was imprecise.
+  Checked properly: those cards (Fathom Mage, Lonis, Relic Seeker …) carry a SECOND trigger line whose EVENT
+  the detector does not recognize at all, so that line looks like residue. `detectTriggers` returns zero for
+  it. The keyword (evolve/renown/firebending) is a red herring — the bare trigger alone is body-only too.
+  **Real feature work: a missing trigger EVENT, not a blindness.** Biggest one sized below.
 
 **Re-run the scanner after any coverage change** — it is cheap and it is how the false positive I shipped
 got caught (see below).
+
+## ⛔ REFUSED WITH EVIDENCE — "Do this only once each turn." must NOT reuse the trigger latch
+
+32 corpus carriers, 28 parked, and it looks like a two-line fix: teach `detectTriggers` this wording and let
+the EXISTING flush-level `oncePerTurnTrigger` enforcement handle it. **Do not.**
+
+The two riders are not the same restriction:
+- *"This ability triggers only once each turn"* latches on FIRING — the ability does not trigger again.
+- *"Do this only once each turn"* latches on DOING — the ability triggers, but the effect is skipped.
+
+The existing enforcement marks the ledger AT FLUSH, before resolution. So a player who DECLINES the first
+trigger would be wrongly blocked from a second — they never "did this", so the printed card lets them.
+
+**I checked whether a safe subset exists and there is none: all 28 parked carriers are OPTIONAL ("you may").
+Zero mandatory.** Every single one hits the decline case. Crediting them would mis-play all 28.
+
+The correct build is a general EFFECT-level latch that marks only when the effect is actually performed —
+the shape `applyDiscoverAtom` already uses for Pantlaza (`atom.oncePerTurn`, keyed `sourceId_discover`), but
+generalized to any atom, which is a real subsystem slice with the decline semantics as its whole difficulty.
+
+## ⭐ SIZED, NOT BUILT — the +1/+1 COUNTERS-PUT-ON trigger event (17 self-scoped cards)
+
+`Whenever one or more +1/+1 counters are put on <this creature>` — 32 corpus carriers, **31 parked**; the
+self-scoped forms are 17 of them (15 plural + 2 singular). `detectTriggers` returns ZERO for this event, so
+every carrier parks and the line masquerades as residue (see the correction above).
+
+Needs a detector arm plus a fire site at the counter chokepoint. **Two reasons it wants a sharp session:**
+1. The counter chokepoint is load-bearing — counters are placed from everywhere (atoms, doublers, ETB).
+2. There is a real CR subtlety to settle FIRST: does a permanent ENTERING WITH counters fire this? Get that
+   wrong in either direction and it is a wrong play on every carrier, not a missed one.
+
+Scope note: the non-self scopes ("a creature you control", "a permanent you control", "another creature") are
+another ~14 and should follow the same scope vocabulary the other trigger families use, not a second one.
 
 ## ⭐ BANKED — "Do this only once each turn." does NOT set the flag
 
