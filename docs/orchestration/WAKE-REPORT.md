@@ -1,5 +1,51 @@
 # WAKE REPORT — live resume anchor
 
+## ☀️ 2026-07-28 — v0.149.8 shipped — the ACTIVATION-RESTRICTION vocabulary — corpus 35% (11,993) — shelf 78%→79% — suite 864/11,167
+
+> **Read [RUN-LEDGER.md](RUN-LEDGER.md) first if you are resuming after a crash** — it is rewritten at every
+> slice boundary. This entry is the summary; that file is the state.
+>
+> **The theme: restriction sentences the engine parsed straight past.** An activated ability's cost and
+> effect were read; the sentence *after* them was not. Every card printing one parked — and stripping such a
+> sentence without enforcing it would hand the engine an ability the card never printed. Three shipped, all
+> flag-then-enforce:
+> - **`before attackers are declared`** (+21) — a NARROWING to the precombat main. Two sibling riders are
+>   safely stripped as already-implied; this one is not, because the gate's `step === "main"` spans BOTH
+>   mains and the postcombat one is *after* attackers. **This crossed the corpus over 35%.**
+> - **BOAST, CR 702.135** (+10) — needed a PER-PERMANENT attacked flag. The seat-level Raid flag already
+>   existed and reading it was the one-line build; it is also a materially stronger card than the one
+>   printed. The load-bearing test is "a DIFFERENT creature attacked".
+> - **`Activate only if <cond>`, CR 602.5d** (+23) — added a **THIRD probe to the existing interveningIf
+>   family** rather than a second condition language. Trigger / spell / activation lanes now share ONE
+>   vocabulary, so every future reader reaches all three. Four readers followed on that seam (+10): delirium,
+>   formidable, corrupted-poison, greatest-power-on-board.
+>
+> **Two real gameplay bugs fixed earlier in the same run**, neither visible to the coverage metric: Mana
+> Vault / Basalt Monolith / Grim Monolith offered **no ability at all** (completely dead), and a tutor
+> finding nothing **soft-locked** ~6% of human-path games (found by the playability sweep, not by any test).
+>
+> **FOUR CREED pins fired against my own work and graduated on evidence** — boast's label-strip guard, the
+> formidable/delirium refusal, the poison refusal, and High Score's body-only pin. Each caught a real change
+> the moment it landed; each moved with its reason recorded in place, never deleted. One of them only fired
+> because the FULL suite ran.
+>
+> **A retraction worth reading.** Mid-run I banked a "121-card trailing-conditional lever" as the biggest
+> find of the run. It does not exist — the trailing form was already implemented, directly beneath the
+> leading one I had just read. My probe counted parked cards CONTAINING such a clause; I read it as cards
+> that WOULD FLIP if it were built. Retracted in place in the ledger with both readings written down. Second
+> time the probe-instrument law caught me this run. **Standing rule now: before banking any lever, parse one
+> real example and confirm the gap is real.**
+>
+> **The shelf search is finished, and the answer is that there is no big lever.** A sole-blocking-sentence
+> sweep over all 320 parked deck cards found 105 single blockers, essentially all singletons; the best
+> unblocks 2 deck slots. From here the shelf moves **card by card**, exactly as Colton guessed. Don't go
+> hunting for a cluster again — the search is in the ledger.
+>
+> Shelf now: Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 90 · Mothman 90 · Earth Bent 80 · cdh 79 ·
+> Dragons 76 · Jurassic 75 · Believe it 72 · Wolverine 71 · Kinnan 71 · Kellan 70 · Captain America 69 ·
+> Hulk Smash 69 · Halfshell 57. **Aggregate 79% (1255/1597).** Sweep 20/20, no wedges.
+
+
 ## ☀️ 2026-07-27 — PR #421 MERGED (`d407ec96`) + slices 41–42 — corpus 34.4%→34.5% (11,785) — suite 845/10,914
 
 > The forty-slice grind below is now **on master**. `gh` was installed and authorized on the box this
