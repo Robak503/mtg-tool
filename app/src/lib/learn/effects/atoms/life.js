@@ -121,6 +121,17 @@ export function lifeClauseParser(clause) {
   // (read off ctx.triggeringPermanentId); resolveScaledAmount computes it (× per:1). who:"controller" (you gain).
   const sst = t.match(/^(?:you )?gain life equal to the triggering creature's (toughness|power)$/);
   if (sst) return { op: "gain-life", amountCount: { kind: sst[1] === "toughness" ? "triggeringToughness" : "triggeringPower", per: 1 }, targetType: null };
+  // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — the exact sibling of the triggering-creature arm above,
+  // for the permanent sacrificed to pay this spell's ADDITIONAL COST: "you gain life equal to the sacrificed
+  // creature's toughness" (Reckoner's Bargain #3671, Morbid Curiosity class). Same gain-life atom, same
+  // amountCount shape; only the count KIND differs, and it resolves through the shared countForSpec
+  // sacrificed* kinds off the stamp actionDispatcher writes at cost-payment time — the permanent is gone by
+  // resolution, so it cannot be read from the board here. An unstamped cast reads 0 (a clean no-op).
+  const sacL = t.match(/^(?:you )?gain life equal to the sacrificed (?:creature|permanent|artifact)'s (toughness|power|mana value)$/);
+  if (sacL) {
+    const kind = sacL[1] === "toughness" ? "sacrificedToughness" : sacL[1] === "power" ? "sacrificedPower" : "sacrificedManaValue";
+    return { op: "gain-life", amountCount: { kind, per: 1 }, targetType: null };
+  }
   let mfe = t.match(/^(?:you )?gain (\d+) life for each (.+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[2]);

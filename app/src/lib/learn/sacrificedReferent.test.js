@@ -18,7 +18,7 @@
 import { describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
-import { parseEffectProgram } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause } from "./effects/parser.js";
 import { parseCountSource } from "./effects/parseHelpers.js";
 import { countForSpec } from "./effects/atoms/shared.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
@@ -61,6 +61,30 @@ describe("the NARROWED guard — what it now admits", () => {
     const p = parseEffectProgram(I("Draw two cards."));
     expect(p.confidence).toBe("high");
     expect(p.additionalCosts).toEqual([{ kind: "sacrifice", sacType: "creature" }]);
+  });
+
+  it("the GAIN-LIFE arm reads the same stamp (Reckoner's Bargain #3671)", () => {
+    // A second arm off one capture: the stamp was always general, only the readers were per-atom-family.
+    const p = parseEffectProgram(I("Draw two cards, then you gain life equal to the sacrificed creature's toughness."));
+    expect(p.confidence).toBe("high");
+    expect(p.atoms.some((a) => a.op === "gain-life" && a.amountCount?.kind === "sacrificedToughness")).toBe(true);
+  });
+
+  it("the gain-life arm accepts power and mana value off the same stamp", () => {
+    const pw = parseEffectProgram(I("You gain life equal to the sacrificed creature's power."));
+    expect(pw.atoms[0].amountCount.kind).toBe("sacrificedPower");
+    const mv = parseEffectProgram(I("You gain life equal to the sacrificed creature's mana value."));
+    expect(mv.atoms[0].amountCount.kind).toBe("sacrificedManaValue");
+  });
+
+  it("REGRESSION PIN — the TRIGGERING-creature arm is untouched (a different referent entirely)", () => {
+    // The sibling this arm was modelled on. It reads ctx.triggeringPermanentId, not the cost stamp; conflating
+    // the two would make an ETB payoff read a sacrifice that never happened.
+    // Asserted at the CLAUSE level on purpose: "the triggering creature's …" is a SENTINEL that detectTriggers
+    // writes into a trigger's text, so it never appears on a bare spell — a whole-card fixture would test the
+    // sentinel gate rather than this arm. (My first attempt did exactly that and failed for the wrong reason.)
+    expect(parseEffectClause("you gain life equal to the triggering creature's toughness").atoms[0].amountCount.kind)
+      .toBe("triggeringToughness");
   });
 });
 
