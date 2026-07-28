@@ -58,19 +58,95 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** v0.149.6 tagged and building (wave 2 voices + Digby + locked/candidate + the
-  Mana Vault dead-card fix). Tree clean, branch level with master.
+- **Nothing mid-edit.** Corpus **35%** (11,990). Suite **864 files / 11,156 tests**, lint 0.
+- **PR #439 open** (5 commits: precombat timing, ledger, boast, activation conditions, delirium+formidable).
+  CI was green on the first four; the fifth is building. Merge when green, then tag.
+- Shelf re-measured this pass: **aggregate 78% across 16 decks** — Slivers 100 · Vihaan 96 · Omnath 93 ·
+  Zaxara 90 · Mothman 90, then the tail: Earth Bent 80 · cdh 79 · Dragons 76 · Jurassic 75 · Believe it 72 ·
+  Kinnan 71 · Kellan 70 · Wolverine 70 · Captain America 69 · Hulk Smash 68 · **Halfshell heroes 56**.
+
+## WHAT SHIPPED THIS STRETCH — the activation-restriction vocabulary
+
+Three riders the engine parsed straight past, so every carrier parked. All three now flag-then-enforce:
+
+1. **`before attackers are declared`** (+21) — a NARROWING to the precombat main. Two sibling riders are
+   safely stripped as implied; this one is not, because `step === "main"` spans BOTH mains and the
+   postcombat one is after attackers. Refused the opponent's-turn form (disjoint windows).
+2. **BOAST, CR 702.135** (+10) — needed a PER-PERMANENT attacked flag. The seat-level Raid flag already
+   existed and reading it would have been the one-line build; it is also a materially stronger card.
+3. **`Activate only if <cond>`, CR 602.5d** (+23) — added a THIRD probe to the existing interveningIf
+   family rather than a second condition language. Trigger / spell / activation lanes now share ONE
+   vocabulary, so every future reader reaches all three at once.
+4. **DELIRIUM + FORMIDABLE readers** (+7) — the first slice that compounding paid for.
+
+**Three CREED pins fired against my own work and graduated on evidence**, each with the reason recorded in
+place rather than edited away. All four seams of every slice were mutation-checked.
+
+## ⭐ THE NEXT BIG LEVER — the TRAILING conditional clause (measured, scoped, NOT started)
+
+**121 parked cards** carry a clause of the form `<effect> if <condition>.` where the condition is ALREADY in
+the shared vocabulary. That is larger than every other lever found this run combined, and the measurement —
+the expensive part — is done.
+
+The parser today handles only the LEADING form: `If <condition>, <effect>` (CONDITIONAL SPELL RIDER,
+BLITZ CD-1, in `effects/parser.js`, gated by `spellConditionParseable`). The trailing form is the same
+semantics with the clauses swapped, and High Score is the card that exposed it.
+
+Top conditions among those 121, all already readable:
+```
+ 11  there are seven or more cards in your graveyard      8  you control three or more artifacts
+  8  a creature died this turn                            8  four or more card types among cards in your gy
+  7  you have no cards in hand                            5  you control a swamp
+  4  an opponent has three or more poison counters        4  you attacked this turn
+  4  creatures you control have total power 8 or greater  3  you control a creature with power 4 or greater
+```
+
+**WHY I DID NOT START IT AT DEPTH, deliberately.** The discipline above says per-flip audit anything over
+~10 cards. This is 121 flips — 121 new runtime behaviors — in the spell-effect parser. Starting that late in
+a run is exactly how a false-positive spray gets shipped, and the CREED forbids false positives specifically.
+**Take this FIRST in a fresh session, while sharp.**
+
+Design notes for whoever picks it up:
+- Reuse the leading form's guards verbatim: a SINGLE, non-optional, non-targeting gated atom. A compound
+  (`and` / `, then`) must still park the whole card rather than gate one instruction.
+- `spellConditionParseable` does most of the safety work — an unreadable tail ("if you do", "if it's a
+  Wizard") simply never attaches. The real risk is MIS-SPLITTING: an "if" that belongs to an inner clause.
+- Anchor whole-sentence, and audit the flips in batches with the actual card text in front of you.
 
 ## NEXT ACTIONS
 
-1. **Wave 4 — docket-RAG.** Omnath's seam sketch is in COMMS (2026-07-27 ~22:35). Verify its premises the
-   way the wave-3 deny-list claim was verified, then build the app half.
-2. **Omnath answered O2 + O3** (Tibalt gremlin design; Forge-vs-Foundry, which Colton ruled on live).
-   Read and act. O1 (adversarial read of the voice build) may still be open.
-3. `MTGAssistant.jsx` decomp (1,704 lines, 11 hardcoded `setArea("agents")` sites) — unblocked,
-   mechanical, and the prerequisite for the Foundry rail re-home.
-4. Shelf gap, card by card — genuinely long-tail (129 blocking shapes for 362 slots, biggest cluster 3).
-   Prefer DEAD-CARD bugs over coverage; that class is invisible to the corpus number.
+1. **Bloom Tender / Faeburrow Elder** — "For each color among permanents you control, add one mana of that
+   color." Only 2 corpus cards but **3 deck slots**, and Bloom Tender is a cEDH staple in Kinnan. The
+   `colorsAmongPermanents` primitive ALREADY EXISTS in layers.js; this needs the color SET, not the count,
+   plus a mana atom. Contained, no choice point. **This is the next build.**
+2. **BANKED WITH A DESIGN QUESTION — `Tap N untapped creatures you control` as a cost** (39 corpus / 32
+   parked; plus 40/28 for the singular). The SINGULAR is already fully modeled (γ1f, Earthcraft):
+   parser → legalChoices expands one action per legal creature → dispatcher taps it. **The plural is NOT a
+   simple generalization.** Enumerating N-combinations explodes legalChoices — 45 actions for two-of-ten,
+   120 for three. The real choice is: enumerate combinations (correct, explosive) vs. auto-pick a
+   deterministic set (legal, no explosion, silently removes player agency the singular case has). I did NOT
+   guess at depth. Decide this one while sharp.
+3. **Upkeep-only activation** (11) — still needs the offer window WIDENED, not narrowed. Riskier than
+   anything above; take it EARLY in a run.
+4. Shelf grind: 321 unmodeled non-land deck cards across 360 slots. The leverage head (2+ decks) is
+   Wan Shi Tong ×3 · Chrome Mox ×3 · Mindbreak Trap ×3 · Bloom Tender ×3 · Teferi's Protection ×3 ·
+   High Score ×3 · Level Up ×3, then a long ×2 tail.
+
+## A3 IS DONE — verified, not built
+
+Went to wire Forge-as-a-Karn-function and found it already shipped end to end: `/api/collection/deck-overlap`
+feeds Karn's system prompt the owned-in-deck count AND the in-color owned upgrade pool;
+`/api/collection/ownership` is called by ChatPanel's KarnApplyBar to tag each suggested ADD with
+owned/wishlist; the KARN_DELTA collection line is already in agents.js. **Do not rebuild it.** Only real
+gap: `isBuildFromCollectionPrompt` is exported and unused — a cosmetic "build from collection" affordance,
+not plumbing. Receipts posted to COMMS.
+
+## WHAT THE SWEEP IS FOR — it found the run's best bug
+
+Running `playability-sweep.mjs` at 150 games surfaced a real SOFT-LOCK (a tutor finding nothing wedged
+~6% of human-path games) that no unit test could have caught, because every tutor fixture supplies
+candidates. **Re-run it after any engine change to the decision path.** If it reports a catastrophe,
+suspect the harness first — it has been wrong that way before.
 
 ## A POSTING BUG WORTH NOT REPEATING
 

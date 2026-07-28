@@ -2011,7 +2011,15 @@ export function resetCreatureDeathsAllPlayers(state) {
 export function resetAttackedThisTurnAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
-    players[id] = { ...state.players[id], attackedThisTurn: false };
+    players[id] = {
+      ...state.players[id],
+      attackedThisTurn: false,
+      // BOAST's per-permanent history clears HERE, beside the seat flag, so the two can never drift.
+      // Only rewrite the permanents that actually carry the flag — the common case allocates nothing.
+      battlefield: (state.players[id].battlefield || []).some((p) => p.attackedThisTurn)
+        ? state.players[id].battlefield.map((p) => (p.attackedThisTurn ? { ...p, attackedThisTurn: false } : p))
+        : state.players[id].battlefield,
+    };
   }
   return { ...state, players };
 }

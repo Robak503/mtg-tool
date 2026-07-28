@@ -1284,7 +1284,19 @@ function applyDeclareAttacker(state, action) {
     ...next,
     // RAID (CR 508.1): stamp the attacking player's per-turn attack flag — the sole attack chokepoint, idempotent
     // across multiple declared attackers. Read by the "you attacked this turn" intervening-if; reset at untap.
-    players: { ...next.players, [action.playerId]: { ...next.players[action.playerId], attackedThisTurn: true } },
+    players: {
+      ...next.players,
+      [action.playerId]: {
+        ...next.players[action.playerId],
+        attackedThisTurn: true,
+        // BOAST (CR 702.135b) needs PER-PERMANENT attack history, not per-player: "only if THIS CREATURE
+        // attacked this turn". Reading the seat flag would offer boast whenever ANY of your creatures
+        // attacked, which is a different and much looser card. Stamped at the same sole chokepoint, and
+        // cleared beside the seat flag at untap so the two can never drift out of step.
+        battlefield: (next.players[action.playerId].battlefield || []).map((pm) =>
+          pm.id === action.permanentId ? { ...pm, attackedThisTurn: true } : pm),
+      },
+    },
     combat: {
       ...next.combat,
       attackers: [...next.combat.attackers, attackerEntry],

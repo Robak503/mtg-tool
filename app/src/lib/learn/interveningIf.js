@@ -89,6 +89,27 @@ function typeStr(card) {
   return String(card?.type || card?.type_line || "");
 }
 
+// The CARD TYPES (CR 205.2a) delirium counts. Kindred is Tribal's current name for the SAME type, so both
+// spellings map to one entry — a graveyard holding a Tribal card and a Kindred card has one type, not two.
+const CARD_TYPE_WORDS = ["artifact", "battle", "creature", "enchantment", "instant", "kindred", "tribal", "land", "planeswalker", "sorcery"];
+// The two printed framings of the same board question (see the reader for why they share one). Anchored
+// whole-string: a PER-OBJECT variant ("IT has the greatest power…", "ENCHANTED PERMANENT is a creature
+// with…") needs a referent this lane has no thread for, and an "each creature … with the greatest power"
+// universal is a different claim entirely — all fall through to null → Arbiter (CREED).
+const GREATEST_POWER_RE = /^you control (?:a creature with the greatest power among creatures on the battlefield|the creature with the greatest power or tied for the greatest power)$/;
+/** Distinct card types among the controller's graveyard. Reads only the type line's HEAD (before the em
+ *  dash) so a subtype ("— Equipment") can never be miscounted as a card type. */
+function cardTypesInGraveyard(state, controllerId) {
+  const seen = new Set();
+  for (const card of state.players?.[controllerId]?.graveyard || []) {
+    const head = typeStr(card).split("—")[0].toLowerCase();
+    for (const t of CARD_TYPE_WORDS) {
+      if (new RegExp(`\\b${t}\\b`).test(head)) seen.add(t === "tribal" ? "kindred" : t);
+    }
+  }
+  return seen.size;
+}
+
 // Does a permanent match a parsed FILTER ({ kind, word, state, powerAtLeast })? `state` (the game state) is
 // threaded only for the layer-aware power read; it's unused by the type/token/tapped gates.
 function permMatchesFilter(perm, filter, state) {
@@ -716,6 +737,31 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   }
 
   // "you control no <filter>"  → count == 0
+  // ===== GREATEST POWER ON THE BATTLEFIELD ===== "you control a creature with the greatest power among
+  // creatures on the battlefield" (High Score) and "you control the creature with the greatest power or tied
+  // for the greatest power" (7 corpus carriers between them). Both wordings are the SAME question — does the
+  // controller control a creature whose power ties or beats every creature on the battlefield — so they
+  // share one reader rather than two near-identical ones. "Greatest" INCLUDES ties in both framings, which is
+  // why the comparison is >= against the board maximum rather than a strict >.
+  //
+  // Layer-aware on both sides via creaturePower: an anthem that lifts an opponent's creature past mine
+  // flips this condition, exactly as it would at a real table. An EMPTY battlefield is false, not null —
+  // "you control a creature with…" cannot be satisfied when you control no creature, and that is a definite
+  // answer rather than an unreadable one.
+  if (GREATEST_POWER_RE.test(c)) {
+    const everyone = [];
+    for (const pid of Object.keys(state.players || {})) {
+      for (const p of controllerBoard(state, pid)) if (isCreaturePermLocal(p)) everyone.push({ p, pid });
+    }
+    if (!everyone.length) return false;
+    const max = Math.max(...everyone.map(({ p }) => creaturePower(p, state)));
+    return everyone.some(({ p, pid }) => pid === controllerId && creaturePower(p, state) >= max);
+  }
+
+  // ORDERING: this sits ABOVE the generic "you control <N> <filter>" family on purpose. That matcher
+  // matches "you control A creature with the greatest power among…", fails to parse the filter, and
+  // returns null — swallowing this shape before it is ever reached. Anchored first, it wins its own
+  // exact wording and the generic family is unchanged for everything else.
   let m = c.match(/^you control no (.+)$/);
   if (m) {
     const filter = parseFilter(m[1]);
@@ -731,6 +777,61 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const filter = parseFilter(m[2]);
     if (!filter) return null;
     return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length >= n;
+  }
+
+  // ===== CORRUPTED (CR 122 / 704.5c) ===== "an opponent has <N> or more poison counters" — the dominant
+  // printed form by a wide margin (17 of the 23 poison-conditioned clauses in the corpus). Existential
+  // across opponents (CR 104.3a): ANY one opponent at or past the threshold satisfies it. Reads the poison
+  // track that already exists on player state — the same one infect/toxic damage feeds.
+  //
+  // DELIBERATELY UNMATCHED, each a distinct SHAPE rather than a wording variant:
+  //   "its controller has …"  — needs a triggering object to resolve "its"; no such thread on this lane.
+  //   "you control three or more artifacts AND an opponent has …" — a CONJUNCTION. This vocabulary reads a
+  //                             single clause, and half-evaluating a compound is a false positive, not a
+  //                             partial credit.
+  //   "target player has FEWER than nine …" / "you have more …" — different comparator and scope.
+  // Each falls through to null → Arbiter (CREED — false-negative safe).
+  m = c.match(new RegExp(`^an opponent has ${NUM_RE} or more poison counters$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return opponentIds(state, controllerId).some((oid) => (state.players[oid]?.poison || 0) >= n);
+  }
+
+  // ===== DELIRIUM (CR 702.9a's sibling ability word) ===== "[there are] <N> or more card types among cards
+  // in your graveyard". Counts DISTINCT card types across the whole graveyard, not cards — one
+  // "Artifact Creature — Golem" contributes TWO. Only the type line's head (before the em dash) is read, so
+  // a SUBTYPE never counts as a type. Kindred and Tribal are the same card type under two printed names
+  // (CR 205.2a), so they fold to one entry rather than double-counting a graveyard holding both.
+  m = c.match(new RegExp(`^(?:there are )?${NUM_RE} or more card types among cards in your graveyard$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return cardTypesInGraveyard(state, controllerId) >= n;
+  }
+
+  // ===== FORMIDABLE (CR 702.113a) ===== "creatures you control have total power <N> or greater". Layer-aware
+  // (counters + anthems count) via the same creaturePower reader every other power comparison here uses, so
+  // an anthem effect moves this condition exactly as it moves the board.
+  m = c.match(new RegExp(`^creatures you control have total power ${NUM_RE} or greater$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const total = controllerBoard(state, controllerId)
+      .filter((p) => isCreaturePermLocal(p))
+      .reduce((sum, p) => sum + creaturePower(p, state), 0);
+    return total >= n;
+  }
+
+  // "[there are|you have] <N> or more cards in your graveyard" — the UNTYPED total (the classic Threshold
+  // wording, CR 702.9a, printed as an activation rider: "Activate only if there are seven or more cards in
+  // your graveyard"). Distinct from the TYPED form directly below, which counts only cards whose type line
+  // matches — so this one is anchored on a bare "cards" and cannot swallow "…seven or more CREATURE cards…".
+  m = c.match(new RegExp(`^(?:there are|you have) ${NUM_RE} or more cards? in your graveyard$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return (state.players[controllerId].graveyard || []).length >= n;
   }
 
   // "[there are|you have] <N> or more <type> cards in your graveyard"
@@ -886,4 +987,28 @@ export function interveningIfParseable(condition) {
 export function spellConditionParseable(condition) {
   const probe = { players: { __probe__: { battlefield: [], graveyard: [], hand: [], library: [], life: 20 } } };
   return evaluateInterveningIf(probe, condition, "__probe__", {}) !== null;
+}
+
+/**
+ * ACTIVATION-side shape check (census slice, 2026-07-28): is this a condition the OFFER GATE can read for an
+ * "Activate only if <condition>." rider (CR 602.5d)? The third sibling of the same probe family, and the
+ * distinction between the three is exactly the CONTEXT each caller can honestly supply:
+ *   • interveningIfParseable — a trigger: has a triggering object and every per-object flag;
+ *   • spellConditionParseable — a resolving spell: has NO object thread at all;
+ *   • this one — an activated ability: has the SOURCE PERMANENT (the permanent whose ability it is) and
+ *     nothing else. No triggering object, no dying-object snapshot, no defender.
+ * So a board/player/turn query ("there are seven or more cards in your graveyard", "a creature died this
+ * turn", "you control a creature with flying") is readable, and a per-TRIGGER shape ("it was kicked", "you
+ * control another Elf" — which needs a triggering permanent to exclude) is NOT, and stays parked.
+ *
+ * This is the metric⇄runtime shared gate for the rider: abilities.js attaches `condition` to the parsed
+ * ability ONLY when this returns true, so a "native" claim is always backed by a condition legalChoices can
+ * actually evaluate. An unreadable condition leaves the rider IN the effect clause, which drags the ability
+ * LOW → the card parks → Arbiter. Never a stripped-but-unenforced restriction, which would be a spammable
+ * false positive (CREED — false-negative safe, false-positive forbidden).
+ */
+export function activationConditionParseable(condition) {
+  const src = { id: "__src__", card: { name: "__probe_name__", type: "Creature" } };
+  const probe = { players: { __probe__: { battlefield: [src], graveyard: [], hand: [], library: [], life: 20 } } };
+  return evaluateInterveningIf(probe, condition, "__probe__", { sourcePermanentId: "__src__" }) !== null;
 }

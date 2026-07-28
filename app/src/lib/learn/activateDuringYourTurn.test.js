@@ -68,15 +68,26 @@ describe("AA-1 — recognition (classifyCard) — real oracle flips native-activ
   });
 });
 
-describe("AA-1 — CREED FP guards: an EXTRA un-enforced condition must NOT strip (stays Arbiter)", () => {
-  it("\"…during your turn, before attackers are declared.\" (Capricious Sorcerer) — before-attackers is not enforced", () => {
-    // The engine offers at BOTH pre- and post-combat main; postcombat main is AFTER attackers. Stripping the
-    // whole rider would over-offer → FP. The anchored strip requires the phrase to END the clause, so the comma
-    // + trailing condition blocks the match and the effect stays LOW → body-only.
+describe("AA-1 — CREED FP guards: an extra UN-ENFORCED condition must NOT strip (stays Arbiter)", () => {
+  // Still the rule. One member of this block graduated on 2026-07-28 — "before attackers are declared"
+  // is enforced now, so it moved from refused to credited. The others below remain un-enforced and
+  // therefore still refused; graduating one does not weaken the guard for the rest.
+  it("\"…before attackers are declared.\" — PIN SATISFIED 2026-07-28: it IS enforced now", () => {
+    // THIS PIN DID ITS JOB, and that is why it moved rather than being deleted. Its stated bar was exact:
+    // "The engine offers at BOTH pre- and post-combat main; postcombat main is AFTER attackers. Stripping
+    // the whole rider would over-offer → FP." Correct, and it fired the moment the behaviour changed.
+    //
+    // The bar is now MET. The rider is not stripped — it is FLAGGED (`preCombatOnly`) and legalChoices
+    // NARROWS the window to the precombat main for a flagged ability, so the over-offer the pin guarded
+    // against cannot happen. Narrowing can only under-offer, which is the safe direction.
+    // See precombatOnlyActivation.test.js, whose load-bearing case asserts the postcombat main offers
+    // NOTHING — mutate that narrowing away and it fails immediately.
     const c = { name: "Capricious Sorcerer", type: "Creature — Human Wizard",
       oracle: "{T}: This creature deals 1 damage to any target. Activate only during your turn, before attackers are declared." };
-    expect(classifyCard(c)).toBe("body-only");
-    expect(parseActivatedAbilities(c)[0].modeled).toBe(false);
+    expect(classifyCard(c)).toMatch(/^native/);
+    const ab = parseActivatedAbilities(c)[0];
+    expect(ab.modeled).toBe(true);
+    expect(ab.preCombatOnly).toBe(true);       // the flag is what replaced the refusal
   });
   it("GRADUATED — \"…no more than twice each turn.\" (Pit Imp) now strips, because the cap is enforced", () => {
     // This case used to live here as an FP guard on the grounds that "the runtime has no twice-per-turn cap;
