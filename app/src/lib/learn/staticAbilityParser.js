@@ -1487,6 +1487,29 @@ function parseClause(clause, out, selfName, selfType) {
     return; // handled — a modeled rule-modifying static
   }
 
+  // ── ENTERS-TRIGGER MULTIPLIER (Panharmonicon #261, Yarok #2530, Ancient Greenwarden #681) ──────────
+  // "If <filter> entering [the battlefield] causes a triggered ability of a permanent you control to
+  // trigger, that ability triggers an additional time." The third member of the multiplier family, and
+  // the first that needs a FILTER on the entering object — Panharmonicon doubles an artifact or creature
+  // entering, Greenwarden a land, Yarok anything. Carried on the op so the counter can test the entering
+  // card at fire time; the layer engine ignores the op either way (the diesTriggerMultiplier precedent).
+  //
+  // Both printed spellings of the event are accepted ("entering" and "entering the battlefield") — they
+  // are the same event, only the templating era differs. A CONTROLLER-qualified or SUBTYPE filter
+  // ("a Wizard you control" — Naban; "a land or Bird you control" — Traveling Chocobo) is NOT claimed:
+  // those need a controller/subtype read this filter set doesn't carry, and doubling on the wrong entry
+  // is a forbidden FP. They stay body-only.
+  const etbMultM = c.match(/^if (a permanent|an artifact or creature|a creature|an artifact|a land) entering(?: the battlefield)? causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time$/);
+  if (etbMultM) {
+    out.push({
+      layer: 6,
+      op: { layerOp: "etbTriggerMultiplier", entering: etbMultM[1].replace(/^an? /, "") },
+      affects: { mode: "self" },
+      duration: { kind: "permanent" },
+    });
+    return; // handled — a modeled rule-modifying static
+  }
+
   // ── ASSIGNS-COMBAT-DAMAGE-BY-TOUGHNESS (BLITZ DN-1 — Doran, the Siege Tower; Belligerent Brontodon;
   //    Ancient Lumberknot) ────────────────────────────────────────────────────────────────────────────
   // "<subject> assigns combat damage equal to its toughness rather than its power" (modifies CR 510.1a —

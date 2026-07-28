@@ -26,6 +26,7 @@
 import { describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
+import { detectTriggers } from "./triggers.js";
 
 const C = (name, type, oracle) => ({ name, type, oracle, mana: "" });
 
@@ -86,9 +87,11 @@ describe("MUST_NOT_OVER-CLAIM — trigger-shaped text with real unmodeled residu
     ["Notion Thief", "Creature — Human Rogue",
       "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
       "not a When/Whenever/At trigger at all — a REPLACEMENT effect (\"instead\") redirecting an opponent's draw; a different mechanism the trigger gate correctly doesn't credit"],
-    ["Panharmonicon", "Artifact",
-      "If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
-      "a static DOUBLER of other permanents' triggers, not a trigger of its own — the doubler subsystem is a separate reader (doublerProfile), not this gate"],
+    // (Panharmonicon lived here as "a static DOUBLER, not a trigger of its own". The first half is still
+    // true and is what this file asserts — the TRIGGER gate must not claim it. But the ENTERS-TRIGGER
+    // MULTIPLIER static is modeled now, so it flips through that classifier and can no longer be a
+    // body-only case here. Its own coverage + runtime pins live in etbTriggerMultiplier.test.js, and the
+    // "not a trigger" claim is kept below as a detectTriggers assertion, which is the precise one.)
     ["Deadeye Navigator", "Creature — Spirit",
       "Soulbond (You may pair this creature with another unpaired creature when either enters. They remain paired for as long as you control both of them.)\nAs long as Deadeye Navigator is paired with another creature, each of those creatures has \"{1}{U}: Exile this creature, then return it to the battlefield under your control.\"",
       "Soulbond pairing + a GRANTED activated ability on the paired creature, not an own trigger — no When/Whenever/At sentence exists on this card at all"],
@@ -102,4 +105,14 @@ describe("MUST_NOT_OVER-CLAIM — trigger-shaped text with real unmodeled residu
       expect(classifyCard(C(name, type, oracle))).toBe("body-only");
     });
   }
+
+  it("Panharmonicon is still NOT a trigger — it flips as a STATIC, and the gate must stay out of it", () => {
+    // Graduated from the body-only list above when the enters-trigger multiplier landed. The claim this
+    // file owns is narrower than the tier and survives intact: the card has no When/Whenever/At sentence,
+    // so detectTriggers must find nothing on it however it classifies.
+    const panharmonicon = C("Panharmonicon", "Artifact",
+      "If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.");
+    expect(detectTriggers(panharmonicon)).toEqual([]);
+    expect(classifyCard(panharmonicon)).toBe("native-static");
+  });
 });

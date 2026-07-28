@@ -1644,14 +1644,42 @@ export function attackTriggerMultiplierCount(state, controllerId) {
   return triggerMultiplierCount(state, controllerId, "attackTriggerMultiplier");
 }
 
-/** Shared counter for the trigger-multiplier statics — ONE walk, so the two can't drift apart. */
-function triggerMultiplierCount(state, controllerId, layerOp) {
+/**
+ * ENTERS-TRIGGER MULTIPLIER (Panharmonicon, Yarok, Ancient Greenwarden — CR 603.x): how many EXTRA times
+ * an ability of `controllerId`'s fires when `enteringCard` entered. Unlike its two siblings this one is
+ * FILTERED — Panharmonicon doubles only for an artifact or creature, Greenwarden only for a land — so the
+ * entering object's type line is tested per static rather than counting them all.
+ */
+export function etbTriggerMultiplierCount(state, controllerId, enteringCard) {
+  return triggerMultiplierCount(state, controllerId, "etbTriggerMultiplier", (op) => enteringMatchesFilter(op?.entering, enteringCard));
+}
+
+/** Does the entering object satisfy a multiplier's printed filter? Word-anchored type-line reads. */
+function enteringMatchesFilter(filter, card) {
+  const t = String(card?.type || card?.type_line || "");
+  if (!t) return false;                       // no type line to test → never double (FN-safe)
+  switch (filter) {
+    case "permanent": return true;
+    case "artifact or creature": return /\bArtifact\b/i.test(t) || /\bCreature\b/i.test(t);
+    case "creature": return /\bCreature\b/i.test(t);
+    case "artifact": return /\bArtifact\b/i.test(t);
+    case "land": return /\bLand\b/i.test(t);
+    default: return false;                    // an unknown filter never doubles (FN-safe)
+  }
+}
+
+/**
+ * Shared counter for the trigger-multiplier statics — ONE walk, so the family can't drift apart.
+ * `opMatches` is an optional extra gate on the static's own op (the enters filter uses it).
+ */
+function triggerMultiplierCount(state, controllerId, layerOp, opMatches = null) {
   if (!state || controllerId == null) return 0;
   const board = collectContinuousEffects(state);
   if (board.length === 0) return 0;
   let n = 0;
   for (const e of board) {
     if (e.op?.layerOp !== layerOp) continue;
+    if (opMatches && !opMatches(e.op)) continue;
     // The static is self-affecting; its controller is the source permanent's LIVE controller.
     const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
     if (src && src.controller === controllerId) n += 1;

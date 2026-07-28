@@ -23,7 +23,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, colorsOf } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, colorsOf } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
@@ -4366,6 +4366,11 @@ export function checkEnterTriggers(state, enteredPerm) {
     }
   }
   if (!fired.length) return s;
+  // ENTERS-TRIGGER MULTIPLIER (Panharmonicon / Yarok / Ancient Greenwarden, CR 603.x): every ability here
+  // fired because THIS permanent entered, so each is repeated once per matching multiplier its controller
+  // controls. The filter is tested against the entering card, which is why the counter is closed over it
+  // rather than taking only a controller like its two siblings.
+  fired = multiplyTriggers(s, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredPerm.card));
   return { ...s, pendingTriggers: [...(s.pendingTriggers || []), ...fired] };
 }
 
@@ -4385,6 +4390,10 @@ export function checkLandfallTriggers(state, enteredLand) {
     }
   }
   if (!fired.length) return state;
+  // ENTERS-TRIGGER MULTIPLIER applies HERE TOO, and forgetting it would be the quiet half of the bug: a
+  // landfall trigger is a triggered ability that triggered because a permanent entered, so Ancient
+  // Greenwarden (land filter) and Yarok (any permanent) double it exactly as they double an ETB.
+  fired = multiplyTriggers(state, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredLand.card));
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
