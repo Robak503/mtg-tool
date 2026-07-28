@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.5%** (12,163/34,245 — +115 this run). Suite **889 files / 11,455 tests**,
-  lint 0, MUTANT sweep clean. TWENTY-FOUR slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries twenty-four unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.6%** (12,175/34,245 — +127 this run). Suite **892 files / 11,499 tests**,
+  lint 0, MUTANT sweep clean. TWENTY-SEVEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries twenty-seven unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **70.2%** 🎉 · top-2500 **52.7%** · top-5000 42.0% · top-10k 35.1%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **71.1%** 🎉 · top-2500 **53.2%** · top-5000 42.4% · top-10k 35.3%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,6 +412,9 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `0168559a` | ⭐ **WAVE B — the ATTACK TAX** (CR 508.1g): restriction + payment as ONE change | **+3**, **Propaganda #115** · **Ghostly Prison #161** · Windborn Muse #1011 |
+| `b9d1d3c9` | ⭐ THE DRAIN MIRROR — lifegain⇄lifeloss, one UNBLOCKED + one RE-POINTED | **+6**, **Sanguine Bond #496** · **Vito #492** · **Exquisite Blood #508** · Bloodthirsty Conqueror #901 |
+| `619b9513` | ⭐ WAVE C — batched-ETB filter, WITHOUT the batch machinery | **+3**, **Welcoming Vampire #428** · **Tocasia's Welcome #866** · Enduring Innocence #785 |
 | `3c3fd256` | ⭐ WAVE A — copy an instant or sorcery (CR 707.10) | **+5**, **Reverberate #1380** · Reiterate · Twincast |
 | `9381112d` | impulse NEXT-TURN window — controller-scoped expiry ⭐ | **+6**, **Light Up the Stage #1211** · Reckless Impulse #2120 · Wrenn's Resolve #2116 |
 
