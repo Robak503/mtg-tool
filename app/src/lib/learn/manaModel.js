@@ -126,7 +126,7 @@ function parseFixedQuantity(token) {
   return null;                                     // "x" or anything else → caller defaults to 1 (never fabricate)
 }
 
-function parseManaMetric(tail) {
+function parseManaMetric(tail, card) {
   // Strip the leading connector + any "the/your/an amount of" filler so the body is the bare metric.
   const t = String(tail || "")
     .trim().replace(/\.$/, "").replace(/\s+/g, " ").toLowerCase()
@@ -140,6 +140,24 @@ function parseManaMetric(tail) {
     const cardType = m[1];
     if (["creature", "artifact", "enchantment", "land", "planeswalker"].includes(cardType)) {
       return { kind: "permanentsYouControl", cardType };
+    }
+    // ⭐ SUBTYPE COUNTS (Elvish Archdruid #942 "for each Elf you control", Magus of the Coffers "for each
+    // Swamp you control"). countSelfSpecOnBoard ALREADY honours `subtype` — only this parser was card-types
+    // only, so the counter has been ready the whole time.
+    //
+    // THE VOCABULARY GATE IS THE WHOLE SAFETY ARGUMENT. The counter word-matches the type line
+    // CASE-SENSITIVELY, so an unvetted word would match nothing, the ability would produce ZERO, and the
+    // card would still classify native — a mana source that makes no mana, which is worse than parking it.
+    // Two ways a word earns admission, both checkable without a card index:
+    //   • it is one of the five BASIC LAND types (a closed set, always real);
+    //   • the SOURCE CARD ITSELF carries it in its own type line — an Elf counting Elves proves "Elf" is a
+    //     printed subtype. A card counting a subtype it doesn't share (none in the top-5000) is refused:
+    //     an under-count, the safe direction.
+    const Word = cardType.charAt(0).toUpperCase() + cardType.slice(1);
+    const BASIC = ["Plains", "Island", "Swamp", "Mountain", "Forest"];
+    const ownTypeLine = String(card?.type || card?.type_line || "");
+    if (BASIC.includes(Word) || new RegExp(`\\b${Word}\\b`).test(ownTypeLine)) {
+      return { kind: "permanentsYouControl", subtype: Word };
     }
     return null;
   }
@@ -176,7 +194,7 @@ function parseManaMetric(tail) {
  *   "Add a +1/+1 counter"              → null (no mana symbols)
  *   "Add {G} for each <unrecognized>"  → null (unmodeled metric — card stays NON-NATIVE)
  */
-function parseAddClause(oracle) {
+function parseAddClause(oracle, card) {
   if (!/\badd\b/i.test(oracle)) return null;
 
   // ===== MANA-VARIABLE — checked FIRST so the bigger variable ability wins over a small fixed/any-
@@ -190,7 +208,7 @@ function parseAddClause(oracle) {
   let v = oracle.match(/\bAdd (?:an amount of )?((?:\{[WUBRGC]\})+)(?: mana)? ((?:for each|equal to) [^.]+)/i);
   if (v) {
     const symbols = [...v[1].matchAll(/\{([WUBRGC])\}/gi)].map(x => x[1].toUpperCase());
-    const spec = parseManaMetric(v[2]);
+    const spec = parseManaMetric(v[2], card);
     if (spec && symbols.length) return { colors: [...new Set(symbols)], amount: 0, amountSpec: spec };
     return null; // unmodeled metric (or no symbol) — non-native, never a fabricated fallback
   }
@@ -203,7 +221,7 @@ function parseAddClause(oracle) {
   // amountSpec resolved live from the metric). An unmodeled metric still → null (CREED).
   v = oracle.match(/\bAdd X mana(?: of any(?: one)? color| in any combination of colors)?, (where X is [^.]+)/i);
   if (v) {
-    const spec = parseManaMetric(v[1]);
+    const spec = parseManaMetric(v[1], card);
     if (spec) return { colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: spec };
     return null; // unmodeled metric — non-native
   }
@@ -568,7 +586,7 @@ function manaProductionImpl(card) {
   // Strip the gated ability (lands included) so parseAddClause sees only the ENERGY-FREE mana: Aether Hub keeps
   // its {C}, and a source whose ONLY mana is energy-gated produces nothing → null → non-native, correctly.
   oracleForAdd = oracleForAdd.replace(/[^.\n]*\bpay (?:\{e\})+[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
-  const fromOracle = parseAddClause(oracleForAdd);
+  const fromOracle = parseAddClause(oracleForAdd, card);
   // A NON-LAND activated mana ability must also be PAYABLE by the sim as a standing source. An ability whose
   // only cost is a CONSUMABLE/non-repeatable resource the sim can't spend — a non-self sacrifice (Utopia Mycon
   // "Sacrifice a Saproling: Add {C}{C}"), pay-life, discard, remove-counter, exile, tap-OTHER, return-to-hand —
