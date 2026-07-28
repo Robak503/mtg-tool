@@ -76,6 +76,34 @@ That is the whole reason this target beats corpus %.
 - **Nothing mid-edit.** Corpus **35.2%** (12,048). Shelf 1259/1597. Suite **872 files / 11,259 tests**,
   lint 0, sweep 20/20. Master green. **v0.149.12 tagged** (+12 since .11: aura host-death, aura composition).
 
+## ✅ SHIPPED — the SHELF OWNER SPLIT (Omnath's call, and he was right)
+
+`measure-coverage` can now report the shelf **per owner** instead of one aggregate. Omnath's argument, which
+the numbers back: the single figure AVERAGES TWO DIFFERENT QUESTIONS — the owner's decks gate PLAYABILITY
+(can the one actual user play his own decks?), the pod's decks gate POD REALISM (can he sim his playgroup?).
+Neither is the other, and "79%" cannot tell you which is failing.
+
+**Measured with the split on** (temporary config, using only the four decks Omnath said he Moxfield-verified):
+
+```
+  92%  colton (playability)   (457/499 across 5 decks)   below the bar: cdh 79%
+  76%  joe (pod realism)      (304/400 across 4 decks)   below the bar: 4 decks
+  71%  (unassigned)           (498/698 across 7 decks)
+```
+
+**The playability half is ONE DECK from the 1.0 bar.** The aggregate was hiding that completely.
+
+**DESIGN — ownership is NOT derivable from the data, so it is not guessed.** Verified earlier: every deck
+lives in ONE profile on this box, so profile structure says nothing. Rather than hard-code Colton's deck
+names into a repo script, the split reads an OPTIONAL `<MTG_APP_ROOT>/data/deck-owners.json`
+(`{ "Deck Name": "owner-label" }`) and stays completely silent when absent — output byte-identical to before.
+A deck the file omits lands in "(unassigned)" rather than being dropped, because a silently shrinking
+denominator is how a split metric starts lying.
+
+**I did NOT ship a mapping file.** The roster is Omnath's ([[deck_joe_roster]]) and my knowledge of it is
+second-hand; asserting ownership I cannot verify is exactly the kind of confident-wrong entry this run has
+already had to retract twice. Told him in COMMS that the seam is live and the mapping is his to supply.
+
 ## 🧭 ALL FOUR INSTRUMENTS ARE MINED OUT — the run's search phase is over
 
 Four independent instruments were built and exhausted this run. Recording them together so the next session
