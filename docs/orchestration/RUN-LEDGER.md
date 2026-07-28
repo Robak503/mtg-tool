@@ -339,13 +339,45 @@ unmodelable.** Blink is the counter-example:
    split →  "Exile target creature you control"            <- parses HIGH, entirely on its own
             "return that card to the battlefield…"          <- fails
 ```
-The card does not fall to the Arbiter. It becomes **a spell that exiles your creature and never returns
-it** — a confident wrong partial, exactly what the comment says cannot happen.
+**⚠️ CORRECTION TO MY OWN FIRST WRITE-UP (verify before repeating it).** I first recorded this as the card
+*"becoming a spell that exiles your creature and never returns it."* **That overstated it — the hazard was
+LATENT, never live.** The trailing fragment is LOW on its own, so the whole program was LOW and the card
+PARKED. Nothing ever played wrong. Checked by parsing the orphaned fragment in isolation.
+
+The accurate statement, which is still worth the guard: **the card's safety depended entirely on the
+TRAILING fragment failing to parse.** The leading one is a complete, confident instruction. The day anything
+teaches the parser "return that card to the battlefield" in isolation — a plausible future slice — the card
+flips native meaning *exile, then return something unbound*. The split moved the safety from "by
+construction" to "by luck", and that is what the keep-whole guard restores.
 
 **THE RULE: before trusting a split to fail safe, parse the LEADING fragment alone.** If it is HIGH, the
 split is not safe and the sentence needs a keep-whole guard (the mechanism the conditional-rider seams at
-`splitClauses` ~455/473 already use). Any ", then" / " and " sentence whose first half is a complete
-instruction is suspect — there are likely more.
+`splitClauses` ~455/473 already use).
+
+### ✅ HUNTED FOR LIVE FALSE POSITIVES OF THIS CLASS — **found none.** Do not re-run this.
+
+The obvious follow-up worry: are there NATIVE cards where a split orphaned a back-reference ("it", "that
+card", "those creatures") and the fragments all parsed anyway — i.e. cards playing the wrong effect today?
+Swept all **11,141** native cards for a split fragment OPENING with a back-reference. 158 flagged; the
+highest-value ones were checked by hand and **every one is correctly bound**:
+
+```
+Swords to Plowshares #11  exile + controllerRider{gainLifePower}
+Path to Exile #15         exile + controllerRider{rampBasic, entersTapped}
+Beast Within #25          destroy + controllerRider{createToken 3/3 green Beast}
+Swan Song #71             counter + controllerRider{createToken 2/2 blue Bird, Flying}
+Assassin's Trophy #124    destroy(opponent) + controllerRider{rampBasic}
+Pongify #155              destroy + cannotRegenerate:true + controllerRider{createToken}
+Inspiring Call #270       draw{requiresCounter} + grant-keywords-group{requiresCounter}  ← scope matches
+```
+
+**⚠️ AND THE INSTRUMENT CORRECTION, which is why the 158 is not a finding:** `splitClauses` output is **NOT
+the parser's final clause set.** The SPAN MATCHERS (`spanMatchers.js`) fold multi-sentence patterns —
+"…Its controller creates a 3/3" becomes a `controllerRider` ON THE SAME ATOM — before/independently of the
+clause split. So reading `splitClauses` alone massively over-reports orphans. **To reason about what the
+engine actually does, read the ATOMS of `parseEffectProgram`, never the clause split.**
+
+Blink was reachable only because no span matcher covered its shape. The class is otherwise well defended.
 
 ### 🔵 THE ORIGINAL BLOCKED ANALYSIS (kept — it is how the above was found)
 
