@@ -860,6 +860,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     // BEFORE the another-subtype / creatureSubjectScope matchers, which don't recognize "nontoken".
     const etbSubjRaw = subjectBefore(c, "enters");
     if (etbSubjRaw === "a nontoken creature you control") return { event: "etb", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
+    // ⭐ THE TOKEN MIRROR (Securitron Squadron, Anointer Priest, Nesting Dovehawk). The nontoken side has
+    // been modeled for a long time; this is the same qualifier read the other way, and it needs its own
+    // filter rather than a negated flag — a descriptor carrying neither must keep firing on BOTH, which is
+    // every unqualified "a creature you control enters" on the board.
+    if (etbSubjRaw === "a creature token you control") return { event: "etb", scope: "creatureYouControl", whose: "any", tokenFilter: true };
     // "ANOTHER nontoken creature you control enters" (Surrak and Goreclaw) — the OTHER-creature analog of the
     // line above (excludes the source). Same scope-expressible nontoken restriction (CR 111.1); the bare
     // "another nontoken creature" (no subtype) falls through the another-subtype matcher below because
@@ -1604,6 +1609,10 @@ function classifyCondition(condRaw, cardName, cardType) {
   // Arbiter (a SAFE false-negative). combatResolution fires it off the real per-attacker player-damage.
   if (/\bdeals combat damage to a player$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
+    // TOKEN-FILTERED (Curiosity Crafter #1734) — checked BEFORE the bare creature form, whose /a creature
+    // you control/ test is a SUBSTRING match and would otherwise swallow "a creature token you control" and
+    // drop the qualifier entirely. That is the over-fire direction: every creature connecting would draw.
+    if (/^a creature token you control deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any", tokenFilter: true };
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
     // EQUIP-RIDER combat-damage (WAVE 4) — "Whenever EQUIPPED CREATURE deals combat damage to a player,
     // <effect>" (Goldvein Pick / The Reaver Cleaver Treasure riders, the Swords' combat-damage payloads).
@@ -3245,6 +3254,7 @@ export function detectTriggers(card) {
         gyFromZone: cls.gyFromZone,           // GY-ENTER-BATCH: the ORIGIN zone the printed trigger names ("library" — Sidisi's mill payoff; absent = "from anywhere"). MUST be listed here or it is silently dropped and the trigger fires on EVERY origin — a live over-fire, not a missed one.
         etbMaxPower: cls.etbMaxPower,         // BATCHED-ETB FILTER: printed power cap ("with power 2 or less" — Welcoming Vampire). Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
         etbMaxMv: cls.etbMaxMv,               // BATCHED-ETB FILTER: printed mana-value cap ("with mana value 3 or less" — Tocasia's Welcome).
+        tokenFilter: cls.tokenFilter,         // "a CREATURE TOKEN you control …" (Curiosity Crafter, Anointer Priest). Unlisted here = silently dropped = the trigger fires on every creature, token or not.
         etbExcludeSelf: cls.etbExcludeSelf,   // "ANOTHER creature you control with power N or greater" (Garruk's Packleader). Unlisted here = silently dropped = the source fires on its OWN entry — a fabricated draw, the over-fire direction.
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
@@ -3860,6 +3870,9 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // chose. Load-bearing FP guard: without it Lazotep's OWN amass-minted Sliver Army token (a Sliver, so the
   // subtypeYouControl scope would match it) dying would re-fire its amass — a confident wrong fire.
   if (descriptor.nontokenFilter && triggeringPermanent?.card?.token) return false;
+  // TOKEN filter — the exact mirror, and separate from nontokenFilter on purpose: a descriptor with NEITHER
+  // flag must keep firing on both kinds, so this cannot be one boolean.
+  if (descriptor.tokenFilter && !triggeringPermanent?.card?.token) return false;
   // BATCHED-ETB CHARACTERISTIC gate (Welcoming Vampire "with power 2 or less"; Tocasia's Welcome "with mana
   // value 3 or less"). Runs BEFORE the scope switch so it composes with whichever controller scope the
   // descriptor chose, exactly like nontokenFilter above.
