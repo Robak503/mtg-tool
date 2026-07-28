@@ -409,6 +409,24 @@ export function cdmgPayoffClauseParser(clause) {
   // admit these ONLY on the lifeLost event, so an absent referent can never silently drop the clause.
   const lifeLossMillM = t.match(/^that player mills that many cards$/);
   if (lifeLossMillM) return { op: "mill", who: "lifeLostPlayer", countContext: "lifeLostAmount", targetType: null };
+  // (dr1) DRAIN MIRROR, LIFEGAIN → LOSS (Sanguine Bond / Vito / Enduring Tenacity / Defiant Bloodlord) —
+  // "target|each opponent loses that much lifegain life": the event-specific sentinel detectTriggers rewrites
+  // a LIFEGAIN trigger's payoff to. The count is the life just gained (ctx.lifegainAmount); the referent gate
+  // admits that countContext ONLY on the lifegain event. The "target" form is genuinely TARGETED (targetType
+  // "opponent" — the flush's chooser picks, CR 603.3c) while "each" is not; keeping them distinct matters
+  // because a hexproof/protected-from-everything table can leave the targeted form with NO legal target, and
+  // a dropped trigger is correct there where a silent each-opponent drain would not be.
+  const lgDrainM = t.match(/^(target|each) opponent loses that much lifegain life$/);
+  if (lgDrainM) {
+    return lgDrainM[1] === "target"
+      ? { op: "lose-life", who: "target", targetType: "opponent", countContext: "lifegainAmount" }
+      : { op: "lose-life", who: "eachOpponent", countContext: "lifegainAmount", targetType: null };
+  }
+  // (dr2) DRAIN MIRROR, LOSS → LIFEGAIN (Exquisite Blood / Bloodthirsty Conqueror) — "you gain that much
+  // life-lost life". Distinct from (a-life) above by the sentinel word alone, and that is the entire safety
+  // argument: the bare "you gain that much life" is Essence Sliver's combat-damage payoff, and the two must
+  // never collapse onto one countContext.
+  if (/^you gain that much life-lost life$/.test(t)) return { op: "gain-life", countContext: "lifeLostAmount", targetType: null };
   // (dies-rad) power-scaled dies payoff — Feral Ghoul
   if (/^each opponent gets a number of rad counters equal to its power$/.test(t)) {
     return { op: "rad", who: "eachOpponent", countContext: "dyingPower", targetType: null };

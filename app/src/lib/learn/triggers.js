@@ -2286,6 +2286,19 @@ const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain th
 // ("…, then you gain 2 life") leaves residue → no rewrite → LOW → Arbiter (a SAFE false-negative).
 const LIFEGAIN_SELF_COUNTER_PAYOFF_RE = /^put that many \+1\/\+1 counters? on this creature\.?$/i;
 
+// ===== THE DRAIN MIRROR (CR 118.4 / 119.3) — the two halves of Sanguine Bond ⇄ Exquisite Blood =====
+// LIFEGAIN → LOSS (Sanguine Bond, Vito, Enduring Tenacity, Defiant Bloodlord): "Whenever you gain life,
+// target/each opponent loses that much life." The magnitude is the life JUST GAINED (ctx.lifegainAmount).
+// This phrase currently parses to NOTHING at all, so the rewrite is what makes it reachable.
+const LIFEGAIN_DRAIN_PAYOFF_RE = /^(?:target|each) opponent loses that much life\.?$/i;
+// LOSS → LIFEGAIN (Exquisite Blood, Bloodthirsty Conqueror): "Whenever an opponent loses life, you gain
+// that much life." This one is the OPPOSITE hazard — the bare phrase ALREADY parses, but to
+// countContext:"combatDamageAmount" (the Essence Sliver reading). On a lifeLost trigger that referent is
+// never set, so the atom would silently gain 0. The referent gate is what catches it today (which is
+// exactly why these cards sit at body-only rather than shipping a broken native), and the rewrite is what
+// re-points the magnitude at ctx.lifeLostAmount instead of merely unblocking the words.
+const LIFELOST_GAIN_PAYOFF_RE = /^you gain that much life\.?$/i;
+
 // MILLED "that many" TOKEN PAYOFF (Screeching Scorchbeast, SHELF M1b) — "you may create that many 2/2 black
 // Zombie Mutant creature tokens[. Do this only once each turn]" on a MILLED trigger: "that many" is the count
 // of milled cards matching the trigger's filter, so the rewrite (below) inserts the event-specific sentinel
@@ -3125,6 +3138,22 @@ export function detectTriggers(card) {
         // lifegain event so no other event/spell can ever read an absent referent (the counters-placed
         // discipline exactly). Whole-clause anchored — a rider leaves residue → no rewrite → LOW → Arbiter.
         effectClause = "put that many lifegain +1/+1 counters on this creature";
+      } else if (cls.event === "lifegain" && LIFEGAIN_DRAIN_PAYOFF_RE.test(effectClause)) {
+        // ===== DRAIN HALF 1 — LIFEGAIN → OPPONENT LOSS ===== Sanguine Bond / Vito / Enduring Tenacity /
+        // Defiant Bloodlord. "that much" = ctx.lifegainAmount, threaded PER GAIN EVENT by
+        // checkLifegainTriggers (CR 603.2 — each separate gain is its own event with its own amount, so a
+        // 3-life gain drains 3 once, never 1 three times). Rewrite → the event-specific sentinel the
+        // cdmgPayoffClauseParser maps to countContext:"lifegainAmount"; combatDamageReferentSatisfied then
+        // pins that countContext to the lifegain event, so no other event can read an absent referent and
+        // silently drain 0. Whole-clause anchored — a rider leaves residue → no rewrite → LOW → Arbiter.
+        effectClause = effectClause.replace(/\bloses that much life\b/i, "loses that much lifegain life");
+      } else if (cls.event === "lifeLost" && LIFELOST_GAIN_PAYOFF_RE.test(effectClause)) {
+        // ===== DRAIN HALF 2 — OPPONENT LOSS → LIFEGAIN ===== Exquisite Blood / Bloodthirsty Conqueror.
+        // "that much" = ctx.lifeLostAmount (checkLifeLossTriggers, fired from the loseLife chokepoint itself
+        // — so DAMAGE-caused loss counts too, CR 119.3, which is the whole point of the card). The bare
+        // phrase is byte-identical to Essence Sliver's combat-damage payoff, so the rewrite is a RE-POINT,
+        // not an unblock: without it the atom carries combatDamageAmount and gains 0 on this event.
+        effectClause = "you gain that much life-lost life";
       } else if (cls.event === "milled"
         && String(split.interveningIf || "").toLowerCase().trim() === "this creature is in your graveyard"
         && /^you may return it to your hand$/i.test(effectClause.trim())) {
