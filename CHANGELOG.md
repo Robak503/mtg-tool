@@ -8,6 +8,30 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.8] — 2026-07-28
+
+### Fixed
+- **Mana Vault, Basalt Monolith and Grim Monolith were completely dead.** Not mis-costed — the game offered
+  no ability on them at all, so three of the most recognizable fast-mana artifacts in the format sat on the
+  battlefield doing nothing. A guard meant for lands that don't untap was catching them too.
+- **Abilities that say "activate only before attackers are declared" were being offered after combat.** The
+  game's activation window covered both main phases, and the second one is, by definition, after attackers.
+  Those abilities are now restricted to the first main phase, as printed.
+
+### Added
+- **Boast abilities now work** — the ones reading "activate only if this creature attacked this turn." They
+  correctly track *which* creature attacked, not merely whether you attacked at all, so boasting is limited
+  to the creature that actually went in.
+- **"Activate only if ..." conditions are now read live off the board.** Seven cards in your graveyard, a
+  creature having died this turn, an empty hand, an opponent's poison counters, four card types in your
+  graveyard, your creatures' total power, and whether you control the biggest creature on the table.
+- A condition the game cannot read still hands the card to the Arbiter rather than guessing at it. A card
+  the engine skips is safe; a card it plays wrongly is not.
+
+### Changed
+- **Deck coverage rose from 78% to 79%** across the saved decks — Wolverine, Hulk Smash and Halfshell heroes
+  each gained ground.
+
 ## [0.149.7] — 2026-07-28
 
 ### Fixed
