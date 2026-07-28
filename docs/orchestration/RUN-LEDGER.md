@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.7%** (12,220/34,245 — +172 this run). Suite **906 files / 11,645 tests**,
-  lint 0, MUTANT sweep clean. FORTY-TWO slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries forty-two unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.7%** (12,228/34,245 — +180 this run). Suite **907 files / 11,650 tests**,
+  lint 0, MUTANT sweep clean. FORTY-THREE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries forty-three unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **72.0%** 🎉 · top-2500 **54.1%** · top-5000 42.9% · top-10k 35.6%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **72.1%** 🎉 · top-2500 **54.2%** · top-5000 **43.0%** · top-10k 35.7%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,6 +412,7 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `6d892d21` | ⭐ **EQUIPMENT composes with its trigger** — a composition gap, not a card gap | **+8**, **Mask of Memory #1002** · **Goldvein Pick #2100** · Prying Blade · Skeleton Key |
 | `2c90b6fa` | typed uncounterable — the read went per-PLAYER → per-SPELL | **+2**, Prowling Serpopard #3581 · **Surrak Dragonclaw #3186** |
 | `58c1dd23` | ⚠️ subtype-scaled MANA — the vocabulary gate runs the OPPOSITE way | **+4**, **Elvish Archdruid #942** · Magus of the Coffers #5409 |
 | `04a8e665` | activated-cost reduction for ARTIFACTS — the subject is a FILTER | **+1**, Forensic Gadgeteer #1374 |
@@ -487,10 +488,15 @@ than lost:
 | Stormfist Crusader #1913 | `each player` vs `target player` draws-and-loses | an eachPlayer arm on a compound upkeep payoff |
 | Spine of Ish Sah #2486 | "when this **artifact** is put into a graveyard…" vs "this **aura**" | a noun widening on the self-return; its ETB destroy already parses |
 | Junk Diver #1977 · Myr Retriever #875 | dies + **another** target artifact card in your graveyard | ⚠️ "another" here excludes a GRAVEYARD card, and `notSource` matches battlefield permanent ids — not the same restriction |
-| Goldvein Pick #2100 | `equipped creature` deals combat damage → Treasure | the equippedCreature scope EXISTS; worth finding out why this payoff doesn't route |
+| Adaptive Omnitool #2237 + 3 | an equipment trigger whose effect spans SENTENCES | the trigger-sentence strip can't fold them — a different gap in a different chain |
 
-Goldvein Pick is the one to look at first — not for its card count but because the scope is already
-built, so a "why not" answer there probably generalizes.
+✅ **Goldvein Pick was looked at first and it paid — 8 cards, not 1** (`6d892d21`). The equippedCreature
+scope was never the problem; two TIERS couldn't talk to each other, and each understood its own half.
+
+⭐ **That is the transferable lesson of this whole run.** When a near-miss row can't be explained by its
+own one-word diff, spend ONE probe on *why not* before writing it off as a one-card cross. Three of the
+biggest finds today — the mana-doubler cell, the untap type list, this one — were all "the machinery is
+built, the composition isn't."
 
 **NOT crosses, don't re-diagnose:** Shriekmaw #1546 — its "sibling" is also unparsed. Jhoira's Familiar
 #1035 — "historic" isn't a type-line token, and that refusal is CORRECT.
