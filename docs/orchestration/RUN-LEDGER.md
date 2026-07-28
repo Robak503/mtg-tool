@@ -139,9 +139,45 @@ fire a watcher once; separate resolutions are separated by a flush. That reasoni
    rejects the clause before the arm runs. **Find that guard before writing any batch machinery**; the
    valuable cards are all behind it, and the machinery is worthless until it is found.
 
-**AND THE COST THAT MADE REVERTING RIGHT:** the queue records on EVERY permanent entry — the hottest path in
-a self-play engine. Paying an allocation there for 0 cards, while the cards that matter sit behind an
-undiagnosed guard, is a bad trade. Retry once finding #3 is solved.
+**AND THE COST THAT MADE REVERTING RIGHT:** the queue records on EVERY permanent entry. Paying for that with
+0 cards, while the cards that mattered sat behind an undiagnosed guard, was a bad trade.
+
+### ⭐ FOLLOW-UP: THE GUARD IS FOUND, AND WAVE C MAY NOT NEED THE MACHINERY AT ALL
+
+**THE GUARD (finding #3 above):** `triggers.js` ~810 —
+`if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;`
+A blanket reject of any trigger condition containing "with". Several PRECISELY-CHECKABLE shapes are already
+carved out ABOVE it (keyword-batch combat damage, with-keyword attacks, cast-with-mana-value). A
+`with power N or less` / `with mana value N or less` filter is equally checkable and belongs in that carve-out.
+
+**AND THE SCOPING INVERTS — the FILTERED cards are the clean ones, the bare ones are hopeless:**
+```
+Welcoming Vampire #428   Flying + the batched trigger + the once-per-turn rider   ← NOTHING else blocks it
+Tocasia's Welcome #866   the batched trigger + the rider, and nothing else        ← NOTHING else blocks it
+Twilight Diviner · Celes · Kotis (the BARE forms)   all carry an "if they entered
+   from a graveyard" intervening-if                                               ← blocked regardless
+```
+
+**⭐ THE CHEAP PATH — and it needs NO queue, NO drain, and NO per-entry cost.** Both clean cards carry
+*"This ability triggers only once each turn"*, and that rider IS ENFORCED (`gameEngine` ~1401, keyed per
+source+event on `onceTriggersFiredThisTurn`, cleared at untap). So for a card carrying the rider:
+
+| model | behaviour |
+|---|---|
+| batch-once, then rider-capped | once per turn |
+| **per-creature (singular `etb`), then rider-capped** | **once per turn** |
+
+**Observably IDENTICAL** — the printed rider does the capping either way. So the batched phrasing can map
+onto the EXISTING singular `etb` event, with the filter as a descriptor field.
+
+**⚠️ VALID ONLY WITH THE RIDER.** A rider-less batched ETB mapped this way OVER-FIRES (once per token). Gate
+it: have the condition matcher return `requiresOncePerTurn: true` and have the descriptor builder DROP the
+descriptor when the rider is absent — the builder computes `oncePerTurnTrigger` from the effect clause and
+has `cls` in hand, so that gate belongs there.
+
+**⚠️ AND REMEMBER THE WHITELIST:** any new descriptor field (`etbMaxPower`, `etbMaxMv`, `requiresOncePerTurn`)
+must be added to the explicit field list at `triggers.js` ~3171 or it is SILENTLY DROPPED — the trap that
+nearly shipped the Sidisi over-fire.
 
 ### ✅ THE CATCH-ALL IS NOW DECOMPOSED — `app/scripts/probe-spell-effect-veins.mjs`
 
