@@ -381,9 +381,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.7%** (12,218/34,245 — +170 this run). Suite **905 files / 11,635 tests**,
-  lint 0, MUTANT sweep clean. FORTY-ONE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries forty-one unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.7%** (12,220/34,245 — +172 this run). Suite **906 files / 11,645 tests**,
+  lint 0, MUTANT sweep clean. FORTY-TWO slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries forty-two unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **72.0%** 🎉 · top-2500 **54.1%** · top-5000 42.9% · top-10k 35.6%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -412,6 +412,7 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `2c90b6fa` | typed uncounterable — the read went per-PLAYER → per-SPELL | **+2**, Prowling Serpopard #3581 · **Surrak Dragonclaw #3186** |
 | `58c1dd23` | ⚠️ subtype-scaled MANA — the vocabulary gate runs the OPPOSITE way | **+4**, **Elvish Archdruid #942** · Magus of the Coffers #5409 |
 | `04a8e665` | activated-cost reduction for ARTIFACTS — the subject is a FILTER | **+1**, Forensic Gadgeteer #1374 |
 | `44e2b391` | the "creature TOKEN you control" trigger scope — THREE states, not two | **+2**, **Curiosity Crafter #1734** · Anointer Priest #11214 |
@@ -466,7 +467,6 @@ below needs a subsystem that doesn't exist yet, and each is worth roughly ONE ca
 
 | card | what it actually needs | flips |
 |---|---|---|
-| Prowling Serpopard #3581 · Surrak #3186 | can't-be-countered as an **AND** (type × controller) — the Monument descriptor shape, already proven | **2** |
 | Aqueous Form #735 | an `unblockable` grantable pseudo-keyword + enforcement in canBlockAttacker | 1 of 2 |
 | Blade of Selves #905 | the MYRIAD keyword itself (unbuilt) | 1 |
 | Reprieve #633 | a SPELL target class for bounce — only counters can target the stack today | 1 |
@@ -474,9 +474,10 @@ below needs a subsystem that doesn't exist yet, and each is worth roughly ONE ca
 | Deafening Silence #1946 | a per-turn cast limit filtered by card type | 1 |
 | Helm of Awakening #1889 | a SYMMETRIC cost reducer — the collector is controller-only by construction | 1 |
 
-**Best ratio by a clear margin: the can't-be-countered AND.** Two cards, and the Monument slice already
-built and pinned that exact descriptor shape (`{ subtype, colors }` read as a conjunction rather than
-falling through an if/else-if to the first arm).
+✅ **The can't-be-countered AND is DONE** (`2c90b6fa`) — it was the last row with a better-than-one-card
+ratio, so **everything left in this table is subsystem work**: a keyword, a target class, or a scope the
+engine doesn't express. Don't expect another cheap flip from the near-miss probe at distance 1 in the
+top-5000; run `--distance=2`, or a deeper rank band, before assuming there is one.
 
 **NOT crosses, don't re-diagnose:** Shriekmaw #1546 — its "sibling" is also unparsed. Jhoira's Familiar
 #1035 — "historic" isn't a type-line token, and that refusal is CORRECT.
