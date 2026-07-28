@@ -79,6 +79,7 @@ import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, 
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
+import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -1724,6 +1725,13 @@ function actionsActivateAbility(state, playerId) {
       // attacked, which is a materially different card. The other half of the reminder — once each turn —
       // rides the existing activationLimit ledger rather than a second mechanism.
       if (ab.boast && !perm.attackedThisTurn) continue;
+      // CONDITION rider (CR 602.5d) — "Activate only if <board condition>." Evaluated LIVE at the offer gate
+      // against the same vocabulary the trigger and spell lanes read (interveningIf.js), with the activation
+      // context: the source permanent, and nothing else. `!== true` is deliberate — null means "outside the
+      // modeled vocabulary, can't confirm", and an unconfirmable condition must WITHHOLD the offer rather
+      // than fall open. The parse side only attaches a condition the probe already proved readable, so null
+      // here means the board drifted out from under it, not a shape gap (CREED — FN-safe either way).
+      if (ab.condition && evaluateInterveningIf(state, ab.condition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).

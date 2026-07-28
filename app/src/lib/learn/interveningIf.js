@@ -733,6 +733,17 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length >= n;
   }
 
+  // "[there are|you have] <N> or more cards in your graveyard" — the UNTYPED total (the classic Threshold
+  // wording, CR 702.9a, printed as an activation rider: "Activate only if there are seven or more cards in
+  // your graveyard"). Distinct from the TYPED form directly below, which counts only cards whose type line
+  // matches — so this one is anchored on a bare "cards" and cannot swallow "…seven or more CREATURE cards…".
+  m = c.match(new RegExp(`^(?:there are|you have) ${NUM_RE} or more cards? in your graveyard$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return (state.players[controllerId].graveyard || []).length >= n;
+  }
+
   // "[there are|you have] <N> or more <type> cards in your graveyard"
   m = c.match(new RegExp(`^(?:there are|you have) ${NUM_RE} or more ([a-z]+) cards? in your graveyard$`));
   if (m) {
@@ -886,4 +897,28 @@ export function interveningIfParseable(condition) {
 export function spellConditionParseable(condition) {
   const probe = { players: { __probe__: { battlefield: [], graveyard: [], hand: [], library: [], life: 20 } } };
   return evaluateInterveningIf(probe, condition, "__probe__", {}) !== null;
+}
+
+/**
+ * ACTIVATION-side shape check (census slice, 2026-07-28): is this a condition the OFFER GATE can read for an
+ * "Activate only if <condition>." rider (CR 602.5d)? The third sibling of the same probe family, and the
+ * distinction between the three is exactly the CONTEXT each caller can honestly supply:
+ *   • interveningIfParseable — a trigger: has a triggering object and every per-object flag;
+ *   • spellConditionParseable — a resolving spell: has NO object thread at all;
+ *   • this one — an activated ability: has the SOURCE PERMANENT (the permanent whose ability it is) and
+ *     nothing else. No triggering object, no dying-object snapshot, no defender.
+ * So a board/player/turn query ("there are seven or more cards in your graveyard", "a creature died this
+ * turn", "you control a creature with flying") is readable, and a per-TRIGGER shape ("it was kicked", "you
+ * control another Elf" — which needs a triggering permanent to exclude) is NOT, and stays parked.
+ *
+ * This is the metric⇄runtime shared gate for the rider: abilities.js attaches `condition` to the parsed
+ * ability ONLY when this returns true, so a "native" claim is always backed by a condition legalChoices can
+ * actually evaluate. An unreadable condition leaves the rider IN the effect clause, which drags the ability
+ * LOW → the card parks → Arbiter. Never a stripped-but-unenforced restriction, which would be a spammable
+ * false positive (CREED — false-negative safe, false-positive forbidden).
+ */
+export function activationConditionParseable(condition) {
+  const src = { id: "__src__", card: { name: "__probe_name__", type: "Creature" } };
+  const probe = { players: { __probe__: { battlefield: [src], graveyard: [], hand: [], library: [], life: 20 } } };
+  return evaluateInterveningIf(probe, condition, "__probe__", { sourcePermanentId: "__src__" }) !== null;
 }

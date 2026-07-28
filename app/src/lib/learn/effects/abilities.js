@@ -23,6 +23,9 @@
 
 import { parseEffectClause, programConfidence, programNeedsChosenTarget } from "./parser.js";
 import { parseLeveler, isLevelerFrame } from "../leveler.js";
+// CONDITION rider (CR 602.5d) — the metric⇄runtime shared shape gate. interveningIf.js imports only
+// gameState.js (which does NOT import this module), so this edge is acyclic.
+import { activationConditionParseable } from "../interveningIf.js";
 
 /** Strip reminder text (parens) but PRESERVE newlines so per-ability line splitting works. */
 function stripReminder(text) {
@@ -67,6 +70,22 @@ function stripReminder(text) {
  * all, so it must stay parked rather than be credited into a window the card forbids.
  */
 const PRECOMBAT_RIDER = /\.?\s*Activate (?:this ability )?only (?:during your turn, )?before attackers are declared\.?\s*$/i;
+/**
+ * CONDITION rider (census slice, 2026-07-28) — "Activate only if <board condition>." (CR 602.5d). 62 corpus
+ * cards where this rider is the SOLE blocker.
+ *
+ * Unlike the timing riders above, this one restricts WHETHER, not WHEN — and it is a pure NARROWING of a
+ * window that already exists, so a wrong answer can only ever under-offer. That is what makes it the safe
+ * shape to build.
+ *
+ * It is stripped ONLY when `activationConditionParseable` says the offer gate can actually read the
+ * condition, and the condition then rides the ability so both sites key off THIS parse. An unreadable
+ * condition (the FILTERED spell-count form "you've cast a noncreature spell this turn", the delirium
+ * card-type-count form, "creatures you control have total power 4 or greater") is left IN the clause, which
+ * keeps the ability LOW and parks the card — a false negative, which is the safe direction. Stripping one
+ * without enforcement would hand the engine an unconditional ability the card never printed.
+ */
+const CONDITION_RIDER = /\.?\s*Activate (?:this ability )?only if ([^.]+)\.\s*$/i;
 const OPPONENT_TURN_RIDER = /Activate (?:this ability )?only during an opponent's turn/i;
 
 function stripEnforcedTimingRider(clause) {
@@ -756,12 +775,19 @@ export function parseActivatedAbilities(card) {
     // is the COUNT, never a boolean — a boolean cannot express "twice", which is exactly the gap here. The
     // "only once" frame parses as 1, so its 56 native carriers keep byte-identical behavior.
     const rawEffect = line.slice(ci + 1).trim();
-    const limitM = rawEffect.match(LIMIT_RIDER);
+    // CONDITION rider (CR 602.5d) — peeled FIRST because it is end-anchored and can sit AFTER a timing
+    // rider on the same line ("… Activate only once each turn. Activate only if a creature died this
+    // turn."). Peeling it first is what lets the end-anchored LIMIT/PRECOMBAT riders below still see their
+    // own tail. Stripped only when the offer gate can read it (the shared metric⇄runtime gate).
+    const condM = CONDITION_RIDER.exec(rawEffect);
+    const condition = condM && activationConditionParseable(condM[1].trim()) ? condM[1].trim() : null;
+    const afterCondition = condition ? rawEffect.replace(CONDITION_RIDER, "").trim() : rawEffect;
+    const limitM = afterCondition.match(LIMIT_RIDER);
     // A matched count word is always a LIMIT_WORDS key (the alternation is built from it), but fall back to
     // "no limit, don't strip" rather than NaN if that ever drifts — a safe false negative.
     const activationLimit = limitM ? (limitM[1] ? LIMIT_WORDS[limitM[1].toLowerCase()] ?? null : 1) : null;
-    const preCombatOnly = PRECOMBAT_RIDER.test(rawEffect) && !OPPONENT_TURN_RIDER.test(rawEffect);
-    const afterPrecombat = preCombatOnly ? rawEffect.replace(PRECOMBAT_RIDER, "").trim() : rawEffect;
+    const preCombatOnly = PRECOMBAT_RIDER.test(afterCondition) && !OPPONENT_TURN_RIDER.test(afterCondition);
+    const afterPrecombat = preCombatOnly ? afterCondition.replace(PRECOMBAT_RIDER, "").trim() : afterCondition;
     const effectClause = stripEnforcedTimingRider(activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim() : afterPrecombat);
     if (!costStr || !effectClause) continue;
 
@@ -831,6 +857,7 @@ export function parseActivatedAbilities(card) {
       activationLimit: activationLimit ?? (isBoast ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
       boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)
+      condition, // CR 602.5d "Activate only if <cond>" — legalChoices evaluates it; null when absent OR unreadable
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
