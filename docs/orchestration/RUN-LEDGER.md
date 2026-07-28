@@ -129,11 +129,29 @@ second one guards a REAL behavior, so its fixture was re-anchored on Forced Adap
 `COMPLEX.name`, and mutating `isNativeAura` to make the fixture native fails it. Caught by re-reading my own
 edit, not by the suite.
 
-### ⭐ NEXT — the aura pump+trigger COMPOSITION gap (5 cards, measured)
+### ✅ SHIPPED — the aura STATIC+TRIGGER composition (+10)
 
-Elephant Guide, Griffin Guide, Most Wanted, Failed Conversion + siblings. Each half classifies alone; the
-combination does not. This is the "TWO-FLIP SIGNATURE" the residue census names — a tier composition
-failure, not a missing mechanic. Worth doing next; it is a classification change, not new runtime.
+The residue census's "TWO-FLIP SIGNATURE", closed. Both gates were right in isolation and neither knew the
+other's half was covered: `permanentTriggersCovered`'s residue walk saw the static line as leftover text,
+`isNativeAura`'s walk saw the trigger line the same way. **Composed, not loosened** — each half must still
+pass its OWN gate, so an unmodeled static or an unrouted trigger still parks the card. Mutating either half's
+check away fails exactly the CREED test that guards it.
+
+**A TIER-THEFT REGRESSION I CAUSED AND CAUGHT — worth remembering as a shape.** The composition branch sits
+EARLIER in the aura tier chain than `isNativeAura`, and `isNativeAura` already composes a static grant with
+an aura-OWN ETB (Roots, Stupefying Touch, the tap-lock frames). So my branch caught those first and re-tiered
+them native-aura → native-trigger. **10 pins fired, every one asserting the TIER, not the coverage** — the
+cards were still credited, just filed in the wrong drawer. Fixed with an `isNativeAura(card)` bail-out at the
+top of the branch. **When adding a branch to a tier chain, check what the LATER tiers already claim.**
+
+**Two more CREED pins graduated, and one of their labels was already stale.** `superState`'s
+"an unmodeled aura-own trigger" was not unmodeled at all — that trigger detects and routes, and its static
+half classifies native-aura alone; the card was body-only purely for the composition gap. I verified BOTH
+halves independently before touching either pin, which is what separates a graduation from a rationalization.
+
+All 10 flips audited: Elephant Guide, Griffin Guide, Most Wanted (+A-), Failed Conversion, Demonic Appetite,
+Elder Mastery, Mark of Fury, Recumbent Bliss, Sleeper's Robe. Mark of Fury was named in the census's TWO-FLIP
+list, which is what pointed here.
 
 ## 🛑 THE MIS-PARK SCANNER IS MINED OUT — re-run after shipping, and it is thin
 
