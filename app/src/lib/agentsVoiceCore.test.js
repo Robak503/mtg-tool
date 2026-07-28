@@ -141,3 +141,20 @@ describe("CREED — the core is scoped to the room guides, and only them", () =>
     expect(p).toContain("Never invent a rule number");
   });
 });
+
+describe("KARN's collection lane (Forge-as-a-Karn-function, Colton's O3 ruling)", () => {
+  it("Karn may read OWNERSHIP as a build input", () => {
+    // Colton's ruling, verbatim: "just make a function of the ai inside the foundry to help you forge
+    // decks." Forge is a CAPABILITY of Karn, not a room — so the bench needs ownership as an input.
+    expect(KARN_DELTA).toContain("COLLECTION:");
+    expect(KARN_DELTA).toContain("build input");
+  });
+
+  it("…and still routes VALUE to Vihaan — the boundary that stops the faces colliding", () => {
+    // Same card, two different questions: Karn asks "do you own it?", Vihaan asks "what is it worth?".
+    // Without this line the two faces would both answer collection questions and contradict each other,
+    // which is precisely what the shared-core design exists to prevent.
+    expect(KARN_DELTA).toContain("Vihaan's lane");
+    expect(KARN_PROMPT).toContain("COLLECTION:");
+  });
+});

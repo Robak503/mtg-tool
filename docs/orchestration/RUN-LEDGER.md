@@ -55,19 +55,26 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Tree clean; wave 2 committed at `00f3c9b4`, not yet merged to master.
+- **Nothing mid-edit.** v0.149.6 tagged and building (wave 2 voices + Digby + locked/candidate + the
+  Mana Vault dead-card fix). Tree clean, branch level with master.
 
 ## NEXT ACTIONS
 
-1. **Land wave 2** (PR + merge) and cut a release — it is user-facing (every guide's voice changed).
-2. **Wave 3 item 8 — locked-vs-candidate deck model.** Omnath delivered the schema read (COMMS
-   2026-07-27 ~22:20). Read it and build the app half. This is the Foundry's theorycrafting heart.
-3. **Wave 4 — docket-RAG.** His seam sketch landed ~22:35. Build the app half against it.
-4. `MTGAssistant.jsx` decomp (1,704 lines, 11 hardcoded `setArea("agents")` sites) — unblocked, mechanical,
-   and the prerequisite for the Foundry rail re-home.
-5. Shelf gap, card by card — it is genuinely long-tail now (129 distinct blocking shapes for 362 slots,
-   biggest cluster 3). Prefer DEAD-CARD bugs over coverage: the Mana Vault find was worth more than any
-   coverage point, and those are invisible to the corpus number.
+1. **Wave 4 — docket-RAG.** Omnath's seam sketch is in COMMS (2026-07-27 ~22:35). Verify its premises the
+   way the wave-3 deny-list claim was verified, then build the app half.
+2. **Omnath answered O2 + O3** (Tibalt gremlin design; Forge-vs-Foundry, which Colton ruled on live).
+   Read and act. O1 (adversarial read of the voice build) may still be open.
+3. `MTGAssistant.jsx` decomp (1,704 lines, 11 hardcoded `setArea("agents")` sites) — unblocked,
+   mechanical, and the prerequisite for the Foundry rail re-home.
+4. Shelf gap, card by card — genuinely long-tail (129 blocking shapes for 362 slots, biggest cluster 3).
+   Prefer DEAD-CARD bugs over coverage; that class is invisible to the corpus number.
+
+## A POSTING BUG WORTH NOT REPEATING
+
+COMMS entries live directly under the 4-line file header (line ~6). There is a legacy
+`## LOG (newest first)` string ~670 lines down; anchoring a post on THAT buries the entry mid-file where
+Omnath never reads it. Three of my entries went into that hole before Colton's screenshot of his idle loop
+exposed it. **Post above the first `### ` header, and verify with `grep -n "^### " | head -3`.**
 
 ## PROBE LESSONS FROM THIS RUN — do not re-learn these
 
