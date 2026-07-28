@@ -134,16 +134,40 @@ And the phrasing spans **SEVEN events**, each with its own check function that b
 `checkDiesTriggers` iterates `for (const d of dead)` and fires per object. A batched trigger needs a
 SECOND pass that fires ONCE per call when ANY member of the batch matches its scope.
 
-**THE DESIGN, so the next session doesn't re-derive it:**
-1. Detection emits `{ …, batched: true }` for the "one or more" phrasing.
-2. **A BATCH_CAPABLE event whitelist gates detection.** An event whose check function has not yet been
-   taught to batch must keep returning 0 detections (undetected → body-only → FN-safe). Emitting a
-   batched trigger for an unbatched check function is the exact over-fire above — the whitelist is what
-   makes that unrepresentable rather than merely untested.
-3. Per event, add the second pass. Start with `dies` (20 cards, Morbid Opportunist #255) as the
-   reference implementation; the other six are mechanical repeats of that shape.
-4. Each event's pin MUST include a simultaneous-death/entry test asserting the trigger fires exactly
-   ONCE for a multi-object batch. That single assertion is the whole safety argument.
+### ⭐ THE PATTERN ALREADY EXISTS — copy `combatDamageBatch`, do NOT invent a mechanism
+
+**This is the single most useful thing on this page: the engine ALREADY batches triggers.** The
+combat-damage arm of this very family is built and shipped — Grim Hireling / Professional Face-Breaker /
+Olivia ("Whenever one or more creatures you control deal combat damage to a player"). Its anatomy:
+
+- **A DEDICATED EVENT NAME** — `combatDamageBatch`, *not* a `batched:true` flag on `combatDamageToPlayer`
+  (`triggers.js` ~1532).
+- **Its own check function** — `checkBatchCombatDamageTriggers` (`triggers.js` ~5148), which fires once
+  per controller rather than once per object.
+- **A `descriptorFilter` predicate on `triggersForEvent`** (already a supported parameter, ~4113) that
+  gates a FILTERED batch on the actual matching objects — the documented no-over-fire gate.
+
+**A separate event name is strictly better than the whitelist I sketched above.** The singular `dies`
+path is then untouched *by construction* — an unbuilt event simply has no detection and no check
+function, so over-firing is unrepresentable rather than merely gated. Ignore the whitelist idea; it was
+written before this precedent was found.
+
+**THE DESIGN, corrected:**
+1. Detection: `/^one or more (…) die$/` → `{ event: "diesBatch", scope, whose }`, reusing the EXISTING
+   scope machinery by normalising the plural subject to its singular form ("one or more other creatures"
+   → "another creature") so proven scope logic is shared rather than duplicated.
+2. Add `checkDiesBatchTriggers(state, dead)` modelled line-for-line on `checkBatchCombatDamageTriggers`:
+   group by watcher, fire ONCE when ANY member of `dead` matches the scope.
+3. Call it beside `checkDiesTriggers` at the same SBA site.
+4. Repeat per event. `dies` (20 cards, Morbid Opportunist #255) is the reference; `enter` (28),
+   `are put` (57), `leave` (39), `attack` (46) follow the identical shape.
+5. **Each event's pin MUST include a simultaneous multi-object test asserting the trigger fires exactly
+   ONCE for a batch of 3.** That single assertion is the entire safety argument — it is what separates
+   this from the over-fire, and a green suite without it proves nothing.
+
+**Note the 77 "deal" cards are ALREADY partly served** by `combatDamageBatch`; the parked ones there
+carry a variant its anchors reject (a qualified object, a rider, a colour filter). So the true remaining
+volume is nearer 214 than 291 — do not claim 291 without re-measuring per event.
 
 ### ⚠️ THE PROBE LIED TWICE BEFORE IT WAS RIGHT — both corrections are baked in, do not undo them
 
