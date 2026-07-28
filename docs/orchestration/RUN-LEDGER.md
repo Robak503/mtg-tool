@@ -76,6 +76,49 @@ That is the whole reason this target beats corpus %.
 - **Nothing mid-edit.** Corpus **35.1%** (12,036). Shelf 1259/1597. Suite **870 files / 11,241 tests**,
   lint 0, sweep 20/20. Master green. **v0.149.11 tagged**, release build running.
 
+## 🧭 NEW INSTRUMENT — UNDETECTED TRIGGER EVENTS, ranked (`scratchpad/undetected2.mjs`)
+
+The residue scanner kept surfacing cards whose SECOND trigger line the detector doesn't recognize, so this
+measures that space head-on: for every parked card, test each trigger line IN ISOLATION and rank the
+conditions `detectTriggers` returns nothing for.
+
+**The isolation matters — my first version was wrong.** It compared a card's trigger-LINE count to its
+descriptor count and, on a mismatch, credited EVERY line. So detected conditions polluted the ranking:
+"at the beginning of your upkeep" (66) and "this creature enters" (61) both appeared, and both are core
+detected events. Testing each line as its own single-line card fixed it. Same one-variable rule as always.
+
+### ⛔ DO NOT BUILD the #1 result — "this creature is turned face up" (89 lines)
+
+The single largest undetected condition in the corpus, and it is a **deliberate documented refusal**.
+`coverage.js:500-507` records that the morph face-down path is NOT offered or enforced — legalChoices has no
+cast-face-down action — so a turn-face-up trigger **could never fire**. Detecting it would credit 89 cards
+for a trigger the engine cannot reach: a false positive. The same applies to the other big undetected
+shapes, which are mechanics the engine simply does not implement: contraptions (43), mutate (31),
+specialize (31), doors/rooms (30).
+
+**That is the shape of this whole list**: most of it is undetected BECAUSE the underlying mechanic is
+unbuilt, and detection without the mechanic is an FP. Check `coverage.js` for an existing refusal comment
+before treating any entry here as a gap.
+
+### ⭐ THE ONE FEASIBLE LEAD — "When enchanted creature dies, …" (7 of 56 flip)
+
+Auras ARE modeled, unlike the mechanics above, so this one is real. 56 corpus carriers, all parked. I
+swapped the undetected trigger for a known-good aura ETB carrying the SAME effect and re-classified:
+**7 flip** (Elephant Guide, Griffin Guide, Bequeathal, Dying Wail, Most Wanted + A-, Failed Conversion).
+The other 49 are stuck on their EFFECTS as well, so the trigger alone does not free them.
+
+Dominant effect shape among the flippable: *"return that card to the battlefield under your control"* (7).
+
+**Precedent for the scope already exists**: `equippedCreature` handles an EQUIPMENT's host dying (Sword of
+the Realms) — on host death the attachment is already severed, so the linkage is read from the death
+look-back rather than `attachedTo`. An Aura's host-death wants the same treatment.
+
+**The hard part, and why it is banked rather than built:** the effect's referent. *"that card"* is the DEAD
+HOST's card in the graveyard, which must be threaded from the dies look-back into the effect. Bind it wrong
+and 7 cards return the wrong object — a false positive, not a miss. That is exactly the class of detail my
+late-run builds got wrong twice this session (a shipped FP, then a backspace-escape that cost most of a
+turn), so it wants a fresh session rather than the tail of this one.
+
 ## 🛑 THE MIS-PARK SCANNER IS MINED OUT — re-run after shipping, and it is thin
 
 Re-ran `scratchpad/residuegap.mjs` after the counters + once-per-turn slices landed. 888 candidates, but the
