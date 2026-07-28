@@ -984,6 +984,22 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (gyLeaveBatch) {
     return { event: "gyLeaveBatch", scope: "gyWatcher", whose: "any", gyCardType: gyLeaveBatch[1] ? "Creature" : null, gyOwnerScope: "you" };
   }
+  // BATCHED GY-ENTER (CR 603.1) — the inbound mirror: "Whenever ONE OR MORE <type> cards are put into your
+  // graveyard from anywhere / from your library" (The Gitrog Monster #897, Titania #5153, Turntimber Sower
+  // #7336, Sidisi #3513). Fires ONCE per batch, so a mill of five lands is one trigger, not five.
+  //
+  // The ORIGIN ZONE is part of the trigger condition, not decoration: "from your library" (a mill payoff)
+  // must NOT fire on a creature dying into the yard from the battlefield. gyFromZone carries it and the
+  // batch pass filters on `ev.zone`; the "from anywhere" form omits it entirely and matches any origin.
+  const gyEnterBatch = c.match(/^one or more (creature|land|artifact|enchantment) cards are put into your graveyard from (anywhere|your library)$/);
+  if (gyEnterBatch) {
+    const kind = gyEnterBatch[1];
+    return {
+      event: "gyEnterBatch", scope: "gyWatcher", whose: "any",
+      gyCardType: kind.charAt(0).toUpperCase() + kind.slice(1), gyOwnerScope: "you",
+      ...(gyEnterBatch[2] === "your library" ? { gyFromZone: "library" } : {}),
+    };
+  }
   // Bloodchief Ascension trigger 2: ANY card entering an OPPONENT's graveyard from ANY zone (battlefield
   // included — "from anywhere" has no exclusion).
   if (/^a card is put into an opponent's graveyard from anywhere$/.test(c)) {
@@ -3155,6 +3171,7 @@ export function detectTriggers(card) {
         gyCardType: cls.gyCardType,           // GY-EVENT (SHELF S7): front-face type gate on the moved card ("Creature" | null = any)
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
+        gyFromZone: cls.gyFromZone,           // GY-ENTER-BATCH: the ORIGIN zone the printed trigger names ("library" — Sidisi's mill payoff; absent = "from anywhere"). MUST be listed here or it is silently dropped and the trigger fires on EVERY origin — a live over-fire, not a missed one.
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
@@ -5829,14 +5846,19 @@ export function checkGraveyardEventTriggers(state) {
   // The filter predicates are the singular loop's, reused verbatim: gyCardType against the front face, and
   // gyOwnerScope pinning "your graveyard" to the watcher's controller. The first matching event supplies the
   // ctx card/owner so a payoff naming the card still binds something real.
-  const leaveEvents = events.filter((ev) => ev.dir === "leave");
-  if (leaveEvents.length) {
+  // Both DIRECTIONS share one pass — the only difference is which descriptor event name and which half of the
+  // drained queue. gyEnterBatch adds an optional gyFromZone filter ("…from your library" — Sidisi's mill
+  // payoff, as opposed to "from anywhere"); gyLeaveBatch never sets it, so its behaviour is unchanged.
+  for (const [dir, evName] of [["leave", "gyLeaveBatch"], ["enter", "gyEnterBatch"]]) {
+    const dirEvents = events.filter((ev) => ev.dir === dir);
+    if (!dirEvents.length) continue;
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
-        for (const d of detectTriggers(watcher.card).filter((x) => x.event === "gyLeaveBatch")) {
-          const hit = leaveEvents.find((ev) => {
+        for (const d of detectTriggers(watcher.card).filter((x) => x.event === evName)) {
+          const hit = dirEvents.find((ev) => {
             if (d.gyCardType && !new RegExp(`\\b${d.gyCardType}\\b`).test(frontFaceType(ev.card))) return false;
             if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) return false;
+            if (d.gyFromZone && ev.zone !== d.gyFromZone) return false;
             return true;
           });
           if (!hit) continue;   // nothing in this batch matched — no fire (never a fabricated trigger)

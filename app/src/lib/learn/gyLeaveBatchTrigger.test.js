@@ -120,3 +120,66 @@ describe("classification — the staples this unblocks", () => {
     expect(classifyCard(watcher(BATCH))).toMatch(/^native/);
   });
 });
+
+/**
+ * The INBOUND mirror — "Whenever ONE OR MORE <type> cards are put into your graveyard" (The Gitrog Monster
+ * #897, Titania #5153, Turntimber Sower #7336, Sidisi #3513). Same drained queue, same once-per-batch pass;
+ * the two directions share one loop so a filter fix can never apply to one and not the other.
+ *
+ * ⚠️ THE ORIGIN ZONE IS PART OF THE TRIGGER CONDITION, not decoration. "…from YOUR LIBRARY" is a mill payoff
+ * and must NOT fire when a creature dies into the yard from the battlefield.
+ *
+ * That filter was SILENTLY DROPPED on first write: `detectTriggers` rebuilds descriptors through an explicit
+ * field whitelist, and an unlisted key vanishes without error — so `gyFromZone` never reached the check and
+ * Sidisi fired on every graveyard entry. A live OVER-fire, not a missed one, and invisible in the tier (the
+ * card classified native either way). The zone tests below are what catch it; the whitelist entry carries a
+ * warning comment for the next field.
+ */
+describe("INBOUND direction — gyEnterBatch, and the zone filter that was silently dropped", () => {
+  const ANY_ORIGIN = `Whenever one or more land cards are put into your graveyard from anywhere, ${TOKEN_EFFECT}`;
+  const FROM_LIBRARY = `Whenever one or more creature cards are put into your graveyard from your library, ${TOKEN_EFFECT}`;
+
+  const entering = (n, { type = "Land", zone = "battlefield", gyOwner = "user" } = {}) =>
+    Array.from({ length: n }, (_, i) => ({
+      dir: "enter", zone, gyOwner,
+      card: { id: `e${i}`, name: `Card${i}`, type, oracle: "" },
+    }));
+
+  it("detects with its card type, and the bare 'from anywhere' form sets NO zone filter", () => {
+    expect(detectTriggers(watcher(ANY_ORIGIN))[0]).toMatchObject({ event: "gyEnterBatch", gyCardType: "Land" });
+    expect(detectTriggers(watcher(ANY_ORIGIN))[0].gyFromZone).toBeUndefined();
+  });
+
+  it("THE SILENT-DROP PIN — 'from your library' actually CARRIES the zone through the whitelist", () => {
+    // If gyFromZone is ever missing here, it has been dropped by the descriptor rebuild again and the
+    // trigger is firing on every origin.
+    expect(detectTriggers(watcher(FROM_LIBRARY))[0]).toMatchObject({ event: "gyEnterBatch", gyFromZone: "library" });
+  });
+
+  it("THREE lands hitting the yard fire the batch exactly ONCE", () => {
+    expect(fires(ANY_ORIGIN, entering(3))).toBe(1);
+  });
+
+  it("THE LOAD-BEARING ONE — a library-origin trigger does NOT fire on a battlefield death", () => {
+    expect(fires(FROM_LIBRARY, entering(2, { type: "Creature — Bear", zone: "battlefield" }))).toBe(0);
+    expect(fires(FROM_LIBRARY, entering(2, { type: "Creature — Bear", zone: "library" }))).toBe(1);
+  });
+
+  it("the 'from anywhere' form fires regardless of origin", () => {
+    expect(fires(ANY_ORIGIN, entering(1, { zone: "library" }))).toBe(1);
+    expect(fires(ANY_ORIGIN, entering(1, { zone: "battlefield" }))).toBe(1);
+  });
+
+  it("card type and graveyard owner are honoured on this direction too", () => {
+    expect(fires(ANY_ORIGIN, entering(2, { type: "Creature — Bear" }))).toBe(0);
+    expect(fires(ANY_ORIGIN, entering(2, { gyOwner: "ai1" }))).toBe(0);
+  });
+
+  it("cards LEAVING do not fire an ENTER batch", () => {
+    expect(fires(ANY_ORIGIN, entering(3).map((e) => ({ ...e, dir: "leave" })))).toBe(0);
+  });
+
+  it("Sidisi's shape flips", () => {
+    expect(classifyCard(watcher(FROM_LIBRARY))).toMatch(/^native/);
+  });
+});
