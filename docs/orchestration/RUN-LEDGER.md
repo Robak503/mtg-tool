@@ -293,11 +293,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.4%** (12,123/34,245 — +75 this run). Suite **884 files / 11,391 tests**,
-  lint 0, MUTANT sweep clean. SEVENTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries seventeen unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.4%** (12,130/34,245 — +82 this run). Suite **885 files / 11,405 tests**,
+  lint 0, MUTANT sweep clean. EIGHTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries eighteen unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **69.9%** · top-2500 **52.2%** · top-5000 41.8% · top-10k 34.9%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.4%** · top-5000 41.9% · top-10k 35.0%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -319,8 +319,35 @@ That is the whole reason this target beats corpus %.
 | `22e2293d` | batched GRAVEYARD-LEAVE — new `gyLeaveBatch` event | **+13**, **Insidious Roots #1386** · Desecrated Tomb #4196 · Quintorius #9596 |
 | `f682aadb` | scoped counters-put WATCHERS — the slice the source comment deferred | **+2**, Enduring Scalelord · Wickersmith's Tools |
 | `e05c796b` | batched graveyard-ENTER + a silently-dropped zone filter ⚠️ | **+1**, Sidisi #3513 |
+| `c5e68496` | BLINK / FLICKER (CR 400.7) + a splitter keep-whole guard ⚠️ | **+7**, **Ephemerate #440** · Cloudshift #792 · Blur · Momentary Blink |
 
-### 🔵 BLINK / FLICKER — 19 cards, 0 native, **blocked by the CLAUSE SPLITTER, not by the effect**
+### ✅ BLINK / FLICKER — SHIPPED `c5e68496` (+7). The lesson below outlived the blocker; keep it.
+
+**Ephemerate #440 · Cloudshift #792 · Blur #2252 · Momentary Blink #2675 · Acrobatic Maneuver #5574 ·
+Personify · Settle Beyond Reality.** The atom was pure composition (moveCardToZone off the battlefield →
+`enterCardFromZone` back on); the real work was the splitter, described below, which is why the original
+"blocked" analysis is kept rather than deleted.
+
+### ☠️ THE SPLITTER'S SAFE-FAILURE ASSUMPTION HAS AN EXCEPTION — the generalisable finding
+
+`splitClauses` reasons, in its own comment, that a mis-split *"just yields an unmodeled clause → low →
+Arbiter, never a confident wrong partial."* **That is true only when every fragment is individually
+unmodelable.** Blink is the counter-example:
+
+```
+"Exile target creature you control, then return that card to the battlefield under your control."
+   split →  "Exile target creature you control"            <- parses HIGH, entirely on its own
+            "return that card to the battlefield…"          <- fails
+```
+The card does not fall to the Arbiter. It becomes **a spell that exiles your creature and never returns
+it** — a confident wrong partial, exactly what the comment says cannot happen.
+
+**THE RULE: before trusting a split to fail safe, parse the LEADING fragment alone.** If it is HIGH, the
+split is not safe and the sentence needs a keep-whole guard (the mechanism the conditional-rider seams at
+`splitClauses` ~455/473 already use). Any ", then" / " and " sentence whose first half is a complete
+instruction is suspect — there are likely more.
+
+### 🔵 THE ORIGINAL BLOCKED ANALYSIS (kept — it is how the above was found)
 
 **Ephemerate #440 · Conjurer's Closet #485 · Cloudshift #792 · Essence Flux #928 · Blur #2252 · Momentary
 Blink · Splash Portal · Acrobatic Maneuver · Siren's Ruse …** — a core Commander mechanic at 0 native.
