@@ -138,8 +138,13 @@ describe("Super State — engine-first: the trigger fires + relays the combat da
 
 describe("Super State — CREED near-misses stay body-only", () => {
   const t = (o) => ({ name: "X", type: "Enchantment — Aura", oracle: o });
-  it("an unmodeled aura-own trigger (different effect) → body-only", () => {
-    expect(classifyCard(t("Enchant creature you control\nEnchanted creature has base power and toughness 9/9 and has flying.\nWhenever enchanted creature deals combat damage to an opponent, you may draw a card."))).toBe("body-only");
+  it("GRADUATED — this aura-own trigger IS modeled; only the COMPOSITION was missing", () => {
+    // The label was already stale before it fired: that trigger is DETECTED and ROUTES, and the static half
+    // ("base power and toughness 9/9 and has flying") classifies native-aura on its own. The card was
+    // body-only purely because no tier composed a modeled static with a modeled trigger. Verified both
+    // halves independently before changing this. The sibling below still holds the CREED line for a
+    // genuinely unmodeled shape (the qualified "a player or planeswalker" object).
+    expect(classifyCard(t("Enchant creature you control\nEnchanted creature has base power and toughness 9/9 and has flying.\nWhenever enchanted creature deals combat damage to an opponent, you may draw a card."))).toMatch(/^native/);
   });
   it('a qualified object "a player or planeswalker" → body-only', () => {
     expect(classifyCard(t("Enchant creature you control\nEnchanted creature has flying.\nWhenever enchanted creature deals combat damage to a player or planeswalker, it deals that much damage to each other opponent."))).toBe("body-only");

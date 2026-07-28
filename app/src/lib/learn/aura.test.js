@@ -85,7 +85,12 @@ describe("coverage — native-aura tier", () => {
   });
   it("a complex / restricted Aura stays body-only (routed to Arbiter at cast, never over-claimed)", () => {
     expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1 and can't be blocked.", name: "X" })).toBe("body-only");
-    expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nWhenever enchanted creature dies, draw a card.", name: "Y" })).toBe("body-only");
+    // GRADUATED 2026-07-28 — this exact shape is the STATIC+TRIGGER COMPOSITION. Both halves were always
+    // modeled on their own ("+1/+1" -> native-aura; "dies, draw a card" -> native-trigger, routing); only
+    // the combination was refused, because each tier's residue walk saw the other's line as leftover text.
+    // The bar this line enforces (never over-claim an Aura) is unchanged — its siblings hold it for the
+    // shapes that genuinely are unmodeled.
+    expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nWhenever enchanted creature dies, draw a card.", name: "Y" })).toMatch(/^native/);
     expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant land\nEnchanted land has '{T}: Add {C}{C}.'", name: "Z" })).toBe("body-only");
   });
 });

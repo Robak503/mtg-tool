@@ -1864,8 +1864,40 @@ function isNativeOwnActivatedAura(card) {
 function isNativeOwnTriggeredAura(card) {
   if (!isAuraCard(card)) return false;
   if (isPlayerAuraCard(card)) return false; // player-enchant Auras keep their own per-player cast lane (isPlayerAuraCard, below)
-  const stripped = String(card.oracle || card.oracle_text || "").replace(/(?:^|\n)\s*Enchant [^\n]*(?=\n|$)/i, "\n");
-  return permanentTriggersCovered({ ...card, oracle: stripped });
+  const raw = String(card.oracle || card.oracle_text || "");
+  const stripped = raw.replace(/(?:^|\n)\s*Enchant [^\n]*(?=\n|$)/i, "\n");
+  if (permanentTriggersCovered({ ...card, oracle: stripped })) return true;
+
+  // STATIC + TRIGGER COMPOSITION (the residue census's "TWO-FLIP SIGNATURE" — a tier composition failure,
+  // not a missing mechanic). Elephant Guide / Griffin Guide / Most Wanted / Failed Conversion each pair a
+  // MODELED static grant with a MODELED trigger, and BOTH halves classify on their own:
+  //     "Enchant creature / Enchanted creature gets +3/+3."                      -> native-aura
+  //     "When enchanted creature dies, create a 3/3 green Elephant token."       -> native-trigger
+  // …yet the whole card was body-only, because permanentTriggersCovered's residue walk (above) sees the
+  // static line as leftover text and the isNativeAura walk sees the trigger line the same way. Each gate is
+  // correct in isolation; neither knew the other's half was already covered.
+  //
+  // COMPOSED, NOT LOOSENED — and that distinction is the whole safety argument. Nothing here relaxes either
+  // check: the static half must pass isNativeAura ON ITS OWN (with the Enchant line restored, which that
+  // gate requires) and the trigger half must pass permanentTriggersCovered ON ITS OWN. A card with an
+  // unmodeled static, an unrouted trigger, or any third kind of line still fails whichever half owns it and
+  // stays on the Arbiter. All-or-nothing is preserved by construction (THE CREED).
+  // DO NOT STEAL A TIER THE AURA LANE ALREADY OWNS. isNativeAura ALREADY composes a static grant with an
+  // aura-OWN ETB ("When this Aura enters, tap enchanted creature." — Roots, Stupefying Touch, the tap-lock
+  // frames), and those cards are classified native-AURA. This branch sits earlier in the tier chain, so
+  // without this guard it caught them first and re-tiered them to native-trigger — 10 pins fired, all of
+  // them asserting the tier rather than the coverage. The composition below is only for the shapes the aura
+  // lane does NOT already accept.
+  if (isNativeAura(card)) return false;
+  const enchantLine = raw.match(/(?:^|\n)\s*(Enchant [^\n]*)/i)?.[1];
+  if (!enchantLine) return false; // no Enchant line ⇒ not the shape this composition is about
+  const lines = stripped.split("\n").map((l) => l.trim()).filter(Boolean);
+  const isTrigger = (l) => /^(?:when|whenever|at)\b/i.test(l);
+  const trigLines = lines.filter(isTrigger);
+  const staticLines = lines.filter((l) => !isTrigger(l));
+  if (!trigLines.length || !staticLines.length) return false; // a pure-static or pure-trigger aura is already handled by its own tier
+  if (!isNativeAura({ ...card, oracle: [enchantLine, ...staticLines].join("\n") })) return false;
+  return permanentTriggersCovered({ ...card, oracle: trigLines.join("\n") });
 }
 
 // GRANTED-ACTIVATED EQUIPMENT (subsystem 1 phase 1b) — an Equipment whose ONLY body is a modeled Equip
