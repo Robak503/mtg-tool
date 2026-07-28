@@ -15,7 +15,7 @@
  */
 process.env.MTG_APP_ROOT ||= "C:/Projects/mtg-tool/app";
 
-const { createLearnSession, advanceUntilDecision, applyChoice, applyPendingChoice } =
+const { createLearnSession, advanceUntilDecision, applyChoice, applyPendingChoice, continueFromArbiter } =
   await import("../src/lib/learn/learnSession.js");
 const { allCards, publicCard } = await import("../src/lib/server/cardIndex.js");
 
@@ -135,9 +135,21 @@ function answer(session, decision) {
   if (kind === "sac-unless-pay" || kind === "taxed-payment") return applyPendingChoice(session, { kind, pay: false });
   if (kind === "optional-mana-payment") return applyPendingChoice(session, { kind, pay: false });
   if (kind === "optional-sac-payment") return applyPendingChoice(session, { kind, sac: false });
+  // SOFT-COUNTER (CR 601.2 "counter unless its controller pays") — a BINARY, like the payment kinds above
+  // it, and the reason it needed its own line: it carries no `candidates`, so the generic card-pick
+  // fallback never catches it and it fell through to the priority family as a phantom wedge. Declining to
+  // pay is the choice a player short on mana actually makes, so it exercises the counter path.
+  if (kind === "soft-counter") return applyPendingChoice(session, { kind, pay: false });
   if (kind === "optional-effect") return applyPendingChoice(session, { kind, take: false });
   if (kind === "commander-return") return applyPendingChoice(session, { kind, return: true });
   if (kind === "scry-surveil") return applyPendingChoice(session, { kind, keepTop: [], toBottom: [] });
+
+  // ARBITER ESCAPE HATCH (added 2026-07-27). "unresolved" is NOT a soft-lock: it is the engine telling the
+  // user a card's effect isn't modeled, so the Arbiter rules on it and play continues — gameApi routes this
+  // kind to continueFromArbiter and IGNORES the answer. The sweep had no handler, so it fell through to the
+  // priority family, found no `options`, and scored a WEDGE. That made every game containing one unmodeled
+  // card look unfinishable, which is a claim about this script rather than about the engine.
+  if (kind === "unresolved") return continueFromArbiter(session, {});
 
   // GENERIC card-pick fallback — LAST, because several kinds (distribute-counters, edict-mode)
   // also carry `candidates` but need their own payload. Putting this first silently swallowed them
