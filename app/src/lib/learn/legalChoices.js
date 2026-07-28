@@ -227,6 +227,7 @@ function typeLineOf(card) {
 function isLand(card)        { return typeLineOf(card).includes("Land"); }
 function isInstant(card)     { return typeLineOf(card).includes("Instant"); }
 function isCreature(card)    { return typeLineOf(card).includes("Creature"); }
+function isArtifact(card)    { return typeLineOf(card).includes("Artifact"); }
 
 /** γ1b — does a permanent match a "Sacrifice a/an/another <type>" cost's type? "permanent" = any.
  * γ1b-SUBTYPE — an optional `subtype` (lowercased, Koma "Sacrifice another Serpent"; "Sacrifice a Swamp")
@@ -1751,7 +1752,14 @@ function actionsActivateAbility(state, playerId) {
         // Per-reducer subject gate: the Training-Grounds family applies to a CREATURE's abilities; the
         // equipOnly variant (Bureau Headmaster, SHELF S7) applies to EQUIP activations regardless of the
         // (non-creature) Equipment host. A reducer whose subject doesn't match this ability contributes 0.
-        const applicable = activatedReducers.filter((r) => (r.equipOnly ? !!ab.isEquipAbility : isCreaturePerm));
+        // subject:"artifact" (Forensic Gadgeteer #1374) is the third arm — an ARTIFACT's abilities, which is
+        // a disjoint pool from the Training-Grounds creature gate except for artifact creatures, where BOTH
+        // legitimately apply. Reading it under the creature gate would discount the wrong abilities: a wrong
+        // price, not a missing effect, and one the coverage tier can't see.
+        const applicable = activatedReducers.filter((r) => (
+          r.equipOnly ? !!ab.isEquipAbility
+            : r.subject === "artifact" ? isArtifact(perm.card)
+              : isCreaturePerm));
         if (applicable.length) cost = activatedCostReductionForCost(applicable, cost);
       }
       // NO-CHOICE cost affordability gates — X-INDEPENDENT, so they sit ABOVE the γ1f costX expansion and

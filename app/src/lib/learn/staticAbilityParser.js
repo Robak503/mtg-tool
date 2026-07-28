@@ -1752,9 +1752,13 @@ function parseClause(clause, out, selfName, selfType) {
   //     one-mana floor (activatedCostReductionForCost), and the rider is recognized as a modeled no-op below
   //     so it isn't seen as residue by staticAbilitiesCoverCard.
   // Anchored ^…$ so any variant (a cost-cap other than "{N} less", a non-mana rider) stays body-only.
-  const aacrM = c.match(/^activated abilities of creatures you control cost \{(\d+)\} less to activate$/);
+  // The SUBJECT is a filter, not decoration: Forensic Gadgeteer #1374 reads "artifacts you control" and
+  // Training Grounds reads "creatures you control". They must not share a descriptor — an artifact reducer
+  // credited under the creature gate discounts the wrong abilities, which is a wrong PRICE rather than a
+  // missing effect. "creatures" stays the unmarked default so every existing descriptor is byte-identical.
+  const aacrM = c.match(/^activated abilities of (creatures|artifacts) you control cost \{(\d+)\} less to activate$/);
   if (aacrM) {
-    out.push({ activatedCostReduction: { amount: parseInt(aacrM[1], 10) } });
+    out.push({ activatedCostReduction: { amount: parseInt(aacrM[2], 10), ...(aacrM[1] === "artifacts" ? { subject: "artifact" } : {}) } });
     return;
   }
   // EQUIP-ONLY variant (Bureau Headmaster — "Equip abilities you activate cost {1} less to activate.",
