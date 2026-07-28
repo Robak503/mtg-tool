@@ -2114,6 +2114,23 @@ export function advanceUntilDecision(
       // as possible"). autoPickTutorCandidate never declines, so default self-play/Academy
       // behavior is byte-identical either way.
       if (pc.kind === "tutor-search") {
+        // NO-FIND SOFT-LOCK (CR 701.23d) — fixed 2026-07-28, found by the playability sweep at scale:
+        // 9 of 150 human-path games WEDGED here, every one on `tutor-search (no options/candidates)`.
+        //
+        // An EMPTY candidate list is not a choice. Searching and finding nothing is a legal, complete
+        // outcome — you reveal, shuffle, and carry on. Pausing for a human here asks them to pick from
+        // zero options, which no UI can answer and no player can escape: the game is simply over, with no
+        // error raised anywhere. The comment on the decline flag below already called an empty array "the
+        // honest no-find"; the auto path acted on that and the PAUSE path did not.
+        //
+        // Settled EXPLICITLY with a null pick rather than by falling through to the auto path, because
+        // that path's offered-action list is gated on `mayFailToFind !== false` — a mandatory search with
+        // nothing to find would produce zero offered actions and strand the game a second way.
+        if ((pc.candidates || []).length === 0) {
+          const settled = settleTutorChoice(current.state, null);
+          current = { ...current, state: settled };
+          continue;
+        }
         if (pause) {
           return { session: current, decision: { kind: "tutor-search", ...pc } };
         }
