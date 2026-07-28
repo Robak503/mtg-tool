@@ -749,6 +749,25 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length >= n;
   }
 
+  // ===== CORRUPTED (CR 122 / 704.5c) ===== "an opponent has <N> or more poison counters" — the dominant
+  // printed form by a wide margin (17 of the 23 poison-conditioned clauses in the corpus). Existential
+  // across opponents (CR 104.3a): ANY one opponent at or past the threshold satisfies it. Reads the poison
+  // track that already exists on player state — the same one infect/toxic damage feeds.
+  //
+  // DELIBERATELY UNMATCHED, each a distinct SHAPE rather than a wording variant:
+  //   "its controller has …"  — needs a triggering object to resolve "its"; no such thread on this lane.
+  //   "you control three or more artifacts AND an opponent has …" — a CONJUNCTION. This vocabulary reads a
+  //                             single clause, and half-evaluating a compound is a false positive, not a
+  //                             partial credit.
+  //   "target player has FEWER than nine …" / "you have more …" — different comparator and scope.
+  // Each falls through to null → Arbiter (CREED — false-negative safe).
+  m = c.match(new RegExp(`^an opponent has ${NUM_RE} or more poison counters$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return opponentIds(state, controllerId).some((oid) => (state.players[oid]?.poison || 0) >= n);
+  }
+
   // ===== DELIRIUM (CR 702.9a's sibling ability word) ===== "[there are] <N> or more card types among cards
   // in your graveyard". Counts DISTINCT card types across the whole graveyard, not cards — one
   // "Artifact Creature — Golem" contributes TWO. Only the type line's head (before the em dash) is read, so

@@ -45,14 +45,17 @@ const ZOMBIE = {
 };
 // The REFUSED case: a board query with no reader, so the rider is never stripped.
 //
-// GRADUATED 2026-07-28, same night, and worth recording rather than quietly editing. This constant was
-// originally "creatures you control have total power 8 or greater" (Dragon-Scarred Bear), and the CREED
-// assertions below fired the moment the FORMIDABLE reader landed a slice later — which is exactly what they
-// were written to do. The bar they enforce ("a condition with no reader must never be stripped") is
-// unchanged and still met; formidable and delirium simply have readers now, so they moved out of the
-// refused set on evidence. Replaced with a form that genuinely still has none, so the assertions keep
-// guarding a live boundary instead of a historical one.
-const REFUSED_COND = "an opponent has three or more poison counters";
+// GRADUATED TWICE IN ONE NIGHT, which is the lesson worth recording rather than quietly editing away.
+// This constant was first "creatures you control have total power 8 or greater" (Dragon-Scarred Bear); the
+// FORMIDABLE reader landed a slice later and the assertions below fired, exactly as written. I replaced it
+// with the opponent-poison form — and the CORRUPTED reader landed the very next slice and fired them again.
+//
+// Twice is a pattern, so the pin is now anchored differently. A CONJUNCTION is refused STRUCTURALLY: this
+// vocabulary evaluates a single clause by design, and half-evaluating a compound would be a false positive
+// rather than a missing reader. That cannot be "fixed" by adding a reader the way the last two were, so the
+// assertion guards an architectural boundary instead of a to-do list. The bar it enforces is unchanged
+// throughout: a condition the gate cannot read is never stripped.
+const REFUSED_COND = "you control three or more artifacts and an opponent has three or more poison counters";
 
 const abilityFor = (oracle) => parseActivatedAbilities({ name: "X", type: "Artifact", oracle })[0];
 

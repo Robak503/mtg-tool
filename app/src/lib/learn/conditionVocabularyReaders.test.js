@@ -106,9 +106,37 @@ describe("FORMIDABLE — total power, layer-aware", () => {
   });
 });
 
-describe("both readers are visible to every lane that shares the vocabulary", () => {
+describe("CORRUPTED — an opponent's poison counters (CR 122 / 704.5c)", () => {
+  const POISON = "an opponent has three or more poison counters";
+  const seats = (mine, ...opps) => ({
+    players: {
+      me: { poison: mine, battlefield: [], graveyard: [] },
+      ...Object.fromEntries(opps.map((p, i) => [`o${i}`, { poison: p, battlefield: [], graveyard: [] }])),
+    },
+  });
+
+  it("EXISTENTIAL across opponents — any ONE at the threshold satisfies it (CR 104.3a)", () => {
+    expect(evaluateInterveningIf(seats(0, 0, 3, 0), POISON, "me")).toBe(true);
+    expect(evaluateInterveningIf(seats(0, 2, 2, 2), POISON, "me")).toBe(false);
+  });
+
+  it("MY OWN poison does not count — the clause is opponent-scoped", () => {
+    // A reader that scanned all players would report true here. That is the whole scoping risk.
+    expect(evaluateInterveningIf(seats(9, 0, 0, 0), POISON, "me")).toBe(false);
+  });
+
+  it("CREED — the CONJUNCTION form is refused rather than half-evaluated", () => {
+    expect(evaluateInterveningIf(seats(0, 3), "you control three or more artifacts and an opponent has three or more poison counters", "me")).toBeNull();
+  });
+
+  it("CREED — the per-object 'its controller' form is refused", () => {
+    expect(evaluateInterveningIf(seats(0, 3), "its controller has three or more poison counters", "me")).toBeNull();
+  });
+});
+
+describe("every reader is visible to every lane that shares the vocabulary", () => {
   it("readable as an ACTIVATION rider and as a SPELL rider", () => {
-    for (const c of [DELIRIUM, "creatures you control have total power 8 or greater"]) {
+    for (const c of [DELIRIUM, "creatures you control have total power 8 or greater", "an opponent has three or more poison counters"]) {
       expect(activationConditionParseable(c)).toBe(true);
       expect(spellConditionParseable(c)).toBe(true);
     }
