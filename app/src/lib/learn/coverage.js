@@ -1408,6 +1408,24 @@ export function permanentFullyCovered(card) {
     // only reveal the keyword/activated body — never hide a genuinely unmodeled sentence.
     .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
     .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ");
+  // ⭐ EQUIPMENT COMPOSITION — an Equipment whose bonus + Equip line are the whole remainder once the
+  // triggers are stripped. permanentEquipmentCovered ALREADY admits a trigger, but strips it with a naive
+  // `[^.]+` that stops at the first period, so any trigger whose effect runs past one sentence leaves the
+  // rest as residue and sinks the card: Mask of Memory's "If you do, discard a card.", Goldvein Pick's
+  // Treasure reminder, Adaptive Omnitool's three-sentence dig. THIS function's residue chain already
+  // handles all of those (the reflexive/optional-payment tails, the label strip, reminder stripping) — it
+  // just had no idea what an equipped-creature bonus is, so the two halves each understood their own piece
+  // and the card fell between them.
+  //
+  // Handing the CAREFULLY-stripped remainder to the equipment gate composes them without duplicating
+  // either. Safe by construction: every trigger was proven to route natively above, and
+  // permanentEquipmentCovered is itself all-or-nothing over what's left. 12 corpus Equipment sit here.
+  // The type test is a cheap EARLY-OUT, not a safety gate — permanentEquipmentCovered rejects a
+  // non-Equipment on its own first line, and a mutation removing this test changes no verdict. Said plainly
+  // so nobody later mistakes it for the thing holding the FP line; the all-or-nothing gate below it is.
+  if (/\bEquipment\b/i.test(String(card?.type || card?.type_line || ""))
+      && permanentEquipmentCovered({ ...card, oracle: afterTriggers })) return true;
+
   const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))
     .filter((line) => !isActivatedAbilityLine(line, card))
     .join("\n");
