@@ -591,6 +591,31 @@ export function copySpellClauseParser(clause) {
  */
 export function copyCreatureSpellClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
+  // ===== COPY AN INSTANT OR SORCERY (CR 707.10) ===== Reverberate #1380, Narset's Reversal #740's first
+  // half, the Fork family. Distinct from the creature-spell copy below: an instant/sorcery copy is NOT a
+  // token — it resolves its EFFECT and then simply ceases to exist (CR 707.10a, it was never a card), so the
+  // applier clones the resolving payload rather than snapshotting a copiable permanent card.
+  //
+  // "You may choose new targets for the copy" (CR 707.10c) is DECLINED, not modeled: declining is always a
+  // legal choice, so copying with the ORIGINAL targets is a faithful SUBSET of the printed card — it can
+  // only forgo an option, never play a different card. Same discipline the alt-cost recording uses. The
+  // rider is therefore ACCEPTED as text (the card is fully modeled without it) rather than left as residue.
+  //
+  // Riders that CHANGE the copy ("except that the copy is red" — Fork) are NOT accepted: they alter the
+  // copy's characteristics, which this path does not model, so those stay LOW → Arbiter (CREED FN-safe).
+  const ci = t.match(/^copy target instant or sorcery spell(\. you may choose new targets for the copy)?$/);
+  if (ci) {
+    return {
+      op: "copy-instant-or-sorcery",
+      targetType: "spell",
+      // The EXISTING filter name (Flusterstorm's CNT-IS), reused rather than coined: spellMatchesCounterFilter
+      // falls through to `return true` — i.e. ANY spell — on an unrecognised filter string, so a near-miss
+      // synonym like "instantOrSorcery" would silently let this copy a CREATURE spell. A wrong target, not a
+      // missing one, and invisible in the tier. Verified against the filter table before use.
+      spellFilter: "instantSorcery",
+      copyNotCounter: true,   // a copy is not a counter — uncounterability never restricts a copy target
+    };
+  }
   // Base form + the Double Major "except it isn't legendary if the spell is legendary" rider (optional).
   const m = t.match(/^copy target creature spell you control(, except it isn't legendary if the spell is legendary)?$/);
   if (m) {
@@ -1063,6 +1088,49 @@ function stripLegendarySupertype(card) {
   return next;
 }
 
+/**
+ * ===== COPY AN INSTANT OR SORCERY (CR 707.10) ===== Reverberate #1380 and the Fork family.
+ *
+ * Unlike the creature-spell copy below, there is NO copiable permanent card to snapshot: an instant/sorcery
+ * copy resolves its EFFECT and then ceases to exist (CR 707.10a — the copy is not a card, so it goes to no
+ * zone). So the copy is the ORIGINAL'S RESOLVING PAYLOAD, deep-cloned, with the controller re-pointed.
+ *
+ * Deep-cloned, not shared: the payload carries the program, its chosen targets and xValue, and the resolver
+ * mutates params as it runs. Sharing the object would let the copy's resolution reach into the original's.
+ *
+ * TARGETS ARE KEPT (CR 707.10c). "You may choose new targets" is DECLINED — always a legal choice, so this
+ * is a faithful SUBSET of the card: it can forgo an option, never play a different one.
+ *
+ * xValue rides along with the payload (CR 707.10b — a copy copies the value of X). The copy is placed ON TOP
+ * of the stack, so it resolves BEFORE the spell it copied — which is the printed behaviour and the reason
+ * Reverberate can answer a spell that would otherwise resolve first.
+ */
+function applyCopyInstantOrSorcery(state, atom, ctx) {
+  const t = (ctx.targets || []).find((x) => x?.type === "spell");
+  if (!t?.id) return logEvent(state, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: 0 });
+  const targetObj = (state.stack || []).find((o) => o.id === t.id && o.kind === "spell");
+  if (!targetObj) {
+    // Target left the stack (resolved / countered in response) — CR 608.2b illegal target, the copy fizzles.
+    return logEvent(state, { kind: "spell-effect", effect: "copy-instant-or-sorcery-fizzle", targetId: t.id, controller: ctx.controller });
+  }
+  if (!targetObj.payload) {
+    return logEvent(state, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: 0, cardName: targetObj.source?.name });
+  }
+  const { id, state: s2 } = mintId(state, "stk");
+  const clonedPayload = JSON.parse(JSON.stringify(targetObj.payload));
+  if (clonedPayload.params) clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
+  const copyObj = createStackObject({
+    id,
+    kind: "spell",
+    source: targetObj.source,
+    controller: ctx.controller,
+    targets: targetObj.targets || [],
+    payload: clonedPayload,
+  });
+  const next = { ...s2, stack: [...s2.stack, { ...copyObj, isCopy: true }] };
+  return logEvent(next, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: 1, cardName: targetObj.source?.name });
+}
+
 function applyCopyCreatureSpell(state, atom, ctx) {
   const t = (ctx.targets || []).find((x) => x?.type === "spell");
   if (!t?.id) {
@@ -1115,6 +1183,7 @@ function applyCopyCreatureSpell(state, atom, ctx) {
 export const stackResolvers = {
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell
+  "copy-instant-or-sorcery": applyCopyInstantOrSorcery, // COPY AN INSTANT/SORCERY (Reverberate, CR 707.10) — clones the resolving payload; the copy is no card and goes to no zone
   "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls
   "cdmg-to-each-other-opponent": applyCdmgToEachOtherOpponent, // CDMG-TO-EACH-OTHER-OPPONENT (Super State) — deal the combat-damage amount to each opponent EXCEPT the one just combat-damaged
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"

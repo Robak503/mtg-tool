@@ -118,6 +118,18 @@ export function splitClauses(oracle) {
     // of Fate): the ", then" split orphans "draws N cards" of its "each player" subject. Inject it so the draw
     // half parses with the EXISTING draw who:"eachPlayer" atom (the discard-hand half is a new all-mode atom).
     .replace(/(each player discards their hand), then (draws \w+ cards?)/gi, "$1. Each player $2")
+    // COPY-RETARGET (CR 707.10c — Reverberate, Narset's Reversal, the Fork family): "You may choose new
+    // targets for the copy." is its OWN SENTENCE, so it is severed by the sentence split above the clause
+    // loop — a keep-whole guard down there cannot reach it, only a normalize fold up here can.
+    //
+    // DROPPED rather than joined, because DECLINING the retarget is always a legal choice (CR 707.10c): the
+    // card modelled without it is a faithful SUBSET — it can forgo an option, never play a different card.
+    // Same discipline the alt-cost recording uses. That makes this a strip, not a rewrite, and it leaves the
+    // copy matcher a single clean sentence to match.
+    //
+    // Anchored to the exact optional-retarget sentence. A rider that CHANGES the copy ("…except that the copy
+    // is red" — Fork) is a DIFFERENT clause, is not stripped, and keeps its card LOW → Arbiter (CREED).
+    .replace(/\.\s*You may choose new targets for the copy\./gi, ".")
     // SPLIT-DAMAGE PAIR (BLITZ LG-1 — Lunge / Hungry Flames / Shower of Sparks): "<name> deals N damage to
     // target creature and M damage to target player or planeswalker" — the " and " joins TWO independent
     // single-target damage instructions sharing one subject; the top-level split would orphan the second
