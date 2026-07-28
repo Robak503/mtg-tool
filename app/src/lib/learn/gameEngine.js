@@ -158,10 +158,20 @@ function clearImpulsePlayPermissions(state) {
   let players = null;
   for (const [pid, player] of Object.entries(state.players)) {
     const exile = player.exile || [];
-    if (!exile.some((c) => c && c._impulse && c._impulseTurn <= state.turn)) continue;
+    // EXTENDED WINDOW (CR 118.10 — "until the end of your NEXT turn"): the stamp survives its own turn and
+    // lapses only when a turn ENDS that belongs to its OWNER and began after the stamp. This runs in the
+    // cleanup step BEFORE the turn advance, so `state.activePlayer` is the player whose turn is ending —
+    // which is what makes the owner comparison meaningful. Correct for both castings:
+    //   cast on the owner's turn T   → T is not > T, so it survives; the owner's NEXT turn ends it.
+    //   cast on an opponent's turn T → wrong owner at T's end; the owner's upcoming turn ends it.
+    // A plain (one-turn) stamp keeps the original `<= state.turn` rule byte-identical.
+    const expired = (c) => c && c._impulse && (c._impulseExtended
+      ? (c._impulseOwner === state.activePlayer && c._impulseTurn < state.turn)
+      : c._impulseTurn <= state.turn);
+    if (!exile.some(expired)) continue;
     const cleaned = exile.map((c) => {
-      if (!(c && c._impulse && c._impulseTurn <= state.turn)) return c;
-      const { _impulse: _drop, _impulseTurn: _dropTurn, ...rest } = c;
+      if (!expired(c)) return c;
+      const { _impulse: _drop, _impulseTurn: _dropTurn, _impulseExtended: _dropExt, _impulseOwner: _dropOwner, ...rest } = c;
       return rest;
     });
     players = players || { ...state.players };

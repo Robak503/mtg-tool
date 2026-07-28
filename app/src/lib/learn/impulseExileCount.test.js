@@ -67,11 +67,14 @@ describe("parse — the count is a parameter, not a new mechanism", () => {
       .toEqual({ op: "impulse-exile", targetType: null });
   });
 
-  it("CREED — the 'until the end of your NEXT turn' window stays refused", () => {
-    // A controller-scoped two-turn window the this-turn stamp cannot express. Folding it in would close the
-    // window at the wrong moment in multiplayer — a wrong effect, not a missing one.
-    expect(parseEffectProgram(S("Exile the top two cards of your library. Until the end of your next turn, you may play those cards.")).confidence)
-      .toBe("low");
+  it("the 'until the end of your NEXT turn' window is now MODELED (graduated — see impulseExtendedWindow.test.js)", () => {
+    // I wrote this as a refusal in the count slice, correctly: the this-turn stamp could not express a
+    // controller-scoped two-turn window, and folding it in would have closed the window at the wrong moment.
+    // It was built properly instead — the stamp carries the OWNER and the cleanup decides expiry, never
+    // arithmetic on the turn counter. Asserted positively rather than deleted, so the boundary stays visible.
+    const p = parseEffectProgram(S("Exile the top two cards of your library. Until the end of your next turn, you may play those cards."));
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toEqual({ op: "impulse-exile", targetType: null, count: 2, extendedWindow: true });
   });
 });
 

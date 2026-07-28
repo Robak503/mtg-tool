@@ -138,8 +138,15 @@ describe("LB-1 coverage — the body-only permanents flip native (sole blocker w
 describe("LB-1 FN guards — shapes the atoms can't model stay LOW → Arbiter", () => {
   const low = (clause) => expect(programConfidence(parseEffectClause(clause, "Instant", {}))).toBe("low");
 
-  it("a two-turn window ('until the end of your next turn') stays parked — the this-turn stamp can't model it", () => {
-    low("Exile the top card of your library. Until the end of your next turn, you may play that card.");
+  // (The TWO-TURN window "until the end of your next turn" GRADUATED out of this FN-guard list. Its stated
+  //  reason — "the this-turn stamp can't model it" — was accurate and is now obsolete: the stamp carries the
+  //  OWNER and gameEngine's cleanup decides expiry, so no arithmetic on the turn counter is involved. Pinned
+  //  with its full multiplayer semantics in impulseExtendedWindow.test.js. The guards BELOW are untouched —
+  //  each still names machinery that genuinely does not exist.)
+  it("the two-turn window is modeled now, and carries the extendedWindow flag", () => {
+    const p = parseEffectClause("Exile the top card of your library. Until the end of your next turn, you may play that card.", "Instant", {});
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0].extendedWindow).toBe(true);
   });
 
   it("a variable-N reorder ('the top X cards') stays parked — the atom needs a fixed count", () => {

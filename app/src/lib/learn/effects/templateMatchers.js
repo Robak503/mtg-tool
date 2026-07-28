@@ -519,10 +519,21 @@ export function matchImpulseExilePlay(oracle) {
   // cards), so both map to the identical atom. "those cards" is the DOMINANT printed form (6 carriers vs 3),
   // which is why the first pass flipped nothing until it was admitted.
   const m = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards)(?: this turn| until end of turn)|until end of turn, you may play (?:that card|it|them|those cards))$/);
-  if (!m) return null;
-  const word = m[1] === "card" ? "one" : m[1].split(" ")[0];
-  const count = NUM[word] || 1;
-  return { atom: { op: "impulse-exile", targetType: null, ...(count > 1 ? { count } : {}) } };
+  if (m) {
+    const word = m[1] === "card" ? "one" : m[1].split(" ")[0];
+    const count = NUM[word] || 1;
+    return { atom: { op: "impulse-exile", targetType: null, ...(count > 1 ? { count } : {}) } };
+  }
+  // EXTENDED WINDOW (CR 118.10) — "…until the end of your NEXT turn" (Light Up the Stage #1211, Reckless
+  // Impulse, Wrenn's Resolve, Inspired Tinkering — 22 carriers). A CONTROLLER-SCOPED two-turn window, which
+  // is why it needed its own flag rather than a bigger number: `state.turn` counts PLAYER turns, so "your
+  // next turn" is not `turn + 1` in multiplayer. The expiry is decided at cleanup by the OWNER + stamp turn
+  // (see applyImpulseExileAtom), never by arithmetic on the turn counter.
+  const e = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards) until the end of your next turn|until the end of your next turn, you may play (?:that card|it|them|those cards))$/);
+  if (!e) return null;
+  const eWord = e[1] === "card" ? "one" : e[1].split(" ")[0];
+  const eCount = NUM[eWord] || 1;
+  return { atom: { op: "impulse-exile", targetType: null, ...(eCount > 1 ? { count: eCount } : {}), extendedWindow: true } };
 }
 
 /**

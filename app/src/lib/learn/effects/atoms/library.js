@@ -860,11 +860,17 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   // cleanup clears the flags at end of turn — so the same monotonic turn counter gates the window (no per-turn
   // reset flag to wire). Mirrors PLOT's `_plotted` stamp on the exiled copy.
   //
-  // Deliberately NOT extended to the "until the end of your NEXT turn" window (Light Up the Stage's own
-  // wording): that is a controller-scoped TWO-turn window, and `state.turn` increments once per PLAYER turn,
-  // so "your next turn" is not `turn + 1` in multiplayer. Modelling it off this stamp would close the window
-  // at the wrong moment. It stays unmatched → Arbiter, exactly as templateMatchers already documented.
-  const stamped = taken.map((c) => ({ ...c, _impulse: true, _impulseTurn: state.turn }));
+  // EXTENDED WINDOW (CR 118.10) — "…until the end of your NEXT turn". Expressed as an OWNER + the stamp
+  // turn, never as arithmetic on the turn counter: `state.turn` counts PLAYER turns, so "your next turn" is
+  // roughly `turn + 4` in a four-player game and `turn + 1` only in a duel. gameEngine's cleanup closes the
+  // window when a turn ENDS that (a) belongs to `_impulseOwner` and (b) started after the stamp — which is
+  // correct for BOTH castings and is why the owner is carried rather than a computed expiry turn:
+  //   cast on YOUR turn T      → T's cleanup keeps it (stamp is not < T); your next turn's cleanup strips.
+  //   cast on an OPPONENT's T  → T's cleanup skips it (wrong owner); your upcoming turn's cleanup strips.
+  const stamped = taken.map((c) => ({
+    ...c, _impulse: true, _impulseTurn: state.turn,
+    ...(atom?.extendedWindow ? { _impulseExtended: true, _impulseOwner: controller } : {}),
+  }));
   const next = {
     ...state,
     players: {

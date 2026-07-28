@@ -2359,7 +2359,12 @@ function actionsActivateGraveyardExile(state, playerId) {
 
 function actionsPlayImpulseFromExile(state, playerId) {
   const player = state.players[playerId];
-  const impulsed = (player.exile || []).filter(c => c && c._impulse && c._impulseTurn === state.turn);
+  // EXTENDED WINDOW (CR 118.10 — "until the end of your NEXT turn"): an extended stamp stays playable until
+  // gameEngine's cleanup REMOVES it, so its presence IS the permission. A plain stamp keeps the strict
+  // this-turn equality. The two conditions are deliberately different: the extended window spans turns the
+  // turn counter cannot express, so its lifetime is owned by the cleanup rule, not re-derived here — if both
+  // sites tried to compute it, they would drift.
+  const impulsed = (player.exile || []).filter(c => c && c._impulse && (c._impulseExtended || c._impulseTurn === state.turn));
   if (impulsed.length === 0) return [];
   const nonlands = impulsed.filter(c => !isLand(c));
   const lands = impulsed.filter(c => isLand(c));
