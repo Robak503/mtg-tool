@@ -235,10 +235,13 @@ describe("PW-1 FN guards — rider variants stay LOW (safe false-negatives)", ()
   });
 
   it("destroy-power rejects strict 'greater than' and a toughness bound (the anchor is power N or greater/less)", () => {
+    // ("Destroy all creatures with mana value N or greater." GRADUATED out of this list — the MV-filtered
+    // wipe now has its own atom fields (mvCmp/mvVal) and its own pins in massWipeManaValue.test.js, which
+    // include the SAME strict-"greater than" refusal kept below. It was a scope marker for what the POWER
+    // slice didn't build, not a safety pin — the same graduation gyExile.test.js records for Scarab Feast.)
     for (const c of [
       "Destroy all creatures with power greater than 4.", // strict — not the "N or greater" shape
-      "Destroy all creatures with toughness 4 or greater.", // toughness, not power
-      "Destroy all creatures with mana value 4 or greater.", // MV, not power
+      "Destroy all creatures with toughness 4 or greater.", // toughness, still unmodeled — a real refusal
     ]) expect(programConfidence(parseEffectClause(c, "Instant"))).toBe("low");
   });
 });

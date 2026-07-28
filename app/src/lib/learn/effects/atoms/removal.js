@@ -701,6 +701,13 @@ export function destroyExileClauseParser(clause) {
   // "greater than" (strict) / any trailing rider fails the exact `$` → low → Arbiter (CREED whole-clause).
   const mpow = t.match(/^destroy all creatures with power (\d+) or (greater|less)$/);
   if (mpow) return { op: "destroy", targetType: "eachCreature", powerCmp: mpow[2] === "greater" ? ">=" : "<=", powerVal: parseInt(mpow[1], 10) };
+  // MANA-VALUE-FILTERED CREATURE WIPE (CR 202.3) — the direct sibling of the power form above: Austere
+  // Command (EDHREC #169) "Destroy all creatures with mana value 3 or less" / "… 4 or greater". Same
+  // eachCreature wipe, narrowed by mana value instead of power (massCreatureTargets reads card.cmc).
+  // "destroy all creatures" was ALREADY high — only this qualifier was missing, which is why a top-200
+  // staple sat on the Arbiter. Exact `$` anchor: a rider or "greater than" (strict) fails → low (CREED).
+  const mmv = t.match(/^destroy all creatures with mana value (\d+) or (greater|less)$/);
+  if (mmv) return { op: "destroy", targetType: "eachCreature", mvCmp: mmv[2] === "greater" ? ">=" : "<=", mvVal: parseInt(mmv[1], 10) };
   return null;
 }
 

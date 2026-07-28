@@ -79,6 +79,17 @@ export function massCreatureTargets(state, opts = {}) {
         const pw = creaturePower(perm, state);
         if (opts.powerCmp === ">=" ? pw < opts.powerVal : pw > opts.powerVal) continue;
       }
+      // MANA-VALUE threshold (CR 202.3 — "destroy all creatures with mana value N or less/greater";
+      // Austere Command, EDHREC #169). Reads the slim-index `cmc` with the same `?? 0` default the
+      // manaValue TARGET restriction uses. That default is CORRECT here, not merely conservative: a TOKEN
+      // has no mana cost and therefore mana value 0 (CR 111.5), so tokens genuinely fall inside an
+      // "N or less" wipe — which is exactly what Austere Command does to a board of Soldier tokens.
+      // Unlike power this is NOT layer-aware: mana value comes from the printed mana cost and no layer
+      // alters it (CR 202.3b), so a pumped creature keeps its mana value.
+      if (opts.mvCmp && typeof opts.mvVal === "number") {
+        const mv = perm.card?.cmc ?? 0;
+        if (opts.mvCmp === ">=" ? mv < opts.mvVal : mv > opts.mvVal) continue;
+      }
       out.push({ type: "creature", id: perm.id, controller: pid });
     }
   }
@@ -227,7 +238,7 @@ for (const tt of MASS_WIPE_SCOPES) {
 export const atomTargets = (state, atom, ctx) => {
   // CRUX — a subtype-filtered mass set ("destroy all Dragon creatures" / "all non-Dragon creatures"). The bare
   // "destroy all creatures" wipe carries no subtypeFilter, so it passes EVERY creature (unchanged byte-for-byte).
-  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal });
+  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal, mvCmp: atom.mvCmp, mvVal: atom.mvVal });
   if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
   if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
   if (atom.targetType === "eachLand") return massPermanentTargets(state, atom.landSubtype
