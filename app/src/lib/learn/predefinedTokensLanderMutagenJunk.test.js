@@ -90,6 +90,37 @@ describe("classification — real carriers flip, and the CREED still holds", () 
   });
 });
 
+describe("⛔ POWERSTONE IS NOT NEXT — the trap this slice sets for whoever reads it", () => {
+  /**
+   * Powerstone is the single largest remaining unregistered predefined token: 15 parked corpus cards, an
+   * "It's an artifact with …" reminder, one consistent definition. It looks EXACTLY like the three above,
+   * and adding it is a two-line change. Do not.
+   *
+   * Its ability is "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell." — RESTRICTED mana.
+   * The mana pool is a plain per-color count with no restriction tracking (manaModel.js:447,
+   * staticAbilityParser.js:436, and parser.js:241 all say so, the last one naming Powerstone outright).
+   * Registering it would hand the player unrestricted colorless mana on 15 cards — a false positive, which
+   * is the one direction the CREED forbids, and the same shape as the phantom-mana bug that makes manaModel
+   * refuse tap-another-permanent costs.
+   *
+   * These assertions fail the moment someone registers it, which is the point: the objection arrives at the
+   * edit, not in a doc nobody opens.
+   */
+  it("Powerstone is deliberately ABSENT from the registry", () => {
+    expect(NAMED_TOKENS.powerstone).toBeUndefined();
+  });
+
+  it("a Powerstone carrier stays parked", () => {
+    const card = { name: "X", type: "Creature — Human Artificer", mana: "{2}", power: 2, toughness: 2, keywords: [],
+      oracle: "When this creature enters, create a Powerstone token." };
+    expect(classifyCard(card)).not.toMatch(/^native/);
+  });
+
+  it("…and the clause does not parse to an atom", () => {
+    expect(createNamedTokenClauseParser("create a powerstone token")).toBeNull();
+  });
+});
+
 describe("the unprinted dynamic forms stay UNMATCHED — pin the measured narrowness", () => {
   // These are not oversights. No corpus card prints them, so they route to the Arbiter rather than being
   // credited. If a future set prints one, widening is a deliberate edit that has to update this pin.
