@@ -381,9 +381,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,277/34,245 — +229 this run). Suite **908 files / 11,658 tests**,
-  lint 0, MUTANT sweep clean. FORTY-FOUR slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries forty-four unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.9%** (12,278/34,245 — +230 this run). Suite **908 files / 11,658 tests**,
+  lint 0, MUTANT sweep clean. FORTY-FIVE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries forty-five unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **72.1%** 🎉 · top-2500 **54.2%** · top-5000 **43.0%** · top-10k **35.8%**.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -412,6 +412,7 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `46798947` | …and the NATIVE-TRIGGER chain gets the same strip | **+1**, plus 42 cards RETIERED mixed→trigger (a better label, not a gain) |
 | `f61fd1d6` | ⭐⭐ **THE RESIDUE CHAIN STOPS GUESSING** — measured GAINED 49 · LOST 0 · RETIERED 0 | **+49** corpus-wide; Abbot of Keral Keep · Sea Gate Oracle · Voldaren Epicure · Adaptive Omnitool |
 | `6d892d21` | ⭐ **EQUIPMENT composes with its trigger** — a composition gap, not a card gap | **+8**, **Mask of Memory #1002** · **Goldvein Pick #2100** · Prying Blade · Skeleton Key |
 | `2c90b6fa` | typed uncounterable — the read went per-PLAYER → per-SPELL | **+2**, Prowling Serpopard #3581 · **Surrak Dragonclaw #3186** |
@@ -538,9 +539,16 @@ it classifies every movement GAINED / LOST / RETIERED and exits non-zero on any 
    `tokenAbilityGrantResidue.test.js` pins that exact card for that exact reason, **from a previous
    author's previous attempt at this same idea.** I reproduced it verbatim. Horizontal whitespace only.
 
-**Three scope pins graduated, all of which had DRIFTED into looking like safety pins** — each was parking
-its card only because the residue chain left a sentence behind, for a reason that had stopped being true
-(the optional discard, Blood tokens, and the folded `damageRider` are all modeled now).
+**FOUR scope pins graduated, every one DRIFTED into looking like a safety pin** — each was parking its
+card only because the residue chain left a sentence behind, for a reason that had stopped being true:
+the optional discard, Blood tokens, the folded `damageRider`, and — on the trigger chain — a
+discard-CHOICE from a trigger, which now fires, resolves, and pauses with correctly filtered candidates.
+Verified end to end, not assumed.
+
+⭐ **THE PATTERN, banked because it will recur:** a residue check that parks a card for the WRONG reason
+looks exactly like one that parks it for the right reason, and the pins written on top of it age into
+false confidence. That is why the **per-card tier diff — not the total —** is what makes this class of
+change safe to attempt at all.
 
 **NOT crosses, don't re-diagnose:** Shriekmaw #1546 — its "sibling" is also unparsed. Jhoira's Familiar
 #1035 — "historic" isn't a type-line token, and that refusal is CORRECT.
