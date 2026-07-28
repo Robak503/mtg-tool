@@ -54,8 +54,16 @@ needs Colton's hands, touches secrets, or would ship a guess.
 
 ## 📈 THE CEILING QUESTION — ANSWERED WITH EVIDENCE (Colton asked 2026-07-28: "can't we get top 2500 to 70%?")
 
-**There is NO structural cap. 70% is reachable; the constraint is RATE, not possibility.** Measured at 52.5%
-(1,312/2,500 playable · 1,188 parked). Regenerate with `scratchpad/ceiling.mjs`.
+**There is NO structural cap. 70% is reachable; the constraint is RATE, not possibility.**
+Regenerate with `node app/scripts/probe-top2500-ceiling.mjs` (MTG_APP_ROOT set to the install).
+
+**⚠️ THE TWO TOOLS DISAGREE BY ~0.3pp — `measure-coverage.mjs` IS AUTHORITATIVE.** The ceiling probe read
+52.5% (1,312/2,500 · 1,188 parked) while `measure-coverage` read 52.2% (1,305/2,500) *later*, which is
+impossible from shipping features. Cause: they slice the top 2500 from DIFFERENT POOLS — `measure-coverage`
+filters to "real cards in the active index" (dropping art-series and similar), the probe uses `allCards()`
+raw, so the two 2,500-card memberships differ. **Trust `measure-coverage` for any number quoted to Colton;
+trust the probe for the BUCKET SHAPE only** (which is what it exists for and is unaffected by a few
+membership swaps). Reconciling the probe's pool to measure-coverage's loader is a small unstarted task.
 
 ```
  381  (cum 32%)  Spell effect (other)      Chaos Warp #30 · Brainstorm #72 · Deflecting Swat #77
@@ -74,7 +82,7 @@ short by 8 multi-blocker staples). Nothing of that shape exists here.
 
 ### ⚠️ AND THE HONEST PART — THE RATE PROBLEM IS SELF-INFLICTED
 
-This run's 12 slices moved top-2500 by only **~14 cards**, because every one was a *named single staple*
+This run's 14 slices moved top-2500 by only **~16 cards**, because every one was a *named single staple*
 picked off the one-mode-away shortlist (Austere Command, Rakdos Charm, Cryptic Command, Warping Wail…).
 Superb value per CARD — each is a real format staple — and terrible VOLUME. At ~1.3 top-2500 cards per
 slice, 438 cards is hundreds of slices.
