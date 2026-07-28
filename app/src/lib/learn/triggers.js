@@ -936,6 +936,27 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (filter) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: filter };
     }
   }
+  // ===== BATCHED DEATHS (CR 603.1) ===== "Whenever ONE OR MORE … die" (Morbid Opportunist, Soul Shredder,
+  // G'raha Tia). This fires ONCE for a batch of simultaneous deaths, where the singular "whenever a creature
+  // dies" fires once PER creature — they are NOT synonyms, and mapping the plural onto the singular detector
+  // would over-fire (a board wipe drawing 5 cards instead of 1), the forbidden direction.
+  //
+  // Modelled as its OWN EVENT with its own check function, exactly like the shipped `combatDamageBatch`
+  // (Grim Hireling / Olivia) — NOT as a flag on `dies`. That is what keeps the singular path untouched BY
+  // CONSTRUCTION: a batched descriptor has no route into the per-object fire loop at all, so the over-fire
+  // is unrepresentable rather than merely gated.
+  //
+  // The subject is normalised to its SINGULAR form and handed to the SAME creatureSubjectScope switch the
+  // singular arm uses, so scope semantics are shared rather than duplicated. Anchored whole-clause: any
+  // rider or restricted subject ("…die during your turn", a subtype list) fails the `$` → undetected →
+  // Arbiter (SAFE FN). Subtype/nontoken batch variants are deliberately left for a later pass.
+  {
+    const batchDies = c.match(/^one or more (other )?creatures( you control| an opponent controls| you don't control)? die$/);
+    if (batchDies) {
+      const scope = creatureSubjectScope(`${batchDies[1] ? "another" : "a"} creature${batchDies[2] || ""}`);
+      if (scope) return { event: "diesBatch", scope, whose: "any" };
+    }
+  }
   // ===== GY-EVENT conditions (Syr Konrad / Bloodchief Ascension — SHELF S7) ===== card-scoped graveyard
   // traffic watchers, fired per moved card by checkGraveyardEventTriggers off the gameState
   // pendingGraveyardEvents queue. ANCHORED EXACT — a filter this vocabulary can't express ("from your
@@ -4367,14 +4388,62 @@ export function checkDiesTriggers(state, dead) {
       }
     }
   }
-  if (!fired.length) return state2;
+  // The no-singular-trigger fast path must STILL run the batch pass: a board can hold ONLY batch watchers
+  // (Morbid Opportunist alone), in which case `fired` is empty and a bare `return state2` would silently skip
+  // them — the card classifies native and never fires, the exact metric-over-claims-runtime drift the CREED
+  // forbids. Caught by the n=1 test, which is why that test exists despite looking redundant beside n=3.
+  if (!fired.length) return checkDiesBatchTriggers(state2, dead);
   // DIES-TRIGGER MULTIPLIER (Teysa Karlov): every fire here is caused by a CREATURE dying (event "dies",
   // triggeringPermanent a dead creature) → each qualifying ability triggers an additional time per multiplier
   // its controller controls. Applied AFTER the fired list is fully built so a batch of simultaneous deaths is
   // multiplied uniformly. checkPlaneswalkerDiesTriggers deliberately does NOT call this — a planeswalker dying
   // is not "a creature dying" (CR — Teysa's clause names creatures), so PW-death triggers are never doubled.
   fired = multiplyDiesTriggers(state2, fired);
-  return { ...state2, pendingTriggers: [...(state2.pendingTriggers || []), ...fired] };
+  const afterSingular = { ...state2, pendingTriggers: [...(state2.pendingTriggers || []), ...fired] };
+  // BATCHED DEATHS (CR 603.1) — the once-per-batch watchers ("Whenever one or more creatures die") fire off
+  // the SAME death list at the SAME site. Chained here rather than wired into the 10+ call sites that reach
+  // checkDiesTriggers (combat, destroy, sacrifice, amass, SBA …) so no death path can silently miss them —
+  // a missed site would be a watcher that never fires while the metric credits the card native.
+  //
+  // NOT passed through multiplyDiesTriggers: a doubler (Teysa) arguably multiplies a batch trigger too, but
+  // leaving it unmultiplied is the UNDER-fire, which is the safe direction. Deliberate, not overlooked.
+  return checkDiesBatchTriggers(afterSingular, dead);
+}
+
+/**
+ * BATCHED DEATHS (CR 603.1) — fire `diesBatch` watchers ONCE for a batch of simultaneous deaths.
+ *
+ * The whole point, and the only thing that makes this safe: the `break` below. A watcher fires exactly ONCE
+ * per call no matter how many creatures died, which is what "Whenever ONE OR MORE creatures die" means. The
+ * singular `dies` path (checkDiesTriggers) fires once PER creature and is untouched — a diesBatch descriptor
+ * can never enter that loop because it carries a different event name, so the over-fire is unrepresentable.
+ *
+ * Scope is evaluated by handing each dead creature to triggersForEvent in turn and taking the FIRST watcher
+ * hit: that reuses the identical scopeMatches logic the singular path uses (controller scope, not-self,
+ * layer-aware creature-ness) rather than duplicating it. The CR-603.10a look-back carries `attachments` and
+ * `counters` exactly as checkDiesTriggers builds it, so a scope needing last-known info reads the same bag.
+ *
+ * EXILE-INSTEAD (CR 614 + 700.4) is filtered first, mirroring checkDiesTriggers: a creature exiled instead of
+ * being put into a graveyard never DIED, so it must not contribute to the batch — otherwise a Lava-Coil-class
+ * removal would fire a death watcher that saw no death.
+ *
+ * Pure — appends to pendingTriggers.
+ */
+export function checkDiesBatchTriggers(state, dead) {
+  const deaths = (dead || []).filter((d) => d?.card && !d.exileInstead);
+  if (!deaths.length) return state;
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of deaths) {
+        const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {} };
+        const hits = triggersForEvent(state, { event: "diesBatch", sourcePermanent: watcher, triggeringPermanent: lookBack });
+        if (hits.length) { fired = fired.concat(hits); break; }  // ONCE per watcher per batch — CR 603.1
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
 /**
