@@ -73,7 +73,7 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.1%** (12,032). Shelf 1259/1597. Suite **870 files / 11,229 tests**,
+- **Nothing mid-edit.** Corpus **35.1%** (12,032). Shelf 1259/1597. Suite **869 files / 11,229 tests**,
   lint 0, sweep 20/20. Master green. **v0.149.10 tagged, release build in progress** (v0.149.9 took 25 min).
 
 ## ✅ THE MIS-PARK SCANNER — built, run, and it has now been MINED OUT
