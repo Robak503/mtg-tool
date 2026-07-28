@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.6%** (12,175/34,245 — +127 this run). Suite **892 files / 11,499 tests**,
-  lint 0, MUTANT sweep clean. TWENTY-SEVEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries twenty-seven unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.6%** (12,186/34,245 — +138 this run). Suite **896 files / 11,550 tests**,
+  lint 0, MUTANT sweep clean. THIRTY-ONE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries thirty-one unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **71.1%** 🎉 · top-2500 **53.2%** · top-5000 42.4% · top-10k 35.3%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **71.5%** 🎉 · top-2500 **53.6%** · top-5000 42.6% · top-10k 35.4%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,11 +412,57 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `7a1fab1d` | type-filtered untap — the family's 3rd shape, PARAMETERIZED not a 3rd twin | **+3**, Unwinding Clock #545 · Drumbellower #1940 · Prophet of Kruphix |
+| `ab92c504` | ⭐ **THE MISSING-CROSS FINDER** (probe) + COLOR×TYPE cost reduction | **+4**, the **Monument cycle** #664 · #1009 · #1879 · #2151 |
+| `9d1e4f8b` | lands-only play-from-top — needed a NEW spell gate to stay honest | **+2**, **Oracle of Mul Daya #499** · **Courser of Kruphix #1232** |
+| `d1cc3eb4` | the you-scoped land doubler — an empty CELL, zero new machinery | **+2**, **Mirari's Wake #680** · Zendikar Resurgent #2260 |
 | `0168559a` | ⭐ **WAVE B — the ATTACK TAX** (CR 508.1g): restriction + payment as ONE change | **+3**, **Propaganda #115** · **Ghostly Prison #161** · Windborn Muse #1011 |
 | `b9d1d3c9` | ⭐ THE DRAIN MIRROR — lifegain⇄lifeloss, one UNBLOCKED + one RE-POINTED | **+6**, **Sanguine Bond #496** · **Vito #492** · **Exquisite Blood #508** · Bloodthirsty Conqueror #901 |
 | `619b9513` | ⭐ WAVE C — batched-ETB filter, WITHOUT the batch machinery | **+3**, **Welcoming Vampire #428** · **Tocasia's Welcome #866** · Enduring Innocence #785 |
 | `3c3fd256` | ⭐ WAVE A — copy an instant or sorcery (CR 707.10) | **+5**, **Reverberate #1380** · Reiterate · Twincast |
 | `9381112d` | impulse NEXT-TURN window — controller-scoped expiry ⭐ | **+6**, **Light Up the Stage #1211** · Reckless Impulse #2120 · Wrenn's Resolve #2116 |
+
+### ⭐ THE MISSING-CROSS METHOD — `app/scripts/probe-near-miss-clauses.mjs` (banked 2026-07-28)
+
+Four slices in a row were the same shape and **none was a new mechanic**: a parked clause sitting one
+word from a clause the engine already reads, with the runtime for it fully built. A grid whose other
+cells exist and whose corner nobody closed.
+
+```
+MANA DOUBLER          all players            controller ("you tap")
+  land                MF-1 Mana Flare ✓      ← Mirari's Wake sat HERE
+  nonland             —                      MD-1 Kinnan ✓
+
+COST REDUCTION        color only             color × card-type
+                      Ruby Medallion ✓       ← the Monument cycle sat HERE
+```
+
+**Run it before hunting named staples.** `--maxRank=2500 --distance=1` is 28s and returned 23 honest
+candidates. `--distance=3` widens to 157.
+
+⚠️ **NEAR ≠ EASY.** "Destroy target creature" and "Exile target creature" are one word apart and
+different subsystems. The probe sizes the candidate list; the build still opens the file.
+
+⚠️ **AND THE PROBE'S FIRST TWO RUNS WERE BOTH WRONG.** `land` is inside `NATIVE_TIERS`, but a land is
+credited *wholesale by its type line* — its printed abilities may be entirely unmodeled. Harvesting
+land text as "shapes the engine reads" produced a confident false lead (Ashnod's Altar ← Phyrexian
+Tower, whose sac-for-mana is **not** modeled); excluding lands from the harvest *alone* was worse —
+they fell into the parked branch and the report's whole top became phantom "blocks 13 cards" clusters.
+Lands are skipped outright now. **A ranked list of plausible leads is exactly the output that doesn't
+announce when it's wrong.** Verify against the corpus, never off the report.
+
+**Still open at distance 1 (top-2500), read but not built:** Accursed Marauder #464 (nontoken edict) ·
+Mother of Runes #512 (protection-from-chosen-color activated) · Reprieve #633 (bounce a SPELL) ·
+Aqueous Form #735 (enchanted-creature unblockable) · Blade of Selves #905 (myriad grant) · Elvish
+Archdruid #942 (mana per SUBTYPE) · Forensic Gadgeteer #1374 (activated-cost cut for artifacts) ·
+Isshin #1456 (ATTACK-trigger multiplier — the Teysa shape) · Aether Channeler #1526 ("another target")
+· Shriekmaw #1546 (two negated qualifiers) · Voltaic Key #1776 (untap target artifact) · Deafening
+Silence #1946 · Garruk's Packleader #2014 ("another creature … power N or greater").
+
+**Deliberately NOT taken:** the Altar family (Ashnod's #132, Phyrexian #307, Skirk Prospector #1351,
+Krark-Clan Ironworks #1356 — 12 corpus carriers). A costless "Sacrifice a creature: Add {C}{C}" needs
+the mana model to pick a *victim* at production time; the modeled sibling sacrifices the SOURCE. Real
+work, not a cross — but the best-sized unbuilt mana lever on the board.
 
 ### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
 
