@@ -52,6 +52,43 @@ is LOW, the gap is a missing CROSS, not a missing mechanic. That single diff fou
 Full authority granted: cut releases freely, choose the work, no check-ins. Stop only for something that
 needs Colton's hands, touches secrets, or would ship a guess.
 
+## 📈 THE CEILING QUESTION — ANSWERED WITH EVIDENCE (Colton asked 2026-07-28: "can't we get top 2500 to 70%?")
+
+**There is NO structural cap. 70% is reachable; the constraint is RATE, not possibility.** Measured at 52.5%
+(1,312/2,500 playable · 1,188 parked). Regenerate with `scratchpad/ceiling.mjs`.
+
+```
+ 381  (cum 32%)  Spell effect (other)      Chaos Warp #30 · Brainstorm #72 · Deflecting Swat #77
+ 195  (cum 48%)  ETB trigger               The One Ring #90 · Chrome Mox #144 · Tireless Provisioner #182
+ 118  (cum 58%)  Activated ability         Ashnod's Altar #132 · Sensei's Divining Top #226
+ 112  (cum 68%)  Upkeep/phase trigger      Arcane Denial #55 · Mana Drain #117 · Mana Vault #145
+  94  (cum 76%)  Other / unclassified      Toxic Deluge #67 · Panharmonicon #261
+  78  (cum 82%)  Attacks/blocks trigger    Ragavan #271 · Etali #260
+```
+
+**Four ORDINARY buckets are 68% of everything left** — spell effects, ETB triggers, activated abilities,
+phase triggers. Categorically unlike cdh, where the cap is arithmetic and proven (79% now → 82% ceiling,
+short by 8 multi-blocker staples). Nothing of that shape exists here.
+
+**70% needs 438 more cards (37% of parked). 80% needs 688 (58%).**
+
+### ⚠️ AND THE HONEST PART — THE RATE PROBLEM IS SELF-INFLICTED
+
+This run's 12 slices moved top-2500 by only **~14 cards**, because every one was a *named single staple*
+picked off the one-mode-away shortlist (Austere Command, Rakdos Charm, Cryptic Command, Warping Wail…).
+Superb value per CARD — each is a real format staple — and terrible VOLUME. At ~1.3 top-2500 cards per
+slice, 438 cards is hundreds of slices.
+
+**So the strategy must change to reach 70%: stop hunting named staples, attack the BUCKETS.** The
+one-mode-away list is a finishing tool, not a grinding tool — it goes quiet by construction (that is the
+same instrument-blindness Colton caught twice already; see THE OBJECTIVE above).
+
+**NEXT INSTRUMENT TO BUILD, and the highest-value unstarted work:** decompose the 381-card
+`Spell effect (other)` catch-all. It has never been broken down. Apply the one-diff probe that found the
+last three slices — for a family, parse the blocking phrase AND a near variant differing by one qualifier;
+where the variant is HIGH and the phrase is LOW, the gap is a missing CROSS, not a missing mechanic. That
+technique turned "exile all artifacts" into a one-line fix. Expect several 20–50 card veins in that pile.
+
 ## THE SHELF (secondary read — no longer the bar, kept because it is measured and true)
 
 ## THE TARGET — the real shelf, measured
