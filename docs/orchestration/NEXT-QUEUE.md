@@ -28,12 +28,30 @@ Per-profile setting, default OFF, Colton's ON. **Failure mode:** an unprompted i
 guest profile, or a jab with no real criticism behind it — both violate standing law. Build the cap and
 the profile gate before the copy.
 
-### A2. `MTGAssistant.jsx` decomp · ~2h · medium risk, high value
-1,704 lines, the last god-component, and the **prerequisite for the Foundry re-home** (which is refused
-solo — see C1). 11 hardcoded `setArea("agents")` sites. **Failure mode:** a nav regression nobody notices
-until a room stops opening. Extract presentational panels first (the CollectionView precedent,
-`2d726b0a`), leave the `area` state machine alone in this pass — re-homing and decomposing in one step is
-how you get an unreviewable diff.
+### A2. `MTGAssistant.jsx` decomp · ~2h · **RISK RE-RATED UPWARD — the safety net does not exist**
+
+⚠️ **Checked 2026-07-28 before starting, and the estimate was wrong.** The CollectionView precedent
+(`2d726b0a`) was only safe because it fingerprinted ALREADY-EXPORTED sub-components and snapshotted their
+markup before moving them. MTGAssistant has **no sub-components at all** — it is one 1,704-line function
+with everything inline — so there is nothing to fingerprint until after the risky step.
+
+The obvious fallback, snapshotting the whole component before and after, **does not work either**: it
+touches `window` at render time and dies under `renderToStaticMarkup` with `ReferenceError: window is not
+defined`. The project bans jsdom/RTL, so there is no cheap harness.
+
+**What that means:** a 1,700-line refactor with no render net and no live QA is the same shape as C1, and
+it should be treated the same way. Do NOT do the full decomp solo at hour seven.
+
+**The safe subset, if you want progress here:** the three BANNERS (app-update, first-launch import, Ollama
+health — roughly lines 1091–1351) are purely presentational, touch no `area` state, and take explicit
+props. Extract those into their own module AS PURE COMPONENTS, and fingerprint the extracted components
+directly — they do not touch `window`. That shrinks the god-component ~260 lines with a real net over the
+moved code. The residual risk is only the call-site wiring, which the full suite and lint do cover.
+
+**Original note, still true:** 11 hardcoded `setArea("agents")` sites; leave the `area` state machine
+alone — re-homing and decomposing in one step is how you get an unreviewable diff.
+
+**Failure mode:** a nav regression nobody notices until a room stops opening.
 
 ### A3. Forge wiring — ownership into the bench context · ~1h · low risk
 Scoped in the triage ledger. `/api/collection/ownership` is built and has **zero consumers**; the
@@ -83,8 +101,11 @@ lane that already works.
 ### C1. Foundry rail re-home (roadmap wave 3 item 10)
 Stateful navigation across the app's most central, least-decomposed file, with 11 hardcoded call sites.
 A previous session of mine wrote: *"fresh session, live browser QA, ideally with Colton able to eyeball it
-same-day — not a 1am solo pass."* That judgment stands. **Do A2 first regardless** — it is the prerequisite
-and it is safe alone.
+same-day — not a 1am solo pass."* That judgment stands.
+
+**Note the knock-on:** A2 was the prerequisite for this, and A2 has now been re-rated as needing the same
+treatment. So C1 is not merely waiting on a refactor — the whole MTGAssistant surface wants Colton awake
+before it is touched. Both are gated on the same thing, and neither is a solo job.
 
 ### C2. Anything touching secrets, repo visibility, or the signing keys
 Standing rule, no exceptions.
