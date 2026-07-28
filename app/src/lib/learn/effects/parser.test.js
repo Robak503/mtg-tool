@@ -1522,10 +1522,19 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
       expect(p.additionalCosts).toEqual([{ kind: "sacrifice", sacType: t }]);
     }
   });
-  it("MUST DROP TO LOW: an effect that REFERENCES the sacrificed object (Fling / Reckoner's Bargain)", () => {
-    // Fling — damage equal to the sacrificed creature's power. The engine can't feed the victim's stats in.
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nThis spell deals damage equal to the sacrificed creature's power to any target.")))).toBe("low");
-    // Reckoner's Bargain — gain life equal to the sacrificed creature's toughness.
+  it("FLING GRADUATED: the sacrificed creature's stats CAN be fed in now (damage arm)", () => {
+    // This assertion's original reason — "the engine can't feed the victim's stats in" — was accurate and is
+    // now obsolete for the DAMAGE arm: actionDispatcher captures the victim's layer-aware power/toughness and
+    // mana value at COST-PAYMENT time (CR 608.2h LKI) and countForSpec reads them back. Asserted positively
+    // rather than deleted. Full pins in sacrificedReferent.test.js.
+    const fling = parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nThis spell deals damage equal to the sacrificed creature's power to any target."));
+    expect(programConfidence(fling)).toBe("high");
+    expect(fling.atoms[0].amountCount).toEqual({ kind: "sacrificedPower", per: 1 });
+  });
+  it("MUST STILL DROP TO LOW: a sacrificed reference in an arm that was NOT wired (Reckoner's Bargain)", () => {
+    // The capture is general but only the DAMAGE arm reads it so far. A gain-life arm scaled by the victim's
+    // toughness still has no count source, so the whole card stays LOW — the all-or-nothing rule holding on
+    // the un-built half of the same vein.
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards, then you gain life equal to the sacrificed creature's toughness.")))).toBe("low");
   });
   it("AC-1 MUST STAY HIGH: a count-of-N sacrifice ('sacrifice two creatures') is now modeled (Bankrupt in Blood / Phyrexian Tribute)", () => {

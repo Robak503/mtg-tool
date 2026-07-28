@@ -643,6 +643,18 @@ export function countForSpec(state, ctx, spec) {
   // (a spell / no reveal ran) → 0 (a clean no-op, CR 107.3 — never a fabricated count). Read off STATE (the inter-
   // atom channel), not a player/board tally, so it's computed BEFORE the player lookup below.
   if (spec.kind === "revealedCardMV") return Math.max(0, state?.revealedCardMV || 0);
+  // ===== SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) ===== the magnitude of the permanent sacrificed to pay
+  // this spell's ADDITIONAL COST — "damage equal to the sacrificed creature's power" (Fling), "discards a
+  // number of cards equal to the sacrificed creature's power" (Tormented Thoughts), "draw cards equal to its
+  // toughness", "search for a creature with mana value X or less" (Eldritch Evolution).
+  //
+  // The permanent is GONE by the time the effect resolves, so the value is captured at COST-PAYMENT time by
+  // actionDispatcher (the only moment it is still on the battlefield) and read here off the same inter-atom
+  // state channel revealedCardMV uses. An ABSENT stamp — a spell with no sacrifice cost, or the count-of-N
+  // form which has no singular referent — reads 0: a clean no-op, never a fabricated magnitude (CR 107.3).
+  if (spec.kind === "sacrificedPower") return Math.max(0, state?.sacrificedForCost?.power || 0);
+  if (spec.kind === "sacrificedToughness") return Math.max(0, state?.sacrificedForCost?.toughness || 0);
+  if (spec.kind === "sacrificedManaValue") return Math.max(0, state?.sacrificedForCost?.manaValue || 0);
   // ===== MAX-DISCARDED-THIS-WAY (Windfall) ===== the GREATEST number of cards any player discarded during the
   // whole-hand discard the SAME spell just resolved (CR 118.10 "this way"). The discard atom (applyDiscard, on
   // the recordMaxDiscarded form) stamps state.maxDiscardedThisWay IMMEDIATELY before this draw atom resolves,

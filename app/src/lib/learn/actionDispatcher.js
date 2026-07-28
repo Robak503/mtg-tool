@@ -37,6 +37,7 @@ import {
   loseLife,
   spendEnergy,
   creaturePower,
+  creatureToughness,   // SACRIFICED REFERENT — layer-aware toughness of the cost victim, captured pre-sacrifice
   creatureBasePower,
   removeCounter,
   addCounter,
@@ -307,6 +308,24 @@ function applyCastSpell(state, action) {
       if (!action.sacCreatureId) throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
       const victim = working.players[action.playerId]?.battlefield.find(p => p.id === action.sacCreatureId);
       if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+      // SACRIFICED REFERENT (CR 608.2h + 603.6e last-known-info) — a spell whose effect scales off "the
+      // sacrificed creature's power / toughness / mana value" (Fling, Tormented Thoughts, Reckoner's Bargain,
+      // Eldritch Evolution) reads the victim as it LAST EXISTED on the battlefield. Captured HERE, before the
+      // sacrifice, which is the only moment the permanent is still there — the effect resolves later, when it
+      // is long gone. Mirrors the revealedCardMV stamp the reanimate-drain chain uses.
+      //
+      // Power/toughness are read LAYER-AWARE (a pumped creature sacrificed gives its CURRENT power, CR 613);
+      // mana value comes off the printed cost (CR 202.3b — no layer alters it). `?? 0` for a permanent with
+      // no P/T (an artifact sacrificed to an "artifact or creature" cost) → a clean 0, never a fabricated
+      // magnitude. Only the SINGLE-victim branch stamps: the count-of-N form has no singular referent to name.
+      working = {
+        ...working,
+        sacrificedForCost: {
+          power: Math.max(0, creaturePower(victim, working) ?? 0),
+          toughness: Math.max(0, creatureToughness(victim, working) ?? 0),
+          manaValue: Math.max(0, victim.card?.cmc ?? 0),
+        },
+      };
       working = sacrificePermanentForCost(working, action.playerId, victim);
     } else if (ac.kind === "payLife") {
       working = loseLife(working, { playerId: action.playerId, amount: ac.amount });

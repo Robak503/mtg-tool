@@ -93,7 +93,21 @@ export function extractAdditionalCosts(oracle) {
   // Self-reference guard: an effect that reads the paid-cost object ("…damage equal to the sacrificed
   // creature's power", "the sacrificed creature", "for each card discarded") can't be fed the cost details —
   // leave the whole card LOW. UNMODELED_MARKERS catches "equal to"/"for each"; this is belt-and-suspenders.
-  if (selfRef && selfRef.test(rest)) return { costs: null, rest: oracle };
+  if (selfRef && selfRef.test(rest)) {
+    // SACRIFICED REFERENT — the guard above exists because the effect "can't be fed the cost details". That
+    // premise is now FALSE for exactly three magnitudes: actionDispatcher captures the victim's layer-aware
+    // power/toughness and its mana value at COST-PAYMENT time (CR 608.2h + 603.6e LKI), and countForSpec
+    // reads them back through the sacrificedPower / sacrificedToughness / sacrificedManaValue kinds.
+    //
+    // So the guard is NARROWED, not lifted: the card is admitted only when EVERY "sacrificed" mention in the
+    // remaining text is one of those three modeled phrases. Any other self-reference — naming the creature as
+    // an OBJECT ("return the sacrificed creature"), its colors/types, or a discard/exile referent (whose cost
+    // details are still uncaptured) — keeps the whole card LOW exactly as before.
+    const SAC_MODELED = /\bthe sacrificed (?:creature|permanent|artifact)'s (?:power|toughness|mana value)\b/gi;
+    const isSacCost = cost.kind === "sacrifice";
+    const residual = isSacCost ? rest.replace(SAC_MODELED, " ") : rest;
+    if (!(isSacCost && !selfRef.test(residual))) return { costs: null, rest: oracle };
+  }
   return { costs: [cost], rest };
 }
 

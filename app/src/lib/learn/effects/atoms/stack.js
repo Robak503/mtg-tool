@@ -350,6 +350,18 @@ export function dealDamageScaledClauseParser(clause) {
     const targetType = TT[sst[2]];
     return targetType ? { op: "deal-damage", targetType, amountCount: { kind: sst[1] === "power" ? "triggeringPower" : "triggeringToughness", per: 1 } } : null;
   }
+  // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — the exact sibling of the triggering-creature arm above,
+  // for the permanent sacrificed to pay this spell's ADDITIONAL COST: "Fling deals damage equal to the
+  // sacrificed creature's power to any target" (Fling #1462, Thud, Airdrop Condor, Bloodshot Cyclops).
+  // Same deal-damage atom and the same TIGHT target allowlist verbatim — only the amount SOURCE differs, and
+  // it resolves through the shared countForSpec sacrificedPower/Toughness kinds, read off the stamp
+  // actionDispatcher writes at cost-payment time (the permanent is gone by resolution, so it cannot be read
+  // from the board here). An unstamped cast resolves the count to 0 — a clean no-op, never a fabricated amount.
+  const sacS = t.match(/^.+? deals? damage equal to the sacrificed (?:creature|permanent|artifact)'s (power|toughness) to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
+  if (sacS) {
+    const targetType = TT[sacS[2]];
+    return targetType ? { op: "deal-damage", targetType, amountCount: { kind: sacS[1] === "power" ? "sacrificedPower" : "sacrificedToughness", per: 1 } } : null;
+  }
   // OLD word order: "<source> deals damage TO <target> equal to the number of <count>" (Massive Raid, Spitting Earth).
   const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
   if (mds) return build(mds[1], mds[2]);

@@ -180,6 +180,18 @@ export function parseCountSource(phrase, opts = {}) {
 function baseCountSource(phrase, { allowTarget = false, allowScopes = false, allowBattlefield = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
+  // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — "the sacrificed creature's power / toughness / mana value"
+  // (Fling, Tormented Thoughts, Reckoner's Bargain). The permanent is GONE by resolution, so the magnitude is
+  // captured at COST-PAYMENT time by actionDispatcher and read from state by countForSpec. Placed in the SHARED
+  // count-source parser so every scaling atom family (damage, draw, discard, life) gets it from one edit rather
+  // than each re-implementing the phrase.
+  //
+  // Accepts the permanent nouns the printed cards actually use. An unstamped spell (no sacrifice cost) resolves
+  // the count to 0 — a clean no-op, never a fabricated magnitude.
+  const sacM = p.match(/^the sacrificed (?:creature|permanent|artifact)'s (power|toughness|mana value)$/);
+  if (sacM) {
+    return { kind: sacM[1] === "power" ? "sacrificedPower" : sacM[1] === "toughness" ? "sacrificedToughness" : "sacrificedManaValue" };
+  }
   const withExclude = (spec) => spec; // "other" exclusion is handled by the parseCountSource wrapper (excludeSelf)
   // ===== RAD-AMONG-PLAYERS (Vault 12 chapter II — SHELF S7) ===== "rad counters among players" — the
   // TOTAL radCounters across every seat, summed live at resolution (countForSpec).
