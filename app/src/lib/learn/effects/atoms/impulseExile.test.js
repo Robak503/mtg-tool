@@ -73,8 +73,10 @@ describe("IMPULSE-EXILE — parser", () => {
 
   it("CREED near-misses stay LOW → Arbiter (never a partial flip)", () => {
     const low = (oracle) => expect(programConfidence(parseEffectClause(oracle, { type: "Creature" }))).toBe("low");
-    // A COUNT (two cards) — a different, unmodeled magnitude.
-    low("Exile the top two cards of your library. You may play those cards this turn.");
+    // (A COUNT — "the top two cards" — GRADUATED out of this list. It was a scope marker for the single-card
+    //  slice, annotated "a different, unmodeled magnitude"; the count is now a parameter on the same atom and
+    //  the same this-turn stamp, pinned in impulseExileCount.test.js. The near-misses below are GENUINE
+    //  refusals — each needs machinery that still does not exist — and are untouched.)
     // A MANA-VALUE cap — an unmodeled filter on what may be played.
     low("Exile the top card of your library. You may play that card this turn if it's a land card.");
     // A COST rider ("If you do, …") — the play permission is entangled with an extra effect.
@@ -197,12 +199,26 @@ describe("IMPULSE-EXILE — coverage flip", () => {
       .toBe("native-mixed");
   });
 
-  it("CREED near-miss: the SAME card with an UNMODELED impulse variant (count) stays body-only, not a partial flip", () => {
+  it("CREED near-miss: the SAME card with an UNMODELED impulse variant stays body-only, not a partial flip", () => {
+    // FIXTURE SWAPPED — this used the COUNT variant, which is modeled now, so it stopped exercising anything.
+    // The assertion's intent is unchanged and still the point: an impulse variant the engine CANNOT model must
+    // drop the whole card to body-only rather than flip it on the strength of its other, modeled lines.
+    // Swapped to the mana-value-cap rider, which remains genuinely unmodeled (see the near-miss list above).
     const partial = FACE_BREAKER_ORACLE.replace(
+      "Exile the top card of your library. You may play that card this turn.",
+      "Exile the top card of your library. You may play that card this turn if it's a land card.",
+    );
+    expect(classifyCard({ name: "X", type: "Creature — Human Warrior", oracle: partial })).toBe("body-only");
+  });
+
+  it("…and the SAME card with the now-MODELED count variant flips, rather than silently staying parked", () => {
+    // The positive counterpart to the swap above — it keeps both halves of the rule visible in one file, so
+    // graduating the count cannot quietly weaken what the near-miss test was protecting.
+    const counted = FACE_BREAKER_ORACLE.replace(
       "Exile the top card of your library. You may play that card this turn.",
       "Exile the top two cards of your library. You may play those cards this turn.",
     );
-    expect(classifyCard({ name: "X", type: "Creature — Human Warrior", oracle: partial })).toBe("body-only");
+    expect(classifyCard({ name: "X", type: "Creature — Human Warrior", oracle: counted })).toMatch(/^native/);
   });
 
   it("a bare impulse-exile parses HIGH as a standalone program (the atom is registered + KNOWN)", () => {

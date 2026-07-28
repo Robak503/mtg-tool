@@ -849,22 +849,32 @@ export function applyImpulseExileAtom(state, atom, ctx) {
     // Empty library — nothing to exile. A clean logged no-op (never fabricated).
     return logEvent(state, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: null });
   }
-  const top = lib[0];
-  // Move the top card to exile FACE-UP, stamped with the play permission for THIS turn. The turn stamp is what
+  // COUNT (census slice — Light Up the Stage / Reckless Impulse / Wrenn's Resolve / Jeska's Will class):
+  // `atom.count` exiles the top N instead of the top card. Absent → 1, so every shipped single-card carrier
+  // is byte-identical. A library shorter than N exiles what is there (CR 701.10a — you exile as many as you
+  // can); it is never an error and never fabricates a card.
+  const count = Math.max(1, atom?.count || 1);
+  const taken = lib.slice(0, count);
+  // Move them to exile FACE-UP, stamped with the play permission for THIS turn. The turn stamp is what
   // enforces "this turn" — actionsPlayImpulseFromExile compares `_impulseTurn === state.turn`, and gameEngine's
   // cleanup clears the flags at end of turn — so the same monotonic turn counter gates the window (no per-turn
   // reset flag to wire). Mirrors PLOT's `_plotted` stamp on the exiled copy.
-  const stampedTop = { ...top, _impulse: true, _impulseTurn: state.turn };
+  //
+  // Deliberately NOT extended to the "until the end of your NEXT turn" window (Light Up the Stage's own
+  // wording): that is a controller-scoped TWO-turn window, and `state.turn` increments once per PLAYER turn,
+  // so "your next turn" is not `turn + 1` in multiplayer. Modelling it off this stamp would close the window
+  // at the wrong moment. It stays unmatched → Arbiter, exactly as templateMatchers already documented.
+  const stamped = taken.map((c) => ({ ...c, _impulse: true, _impulseTurn: state.turn }));
   const next = {
     ...state,
     players: {
       ...state.players,
-      [controller]: { ...player, library: lib.slice(1), exile: [...(player.exile || []), stampedTop] },
+      [controller]: { ...player, library: lib.slice(taken.length), exile: [...(player.exile || []), ...stamped] },
     },
   };
-  // Exiling from your own library is public-info here (the card is named in the log — it's the controller's own
-  // card revealed by the play permission), matching the impulse-draw family's face-up exile.
-  return logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: top.name });
+  // Exiling from your own library is public-info here (the cards are named in the log — they're the
+  // controller's own cards revealed by the play permission), matching the impulse-draw family's face-up exile.
+  return logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: taken.map((c) => c.name).join(", ") || null });
 }
 
 /**

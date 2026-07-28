@@ -505,10 +505,24 @@ export function matchImpulseExilePlay(oracle) {
   // The leading-duration form ONLY accepts the bare "until end of turn" phrasing — a "until the end of your
   // NEXT turn" two-turn window is a DIFFERENT effect the this-turn `_impulseTurn` stamp can't model, so it
   // stays unmatched → Arbiter (a SAFE false-negative, never a mis-modeled window; CREED whole-effect).
-  if (!/^exile the top card of your library\. (?:you may play (?:that card|it)(?: this turn| until end of turn)|until end of turn, you may play (?:that card|it))$/.test(s)) {
-    return null;
-  }
-  return { atom: { op: "impulse-exile", targetType: null } };
+  // COUNT (census slice) — "exile the top TWO/THREE cards … you may play THEM this turn" (Reckless Impulse,
+  // Wrenn's Resolve, Jeska's Will, Party Thrasher — 27 corpus carriers). The plural rides the SAME this-turn
+  // `_impulseTurn` stamp and the SAME play-from-exile action layer; only the number of cards moved differs, so
+  // the count is a parameter rather than a new mechanism. Singular keeps `count` unset → byte-identical atom.
+  //
+  // The NEXT-TURN window (Light Up the Stage's own wording) is STILL refused, for the reason this file
+  // already gave and which the count change does not touch: `state.turn` increments once per PLAYER turn, so
+  // "your next turn" is not `turn + 1` in multiplayer and the this-turn stamp would close the window at the
+  // wrong moment. 22 corpus carriers wait on a controller-scoped expiry; a SAFE false-negative until then.
+  const NUM = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+  // The plural referent is printed as "them" OR "those cards" — both are the same set (the just-exiled
+  // cards), so both map to the identical atom. "those cards" is the DOMINANT printed form (6 carriers vs 3),
+  // which is why the first pass flipped nothing until it was admitted.
+  const m = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards)(?: this turn| until end of turn)|until end of turn, you may play (?:that card|it|them|those cards))$/);
+  if (!m) return null;
+  const word = m[1] === "card" ? "one" : m[1].split(" ")[0];
+  const count = NUM[word] || 1;
+  return { atom: { op: "impulse-exile", targetType: null, ...(count > 1 ? { count } : {}) } };
 }
 
 /**
