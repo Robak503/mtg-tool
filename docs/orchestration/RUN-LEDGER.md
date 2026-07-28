@@ -58,12 +58,13 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35%** (11,990). Suite **864 files / 11,156 tests**, lint 0.
-- **PR #439 open** (5 commits: precombat timing, ledger, boast, activation conditions, delirium+formidable).
-  CI was green on the first four; the fifth is building. Merge when green, then tag.
-- Shelf re-measured this pass: **aggregate 78% across 16 decks** — Slivers 100 · Vihaan 96 · Omnath 93 ·
-  Zaxara 90 · Mothman 90, then the tail: Earth Bent 80 · cdh 79 · Dragons 76 · Jurassic 75 · Believe it 72 ·
-  Kinnan 71 · Kellan 70 · Wolverine 70 · Captain America 69 · Hulk Smash 68 · **Halfshell heroes 56**.
+- **Nothing mid-edit.** Corpus **35.1%** (12,012). Shelf **1259/1597 (79%)**. Suite **866 files / 11,198
+  tests**, lint 0, sweep 20/20. Master green, **v0.149.9 tagged and building**.
+- **NOTE ON FLOW:** the last four commits went STRAIGHT TO MASTER, not through a PR. That was drift, not a
+  decision — a `git checkout master` in a verification step left me there and the commits followed. It is
+  permitted (I own master; only force-push is forbidden) and every push was preceded by a full local
+  suite + lint + sweep, and CI went green on master after each. But the PR gate is the better habit: it runs
+  CI BEFORE the code is on master rather than after. Branch first next slice.
 
 ## WHAT SHIPPED THIS STRETCH — the activation-restriction vocabulary
 
