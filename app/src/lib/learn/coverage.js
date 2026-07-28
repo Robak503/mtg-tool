@@ -1251,7 +1251,14 @@ export function permanentTriggersCovered(card) {
     // Flying/trample + the enters-with-X line, both handled by isKeywordOnly). FN-safe: anchored to the exact
     // directive, and the HIGH gate above already vouched the half-X effect is modeled.
     .replace(/\bround (?:down|up) each time\b\.?\s*/gi, " ");
-  return isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(residue, card?.name)), card?.name);
+  // …and then the GENERAL case every hand-written tail above is a special case of — the remaining
+  // sentences of each natively-routing trigger's own effect (stripTriggerEffectTails, same helper the
+  // composite gate uses, same per-descriptor licence). Runs LAST so the anchored strips above keep the
+  // exact text they were written against. This is the NATIVE-TRIGGER tier's copy of the wave that landed
+  // in permanentFullyCovered; both chains had the identical `[^.]+` assumption and the identical
+  // accumulation of patches on top of it.
+  const tailless = stripTriggerEffectTails(residue, card);
+  return isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(tailless, card?.name)), card?.name);
 }
 
 /**

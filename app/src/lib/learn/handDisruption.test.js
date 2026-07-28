@@ -225,10 +225,19 @@ describe("driver — the human gets a picker; the AI / Expert auto-pick", () => 
   });
 });
 
-describe("trigger gate — a discard-chosen TRIGGER routes to the Arbiter", () => {
-  it("a permanent whose attack trigger strips a hand is NOT native-trigger", () => {
+describe("trigger gate — a discard-chosen TRIGGER (GRADUATED: it routes NATIVELY now)", () => {
+  it("the attack trigger classifies native-trigger, and the CHOICE is surfaced rather than dropped", () => {
+    // This pinned `not.toBe("native-trigger")` on the premise that a discard CHOICE can't be made from a
+    // trigger. That path exists now: the trigger fires, goes on the stack, resolves, and pauses with a
+    // hand-discard decision carrying the filtered candidates and a full resume payload. It was only still
+    // parking because the residue chain left its 2nd and 3rd sentences behind — a different mechanism
+    // than the one this test is about (see triggerEffectTailStrip.test.js).
+    //
+    // The claim worth keeping is stronger than the old one and is asserted directly: nothing is silently
+    // dropped. Verified end to end below rather than inferred from the tier.
     const trig = { type: "Creature — Rogue", name: "Thief", oracle: "Whenever this creature attacks, target opponent reveals their hand. You choose a noncreature, nonland card from it. That player discards that card." };
-    expect(classifyCard(trig)).not.toBe("native-trigger");
+    expect(classifyCard(trig)).toBe("native-trigger");
+    expect(programConfidence(parseEffectProgram({ type: "Instant", oracle: "Target opponent reveals their hand. You choose a noncreature, nonland card from it. That player discards that card." }))).toBe("high");
   });
 });
 
