@@ -1280,8 +1280,16 @@ const SELF_NO_UNTAP_NOUNS = "creature|artifact|permanent|land|enchantment|equipm
 // lock. Matching it froze those lands forever after one tap (a live FP the flip-diff can't see — the tier
 // never changed). The continuous Brass Man-class static is exactly the "your untap step" wording.
 const RE_SELF_NO_UNTAP_THIS = new RegExp(`(?:^|[\\n.;])\\s*this (?:${SELF_NO_UNTAP_NOUNS}) doesn't untap during your untap step\\s*(?:\\.|$)`, "i");
-function selfPreventsUntap(perm) {
-  const card = perm?.card;
+/**
+ * CARD-level twin of selfPreventsUntap — "does this CARD print the CONTINUOUS self no-untap static?"
+ *
+ * Exported because manaModel needs exactly this question and must not re-implement it. Its own guard used a
+ * loose `/doesn't untap during your (?:next )?untap step/` text test to route such cards out of the mana
+ * model entirely, on the (then-true) grounds that the restriction wasn't enforced and the card would read as
+ * a free repeatable rock. It IS enforced now — by this very predicate, via untapStep — so sharing the
+ * predicate is what keeps the two from drifting apart again.
+ */
+export function cardSelfPreventsUntap(card) {
   if (!card) return false;
   const oracle = String(card.oracle || card.oracle_text || "").replace(/[’]/g, "'");
   if (!oracle) return false;
@@ -1294,6 +1302,10 @@ function selfPreventsUntap(perm) {
     if (new RegExp(`(?:^|[\\n.;])\\s*${esc} doesn't untap during your untap step\\s*(?:\\.|$)`, "i").test(oracle)) return true;
   }
   return false;
+}
+
+function selfPreventsUntap(perm) {
+  return cardSelfPreventsUntap(perm?.card);
 }
 
 // GROUP NO-UNTAP LOCKDOWN (BLITZ UT-1, CR 302.6 — Winter-Orb / Meekstone / Choke / Back to Basics / Marble
