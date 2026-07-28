@@ -1617,6 +1617,25 @@ function parseClause(clause, out, selfName, selfType) {
   // { costReduction } marker carrying the WUBRG letters; costReductionForSpell tests the spell's colors.
   // SUPPORTS the "<Color> spells you cast cost {N} less" form too (Ruby Medallion — previously excluded as a
   // safe FN; now MODELED). Anchored ^…$; a non-color quality ("noncreature", "historic") never matches.
+  // ── ⭐ COLOR + CARD-TYPE COST-REDUCTION (the Monument cycle: Bontu's #664, Oketra's #1009, Hazoret's
+  //    #1879, Rhonas's #2151, Kefnet's #5041) ──────────────────────────────────────────────────────────
+  // "<Color> <cardtype> spells you cast cost {N} less to cast." Both qualities must hold — this is the one
+  // reducer shape that is an AND rather than an OR, and that distinction is the entire safety argument.
+  // Every existing descriptor carries EITHER `subtype` OR `colors`, and costReductionForSpell's dispatch is
+  // a matching if/else-if chain, so a descriptor carrying both would have silently degraded to the FIRST
+  // branch and reduced every creature spell regardless of color — Bontu's Monument shaving a white
+  // creature. The AND is enforced in costReductionForSpell alongside this emission.
+  //
+  // Placed ABOVE parseColorCostReduction deliberately: that matcher's shape B captures "[a-z ,]+? spells",
+  // so "black creature" reaches it as a colorlist, fails the color parse, and returns null (a safe FN, and
+  // exactly why this cycle sat parked). Card-TYPE word only, from the same allow-set the single reducer
+  // uses — a color + SUBTYPE cross ("green Elf spells") has no printed carrier and isn't claimed.
+  const ctcM = c.match(/^(white|blue|black|red|green) ([a-z]+) spells you cast cost \{(\d+)\} less to cast$/);
+  if (ctcM && COST_REDUCTION_CARDTYPE_WORDS.has(ctcM[2])) {
+    out.push({ costReduction: { colors: [COLOR_WORDS[ctcM[1]]], subtype: normalizeSubtype(ctcM[2]), amount: parseInt(ctcM[3], 10) } });
+    return;
+  }
+
   const colorReducer = parseColorCostReduction(c);
   if (colorReducer) {
     out.push({ costReduction: colorReducer });
@@ -3427,7 +3446,15 @@ export function costReductionForSpell(reducers, spellCard) {
     if (r.subtype) {
       if (!typeLine) continue;
       const sub = String(r.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (sub && new RegExp(`\\b${sub}\\b`).test(typeLine)) total += r.amount || 0;
+      if (!sub || !new RegExp(`\\b${sub}\\b`).test(typeLine)) continue;
+      // COLOR + TYPE (the Monument cycle) — a descriptor carrying BOTH qualities is an AND, unlike the
+      // colors-only branch below, which is a union across the listed colors. Without this the if/else-if
+      // dispatch would take the subtype branch alone and Bontu's Monument would shave WHITE creatures too.
+      if (Array.isArray(r.colors)) {
+        if (spellColors === null) spellColors = colorsOfSpell(spellCard);
+        if (!r.colors.some((col) => spellColors.includes(col))) continue;
+      }
+      total += r.amount || 0;
     } else if (Array.isArray(r.colors)) {
       if (spellColors === null) spellColors = colorsOfSpell(spellCard);
       if (r.colors.some((col) => spellColors.includes(col))) total += r.amount || 0;
