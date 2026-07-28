@@ -67,10 +67,17 @@ describe("MD-1 parser — the exact controller-scoped nonland-permanent same-typ
     expect(parseGlobalTapManaAugment(KINNAN)).toEqual({ subject: "nonland-permanent", sameAsProduced: true, amount: 1 });
     expect(parseGlobalTapManaAugment(CLEAN)).toEqual({ subject: "nonland-permanent", sameAsProduced: true, amount: 1 });
   });
-  it("ANTI-FP: Roxanne's 'artifact token' subject, Mirari's Wake's you-scoped LAND doubler, and a rider variant stay null", () => {
+  it("ANTI-FP: Roxanne's 'artifact token' subject and a rider variant stay null", () => {
     expect(parseGlobalTapManaAugment(ROXANNE)).toBeNull();       // subject "artifact token" — narrower wording, not this slice
-    expect(parseGlobalTapManaAugment(MIRARIS_WAKE)).toBeNull();  // you-scoped land doubler — still unmodeled (MF-1 regression)
     expect(parseGlobalTapManaAugment(RIDER)).toBeNull();         // "…, and you lose 1 life." rider breaks the $-anchor
+  });
+  it("SUBJECT DISTINCTNESS — Mirari's Wake's you-scoped LAND doubler is a SEPARATE cell of the grid", () => {
+    // This used to assert null: the you-scoped LAND corner was simply unbuilt. It is modeled now
+    // (manaDoublerYouScoped.test.js), so the pin graduates to what actually matters — that the two
+    // controller-scoped doublers keep DIFFERENT subjects. Collapsing them would let Kinnan double a
+    // Command Tower, which is the exact FP the "nonland permanent" wording exists to prevent.
+    expect(parseGlobalTapManaAugment(MIRARIS_WAKE)).toEqual({ subject: "land", sameAsProduced: true, amount: 1 });
+    expect(parseGlobalTapManaAugment(KINNAN).subject).toBe("nonland-permanent");
   });
   it("stripGlobalTapManaAugment removes ONLY Kinnan's doubler line (the {5}{G}{U} activated ability survives)", () => {
     const left = stripGlobalTapManaAugment(KINNAN);

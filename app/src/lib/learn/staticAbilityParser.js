@@ -4692,6 +4692,19 @@ function parseGlobalTapManaAugmentImpl(card) {
     if (/^whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced$/.test(clause.trim().toLowerCase())) {
       return { subject: "nonland-permanent", sameAsProduced: true, amount: 1 };
     }
+    // ⭐ THE MISSING CROSS — CONTROLLER-scoped, LANDS-ONLY, SAME-TYPE (Mirari's Wake / Zendikar Resurgent /
+    // Vorinclex): "Whenever you tap a land for mana, add one mana of any type that land produced." Every
+    // PIECE of this was already built — MF-1 above models allPlayers × land × sameAsProduced, MD-1 models
+    // controller × nonland × sameAsProduced, and globalTapManaAugment's runtime handles all three axes
+    // independently (the controller gate, the land subject test, the sameAsProduced credit). What was
+    // missing was only this CORNER of the grid, which is why the comment above still lists Mirari's Wake as
+    // out of scope: the doubler form WAS out of scope when that comment was written, and MF-1/MD-1 brought
+    // it in without anyone coming back to close the last cell. A missing cross, not a missing mechanic.
+    // Anchored whole-clause on the same terms as its two siblings — Vorinclex's second line (an opponent's
+    // land not untapping) is a DIFFERENT clause and survives as residue, so that card stays body-only.
+    if (/^whenever you tap a land for mana, add one mana of any type that land produced$/.test(clause.trim().toLowerCase())) {
+      return { subject: "land", sameAsProduced: true, amount: 1 };
+    }
     // The optional " while you're the monarch" condition rides between "for mana" and ", add" (Regal
     // Behemoth — the only monarch-gated tap-augment in the corpus). Captured as condition:"monarch"; the
     // runtime (globalTapManaAugment) adds the extra mana ONLY while `state.monarchId === playerId`.

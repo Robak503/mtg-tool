@@ -11,9 +11,15 @@
  *
  * CREED all-or-nothing: only a card whose WHOLE non-keyword body is this fixed-color boost flips native
  * (Groundchuck — Trample + the land boost). A subtype-gated subject ("a Forest"/"a Swamp" — Nissa,
- * Nirkana Revenant), the doubler form ("one mana of any type that land produced" — Mirari's Wake), or a
- * non-keyword rider (Leyline's opening-hand clause + activated ability, Badgermole's earthbend ETB) keeps
- * the card non-native (a safe false-negative) — the boost is never a fabricated/partial credit.
+ * Nirkana Revenant) or a non-keyword rider (Leyline's opening-hand clause + activated ability,
+ * Badgermole's earthbend ETB) keeps the card non-native (a safe false-negative) — the boost is never a
+ * fabricated/partial credit.
+ *
+ * GRADUATED 2026-07-28: the doubler form ("one mana of any type that land produced" — Mirari's Wake) was
+ * pinned here as out of scope, and the pins below now assert the OPPOSITE. It was never a safety boundary,
+ * only a not-built-yet one: MF-1 (all-players × land × sameAsProduced) and MD-1 (controller × nonland ×
+ * sameAsProduced) each built one axis of it and the last corner of the grid went unclosed. See
+ * manaDoublerYouScoped.test.js.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -34,7 +40,6 @@ const BADGERMOLE = { id: "c-bm", name: "Badgermole Cub", type: "Creature — Bad
 // Non-native (subtype-gated / doubler / opponent-clause — parser returns null):
 const NISSA = { id: "c-ni", name: "Nissa, Who Shakes the World", type: "Legendary Planeswalker — Nissa", mana: "{3}{G}{G}", oracle: "Whenever you tap a Forest for mana, add an additional {G}.\n+1: Put three +1/+1 counters on up to one target noncreature land you control. Untap it. It becomes a 0/0 Elemental creature with vigilance and haste that's still a land.\n−8: You get an emblem with \"Lands you control have indestructible.\" Search your library for any number of Forest cards, put them onto the battlefield tapped, then shuffle." };
 const NIRKANA = { id: "c-nr", name: "Nirkana Revenant", type: "Creature — Vampire Shade", mana: "{4}{B}{B}", oracle: "Whenever you tap a Swamp for mana, add an additional {B}.\n{B}: This creature gets +1/+1 until end of turn." };
-const MIRARIS_WAKE = { id: "c-mw", name: "Mirari's Wake", type: "Enchantment", mana: "{3}{G}{W}", oracle: "Creatures you control get +1/+1.\nWhenever you tap a land for mana, add one mana of any type that land produced." };
 // A hypothetical multi-color fixed boost — NOT this slice's single-color model (must reject, no fabricated choice):
 const MULTI = { id: "c-mx", name: "Multi Augment", type: "Enchantment", mana: "{2}{G}", oracle: "Whenever you tap a land for mana, add {G}{U}." };
 
@@ -63,7 +68,7 @@ describe("parseGlobalTapManaAugment — the boost grammar", () => {
   it("rejects every unmodeled form (subtype-gated subject, doubler, multi-color) — no fabricated boost", () => {
     expect(parseGlobalTapManaAugment(NISSA)).toBeNull();         // "a Forest" — subtype-gated subject
     expect(parseGlobalTapManaAugment(NIRKANA)).toBeNull();       // "a Swamp" — subtype-gated subject
-    expect(parseGlobalTapManaAugment(MIRARIS_WAKE)).toBeNull();  // "one mana of any type that land produced" — doubler form
+    // (Mirari's Wake's doubler form used to sit here; it is MODELED now — see manaDoublerYouScoped.test.js.)
     expect(parseGlobalTapManaAugment(MULTI)).toBeNull();         // "{G}{U}" — multi-color (a choice this slice doesn't model)
   });
   it("an Aura is never this card (its boost is parseAuraLandManaBonus, kept disjoint)", () => {
@@ -88,7 +93,6 @@ describe("classifyCard — only the whole-card-clean augment flips native (CREED
     // These fail at the PARSER (subtype-gated subject / doubler / multi-color) — the augment tier never
     // engages, so they stay body-only regardless of remainder.
     expect(classifyCard(NIRKANA)).toBe("body-only");        // {B} pump + subtype-gated Swamp boost
-    expect(classifyCard(MIRARIS_WAKE)).toBe("body-only");   // anthem + doubler boost ("any type that land produced")
     expect(classifyCard(MULTI)).toBe("body-only");          // multi-color boost not modeled
   });
   it("the augment tier COMPOSES with a genuinely-native remainder (Leyline / Badgermole graduated)", () => {
