@@ -453,6 +453,14 @@ export function counterClauseParser(clause) {
  */
 export function massFilteredDamageClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // SYMMETRIC SELF-DAMAGE (CR 119.3 — Rakdos Charm, EDHREC #330: "Each creature deals 1 damage to its
+  // controller"). Structurally UNLIKE every other matcher in this parser: there is no single source and no
+  // creature target. EACH CREATURE is its own source and the target is THAT creature's own controller, so a
+  // player takes N per creature THEY control and the totals are asymmetric across the table — it is a
+  // per-creature loop, not a board sweep and not a flat player burn. Modelled as its own atom rather than
+  // bent onto deal-damage, whose target synthesis assumes one source.
+  const scd = t.match(/^each creature deals (\d+) damage to its controller$/);
+  if (scd) return { op: "each-creature-damages-controller", amount: parseInt(scd[1], 10), targetType: null };
   const m = t.match(/^.+? deals? (\d+) damage to each creature (with|without) flying$/);
   if (m) return { op: "deal-damage", amount: parseInt(m[1], 10), targetType: "eachCreature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: m[2] === "without" }] };
   const cm = t.match(/^.+? deals? (\d+) damage to each creature (you control|your opponents control)$/);
@@ -1094,6 +1102,25 @@ export const stackResolvers = {
   "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
   "taxed-treasure": applyTaxedTreasure, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "an opponent draws → that player may pay {N}, else you create a Treasure" (Smothering Tithe)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
+  // SYMMETRIC SELF-DAMAGE (CR 119.3) — Rakdos Charm's "Each creature deals 1 damage to its controller".
+  // Each creature is the SOURCE of its own damage packet (threaded as source.id), which is what keeps
+  // lifelink/infect on those creatures behaving correctly rather than attributing every packet to the spell.
+  // The battlefield is snapshot per player before the loop: damage here only ever hits PLAYERS, so no
+  // creature can leave mid-loop, but the snapshot keeps the iteration independent of state rebuilding.
+  // Layer-aware creature-ness (CR 613) so an animated permanent deals its point too.
+  "each-creature-damages-controller": (state, atom, ctx) => {
+    let next = state;
+    for (const pid of Object.keys(next.players || {})) {
+      for (const perm of [...(next.players[pid]?.battlefield || [])]) {
+        if (!(isCreatureCard(perm.card) || permanentIsCreature(next, perm.id))) continue;
+        next = applyDamageEffect(next, {
+          controller: ctx.controller, amount: atom.amount, targetType: "player",
+          targets: [{ type: "player", id: pid }], source: { id: perm.id },
+        });
+      }
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "each-creature-damages-controller", amount: atom.amount, controller: ctx.controller });
+  },
   "deal-damage": (state, atom, ctx) => {
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
     // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.
