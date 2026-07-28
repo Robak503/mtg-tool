@@ -18,6 +18,7 @@
  * view. (The Vault's "Forge" hall — build-from-collection — is kin; whether it
  * folds into the Foundry is an open call with Colton.)
  */
+import { lockedCount, candidateCount } from "../../lib/deck/deckMemory";
 import { useEffect, useState } from "react";
 
 import useCountUp from "../../hooks/useCountUp";
@@ -38,12 +39,18 @@ const PIP = {
 };
 const PIP_ORDER = ["W", "U", "B", "R", "G"];
 
-/** A deck's commanders + locked count (main list INCLUDING the commander), off its real rows. */
+/**
+ * A deck's commanders + its LOCKED count (main list INCLUDING the commander), off its real rows.
+ *
+ * FIRST CONSUMER of the locked/candidate model (wave 3 item 8). The number is byte-identical to the
+ * hand-rolled filter this replaced — absent `locked` means locked, so every existing deck reports exactly
+ * what it did before — but it now EXCLUDES cards explicitly marked as candidates, which is the whole point
+ * of the bench: x/100 counts what you have committed, not what you are still weighing.
+ */
 function deckFacts(deck) {
   const cards = deck?.cards || [];
   const commanders = cards.filter((c) => c.section === "Commander").map((c) => c.name);
-  const locked = cards.filter((c) => c.section !== "Sideboard" && c.section !== "Tokens").reduce((s, c) => s + (c.qty || 0), 0);
-  return { commanders, locked };
+  return { commanders, locked: lockedCount(cards), considering: candidateCount(cards) };
 }
 
 function ColorPie({ identity }) {

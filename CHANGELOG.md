@@ -8,6 +8,29 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.6] — 2026-07-28
+
+The guides sound like themselves now, and the keeper has a name.
+
+### Added
+- **Digby.** The gentleman who minds the front hall has a name and a voice — warm, weathered, dryly
+  funny, and still purely a concierge: he asks what you're trying to do and shows you to the right
+  wing. He never answers a Magic question himself.
+- **Every guide shares one set of house rules.** Karn, Jace, Teferi, Vihaan and Tibalt each speak in
+  their own register but inherit the same conduct: never invent card behaviour, a rule number, or a
+  number of any kind; say plainly when the data isn't there; correct you when you're wrong rather than
+  agreeing to be pleasant. One shared core, so the faces can't drift apart into contradicting each other.
+- **Cards can be marked as candidates rather than committed.** Groundwork for the bench: a card can sit
+  in a deck as "considering" without counting toward your 100. Existing decks are completely unaffected —
+  everything you already own counts exactly as it did before.
+
+### Fixed
+- **Mana Vault, Basalt Monolith and Grim Monolith were doing nothing.** The game offered them no ability
+  at all — you couldn't tap them for mana. They work now, and correctly stay tapped instead of untapping
+  each turn.
+- **Four guides no longer point you at a room that's being removed.** Their "that's not my lane" replies
+  named the old Agents room; they now name the bench directly.
+
 ## [0.149.5] — 2026-07-27
 
 ### Fixed
