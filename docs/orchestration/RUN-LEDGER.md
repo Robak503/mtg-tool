@@ -76,6 +76,37 @@ That is the whole reason this target beats corpus %.
 - **Nothing mid-edit.** Corpus **35.2%** (12,048). Shelf 1259/1597. Suite **872 files / 11,259 tests**,
   lint 0, sweep 20/20. Master green. **v0.149.12 tagged** (+12 since .11: aura host-death, aura composition).
 
+## 📊 THE SPLIT IS LIVE WITH THE REAL MAPPING — the two bars, measured
+
+Omnath supplied `deck-owners.json` from [[reference_deck_sources]] (Colton's Archidekt table + Joe's
+Moxfield table, user `Blocks420`, verified live). All 16 decks assigned, nothing unassigned:
+
+```
+  92%  colton   (457/499 across 5 decks)     below the bar: cdh 79%
+  73%  joe      (802/1098 across 11 decks)   below the bar: 10 of 11
+```
+
+**The two bars are now separately readable, and they say different things.** PLAYABILITY (Colton's own
+decks — can the one real user play his own decks?) is 92% and blocked by a SINGLE deck. POD REALISM (Joe's
+decks — can he sim his playgroup?) is 73% across 11 decks and is a broad grind. The old single 79% could
+not distinguish "one deck from done" from "ten decks out", which is exactly why it was worth splitting.
+
+**"Believe it!" is Joe's Yuriko** — neither of us could place it because the deck is named for the
+catchphrase, not the commander. Closed in both our notes.
+
+**A near-miss worth keeping:** Omnath nearly mis-assigned *Halfshell heroes* to Colton by reasoning from the
+crossover pattern (TMNT → Colton's `deck_raph_and_mikey`). The registry carries a note written for exactly
+that trap — TWO different TMNT decks exist; Joe's "Halfshell heroes" is NOT Colton's "Raph & Mikey", which
+isn't built and isn't in the app. **Ownership is not inferable from card themes**, only from the roster.
+
+**OPERATIONAL NOTE (Omnath's flag, confirmed):** the file lives in AppData, which is what `MTG_APP_ROOT`
+resolves to for deck runs — the measurement above used exactly that and worked. A run that points
+`MTG_APP_ROOT` at the MAIN TREE for the corpus pass ([[reference_realism_gate_in_worktree]]) will not see it
+and simply prints the single aggregate, which is the designed graceful degradation, not a failure.
+
+**No deck is CLOSE to the bar.** cdh needs ~11 slots (characterized below — no slice closes it); the nearest
+of Joe's is Earth Bent at 81%, ~9 slots. The shelf is a long grind on both halves, not a near-miss anywhere.
+
 ## 🎯 cdh IS THE WHOLE PLAYABILITY GAP — and here is exactly what it needs
 
 The owner split named the target precisely: **Colton's playability shelf is 92% and cdh (79%) is the only
