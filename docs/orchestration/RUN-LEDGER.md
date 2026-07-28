@@ -82,6 +82,37 @@ Three riders the engine parsed straight past, so every carrier parked. All three
 **Three CREED pins fired against my own work and graduated on evidence**, each with the reason recorded in
 place rather than edited away. All four seams of every slice were mutation-checked.
 
+## ⭐ THE NEXT BIG LEVER — the TRAILING conditional clause (measured, scoped, NOT started)
+
+**121 parked cards** carry a clause of the form `<effect> if <condition>.` where the condition is ALREADY in
+the shared vocabulary. That is larger than every other lever found this run combined, and the measurement —
+the expensive part — is done.
+
+The parser today handles only the LEADING form: `If <condition>, <effect>` (CONDITIONAL SPELL RIDER,
+BLITZ CD-1, in `effects/parser.js`, gated by `spellConditionParseable`). The trailing form is the same
+semantics with the clauses swapped, and High Score is the card that exposed it.
+
+Top conditions among those 121, all already readable:
+```
+ 11  there are seven or more cards in your graveyard      8  you control three or more artifacts
+  8  a creature died this turn                            8  four or more card types among cards in your gy
+  7  you have no cards in hand                            5  you control a swamp
+  4  an opponent has three or more poison counters        4  you attacked this turn
+  4  creatures you control have total power 8 or greater  3  you control a creature with power 4 or greater
+```
+
+**WHY I DID NOT START IT AT DEPTH, deliberately.** The discipline above says per-flip audit anything over
+~10 cards. This is 121 flips — 121 new runtime behaviors — in the spell-effect parser. Starting that late in
+a run is exactly how a false-positive spray gets shipped, and the CREED forbids false positives specifically.
+**Take this FIRST in a fresh session, while sharp.**
+
+Design notes for whoever picks it up:
+- Reuse the leading form's guards verbatim: a SINGLE, non-optional, non-targeting gated atom. A compound
+  (`and` / `, then`) must still park the whole card rather than gate one instruction.
+- `spellConditionParseable` does most of the safety work — an unreadable tail ("if you do", "if it's a
+  Wizard") simply never attaches. The real risk is MIS-SPLITTING: an "if" that belongs to an inner clause.
+- Anchor whole-sentence, and audit the flips in batches with the actual card text in front of you.
+
 ## NEXT ACTIONS
 
 1. **Bloom Tender / Faeburrow Elder** — "For each color among permanents you control, add one mana of that
