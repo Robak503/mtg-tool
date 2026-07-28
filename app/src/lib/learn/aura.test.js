@@ -198,16 +198,24 @@ describe("REVIEW FIX — granted keywords are honored at runtime (no partial app
 
 describe("cast legality + Arbiter routing", () => {
   it("a non-native Aura is offered but routes to the Arbiter seam at resolution (no do-nothing permanent)", () => {
-    // A still-non-native Aura: an aura-own DIES trigger detectTriggers doesn't recognize (BLITZ AU-3 credits
-    // only auras whose whole body is DETECTED + ROUTED triggers — Curiosity, Sigil of Sleep — so a
-    // dies-return aura like Bequeathal stays body-only and must still route to the Arbiter, never a do-nothing permanent).
-    const COMPLEX = { id: "c-cplx", name: "Bequeathal", type: "Enchantment — Aura", mana: "{1}", oracle: "Enchant creature\nWhen enchanted creature dies, you draw two cards." };
+    // A still-non-native Aura. FIXTURE SWAPPED 2026-07-28: this was Bequeathal, which became native when the
+    // aura-own DIES detector arm landed — so the test started passing for the wrong reason and had to be
+    // re-anchored on a shape that genuinely still has no route. Forced Adaptation is that shape, and the
+    // sibling test in auraOwnTriggered.test.js documents why: "put a +1/+1 counter on enchanted creature"
+    // is rejected by the counter atom parser (target:'enchanted'), so the trigger never routes.
+    //
+    // The behavior under test is unchanged and is the point: a non-native Aura must still route to the
+    // Arbiter seam at resolution, never enter as a do-nothing permanent.
+    const COMPLEX = { id: "c-cplx", name: "Forced Adaptation", type: "Enchantment — Aura", mana: "{1}", oracle: "Enchant creature\nAt the beginning of your upkeep, put a +1/+1 counter on enchanted creature." };
     let s = boardState({ user: [createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false })], hand: [COMPLEX] });
     const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find(a => a.cardId === "c-cplx");
     expect(cast.isAuraSpell).toBeUndefined(); // not a native aura → no targeted attach
     s = resolveTopOfStack(dispatchAction(s, cast));
     // It did NOT enter the battlefield as a permanent; it flagged the Arbiter seam.
-    expect(s.players.user.battlefield.some(p => p.card?.name === "Bequeathal")).toBe(false);
+    // Assert against the FIXTURE's own name, not a hard-coded one. When the fixture was swapped this line
+    // still said "Bequeathal" and passed VACUOUSLY — no card by that name was in the state at all, so it
+    // proved nothing. Reading COMPLEX.name keeps it honest through any future swap.
+    expect(s.players.user.battlefield.some(p => p.card?.name === COMPLEX.name)).toBe(false);
     expect(s.pendingArbiter).toBeTruthy();
   });
   it("if the target is gone by resolution, the Aura spell fizzles and never enters (CR 608.3b)", () => {
