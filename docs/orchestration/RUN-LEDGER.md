@@ -58,19 +58,29 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** v0.149.6 tagged and building (wave 2 voices + Digby + locked/candidate + the
-  Mana Vault dead-card fix). Tree clean, branch level with master.
+- **Nothing mid-edit.** v0.149.7 tagged and building. Corpus **35.0%** (11,950). Suite 861 / 11,119.
 
 ## NEXT ACTIONS
 
-1. **Wave 4 — docket-RAG.** Omnath's seam sketch is in COMMS (2026-07-27 ~22:35). Verify its premises the
-   way the wave-3 deny-list claim was verified, then build the app half.
-2. **Omnath answered O2 + O3** (Tibalt gremlin design; Forge-vs-Foundry, which Colton ruled on live).
-   Read and act. O1 (adversarial read of the voice build) may still be open.
-3. `MTGAssistant.jsx` decomp (1,704 lines, 11 hardcoded `setArea("agents")` sites) — unblocked,
-   mechanical, and the prerequisite for the Foundry rail re-home.
-4. Shelf gap, card by card — genuinely long-tail (129 blocking shapes for 362 slots, biggest cluster 3).
-   Prefer DEAD-CARD bugs over coverage; that class is invisible to the corpus number.
+1. **Activation-timing vocabulary, continued.** The rider itself is the sole blocker on 123 cards
+   (measured honestly — strip ONLY the rider, not the whole ability line; deleting the line conflates
+   "the rider blocks" with "the ability blocks" and gives a much larger, wrong number). Shipped:
+   "before attackers are declared" (+21). Remaining, by size:
+   - `only during your upkeep` (11) — needs the offer window WIDENED to the upkeep step. The gate is
+     `state.step !== "main"`, so an upkeep-only ability is currently never offerable at all. A widening,
+     not a narrowing — so it needs more care than the last one.
+   - `only if this creature attacked this turn and only once each turn` (10) — the once-limit already
+     exists (`activationLimit`); check whether an attacked-this-turn flag is on the permanent.
+   - `only if there are seven or more cards in your graveyard` (6) — a board-count condition.
+2. **A3 Forge wiring** — ownership into the bench context (assumption stated in NEXT-QUEUE).
+3. Shelf grind / dead-card hunting (section D of NEXT-QUEUE).
+
+## WHAT THE SWEEP IS FOR — it found the run's best bug
+
+Running `playability-sweep.mjs` at 150 games surfaced a real SOFT-LOCK (a tutor finding nothing wedged
+~6% of human-path games) that no unit test could have caught, because every tutor fixture supplies
+candidates. **Re-run it after any engine change to the decision path.** If it reports a catastrophe,
+suspect the harness first — it has been wrong that way before.
 
 ## A POSTING BUG WORTH NOT REPEATING
 
