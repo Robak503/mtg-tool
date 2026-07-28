@@ -73,8 +73,40 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.1%** (12,027). Shelf 1259/1597. Suite **868 files / 11,210 tests**,
-  lint 0, sweep 20/20. Master green at `af00adb5`. v0.149.9 published and verified.
+- **Nothing mid-edit.** Corpus **35.1%** (12,032). Shelf 1259/1597. Suite **870 files / 11,229 tests**,
+  lint 0, sweep 20/20. Master green. **v0.149.10 tagged, release build in progress** (v0.149.9 took 25 min).
+
+## ✅ THE MIS-PARK SCANNER — built, run, and it has now been MINED OUT
+
+The which-layer diagnostic below is now a corpus SCANNER (`scratchpad/residuegap.mjs`, `layer2.mjs`). It
+looks for cards where two layers disagree, which is the signature of a MIS-PARK — a card the engine can
+already drive but the metric refuses. Three bugs came out of it this run (+15, +1, +4).
+
+**Signature 1 — residue gap:** every trigger routes natively AND the card has no activated abilities, yet
+`permanentTriggersCovered` says no. Both other explanations are excluded, so the residue strip is the only
+suspect. Found the token ability-grant (+15) and the once-per-turn trigger rider (+4).
+
+**Signature 2 — pre-parse gate:** an ability's cost PARSES and its effect parses HIGH standalone, yet the
+ability is unmodeled. Found the quoted-grant/mana-ability misclassification (+1).
+
+**IT IS NOW LARGELY EXHAUSTED, which is a result worth trusting rather than re-deriving:**
+- Signature 2's remaining ~9 abilities are ALL the `sacrificeDropsTrigger` guard working AS DESIGNED — a
+  sacrifice-as-cost ability on a card that also has a sacrifice/LTB trigger stays parked because paying the
+  cost would silently drop that trigger. Verified by removing the sibling trigger and watching the card go
+  native. **Deliberate refusals, not bugs. No work there.**
+- Signature 1's remaining buckets are keyword-residue cases (cumulative upkeep, evolve, bestow, delirium,
+  renown, firebending) where the blocker is `allTriggerSentencesModeled`, not the strip — i.e. a genuinely
+  unmodeled keyword, not a blindness. Those are real feature work, not mis-parks.
+
+**Re-run the scanner after any coverage change** — it is cheap and it is how the false positive I shipped
+got caught (see below).
+
+## ⭐ BANKED — "Do this only once each turn." does NOT set the flag
+
+The sibling wording of the rider just fixed. `detectTriggers` does NOT set `oncePerTurnTrigger` for it and
+leaves the rider INSIDE the effect clause — contrary to what a comment in `permanentTriggersCovered` claims.
+So it needs the DETECTOR taught, not just a residue strip, and the runtime enforcement already exists to
+receive it. Recorded rather than guessed at. Verify the comment's claim before trusting it.
 
 ## ⭐ THE DIAGNOSTIC THAT FOUND TWO BUGS IN A ROW — ask WHICH LAYER said no
 
