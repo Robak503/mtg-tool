@@ -293,11 +293,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.4%** (12,132/34,245 — +84 this run). Suite **886 files / 11,416 tests**,
-  lint 0, MUTANT sweep clean. NINETEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries nineteen unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.5%** (12,142/34,245 — +94 this run). Suite **887 files / 11,427 tests**,
+  lint 0, MUTANT sweep clean. TWENTY slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries twenty unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.4%** · top-5000 41.9% · top-10k 35.0%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.5%** · top-5000 42.0% · top-10k 35.1%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -321,6 +321,7 @@ That is the whole reason this target beats corpus %.
 | `e05c796b` | batched graveyard-ENTER + a silently-dropped zone filter ⚠️ | **+1**, Sidisi #3513 |
 | `c5e68496` | BLINK / FLICKER (CR 400.7) + a splitter keep-whole guard ⚠️ | **+7**, **Ephemerate #440** · Cloudshift #792 · Blur · Momentary Blink |
 | `a3488b65` | impulse-exile takes a COUNT (the runtime already existed) | **+2**, Act on Impulse · Rob the Archives |
+| `9381112d` | impulse NEXT-TURN window — controller-scoped expiry ⭐ | **+6**, **Light Up the Stage #1211** · Reckless Impulse #2120 · Wrenn's Resolve #2116 |
 
 ### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
 
@@ -331,7 +332,22 @@ That is the whole reason this target beats corpus %.
   10  N>1 / other        (until-your-next-end-step, "one of those cards", filtered)
 ```
 
-**⛔ WHY THE NEXT-TURN WINDOW IS NOT A ONE-LINE CHANGE — do not "just add turn + 1".** `state.turn`
+### ✅ THE NEXT-TURN WINDOW IS DONE — `9381112d` (+6). The pattern below is reusable for any "your next turn".
+
+Solved WITHOUT arithmetic on the turn counter: the stamp carries the **OWNER** plus its creation turn, and
+`gameEngine.finishCleanupActions` lapses it when a turn ENDS that (a) belongs to that owner and (b) began
+after the stamp. Cleanup runs BEFORE the turn advance, so `state.activePlayer` is the ENDING turn's player —
+that is the fact the whole rule rests on. Correct for both castings (own turn / opponent's turn), pinned in
+`impulseExtendedWindow.test.js`.
+
+**TWO SITES, DELIBERATELY ASYMMETRIC — copy this shape.** The offer gate (`legalChoices`) treats the mere
+PRESENCE of an extended stamp as permission; ONLY the cleanup knows when it dies. Giving both sites the
+window logic is precisely how they drift; giving exactly one the authority removes the possibility.
+
+**Reuse it for any other "until your next turn" effect** — the same owner-plus-stamp-turn trick applies and
+needs no scheduler.
+
+**⛔ THE ORIGINAL ANALYSIS (kept — it is why the fix took the shape it did): do not "just add turn + 1".** `state.turn`
 increments once per PLAYER turn, so in a 4-player game "until the end of YOUR next turn" is roughly
 `turn + 4`, not `turn + 1`. The shipped `_impulseTurn === state.turn` gate and the cleanup that strips it
 both assume a single-turn window. Reusing that stamp closes the window at the WRONG MOMENT — a wrong
