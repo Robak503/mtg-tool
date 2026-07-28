@@ -186,9 +186,17 @@ signatures for the rest:
 | arm | check function | receives | verdict |
 |---|---|---|---|
 | `are put` (57) | `checkGraveyardEventTriggers(state)` | drains `pendingGraveyardEvents` | ✅ batchable now |
-| `attack` (46) | `checkAttackTriggers(state)` | whole combat (all attackers at once) | ✅ batchable now |
+| ~~`attack` (46)~~ | `checkAttackTriggers(state)` | whole combat (all attackers at once) | ✅ **DONE** `eb701643` |
 | `leave` (39) | `checkLeavesTriggers(state)` | drains `pendingLeaveEvents` | ✅ batchable now |
 | `enter` (28) | `checkEnterTriggers(state, enteredPerm)` | **ONE permanent** | ⛔ **BLOCKED** |
+
+**⚡ `attack` cost ONE LINE and no machinery — check for this before building any arm.** "Whenever one or
+more creatures you control attack" is merely the OLDER TEMPLATING for "Whenever you attack" (CR 508.1);
+both fire once per combat, so it maps straight onto the EXISTING `youAttack` event whose once-per-combat
+pass long predates this work. **Before writing a batch check function, ask whether the modern wording of
+that trigger already has a once-per-event home.** It flips 0 cards today (the five bare-form carriers —
+Grand Warlord Radha #5380, Angelic Guardian, Ancestor Dragon — are blocked by their EFFECTS, not
+detection), and it is recorded as 0 rather than counted.
 
 **⛔ `enter` MUST NOT be built the same way — it would over-fire.** Entries are dispatched one at a time,
 so an `etbBatch` watcher would fire once PER entering permanent: "create three 1/1 tokens" would make
@@ -272,9 +280,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.4%** (12,107/34,245 — +59 this run). Suite **882 files / 11,355 tests**,
-  lint 0, MUTANT sweep clean. TWELVE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries twelve unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.4%** (12,107/34,245 — +59 this run). Suite **882 files / 11,359 tests**,
+  lint 0, MUTANT sweep clean. THIRTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries thirteen unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **69.9%** · top-2500 **52.2%** · top-5000 41.8% · top-10k 34.9%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
