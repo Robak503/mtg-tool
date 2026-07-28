@@ -36,6 +36,7 @@ import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
+import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -2766,10 +2767,35 @@ function actionsDeclareAttacker(state, playerId) {
   // poisoned, Crown-Hunter Hireling's monarch) only pairs with defenders who meet the requirement —
   // the same live per-defender board read landwalk uses (4P-correct). Unrestricted creatures see the
   // full target list (identical by construction).
+  // ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse): "Creatures can't attack you
+  // unless their controller pays {2} for each creature they control that's attacking you." The action is
+  // WITHHELD when the tax is unaffordable, and actionDispatcher.applyDeclareAttacker actually pays it on
+  // declaration. Offering the attack without charging for it would make the card classify native while
+  // doing nothing — the exact false positive attackTax.js exists to prevent — so this filter and that
+  // payment are one change, never two.
+  //
+  // The SOURCE EXCLUSION is the fiddly part and it is load-bearing: CR 508.1 taps attackers (f) BEFORE
+  // mana abilities are activated (h), so a non-vigilance attacker cannot be tapped for mana to pay its
+  // own tax. Counting it here would offer an attack the dispatcher then can't fund. A VIGILANCE attacker
+  // stays untapped and genuinely can pay with itself, so it keeps its own source.
+  const taxCache = new Map();
+  const taxFor = (defenderId) => {
+    if (!taxCache.has(defenderId)) taxCache.set(defenderId, attackTaxToDeclare(state, defenderId));
+    return taxCache.get(defenderId);
+  };
+  const canPayAttackTax = (p, defenderId) => {
+    const generic = taxFor(defenderId);
+    if (generic <= 0) return true; // the overwhelmingly common case — one board scan, then out
+    const keepsSelf = permanentHasKeyword(state, p.id, "Vigilance");
+    const sources = manaSources(state, playerId).filter((s) => keepsSelf || s.permanentId !== p.id);
+    return canAfford(state.players[playerId]?.manaPool, sources, { generic });
+  };
+
   const allowedTargetsFor = (p) => {
     const req = attackDefenderRequirementOf(p.card);
-    if (!req) return targets;
-    return targets.filter((t) => defenderMeetsAttackRequirement(state, t.defenderId, req));
+    return targets.filter((t) =>
+      canPayAttackTax(p, t.defenderId)
+      && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req)));
   };
 
   // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the

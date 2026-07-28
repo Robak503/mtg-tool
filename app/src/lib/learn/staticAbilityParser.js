@@ -23,6 +23,7 @@
 
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
+import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
 
 // GROUP-ACTIVATED grant validator (injected — CR 113.7). Whether a quoted group-grant body ("All Slivers
 // have \"{2}: Regenerate this permanent.\"") is a FULLY-MODELED activated ability is decided by
@@ -1797,6 +1798,19 @@ function parseClause(clause, out, selfName, selfType) {
   //     "spells" is singular, so normalizeSubtype just canonicalizes case.
   if (/^this spell can't be countered$/.test(c)) {
     out.push({ cantBeCountered: { scope: "self" } });
+    return;
+  }
+
+  // ── ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse) ────────────────────────────
+  // "Creatures can't attack you unless their controller pays {N} for each creature they control that's
+  // attacking you." A coverage MARKER only (no `affects`/`op`, so the layer engine ignores it — the
+  // cantBeCountered precedent directly above). The enforcement is NOT here and must not be: legalChoices
+  // withholds the attack action when the tax is unaffordable, and actionDispatcher actually PAYS it at
+  // declaration. Both read attackTax.js' parser, the same one gating this marker, so the metric can never
+  // claim a card the runtime doesn't charge for. Emitting the marker WITHOUT that pair would be the worst
+  // outcome available: a card that classifies native and lets the attacker swing for free.
+  if (isAttackTaxClause(c)) {
+    out.push({ attackTax: { generic: parseAttackTax({ oracle: c })?.generic ?? 0 } });
     return;
   }
   // CONTROLLER-SCOPE (Chimil, the Inner Sun — "Spells you control can't be countered"): a board static that

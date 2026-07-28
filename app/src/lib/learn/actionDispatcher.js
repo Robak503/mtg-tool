@@ -54,7 +54,8 @@ import {
   findPermanent,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
-import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap } from "./manaModel.js";
+import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
+import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
 import { parseEffectProgram } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
@@ -1290,6 +1291,31 @@ function applyDeclareAttacker(state, action) {
   // defenderId picks which opponent this attacker targets (Commander). In
   // Standard the dispatcher fills the lone opponent.
   const defender = action.defenderId || opponentsOf(state, action.playerId)[0];
+
+  // ATTACK TAX (CR 508.1g — Propaganda / Ghostly Prison / Windborn Muse): pay {N} per taxing permanent the
+  // defender controls, for THIS attacker. Declaration here is sequential, so N attackers pay N × {2} —
+  // the printed total, one step at a time (see attackTax.js).
+  //
+  // PAID FROM `next`, i.e. AFTER the tap above, and that ordering is CR 508.1 f→h rather than a detail:
+  // attackers tap before mana abilities are activated, so a non-vigilance attacker is already tapped and
+  // is not among its own funding sources. A vigilance attacker is still untapped here and may pay with
+  // itself, which is correct and is why the read happens on the post-tap state instead of a filter.
+  //
+  // legalChoices withholds the action when the tax is unaffordable, so an unpayable tax here means the
+  // board moved between enumeration and dispatch. That THROWS rather than declaring a free attack — an
+  // unfunded attacker is exactly the false positive this whole slice exists to prevent, and swallowing it
+  // would put it back.
+  const attackTax = attackTaxToDeclare(next, defender);
+  if (attackTax > 0) {
+    const { state: taxed, paid } = payManaCost(next, action.playerId, { generic: attackTax });
+    if (!paid) {
+      throw new DispatcherError(
+        `Can't declare ${creature.card?.name || action.permanentId} as an attacker: the {${attackTax}} attack tax is unpayable`,
+        "ATTACK_TAX_UNPAID",
+      );
+    }
+    next = logEvent(taxed, { turn: state.turn, kind: "attack-tax-paid", attackerId: action.permanentId, playerId: action.playerId, generic: attackTax });
+  }
   const attackerEntry = {
     permanentId: action.permanentId,
     attackingPlayer: action.playerId,
