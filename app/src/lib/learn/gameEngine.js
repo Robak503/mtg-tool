@@ -60,7 +60,7 @@ import {
   checkMilledTriggers,
   checkBecomesTargetTriggers,
   checkUntapTriggers,
-  checkTapTriggers,
+  checkTapTriggers, checkCounterTriggers,
   checkGraveyardEventTriggers,
   checkSagaChapterTriggers,
   checkSacrificeTriggers,
@@ -1364,6 +1364,11 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // priority-grant checkpoint (CR 603.3a). BEFORE the empty-pending early return so a lone tap trigger isn't
   // stranded. Idempotent (empty queue → no-op), so re-entrant flushes never double-fire.
   state = checkTapTriggers(state);
+  // COUNTERS-PUT-ON drain (CR 122.6): same funnel discipline as the two above — a placement recorded during
+  // resolution, combat, or an enters-with mint converts to its watcher's trigger here, at the next
+  // priority-grant checkpoint. BEFORE the empty-pending early return so a lone counter trigger isn't
+  // stranded. Idempotent (empty queue → no-op), so re-entrant flushes can't double-fire.
+  state = checkCounterTriggers(state);
   const pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
 

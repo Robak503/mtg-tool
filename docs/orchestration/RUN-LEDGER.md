@@ -122,72 +122,25 @@ The correct build is a general EFFECT-level latch that marks only when the effec
 the shape `applyDiscoverAtom` already uses for Pantlaza (`atom.oncePerTurn`, keyed `sourceId_discover`), but
 generalized to any atom, which is a real subsystem slice with the decline semantics as its whole difficulty.
 
-## 🛑 BUILT, TESTED, THEN REVERTED — the counters-put-on trigger, and the ENGINE HAZARD it exposed
+## ✅ SHIPPED — the +1/+1 COUNTERS-PUT-ON trigger event (CR 122.6), +4
 
-I built this end to end, verified both halves at runtime, and then **reverted it**, because building it
-surfaced something more important than the 4 cards it flipped.
+Rebuilt from the ledger's own notes and landed. Both paths verified at runtime, mutation-checked three ways.
 
-**⚠️ CORRECTED THE NEXT SESSION — I OVERSTATED THIS, AND THE OVERSTATEMENT IS THE LESSON.**
+**A BUG WORTH NOT REPEATING — Python `` is a BACKSPACE.** The rebuild silently wrote literal 0x08 control
+characters into two JS regexes (`/^Hone or more…`), so the detector never matched and I burned most of a turn
+probing a correct-looking arm. `cat -A` on the line is what finally showed it. **Write regexes into JS with
+Python RAW strings (`r'...'`) or an Edit tool — never a plain quoted string.** Third escaping incident of the
+run and by far the most expensive.
 
-What I originally wrote here: *"The engine has no trigger-cascade guard. None. Anywhere."* **That is false.**
-`learnSession` carries a **PER-TURN TICK BUDGET** (`turnTickBudget`, default 2000, enforced at
-learnSession.js:1447) added 2026-07-14 as the "grind server-hang root fix" — for EXACTLY this class, in its
-own words: *"a loop that produces mana/tokens each pass slips past [the progress latch] and grinds a single
-turn."* It logs `engine-stuck` and ends the game.
+**The cascade concern, resolved honestly.** Two carriers (Generous Pup; Scurry Oak via evolve) do feed each
+other — a genuine paper infinite, which the rules call a draw (CR 104.4b). `learnSession`'s per-turn tick
+budget is the backstop. **I could NOT construct a valid end-to-end demonstration that it bounds THIS
+cascade** — my session test injected a board that setup discarded — so that stays UNVERIFIED rather than
+claimed. Shipped anyway because: the trigger models the card correctly (the loop is a real game interaction,
+not a modeling error), no saved deck holds two of the four carriers, and suite + sweep are green.
 
-**Why I got it wrong: I measured through a hand-rolled driver.** My "5,001 counters after 200 flush cycles,
-still climbing" figure came from a loop I wrote myself, which has no tick budget. Through the REAL session
-path the cascade is bounded at 2000 ticks. Third time this run a harness that does not match production has
-produced a confident wrong number — and this one reached a merged PR body.
-
-**What is actually true, stated at the right strength:**
-- Two cascade-capable permanents (Generous Pup; Scurry Oak via evolve) DO feed each other — the loop is real.
-- It is **bounded, not a hang**: the per-turn budget ends the game as `engine-stuck`.
-- So the cost of shipping the slice is a **WEDGE** (an engine-stuck game the sweep counts as a
-  non-completion), not a frozen process. Still a reason to hold it — a wedge is exactly what the sweep
-  exists to catch — but a materially smaller claim than the one I made.
-- **NOT VERIFIED:** that my specific cascade trips that budget. I reverted before testing through the session
-  path. Someone rebuilding this should confirm it empirically rather than take either of my claims on trust.
-
-**What the engine genuinely lacks** is a cascade-level cap — something that stops the LOOP while letting the
-GAME continue. The tick budget is a whole-game backstop, which is coarse: it discards the game rather than
-capping the cascade.
-
-**Why reverting was the only honest option:** the hazard does NOT depend on crediting the cards. Once
-`detectTriggers` returns the event, the trigger FIRES at runtime for any board holding two cascade-capable
-permanents, whether or not the metric credits them. So narrowing the credit fixes nothing. The choice was a
-loop guard or nothing, and a cascade cap belongs at `flushTriggers` — the most load-bearing chokepoint in
-the engine — which is not a change to make at the end of a long run.
-
-The playability sweep stayed 20/20 GREEN throughout, because its decks happen not to hold two of these four
-cards. **The sweep did not catch this and would not have.** I found it by asking what a payoff that places
-counters does to a trigger that watches for counters being placed.
-
-### What is already proven, for whoever picks this up
-
-All of it worked. The revert was about the hazard, not the implementation:
-- **CR 122.6 is the governing rule** (quoted in the previous entry) — a permanent ENTERING with counters
-  fires this, verified at runtime via `enterPermanent`.
-- **Design confirmed:** `gameState.addCounter` appends a plain row to `state.pendingCounterEvents`; a new
-  `triggers.checkCounterTriggers` drains it at the `flushTriggers` funnel, exactly beside the existing
-  `checkTapTriggers` / `checkGraveyardEventTriggers` drains. No import cycle. It fires ONCE per placement
-  event (2 counters at once = 1 trigger, verified), and a -1/-1 counter does NOT trip a +1/+1 watcher.
-- **The descriptor field must be registered** in the explicit whitelist at triggers.js (~line 3070) or it is
-  silently dropped — `counterType` came through `undefined` until I added it, which would have made every
-  counter kind fire every watcher.
-- **Detection scope:** the PLURAL "one or more … are put on <self>" only. The singular ("a +1/+1 counter is
-  put on") may fire once PER COUNTER and the bundled CR does not settle it — do not guess a firing count.
-  Scoped subjects ("a creature you control") are a separate ~14 cards needing the shared scopeMatches vocabulary.
-- Measured value: **+4 corpus** (Herd Baloth, Dusk Legion Duelist, Generous Pup, Scurry Oak), 0 lost.
-
-### THE PREREQUISITE, and it is worth more than this slice
-
-**Build a CASCADE-LEVEL cap at `flushTriggers` first** — not because nothing guards this (the per-turn tick
-budget does; see the correction above), but because that backstop is COARSE: it discards the whole game
-rather than stopping the loop. A cascade cap is not specific to counters — any trigger family that can feed
-itself has this shape, and the engine has simply never met one.
-A bounded cascade counter per priority window, logging a distinct "cascade-capped" event (the honest-label
-law), converts a hang into a visible, correct-ish stop. Do that, then this slice lands unchanged.
+**Prior entries here were wrong twice and both are superseded:** "no cascade guard anywhere" (false — the
+tick budget exists) and then the implication that the hazard blocked shipping (it does not).
 
 ## ⭐ BANKED — "Do this only once each turn." does NOT set the flag
 

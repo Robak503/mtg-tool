@@ -460,6 +460,19 @@ export function enterPermanent(state, card, controller, opts = {}) {
     },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller });
+  // ENTERS-WITH-COUNTERS half (CR 122.6): "counters being put on an object … refers to putting counters on
+  // that object while it's on the battlefield AND ALSO to an object that's given counters as it enters."
+  // Recorded HERE, the single point where the finished permanent joins the battlefield, rather than at each
+  // enters-with site (loyalty / typed / plus / modular / kicked). One row per counter KIND. Deliberately the
+  // OPPOSITE of the becomes-tapped sibling, which skips enters-tapped — the CR treats the two entry cases
+  // differently, and getting it backwards would mis-play every carrier.
+  const enteredCounters = Object.entries(perm.counters || {}).filter(([, n]) => (n || 0) > 0);
+  if (enteredCounters.length) {
+    next = { ...next, pendingCounterEvents: [
+      ...(next.pendingCounterEvents || []),
+      ...enteredCounters.map(([type, n]) => ({ id: perm.id, type, amount: n, controller, fromEnter: true })),
+    ] };
+  }
   // KW-RIOT (CR 702.136a) HASTE branch — when the auto-pick chose haste, the permanent "gains haste": a
   // layer-6 addKeyword Haste continuous effect scoped to THIS permanent with a permanent duration (the exact
   // earthbend/animate shape), added now that it's on the battlefield. permanentHasKeyword("Haste") reads it,

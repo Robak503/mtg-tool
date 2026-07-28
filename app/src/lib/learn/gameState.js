@@ -1422,10 +1422,19 @@ export function addCounter(state, { permanentId, type, amount = 1 }) {
   // Thread the recipient permanent id so a self-excluding "another creature you control" replacement (CR 109.5,
   // Benevolent Hydra) is skipped when THIS permanent is the replacement's own source.
   const placed = lk ? applyCounterDoubling(state, lk.controller, type, amount, permanentId) : amount;
-  return updatePermanent(state, permanentId, p => ({
+  const next = updatePermanent(state, permanentId, p => ({
     ...p,
     counters: { ...p.counters, [type]: (p.counters[type] || 0) + placed },
   }));
+  // COUNTERS-PUT-ON event queue (CR 122.6) — record the placement so a "Whenever one or more +1/+1 counters
+  // are put on this creature" watcher can fire. Recorded as a PLAIN JSON row rather than fired here: this
+  // module cannot import triggers.js (triggers.js imports gameState — the reverse edge is a cycle).
+  // triggers.checkCounterTriggers drains it at the flushTriggers funnel, exactly the pendingTapEvents /
+  // pendingGraveyardEvents pattern. ONE row per placement carrying the post-replacement amount: the printed
+  // trigger is "one or more … are put on", which fires ONCE per event however many counters land. A
+  // 0-count placement (a doubler flooring to zero) records nothing — no counters were put on.
+  if (!lk || placed <= 0) return next;
+  return { ...next, pendingCounterEvents: [...(next.pendingCounterEvents || []), { id: permanentId, type, amount: placed, controller: lk.controller }] };
 }
 
 export function removeCounter(state, { permanentId, type, amount = 1 }) {
