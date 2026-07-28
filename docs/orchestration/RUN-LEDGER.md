@@ -498,6 +498,31 @@ own one-word diff, spend ONE probe on *why not* before writing it off as a one-c
 biggest finds today — the mana-doubler cell, the untap type list, this one — were all "the machinery is
 built, the composition isn't."
 
+### 🔶 NEXT, AND IT'S BIGGER THAN EQUIPMENT — the residue chain's trigger strip is a REGEX GUESS
+
+Chasing the four Equipment that still park (Adaptive Omnitool #2237 · Sword of Hours · Reaper's Talisman
+· Mask of Immolation) leads somewhere general. Every residue chain in `coverage.js` strips trigger
+sentences with
+
+```js
+.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n")
+```
+
+`[^.]+` stops at the FIRST period. So a trigger whose EFFECT spans sentences — Adaptive Omnitool's
+"look at the top six… You may reveal… Put the rest on the bottom…" — is verified as modeled by
+`allTriggerSentencesModeled` (the span matchers fold it into one trigger, correctly) and then leaves its
+2nd and 3rd sentences behind as *apparent residue*, sinking a card every piece of which is understood.
+
+The accumulated `.replace()` tail-strips (reflexive "if you do", the entering-pronoun pump, the
+counters-on-it tail) are all **patches on that one wrong assumption** — each added when a specific card
+fell through.
+
+**The real fix is to strip what detectTriggers actually consumed rather than re-guessing it** — the
+descriptors already carry `sourceText`. That is a wave, not a slice: it touches the residue chain every
+tier depends on, so it needs a corpus-wide before/after diff (tier per card, not just the total) to prove
+it only ADDS. But it is the highest-leverage thing left on this board — every "spans sentences" park in
+every tier is the same bug, and there is no way to know how many until the strip is honest.
+
 **NOT crosses, don't re-diagnose:** Shriekmaw #1546 — its "sibling" is also unparsed. Jhoira's Familiar
 #1035 — "historic" isn't a type-line token, and that refusal is CORRECT.
 
