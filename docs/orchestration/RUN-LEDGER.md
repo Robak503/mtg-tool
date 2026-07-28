@@ -476,8 +476,21 @@ below needs a subsystem that doesn't exist yet, and each is worth roughly ONE ca
 
 ✅ **The can't-be-countered AND is DONE** (`2c90b6fa`) — it was the last row with a better-than-one-card
 ratio, so **everything left in this table is subsystem work**: a keyword, a target class, or a scope the
-engine doesn't express. Don't expect another cheap flip from the near-miss probe at distance 1 in the
-top-5000; run `--distance=2`, or a deeper rank band, before assuming there is one.
+engine doesn't express.
+
+**`--distance=2` on the top-2500 was then run** (44 blockers) and it does NOT change that picture — the
+new rows are all one card each, but they're cheap-looking and un-triaged, so they're recorded rather
+than lost:
+
+| card | the gap | note |
+|---|---|---|
+| Stormfist Crusader #1913 | `each player` vs `target player` draws-and-loses | an eachPlayer arm on a compound upkeep payoff |
+| Spine of Ish Sah #2486 | "when this **artifact** is put into a graveyard…" vs "this **aura**" | a noun widening on the self-return; its ETB destroy already parses |
+| Junk Diver #1977 · Myr Retriever #875 | dies + **another** target artifact card in your graveyard | ⚠️ "another" here excludes a GRAVEYARD card, and `notSource` matches battlefield permanent ids — not the same restriction |
+| Goldvein Pick #2100 | `equipped creature` deals combat damage → Treasure | the equippedCreature scope EXISTS; worth finding out why this payoff doesn't route |
+
+Goldvein Pick is the one to look at first — not for its card count but because the scope is already
+built, so a "why not" answer there probably generalizes.
 
 **NOT crosses, don't re-diagnose:** Shriekmaw #1546 — its "sibling" is also unparsed. Jhoira's Familiar
 #1035 — "historic" isn't a type-line token, and that refusal is CORRECT.
