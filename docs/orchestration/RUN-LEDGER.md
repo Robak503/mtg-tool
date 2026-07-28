@@ -460,29 +460,26 @@ they fell into the parked branch and the report's whole top became phantom "bloc
 Lands are skipped outright now. **A ranked list of plausible leads is exactly the output that doesn't
 announce when it's wrong.** Verify against the corpus, never off the report.
 
-**Still open at distance 1, read but not built** (refreshed 2026-07-28 after six of the original
-thirteen shipped — Accursed Marauder, Isshin, Voltaic Key, Crypt Ghast, Panharmonicon's family, the
-Monuments):
+**⚠️ THE CHEAP CROSSES ARE EXHAUSTED.** Twelve of the original nineteen distance-1 rows shipped this
+run; the remainder is **wave-sized, not slice-sized**. Checked card by card, not assumed — each row
+below needs a subsystem that doesn't exist yet, and each is worth roughly ONE card.
 
-| card | the one word | note |
+| card | what it actually needs | flips |
 |---|---|---|
-| Mother of Runes #512 | `{T}:` prefix on a modeled spell clause | protection-from-chosen-color, activated form |
-| Reprieve #633 | target **spell** vs target creature | bounce a stack object — new target class |
-| Aqueous Form #735 | **enchanted** creature vs this creature | Aura-granted unblockable |
-| Blade of Selves #905 | has **myriad** vs has flying | the keyword itself is unbuilt |
-| Elvish Archdruid #942 | for each **Elf** vs each creature | mana per SUBTYPE — pairs with the Priest of Titania form |
-| Jhoira's Familiar #1035 | **historic** spells | not a type-line token; the existing refusal is CORRECT |
-| Forensic Gadgeteer #1374 | abilities of **artifacts** vs creatures | activated-cost cut, Training Grounds' twin |
-| Aether Channeler #1526 | **another** target nonland permanent | notSource on a bounce mode |
-| Shriekmaw #1546 | non**artifact**, nonblack | the sibling "nonblack creature" is ALSO unparsed — not a real cross |
-| Curiosity Crafter #1734 | creature **token** you control | the token split, now that edicts have the pools |
-| Helm of Awakening #1889 | costs **less** vs costs more | SYMMETRIC (all players) — different scope |
-| Deafening Silence #1946 | one **noncreature** spell each turn | cast-limit filter |
-| Garruk's Packleader #2014 | **another** creature … power N or greater | the "another" × power-filter cross |
-| Prowling Serpopard #3581 · Surrak #3186 | **creature** spells you control can't be countered | the AND shape the Monuments used |
+| Prowling Serpopard #3581 · Surrak #3186 | can't-be-countered as an **AND** (type × controller) — the Monument descriptor shape, already proven | **2** |
+| Aqueous Form #735 | an `unblockable` grantable pseudo-keyword + enforcement in canBlockAttacker | 1 of 2 |
+| Blade of Selves #905 | the MYRIAD keyword itself (unbuilt) | 1 |
+| Reprieve #633 | a SPELL target class for bounce — only counters can target the stack today | 1 |
+| Mother of Runes #512 | protection-from-a-chosen-colour, as an activated grant | 1 |
+| Deafening Silence #1946 | a per-turn cast limit filtered by card type | 1 |
+| Helm of Awakening #1889 | a SYMMETRIC cost reducer — the collector is controller-only by construction | 1 |
 
-The "**another** ×" and "**token** ×" columns each appear twice — those two qualifiers are the highest-
-frequency crosses left, and are probably worth doing as qualifier passes rather than card by card.
+**Best ratio by a clear margin: the can't-be-countered AND.** Two cards, and the Monument slice already
+built and pinned that exact descriptor shape (`{ subtype, colors }` read as a conjunction rather than
+falling through an if/else-if to the first arm).
+
+**NOT crosses, don't re-diagnose:** Shriekmaw #1546 — its "sibling" is also unparsed. Jhoira's Familiar
+#1035 — "historic" isn't a type-line token, and that refusal is CORRECT.
 
 **Deliberately NOT taken:** the Altar family (Ashnod's #132, Phyrexian #307, Skirk Prospector #1351,
 Krark-Clan Ironworks #1356 — 12 corpus carriers). A costless "Sacrifice a creature: Add {C}{C}" needs
