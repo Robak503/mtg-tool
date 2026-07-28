@@ -547,7 +547,13 @@ export function destroyExileClauseParser(clause) {
   // to exactly that player's permanents, AND (b) an atom-level who:"damagedPlayer" so the combat-referent gate
   // pins this destroy to combatDamageToPlayer — on any other event (a spell, a non-combat trigger) ctx.damaged-
   // PlayerId is unset → empty pool → the ability drops no-target, never a mis-scoped destroy (SAFE, CREED).
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
+  // COLOR-POS (CR 105.2) — an optional COLOR adjective in front of the noun: "destroy target BLUE permanent"
+  // (Red Elemental Blast / Hydroblast), "destroy target MULTICOLORED permanent" (Null Elemental Blast). The
+  // colour rides as a `color`/`multicolored` restriction, which enumerateTargets evaluates LAYER-AWARE
+  // (permanentColors, after layer 5) — so a permanent turned blue IS a legal target and a printed-blue one
+  // turned white is NOT. A restriction only ever REMOVES candidates from the pool, so this cannot widen an
+  // existing target set: every noun that matched before matches identically with the group absent (CREED).
+  const rm = t.match(/^(destroy|exile) target (?:(white|blue|black|red|green|multicolored) )?(artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -558,13 +564,18 @@ export function destroyExileClauseParser(clause) {
       "enchantment or land": "enchantmentOrLand",
       "creature or planeswalker": "creatureOrPlaneswalker", "planeswalker": "planeswalker", // PW-7
     };
-    const controlScope = rm[3];
+    const controlScope = rm[4];
     const controllerWho = /^you control$/.test(controlScope || "") ? "you"
       : /^defending player controls$/.test(controlScope || "") ? "defendingPlayer"
       : /^that player controls$/.test(controlScope || "") ? "damagedPlayer"
       : "opponent";
     const restrictions = controlScope ? [{ kind: "controller", who: controllerWho }] : [];
-    const atom = { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
+    // COLOR-POS: prepend the colour restriction when the optional adjective matched (rm[2]). Absent → the
+    // restrictions array is byte-identical to before, so every previously-parsed card is unchanged.
+    const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+    if (rm[2] === "multicolored") restrictions.unshift({ kind: "multicolored" });
+    else if (rm[2]) restrictions.unshift({ kind: "color", color: COLOR_LETTER[rm[2]] });
+    const atom = { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[3]], restrictions };
     // Pin the combat-event referent onto the atom for the combat-referent gate (defending/damaged-player scopes).
     if (controllerWho === "defendingPlayer") atom.who = "defendingPlayer";
     if (controllerWho === "damagedPlayer") atom.who = "damagedPlayer";

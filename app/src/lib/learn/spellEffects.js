@@ -45,7 +45,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield } from "./staticAbilityParser.js";
-import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature } from "./layers.js";
+import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, permanentColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
@@ -331,6 +331,20 @@ export function parseCreatureTargetRestrictions(card) {
   const cm = t.match(/\bnon(white|blue|black|red|green)\b/);
   if (cm) { restrictions.push({ kind: "colorNeg", color: COLOR_WORD[cm[1]] }); t = t.replace(/\bnon(?:white|blue|black|red|green)\b/g, " "); }
 
+  // COLOR-POS (CR 105.2) — the POSITIVE mirror of colorNeg: "destroy target BLUE permanent" (Red
+  // Elemental Blast), "counter target BLUE spell", "target MULTICOLORED permanent" (Null Elemental
+  // Blast). Runs AFTER the colorNeg strip above, so any color word still standing here is genuinely
+  // positive — "nonblue" has already been consumed and cannot be re-read as "blue".
+  //
+  // Before this, a bare color word survived as unstripped residue, which the cleanliness check treats
+  // as unmodeled → the card parked. So this only ever converts a PARKED card into a restricted-target
+  // one; it cannot loosen a target set that was already being offered. And a restriction is additive —
+  // a mis-parsed color word can only REMOVE candidates from the pool (a safe FN), never admit an
+  // illegal one (CREED: the forbidden direction is unreachable from here by construction).
+  const pcm = t.match(/\b(white|blue|black|red|green)\b/);
+  if (pcm) { restrictions.push({ kind: "color", color: COLOR_WORD[pcm[1]] }); t = t.replace(/\b(?:white|blue|black|red|green)\b/g, " "); }
+  if (/\bmulticolored\b/.test(t)) { restrictions.push({ kind: "multicolored" }); t = t.replace(/\bmulticolored\b/g, " "); }
+
   // β-1 — type negation ("nonartifact/nonenchantment/nonland creature" — Go for the Throat): the target's
   // type line must NOT contain that card type.
   const ntm = t.match(/\bnon(artifact|enchantment|land)\b/);
@@ -440,6 +454,16 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       const colors = isDfc ? card.card_faces?.[0]?.colors : card.colors;
       if (!Array.isArray(colors)) return false;
       if (colors.includes(r.color)) return false; // a non<color> target can't be that color
+    } else if (r.kind === "color" || r.kind === "multicolored") {
+      // COLOR-POS (CR 105.2) — read LAYER-AWARE (permanentColors → derived characteristics after layer 5),
+      // NOT the printed card. A permanent turned blue by an effect IS a legal "target blue permanent", and a
+      // printed-blue permanent turned white is NOT. Reading the printed colors here (as colorNeg still does)
+      // would offer that white permanent to Red Elemental Blast — an illegal target, the forbidden direction.
+      // FAIL-CLOSED when the colors are unresolvable: a dropped legal target is safe, a wrong one never is.
+      const eff = permanentColors(state, perm.id);
+      const set = eff instanceof Set ? eff : new Set(Array.isArray(eff) ? eff : []);
+      if (r.kind === "color" && !set.has(r.color)) return false;
+      if (r.kind === "multicolored" && set.size < 2) return false;  // CR 105.3 — two or more colors
     } else if (r.kind === "typeNeg") {
       // FRONT-face type only (CR 712.4a) — a DFC's combined "Front // Back" line would wrongly match a
       // back-face type (mirrors the front-face discipline used for counter/tutor/graveyard targets here).
