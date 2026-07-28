@@ -306,6 +306,19 @@ export function parseCreatureTargetRestrictions(card) {
   if (/\buntapped\b/.test(t)) { restrictions.push({ kind: "tapped", value: false }); t = t.replace(/\buntapped\b/g, " "); }
   else if (/\btapped\b/.test(t)) { restrictions.push({ kind: "tapped", value: true }); t = t.replace(/\btapped\b/g, " "); }
 
+  // DISJUNCTIVE P/T BOUND (CR 208.1 / 208.2 — Warping Wail: "exile target creature with power or toughness
+  // 1 or less"). Matched and stripped WHOLE and BEFORE the single-characteristic matchers below, because the
+  // toughness matcher would otherwise consume "toughness 1 or less" out of the MIDDLE of the phrase and leave
+  // "power or" behind as residue — which fails the cleanliness check. That is exactly why this printed form
+  // parsed low while BOTH of its halves were already modeled: the two were never crossed.
+  //
+  // One restriction, not two: the restrictions array is AND-ed, so pushing {power} and {toughness} separately
+  // would demand BOTH bounds and under-offer (Warping Wail could not hit a 3/1). The OR lives inside the kind.
+  let ptm = t.match(/\bpower or toughness (\d+) or less\b/);
+  if (ptm) { restrictions.push({ kind: "powerOrToughness", op: "<=", value: parseInt(ptm[1], 10) }); t = t.replace(/\bpower or toughness \d+ or less\b/g, " "); }
+  ptm = t.match(/\bpower or toughness (\d+) or (?:greater|more)\b/);
+  if (ptm) { restrictions.push({ kind: "powerOrToughness", op: ">=", value: parseInt(ptm[1], 10) }); t = t.replace(/\bpower or toughness \d+ or (?:greater|more)\b/g, " "); }
+
   // Power N or less / N or greater.
   let pm = t.match(/\bpower (\d+) or less\b/);
   if (pm) { restrictions.push({ kind: "power", op: "<=", value: parseInt(pm[1], 10) }); t = t.replace(/\bpower \d+ or less\b/g, " "); }
@@ -481,6 +494,14 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       const th = creatureToughness(perm, state);
       if (r.op === "<=" && !(th <= r.value)) return false;
       if (r.op === ">=" && !(th >= r.value)) return false;
+    } else if (r.kind === "powerOrToughness") {
+      // DISJUNCTIVE P/T BOUND (Warping Wail) — EITHER characteristic satisfying the bound is enough, so a
+      // 3/1 is a legal target for "power or toughness 1 or less". Both reads are LAYER-AWARE (CR 613.3),
+      // matching the single-characteristic branches above, so counters and anthems count.
+      const p = creaturePower(perm, state);
+      const th = creatureToughness(perm, state);
+      const ok = r.op === "<=" ? (p <= r.value || th <= r.value) : (p >= r.value || th >= r.value);
+      if (!ok) return false;
     } else if (r.kind === "manaValue") {
       // TAP-TARGET-CREATURE: "with mana value N or greater" (Law-Rune Enforcer). Uses the slim-index
       // cmc field (mana value as a number); defaults to 0 when absent (safe false-negative for lands/tokens).
