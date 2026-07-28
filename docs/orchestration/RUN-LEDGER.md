@@ -293,11 +293,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.5%** (12,142/34,245 — +94 this run). Suite **887 files / 11,427 tests**,
-  lint 0, MUTANT sweep clean. TWENTY slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries twenty unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.5%** (12,149/34,245 — +101 this run). Suite **888 files / 11,438 tests**,
+  lint 0, MUTANT sweep clean. TWENTY-ONE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries twenty-one unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.5%** · top-5000 42.0% · top-10k 35.1%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.6%** · top-5000 42.0% · top-10k 35.1%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -321,6 +321,7 @@ That is the whole reason this target beats corpus %.
 | `e05c796b` | batched graveyard-ENTER + a silently-dropped zone filter ⚠️ | **+1**, Sidisi #3513 |
 | `c5e68496` | BLINK / FLICKER (CR 400.7) + a splitter keep-whole guard ⚠️ | **+7**, **Ephemerate #440** · Cloudshift #792 · Blur · Momentary Blink |
 | `a3488b65` | impulse-exile takes a COUNT (the runtime already existed) | **+2**, Act on Impulse · Rob the Archives |
+| `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `9381112d` | impulse NEXT-TURN window — controller-scoped expiry ⭐ | **+6**, **Light Up the Stage #1211** · Reckless Impulse #2120 · Wrenn's Resolve #2116 |
 
 ### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
@@ -453,6 +454,32 @@ file touched by this vein — worth the full suite between each step, not a tail
 **⚠️ And note the shape of the trap:** the first fragment parsing HIGH as a bare exile is exactly the kind of
 partial success that could ship a card which EXILES a creature and never returns it. Any future fold must be
 paired with a runtime test that the creature comes BACK and its ETB fires.
+
+### 🩸 THE SACRIFICED REFERENT — `db4e6d51`. Capture is GENERAL; only the DAMAGE arm reads it yet.
+
+`state.sacrificedForCost = { power, toughness, manaValue }` is stamped by actionDispatcher at COST-PAYMENT
+time (the only moment the victim is still on the battlefield — CR 608.2h + 603.6e LKI), read back through
+`countForSpec` kinds `sacrificedPower` / `sacrificedToughness` / `sacrificedManaValue`, and the phrase lives
+in the SHARED `parseCountSource` so every scaling atom family gets it from one edit.
+
+**~84 parked cards reference this** (29 power · 23 mana value · 18 toughness · 7 "power to any target").
+Only the DAMAGE arm reads the stamp so far, so the obvious next reads are cheap and already scoped:
+```
+gain-life  equal to the sacrificed creature's toughness   Reckoner's Bargain #3671  (pinned LOW today)
+discard    a number of cards equal to its power           Tormented Thoughts #22752 (pinned LOW today)
+tutor      a creature with mana value X or less           Eldritch Evolution #728
+```
+
+**⚠️ I NARROWED A REAL SAFETY GUARD HERE — read before touching it again.** `castModifiers` refused ANY body
+referencing the paid cost, on the stated grounds that such an effect *"can't be fed the cost details."* That
+was true until this slice. It is now narrowed to admit ONLY the three modeled magnitudes; an object
+reference, an unmodeled characteristic, or a discard/exile self-reference still parks the card.
+
+**AND THE HONEST LIMIT, found by mutation:** deleting that guard entirely leaves every "still refused" test
+PASSING. The guard is **belt-and-suspenders** (its own comment says so) — the UNDERLYING PARSE is what
+refuses those bodies. No reachable input makes it load-bearing, which is exactly why narrowing it was safe.
+The pins are labelled in-file as INTENT, not proof. **Do not cite them as evidence the guard works.** The
+capture-and-read chain IS mutation-verified separately.
 
 ### ☠️ THE DESCRIPTOR WHITELIST SILENTLY DROPS UNLISTED FIELDS — this nearly shipped an over-fire
 
