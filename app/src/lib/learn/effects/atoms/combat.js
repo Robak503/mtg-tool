@@ -8,6 +8,7 @@ import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ra
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
+import { NON_CHOSEN_TARGET_TYPES } from "../../targetTypes.js"; // MASS-TAP — targetTypes.js is a zero-import leaf (cycle-safe)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated ptUpgrade; interveningIf → gameState is a leaf edge (no cycle)
@@ -48,7 +49,14 @@ export function applyTapEffect(state, atom, ctx, tap) {
   // resolution (CR 303.4a). Every other tap/untap form carries a `targetType` (no `target`) and reads the
   // chosen ctx.targets byte-for-byte as before. atomTargets returns [{type:"creature", id}] for a live host,
   // [] for a detached/gone Aura (a clean no-op, never a fabricated tap).
-  const list = atom?.target ? atomTargets(next, atom, ctx) : (ctx.targets || []);
+  // MASS TAP (Cryptic Command "Tap all creatures your opponents control") — a NON-CHOSEN scope has no chosen
+  // targets to read, so it must resolve through atomTargets like the fixed-referent form above. Without this
+  // it would read an empty ctx.targets and silently tap NOTHING while the classifier credited the card native
+  // — the exact "classifies native but does nothing" trap ATOM_TARGETS_MASS_HANDLED exists to catch.
+  // Gated on NON_CHOSEN_TARGET_TYPES rather than a hand-listed scope so a future mass tap can't miss the seam.
+  // Byte-identical for every shipped tap atom: they all carry creature/permanent/nonlandPermanent/land
+  // targetTypes, none of which is a non-chosen scope (verified across the file before this change).
+  const list = (atom?.target || NON_CHOSEN_TARGET_TYPES.has(atom?.targetType)) ? atomTargets(next, atom, ctx) : (ctx.targets || []);
   for (const t of list) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
@@ -822,6 +830,14 @@ export function combatKeywordClauseParser(clause) {
   if (multiTapM) {
     const n = SMALL_NUM[multiTapM[1]];
     if (n >= 2) return { op: "tap", targetType: multiTapM[2] === "creatures" ? "creature" : "permanent", restrictions: [], maxTargets: n, minTargets: 0, ...(multiTapM[3] ? { noUntapNext: true } : {}) };
+  }
+  // MASS TAP, OPPONENT-SCOPED (CR 701.21a — Cryptic Command, EDHREC #1617: "Tap all creatures your opponents
+  // control"). Reuses the shipped eachOpponentCreature mass scope (the Scourge-of-Fleets bounce set) — a
+  // NON-CHOSEN, layer-aware, opponents-only creature set — so nothing new is enumerated. Only the opponent
+  // form is admitted: a symmetric "tap all creatures" would need the eachCreature scope AND would tap the
+  // caster's own board, which is a different card, so it stays low → Arbiter (FN-safe).
+  if (/^tap all creatures your opponents control$/.test(t)) {
+    return { op: "tap", targetType: "eachOpponentCreature" };
   }
   const tapPermM = t.match(/^tap target permanent( and its activated abilities can't be activated this turn)?\.?$/);
   if (tapPermM) {

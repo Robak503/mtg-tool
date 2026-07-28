@@ -125,12 +125,33 @@ describe("LOW-confidence counters: not offered with no legal stack target (CR 60
   const STUBBORN_DENIAL = { id: "sd", name: "Stubborn Denial", type: "Instant",
     oracle: "Counter target noncreature spell unless its controller pays {1}. Ferocious — If you control a creature with power 4 or greater, counter that spell instead.", mana: "{U}" };
 
-  it("empty stack → NOT offered (Remand / Cryptic Command / Force of Will / Stubborn Denial)", () => {
-    for (const card of [REMAND, CRYPTIC, FORCE_OF_WILL, STUBBORN_DENIAL]) {
+  it("empty stack → NOT offered (Remand / Force of Will / Stubborn Denial)", () => {
+    for (const card of [REMAND, FORCE_OF_WILL, STUBBORN_DENIAL]) {
       const state = responseState({ userHand: [card], userPool: { U: 5, C: 5 }, stack: [] });
       const offered = filterActions(legalActionsForPlayer(state, "user"), "cast-spell").some(c => c.cardId === card.id);
       expect(offered, `${card.name} should NOT be offered at an empty stack`).toBe(false);
     }
+  });
+
+  // CRYPTIC COMMAND GRADUATED OUT OF THE LIST ABOVE, and the replacement assertion is STRONGER.
+  //
+  // It sat here because its "Tap all creatures your opponents control" mode was unmodeled, which dropped the
+  // whole card below HIGH and made it a blanket counter — correctly withheld at an empty stack. Now that the
+  // mass-tap scope is wired it is a real modal card, and CR 700.2 says a "Choose two" whose counter mode has
+  // no legal target is still castable by choosing two OTHER modes. Withholding it entirely would now be the
+  // BUG: it would make Cryptic Command uncastable in a whole class of real board states.
+  //
+  // So the card must be offered — but ONLY with a legal mode pair. That is the part worth pinning, because
+  // "offered at all" is exactly the weak assertion that would let an illegal counter-mode combination slip
+  // through (CR 601.2c). With an empty stack AND an empty board there is exactly one legal pair.
+  it("Cryptic Command IS offered at an empty stack — but ONLY as its two legal modes (CR 700.2 / 601.2c)", () => {
+    const state = responseState({ userHand: [CRYPTIC], userPool: { U: 5, C: 5 }, stack: [] });
+    const offers = filterActions(legalActionsForPlayer(state, "user"), "cast-spell").filter(c => c.cardId === CRYPTIC.id);
+    expect(offers).toHaveLength(1);
+    // modes 2 + 3 = tap-all + draw. Neither the counter (no spell on the stack) nor the bounce (no permanent
+    // anywhere) may appear in ANY offered combination.
+    expect(offers[0].chosenMode).toEqual([2, 3]);
+    for (const o of offers) expect(o.chosenMode).not.toContain(0); // the counter mode is never offered here
   });
 
   it("legal spell on the stack → offered AND targets that spell", () => {
