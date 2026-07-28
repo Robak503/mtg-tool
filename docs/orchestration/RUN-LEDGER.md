@@ -145,6 +145,42 @@ even after the work. **~4 corpus cards, ~0 deck slots, medium blast radius.** Co
 If someone takes it: mirror the COUNTER-GATED GROUP WARD emission (staticAbilityParser ~line 2012) — it is
 the exact pattern, already correct, already refusing the colored/{X}/life forms for the same reason.
 
+## ⭐ VERIFIED LEVER — reminder-defined ABILITY-CARRYING TOKENS (68 cards) — take this FIRST
+
+**68 parked cards would flip.** Measured by simulation (remove the create-token line, re-classify), and —
+unlike the lever I retracted earlier tonight — **the premise was verified by parsing real clauses before
+banking it.** That check is the whole difference between this entry and that one:
+
+```
+Create a Treasure token. (It's an artifact with "{T}, Sacrifice this token: Add one mana of any color.")
+   -> high  create-named-token token:"treasure"          NAMED, in the registry
+Create a Food token.     (It's an artifact with "{2}, {T}, Sacrifice this token: You gain 3 life.")
+   -> high  create-named-token token:"food"              NAMED, in the registry (and NOT a mana ability)
+Create a Mutagen token.  (It's an artifact with "{1}, {T}, Sacrifice this token: Put a +1/+1 counter ...")
+   -> low   []                                            NOT in the registry -> parks
+```
+
+**The gap is not "non-mana abilities" — it is "not in the hardcoded named-token registry."** Food proves
+non-mana abilities are fine when the token is known. What is missing is synthesizing an ARBITRARY token from
+the reminder text that fully defines it.
+
+**Why this is tractable rather than open-ended:** the T4 machinery already exists. `tokens.js` mints a token
+carrying `atom.tokenOracle` as its real oracle, and every downstream subsystem then drives it like a printed
+permanent — `manaProduction`, `legalChoices`, the dispatcher, all with no special-casing. Today that path is
+gated by `parser.parseTokenManaAbility` (slice 1: clean mana abilities only). **The work is widening that
+gate to any cleanly-parsing activated ability, not building a new path.**
+
+Guards to keep, in the existing grain: synthesize ONLY when the token's type line, P/T, and its ability ALL
+parse cleanly; anything partial parks the whole card (CREED). A reminder that defines a TRIGGERED ability is
+a separate slice.
+
+**Why I did not build it at depth: 68 flips is over the per-flip-audit threshold** (~10) and this is a
+subsystem extension. Take it first in a fresh session, audit the flips in batches with the card text in
+front of you, and re-run the sweep after.
+
+Probe: `scratchpad/tokenoracle.mjs`. Examples: Michelangelo · Peregrin Took · April O'Neil · Arbalest
+Engineers · Koilos Roc · Zoo Escapees.
+
 ## NEXT ACTIONS
 
 1. **Bloom Tender / Faeburrow Elder** — "For each color among permanents you control, add one mana of that
