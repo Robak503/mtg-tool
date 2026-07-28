@@ -122,41 +122,50 @@ The correct build is a general EFFECT-level latch that marks only when the effec
 the shape `applyDiscoverAtom` already uses for Pantlaza (`atom.oncePerTurn`, keyed `sourceId_discover`), but
 generalized to any atom, which is a real subsystem slice with the decline semantics as its whole difficulty.
 
-## ⭐ SCOPED AND UNBLOCKED — the +1/+1 COUNTERS-PUT-ON trigger event (17 self-scoped cards)
+## 🛑 BUILT, TESTED, THEN REVERTED — the counters-put-on trigger, and the ENGINE HAZARD it exposed
 
-`Whenever one or more +1/+1 counters are put on <this creature>` — 32 corpus carriers, **31 parked**;
-17 self-scoped (15 plural + 2 singular). `detectTriggers` returns ZERO for this event, so every carrier parks
-and the line masquerades as residue.
+I built this end to end, verified both halves at runtime, and then **reverted it**, because building it
+surfaced something more important than the 4 cards it flipped.
 
-**THE CR QUESTION IS ANSWERED — CR 122.6, read out of the bundled rules, not from memory:**
+**THE ENGINE HAS NO TRIGGER-CASCADE GUARD. None. Anywhere.** Two "Whenever one or more +1/+1 counters are
+put on this creature → put a +1/+1 counter on each other creature you control" permanents (Generous Pup;
+Scurry Oak via evolve) feed each other forever. Measured, not theorised: **5,001 counters after 200 flush
+cycles and still climbing.** In paper that is a legal mandatory loop (a draw, CR 104.4b). In this simulator
+it is a HANG — the game never leaves that priority window.
 
-> "Some spells and abilities refer to counters being put on an object. This refers to putting counters on
-> that object while it's on the battlefield **and also to an object that's given counters as it enters the
-> battlefield.**"
+**Why reverting was the only honest option:** the hazard does NOT depend on crediting the cards. Once
+`detectTriggers` returns the event, the trigger FIRES at runtime for any board holding two cascade-capable
+permanents, whether or not the metric credits them. So narrowing the credit fixes nothing. The choice was a
+loop guard or nothing, and a cascade cap belongs at `flushTriggers` — the most load-bearing chokepoint in
+the engine — which is not a change to make at the end of a long run.
 
-So a permanent ENTERING WITH counters DOES fire this. The implementation must cover both paths or it
-mis-plays every carrier. (Relevant in Commander: an external effect like Master Biomancer gives counters as
-a creature enters, so this is not a corner case.)
+The playability sweep stayed 20/20 GREEN throughout, because its decks happen not to hold two of these four
+cards. **The sweep did not catch this and would not have.** I found it by asking what a payoff that places
+counters does to a trigger that watches for counters being placed.
 
-**THE REAL BLOCKER IS ARCHITECTURAL, and it is NOT the CR question.** `addCounter` is the central
-counter-mutation chokepoint (its own comment says so), but it lives in `gameState.js` — and `triggers.js`
-IMPORTS gameState. Firing a trigger from `addCounter` would create a cycle. Verified, not assumed.
+### What is already proven, for whoever picks this up
 
-So the fire site has to be designed. Two options, and the first is clearly right:
+All of it worked. The revert was about the hazard, not the implementation:
+- **CR 122.6 is the governing rule** (quoted in the previous entry) — a permanent ENTERING with counters
+  fires this, verified at runtime via `enterPermanent`.
+- **Design confirmed:** `gameState.addCounter` appends a plain row to `state.pendingCounterEvents`; a new
+  `triggers.checkCounterTriggers` drains it at the `flushTriggers` funnel, exactly beside the existing
+  `checkTapTriggers` / `checkGraveyardEventTriggers` drains. No import cycle. It fires ONCE per placement
+  event (2 counters at once = 1 trigger, verified), and a -1/-1 counter does NOT trip a +1/+1 watcher.
+- **The descriptor field must be registered** in the explicit whitelist at triggers.js (~line 3070) or it is
+  silently dropped — `counterType` came through `undefined` until I added it, which would have made every
+  counter kind fire every watcher.
+- **Detection scope:** the PLURAL "one or more … are put on <self>" only. The singular ("a +1/+1 counter is
+  put on") may fire once PER COUNTER and the bundled CR does not settle it — do not guess a firing count.
+  Scoped subjects ("a creature you control") are a separate ~14 cards needing the shared scopeMatches vocabulary.
+- Measured value: **+4 corpus** (Herd Baloth, Dusk Legion Duelist, Generous Pup, Scurry Oak), 0 lost.
 
-1. **DEFERRED QUEUE (recommended).** `addCounter` appends a plain record to `state.pendingCounterEvents` —
-   no import, no cycle — and ONE existing chokepoint drains it into `checkCounterTriggers`. **Precedent
-   exists and is proven: this is exactly the shape of the delayed-trigger scheduler** (`state.delayedTriggers`
-   written as plain JSON, drained by gameEngine). Copy that design.
-2. Per-caller wiring — ~20 call sites across 8 files, PLUS the 3 enters-with-counter sites that bypass
-   `addCounter` entirely (resolvers.js / tokens.js / amass.js mint, which call `applyCounterDoubling`
-   directly). Fragile and guaranteed to miss a path. Do not.
+### THE PREREQUISITE, and it is worth more than this slice
 
-Option 1 also solves the ETB half for free, because the mint sites can push the same record.
-
-Scope note: the non-self scopes ("a creature you control", "a permanent you control", "another creature")
-are another ~14 cards and should reuse the SAME scope vocabulary as the other trigger families
-(`scopeMatches` in triggers.js), not a second one.
+**Build a trigger-cascade guard at `flushTriggers` first.** It is not specific to counters — any
+trigger family that can feed itself has this hazard today, and the engine simply has never met one.
+A bounded cascade counter per priority window, logging a distinct "cascade-capped" event (the honest-label
+law), converts a hang into a visible, correct-ish stop. Do that, then this slice lands unchanged.
 
 ## ⭐ BANKED — "Do this only once each turn." does NOT set the flag
 
