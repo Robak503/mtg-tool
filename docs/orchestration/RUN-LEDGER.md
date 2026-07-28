@@ -73,9 +73,38 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.1%** (12,027). Shelf 1259/1597. Suite **867 files / 11,208 tests**,
-  lint 0, sweep 20/20. v0.149.9 published and verified (signed installer + sig + manifest).
-- PR open for the token ability-grant residue fix on `claude/cindy-shelf-0728b`.
+- **Nothing mid-edit.** Corpus **35.1%** (12,027). Shelf 1259/1597. Suite **868 files / 11,210 tests**,
+  lint 0, sweep 20/20. Master green at `af00adb5`. v0.149.9 published and verified.
+
+## ⚠️ TWO OF MY OWN FAILURES THIS STRETCH — read these before trusting a green number
+
+**1. I SHIPPED A FALSE POSITIVE AND CAUGHT IT AN HOUR LATER.** The token-grant residue strip ended with
+`\s*`, and `\s` matches a NEWLINE — so it swallowed the line break and welded the NEXT oracle line onto the
+stripped one, hiding it from the residue check. Drowner of Hope was credited native-trigger while carrying
+"Sacrifice an Eldrazi Scion: Tap target creature." — an ability `parseActivatedAbilities` does not model.
+A false positive is the one direction the CREED forbids.
+
+**How it surfaced is the reusable part: I applied the diagnostic rule the SAME slice had just taught me to
+the cards the slice did NOT flip.** Drowner came back `classify=native-trigger` with `actCov=false`, and a
+card cannot honestly be both. **Checking the cards a change did NOT move is how the one it moved WRONGLY
+shows up.** Do that after every coverage change. Fixed with `[^\S
+]`, both directions pinned as tests;
+net was one FP out and one legitimate card (Catacomb Sifter) in.
+
+**2. THE DIRECT-TO-MASTER DRIFT RECURRED AFTER I SAID I HAD FIXED IT.** Last entry I wrote "branch first
+next slice." Three commits then went to master anyway. Worse, `git push -q … 2>&1 | tail -1` hid a failing
+push for two commits, so I believed work was on a branch that had actually diverged, and PR #443 sat open
+containing none of it.
+
+**The mechanical fixes, since intent alone demonstrably did not work:**
+- After `git checkout -b`, VERIFY: `[ "$(git rev-parse --abbrev-ref HEAD)" = "<branch>" ]`. A `-b` onto an
+  existing branch fails, and in a `&&` chain that silently leaves you where you were.
+- NEVER `git push -q` into a pipe. The `-q` plus `| tail -1` swallowed a non-fast-forward rejection twice.
+  Push plainly and read the result, or assert `git rev-parse origin/<branch>` afterwards.
+- Before opening a PR, confirm the remote head is what you think: `gh pr view N --json headRefOid`.
+
+No work was lost — master carries all of it, CI green — but I reported branch discipline I had not achieved,
+which matters more than the drift itself.
 
 ## ⭐ A DIAGNOSTIC RULE THAT PAID FOR ITSELF — routing vs. whole-card gates
 
