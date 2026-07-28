@@ -101,19 +101,39 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.3%** (12,079/34,245). Suite **874 files / 11,281 tests**, lint 0,
-  MUTANT sweep clean. Three slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT yet pushed;
-  the branch name is stale — it now carries three unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.3%** (12,083/34,245). Suite **877 files / 11,306 tests**, lint 0,
+  MUTANT sweep clean. Six slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT yet pushed;
+  the branch name is stale — it carries six unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the new bar:** top-1000 **69.6%** · top-2500 **51.8%** · top-5000 41.5% · top-10k 34.7%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **69.8%** · top-2500 **51.9%** · top-5000 41.6% · top-10k 34.7%.
+  (Session start: 69.6 / 51.8 / 41.5.)
 
-### Shipped this stretch (all three: engine knew the EFFECT, not the PHRASING)
+### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
 
 | commit | slice | flips |
 |---|---|---|
 | `3259071d` | attached-bonus parser reads the host NOUN, not the literal `"creature"` | 0 — infrastructure |
 | `48d8560c` | positive COLOR target restriction (CR 105.2), layer-aware | **+18**, incl. Red Elemental Blast #433 |
 | `4f915ba6` | whole-graveyard exile (CR 701.10a) + mass-exile verb parity | **+10**, incl. Farewell #163 |
+| `1fc6a1f8` | mana-value-filtered creature wipe (CR 202.3) | **+2**, incl. **Austere Command #169** |
+| `40359cd4` | disjunctive power-OR-toughness bound | **+1**, Warping Wail #2046 |
+| `45a9e771` | symmetric self-damage atom (CR 119.3) | **+1**, **Rakdos Charm #330** |
+
+**The last three flip 1–2 cards each and are still the right work** — that is the entire point of the
+play-weighted target. Austere Command #169 and Rakdos Charm #330 are worth more than fifty pieces of jank,
+and the corpus % barely notices either. Do not judge a slice by its corpus delta any more.
+
+### ⚠️ THREE SCOPE-BOUNDARY PINS GRADUATED THIS STRETCH — read the pin's COMMENT before judging it
+
+`gyExile.test.js` (whole-graveyard exile) and `planeswalkerLoyaltyCompletion.test.js` (the MV wipe, listed
+among near-misses of the POWER anchor) each fired against new work. **Neither was a safety pin.** Both were
+markers for what a PRIOR slice deliberately didn't build, and `gyExile.test.js` already documented the exact
+graduation ritual for Scarab Feast. Each was retired the same way: annotate the graduation in place, point
+at the new test file, and keep the genuine refusals (the filtered whole-zone wording; the strict
+"greater than"; the toughness bound) alive in the new file.
+
+**A scope marker graduates when the machinery lands. A safety pin never does. Both look like a red test —
+the comment is what tells them apart.** This is now 3 graduations vs 0 wrongly-dropped pins.
 
 `3259071d` flips NOTHING on its own and is recorded that way rather than dressed up. It still earned its
 place: the subject sniff was misfiling `"Enchanted permanent …"` Auras as EQUIPMENT, and the metric's
@@ -139,20 +159,30 @@ The modal WRAPPER is already built and is genuinely sophisticated (escalate, "ch
 Akroma's-Will conditional-both). `effects/parser.js:602` is the whole story: **one mode that parses low
 kills the entire card.** So these are single-effect builds, not mechanic builds:
 
-- **Austere Command #169** — `destroy all creatures with mana value N or less/greater` (`destroy all
-  creatures` is already HIGH — this is the MV qualifier only)
-- **Cryptic Command #1617** — `tap all creatures your opponents control` ⚠️ *`tap all creatures` is ALSO
-  low, so this one is a REAL build, not a qualifier — do not assume symmetry with the destroy family*
+Re-measured after this stretch — **27 parked modal instants/sorceries in the top 2500, 26 blocked by ≥1
+mode.** Regenerate the list any time with `scratchpad/modes.mjs` (it prints both the ranked failing modes
+and the one-mode-away shortlist). ~~Austere Command~~, ~~Warping Wail~~, ~~Rakdos Charm~~,
+~~Red/Null Elemental Blast~~ are DONE. Still one mode away:
+
 - **Golgari Charm #1603** — `regenerate each creature you control` (single-target regenerate is HIGH)
+- **Cryptic Command #1617** — `tap all creatures your opponents control` ⚠️ *`tap all creatures` is ALSO
+  low, so this is a REAL build, not a qualifier — do not assume symmetry with the destroy family*
+- **Sublime Epiphany #1709** — `counter target activated or triggered ability` (new counter target class —
+  abilities on the stack are not spells, so this needs its own enumeration)
 - **Archmage's Charm #1746** — `gain control of target nonland permanent with mana value 1 or less`
-  (`gain control of target creature` is HIGH → noun vocabulary)
-- **Warping Wail #2046** — `exile target creature with power OR TOUGHNESS N or less` (`with power N or
-  less` is HIGH → the disjunction only)
-- **Sublime Epiphany #1709** — `counter target activated or triggered ability` (new counter target class)
+  (`gain control of target creature` is HIGH → noun vocabulary + the MV restriction, which now exists)
+- **Flame of Anor #1760** — `if you control a Wizard as you cast this spell, you may choose both` (the
+  Akroma's-Will conditional-both lead, generalized off "commander" to an arbitrary permanent type)
 - **Dawn Charm #2079** — `counter target spell that targets you`
-- **Prismari Command #1108** — `target player creates a Treasure token` (`create a Treasure token` is HIGH
-  → the player scope only)
-- **Rakdos Charm #330** — `each creature deals N damage to its controller`
+- **Hull Breach #2368** — `destroy target artifact and target enchantment` (TWO targets in one mode)
+
+**Two modes away** (so cheaper than they look — count is not cost): Prismari Command #1108 wants
+`target player creates a Treasure token` AND `target player draws two cards, then discards two cards`;
+both are player-scoped versions of effects that already parse for the controller.
+
+**24 cards** want REPEATABLE modes (`"you may choose the same mode more than once"` — the Confluence cycle
+incl. Mystic #1431 / Fiery #1561, plus the Season cycle). Needs multiset expansion in `expandCastChoices`;
+a wrapper feature, bigger than every single above, and the largest remaining modal lever.
 
 **24 cards** additionally want REPEATABLE modes (`"you may choose the same mode more than once"` — the
 Confluence cycle incl. Mystic #1431 / Fiery #1561, plus the Season cycle). That needs multiset expansion
