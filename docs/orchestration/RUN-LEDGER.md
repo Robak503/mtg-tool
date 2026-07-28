@@ -293,11 +293,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.5%** (12,156/34,245 — +108 this run). Suite **888 files / 11,441 tests**,
-  lint 0, MUTANT sweep clean. TWENTY-TWO slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries twenty-two unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.5%** (12,158/34,245 — +110 this run). Suite **888 files / 11,443 tests**,
+  lint 0, MUTANT sweep clean. TWENTY-THREE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries twenty-three unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.6%** · top-5000 42.0% · top-10k 35.1%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **70.2%** 🎉 · top-2500 **52.7%** · top-5000 42.0% · top-10k 35.1%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -322,7 +322,8 @@ That is the whole reason this target beats corpus %.
 | `c5e68496` | BLINK / FLICKER (CR 400.7) + a splitter keep-whole guard ⚠️ | **+7**, **Ephemerate #440** · Cloudshift #792 · Blur · Momentary Blink |
 | `a3488b65` | impulse-exile takes a COUNT (the runtime already existed) | **+2**, Act on Impulse · Rob the Archives |
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
-| `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family now 14) |
+| `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
+| `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
 | `9381112d` | impulse NEXT-TURN window — controller-scoped expiry ⭐ | **+6**, **Light Up the Stage #1211** · Reckless Impulse #2120 · Wrenn's Resolve #2116 |
 
 ### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
@@ -471,15 +472,26 @@ atom family carries its OWN "equal to …" grammar rather than sharing one, so t
 per-family. Every reader so far has been a two-line sibling of an existing `the triggering creature's …`
 arm in the same file — find that arm, copy it, swap the count kind. Near-mechanical.
 
-**⚠️ AND THE TRAP INSIDE THAT:** the triggering-creature arms are SENTINEL-gated ("the triggering
-creature's …" is text `detectTriggers` writes INTO a trigger, never printed on a spell). Assert a new reader
-at the CLAUSE level, not with a whole-card fixture — a card fixture tests the sentinel gate instead of your
-arm and fails for the wrong reason. I lost a cycle to exactly that.
+**⚠️ TWO TRAPS INSIDE THAT, both hit for real:**
+1. The triggering-creature arms are SENTINEL-gated ("the triggering creature's …" is text `detectTriggers`
+   writes INTO a trigger, never printed on a spell). Assert a new reader at the CLAUSE level, not with a
+   whole-card fixture — a card fixture tests the sentinel gate instead of your arm and fails for the wrong
+   reason.
+2. **Check whether the sibling arm you are copying TAKES A TARGET.** The draw family's neighbour is
+   "draw cards equal to the power of TARGET creature", which does. The sacrificed referent is the
+   ALREADY-PAID cost, so `targetType` must be null — copying the neighbour would make the spell demand a
+   target it never prints (a wrong cast, not a missing one). Pinned with both arms side by side.
+
+**⚠️ AND A PROBE CORRECTION — do not trust a "governing verb" bucket without checking the tier.** Bucketing
+this vein by verb reported 9 parked gain-life cards; most were not gaps at all. Miren, the Moaning Well is
+`land` tier (already counted playable), Animal Boneyard and Bloodshot Cyclops had ALREADY flipped, and Life
+Chisel is blocked by "Activate only during your upkeep" — not the referent. Check the tier and the ACTUAL
+blocker before queueing from a verb bucket.
 
 Next reads, cheapest first:
 ```
 ~~gain-life  equal to the sacrificed creature's toughness   Reckoner's Bargain #3671~~  ✅ 484c3a0d
-discard    a number of cards equal to its power           Tormented Thoughts #22752 (pinned LOW today)
+discard    a number of cards equal to its power           Tormented Thoughts #22752 — needs a NEW discard-scaled matcher (the arm is absent even for the ordinary count form)
 tutor      a creature with mana value X or less           Eldritch Evolution #728
 ```
 
