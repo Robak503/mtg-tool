@@ -177,9 +177,28 @@ so that early return skipped the batch pass entirely: the card classified native
 n=3 test passed the whole time; only n=1 exposed it.** Every singular check function has an equivalent
 fast path — check it before chaining.
 
-**Remaining arms, in size order:** `are put` (57) · `attack` (46) · `leave` (39) · `enter` (28) ·
-`become` (5). Plus the 16 remaining `die` carriers, which add subtype/nontoken filters to the shape
-already built.
+### 🔍 PER-ARM FEASIBILITY — CHECKED, and it is NOT six mechanical repeats
+
+**The arm is only buildable if its check function already sees the WHOLE batch.** `dies` worked because
+`checkDiesTriggers(state, dead[])` takes an ARRAY — deaths are naturally batched by the SBA. Verified
+signatures for the rest:
+
+| arm | check function | receives | verdict |
+|---|---|---|---|
+| `are put` (57) | `checkGraveyardEventTriggers(state)` | drains `pendingGraveyardEvents` | ✅ batchable now |
+| `attack` (46) | `checkAttackTriggers(state)` | whole combat (all attackers at once) | ✅ batchable now |
+| `leave` (39) | `checkLeavesTriggers(state)` | drains `pendingLeaveEvents` | ✅ batchable now |
+| `enter` (28) | `checkEnterTriggers(state, enteredPerm)` | **ONE permanent** | ⛔ **BLOCKED** |
+
+**⛔ `enter` MUST NOT be built the same way — it would over-fire.** Entries are dispatched one at a time,
+so an `etbBatch` watcher would fire once PER entering permanent: "create three 1/1 tokens" would make
+Welcoming Vampire #428 draw THREE cards instead of one. Building it requires first teaching the entry
+path to collect simultaneous entries (token creation, mass reanimation, blink returns) and dispatch them
+as one batch — a separate, larger piece of work. **Do not treat `enter` as a repeat of `dies`; the
+signature is the tell.**
+
+**So the ready work is 142 cards (are-put + attack + leave), not 214.** Plus the 16 remaining `die`
+carriers, which add subtype/nontoken filters to the shape already built. `become` (5) unchecked.
 
 **Note the 77 "deal" cards are ALREADY partly served** by `combatDamageBatch`; the parked ones there
 carry a variant its anchors reject (a qualified object, a rider, a colour filter). So the true remaining
