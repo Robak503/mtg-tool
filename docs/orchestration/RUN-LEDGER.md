@@ -73,85 +73,28 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.1%** (12,036). Shelf 1259/1597. Suite **870 files / 11,241 tests**,
-  lint 0, sweep 20/20. Master green. **v0.149.11 tagged**, release build running.
+- **Nothing mid-edit.** Corpus **35.2%** (12,048). Shelf 1259/1597. Suite **872 files / 11,259 tests**,
+  lint 0, sweep 20/20. Master green. **v0.149.12 tagged** (+12 since .11: aura host-death, aura composition).
 
-## 🧭 NEW INSTRUMENT — UNDETECTED TRIGGER EVENTS, ranked (`scratchpad/undetected2.mjs`)
+## 🧭 ALL FOUR INSTRUMENTS ARE MINED OUT — the run's search phase is over
 
-The residue scanner kept surfacing cards whose SECOND trigger line the detector doesn't recognize, so this
-measures that space head-on: for every parked card, test each trigger line IN ISOLATION and rank the
-conditions `detectTriggers` returns nothing for.
+Four independent instruments were built and exhausted this run. Recording them together so the next session
+does not rebuild any of them:
 
-**The isolation matters — my first version was wrong.** It compared a card's trigger-LINE count to its
-descriptor count and, on a mismatch, credited EVERY line. So detected conditions polluted the ranking:
-"at the beginning of your upkeep" (66) and "this creature enters" (61) both appeared, and both are core
-detected events. Testing each line as its own single-line card fixed it. Same one-variable rule as always.
+| instrument | what it found | state |
+|---|---|---|
+| shelf sole-blocker sweep | 105 single blockers, all singletons | mined out |
+| mis-park scanner (`residuegap.mjs`) | 3 real bugs (+15, +1, +4) | mined out |
+| undetected trigger events (`undetected2.mjs`) | 1 feasible lead (+2); the rest are UNBUILT mechanics | mined out |
+| tier composition (`composition.mjs`) | the aura pair (+10); no general fix | closed |
 
-### ⛔ DO NOT BUILD the #1 result — "this creature is turned face up" (89 lines)
+**All four converge on the same answer: what remains is per-shape work at 1-4 cards each.** Even inside a
+single bucket the shapes do not share a fix — the 9 composition-failing Enchantments need four DIFFERENT
+gate pairs (static+granted-activated, activated+trigger, trigger+trigger, trigger+mana-aura), one or two
+cards apiece.
 
-The single largest undetected condition in the corpus, and it is a **deliberate documented refusal**.
-`coverage.js:500-507` records that the morph face-down path is NOT offered or enforced — legalChoices has no
-cast-face-down action — so a turn-face-up trigger **could never fire**. Detecting it would credit 89 cards
-for a trigger the engine cannot reach: a false positive. The same applies to the other big undetected
-shapes, which are mechanics the engine simply does not implement: contraptions (43), mutate (31),
-specialize (31), doors/rooms (30).
-
-**That is the shape of this whole list**: most of it is undetected BECAUSE the underlying mechanic is
-unbuilt, and detection without the mechanic is an FP. Check `coverage.js` for an existing refusal comment
-before treating any entry here as a gap.
-
-### ✅ SHIPPED — "When enchanted creature dies" (+2, not the +7 I predicted)
-
-One detector arm: `enchanted creature dies` → `{ event: "dies", scope: "equippedCreature" }`, the same
-attached-linkage scope the "enchanted creature attacks" / "…deals combat damage" arms already use. **No new
-mechanism** — that scope already resolves host death by reading the dead creature's CR-603.10a look-back
-`attachments` (the aura is detached by the time checkDiesTriggers runs).
-
-**MY OWN PROBE OVER-PREDICTED, AND THE REASON GENERALIZES.** I measured +7 by swapping the undetected
-trigger for a known-good aura ETB. But that swap moves the card into a DIFFERENT AURA TIER — so it measured
-tier membership, not the trigger. Real answer: **+2** (Bequeathal, Dying Wail). The other five carry a
-static pump line as well, and **pump + trigger is a tier COMPOSITION gap**: pump alone classifies
-`native-aura`, trigger alone classifies `native-trigger`, the combination is `body-only`. Verified directly.
-**When a swap probe changes which TIER a card lands in, it is no longer measuring the thing under test.**
-
-**The referent hazard I banked on turned out not to apply.** I had flagged binding "that card" to the dead
-host as the blocker — but that shape is in the cards that DON'T flip. Every effect actually freed is
-self-contained (draw / discard / token / surveil) and names nothing; an effect that DOES name the dead card
-fails to parse and keeps its card parked. Closed by construction, and pinned as a test.
-
-**TWO CREED PINS GRADUATED**, both of which used Bequeathal as their "still non-native" example:
-`auraOwnTriggered` asserted the dies trigger is undetected (now it is detected — bar unchanged, it simply
-has a detector), and `aura.test.js` used it as the non-native Aura that must route to the Arbiter. That
-second one guards a REAL behavior, so its fixture was re-anchored on Forced Adaptation rather than deleted.
-
-**AND I CREATED A HOLLOW GATE DOING IT.** After swapping that fixture, the assertion still read
-`name === "Bequeathal"` — passing VACUOUSLY, since no card by that name was in the state at all. Now reads
-`COMPLEX.name`, and mutating `isNativeAura` to make the fixture native fails it. Caught by re-reading my own
-edit, not by the suite.
-
-### ✅ SHIPPED — the aura STATIC+TRIGGER composition (+10)
-
-The residue census's "TWO-FLIP SIGNATURE", closed. Both gates were right in isolation and neither knew the
-other's half was covered: `permanentTriggersCovered`'s residue walk saw the static line as leftover text,
-`isNativeAura`'s walk saw the trigger line the same way. **Composed, not loosened** — each half must still
-pass its OWN gate, so an unmodeled static or an unrouted trigger still parks the card. Mutating either half's
-check away fails exactly the CREED test that guards it.
-
-**A TIER-THEFT REGRESSION I CAUSED AND CAUGHT — worth remembering as a shape.** The composition branch sits
-EARLIER in the aura tier chain than `isNativeAura`, and `isNativeAura` already composes a static grant with
-an aura-OWN ETB (Roots, Stupefying Touch, the tap-lock frames). So my branch caught those first and re-tiered
-them native-aura → native-trigger. **10 pins fired, every one asserting the TIER, not the coverage** — the
-cards were still credited, just filed in the wrong drawer. Fixed with an `isNativeAura(card)` bail-out at the
-top of the branch. **When adding a branch to a tier chain, check what the LATER tiers already claim.**
-
-**Two more CREED pins graduated, and one of their labels was already stale.** `superState`'s
-"an unmodeled aura-own trigger" was not unmodeled at all — that trigger detects and routes, and its static
-half classifies native-aura alone; the card was body-only purely for the composition gap. I verified BOTH
-halves independently before touching either pin, which is what separates a graduation from a rationalization.
-
-All 10 flips audited: Elephant Guide, Griffin Guide, Most Wanted (+A-), Failed Conversion, Demonic Appetite,
-Elder Mastery, Mark of Fury, Recumbent Bliss, Sleeper's Robe. Mark of Fury was named in the census's TWO-FLIP
-list, which is what pointed here.
+**That is not a reason to stop; it is a change of mode.** Stop hunting for levers — there are none left —
+and grind shapes individually, cheapest-first, verifying each against the gate that owns it.
 
 ## ⛔ CLOSED — the GENERAL tier-composition lead (38 cards) has no general fix
 

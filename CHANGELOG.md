@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.12] — 2026-07-28
+
+### Added
+- **Auras that do something when the creature they're on dies now work.** Elephant Guide, Griffin Guide,
+  Bequeathal, Dying Wail and friends — the game simply wasn't noticing the death.
+- **Auras that both buff a creature AND have a triggered ability are now understood as a whole.** Cards like
+  Elder Mastery, Sleeper's Robe, Recumbent Bliss and Mark of Fury each had both halves working individually,
+  but the game refused the combination and handed the card off. Twelve more Auras are playable.
+
 ## [0.149.11] — 2026-07-28
 
 ### Added
