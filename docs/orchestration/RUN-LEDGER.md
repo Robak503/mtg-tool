@@ -293,9 +293,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.5%** (12,149/34,245 — +101 this run). Suite **888 files / 11,438 tests**,
-  lint 0, MUTANT sweep clean. TWENTY-ONE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries twenty-one unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.5%** (12,156/34,245 — +108 this run). Suite **888 files / 11,441 tests**,
+  lint 0, MUTANT sweep clean. TWENTY-TWO slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries twenty-two unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.6%** · top-5000 42.0% · top-10k 35.1%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -322,6 +322,7 @@ That is the whole reason this target beats corpus %.
 | `c5e68496` | BLINK / FLICKER (CR 400.7) + a splitter keep-whole guard ⚠️ | **+7**, **Ephemerate #440** · Cloudshift #792 · Blur · Momentary Blink |
 | `a3488b65` | impulse-exile takes a COUNT (the runtime already existed) | **+2**, Act on Impulse · Rob the Archives |
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
+| `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family now 14) |
 | `9381112d` | impulse NEXT-TURN window — controller-scoped expiry ⭐ | **+6**, **Light Up the Stage #1211** · Reckless Impulse #2120 · Wrenn's Resolve #2116 |
 
 ### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
@@ -463,9 +464,21 @@ time (the only moment the victim is still on the battlefield — CR 608.2h + 603
 in the SHARED `parseCountSource` so every scaling atom family gets it from one edit.
 
 **~84 parked cards reference this** (29 power · 23 mana value · 18 toughness · 7 "power to any target").
-Only the DAMAGE arm reads the stamp so far, so the obvious next reads are cheap and already scoped:
+Family is at **14 native** after two readers (damage `db4e6d51`, gain-life `484c3a0d`).
+
+**⭐ THE SHAPE OF THE REMAINING WORK: this vein is ONE capture plus N SMALL READERS, not one fix.** Each
+atom family carries its OWN "equal to …" grammar rather than sharing one, so the stamp has to be read
+per-family. Every reader so far has been a two-line sibling of an existing `the triggering creature's …`
+arm in the same file — find that arm, copy it, swap the count kind. Near-mechanical.
+
+**⚠️ AND THE TRAP INSIDE THAT:** the triggering-creature arms are SENTINEL-gated ("the triggering
+creature's …" is text `detectTriggers` writes INTO a trigger, never printed on a spell). Assert a new reader
+at the CLAUSE level, not with a whole-card fixture — a card fixture tests the sentinel gate instead of your
+arm and fails for the wrong reason. I lost a cycle to exactly that.
+
+Next reads, cheapest first:
 ```
-gain-life  equal to the sacrificed creature's toughness   Reckoner's Bargain #3671  (pinned LOW today)
+~~gain-life  equal to the sacrificed creature's toughness   Reckoner's Bargain #3671~~  ✅ 484c3a0d
 discard    a number of cards equal to its power           Tormented Thoughts #22752 (pinned LOW today)
 tutor      a creature with mana value X or less           Eldritch Evolution #728
 ```
