@@ -857,3 +857,37 @@ card is on the battlefield.)
 **Still required before relaxing it:** drive a board where the same card fires its battlefield ability, dies,
 and is then offered its graveyard ability — both halves, one card, one test. Then per-flip audit the result.
 
+
+---
+
+## 🔎 SCOPED — Forge-as-a-Karn-function (Colton's O3 ruling): the seam EXISTS and has no consumer
+
+Colton's ruling, verbatim via Omnath: **"just make a function of the ai inside the foundry to help you
+forge decks."** So Forge is not a room, hall or door — it is a CAPABILITY OF KARN. The Forge/Foundry name
+collision stops existing rather than getting resolved, and there is no seventh bottom-bar entry.
+
+**What is already built** (verified, not assumed — this is the third time this week a "missing" feature
+turned out to be mostly present):
+
+| piece | state |
+|---|---|
+| `/api/collection/ownership` — `POST {names[]} -> {statuses:{name:{status,inDecks}}}` | **built, and has ZERO consumers.** Its own header says it exists "for Karn's suggestions (G1)". |
+| `collectionContext.cardOwnershipStatuses` | built; only that route calls it |
+| `collectionContextBuilder` → COLLECTION SUMMARY | built AND wired — `useChatSessions` already injects it for Karn |
+| `KARN_DELTA` collection lane | **DONE** (this slice) |
+
+**The actual gap, precisely.** The COLLECTION SUMMARY Karn already receives is AGGREGATE only — totals,
+estimated value, colour breakdown, top-owned-by-count. It carries no per-card ownership and no `inDecks`
+(grepped: zero occurrences in the builder). So Karn can say "you own a lot of green" but cannot answer
+*"do you own THIS card"* or *"is it already committed to three other decks"* — which is exactly the
+build input Colton asked for.
+
+**Next step is WIRING, not new infrastructure:** feed `cardOwnershipStatuses` into the bench context so
+per-card `status` + `inDecks` reach Karn. Sizing it honestly needs one decision first — ownership of
+*which* names? The locked deck's cards are known up front; Karn's SUGGESTED cards are not known until he
+has answered, which makes that half a post-hoc enrichment (a UI marking pass) rather than a context
+injection. Decide that before building, or the wiring will be done twice.
+
+**The lane boundary is already pinned** so the faces cannot collide as this grows: KARN asks *"do you own
+it?"* (ownership as a build input); VIHAAN asks *"what is it worth?"* (value, movement, provenance). Same
+card, two questions. Karn routes price to Vihaan unchanged — asserted in agentsVoiceCore.test.js.
