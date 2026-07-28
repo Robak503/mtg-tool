@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
 import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
@@ -533,11 +533,24 @@ function manaProductionImpl(card) {
   // granter's own production — unless the granter self-includes in the grant scope (Gemhide). Lands stay
   // exempt with the rest of the raw-oracle land path above.
   if (!isLandCard) oracleForAdd = stripNonSelfQuotedGrants(oracleForAdd, typeLineOf(card));
-  // UNMODELED UNTAP RESTRICTION (CREED): "doesn't untap during your untap step" is not modeled (untapAll
-  // frees everything each untap step), so a standing source carrying it produces PHANTOM repeatable mana —
-  // Mana Vault read as a free 3-mana rock every turn. Route such non-lands out of the mana model entirely
-  // (a safe under-count: the card still casts and resolves; it just never auto-taps for mana).
-  if (!isLandCard && /doesn't untap during your (?:next )?untap step/i.test(oracleForAdd)) return null;
+  // UNTAP RESTRICTION — the guard's premise CHANGED, so the guard did (2026-07-27).
+  //
+  // It used to read: "'doesn't untap during your untap step' is not modeled (untapAll frees everything each
+  // untap step), so a standing source carrying it produces PHANTOM repeatable mana — Mana Vault read as a
+  // free 3-mana rock every turn." That was true and the refusal was right. It is no longer true: the
+  // restriction IS enforced, by gameState's untap step via cardSelfPreventsUntap — verified on a driven
+  // board, where a tapped Sol Ring untaps on the controller's next untap step and a tapped Basalt Monolith
+  // does not.
+  //
+  // Leaving the blanket refusal in place had stopped being safe and started being a BUG: Mana Vault, Basalt
+  // Monolith and Grim Monolith were offered NO mana ability at all — dead permanents, not merely
+  // under-counted ones. They tap for mana once, which is exactly what the printed card does.
+  //
+  // The "your NEXT untap step" wording still routes out, deliberately. That form is a ONE-SHOT rider inside
+  // an activated ability (the Cloudcrest Lake / Vec Townships slow-dual family), NOT a continuous lock —
+  // gameState excludes it from RE_SELF_NO_UNTAP_THIS for that reason, so nothing enforces it here either.
+  // Sharing cardSelfPreventsUntap is what keeps this guard and the runtime from drifting apart again.
+  if (!isLandCard && /doesn't untap during your (?:next )?untap step/i.test(oracleForAdd) && !cardSelfPreventsUntap(card)) return null;
   // LEVEL-BANDED CARD (P0-residual FP wave): a leveler's abilities are scoped to level bands the
   // flat oracle parse cannot see — Joraga Treespeaker's "{T}: Add {G}{G}" belongs to LEVEL 1-4,
   // but the parser credited it at level 0. No static credit is possible → route out (FN-safe;

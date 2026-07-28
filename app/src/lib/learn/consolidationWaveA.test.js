@@ -43,9 +43,28 @@ describe("E-P0-1 — quoted group-grant mana is not the granter's own mana", () 
   });
 });
 
-describe("R-P1-5 — Mana Vault's unmodeled untap restriction", () => {
-  it("Mana Vault is not a standing mana source (doesn't untap normally)", () => {
-    expect(manaProduction({ name: "Mana Vault", type: "Artifact", oracle: "Mana Vault doesn't untap during your untap step.\n{T}: Add {C}{C}{C}." })).toBeNull();
+describe("R-P1-5 — Mana Vault's untap restriction (PIN MOVED 2026-07-27: it is ENFORCED now)", () => {
+  it("Mana Vault IS a mana source again — the restriction is enforced, so the phantom is gone", () => {
+    // WHY THE PIN MOVED. R-P1-5 routed Mana Vault out of the mana model because the untap restriction was
+    // UNMODELED: untapAll freed everything each untap step, so a standing source carrying "doesn't untap"
+    // read as a free 3-mana rock every turn. Refusing it was correct then.
+    //
+    // It is enforced now — gameState's untap step calls cardSelfPreventsUntap — and that was verified on a
+    // driven board before this pin was touched: a tapped Sol Ring untaps on its controller's next untap
+    // step, a tapped Basalt Monolith does not. With the phantom gone, the blanket refusal had stopped being
+    // a safe under-count and become a BUG — Mana Vault / Basalt Monolith / Grim Monolith were offered NO
+    // mana ability at all, dead permanents rather than merely uncounted ones. They tap once for mana, which
+    // is exactly what the printed card does.
+    expect(manaProduction({ name: "Mana Vault", type: "Artifact", oracle: "Mana Vault doesn't untap during your untap step.\n{T}: Add {C}{C}{C}." })).toMatchObject({ amount: 3 });
+    expect(manaProduction({ name: "Basalt Monolith", type: "Artifact", oracle: "This artifact doesn't untap during your untap step.\n{T}: Add {C}{C}{C}." })).toMatchObject({ amount: 3 });
+  });
+
+  it("CREED — the 'your NEXT untap step' one-shot rider still routes OUT", () => {
+    // The half of the old guard that must NOT move. "…doesn't untap during your NEXT untap step" is a
+    // one-shot rider printed inside an activated ability (the Cloudcrest Lake / Vec Townships slow-dual
+    // family), not a continuous lock — gameState deliberately excludes it from RE_SELF_NO_UNTAP_THIS, so
+    // nothing enforces it. Crediting it would resurrect exactly the phantom the original pin caught.
+    expect(manaProduction({ name: "Slow Rock", type: "Artifact", oracle: "{T}: Add {C}. This artifact doesn't untap during your next untap step." })).toBeNull();
   });
   it("Sol Ring and Mana Crypt (no untap restriction) still produce", () => {
     expect(manaProduction({ name: "Sol Ring", type: "Artifact", oracle: "{T}: Add {C}{C}." })).toMatchObject({ amount: 2 });
