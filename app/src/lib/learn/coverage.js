@@ -1050,6 +1050,20 @@ export function permanentTriggersCovered(card) {
     // follow the exact "suspect it." clause (FN-safe — a standalone create-sentence elsewhere is untouched).
     // Runs before the When-strip (which removes the "suspect it." prefix this anchor needs).
     .replace(/(suspect it)\.\s+create a [^.]+ token\b\.?\s*/gi, "$1. ")
+    // TOKEN-ABILITY GRANT (TK-1's residue half, 2026-07-28) — "…create a 1/1 colorless Eldrazi Scion creature
+    // token. It has \"Sacrifice this token: Add {C}.\"" (the Scion/Spawn family, Serpent Generator, Mitotic
+    // Slime). EXACTLY the Surrak/Person-of-Interest follow-up class: detectTriggers already folds the
+    // "It has \"…\"" sentence into the trigger's effectClause (isFollowupSentence, TK-1) and splitClauses
+    // normalizes it to the inline "with \"…\"" form, so the WHOLE effect parses HIGH in
+    // allTriggerSentencesModeled — proven before this residue check runs. The trigger-sentence strip below
+    // stops at the first period after "…token.", leaving the grant as apparent residue and parking a card
+    // whose trigger ALREADY routes natively. Half the plumbing was built and the residue check was never
+    // taught about it.
+    //
+    // Anchored to DIRECTLY follow a token-creation clause and to a QUOTED grant, so it cannot consume an
+    // unrelated "It has …" sentence (FN-safe, same argument as every sibling here). Runs before the
+    // When-strip, which would otherwise remove the token-creation prefix this anchor needs.
+    .replace(/(\btokens?)\.\s+(?:it has|they have)\s+(["“'])[^"“”']*(["”'])\.?\s*/gi, "$1. ")
     // RAD-OR-PROLIFERATE (Vexing Radgull, SHELF S7) — the "Otherwise, proliferate." else-arm is part of the
     // SAME combat-damage trigger's effect (folded into effectClause; the whole branch parses HIGH via
     // matchRadOrProliferate — proven by allTriggerSentencesModeled above). The trigger strip stops at the
