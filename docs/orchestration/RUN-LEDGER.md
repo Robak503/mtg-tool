@@ -76,6 +76,34 @@ That is the whole reason this target beats corpus %.
 - **Nothing mid-edit.** Corpus **35.2%** (12,048). Shelf 1259/1597. Suite **872 files / 11,259 tests**,
   lint 0, sweep 20/20. Master green. **v0.149.12 tagged** (+12 since .11: aura host-death, aura composition).
 
+## 🎯 cdh IS THE WHOLE PLAYABILITY GAP — and here is exactly what it needs
+
+The owner split named the target precisely: **Colton's playability shelf is 92% and cdh (79%) is the only
+deck below the 1.0 bar.** So I characterized cdh rather than guessing at it. It needs ~11 more slots; 21
+non-land slots are parked. Sole-blocker sweep scoped to the deck:
+
+**SOLE-BLOCKER (one sentence away) — 6 cards, and 3 of them are REFUSED or BANKED, not open work:**
+- Springleaf Drum, Gene Pollinator — the tap-another-permanent mana cost. **DELIBERATELY REFUSED**
+  (phantom mana, SHELF S7 audit, `manaCostModelable` names Springleaf Drum outright). Do not "fix" these.
+- Hexing Squelcher — group-granted ward, and the LIFE form specifically, which the layer op cannot represent.
+  Already banked.
+- Biomancer's Familiar — an adapt-cost modifier. Niche, 1 card.
+- Vexing Shusher — "{R/G}: Target spell can't be countered." Needs an uncounterable flag on a stack object.
+- Borne Upon a Wind — a TURN-SCOPED flash permission. The mechanism nearly exists (`flashPermissionSpecsFor`
+  + `flashCastPermissionsOf` already serve the STATIC form, e.g. Valley Floodcaller), but the turn-scoped
+  variant needs a new per-player field, an atom, a spec source and an untap reset — **four touch points for
+  ONE card** (corpus-wide the shape is 12 cards / 9 parked / only this one would flip). Below the bar.
+
+**MULTI-BLOCKER — 15 cards, each needing two or more independent builds.** These are cEDH staples and none
+is a slice: Chrome Mox (imprint), Pact of Negation (delayed cost with a loss condition), Chain of Vapor,
+Mindbreak Trap (alt cost + exile-any-number-of-spells), Wan Shi Tong, Hidden Strings (cipher), Invasion of
+Ikoria (Battle // Siege), Vibrance, Deflecting Swat, Flare of Duplication, Veil of Summer, Ragavan,
+Springheart Nantuko (bestow), Valley Floodcaller, The Cabbage Merchant.
+
+**THE HONEST CONCLUSION: cdh will not close soon, and no single slice moves it.** It is ~11 slots spread
+across 15 multi-blocker cEDH cards plus 3 refusals. Anyone told "just finish cdh" should read this list
+first — the deck is hard because cEDH cards are hard, not because a lever is missing.
+
 ## ✅ SHIPPED — the SHELF OWNER SPLIT (Omnath's call, and he was right)
 
 `measure-coverage` can now report the shelf **per owner** instead of one aggregate. Omnath's argument, which
