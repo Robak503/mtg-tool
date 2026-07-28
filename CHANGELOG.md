@@ -8,6 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.7] — 2026-07-28
+
+### Fixed
+- **A tutor that finds nothing no longer ends the game.** Searching your library and coming up empty is a
+  perfectly legal outcome — you reveal, shuffle, and carry on. Instead, the game was asking you to pick a
+  card from an empty list, which you can't answer and can't escape: the game simply stopped. It was
+  happening in roughly one game in sixteen. Found by playing 150 games start to finish and looking at
+  every one that didn't reach an ending.
+
+### Added
+- **Tibalt can now be allowed to interject uninvited** — off by default, per profile. He only speaks after
+  something finishes (a deck saved, an import completed), never while you're mid-question, never in the
+  Academy while you're learning, never on a rules answer, never after a game you just lost, and never on
+  someone's first deck. He also won't make the same joke twice about a problem you haven't fixed, and if
+  you ignore him he gets quieter on his own.
+
 ## [0.149.6] — 2026-07-28
 
 The guides sound like themselves now, and the keeper has a name.
