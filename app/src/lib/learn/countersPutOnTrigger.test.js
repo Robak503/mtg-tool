@@ -65,8 +65,14 @@ describe("detection — plural self only, with the counter kind carried", () => 
     expect(detectTriggers(beast("Whenever a +1/+1 counter is put on this creature, draw a card."))).toHaveLength(0);
   });
 
-  it("CREED — a SCOPED subject is not claimed by this self-only slice", () => {
-    expect(detectTriggers(beast("Whenever one or more +1/+1 counters are put on a creature you control, draw a card."))).toHaveLength(0);
+  // (The SCOPED subject "…on a creature you control" GRADUATED out of this refusal — it now routes through
+  //  the shared creatureSubjectScope switch to a watcher pass in checkCounterTriggers, pinned in
+  //  scopedCountersPut.test.js. It was this slice's SCOPE BOUNDARY, not a safety refusal: the source comment
+  //  beside the detector said so outright, deferring it as "a later slice (~14 cards)". The genuine refusal
+  //  above — the SINGULAR wording, whose firing COUNT the CR does not settle — is untouched and stays.)
+  it("the scoped subject now detects with its own scope (graduated — see scopedCountersPut.test.js)", () => {
+    expect(detectTriggers(beast("Whenever one or more +1/+1 counters are put on a creature you control, draw a card."))[0])
+      .toMatchObject({ event: "countersPut", scope: "creatureYouControl", counterType: "+1/+1" });
   });
 });
 

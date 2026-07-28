@@ -1025,9 +1025,22 @@ function classifyCondition(condRaw, cardName, cardType) {
       const subj = m[2].trim().replace(/,$/, "");
       const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact"
         || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
-      // Scoped subjects ("a creature you control") are a DIFFERENT scope needing the shared scopeMatches
-      // vocabulary — a later slice (~14 cards), not emitted here.
       if (isSelfSubj) return { event: "countersPut", scope: "self", whose: "any", counterType: m[1] };
+      // SCOPED COUNTERS-PUT (the "later slice" this comment used to defer) — "one or more +1/+1 counters are
+      // put on A CREATURE YOU CONTROL" (Simic Ascendancy #1259, The Powerful Dragon, A-Moss-Pit Skeleton).
+      // Routed through the SHARED creatureSubjectScope switch, so it reuses the identical scope vocabulary
+      // the dies/etb watchers use rather than inventing one.
+      //
+      // DISTINCT FROM the active `countersPlaced` form ("whenever YOU PUT one or more…"): this PASSIVE
+      // wording fires no matter WHO placed the counters, including an opponent's effect. They are different
+      // triggers and must not be folded together — mapping this onto countersPlaced would silently miss every
+      // opponent-placed counter.
+      //
+      // NO BATCHING NEEDED, unlike the dies/gy-leave arms: one addCounter event places N counters on ONE
+      // permanent, so the "one or more" is already satisfied per event, and a spell putting counters on three
+      // creatures correctly fires three times (the plural counts COUNTERS, not creatures).
+      const scopedCounters = creatureSubjectScope(subj);
+      if (scopedCounters) return { event: "countersPut", scope: scopedCounters, whose: "any", counterType: m[1] };
     }
     return null;
   }
@@ -5726,6 +5739,22 @@ export function checkCounterTriggers(state) {
         .filter((d) => d.event === "countersPut" && d.scope === "self" && d.counterType === ev.type)
         .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}))
     );
+    // SCOPED COUNTERS-PUT — WATCHERS ("a creature you control receives counters"), as opposed to the
+    // receiving permanent's own self-trigger handled just above. Routed through triggersForEvent so the
+    // shared scopeMatches vocabulary does the controller/not-self work rather than a bespoke check.
+    //
+    // The `scope !== "self"` half of the descriptorFilter is load-bearing: scopeMatches would also match a
+    // SELF descriptor when the watcher happens to BE the receiving permanent, which the loop above already
+    // fired — so without it every self-trigger would fire twice. counterType is re-checked here for the same
+    // reason it is above: a -1/-1 placement must never trip a +1/+1 watcher.
+    for (const pid of Object.keys(cleared.players)) {
+      for (const watcher of triggerSourcesOf(cleared, pid)) {
+        fired = fired.concat(triggersForEvent(cleared, {
+          event: "countersPut", sourcePermanent: watcher, triggeringPermanent: lk.permanent,
+          descriptorFilter: (d) => d.scope !== "self" && d.counterType === ev.type,
+        }));
+      }
+    }
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
