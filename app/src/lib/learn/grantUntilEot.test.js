@@ -49,7 +49,11 @@ describe("classify — the vocabulary gate", () => {
     expect(classifyCard(SHOWSTOPPER)).toBe("native-spell");
     expect(classifyCard(LIGHTNING_VOLLEY)).toBe("native-spell");
     expect(classifyCard(GALUF)).toBe("arbiter-spell");   // power-counters body unmodeled → park
-    expect(classifyCard(BLINK)).toBe("arbiter-spell");   // the bare return wording NEVER parses outside a dies sentinel
+    // GRADUATED: Momentary Blink used to sit here as "the bare return wording NEVER parses outside a dies
+    // sentinel" — a scope statement about this slice's vocabulary, true when written. The blink slice models
+    // it now (CR 400.7, pinned in blinkFlicker.test.js), so it is asserted POSITIVELY rather than deleted.
+    // GALUF above is the genuine refusal this line is grouped with and is untouched.
+    expect(classifyCard(BLINK)).toMatch(/^native/);
   });
 });
 

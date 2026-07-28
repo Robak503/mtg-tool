@@ -1353,7 +1353,10 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
     expect(programConfidence(reb)).toBe("high");
     expect(reb.selfExile).toBe(true);
     // An UNMODELED rebound body still stays low → Arbiter (no fabricated flip); selfExile never on a low program.
-    const unmodeled = parseEffectProgram(I("Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound"));
+    // FIXTURE SWAPPED: this used the FLICKER body, which the blink slice now models — so it stopped testing
+    // anything. Replaced with a body that is genuinely unmodeled (a counted edict, on the MUST_DROP_TO_LOW
+    // list above), which keeps the assertion's real intent: rebound-stripping must never fabricate a flip.
+    const unmodeled = parseEffectProgram(I("Each player sacrifices two creatures of their choice.\nRebound"));
     expect(programConfidence(unmodeled)).toBe("low");
     expect(unmodeled.selfExile).toBeUndefined();
   });

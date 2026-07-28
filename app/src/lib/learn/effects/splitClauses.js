@@ -473,6 +473,22 @@ export function splitClauses(oracle) {
       const tm = sentence.match(/^(.+?) if (.+)$/i);
       if (tm && spellConditionParseable(tm[2])) { clauses.push(sentence); continue; }
     }
+    // BLINK / FLICKER keep-whole (CR 400.7 — Cloudshift, Ephemerate, Essence Flux, Blur, Splash Portal).
+    // The ", then" split severs "Exile target creature you control, then return that card to the battlefield
+    // under your control" into a bare exile plus an orphaned return.
+    //
+    // THIS ONE IS NOT AN ORDINARY MIS-SPLIT. The comment below reasons that a mis-split "just yields an
+    // unmodeled clause → low → Arbiter, never a confident wrong partial" — true in general, and NOT true
+    // here: the first half, "exile target creature you control", parses HIGH entirely on its own. So the
+    // split does not fail safely; it describes a card that EXILES your creature and never returns it. Keeping
+    // the sentence whole is what makes the blink atom reachable and closes that hole in the same stroke.
+    //
+    // Anchored to the exact printed shape (both the "your"/"its owner's" controller forms); any variant
+    // splits normally, byte-identical.
+    if (/^exile target creature you control, then return (?:that card|it) to the battlefield under (?:your|its owner's) control\.?$/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split

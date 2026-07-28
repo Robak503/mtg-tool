@@ -97,6 +97,47 @@ export function applyExileFromGraveyard(state, atom, ctx) {
  * An empty graveyard is a legal no-op, NOT a failure: "exile target player's graveyard" still resolves
  * against a player with nothing in the yard (CR 608.2 — an effect that does nothing still resolves).
  */
+/**
+ * BLINK / FLICKER (CR 400.7) — exile a permanent you control and immediately return it to the battlefield.
+ *
+ * Deliberately COMPOSED from the two existing chokepoints rather than reimplemented: `moveCardToZone` off
+ * the battlefield (which runs the exit path, so LTB watchers see it leave) and `enterCardFromZone` (the same
+ * helper reanimation uses, so ETB watchers see it arrive). Re-triggering that ETB is the entire point of the
+ * card — a blink that skips it is a blank — which is why the test asserts a watcher's ETB actually FIRED
+ * rather than merely that the permanent still exists.
+ *
+ * CR 400.7 — the returned object is a NEW object: fresh permanent id, no counters, no attachments,
+ * summoning-sick. That follows from enterCardFromZone minting a new permanent; nothing here carries state
+ * across the hop. The counters case is pinned because preserving them is the tempting shortcut.
+ *
+ * The CARD id, not the permanent id, is what lands in exile (the battlefield-exit chokepoint pushes
+ * `perm.card`), so it is captured BEFORE the move. `returnTo` picks the controller: "controller" for
+ * "under your control", "owner" for "under its owner's control" — different cards for a stolen creature.
+ *
+ * A target that vanished before resolution is a clean no-op (CR 608.2b), never a fabricated entry.
+ */
+export function applyBlink(state, atom, ctx) {
+  let next = state;
+  const blinked = [];
+  for (const t of ctx.targets || []) {
+    const lk = findPermanent(next, t.id);
+    if (!lk) continue;                       // gone before resolution — no-op, never a fabricated return
+    const perm = lk.permanent;
+    const cardId = perm.card?.id;
+    if (!cardId) continue;
+    // findPermanent returns { permanent, controller } — the CONTROLLER key, not playerId. The `owner` stamp
+    // is present only on a cross-player entry (a stolen/reanimated permanent); absent means owner ===
+    // controller, which is why the fallback chain ends there rather than guessing.
+    const owner = perm.owner || lk.controller;
+    const returnController = atom.returnTo === "owner" ? owner : ctx.controller;
+    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
+    const r = enterCardFromZone(next, { playerId: returnController, cardId, fromZone: "exile", fromPlayerId: owner });
+    next = r.state;
+    if (r.entered) blinked.push(cardId);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "blink", controller: ctx.controller, targets: blinked });
+}
+
 export function applyExileGraveyard(state, atom, ctx) {
   let next = state;
   const pids = Object.keys(next.players || {});
@@ -453,6 +494,18 @@ export function graveyardReturnClauseParser(clause) {
   // Anchored whole-clause: a filtered variant ("exile all creature cards from all graveyards" — Rest in Peace's
   // sibling wording) does NOT match and stays low → Arbiter, because exiling the WHOLE zone for it would exile
   // cards the card never touches — the forbidden over-apply, not a safe miss (CREED).
+  // BLINK / FLICKER (CR 400.7) — "Exile target creature you control, then return that card to the
+  // battlefield under your control" (Cloudshift #792, Ephemerate #440, Essence Flux #928, Blur, Splash
+  // Portal, Acrobatic Maneuver, Siren's Ruse — 19 corpus carriers, 0 native before this).
+  //
+  // Reachable only because splitClauses now keeps this sentence WHOLE: its ", then" split used to sever the
+  // instruction, and the leading half ("exile target creature you control") parses HIGH on its own — so the
+  // split described a card that exiles your creature and never returns it. See the keep-whole guard there.
+  //
+  // "under YOUR control" vs "under ITS OWNER's control" are genuinely different cards when the blinked
+  // creature was stolen — the owner form hands it back. Both are parsed; `returnTo` resolves it at runtime.
+  const blinkM = t.match(/^exile target creature you control, then return (?:that card|it) to the battlefield under (your|its owner's) control$/);
+  if (blinkM) return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], returnTo: blinkM[1] === "your" ? "controller" : "owner" };
   if (/^exile target player's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "player" };
   if (/^exile target opponent's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "opponent" };
   if (/^exile all graveyards$/.test(t)) return { op: "exile-graveyard", who: "eachPlayer", targetType: null };
@@ -839,6 +892,7 @@ export const zoneResolvers = {
   "reanimate": applyReanimate,
   "exile-from-graveyard": applyExileFromGraveyard,
   "exile-graveyard": applyExileGraveyard,   // WHOLE-ZONE graveyard hate (Bojuka Bog / Farewell / Rakdos Charm)
+  "blink": applyBlink,                      // BLINK/FLICKER (CR 400.7) — Cloudshift / Ephemerate / Essence Flux
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
   "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves
   "gy-shuffle-into-library": applyGyShuffleIntoLibrary, // GY-SHUFFLE-IN (GS-1, CR 701.24) — chosen graveyard cards shuffle into their owner's library

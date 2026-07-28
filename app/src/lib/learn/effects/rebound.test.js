@@ -137,9 +137,26 @@ describe("rebound strip — variants + boundary handling", () => {
 
 describe("rebound — CREED near-misses (never a partial / over-fire)", () => {
   it("an UNMODELED rebound body stays LOW → Arbiter, and carries NO selfExile", () => {
-    // Ephemerate: "Exile target creature you control, then return it..." — the flicker body is unmodeled here,
-    // so stripping rebound MUST NOT fabricate a native flip. It stays on the Arbiter (which disposes the card
-    // itself), and the selfExile flag is never stamped on a LOW program.
+    // FIXTURE SWAPPED — this used to use Ephemerate's FLICKER body as its example of "unmodeled". The blink
+    // slice models that body now (CR 400.7), so the example stopped exercising anything and the test would
+    // have passed vacuously in the other direction. The ASSERTION's intent is untouched and still the point:
+    // stripping rebound MUST NOT fabricate a native flip for a body the engine cannot model. Swapped to a
+    // counted edict, which is genuinely unmodeled (it sits on parser.test.js's MUST_DROP_TO_LOW gate).
+    const unmodeledBody = {
+      name: "Reboundless Edict",
+      type: "Instant",
+      oracle: "Each player sacrifices two creatures of their choice.\n" + REBOUND_REMINDER,
+    };
+    expect(classifyCard(unmodeledBody)).toBe("arbiter-spell");
+    const p = parseEffectProgram(unmodeledBody);
+    expect(programConfidence(p)).toBe("low");
+    expect(p.selfExile).toBeUndefined();
+  });
+
+  it("EPHEMERATE now flips — its flicker body is modeled, so rebound stripping EARNS the native tier", () => {
+    // The positive counterpart to the swap above: the same card that used to prove "unmodeled bodies park"
+    // now proves the opposite half of the rule — a MODELED body plus rebound is a legitimate flip, not a
+    // fabricated one. Keeping both halves in this file is what stops the swap from quietly weakening it.
     const ephemerate = {
       name: "Ephemerate",
       type: "Instant",
@@ -147,10 +164,8 @@ describe("rebound — CREED near-misses (never a partial / over-fire)", () => {
         "Exile target creature you control, then return it to the battlefield under its owner's control.\n" +
         REBOUND_REMINDER,
     };
-    expect(classifyCard(ephemerate)).toBe("arbiter-spell");
-    const p = parseEffectProgram(ephemerate);
-    expect(programConfidence(p)).toBe("low");
-    expect(p.selfExile).toBeUndefined();
+    expect(classifyCard(ephemerate)).toMatch(/^native/);
+    expect(parseEffectProgram(ephemerate).selfExile).toBe(true);
   });
 
   it("a NON-rebound token-copy spell keeps the default graveyard disposition (no over-fire)", () => {
