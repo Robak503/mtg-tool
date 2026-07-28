@@ -1376,6 +1376,39 @@ exposed it. **Post above the first `### ` header, and verify with `grep -n "^###
   games finish. With `unresolved` (the Arbiter escape hatch) and `soft-counter` handled: 24/24, zero
   wedges. Fixed. If it reports a catastrophe again, suspect the harness first.
 
+## ⛔ OPEN BUG — SIX Auras credited NATIVE whose printed grant never applies (found 2026-07-28)
+
+**Reproducer:** `MTG_APP_ROOT=… node app/scripts/probe-dropped-attached-grants.mjs`. Attach any of these
+to a 2/2 and the host stays 2/2:
+
+| card | tier | prints | want / got |
+|---|---|---|---|
+| Dark Privilege #11269 | native-activated | +1/+1 | 3/3 / **2/2** |
+| Elephant Guide | native-trigger | +3/+3 | 5/5 / **2/2** |
+| Most Wanted · A-Most Wanted | native-trigger | +2/+1, +2/+2 | — / **2/2** |
+| Serpent Skin · The Brute | native-activated | +1/+1, +1/+0 | — / **2/2** |
+| Gaea's Embrace | native-activated | +3/+3 and trample | 5/5 / **2/2** (missed by the probe's bare-`+N/+N` anchor) |
+
+**Root cause, diagnosed:** `parseAuraBonus` is all-or-nothing BY DESIGN — an Aura carrying a sibling the
+bonus parser doesn't own (a regenerate activated line, an unmodeled own-trigger) drops the WHOLE bonus
+to `[]`. Correct. But two crediting paths reason about a **transformed card the layer engine never sees**:
+`nativeStaticGrantPlusActivated` (strips the extra activated lines, then asks `isNativeAura(stripped)`)
+and `isNativeOwnTriggeredAura` (composes the halves, each checked in isolation). Each gate is right about
+its own half; neither checks that the UNTRANSFORMED card still produces the grant.
+
+**Attempted and reverted** (`d4a27f9f`): a guard in the composite lane closes 3 of 6; the other 3 come
+from the second path, and widening the aura-own-activated validator to admit `regenerate` did NOT
+restore the grant — something further down still drops it. The half-state parked four working-ish cards
+while leaving three FPs standing.
+
+⚠️ **`auraOwnRegenerate.test.js` currently PINS four of these false positives as correct** — written on
+the assumption the composite delivers the bonus. It doesn't. Fixing the runtime means correcting that
+test; check the P/T on a board before trusting it.
+
+⭐ **THE STANDING RULE THIS LEAVES:** no static instrument can see this class — the tier says native, the
+residue walk is satisfied, and a per-card tier diff shows nothing because nothing MOVES. **Anything that
+emits a layer grant needs a RUNTIME assertion. The tier is not evidence about the board.**
+
 ## BLOCKED / REFUSED — do not restart these blind
 
 - **ATTACHED UNBLOCKABLE** ("Equipped/Enchanted creature can't be blocked" — Whispersilk Cloak #329,
