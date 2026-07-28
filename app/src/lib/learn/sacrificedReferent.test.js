@@ -77,6 +77,20 @@ describe("the NARROWED guard — what it now admits", () => {
     expect(mv.atoms[0].amountCount.kind).toBe("sacrificedManaValue");
   });
 
+  it("the DRAW arm reads the same stamp (Life's Legacy #2490)", () => {
+    const p = parseEffectProgram(I("Draw cards equal to the sacrificed creature's power."));
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toEqual({ op: "draw", amountCount: { kind: "sacrificedPower", per: 1 }, targetType: null });
+  });
+
+  it("THE DRAW ARM TAKES NO TARGET — the referent is the paid cost, not a chosen creature", () => {
+    // It sits beside a "draw cards equal to the power of TARGET creature" arm that DOES take a target.
+    // Copying that shape would make the spell demand a target it never prints — a wrong cast, and the exact
+    // mistake the adjacency invites.
+    expect(parseEffectProgram(I("Draw cards equal to the sacrificed creature's power.")).atoms[0].targetType).toBeNull();
+    expect(parseEffectClause("draw cards equal to the power of target creature you control").atoms[0].targetType).toBe("creature");
+  });
+
   it("REGRESSION PIN — the TRIGGERING-creature arm is untouched (a different referent entirely)", () => {
     // The sibling this arm was modelled on. It reads ctx.triggeringPermanentId, not the cost stamp; conflating
     // the two would make an ETB payoff read a sacrifice that never happened.

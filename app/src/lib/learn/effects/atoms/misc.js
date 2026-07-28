@@ -335,6 +335,16 @@ export function drawForEachClauseParser(clause) {
   // form leaves residue → no match → low → Arbiter (CREED — never an over/under-count or a mis-targeted draw).
   // The bare "target creature" (no "you control") form is referent-identical and trivially correct if a card
   // ever prints it (none in the corpus today) — a safe FN-free generalization sharing the same resolver path.
+  // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — "draw cards equal to the sacrificed creature's power"
+  // (Life's Legacy #2490, Tom Bert and William, Susur Secundi). The third reader off the one capture
+  // actionDispatcher writes at cost-payment time; the permanent is gone by resolution, so it cannot be read
+  // from the board. Note this takes NO targetType, unlike the target-creature arm just below it — the
+  // referent is the already-paid cost, not a chosen target, so offering a target here would be a wrong cast.
+  const sacD = t.match(/^(?:you )?draw cards equal to the sacrificed (?:creature|permanent|artifact)'s (power|toughness|mana value)$/);
+  if (sacD) {
+    const kind = sacD[1] === "power" ? "sacrificedPower" : sacD[1] === "toughness" ? "sacrificedToughness" : "sacrificedManaValue";
+    return { op: "draw", amountCount: { kind, per: 1 }, targetType: null };
+  }
   const mtp = t.match(/^(?:you )?draw cards equal to the (power|toughness) of target creature( you control)?$/);
   if (mtp) {
     const kind = mtp[1] === "power" ? "targetCreaturePower" : "targetCreatureToughness";
