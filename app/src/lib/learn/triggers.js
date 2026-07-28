@@ -806,6 +806,35 @@ function classifyCondition(condRaw, cardName, cardType) {
       return desc;
     }
   }
+  // ===== BATCHED ETB WITH A CHECKABLE FILTER (CR 603.1) ===== "Whenever ONE OR MORE [other] creatures you
+  // control WITH POWER N OR LESS / WITH MANA VALUE N OR LESS enter" (Welcoming Vampire #428, Enduring
+  // Innocence #785, Tocasia's Welcome #866). Carved out BEFORE the blanket "with …" reject below, on the
+  // same grounds as the keyword-batch and cast-with-mana-value exemptions above it: printed power and mana
+  // value are PRECISELY checkable, unlike the scope-inexpressible qualities that reject guards against.
+  //
+  // ⭐ MAPPED ONTO THE SINGULAR `etb` EVENT, NOT A BATCH EVENT — and this is the whole trick. Both corpus
+  // carriers print "This ability triggers only once each turn", and that rider is ENFORCED at the flush
+  // chokepoint (gameEngine, keyed per source+event, cleared at untap). So:
+  //     batch-once,  then rider-capped  ->  once per turn
+  //     per-creature, then rider-capped ->  once per turn      ← observably IDENTICAL
+  // The printed rider does the capping either way, so no entry queue, no drain, and no per-entry cost is
+  // needed. (An earlier attempt built exactly that machinery and was reverted; see the run ledger.)
+  //
+  // ⚠️ VALID ONLY WITH THE RIDER. A rider-less batched ETB mapped this way would fire once per TOKEN — the
+  // over-fire this family exists to avoid. `requiresOncePerTurn` carries that demand to the descriptor
+  // builder, which DROPS the descriptor when the rider is absent, so the unsafe case cannot be emitted.
+  {
+    const ebf = c.match(/^one or more (other )?creatures you control with (power|mana value) (\d+) or less enter$/);
+    if (ebf) {
+      const scopeF = creatureSubjectScope(`${ebf[1] ? "another" : "a"} creature you control`);
+      if (scopeF) {
+        return {
+          event: "etb", scope: scopeF, whose: "any", requiresOncePerTurn: true,
+          ...(ebf[2] === "power" ? { etbMaxPower: parseInt(ebf[3], 10) } : { etbMaxMv: parseInt(ebf[3], 10) }),
+        };
+      }
+    }
+  }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
@@ -3132,6 +3161,12 @@ export function detectTriggers(card) {
         effectClause = effectClause.replace(/\.?\s*This ability triggers only once each turn\.?\s*$/i, "").trim();
         oncePerTurnTrigger = true;
       }
+      // BATCHED-ETB SAFETY GATE — a descriptor that demands the once-per-turn rider (the "one or more …
+      // with power/mana value N or less enter" carve-out) is only CR-equivalent to its batch semantics
+      // BECAUSE the printed rider caps it. Without the rider it would fire once per entering token — the
+      // over-fire this family exists to avoid — so the descriptor is DROPPED entirely and the card stays on
+      // the Arbiter (a safe false-negative). Checked here because this is where the rider is known.
+      if (cls.requiresOncePerTurn && !oncePerTurnTrigger) continue;
       out.push({
         oncePerTurnTrigger,                   // ONCE-PER-TURN TRIGGER (M1a): flushTriggers drops re-fires within a turn
         event: cls.event,
@@ -3172,6 +3207,8 @@ export function detectTriggers(card) {
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
         gyFromZone: cls.gyFromZone,           // GY-ENTER-BATCH: the ORIGIN zone the printed trigger names ("library" — Sidisi's mill payoff; absent = "from anywhere"). MUST be listed here or it is silently dropped and the trigger fires on EVERY origin — a live over-fire, not a missed one.
+        etbMaxPower: cls.etbMaxPower,         // BATCHED-ETB FILTER: printed power cap ("with power 2 or less" — Welcoming Vampire). Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
+        etbMaxMv: cls.etbMaxMv,               // BATCHED-ETB FILTER: printed mana-value cap ("with mana value 3 or less" — Tocasia's Welcome).
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
@@ -3786,6 +3823,17 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // chose. Load-bearing FP guard: without it Lazotep's OWN amass-minted Sliver Army token (a Sliver, so the
   // subtypeYouControl scope would match it) dying would re-fire its amass — a confident wrong fire.
   if (descriptor.nontokenFilter && triggeringPermanent?.card?.token) return false;
+  // BATCHED-ETB CHARACTERISTIC gate (Welcoming Vampire "with power 2 or less"; Tocasia's Welcome "with mana
+  // value 3 or less"). Runs BEFORE the scope switch so it composes with whichever controller scope the
+  // descriptor chose, exactly like nontokenFilter above.
+  //
+  // Read off the entering permanent's card, not the layer-derived board value: these fire AS the permanent
+  // enters, and the printed characteristics are what the filter names. `?? 0` for a missing power keeps a
+  // non-creature entry from passing a "power 2 or less" gate by accident on undefined comparison.
+  // Load-bearing: without this the trigger fires for ANY entering creature — a confident wrong fire on every
+  // big creature, and invisible in the tier because the card would still classify native.
+  if (descriptor.etbMaxPower != null && !(Number(triggeringPermanent?.card?.power ?? 0) <= descriptor.etbMaxPower)) return false;
+  if (descriptor.etbMaxMv != null && !((triggeringPermanent?.card?.cmc ?? 0) <= descriptor.etbMaxMv)) return false;
   // ATTACHED-ONLY gate (Reyav — "a creature you control that's enchanted or equipped attacks"): the
   // triggering creature must carry ≥1 attachment (attachments are only ever Auras/Equipment here, so the
   // or-form reduces to a length check). Runs BEFORE the scope switch so it composes with the scope the
