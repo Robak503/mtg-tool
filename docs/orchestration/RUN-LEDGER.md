@@ -18,13 +18,41 @@
 > If `MUTANT` appears anywhere in `app/src/`, a mutation check was interrupted. Restore that line to its
 > pre-mutation form before doing anything else — the tests will be lying until you do.
 
-## THE OBJECTIVE (Colton, 2026-07-27)
+## 🎯 THE OBJECTIVE — RETARGETED BY COLTON, 2026-07-28 (supersedes the shelf framing below)
 
-Work continuously, no status reports, cutting `v0.149.x` releases as work lands. **Corpus % is NO LONGER
-the target — the deck SHELF is.** The 1.0 bar is shelf ≥90% native per deck.
+**The target is now the TOP 2500 MOST-PLAYED CARDS by `edhrec_rank`.** Colton, verbatim: *"lets focus now
+on the top 2500 that['s] probably 95% of what's actually played."* This supersedes both "corpus %" and
+"the deck shelf" as the number to move. The shelf sections further down are still TRUE and still useful
+as a secondary read — do not delete them — but they are no longer the bar.
+
+Measure it with the project's own tool (it already had this view; the comment in the script says the
+corpus number *"treats a never-played junk card the same as Sol Ring"*):
+```
+MTG_APP_ROOT="/c/Users/colto/AppData/Roaming/com.colton.mtg-tool" node app/scripts/measure-coverage.mjs
+```
+`playable = native OR land`. Lands count — they run trivially, which is why **Bojuka Bog #24 was never
+a gap** even though an ad-hoc probe of mine listed it as parked. Do not re-derive that; it is settled.
+
+**WHY THE RETARGET HAPPENED — the lesson is worth more than the number.** Colton pushed back twice, and
+both times the instrument was the problem, not the codebase:
+
+1. *"why are we gated on no new card or easy cards when we're not even half way"* — every search
+   instrument built in this run asks the SAME question: *"which cards are ONE sentence from flipping?"*
+   That seam genuinely was exhausted, but it is a thin surface layer. It goes quiet long before the WORK
+   does. "No cheap wins" was an artifact of the instrument.
+2. *"we don't [want to] assume cards are hard just cause they['re] multi part — some of those may be
+   really easy as we have a lot of what they're doing already done."* — **Blocker COUNT is not cost.**
+   A card needing two VOCABULARY fixes is cheaper than one needing a new SUBSYSTEM. Every slice shipped
+   since that message was a case of the engine already knowing the effect and not knowing the phrasing.
+
+**The instrument that replaced them:** for a given family, parse each blocking phrase in isolation AND a
+near variant that differs by one qualifier. When "destroy all artifacts" is HIGH and "exile all artifacts"
+is LOW, the gap is a missing CROSS, not a missing mechanic. That single diff found three slices in a row.
 
 Full authority granted: cut releases freely, choose the work, no check-ins. Stop only for something that
 needs Colton's hands, touches secrets, or would ship a guess.
+
+## THE SHELF (secondary read — no longer the bar, kept because it is measured and true)
 
 ## THE TARGET — the real shelf, measured
 
@@ -73,8 +101,74 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.2%** (12,048). Shelf 1259/1597. Suite **872 files / 11,259 tests**,
-  lint 0, sweep 20/20. Master green. **v0.149.12 tagged** (+12 since .11: aura host-death, aura composition).
+- **Nothing mid-edit.** Corpus **35.3%** (12,079/34,245). Suite **874 files / 11,281 tests**, lint 0,
+  MUTANT sweep clean. Three slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT yet pushed;
+  the branch name is stale — it now carries three unrelated slices and wants a rename before any PR).
+
+  **PLAY-WEIGHTED — the new bar:** top-1000 **69.6%** · top-2500 **51.8%** · top-5000 41.5% · top-10k 34.7%.
+
+### Shipped this stretch (all three: engine knew the EFFECT, not the PHRASING)
+
+| commit | slice | flips |
+|---|---|---|
+| `3259071d` | attached-bonus parser reads the host NOUN, not the literal `"creature"` | 0 — infrastructure |
+| `48d8560c` | positive COLOR target restriction (CR 105.2), layer-aware | **+18**, incl. Red Elemental Blast #433 |
+| `4f915ba6` | whole-graveyard exile (CR 701.10a) + mass-exile verb parity | **+10**, incl. Farewell #163 |
+
+`3259071d` flips NOTHING on its own and is recorded that way rather than dressed up. It still earned its
+place: the subject sniff was misfiling `"Enchanted permanent …"` Auras as EQUIPMENT, and the metric's
+no-untap gate was NARROWER than the runtime matcher it was supposed to describe. Its second half — the
+Enchant SUBJECT vocabulary plus the offer / CR 608.2b / CR 704.5n wiring — is measured at **+15** and is
+deliberately deferred, because the play-rank data says modal staples outrank it.
+
+### ⭐ A PRIOR CREED PIN FIRED AND WAS **GRADUATED**, NOT DROPPED — the precedent matters
+
+`gyExile.test.js` pinned `"exile target player's graveyard"` as low, commented *"whole graveyard, not a
+single card"*. That is a **SCOPE-BOUNDARY marker** left by the single-card slice, NOT a safety pin — and
+the very same file records the identical graduation for Scarab Feast once ITS machinery landed. So the
+line was retired the documented way: the near-miss intent lives on (the filtered wording
+`"exile all creature cards from all graveyards"` is still refused, now pinned in the NEW file), and the
+graduation is annotated in place with a pointer to `exileGraveyardZone.test.js`.
+
+**Read the pin's COMMENT before deciding it is stale.** A scope marker graduates when the machinery lands;
+a safety pin never does. Both look like a red test.
+
+### 🎯 THE LIVE QUEUE — top-2500 staples, each ONE small effect away (probe-verified, not guessed)
+
+The modal WRAPPER is already built and is genuinely sophisticated (escalate, "choose one or more", even
+Akroma's-Will conditional-both). `effects/parser.js:602` is the whole story: **one mode that parses low
+kills the entire card.** So these are single-effect builds, not mechanic builds:
+
+- **Austere Command #169** — `destroy all creatures with mana value N or less/greater` (`destroy all
+  creatures` is already HIGH — this is the MV qualifier only)
+- **Cryptic Command #1617** — `tap all creatures your opponents control` ⚠️ *`tap all creatures` is ALSO
+  low, so this one is a REAL build, not a qualifier — do not assume symmetry with the destroy family*
+- **Golgari Charm #1603** — `regenerate each creature you control` (single-target regenerate is HIGH)
+- **Archmage's Charm #1746** — `gain control of target nonland permanent with mana value 1 or less`
+  (`gain control of target creature` is HIGH → noun vocabulary)
+- **Warping Wail #2046** — `exile target creature with power OR TOUGHNESS N or less` (`with power N or
+  less` is HIGH → the disjunction only)
+- **Sublime Epiphany #1709** — `counter target activated or triggered ability` (new counter target class)
+- **Dawn Charm #2079** — `counter target spell that targets you`
+- **Prismari Command #1108** — `target player creates a Treasure token` (`create a Treasure token` is HIGH
+  → the player scope only)
+- **Rakdos Charm #330** — `each creature deals N damage to its controller`
+
+**24 cards** additionally want REPEATABLE modes (`"you may choose the same mode more than once"` — the
+Confluence cycle incl. Mystic #1431 / Fiery #1561, plus the Season cycle). That needs multiset expansion
+in `expandCastChoices` — a wrapper feature, bigger than the singles above.
+
+### ⛔ MEASURED AND CLOSED THIS STRETCH — do not re-derive
+
+- **Graveyard exile was 0-native/62-parked before `4f915ba6`.** The remaining 52 are blocked by OTHER
+  text, not by the zone exile.
+- **`exile all artifacts and enchantments`** still parses low (the clause splitter appears to break on
+  `" and "` before the matcher sees it). Not needed for Farewell; unexamined beyond that.
+- **Pyroblast / Hydroblast are DELIBERATELY not claimed.** They word colour as a post-hoc condition on an
+  UNRESTRICTED target (`"counter target spell if it's blue"`) — a different rule from the adjective form,
+  and pinned as a CREED test so surface similarity cannot sweep them in later.
+- **The play-weighted view already existed** in `measure-coverage.mjs`. Making it the TARGET is what
+  changed; the instrument was not missing.
 
 ## 📊 THE SPLIT IS LIVE WITH THE REAL MAPPING — the two bars, measured
 
