@@ -24,7 +24,7 @@ function splitModes(oracle) {
 // A mode parses if, ON ITS OWN AS A SPELL EFFECT, it yields a HIGH non-modal program with atoms.
 // Mirrors parser.js:599-601 (parseEffectClauseImpl + the same three conditions).
 function modeOk(text) {
-  let p = null;
+  let p;
   try { p = parseEffectProgram({ name: "X", type: "Instant", oracle: text, mana: "{1}{U}" }); } catch { return false; }
   return !!p && p.confidence === "high" && p.structure !== "modal" && Array.isArray(p.atoms) && p.atoms.length > 0;
 }

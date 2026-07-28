@@ -252,6 +252,15 @@ export const atomTargets = (state, atom, ctx) => {
   // Targets. No chosen targets (a NON-targeted mass set, like eachCreature), so the trigger routes natively on
   // program confidence alone. Absent count → no bound (a full opponent-board bounce). CR 111.7: an opponent's
   // token returned this way ceases to exist (handled by the hand-zone move in applyZoneMove).
+  // MASS-OWN-BOARD (Golgari Charm "Regenerate each creature you control") — the mirror of
+  // eachOpponentCreature. Scoped by CONTROLLER at resolution, not by a restriction: massCreatureTargets
+  // takes characteristic filters (subtype/power/mana value) but no controller predicate, so a controller
+  // restriction on eachCreature would be SILENTLY IGNORED and the effect would regenerate the opponents'
+  // creatures too — a wrong effect, not a missing one. Its own targetType makes that unrepresentable.
+  // Layer-aware through massCreatureTargets (CR 613), so an animated permanent you control is included.
+  if (atom.targetType === "eachCreatureYouControl") {
+    return massCreatureTargets(state, {}).filter((t) => t.controller === ctx.controller);
+  }
   if (atom.targetType === "eachOpponentCreature") {
     const cap = atom.toughnessAtMostCount ? countForSpec(state, ctx, atom.toughnessAtMostCount) : undefined;
     return opponentCreatureTargets(state, ctx.controller, { toughnessAtMost: cap });

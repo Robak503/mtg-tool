@@ -42,6 +42,9 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   //                               EXCEPT the source (ctx.sourceId); non-chosen, so the trigger flush routes it
   //                               on confidence (no target pick) exactly like eachCreature.
   "eachCreatureAndPlayer",      // SYMBURN-1 — symmetric burn (every creature AND every player)
+  "eachCreatureYouControl",     // MASS-OWN-BOARD — "regenerate each creature you control" (Golgari Charm).
+  //                               The mirror of eachOpponentCreature. A NON-wipe on purpose: it BUFFS the
+  //                               caster's own board, so the AI must not hold it the way it holds a wipe.
   "eachOpponentCreature",       // R1.2 (audit 2026-07-09) — mass bounce over every OPPONENT creature
   //                               (Scourge-of-Fleets class, zones.js). Was emitted but missing here, so
   //                               "needs a chosen target?" checks treated it as targeted and the live

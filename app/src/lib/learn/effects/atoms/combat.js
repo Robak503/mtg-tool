@@ -1064,6 +1064,12 @@ export function combatKeywordClauseParser(clause) {
   if (/^each creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "eachCreature" };
   if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
   if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
+  // MASS-OWN-BOARD REGEN (CR 701.19 — Golgari Charm, EDHREC #1603): a regeneration shield on EVERY creature
+  // the controller has. applyRegenerate already routes through atomTargets and shields whatever it returns,
+  // so this is the parser half only — the mass scope does the rest. Scoped by targetType rather than by a
+  // controller restriction: massCreatureTargets has no controller predicate, so a restriction would be
+  // silently dropped and the shields would land on the opponents' creatures too (a wrong effect).
+  if (/^regenerate each creature you control$/.test(t)) return { op: "regenerate", targetType: "eachCreatureYouControl" };
   // AURA-OWN-REGEN (CR 701.19) — "regenerate enchanted creature" on an Aura that PRINTS a "{cost}: Regenerate
   // enchanted creature." ability (Regeneration, Keldon Mantle). The fixed target:"enchanted" referent is the
   // SAME one the aura-own tap/untap/pump atoms use: atomTargets → enchantedTargets resolves it to the Aura's
