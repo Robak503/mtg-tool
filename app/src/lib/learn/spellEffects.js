@@ -44,7 +44,7 @@ import {
   addPoison,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
-import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield } from "./staticAbilityParser.js";
+import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, uncounterableCoversSpell } from "./staticAbilityParser.js";
 import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, permanentColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -654,7 +654,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         }
         // CANT-BE-COUNTERED (Chimil, controller scope): a spell cast by a player who controls a "spells you
         // control can't be countered" static is never a legal counter target.
-        if (uncounterablePlayers.has(obj.controller)) continue;
+        // TYPE-FILTERED (Prowling Serpopard "CREATURE spells you control can't be countered") — the
+        // coverage is per spell now, not per player: reading it as per-player would protect every spell
+        // the controller casts, which is Chimil rather than the Serpopard.
+        if (uncounterableCoversSpell(uncounterablePlayers, obj.controller, obj.source?.type || obj.source?.type_line)) continue;
       }
       // COPY-TARGET-OWN (Double Major — "copy target creature spell YOU CONTROL"): only the controller's own
       // stack spells are legal. effect.spellController:"you" (set by the copy atom's target spec) enforces it at

@@ -1888,6 +1888,15 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ cantBeCountered: { scope: "youControl" } });
     return;
   }
+  // ⭐ CONTROLLER × CARD-TYPE (Prowling Serpopard #3581, Surrak Dragonclaw #3186): "CREATURE spells you
+  // control can't be countered." An AND of the two axes the family already had separately — the Monument
+  // cost-reducer's exact shape, one slice earlier. Read as an OR it would protect every spell the
+  // controller casts, which is Chimil, a materially different card.
+  const cbcTypeM = c.match(/^(creature|artifact|enchantment|instant|sorcery) spells you control can't be countered$/);
+  if (cbcTypeM) {
+    out.push({ cantBeCountered: { scope: "youControl", cardType: cbcTypeM[1].charAt(0).toUpperCase() + cbcTypeM[1].slice(1) } });
+    return;
+  }
   const cbcM = c.match(/^([a-z]+) spells can't be countered$/);
   if (cbcM) {
     const word = cbcM[1];
@@ -3700,13 +3709,32 @@ export function uncounterableSubtypesOnBattlefield(permanentCards) {
  * 701.5e). Empty when no such static is in play → zero behavior change. Pure; hoisted once per enumeration.
  */
 export function uncounterablePlayersOnBattlefield(state) {
-  const players = new Set();
+  // A MAP now, not a Set: the controller-scoped static comes in two breadths and they must not collapse.
+  // playerId → Set of card-type filters, where `null` means EVERY spell that player casts (Chimil) and a
+  // type string means only that type (Prowling Serpopard's creatures). A player controlling both keeps both
+  // entries, so the broad one wins for free without special-casing.
+  const players = new Map();
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid]?.battlefield || []) {
-      if (perm?.card && parseStaticAbilities(perm.card).some((d) => d.cantBeCountered?.scope === "youControl")) { players.add(pid); break; }
+      if (!perm?.card) continue;
+      for (const d of parseStaticAbilities(perm.card)) {
+        if (d.cantBeCountered?.scope !== "youControl") continue;
+        if (!players.has(pid)) players.set(pid, new Set());
+        players.get(pid).add(d.cantBeCountered.cardType ?? null);
+      }
     }
   }
   return players;
+}
+
+/** Does `playerId`'s uncounterable-static coverage protect a spell with this type line? */
+export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLine) {
+  const filters = uncounterablePlayers?.get?.(playerId);
+  if (!filters) return false;
+  if (filters.has(null)) return true;                     // the unfiltered Chimil form covers everything
+  const tl = String(typeLine || "");
+  for (const t of filters) if (t && new RegExp(`\\b${t}\\b`, "i").test(tl)) return true;
+  return false;
 }
 
 /**
