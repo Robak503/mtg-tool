@@ -92,6 +92,11 @@ function typeStr(card) {
 // The CARD TYPES (CR 205.2a) delirium counts. Kindred is Tribal's current name for the SAME type, so both
 // spellings map to one entry — a graveyard holding a Tribal card and a Kindred card has one type, not two.
 const CARD_TYPE_WORDS = ["artifact", "battle", "creature", "enchantment", "instant", "kindred", "tribal", "land", "planeswalker", "sorcery"];
+// The two printed framings of the same board question (see the reader for why they share one). Anchored
+// whole-string: a PER-OBJECT variant ("IT has the greatest power…", "ENCHANTED PERMANENT is a creature
+// with…") needs a referent this lane has no thread for, and an "each creature … with the greatest power"
+// universal is a different claim entirely — all fall through to null → Arbiter (CREED).
+const GREATEST_POWER_RE = /^you control (?:a creature with the greatest power among creatures on the battlefield|the creature with the greatest power or tied for the greatest power)$/;
 /** Distinct card types among the controller's graveyard. Reads only the type line's HEAD (before the em
  *  dash) so a subtype ("— Equipment") can never be miscounted as a card type. */
 function cardTypesInGraveyard(state, controllerId) {
@@ -732,6 +737,31 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   }
 
   // "you control no <filter>"  → count == 0
+  // ===== GREATEST POWER ON THE BATTLEFIELD ===== "you control a creature with the greatest power among
+  // creatures on the battlefield" (High Score) and "you control the creature with the greatest power or tied
+  // for the greatest power" (7 corpus carriers between them). Both wordings are the SAME question — does the
+  // controller control a creature whose power ties or beats every creature on the battlefield — so they
+  // share one reader rather than two near-identical ones. "Greatest" INCLUDES ties in both framings, which is
+  // why the comparison is >= against the board maximum rather than a strict >.
+  //
+  // Layer-aware on both sides via creaturePower: an anthem that lifts an opponent's creature past mine
+  // flips this condition, exactly as it would at a real table. An EMPTY battlefield is false, not null —
+  // "you control a creature with…" cannot be satisfied when you control no creature, and that is a definite
+  // answer rather than an unreadable one.
+  if (GREATEST_POWER_RE.test(c)) {
+    const everyone = [];
+    for (const pid of Object.keys(state.players || {})) {
+      for (const p of controllerBoard(state, pid)) if (isCreaturePermLocal(p)) everyone.push({ p, pid });
+    }
+    if (!everyone.length) return false;
+    const max = Math.max(...everyone.map(({ p }) => creaturePower(p, state)));
+    return everyone.some(({ p, pid }) => pid === controllerId && creaturePower(p, state) >= max);
+  }
+
+  // ORDERING: this sits ABOVE the generic "you control <N> <filter>" family on purpose. That matcher
+  // matches "you control A creature with the greatest power among…", fails to parse the filter, and
+  // returns null — swallowing this shape before it is ever reached. Anchored first, it wins its own
+  // exact wording and the generic family is unchanged for everything else.
   let m = c.match(/^you control no (.+)$/);
   if (m) {
     const filter = parseFilter(m[1]);

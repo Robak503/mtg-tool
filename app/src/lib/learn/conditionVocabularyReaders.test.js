@@ -1,12 +1,16 @@
 /**
- * delirumFormidableConditions.test.js — two new readers in the shared condition vocabulary:
- * DELIRIUM ("N or more card types among cards in your graveyard") and FORMIDABLE (CR 702.113a,
- * "creatures you control have total power N or greater").
+ * conditionVocabularyReaders.test.js — the home for READERS in the shared condition vocabulary
+ * (interveningIf.js). Currently: DELIRIUM (card types in your graveyard), FORMIDABLE (CR 702.113a, total
+ * power), CORRUPTED (CR 122, an opponent's poison counters), and GREATEST POWER on the battlefield.
  *
- * WHY THESE TWO, AND WHY AS READERS. Now that the activation lane reads the SAME vocabulary as the trigger
- * and spell lanes (activationConditionParseable), a single reader added here reaches all three at once —
- * so vocabulary work compounds in a way a lane-local parser never would. Delirium is the largest single
- * form in the corpus at 73 carriers; formidable is 18.
+ * WHY THESE LIVE TOGETHER, AND WHY AS READERS. The activation lane now reads the SAME vocabulary as the
+ * trigger and spell lanes (activationConditionParseable), so a single reader added here reaches all three
+ * at once — vocabulary work compounds in a way a lane-local parser never would. That is the whole reason
+ * the seam was built before the entries.
+ *
+ * ONE ORDERING HAZARD, learned the hard way and pinned below: the generic "you control <N> <filter>" matcher
+ * will happily match a specific shape, fail to parse its filter, and return null — swallowing a more
+ * specific reader placed after it. GREATEST POWER is anchored ABOVE that family for exactly this reason.
  *
  * WHAT THE ASSERTIONS HERE ACTUALLY GUARD, stated honestly because two of them differ:
  *   1. LOAD-BEARING — delirium counts distinct TYPES, not cards. One "Artifact Creature" contributes two,
@@ -131,6 +135,58 @@ describe("CORRUPTED — an opponent's poison counters (CR 122 / 704.5c)", () => 
 
   it("CREED — the per-object 'its controller' form is refused", () => {
     expect(evaluateInterveningIf(seats(0, 3), "its controller has three or more poison counters", "me")).toBeNull();
+  });
+});
+
+describe("GREATEST POWER on the battlefield — ties count, and it is layer-aware", () => {
+  const COND = "you control a creature with the greatest power among creatures on the battlefield";
+  const ALT = "you control the creature with the greatest power or tied for the greatest power";
+  /** mine / theirs are arrays of printed power values. */
+  function board(mine, theirs) {
+    _resetIdsForTests();
+    const s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const mk = (p, i, who) => createPermanent({ id: `${who}${i}`, card: { name: `${who}${i}`, type: "Creature — Beast", power: String(p), toughness: "3" }, controller: who, summoningSick: false });
+    return {
+      ...s,
+      players: {
+        ...s.players,
+        user: { ...s.players.user, battlefield: mine.map((p, i) => mk(p, i, "user")) },
+        ai1: { ...s.players.ai1, battlefield: theirs.map((p, i) => mk(p, i, "ai1")) },
+      },
+    };
+  }
+
+  it("true when mine is strictly biggest", () => {
+    expect(evaluateInterveningIf(board([5], [3, 4]), COND, "user")).toBe(true);
+  });
+
+  it("false when an opponent's is bigger", () => {
+    expect(evaluateInterveningIf(board([5], [3, 6]), COND, "user")).toBe(false);
+  });
+
+  it("A TIE COUNTS — 'greatest' includes tied in both printed framings", () => {
+    // The whole reason the comparison is >= and not >. Both wordings must agree here.
+    expect(evaluateInterveningIf(board([5], [5]), COND, "user")).toBe(true);
+    expect(evaluateInterveningIf(board([5], [5]), ALT, "user")).toBe(true);
+  });
+
+  it("layer-aware — a +1/+1 counter on an opponent's creature flips it", () => {
+    const st = board([5], [5]);
+    st.players.ai1.battlefield[0].counters = { "+1/+1": 1 };
+    expect(evaluateInterveningIf(st, COND, "user")).toBe(false);
+  });
+
+  it("an EMPTY battlefield is a definite false, not an unreadable null", () => {
+    expect(evaluateInterveningIf(board([], []), COND, "user")).toBe(false);
+  });
+
+  it("controlling NO creatures while opponents do is false", () => {
+    expect(evaluateInterveningIf(board([], [2]), COND, "user")).toBe(false);
+  });
+
+  it("CREED — the per-object and universal variants are refused", () => {
+    expect(evaluateInterveningIf(board([5], [1]), "it has the greatest power or is tied for greatest power among creatures on the battlefield", "user")).toBeNull();
+    expect(evaluateInterveningIf(board([5], [1]), "you control each creature on the battlefield with the greatest power", "user")).toBeNull();
   });
 });
 

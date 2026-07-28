@@ -61,7 +61,13 @@ describe("doubler full-card coverage — CREED FN-safe non-flips (body-only)", (
     // (Winding Constrictor's 2nd clause — the player-counter additive — is now MODELED, so it flips
     // native-static; see windingConstrictor.test.js. The still-parked examples below hold the guard.)
     expect(classifyCard(card("windingConstrictor"))).toBe("native-static");
-    expect(classifyCard(card("highScore"))).toBe("body-only");          // end-step intervening-if draw not covered
+    // HIGH SCORE GRADUATED 2026-07-28. It sat here as body-only because its second clause — "At the
+    // beginning of your end step, draw a card if you control a creature with the greatest power among
+    // creatures on the battlefield" — had no reader for that condition. The GREATEST POWER reader landed
+    // (interveningIf.js) and this pin failed immediately, which is exactly its job. The card is now fully
+    // modeled: doubler replacement + a condition-gated end-step draw, so native-MIXED rather than
+    // native-static. The guard below is unchanged and still held by the two remaining examples.
+    expect(classifyCard(card("highScore"))).toBe("native-mixed");
     expect(classifyCard(card("mondrak"))).toBe("body-only");            // activated indestructible-counter ability
     expect(classifyCard(card("halvingSeason"))).toBe("body-only");      // token-HALVE not modeled (tokenMultiplier has no halve)
   });
