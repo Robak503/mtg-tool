@@ -8,6 +8,19 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.11] — 2026-07-28
+
+### Added
+- **Creatures that react to getting +1/+1 counters now work.** Herd Baloth, Scurry Oak, Generous Pup and
+  Dusk Legion Duelist were all sitting idle — the game never noticed counters landing on them. It now does,
+  including counters a creature is given *as it enters the battlefield*, which the rules count the same way.
+- **Abilities that trigger only once per turn are recognized.** Cards reading "this ability triggers only
+  once each turn" were stuck on that one sentence even though the game already enforced the limit correctly.
+
+### Notes
+- Two of these cards can, together, form a genuine endless loop — that's a real Magic interaction (the rules
+  call such a game a draw), not a bug in the card. No saved deck holds both.
+
 ## [0.149.10] — 2026-07-28
 
 ### Fixed
