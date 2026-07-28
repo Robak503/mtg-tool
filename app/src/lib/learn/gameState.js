@@ -1255,7 +1255,10 @@ export function consumePreventionShields(state, { targetKind, targetId, amount }
 // attached static, read off the permanent's ATTACHMENTS per untap step so the lock lifts the moment
 // the Aura leaves. gameState can't import staticAbilityParser (cycle), so the exact printed line is
 // matched locally — the same text the aura-side gates admit (staticAbilityParser.ATT_NO_UNTAP shapes).
-const RE_ATTACHED_NO_UNTAP = /(?:^|[\n.;])\s*enchanted (?:creature|permanent) doesn't untap during its controller's untap step\s*(?:\.|$)/i;
+// AN-1: "artifact" joins the noun set (Inertia Bubble — "Enchanted artifact doesn't untap during its
+// controller's untap step"). Kept in lockstep with staticAbilityParser.ATT_NO_UNTAP_CLAUSE_RE: the metric
+// and this runtime matcher must admit the SAME nouns or one over-claims the other.
+const RE_ATTACHED_NO_UNTAP = /(?:^|[\n.;])\s*enchanted (?:creature|permanent|artifact) doesn't untap during its controller's untap step\s*(?:\.|$)/i;
 function attachmentPreventsUntap(state, perm) {
   if (!perm?.attachments?.length) return false;
   for (const attId of perm.attachments) {

@@ -3698,8 +3698,8 @@ function parseAttachedProtectionColors(tail) {
  *   - EQUIP-LOSES-KW    "gets +N/+N and loses <combat keyword>" (Colossus Hammer → layer-6 removeKeyword);
  *   - EQUIP-PROTECTION  "has protection from <color>…" (Captain America Swords → layer-6 addProtection).
  */
-function parseAttachedClause(c, subject) {
-  let rest = c.replace(new RegExp(`^${subject} creature\\s+`), "").trim();
+function parseAttachedClause(c, subject, noun = "creature") {
+  let rest = c.replace(new RegExp(`^${subject} ${noun}\\s+`), "").trim();
   const out = [];
 
   // PACIFISM CLASS (BLITZ PA-1): "can't attack or block" / "can't attack" / "can't block" — layer-6
@@ -3728,7 +3728,7 @@ function parseAttachedClause(c, subject) {
   // activated abilities can't be activated" form. Matched on the ORIGINAL clause `c` because the possessive
   // "'s" defeats the `${subject} creature ` subject-strip above (no whitespace after "creature"), so `rest`
   // still holds the whole clause. Same activatedAbilitiesLocked grant, same dual-chokepoint enforcement.
-  if (new RegExp(`^${subject} creature's activated abilities can't be activated\\.?$`).test(c)) {
+  if (new RegExp(`^${subject} ${noun}'s activated abilities can't be activated\\.?$`).test(c)) {
     return [{ layer: 6, op: { layerOp: "addKeyword", keyword: "activatedAbilitiesLocked" }, duration: { kind: "permanent" } }];
   }
 
@@ -3908,8 +3908,28 @@ function parseAttachedClause(c, subject) {
  * equipment/aura's OWN body (a self-keyword, the "Equip {cost}" line) is NOT about the
  * creature. Used to make the bonus ALL-OR-NOTHING over every creature clause.
  */
-function touchesAttachedCreature(c, subject) {
-  return c.includes(`${subject} creature`) || /^it\b/.test(c) || /^that creature\b/.test(c);
+function touchesAttachedCreature(c, subject, noun = "creature") {
+  return c.includes(`${subject} ${noun}`) || /^it\b/.test(c) || /^that creature\b/.test(c);
+}
+
+/**
+ * THE ATTACHED BODY NOUN (AN-1, CR 303.4) — the noun an attachment's body uses for its host.
+ *
+ * An Aura that may enchant a NON-creature can't say "enchanted creature" in its body, so it says
+ * "Enchanted PERMANENT doesn't untap during its controller's untap step" (Ice Over, Coma Veil) or
+ * "Enchanted ARTIFACT can't attack or block…" (Stasis Cocoon). The entire attached-bonus parser was
+ * written against the literal "<subject> creature", which is why every one of those cards parked
+ * regardless of whether its EFFECT was modeled — and each of these effects already is.
+ *
+ * "creature" is checked FIRST and is the default, so every card that parses today keeps its exact
+ * noun and this is additive by construction. A card printing BOTH nouns resolves to "creature" and
+ * its "permanent" clause becomes residue → the card parks (a safe FN, never a silent half-apply).
+ */
+const ATTACHED_BODY_NOUNS = ["creature", "permanent", "artifact"];
+export function attachedBodyNoun(card, subject = "enchanted") {
+  const oracle = String(card?.oracle || card?.oracle_text || "").toLowerCase();
+  for (const noun of ATTACHED_BODY_NOUNS) if (oracle.includes(`${subject} ${noun}`)) return noun;
+  return "creature";
 }
 
 /**
@@ -3925,9 +3945,14 @@ function touchesAttachedCreature(c, subject) {
  */
 export function parseAttachedBonus(card, subjectOverride) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
-  const subject = subjectOverride || (/enchanted creature/i.test(oracle) ? "enchanted" : "equipped");
+  // AN-1: the sniff reads the SUBJECT off any modeled body noun. Before this it tested only
+  // "enchanted creature", so an Aura whose body says "Enchanted permanent …" (Ice Over) fell through to
+  // "equipped" and was parsed as an EQUIPMENT — a latent misfile that was inert only because every such
+  // card was parked. The noun is then resolved once per card and threaded into every clause helper.
+  const subject = subjectOverride || (/enchanted (?:creature|permanent|artifact)/i.test(oracle) ? "enchanted" : "equipped");
+  const noun = attachedBodyNoun(card, subject);
   const slot = _cardSlot(card);
-  const slotKey = "attached:" + subject;
+  const slotKey = `attached:${subject}:${noun}`;
   if (slot && slotKey in slot) return slot[slotKey];
   const out = [];
   let saw = false;
@@ -3967,13 +3992,13 @@ export function parseAttachedBonus(card, subjectOverride) {
     // the enchanted referent) — skip it so the compound carrier keeps its static half.
     if (subject === "enchanted" && /^[^:\n]*\{[^}]+\}[^:\n]*:/.test(c.trim())
       && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
-    if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
+    if (!touchesAttachedCreature(c, subject, noun)) continue;    // the card's own body — ignore
     // AP-1 (CR 615): a modeled prevention wall ("Prevent all [combat] damage that would be dealt to /
     // and dealt by / by enchanted creature") is enforced at the DAMAGE PATHS (attachedDamagePrevention),
     // not as a layer bonus — skip it so a compound aura (Ghostly Possession's flying + wall) keeps its
     // keyword half instead of dropping the whole bonus.
     if (subject === "enchanted" && ATT_PREV_CLAUSE_RE.test(c.trim())) continue;
-    const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
+    const parsed = c.startsWith(`${subject} ${noun}`) ? parseAttachedClause(c, subject, noun) : null;
     if (!parsed) { if (slot) slot[slotKey] = []; return []; }     // a creature clause we can't fully model
     out.push(...parsed);
     saw = true;
@@ -4136,7 +4161,11 @@ function auraResidueClauses(card) {
       continue;
     }
     if (isTotemArmorClause(c)) continue;                      // TOTEM ARMOR (Bear Umbra): the modeled destruction-replacement
-    if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus (P/T / keyword) clause
+    // AN-1: read the touch against the Aura's OWN body noun, so "Enchanted permanent doesn't untap…"
+    // counts as a host-bonus clause rather than falling through to residue. auraTouchClausesAllModeled
+    // (the PZ-1 hardening) independently re-checks every clause admitted here, so widening the touch
+    // heuristic cannot on its own let an unmodeled clause through.
+    if (touchesAttachedCreature(c, "enchanted", attachedBodyNoun(card, "enchanted"))) continue;
     out.push(clause);
   }
   return out;
@@ -4217,7 +4246,11 @@ const ATT_PREV_CLAUSE_RE = /^prevent all (?:combat )?damage that would be dealt 
 // creature doesn't untap during its controller's untap step." Enforced continuously in
 // gameState.untapAll (the attachment read); admitted here so the aura gates treat the line as a
 // modeled attached static, exactly like the AP-1 walls.
-const ATT_NO_UNTAP_CLAUSE_RE = /^enchanted creature doesn't untap during its controller's untap step\.?$/i;
+// AN-1: the noun widens to match gameState's RUNTIME matcher (RE_ATTACHED_NO_UNTAP), which already
+// admitted "enchanted permanent". The metric was the NARROWER of the two — a documented false negative
+// (Ice Over / Coma Veil parked while untapAll would have honored the lock correctly). Widening the metric
+// to exactly the runtime's noun set closes the asymmetry in the safe direction: the gates now agree.
+const ATT_NO_UNTAP_CLAUSE_RE = /^enchanted (?:creature|permanent|artifact) doesn't untap during its controller's untap step\.?$/i;
 /** Does this Aura print the modeled attached tap-lock line? (gameState.untapAll enforces it.) */
 export function attachedNoUntapOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
@@ -4399,8 +4432,9 @@ function auraTouchClausesAllModeled(card) {
     // AF-1: a validator-approved aura-own activated line — enumerated on the Aura, resolved on the host.
     if (/^[^:\n]*\{[^}]+\}[^:\n]*:/.test(c)
       && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
-    if (!touchesAttachedCreature(c, "enchanted")) continue;   // non-touch residue → auraResidueClauses catches it
-    if (!(c.startsWith("enchanted creature") && parseAttachedClause(c, "enchanted"))) return false;
+    const noun = attachedBodyNoun(card, "enchanted");          // AN-1 — the host noun this Aura's body uses
+    if (!touchesAttachedCreature(c, "enchanted", noun)) continue; // non-touch residue → auraResidueClauses catches it
+    if (!(c.startsWith(`enchanted ${noun}`) && parseAttachedClause(c, "enchanted", noun))) return false;
   }
   return true;
 }
