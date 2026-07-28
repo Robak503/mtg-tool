@@ -58,22 +58,57 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** v0.149.7 tagged and building. Corpus **35.0%** (11,950). Suite 861 / 11,119.
+- **Nothing mid-edit.** Corpus **35%** (11,990). Suite **864 files / 11,156 tests**, lint 0.
+- **PR #439 open** (5 commits: precombat timing, ledger, boast, activation conditions, delirium+formidable).
+  CI was green on the first four; the fifth is building. Merge when green, then tag.
+- Shelf re-measured this pass: **aggregate 78% across 16 decks** — Slivers 100 · Vihaan 96 · Omnath 93 ·
+  Zaxara 90 · Mothman 90, then the tail: Earth Bent 80 · cdh 79 · Dragons 76 · Jurassic 75 · Believe it 72 ·
+  Kinnan 71 · Kellan 70 · Wolverine 70 · Captain America 69 · Hulk Smash 68 · **Halfshell heroes 56**.
+
+## WHAT SHIPPED THIS STRETCH — the activation-restriction vocabulary
+
+Three riders the engine parsed straight past, so every carrier parked. All three now flag-then-enforce:
+
+1. **`before attackers are declared`** (+21) — a NARROWING to the precombat main. Two sibling riders are
+   safely stripped as implied; this one is not, because `step === "main"` spans BOTH mains and the
+   postcombat one is after attackers. Refused the opponent's-turn form (disjoint windows).
+2. **BOAST, CR 702.135** (+10) — needed a PER-PERMANENT attacked flag. The seat-level Raid flag already
+   existed and reading it would have been the one-line build; it is also a materially stronger card.
+3. **`Activate only if <cond>`, CR 602.5d** (+23) — added a THIRD probe to the existing interveningIf
+   family rather than a second condition language. Trigger / spell / activation lanes now share ONE
+   vocabulary, so every future reader reaches all three at once.
+4. **DELIRIUM + FORMIDABLE readers** (+7) — the first slice that compounding paid for.
+
+**Three CREED pins fired against my own work and graduated on evidence**, each with the reason recorded in
+place rather than edited away. All four seams of every slice were mutation-checked.
 
 ## NEXT ACTIONS
 
-1. **Activation-timing vocabulary, continued.** The rider itself is the sole blocker on 123 cards
-   (measured honestly — strip ONLY the rider, not the whole ability line; deleting the line conflates
-   "the rider blocks" with "the ability blocks" and gives a much larger, wrong number). Shipped:
-   "before attackers are declared" (+21). Remaining, by size:
-   - `only during your upkeep` (11) — needs the offer window WIDENED to the upkeep step. The gate is
-     `state.step !== "main"`, so an upkeep-only ability is currently never offerable at all. A widening,
-     not a narrowing — so it needs more care than the last one.
-   - `only if this creature attacked this turn and only once each turn` (10) — the once-limit already
-     exists (`activationLimit`); check whether an attacked-this-turn flag is on the permanent.
-   - `only if there are seven or more cards in your graveyard` (6) — a board-count condition.
-2. **A3 Forge wiring** — ownership into the bench context (assumption stated in NEXT-QUEUE).
-3. Shelf grind / dead-card hunting (section D of NEXT-QUEUE).
+1. **Bloom Tender / Faeburrow Elder** — "For each color among permanents you control, add one mana of that
+   color." Only 2 corpus cards but **3 deck slots**, and Bloom Tender is a cEDH staple in Kinnan. The
+   `colorsAmongPermanents` primitive ALREADY EXISTS in layers.js; this needs the color SET, not the count,
+   plus a mana atom. Contained, no choice point. **This is the next build.**
+2. **BANKED WITH A DESIGN QUESTION — `Tap N untapped creatures you control` as a cost** (39 corpus / 32
+   parked; plus 40/28 for the singular). The SINGULAR is already fully modeled (γ1f, Earthcraft):
+   parser → legalChoices expands one action per legal creature → dispatcher taps it. **The plural is NOT a
+   simple generalization.** Enumerating N-combinations explodes legalChoices — 45 actions for two-of-ten,
+   120 for three. The real choice is: enumerate combinations (correct, explosive) vs. auto-pick a
+   deterministic set (legal, no explosion, silently removes player agency the singular case has). I did NOT
+   guess at depth. Decide this one while sharp.
+3. **Upkeep-only activation** (11) — still needs the offer window WIDENED, not narrowed. Riskier than
+   anything above; take it EARLY in a run.
+4. Shelf grind: 321 unmodeled non-land deck cards across 360 slots. The leverage head (2+ decks) is
+   Wan Shi Tong ×3 · Chrome Mox ×3 · Mindbreak Trap ×3 · Bloom Tender ×3 · Teferi's Protection ×3 ·
+   High Score ×3 · Level Up ×3, then a long ×2 tail.
+
+## A3 IS DONE — verified, not built
+
+Went to wire Forge-as-a-Karn-function and found it already shipped end to end: `/api/collection/deck-overlap`
+feeds Karn's system prompt the owned-in-deck count AND the in-color owned upgrade pool;
+`/api/collection/ownership` is called by ChatPanel's KarnApplyBar to tag each suggested ADD with
+owned/wishlist; the KARN_DELTA collection line is already in agents.js. **Do not rebuild it.** Only real
+gap: `isBuildFromCollectionPrompt` is exported and unused — a cosmetic "build from collection" affordance,
+not plumbing. Receipts posted to COMMS.
 
 ## WHAT THE SWEEP IS FOR — it found the run's best bug
 
