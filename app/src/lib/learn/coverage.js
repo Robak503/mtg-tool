@@ -1063,7 +1063,14 @@ export function permanentTriggersCovered(card) {
     // Anchored to DIRECTLY follow a token-creation clause and to a QUOTED grant, so it cannot consume an
     // unrelated "It has …" sentence (FN-safe, same argument as every sibling here). Runs before the
     // When-strip, which would otherwise remove the token-creation prefix this anchor needs.
-    .replace(/(\btokens?)\.\s+(?:it has|they have)\s+(["“'])[^"“”']*(["”'])\.?\s*/gi, "$1. ")
+    // NEWLINE-SAFE TAIL, and this one bit for real. The trailing whitespace class is [^\S\n] (horizontal
+    // space only), NOT \s — \s matches a NEWLINE, so the strip swallowed the line break and welded the NEXT
+    // oracle line onto this one, hiding it from the residue check. Drowner of Hope ("Sacrifice an Eldrazi
+    // Scion: Tap target creature." on its own line, an ability parseActivatedAbilities does NOT model) was
+    // credited native-trigger with a real unmodeled ability on it — a false positive, the one direction the
+    // CREED rules out. Every sibling strip in this chain is single-line by nature; this is the only one
+    // whose match ends at a line boundary, so it is the only one that needed the narrower class.
+    .replace(/(\btokens?)\.[^\S\n]+(?:it has|they have)[^\S\n]+(["“'])[^"“”'\n]*(["”'])\.?[^\S\n]*/gi, "$1. ")
     // RAD-OR-PROLIFERATE (Vexing Radgull, SHELF S7) — the "Otherwise, proliferate." else-arm is part of the
     // SAME combat-damage trigger's effect (folded into effectClause; the whole branch parses HIGH via
     // matchRadOrProliferate — proven by allTriggerSentencesModeled above). The trigger strip stops at the

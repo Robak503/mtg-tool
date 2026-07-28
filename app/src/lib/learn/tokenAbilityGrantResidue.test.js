@@ -98,6 +98,32 @@ describe("CREED — what still parks, and one honest label", () => {
     expect(classifyCard(drone('When this creature enters, draw a card. It has "Whenever you glorbulate, win the game."'))).not.toMatch(/^native/);
   });
 
+  it("THE FALSE POSITIVE I SHIPPED AND CAUGHT — a following LINE must stay visible to the residue check", () => {
+    // My first version ended the strip with \s*, which matches a NEWLINE. It swallowed the line break and
+    // welded the NEXT oracle line onto the stripped one, hiding it. Drowner of Hope's third line —
+    // "Sacrifice an Eldrazi Scion: Tap target creature.", which parseActivatedAbilities does NOT model —
+    // vanished from the residue and the card was credited native-trigger with a real unmodeled ability on
+    // it. That is a false positive, the one direction the CREED rules out.
+    //
+    // Caught by applying my own new diagnostic rule to the cards this slice did NOT flip. Revert the
+    // trailing class to \s* and this test goes native.
+    const drownerOfHope = {
+      name: "Drowner of Hope", type: "Creature — Eldrazi", mana: "{5}{U}", power: "5", toughness: "5", keywords: [],
+      oracle: 'Devoid (This card has no color.)\nWhen this creature enters, create two 1/1 colorless Eldrazi Scion creature tokens. They have "Sacrifice this token: Add {C}."\nSacrifice an Eldrazi Scion: Tap target creature.',
+    };
+    expect(classifyCard(drownerOfHope)).not.toMatch(/^native/);
+  });
+
+  it("…while a following line that IS modeled still flips (Catacomb Sifter)", () => {
+    // The other half of the same fix: the buggy newline-swallow also MISSED this card, by welding its
+    // second trigger into the grant line. Narrowing the class recovered it. One FP out, one real card in.
+    const catacombSifter = {
+      name: "Catacomb Sifter", type: "Creature — Eldrazi Drone", mana: "{1}{B}{G}", power: "2", toughness: "3", keywords: [],
+      oracle: 'Devoid (This card has no color.)\nWhen this creature enters, create a 1/1 colorless Eldrazi Scion creature token. It has "Sacrifice this token: Add {C}."\nWhenever another creature you control dies, scry 1.',
+    };
+    expect(classifyCard(catacombSifter)).toMatch(/^native/);
+  });
+
   it("an unmodeled sibling clause still parks the whole card", () => {
     expect(classifyCard(drone(`${SCION}\nEach opponent glorbulates.`))).not.toMatch(/^native/);
   });
