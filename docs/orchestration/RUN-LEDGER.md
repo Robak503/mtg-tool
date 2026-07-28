@@ -127,11 +127,31 @@ generalized to any atom, which is a real subsystem slice with the decline semant
 I built this end to end, verified both halves at runtime, and then **reverted it**, because building it
 surfaced something more important than the 4 cards it flipped.
 
-**THE ENGINE HAS NO TRIGGER-CASCADE GUARD. None. Anywhere.** Two "Whenever one or more +1/+1 counters are
-put on this creature → put a +1/+1 counter on each other creature you control" permanents (Generous Pup;
-Scurry Oak via evolve) feed each other forever. Measured, not theorised: **5,001 counters after 200 flush
-cycles and still climbing.** In paper that is a legal mandatory loop (a draw, CR 104.4b). In this simulator
-it is a HANG — the game never leaves that priority window.
+**⚠️ CORRECTED THE NEXT SESSION — I OVERSTATED THIS, AND THE OVERSTATEMENT IS THE LESSON.**
+
+What I originally wrote here: *"The engine has no trigger-cascade guard. None. Anywhere."* **That is false.**
+`learnSession` carries a **PER-TURN TICK BUDGET** (`turnTickBudget`, default 2000, enforced at
+learnSession.js:1447) added 2026-07-14 as the "grind server-hang root fix" — for EXACTLY this class, in its
+own words: *"a loop that produces mana/tokens each pass slips past [the progress latch] and grinds a single
+turn."* It logs `engine-stuck` and ends the game.
+
+**Why I got it wrong: I measured through a hand-rolled driver.** My "5,001 counters after 200 flush cycles,
+still climbing" figure came from a loop I wrote myself, which has no tick budget. Through the REAL session
+path the cascade is bounded at 2000 ticks. Third time this run a harness that does not match production has
+produced a confident wrong number — and this one reached a merged PR body.
+
+**What is actually true, stated at the right strength:**
+- Two cascade-capable permanents (Generous Pup; Scurry Oak via evolve) DO feed each other — the loop is real.
+- It is **bounded, not a hang**: the per-turn budget ends the game as `engine-stuck`.
+- So the cost of shipping the slice is a **WEDGE** (an engine-stuck game the sweep counts as a
+  non-completion), not a frozen process. Still a reason to hold it — a wedge is exactly what the sweep
+  exists to catch — but a materially smaller claim than the one I made.
+- **NOT VERIFIED:** that my specific cascade trips that budget. I reverted before testing through the session
+  path. Someone rebuilding this should confirm it empirically rather than take either of my claims on trust.
+
+**What the engine genuinely lacks** is a cascade-level cap — something that stops the LOOP while letting the
+GAME continue. The tick budget is a whole-game backstop, which is coarse: it discards the game rather than
+capping the cascade.
 
 **Why reverting was the only honest option:** the hazard does NOT depend on crediting the cards. Once
 `detectTriggers` returns the event, the trigger FIRES at runtime for any board holding two cascade-capable
@@ -162,8 +182,10 @@ All of it worked. The revert was about the hazard, not the implementation:
 
 ### THE PREREQUISITE, and it is worth more than this slice
 
-**Build a trigger-cascade guard at `flushTriggers` first.** It is not specific to counters — any
-trigger family that can feed itself has this hazard today, and the engine simply has never met one.
+**Build a CASCADE-LEVEL cap at `flushTriggers` first** — not because nothing guards this (the per-turn tick
+budget does; see the correction above), but because that backstop is COARSE: it discards the whole game
+rather than stopping the loop. A cascade cap is not specific to counters — any trigger family that can feed
+itself has this shape, and the engine has simply never met one.
 A bounded cascade counter per priority window, logging a distinct "cascade-capped" event (the honest-label
 law), converts a hang into a visible, correct-ish stop. Do that, then this slice lands unchanged.
 
