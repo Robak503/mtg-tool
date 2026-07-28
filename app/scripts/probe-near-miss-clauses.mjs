@@ -92,6 +92,18 @@ for (const pc of cards) {
   const t = classifyCard(pc);
   const lines = String(pc.oracle || "").split("\n").map((l) => l.trim()).filter(Boolean);
   if (!lines.length) continue;
+  // ⚠️ LANDS ARE SKIPPED ENTIRELY — neither a source of native shapes nor a parked card, and BOTH halves
+  // of that matter. The `land` tier sits inside NATIVE_TIERS, but a land is credited WHOLESALE by its type
+  // line; its printed abilities are not necessarily modeled at all.
+  //   • Harvesting land text as "shapes the engine reads" produced a confident false lead on the first run:
+  //     Ashnod's Altar's "Sacrifice a creature: Add {C}{C}" came back one word from Phyrexian Tower's
+  //     "{T}, Sacrifice a creature: Add {B}{B}" — except manaProduction(Phyrexian Tower) returns only its
+  //     "{T}: Add {C}" line. The sibling was never modeled; the tier came free with the type.
+  //   • Excluding them from the harvest ALONE was worse: they fell through to the parked branch and the
+  //     report's entire top became phantom clusters ("blocks 13 cards" — every one of them a land that
+  //     classifies `land` and is already counted playable). Verified: 503 of 503 top-2500 lands classify
+  //     `land`, zero parked.
+  if (t === "land") continue;
   if (isNativeTier(t)) {
     for (const line of lines) {
       const shape = normalize(line, pc.name);
