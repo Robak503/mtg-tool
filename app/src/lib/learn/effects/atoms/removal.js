@@ -159,10 +159,20 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * creature-land for a "land" edict. An unknown `what` falls back to the creature pool (defensive — the parser
  * only ever emits the five known values, so this is never reached at runtime). Pure type-line read (leaf).
  */
-const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbasicLand"]);
+const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker"]);
 function sacrificePoolMatch(what, card) {
   switch (what) {
     case "permanent": return true;
+    // TOKEN-SPLIT EDICTS (Sheoldred's Edict #1154, Accursed Marauder #464, Gaius van Baelsar): the printed
+    // filter partitions the creature pool by token-ness, which is what makes those cards good — the nontoken
+    // mode blows past a wall of Zombie tokens, the token mode does the opposite. Getting the sense backwards
+    // is a wrong-victim sacrifice, so the two are separate cases rather than one flag. `card.token` is the
+    // marker gameState stamps on minted tokens (CR 111.1).
+    case "nontokenCreature": return isCreatureCard(card) && !card?.token;
+    case "creatureToken": return isCreatureCard(card) && !!card?.token;
+    // PLANESWALKER pool (Sheoldred's Edict's third mode, Angrath's Rampage). Word-anchored on the type line
+    // like every sibling predicate, so a creature-planeswalker DFC face qualifies via its live type line.
+    case "planeswalker": return /\bPlaneswalker\b/i.test(card?.type || card?.type_line || "");
     case "land": return isLandCard(card);
     case "artifact": return isArtifactCard(card);
     case "enchantment": return isEnchantmentCard(card);
@@ -325,12 +335,19 @@ export function sacrificeEdictClauseParser(clause) {
   // "a creature with flying", "a creature or land") fails the exact anchor → low → Arbiter (a wrong-victim
   // sac is a forbidden FP, CREED). Placed before the target-player edicts (disjoint anchors regardless).
   if (/^sacrifice a creature$/.test(t)) return { op: "sacrifice", who: "controller", what: "creature" };
-  let m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
-  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };
-  m = t.match(/^each player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
-  if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature" };
-  m = t.match(/^each (?:opponent|other player) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
-  if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
+  // The victim NOUN. "creature" is the legacy bare form and stays byte-identical; the three filtered nouns
+  // are the token-split / planeswalker pools above. Ordered LONGEST-FIRST so "creature token" can never be
+  // shaved to "creature" with a dangling " token" (JS would backtrack into the right branch anyway — the
+  // ordering makes it not depend on that).
+  const EDICT_NOUN = "(nontoken creature|creature token|planeswalker|creature)";
+  const EDICT_POOL = { "nontoken creature": "nontokenCreature", "creature token": "creatureToken", planeswalker: "planeswalker", creature: "creature" };
+  const CHOICE = "(?: of (?:their|his or her) choice)?";
+  let m = t.match(new RegExp(`^target (player|opponent) sacrifices a ${EDICT_NOUN}${CHOICE}$`));
+  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: EDICT_POOL[m[2]] };
+  m = t.match(new RegExp(`^each player sacrifices a ${EDICT_NOUN}${CHOICE}$`));
+  if (m) return { op: "sacrifice", who: "eachPlayer", what: EDICT_POOL[m[1]] };
+  m = t.match(new RegExp(`^each (?:opponent|other player) sacrifices a ${EDICT_NOUN}${CHOICE}$`));
+  if (m) return { op: "sacrifice", who: "eachOpponent", what: EDICT_POOL[m[1]] };
   // PERMANENT-EDICT (CR 701.16) — "sacrifices a permanent of their choice" (Silverclad Ferocidons, Martyr's
   // Bond, Possessed Portal, the Rishadan pirates, Crack the Earth). The SACRIFICING player chooses ANY
   // permanent they control, not just a creature — so the victim pool is broadened to ALL their permanents in

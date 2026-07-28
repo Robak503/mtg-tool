@@ -487,10 +487,16 @@ describe("TYPED-EDICT parser/coverage — typed each-opponent/each-player/target
   it("a typed-edict ETB is native-trigger (reusable, non-targeted)", () => {
     expect(classifyCard({ type: "Creature — Beholder", name: "Enchantment-Eater", oracle: "When this creature enters, each opponent sacrifices an enchantment of their choice." })).toBe("native-trigger");
   });
-  it("ANTI-FP: nontoken / count / restricted / conjoined typed edicts stay LOW → Arbiter", () => {
+  it("GRADUATED — the nontoken CREATURE qualifier IS honored now (token status is read)", () => {
+    // This sat in the anti-FP list on the grounds that "token-status is not honored", which was true:
+    // sacrificePoolMatch had no token-aware pool, so claiming the card would have been a wrong-victim
+    // sacrifice. It has one now (filteredEdict.test.js), so the qualifier is modeled rather than ignored.
+    // The nontoken ARTIFACT form below stays LOW — that pool genuinely doesn't exist.
+    expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Each opponent sacrifices a nontoken creature of their choice." }))).toBe("high");
+  });
+  it("ANTI-FP: nontoken-artifact / count / restricted / conjoined typed edicts stay LOW → Arbiter", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
-    low("Each opponent sacrifices a nontoken creature of their choice.");          // nontoken qualifier (token-status not honored)
-    low("Each opponent sacrifices a nontoken artifact of their choice.");          // nontoken qualifier
+    low("Each opponent sacrifices a nontoken artifact of their choice.");          // nontoken qualifier on a pool that has no token split
     low("Each opponent sacrifices two lands of their choice.");                    // a count
     low("Each opponent sacrifices a land of their choice for each card in your hand."); // a scaled count rider
     low("Each opponent sacrifices an artifact. For each artifact sacrificed this way, you create a Treasure token."); // Visions of Ruin (Treasure rider)
