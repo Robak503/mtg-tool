@@ -73,54 +73,25 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.1%** (12,032). Shelf 1259/1597. Suite **869 files / 11,229 tests**,
-  lint 0, sweep 20/20. Master green. **v0.149.10 tagged, release build in progress** (v0.149.9 took 25 min).
+- **Nothing mid-edit.** Corpus **35.1%** (12,036). Shelf 1259/1597. Suite **870 files / 11,241 tests**,
+  lint 0, sweep 20/20. Master green. **v0.149.11 tagged**, release build running.
 
-## ✅ THE MIS-PARK SCANNER — built, run, and it has now been MINED OUT
+## 🛑 THE MIS-PARK SCANNER IS MINED OUT — re-run after shipping, and it is thin
 
-The which-layer diagnostic below is now a corpus SCANNER (`scratchpad/residuegap.mjs`, `layer2.mjs`). It
-looks for cards where two layers disagree, which is the signature of a MIS-PARK — a card the engine can
-already drive but the metric refuses. Three bugs came out of it this run (+15, +1, +4).
+Re-ran `scratchpad/residuegap.mjs` after the counters + once-per-turn slices landed. 888 candidates, but the
+buckets are exhausted for practical purposes and the next session should not re-mine them:
 
-**Signature 1 — residue gap:** every trigger routes natively AND the card has no activated abilities, yet
-`permanentTriggersCovered` says no. Both other explanations are excluded, so the residue strip is the only
-suspect. Found the token ability-grant (+15) and the once-per-turn trigger rider (+4).
+- **Top bucket (116) = "trailing sentence inside a trigger line."** Already mined — the once-per-turn rider
+  came out of it (+4). Re-extracted its sub-shapes: the largest remaining is 3 cards
+  ("you may play that card this turn"), then a tail of 1-2.
+- **"this ability triggers only once each turn" still shows 9 — those are NOT residue failures any more.**
+  My strip fixed the residue; they now park because a SECOND trigger line's event is undetected. Verified on
+  Twilight Diviner and Tolls of War: two trigger lines, one detected. Do not "re-fix" the rider.
+- **The keyword buckets (flying 14, cumulative upkeep 6, enchant creature 5-7) are the same story** — an
+  undetected second trigger EVENT, not a keyword problem and not a residue blindness.
 
-**Signature 2 — pre-parse gate:** an ability's cost PARSES and its effect parses HIGH standalone, yet the
-ability is unmodeled. Found the quoted-grant/mana-ability misclassification (+1).
-
-**IT IS NOW LARGELY EXHAUSTED, which is a result worth trusting rather than re-deriving:**
-- Signature 2's remaining ~9 abilities are ALL the `sacrificeDropsTrigger` guard working AS DESIGNED — a
-  sacrifice-as-cost ability on a card that also has a sacrifice/LTB trigger stays parked because paying the
-  cost would silently drop that trigger. Verified by removing the sibling trigger and watching the card go
-  native. **Deliberate refusals, not bugs. No work there.**
-- Signature 1's remaining buckets are NOT keyword-residue cases — I wrote that and it was imprecise.
-  Checked properly: those cards (Fathom Mage, Lonis, Relic Seeker …) carry a SECOND trigger line whose EVENT
-  the detector does not recognize at all, so that line looks like residue. `detectTriggers` returns zero for
-  it. The keyword (evolve/renown/firebending) is a red herring — the bare trigger alone is body-only too.
-  **Real feature work: a missing trigger EVENT, not a blindness.** Biggest one sized below.
-
-**Re-run the scanner after any coverage change** — it is cheap and it is how the false positive I shipped
-got caught (see below).
-
-## ⛔ REFUSED WITH EVIDENCE — "Do this only once each turn." must NOT reuse the trigger latch
-
-32 corpus carriers, 28 parked, and it looks like a two-line fix: teach `detectTriggers` this wording and let
-the EXISTING flush-level `oncePerTurnTrigger` enforcement handle it. **Do not.**
-
-The two riders are not the same restriction:
-- *"This ability triggers only once each turn"* latches on FIRING — the ability does not trigger again.
-- *"Do this only once each turn"* latches on DOING — the ability triggers, but the effect is skipped.
-
-The existing enforcement marks the ledger AT FLUSH, before resolution. So a player who DECLINES the first
-trigger would be wrongly blocked from a second — they never "did this", so the printed card lets them.
-
-**I checked whether a safe subset exists and there is none: all 28 parked carriers are OPTIONAL ("you may").
-Zero mandatory.** Every single one hits the decline case. Crediting them would mis-play all 28.
-
-The correct build is a general EFFECT-level latch that marks only when the effect is actually performed —
-the shape `applyDiscoverAtom` already uses for Pantlaza (`atom.oncePerTurn`, keyed `sourceId_discover`), but
-generalized to any atom, which is a real subsystem slice with the decline semantics as its whole difficulty.
+**So what remains is genuine feature work at ~1-3 cards per mechanism**, which is the same conclusion the
+shelf sweep reached independently. There is no cheap lever left in either instrument.
 
 ## ⛔ CLOSED LEAD — the SCOPED counters-put-on variants are worth ~1 card each
 
