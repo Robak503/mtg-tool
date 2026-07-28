@@ -152,18 +152,34 @@ path is then untouched *by construction* — an unbuilt event simply has no dete
 function, so over-firing is unrepresentable rather than merely gated. Ignore the whitelist idea; it was
 written before this precedent was found.
 
-**THE DESIGN, corrected:**
-1. Detection: `/^one or more (…) die$/` → `{ event: "diesBatch", scope, whose }`, reusing the EXISTING
-   scope machinery by normalising the plural subject to its singular form ("one or more other creatures"
-   → "another creature") so proven scope logic is shared rather than duplicated.
-2. Add `checkDiesBatchTriggers(state, dead)` modelled line-for-line on `checkBatchCombatDamageTriggers`:
-   group by watcher, fire ONCE when ANY member of `dead` matches the scope.
-3. Call it beside `checkDiesTriggers` at the same SBA site.
-4. Repeat per event. `dies` (20 cards, Morbid Opportunist #255) is the reference; `enter` (28),
-   `are put` (57), `leave` (39), `attack` (46) follow the identical shape.
-5. **Each event's pin MUST include a simultaneous multi-object test asserting the trigger fires exactly
-   ONCE for a batch of 3.** That single assertion is the entire safety argument — it is what separates
-   this from the over-fire, and a green suite without it proves nothing.
+### ✅ ARM 1 SHIPPED — `diesBatch` (`028a999b`). **Copy this shape for the remaining six.**
+
+The reference implementation is done and is the deliverable; the +4 cards (Morbid Opportunist #255,
+Vraan #4072, Sengir Connoisseur, Vengeful Townsfolk) are almost beside the point.
+
+**The shape to repeat, per event verb:**
+1. Detection: an ANCHORED `/^one or more (…) <verb>$/` arm returning a DEDICATED event name
+   (`diesBatch`), normalising the plural subject to its singular form ("one or more other creatures" →
+   "another creature") and handing it to the EXISTING `creatureSubjectScope` switch — scope semantics
+   shared, never duplicated. Any rider fails the `$` → undetected → Arbiter (safe FN).
+2. A `check<Event>BatchTriggers(state, objects)` modelled on `checkBatchCombatDamageTriggers`: loop
+   watchers, and **`break` after the first matching object** — that one line IS the batching.
+3. **Chain it from INSIDE the singular check function**, not at the call sites. `checkDiesTriggers` has
+   10+ callers (combat, destroy, sacrifice, amass, SBA); wiring each is how a death path silently
+   misses the pass.
+4. **Mind the early-return fast path** — see the bug below.
+5. The pin MUST include the n=3 once-only test AND its singular n=3 counterpart firing three times.
+   The contrast is the whole safety argument.
+
+**⚠️ THE BUG THE n=1 TEST CAUGHT — expect its twin in every remaining arm.** `checkDiesTriggers` ends
+with `if (!fired.length) return state2`. A board holding ONLY batch watchers fires no SINGULAR trigger,
+so that early return skipped the batch pass entirely: the card classified native and never fired. **The
+n=3 test passed the whole time; only n=1 exposed it.** Every singular check function has an equivalent
+fast path — check it before chaining.
+
+**Remaining arms, in size order:** `are put` (57) · `attack` (46) · `leave` (39) · `enter` (28) ·
+`become` (5). Plus the 16 remaining `die` carriers, which add subtype/nontoken filters to the shape
+already built.
 
 **Note the 77 "deal" cards are ALREADY partly served** by `combatDamageBatch`; the parked ones there
 carry a variant its anchors reject (a qualified object, a rider, a colour filter). So the true remaining
@@ -237,11 +253,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.3%** (12,098/34,245 — +50 this run). Suite **880 files / 11,333 tests**,
-  lint 0, MUTANT sweep clean. TEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries ten unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.4%** (12,107/34,245 — +59 this run). Suite **882 files / 11,355 tests**,
+  lint 0, MUTANT sweep clean. TWELVE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries twelve unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **69.8%** · top-2500 **52.1%** · top-5000 41.7% · top-10k 34.8%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **69.9%** · top-2500 **52.2%** · top-5000 41.8% · top-10k 34.9%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -257,6 +273,8 @@ That is the whole reason this target beats corpus %.
 | `97415979` | mass own-board regenerate (CR 701.19) + `eachCreatureYouControl` scope | **+1**, Golgari Charm #1603 |
 | `0361e27c` | opponent-scoped mass tap (CR 701.21a) — applier now honors non-chosen scopes | **+1**, Cryptic Command #1617 |
 | `b7bf0e46` | counter an ABILITY on the stack (CR 701.5a) — new `stackAbility` target class | **+7**, Stifle · Bind · Trickbind · **Sublime Epiphany #1709** |
+| `75dbd1a1` | repeatable modes (CR 700.2d) — `kMultisets` in the cast enumerator | **+5**, **Mystic #1431** · **Fiery Confluence #1561** |
+| `028a999b` | batched DEATH triggers (CR 603.1) — new `diesBatch` event ⭐ reference impl | **+4**, **Morbid Opportunist #255** · Vraan #4072 |
 
 **The last three flip 1–2 cards each and are still the right work** — that is the entire point of the
 play-weighted target. Austere Command #169 and Rakdos Charm #330 are worth more than fifty pieces of jank,
