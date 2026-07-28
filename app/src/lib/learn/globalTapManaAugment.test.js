@@ -65,11 +65,18 @@ describe("parseGlobalTapManaAugment — the boost grammar", () => {
     expect(parseGlobalTapManaAugment(LEYLINE)).toEqual({ subject: "creature", colors: ["G"], amount: 1 });
     expect(parseGlobalTapManaAugment(BADGERMOLE)).toEqual({ subject: "creature", colors: ["G"], amount: 1 });
   });
-  it("rejects every unmodeled form (subtype-gated subject, doubler, multi-color) — no fabricated boost", () => {
-    expect(parseGlobalTapManaAugment(NISSA)).toBeNull();         // "a Forest" — subtype-gated subject
-    expect(parseGlobalTapManaAugment(NIRKANA)).toBeNull();       // "a Swamp" — subtype-gated subject
-    // (Mirari's Wake's doubler form used to sit here; it is MODELED now — see manaDoublerYouScoped.test.js.)
+  it("rejects the still-unmodeled boost SHAPE — no fabricated boost", () => {
+    // (Mirari's Wake's doubler form and the subtype-gated subjects both used to sit here; both are
+    // MODELED now — see manaDoublerYouScoped.test.js and subtypeTapAugment.test.js. The multi-color
+    // fixed run is the one genuinely unmodeled shape left.)
     expect(parseGlobalTapManaAugment(MULTI)).toBeNull();         // "{G}{U}" — multi-color (a choice this slice doesn't model)
+  });
+  it("GRADUATED — the subtype-gated subjects parse now, and keep their SUBTYPE (not a generic land)", () => {
+    // These were pinned null on a stale premise: the note said the tap site couldn't check the tapped
+    // land's subtype, and it always could. The claim worth keeping is that the subject survives as the
+    // SUBTYPE — flattening it to "land" would make Crypt Ghast pay off on any land, a forbidden FP.
+    expect(parseGlobalTapManaAugment(NISSA)).toEqual({ subject: "forest", colors: ["G"], amount: 1 });
+    expect(parseGlobalTapManaAugment(NIRKANA)).toEqual({ subject: "swamp", colors: ["B"], amount: 1 });
   });
   it("an Aura is never this card (its boost is parseAuraLandManaBonus, kept disjoint)", () => {
     const wildGrowth = { id: "c-wg", name: "Wild Growth", type: "Enchantment — Aura", mana: "{G}", oracle: "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}." };
@@ -90,9 +97,9 @@ describe("classifyCard — only the whole-card-clean augment flips native (CREED
     expect(classifyCard(GROUNDCHUCK)).toBe("native-trigger");
   });
   it("an augment whose boost SHAPE isn't modeled stays NON-native (parser returns null)", () => {
-    // These fail at the PARSER (subtype-gated subject / doubler / multi-color) — the augment tier never
-    // engages, so they stay body-only regardless of remainder.
-    expect(classifyCard(NIRKANA)).toBe("body-only");        // {B} pump + subtype-gated Swamp boost
+    // Fails at the PARSER — the augment tier never engages, so it stays body-only regardless of remainder.
+    // (Nirkana Revenant left this list when the subtype subjects landed; it flips now, pinned in
+    // subtypeTapAugment.test.js alongside its {B} pump.)
     expect(classifyCard(MULTI)).toBe("body-only");          // multi-color boost not modeled
   });
   it("the augment tier COMPOSES with a genuinely-native remainder (Leyline / Badgermole graduated)", () => {

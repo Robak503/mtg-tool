@@ -642,6 +642,10 @@ export function landAuraManaBonus(state, landPerm) {
  * Shared by BOTH read-sites (manaSources / legalChoices.actionsTapForMana) through this single helper so
  * the auto-pay planner and the explicit tap can't drift (the CREED two-sites invariant).
  */
+// The five basic land types (CR 305.6) a tap-augment may gate on. Anything else the parser emits as a
+// subject ("land"/"creature"/"nonland-permanent") is handled by its own gate above.
+const BASIC_LAND_SUBTYPES = new Set(["forest", "island", "swamp", "mountain", "plains"]);
+
 export function globalTapManaAugment(state, playerId, sourcePerm) {
   const player = state?.players?.[playerId];
   if (!player || !sourcePerm) return [];
@@ -671,6 +675,12 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
       if (aug.subject === "land" && !srcIsLand) continue;
       if (aug.subject === "creature" && !srcIsCreature) continue;
       if (aug.subject === "nonland-permanent" && !srcIsNonland) continue; // MD-1: never fire on a LAND tap
+      // BASIC-LAND SUBTYPE (Crypt Ghast "Whenever you tap a SWAMP for mana", Nirkana Revenant, Nissa): the
+      // tapped source must be a Land AND carry that subtype (CR 305.6). Read off the PRINTED type line, like
+      // every sibling gate in this function — which means a Mountain that is also a Swamp only because of
+      // Urborg does NOT trigger Crypt Ghast. That is an under-count, not a wrong fire: the safe direction,
+      // and the honest note is cheaper than a layers import this leaf can't take without a cycle.
+      if (BASIC_LAND_SUBTYPES.has(aug.subject) && !(srcIsLand && new RegExp(`\\b${aug.subject}\\b`, "i").test(srcType))) continue;
       // sameAsProduced (MF-1): the bonus's TYPE is the type this tap produces — resolved by the consumer
       // (manaSources stamps the source's production colors; planPayment/actionsTapForMana credit the
       // PRIMARY chosen color), never an independent color pick (the off-type FP, CREED).

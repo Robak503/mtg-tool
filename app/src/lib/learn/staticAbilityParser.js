@@ -4796,8 +4796,14 @@ function parseGlobalTapManaAugmentImpl(card) {
     // The optional " while you're the monarch" condition rides between "for mana" and ", add" (Regal
     // Behemoth — the only monarch-gated tap-augment in the corpus). Captured as condition:"monarch"; the
     // runtime (globalTapManaAugment) adds the extra mana ONLY while `state.monarchId === playerId`.
+    // ⭐ THE BASIC-LAND SUBTYPES ARE IN NOW (Crypt Ghast #525, Nirkana Revenant #2848, Nissa #1604), and the
+    // note above that excluded them — "the tap site can't faithfully check the tapped land's subtype here" —
+    // was simply WRONG about the runtime. globalTapManaAugment receives the tapped source PERMANENT and
+    // already reads its type line for the land/creature/nonland gates; a subtype word costs one more test on
+    // the same string. The refusal was a stale guess about a sibling function, not a rules problem, which is
+    // exactly the kind of banked "can't" that stops being true and never gets re-read.
     const m = clause.trim().toLowerCase().match(
-      /^whenever you tap a (land|creature) for mana( while you're the monarch)?, add (?:an additional )?(.+)$/,
+      /^whenever you tap a (land|creature|forest|island|swamp|mountain|plains) for mana( while you're the monarch)?, add (?:an additional )?(.+)$/,
     );
     if (!m) continue;
     const subject = m[1];
@@ -4834,7 +4840,15 @@ export function stripGlobalTapManaAugment(card) {
   if (!parseGlobalTapManaAugment(card)) return oracle;
   return oracle
     .split(/\n+/)
-    .filter((line) => !/^\s*whenever you tap a (?:land|creature) for mana(?: while you're the monarch)?, add /i.test(line)
+    // ⚠️ THIS SUBJECT LIST MUST TRACK parseGlobalTapManaAugment'S. It is not cosmetic: the coverage tier
+    // re-classifies the STRIPPED card, so a subject the parser matches but the strip doesn't leaves the line
+    // in place, the stripped card parses as an augment again, and classifyCard recurses until the stack
+    // blows. Adding the basic-land subtypes to the parser without adding them here did exactly that —
+    // RangeError on the first Crypt Ghast, which is the good failure mode; a silent one would have been a
+    // hang. Also why the you-scoped LAND doubler below needs its own $-anchored line.
+    .filter((line) => !/^\s*whenever you tap a (?:land|creature|forest|island|swamp|mountain|plains) for mana(?: while you're the monarch)?, add /i.test(line)
+      // The you-scoped land doubler (Mirari's Wake / Zendikar Resurgent): the subject-list regex above DOES
+      // match its lead, so it is already stripped — this comment marks it deliberate, not incidental.
       // MANA FLARE (MF-1): the all-players line strips ONLY in its exact rider-free form ($-anchored), so
       // Overabundance's "…, and this enchantment deals 1 damage to the player." survives as residue (its
       // parse is null anyway — belt on top of the parse gate).
