@@ -619,6 +619,19 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // CANT-BE-COUNTERED — CONTROLLER scope (Chimil "Spells you control can't be countered"): the set of players
   // ALL of whose stack spells are uncounterable. Empty in the common case → zero behavior change (CR 701.5e).
   const uncounterablePlayers = uncounterablePlayersOnBattlefield(state);
+  // STIFLE-CLASS (CR 701.5a) — abilities WAITING ON THE STACK are legal targets for "counter target
+  // activated or triggered ability" (Stifle, Trickbind, Sublime Epiphany, Bind). They are stack objects but
+  // NOT spells, which is why the counter family could never reach them.
+  //
+  // MANA ABILITIES ARE UNREACHABLE BY CONSTRUCTION, and that is the correct rule rather than a limitation:
+  // a mana ability never uses the stack (CR 605.3a), so it is never a stack object and can never be
+  // enumerated here. The printed reminder text on Stifle says exactly that.
+  const addStackAbilities = (kinds) => {
+    for (const obj of state.stack || []) {
+      if (!kinds.has(obj.kind)) continue;
+      out.push({ type: "stackAbility", id: obj.id, controller: obj.controller, name: obj.source?.name ? `${obj.source.name}'s ability` : "ability" });
+    }
+  };
   const addStackSpells = () => {
     for (const obj of state.stack || []) {
       if (obj.kind !== "spell") continue;
@@ -833,6 +846,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   else if (effect.targetType === "playerOrPlaneswalker") { addPlayers(); addPlaneswalkers(); }
   else if (effect.targetType === "planeswalker") addPlaneswalkers();
   else if (effect.targetType === "spell") addStackSpells();
+  else if (effect.targetType === "stackAbility") addStackAbilities(new Set(effect.abilityKinds || ["triggered-ability", "activated-ability"]));
   else if (effect.targetType === "graveyardCard") addGraveyardCards();
   else if (effect.targetType === "opponent") addOpponents();
   else if (effect.targetType === "artifactOrEnchantmentOrFlyingCreature") addArtifactEnchantmentOrFlyingCreature(); // BW-1 triple union

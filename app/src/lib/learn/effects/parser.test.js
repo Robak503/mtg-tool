@@ -851,8 +851,14 @@ const MUST_DROP_TO_LOW = [
   // (Clash of Wills "unless its controller pays {X}" is now HIGH — WAVE 2b SOFT-CNT-X, pinned in counterGrammar.test.js)
   // (a count-tax over a SUPPORTED count — GY/hand/artifacts — is now HIGH: SOFT-CNT-COUNT, pinned in softCounter.test.js)
   "Counter target spell unless its controller pays {1} for each blue permanent you control.", // tax over an UNSUPPORTED (color-filtered) count → low
-  "Counter target spell or ability.",                            // "or ability" — not a bare spell target
-  "Counter target activated or triggered ability.",              // an ability is not a spell
+  "Counter target spell or ability.",                            // a SPELL-or-ability union spans two target
+  //                                                                classes in one atom — still LOW
+  // (NOTE: "Counter target activated or triggered ability." moved OUT of this drop-to-low gate — the
+  //  STIFLE-CLASS slice gave abilities their own op (counter-ability) + stackAbility target class, since the
+  //  counter applier is spell-shaped throughout (o.kind==="spell", a spellFilter over a CARD, a graveyard
+  //  move) and an ability is none of those. Its annotation here was "an ability is not a spell", which was a
+  //  SCOPE marker for the counter-SPELL slice rather than a safety refusal. Positive pin:
+  //  counterStackAbility.test.js. The union form ABOVE and Tale's End's three-way union stay LOW.)
   "Counter up to two target spells.",                            // "up to two" cardinality unmodeled
   // (the mana-value INEQUALITY "with mana value N or less/greater" is now HIGH — CNT-MV-CMP, pinned in counterSpellFilters.test.js)
   "Counter target creature or planeswalker spell.",              // "or planeswalker" — not a modeled filter (only artifact,creature,or planeswalker is)

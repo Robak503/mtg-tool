@@ -394,6 +394,19 @@ export function dealDamageScaledClauseParser(clause) {
  */
 export function counterClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // STIFLE-CLASS (CR 701.5a) — countering an ABILITY on the stack, not a spell (Stifle, Trickbind, Bind,
+  // Sublime Epiphany #1709). A separate op because the counter applier is spell-shaped throughout: it looks
+  // up `o.kind === "spell"`, re-checks a spellFilter against a CARD, and routes the countered object to a
+  // graveyard. An ability is none of those — it has no card and simply ceases to exist (CR 701.5a).
+  //
+  // Mana abilities are unreachable by construction (CR 605.3a — they never use the stack), which is the
+  // printed reminder text on Stifle rather than a limitation of this slice.
+  //
+  // The three-way union that also includes SPELLS ("counter target activated ability, triggered ability, or
+  // legendary spell" — Tale's End) is NOT admitted: it needs one atom to span two target classes. Stays low.
+  if (/^counter target activated or triggered ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["activated-ability", "triggered-ability"] };
+  if (/^counter target activated ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["activated-ability"] };
+  if (/^counter target triggered ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["triggered-ability"] };
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
@@ -1166,6 +1179,26 @@ export const stackResolvers = {
     return next;
   },
   "counter": applyCounter,
+  // STIFLE-CLASS (CR 701.5a) — countering an ABILITY removes it from the stack and it simply does not
+  // resolve. Unlike a countered SPELL there is no card and therefore no graveyard move: an ability is not
+  // an object that exists anywhere else, so removing the stack entry IS the whole effect.
+  // The kind is re-verified at resolution (CR 608.2b): the targeted ability may have already resolved or
+  // been countered in response, in which case this fizzles rather than removing some unrelated stack object.
+  "counter-ability": (state, atom, ctx) => {
+    let next = state;
+    const kinds = new Set(atom.abilityKinds || ["activated-ability", "triggered-ability"]);
+    for (const t of ctx.targets || []) {
+      if (t.type !== "stackAbility") continue;
+      const obj = (next.stack || []).find((o) => o.id === t.id && kinds.has(o.kind));
+      if (!obj) {
+        next = logEvent(next, { kind: "spell-effect", effect: "counter-ability-fizzle", targetId: t.id });
+        continue;
+      }
+      next = { ...next, stack: next.stack.filter((o) => o.id !== t.id) };
+      next = logEvent(next, { kind: "spell-effect", effect: "counter-ability", targetId: t.id, abilityKind: obj.kind, source: obj.source?.name || null, controller: ctx.controller });
+    }
+    return next;
+  },
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature
 };
