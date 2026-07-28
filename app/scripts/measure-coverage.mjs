@@ -163,6 +163,40 @@ for (const d of perDeck.sort((a, b) => b.pct - a.pct)) {
 const grand = perDeck.reduce((a, d) => ({ n: a.n + d.native, t: a.t + d.total }), { n: 0, t: 0 });
 console.log(`\n  AGGREGATE: ${grand.t ? Math.round((grand.n / grand.t) * 100) : 0}% native  (${grand.n}/${grand.t} slots across ${decks.length} decks)`);
 
+// ── OWNER SPLIT (Omnath's call, 2026-07-28) ─────────────────────────────────────────────────────────────
+// The single aggregate AVERAGES TWO DIFFERENT QUESTIONS and hides which one is failing:
+//   the OWNER's decks gate PLAYABILITY  — can the one actual user play his own decks against the engine?
+//   the POD's decks gate POD REALISM    — can he sim his real playgroup in the Crucible?
+// Both are real bars and neither is the other, so one number reading "79%" can mean "one deck from done" or
+// "ten decks out" and you cannot tell which. Same honest-label rule the UI follows, applied to the metric.
+//
+// OWNERSHIP IS NOT DERIVABLE FROM THE DATA — verified: every deck lives in ONE profile on this box, so
+// profile structure says nothing. Rather than hard-code deck names into the repo, the split reads an
+// OPTIONAL config file and stays silent when it is absent (output byte-identical to before). Create
+// `<MTG_APP_ROOT>/data/deck-owners.json` as { "Deck Name": "owner-label", … } to switch it on.
+//
+// A deck the file does not mention is reported under "(unassigned)" rather than dropped — a silently
+// shrinking denominator is exactly how a split metric starts lying.
+const ownersFile = path.join(APP_ROOT, "data", "deck-owners.json");
+let owners = null;
+try { owners = JSON.parse(fs.readFileSync(ownersFile, "utf8")); } catch { /* absent → single aggregate only */ }
+if (owners && typeof owners === "object") {
+  const buckets = new Map();
+  for (const d of perDeck) {
+    const who = owners[d.name] || "(unassigned)";
+    const b = buckets.get(who) || { n: 0, t: 0, decks: 0, below: [] };
+    b.n += d.native; b.t += d.total; b.decks += 1;
+    if (d.pct < 90) b.below.push(`${d.name} ${d.pct}%`);
+    buckets.set(who, b);
+  }
+  console.log(`\n=== SHELF BY OWNER (the 1.0 bar is >=90% PER DECK, so the tail is what matters) ===`);
+  for (const [who, b] of [...buckets.entries()].sort((a, b2) => b2[1].t - a[1].t)) {
+    const pct = b.t ? Math.round((b.n / b.t) * 100) : 0;
+    console.log(`  ${String(pct).padStart(3)}%  ${who}  (${b.n}/${b.t} across ${b.decks} decks)`);
+    console.log(`         below the bar: ${b.below.length ? b.below.join(" · ") : "none — every deck is at 90%+"}`);
+  }
+}
+
 console.log("\n=== TIER BREAKDOWN (deck card-slots) ===");
 for (const k of ALL_TIERS) {
   if (tierTotals[k]) console.log(`  ${String(tierTotals[k]).padStart(4)}  ${k}`);
