@@ -500,6 +500,20 @@ own one-word diff, spend ONE probe on *why not* before writing it off as a one-c
 biggest finds today — the mana-doubler cell, the untap type list, this one — were all "the machinery is
 built, the composition isn't."
 
+### 🔶 THE NEXT PROBE TO RUN — `app/scripts/probe-residue-artifacts.mjs`
+
+Asks the sub-gates directly instead of reading the tier: for every parked card, does EVERY detected
+trigger route, is EVERY activated ability modeled, and was every trigger-SHAPED sentence actually
+DETECTED (that third check is not optional — without it Archaeomancer's Map reported as a candidate
+because its ETB routes while its second trigger isn't detected at all, so "every detected trigger
+routes" passed vacuously). **68 such cards in the top-2500.** It prints the leftover text so a genuine
+unmodeled static can be told from a residue artifact by eye.
+
+Reading that list, the big remaining cluster is **EQUIPMENT/AURA grants the layer engine can't express**:
+unions ("can't be blocked and has shroud"), conditionals ("as long as equipped creature is legendary"),
+myriad, nonbasic landwalk. Most are honestly parked. See the attached-unblockable entry under
+BLOCKED / REFUSED before touching any of them — that seam bites this whole cluster.
+
 ### ✅ DONE — the residue chain's trigger strip was a REGEX GUESS (`f61fd1d6`, +49 · LOST 0)
 
 Chasing the four Equipment that still park (Adaptive Omnitool #2237 · Sword of Hours · Reaper's Talisman
@@ -1364,6 +1378,23 @@ exposed it. **Post above the first `### ` header, and verify with `grep -n "^###
 
 ## BLOCKED / REFUSED — do not restart these blind
 
+- **ATTACHED UNBLOCKABLE** ("Equipped/Enchanted creature can't be blocked" — Whispersilk Cloak #329,
+  Aqueous Form #735, Cloak of Mists, Protective Bubble). **BUILT, MEASURED CLEAN, AND REVERTED**
+  (`055a47f2`) — do not re-attempt without closing the seam below first.
+  - The `unblockable` pseudo-keyword and its enforcement ALREADY exist (canBlockAttacker reads it for
+    Herald of Secret Streams); only the attach-side emission is missing. It looks like a one-line win.
+  - Tier diff said **GAINED 4 · LOST 0 · RETIERED 0**. Suite green. Lint green. It was still wrong.
+  - ⚠️ **Aqueous Form classified native-trigger while its grant did NOT apply** —
+    `permanentHasKeyword(host, "unblockable")` was FALSE on a real board. `parseAuraBonus` returns `[]`
+    for ANY aura with an own-trigger outside `isModeledAuraOwnTrigger` (scry-on-attack isn't in it), which
+    is DELIBERATE. But a clause-level "modeled static" credit let the TRIGGER tier's residue check pass,
+    so the card went native through a different door while the bonus was still being dropped.
+  - ⭐ **THE SEAM IS PRE-EXISTING AND GENERAL: a clause-level static credit can contradict the CARD-level
+    attached-bonus gate, and the tier diff CANNOT SEE IT.** GAINED/LOST/RETIERED all looked perfect. Only
+    asking the runtime "is the keyword actually on the creature" exposed it. **For any change that emits
+    a layer GRANT, add a runtime keyword/board assertion — the tier diff is necessary and not sufficient.**
+  - Reconciling the trigger tier with the attached-bonus gate is its own wave. Three cards is not worth
+    shipping a known FP to reach it early.
 - **Foundry rail re-home** — REFUSED solo. Needs live browser QA with Colton available same-day. Do the
   MTGAssistant decomp first regardless; the re-home is not a solo-at-2am change.
 - **Layer-2 control** (28 cards) — control is represented STRUCTURALLY here (the permanent moves between
