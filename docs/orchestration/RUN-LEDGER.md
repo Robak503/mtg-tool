@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.7%** (12,228/34,245 — +180 this run). Suite **907 files / 11,650 tests**,
-  lint 0, MUTANT sweep clean. FORTY-THREE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries forty-three unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.9%** (12,277/34,245 — +229 this run). Suite **908 files / 11,658 tests**,
+  lint 0, MUTANT sweep clean. FORTY-FOUR slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries forty-four unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **72.1%** 🎉 · top-2500 **54.2%** · top-5000 **43.0%** · top-10k 35.7%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **72.1%** 🎉 · top-2500 **54.2%** · top-5000 **43.0%** · top-10k **35.8%**.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,6 +412,7 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `f61fd1d6` | ⭐⭐ **THE RESIDUE CHAIN STOPS GUESSING** — measured GAINED 49 · LOST 0 · RETIERED 0 | **+49** corpus-wide; Abbot of Keral Keep · Sea Gate Oracle · Voldaren Epicure · Adaptive Omnitool |
 | `6d892d21` | ⭐ **EQUIPMENT composes with its trigger** — a composition gap, not a card gap | **+8**, **Mask of Memory #1002** · **Goldvein Pick #2100** · Prying Blade · Skeleton Key |
 | `2c90b6fa` | typed uncounterable — the read went per-PLAYER → per-SPELL | **+2**, Prowling Serpopard #3581 · **Surrak Dragonclaw #3186** |
 | `58c1dd23` | ⚠️ subtype-scaled MANA — the vocabulary gate runs the OPPOSITE way | **+4**, **Elvish Archdruid #942** · Magus of the Coffers #5409 |
@@ -498,7 +499,7 @@ own one-word diff, spend ONE probe on *why not* before writing it off as a one-c
 biggest finds today — the mana-doubler cell, the untap type list, this one — were all "the machinery is
 built, the composition isn't."
 
-### 🔶 NEXT, AND IT'S BIGGER THAN EQUIPMENT — the residue chain's trigger strip is a REGEX GUESS
+### ✅ DONE — the residue chain's trigger strip was a REGEX GUESS (`f61fd1d6`, +49 · LOST 0)
 
 Chasing the four Equipment that still park (Adaptive Omnitool #2237 · Sword of Hours · Reaper's Talisman
 · Mask of Immolation) leads somewhere general. Every residue chain in `coverage.js` strips trigger
@@ -517,11 +518,29 @@ The accumulated `.replace()` tail-strips (reflexive "if you do", the entering-pr
 counters-on-it tail) are all **patches on that one wrong assumption** — each added when a specific card
 fell through.
 
-**The real fix is to strip what detectTriggers actually consumed rather than re-guessing it** — the
-descriptors already carry `sourceText`. That is a wave, not a slice: it touches the residue chain every
-tier depends on, so it needs a corpus-wide before/after diff (tier per card, not just the total) to prove
-it only ADDS. But it is the highest-leverage thing left on this board — every "spans sentences" park in
-every tier is the same bug, and there is no way to know how many until the strip is honest.
+**Shipped.** Strip what detectTriggers actually consumed — `effectClause`, which carries the WHOLE folded
+effect (`sourceText` does not; it truncates at the first period, so the obvious field is the wrong one).
+**GAINED 49 · LOST 0 · RETIERED 0**, measured per card.
+
+⭐ **`app/scripts/tier-snapshot.mjs` is the tool that made this safe and is the reusable part.** A TOTAL
+can hide a swap — five gained and five lost nets zero and reads as "no change". For any change to a
+SHARED path (a residue chain, the layer engine, a splitter) run it before and after and diff per card;
+it classifies every movement GAINED / LOST / RETIERED and exits non-zero on any LOST.
+
+⚠️ **TWO BUGS ON THE WAY, both worth knowing:**
+1. **My licence was wrong.** I claimed `allTriggerSentencesModeled` proved every sentence parses HIGH so
+   stripping was free. It doesn't — that gate passes for triggers whose folded follow-up is unmodeled,
+   and for those cards *the residue check is the only guard*. Four FP pins went red. The licence is
+   per-descriptor `triggerRoutesNatively`. **Measured afterwards, it is inert today** (remove it: suite
+   green, diff zero) — labelled as belt-and-suspenders in both source and test rather than sold as a guard.
+2. **`\s` matches a NEWLINE.** The strip swallowed the line break, welded the NEXT oracle line onto the
+   stripped one, and hid it — Drowner of Hope credited native with a real unmodeled ability.
+   `tokenAbilityGrantResidue.test.js` pins that exact card for that exact reason, **from a previous
+   author's previous attempt at this same idea.** I reproduced it verbatim. Horizontal whitespace only.
+
+**Three scope pins graduated, all of which had DRIFTED into looking like safety pins** — each was parking
+its card only because the residue chain left a sentence behind, for a reason that had stopped being true
+(the optional discard, Blood tokens, and the folded `damageRider` are all modeled now).
 
 **NOT crosses, don't re-diagnose:** Shriekmaw #1546 — its "sibling" is also unparsed. Jhoira's Familiar
 #1035 — "historic" isn't a type-line token, and that refusal is CORRECT.
