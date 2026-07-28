@@ -83,11 +83,42 @@ slice, 438 cards is hundreds of slices.
 one-mode-away list is a finishing tool, not a grinding tool — it goes quiet by construction (that is the
 same instrument-blindness Colton caught twice already; see THE OBJECTIVE above).
 
-**NEXT INSTRUMENT TO BUILD, and the highest-value unstarted work:** decompose the 381-card
-`Spell effect (other)` catch-all. It has never been broken down. Apply the one-diff probe that found the
-last three slices — for a family, parse the blocking phrase AND a near variant differing by one qualifier;
-where the variant is HIGH and the phrase is LOW, the gap is a missing CROSS, not a missing mechanic. That
-technique turned "exile all artifacts" into a one-line fix. Expect several 20–50 card veins in that pile.
+### ✅ THE CATCH-ALL IS NOW DECOMPOSED — `app/scripts/probe-spell-effect-veins.mjs`
+
+The 381-card `Spell effect (other)` pile, split into sentences with the modeled ones filtered out. The
+veins, in order (top-2500 ranks shown — these are the next grinding targets, NOT single staples):
+
+```
+ 12x  choose one —                                     (modal — the wrapper is built; the MODES fail)
+  7x  exile ~                                          Teferi's Protection #107 · Mizzix's Mastery #796
+  6x  this ability triggers only once each turn        Morbid Opportunist #255 · Welcoming Vampire #428
+  5x  as an additional cost …, sacrifice a creature    Eldritch Evolution #728 · Fling #1462
+  4x  gift a card                                      Dawn's Truce #359 (the Gift mechanic)
+  4x  you may choose new targets for the copy          Narset's Reversal #740 · Return the Favor #625
+  3x  creatures can't attack you unless … pays {C}     ⭐ Propaganda #115 · Ghostly Prison #161
+  3x  you may look at the top card of your library     Bolas's Citadel #263 · Mystic Forge #414
+  3x  exile target creature you control, then return   Cloudshift #792 (BLINK)
+  3x  exile top two + play them until end of next turn Light Up the Stage #1211 (IMPULSE DRAW)
+```
+
+### ⚠️ THE PROBE LIED TWICE BEFORE IT WAS RIGHT — both corrections are baked in, do not undo them
+
+This instrument reported TWO false veins before it was trustworthy. Both are the same class of error as the
+line-deletion trap in THE PROBE RULE, and both are now fixed in the banked script:
+
+1. **`parseEffectClause` is not the modeled-oracle.** It misses the LEGACY whole-card path
+   (`parseSpellEffect`), so plain `"draw a card"` and `"destroy target creature"` reported as blockers —
+   a 9-card phantom vein. Use `classifyCard` on a synthetic single-sentence card instead.
+
+2. **The synthetic card must carry the SOURCE CARD'S TYPE.** Wrapping every sentence as an *Instant* means
+   a PERMANENT'S STATIC can never classify native however well modeled. That reported
+   `"you may play an additional land on each of your turns"` as a 4-card vein (Dryad of the Ilysian Grove
+   #295, Oracle of Mul Daya #499, Wayward Swordtooth #986) when `extraLandDropsOf` has modeled it all
+   along — Exploration and Azusa are `native-static` TODAY. Those three are parked for their OTHER lines
+   (Dryad's basic-land-type layer effect, Oracle's play-from-top, Wayward's Ascend).
+
+**Both were caught by checking the claim against the real cards BEFORE building.** That check costs one
+command and it has now prevented two wasted slices in a single sitting.
 
 ## THE SHELF (secondary read — no longer the bar, kept because it is measured and true)
 
