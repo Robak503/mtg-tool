@@ -105,7 +105,7 @@ veins, in order (top-2500 ranks shown — these are the next grinding targets, N
   4x  you may choose new targets for the copy          Narset's Reversal #740 · Return the Favor #625
   3x  creatures can't attack you unless … pays {C}     ⭐ Propaganda #115 · Ghostly Prison #161
   3x  you may look at the top card of your library     Bolas's Citadel #263 · Mystic Forge #414
-  3x  exile target creature you control, then return   Cloudshift #792 (BLINK)
+  3x  exile target creature you control, then return   Cloudshift #792 (BLINK) — see the BLINK box below
   3x  exile top two + play them until end of next turn Light Up the Stage #1211 (IMPULSE DRAW)
 ```
 
@@ -319,6 +319,39 @@ That is the whole reason this target beats corpus %.
 | `22e2293d` | batched GRAVEYARD-LEAVE — new `gyLeaveBatch` event | **+13**, **Insidious Roots #1386** · Desecrated Tomb #4196 · Quintorius #9596 |
 | `f682aadb` | scoped counters-put WATCHERS — the slice the source comment deferred | **+2**, Enduring Scalelord · Wickersmith's Tools |
 | `e05c796b` | batched graveyard-ENTER + a silently-dropped zone filter ⚠️ | **+1**, Sidisi #3513 |
+
+### 🔵 BLINK / FLICKER — 19 cards, 0 native, **blocked by the CLAUSE SPLITTER, not by the effect**
+
+**Ephemerate #440 · Conjurer's Closet #485 · Cloudshift #792 · Essence Flux #928 · Blur #2252 · Momentary
+Blink · Splash Portal · Acrobatic Maneuver · Siren's Ruse …** — a core Commander mechanic at 0 native.
+
+**ATTEMPTED AND REVERTED THIS SESSION — read this before re-attempting.** The atom and applier are
+straightforward and were written: blink is pure COMPOSITION of two existing chokepoints —
+`moveCardToZone` off the battlefield (fires LTB) then `enterCardFromZone` (the same helper reanimation
+uses, fires ETB). CR 400.7's "new object" (fresh id, no counters, summoning-sick) follows for free because
+`enterCardFromZone` mints a new permanent.
+
+**The blocker is upstream of all that.** `splitClauses` breaks the printed sentence on ", then":
+```
+"Exile target creature you control, then return that card to the battlefield under your control."
+  ->  ["Exile target creature you control",
+       "return that card to the battlefield under your control"]
+```
+So a whole-clause matcher is UNREACHABLE — the first fragment parses HIGH on its own (a plain exile!) and
+the second fails, dropping the card. Writing the atom without fixing the splitter produces dead code, which
+is why it was reverted rather than left in the tree.
+
+**THE FIX, with precedent:** `splitClauses` already carries normalize FOLDS that rewrite a sentence before
+the split — see the WHEEL fold (~line 120) turning `"each player discards their hand, then draws N cards"`
+into two properly-subjected sentences. Blink needs the mirror: a fold that keeps the two halves together (or
+rewrites them into one recognisable clause) so the matcher sees the whole thing.
+
+**Do it in a session with room.** `splitClauses` shapes EVERY card's parse, so it is the highest-blast-radius
+file touched by this vein — worth the full suite between each step, not a tail-end slice.
+
+**⚠️ And note the shape of the trap:** the first fragment parsing HIGH as a bare exile is exactly the kind of
+partial success that could ship a card which EXILES a creature and never returns it. Any future fold must be
+paired with a runtime test that the creature comes BACK and its ETB fires.
 
 ### ☠️ THE DESCRIPTOR WHITELIST SILENTLY DROPS UNLISTED FIELDS — this nearly shipped an over-fire
 
