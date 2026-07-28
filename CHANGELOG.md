@@ -8,6 +8,25 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.9] — 2026-07-28
+
+### Added
+- **Lander, Mutagen and Junk tokens now work.** Cards that make one were previously stuck — the game knew
+  the six older tokens (Treasure, Clue, Food, Gold, Blood, Map) but not these three, so 18 cards sat unplayable
+  over a token it couldn't mint. Each now enters as a real artifact you can actually use: Lander fetches a
+  basic land, Mutagen puts a +1/+1 counter on a creature, Junk exiles the top card of your library to play.
+- **"Whenever a commander you control deals combat damage to an opponent" now triggers.** Kediss, Emberclaw
+  Familiar works — and it correctly checks that the creature that connected *is* your commander, rather than
+  firing off any creature you control.
+
+### Changed
+- **Deck coverage rose to 1,259 of 1,597 slots** across the saved decks.
+
+### Notes
+- A Powerstone token is still deliberately left unsupported. Its mana can't be spent on nonartifact spells,
+  and the game can't yet track that restriction — so rather than hand you mana that ignores the card's own
+  rule, cards that make one are routed to the Arbiter.
+
 ## [0.149.8] — 2026-07-28
 
 ### Fixed
