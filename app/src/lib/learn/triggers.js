@@ -960,6 +960,24 @@ function classifyCondition(condRaw, cardName, cardType) {
     const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact"
       || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
     if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "any" };
+  }
+  // COUNTERS-PUT-ON SELF (CR 122.6) — "Whenever one or more +1/+1 counters are put on <this creature>".
+  // PLURAL FORM ONLY, deliberately: "one or more … are put on" fires ONCE for the whole placement however
+  // many counters land. The older SINGULAR wording ("a +1/+1 counter is put on ~" — Fathom Mage) may fire
+  // once PER COUNTER and the bundled CR does not settle it; rather than guess a firing COUNT it stays
+  // undetected → Arbiter (2 cards, a safe false-negative). CLAUDE.md §1.2 — never invent card behavior.
+  // Counter TYPE rides the descriptor so a -1/-1 placement never trips a +1/+1 watcher.
+  if (/\bone or more ([+-]\d\/[+-]\d) counters are put on\b/.test(c)) {
+    const m = /^whenever one or more ([+-]\d\/[+-]\d) counters are put on (.+)$/.exec(c)
+      || /^one or more ([+-]\d\/[+-]\d) counters are put on (.+)$/.exec(c);
+    if (m) {
+      const subj = m[2].trim().replace(/,$/, "");
+      const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact"
+        || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+      // Scoped subjects ("a creature you control") are a DIFFERENT scope needing the shared scopeMatches
+      // vocabulary — a later slice (~14 cards), not emitted here.
+      if (isSelfSubj) return { event: "countersPut", scope: "self", whose: "any", counterType: m[1] };
+    }
     return null;
   }
   // BECOMES-UNTAPPED (Mesmeric Orb — SHELF S6): "a permanent becomes untapped". ANY player's permanent,
@@ -3045,6 +3063,7 @@ export function detectTriggers(card) {
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
+        counterType: cls.counterType,         // COUNTERS-PUT-ON (CR 122.6) — the counter KIND the watcher listens for; checkCounterTriggers fires only on a matching placement
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
         stateCondition: cls.stateCondition,   // STATE TRIGGER (CR 603.8) — the continuously-checked board condition string, read by checkStateTriggers via the shared interveningIf evaluator
@@ -5570,6 +5589,38 @@ export function checkUntapTriggers(state) {
  * dispatch (mana / crew / cost / attack) or stack resolution is converted before its flush. A vanished source
  * (tapped, then left the battlefield before the flush) no-ops. Pure.
  */
+/**
+ * COUNTERS-PUT-ON SELF triggers (CR 122.6): drain `state.pendingCounterEvents` (recorded by
+ * gameState.addCounter for every real placement, and by resolvers.enterPermanent for the enters-with half)
+ * and fire each recipient's OWN "Whenever one or more +1/+1 counters are put on this creature" watcher.
+ *
+ * CR 122.6 is why the ETB path records too: counters given to an object AS IT ENTERS count as counters put
+ * on it. That is the OPPOSITE of the becomes-tapped sibling, which deliberately skips enters-tapped.
+ *
+ * ONE FIRING PER PLACEMENT EVENT, not per counter (the singular wording is not detected at all, so no
+ * per-counter shape reaches here). The counter TYPE must match the descriptor's. Self-scope only, mirroring
+ * checkTapTriggers: the recipient is BOTH source and triggering permanent, so a self-referential payoff
+ * binds. ALWAYS clears the queue (idempotent — a re-entrant flush never double-fires). A vanished recipient
+ * no-ops. Pure.
+ */
+export function checkCounterTriggers(state) {
+  const events = state.pendingCounterEvents || [];
+  if (!events.length) return state;
+  const { pendingCounterEvents: _drop, ...cleared } = state;
+  let fired = [];
+  for (const ev of events) {
+    const lk = findPermanent(cleared, ev.id);
+    if (!lk) continue; // left the battlefield before the flush → no-op, never a fabricated fire
+    fired = fired.concat(
+      detectTriggers(lk.permanent.card)
+        .filter((d) => d.event === "countersPut" && d.scope === "self" && d.counterType === ev.type)
+        .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}))
+    );
+  }
+  if (!fired.length) return cleared;
+  return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
+
 export function checkTapTriggers(state) {
   const events = state.pendingTapEvents || [];
   if (!events.length) return state;
