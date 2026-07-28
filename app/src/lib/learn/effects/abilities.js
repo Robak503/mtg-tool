@@ -452,7 +452,14 @@ export function parseAbilityCost(costStr, card = null) {
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
 function effectIsManaAbility(clause) {
-  const c = String(clause).trim();
+  // A QUOTED GRANT belongs to a TOKEN this effect creates — it is NOT this ability's own mana output.
+  // "{4}, {T}: Create a 1/1 colorless Eldrazi Scion creature token. It has \"Sacrifice this token: Add {C}.\""
+  // is a token-maker, not a mana ability. Reading the grant's "Add {C}" as this ability's output flags it
+  // isManaEffect, which routes the whole ability into the mana model (a lane that cannot drive a
+  // token-maker) and skips building its effect program entirely — so the card parked with an effect clause
+  // that parses HIGH the moment anything else looks at it. Strip quoted spans before the test; a real mana
+  // ability never carries one, so this can only ever RELEASE a wrongly-flagged token-maker.
+  const c = String(clause).replace(/"[^"]*"|[“][^”]*[”]/g, " ").trim();
   return /^add\b/i.test(c) || /\badd\b\s+(\{[wubrgc]|one\b|two\b|three\b|four\b|five\b|that much|an amount|x\b|mana\b)/i.test(c);
 }
 
