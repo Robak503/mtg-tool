@@ -153,6 +153,34 @@ All 10 flips audited: Elephant Guide, Griffin Guide, Most Wanted (+A-), Failed C
 Elder Mastery, Mark of Fury, Recumbent Bliss, Sleeper's Robe. Mark of Fury was named in the census's TWO-FLIP
 list, which is what pointed here.
 
+## ⛔ CLOSED — the GENERAL tier-composition lead (38 cards) has no general fix
+
+The aura static+trigger composition paid +10, so I generalized the instrument: for every parked card,
+classify each oracle line ALONE; if every line is native by itself, only the composition is missing.
+**38 cards** match — 17 Creature, 9 Enchantment, 4 Artifact, 4 Legendary Creature — and they line up exactly
+with the residue census's TWO-FLIP list (Artisan of Kozilek, Wasteland Raider, Vat of Rebirth, Tundra Tank,
+Compulsory Rest, Verdant Haven, Fiery Mantle, Nurturing Presence, Mouser Foundry, Tishana).
+
+**There is no general fix, and chasing one would be a false positive.** Two things killed it:
+
+1. **The single-mechanism discipline is DELIBERATE.** `permanentTriggersCovered` and its siblings each own
+   ONE mechanism and treat everything else as residue — the code says so outright: *"this single-mechanism
+   tier must never claim one through a residue coincidence."* Birthing Hulk is keyword + trigger + activated
+   ability; composing across all three would dissolve the tier system, not extend it. The aura fix worked
+   precisely because it composed TWO NAMED gates with each half re-verified by its OWN gate — that is
+   composition. A blanket "every line is native alone" rule is loosening wearing composition's clothes.
+
+2. **The COVERED_KEYWORDS angle is a mirage.** It looked like the residue set was merely missing modeled
+   keywords. Ranking the "keywords credited alone but absent" gave equip (394), crew (142), draw a card
+   (147) — **none of which are vacuous keywords.** They classify alone because their OWN tier handles them
+   (equipment, vehicle, spell). Adding them to the residue set would make the walk treat a real ability as
+   inert text: a false positive on hundreds of cards. And the two genuinely-missing modeled keywords I
+   suspected — squad, firebending — turn out to have **zero** parked carriers; earlier slices already
+   covered them.
+
+**Take from this**: composition is only safe when each half is re-verified by the gate that owns it. If you
+cannot name the two gates, you are loosening. The remaining 38 need per-shape work at 1-4 cards each.
+
 ## 🛑 THE MIS-PARK SCANNER IS MINED OUT — re-run after shipping, and it is thin
 
 Re-ran `scratchpad/residuegap.mjs` after the counters + once-per-turn slices landed. 888 candidates, but the
