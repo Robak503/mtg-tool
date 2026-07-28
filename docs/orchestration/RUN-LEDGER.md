@@ -122,19 +122,41 @@ The correct build is a general EFFECT-level latch that marks only when the effec
 the shape `applyDiscoverAtom` already uses for Pantlaza (`atom.oncePerTurn`, keyed `sourceId_discover`), but
 generalized to any atom, which is a real subsystem slice with the decline semantics as its whole difficulty.
 
-## ⭐ SIZED, NOT BUILT — the +1/+1 COUNTERS-PUT-ON trigger event (17 self-scoped cards)
+## ⭐ SCOPED AND UNBLOCKED — the +1/+1 COUNTERS-PUT-ON trigger event (17 self-scoped cards)
 
-`Whenever one or more +1/+1 counters are put on <this creature>` — 32 corpus carriers, **31 parked**; the
-self-scoped forms are 17 of them (15 plural + 2 singular). `detectTriggers` returns ZERO for this event, so
-every carrier parks and the line masquerades as residue (see the correction above).
+`Whenever one or more +1/+1 counters are put on <this creature>` — 32 corpus carriers, **31 parked**;
+17 self-scoped (15 plural + 2 singular). `detectTriggers` returns ZERO for this event, so every carrier parks
+and the line masquerades as residue.
 
-Needs a detector arm plus a fire site at the counter chokepoint. **Two reasons it wants a sharp session:**
-1. The counter chokepoint is load-bearing — counters are placed from everywhere (atoms, doublers, ETB).
-2. There is a real CR subtlety to settle FIRST: does a permanent ENTERING WITH counters fire this? Get that
-   wrong in either direction and it is a wrong play on every carrier, not a missed one.
+**THE CR QUESTION IS ANSWERED — CR 122.6, read out of the bundled rules, not from memory:**
 
-Scope note: the non-self scopes ("a creature you control", "a permanent you control", "another creature") are
-another ~14 and should follow the same scope vocabulary the other trigger families use, not a second one.
+> "Some spells and abilities refer to counters being put on an object. This refers to putting counters on
+> that object while it's on the battlefield **and also to an object that's given counters as it enters the
+> battlefield.**"
+
+So a permanent ENTERING WITH counters DOES fire this. The implementation must cover both paths or it
+mis-plays every carrier. (Relevant in Commander: an external effect like Master Biomancer gives counters as
+a creature enters, so this is not a corner case.)
+
+**THE REAL BLOCKER IS ARCHITECTURAL, and it is NOT the CR question.** `addCounter` is the central
+counter-mutation chokepoint (its own comment says so), but it lives in `gameState.js` — and `triggers.js`
+IMPORTS gameState. Firing a trigger from `addCounter` would create a cycle. Verified, not assumed.
+
+So the fire site has to be designed. Two options, and the first is clearly right:
+
+1. **DEFERRED QUEUE (recommended).** `addCounter` appends a plain record to `state.pendingCounterEvents` —
+   no import, no cycle — and ONE existing chokepoint drains it into `checkCounterTriggers`. **Precedent
+   exists and is proven: this is exactly the shape of the delayed-trigger scheduler** (`state.delayedTriggers`
+   written as plain JSON, drained by gameEngine). Copy that design.
+2. Per-caller wiring — ~20 call sites across 8 files, PLUS the 3 enters-with-counter sites that bypass
+   `addCounter` entirely (resolvers.js / tokens.js / amass.js mint, which call `applyCounterDoubling`
+   directly). Fragile and guaranteed to miss a path. Do not.
+
+Option 1 also solves the ETB half for free, because the mint sites can push the same record.
+
+Scope note: the non-self scopes ("a creature you control", "a permanent you control", "another creature")
+are another ~14 cards and should reuse the SAME scope vocabulary as the other trigger families
+(`scopeMatches` in triggers.js), not a second one.
 
 ## ⭐ BANKED — "Do this only once each turn." does NOT set the flag
 
