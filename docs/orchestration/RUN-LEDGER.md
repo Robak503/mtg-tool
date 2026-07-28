@@ -112,6 +112,39 @@ Corollary worth keeping: a "would flip if X" probe must actually SIMULATE X (str
 — which is exactly what the alternative-cost probe did correctly ten minutes earlier, and it cheaply killed
 that direction by showing only 2 of 14 would flip. Same session, right method and wrong method side by side.
 
+## THE SHELF TAIL IS GENUINELY CARD-BY-CARD — measured, not assumed
+
+I ran a SOLE-BLOCKING-SENTENCE sweep over every parked deck card: remove one sentence at a time, re-classify,
+and record the sentence whose removal flips the card. 320 parked cards, **105 with a single identifiable
+blocking sentence — and essentially every one is a singleton.** The top blocker unblocks 2 deck slots. There
+is no cluster left.
+
+**So Colton's guess was right: from here the shelf moves card by card.** That is a finding, not a
+complaint — it means the remaining work is small, safe, individually auditable, and does not need a big
+lever. It also means nobody should go looking for one again; the search is done and this is the answer.
+
+Probe: `scratchpad/sole-sentence.mjs` (the method is the correct one — simulate the fix and re-classify).
+
+## BANKED WITH SCOPE — group-granted WARD (4 corpus cards, ~0 deck slots)
+
+Ward on a creature ITSELF is fully modeled, both cost forms. Bare-keyword GROUP grants work. The gap is
+ward specifically inside a group grant, because ward carries a COST and so cannot be a bare member of
+`GRANTABLE_STATIC_KEYWORDS`.
+
+Good news, and the reason this is scoped rather than open: **the runtime already supports granted ward.**
+`layers.permanentGrantedWardCosts` reads layer-6 `addWard` effects and `ward.js` unions them with printed
+ward at the tax site. So this is a PARSER-emission gap, not an enforcement gap — no false-positive risk in
+crediting it, provided only the fixed-generic form is emitted (which is all the layer op represents).
+
+Why I did not build it at depth: the four carriers print four DIFFERENT selector shapes — "Other creatures
+you control", "Other artifacts you control", "Artifacts you control", "Beasts and Birds you control" — which
+means an arm in each shape's handler inside a 4,000-line parser. And the only card worth deck slots
+(Hexing Squelcher, 2 slots) prints the LIFE form, which the layer op cannot represent, so it would not flip
+even after the work. **~4 corpus cards, ~0 deck slots, medium blast radius.** Correct trade is to leave it.
+
+If someone takes it: mirror the COUNTER-GATED GROUP WARD emission (staticAbilityParser ~line 2012) — it is
+the exact pattern, already correct, already refusing the colored/{X}/life forms for the same reason.
+
 ## NEXT ACTIONS
 
 1. **Bloom Tender / Faeburrow Elder** — "For each color among permanents you control, add one mana of that
