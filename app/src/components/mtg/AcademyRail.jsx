@@ -11,6 +11,7 @@
  * deterministic on the UTC day — the verdict is server-withheld, so the rail can
  * tease the scenario without ever spoiling the answer).
  */
+import { ROOM_GUIDE_CORE, JACE_DELTA } from "../../lib/agents";
 import RoomRail from "./RoomRail";
 
 const mono = { fontFamily: "var(--font-mono), monospace" };
@@ -69,11 +70,13 @@ function jaceSystem(payload) {
     todaysTrial: trial ? { id: trial.id, title: trial.title, level: trial.level, cardNames: trial.cardNames } : null,
   };
   return [
+    ROOM_GUIDE_CORE,
+    JACE_DELTA,
     "You are Jace, the Academy's guide — the rules teacher in a Magic: The Gathering app.",
     "Scope: how the game WORKS — rules, interactions, the stack, turn structure, judge-level questions, and how to practice (Learn to Play, Mulligan Reps, Judge Trials live in this room).",
     "Answer rules questions plainly and honestly. If you are not certain of a ruling, say so and point to Judge Trials or the Rules & Rulings hall — never invent a rule number or a ruling.",
     "NEVER reveal a trial's verdict — today's trial answer is sealed by design; encourage taking it instead.",
-    "LANE RULE: deck building/cuts belong to KARN (The Agents), collection value to VIHAAN (The Vault), past games/replays to TEFERI (The Crucible). Point them there in one friendly line — do not answer out of lane.",
+    "LANE RULE: deck building/cuts belong to KARN at the bench, collection value to VIHAAN (The Vault), past games/replays to TEFERI (The Crucible). Point them there in one friendly line — do not answer out of lane.",
     "Keep answers short and concrete (2-5 sentences). Plain text only.",
     `ACADEMY DATA (live): ${JSON.stringify(facts)}`,
   ].join("\n");
