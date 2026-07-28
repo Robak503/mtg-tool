@@ -910,11 +910,18 @@ export function combatKeywordClauseParser(clause) {
   // the bare "target permanent"/"target creature" forms are accepted; a qualified/rider/multi-target form
   // ("untap X target permanents", "untap target permanent you control") is not anchored here → stays LOW →
   // Arbiter (a SAFE false-negative — model the whole clause or nothing).
+  //
+  // ⭐ THE TYPE LIST IS THE MISSING CELL, not the machinery. "untap target creature", "…land" and
+  // "…permanent" all parsed; "untap target ARTIFACT" — Voltaic Key #1776, Clock of Omens #1743, Aphetto
+  // Alchemist — did not, purely because the word wasn't in this alternation. Every type here already has
+  // its own PERMANENT_PREDICATES entry driving enumerateTargets, so this widens the vocabulary and adds no
+  // new targeting behaviour. (The basic-land subtypes and the numeric "up to N lands" forms keep their own
+  // matchers below; those carry counts this one deliberately doesn't.)
   {
-    const upM = t.match(/^untap (another )?target (permanent|creature)$/);
+    const upM = t.match(/^untap (another )?target (permanent|creature|artifact|enchantment|nonland permanent)$/);
     if (upM) {
       const restrictions = upM[1] ? [{ kind: "notSource" }] : [];
-      return { op: "untap", targetType: upM[2], restrictions };
+      return { op: "untap", targetType: upM[2] === "nonland permanent" ? "nonlandPermanent" : upM[2], restrictions };
     }
   }
   // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap enchanted creature." / "{U}: Untap enchanted creature.";
