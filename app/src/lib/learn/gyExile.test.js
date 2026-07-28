@@ -29,13 +29,19 @@ describe("gy-exile — recognition + coverage", () => {
     expect(classifyCard(S("Return to Nature", "Choose one —\n• Destroy target artifact.\n• Destroy target enchantment.\n• Exile target card from a graveyard."))).toBe("native-spell");
     expect(classifyCard(S("Withered Wretch", "{1}: Exile target card from a graveyard.", "Creature — Zombie Cleric", "{1}{B}"))).toBe("native-activated");
   });
-  it("CREED: an unanchored count / a type filter / a whole-graveyard exile stay non-native", () => {
+  it("CREED: an unanchored count / a type filter stay non-native", () => {
     // (Scarab Feast's "up to three … from a single graveyard" graduated in BLITZ GX-1 — the subset
     // machinery + the singleGraveyard constraint, pinned in gyExileUpToThree.test.js. The near-miss
     // intent lives on via the unanchored count and the other variants.)
+    //
+    // ("Exile target player's graveyard." GRADUATED the same way — the whole-ZONE exile atom
+    // (exile-graveyard) now models it, pinned with its runtime moves in exileGraveyardZone.test.js.
+    // It was never a safety pin: it marked the single-CARD slice's scope boundary, exactly as the
+    // Scarab Feast line above did before its machinery landed. The FILTERED whole-zone wordings
+    // ("exile all creature cards from all graveyards") are still refused, and that refusal is pinned
+    // in the new file — so the over-apply this line guarded against remains unreachable.)
     expect(programConfidence(parseEffectProgram(S("Two Probe", "Exile up to two target cards from a single graveyard.")))).toBe("low"); // only the printed three-count is anchored
     expect(programConfidence(parseEffectProgram(S("Filtered", "Exile target creature card from a graveyard.")))).toBe("low"); // type filter — not bare "card"
-    expect(programConfidence(parseEffectProgram(S("Bojuka", "Exile target player's graveyard.")))).toBe("low"); // whole graveyard, not a single card
   });
 });
 

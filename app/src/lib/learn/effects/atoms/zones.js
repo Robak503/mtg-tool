@@ -90,6 +90,30 @@ export function applyExileFromGraveyard(state, atom, ctx) {
 }
 
 /**
+ * WHOLE-GRAVEYARD EXILE (CR 701.10a) — exile every card in one or more graveyards (Bojuka Bog, Farewell,
+ * Rakdos Charm). The graveyard list is SNAPSHOT before the moves so the iteration can't be disturbed by
+ * moveCardToZone rebuilding the zone underneath it.
+ *
+ * An empty graveyard is a legal no-op, NOT a failure: "exile target player's graveyard" still resolves
+ * against a player with nothing in the yard (CR 608.2 — an effect that does nothing still resolves).
+ */
+export function applyExileGraveyard(state, atom, ctx) {
+  let next = state;
+  const pids = Object.keys(next.players || {});
+  const owners = atom.who === "eachPlayer" ? pids
+    : atom.who === "eachOpponent" ? pids.filter((p) => p !== ctx.controller)
+      : (ctx.targets || []).filter((t) => t.type === "player").map((t) => t.id);
+  const exiled = [];
+  for (const owner of owners) {
+    for (const card of [...(next.players[owner]?.graveyard || [])]) {   // snapshot — the zone is rebuilt per move
+      next = moveCardToZone(next, { playerId: owner, fromZone: "graveyard", toZone: "exile", cardId: card.id });
+      exiled.push(card.id);
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "exile-graveyard", controller: ctx.controller, targets: exiled });
+}
+
+/**
  * Reanimation (β-3b, CR 608) — "Return target creature card from your graveyard to the battlefield"
  * (Resurrection / Zombify / Breath of Life). Like return-from-graveyard but the chosen card enters the
  * battlefield as a permanent UNDER THE CASTER'S CONTROL (becomePermanent), and its ETB triggers fire
@@ -418,6 +442,21 @@ export function graveyardReturnClauseParser(clause) {
   // Memory). ANY player's graveyard (anyGraveyard → enumerate every graveyard), destination exile. The exact
   // `$` anchor rejects "from your graveyard" (the caster-only forms above), "up to N"/plural, a type-filtered
   // variant, or a trailing rider → low → Arbiter (FN-safe). cardFilter "any" matches every graveyard card.
+  // WHOLE-GRAVEYARD EXILE (CR 701.10a) — the graveyard-hate staple, distinct from the single-CARD
+  // exile-from-graveyard family above: this exiles an ENTIRE graveyard zone, so there is no target card to
+  // choose and no cardFilter. Bojuka Bog (EDHREC #24) is the most-played card the engine could not model.
+  //
+  // "target player's graveyard" TARGETS THE PLAYER (CR 115.4 — the player is the target, the cards are not),
+  // which is why targetType is player/opponent rather than graveyardCard. "all graveyards" and "each
+  // opponent's graveyard" are non-targeted sweeps and carry targetType null.
+  //
+  // Anchored whole-clause: a filtered variant ("exile all creature cards from all graveyards" — Rest in Peace's
+  // sibling wording) does NOT match and stays low → Arbiter, because exiling the WHOLE zone for it would exile
+  // cards the card never touches — the forbidden over-apply, not a safe miss (CREED).
+  if (/^exile target player's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "player" };
+  if (/^exile target opponent's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "opponent" };
+  if (/^exile all graveyards$/.test(t)) return { op: "exile-graveyard", who: "eachPlayer", targetType: null };
+  if (/^exile each opponent's graveyard$/.test(t)) return { op: "exile-graveyard", who: "eachOpponent", targetType: null };
   if (/^exile target card from a graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any" };
   // GY-EXILE-UP-TO-THREE (BLITZ GX-1 — Decompose / Rapid Decay / Scarab Feast): "exile up to three target
   // cards from a single graveyard." The up-to-N subset machinery + the singleGraveyard SUBSET constraint
@@ -799,6 +838,7 @@ export const zoneResolvers = {
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
   "exile-from-graveyard": applyExileFromGraveyard,
+  "exile-graveyard": applyExileGraveyard,   // WHOLE-ZONE graveyard hate (Bojuka Bog / Farewell / Rakdos Charm)
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
   "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves
   "gy-shuffle-into-library": applyGyShuffleIntoLibrary, // GY-SHUFFLE-IN (GS-1, CR 701.24) — chosen graveyard cards shuffle into their owner's library

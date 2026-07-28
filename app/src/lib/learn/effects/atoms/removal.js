@@ -658,10 +658,17 @@ export function destroyExileClauseParser(clause) {
   }
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
-  const m = t.match(/^destroy all (artifacts and enchantments|artifacts|enchantments|lands)$/);
+  // MASS-EXILE PARITY (CR 701.8a destroy / 701.10a exile) — the typed mass list was bound to the DESTROY verb
+  // while exile only ever got "all creatures", so "Exile all artifacts" (Farewell, EDHREC #163) parsed low even
+  // though BOTH halves already shipped: "destroy all artifacts" is HIGH and "exile all creatures" is HIGH. The
+  // two were simply never crossed. The verb becomes a capture group; the targetType and its resolution path are
+  // untouched, and the exile op already handles a mass (non-chosen) target set — the eachCreature exile above is
+  // the proof, and the runtime test in massExileByType.test.js pins the artifact/enchantment/land arms directly
+  // rather than trusting that symmetry.
+  const m = t.match(/^(destroy|exile) all (artifacts and enchantments|artifacts|enchantments|lands)$/);
   if (m) {
     const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment" };
-    return { op: "destroy", targetType: TT[m[1]] };
+    return { op: m[1] === "destroy" ? "destroy" : "exile", targetType: TT[m[2]] };
   }
   // MASS-LAND-SUBTYPE — "destroy all Islands|Swamps|Mountains|Plains|Forests" (Boil, Tsunami, Acid Rain,
   // Flashfires). Reuses the eachLand destroy with a basic-land-type filter (atomTargets honors landSubtype);
