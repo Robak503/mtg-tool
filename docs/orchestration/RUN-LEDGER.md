@@ -106,7 +106,7 @@ veins, in order (top-2500 ranks shown — these are the next grinding targets, N
   3x  creatures can't attack you unless … pays {C}     ⭐ Propaganda #115 · Ghostly Prison #161
   3x  you may look at the top card of your library     Bolas's Citadel #263 · Mystic Forge #414
   3x  exile target creature you control, then return   Cloudshift #792 (BLINK) — see the BLINK box below
-  3x  exile top two + play them until end of next turn Light Up the Stage #1211 (IMPULSE DRAW)
+  3x  exile top two + play them until end of next turn Light Up the Stage #1211 — see IMPULSE box
 ```
 
 ### 🥇 THE BIGGEST VEIN IN THE ENGINE — "Whenever ONE OR MORE …" (CR 603.1), **291 parked cards**
@@ -293,9 +293,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.4%** (12,130/34,245 — +82 this run). Suite **885 files / 11,405 tests**,
-  lint 0, MUTANT sweep clean. EIGHTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries eighteen unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.4%** (12,132/34,245 — +84 this run). Suite **886 files / 11,416 tests**,
+  lint 0, MUTANT sweep clean. NINETEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries nineteen unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **70.1%** 🎉 · top-2500 **52.4%** · top-5000 41.9% · top-10k 35.0%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -320,6 +320,32 @@ That is the whole reason this target beats corpus %.
 | `f682aadb` | scoped counters-put WATCHERS — the slice the source comment deferred | **+2**, Enduring Scalelord · Wickersmith's Tools |
 | `e05c796b` | batched graveyard-ENTER + a silently-dropped zone filter ⚠️ | **+1**, Sidisi #3513 |
 | `c5e68496` | BLINK / FLICKER (CR 400.7) + a splitter keep-whole guard ⚠️ | **+7**, **Ephemerate #440** · Cloudshift #792 · Blur · Momentary Blink |
+| `a3488b65` | impulse-exile takes a COUNT (the runtime already existed) | **+2**, Act on Impulse · Rob the Archives |
+
+### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
+
+`a3488b65` generalised the count only. The family splits cleanly by (count / window), measured:
+```
+  27  N>1 / this-turn    ✅ machinery done (a3488b65) — most still parked on their OTHER text
+  22  N>1 / NEXT-TURN    ⛔ BLOCKED — needs a controller-scoped expiry
+  10  N>1 / other        (until-your-next-end-step, "one of those cards", filtered)
+```
+
+**⛔ WHY THE NEXT-TURN WINDOW IS NOT A ONE-LINE CHANGE — do not "just add turn + 1".** `state.turn`
+increments once per PLAYER turn, so in a 4-player game "until the end of YOUR next turn" is roughly
+`turn + 4`, not `turn + 1`. The shipped `_impulseTurn === state.turn` gate and the cleanup that strips it
+both assume a single-turn window. Reusing that stamp closes the window at the WRONG MOMENT — a wrong
+effect, not a missing one. `templateMatchers.matchImpulseExilePlay` documented this refusal before I got
+here and it still stands.
+
+**The shape of the fix:** stamp a controller-scoped expiry (an `_impulseUntil` keyed to the controller's
+next turn, or schedule the lapse through the delayed-trigger scheduler that already exists) and change BOTH
+the offer gate (`legalChoices.actionsPlayImpulseFromExile`) and the cleanup (`gameEngine
+.clearImpulsePlayPermissions`) to read it. Two sites, and they must not drift.
+
+**⚠️ ALSO: read the printed wording before writing the matcher.** My first pass admitted "them" but not
+"those cards" and flipped ZERO cards — "those cards" is the dominant printed referent (6 carriers vs 3).
+The fix took seconds; finding it took a corpus dump. Dump the real sentences first.
 
 ### ✅ BLINK / FLICKER — SHIPPED `c5e68496` (+7). The lesson below outlived the blocker; keep it.
 
