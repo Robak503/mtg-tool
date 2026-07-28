@@ -198,7 +198,7 @@ signatures for the rest:
 
 | arm | check function | receives | verdict |
 |---|---|---|---|
-| `are put` (57) | `checkGraveyardEventTriggers(state)` | drains `pendingGraveyardEvents` | ✅ batchable now |
+| ~~`are put` (57)~~ | `checkGraveyardEventTriggers(state)` | drains `pendingGraveyardEvents` | ✅ **DONE** `e05c796b` |
 | ~~`attack` (46)~~ | `checkAttackTriggers(state)` | whole combat (all attackers at once) | ✅ **DONE** `eb701643` |
 | ~~`leave` (39)~~ | `checkGraveyardEventTriggers(state)` — the GY half | drains `pendingGraveyardEvents` | ✅ **DONE** `22e2293d` (+13) |
 | `enter` (28) | `checkEnterTriggers(state, enteredPerm)` | **ONE permanent** | ⛔ **BLOCKED** |
@@ -293,9 +293,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.4%** (12,122/34,245 — +74 this run). Suite **884 files / 11,383 tests**,
-  lint 0, MUTANT sweep clean. SIXTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries sixteen unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.4%** (12,123/34,245 — +75 this run). Suite **884 files / 11,391 tests**,
+  lint 0, MUTANT sweep clean. SEVENTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries seventeen unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **69.9%** · top-2500 **52.2%** · top-5000 41.8% · top-10k 34.9%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -318,6 +318,22 @@ That is the whole reason this target beats corpus %.
 | `eb701643` | batched ATTACK → the existing `youAttack` event (one line, no machinery) | **0** — detection half only, honestly scored |
 | `22e2293d` | batched GRAVEYARD-LEAVE — new `gyLeaveBatch` event | **+13**, **Insidious Roots #1386** · Desecrated Tomb #4196 · Quintorius #9596 |
 | `f682aadb` | scoped counters-put WATCHERS — the slice the source comment deferred | **+2**, Enduring Scalelord · Wickersmith's Tools |
+| `e05c796b` | batched graveyard-ENTER + a silently-dropped zone filter ⚠️ | **+1**, Sidisi #3513 |
+
+### ☠️ THE DESCRIPTOR WHITELIST SILENTLY DROPS UNLISTED FIELDS — this nearly shipped an over-fire
+
+`detectTriggers` rebuilds every descriptor through an **explicit field whitelist** (`triggers.js` ~3171).
+A key your detector returns that is NOT listed there **vanishes with no error**. On the gyEnterBatch arm
+that meant `gyFromZone` never reached the check, so **Sidisi fired on EVERY graveyard entry** instead of
+only on a mill — a live over-fire.
+
+**Why nothing caught it:** the card classified `native-trigger` either way, so the tier was unchanged; the
+full suite was green; and the trigger DID fire, just too often. It surfaced only because a probe printed
+the descriptor field and it read `undefined`.
+
+**THE RULE: after adding any new descriptor field, print the descriptor and confirm the field survives
+`detectTriggers` before writing a single test.** A test written first would simply have encoded the
+dropped-field behaviour as correct. The whitelist entry now carries a warning comment for the next field.
 
 ### ⚠️ NOT EVERY "ONE OR MORE" NEEDS BATCHING — the counters arm proves the rule has an exception
 
