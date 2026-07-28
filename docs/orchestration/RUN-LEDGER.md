@@ -145,41 +145,47 @@ even after the work. **~4 corpus cards, ~0 deck slots, medium blast radius.** Co
 If someone takes it: mirror the COUNTER-GATED GROUP WARD emission (staticAbilityParser ~line 2012) — it is
 the exact pattern, already correct, already refusing the colored/{X}/life forms for the same reason.
 
-## ⭐ VERIFIED LEVER — reminder-defined ABILITY-CARRYING TOKENS (68 cards) — take this FIRST
+## ✅ RESOLVED — the token lever was 15 cards, not 68, and needed no subsystem work
 
-**68 parked cards would flip.** Measured by simulation (remove the create-token line, re-classify), and —
-unlike the lever I retracted earlier tonight — **the premise was verified by parsing real clauses before
-banking it.** That check is the whole difference between this entry and that one:
+Shipped as three NAMED_TOKENS entries (Lander / Mutagen / Junk) + one alternation. **+18 corpus, +2 deck
+slots, corpus crossed 35.1%.** All 18 flips audited individually, mutation-checked three ways.
 
-```
-Create a Treasure token. (It's an artifact with "{T}, Sacrifice this token: Add one mana of any color.")
-   -> high  create-named-token token:"treasure"          NAMED, in the registry
-Create a Food token.     (It's an artifact with "{2}, {T}, Sacrifice this token: You gain 3 life.")
-   -> high  create-named-token token:"food"              NAMED, in the registry (and NOT a mana ability)
-Create a Mutagen token.  (It's an artifact with "{1}, {T}, Sacrifice this token: Put a +1/+1 counter ...")
-   -> low   []                                            NOT in the registry -> parks
-```
+**I banked this as a 68-card subsystem extension and it was neither.** Both errors were the same error:
 
-**The gap is not "non-mana abilities" — it is "not in the hardcoded named-token registry."** Food proves
-non-mana abilities are fine when the token is known. What is missing is synthesizing an ARBITRARY token from
-the reminder text that fully defines it.
+- **The bad instrument.** I measured "would flip" by DELETING the line carrying the create-token clause —
+  but that line also carries the TRIGGER, so I counted cards blocked by their trigger as blocked by their
+  token. The tell was in my own output and I missed it: the hit list contained Treasure(12), Food(8),
+  Clue(2), all already in the registry, so the token demonstrably was not their blocker.
+- **The good instrument — CHANGE ONLY THE THING UNDER TEST.** Rename the unknown token to a known one,
+  strip its defining reminder, re-classify. Nothing else moves. Real answer: 15 cards, three names.
 
-**Why this is tractable rather than open-ended:** the T4 machinery already exists. `tokens.js` mints a token
-carrying `atom.tokenOracle` as its real oracle, and every downstream subsystem then drives it like a printed
-permanent — `manaProduction`, `legalChoices`, the dispatcher, all with no special-casing. Today that path is
-gated by `parser.parseTokenManaAbility` (slice 1: clean mana abilities only). **The work is widening that
-gate to any cleanly-parsing activated ability, not building a new path.**
+**Third time this run a probe's big number was a claim about the probe.** The standing rule now has two
+clauses: *(1) parse one real example before banking a lever; (2) a "would flip" probe must simulate the
+ACTUAL fix and change ONE variable.*
 
-Guards to keep, in the existing grain: synthesize ONLY when the token's type line, P/T, and its ability ALL
-parse cleanly; anything partial parks the whole card (CREED). A reminder that defines a TRIGGERED ability is
-a separate slice.
+## ⛔ DO NOT REBUILD — tap-another-permanent mana costs are a DELIBERATE refusal
 
-**Why I did not build it at depth: 68 flips is over the per-flip-audit threshold** (~10) and this is a
-subsystem extension. Take it first in a fresh session, audit the flips in batches with the card text in
-front of you, and re-run the sweep after.
+A probe said 5 cards flip if `manaProduction` accepted "{T}, Tap an untapped creature you control: Add …"
+(Springleaf Drum, Gene Pollinator — both in cdh, plus Loam Dryad / Saruli Caretaker / Jaspera Sentinel).
+**Do not act on that number.** `manaModel.manaCostModelable` refuses this cost explicitly, names Springleaf
+Drum in its comment, and cites a prior audit (SHELF S7): riding the {T} half alone **minted phantom mana
+every turn**, because the sim never taps the other permanent.
 
-Probe: `scratchpad/tokenoracle.mjs`. Examples: Michelangelo · Peregrin Took · April O'Neil · Arbalest
-Engineers · Koilos Roc · Zoo Escapees.
+Crediting these without teaching the mana subsystem to spend a second resource is a false positive, not a
+coverage win. **The lesson generalizes: a "would flip" probe measures whether the METRIC would credit a card,
+never whether crediting it would be CORRECT.** That distinction is the whole false-positive direction.
+
+## cdh IS ALSO CARD-BY-CARD — its clusters were checked and are empty
+
+Per Omnath's sequencing (cdh is Colton's only sub-90 deck), I measured its 21 parked non-land slots.
+Cluster candidates all came back near-zero: can't-be-countered self (83 corpus / 0 would-flip),
+can't-be-countered static (0), flash permission (1). Its remaining blockers are individually hard cEDH
+cards — imprint (Chrome Mox), cipher (Hidden Strings), Battle//Siege (Invasion of Ikoria), X-counters+draw-half
+(Wan Shi Tong). Consistent with the shelf-wide finding: no clusters anywhere.
+
+**Data note for the roster split:** all 16 decks live in ONE profile on this box (`prof_bdb11b3e`), so the
+Colton-vs-Joe split CANNOT be derived from profile structure — it rests entirely on `deck_joe_roster`. Told
+Omnath, since his two-number recommendation depends on it.
 
 ## NEXT ACTIONS
 
