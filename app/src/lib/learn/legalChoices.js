@@ -1712,6 +1712,13 @@ function actionsActivateAbility(state, playerId) {
       // empty stack, priority — CR 602.5i). The main-step gate above already covers own-main+priority;
       // canCastSorcerySpeed adds the empty-stack requirement the generic lane approximates away.
       if (ab.sorceryOnly && !canCastSorcerySpeed(state, playerId)) continue;
+      // PRECOMBAT-ONLY ("Activate only during your turn, before attackers are declared") — a NARROWING of
+      // this lane's window, not a strip. The gate above is `step === "main"`, which covers BOTH main
+      // phases, and the POSTCOMBAT main is after attackers are declared. Treating this rider as implied —
+      // the way "only as a sorcery" and "only during your turn" legitimately are — would let the engine
+      // activate the ability in a window the card forbids. Narrowing to the precombat main can only ever
+      // under-offer, which is the safe direction.
+      if (ab.preCombatOnly && state.phase !== "precombat-main") continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).

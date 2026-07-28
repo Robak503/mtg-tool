@@ -49,6 +49,26 @@ function stripReminder(text) {
  * (Pit Imp), "…only if <condition>." (Cinder Crawler) — does NOT match and the ability stays parked, because
  * offering it in the engine's main-step window WOULD violate that extra constraint (a forbidden FP).
  */
+/**
+ * PRECOMBAT-ONLY rider (census slice, 2026-07-28) — "Activate only during your turn, before attackers are
+ * declared." (26 corpus carriers) and the bare "Activate only before attackers are declared." (2 more).
+ *
+ * NOT strippable like the two riders below it, and that distinction is the whole slice. The offer gate's
+ * window is `step === "main"`, which covers BOTH main phases — and the postcombat main is AFTER attackers
+ * are declared. So stripping this rider would let the engine activate the ability in a window the card
+ * forbids: a false positive, not a safe simplification. It is flagged instead, and legalChoices NARROWS
+ * the window to the precombat main for a flagged ability. Narrowing can only ever under-offer.
+ *
+ * The bare form ("only before attackers are declared", no turn clause) legally allows an OPPONENT'S turn
+ * too; the engine never offers on an opponent's turn, so treating it identically is an under-offer — safe.
+ *
+ * DELIBERATELY UNMATCHED: "Activate only during an OPPONENT'S turn, before attackers are declared."
+ * (Nettling Imp). The engine's window and the card's are DISJOINT — it could never be legally offered at
+ * all, so it must stay parked rather than be credited into a window the card forbids.
+ */
+const PRECOMBAT_RIDER = /\.?\s*Activate (?:this ability )?only (?:during your turn, )?before attackers are declared\.?\s*$/i;
+const OPPONENT_TURN_RIDER = /Activate (?:this ability )?only during an opponent's turn/i;
+
 function stripEnforcedTimingRider(clause) {
   return String(clause || "")
     .replace(/\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i, "")
@@ -730,7 +750,9 @@ export function parseActivatedAbilities(card) {
     // A matched count word is always a LIMIT_WORDS key (the alternation is built from it), but fall back to
     // "no limit, don't strip" rather than NaN if that ever drifts — a safe false negative.
     const activationLimit = limitM ? (limitM[1] ? LIMIT_WORDS[limitM[1].toLowerCase()] ?? null : 1) : null;
-    const effectClause = stripEnforcedTimingRider(activationLimit ? rawEffect.replace(LIMIT_RIDER, "").trim() : rawEffect);
+    const preCombatOnly = PRECOMBAT_RIDER.test(rawEffect) && !OPPONENT_TURN_RIDER.test(rawEffect);
+    const afterPrecombat = preCombatOnly ? rawEffect.replace(PRECOMBAT_RIDER, "").trim() : rawEffect;
+    const effectClause = stripEnforcedTimingRider(activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim() : afterPrecombat);
     if (!costStr || !effectClause) continue;
 
     // CC-3 — thread the card so a SELF-NAME remove-counter cost item ("Remove a charge counter from
@@ -797,6 +819,7 @@ export function parseActivatedAbilities(card) {
       costStr,
       effectClause,
       activationLimit, // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
+      preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
