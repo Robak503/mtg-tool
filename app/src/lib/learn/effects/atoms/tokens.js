@@ -206,6 +206,16 @@ export const NAMED_TOKENS = {
   gold: { name: "Gold", type: "Token Artifact — Gold", oracle: "Sacrifice this artifact: Add one mana of any color." },
   blood: { name: "Blood", type: "Token Artifact — Blood", oracle: "{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card." },
   map: { name: "Map", type: "Token Artifact — Map", oracle: "{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery." },
+  // ── SHELF: three more predefined artifact tokens (2026-07-28). Each oracle string below is the PRINTED
+  // reminder text read out of the bundled index, not written from memory, and each is identical across every
+  // printing that makes one. They earn a registry slot on the same bar the six above meet: the token's
+  // ability PARSES AND RUNS, so minting one hands the player a permanent the engine can actually use —
+  // verified per token rather than assumed (tutor / add-counter / impulse-exile programs, all HIGH).
+  // Registering a token whose ability the engine could NOT execute would be the phantom-mana mistake in a
+  // new costume: a card credited native whose payoff silently does nothing.
+  lander: { name: "Lander", type: "Token Artifact — Lander", oracle: "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle." },
+  mutagen: { name: "Mutagen", type: "Token Artifact — Mutagen", oracle: "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery." },
+  junk: { name: "Junk", type: "Token Artifact — Junk", oracle: "{T}, Sacrifice this token: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery." },
 };
 
 /**
@@ -456,7 +466,16 @@ export function createNamedTokenClauseParser(clause) {
   // Spyglass Siren, Waterwind Scout, Sentinel of the Nameless City; "create two Map tokens" — Get Lost), so it
   // joins the allowlist HERE (the fixed-N form) and NOT the dynamic count anchors above (no "X Map tokens" /
   // "half X Map tokens" / "that many Map tokens" card is printed → those stay unmatched → Arbiter, a safe FN).
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold|blood|map) tokens?$/);
+  //
+  // LANDER / MUTAGEN / JUNK join on the SAME evidence-first rule, and the narrowness is deliberate rather
+  // than an oversight — I counted the printed clauses before widening anything. Of every corpus clause
+  // creating one of the three, 50 use this fixed-N form ("create a <tok> token", plus one each of "two" and
+  // "three"); the dynamic anchors above account for ~6 between them ("create X Lander tokens", "for each
+  // +1/+1 counter on it"). Only the form the cards actually print is opened, exactly as Map was. Blanket-
+  // deriving this alternation from Object.keys(NAMED_TOKENS) would have been one line and would have opened
+  // token/form pairs no card prints — harmless to coverage, but it discards the evidence the narrow anchors
+  // encode, and this file's standard is that an anchor states what was measured.
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold|blood|map|lander|mutagen|junk) tokens?$/);
   if (m) {
     const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
     if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged
