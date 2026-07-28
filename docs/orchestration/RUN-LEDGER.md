@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.7%** (12,214/34,245 — +166 this run). Suite **904 files / 11,627 tests**,
-  lint 0, MUTANT sweep clean. FORTY slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries forty unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.7%** (12,218/34,245 — +170 this run). Suite **905 files / 11,635 tests**,
+  lint 0, MUTANT sweep clean. FORTY-ONE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries forty-one unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **71.9%** 🎉 · top-2500 **54.1%** · top-5000 42.9% · top-10k 35.6%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **72.0%** 🎉 · top-2500 **54.1%** · top-5000 42.9% · top-10k 35.6%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,6 +412,7 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `58c1dd23` | ⚠️ subtype-scaled MANA — the vocabulary gate runs the OPPOSITE way | **+4**, **Elvish Archdruid #942** · Magus of the Coffers #5409 |
 | `04a8e665` | activated-cost reduction for ARTIFACTS — the subject is a FILTER | **+1**, Forensic Gadgeteer #1374 |
 | `44e2b391` | the "creature TOKEN you control" trigger scope — THREE states, not two | **+2**, **Curiosity Crafter #1734** · Anointer Priest #11214 |
 | `469bee92` | ⭐ the **"ANOTHER" qualifier** (CR 109.5) — bounce target + ETB scope | **+7**, **Aether Channeler #1526** · **Garruk's Packleader #2014** · Paleoloth |
