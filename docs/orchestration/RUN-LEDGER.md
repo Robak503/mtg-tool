@@ -293,9 +293,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.4%** (12,120/34,245 — +72 this run). Suite **883 files / 11,373 tests**,
-  lint 0, MUTANT sweep clean. FIFTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries fifteen unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.4%** (12,122/34,245 — +74 this run). Suite **884 files / 11,383 tests**,
+  lint 0, MUTANT sweep clean. SIXTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries sixteen unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **69.9%** · top-2500 **52.2%** · top-5000 41.8% · top-10k 34.9%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -317,6 +317,22 @@ That is the whole reason this target beats corpus %.
 | `028a999b` | batched DEATH triggers (CR 603.1) — new `diesBatch` event ⭐ reference impl | **+4**, **Morbid Opportunist #255** · Vraan #4072 |
 | `eb701643` | batched ATTACK → the existing `youAttack` event (one line, no machinery) | **0** — detection half only, honestly scored |
 | `22e2293d` | batched GRAVEYARD-LEAVE — new `gyLeaveBatch` event | **+13**, **Insidious Roots #1386** · Desecrated Tomb #4196 · Quintorius #9596 |
+| `f682aadb` | scoped counters-put WATCHERS — the slice the source comment deferred | **+2**, Enduring Scalelord · Wickersmith's Tools |
+
+### ⚠️ NOT EVERY "ONE OR MORE" NEEDS BATCHING — the counters arm proves the rule has an exception
+
+`f682aadb` looked like a seventh batch arm and is NOT one. **One `addCounter` event places N counters on ONE
+permanent**, so "one or more counters are put on…" is already satisfied per event — and a spell putting
+counters on three creatures correctly fires THREE times, because the plural counts COUNTERS, not creatures.
+A batch pass there would have been WRONG (an under-fire).
+
+**The test to apply per arm: does the plural quantify the OBJECTS the event is about, or something INSIDE a
+single object's event?** Deaths/graveyard-leaves quantify objects → batch. Counters quantify counters on one
+object → no batch. Getting this backwards is a silent wrong-count in either direction.
+
+Its real hazard was different and worth remembering: the watcher pass needed a `scope !== "self"` guard,
+because `scopeMatches` also matches a SELF descriptor when the watcher happens to BE the receiving
+permanent — which the self loop already fired. Without it every self-trigger fires TWICE.
 
 **The last three flip 1–2 cards each and are still the right work** — that is the entire point of the
 play-weighted target. Austere Command #169 and Rakdos Charm #330 are worth more than fifty pieces of jank,
@@ -352,7 +368,7 @@ would have let an illegal combination through.
 **Three pin types, three responses.** SCOPE marker → graduate with a pointer to the new file. SAFETY pin →
 never retire. BEHAVIOURAL pin → verify against the engine, then replace with a tighter assertion.
 
-**Running count: 4 scope graduations + 1 behavioural replacement, 0 safety pins dropped.** The fourth was
+**Running count: 6 scope graduations + 1 behavioural replacement, 0 safety pins dropped.** The fourth was
 `parser.test.js`'s MUST_DROP_TO_LOW merge gate, which listed "Counter target activated or triggered
 ability." annotated *"an ability is not a spell"* — a scope marker for the counter-SPELL slice. Note that
 file already documents its OWN graduations (Windfall, fixed-N at-random discard), so the convention was
