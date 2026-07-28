@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.6%** (12,186/34,245 — +138 this run). Suite **896 files / 11,550 tests**,
-  lint 0, MUTANT sweep clean. THIRTY-ONE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries thirty-one unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.6%** (12,196/34,245 — +148 this run). Suite **899 files / 11,585 tests**,
+  lint 0, MUTANT sweep clean. THIRTY-FOUR slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries thirty-four unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **71.5%** 🎉 · top-2500 **53.6%** · top-5000 42.6% · top-10k 35.4%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **71.8%** 🎉 · top-2500 **53.8%** · top-5000 42.7% · top-10k 35.5%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,6 +412,9 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `766bfabe` | ⭐ ENTERS-trigger multiplier — **two** fire sites (ETB *and* landfall) | **+4**, **Panharmonicon #261** · **Ancient Greenwarden #681** · **Yarok #2530** · Starfield Vocalist #2082 |
+| `3b2ac11a` | ATTACK-trigger multiplier — Teysa's twin, shared expansion body | **+1**, **Isshin, Two Heavens as One #1456** |
+| `d0d0c09c` | token-split + planeswalker EDICT pools — the sense IS the card | **+5**, **Sheoldred's Edict #1154** · **Accursed Marauder #464** · Angrath's Rampage · M.O.D.O.K. |
 | `7a1fab1d` | type-filtered untap — the family's 3rd shape, PARAMETERIZED not a 3rd twin | **+3**, Unwinding Clock #545 · Drumbellower #1940 · Prophet of Kruphix |
 | `ab92c504` | ⭐ **THE MISSING-CROSS FINDER** (probe) + COLOR×TYPE cost reduction | **+4**, the **Monument cycle** #664 · #1009 · #1879 · #2151 |
 | `9d1e4f8b` | lands-only play-from-top — needed a NEW spell gate to stay honest | **+2**, **Oracle of Mul Daya #499** · **Courser of Kruphix #1232** |
@@ -463,6 +466,32 @@ Silence #1946 · Garruk's Packleader #2014 ("another creature … power N or gre
 Krark-Clan Ironworks #1356 — 12 corpus carriers). A costless "Sacrifice a creature: Add {C}{C}" needs
 the mana model to pick a *victim* at production time; the modeled sibling sacrifices the SOURCE. Real
 work, not a cross — but the best-sized unbuilt mana lever on the board.
+
+### 🔶 THE TRIGGER-MULTIPLIER FAMILY — three of five shapes built; the 4th is scoped and NOT worth it
+
+"If <event> causes a triggered ability of a permanent you control to trigger, that ability triggers an
+additional time." All of it now shares one expansion body (`multiplyTriggers`, parameterized by its
+counter) and one `triggerMultiplierCount` walk, so the distinct-instance rule can't fork.
+
+```
+  ✅ DIES     Teysa Karlov #1270                                  (pre-existing)
+  ✅ ATTACKS  Isshin #1456                                         3b2ac11a
+  ✅ ENTERS   Panharmonicon #261 · Greenwarden #681 · Yarok #2530   766bfabe  ← FILTERED, two fire sites
+  ⛔ CAST     Veyran #789 · Wulfgar #4729 · Felix Five-Boots #4799  — not attempted
+  ⛔ SOURCE   "a triggered ability OF <filter> you control"         — MEASURED AND DECLINED, see below
+```
+
+**The SOURCE-filtered shape is the one to skip, and here is the receipt.** It multiplies ANY trigger
+from a matching permanent regardless of event, so it can't ride an enqueue site — it wants a pass at
+the `flushTriggers` chokepoint, which is more surface than any slice this run. A one-diff probe on all
+seven carriers says the payoff is **2 cards**: Harmonic Prodigy #676 and Katara #4836, and BOTH need a
+subtype filter with an "another" exclusion. Delney #854, Annie Joins Up #1033 and Echoes of Eternity
+#1505 all stay parked on their OTHER text even with the multiplier free. Don't build it on the
+strength of the name recognition.
+
+Also parked with a NAMED reason, not an oversight: Naban #6168 and Traveling Chocobo #2035 (controller-
+qualified / subtype entry filter), Elesh Norn #1003 (her second static HALVES opponents' triggers — a
+genuinely different mechanism), Drivnod #1801 (Teysa's own twin, blocked on its activated ability).
 
 ### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
 
