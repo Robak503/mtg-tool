@@ -17,6 +17,12 @@
 > ```
 > If `MUTANT` appears anywhere in `app/src/`, a mutation check was interrupted. Restore that line to its
 > pre-mutation form before doing anything else — the tests will be lying until you do.
+>
+> **⚠️ AND WHEN YOU MUTATE: `grep -c MUTANT` proves a mutation APPLIED, not that it applied to YOUR line.**
+> `perl` without `/g` replaces the FIRST occurrence in the file. I burned two runs "confirming" a test was
+> hollow when the mutation was landing on an identical string 180 lines earlier (a different atom's
+> `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
+> after.** A green mutation run is only evidence if you know WHAT you broke.
 
 ## 🎯 THE OBJECTIVE — RETARGETED BY COLTON, 2026-07-28 (supersedes the shelf framing below)
 
@@ -97,6 +103,7 @@ Re-ran `probe-spell-effect-veins.mjs` after 23 slices: the pile is 381 → **371
 ≤12 cards AND needs real machinery rather than vocabulary. The cheap-crossing phase of this pile is over.
 **Do not go looking for another one-line fix here — pick a wave and commit to it.**
 
+**~~WAVE A — SPELL COPY~~ ✅ SHIPPED `3c3fd256` (+5).** Remaining in it: Fork's "except that the copy is red" (changes the copy), Narset's Reversal #740 (copy + return to hand), Return the Favor #625 (Spree). ORIGINAL SCOPING BELOW — kept because the reference-implementation note is what made it quick:
 **WAVE A — SPELL COPY** (Reverberate #1380 · Fork · Narset's Reversal #740 · Return the Favor #625).
 `"copy target instant or sorcery spell"` is **entirely unmodeled** — the "you may choose new targets for the
 copy" rider is NOT the gap, the copy itself is. Only CREATURE-spell copy exists today (Double Major, via
@@ -320,9 +327,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.5%** (12,158/34,245 — +110 this run). Suite **888 files / 11,443 tests**,
-  lint 0, MUTANT sweep clean. TWENTY-THREE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries twenty-three unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.5%** (12,163/34,245 — +115 this run). Suite **889 files / 11,455 tests**,
+  lint 0, MUTANT sweep clean. TWENTY-FOUR slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries twenty-four unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **70.2%** 🎉 · top-2500 **52.7%** · top-5000 42.0% · top-10k 35.1%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -351,6 +358,7 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `3c3fd256` | ⭐ WAVE A — copy an instant or sorcery (CR 707.10) | **+5**, **Reverberate #1380** · Reiterate · Twincast |
 | `9381112d` | impulse NEXT-TURN window — controller-scoped expiry ⭐ | **+6**, **Light Up the Stage #1211** · Reckless Impulse #2120 · Wrenn's Resolve #2116 |
 
 ### 🔶 IMPULSE-EXILE — the COUNT is done; the **NEXT-TURN WINDOW** is the remaining 22 cards
