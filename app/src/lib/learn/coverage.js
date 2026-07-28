@@ -1339,6 +1339,67 @@ export function permanentActivatedCovered(card) {
  * activated cost/effect, an unmodeled static, a leveler) → false. Pure metric — it changes
  * only how cards are COUNTED, never what the engine does.
  */
+/**
+ * ⭐ TRIGGER-EFFECT TAIL STRIP — the general form of a patch this file kept re-applying by hand.
+ *
+ * Every residue chain here removes trigger sentences with `…(When|Whenever|At)\b[^.]+\.` — and `[^.]+`
+ * stops at the FIRST period. A trigger whose EFFECT spans sentences (Adaptive Omnitool's "look at the
+ * top six… You may reveal… Put the rest on the bottom…") is therefore verified as fully modeled by
+ * allTriggerSentencesModeled — which reads the whole folded effect — and then leaves its 2nd and 3rd
+ * sentences behind as APPARENT residue, sinking a card every piece of which is understood.
+ *
+ * The accumulated hand-written tails above (the entering-pronoun pump, the reflexive "if you do", the
+ * optional-payment "when you do") are all special cases of exactly that. This removes the general case:
+ * detectTriggers already folded the full effect into `effectClause`, so strip the sentences IT names.
+ *
+ * ⚠️ THE LICENCE IS PER-DESCRIPTOR `triggerRoutesNatively`, NOT the caller's gate — and I got that wrong
+ * first, which cost four FP pins. My original claim was "allTriggerSentencesModeled already proved every
+ * sentence parses HIGH, so stripping them is free." IT DOESN'T. That gate passes for a trigger whose
+ * FOLDED FOLLOW-UP is unmodeled ("draw a card. You may discard a card."; the Patient Naturalist mill
+ * back-reference; a kicked ETB with a conjoined damage rider) — and for exactly those cards the RESIDUE
+ * CHECK IS THE ONLY THING KEEPING THEM HONEST. Stripping their tails deleted the guard and credited
+ * three cards with a real unmodeled ability on them.
+ *
+ * So the strip runs per descriptor, only when THAT trigger routes natively. A trigger whose follow-up
+ * drags its program LOW doesn't route, isn't stripped, keeps its residue, and parks its card — which is
+ * the pre-existing behaviour, unchanged.
+ *
+ * ⚠️ HONEST LABEL: that licence is currently BELT-AND-SUSPENDERS, not a live guard. Measured — remove the
+ * `triggerRoutesNatively` line and the full suite still passes and the corpus tier-diff is ZERO cards.
+ * All three cards it caught turned out to have stale premises (their follow-ups became modeled), and no
+ * card in the index exercises it today. It stays because the hazard it closes is REAL — passing
+ * allTriggerSentencesModeled demonstrably does NOT imply the effect routes — and one line is cheap
+ * insurance against the next folded follow-up that isn't modeled. It is not what holds the FP line here.
+ * The NEWLINE restriction below is.
+ *
+ * Deliberately conservative: a rewritten effectClause (the event-specific sentinels — "that many
+ * lifegain +1/+1 counters", "[gy-self-return:hand] …") no longer matches its printed text, so the
+ * replace simply doesn't fire and the card keeps its old verdict. Short fragments (<8 chars) are
+ * skipped rather than risk matching something unrelated. Self-name normalized first so a legacy card
+ * printing its own name (CR 201.4) still matches the normalized clause.
+ */
+function stripTriggerEffectTails(text, card) {
+  const trigs = detectTriggers(card);
+  if (!trigs.length) return text;
+  let out = selfNormalizeOracle(text, card?.name, card?.type || card?.type_line);
+  for (const d of trigs) {
+    if (!triggerRoutesNatively(d)) continue;   // ← THE licence (see the note above), not the caller's gate
+    const sentences = String(d.effectClause || "").split(/\.\s+/).map((x) => x.trim()).filter(Boolean);
+    for (const sent of sentences.slice(1)) {   // the FIRST sentence went with the trigger lead
+      if (sent.length < 8) continue;
+      // ⚠️ NO `\s` ANYWHERE — it matches a NEWLINE, and this file has already shipped that exact false
+      // positive once (tokenAbilityGrantResidue.test.js pins it on Drowner of Hope): swallowing the line
+      // break welds the NEXT oracle line onto the stripped one and hides it, so a card with a real
+      // unmodeled ability reads native. I reproduced it verbatim on the first attempt here — four
+      // FP pins went red, which is exactly what they are for. Horizontal whitespace only, on both sides
+      // and inside the sentence, so a strip can never cross a line boundary.
+      const esc = sent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "[ \\t]+");
+      out = out.replace(new RegExp(`[ \\t]*${esc}[ \\t]*\\.?`, "i"), " ");
+    }
+  }
+  return out;
+}
+
 export function permanentFullyCovered(card) {
   const oracle = String(card?.oracle || "");
   if (!oracle.trim()) return false;             // vanilla → native-body handles it
@@ -1408,6 +1469,10 @@ export function permanentFullyCovered(card) {
     // only reveal the keyword/activated body — never hide a genuinely unmodeled sentence.
     .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
     .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ");
+  // …and then the GENERAL case the three hand-written tails above are each a special case of: every
+  // remaining sentence of a modeled trigger's own effect. Runs LAST so those anchored strips keep the
+  // exact text they were written against.
+  const afterTriggerTails = stripTriggerEffectTails(afterTriggers, card);
   // ⭐ EQUIPMENT COMPOSITION — an Equipment whose bonus + Equip line are the whole remainder once the
   // triggers are stripped. permanentEquipmentCovered ALREADY admits a trigger, but strips it with a naive
   // `[^.]+` that stops at the first period, so any trigger whose effect runs past one sentence leaves the
@@ -1424,9 +1489,9 @@ export function permanentFullyCovered(card) {
   // non-Equipment on its own first line, and a mutation removing this test changes no verdict. Said plainly
   // so nobody later mistakes it for the thing holding the FP line; the all-or-nothing gate below it is.
   if (/\bEquipment\b/i.test(String(card?.type || card?.type_line || ""))
-      && permanentEquipmentCovered({ ...card, oracle: afterTriggers })) return true;
+      && permanentEquipmentCovered({ ...card, oracle: afterTriggerTails })) return true;
 
-  const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))
+  const afterActivated = foldModalBulletLines(stripReminder(afterTriggerTails))
     .filter((line) => !isActivatedAbilityLine(line, card))
     .join("\n");
   // QUOTE-AWARE residue split (abilityClauses, the SAME splitter staticAbilitiesCoverCard uses): a GROUP-GRANT

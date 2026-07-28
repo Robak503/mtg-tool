@@ -25,6 +25,7 @@ import { parseKickerCost, entersWithKickedCounters, parseKickerCounterCreature, 
 import { classifyCard, isKeywordOnly, isNativeTier } from "./coverage.js";
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { createPermanent } from "./gameState.js";
+import { parseEffectClause } from "./effects/parser.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
@@ -148,7 +149,15 @@ describe("KICKER coverage — CREED anti-FP: deferred shapes stay body-only / ar
     // Anti-FP pin (preserves the deferred-shape coverage the Goblin Ruinblaster pin used to give): a Molten-Rain-
     // style conjoined "…It deals 2 damage to that land's controller" rider fails the exact destroy anchor → LOW →
     // the whole kicked-ETB creature stays body-only (never a partial that silently drops the damage rider).
-    expect(classifyCard({ name: "Molten Hellkite", type: "Creature — Dragon", mana: "{4}{R}", oracle: "Kicker {R}\nWhen this creature enters, if it was kicked, destroy target nonbasic land. It deals 2 damage to that land's controller." })).toBe("body-only");
+    // GRADUATED (2026-07-28): the damage rider is no longer dropped — it is FOLDED INTO the destroy atom
+    // (`damageRider: {amount: 2}`), the program parses HIGH, and the trigger routes. The card was only
+    // still parking because the residue chain left the rider sentence behind, which is a different
+    // mechanism than the partial-drop this pin is about. The claim it was making — never a partial —
+    // is now asserted directly on the atom instead of inferred from the tier.
+    const moltenHellkite = { name: "Molten Hellkite", type: "Creature — Dragon", mana: "{4}{R}", oracle: "Kicker {R}\nWhen this creature enters, if it was kicked, destroy target nonbasic land. It deals 2 damage to that land's controller." };
+    expect(classifyCard(moltenHellkite)).toMatch(/^native/);
+    expect(parseEffectClause("destroy target nonbasic land. It deals 2 damage to that land's controller").atoms[0])
+      .toMatchObject({ op: "destroy", targetType: "nonbasicLand", damageRider: { amount: 2 } });
   });
   it("a kicked ETB-TRIGGER whose target-intent is unresolvable (a two-sided fight) stays body-only", () => {
     // A fight-pair atom needs BOTH an own fighter AND an enemy target — one intent value can't express two

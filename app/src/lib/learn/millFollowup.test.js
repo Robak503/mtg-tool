@@ -50,7 +50,14 @@ describe("trigger follow-up fix — an unmodeled follow-up makes the WHOLE trigg
     expect(classifyCard(C("When this creature enters, mill four cards. Put a land card from among the milled cards into your hand."))).toBe("body-only");
   });
   it("the fix is atom-agnostic — a draw + unmodeled follow-up is body-only too", () => {
-    expect(classifyCard(C("When this creature enters, draw a card. You may discard a card."))).toBe("body-only");
+    // GRADUATED SUBJECT (2026-07-28): this used "You may discard a card." as the unmodeled follow-up, and
+    // it is MODELED now — the program parses to [draw, discard{optional}] and the trigger legitimately
+    // routes. The card was only still parking because the residue chain left the leftover sentence
+    // behind, which is a different mechanism than the one this test is about. Swapped for a follow-up
+    // that genuinely isn't modeled, so the assertion means what its name says.
+    expect(classifyCard(C("When this creature enters, draw a card. Choose a card name at random from outside the game."))).toBe("body-only");
+    // …and the now-modeled pair is asserted the other way, so the drift is recorded rather than lost.
+    expect(classifyCard(C("When this creature enters, draw a card. You may discard a card."))).toMatch(/^native/);
   });
   it("a SEPARATE activated ability is NOT treated as a follow-up (the trigger still routes)", () => {
     // The ETB mill routes; the {T} ability is residue → the CARD is body-only (composite), but the
@@ -76,8 +83,11 @@ describe("plain-imperative follow-up (no marker / no back-reference) — the dom
     // Recon Craft Theta: makes a 0/0 token then a +1/+1 counter rider — firing only the token would
     // leave a 0/0 that dies to SBA. The whole trigger must route, not half-fire.
     expect(classifyCard(C("When this creature enters, create a 0/0 blue Alien creature token. Put a +1/+1 counter on it."))).toBe("body-only");
-    // Voldaren Epicure: damage + an unmodeled Blood token.
-    expect(classifyCard(C("When this creature enters, it deals 1 damage to each opponent. Create a Blood token."))).toBe("body-only");
+    // GRADUATED (2026-07-28): Voldaren Epicure was the second example here — "damage + an UNMODELED Blood
+    // token". The Blood token is modeled now (create-named-token), the whole effect parses HIGH, and the
+    // trigger routes. It was only still parking on leftover residue. The Recon Craft Theta case above is
+    // the one that still carries this test's claim, and it still routes FALSE.
+    expect(classifyCard(C("When this creature enters, it deals 1 damage to each opponent. Create a Blood token."))).toMatch(/^native/);
   });
   it("a follow-up on a SEPARATE line is NOT absorbed (one ability per line)", () => {
     const t = detectTriggers(C("When this creature enters, draw a card.\nThis creature gets +1/+1 for each card in your hand."));
