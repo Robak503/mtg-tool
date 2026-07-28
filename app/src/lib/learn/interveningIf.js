@@ -89,6 +89,22 @@ function typeStr(card) {
   return String(card?.type || card?.type_line || "");
 }
 
+// The CARD TYPES (CR 205.2a) delirium counts. Kindred is Tribal's current name for the SAME type, so both
+// spellings map to one entry — a graveyard holding a Tribal card and a Kindred card has one type, not two.
+const CARD_TYPE_WORDS = ["artifact", "battle", "creature", "enchantment", "instant", "kindred", "tribal", "land", "planeswalker", "sorcery"];
+/** Distinct card types among the controller's graveyard. Reads only the type line's HEAD (before the em
+ *  dash) so a subtype ("— Equipment") can never be miscounted as a card type. */
+function cardTypesInGraveyard(state, controllerId) {
+  const seen = new Set();
+  for (const card of state.players?.[controllerId]?.graveyard || []) {
+    const head = typeStr(card).split("—")[0].toLowerCase();
+    for (const t of CARD_TYPE_WORDS) {
+      if (new RegExp(`\\b${t}\\b`).test(head)) seen.add(t === "tribal" ? "kindred" : t);
+    }
+  }
+  return seen.size;
+}
+
 // Does a permanent match a parsed FILTER ({ kind, word, state, powerAtLeast })? `state` (the game state) is
 // threaded only for the layer-aware power read; it's unused by the type/token/tapped gates.
 function permMatchesFilter(perm, filter, state) {
@@ -731,6 +747,31 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const filter = parseFilter(m[2]);
     if (!filter) return null;
     return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length >= n;
+  }
+
+  // ===== DELIRIUM (CR 702.9a's sibling ability word) ===== "[there are] <N> or more card types among cards
+  // in your graveyard". Counts DISTINCT card types across the whole graveyard, not cards — one
+  // "Artifact Creature — Golem" contributes TWO. Only the type line's head (before the em dash) is read, so
+  // a SUBTYPE never counts as a type. Kindred and Tribal are the same card type under two printed names
+  // (CR 205.2a), so they fold to one entry rather than double-counting a graveyard holding both.
+  m = c.match(new RegExp(`^(?:there are )?${NUM_RE} or more card types among cards in your graveyard$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return cardTypesInGraveyard(state, controllerId) >= n;
+  }
+
+  // ===== FORMIDABLE (CR 702.113a) ===== "creatures you control have total power <N> or greater". Layer-aware
+  // (counters + anthems count) via the same creaturePower reader every other power comparison here uses, so
+  // an anthem effect moves this condition exactly as it moves the board.
+  m = c.match(new RegExp(`^creatures you control have total power ${NUM_RE} or greater$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const total = controllerBoard(state, controllerId)
+      .filter((p) => isCreaturePermLocal(p))
+      .reduce((sum, p) => sum + creaturePower(p, state), 0);
+    return total >= n;
   }
 
   // "[there are|you have] <N> or more cards in your graveyard" — the UNTYPED total (the classic Threshold

@@ -43,8 +43,16 @@ const ZOMBIE = {
   name: "Caged Zombie", type: "Creature — Zombie", mana: "{2}{B}", power: 2, toughness: 3, keywords: [],
   oracle: "{1}{B}, {T}: Each opponent loses 2 life. Activate only if a creature died this turn.",
 };
-// The REFUSED case: no reader for a summed-power board query, so the rider is never stripped.
-const BEAR_COND = "creatures you control have total power 8 or greater";
+// The REFUSED case: a board query with no reader, so the rider is never stripped.
+//
+// GRADUATED 2026-07-28, same night, and worth recording rather than quietly editing. This constant was
+// originally "creatures you control have total power 8 or greater" (Dragon-Scarred Bear), and the CREED
+// assertions below fired the moment the FORMIDABLE reader landed a slice later — which is exactly what they
+// were written to do. The bar they enforce ("a condition with no reader must never be stripped") is
+// unchanged and still met; formidable and delirium simply have readers now, so they moved out of the
+// refused set on evidence. Replaced with a form that genuinely still has none, so the assertions keep
+// guarding a live boundary instead of a historical one.
+const REFUSED_COND = "an opponent has three or more poison counters";
 
 const abilityFor = (oracle) => parseActivatedAbilities({ name: "X", type: "Artifact", oracle })[0];
 
@@ -63,9 +71,11 @@ describe("the probe family — three contexts, one vocabulary", () => {
   });
 
   it("CREED — an unmodeled board query is refused rather than guessed", () => {
-    expect(activationConditionParseable(BEAR_COND)).toBe(false);
+    expect(activationConditionParseable(REFUSED_COND)).toBe(false);
+    // The FILTERED spell count: the vocabulary reads a bare per-turn spell tally, and refusing the filtered
+    // form rather than approximating it with the unfiltered one is the whole point.
     expect(activationConditionParseable("you've cast a noncreature spell this turn")).toBe(false);
-    expect(activationConditionParseable("there are four or more card types among cards in your graveyard")).toBe(false);
+    expect(activationConditionParseable("you control three or more creatures with different powers")).toBe(false);
   });
 });
 
@@ -91,7 +101,7 @@ describe("parse — the rider is stripped ONLY when the gate can read it", () =>
   });
 
   it("an UNREADABLE condition is left in place, which parks the card (false-negative safe)", () => {
-    const a = abilityFor(`{1}{G}: Regenerate this creature. Activate only if ${BEAR_COND}.`);
+    const a = abilityFor(`{1}{G}: Regenerate this creature. Activate only if ${REFUSED_COND}.`);
     expect(a.condition).toBeNull();
     expect(a.effectClause).toContain("Activate only if"); // still dragging the clause LOW, exactly as intended
   });
