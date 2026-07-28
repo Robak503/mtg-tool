@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.6%** (12,196/34,245 — +148 this run). Suite **899 files / 11,585 tests**,
-  lint 0, MUTANT sweep clean. THIRTY-FOUR slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries thirty-four unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.6%** (12,204/34,245 — +156 this run). Suite **901 files / 11,602 tests**,
+  lint 0, MUTANT sweep clean. THIRTY-SEVEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries thirty-seven unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **71.8%** 🎉 · top-2500 **53.8%** · top-5000 42.7% · top-10k 35.5%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **71.9%** 🎉 · top-2500 **53.9%** · top-5000 42.8% · top-10k 35.5%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,6 +412,8 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `1b43caf7` | ⚠️ basic-land-SUBTYPE tap augment — a banked "can't" that wasn't true | **+2**, **Crypt Ghast #525** · Nirkana Revenant #2848 |
+| `80261920` | untap target ARTIFACT / ENCHANTMENT / NONLAND PERMANENT — vocabulary, not machinery | **+6**, **Voltaic Key #1776** |
 | `766bfabe` | ⭐ ENTERS-trigger multiplier — **two** fire sites (ETB *and* landfall) | **+4**, **Panharmonicon #261** · **Ancient Greenwarden #681** · **Yarok #2530** · Starfield Vocalist #2082 |
 | `3b2ac11a` | ATTACK-trigger multiplier — Teysa's twin, shared expansion body | **+1**, **Isshin, Two Heavens as One #1456** |
 | `d0d0c09c` | token-split + planeswalker EDICT pools — the sense IS the card | **+5**, **Sheoldred's Edict #1154** · **Accursed Marauder #464** · Angrath's Rampage · M.O.D.O.K. |
@@ -454,13 +456,29 @@ they fell into the parked branch and the report's whole top became phantom "bloc
 Lands are skipped outright now. **A ranked list of plausible leads is exactly the output that doesn't
 announce when it's wrong.** Verify against the corpus, never off the report.
 
-**Still open at distance 1 (top-2500), read but not built:** Accursed Marauder #464 (nontoken edict) ·
-Mother of Runes #512 (protection-from-chosen-color activated) · Reprieve #633 (bounce a SPELL) ·
-Aqueous Form #735 (enchanted-creature unblockable) · Blade of Selves #905 (myriad grant) · Elvish
-Archdruid #942 (mana per SUBTYPE) · Forensic Gadgeteer #1374 (activated-cost cut for artifacts) ·
-Isshin #1456 (ATTACK-trigger multiplier — the Teysa shape) · Aether Channeler #1526 ("another target")
-· Shriekmaw #1546 (two negated qualifiers) · Voltaic Key #1776 (untap target artifact) · Deafening
-Silence #1946 · Garruk's Packleader #2014 ("another creature … power N or greater").
+**Still open at distance 1, read but not built** (refreshed 2026-07-28 after six of the original
+thirteen shipped — Accursed Marauder, Isshin, Voltaic Key, Crypt Ghast, Panharmonicon's family, the
+Monuments):
+
+| card | the one word | note |
+|---|---|---|
+| Mother of Runes #512 | `{T}:` prefix on a modeled spell clause | protection-from-chosen-color, activated form |
+| Reprieve #633 | target **spell** vs target creature | bounce a stack object — new target class |
+| Aqueous Form #735 | **enchanted** creature vs this creature | Aura-granted unblockable |
+| Blade of Selves #905 | has **myriad** vs has flying | the keyword itself is unbuilt |
+| Elvish Archdruid #942 | for each **Elf** vs each creature | mana per SUBTYPE — pairs with the Priest of Titania form |
+| Jhoira's Familiar #1035 | **historic** spells | not a type-line token; the existing refusal is CORRECT |
+| Forensic Gadgeteer #1374 | abilities of **artifacts** vs creatures | activated-cost cut, Training Grounds' twin |
+| Aether Channeler #1526 | **another** target nonland permanent | notSource on a bounce mode |
+| Shriekmaw #1546 | non**artifact**, nonblack | the sibling "nonblack creature" is ALSO unparsed — not a real cross |
+| Curiosity Crafter #1734 | creature **token** you control | the token split, now that edicts have the pools |
+| Helm of Awakening #1889 | costs **less** vs costs more | SYMMETRIC (all players) — different scope |
+| Deafening Silence #1946 | one **noncreature** spell each turn | cast-limit filter |
+| Garruk's Packleader #2014 | **another** creature … power N or greater | the "another" × power-filter cross |
+| Prowling Serpopard #3581 · Surrak #3186 | **creature** spells you control can't be countered | the AND shape the Monuments used |
+
+The "**another** ×" and "**token** ×" columns each appear twice — those two qualifiers are the highest-
+frequency crosses left, and are probably worth doing as qualifier passes rather than card by card.
 
 **Deliberately NOT taken:** the Altar family (Ashnod's #132, Phyrexian #307, Skirk Prospector #1351,
 Krark-Clan Ironworks #1356 — 12 corpus carriers). A costless "Sacrifice a creature: Add {C}{C}" needs
