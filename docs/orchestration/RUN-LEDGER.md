@@ -381,11 +381,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.6%** (12,204/34,245 — +156 this run). Suite **901 files / 11,602 tests**,
-  lint 0, MUTANT sweep clean. THIRTY-SEVEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries thirty-seven unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.7%** (12,213/34,245 — +165 this run). Suite **903 files / 11,620 tests**,
+  lint 0, MUTANT sweep clean. THIRTY-NINE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries thirty-nine unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **71.9%** 🎉 · top-2500 **53.9%** · top-5000 42.8% · top-10k 35.5%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **71.9%** 🎉 · top-2500 **54.0%** · top-5000 42.8% · top-10k 35.6%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -412,6 +412,8 @@ That is the whole reason this target beats corpus %.
 | `db4e6d51` | SACRIFICED REFERENT (CR 608.2h LKI) — narrowed a safety guard ⚠️ | **+7**, **Fling #1462** · Thud · Bloodshot Cyclops |
 | `484c3a0d` | …second reader off that stamp: GAIN-LIFE | **+7**, Reckoner's Bargain #3671 (family 14) |
 | `6e030eb0` | …third reader: DRAW | **+2**, Life's Legacy #2490 (family 16) |
+| `44e2b391` | the "creature TOKEN you control" trigger scope — THREE states, not two | **+2**, **Curiosity Crafter #1734** · Anointer Priest #11214 |
+| `469bee92` | ⭐ the **"ANOTHER" qualifier** (CR 109.5) — bounce target + ETB scope | **+7**, **Aether Channeler #1526** · **Garruk's Packleader #2014** · Paleoloth |
 | `1b43caf7` | ⚠️ basic-land-SUBTYPE tap augment — a banked "can't" that wasn't true | **+2**, **Crypt Ghast #525** · Nirkana Revenant #2848 |
 | `80261920` | untap target ARTIFACT / ENCHANTMENT / NONLAND PERMANENT — vocabulary, not machinery | **+6**, **Voltaic Key #1776** |
 | `766bfabe` | ⭐ ENTERS-trigger multiplier — **two** fire sites (ETB *and* landfall) | **+4**, **Panharmonicon #261** · **Ancient Greenwarden #681** · **Yarok #2530** · Starfield Vocalist #2082 |
