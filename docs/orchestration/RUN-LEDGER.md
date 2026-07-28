@@ -101,12 +101,12 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.3%** (12,083/34,245). Suite **877 files / 11,306 tests**, lint 0,
-  MUTANT sweep clean. Six slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT yet pushed;
-  the branch name is stale — it carries six unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.3%** (12,091/34,245). Suite **879 files / 11,322 tests**, lint 0,
+  MUTANT sweep clean. NINE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT yet pushed;
+  the branch name is stale — it carries nine unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **69.8%** · top-2500 **51.9%** · top-5000 41.6% · top-10k 34.7%.
-  (Session start: 69.6 / 51.8 / 41.5.)
+  **PLAY-WEIGHTED — the bar:** top-1000 **69.8%** · top-2500 **52.0%** · top-5000 41.7% · top-10k 34.8%.
+  (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
 
@@ -118,6 +118,8 @@ That is the whole reason this target beats corpus %.
 | `1fc6a1f8` | mana-value-filtered creature wipe (CR 202.3) | **+2**, incl. **Austere Command #169** |
 | `40359cd4` | disjunctive power-OR-toughness bound | **+1**, Warping Wail #2046 |
 | `45a9e771` | symmetric self-damage atom (CR 119.3) | **+1**, **Rakdos Charm #330** |
+| `97415979` | mass own-board regenerate (CR 701.19) + `eachCreatureYouControl` scope | **+1**, Golgari Charm #1603 |
+| `0361e27c` | opponent-scoped mass tap (CR 701.21a) — applier now honors non-chosen scopes | **+1**, Cryptic Command #1617 |
 
 **The last three flip 1–2 cards each and are still the right work** — that is the entire point of the
 play-weighted target. Austere Command #169 and Rakdos Charm #330 are worth more than fifty pieces of jank,
@@ -134,6 +136,24 @@ at the new test file, and keep the genuine refusals (the filtered whole-zone wor
 
 **A scope marker graduates when the machinery lands. A safety pin never does. Both look like a red test —
 the comment is what tells them apart.** This is now 3 graduations vs 0 wrongly-dropped pins.
+
+### ⭐ AND ONE **BEHAVIOURAL** PIN FIRED — a different animal, handled differently
+
+`counterWiring.test.js` asserted Cryptic Command is never offered at an empty stack. That was CORRECT while
+its unmodeled tap mode dropped the whole card below HIGH and made it a blanket counter. Once the mass-tap
+scope landed it became a real modal card, and CR 700.2 says a "Choose two" whose counter mode has no legal
+target is still castable via two OTHER modes — so continuing to withhold it would itself be the bug,
+making the card uncastable in a whole class of board states.
+
+**The procedure that made this safe, and the one to repeat:** do NOT edit the test to match the new
+behaviour. First ask the ENGINE what it now does. A throwaway probe printed the offers — exactly one
+combination, `[2,3]` = tap-all + draw, the only legal pair on an empty stack and empty board. Only THEN
+was the assertion replaced, and replaced with a STRONGER one: offered, exactly one combination, and the
+counter mode never present in ANY offered pair (CR 601.2c). *"Offered at all"* is the weak assertion that
+would have let an illegal combination through.
+
+**Three pin types, three responses.** SCOPE marker → graduate with a pointer to the new file. SAFETY pin →
+never retire. BEHAVIOURAL pin → verify against the engine, then replace with a tighter assertion.
 
 `3259071d` flips NOTHING on its own and is recorded that way rather than dressed up. It still earned its
 place: the subject sniff was misfiling `"Enchanted permanent …"` Auras as EQUIPMENT, and the metric's
@@ -164,17 +184,19 @@ mode.** Regenerate the list any time with `scratchpad/modes.mjs` (it prints both
 and the one-mode-away shortlist). ~~Austere Command~~, ~~Warping Wail~~, ~~Rakdos Charm~~,
 ~~Red/Null Elemental Blast~~ are DONE. Still one mode away:
 
-- **Golgari Charm #1603** — `regenerate each creature you control` (single-target regenerate is HIGH)
-- **Cryptic Command #1617** — `tap all creatures your opponents control` ⚠️ *`tap all creatures` is ALSO
-  low, so this is a REAL build, not a qualifier — do not assume symmetry with the destroy family*
+- ~~**Golgari Charm #1603**~~ ✅ `97415979` · ~~**Cryptic Command #1617**~~ ✅ `0361e27c`
 - **Sublime Epiphany #1709** — `counter target activated or triggered ability` (new counter target class —
   abilities on the stack are not spells, so this needs its own enumeration)
-- **Archmage's Charm #1746** — `gain control of target nonland permanent with mana value 1 or less`
-  (`gain control of target creature` is HIGH → noun vocabulary + the MV restriction, which now exists)
 - **Flame of Anor #1760** — `if you control a Wizard as you cast this spell, you may choose both` (the
   Akroma's-Will conditional-both lead, generalized off "commander" to an arbitrary permanent type)
 - **Dawn Charm #2079** — `counter target spell that targets you`
 - **Hull Breach #2368** — `destroy target artifact and target enchantment` (TWO targets in one mode)
+
+**⛔ DEFERRED WITH A REASON — Archmage's Charm #1746** (`gain control of target nonland permanent with mana
+value 1 or less`). Looks like noun vocabulary; it is not. `control.js` line ~82 hard-refuses a non-creature
+target (`if (t?.type !== "creature") continue`), so this needs control-change extended to arbitrary
+permanents — which touches layers, mana abilities, and the soulbond teardown. That is a WAVE, not a slice,
+for one card. Do not start it as a "quick vocabulary fix"; that misread is exactly what the deferral records.
 
 **Two modes away** (so cheaper than they look — count is not cost): Prismari Command #1108 wants
 `target player creates a Treasure token` AND `target player draws two cards, then discards two cards`;
