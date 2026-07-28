@@ -1,0 +1,133 @@
+# NEXT QUEUE — the successor to roadmap v2
+
+> **Why this file exists.** Roadmap v2's six waves are effectively cleared (2, 3-item-8, 4 and most of 5
+> landed 2026-07-27/28). Colton's standing order is a 5-hour minimum run, 8-hour stretch, no check-ins —
+> and the thing that would end that run early is not stamina, it is **running out of queue**. This is the
+> queue. It is sequenced so the risky work happens while sharp and the mechanical work is available late.
+>
+> Read with [RUN-LEDGER.md](RUN-LEDGER.md) (what is in flight right now) and the triage ledger (banked
+> engine findings with their traps named).
+
+## THE SEQUENCING LAW FOR A LONG RUN
+
+Judgment degrades before mechanics do. So:
+
+1. **Risky / novel / subsystem work goes EARLY**, while the run is fresh. Layer-2 control is the standing
+   example — it can produce permanent control theft if the revert misses a path.
+2. **Mechanical, testable work goes LATE.** A decomp or a card-by-card grind is still safe at hour seven.
+3. **Anything needing Colton's eyes is REFUSED, not deferred quietly** — say so and move on.
+4. Every item below states its SIZE and its FAILURE MODE, so a tired seat can judge whether to start it.
+
+---
+
+## A — UNBLOCKED NOW (do these first, in this order)
+
+### A1. Tibalt gremlin mode · ~1h · low risk
+Omnath's design landed 2026-07-27 ~23:05 (COMMS [O2]): trigger policy, frequency cap, bubble register.
+Per-profile setting, default OFF, Colton's ON. **Failure mode:** an unprompted interjection firing for a
+guest profile, or a jab with no real criticism behind it — both violate standing law. Build the cap and
+the profile gate before the copy.
+
+### A2. `MTGAssistant.jsx` decomp · ~2h · medium risk, high value
+1,704 lines, the last god-component, and the **prerequisite for the Foundry re-home** (which is refused
+solo — see C1). 11 hardcoded `setArea("agents")` sites. **Failure mode:** a nav regression nobody notices
+until a room stops opening. Extract presentational panels first (the CollectionView precedent,
+`2d726b0a`), leave the `area` state machine alone in this pass — re-homing and decomposing in one step is
+how you get an unreviewable diff.
+
+### A3. Forge wiring — ownership into the bench context · ~1h · low risk
+Scoped in the triage ledger. `/api/collection/ownership` is built and has **zero consumers**; the
+COLLECTION SUMMARY Karn already gets is aggregate-only (no per-card status, no `inDecks`).
+**The decision that must come first, and it is mine to make with a stated assumption:** ownership of WHICH
+names? The locked deck's cards are known up front (context injection); Karn's SUGGESTED cards are not
+known until he answers (post-hoc UI enrichment). **Assumption to build on: do the deck's cards now** — it
+is the half that is a clean context injection, it answers "what have I already committed elsewhere", and
+it does not block the other half later.
+
+---
+
+## B — THE ENGINE BACKLOG (each is a real slice; sizes measured, traps named)
+
+### B1. Layer-2 control · 28 cards · **HIGH RISK — do it EARLY or not at all**
+"You control enchanted creature" (7 sole + 21 co). Control is represented STRUCTURALLY here: the permanent
+MOVES between battlefield arrays, and 628 sites read `.controller`. So this is a move-and-revert, not a
+layer. **Failure mode: permanent control theft** — if the revert misses any path by which the Aura leaves,
+the creature never goes home. Requires a single chokepoint for "Aura left the battlefield" and a test that
+kills the Aura by every route (destroy, bounce, exile, sacrifice, its host dying).
+
+### B2. Phantom damage prevention with counter cost · 6 sole · **HIGH RISK**
+"If damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter." **Failure mode:
+an INVULNERABLE CREATURE** if the prevention lands but the decrement does not. The decrement is the whole
+slice; the prevention is the easy half.
+
+### B3. Shuffle-into-library instead of graveyard · 5 sole · medium
+Darksteel Colossus / Progenitus. Needs a hook at `moveCardToZone` — the chokepoint every zone change runs
+through, so a mistake here is broad. Read the existing replacement-effect registry first.
+
+### B4. Sunburst · 6 sole · medium
+Requires tracking WHICH COLORS were spent to cast. The mana system has no such record today; that is the
+real work, not the counter placement.
+
+### B5. Mistform type-change · 5 sole · low-medium
+"{1}: This creature becomes the creature type of your choice until end of turn." Layer-4 type change;
+`permHasChosenType` machinery already exists. The cheapest of the engine items.
+
+### B6. The GY-1 cost vocabulary tail · ~7 · low
+Three carriers are blocked by unsafe timing riders — leave those. The rest are cost-shape additions to a
+lane that already works.
+
+---
+
+## C — REFUSED / NEEDS COLTON (do not start these solo)
+
+### C1. Foundry rail re-home (roadmap wave 3 item 10)
+Stateful navigation across the app's most central, least-decomposed file, with 11 hardcoded call sites.
+A previous session of mine wrote: *"fresh session, live browser QA, ideally with Colton able to eyeball it
+same-day — not a 1am solo pass."* That judgment stands. **Do A2 first regardless** — it is the prerequisite
+and it is safe alone.
+
+### C2. Anything touching secrets, repo visibility, or the signing keys
+Standing rule, no exceptions.
+
+---
+
+## D — THE STANDING WORK (never runs out; use it to fill any gap)
+
+### D1. Shelf grind, card by card
+The 1.0 bar is shelf ≥90% per deck. **Measure with the REAL profile dir**, not the dev tree:
+```
+MTG_APP_ROOT="/c/Users/colto/AppData/Roaming/com.colton.mtg-tool" node app/scripts/measure-coverage.mjs
+```
+Genuinely long-tail now — 129 distinct blocking shapes across 362 unmodeled slots, biggest cluster 3. So
+it is card-by-card, and Colton has explicitly said that rate is acceptable.
+
+### D2. DEAD-CARD hunting — higher value than coverage, and invisible to the corpus number
+The Mana Vault find (three premium ramp cards offered NO ability at all) was worth more than any coverage
+point, and the coverage metric could not see it. The productive method is NOT a broad "offers nothing"
+probe — that flagged 18 cards and all 18 were board defects. The method that worked: take the shelf's
+blocking-shape list, and for each shape ask whether the RUNTIME agrees with the CLASSIFIER.
+
+### D3. Playability sweep at scale
+Now that the harness is honest (it was scoring its own missing handlers as engine soft-locks), run it
+wide — hundreds of games — and mine any genuine wedge. Each wedge is a real soft-lock and the 1.0 bar is
+zero of them.
+```
+MTG_APP_ROOT="/c/Users/colto/AppData/Roaming/com.colton.mtg-tool" node app/scripts/playability-sweep.mjs 200 beginner commander
+```
+
+### D4. Census re-run when a vein feels dry
+`node app/scripts/build-residue-census.mjs` — 52s, and it re-ranks everything. The keyword vein is mined
+out; do not re-mine it on a hunch.
+
+---
+
+## THE STANDING DISCIPLINE (unchanged — this is what earned the autonomy)
+
+Full suite + `eslint . --max-warnings 0` before every commit. Mutation-check every load-bearing change and
+grep for the marker afterwards. Re-measure rather than infer when two numbers disagree. Per-flip audit
+anything over ~10 cards. CI green on master before tagging. **When a diagnosis and the runtime disagree,
+the runtime wins** — and correct the written diagnosis in place rather than quietly rewriting it.
+
+Sweep `memory/COMMS.md` at every boundary. Post ABOVE the first `### ` header — there is a legacy
+`## LOG (newest first)` string ~670 lines down and anchoring on it buries the entry where Omnath never
+reads it. Verify with `grep -n "^### " memory/COMMS.md | head -3`.
