@@ -1324,6 +1324,17 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "you attack" is a controller-scoped once-per-combat event (Toph, Earthbending Master's second trigger).
   // Must be checked BEFORE the \battacks\b guard since both words are in "you attack".
   if (/^you attack$/.test(c)) return { event: "youAttack", scope: "you", whose: "any" };
+  // BATCHED ATTACK (CR 508.1) — "Whenever ONE OR MORE creatures you control attack" is the OLDER TEMPLATING
+  // for the identical trigger condition Wizards now words as "Whenever you attack": both fire exactly ONCE
+  // per combat in which the controller declared at least one attacker. So it maps onto the SAME youAttack
+  // event and needs no new machinery — checkAttackTriggers' once-per-combat pass already handles it, which
+  // is also what makes it safe (routing it through the per-attacker `attacks` event instead would fire once
+  // per attacker: a 3-creature alpha strike drawing 3 cards, the over-fire this family exists to avoid).
+  //
+  // DEFENDER-SIDE IS EXCLUDED: "one or more creatures attack YOU" is an opponent attacking, a different
+  // event entirely, and the anchored "you control" requirement keeps it out. A variant with an OBJECT
+  // ("…attack a player", "…attack an opponent") is likewise not claimed — the bare form only (safe FN).
+  if (/^one or more creatures you control attack$/.test(c)) return { event: "youAttack", scope: "you", whose: "any" };
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" is a COMPOUND combat event. The STANDARD "attacks or blocks" form is now SPLIT upstream
   // (DISJUNCTION_BLOCKS_SRC, BLITZ OR-1) into two single-verb sentences before this detector runs, so it

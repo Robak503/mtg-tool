@@ -110,3 +110,40 @@ describe("classification — the staple this unblocks", () => {
       .toMatch(/^native/);
   });
 });
+
+/**
+ * The ATTACK sibling lives here because it belongs to the same CR-603.1 family, but it needed NO new
+ * machinery at all — and the reason is worth recording. "Whenever one or more creatures you control attack"
+ * is simply the OLDER TEMPLATING for the condition Wizards now words as "Whenever you attack" (CR 508.1):
+ * both fire exactly once per combat in which you declared an attacker. So it maps onto the EXISTING
+ * `youAttack` event, whose once-per-combat pass in checkAttackTriggers already predates this work.
+ *
+ * That mapping is also the safety argument: routing it through the per-attacker `attacks` event instead
+ * would fire once per attacker, so a three-creature alpha strike would draw three cards.
+ *
+ * HONEST SCORE: this flips ZERO cards today. The five corpus carriers of the bare form (Grand Warlord
+ * Radha #5380, Angelic Guardian, Ancestor Dragon, …) are blocked by their EFFECTS, not by detection.
+ * Recorded as such rather than counted as a win.
+ */
+describe("ATTACK sibling — older templating for an event that already existed", () => {
+  const soldier = (o) => ({ name: "Probe", type: "Creature — Human Soldier", mana: "{2}{W}", power: 2, toughness: 2, keywords: [], oracle: o });
+
+  it("maps onto the EXISTING once-per-combat youAttack event", () => {
+    expect(detectTriggers(soldier("Whenever one or more creatures you control attack, draw a card."))[0])
+      .toMatchObject({ event: "youAttack", scope: "you" });
+  });
+
+  it("REGRESSION PIN — the modern wording is unchanged", () => {
+    expect(detectTriggers(soldier("Whenever you attack, draw a card."))[0]).toMatchObject({ event: "youAttack" });
+  });
+
+  it("THE LOAD-BEARING ONE — DEFENDER-side is a different event and stays undetected", () => {
+    // "one or more creatures attack YOU" is an OPPONENT attacking. Mapping it to youAttack would fire the
+    // controller's own attack trigger when they were being attacked — a wrong trigger, not a missing one.
+    expect(detectTriggers(soldier("Whenever one or more creatures attack you, draw a card."))).toHaveLength(0);
+  });
+
+  it("CREED — a variant with an OBJECT is not claimed (bare form only)", () => {
+    expect(detectTriggers(soldier("Whenever one or more creatures you control attack a player, draw a card."))).toHaveLength(0);
+  });
+});
