@@ -1851,6 +1851,15 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ playFromTop: { lands: true, spellFilter: "any" } });
     return;
   }
+  // ⭐ LANDS-ONLY (Oracle of Mul Daya #499 / Courser of Kruphix #1232) — the same permission with the SPELL
+  // half absent. `spellFilter: null` is the load-bearing field, not a formality: without a gate on it,
+  // actionsPlayFromTopOfLibrary offers the top NONLAND as a cast, and Courser of Kruphix starts casting
+  // spells off the library — a far bigger card than the one printed, and a false positive on a top-2500
+  // staple. The gate ships in this same change.
+  if (/^you may play lands from the top of your library$/.test(c)) {
+    out.push({ playFromTop: { lands: true, spellFilter: null } });
+    return;
+  }
 
   // PLAY-LANDS-FROM-GRAVEYARD (Crucible of Worlds / Ramunap Excavator / Icetill Explorer — 9 carriers, census
   // slice 44) — the graveyard sibling of the play-from-top permission above, and modeled the same way: a
@@ -3633,11 +3642,20 @@ export function uncounterablePlayersOnBattlefield(state) {
  * Library to offer the top library card as a real cast/play action, so the credited static is genuinely enforced.
  */
 export function playFromTopPermission(state, playerId) {
+  // MERGED across every granting permanent, not first-wins. Two permissions of DIFFERENT breadth can be on
+  // the battlefield at once (Courser of Kruphix grants lands only, Future Sight grants lands and spells),
+  // and returning whichever the scan happened to reach first would silently drop the broader one.
+  let merged = null;
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
     if (!perm?.card) continue;
-    for (const d of parseStaticAbilities(perm.card)) if (d.playFromTop) return d.playFromTop;
+    for (const d of parseStaticAbilities(perm.card)) {
+      if (!d.playFromTop) continue;
+      merged = merged
+        ? { lands: merged.lands || d.playFromTop.lands, spellFilter: merged.spellFilter || d.playFromTop.spellFilter }
+        : { ...d.playFromTop };
+    }
   }
-  return null;
+  return merged;
 }
 
 /**

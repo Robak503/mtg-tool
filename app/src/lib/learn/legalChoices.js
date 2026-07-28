@@ -2489,6 +2489,10 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
   const actions = [];
   if (!isLand(top)) {
     // NONLAND — cast the top card at full cost (freeCast=false), same builder / timing as a hand cast.
+    // GATED ON THE SPELL HALF: a LANDS-ONLY permission (Oracle of Mul Daya, Courser of Kruphix) grants no
+    // right to cast anything. Ungated, those two would cast spells off the library top — a much bigger card
+    // than the printed one, on two top-2500 staples.
+    if (!perm.spellFilter) return actions;
     actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
   } else if (perm.lands && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
     // LAND — play from the library top if the permission grants lands and a land drop is available.

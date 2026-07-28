@@ -83,8 +83,15 @@ describe("EXTRA-LAND-DROPS — classifyCard", () => {
     // trigger-sentence strip (the LANDFALL-composite fix); the static was always modeled. See landfall.test.js.
     expect(classifyCard(AESI)).toBe("native-mixed");
   });
+  it("GRADUATED — Oracle of Mul Daya's top-of-library riders are BOTH modeled now", () => {
+    // Pinned body-only here on its "top-of-library riders"; those riders are the reveal line (credited
+    // inert) and the lands-only play-from-top permission, which is modeled and ENFORCED as of
+    // playLandsFromTop.test.js. A not-built-yet boundary, never a safety one — so it graduates rather
+    // than being deleted, and the extra-land static it was really guarding is asserted directly.
+    expect(classifyCard(ORACLE_MUL_DAYA)).toMatch(/^native/);
+    expect(extraLandDropsOf(ORACLE_MUL_DAYA)).toBe(1);
+  });
   it("rider / symmetric / one-shot cards stay non-native (CREED all-or-nothing)", () => {
-    expect(classifyCard(ORACLE_MUL_DAYA)).toBe("body-only"); // top-of-library riders
     expect(classifyCard(DRYAD)).toBe("body-only");           // type-changing static rider
     expect(classifyCard(WAYWARD)).toBe("body-only");         // ascend + can't-attack rider
     // SYMMETRIC ("each player …") + their own riders → never native.
