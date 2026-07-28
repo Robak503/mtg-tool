@@ -73,13 +73,30 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.1%** (12,012). Shelf **1259/1597 (79%)**. Suite **866 files / 11,198
-  tests**, lint 0, sweep 20/20. Master green, **v0.149.9 tagged and building**.
-- **NOTE ON FLOW:** the last four commits went STRAIGHT TO MASTER, not through a PR. That was drift, not a
-  decision — a `git checkout master` in a verification step left me there and the commits followed. It is
-  permitted (I own master; only force-push is forbidden) and every push was preceded by a full local
-  suite + lint + sweep, and CI went green on master after each. But the PR gate is the better habit: it runs
-  CI BEFORE the code is on master rather than after. Branch first next slice.
+- **Nothing mid-edit.** Corpus **35.1%** (12,027). Shelf 1259/1597. Suite **867 files / 11,208 tests**,
+  lint 0, sweep 20/20. v0.149.9 published and verified (signed installer + sig + manifest).
+- PR open for the token ability-grant residue fix on `claude/cindy-shelf-0728b`.
+
+## ⭐ A DIAGNOSTIC RULE THAT PAID FOR ITSELF — routing vs. whole-card gates
+
+The last slice (+15) was NOT a missing mechanic. TK-1 had already built the trigger fold AND the splitClauses
+normalization for `…token. It has "<ability>"`; the effect parsed HIGH and the trigger routed natively. The
+only thing missing was that `permanentTriggersCovered`'s RESIDUE check had never been told, so the grant
+sentence looked like leftover text and parked a fully-modeled card.
+
+**The tell, and it generalizes:** `triggerRoutesNatively === true` while `classifyCard === "body-only"` means
+a WHOLE-CARD gate is rejecting it — never a missing mechanic. Check that pair FIRST on any parked card whose
+text looks like it should already work. I burned several probes hunting a mechanic that already existed.
+
+The whole-card gates worth checking in order: `permanentTriggersCovered` (residue strip — the one that bit),
+`permanentActivatedCovered`, `permanentFullyCovered`.
+
+## STILL PARKED IN THAT FAMILY — 22 cards, not yet diagnosed
+
+Serpent Generator · Mitotic Slime · From Beyond · Blight Herder · Call Up Emrakul to Help. They carry the
+same `It has "…"` grant but park for other reasons (their granted abilities are outside the curated
+mana/triggered gates, or a sibling clause is unmodeled). Diagnose with the routing-vs-gate pair above before
+assuming a mechanic is missing.
 
 ## WHAT SHIPPED THIS STRETCH — the activation-restriction vocabulary
 
