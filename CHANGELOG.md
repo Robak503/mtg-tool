@@ -8,6 +8,20 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.10] — 2026-07-28
+
+### Fixed
+- **Tokens that come with an ability now actually get it.** Eldrazi Scion and Spawn tokens, the Devil tokens
+  that ping when they die, and Llanowar Mentor's Elf Druid — the game was creating these as blank bodies, so
+  a Scion could never be sacrificed for mana and the AI never ramped off one. 16 more cards are playable.
+- **A card that made one of those tokens could be misread as a mana source.** If the token's own ability said
+  "Add", the game mistook that for the card's ability and then couldn't use the card at all.
+
+### Notes
+- One card (Drowner of Hope) was briefly credited as fully playable while still carrying an ability the
+  engine doesn't model. Caught and corrected in the same session — it's back with the Arbiter, where it
+  belongs. A card the engine skips is safe; a card it plays wrongly is not.
+
 ## [0.149.9] — 2026-07-28
 
 ### Added

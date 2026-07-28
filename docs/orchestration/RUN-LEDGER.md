@@ -76,6 +76,25 @@ That is the whole reason this target beats corpus %.
 - **Nothing mid-edit.** Corpus **35.1%** (12,027). Shelf 1259/1597. Suite **868 files / 11,210 tests**,
   lint 0, sweep 20/20. Master green at `af00adb5`. v0.149.9 published and verified.
 
+## ⭐ THE DIAGNOSTIC THAT FOUND TWO BUGS IN A ROW — ask WHICH LAYER said no
+
+Both engine bugs this stretch were found the same way, and neither was a missing mechanic. When a card looks
+like it should already work, do NOT go hunting for the feature. Ask which layer rejected it:
+
+| symptom | meaning |
+|---|---|
+| `triggerRoutesNatively` true + `classifyCard` body-only | a WHOLE-CARD gate (residue check) — not a mechanic |
+| effect clause parses HIGH standalone + ability `program === null` | the ability was rejected BEFORE its effect was parsed — look at what gated it |
+| `classify` native + `permanentActivatedCovered` false | the card is being credited while carrying something unmodeled (a possible FP) |
+
+Bug 1 was `permanentTriggersCovered`'s residue strip never being told about token ability-grants (+15).
+Bug 2 was `effectIsManaAbility` reading "Add" inside a QUOTED GRANT and flagging a token-maker as the card's
+own mana ability — which skipped building its program entirely, so it was invisible from both the effect
+lane and the mana lane (+1, and a whole misclassification class removed).
+
+I burned several probes on bug 1 hunting a mechanic that already existed. The layer question would have
+answered it in one step.
+
 ## ⚠️ TWO OF MY OWN FAILURES THIS STRETCH — read these before trusting a green number
 
 **1. I SHIPPED A FALSE POSITIVE AND CAUGHT IT AN HOUR LATER.** The token-grant residue strip ended with
