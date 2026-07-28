@@ -122,6 +122,24 @@ The correct build is a general EFFECT-level latch that marks only when the effec
 the shape `applyDiscoverAtom` already uses for Pantlaza (`atom.oncePerTurn`, keyed `sourceId_discover`), but
 generalized to any atom, which is a real subsystem slice with the decline semantics as its whole difficulty.
 
+## ⛔ CLOSED LEAD — the SCOPED counters-put-on variants are worth ~1 card each
+
+The natural follow-on to the shipped self-scoped slice, and it does NOT pay. 15 non-self carriers, 14 parked
+— but I swapped each scoped subject for the known-good `this creature` and re-classified, and only **4** flip:
+
+| card | scope it needs |
+|---|---|
+| Enduring Scalelord | "another creature you control" — `otherCreatureYouControl`, already exists |
+| Wildwood Scourge | "another NON-HYDRA creature you control" — a negated subtype filter |
+| Wickersmith's Tools | "a creature" — any player's, a global scope |
+| Axgard Artisan | "…for the first time each turn" — a frequency rider, not a scope at all |
+
+**The biggest bucket flips ZERO.** "a creature you control" (5 cards — Simic Ascendancy, The Powerful Dragon,
+A-Moss-Pit Skeleton …) is stuck on other clauses entirely. So this is roughly one new mechanism per card.
+
+Also worth knowing: **Lonis and Berta are NOT scope gaps.** Their subject is the card's own name, which the
+shipped detector already resolves via `shortName`; they park on their effects ("investigate that many times").
+
 ## ✅ SHIPPED — the +1/+1 COUNTERS-PUT-ON trigger event (CR 122.6), +4
 
 Rebuilt from the ledger's own notes and landed. Both paths verified at runtime, mutation-checked three ways.
