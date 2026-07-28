@@ -91,6 +91,33 @@ slice, 438 cards is hundreds of slices.
 one-mode-away list is a finishing tool, not a grinding tool — it goes quiet by construction (that is the
 same instrument-blindness Colton caught twice already; see THE OBJECTIVE above).
 
+### 🧭 THE VEINS ARE MINED OUT — what remains are THREE WAVES, each scoped below
+
+Re-ran `probe-spell-effect-veins.mjs` after 23 slices: the pile is 381 → **371** and every remaining vein is
+≤12 cards AND needs real machinery rather than vocabulary. The cheap-crossing phase of this pile is over.
+**Do not go looking for another one-line fix here — pick a wave and commit to it.**
+
+**WAVE A — SPELL COPY** (Reverberate #1380 · Fork · Narset's Reversal #740 · Return the Favor #625).
+`"copy target instant or sorcery spell"` is **entirely unmodeled** — the "you may choose new targets for the
+copy" rider is NOT the gap, the copy itself is. Only CREATURE-spell copy exists today (Double Major, via
+`snapshotCopiedCard` + the `copyNotCounter` targeting flag). Needs: a stack copy of a non-creature spell,
+plus optional retargeting through `expandCastChoices`. The creature path is the reference implementation.
+
+**WAVE B — THE ATTACK TAX** (⭐ highest RANK on the board: Propaganda #115 · Ghostly Prison #161 ·
+Windborn Muse #1011). *"Creatures can't attack you unless their controller pays {2} for each creature they
+control that's attacking you."* No attack-cost machinery exists at all.
+**⚠️ THE FP TRAP, and it is a bad one:** modelling this as a mere RESTRICTION without actually DEDUCTING the
+mana makes the AI attack for free — i.e. Propaganda does nothing while the card claims native. That is a
+wrong model, not a missing one. It needs a combat-time payment (the `pendingChoice` machinery) AND an AI
+decision to pay. Do not ship the restriction half alone.
+
+**WAVE C — BATCHED ETB ENTRY** (~28 cards: Welcoming Vampire #428 · Tocasia's Welcome #866 · Caretaker's
+Talent #648). The last arm of the one-or-more family, and the reason it is BLOCKED is recorded above:
+`checkEnterTriggers(state, enteredPerm)` takes ONE permanent, so entries are dispatched one at a time and a
+batch watcher would fire once PER token. Needs the ENTRY PATH taught to collect simultaneous entries (token
+creation, mass reanimation, blink returns) and dispatch them as one batch — then the arm is a copy of
+`diesBatch`.
+
 ### ✅ THE CATCH-ALL IS NOW DECOMPOSED — `app/scripts/probe-spell-effect-veins.mjs`
 
 The 381-card `Spell effect (other)` pile, split into sentences with the modeled ones filtered out. The
