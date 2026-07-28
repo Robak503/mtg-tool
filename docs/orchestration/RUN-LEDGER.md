@@ -1,5 +1,8 @@
 # RUN-LEDGER — live resume anchor for the long build run
 
+> **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
+> successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
+
 > **If you are a fresh session picking this up after a crash, timeout, or context loss: READ THIS FILE
 > FIRST, then `docs/orchestration/WAKE-REPORT.md`.** This file is rewritten at every slice boundary and is
 > the single source of truth for what is in flight. Everything above the `---` is current; everything below
