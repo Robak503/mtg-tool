@@ -101,11 +101,11 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.3%** (12,091/34,245). Suite **879 files / 11,322 tests**, lint 0,
-  MUTANT sweep clean. NINE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT yet pushed;
-  the branch name is stale — it carries nine unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.3%** (12,098/34,245 — +50 this run). Suite **880 files / 11,333 tests**,
+  lint 0, MUTANT sweep clean. TEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries ten unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **69.8%** · top-2500 **52.0%** · top-5000 41.7% · top-10k 34.8%.
+  **PLAY-WEIGHTED — the bar:** top-1000 **69.8%** · top-2500 **52.1%** · top-5000 41.7% · top-10k 34.8%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
@@ -120,6 +120,7 @@ That is the whole reason this target beats corpus %.
 | `45a9e771` | symmetric self-damage atom (CR 119.3) | **+1**, **Rakdos Charm #330** |
 | `97415979` | mass own-board regenerate (CR 701.19) + `eachCreatureYouControl` scope | **+1**, Golgari Charm #1603 |
 | `0361e27c` | opponent-scoped mass tap (CR 701.21a) — applier now honors non-chosen scopes | **+1**, Cryptic Command #1617 |
+| `b7bf0e46` | counter an ABILITY on the stack (CR 701.5a) — new `stackAbility` target class | **+7**, Stifle · Bind · Trickbind · **Sublime Epiphany #1709** |
 
 **The last three flip 1–2 cards each and are still the right work** — that is the entire point of the
 play-weighted target. Austere Command #169 and Rakdos Charm #330 are worth more than fifty pieces of jank,
@@ -155,6 +156,15 @@ would have let an illegal combination through.
 **Three pin types, three responses.** SCOPE marker → graduate with a pointer to the new file. SAFETY pin →
 never retire. BEHAVIOURAL pin → verify against the engine, then replace with a tighter assertion.
 
+**Running count: 4 scope graduations + 1 behavioural replacement, 0 safety pins dropped.** The fourth was
+`parser.test.js`'s MUST_DROP_TO_LOW merge gate, which listed "Counter target activated or triggered
+ability." annotated *"an ability is not a spell"* — a scope marker for the counter-SPELL slice. Note that
+file already documents its OWN graduations (Windfall, fixed-N at-random discard), so the convention was
+there to follow rather than invent: move the entry out, leave a NOTE naming the positive pin.
+
+**Every one of these fired on a green suite that had just passed.** They are the reason the "full suite,
+not the targeted tests" rule exists — a targeted run would have shipped all five silently.
+
 `3259071d` flips NOTHING on its own and is recorded that way rather than dressed up. It still earned its
 place: the subject sniff was misfiling `"Enchanted permanent …"` Auras as EQUIPMENT, and the metric's
 no-untap gate was NARROWER than the runtime matcher it was supposed to describe. Its second half — the
@@ -184,9 +194,8 @@ mode.** Regenerate the list any time with `scratchpad/modes.mjs` (it prints both
 and the one-mode-away shortlist). ~~Austere Command~~, ~~Warping Wail~~, ~~Rakdos Charm~~,
 ~~Red/Null Elemental Blast~~ are DONE. Still one mode away:
 
-- ~~**Golgari Charm #1603**~~ ✅ `97415979` · ~~**Cryptic Command #1617**~~ ✅ `0361e27c`
-- **Sublime Epiphany #1709** — `counter target activated or triggered ability` (new counter target class —
-  abilities on the stack are not spells, so this needs its own enumeration)
+- ~~**Golgari Charm #1603**~~ ✅ `97415979` · ~~**Cryptic Command #1617**~~ ✅ `0361e27c` ·
+  ~~**Sublime Epiphany #1709**~~ ✅ `b7bf0e46`
 - **Flame of Anor #1760** — `if you control a Wizard as you cast this spell, you may choose both` (the
   Akroma's-Will conditional-both lead, generalized off "commander" to an arbitrary permanent type)
 - **Dawn Charm #2079** — `counter target spell that targets you`
