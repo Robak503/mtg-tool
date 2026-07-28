@@ -49,11 +49,26 @@ That is the whole reason this target beats corpus %.
 2. **Mutation-check every load-bearing change.** Break it on purpose, watch the RIGHT test fail, restore.
    A green test proves nothing until it has been seen to fail. Grep for the marker afterwards — a perl
    substitution has silently failed to apply before.
-3. **Re-measure, don't infer.** When a flip count and a corpus delta disagree, isolate by disabling only
+3. **THE PROBE RULE — a "would flip" probe must SIMULATE THE FIX AND CHANGE ONE VARIABLE.** This cost
+   more time than anything else in the run; it misfired FOUR times, three of which I acted on before
+   catching. The failure is always the same: **deleting the whole line** answers "is the REST of the card
+   modelable?", which is not the question. The line carries the trigger, the condition, and the effect
+   together, so a card blocked by any of them scores as blocked by the one you're studying.
+   - **Right instrument:** substitute a KNOWN-GOOD equivalent for the one thing under test and re-classify.
+     Swap the unknown token name for Treasure. Swap the unrecognized condition for "you control a Forest".
+     Everything else on the card holds still, so the delta is attributable.
+   - It turned a "68-card lever" into 15 real cards, and it killed a "5-card Lieutenant cycle" that was
+     worth **zero** — the condition was never the blocker there, the compound static content was.
+   - **Second clause:** a "would flip" probe measures whether the METRIC would credit a card. It says
+     NOTHING about whether crediting it would be CORRECT. The tap-another-permanent mana sources "would
+     flip" 5 cards and would mint phantom mana. Check the runtime can actually pay/execute before believing
+     any number.
+
+4. **Re-measure, don't infer.** When a flip count and a corpus delta disagree, isolate by disabling only
    that change and re-measuring. Twice this run the gap was innocent; assuming would have been wrong both times.
-4. **Per-flip audit** anything over ~10 cards. Read the cards.
-5. CI green on master before tagging. Never tag a red tree.
-6. When a diagnosis and the runtime disagree, **the runtime wins** — and correct the written diagnosis in
+5. **Per-flip audit** anything over ~10 cards. Read the cards.
+6. CI green on master before tagging. Never tag a red tree.
+7. When a diagnosis and the runtime disagree, **the runtime wins** — and correct the written diagnosis in
    place rather than quietly rewriting it.
 
 ## IN FLIGHT
@@ -187,6 +202,25 @@ cards — imprint (Chrome Mox), cipher (Hidden Strings), Battle//Siege (Invasion
 **Data note for the roster split:** all 16 decks live in ONE profile on this box (`prof_bdb11b3e`), so the
 Colton-vs-Joe split CANNOT be derived from profile structure — it rests entirely on `deck_joe_roster`. Told
 Omnath, since his two-number recommendation depends on it.
+
+## ⛔ CLOSED LEAD — the LIEUTENANT cycle is NOT a condition gap (worth 0, not 5)
+
+"Lieutenant — As long as you control your commander, <static>" (6 corpus cards). The line-removal probe said
+5 would flip, and the diagnosis looked clean: conditional statics WORK ("gets +2/+2 as long as you control a
+Forest" is native-static, in both word orders), so the missing piece appeared to be the condition
+"you control your commander" — which the TRIGGER lane already has and the STATIC lane does not. A tidy
+parallel to the activation-condition slice, and a small build.
+
+**It is worth zero.** I substituted the known-good Forest condition into all six real cards and re-classified:
+every one stays body-only. The condition was never the blocker — the COMPOUND STATIC CONTENT is
+("gets +2/+2 AND has '<quoted triggered ability>'", "AND other creatures you control get +2/+2 and have
+trample"). Adding the condition would have modeled nothing.
+
+Anyone reviving this needs compound gated statics — a self pump PLUS a granted quoted trigger or a group
+effect, all under one gate — not a condition entry. That is a real subsystem, correctly sized before it is
+started.
+
+**Caught BEFORE building, which is the first time in this run.** The probe rule above is why.
 
 ## NEXT ACTIONS
 
