@@ -1719,6 +1719,11 @@ function actionsActivateAbility(state, playerId) {
       // activate the ability in a window the card forbids. Narrowing to the precombat main can only ever
       // under-offer, which is the safe direction.
       if (ab.preCombatOnly && state.phase !== "precombat-main") continue;
+      // BOAST (CR 702.135b) — "only if THIS CREATURE attacked this turn". Read off the PERMANENT, never the
+      // seat: the seat-level attackedThisTurn (Raid) would offer boast whenever ANY of your creatures
+      // attacked, which is a materially different card. The other half of the reminder — once each turn —
+      // rides the existing activationLimit ledger rather than a second mechanism.
+      if (ab.boast && !perm.attackedThisTurn) continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).

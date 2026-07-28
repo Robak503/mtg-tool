@@ -732,7 +732,17 @@ export function parseActivatedAbilities(card) {
     // so this is inert for every printed ability. Straight " and curly “/” both count.
     const preColonQuotes = (line.slice(0, ci).match(/["“”]/g) || []).length;
     if (preColonQuotes % 2 === 1) continue;   // colon inside a quoted granted ability → a static grant, not our own
-    const costStr = line.slice(0, ci).trim();
+    let costStr = line.slice(0, ci).trim();
+    // BOAST (CR 702.135) — an ABILITY WORD (CR 207.2c), so "Boast" itself has no rules meaning; the whole
+    // rule lives in its reminder text: "Activate only if this creature attacked this turn and only once
+    // each turn." Strip the label so parseAbilityCost sees the real cost, then carry BOTH halves of that
+    // reminder as enforced facts — the once-per-turn limit through the existing activationLimit ledger,
+    // and the attacked-this-turn condition through a new PER-PERMANENT flag checked at the offer gate.
+    //
+    // Per-permanent matters: the seat-level `attackedThisTurn` already existed for Raid, and reading it
+    // here would offer boast whenever ANY of your creatures attacked — a different, much looser card.
+    const isBoast = /^boast\s*[—–-]\s*/i.test(costStr);
+    if (isBoast) costStr = costStr.replace(/^boast\s*[—–-]\s*/i, "").trim();
     // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5i) — a WHEN restriction the runtime
     // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the
     // effect parses on its real payload instead of being dragged LOW by the trailing sentence.
@@ -818,8 +828,9 @@ export function parseActivatedAbilities(card) {
       raw: line,
       costStr,
       effectClause,
-      activationLimit, // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
+      activationLimit: activationLimit ?? (isBoast ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
+      boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)

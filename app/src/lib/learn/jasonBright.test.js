@@ -108,17 +108,36 @@ describe("POWER-DIFFERED intervening-if (CR 603.6e LKI)", () => {
   });
 });
 
-describe("ACTIVATED ability-word label (CR 207.2c) — flavor strips, rules-bearing keywords stay parked", () => {
+describe("ACTIVATED ability-word label (CR 207.2c) — flavor strips; a rules-bearing keyword strips ONLY once enforced", () => {
+  // The rule is unchanged: a label may only be stripped when nothing in its reminder is left unmodeled.
+  // BOAST graduated on 2026-07-28 by having its reminder ENFORCED, not by relaxing the bar.
   it("Jason's labeled ability is modeled (counter-then-grant + sac cost)", () => {
     const abs = parseActivatedAbilities(jasonCard());
     expect(abs).toHaveLength(1);
     expect(abs[0].modeled).toBe(true);
     expect(abs[0].costStr.toLowerCase()).not.toContain("come fly with me");
   });
-  it("CREED — a BOAST line keeps its label (the '(Activate …)' reminder marks a rules-bearing keyword) → unmodeled", () => {
+  it("BOAST — PIN SATISFIED 2026-07-28: the label strips now BECAUSE both halves of its reminder are enforced", () => {
+    // THIS PIN DID ITS JOB. Its bar was precise: a "(Activate …)" reminder marks a RULES-BEARING keyword,
+    // so stripping the label and treating the line as a plain ability would produce "a spammable free
+    // activation" — its own words. Correct, and it fired the moment boast started parsing.
+    //
+    // The bar is now MET, and met by enforcing rather than by stripping harder. Boast is an ability word
+    // (CR 207.2c) whose whole rule lives in that reminder, and BOTH halves are now real:
+    //   • "only if THIS CREATURE attacked this turn" -> a PER-PERMANENT flag stamped at the declare-attacker
+    //     chokepoint and cleared at untap, checked by the offer gate. Deliberately not the seat-level Raid
+    //     flag, which would offer boast whenever ANY creature attacked — a materially stronger card.
+    //   • "only once each turn" -> the existing activationLimit ledger, not a second mechanism.
+    // The spammable activation the pin guarded against is therefore impossible. See boastKeyword.test.js,
+    // whose load-bearing case asserts boast is NOT offered when a DIFFERENT creature attacked; mutate the
+    // gate to read the seat flag and it fails immediately.
     const usher = { id: "uf", name: "Usher of the Fallen", type: "Creature — Spirit Warrior", power: "2", toughness: "1", oracle: USHER_ORACLE };
     const abs = parseActivatedAbilities(usher);
-    expect(abs.every((a) => a.modeled === false)).toBe(true); // never a spammable free activation
-    expect(classifyCard(usher)).toBe("body-only");
+    const boast = abs.find((a) => a.boast);
+    expect(boast).toBeTruthy();
+    expect(boast.modeled).toBe(true);
+    expect(boast.activationLimit).toBe(1);           // the once-each-turn half, enforced
+    expect(boast.costStr.toLowerCase()).not.toContain("boast");
+    expect(classifyCard(usher)).toMatch(/^native/);
   });
 });
