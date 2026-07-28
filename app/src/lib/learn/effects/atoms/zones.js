@@ -635,21 +635,34 @@ export function bounceClauseParser(clause) {
   // so the combat-referent gate (triggerRouting.combatDamageReferentSatisfied / coverage's spell guard) pins
   // the bounce to combatDamageToPlayer — on any other event (a spell, an ETB) the referent is unset → not
   // native there (a SAFE FN, never a mis-scoped bounce).
-  const cb = t.match(/^return target creature(?: (an opponent controls|you don't control|you control|that player controls))? to its owner's hand$/);
+  const cb = t.match(/^return (another )?target creature(?: (an opponent controls|you don't control|you control|that player controls))? to its owner's hand$/);
   if (cb) {
-    const who = /^you control$/.test(cb[1] || "") ? "you"
-      : /^that player controls$/.test(cb[1] || "") ? "damagedPlayer"
+    const who = /^you control$/.test(cb[2] || "") ? "you"
+      : /^that player controls$/.test(cb[2] || "") ? "damagedPlayer"
       : "opponent";
-    if (!cb[1]) return { op: "bounce", targetType: "creature" };
-    const atom = { op: "bounce", targetType: "creature", restrictions: [{ kind: "controller", who }] };
+    // "ANOTHER" (CR 109.5 — Icefeather Aven, Exit Specialist): same target class, source excluded. See the
+    // fail-closed note on the permanent form below.
+    const another = cb[1] ? [{ kind: "notSource" }] : [];
+    if (!cb[2]) return another.length ? { op: "bounce", targetType: "creature", restrictions: another } : { op: "bounce", targetType: "creature" };
+    const atom = { op: "bounce", targetType: "creature", restrictions: [{ kind: "controller", who }, ...another] };
     if (who === "damagedPlayer") atom.who = "damagedPlayer";
     return atom;
   }
-  const bp = t.match(/^return target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
+  // "ANOTHER" (CR 109.5 — Aether Channeler #1526's bounce mode, Rushing River, Jace the Living Guildpact):
+  // the same targeted bounce, excluding the SOURCE permanent. Reuses the `notSource` restriction the untap
+  // family already carries, so the exclusion is one implementation rather than two.
+  //
+  // ⚠️ notSource FAILS CLOSED when ctx.sourceId is unknown — the pool comes back EMPTY rather than wrongly
+  // including the source. That is the right default, and it also means the qualifier is only safe to emit
+  // where the source id genuinely reaches target enumeration. The runtime pin in anotherTargetBounce.test.js
+  // exercises the real ETB-trigger path for exactly that reason; a parse-only test would have proved nothing
+  // about whether the mode has any targets at all.
+  const bp = t.match(/^return (another )?target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
   if (bp) {
     const TT = { "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact", "enchantment": "enchantment", "land": "land" };
-    const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
-    return { op: "bounce", targetType: TT[bp[1]], restrictions };
+    const restrictions = bp[3] ? [{ kind: "controller", who: /^you control$/.test(bp[3]) ? "you" : "opponent" }] : [];
+    if (bp[1]) restrictions.push({ kind: "notSource" });
+    return { op: "bounce", targetType: TT[bp[2]], restrictions };
   }
   // SELF-BOUNCE (forced, own-choice) — "return a[nother] permanent|creature you control to its owner's hand"
   // (Kor Skyfisher / Emancipation Angel / Cache Raiders ETB · Roaring Primadox / Shrieking Drake upkeep/ETB ·

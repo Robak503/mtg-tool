@@ -671,6 +671,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     const powM = subj.match(/^a creature you control with power (\d+) or greater$/)
       || subj.match(/^this creature or another creature you control with power (\d+) or greater$/);
     if (powM) return { event: "etb", scope: "creatureYouControlPower", whose: "any", powerThreshold: parseInt(powM[1], 10) };
+    // "ANOTHER" (CR 109.5 — Garruk's Packleader #2014, Outcaster Trailblazer #2968, Paleoloth): the SAME
+    // power-filtered scope, minus the source itself. The union form directly above deliberately INCLUDES
+    // the self ("this creature or another …"), so the two are opposite readings of neighbouring templating
+    // and can't share a descriptor. Emitting the union's shape here would give Packleader an extra draw
+    // when Packleader itself enters — a fabricated trigger, not a missing one.
+    const powAnotherM = subj.match(/^another creature you control with power (\d+) or greater$/);
+    if (powAnotherM) return { event: "etb", scope: "creatureYouControlPower", whose: "any", powerThreshold: parseInt(powAnotherM[1], 10), etbExcludeSelf: true };
   }
 
   // ===== KEYWORD-FILTER ETB (Dragon Tempest "a creature you control with flying enters, it gains haste …";
@@ -3238,6 +3245,7 @@ export function detectTriggers(card) {
         gyFromZone: cls.gyFromZone,           // GY-ENTER-BATCH: the ORIGIN zone the printed trigger names ("library" — Sidisi's mill payoff; absent = "from anywhere"). MUST be listed here or it is silently dropped and the trigger fires on EVERY origin — a live over-fire, not a missed one.
         etbMaxPower: cls.etbMaxPower,         // BATCHED-ETB FILTER: printed power cap ("with power 2 or less" — Welcoming Vampire). Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
         etbMaxMv: cls.etbMaxMv,               // BATCHED-ETB FILTER: printed mana-value cap ("with mana value 3 or less" — Tocasia's Welcome).
+        etbExcludeSelf: cls.etbExcludeSelf,   // "ANOTHER creature you control with power N or greater" (Garruk's Packleader). Unlisted here = silently dropped = the source fires on its OWN entry — a fabricated draw, the over-fire direction.
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
@@ -4089,8 +4097,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // POWER-THRESHOLD ETB — the entering creature you control with LAYER-RESOLVED power ≥ N (counters +
       // anthems included; checkEnterTriggers fires after the permanent + its enters-with counters are on
       // the battlefield, so creaturePower is accurate at ETB). `state` threaded through scopeMatches for this.
+      // etbExcludeSelf: the "another creature you control with power N or greater" form (Garruk's
+      // Packleader) must NOT fire on the source's own entry. Without this the card draws an extra card
+      // for itself — a fabricated trigger the tier can't see, since it classifies native either way.
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller
+        && !(descriptor.etbExcludeSelf && triggeringPermanent.id === sourcePermanent.id)
         && creaturePower(triggeringPermanent, state) >= (descriptor.powerThreshold || 0);
     case "creatureYouControlKeyword":
       // KEYWORD-FILTER ETB (Dragon Tempest "a creature you control with flying enters …"; Waterkin Shaman;
