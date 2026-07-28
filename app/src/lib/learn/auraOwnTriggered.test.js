@@ -227,11 +227,20 @@ describe("AU-3 CREED — false-negative-SAFE parks stay on the Arbiter", () => {
     expect(classifyCard(c)).toBe("body-only");
   });
 
-  it("an aura-own DIES trigger isn't detected → body-only (Bequeathal)", () => {
-    // "When enchanted creature dies, you draw two cards." — detectTriggers doesn't recognize the aura-own
-    // dies condition (no equippedCreature dies scope), so shaped !== detected → body-only.
-    expect(detectTriggers(cardOf("Bequeathal"))).toHaveLength(0);
-    expect(classifyCard(cardOf("Bequeathal"))).toBe("body-only");
+  it("GRADUATED — the aura-own DIES trigger IS now detected (Bequeathal)", () => {
+    // This pin asserted the opposite and fired the moment the detector arm landed, which is exactly its job.
+    // "When enchanted creature dies, you draw two cards." now routes through the SAME equippedCreature
+    // attached-linkage scope the "enchanted creature attacks" / "…deals combat damage" arms already use: on
+    // the host's death the aura is already detached, so scopeMatches reads the linkage from the dead
+    // creature's CR-603.10a look-back `attachments`.
+    //
+    // The bar this pin enforced — an aura is credited only when its body is DETECTED and ROUTED — is
+    // unchanged and still met; the dies condition simply has a detector now. The two tests around it still
+    // hold the line for the shapes that genuinely have none (Forced Adaptation, Soul Bleed).
+    const d = detectTriggers(cardOf("Bequeathal"));
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ event: "dies", scope: "equippedCreature" });
+    expect(classifyCard(cardOf("Bequeathal"))).toMatch(/^native/);
   });
 
   it("the enchanted-CONTROLLER's-upkeep scope isn't modeled → body-only (Soul Bleed)", () => {

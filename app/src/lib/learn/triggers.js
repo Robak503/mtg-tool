@@ -872,6 +872,23 @@ function classifyCondition(condRaw, cardName, cardType) {
   }
   if (/\bdies\b/.test(c)) {
     if (selfRef) return { event: "dies", scope: "self", whose: "any" };
+    // AURA HOST DIES — "When enchanted creature dies, <effect>" (Elephant Guide, Griffin Guide, Bequeathal,
+    // Dying Wail, Most Wanted, Failed Conversion). The sibling of the "enchanted creature attacks" /
+    // "…deals combat damage" arms already here, and it reuses the SAME `equippedCreature` attached-linkage
+    // scope those use — Auras and Equipment attach through the identical `attachedTo`/`attachments` fields.
+    //
+    // That scope ALREADY handles the death case correctly, which is why this is a detector arm and not a
+    // mechanism: on the host's death the Aura is already detached (`attachedTo` is null by the time
+    // checkDiesTriggers runs), so scopeMatches reads the linkage from the dead creature's CR-603.10a
+    // look-back `attachments`, captured before the detach.
+    //
+    // NOT gated on the effect, unlike the SELF-LTB "equipped creature dies → return it to its owner's hand"
+    // detector below. That one needs its narrow gate because its effect names the DEAD OBJECT ("it", CR
+    // 608.2c) and mis-binding that referent would return the wrong card. Every effect this arm actually
+    // frees is self-contained (create a token / draw / discard / surveil) and names nothing — and an effect
+    // that DOES reference the dead creature ("return that card…") simply fails to parse and keeps its card
+    // parked, so the referent hazard is closed by construction rather than by a gate.
+    if (/^enchanted creature dies$/.test(c)) return { event: "dies", scope: "equippedCreature", whose: "any" };
     // NONTOKEN-SUBJECT dies (wave3b) — "a nontoken creature you control dies" (Remembrance / Open the
     // Graves / Ulvenwald Mysteries — the token-recursion family) and "a nontoken <Subtype> you control
     // dies" (Lazotep Sliver — "amass Slivers 2"). The "nontoken" qualifier is a SCOPE-EXPRESSIBLE

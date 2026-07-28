@@ -100,24 +100,40 @@ specialize (31), doors/rooms (30).
 unbuilt, and detection without the mechanic is an FP. Check `coverage.js` for an existing refusal comment
 before treating any entry here as a gap.
 
-### ⭐ THE ONE FEASIBLE LEAD — "When enchanted creature dies, …" (7 of 56 flip)
+### ✅ SHIPPED — "When enchanted creature dies" (+2, not the +7 I predicted)
 
-Auras ARE modeled, unlike the mechanics above, so this one is real. 56 corpus carriers, all parked. I
-swapped the undetected trigger for a known-good aura ETB carrying the SAME effect and re-classified:
-**7 flip** (Elephant Guide, Griffin Guide, Bequeathal, Dying Wail, Most Wanted + A-, Failed Conversion).
-The other 49 are stuck on their EFFECTS as well, so the trigger alone does not free them.
+One detector arm: `enchanted creature dies` → `{ event: "dies", scope: "equippedCreature" }`, the same
+attached-linkage scope the "enchanted creature attacks" / "…deals combat damage" arms already use. **No new
+mechanism** — that scope already resolves host death by reading the dead creature's CR-603.10a look-back
+`attachments` (the aura is detached by the time checkDiesTriggers runs).
 
-Dominant effect shape among the flippable: *"return that card to the battlefield under your control"* (7).
+**MY OWN PROBE OVER-PREDICTED, AND THE REASON GENERALIZES.** I measured +7 by swapping the undetected
+trigger for a known-good aura ETB. But that swap moves the card into a DIFFERENT AURA TIER — so it measured
+tier membership, not the trigger. Real answer: **+2** (Bequeathal, Dying Wail). The other five carry a
+static pump line as well, and **pump + trigger is a tier COMPOSITION gap**: pump alone classifies
+`native-aura`, trigger alone classifies `native-trigger`, the combination is `body-only`. Verified directly.
+**When a swap probe changes which TIER a card lands in, it is no longer measuring the thing under test.**
 
-**Precedent for the scope already exists**: `equippedCreature` handles an EQUIPMENT's host dying (Sword of
-the Realms) — on host death the attachment is already severed, so the linkage is read from the death
-look-back rather than `attachedTo`. An Aura's host-death wants the same treatment.
+**The referent hazard I banked on turned out not to apply.** I had flagged binding "that card" to the dead
+host as the blocker — but that shape is in the cards that DON'T flip. Every effect actually freed is
+self-contained (draw / discard / token / surveil) and names nothing; an effect that DOES name the dead card
+fails to parse and keeps its card parked. Closed by construction, and pinned as a test.
 
-**The hard part, and why it is banked rather than built:** the effect's referent. *"that card"* is the DEAD
-HOST's card in the graveyard, which must be threaded from the dies look-back into the effect. Bind it wrong
-and 7 cards return the wrong object — a false positive, not a miss. That is exactly the class of detail my
-late-run builds got wrong twice this session (a shipped FP, then a backspace-escape that cost most of a
-turn), so it wants a fresh session rather than the tail of this one.
+**TWO CREED PINS GRADUATED**, both of which used Bequeathal as their "still non-native" example:
+`auraOwnTriggered` asserted the dies trigger is undetected (now it is detected — bar unchanged, it simply
+has a detector), and `aura.test.js` used it as the non-native Aura that must route to the Arbiter. That
+second one guards a REAL behavior, so its fixture was re-anchored on Forced Adaptation rather than deleted.
+
+**AND I CREATED A HOLLOW GATE DOING IT.** After swapping that fixture, the assertion still read
+`name === "Bequeathal"` — passing VACUOUSLY, since no card by that name was in the state at all. Now reads
+`COMPLEX.name`, and mutating `isNativeAura` to make the fixture native fails it. Caught by re-reading my own
+edit, not by the suite.
+
+### ⭐ NEXT — the aura pump+trigger COMPOSITION gap (5 cards, measured)
+
+Elephant Guide, Griffin Guide, Most Wanted, Failed Conversion + siblings. Each half classifies alone; the
+combination does not. This is the "TWO-FLIP SIGNATURE" the residue census names — a tier composition
+failure, not a missing mechanic. Worth doing next; it is a classification change, not new runtime.
 
 ## 🛑 THE MIS-PARK SCANNER IS MINED OUT — re-run after shipping, and it is thin
 
