@@ -101,6 +101,50 @@ veins, in order (top-2500 ranks shown — these are the next grinding targets, N
   3x  exile top two + play them until end of next turn Light Up the Stage #1211 (IMPULSE DRAW)
 ```
 
+### 🥇 THE BIGGEST VEIN IN THE ENGINE — "Whenever ONE OR MORE …" (CR 603.1), **291 parked cards**
+
+Found by the vein probe and then ISOLATED with the one-diff technique. This is an order of magnitude
+bigger than anything else on the board, and it is dense in the top 2500: Morbid Opportunist #255,
+Kutzil #385, Welcoming Vampire #428, Caretaker's Talent #648, Enduring Innocence #785, Tocasia's
+Welcome #866, The Gitrog Monster #897, Evolution Witness #914, Kambal #1145, Simic Ascendancy #1259,
+Coveted Jewel #1278, Duelist's Heritage #1281, Laelia #1297, Insidious Roots #1386, Dour Port-Mage #1485.
+
+**The one-diff isolation — the surprise is what is ALREADY done:**
+```
+native-trigger   Whenever another creature dies, draw a card.
+native-trigger   … draw a card. This ability triggers ONLY ONCE EACH TURN.   <- the RIDER is already modeled
+body-only        Whenever ONE OR MORE creatures die, draw a card.            <- the ONLY blocker
+body-only        Whenever ONE OR MORE creatures you control enter, …
+```
+The events are modeled. The once-per-turn rider is modeled. `detectTriggers` returns **0** on the
+"one or more" phrasing — it is a pure DETECTION gap, and everything downstream already exists.
+
+### ⛔ BUT IT IS A WAVE, NOT A SLICE — and the reason is a FALSE-POSITIVE hazard, not size
+
+**"One or more" is NOT a synonym for the singular.** "Whenever one or more creatures die" fires **ONCE**
+for a simultaneous batch; "whenever a creature dies" fires once PER creature. Mapping the plural onto the
+existing singular detector would OVER-FIRE — a forbidden false positive (a board wipe would draw 5 cards
+instead of 1).
+
+And the phrasing spans **SEVEN events**, each with its own check function that batches independently:
+```
+  77  deal (combat damage)   57  are put (into a graveyard)   46  attack   39  leave
+  28  enter                  20  die                           5  become
+```
+`checkDiesTriggers` iterates `for (const d of dead)` and fires per object. A batched trigger needs a
+SECOND pass that fires ONCE per call when ANY member of the batch matches its scope.
+
+**THE DESIGN, so the next session doesn't re-derive it:**
+1. Detection emits `{ …, batched: true }` for the "one or more" phrasing.
+2. **A BATCH_CAPABLE event whitelist gates detection.** An event whose check function has not yet been
+   taught to batch must keep returning 0 detections (undetected → body-only → FN-safe). Emitting a
+   batched trigger for an unbatched check function is the exact over-fire above — the whitelist is what
+   makes that unrepresentable rather than merely untested.
+3. Per event, add the second pass. Start with `dies` (20 cards, Morbid Opportunist #255) as the
+   reference implementation; the other six are mechanical repeats of that shape.
+4. Each event's pin MUST include a simultaneous-death/entry test asserting the trigger fires exactly
+   ONCE for a multi-object batch. That single assertion is the whole safety argument.
+
 ### ⚠️ THE PROBE LIED TWICE BEFORE IT WAS RIGHT — both corrections are baked in, do not undo them
 
 This instrument reported TWO false veins before it was trustworthy. Both are the same class of error as the
