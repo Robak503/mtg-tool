@@ -55,17 +55,28 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Run just started; tree clean at `d7148fa3`, v0.149.5 shipped.
+- **Nothing mid-edit.** Tree clean; wave 2 committed at `00f3c9b4`, not yet merged to master.
 
 ## NEXT ACTIONS
 
-1. Pick the highest-leverage mechanism off the shelf gap (start with ETB triggers — 78 slots, spread
-   across many decks) and slice it.
-2. Sweep `memory/COMMS.md` at every slice boundary — Omnath is on a 10-minute loop delivering the voice
-   blocks, the locked-vs-candidate schema, and the docket-RAG seam. Build against his spec when it lands;
-   do not wait for it.
-3. `MTGAssistant.jsx` decomp (1,704 lines, 11 hardcoded `setArea("agents")` sites) — unblocked, mechanical,
+1. **Land wave 2** (PR + merge) and cut a release — it is user-facing (every guide's voice changed).
+2. **Wave 3 item 8 — locked-vs-candidate deck model.** Omnath delivered the schema read (COMMS
+   2026-07-27 ~22:20). Read it and build the app half. This is the Foundry's theorycrafting heart.
+3. **Wave 4 — docket-RAG.** His seam sketch landed ~22:35. Build the app half against it.
+4. `MTGAssistant.jsx` decomp (1,704 lines, 11 hardcoded `setArea("agents")` sites) — unblocked, mechanical,
    and the prerequisite for the Foundry rail re-home.
+5. Shelf gap, card by card — it is genuinely long-tail now (129 distinct blocking shapes for 362 slots,
+   biggest cluster 3). Prefer DEAD-CARD bugs over coverage: the Mana Vault find was worth more than any
+   coverage point, and those are invisible to the corpus number.
+
+## PROBE LESSONS FROM THIS RUN — do not re-learn these
+
+- **A probe that reports a big number is a claim about the PROBE** until each hit is explained. The
+  shelf dead-card probe flagged 18; all 18 were board defects (ninjutsu casts from hand, "destroy target
+  artifact" with no artifact on the board, Treasure-sacrificers with no Treasures).
+- **The playability-sweep was scoring its own missing handlers as engine soft-locks** — it said 4/12
+  games finish. With `unresolved` (the Arbiter escape hatch) and `soft-counter` handled: 24/24, zero
+  wedges. Fixed. If it reports a catastrophe again, suspect the harness first.
 
 ## BLOCKED / REFUSED — do not restart these blind
 
