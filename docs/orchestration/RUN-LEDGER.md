@@ -185,6 +185,11 @@ so that early return skipped the batch pass entirely: the card classified native
 n=3 test passed the whole time; only n=1 exposed it.** Every singular check function has an equivalent
 fast path — check it before chaining.
 
+**CONFIRMED ON THE SECOND ARM.** `checkGraveyardEventTriggers` has the identical
+`if (!fired.length) return cleared` shape. Because this entry existed, placing the batch pass ABOVE it was
+a five-second check instead of a second debugging session — and the only-batch-watcher test is pinned in
+`gyLeaveBatchTrigger.test.js`. **Assume the trap is present in every remaining arm until you have looked.**
+
 ### 🔍 PER-ARM FEASIBILITY — CHECKED, and it is NOT six mechanical repeats
 
 **The arm is only buildable if its check function already sees the WHOLE batch.** `dies` worked because
@@ -195,7 +200,7 @@ signatures for the rest:
 |---|---|---|---|
 | `are put` (57) | `checkGraveyardEventTriggers(state)` | drains `pendingGraveyardEvents` | ✅ batchable now |
 | ~~`attack` (46)~~ | `checkAttackTriggers(state)` | whole combat (all attackers at once) | ✅ **DONE** `eb701643` |
-| `leave` (39) | `checkLeavesTriggers(state)` | drains `pendingLeaveEvents` | ✅ batchable now |
+| ~~`leave` (39)~~ | `checkGraveyardEventTriggers(state)` — the GY half | drains `pendingGraveyardEvents` | ✅ **DONE** `22e2293d` (+13) |
 | `enter` (28) | `checkEnterTriggers(state, enteredPerm)` | **ONE permanent** | ⛔ **BLOCKED** |
 
 **⚡ `attack` cost ONE LINE and no machinery — check for this before building any arm.** "Whenever one or
@@ -288,9 +293,9 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.4%** (12,107/34,245 — +59 this run). Suite **882 files / 11,359 tests**,
-  lint 0, MUTANT sweep clean. THIRTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries thirteen unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.4%** (12,120/34,245 — +72 this run). Suite **883 files / 11,373 tests**,
+  lint 0, MUTANT sweep clean. FIFTEEN slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
+  the branch name is stale — it carries fifteen unrelated slices and wants a rename before any PR).
 
   **PLAY-WEIGHTED — the bar:** top-1000 **69.9%** · top-2500 **52.2%** · top-5000 41.8% · top-10k 34.9%.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
@@ -310,6 +315,8 @@ That is the whole reason this target beats corpus %.
 | `b7bf0e46` | counter an ABILITY on the stack (CR 701.5a) — new `stackAbility` target class | **+7**, Stifle · Bind · Trickbind · **Sublime Epiphany #1709** |
 | `75dbd1a1` | repeatable modes (CR 700.2d) — `kMultisets` in the cast enumerator | **+5**, **Mystic #1431** · **Fiery Confluence #1561** |
 | `028a999b` | batched DEATH triggers (CR 603.1) — new `diesBatch` event ⭐ reference impl | **+4**, **Morbid Opportunist #255** · Vraan #4072 |
+| `eb701643` | batched ATTACK → the existing `youAttack` event (one line, no machinery) | **0** — detection half only, honestly scored |
+| `22e2293d` | batched GRAVEYARD-LEAVE — new `gyLeaveBatch` event | **+13**, **Insidious Roots #1386** · Desecrated Tomb #4196 · Quintorius #9596 |
 
 **The last three flip 1–2 cards each and are still the right work** — that is the entire point of the
 play-weighted target. Austere Command #169 and Rakdos Charm #330 are worth more than fifty pieces of jank,
