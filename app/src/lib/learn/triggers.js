@@ -23,7 +23,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, colorsOf } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, colorsOf } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
@@ -4419,12 +4419,16 @@ export function checkPermanentEntersTriggers(state, enteredPerm) {
  * count is memoized within the call (a batch of simultaneous deaths shares one board scan per controller). A 0
  * multiplier leaves the list unchanged — the no-Teysa fast path. Pure.
  */
-function multiplyDiesTriggers(state, fired) {
+const multiplyDiesTriggers = (state, fired) => multiplyTriggers(state, fired, diesTriggerMultiplierCount);
+// ATTACK-TRIGGER MULTIPLIER (Isshin, Two Heavens as One) — the same expansion keyed on the attack
+// statics instead. One shared body so the two can never diverge on the distinct-instance rule.
+const multiplyAttackTriggers = (state, fired) => multiplyTriggers(state, fired, attackTriggerMultiplierCount);
+function multiplyTriggers(state, fired, countFor) {
   if (!fired.length) return fired;
   const countByController = new Map();
   const multFor = (controller) => {
     if (controller == null) return 0;
-    if (!countByController.has(controller)) countByController.set(controller, diesTriggerMultiplierCount(state, controller));
+    if (!countByController.has(controller)) countByController.set(controller, countFor(state, controller));
     return countByController.get(controller);
   };
   // Fast path: no multiplier anywhere → return the original list untouched.
@@ -4824,6 +4828,11 @@ export function checkAttackTriggers(state) {
     }
   }
   if (!fired.length) return state;
+  // ATTACK-TRIGGER MULTIPLIER (Isshin, CR 603.x): every ability in this list fired because a creature
+  // attacked, so each is repeated once per attack-multiplier static ITS controller controls. Applied at
+  // the single enqueue point so every attack event above — youAttack, per-attacker attacks, exalted —
+  // multiplies uniformly rather than one lane at a time.
+  fired = multiplyAttackTriggers(state, fired);
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 

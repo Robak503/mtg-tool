@@ -1467,6 +1467,26 @@ function parseClause(clause, out, selfName, selfType) {
     return; // handled — a modeled rule-modifying static (the coverage residue check credits it via `produced.length`)
   }
 
+  // ── ATTACK-TRIGGER MULTIPLIER (Isshin, Two Heavens as One #1456) ──────────────────────────────────
+  // "If a creature attacking causes a triggered ability of a permanent you control to trigger, that
+  // ability triggers an additional time." Teysa Karlov's twin — the SAME rule-modifying shape, one word
+  // apart on the card ("dying" → "attacking") and one layerOp apart here. Emitted the same way (a
+  // self-affecting continuous effect, inert in the P/T + keyword layers), counted by
+  // layers.attackTriggerMultiplierCount, and applied at the attack-trigger enqueue site.
+  //
+  // The subject is a creature ATTACKING, not a creature YOU control attacking: an opponent's attack that
+  // fires your "whenever a creature attacks you" permanent doubles too. That falls out correctly because
+  // the multiplier keys on the ABILITY's controller, not the attacker's.
+  if (/^if a creature attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time$/.test(c)) {
+    out.push({
+      layer: 6,
+      op: { layerOp: "attackTriggerMultiplier" },
+      affects: { mode: "self" },
+      duration: { kind: "permanent" },
+    });
+    return; // handled — a modeled rule-modifying static
+  }
+
   // ── ASSIGNS-COMBAT-DAMAGE-BY-TOUGHNESS (BLITZ DN-1 — Doran, the Siege Tower; Belligerent Brontodon;
   //    Ancient Lumberknot) ────────────────────────────────────────────────────────────────────────────
   // "<subject> assigns combat damage equal to its toughness rather than its power" (modifies CR 510.1a —

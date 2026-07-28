@@ -1630,12 +1630,28 @@ export function grantedTriggeredQuotedFor(state, permanentId, lookBack = null) {
  * sites — the only two places a creature dying (put into a graveyard) causes a triggered ability to fire.
  */
 export function diesTriggerMultiplierCount(state, controllerId) {
+  return triggerMultiplierCount(state, controllerId, "diesTriggerMultiplier");
+}
+
+/**
+ * ATTACK-TRIGGER MULTIPLIER (Isshin, Two Heavens as One — CR 603.x): "If a creature ATTACKING causes a
+ * triggered ability of a permanent you control to trigger, that ability triggers an additional time."
+ * Teysa's twin, one word apart on the card and one layerOp apart here. NOTE the event it keys on is a
+ * creature ATTACKING, not a creature you control attacking — an OPPONENT's attack that fires your
+ * "whenever a creature attacks you" permanent is doubled too, which is a real Isshin line.
+ */
+export function attackTriggerMultiplierCount(state, controllerId) {
+  return triggerMultiplierCount(state, controllerId, "attackTriggerMultiplier");
+}
+
+/** Shared counter for the trigger-multiplier statics — ONE walk, so the two can't drift apart. */
+function triggerMultiplierCount(state, controllerId, layerOp) {
   if (!state || controllerId == null) return 0;
   const board = collectContinuousEffects(state);
   if (board.length === 0) return 0;
   let n = 0;
   for (const e of board) {
-    if (e.op?.layerOp !== "diesTriggerMultiplier") continue;
+    if (e.op?.layerOp !== layerOp) continue;
     // The static is self-affecting; its controller is the source permanent's LIVE controller.
     const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
     if (src && src.controller === controllerId) n += 1;
