@@ -1102,6 +1102,18 @@ export function permanentTriggersCovered(card) {
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
+    // ONCE-PER-TURN TRIGGER rider (M1a's residue half, 2026-07-28) — "This ability triggers only once each
+    // turn." (Mirelurk Queen and 12 siblings). The sentence sibling of the "Do this only once each turn"
+    // strip directly above, and the same argument: detectTriggers ALREADY consumes this wording — it sets
+    // descriptor.oncePerTurnTrigger and leaves the effect clause clean — but the trigger-sentence strip
+    // stops at the first period, so the rider survived as apparent residue and parked the card.
+    //
+    // Stripping it is honest ONLY because the runtime genuinely ENFORCES it, which I checked rather than
+    // assumed: gameEngine's flush chokepoint keys a per-source, per-event ledger
+    // (state.onceTriggersFiredThisTurn, cleared each untap) and DROPS a second same-turn firing with its own
+    // log line. An unenforced frequency rider stripped here would credit a trigger that fires every time —
+    // the same over-credit shape the activation-limit rider is careful about.
+    .replace(/\bThis ability triggers only once each turn\b\.?\s*/gi, " ")
     .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ")
     // NO-UNTAP LOCKDOWN (Junk Winder) — the follow-up sentence "It doesn't untap during its controller's next
     // untap step." is part of the SAME token-enters trigger's effect: detectTriggers keeps it in the effectClause,
