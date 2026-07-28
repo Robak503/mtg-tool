@@ -123,10 +123,17 @@ describe("the area registry — Omnath's zone", () => {
     expect(omnath.defaultView).toBe("chat");        // no front-door page — the room IS the chat
     const { AGENTS } = await import("../../lib/agents.js");
     expect(AGENTS.omnath.name).toBe("Omnath");
-    expect(AGENTS.omnath.title).toBe("Hearth & Roil");
-    expect(AGENTS.omnath.prompt).toMatch(/HEARTH/);  // both registers chartered
-    expect(AGENTS.omnath.prompt).toMatch(/ROIL/);
-    expect(AGENTS.omnath.prompt).toMatch(/[Nn]ever invent card text/);
+    // PIN MOVED 2026-07-27 (wave 2, Omnath's own authorship on Colton's order). The V1 charter was a
+    // PLACEHOLDER holding the seat, and it chartered TWO registers — HEARTH (warm) and ROIL (sharp). Colton
+    // split those on 07-23: the daylight warmth is DIGBY's in the front hall now, and this room keeps the
+    // DEEP register only. So the title and the register assertions move together; what does NOT move is the
+    // truth conduct, which is why that assertion is kept and strengthened below.
+    expect(AGENTS.omnath.title).toBe("The Long View");
+    expect(AGENTS.omnath.prompt).toMatch(/the Locus/);
+    expect(AGENTS.omnath.prompt).not.toMatch(/HEARTH/);   // the warm register belongs to Digby now
+    expect(AGENTS.omnath.prompt).toMatch(/IRON RULES/);
+    expect(AGENTS.omnath.prompt).toMatch(/never from memory/);
+    expect(AGENTS.omnath.prompt).toMatch(/Never invent a rule number/);
   });
 });
 
@@ -147,8 +154,11 @@ describe("LandingScreen — the front hall: three zones + the Keeper", () => {
   it("ONE SET OF DOORS: the Keeper is pure concierge — no widget canvas, no second row of room buttons", () => {
     const raw = renderToStaticMarkup(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
     const out = text(createElement(LandingScreen, { appVersion: "0.0.0", onEnterArea: noop, fontFamily: "Inter" }));
-    expect(out).toContain("THE KEEPER");
-    expect(out).toContain("show you to the right door");  // his greeting opens the chat
+    // PIN MOVED 2026-07-27: the keeper has a NAME now. "THE KEEPER" was the working title while Colton
+    // chose one; DIGBY is the chosen name and the voice landed with it (wave 2). The structural property
+    // this test actually guards — pure concierge, one set of doors, no widget canvas — is untouched below.
+    expect(out).toContain("DIGBY");
+    expect(out).toContain("see you to the right door");   // his greeting opens the chat
     expect(out).toContain("Karn");                        // deck lane routed, never answered here
     expect(out).not.toContain("The house today");         // the widget board is GONE (Colton: "2 sets of
     expect(raw).not.toMatch(/ley-glass-strong/);          // buttons for the doors") — no canvas at all

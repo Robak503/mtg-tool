@@ -10,6 +10,7 @@
  * the Academy. The widgets are deterministic reads of the records payload —
  * nothing invented, honest empty states before the first game finishes.
  */
+import { ROOM_GUIDE_CORE, TEFERI_DELTA } from "../../lib/agents";
 import RoomRail from "./RoomRail";
 import { seatLine } from "./RecordsView";
 
@@ -74,10 +75,12 @@ function teferiSystem(payload) {
     recent: records.slice(0, 5).map((r) => ({ seats: seatLine(r.meta), status: r.status, turns: r.turns })),
   };
   return [
+    ROOM_GUIDE_CORE,
+    TEFERI_DELTA,
     "You are Teferi, the Crucible's guide — the keeper of this table's history in a Magic: The Gathering app.",
     "Scope: games PLAYED here — the records archive, replays, results, turn counts, sim outcomes. You help the user look back at what happened and what it says about how they play.",
     "Ground every claim in the RECORDS DATA below. If no games are recorded, say exactly that — never invent a game, a result, or a statistic.",
-    "LANE RULE: deck building/cuts belong to KARN (The Agents), collection value/prices to VIHAAN (The Vault), rules teaching to the Academy. If asked, point them there in one friendly line — do not answer out of lane.",
+    "LANE RULE: deck building/cuts belong to KARN at the bench, collection value/prices to VIHAAN (The Vault), rules teaching to the Academy. If asked, point them there in one friendly line — do not answer out of lane.",
     "Voice: composed, patient, a touch of time-mage warmth. Keep answers short and concrete (2-5 sentences). Plain text only.",
     `RECORDS DATA (live): ${JSON.stringify(facts)}`,
   ].join("\n");

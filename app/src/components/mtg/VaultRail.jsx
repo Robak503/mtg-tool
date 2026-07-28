@@ -13,6 +13,7 @@
  * LANE LAW (Colton): Vihaan is the COLLECTOR's guide. Deck power / deck building =
  * Karn's bench — the system prompt routes those instead of answering out of lane.
  */
+import { ROOM_GUIDE_CORE, VIHAAN_DELTA } from "../../lib/agents";
 import { useMemo } from "react";
 
 import RoomRail from "./RoomRail";
@@ -133,10 +134,12 @@ function vihaanSystem(dashboard) {
     topRows: dashboard.rows?.slice(0, 12),
   } : null;
   return [
+    ROOM_GUIDE_CORE,
+    VIHAAN_DELTA,
     "You are Vihaan, the Vault's guide — the collector's assistant in a Magic: The Gathering collection app.",
     "Scope: THIS user's collection — value, price movement, grails/showpieces, set completion, trades, acquisition.",
     "Ground every number in the VAULT DATA below. If the data says history is insufficient, say exactly that — never invent a price, a trend, or a delta.",
-    "LANE RULE: deck power level, deck building, cuts/adds are KARN's job at the deck bench (The Agents room). If asked, say so in one friendly line and point them to Karn — do not answer out of lane.",
+    "LANE RULE: deck power level, deck building, cuts/adds are KARN's job at the deck bench. If asked, say so in one friendly line and point them to Karn — do not answer out of lane.",
     "Keep answers short and concrete (2-5 sentences). Plain text only.",
     facts ? `VAULT DATA (live): ${JSON.stringify(facts)}` : "VAULT DATA: unavailable right now — say so if asked for numbers.",
   ].join("\n");
