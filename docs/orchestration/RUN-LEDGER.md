@@ -118,12 +118,30 @@ mana makes the AI attack for free — i.e. Propaganda does nothing while the car
 wrong model, not a missing one. It needs a combat-time payment (the `pendingChoice` machinery) AND an AI
 decision to pay. Do not ship the restriction half alone.
 
-**WAVE C — BATCHED ETB ENTRY** (~28 cards: Welcoming Vampire #428 · Tocasia's Welcome #866 · Caretaker's
-Talent #648). The last arm of the one-or-more family, and the reason it is BLOCKED is recorded above:
-`checkEnterTriggers(state, enteredPerm)` takes ONE permanent, so entries are dispatched one at a time and a
-batch watcher would fire once PER token. Needs the ENTRY PATH taught to collect simultaneous entries (token
-creation, mass reanimation, blink returns) and dispatch them as one batch — then the arm is a copy of
-`diesBatch`.
+**WAVE C — BATCHED ETB ENTRY. ATTEMPTED AND REVERTED — read all of this before retrying.**
+
+**The design is CORRECT and was validated; do not re-derive it.** The one-permanent signature of
+`checkEnterTriggers` is NOT the real obstacle: record each entry on a `pendingEnterEvents` queue from INSIDE
+that function (covering all six call sites at once, the diesBatch trick) and drain it in `flushTriggers`
+beside the graveyard / tap / counter queues. **`flushTriggers` runs at every priority-grant checkpoint
+(CR 603.3), so entries between two flushes are EXACTLY the simultaneous ones** — three tokens from one effect
+fire a watcher once; separate resolutions are separated by a flush. That reasoning held up; the build did not.
+
+**WHY IT WAS REVERTED — three findings, in the order they landed:**
+1. **My "~28 cards" was wrong.** The BARE forms are only **5** (Twilight Diviner, Celes, Frantic Scapegoat,
+   Kotis, Back-Alley Gardener). The other ~23 carry FILTERS — "with power 2 or less" (Welcoming Vampire
+   #428, Enduring Innocence #785), "with mana value 3 or less" (Tocasia's Welcome #866), nontoken, subtype,
+   "tokens your opponents control".
+2. **Those 5 bare-form cards flip ZERO** — every one is blocked by other text.
+3. **⭐ THE ACTUAL BLOCKER, and the thing to fix FIRST:** the FILTERED clause never reaches a new detection
+   arm at all. `detectTriggers` returns 0 for "whenever one or more other creatures you control WITH POWER 2
+   OR LESS enter" even though a correct regex matches that exact string — so something UPSTREAM rewrites or
+   rejects the clause before the arm runs. **Find that guard before writing any batch machinery**; the
+   valuable cards are all behind it, and the machinery is worthless until it is found.
+
+**AND THE COST THAT MADE REVERTING RIGHT:** the queue records on EVERY permanent entry — the hottest path in
+a self-play engine. Paying an allocation there for 0 cards, while the cards that matter sit behind an
+undiagnosed guard, is a bad trade. Retry once finding #3 is solved.
 
 ### ✅ THE CATCH-ALL IS NOW DECOMPOSED — `app/scripts/probe-spell-effect-veins.mjs`
 
