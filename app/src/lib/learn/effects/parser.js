@@ -559,13 +559,25 @@ function parseModal(cardType, oracle, hasX = false) {
   // live board at enumeration (= cast) time, so the metric and the cast offer can't drift. Anchored to the
   // EXACT printed lead — any other conditional-modal wording stays un-matched → low → Arbiter (CREED).
   const cb = stripped.match(/^choose one\.\s*if you control a commander as you cast this spell, you may choose both instead\.\s*/i);
-  const m = cb ? null : stripped.match(MODAL_RE);
-  if (!cb && !m) return null;
-  const tail = cb ? "" : (m[2] || "").toLowerCase();
+  // REPEATABLE MODES (CR 700.2d — the Confluence cycle: Mystic #1431, Fiery #1561, Eldrazi, Verdant, …;
+  // also Planewide Celebration and Unite the Coalition). EXACT printed lead: "Choose <N>. You may choose the
+  // same mode more than once." Kept as its OWN anchored regex rather than widening MODAL_RE, so every
+  // existing modal card matches byte-identically and this can only ADD parses.
+  //
+  // MODAL_RE requires a DASH after the count, so these never reached the mode splitter at all — the
+  // "You may choose…" sentence sat in front of the bullets and became a garbage first "mode" that failed to
+  // parse, dropping the whole card. Fixed-N only: the "{P} worth of modes" Season cycle is a point-cost
+  // system and "Choose X" is variable; both stay unmatched → low → Arbiter (FN-safe).
+  const rep = cb ? null : stripped.match(/^choose (three|four|five)\.\s*you may choose the same mode more than once\.\s*/i);
+  const m = (cb || rep) ? null : stripped.match(MODAL_RE);
+  if (!cb && !rep && !m) return null;
+  const REP_COUNT = { three: 3, four: 4, five: 5 };
+  const repeatable = !!rep;
+  const tail = (cb || rep) ? "" : (m[2] || "").toLowerCase();
   const orBoth = tail === " or both";
   const orMore = tail === " or more"; // "choose one or more" → MODAL-N (any non-empty subset, CR 700.2)
   const conditionalBothCommander = !!cb;
-  const rest = stripped.slice((cb || m)[0].length).trim();
+  const rest = stripped.slice((cb || rep || m)[0].length).trim();
   // "one or more" modes ARE bullet-separated in every printed case; the " or "-fallback split (used only
   // for un-bulleted two-mode charms) would wrongly shred a "one or more" mode's effect text, so require
   // bullets for the MODAL-N form (a non-bulleted "one or more" → null → low, an FN-safe park).
@@ -581,7 +593,9 @@ function parseModal(cardType, oracle, hasX = false) {
   if (parts.length < 2) return null;
   // chooseCount = the MAX modes pickable: 2 for "two"/"one or both"/the conditional-both lead; ALL modes
   // for "one or more"; else 1. (Resolved after parts is known so "one or more" can size to the mode count.)
-  const chooseCount = orMore ? parts.length : (orBoth || conditionalBothCommander || (m && m[1].toLowerCase() === "two")) ? 2 : 1;
+  const chooseCount = repeatable ? REP_COUNT[rep[1].toLowerCase()]
+    : orMore ? parts.length
+      : (orBoth || conditionalBothCommander || (m && m[1].toLowerCase() === "two")) ? 2 : 1;
   const upTo = orBoth || conditionalBothCommander; // "one or both" / conditional-both → pick 1 or 2 (of exactly 2)
   const atLeastOne = orMore; // "one or more" → pick any 1..N subset
 
@@ -605,9 +619,12 @@ function parseModal(cardType, oracle, hasX = false) {
   // Count must be satisfiable: can't pick more modes than exist, and "one or both" (incl. the
   // conditional-both lead) is specifically a TWO-mode card (1 or 2 of exactly 2). An unsatisfiable
   // count → modes:null → low (never a wrong pick).
-  if (chooseCount > modes.length) return { chooseCount, upTo, atLeastOne, modes: null };
+  // REPEATABLE is EXEMPT from the "can't pick more modes than exist" guard, and that is the point of the
+  // mechanic: Unite the Coalition chooses FIVE from four modes precisely because a mode may be re-chosen
+  // (CR 700.2d). Applying the guard here would reject the cards this branch exists to model.
+  if (!repeatable && chooseCount > modes.length) return { chooseCount, upTo, atLeastOne, modes: null };
   if ((orBoth || conditionalBothCommander) && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
-  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), modes };
+  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), ...(repeatable && { repeatable: true }), modes };
 }
 
 // The up-front multi-sentence SPAN matchers (δ-1 hand disruption · the removal/counter rider folds ·

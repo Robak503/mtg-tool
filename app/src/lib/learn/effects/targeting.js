@@ -162,6 +162,32 @@ function kCombinations(n, k, limit = Infinity) {
   return out;
 }
 
+/** REPEATABLE MODES (CR 700.2d — "You may choose the same mode more than once", the Confluence cycle):
+ * all non-decreasing k-MULTISETS of indices 0..n-1, so [0,0,1] and [2,2,2] are legal picks that
+ * kCombinations (strictly ascending, each index at most once) can never produce. The only difference is
+ * `pick(i, …)` instead of `pick(i + 1, …)` — an index may be re-used.
+ *
+ * Non-decreasing order matters beyond de-duplication: programAtoms concatenates the chosen modes' atoms in
+ * the order given, and CR 700.2e resolves repeated modes in the printed order, so ascending order IS the
+ * correct execution order. It also collapses permutations of the same multiset to one cast option.
+ *
+ * Same `limit` DoS backstop as kCombinations, and it matters MORE here: multiset counts grow faster than
+ * combinations — C(n+k-1, k) for the real cards is small (4 modes choose 3 = 20 rows), but the cap keeps a
+ * pathological mode count bounded. */
+function kMultisets(n, k, limit = Infinity) {
+  if (k <= 0 || n <= 0 || limit <= 0) return [];
+  const out = [];
+  const pick = (start, combo) => {
+    if (combo.length === k) { out.push(combo.slice()); return; }
+    for (let i = start; i < n; i++) {
+      combo.push(i); pick(i, combo); combo.pop();   // `i`, not `i + 1` — the mode may be re-chosen
+      if (out.length >= limit) return;
+    }
+  };
+  pick(0, []);
+  return out;
+}
+
 // MULTI-COUNT TARGET (CR 601.2c "up to N target …") — every target-subset of size [minK..maxK] drawn from `tagged`
 // (each subset an array of atomIndex-tagged targets). Includes the EMPTY subset when minK is 0 (choosing zero is a
 // legal "up to" cast, CR 601.2c). Bounded by MAX_CAST_EXPANSIONS so a large graveyard/board can't DoS the cast list
@@ -462,7 +488,14 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
     for (const size of sizes) {
       // MAX_CAST_EXPANSIONS here is a pure DoS backstop on the mode-combination count: no real card's mode
       // count comes near C(n,k) > 64 (that needs 8+ modes), so every real modal cast list is byte-identical.
-      for (const combo of kCombinations(modes.length, size, MAX_CAST_EXPANSIONS)) {
+      // REPEATABLE (CR 700.2d — the Confluence cycle): the same mode may be chosen more than once, so the
+      // pick is a non-decreasing MULTISET rather than a strictly-ascending combination. Everything
+      // downstream already tolerates repeats — programAtoms concatenates `chosenMode.flatMap(k => modes[k]
+      // .atoms)`, so [0,0,1] simply runs mode 0's atoms twice, which is the printed behaviour (CR 700.2e).
+      const picks = program.modal?.repeatable
+        ? kMultisets(modes.length, size, MAX_CAST_EXPANSIONS)
+        : kCombinations(modes.length, size, MAX_CAST_EXPANSIONS);
+      for (const combo of picks) {
         const concatAtoms = combo.flatMap((k) => modes[k].atoms);
         const combos = expandAtoms(state, controllerId, concatAtoms, sourceColors, ctx);
         if (combos === null) continue; // some required target in this mode-combo has no legal pick
