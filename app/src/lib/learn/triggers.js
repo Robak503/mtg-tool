@@ -971,6 +971,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a creature card leaves your graveyard$/.test(c)) {
     return { event: "gyLeave", scope: "gyWatcher", whose: "any", gyCardType: "Creature", gyOwnerScope: "you" };
   }
+  // BATCHED GY-LEAVE (CR 603.1) — "Whenever ONE OR MORE [creature] cards leave your graveyard" (Desecrated
+  // Tomb #4196, Quintorius #9596, Fang #6282, Skeleton Crew — 28 corpus carriers, the largest single
+  // sub-family of the one-or-more vein). Fires ONCE per event batch where the singular gyLeave above fires
+  // once PER CARD, so mass graveyard exile (Bojuka Bog on a full yard) would otherwise mint a token per card
+  // instead of one — the same over-fire diesBatch exists to prevent.
+  //
+  // A DEDICATED EVENT NAME for the same reason: a batched descriptor then has no route into the per-card
+  // fire loop at all. The gyCardType / gyOwnerScope filter fields are IDENTICAL to the singular's, so the
+  // batch pass reuses the very same predicates rather than restating them.
+  const gyLeaveBatch = c.match(/^one or more (creature )?cards leave your graveyard$/);
+  if (gyLeaveBatch) {
+    return { event: "gyLeaveBatch", scope: "gyWatcher", whose: "any", gyCardType: gyLeaveBatch[1] ? "Creature" : null, gyOwnerScope: "you" };
+  }
   // Bloodchief Ascension trigger 2: ANY card entering an OPPONENT's graveyard from ANY zone (battlefield
   // included — "from anywhere" has no exclusion).
   if (/^a card is put into an opponent's graveyard from anywhere$/.test(c)) {
@@ -5773,6 +5786,33 @@ export function checkGraveyardEventTriggers(state) {
           // the graveyard's owner at resolution; the card trio mirrors the milled-trigger context shape.
           fired.push(makePendingTrigger(d, watcher, null, {
             gyCardId: ev.card?.id, gyCardName: ev.card?.name, gyOwnerId: ev.gyOwner, gyZone: ev.zone, gyDir: ev.dir,
+          }));
+        }
+      }
+    }
+  }
+  // BATCHED GY-LEAVE (CR 603.1) — the once-per-batch watchers. Runs over the SAME drained queue, firing each
+  // matching watcher EXACTLY ONCE no matter how many cards left, which is what "one or more cards leave your
+  // graveyard" means. Placed after the per-card loop and BEFORE the empty-fired return, so it still runs on a
+  // board holding ONLY batch watchers — the early-return trap that bit the diesBatch arm (no singular watcher
+  // fired, so a bare `return cleared` would have skipped the batch pass entirely).
+  //
+  // The filter predicates are the singular loop's, reused verbatim: gyCardType against the front face, and
+  // gyOwnerScope pinning "your graveyard" to the watcher's controller. The first matching event supplies the
+  // ctx card/owner so a payoff naming the card still binds something real.
+  const leaveEvents = events.filter((ev) => ev.dir === "leave");
+  if (leaveEvents.length) {
+    for (const pid of Object.keys(cleared.players)) {
+      for (const watcher of triggerSourcesOf(cleared, pid)) {
+        for (const d of detectTriggers(watcher.card).filter((x) => x.event === "gyLeaveBatch")) {
+          const hit = leaveEvents.find((ev) => {
+            if (d.gyCardType && !new RegExp(`\\b${d.gyCardType}\\b`).test(frontFaceType(ev.card))) return false;
+            if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) return false;
+            return true;
+          });
+          if (!hit) continue;   // nothing in this batch matched — no fire (never a fabricated trigger)
+          fired.push(makePendingTrigger(d, watcher, null, {
+            gyCardId: hit.card?.id, gyCardName: hit.card?.name, gyOwnerId: hit.gyOwner, gyZone: hit.zone, gyDir: hit.dir,
           }));
         }
       }
