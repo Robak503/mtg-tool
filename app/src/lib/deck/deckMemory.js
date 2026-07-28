@@ -89,6 +89,40 @@ export function defaultDeckMemory() {
   };
 }
 
+// ── LOCKED vs CANDIDATE (roadmap wave 3 item 8) ───────────────────────────────
+//
+// A per-card `locked` BOOLEAN, not a new `section` value and not a separate candidates list. Omnath's
+// schema read, and the reason is load-bearing enough to keep written down: every consumer that reads deck
+// content filters with a DENY-list (`section !== "Sideboard" && section !== "Tokens"`). Verified before
+// building — 18 such sites in src/, and ZERO allow-list (`section === "Mainboard"`) sites. A new section
+// value would therefore fall straight through all 18 and be silently counted as part of the deck: it would
+// inflate the power rating, bend the curve, price into the ledger, and reach the ENGINE as a real card,
+// with no error anywhere. A new FIELD is invisible to those same 18, so today's behavior is unchanged and
+// each consumer opts in deliberately.
+//
+// ABSENT MEANS LOCKED, on purpose. Every deck that exists right now reads exactly as it does today — no
+// migration, no deck silently losing cards under the owner. Only an explicit `false` demotes a card.
+
+/** A slot in the 100 — excludes sideboard and tokens, which are never deck content. */
+export const isDeckSlot = (c) => c?.section !== "Sideboard" && c?.section !== "Tokens";
+
+/**
+ * LOCKED = committed to the deck. The COMMANDER is structurally lock #1 and this is DERIVED, never
+ * stored: color identity comes off the commander (CR 903.4) and the mana pips already derive from it, so
+ * a "candidate commander" would make identity ambiguous and every downstream legality check unstable.
+ * A stored `locked:false` on a commander is therefore ignored rather than honoured.
+ */
+export const isLocked = (c) => isDeckSlot(c) && (c?.section === "Commander" || c?.locked !== false);
+
+/** CANDIDATE = being considered, not in the deck. Never counts toward x/100. */
+export const isCandidate = (c) => isDeckSlot(c) && c?.section !== "Commander" && c?.locked === false;
+
+/** x/100 — the bench's lock bar. Identical to what every deck already reports, since absent = locked. */
+export const lockedCount = (cards) => (cards || []).filter(isLocked).reduce((s, c) => s + (c.qty || 0), 0);
+
+/** The "+N considering" figure shown beside the lock bar. */
+export const candidateCount = (cards) => (cards || []).filter(isCandidate).reduce((s, c) => s + (c.qty || 0), 0);
+
 export function normalizeDeck(deck) {
   const memory = { ...defaultDeckMemory(), ...(deck.memory || {}) };
   return {
@@ -96,6 +130,10 @@ export function normalizeDeck(deck) {
     cards: (deck.cards || []).map(c => ({
       ...c,
       section: c.section === "Tokens" || isTokenishName(c.name) ? "Tokens" : (c.section || "Mainboard"),
+      // LOCKED normalization — FAIL-SAFE TOWARD THE STATUS QUO. Anything that is not an explicit `false`
+      // becomes `true`, so a hand-edited or half-written file can never invent candidates and quietly
+      // shrink someone's deck. The commander is forced true regardless of what the file says.
+      locked: c.section === "Commander" ? true : c.locked === false ? false : true,
     })),
     memory: {
       ...memory,
