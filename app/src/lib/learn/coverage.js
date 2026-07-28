@@ -62,6 +62,7 @@ import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN command
 import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.86a) — runtime hook lives in gameEngine (applyAnnihilatorTriggers)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { isMurkfiendUntap } from "./murkfiendUntap.js"; // MURKFIEND-UNTAP — runtime hook lives in gameEngine (applyMurkfiendUntap)
+import { parseTypeFilteredUntap } from "./typeFilteredUntap.js"; // TYPE-FILTERED UNTAP — runtime hook lives in gameEngine (applyTypeFilteredUntap)
 import { groupNoUntapFiltersOf, GROUP_NO_UNTAP_SENTENCE_RE } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1) — runtime enforced in gameState.untapAll (groupPreventsUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
@@ -3515,6 +3516,36 @@ function classifyMurkfiendUntap(card) {
   return "native-static";                                        // green/blue anthems + the phase-filtered untap static
 }
 registerCoverageClassifier((card) => classifyMurkfiendUntap(card));
+
+// ─── TYPE-FILTERED UNTAP — Unwinding Clock #545 / Drumbellower #1940 / Prophet of Kruphix ──────────────────────
+// "Untap all <artifacts|creatures|creatures and lands> you control during each other player's untap step."
+// The third shape of the Seedborn/Murkfiend phase-static family, and the first one PARAMETERIZED rather than
+// hard-coded per card (typeFilteredUntap.js). The runtime hook is real (gameEngine.runStepActions → case
+// "untap" → applyTypeFilteredUntap) and reads the SAME parser this classifier gates on, so the credited
+// static is genuinely enforced — never a claimed-native no-op.
+//
+// CREED — whole card, all-or-nothing, mirroring classifyMurkfiendUntap exactly: NO trigger or activated
+// ability may remain (Quest for Renewal's counter trigger and Ohabi Caleria's damage trigger both trip
+// this), and the residue after stripping the untap sentence must be fully covered by the general static
+// path (Drumbellower's "Flying" is keyword-only; Prophet of Kruphix's flash-cast permission is a modeled
+// static). Anything else → null → the card stays body-only.
+const TYPE_UNTAP_SENTENCE_RE =
+  /untap all (?:artifacts|creatures|creatures and lands) you control during each other player'?s untap step\.?/i;
+function classifyTypeFilteredUntap(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The hook untaps a battlefield permanent's controller's permanents — only a permanent qualifies.
+  if (/\b(instant|sorcery|land)\b/.test(type) || !/\b(creature|artifact|enchantment)\b/.test(type)) return null;
+  if (!parseTypeFilteredUntap(card)) return null;                // not a type-filtered untap static → not ours
+  if (detectTriggers(card).length > 0) return null;              // an unmodeled trigger is dropped-ability residue
+  if (parseActivatedAbilities(card).length > 0) return null;
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const rest = oracle.replace(TYPE_UNTAP_SENTENCE_RE, " ").replace(/\s+/g, " ").trim();
+  if (!rest) return "native-static";                             // the untap line was the whole card
+  if (isKeywordOnly(rest, card?.name)) return "native-static";   // Drumbellower — Flying
+  if (staticAbilitiesCoverCard({ ...card, oracle: rest }, (c) => isKeywordOnly(c, card?.name))) return "native-static";
+  return null;                                                   // unmodeled residue → Arbiter
+}
+registerCoverageClassifier((card) => classifyTypeFilteredUntap(card));
 
 // ─── GROUP NO-UNTAP STATIC — Winter-Orb / Meekstone / Choke lock family (BLITZ UT-1, CR 302.6) ────────────────
 // A CONTINUOUS static "<filter> don't untap during their controllers' untap steps" that holds every matching

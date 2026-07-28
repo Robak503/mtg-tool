@@ -84,6 +84,7 @@ import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applySeedbornUntap } from "./seedbornUntap.js";
 import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { applyMurkfiendUntap } from "./murkfiendUntap.js";
+import { applyTypeFilteredUntap } from "./typeFilteredUntap.js";
 
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
@@ -352,6 +353,10 @@ export function runStepActions(state) {
       // watcher-controller's green/blue CREATURES (layer-aware color+type), not all permanents. A no-op
       // when no Murkfiend-style watcher is on any non-active player's board (murkfiendUntap.js).
       next = applyMurkfiendUntap(next, state.activePlayer);
+      // TYPE-FILTERED UNTAP (same #319 phase-static family, parameterized rather than a third twin):
+      // Unwinding Clock "all artifacts", Drumbellower "all creatures", Prophet of Kruphix "all creatures
+      // and lands". Layer-aware type read; a no-op when no such watcher sits on a non-active board.
+      next = applyTypeFilteredUntap(next, state.activePlayer);
       // BECOMES-UNTAPPED triggers (Mesmeric Orb — CR 502.4): drain the untap events recorded by untapAll +
       // the Seedborn/Murkfiend hooks into pending triggers HERE; they naturally wait for the upkeep's
       // priority to go on the stack (no priority exists during the untap step — CR-correct).

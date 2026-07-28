@@ -61,16 +61,20 @@ describe("MURKFIEND-UNTAP — classification (CREED whole-card)", () => {
     })).toBe("body-only");
   });
 
-  it("CREED near-miss: Prophet of Kruphix (different untap filter + flash-permission rider) stays body-only", () => {
-    // Its untap is "creatures AND lands" (not green/blue creatures) and it has an unmodeled flash-cast static →
-    // neither the Murkfiend nor the Seedborn hook claims it; the flash rider keeps it non-native (safe FN).
-    expect(classifyCard({
+  it("GRADUATED — Prophet of Kruphix still isn't MURKFIEND's, but a sibling hook claims it now", () => {
+    // This pin asserted body-only on two grounds: the wrong untap filter for THIS hook, and an unmodeled
+    // flash rider. The first is still true and is the claim this file owns — kept, and asserted directly
+    // on isMurkfiendUntap instead of through the tier. The second stopped being true when
+    // typeFilteredUntap.js modeled "creatures and lands", so the card now flips through THAT classifier.
+    const prophet = {
       name: "Prophet of Kruphix",
       type: "Creature — Human Wizard",
       oracle:
         "Untap all creatures and lands you control during each other player's untap step.\n" +
         "You may cast creature spells as though they had flash.",
-    })).not.toBe("native-static");
+    };
+    expect(isMurkfiendUntap(prophet)).toBe(false);   // not the green/blue filter — still the point
+    expect(classifyCard(prophet)).toBe("native-static");
   });
 
   it("anti-FP: a second (unmodeled) ability alongside the Murkfiend statics keeps it body-only", () => {

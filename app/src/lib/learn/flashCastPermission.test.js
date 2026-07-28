@@ -75,13 +75,14 @@ describe("FLASH-CAST-PERMISSION — parser marker + classifyCard flip", () => {
     expect(classifyCard(RAFF)).not.toMatch(/^native/);
   });
 
-  it("CREED: an unmodeled SIBLING clause keeps the card body-only even though the flash static is modeled", () => {
-    // Prophet of Kruphix's 'untap all creatures and lands you control during each other player's untap step'
-    // is unmodeled residue → staticAbilitiesCoverCard returns false → body-only. (Leyline of Anticipation used
-    // to demonstrate this too, but its ONLY sibling was the rules-neutral opening-hand line, now pre-stripped
-    // by LEYLINE-OPENING-HAND-STRIP, so it correctly flips native-static — asserted below.)
+  it("GRADUATED — Prophet of Kruphix's untap sibling is MODELED now, so the composite flips", () => {
+    // This pin stood on the untap-others static being unmodeled residue. It is modeled as of
+    // typeFilteredUntap.js ("creatures and lands"), so the card is fully covered and flips. A
+    // not-built-yet boundary, never a safety one — the claim that actually mattered (the flash
+    // permission reads the CREATURE filter, not a blanket grant) is kept and asserted directly.
+    // (Leyline of Anticipation graduated the same way earlier, via LEYLINE-OPENING-HAND-STRIP.)
     expect(flashCastPermissionsOf(PROPHET)).toEqual([{ qualifiers: [{ types: ["Creature"] }] }]);
-    expect(classifyCard(PROPHET)).not.toMatch(/^native/);                        // untap-others static is unmodeled
+    expect(classifyCard(PROPHET)).toMatch(/^native/);
   });
 
   it("LEYLINE-OPENING-HAND-STRIP: Leyline of Anticipation flips native-static (opening-hand line is rules-neutral residue, not a real blocker)", () => {
