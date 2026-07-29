@@ -38,6 +38,35 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — SYMBURN-2, "damage to each player" (`8cafbc48`, +6) · **the pin-wording rule, applied**
+
+The lead I recorded rather than built last stretch — and **the pin's wording is exactly why it graduated.**
+```
+symburn.test.js      "each-player-only isn't modeled"        → CAPABILITY  ("cannot")  → GRADUATES
+the fetch guard      "cheat" · "landmine" ×9 across 7 files  → JUDGEMENT   ("will not") → REVERTED
+```
+And the proof was already sitting there: `eachCreatureAndPlayer` **has always damaged every player INCLUDING
+the caster.** "each player" alone is a strict SUBSET of behaviour the engine performs today — the same seat
+loop, minus the creatures. SYMBURN-1 just drew its scope at the combined form.
+
+GAINED **6** · LOST 0 — Flame Rift · Slagstorm · Spear Spewer · Rumbling Slum · Xenagos's Strike ·
+Shadowheart.
+
+**⛔ THE CASTABILITY ASSERTION IS THE ONE THAT MATTERS**, and `targetTypes.js`'s own header says why: when
+SYMBURN-1 added its type to only **2 of the 5** places that needed it, the cards **classified native and
+were SILENTLY UNCASTABLE** — the cast flow treated the mass effect as targeted, found no legal target, and
+dropped the action. **A tier assertion shows green straight through that bug.** So the type went into
+`targetTypes.js` (the single source of truth built after exactly that incident) and the test casts Flame
+Rift for real: offered as a legal action, both players to 4 less life *including the caster*, and an
+opposing Bear left at **zero damage**.
+
+That last control is what separates it from the combined form — without it `eachPlayer` could quietly
+resolve as `eachCreatureAndPlayer` and every other assertion would still pass. **M110** is killed by it
+alone.
+
+Mutation-checked: **M109** drop from the non-chosen registry → killed by 4 (incl. castability) · **M110**
+resolver also damages creatures → killed by the control.
+
 ## 🔧 SHIPPED — the STUN rider parses its COUNT (`596326fe`, +4) · probe families extended
 
 The probe's new **counter-placement** family found it. The runtime has had full stun support all along —
@@ -1636,7 +1665,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **36.0%** (12,329/34,245). Suite **952 files / 12,140 tests**,
+- **Nothing mid-edit.** Corpus **36.0%** (12,335/34,245). Suite **953 files / 12,149 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
