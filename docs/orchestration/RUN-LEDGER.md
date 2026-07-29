@@ -228,6 +228,34 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — 8 curated subtypes (`b030e27b`, +3) · **first per-card slice under the new ordering**
+
+Picked by the rule the last two resumes established — **order by DECK count, take what is genuinely one
+build** — and it is the first shelf card to land since B1: **Biogenic Ooze is in Halfshell heroes.**
+Also Minwu, White Mage · Citizen V, Helmut Zemo. GAINED 3 · LOST 0.
+
+⭐ **A LIST, NOT A MECHANISM.** `put a +1/+1 counter on each Vampire you control` already parsed with a
+subtypeFilter; `each Ooze you control` did not, purely because Ooze was absent from `COUNT_SUBTYPE`.
+
+**Verified against that list's OWN criterion** (an entry must appear verbatim only in the SUBTYPE portion of
+a type line): corpus-counted all eight — Cleric 722 · Villain 212 · Advisor 187 · Ooze 74 · Leech 21 ·
+Wraith 14 · Fractal 8 · Moogle 8 — **every occurrence in the subtype position, ZERO left of the dash.**
+
+**Sized before building:** 15 corpus cards print the shape, 13 parked, and exactly **3** have curation as
+their ONLY blocker (measured by swapping in an already-curated subtype and re-classifying). The other 10
+each carry a second gap. **+3, not +13** — the shared allowlist widened on evidence, not on hoped-for
+downstream flips.
+
+### ⚠️ THREE CREED PINS BROKE, AND THAT WAS THE CAREFUL PART
+All three used **"Villain"** (one also "Fractal") as their stand-in for *"a word not in the curated list"* —
+and this change made Villain curated, so each pin was about to assert the curation gate **using a word that
+now passes it**. A pin that tests a gate through an example is only as good as the example. All three moved
+to "Scarecrow" (verified still uncurated), with the reason in place and an instruction to **move the example
+again rather than weaken the assertion** if Scarecrow is ever curated.
+
+⭐ **Generalises:** when you widen an allowlist, grep the test suite for its counter-examples first — they
+are, by construction, drawn from exactly the set you are about to admit.
+
 ## 🔬 MEASURED — **I went hunting for leverage where the structure PROMISED it. It was worth 1 card.**
 
 Follow-up on "the shelf is per-card from here", testing that conclusion against its most likely
