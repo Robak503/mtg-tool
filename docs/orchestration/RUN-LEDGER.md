@@ -228,6 +228,30 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — PAY-LIFE mana costs (+10)
+
+Staff of Compleation · Standing Stones · Blood Celebrant · Myr Convert · Vesper Ghoul · +5. GAINED 10 · LOST 0.
+
+⭐ **SAME GRADUATION AS TAP-OTHER, DIFFERENT CURRENCY.** The guard lumps pay-life with discard /
+remove-counter / exile / return-to-hand as "a resource the sim can't spend" — but **life is tracked state
+with a mutator.** Gated on affordability in manaSources, actually spent in commitManaTap.
+
+⛔ **THE BAR FOR THE OTHERS IS UNCHANGED BECAUSE IT IS ABOUT SPENDABILITY, NOT DIFFICULTY.** A discard needs
+a hand the mana model never consults; a remove-counter draws on a FINITE pool the sim would treat as
+infinite. Both still refuse **in the same test as the graduation**, so the principle stays beside its
+exception.
+
+⭐ **THE GATE IS `>` NOT `>=`.** CR 118.4 permits paying life to exactly 0, and an SBA then ends the game —
+so `>=` lets the sim **kill itself for one mana**, a legal move no player would make and a corrupted training
+game. Declining that last point is a documented NARROWING, not a rules claim. Mutation-checked.
+
+### 📍 THE MANA-COST GUARD IS NOW SORTED BY A REAL CRITERION
+Three cost kinds graduated this session (tap-OTHER, its tapless twin, pay-life) and three remain refused
+(discard, remove-counter, exile/return). The line between them is no longer "what the guard happened to
+list" — it is **whether the resource is state this seam can honestly spend.** Remaining corpus behind the
+refused kinds: discard 8 · remove-counter 18 · exile 33 · return-to-hand 8, each needing a resource model the
+mana seam does not have.
+
 ## 🔧 SHIPPED — the TAPLESS half of tap-OTHER (+5)
 
 Heritage Druid · Birchlore Rangers · Baylen · Supportive Parents · The Massive Zatcatl. GAINED 5 · LOST 0.
