@@ -991,6 +991,30 @@ function classifyCondition(condRaw, cardName, cardType) {
       }
     }
   }
+  // FIRST-TAP-EACH-OF-YOUR-TURNS (Tale of Katara and Toph — the ONLY corpus card with this wording).
+  // "<self> becomes tapped FOR THE FIRST TIME DURING EACH OF YOUR TURNS". Both halves of the qualifier are
+  // load-bearing, and BOTH already have machinery — this arm only composes them, it invents nothing:
+  //   • "during each of YOUR TURNS" → whose:"yours", the existing activePlayer gate in triggersForEvent.
+  //     Dropping it would fire on opponents' turns too, an over-fire (the forbidden direction).
+  //   • "for the FIRST TIME" → oncePerTurnTrigger, whose latch is keyed per SOURCE PERMANENT + event.
+  //     That keying is exactly right here with no change: the ability is GROUP-GRANTED to each creature
+  //     ("Creatures you control have \"…\""), so each creature is its own source and gets its own latch —
+  //     one counter per creature per turn, NOT one across the whole board.
+  //
+  // ⚠️ PLACED HERE, immediately above the blanket `with|while|during|named` reject, and that placement is the
+  // whole reason it works: the reject is a deliberate CREED catch-all for unenforceable qualifiers, and this
+  // arm sat BELOW it for its first draft and was simply never reached (measured — the bare form detected and
+  // every qualified form returned []). A specific, enforceable carve-out belongs beside `castWithExempt`
+  // rather than weakening the reject.
+  {
+    const ft = c.match(/^(.+?) becomes tapped for the first time during each of your turns$/);
+    if (ft) {
+      const subj = ft[1].trim();
+      const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact"
+        || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+      if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "yours", oncePerTurnTrigger: true };
+    }
+  }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
@@ -3447,7 +3471,15 @@ export function detectTriggers(card) {
       // the Arbiter (a safe false-negative). Checked here because this is where the rider is known.
       if (cls.requiresOncePerTurn && !oncePerTurnTrigger) continue;
       out.push({
-        oncePerTurnTrigger,                   // ONCE-PER-TURN TRIGGER (M1a): flushTriggers drops re-fires within a turn
+        // ONCE-PER-TURN TRIGGER (M1a): flushTriggers drops re-fires within a turn.
+        // ⚠️ THE `|| cls.oncePerTurnTrigger` IS LOAD-BEARING, not defensive. The local above is derived ONLY
+        // from the printed sentence "This ability triggers only once each turn."; a descriptor whose limiter
+        // is baked into the EVENT wording instead ("becomes tapped FOR THE FIRST TIME during each of your
+        // turns" — Tale of Katara and Toph) sets the flag on `cls` and had it silently overwritten to false
+        // here. Caught by reading the built descriptor rather than the arm's return: detection looked
+        // correct and the latch was gone, so the trigger fired on EVERY tap instead of the first — an
+        // over-fire, the forbidden direction. A classifier check alone would never have shown it.
+        oncePerTurnTrigger: oncePerTurnTrigger || !!cls.oncePerTurnTrigger,
         event: cls.event,
         scope: cls.scope,
         whose: cls.whose,
@@ -6161,11 +6193,24 @@ export function checkTapTriggers(state) {
   for (const ev of events) {
     const lk = findPermanent(cleared, ev.id);
     if (!lk) continue;
-    fired = fired.concat(
-      detectTriggers(lk.permanent.card)
-        .filter((d) => d.event === "becomesTapped" && d.scope === "self")
-        .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}))
-    );
+    // ⚠️ ROUTED THROUGH triggersForEvent, not a hand-rolled detectTriggers filter. The old form read
+    // `lk.permanent.card` — the PRINTED card — so it could not see a GROUP-GRANTED becomes-tapped ability
+    // ("Creatures you control have \"Whenever this creature becomes tapped …\"" — Tale of Katara and Toph).
+    // The recipient creatures' own cards say nothing about tapping, so the granted trigger never fired while
+    // the granting card classified native: a runtime-vacuous native, this engine's recurring trap.
+    //
+    // The shared path also applies the gates this one skipped entirely — `whose:"yours"` (the activePlayer
+    // check, without which a first-tap-during-YOUR-turns ability fires on opponents' turns too: an over-fire)
+    // and scopeMatches. The once-per-turn latch rides downstream in flushTriggers either way.
+    //
+    // Self-scoped by construction: the tapped permanent is passed as BOTH source and triggering permanent, so
+    // scope:"self" still matches exactly as before, and non-self becomes-tapped subjects stay UNDETECTED at
+    // classifyCondition (a deliberate refusal), so nothing new can fire here.
+    fired = fired.concat(triggersForEvent(cleared, {
+      event: "becomesTapped",
+      sourcePermanent: lk.permanent,
+      triggeringPermanent: lk.permanent,
+    }));
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
