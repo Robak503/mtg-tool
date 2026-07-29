@@ -228,6 +228,33 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## ⛔ NOT A VEIN — the phantom-reminder sweep, and my own lesson unlearned
+
+Swept the corpus for the squad shape: cards that gain a TRIGGER only when reminder parens are present. 11,390
+cards with parentheticals → 14 keyword groups, headed by graft (13, all unroutable), storm 36, cascade 30.
+
+⛔ **AND THE DISCRIMINATOR IS WRONG.** "Trigger sourced from reminder text" is **correct** for a keyword whose
+reminder RESTATES a real ability. Graft (CR 702.58a) genuinely has "whenever another creature enters, you may
+move a +1/+1 counter from this permanent onto it" — detecting it is right, and it is unroutable because that
+ability is genuinely unmodeled. **Those 13 cards are correctly parked.** Same for storm, cascade, suspend,
+ravenous.
+
+⭐ **SQUAD WAS SPECIAL AND THAT IS THE WHOLE POINT:** its reminder trigger is conditional on an OPTIONAL COST
+THE ENGINE NEVER PAYS, so the ability genuinely does not exist. The test is not "did this come from a paren?"
+but "does the ability exist unconditionally?" — which is per-keyword rules judgment, not a sweep.
+
+### ⚠️ AND I REPEATED THE ATTRIBUTION MISTAKE I HAD BANKED ONE TURN EARLIER
+The sweep grouped by the first parenthetical's leading word, so Corpulent Corpse was filed under **"fear"** when
+its trigger comes from **suspend** — and a 75-card "(unknown)" bucket absorbed the rest. That is the same
+proxy-attribution error as the shelf ledger's "Enchant creature ×496", one turn after I wrote *"attribute by
+the operation you actually care about, never by a proxy that correlates with it."*
+
+⭐ **A LESSON WRITTEN DOWN IS NOT A LESSON APPLIED.** The ledger entry did not stop me building the same
+mistake into the next instrument; only checking two of its rows by hand did. Spot-check the top rows of any new
+ranking against the cards themselves BEFORE reading meaning into the shape.
+
+Squad remains the only card in this class. No slice here.
+
 ## 🔧 SHIPPED — SQUAD's reminder was a PHANTOM ETB TRIGGER (+3) · a runtime defect, not a metric quirk
 
 Roadkill Rodney · Wasteland Raider · Securitron Squadron. GAINED 3 · LOST 0.
