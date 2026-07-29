@@ -395,7 +395,7 @@ export function stripTriggerAbilityLabel(oracle) {
     // sat between the line start and "When", so the boundary-anchored trigger regex never matched and ALL 29
     // corpus imprint cards had their ETB invisible — measured: even "Imprint — When this artifact enters,
     // draw a card." detected nothing. Same FN-safe + FP-closing basis as its siblings.
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
@@ -1822,6 +1822,24 @@ function classifyCondition(condRaw, cardName, cardType) {
   // triggerRoutesNatively: only when the whole effect parses HIGH (a plain self-sac does) is the card credited.
   if (selfRef && /\bbecomes the target of a spell or ability\s*$/.test(c.trim())) {
     return { event: "becomesTarget", scope: "self", whose: "any" };
+  }
+  // ===== VALIANT (CR 702.xx keyword label; 13 corpus carriers, Bloomburrow's mouse cycle) ===== The same
+  // self event NARROWED to a spell or ability the creature's OWN CONTROLLER controls: "Whenever this
+  // creature becomes the target of a spell or ability YOU CONTROL…". Every printing pairs it with "for the
+  // first time each turn", which the dispatch strips into the once-per-turn latch before we get here — so
+  // by this point the condition reads as the bare narrowed form.
+  //
+  // ⛔ THE NARROWING IS THE WHOLE CARD AND IT IS ENFORCED AT THE FIRING SITE, not here. Valiant exists so
+  // that YOUR pump spell grows the creature and an OPPONENT'S removal spell does not; firing on any
+  // targeter would hand these creatures a trigger off every opposing Shock — the over-fire direction, and
+  // the one that would make them look stronger than printed. checkBecomesTargetTriggers compares the
+  // targeting stack object's controller against the targeted permanent's controller (which for this SELF
+  // scope IS the watcher's controller) and drops the trigger when they differ.
+  //
+  // DISTINCT from the ward-tax lane ("…of a spell or ability AN OPPONENT controls"), which is still
+  // unmatched → Arbiter: that one needs the opposite comparison AND a tax, not just a gate.
+  if (selfRef && /\bbecomes the target of a spell or ability you control\s*$/.test(c.trim())) {
+    return { event: "becomesTarget", scope: "self", whose: "any", targeterIsController: true };
   }
   // ===== GROUP BECOMES-TARGET (CR 603.2 — a creature YOU CONTROL becomes the target of a SPELL) ===== The
   // controller-scoped sibling of the self form above (Gargos, Vicious Watcher — "Whenever a creature you
@@ -3589,6 +3607,7 @@ export function detectTriggers(card) {
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
+        targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
         counterType: cls.counterType,         // COUNTERS-PUT-ON (CR 122.6) — the counter KIND the watcher listens for; checkCounterTriggers fires only on a matching placement
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
@@ -5513,12 +5532,23 @@ export function checkBecomesTargetTriggers(state, stackObj) {
     seen.add(t.id);
     const lk = findPermanent(state, t.id);
     if (!lk?.permanent) continue; // a target that already left the battlefield (a fizzled earlier target) — skip
+    // VALIANT gate (descriptor.targeterIsController): "…a spell or ability YOU CONTROL". For this SELF
+    // scope the watcher IS the targeted permanent, so "you" is that permanent's controller — compare it
+    // against the controller of the spell/ability doing the targeting. Dropped, not skipped upstream,
+    // because the unnarrowed watchers on the same permanent must still fire from the same scan.
+    //
+    // ⛔ A MISSING stackObj.controller MUST NOT PASS. Every one of the four target-choice sites supplies it
+    // (verified at each call site), but an undefined on both sides of a `===` would compare EQUAL and fire
+    // Valiant off an opponent's spell — the exact over-fire the card exists to exclude. So the comparison
+    // requires a truthy controller.
+    const targeter = stackObj?.controller;
     fired = fired.concat(triggersForEvent(state, {
       event: "becomesTarget",
       sourcePermanent: lk.permanent,
       triggeringPermanent: lk.permanent,
       triggeringContext: {},
-    }));
+    }).filter((tr) => !tr?.descriptor?.targeterIsController
+      || (!!targeter && targeter === lk.permanent.controller)));
     // GROUP fan-out (spell-only): a CREATURE the targeted creature's controller controls became a spell's
     // target → fire every "a creature you control becomes the target of a spell" watcher that controller has.
     // scopeMatches("creatureYouControl") requires the triggering creature and the watcher share a controller,
