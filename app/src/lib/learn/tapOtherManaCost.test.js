@@ -202,3 +202,49 @@ describe("⭐ PAY-LIFE costs — the same graduation, a different currency", () 
     expect(manaProduction({ name: "Trilobite", type: "Creature — Trilobite", oracle: "Remove a +1/+1 counter from this creature: Add {C}{C}." })).toBe(null);
   });
 });
+
+describe("⭐ payer NOUNS earned by measurement, and the ordering they exposed", () => {
+  const GENE = { id: "gp", name: "Gene Pollinator", type: "Creature — Insect", oracle: "{T}, Tap an untapped permanent you control: Add one mana of any color." };
+  const geneSource = (perms) => manaSources(
+    (() => { const s = createGameState({ userDeck: [], aiDeck: [] }); return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: perms } } }; })(),
+    "user",
+  ).find((x) => x.permanentId === "gp");
+  const gene = () => Object.assign(perm("gp", "Creature — Insect", GENE), { summoningSick: false });
+  const forest = () => perm("f", "Basic Land — Forest");
+  const bear = (id, sick) => Object.assign(perm(id, "Creature — Bear"), { summoningSick: sick });
+
+  it('⭐ "permanent" parses as a payer noun', () => {
+    expect(manaProduction(GENE)).toMatchObject({ extraTap: { count: 1, filter: "permanent" } });
+  });
+
+  it('⛔⭐ "permanent" must NOT go through the word-bound type-line test', () => {
+    // ⚠️ THE VACUOUS-FILTER TRAP, third sighting in this engine (Norn's Choirmaster, Keleth were the others).
+    // The word "permanent" never appears in a type line, so `\bpermanent\b` is a gate NO printed card can
+    // satisfy: the source would be built and then never offered, and the card would look modeled while
+    // producing nothing — silent in every metric. Everything on a battlefield IS a permanent (CR 110.1).
+    expect(geneSource([gene(), forest()]).extraTaps).toEqual(["f"]);
+    expect(geneSource([gene(), bear("b", false)]).extraTaps).toEqual(["b"]);
+  });
+
+  it("⭐⭐ a NON-mana payer is preferred over a land — otherwise the card nets zero", () => {
+    // Tapping a Forest to make one mana is legal and pointless. The sim would have done it on every
+    // activation. This is a POLICY (both orderings are legal), so it is asserted rather than assumed.
+    expect(geneSource([gene(), forest(), bear("b", false)]).extraTaps).toEqual(["b"]);
+  });
+
+  it("⛔⚠️ and the sickness preference is CREATURE-scoped, or a fresh land outranks a ready creature", () => {
+    // createPermanent stamps summoningSick on EVERY fresh permanent, lands included, and sickness is
+    // meaningless for a land tapped as a COST. An unscoped key sorted a just-played Forest ahead of a ready
+    // creature and picked the land — caught only by asserting WHICH payer was chosen, not that one was.
+    expect(geneSource([gene(), forest(), bear("bs", true)]).extraTaps).toEqual(["bs"]);
+  });
+
+  it('⭐ "druid" (a subtype) rides the ordinary word-bound path', () => {
+    expect(manaProduction({ name: "Seton", type: "Creature — Centaur Druid", oracle: "Tap an untapped Druid you control: Add {G}." }))
+      .toMatchObject({ extraTap: { count: 1, filter: "druid" } });
+  });
+
+  it("⛔ an unmeasured noun is still refused — the list is curated, not open", () => {
+    expect(manaProduction({ name: "X", type: "Artifact", oracle: "{T}, Tap an untapped Sliver you control: Add {G}." })).toBe(null);
+  });
+});

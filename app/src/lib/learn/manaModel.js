@@ -539,14 +539,28 @@ function parseTapOtherCost(oracle) {
   if (rest !== "") return null;
   return { count, filter };
 }
-const TAP_OTHER_FILTERS = new Set(["creature", "elf", "token", "food", "artifact"]);
+// Each entry earned its place by MEASUREMENT — a parked mana card whose only blocker was this noun. "permanent"
+// (Gene Pollinator, cdh) and "druid" (Seton, Krosan Protector) were added 2026-07-29 on that basis; the corpus
+// prints many other payer nouns, but on tap-for-EFFECT abilities this seam never sees.
+const TAP_OTHER_FILTERS = new Set(["creature", "elf", "token", "food", "artifact", "permanent", "druid"]);
+
+/** Is this card a CREATURE by printed type? Used only to scope the payer-ordering sickness key. */
+function isCreatureCardType(card) {
+  return new RegExp(`\\bcreature\\b`, "i").test(String(card?.type || card?.type_line || ""));
+}
 
 /** Does a battlefield permanent match a printed tap-OTHER payer filter? Front-face type line only. */
 function matchesTapOtherFilter(perm, filter) {
   const tl = String(perm?.card?.type || perm?.card?.type_line || "").toLowerCase();
   const word = (w) => new RegExp(`\\b${w}\\b`).test(tl);
   if (filter === "token") return !!perm?.card?.token || !!perm?.token;
-  return word(filter);   // card type (creature / artifact) or subtype (elf / food) — same word-bound test
+  // ⛔ "PERMANENT" MUST NOT GO THROUGH THE WORD-BOUND TEST. The word never appears in a type line, so
+  // `\bpermanent\b` is a gate NO printed card can satisfy — the source would be built, then never offered,
+  // and Gene Pollinator would look modeled while producing nothing. That is the VACUOUS FILTER this codebase
+  // has shipped twice before (Norn's Choirmaster, Keleth) and it is silent in every metric. Everything on a
+  // battlefield IS a permanent (CR 110.1), so the honest predicate is "yes".
+  if (filter === "permanent") return true;
+  return word(filter);   // card type (creature / artifact) or subtype (elf / druid / food) — word-bound test
 }
 
 function manaCostModelable(cost) {
@@ -1346,7 +1360,18 @@ export function manaSources(state, playerId) {
       // of the tapping rather than needing its own rule.)
       const payers = (player.battlefield || [])
         .filter((p) => (prod.requiresTap ? p.id !== perm.id : true) && !p.tapped && matchesTapOtherFilter(p, prod.extraTap.filter))
-        .sort((a, b) => Number(!!b.summoningSick) - Number(!!a.summoningSick));
+        // Payer preference, cheapest-first: a SUMMONING-SICK permanent has nothing else to do this turn, and
+        // among the rest a NON-MANA-SOURCE is preferred. ⚠️ That second key matters as soon as "permanent" is an
+        // allowed payer noun (Gene Pollinator): tapping a LAND to make one mana is a legal but pointless play
+        // that nets zero, and the sim would have made it on every activation. This is a policy, not a rule —
+        // both orderings are legal — so it is stated as one.
+        // ⚠️ THE SICKNESS KEY IS CREATURE-SCOPED. `createPermanent` stamps summoningSick on EVERY fresh
+        // permanent, lands included, and sickness is meaningless for a land tapped as a COST — so an
+        // unscoped key sorted a just-played Forest ahead of a ready creature and picked the land. Caught by
+        // asserting which payer was chosen rather than only that one was.
+        .sort((a, b) =>
+          (Number(isCreatureCardType(b.card) && !!b.summoningSick) - Number(isCreatureCardType(a.card) && !!a.summoningSick))
+          || (Number(!!manaProduction(a.card)) - Number(!!manaProduction(b.card))));
       if (payers.length < prod.extraTap.count) continue;                 // cannot pay → not a source
       extraTaps = payers.slice(0, prod.extraTap.count).map((p) => p.id);
     }
