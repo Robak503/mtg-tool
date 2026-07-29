@@ -3103,8 +3103,26 @@ export function detectTriggers(card) {
   // Subject alternation covers every wording the corpus actually prints (censused 2026-07-24: creature 23 ·
   // enchantment 8 · artifact 2 · aura 1 · land 1 — "this enchantment" was MISSING, so every vanishing
   // ENCHANTMENT's reminder leaked through as a phantom unroutable upkeep descriptor, parking Four Knocks).
+  // SQUAD reminder strip (CR 702.157a) — the SAME failure mode as fading/vanishing above, found 2026-07-29.
+  // "Squad {3} (As an additional cost to cast this spell, you may pay {3} any number of times. When this
+  // creature enters, create that many tokens that are copies of it.)" — that second sentence starts with
+  // "When" at a sentence boundary INSIDE the paren, so the anchor below caught it and every squad creature
+  // grew a PHANTOM ETB trigger whose effect clause was the malformed "create that many tokens that are copies
+  // of it. )" — stray paren included, which is the tell that reminder text was being read as rules text.
+  //
+  // ⛔ IT IS A PHANTOM IN THE RUNTIME, NOT ONLY IN THE METRIC. The descriptor routes UNNATIVELY, so a squad
+  // creature sent its ETB to the Arbiter for an ability it does not have — reminder text is never rules text
+  // (CR 207.2). And the trigger it describes only exists when the optional squad cost was PAID; the engine
+  // never pays optional additional costs, so "that many" is always zero and its absence is faithful, which is
+  // the same reasoning coverage.js already credits the squad LINE under.
+  //
+  // ⚠️ FOUND BY A PATH ACCIDENT: squad was credited on the STATIC residue path and refused on the TRIGGER one,
+  // so an identical card flipped or parked purely on what its other line happened to be. This file has fixed
+  // exactly that shape before (the self-no-untap static, "a pure path accident" — see coverage.js).
   const oracle = splitCompoundTriggerSentences(stripTriggerAbilityLabel(
-    String(oracleOf(card) || "").replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, ""),
+    String(oracleOf(card) || "")
+      .replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, "")
+      .replace(/\(as an additional cost to cast this spell, you may pay [^)]*any number of times\.[^)]*\)/gi, ""),
   ));
   const out = [];
   if (oracle) {
