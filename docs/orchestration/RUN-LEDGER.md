@@ -2790,6 +2790,46 @@ candidates would be `native-equipment` / `native-aura` / `native-clone` (grants 
 applied through a separate layer walk) — i.e. parse-credited but APPLICATION-unverified, a different shape
 worth its own pass.
 
+## 🚨 SHIPPED — a clone with a cost-only keyword line NEVER CLONED at runtime (`368cb402`)
+
+**Visage Bandit** was credited `native-clone` and, on a board with a legal copy target, raised **no clone
+choice at all** — it entered as itself.
+
+`parseCloneSpec` requires the WHOLE oracle to be the copy clause, so a cost-only keyword line
+(`Plot {2}{U}`, Convoke, Affinity) made it return null. **coverage.js knew that and stripped those lines
+before calling `isCloneCard` — the RUNTIME (`resolvers.js` PERMANENT_ETB) called it on the RAW card.**
+Classifier and runtime were reading different text about the same card.
+
+⭐ **FIXED AT THE SHARED READER, NOT THE CALL SITE.** The strip now lives inside `parseCloneSpec`, so every
+consumer — classifier, resolver, `legalChoices`' X-cost check — sees the same oracle. Patching `resolvers.js`
+would have fixed this card and left the next caller free to repeat it. **This is the same lesson as
+`triggerRouting` mirroring `buildTriggerStack` in slice 70: when two sides must agree, make them read one
+source rather than promising to stay in step.**
+
+⚠️ **MY FIRST RUNTIME HARNESS WAS WRONG AND THE CONTROLS CAUGHT IT.** I drove `enterPermanent`, and EVERY
+card — Clone and Mirror Image included — showed "no choice", which reads exactly like the bug. That is not
+the clone route; the PERMANENT_ETB resolver is. **Both controls now live in the test file** so the harness
+cannot silently stop reaching the path.
+
+Tier: GAINED 0 · LOST 0 — the tier was already claiming this card; the fix is that **the claim is now true.**
+
+## 🧭 AUDIT PROGRAMME — the third shape swept, and this one paid
+
+| shape | credited by | result |
+|---|---|---|
+| lands | TYPE (playable because they are lands) | ⭐ 3 real bugs |
+| native-body | ABSENCE of parsed abilities | ✅ clean |
+| exported+tested helpers | a passing test | ⭐ 1 hollow gate (islandhome) |
+| **grants: parse-credited, APPLICATION-unverified** | a parse, applied through a separate layer/resolver | **⭐ 1 real bug (clone)** |
+
+Within the last shape: **Equipment and Aura grants are CLEAN** — Bonesplitter/Loxodon Warhammer apply P/T
+and keywords, Rancor/Unholy Strength/Flight apply theirs, all with unattached controls. `native-clone` is
+where it broke, and it broke on the one card in the tier carrying an extra keyword line.
+
+⭐ **THE GENERALIZABLE QUESTION, now stated for the next pass:** *does the classifier transform the oracle
+before deciding, and does the runtime apply the SAME transform?* Every pre-strip, normalization or elision in
+`coverage.js` is a candidate. That is a concrete, finite list worth walking — this find was one entry in it.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2941,6 +2981,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `368cb402` — clone with a cost-only keyword line never cloned (metric/runtime divergence). Slice 74.
 - `c053e89b` — probe-dead-exports (self-controlled); 16 rows triaged benign. Slice 73.
 - `45b23547` — native-body audit (clean) + a green test that never touched the shipped path. Slice 72.
 - `aad5b36c` — painland cycle completed: 5 slow variants + 6 painless (FP). Slice 71.
