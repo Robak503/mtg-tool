@@ -101,7 +101,12 @@ const EXILE_IF_DIES_MASS_RE = /^if a creature dealt damage this way would die th
 // two different once-per-turn effects on the same source (none in the corpus today) wouldn't collide.
 // `create-token` honors it too (SHELF M1b — Screeching Scorchbeast's "create that many … tokens. Do this
 // only once each turn."; the latch lives in applyCreateToken, same per-source gate key).
-const ONCE_PER_TURN_HONORED = new Set(["discover", "draw", "gain-life", "create-token"]);
+// Every op here MUST have a resolver that reads `atom.oncePerTurn` and both CHECKS and SETS the shared
+// `${sourceId}_${op}` latch. Admitting an op whose resolver ignores the flag re-fires it every turn while the
+// card claims native — the forbidden FP this gate exists to prevent. Latch first, admit second.
+// (`add-counter` joined for Leonardo, the Balance; the prose below saying "today just discover" was already
+// stale when this set held four ops — the SET is the source of truth, not the sentence.)
+const ONCE_PER_TURN_HONORED = new Set(["discover", "draw", "gain-life", "create-token", "add-counter"]);
 
 /** Map a legacy effect descriptor to a single EffectProgram atom (or null). */
 function legacyToAtom(effect) {

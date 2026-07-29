@@ -93,6 +93,19 @@ export function applyRad(state, atom, ctx) {
 /** Put +1/+1 or -1/-1 counters on the chosen creature(s), or the SOURCE for a self counter
  * ("put a +1/+1 counter on this creature", atom.target "self"; CR 122.1). */
 export function applyAddCounter(state, atom, ctx) {
+  // ONCE-PER-TURN gate (Leonardo, the Balance — "you may put a +1/+1 counter on each creature you control.
+  // Do this only once each turn."): if this source already fired its once-per-turn add-counter this turn,
+  // suppress it — a safe no-op, the trigger still resolved but the counters are skipped per the printed
+  // frequency restriction. Mirrors applyGainLife / applyDrawAtom / applyDiscoverAtom exactly, including the
+  // `${sourceId}_${op}` key shape, so all four latches share one ledger and one untap-step clear.
+  //
+  // ⚠️ THE LATCH MUST EXIST BEFORE `add-counter` JOINS ONCE_PER_TURN_HONORED. That set is the parser's CREED
+  // gate: an atom whose resolver ignores the flag would re-fire every turn while the card claimed native —
+  // the guard's own comment names exactly that as "a forbidden false positive". Latch first, admit second.
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_add-counter`;
+    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) return state;
+  }
   let next = state;
   // WAVE 3b — the triggering-permanent referent ("…on that creature" / non-self "…on it") resolves to
   // ctx.triggeringPermanentId (CR 608.2c); every other form goes through the shared atomTargets dispatch
@@ -174,6 +187,12 @@ export function applyAddCounter(state, atom, ctx) {
   // A clean no-op when no +1/+1 landed on a creature (placedOnAny === 0) or no such watcher exists.
   if (placedOnAny > 0) {
     next = checkCounterPlacedTriggers(next, { placingPlayerId: ctx.controller, placedOnYours, placedOnAny });
+  }
+  // Consume the once-per-turn latch. Set AFTER the effect ran and regardless of how many counters landed —
+  // the ability resolved, so the turn's use is spent (same convention as the draw/gain-life latches).
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_add-counter`;
+    next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
   }
   return next;
 }
