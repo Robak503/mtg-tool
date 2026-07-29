@@ -2220,6 +2220,44 @@ useless: it is a turn-one ritual out of a card that should be dead, the same for
 condition-gated Mox Opal already refused elsewhere in this ledger. **An un-imprinted Mox must produce
 nothing.** Pin that on a board before pinning anything else.
 
+## ✅ SHIPPED — IMPRINT pieces 1+2: Chrome Mox is native (`5d24a81d`, `7af34dc1`)
+
+The scoped order held, and the two commits are the proof of why it is the right one:
+**piece 1 (the stamp) moved ZERO cards. Piece 2 (the payoff) moved one.** Had they been built in the other
+order, the tier diff would have read GAINED 1 for a Chrome Mox that taps for nothing.
+
+**Piece 1 — the stamp and its fire site.** `setPendingImprintChoice` / `resolveImprintChoice` / `applyImprint`,
+plus an ALLOWLIST span matcher. Two details worth keeping:
+- The **first bug was the ability word.** Imprint is CR **207.2c** — the same list as landfall/enrage/raid —
+  so the unstripped "Imprint —" label sat between the line start and "When" and the boundary-anchored trigger
+  regex never matched. Measured: even `Imprint — When this artifact enters, draw a card.` detected NOTHING.
+  All 29 cards' ETB was invisible.
+- The **"you may" is NOT peeled before the span matchers.** α2's peel lives inside parseEffectClause and the
+  up-front matchers run first, so the prefix is consumed in the matcher and re-stamped `optional:true`.
+  Measured, not assumed — the clause fell to LOW until this was handled.
+
+**Piece 2 — the payoff is the GATE, nothing else.** "One mana of any of the exiled card's colors" is a CHOICE
+among the stamp's colors; the existing `colors` array already expresses it, so no new shape. No stamp → not a
+mana source AT ALL. Colorless card imprinted → same. Mutation-checked both.
+
+⚠️ **A FABRICATED RULE NUMBER, MINE, CAUGHT IN-FLIGHT.** I wrote "CR 702.61" throughout the first draft of
+this slice. **702.61 is Split Second.** Fixed every instance — and the check turned up the SAME class of bug
+sitting in the tree already: `rulesRetrieval.js` mapped **suspend** to 702.61, so a suspend question was being
+handed the split-second rule. Fixed to 702.62 and audited all **129** hint numbers in that table against
+cr_current.json; the rest are clean. **The lesson is procedural: I cited a plausible number from memory in a
+codebase whose §1.2 forbids exactly that. Verify against the CR file at WRITE time, not at review time.**
+
+⚠️ **THE CONTRACT TESTS EARNED THEIR KEEP.** Adding a pendingChoice kind failed three pins immediately —
+a missing fixture, and `KNOWN_UNWIRED` (which is empty and *may only shrink*) catching that a human seat had
+no panel to answer with. That is a soft-lock, not a cosmetic gap, so this shipped with `ImprintPanel` + hook
+method + server entry/dispatch rather than an ignore-list entry. **The panel's submit guard differs from the
+one it was cloned from on purpose**: HandDiscardPanel's `if (!cardId) return` would have swallowed imprint's
+legal DECLINE.
+
+**Still body-only, deliberately:** Semblance Anvil, Isochron Scepter, Soul Foundry, Spellbinder, Prototype
+Portal, Mimic Vat. Their payoffs (cost reduction / copy / cast) are separate slices; the stamp they all need
+now exists and is board-proven.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2236,7 +2274,7 @@ nothing.** Pin that on a board before pinning anything else.
    anything above; take it EARLY in a run.
 4. Shelf grind: the leverage head (2+ decks), re-read 2026-07-28 after Bloom Tender closed:
    - ✅ **Bloom Tender ×3** — DONE (`003e29d1`).
-   - **Chrome Mox ×3** — needs the IMPRINT mechanic; scoped above, build the stamp first.
+   - ✅ **Chrome Mox ×3** — DONE (`7af34dc1`). The imprint STAMP is now shared infrastructure.
    - **High Score ×3** — already `native-mixed`; verify at runtime rather than rebuild.
    - **Wan Shi Tong ×3** — ETB X-counters + "half X rounded down" draw, plus an
      opponent-SEARCHES-their-library trigger the engine has no event for.
@@ -2365,6 +2403,8 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `7af34dc1` — IMPRINT piece 2: Chrome Mox's mana gated on the stamp (+1). Slice 60.
+- `5d24a81d` — IMPRINT piece 1: the stamp + its fire site; the CR-207.2c ability word (+0, by design). Slice 59.
 - `003e29d1` — mixed mana bundles one-of-each: a live runtime FP on 51 staples, + Vivid (+2). Slice 58.
 - `e0d15930` — Amulet of Vigor: permanent-wide enters-tapped trigger + the missing land fire site (+1). Slice 57.
 - `d7148fa3` — v0.149.5: graveyard-ability composition (+14). Slice 56.
