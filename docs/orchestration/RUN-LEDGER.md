@@ -228,6 +228,29 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — TAP-OTHER mana costs (+5) · Springleaf Drum hits 2 shelf decks
+
+Springleaf Drum · Loam Dryad · Saruli Caretaker · Jaspera Sentinel · Dragonbroods' Relic. GAINED 5 · LOST 0.
+
+⭐ **THIRD CAPABILITY PIN THIS RUN TO GRADUATE ON ITS OWN STATED CONDITION** — the guard refused the family
+because *"the sim doesn't tap the other Elves."* It taps them now: `extraTap` → manaSources (resolves real
+payers, refuses to offer the source without them) → commitManaTap (taps them), mirroring how `sacrifices`
+already carried the Treasure self-crack.
+
+⛔ **THE HONESTY CLAIM IS UNCHANGED, ONLY ITS MECHANISM.** Still not STANDING sources — sources only while a
+payer exists. Phantom mana prevented by making the cost REAL, not by refusing the card. Sphere of the Suns
+(remove-counter, a finite pool) stays refused **in the same test**: two costs, two verdicts, one principle.
+
+### ⭐⭐ THE RULES SUBTLETY THAT NOTHING WOULD HAVE CAUGHT
+**Summoning sickness is NOT a payer filter (CR 302.6).** Sickness restricts the {T} symbol in a creature's
+OWN cost; this is a cost of the DRUM's ability, so a creature played this turn is a legal payer — *exactly the
+turn this card is meant to matter*. The naive implementation filters by `!summoningSick` and is **wrong in the
+restrictive direction**, which no coverage number, no tier diff and no other test would ever flag. Pinned, and
+payer ordering now PREFERS sick creatures since they have nothing else to do.
+
+⚠️ The ``-through-heredoc backspace trap bit again; eslint's `no-control-regex` caught it, second time this
+run. **The lesson is not "be careful" — it is that the lint rule is the detector**, so never silence it.
+
 ## 🔧 SHIPPED — two-colour tokens in the rider grammar (+3)
 
 Reduce to Memory · Harsh Annotation · Resculpt. GAINED 3 · LOST 0.
