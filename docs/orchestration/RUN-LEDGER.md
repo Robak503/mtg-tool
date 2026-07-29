@@ -38,6 +38,46 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## ⛔ ATTEMPTED AND REVERTED — the non-land fetch-to-battlefield. **NINE PINS SAY NO.**
+
+I built the 11-row probe lead (uncapped battlefield tutor accepts only lands; its MV-capped twin `bfn`
+accepts every permanent type) and **reverted it.** Recording the whole thing because the reasoning was
+sound and the conclusion was still wrong — that combination is worth more than the slice would have been.
+
+**THE ARGUMENT FOR BUILDING IT, which I still think is factually correct:**
+- `bfn` (MV-capped) already puts ANY permanent type onto the battlefield — measured, not assumed.
+- Resolving its creature form against a real library **lands the creature**. The machinery works.
+- A 3-MV creature entering is the identical code path to a 9-MV creature entering. **A mana-value cap
+  cannot be what makes a zone change legal.**
+- The guard's originating commit (`93433dca`, the RAMP-TYPED land slice) uses **scope-boundary language** —
+  a non-land "cheat-into-play (Natural Order)" stays *"OUT OF SCOPE"*.
+
+**WHY IT IS REVERTED ANYWAY — the suite answered, nine times:**
+```
+7 test files · 9 assertions, written at different times, all independently pinning the same thing:
+  "the non-land battlefield CHEAT still stays LOW → Arbiter"      ramp.test.js  (×2)
+  "CREED landmines stay LOW → Arbiter"                            tutorToBattlefieldX.test.js
+  "landmines remain arbiter-spell (Natural Order color-sac …)"    naturalOrder-adjacent
+  "Dragonstorm (tutor-to-battlefield, LOW body) is NOT native"    storm.test.js
+  … plus coverage.test.js, gyRecursion-adjacent, and the probe's own witness
+```
+**"Cheat" and "landmine" are the vocabulary of a deliberate CREED refusal, not of an absent capability.**
+One comment reading as a scope boundary is ambiguous; **nine assertions across seven files is a record of a
+decision that was made and re-affirmed.** The standing rule is explicit — *do not restart settled refusals
+blind*, and Omnath's note adds the reason: rediscovering one is the most expensive kind of wasted session
+*because it feels like progress.*
+
+⭐ **THE LESSON, and it sharpens "verify before graduating":** a failing pin is evidence, and **the evidence
+can be against you.** I have graduated six pins this run by proving the runtime does the thing. Here the
+runtime *does* do the thing — and the pins still win, because they are recording a JUDGEMENT about what the
+engine should offer, not a claim about what it can execute. **Distinguish a pin that says "we cannot" from a
+pin that says "we will not."** Only the first kind graduates on a runtime proof.
+
+**❓ FOR A WAKING SESSION (Colton's call, not mine):** ~63 cards sit behind this — Birthing Pod #2008, Whir
+of Invention #1308, Tezzeret #1688, Kuldotha Forgemaster #2694, Godo #3193, Academy Rector, Arena Rector.
+The question is not "does it work" (it does) but **"is an uncapped non-land fetch-to-battlefield something
+this engine should offer?"** If yes, the nine pins get updated together, deliberately, in one slice.
+
 ## 🔭 SHIPPED — `probe-vocabulary-asymmetry.mjs` (`55a64210`): the axis pattern is now an INSTRUMENT
 
 Three slices found the same way is a pattern; four would be a waste of a pattern. This diffs twin clause
@@ -48,7 +88,7 @@ templates that differ in **one dimension** and reports any word one arm can say 
 
 | rows | family | verdict |
 |---|---|---|
-| **11** | uncapped battlefield TUTOR accepts `land`/`basic land`/`permanent` but **not** `creature`/`artifact`/`enchantment` — its MV-capped twin accepts all | ⛔ **NOT BUILT.** `bfm`'s guaranteed-land guard is a **documented deliberate gate**. ~**63 cards** behind it (Birthing Pod #2008 · Whir of Invention #1308 · Tezzeret #1688 · Kuldotha Forgemaster #2694 · Academy Rector). **Do not override blind** — see the open question below. |
+| **11** | uncapped battlefield TUTOR accepts `land`/`basic land`/`permanent` but **not** `creature`/`artifact`/`enchantment` — its MV-capped twin accepts all | ⛔ **ATTEMPTED AND REVERTED** — see the section above. **Nine pins across seven files** call it a "cheat"/"landmine". Settled refusal, not an absent capability. |
 | 3 | instant/sorcery → battlefield | ✅ **RULES-CORRECT** (CR 110.4a). The probe working as designed. |
 | 3 | bounce vs destroy/exile on planeswalker + 2 unions | Measured: worth **2 cards**. Not a slice. |
 | 0 | cardinality (single vs up-to-N) | clean |
