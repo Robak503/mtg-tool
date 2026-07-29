@@ -223,8 +223,33 @@ function extractQuotedRiderClauses(riderText) {
  *     - mvLimit: true when the head restricts the target to "mana value ≤ mana spent to cast this".
  *     - riders: array of modeled rider atoms (empty for a pure clone).
  */
+/**
+ * ⭐ THE COST-KEYWORD PRE-STRIP, MOVED HERE SO BOTH SIDES SHARE IT (2026-07-29).
+ *
+ * parseCloneSpec requires the WHOLE oracle to be the copy clause, so a cost-only keyword line — "Plot {2}{U}"
+ * (Visage Bandit), Convoke, Affinity — made it return null. coverage.js knew that and stripped those lines
+ * BEFORE calling isCloneCard… but the RUNTIME (resolvers.js PERMANENT_ETB) called isCloneCard on the RAW
+ * card. So Visage Bandit classified `native-clone` and, on a board with a legal copy target, raised NO
+ * clone choice at all: it entered as itself. A runtime-vacuous native, and invisible to the tier.
+ *
+ * Verified behaviourally before and after, with Clone / Mirror Image as live controls.
+ *
+ * Doing the strip INSIDE the shared readers is what makes the divergence impossible to reintroduce: every
+ * consumer — classifier, resolver, legalChoices' X-cost check — now sees the same text. Those keywords are
+ * cost-only and the runtime hard-casts at full cost (the Ninjutsu/Convoke precedent), so removing them for
+ * SHAPE detection can never over-claim a non-clone.
+ */
+function stripCostOnlyLines(oracle) {
+  return String(oracle || "")
+    // "Plot {cost}" / "Convoke" / "Affinity for X" style lines carry no copy semantics.
+    .replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/gi, "\n")
+    .replace(/(?:^|\n)\s*(?:convoke|affinity for [^\n.]+|improvise|delve)\s*(?=\n|$)/gi, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 export function parseCloneSpec(card) {
-  let t = stripReminder(card?.oracle || card?.oracle_text || "").toLowerCase();
+  let t = stripReminder(stripCostOnlyLines(card?.oracle || card?.oracle_text || "")).toLowerCase();
   const nameL = card?.name ? String(card.name).toLowerCase() : null;
   if (nameL) {
     t = t.replace(new RegExp(escapeRegex(nameL), "g"), "~");
