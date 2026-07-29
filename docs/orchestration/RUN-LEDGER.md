@@ -342,9 +342,28 @@ token 3 → 4, second token places nothing.
 Both were caught the same way: **re-test against the REAL card before concluding anything about the engine.**
 That rule has now saved three wrong conclusions this session (this pair plus Weathered Wayfarer).
 
-**The remaining three turtles, in likely-cheapness order:** Michelangelo's `Raid (the Fridge) —` (an ability
-word with a FLAVOUR NAME in parens — the Raid parser will not be expecting that, and it may be a one-diff),
-then Raphael's filtered damage doubler, then Donatello's "those tokens plus a Mutagen token" replacement.
+### ✅ MICHELANGELO HOME TOO (`83269996`, +2 — Halfshell 58% → **60%**)
+
+He needed **two** independent fixes, and my prediction above was **half wrong in an instructive way**:
+
+1. **`"At the beginning of your SECOND main phase"` detected NOTHING** — while *first / precombat* main had
+   mapped to `firstMain` since its own slice. **The fourth missing-sibling guard this run.** Fires at the
+   postcombat-main entry, gated on the PHASE because both mains share step `"main"` (the firstMain comment
+   already calls that double-fire "the landmine here").
+2. The `Raid (the Fridge) —` label — corpus-checked: **exactly ONE card** prints a parenthesised ability word.
+
+**⭐ THE LEDGER PREDICTED (2) AND CALLED IT THE BLOCKER. It wasn't.** Bisecting to the simplest failing form —
+*"At the beginning of your second main phase, draw a card."* — showed EVERY variant failing, label or no
+label. **Fixing the label alone would have moved nothing.** Bisect to the simplest failing case before
+believing a diagnosis, including one of mine.
+
+**⚠️ AND A PIN THAT READ STRONGER THAN IT WAS:** `post.hand === pre.hand + 1` still passes under the
+double-fire mutation (pre becomes 2, post 3). Measured, then tightened to ABSOLUTE counts. **A relative
+assertion about a counter is no guard against something that increments both sides.**
+
+**The remaining two turtles:** Raphael's filtered damage doubler ("Double all damage that creatures you
+control WITH COUNTERS ON THEM would deal") and Donatello's "those tokens PLUS a Mutagen token" replacement.
+Both are replacement effects with a filter, and `tokenMultiplier` (Wave-3a) is the nearest existing seam.
 
 ### ⭐⭐ THE RULE THAT MAKES THIS WHOLE SEAM TRACTABLE — DIRECTION, NOT PRESENCE
 
