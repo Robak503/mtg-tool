@@ -2514,6 +2514,18 @@ const THAT_CREATURE_PUMP_RE = /^that creature (?:gets [+-]\d+\/[+-]\d+(?: and ga
 // then the add-counter self parser (counters.js, countContext:"combatDamageAmount") binds the count to the damage.
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on it$/i;
 
+// IT-DOUBLE — the DOUBLING sibling of SELF_COUNTER_IT_RE (Level Up's granted body: "Whenever this creature
+// attacks, DOUBLE the number of +1/+1 counters on it"). The parser already models the same clause written
+// "…on THIS CREATURE" (countFor:countersOnSource, target:"self", HIGH — measured); only the pronoun was
+// missing, which is the same one-word gap the pump and counter siblings above were built to close.
+//
+// Same two guards as its siblings, and both are load-bearing: SELF-SCOPE ONLY (for a non-self trigger "it"
+// is the OTHER triggering creature, so doubling the SOURCE's counters would be a confidently wrong target),
+// and WHOLE-CLAUSE anchored (Level Up's real text continues "Then if it has power 10 or greater, draw a
+// card." — that compound does NOT match here, so the card keeps routing to the Arbiter until the threshold
+// half is modelled: a safe FN, never a partial fire).
+const SELF_DOUBLE_IT_RE = /^double the number of [+-]1\/[+-]1 counters on it$/i;
+
 // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — a SELF-scope trigger sacrifices its OWN
 // source with the pronoun "it": "When this creature becomes the target of a spell or ability, sacrifice it."
 // For a self-scope trigger "it" is the SOURCE (CR 608.2c — the object the ability triggered on = the targeted
@@ -3188,6 +3200,11 @@ export function detectTriggers(card) {
         // IT-COUNTER: "…put a +1/+1 counter on IT" — "it" is the source (CR 113.7). Same self-scope gate
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
+        effectClause = effectClause.replace(/ on it$/i, " on this creature");
+      }
+      if (cls.scope === "self" && SELF_DOUBLE_IT_RE.test(effectClause)) {
+        // IT-DOUBLE: "double the number of +1/+1 counters on IT" — same self-scope + whole-clause rules as
+        // the counter rewrite directly above; the parser's countersOnSource atom models the rewritten form.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
       }
       if (cls.event === "becomesTarget" && cls.scope === "self" && SELF_SAC_IT_RE.test(effectClause)) {

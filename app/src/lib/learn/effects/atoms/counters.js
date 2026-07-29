@@ -537,6 +537,15 @@ export function addCounterClauseParser(clause) {
     const src = parseCountSource("the result");
     return src ? { op: "add-counter", counterType: "+1/+1", countFor: src, scope: "upToTwoYouControl" } : null;
   }
+  // ENCHANTED referent (Level Up's "When this Aura enters, put a +1/+1 counter on ENCHANTED CREATURE").
+  // A FIXED referent, not a chosen target — atomTargets resolves target:"enchanted" to the Aura's host via
+  // ctx.sourceId → attachedTo, exactly as the tap / untap / pump / regenerate arms already do. A detached or
+  // gone Aura resolves to [] (a clean no-op, never a fabricated counter). Listed before the chosen-target arm
+  // below because "enchanted creature" is not "target creature" and would otherwise fall through to LOW.
+  {
+    const em = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on enchanted creature$/);
+    if (em) return { op: "add-counter", counterType: em[2], amount: SMALL_NUM[em[1]] ?? parseInt(em[1], 10), target: "enchanted" };
+  }
   let m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // ENTERED-THIS-TURN target (Cathedral Acolyte's activated — "put a +1/+1 counter on target creature that

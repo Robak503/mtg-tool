@@ -219,10 +219,22 @@ describe("AU-3 CREED — false-negative-SAFE parks stay on the Arbiter", () => {
     expect(classifyCard(cardOf("Demonic Vigor"))).toBe("body-only");
   });
 
-  it("an unrouted effect parks the whole card (Forced Adaptation: +1/+1 counter on enchanted creature)", () => {
-    // "put a +1/+1 counter on enchanted creature" — the counter atom parser rejects target:'enchanted' → the
-    // trigger doesn't route → body-only (a SAFE false-negative, never a claimed-but-dropped counter).
+  it("GRADUATED — 'put a +1/+1 counter on ENCHANTED CREATURE' now routes (Forced Adaptation)", () => {
+    // This pin asserted body-only BECAUSE the counter atom parser rejected target:'enchanted'. That was a
+    // statement about a missing capability, not a refusal to keep — so it graduates the same way the
+    // Bequeathal pin below did, the moment the referent arm landed. Exactly its job.
+    //
+    // The CREED guarantee it protected is unchanged and is asserted where it actually lives now: the counter
+    // must land on the HOST, and a DETACHED aura must fabricate nothing (both pinned in levelUpAura.test.js).
     const c = cardOf("Forced Adaptation");
+    expect(detectTriggers(c).every(triggerRoutesNatively)).toBe(true);
+    expect(classifyCard(c)).toBe("native-trigger");
+  });
+
+  it("an unrouted effect still parks the whole card (Followed Footsteps: copy-token of enchanted creature)", () => {
+    // The park guarantee this describes is real and must keep a live fixture. "create a token that's a copy of
+    // enchanted creature" has no route, so the whole card stays body-only — a SAFE false-negative.
+    const c = { name: "Followed Footsteps", type: "Enchantment — Aura", mana: "{3}{U}", oracle: "Enchant creature\nAt the beginning of your upkeep, create a token that's a copy of enchanted creature." };
     expect(detectTriggers(c).every(triggerRoutesNatively)).toBe(false);
     expect(classifyCard(c)).toBe("body-only");
   });
