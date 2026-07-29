@@ -189,6 +189,33 @@ export function parseControllerRider(t) {
  * that resolves today can be re-resolved through a different path — the same ordering rule that kept the
  * restricted-mana and self-exile slices at LOST 0.
  */
+/**
+ * ===== REMOVAL + CASTER GAIN-LIFE RIDER ===== — "Destroy/Exile target X. You gain life equal to its
+ * <toughness|mana value>." (Sever Soul, Divine Offering, Serene Offering, Vampiric Rites' kin).
+ *
+ * ⭐ THE SUBJECT IS THE OTHER ONE. `matchRemovalControllerRider` folds "ITS CONTROLLER <rider>"; this folds
+ * "YOU <rider>" on the identical lead grammar. The metric capture (power / toughness / mana value, read
+ * pre-removal) is shared, so the only new thing is the beneficiary — and ⛔ getting THAT backwards is the
+ * whole risk: Swords to Plowshares gives the life to the target's controller, Sever Soul gives it to the
+ * caster, and the two sentences differ by one word.
+ *
+ * Reuses the same injected fallback lead resolver, so destroy-CREATURE leads work here from the start rather
+ * than needing the same hole found twice.
+ */
+export function matchRemovalCasterGainLife(oracle, parseLead = null) {
+  const m = stripReminder(oracle).trim().replace(/[’]/g, "'")
+    .match(/^((?:exile|destroy) target .+?)\.\s+you gain life equal to (?:its|that creature's) (toughness|mana value)\.?$/i);
+  if (!m) return null;
+  let lead = destroyExileClauseParser(m[1].trim());
+  if (!lead && parseLead) {
+    const atoms = parseLead(m[1].trim())?.atoms;
+    if (Array.isArray(atoms) && atoms.length === 1 && (atoms[0].op === "destroy" || atoms[0].op === "exile")) lead = atoms[0];
+  }
+  if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null;
+  const metric = /mana value/i.test(m[2]) ? "mv" : "toughness";
+  return { atom: { ...lead, controllerRider: { kind: "casterGainLife", metric } }, rest: "" };
+}
+
 export function matchRemovalControllerRider(oracle, parseLead = null) {
   // A TRAILING sentence is handed back as `rest` rather than blocking the match. The rider itself is always
   // period-free (every shape parseControllerRider models is a single clause, and its anchors are ^…$ — a

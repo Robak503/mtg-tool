@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureBasePower } from "../../gameState.js";
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
@@ -46,7 +46,17 @@ export function applyRemovalWithRider(state, atom, ctx) {
     // off the pre-removal state so the condition reflects the land that was actually destroyed.
     if (lk) {
       const tl = lk.permanent?.card?.type || "";
-      captures.push({ controller: lk.controller, power: Math.max(0, creaturePower(lk.permanent, state)), nonbasic: /\bLand\b/.test(tl) && !/\bBasic\b/.test(tl) });
+      // TOUGHNESS + MANA VALUE join POWER on the capture: a rider scaled by the removed permanent's stats must
+      // read them from the PRE-removal board (Sever Soul's "you gain life equal to its toughness" — after the
+      // destroy there is nothing left to measure). MV comes off the card (CR 202.3 — an absent cost is 0), so
+      // it is valid for the artifact / enchantment leads too, not just creatures.
+      captures.push({
+        controller: lk.controller,
+        power: Math.max(0, creaturePower(lk.permanent, state)),
+        toughness: Math.max(0, creatureToughness(lk.permanent, state)),
+        mv: Math.max(0, lk.permanent?.card?.cmc ?? lk.permanent?.card?.mana_value ?? 0),
+        nonbasic: /\bLand\b/.test(tl) && !/\bBasic\b/.test(tl),
+      });
     }
   }
   // Perform the removal through the shared resolver (exile → applyZoneMove, destroy → applyDestroyEffect).
@@ -99,6 +109,18 @@ export function applyControllerRider(state, rider, cap, ctx) {
     // An Offer You Can't Refuse — N named artifact tokens (Treasure/Clue/Food/Gold) under the captured controller.
     const tokenAtom = { op: "create-named-token", token: rider.token, count: rider.count, targetType: null };
     return applyCreateNamedToken(state, tokenAtom, { ...ctx, controller: cap.controller });
+  }
+  if (rider.kind === "casterGainLife") {
+    // ⭐ "You gain life equal to its <toughness|mana value>." — the CASTER gains, scaled by a metric captured
+    // from the removed permanent BEFORE it left. ⛔ Distinct from `gainLifePower` (Swords to Plowshares),
+    // where the TARGET'S CONTROLLER gains: same sentence shape, opposite beneficiary. Confusing the two
+    // would hand the victim the life on every card in this family.
+    const caster = ctx?.controller;
+    if (!caster || !state?.players?.[caster]) return state;
+    const amount = Math.max(0, cap[rider.metric] ?? 0);
+    let next = gainLife(state, { playerId: caster, amount });
+    if (amount > 0) next = checkLifegainTriggers(next, caster, amount);
+    return logEvent(next, { kind: "spell-effect", effect: "rider-gain-life", controller: caster, amount });
   }
   if (rider.kind === "loseLife") {
     // ⭐ "Its controller loses N life." — scoped to the CAPTURED controller (the permanent's / spell's
