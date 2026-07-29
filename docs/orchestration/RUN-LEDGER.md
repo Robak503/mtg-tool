@@ -295,6 +295,42 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
+### 🎯 NEXT DECK: **Earth Bent 81%** — the closest to the bar, NINE cards short
+
+With no shared lever left (below), the way to move the 1.0 metric is to convert ONE deck at a time, and Earth
+Bent is nearest. Its gap, from `measure-coverage.mjs "earth bent"`:
+```
+8 ETB trigger · 4 spell effect · 2 static anthem · 1 each dies / attacks / activated / upkeep / other
+```
+Named: Amulet of Vigor · Scute Swarm · **Lotus Cobra** · Scythecat Cub · Lumra · Toph · Ashaya · Scapeshift ·
+The Ozolith · Earth Rumble.
+
+### ⚠️ "ADD ONE MANA OF ANY COLOR" AS AN EFFECT — SCOPED, NOT BUILT. It is a DESIGN call, not a vocabulary cross.
+
+The parse gap is real and tiny: **`add {G}` parses HIGH, `add one mana of any color` parses LOW**, while the
+MANA-ABILITY side has understood that phrasing forever (Birds of Paradise is `native-mana`). Fifth
+missing-sibling of the run — *except it isn't, and that is the point.*
+
+**The blocker is not the regex, it is the COLOUR CHOICE.** `addMana` takes one specific colour and the pool
+has no wildcard slot, so a tap-source defers the choice to the payment planner (`colors:[W,U,B,R,G]`) while a
+RESOLUTION-time add must commit to a colour immediately. Inventing that heuristic is a modelling decision,
+not a parse fix, and a quietly-wrong one degrades sim fidelity invisibly.
+
+**Payoff, measured:** 234 parked cards contain the phrase, but only **11 are trigger-shaped** (the rest are
+tap abilities already handled). **Lotus Cobra #323** is the prize; then Nissa #2106, Outcaster Trailblazer
+#2968, Quirion Sentinel.
+
+**Two viable designs — pick deliberately, do not drift into one:**
+1. **Controller's commander colour identity**, deterministic in WUBRG order. `commanderColorIdentity` already
+   exists in `layers.js` (~1495) but is NOT exported — exporting it adds a manaModel→layers edge, and *that
+   edge class is what crashed module init two slices ago*, so check the graph before adding it.
+2. **The source card's own colour identity** (Lotus Cobra → `{G}`). No new import, and it matches what the
+   card's deck almost always wants — but it is wrong for a 5-colour deck holding a mono-coloured source.
+
+**Either way the AMOUNT is exact, so the error can only be play-QUALITY (a safe FN), never more mana than
+printed.** That is what makes this buildable at all — but it still deserves a deliberate choice, not one
+invented at the end of a session.
+
 ### 🪶🪶 THE SHELF GAP IS A PER-DECK TAIL TOO — measured (`probe-shelf-blockers.mjs`, `c1204aa2`)
 
 **Read this before planning any "push Joe to 90%" work.** The probe ranks blocking sentences by **how many
