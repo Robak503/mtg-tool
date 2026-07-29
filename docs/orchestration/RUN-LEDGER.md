@@ -381,7 +381,7 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,278/34,245 — +230 this run). Suite **909 files / 11,667 tests**,
+- **Nothing mid-edit.** Corpus **35.8%** (12,271/34,245 — +223 this run, net of 7 FP retractions). Suite **909 files / 11,668 tests**,
   lint 0, MUTANT sweep clean. FORTY-FIVE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
   the branch name is stale — it carries forty-five unrelated slices and wants a rename before any PR).
 
@@ -1376,20 +1376,33 @@ exposed it. **Post above the first `### ` header, and verify with `grep -n "^###
   games finish. With `unresolved` (the Arbiter escape hatch) and `soft-counter` handled: 24/24, zero
   wedges. Fixed. If it reports a catastrophe again, suspect the harness first.
 
-## ⛔ AURA GRANTS THAT NEVER APPLY — **4 of 7 FIXED** (`4096bfae`); three still open
+## ✅ AURA GRANTS THAT NEVER APPLY — **ALL CLOSED** (`4096bfae` + `303858c5`). The probe reads ZERO.
 
 **Reproducer:** `MTG_APP_ROOT=… node app/scripts/probe-dropped-attached-grants.mjs` — attaches each to a
 2/2 and compares the host's LAYER-DERIVED P/T against the printed bonus.
 
-| card | status |
+| card | resolution |
 |---|---|
-| Dark Privilege #11269 · Serpent Skin · The Brute · Gaea's Embrace | ✅ **FIXED** — grants apply (3/3, 3/3, 3/2, 5/5); now `native-aura` |
-| Elephant Guide · Most Wanted · A-Most Wanted | ⛔ **STILL BROKEN** — `native-trigger`, host stays 2/2 |
+| Dark Privilege #11269 · Serpent Skin · The Brute · Gaea's Embrace | ✅ **FIXED** — grants apply (3/3, 3/3, 3/2, 5/5); now `native-aura` (`4096bfae`) |
+| Elephant Guide · Griffin Guide · Most Wanted · A-Most Wanted · Failed Conversion · Sleeper's Robe · Elder Mastery | ✅ **PARKED** — they did NOTHING; the composition crediting them was a false positive (`303858c5`) |
 
-**The three that remain are a DIFFERENT PATH:** `isNativeOwnTriggeredAura`, aura-own DIES triggers.
-⚠️ Do not widen `isModeledAuraOwnTrigger` to admit them without first checking ON A BOARD that an
-aura-own dies trigger actually FIRES from an Aura source. **Detection is not firing** — assuming
-otherwise is what produced this whole bug class.
+⚠️ **COVERAGE WENT DOWN, and that is the honest direction:** 35.9% → 35.8% (12,278 → 12,271). Those seven
+were counted and delivered neither half. *A metric that only ever rises has stopped measuring.*
+
+**⛔ THE COMPOSITION SLICE SHIPPED EARLIER IN THIS RUN WAS WRONG.** It credited ten Auras by verifying the
+static half and the trigger half each through its own gate — "composed, not loosened". But each half is
+verified on **text the composition invented**, and the runtime sees neither: `parseAuraBonus` drops the
+static (an aura-own trigger line isn't on its skip list) and `checkDiesTriggers` never enqueues an
+aura-own dies trigger (the Aura leaves with its host and is never scanned — measured, pendingTriggers 0).
+
+⭐ **THREE of the ten survive, and the split is the reusable part:** Demonic Appetite, Mark of Fury and
+Recumbent Bliss carry the AURA'S OWN upkeep/end-step trigger, which never references the enchanted
+creature and so never poisons the bonus. **The dividing line is whether the trigger keys on the ENCHANTED
+CREATURE.**
+
+**To make the seven honestly native the ENGINE must change, not the metric** — `parseAuraBonus` must skip
+a modeled aura-own host trigger, AND `checkDiesTriggers` must scan auras attached to a dying creature (an
+LKI walk; the Aura is already gone by then). Neither is a slice.
 
 **Root cause, diagnosed:** `parseAuraBonus` is all-or-nothing BY DESIGN — an Aura carrying a sibling the
 bonus parser doesn't own (a regenerate activated line, an unmodeled own-trigger) drops the WHOLE bonus
