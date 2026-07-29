@@ -2258,6 +2258,53 @@ legal DECLINE.
 Portal, Mimic Vat. Their payoffs (cost reduction / copy / cast) are separate slices; the stamp they all need
 now exists and is board-proven.
 
+## 🗺 FRESH SHELF READ (2026-07-28, after slices 57–61) — the cheap shelf work is DONE
+
+⚠️ **RUN THE SHELF PROBE AGAINST APPDATA, NOT THE REPO.** `MTG_APP_ROOT=<repo>/app` makes
+probe-shelf-blockers.mjs report **`decks scanned: 0`** and print an empty, entirely convincing table. The real
+deck store is the installed app's:
+
+```
+MTG_APP_ROOT="C:/Users/colto/AppData/Roaming/com.colton.mtg-tool" node app/scripts/probe-shelf-blockers.mjs
+```
+
+(The *oracle* probes still want the main-tree `app/`. The two roots are different and neither errors when
+wrong — the shelf one just reads zero.)
+
+**THE REAL STATE: 403 shapes touch exactly ONE deck.** The ×3 head is now entirely subsystems — there is no
+cheap shelf card left:
+
+| card | ×decks | what it actually needs |
+|---|---|---|
+| Wan Shi Tong | 3 | an **opponent-searches-their-library EVENT** the engine has no concept of |
+| Mindbreak Trap | 3 | an alternate cost + "exile any number of TARGET spells" |
+| Teferi's Protection | 3 | **PHASING** (a whole subsystem) + "life total can't change" |
+| Level Up | 3 | THREE unbuilt pieces — sized below |
+| Herd Heirloom | 3 | ⛔ spend-restricted mana — a DELIBERATE refusal, do not "fix" |
+
+**LEVEL UP, sized honestly** (all three measured LOW today, none exist):
+1. the Aura's own ETB "put a +1/+1 counter on ENCHANTED CREATURE" (the enchanted referent on a counter atom);
+2. the quoted GRANT of an attack trigger to the host;
+3. "DOUBLE the number of +1/+1 counters on it", then a power≥10 threshold draw.
+It is the most contained of the four, and it is still a three-piece slice. **Build the grant (2) before the
+payoff (3)** — same law as Amulet and imprint.
+
+## ⛔ MEASURED AND CLOSED — the "another target creature" BITE is a FALSE SHELF LEAD
+
+The probe ranks `Target creature you control deals damage equal to its power to another target creature` at
+2 decks (Contest of Claws, Hulk's Thunderclap), and the existing bite arm is genuinely one target-scope away
+(it anchors "target creature you don't control"). **Building it moves NEITHER shelf card**: Contest of Claws
+is blocked by **discover**, Hulk's Thunderclap by **behold** + a conditional destroy. The bite is not their
+blocker.
+
+Corpus-wide the shape is 11 cards, and only **Fall of the Hammer** is the bare one-arm case (+1). The others
+are distinct shapes, not one vein: Mutiny/Breaking of the Fellowship put the damage on an OPPONENT'S creature
+with a linked "that player controls" target, Deadshot is a tap-compound with an "it" referent, Cosmic Hunger
+widens to a creature/planeswalker/battle union.
+
+**+1 corpus, +0 shelf.** Recorded so no future resume re-chases the row — this is the probe header's own
+"confirm against the real card before building" rule paying for itself a seventh time.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
