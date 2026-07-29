@@ -1706,6 +1706,22 @@ export function tutorClauseParser(clause, ctx = {}) {
     return { op: "tutor", filter, filterLabel: label, destination: "top", targetType: null };
   }
   // bfm — RAMP-1 / RAMP-TYPED single LAND to battlefield.
+  //
+  // ⭐ THE ADMISSION IS TWO-ARMED, AND THE SECOND ARM USED TO BE INVISIBLE. `parseTutorFilter("permanent")`
+  // returns `{ groups: [], permanentOnly: true }`, and `[].every(guaranteedLand)` is vacuously true — so the
+  // bare PERMANENT-card fetch (Planar Bridge "{6}, {T}: Search your library for a permanent card, put it onto
+  // the battlefield"; Tezzeret, Artifice Master's ultimate) was admitted through a LAND guard it never
+  // actually satisfied. The outcome was right — `permanentOnly` is a real positive front-face gate, and those
+  // cards genuinely do fetch any permanent, so modeling them uncapped is FAITHFUL, not an over-delivery — but
+  // the reason was unreadable. Both arms are now written out, so neither rests on a vacuous quantifier.
+  //
+  // ⚠️ I READ THIS AS A LATENT FALSE POSITIVE FIRST AND WAS WRONG, and the way I was wrong is worth more than
+  // the fix. A corpus probe reported "0 of 36,068 cards affected", so I closed the empty-groups case as dead
+  // code — and the tier diff came back LOST 2, naming Planar Bridge and Tezzeret. The probe had parsed each
+  // oracle LINE whole, so an ACTIVATED ability ("{6}, {T}: Search …") never reached the clause parser and
+  // every card carrying this shape behind a cost was invisible to it. ⭐ A ZERO IS A MEASUREMENT, AND A
+  // MEASUREMENT NEEDS ITS POSITIVE CONTROL: I never checked that the probe could see a card it should have
+  // seen. The tier diff was the only thing standing between that hollow zero and a shipped regression.
   const bfm = t.match(/^search your library for an? ([a-z][a-z ,]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (bfm) {
     const phrase = bfm[1];
@@ -1713,7 +1729,14 @@ export function tutorClauseParser(clause, ctx = {}) {
     const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
     const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
     const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
-    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+    // The admission is EXPLICITLY two-armed — see the note on bfm. Either the bare PERMANENT-card fetch
+    // (Planar Bridge), gated by the real `permanentOnly` front-face check, or a genuine LAND guarantee over a
+    // NON-EMPTY group list. Written this way so neither arm rests on `[].every()` being vacuously true.
+    const admitted = filter && (
+      (filter.permanentOnly && filter.groups.length === 0) ||
+      (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic))
+    );
+    if (admitted) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
@@ -1737,7 +1760,14 @@ export function tutorClauseParser(clause, ctx = {}) {
     const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
     const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
     const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
-    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+    // The admission is EXPLICITLY two-armed — see the note on bfm. Either the bare PERMANENT-card fetch
+    // (Planar Bridge), gated by the real `permanentOnly` front-face check, or a genuine LAND guarantee over a
+    // NON-EMPTY group list. Written this way so neither arm rests on `[].every()` being vacuously true.
+    const admitted = filter && (
+      (filter.permanentOnly && filter.groups.length === 0) ||
+      (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic))
+    );
+    if (admitted) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
     }
     // MULTI-FETCH-CREATURES-TO-BATTLEFIELD (Defense of the Heart) — an up-to-N fetch of PLAIN "creature" cards
@@ -1806,7 +1836,14 @@ export function tutorClauseParser(clause, ctx = {}) {
     const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
     const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
     const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
-    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+    // The admission is EXPLICITLY two-armed — see the note on bfm. Either the bare PERMANENT-card fetch
+    // (Planar Bridge), gated by the real `permanentOnly` front-face check, or a genuine LAND guarantee over a
+    // NON-EMPTY group list. Written this way so neither arm rests on `[].every()` being vacuously true.
+    const admitted = filter && (
+      (filter.permanentOnly && filter.groups.length === 0) ||
+      (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic))
+    );
+    if (admitted) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mfx[3], countFor, targetType: null };
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic X-fetch → low → Arbiter
@@ -1819,7 +1856,14 @@ export function tutorClauseParser(clause, ctx = {}) {
     const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
     const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
     const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
-    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+    // The admission is EXPLICITLY two-armed — see the note on bfm. Either the bare PERMANENT-card fetch
+    // (Planar Bridge), gated by the real `permanentOnly` front-face check, or a genuine LAND guarantee over a
+    // NON-EMPTY group list. Written this way so neither arm rests on `[].every()` being vacuously true.
+    const admitted = filter && (
+      (filter.permanentOnly && filter.groups.length === 0) ||
+      (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic))
+    );
+    if (admitted) {
       return {
         op: "tutor", filter, filterLabel: `${phrase} card`, remaining: 2,
         destinations: [{ zone: "battlefield", tapped: !!spm[2] }, { zone: "hand" }],
