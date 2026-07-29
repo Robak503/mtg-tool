@@ -2882,6 +2882,56 @@ are TESTS (hermetic).** Mixing them makes the suite environment-dependent.
 divergences) and guarded by a probe.** The same question is open for the PERMANENT paths — triggers, statics,
 activated abilities — where the runtime reads through different entry points. That is the next pass.
 
+## ✅ PARITY SWEEP EXTENDED TO THE PERMANENT PATHS — all clean (`f334d31b`)
+
+The spell side found 8 bugs last slice; this walks the same question through the permanent entry points.
+
+```
+native-spell      2282 checked · 0 divergent
+native-activated  1782 checked · 0 divergent
+native-equipment   170 checked · 0 divergent
+```
+
+**EQUIPMENT was the sharpest case** and is the one I expected to break: coverage strips trigger sentences
+before its own Equip check (a trigger-bearing equipment like Pip-Boy would otherwise fail the residue test),
+so it is *exactly* the transform-divergence shape that broke clones. The runtime reads the RAW card and finds
+the Equip ability on all 170 regardless.
+
+**TRIGGERS are aligned by construction, not by sweep:** `triggerRouting`'s validator is required to mirror
+`buildTriggerStack`'s allowlist exactly, both call `detectTriggers` on the raw card, and the one divergence
+that did exist (the source-scoped condition gate) was fixed in `9b6441c0`.
+
+## ⚠️ MY FIRST ACTIVATED RUN REPORTED 71 "DIVERGENCES" — EVERY ONE WAS MY PROBE
+
+I checked only the PRINTED abilities. The runtime has **three** entry points and the other two are not
+optional:
+- **GRANTED** — an Aura's quoted ability lives on the HOST (Dragon Mantle, Hot Springs); `legalChoices` reads
+  it via `grantedActivatedQuotedFor`, never off the Aura's own card.
+- **GRAVEYARD** — `"{4}{B}: Return this card from your graveyard…"` (Tunnel Rats, Stitchwing Skaab) is
+  offered from the graveyard, a separate path entirely.
+
+With all three: **0**.
+
+⭐ **THIRD TIME THIS EXACT SHAPE:** the dead-export sweep's first 37, the restriction-grep's "55 of 62", now
+this 71. **A probe that models only PART of the runtime reports the missing part as a defect.** The tell is
+always the same — a suspiciously large number against code that has been exercised for months. The habit that
+saves it: open two or three of the named cards and read them before believing the count.
+
+## 🧭 THE TRANSFORM-PARITY VEIN IS SWEPT
+
+| side | result |
+|---|---|
+| spells | ⭐ **8 real bugs** (2 plot, 6 cascade) — fixed in the shared helper |
+| activated / equipment / triggers | ✅ clean |
+
+Both sides are now guarded by `probe-classifier-runtime-parity.mjs`, so a future transform added to
+`coverage.js` without a runtime counterpart shows up as a row instead of shipping silently.
+
+**The audit programme's four shapes are now all swept** (things credited without a parse: lands ⭐3,
+native-body ✅; a passing test as evidence: ⭐1; parse-credited but application-unverified: ⭐1 clone;
+transform parity: ⭐8). **The systematic-audit vein is worked out** — further finds will come from specific
+mechanics, not from another sweep of this kind.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -3033,6 +3083,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `f334d31b` — parity sweep extended to permanents; all clean. Slice 76.
 - `7fbd341d` — classifier/runtime oracle parity: 8 native spells were Arbiter-routed. Slice 75.
 - `368cb402` — clone with a cost-only keyword line never cloned (metric/runtime divergence). Slice 74.
 - `c053e89b` — probe-dead-exports (self-controlled); 16 rows triaged benign. Slice 73.
