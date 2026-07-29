@@ -86,9 +86,17 @@ through, so a mistake here is broad. Read the existing replacement-effect regist
 Requires tracking WHICH COLORS were spent to cast. The mana system has no such record today; that is the
 real work, not the counter placement.
 
-### B5. Mistform type-change · 5 sole · low-medium
-"{1}: This creature becomes the creature type of your choice until end of turn." Layer-4 type change;
-`permHasChosenType` machinery already exists. The cheapest of the engine items.
+### B5. Mistform type-change · 5 sole · low-medium — ✅ **SHIPPED (`d1e34e10`), exactly +5**
+"{1}: This creature becomes the creature type of your choice until end of turn." The size estimate was
+right on the nose. Two things the scoping note did not anticipate, both recorded in `becomeCreatureType.test.js`:
+- **"Becomes" REPLACES.** A new layer-4 `setCreatureSubtypes` op carrying the printed subtypes it supersedes
+  (snapshotted at resolution, CR 613.1d). Mistform Sliver's "in addition to its other types" is a DIFFERENT
+  effect and still parks.
+- **The auto-pick had to MOVE, not be mirrored.** `autoPickCreatureType` now lives in `choicePolicy.js`, a
+  zero-import leaf — the only shape shareable across the runProgram cycle. A duplicated formatter is
+  harmless; a duplicated POLICY forks the sim's behaviour silently. And the activated caller must pass
+  `excludePermanentId`: the source is on the battlefield, so it tallied its own type and replaced Illusion
+  with Illusion — a legal activation that did nothing. Only the empty-board assertion caught it.
 
 ### B6. The GY-1 cost vocabulary tail · ~7 · low
 Three carriers are blocked by unsafe timing riders — leave those. The rest are cost-shape additions to a

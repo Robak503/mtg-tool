@@ -119,6 +119,36 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🔧 SHIPPED — the MISTFORM cycle, NEXT-QUEUE **B5 closed** (`d1e34e10`, +5)
+
+Sized in the queue as "5 sole · the cheapest of the engine items" and it landed **exactly 5**. A layer-4
+continuous effect with an endOfTurn duration, so tribal anthems / the subtype pump / chosen-type gates all
+see the change with no knowledge the atom exists.
+
+⛔ **"BECOMES" REPLACES; "IN ADDITION TO ITS OTHER TYPES" ADDS** — one phrase, and it is the entire
+difference between Mistform Dreamer and Mistform Sliver. The new `setCreatureSubtypes` op carries the
+printed subtypes it supersedes, snapshotted at RESOLUTION (CR 613.1d) so the effect never re-reads a type
+line it is itself changing, and deletes exactly those — never the whole subtype set, which also holds
+Equipment/Vehicle/land subtypes.
+
+### ⭐ A POLICY IS NOT A FORMATTER — the rule this slice adds
+`autoPickCreatureType` moved out of `resolvers.js` into **`choicePolicy.js`, a leaf that imports NOTHING**.
+That is the only shape shareable across the runProgram cycle (`resolvers → runProgram → effectAtoms →
+atoms/*`, so an atom can never import resolvers back), and this codebase's usual answer — a local mirror,
+which it does three times over for `creatureSubtypesOf` — is **right for a pure formatter and wrong here**:
+if *"which creature type does the engine pick"* exists twice, a later tune to one copy makes the sim choose
+one type at an ETB and a different one at an activation, **on the same board, with every test green**. A
+drift-guard test pins it. Rule of thumb going forward: **duplicate formatters freely, never duplicate a
+decision.**
+
+### ⚠️ AND THE DEGENERATE BOARD FOUND A DESIGN FLAW THE GOOD BOARDS COULDN'T
+The activated caller passes the LIVE state, where the source is already on the battlefield — so a lone
+Mistform Dreamer tallied one Illusion, picked Illusion, and **replaced Illusion with Illusion**. A legal
+activation that does nothing whatsoever. Every two-Goblin case was green the entire time; only the
+empty-board assertion showed it. Fixed with an explicit `excludePermanentId` on the shared policy rather
+than a second heuristic. **Test the board with nothing on it — that is where a choice policy shows its
+seams.**
+
 ## 🔧 SHIPPED — "other &lt;Subtype&gt;s you control get …" (`fc33087b`, +4) · **the purest axis of the run**
 
 ```
