@@ -90,7 +90,12 @@ describe("coverage — native-aura tier", () => {
     // the combination was refused, because each tier's residue walk saw the other's line as leftover text.
     // The bar this line enforces (never over-claim an Aura) is unchanged — its siblings hold it for the
     // shapes that genuinely are unmodeled.
-    expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nWhenever enchanted creature dies, draw a card.", name: "Y" })).toMatch(/^native/);
+    // ⛔ UN-GRADUATED 2026-07-28, the same day: the composition it was graduated for is a FALSE POSITIVE.
+    // Checked on a BOARD, not in the tier — the aura-own trigger line poisons the all-or-nothing
+    // parseAuraBonus, so the "+1/+1" never reaches the host (stays 2/2), and checkDiesTriggers never
+    // enqueues an aura-own dies trigger (the Aura leaves with its host and is not scanned), so the draw
+    // never happens either. The card was credited native while doing NEITHER thing.
+    expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nWhenever enchanted creature dies, draw a card.", name: "Y" })).toBe("body-only");
     expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant land\nEnchanted land has '{T}: Add {C}{C}.'", name: "Z" })).toBe("body-only");
   });
 });

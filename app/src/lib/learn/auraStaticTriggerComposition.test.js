@@ -1,32 +1,35 @@
 /**
- * auraStaticTriggerComposition.test.js — an Aura whose STATIC half and TRIGGER half are each already
- * modeled, but whose COMBINATION was not.
+ * auraStaticTriggerComposition.test.js — ⛔ THE COMPOSITION WAS A FALSE POSITIVE. This file pins the
+ * REFUSAL now, and the reason, so nobody re-flips these cards on the same reasoning.
  *
- * This is the residue census's "TWO-FLIP SIGNATURE": a tier COMPOSITION failure, not a missing mechanic.
- * Both gates were correct in isolation and neither knew about the other's half:
+ * The original slice composed an Aura's STATIC half with its own TRIGGER half, each verified through its
+ * own gate, and flipped ten cards. Its safety argument was "composed, not loosened — each half must pass
+ * its own tier ON ITS OWN." That argument is precisely the flaw: **each half is verified on text the
+ * composition INVENTED, and the runtime sees neither.** On the PRINTED card:
  *
- *     "Enchant creature / Enchanted creature gets +3/+3."                    -> native-aura
- *     "When enchanted creature dies, create a 3/3 green Elephant token."     -> native-trigger
- *     both together (Elephant Guide)                                        -> body-only  <-- the bug
+ *   • `parseAuraBonus` is all-or-nothing and an aura-own trigger line is NOT on its skip list, so the
+ *     static half is DROPPED — Elephant Guide's host stays 2/2, Griffin Guide grants no flying, and
+ *     Failed Conversion's "-4/-4" (removal!) does nothing at all;
+ *   • `checkDiesTriggers` never enqueues an aura-own dies trigger — the Aura leaves the battlefield with
+ *     its host and is never scanned — so the token/draw never happens either. Measured: pendingTriggers 0.
  *
- * `permanentTriggersCovered`'s residue walk saw the static line as leftover text; `isNativeAura`'s residue
- * walk saw the trigger line the same way. Each refused for a reason that the other gate had already covered.
+ * Seven cards were credited native while doing NEITHER thing: Elephant Guide, Griffin Guide, Most Wanted,
+ * A-Most Wanted, Failed Conversion, Sleeper's Robe, Elder Mastery. All seven verified on a board (host P/T
+ * unchanged, no keywords granted) rather than through the tier.
  *
- * COMPOSED, NOT LOOSENED — the whole safety argument. Nothing is relaxed: the static half must pass
- * `isNativeAura` ON ITS OWN (with the Enchant line restored, which that gate requires), and the trigger half
- * must pass `permanentTriggersCovered` ON ITS OWN. A card with an unmodeled static, an unrouted trigger, or
- * a third kind of line still fails whichever half owns it and stays on the Arbiter. The CREED's
- * all-or-nothing rule holds by construction rather than by a new gate, and the four CREED tests below are
- * what prove it rather than assert it.
+ * ⭐ THREE OF THE ORIGINAL TEN SURVIVE, and the split is the useful part: Demonic Appetite, Mark of Fury
+ * and Recumbent Bliss carry the AURA'S OWN upkeep/end-step trigger, which never references the enchanted
+ * creature and so never poisons the bonus parse. Their statics genuinely apply (5/5, haste,
+ * cantAttack/cantBlock). **The dividing line is whether the trigger keys on the ENCHANTED CREATURE.**
  *
- * +10 corpus, every flip audited: Elephant Guide, Griffin Guide, Most Wanted (+A-), Failed Conversion,
- * Demonic Appetite, Elder Mastery, Mark of Fury, Recumbent Bliss, Sleeper's Robe. Each is a modeled static
- * plus a modeled trigger. Mark of Fury was named in the residue census's TWO-FLIP list, which is what
- * pointed here.
+ * To make the seven honestly native the ENGINE must change, not the metric: parseAuraBonus has to skip a
+ * modeled aura-own host trigger, AND checkDiesTriggers has to scan auras attached to a dying creature (an
+ * LKI walk — the Aura is already gone by then). Until both exist, they park.
  */
 import { describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
+import { parseAuraBonus } from "./staticAbilityParser.js";
 
 const aura = (oracle, over = {}) => ({ name: "Elephant Guide", type: "Enchantment — Aura", mana: "{2}{G}", keywords: [], ...over, oracle });
 
@@ -43,17 +46,27 @@ describe("each half classifies alone — the premise of the composition", () => 
   });
 });
 
-describe("the COMBINATION now classifies too", () => {
-  it("Elephant Guide's shape flips", () => {
-    expect(classifyCard(aura(`Enchant creature\n${PUMP}\n${DIES}`))).toMatch(/^native/);
+describe("⛔ the COMBINATION does NOT classify — the runtime delivers neither half", () => {
+  it("THE LOAD-BEARING ONE — Elephant Guide's shape parks, and its bonus is genuinely dropped", () => {
+    const card = aura(`Enchant creature\n${PUMP}\n${DIES}`);
+    expect(classifyCard(card)).toBe("body-only");
+    expect(parseAuraBonus(card)).toHaveLength(0);   // the REASON — not the tier's opinion of it
   });
 
-  it("order does not matter (trigger printed before the static)", () => {
-    expect(classifyCard(aura(`Enchant creature\n${DIES}\n${PUMP}`))).toMatch(/^native/);
+  it("order does not matter (trigger printed before the static) — still parked", () => {
+    expect(classifyCard(aura(`Enchant creature\n${DIES}\n${PUMP}`))).toBe("body-only");
   });
 
-  it("a keyword-grant static composes the same way (Sleeper's Robe shape)", () => {
-    expect(classifyCard(aura("Enchant creature\nEnchanted creature has fear.\nWhenever enchanted creature deals combat damage to an opponent, you may draw a card."))).toMatch(/^native/);
+  it("a keyword-grant static is no different (Sleeper's Robe shape)", () => {
+    expect(classifyCard(aura("Enchant creature\nEnchanted creature has fear.\nWhenever enchanted creature deals combat damage to an opponent, you may draw a card."))).toBe("body-only");
+  });
+
+  it("⭐ THE DIVIDING LINE — an aura-own UPKEEP trigger doesn't touch the host, so it composes fine", () => {
+    // Demonic Appetite's shape. The trigger never references the enchanted creature, so parseAuraBonus is
+    // not poisoned and the +3/+3 really applies. That is why the refusal above is narrow, not a blanket ban.
+    const ok = aura(`Enchant creature you control\n${PUMP}\nAt the beginning of your upkeep, sacrifice a creature.`);
+    expect(parseAuraBonus(ok).length).toBeGreaterThan(0);
+    expect(classifyCard(ok)).toMatch(/^native/);
   });
 });
 

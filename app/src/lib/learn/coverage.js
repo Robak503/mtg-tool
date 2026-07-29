@@ -1988,7 +1988,22 @@ function isNativeOwnTriggeredAura(card) {
   const staticLines = lines.filter((l) => !isTrigger(l));
   if (!trigLines.length || !staticLines.length) return false; // a pure-static or pure-trigger aura is already handled by its own tier
   if (!isNativeAura({ ...card, oracle: [enchantLine, ...staticLines].join("\n") })) return false;
-  return permanentTriggersCovered({ ...card, oracle: trigLines.join("\n") });
+  if (!permanentTriggersCovered({ ...card, oracle: trigLines.join("\n") })) return false;
+
+  // ⛔ BOTH HALVES CHECK OUT IN ISOLATION AND THE CARD STILL DOES NOTHING. Each half above is verified on
+  // TEXT THIS COMPOSITION INVENTED — the static half without its trigger, the trigger half without its
+  // static. The runtime sees neither. On the printed card:
+  //   • parseAuraBonus is all-or-nothing and the aura-own trigger line is NOT on its skip list, so the
+  //     "+3/+3" is dropped — verified on a board, host stays 2/2;
+  //   • checkDiesTriggers never enqueues an aura-own dies trigger (the Aura leaves with its host and is
+  //     not scanned), so the token is never created — also verified on a board, pendingTriggers === 0.
+  // Elephant Guide, Most Wanted and A-Most Wanted were credited native-trigger while doing NEITHER thing.
+  //
+  // Requiring the printed card's bonus to survive parks exactly those. It is the same rule the equipment
+  // composite needed and the same one the aura-own-activated path needed: **a classifier that credits a
+  // card on transformed text owes a check that the untransformed card still produces the effect.**
+  if (parseAuraBonus(card).length === 0) return false;
+  return true;
 }
 
 // GRANTED-ACTIVATED EQUIPMENT (subsystem 1 phase 1b) — an Equipment whose ONLY body is a modeled Equip
