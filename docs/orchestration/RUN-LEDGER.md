@@ -295,7 +295,30 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
-### 🎯 NEXT DECK: **Earth Bent 81%** — the closest to the bar, NINE cards short
+### 🎯 EARTH BENT — 81% → **83%** (`25f9943d` Lotus Cobra, `74533daf` Toph). SEVEN cards to the bar.
+
+**⭐ A GUARD THAT EXPLAINS ITSELF IS AN INSTRUCTION, NOT A WALL — third time this run.** The CDA count
+allowlist's rule is *"every branch maps to an evaluator `countForSpec` computes EXACTLY"*, and its comment
+named Toph's *"+1/+1 counters on lands"* as excluded **for having none**. Writing the evaluator dissolved the
+reason. Same shape as the once-per-turn latch (*latch first, admit second*) and the condition-gated mana
+whose *"until conditions are real"* had already come true. **Satisfy the condition; do not widen the guard.**
+Order is load-bearing here: a CDA SETS base P/T, so admitting first would have set a fabricated **0/0**.
+
+**The remaining seven, diagnosed — do not re-derive:**
+```
+Scapeshift          "sacrifice ANY NUMBER of lands … up to THAT MANY" — a linked X. Subsystem.
+Planar Engineering  "sacrifice TWO lands" — a pure COUNT variant of a modeled arm, BUT applySacrificeLand
+                    pauses for ONE pick; N picks need multi-select choice machinery. 15 corpus carriers.
+Entish Restoration  a third sentence: "instead search for up to three" — a conditional REPLACEMENT.
+Ashaya              "Nontoken creatures you control are Forest LANDS in addition…" — a layer-4 GROUP
+                    type-add. The applier already handles op.types/op.subtypes; the selector is the work.
+                    ⚠️ Its own first line counts lands, so this is a real feedback loop — check for it.
+Amulet of Vigor     needs an "enters tapped" TRIGGER event (entersTapped is a play-path check today).
+Scute Swarm         six-land token-copy rider · Scythecat Cub second-resolution doubler — both riders.
+The Ozolith         counter-migration on leave + a combat-step move. Two triggers, both unmodeled.
+```
+**`sacrifice a land` already composes with the fetch** (`["sacrifice-land","tutor"]` parses HIGH) — the count
+is the only gap, which is why Planar Engineering is the nearest of these and still not a slice.
 
 With no shared lever left (below), the way to move the 1.0 metric is to convert ONE deck at a time, and Earth
 Bent is nearest. Its gap, from `measure-coverage.mjs "earth bent"`:
