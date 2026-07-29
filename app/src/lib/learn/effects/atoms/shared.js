@@ -356,6 +356,9 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.scope === "blockingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.blockers || []).some((b) => b.blockerId === t.id));
   if (atom.target === "self") return selfTargets(state, ctx);
   if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
+  // PERMANENT-WIDE triggering referent (Amulet of Vigor's "untap IT" on an entering land) — see
+  // triggeringPermanentTargets; kept distinct from "thatCreature" so no creature-scoped effect can reach it.
+  if (atom.target === "thatPermanent") return triggeringPermanentTargets(state, ctx);
   if (atom.target === "enchanted") return enchantedTargets(state, ctx);
   return ctx.targets || [];
 };
@@ -424,6 +427,23 @@ export function triggeringTargets(state, ctx) {
   // as the triggering permanent this returned [] while selfTargets on the same permanent returned it.
   return lk && (isCreatureCard(lk.permanent.card) || permanentIsCreature(state, id))
     ? [{ type: "creature", id, controller: lk.controller }] : [];
+}
+
+/**
+ * TRIG-PRONOUN-IT, PERMANENT-WIDE — the same referent as triggeringTargets with the CREATURE predicate
+ * dropped. Amulet of Vigor ("whenever a permanent you control enters tapped, untap IT") is normally
+ * untapping a LAND, so the creature-only sibling above returns [] for it and the untap silently no-ops —
+ * the runtime-vacuous shape. Deliberately a SEPARATE function rather than a flag on that one: every existing
+ * caller of triggeringTargets is a creature-scoped effect (pump / bounce / counters) whose creature check is
+ * load-bearing, and widening it in place would let those fire on a land.
+ *
+ * Still returns [] with no triggering permanent (a spell) or once the referent has left the battlefield —
+ * a no-op, never a fabricated untap (CREED).
+ */
+export function triggeringPermanentTargets(state, ctx) {
+  const id = ctx.triggeringPermanentId;
+  const lk = id ? findPermanent(state, id) : null;
+  return lk ? [{ type: "permanent", id, controller: lk.controller }] : [];
 }
 
 // ===== HALF-X (CR 107.3 — "half X, rounded down/up") ===== a HALVING post-transform applied to an already-

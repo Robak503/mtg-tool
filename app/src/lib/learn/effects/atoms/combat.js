@@ -42,7 +42,11 @@ export function applyTapEffect(state, atom, ctx, tap) {
   // opponent controls", Junk Winder) both act on any live permanent that the restriction-aware enumerator
   // already surfaced (the nonlandPermanent predicate + controller restriction were enforced at target time),
   // so the resolver acts on whatever it's handed — enumerateTargets never offers a land / own permanent here.
-  const wantsPermanent = atom?.targetType === "permanent" || atom?.targetType === "nonlandPermanent";
+  // `target:"thatPermanent"` (Amulet of Vigor's triggering referent) is permanent-wide by construction —
+  // atomTargets hands back exactly the one entering permanent, whatever its type — so it joins the
+  // any-live-permanent branch. Without this the `t.type === "creature"` fallback would drop an entering LAND
+  // and the untap would no-op while the card read native.
+  const wantsPermanent = atom?.targetType === "permanent" || atom?.targetType === "nonlandPermanent" || atom?.target === "thatPermanent";
   const wantsBasicSubtype = BASIC_SUBTYPE_TARGET.has(atom?.targetType);
   // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap/Untap enchanted creature.") — a FIXED referent, not a
   // chosen target: atomTargets resolves target:"enchanted" to the Aura's host (ctx.sourceId→attachedTo) at
@@ -972,6 +976,11 @@ export function combatKeywordClauseParser(clause) {
   // ctx.sourceId at resolution (live creature verified; gone → [] no-op). Whole-clause anchored ($) so
   // any rider stays LOW → Arbiter (a safe FN).
   if (/^untap this creature$/.test(t)) return { op: "untap", target: "self" };
+  // AMULET-UNTAP (#1301) — "untap the triggering permanent", the SENTINEL detectTriggers rewrites a
+  // permanentEnters trigger's bare "untap IT" into. The sentinel appears in ZERO printed oracle text, so a
+  // SPELL reading "untap it" can never reach this arm (the same guarantee the "the triggering creature"
+  // sentinels rely on). Fixed referent → atomTargets' thatPermanent case → ctx.triggeringPermanentId.
+  if (/^untap the triggering permanent$/.test(t)) return { op: "untap", target: "thatPermanent" };
   // GUSTCLOAK ESCAPE (BLITZ GC-1, CR 506.4 / 510.1c-d) — "untap (it|this creature) and remove (it|this
   // creature) from combat", the becomes-blocked escape's effect (Gustcloak Runner / Sentinel / Harrier /
   // Skirmisher: "Whenever this creature becomes blocked, you may untap it and remove it from combat."; the

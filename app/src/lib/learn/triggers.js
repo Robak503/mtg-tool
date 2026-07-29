@@ -1303,6 +1303,24 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^an enchantment you control enters(?: the battlefield)?$/.test(c)) {
     return { event: "permanentEnters", permanentFilter: "enchantment", scope: "enchantmentYouControl", whose: "any" };
   }
+  // PERMANENT-WIDE ENTERS — "Whenever a permanent you control enters [TAPPED]" (Amulet of Vigor #1301, Fire
+  // Lord Zuko). The missing member of a family that already had artifact / enchantment / token / creature /
+  // land; every OTHER subject is a type-narrowed version of this one, so the scope is the same controller
+  // gate with no type predicate.
+  //
+  // The optional "tapped" qualifier is a live-state read on the ENTERING permanent, checkable at exactly the
+  // moment the event fires — the play path taps a land BEFORE it fires enter triggers, and the cast/token/
+  // zone paths mint untapped unless something taps them first. Same controller-scoped-only rule as its
+  // siblings: a bare "a permanent enters" (no "you control") covers opponents' permanents too and stays
+  // UNDETECTED → Arbiter.
+  {
+    const pm = c.match(/^a permanent you control enters(?: the battlefield)?( tapped)?$/);
+    if (pm) {
+      const desc = { event: "permanentEnters", scope: "permanentYouControl", whose: "any" };
+      if (pm[1]) desc.enteredTapped = true;
+      return desc;
+    }
+  }
   // TOKEN-ENTERS — "Whenever a token you control enters" (Junk Winder — the token-swarm tap payoff). Fires the
   // permanentEnters event (checkPermanentEntersTriggers is called on every minted token from tokens.js's
   // fireTokenEnterTriggers, and on ANY permanent entry). scopeMatches' tokenYouControl gates it to the entering
@@ -3214,6 +3232,15 @@ export function detectTriggers(card) {
         // (target:"thatCreature" + countFor triggeringCreaturePower — X read live at resolution,
         // CR 608.2h). Whole-clause anchored; a rider → unrewritten → LOW → Arbiter.
         effectClause = "put x +1/+1 counters on the triggering creature, where x is its power";
+      } else if (cls.scope === "permanentYouControl" && /^untap it$/i.test(effectClause)) {
+        // AMULET-UNTAP (#1301) — "Whenever a permanent you control enters tapped, untap IT". "It" is the
+        // ENTERING permanent (CR 608.2c), which is usually a LAND, so this cannot ride the creature-only
+        // "the triggering creature" sentinel the pump/counter families use. Rewrite to the permanent-wide
+        // sentinel combat.js parses into target:"thatPermanent" → ctx.triggeringPermanentId.
+        //
+        // Scope-gated to permanentYouControl and whole-clause anchored: no other trigger family reaches this
+        // branch, and any rider on the clause stays unrewritten → LOW → Arbiter (a safe FN).
+        effectClause = "untap the triggering permanent";
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_COUNTER_REF_RE.test(effectClause)) {
         // WAVE 3b COUNTERS-ON-EVENT: a NON-self attack/combat-damage trigger's "…put a +1/+1 counter on IT
         // / on THAT CREATURE" — the referent is the TRIGGERING permanent (CR 608.2c), not the source.
@@ -3423,6 +3450,7 @@ export function detectTriggers(card) {
         castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
+        enteredTapped: cls.enteredTapped,     // PERM-ENTERS "…enters TAPPED" (Amulet of Vigor) — scopeMatches gates on the entering permanent's live `tapped`. Unlisted here = dropped = fires on EVERY entry, an over-fire.
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF + SUBTYPE/outlaw BATCH combat-damage (e.g. "Dinosaur" for Pantlaza; outlaw list for Olivia)
         batchArtifact: cls.batchArtifact,     // SUBTYPE/PROPERTY BATCH combat-damage only — "artifact creatures" (Thopter Spy Network)
         batchEnchantment: cls.batchEnchantment, // SUBTYPE/PROPERTY BATCH combat-damage only — "enchantment creatures"
@@ -4076,6 +4104,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // TOKEN filter — the exact mirror, and separate from nontokenFilter on purpose: a descriptor with NEITHER
   // flag must keep firing on both kinds, so this cannot be one boolean.
   if (descriptor.tokenFilter && !triggeringPermanent?.card?.token) return false;
+  // ENTERED-TAPPED gate (Amulet of Vigor "whenever a permanent you control enters TAPPED"). Read off the
+  // entering permanent's LIVE tapped state, which is why the fire site's ORDER is load-bearing: every path
+  // that can make a permanent enter tapped (the play-land path's tapped-land rule, resolvers' enters-tapped
+  // riders) must set `tapped` BEFORE calling checkPermanentEntersTriggers. It does — verified on the land
+  // path, which is Amulet's signature use. A permanent that entered untapped simply doesn't match; no
+  // descriptor without this flag is affected, same shape as nontokenFilter/tokenFilter above.
+  if (descriptor.enteredTapped && !triggeringPermanent?.tapped) return false;
   // BATCHED-ETB CHARACTERISTIC gate (Welcoming Vampire "with power 2 or less"; Tocasia's Welcome "with mana
   // value 3 or less"). Runs BEFORE the scope switch so it composes with whichever controller scope the
   // descriptor chose, exactly like nontokenFilter above.
@@ -4233,6 +4268,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "enchantmentYouControl":
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
       return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
+    case "permanentYouControl":
+      // PERM-ENTERS permanent-wide (Amulet of Vigor) — the same controller gate as its siblings with NO type
+      // predicate, because every permanent qualifies. The optional "entered TAPPED" narrowing is enforced as
+      // a descriptor filter (enteredTapped) rather than here, so this scope stays a pure controller check and
+      // composes with the filter the same way nontokenFilter/tokenFilter do.
+      return !!triggeringPermanent && triggeringPermanent.controller === sourcePermanent.controller;
     case "tokenYouControl":
       // TOKEN-ENTERS (Junk Winder — "a token you control enters") — the entering permanent must be a TOKEN
       // (card.token, the token-factory convention, same gate as tokenYouControlLeaves) AND controlled by the

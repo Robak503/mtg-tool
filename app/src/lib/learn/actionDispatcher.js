@@ -67,7 +67,7 @@ import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shar
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
 import { parseCrewCost } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkLeavesTriggers, checkBecomesTargetTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -200,6 +200,18 @@ function applyPlayLand(state, action) {
     // descriptors are a distinct event, so this never double-fires landfall nor wrong-fires a creature
     // watcher. An unmodeled land ETB still routes to the Arbiter via buildTriggerStack (never fabricated).
     next = checkEnterTriggers(next, enteredLand);
+    // ⚠️ THE MISSING FIRE SITE. `permanentEnters` watchers ("Whenever a PERMANENT you control enters…" —
+    // Amulet of Vigor #1301) were fired from exactly three places: token mint (tokens.js), zone-enter
+    // (zones.js) and the cast/resolve path (resolvers.js). A land is PLAYED, not cast, so a land drop
+    // reached NONE of them — and untapping lands that entered tapped is Amulet's entire purpose. Wiring the
+    // subject/filter/referent without this would have produced a card that classifies native and never fires
+    // on its signature use: a runtime-vacuous native.
+    //
+    // Additive and self-gating: a `permanentEnters` descriptor carries its own subject scope
+    // (artifactYouControl / enchantmentYouControl / tokenYouControl / permanentYouControl), and scopeMatches
+    // rejects a land for every one of those except the permanent-wide subject — so this cannot wrong-fire an
+    // artifact or enchantment watcher, and landfall stays a distinct event that is unaffected.
+    next = checkPermanentEntersTriggers(next, enteredLand);
   }
   // CR 117.3c (CR-remediation B4): the ACTOR retains priority after taking an action (a land play is
   // active-player-only, so actor === activePlayer here — stated in the uniform actor form regardless).

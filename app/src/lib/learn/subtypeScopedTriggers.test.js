@@ -114,8 +114,11 @@ describe("SUBTYPE-SCOPED ETB/dies — detection", () => {
     expect(det("Whenever an Elf you control dies, draw a card.")[0]).toMatchObject({ event: "dies", scope: "subtypeYouControl", subtypeFilter: "Elf" });
   });
   it("CREED — a card-TYPE subject is NOT mis-read as a subtype (routes to its own path or Arbiter)", () => {
-    // "a permanent you control enters" — not a subtype, not a permanentEnters type → UNDETECTED (Arbiter).
-    expect(det("Whenever a permanent you control enters, draw a card.")).toHaveLength(0);
+    // "a permanent you control enters" → the DEDICATED permanentEnters/permanentYouControl path (Amulet of
+    // Vigor slice), NOT the subtype branch. Same history as the token line below: this WAS undetected while
+    // the permanent-wide subject was unmodeled, and the pin's real guarantee — never mis-read as a SUBTYPE —
+    // is what's asserted now that the subject exists.
+    expect(det("Whenever a permanent you control enters, draw a card.")[0]).toMatchObject({ event: "permanentEnters", scope: "permanentYouControl" });
     // "an artifact you control enters" → the EXISTING permanentEnters/artifactYouControl path, NOT my subtype branch.
     expect(det("Whenever an artifact you control enters, draw a card.")[0]).toMatchObject({ event: "permanentEnters", scope: "artifactYouControl" });
     // "a token you control enters" → the DEDICATED permanentEnters/tokenYouControl path (Junk Winder slice),
