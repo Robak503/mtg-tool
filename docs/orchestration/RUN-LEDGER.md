@@ -228,6 +228,33 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — ESCALATE, option withheld (+4) · **+ the keyword probe is now a script**
+
+Borrowed Hostility · Borrowed Malevolence · Borrowed Grace · Collective Resistance. GAINED 4 · LOST 0.
+
+⛔ **ESCALATE IS NOT A FREE STRIP, AND ONLY MEASUREMENT SHOWED IT.** It reads like another cost-shaped keyword
+until the modal is checked: *"Choose one or both —"* parses to **chooseCount 2 / upTo true**, so the cast path
+genuinely CAN pick both modes — and picking both without paying escalate casts the spell **for less than its
+cost.** That is an FP, not an under-model, and stripping the line would have shipped it.
+
+⭐ Admitted the AFTERMATH way instead: unpark only once the lane withholds the option it cannot price. The
+modal is clamped to ONE mode — a real, complete, legal cast at the printed cost — the same bargain fuse / delve
+/ myriad / replicate / squad are credited under. `escalateSingleMode` records WHY the modal is narrower than
+the card.
+
+⭐ **THE TEST ASSERTS THE CLAMPED AND UNCLAMPED TWINS TOGETHER.** Same modal text minus the keyword still
+offers a two-mode cast; with it, every offer has exactly one. Either assertion alone would pass on an engine
+that never offers two modes to anything — **only the pair pins the clamp.** Same reasoning as the
+caster-vs-controller life pair earlier in the run; it is becoming the default shape for "this thing, not its
+neighbour" claims.
+
+### 📍 `probe-keyword-vein.mjs` SHIPPED — three slices from one question
+AFTERMATH +7 · OUTLAST +8 · ESCALATE +4 all came from *"which single printed keyword line, dropped, makes this
+card native?"* — a gap **invisible to a tier census**, because a card blocked by one keyword looks identical to
+one blocked by its whole body. Two warnings are in the script header: a cluster is a **LEAD** (most rows are
+real mechanics — cipher 8, ingest 6, specialize 5, double team 5, sunburst 5, phasing 4), and **deleting a
+keyword line can itself be the FP**. Its ranking already shows its own work: 194 → 177.
+
 ## 🔧 SHIPPED — OUTLAST expanded (+8) · **second finished-mechanism-delivering-nothing in a row**
 
 Abzan Falconer · Abzan Battle Priest · Mer-Ek Nightblade · Ainok Bond-Kin · Tuskguard Captain · Longshot
