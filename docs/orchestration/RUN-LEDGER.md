@@ -19,6 +19,13 @@
 > pre-mutation form before doing anything else — the tests will be lying until you do.
 >
 > **⚠️ AND WHEN YOU MUTATE: `grep -c MUTANT` proves a mutation APPLIED, not that it applied to YOUR line.**
+> **⚠️⚠️ AND A DELETION MUTATION IS INVISIBLE TO THE SWEEP.** `grep -rl MUTANT` only finds mutations that
+> left a MARKER. A mutation that DELETES a line leaves none — so when a revert fails (mine failed on a file
+> Windows had locked, and `cp` printed `Permission denied` in the middle of a long output block), the sweep
+> still reads clean while the sabotage is still in the tree. **After any mutation round, confirm the revert
+> with `git diff -- <file>`, not with the marker sweep.** Verified live 2026-07-28: the synonym line was
+> missing and every gate was green.
+>
 > `perl` without `/g` replaces the FIRST occurrence in the file. I burned two runs "confirming" a test was
 > hollow when the mutation was landing on an identical string 180 lines earlier (a different atom's
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
@@ -301,6 +308,24 @@ veins, in order (top-2500 ranks shown — these are the next grinding targets, N
   3x  exile target creature you control, then return   Cloudshift #792 (BLINK) — see the BLINK box below
   3x  exile top two + play them until end of next turn Light Up the Stage #1211 — see IMPULSE box
 ```
+
+### ⭐ THE FAMILY IS NOW BUILT ON ONE SHAPE — DELEGATION. Reuse it; do not write a fourth subject parser.
+
+Two arms rebuilt (`ef8bfbfc` entry, `1bc0b717` dies). Both singularize the plural subject via
+`singularizeBatchSubject`, hand the clause back to `classifyCondition`, and keep only what they need from the
+result. **The batch form therefore inherits the singular arm's REFUSALS as well as its capabilities and can
+never be more permissive than the arm it is built on** — that containment is the entire safety argument, and
+a parallel subject parser destroys it.
+
+**The two arms differ in ONE way, and it is the thing to get right when adding the next verb:**
+```
+diesBatch     its OWN event + own check fn, fires once per CALL   → deaths arrive as an ARRAY: batching is REAL
+              → NO rider needed
+batched ENTRY mapped onto the per-entry event (etb / permanentEnters) → batching is SIMULATED
+              → the printed "triggers only once each turn" rider is MANDATORY; riderless is refused
+```
+**Ask which one the verb is before writing anything:** if the check function already receives the whole batch,
+build a dedicated event; if it receives one object, you need the rider and you must refuse without it.
 
 ### 🥇 THE BIGGEST VEIN IN THE ENGINE — "Whenever ONE OR MORE …" (CR 603.1), **291 parked cards**
 
