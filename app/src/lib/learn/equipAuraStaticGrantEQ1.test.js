@@ -203,7 +203,20 @@ describe("coverage — PINNED false-negatives (whole-card-or-park)", () => {
   it("nonbasic landwalk has no enforcement path → body-only (Trailblazer's Boots)", () => {
     expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature has nonbasic landwalk.\nEquip {1}" })).toEqual([]);
   });
-  it("a control-theft rider parks the whole card (Corrupted Conscience)", () => {
-    expect(classifyCard({ name: "Corrupted Conscience", type: "Enchantment — Aura", oracle: "Enchant creature\nYou control enchanted creature.\nEnchanted creature has infect." })).toBe("body-only");
+  it("⭐ GRADUATED — the control-theft rider is now MODELED, so Corrupted Conscience flips", () => {
+    // This pin used to assert body-only. It was a CAPABILITY pin ("control theft has no enforcement path"),
+    // grouped with toxic and nonbasic landwalk for exactly that reason — and it graduated when
+    // controlAura.js gave the line a runtime: attachPermanent moves the host, detachPermanentFromAll sends
+    // it home by every route the Aura can leave. Verified BEFORE flipping it, not after: the other half
+    // (infect) is genuinely granted and enforced — permanentHasKeyword reads it on the host after attach —
+    // so the whole-card rule is satisfied on both lines rather than half-credited.
+    expect(classifyCard({ name: "Corrupted Conscience", type: "Enchantment — Aura", oracle: "Enchant creature\nYou control enchanted creature.\nEnchanted creature has infect." })).toBe("native-aura");
+  });
+
+  it("⛔ but the WHOLE-CARD rule still holds — control plus an UNMODELED rider still parks", () => {
+    // The principle the old pin existed to protect, re-pointed onto a rider that is still genuinely
+    // unmodeled (toxic is not grantable — the pin above). Modelling control must not become a licence to
+    // credit whatever else the card happens to print alongside it.
+    expect(classifyCard({ name: "Corrupt Toxin", type: "Enchantment — Aura", oracle: "Enchant creature\nYou control enchanted creature.\nEnchanted creature has toxic 1." })).toBe("body-only");
   });
 });

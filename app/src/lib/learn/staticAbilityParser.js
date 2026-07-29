@@ -4801,9 +4801,15 @@ export function isNativeAura(card) {
   // the PZ-1 lock, or (SL-1) a modeled AURA-OWN TRIGGER (Spirit Link / Vampiric Link — a trigger-ONLY aura
   // whose whole body is the admitted own-watcher is fully modeled: enter + attach + the trigger fires).
   if (!parseAuraBonus(card).length && !prev.to && !prev.by && !attachedNoUntapOf(card)
-    && !auraHasModeledOwnTrigger(card)) return false;
+    && !auraHasModeledOwnTrigger(card) && !auraGrantsControl(card)) return false;
   if (!auraTouchClausesAllModeled(card)) return false;       // PZ-1 hardening — see below
   return auraResidueClauses(card).length === 0;
+}
+
+/** CONTROL AURA — does this Aura print the modeled "You control enchanted creature." payload? */
+export function auraGrantsControl(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  return abilityClauses(oracle).some((cl) => AURA_CONTROL_CLAUSE_RE.test(cl.toLowerCase().trim()));
 }
 
 /** SL-1 — does the aura print at least one line the modeled own-trigger allowlist admits? */
@@ -4825,6 +4831,14 @@ function auraHasModeledOwnTrigger(card) {
  * backstopped by parseAuraBonus nulling on such a clause; the wall/no-untap bypass removed that
  * backstop, so the strictness is restored here explicitly.
  */
+// CONTROL AURA (CR 613.1b) — "You control enchanted creature." Mind Control / Control Magic / Treachery.
+// ENFORCED at runtime by controlAura.js, hung off the two verified chokepoints (attachPermanent moves the
+// host; detachPermanentFromAll sends it home by every route the Aura can leave). Admitted here so the
+// classifier credits a card the engine actually plays — never the other way round.
+// ⛔ EXACT LINE ONLY: a rider, a duration ("until end of turn"), or a different subject leaves it
+// unrecognised → the card keeps its Arbiter routing (safe FN), because none of those are modelled.
+const AURA_CONTROL_CLAUSE_RE = /^you control enchanted creature\.?$/i;
+
 function auraTouchClausesAllModeled(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   for (const clause of abilityClauses(oracle)) {
@@ -4834,6 +4848,7 @@ function auraTouchClausesAllModeled(card) {
     if (ATT_PREV_CLAUSE_RE.test(c)) continue;                 // AP-1 wall — enforced at the damage paths
     if (ATT_NO_UNTAP_CLAUSE_RE.test(c)) continue;             // PZ-1 tap-lock — enforced in untapAll
     if (isTotemArmorClause(c)) continue;                      // totem armor — enforced at destruction
+    if (AURA_CONTROL_CLAUSE_RE.test(c)) continue;             // CONTROL AURA — enforced in controlAura.js
     // AF-1: a validator-approved aura-own activated line — enumerated on the Aura, resolved on the host.
     if (/^[^:\n]+:/.test(c)      // any cost before the colon — the validator gates what it actually is
       && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
