@@ -751,6 +751,23 @@ function matchKickedSpellEffect(card, cardType, oracle) {
   // back-reference ("that creature", "those creatures", "that player", "that spell", "that permanent",
   // "that card", "that damage", "it deals", "an additional") SCALES or redirects the base result. Either way
   // the kicked clause isn't a clean SEPARATE extra effect → defer the whole card.
+  // ⭐⭐ THE MAGNITUDE-ONLY REPLACEMENT GRADUATES HERE, and this gate named its own condition: "a
+  // conditional-replacement model we don't have". We have one now — `nonKickedOnly`, the exact mirror of
+  // `kickedOnly` — so the pair of atoms is mutually exclusive and precisely one resolves per cast, which is
+  // what "instead" means. Roil Eruption / Shivan Fire / Burst Lightning / Cinderclasm ("it deals N damage
+  // instead") and Might of Murasa / Explosive Growth ("that creature gets +N/+N until end of turn instead").
+  //
+  // ⛔ THE KICKED ATOM IS A CLONE OF THE BASE WITH ONE FIELD SWAPPED — never an independent parse, and that
+  // is the whole safety argument. The printed tail is ELLIPTICAL ("it deals 5 damage instead" restates no
+  // target; "that creature gets +5/+5" back-references), so parsing it alone yields LOW at best and a
+  // DIFFERENT target set at worst. Cloning makes op / targetType / restrictions identical by construction,
+  // so the replacement cannot silently retarget — the failure mode a from-scratch parse would invite.
+  //
+  // Fires ONLY when the base is a SINGLE atom whose magnitude the tail restates in full. Any extra rider
+  // ("and gains trample and haste" — Colossal Growth; "and the damage can't be prevented" — Urza's Rage;
+  // "and if it would die" — Scorching Lava) falls through to the refusal below, unchanged.
+  const replacement = matchKickedMagnitudeReplacement(baseProgramFor(t, card, cardType), kickedEffect);
+  if (replacement) return replacement;
   if (/\b(?:instead|rather than)\b/i.test(kickedEffect)) return null;
   if (/\b(?:that creature|those creatures|that player|that spell|that permanent|that card|that damage|it deals|an additional)\b/i.test(kickedEffect)) return null;
 
@@ -781,6 +798,72 @@ function matchKickedSpellEffect(card, cardType, oracle) {
 
   const kickedAtoms = kickedProgram.atoms.map((a) => ({ ...a, kickedOnly: true }));
   return { atoms: [...baseProgram.atoms, ...kickedAtoms] };
+}
+
+/**
+ * The BASE program for the kicked-rider matcher, extracted so the magnitude-replacement gate above can read
+ * it BEFORE the additive path builds it. Same three transforms as the additive path, in the same order.
+ */
+function baseProgramFor(t, card, cardType) {
+  const base = t
+    .replace(/\bkicker\s+(?:\{[^}]+\})+\s*/i, " ")
+    .replace(/if this spell was kicked,\s*[^.;]+(?:[.;]|$)/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!base) return null;
+  const p = parseEffectClause(base, cardType, { hasX: false });
+  if (!p || programConfidence(p) !== "high" || p.structure === "modal" || p.xSpell) return null;
+  return p;
+}
+
+/**
+ * KICKED MAGNITUDE REPLACEMENT — "…deals 3 damage to any target. If this spell was kicked, it deals 5 damage
+ * instead." → two mutually exclusive atoms: the base stamped `nonKickedOnly` and a CLONE stamped `kickedOnly`
+ * with only its magnitude changed.
+ *
+ * ⛔ EVERY GUARD HERE EXISTS TO KEEP THE PAIR A PURE MAGNITUDE SWAP:
+ *   · the base must be exactly ONE atom (a multi-atom base has no single magnitude to replace);
+ *   · the tail must match a whole-clause anchor, so a trailing rider can never be silently dropped — the
+ *     lossy-tail class, and on a REPLACEMENT an unread rider means the kicked mode under-delivers while the
+ *     card reads native;
+ *   · the recipient phrase, when the tail restates one, must be the SAME as the base's ("to each creature"
+ *     may not replace a single-target base, and vice versa);
+ *   · the op must be one whose magnitude is a single known field (deal-damage.amount, pump.ptDelta).
+ * Anything else returns null and the card keeps its documented refusal.
+ */
+function matchKickedMagnitudeReplacement(baseProgram, kickedEffect) {
+  if (!baseProgram || baseProgram.atoms.length !== 1) return null;
+  const b = baseProgram.atoms[0];
+  const tail = String(kickedEffect).trim().toLowerCase();
+  const pair = (kickedAtom) => ({
+    atoms: [{ ...b, nonKickedOnly: true }, { ...kickedAtom, kickedOnly: true }],
+  });
+
+  // DAMAGE — "it deals N damage instead" / "it deals N damage to <recipient> instead".
+  if (b.op === "deal-damage" && typeof b.amount === "number") {
+    const m = tail.match(/^it deals (\d+) damage(?: to ([a-z ]+?))? instead$/);
+    if (m) {
+      // A restated recipient must describe the SAME recipient the base already has. "each creature" is the
+      // only mass form in this family; a single-target base restating it (or the reverse) is a different
+      // effect, not a bigger one.
+      if (m[2]) {
+        const wantsEach = /^each creature$/.test(m[2].trim());
+        if (wantsEach !== (b.targetType === "eachCreature")) return null;
+        if (!wantsEach && !/^(?:that creature|that permanent or player|any target)$/.test(m[2].trim())) return null;
+      }
+      return pair({ ...b, amount: parseInt(m[1], 10) });
+    }
+    return null;
+  }
+
+  // PUMP — "that creature gets +N/+N until end of turn instead".
+  if (b.op === "pump" && b.ptDelta) {
+    const m = tail.match(/^that creature gets \+(\d+)\/\+(\d+) until end of turn instead$/);
+    if (m) return pair({ ...b, ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } });
+    return null;
+  }
+
+  return null;
 }
 
 export function parseEffectProgram(card) {

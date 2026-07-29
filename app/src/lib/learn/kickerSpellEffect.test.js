@@ -75,9 +75,33 @@ describe("KICKED-SPELL-EFFECT coverage — additive kicked spells classify nativ
 });
 
 describe("KICKED-SPELL-EFFECT CREED anti-FP — deferred shapes stay arbiter-spell", () => {
-  it("a REPLACEMENT kicked clause ('instead') stays arbiter-spell (Burst Lightning, Field Research)", () => {
-    expect(classifyCard({ name: "Burst Lightning", type: "Instant", mana: "{R}", oracle: "Kicker {4}\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead." })).toBe("arbiter-spell");
+  it("⭐⭐ RE-POINTED — a MAGNITUDE-only replacement graduated; every other replacement still refuses", () => {
+    // This assertion's stated reason was "a conditional-replacement model we don't have" — a CAPABILITY pin,
+    // which graduates once the model exists and is then RE-POINTED rather than deleted. The model is
+    // `nonKickedOnly`, the exact mirror of `kickedOnly`: base and kicked clause become two MUTUALLY EXCLUSIVE
+    // atoms, so precisely one resolves per cast, which is what "instead" means (CR 614).
+    //
+    // ⭐ Burst Lightning graduated because its tail restates the SAME op with a bigger number, so the kicked
+    // atom is a CLONE of the base with one field swapped — op, targetType and restrictions identical by
+    // construction, never re-parsed from the elliptical printed phrase ("it deals 4 damage instead" names no
+    // target at all, so an independent parse would either fail or invent one).
+    const burst = { name: "Burst Lightning", type: "Instant", mana: "{R}", oracle: "Kicker {4}\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead." };
+    expect(classifyCard(burst)).toBe("native-spell");
+    expect(parseEffectProgram(burst).atoms.map((a) => [a.amount, !!a.nonKickedOnly, !!a.kickedOnly]))
+      .toEqual([[2, true, false], [4, false, true]]);
+
+    // ⛔ THE BOUNDARY IS THE OP SET, NOT THE SHAPE. Field Research ("draw two cards … draw three cards
+    // instead") is the identical magnitude-replacement shape on an op this arm does not cover, and it still
+    // refuses. Kept deliberately as the marker: widening the op set is the next graduation and should MOVE
+    // this line rather than weaken it.
     expect(classifyCard({ name: "Field Research", type: "Sorcery", mana: "{2}{U}", oracle: "Kicker {2}{U}\nDraw two cards. If this spell was kicked, draw three cards instead." })).toBe("arbiter-spell");
+  });
+
+  it("⛔ a replacement carrying an EXTRA RIDER still refuses — the lossy-tail direction", () => {
+    // Urza's Rage adds "and the damage can't be prevented"; Colossal Growth adds trample and haste. On a
+    // REPLACEMENT an unread rider makes the kicked mode UNDER-deliver while the card reads native, so the
+    // tail anchor must match the whole clause or not at all.
+    expect(classifyCard({ name: "Urza's Rage", type: "Instant", mana: "{2}{R}", oracle: "Kicker {8}{R}\nUrza's Rage deals 3 damage to any target. If this spell was kicked, instead it deals 10 damage to that permanent or player and the damage can't be prevented." })).toBe("arbiter-spell");
   });
   it("a back-reference kicked clause ('that creature'/'it deals') stays arbiter-spell (Jilt)", () => {
     expect(classifyCard({ name: "Jilt", type: "Instant", mana: "{1}{U}", oracle: "Kicker {1}{R}\nReturn target creature to its owner's hand. If this spell was kicked, it deals 2 damage to another target creature." })).toBe("arbiter-spell");

@@ -168,6 +168,14 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     // never a fabricated effect (the cardinal CREED guarantee for the not-kicked path). The base atoms (no
     // `kickedOnly`) always run. On a kicked cast it falls through and resolves like any other atom.
     if (atom.kickedOnly && !kicked) continue;
+    // ⭐ THE COMPLEMENT — `nonKickedOnly`, for the REPLACEMENT payoff ("… deals 3 damage. If this spell was
+    // kicked, it deals 5 damage INSTEAD" — Roil Eruption, Shivan Fire, Burst Lightning, Cinderclasm, Might of
+    // Murasa, Explosive Growth). An additive payoff appends an atom and needs only `kickedOnly`; a
+    // REPLACEMENT payoff needs BOTH halves to be conditional, because the base must NOT resolve on a kicked
+    // cast — otherwise the spell deals 3 damage AND 5 damage. The two flags are exact mirrors and exactly one
+    // of the pair resolves on any given cast, which is what "instead" means (CR 614 replacement, expressed
+    // here as mutually exclusive atoms rather than a modification of the base).
+    if (atom.nonKickedOnly && kicked) continue;
     // α2 — an OPTIONAL atom ("you may <effect>"): suspend so the controller decides whether to take
     // it (a real player yes/no, or AI/Expert auto-decide). resolveOptionalChoice runs-or-skips this
     // atom then resumes. Mirror the tutor/scry pause — plain JSON, serialize-safe; never resolve a
