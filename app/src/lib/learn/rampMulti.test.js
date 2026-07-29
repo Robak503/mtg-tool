@@ -53,7 +53,16 @@ describe("parser — multi-land battlefield ramp (RAMP-MULTI)", () => {
     expect(isHigh("Search your library for up to two creature cards, put them onto the battlefield, then shuffle.")).toBe(true);                               // plain creature — now native
     expect(isHigh("Search your library for up to two Dragon cards, put them onto the battlefield, then shuffle.")).toBe(false);                                // subtyped creature — stays Arbiter (CREED)
     expect(isHigh("Search your library for up to two basic Forest or Island cards, put them onto the battlefield, then shuffle.")).toBe(false);                // ambiguous-basic union
-    expect(isHigh("Search your library for up to two land cards, put them onto the battlefield tapped, then shuffle. Then if you control three or more Deserts, create two 2/2 black Zombie creature tokens.")).toBe(false); // Hour of Promise (rider)
+    // GRADUATED 2026-07-29 — Hour of Promise. This asserted false BECAUSE a "Then if <cond>, <effect>" rider
+    // had no route; that was a capability statement, not a refusal to keep. Both halves are now genuinely
+    // modelled and VERIFIED, not assumed: the condition "you control three or more Deserts" evaluates
+    // correctly at the 3-or-more boundary (0/2 → false, 3/5 → true), and the rider parses to a real
+    // create-token atom carrying that condition. A rider that fires only when its condition holds is not a
+    // dropped rider.
+    expect(isHigh("Search your library for up to two land cards, put them onto the battlefield tapped, then shuffle. Then if you control three or more Deserts, create two 2/2 black Zombie creature tokens.")).toBe(true); // Hour of Promise (rider — now modelled)
+    // …and the guarantee that pin protected keeps a LIVE fixture: a rider whose condition is OUTSIDE the
+    // vocabulary still parks the whole card, so an unreadable rider is never silently dropped (CREED).
+    expect(isHigh("Search your library for up to two land cards, put them onto the battlefield tapped, then shuffle. Then if you control a creature named Bob and it is raining, create two 2/2 black Zombie creature tokens.")).toBe(false);
   });
 });
 

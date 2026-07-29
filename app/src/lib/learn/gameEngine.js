@@ -1142,6 +1142,10 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // every other trigger leaves it undefined → hasX:false → byte-identical.
     const program = parseEffectClause(clause, "Instant", {
       hasX: !!trigger.descriptor?.effectHasX,
+      // A TRIGGER resolves with its SOURCE permanent in context — triggers.js threads sourcePermanentId and
+      // runProgram passes that same context to evaluateInterveningIf — so a source-dependent atom condition
+      // is answerable here in a way a resolving SPELL's is not. See conditionReadableHere in parser.js.
+      sourceScoped: true,
     });
     // α1 ALLOWLIST: route a HIGH non-modal trigger natively only when every chosen-target atom is
     // intent-resolvable — i.e. the enemy/own chooser (chooseTriggerTargets, wired in at the live

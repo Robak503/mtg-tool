@@ -72,7 +72,7 @@ import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-E
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
-import { spellConditionParseable, evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
+import { spellConditionParseable, activationConditionParseable, evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -294,7 +294,30 @@ export function registerClauseParser(fn) {
  * (`parseCreatureTargetRestrictions`) models controller/tapped/power; any other
  * qualifier leaves a residue → null. Non-creature atoms must pass `isCleanClause`.
  */
-function parseClauseToAtom(cardType, clause, hasX = false) {
+/**
+ * WHICH CONDITION PROBE APPLIES — the metric⇄runtime shared gate for an atom-level `condition`, split by the
+ * context the CALLER can honestly supply at resolution:
+ *
+ *   • a resolving SPELL has no object thread at all        → spellConditionParseable
+ *   • a PERMANENT'S ABILITY has its SOURCE permanent       → activationConditionParseable (source-only probe)
+ *
+ * `sourceScoped` is set by buildTriggerStack, the one caller that resolves a clause with a source permanent
+ * in context. Verified before wiring, not assumed: triggers.js threads `sourcePermanentId` into the trigger
+ * context and runProgram passes that same context to evaluateInterveningIf, so a condition admitted here is
+ * one the runtime can actually answer — never a claimed-but-unfirable rider.
+ *
+ * ⭐ THE SOURCE-ONLY PROBE IS DELIBERATE, not laziness. A trigger's context also carries per-event fields
+ * (triggering permanent, defender, damage snapshots) which VARY BY EVENT, so probing with all of them would
+ * admit conditions that a different event's trigger cannot answer. `sourcePermanentId` is the one field
+ * EVERY trigger carries, so it is the honest floor. Anything needing more still parks (a safe FN).
+ *
+ * Unset (the default) reproduces the previous behaviour exactly, so every spell path is byte-identical.
+ */
+function conditionReadableHere(condition, sourceScoped) {
+  return spellConditionParseable(condition) || (!!sourceScoped && activationConditionParseable(condition));
+}
+
+function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false) {
   const s = stripReminder(clause);
   if (!s) return null;
 
@@ -308,7 +331,7 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   const mayMatch = /^you may (.+)$/i.exec(s);
   if (mayMatch) {
     if (/^pay\b/i.test(mayMatch[1])) return null;
-    const inner = parseClauseToAtom(cardType, mayMatch[1], hasX);
+    const inner = parseClauseToAtom(cardType, mayMatch[1], hasX, sourceScoped);
     if (!inner) return null;
     // FREE-CAST (CR 601.2b) — its "you may cast …" optionality is realized at the ACTION layer (the
     // cast-or-decline decision offered by legalChoices after the atom parks the candidates), NOT as an
@@ -334,15 +357,20 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   // effect likewise parks (a fast-follow). splitClauses keeps the leading-if sentence WHOLE, so the effect
   // text reaching here is complete. The TRAILING form ("<effect> if <cond>") is deferred to a later slice.
   {
-    const cond = s.match(/^if (.+?), (.+)$/i);
-    if (cond && spellConditionParseable(cond[1])) {
+    // The optional leading "then" is the SEQUENCED form: "A. THEN IF <cond>, B." (Level Up's granted body,
+    // and 118 corpus cards carry the shape). splitClauses already hands the second sentence over intact as
+    // "then if <cond>, <effect>", so the ONLY thing that was missing is peeling the connective — "then if X,
+    // Y" and "if X, Y" mean the same thing here, since CR 608.2 checks the condition in written order either
+    // way and the preceding instruction has already resolved by then. No new condition machinery.
+    const cond = s.match(/^(?:then )?if (.+?), (.+)$/i);
+    if (cond && conditionReadableHere(cond[1], sourceScoped)) {
       // Once the condition is spell-readable (and splitClauses kept the sentence whole for exactly this), the
       // clause is COMMITTED to the conditional model — every failure below returns null (the card parks → low
       // → Arbiter), NEVER falls through to the legacy parse, which could match the gated verb and SILENTLY DROP
       // the condition (a forbidden FP). A multi-instruction gated effect (top-level " and "/", then ") parks.
       const gated = cond[2];
       if (/\s+\band\b\s+|,\s+then\s+/i.test(gated)) return null; // multi-atom gated rider → park (this slice)
-      const inner = parseClauseToAtom(cardType, gated, hasX);
+      const inner = parseClauseToAtom(cardType, gated, hasX, sourceScoped);
       if (inner
         && KNOWN.has(inner.op)
         && !inner.condition                 // no nested conditional (defensive — the effect can't re-lead with "if …,")
@@ -374,10 +402,10 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   // clean-atom parse below → parks (never a mis-scoped native).
   {
     const cond = s.match(/^(.+?) if (.+)$/i);
-    if (cond && spellConditionParseable(cond[2])) {
+    if (cond && conditionReadableHere(cond[2], sourceScoped)) {
       const gated = cond[1];
       if (/\s+\band\b\s+|,\s+then\s+/i.test(gated)) return null; // compound / scope-ambiguous left side → park (this slice)
-      const inner = parseClauseToAtom(cardType, gated, hasX);
+      const inner = parseClauseToAtom(cardType, gated, hasX, sourceScoped);
       if (inner
         && KNOWN.has(inner.op)
         && !inner.condition                 // no nested conditional (the effect can't itself re-carry a condition)
@@ -1176,7 +1204,7 @@ function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
 }
 
 
-function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
+function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScoped = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
   // board wipe / removal) still matches its anchored pattern instead of being forced low by the rider
@@ -1283,7 +1311,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const collapsed = (col) => {
     const atoms = [col.atom];
     for (const clause of (col.rest ? splitClauses(col.rest) : [])) {
-      const a = parseClauseToAtom(cardType, clause, hasX);
+      const a = parseClauseToAtom(cardType, clause, hasX, sourceScoped);
       if (!a) return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
       atoms.push(a);
     }
@@ -1792,7 +1820,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const atoms = [];
   let allParsed = clauses.length > 0;
   for (const clause of clauses) {
-    const atom = parseClauseToAtom(cardType, clause, hasX);
+    const atom = parseClauseToAtom(cardType, clause, hasX, sourceScoped);
     if (!atom) {
       // EXILE-IF-DIES rider (subsystem 3) — "If that creature would die this turn, exile it instead."
       // (Lava Coil, Magma Spray, Puncturing Blow): a floating death-replacement scoped to the single
