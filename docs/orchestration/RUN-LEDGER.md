@@ -2609,6 +2609,57 @@ parses HIGH, so the composition works.
 - the self threshold alone → **2 cards** (Level Up, Hog-Monkey Rampage)
 - **together → Level Up, a ×3 SHELF card** — which is the actual reason to do it
 
+## ✅ SHIPPED — source-scoped atom conditions + the sequenced "Then if" form (+3) (`9b6441c0`)
+
+Two composing changes. **The scope gate:** an atom-level `condition` may attach only when the resolver can
+evaluate it, but BOTH conditional arms used the SPELL probe (empty context) — so a source-dependent condition
+could never attach even on a TRIGGER, which has a source. Now split by the context the caller can honestly
+supply:
+
+- resolving SPELL → no object thread → `spellConditionParseable`
+- a PERMANENT'S ABILITY → has its SOURCE → `activationConditionParseable`
+
+⭐ **The source-only probe is deliberate.** A trigger's context also carries per-event fields (triggering
+permanent, defender, damage snapshots) that VARY BY EVENT; probing with all of them would admit conditions
+some other event's trigger cannot answer. `sourcePermanentId` is the one field EVERY trigger carries — the
+honest floor.
+
+⚠️ **`triggerRouting`'s validator had to move WITH `buildTriggerStack`** — its own comment requires it to
+mirror the allowlist exactly, and leaving it behind would have been a metric⇄runtime divergence (the metric
+saying "won't route" about something the runtime routes).
+
+**The sequenced form** `"A. Then if COND, B."` needed no new machinery: `splitClauses` already hands the
+second sentence over as `"then if <cond>, <effect>"`, so peeling the connective was the whole gap.
+
+## 🎓 ONE MORE PIN GRADUATED — and I verified it was a graduation, not an FP
+
+`rampMulti` asserted **Hour of Promise** stays LOW because a "Then if" rider had no route. Before flipping it
+I checked BOTH halves are real: `"you control three or more Deserts"` evaluates correctly at the boundary
+(0/2 → false, 3/5 → true) and the rider parses to a genuine `create-token` atom **carrying** that condition.
+A rider that fires only when its condition holds is not a dropped rider. The guarantee it protected keeps a
+live fixture — a rider whose condition is outside the vocabulary still parks the whole card.
+
+**This is the capability-vs-intent rule from slice 68 paying off twice now.** Capability pins graduate once
+the capability lands; intent pins (the filter-land "payable from the pool") need a decision. Check which kind
+before touching one.
+
+## ⛔ LEVEL UP — PARKED, and the last blocker is a CREED ANCHOR, not a gap
+
+Four of five pieces are in (`21c471a8` two, the grant already worked, `fb3bfa85` the condition, `9b6441c0`
+the scope gate + compound). The remainder:
+
+> The `SELF_DOUBLE_IT` pronoun rewrite is **whole-clause anchored ON PURPOSE** so a rider can never be
+> silently dropped. Level Up's granted body is `"…on it. Then if…"`, which does not match — deliberately.
+
+**Completing it means deciding whether that anchor may fire PER-SENTENCE inside a compound.** That is a real
+CREED call (the anchor is the thing standing between "modelled" and "silently dropped rider"), not plumbing,
+so it is NOT a 3am change. Pinned as parked in `sourceScopedCondition.test.js` so the state cannot drift
+unnoticed.
+
+⭐ **Worth noting what this cost:** Level Up was sized at 3 pieces, then 4, and is now 5 — each re-size came
+from measuring the next layer rather than assuming it. The three shipped pieces are all independently useful;
+none of the work is stranded on the card that motivated it.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2760,6 +2811,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `9b6441c0` — source-scoped atom conditions + sequenced "Then if" (+3). Slice 70.
 - `fb3bfa85` — SELF power threshold condition, layer-aware (+0; Level Up 3/4 pieces). Slice 69.
 - `21c471a8` — enchanted counter referent + self doubling pronoun (+4); Level Up re-sized to 4 pieces. Slice 68.
 - `b15cdecd` — painlands tap for colours + pay the life; 10 lands un-Wastes-ed (+0 tier, by nature). Slice 67.
