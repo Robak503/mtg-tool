@@ -103,7 +103,17 @@ anthems then apply on top of the new base (CR 613.1a).
    matched. Same class as the recorded `node -e` trap. **Use Edit for anything with regex escapes**, and
    grep for stray control chars after any scripted write.
 
-2b. Parse `"becomes a copy of <X> until end of turn"` → the atom. `snapshotCopiedCard` (cloneCopy.js) already
+2b. ✅ **SHIPPED (`d01089f5`)** — the `become-copy` atom + resolver, for the **targeted SELF** form. Snapshots
+   at resolution (CR 707.2), stores ONE layer-1 effect with an `endOfTurn` duration; riders reuse
+   `parseCloneRider` and the snapshot reuses `snapshotCopiedCard`, so the two copy paths cannot drift.
+   **GAINED 1** (Impossible Man). Board assertions, not tier assertions, are the substance.
+   **KNOWN NEXT, diagnosed:** Tilonalli's Skinshifter's trigger IS detected and its effect clause parses
+   HIGH — it parks on the **trigger-target intent gate** (`programTriggerTargetsResolvable`), which is
+   correct-by-design until `become-copy` declares an intent. One line, but it needs a real answer to "which
+   side should the chooser prefer when copying?" — an opponent's big attacker is usually the point, so the
+   enemy-side default other atoms use is probably WRONG here. Do not guess it.
+
+3. Remaining, all BINDING problems rather than copy problems: `snapshotCopiedCard` (cloneCopy.js) already
    produces the copiable card — **reuse it, do not write a second snapshotter**, or the two drift.
 3. The two Dragons cards' own riders (Sarkhan: "except its name is Sarkhan… and it's still a Planeswalker";
    Scion: tutor-to-graveyard then copy that card).
@@ -1418,7 +1428,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,299/34,245). Suite **946 files / 12,076 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,300/34,245). Suite **947 files / 12,090 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
