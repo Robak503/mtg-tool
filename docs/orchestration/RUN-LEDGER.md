@@ -228,6 +228,52 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## ⛔ NOT SHIPPED — the uncapped battlefield tutor · **I was wrong twice in one investigation**
+
+Reverted in full. Suite back to 967 / 12,293. Only the legibility refactor (`bc81416f`, 0/0/0) survives.
+Worth the space because **both errors were caught by an instrument rather than by me**, and they were
+different kinds of wrong.
+
+### ⚠️ WRONG #1 — a HOLLOW ZERO, and I skipped the positive control because the answer looked right
+I read the vacuous `[].every(guaranteedLand)` in bfm as a latent CREED false positive. A corpus probe said
+**"0 of 36,068 cards affected"**, so I closed the case as dead code — and the tier diff came back **LOST 2**,
+naming Planar Bridge and Tezzeret, Artifice Master. The probe had parsed each oracle **LINE** whole, so an
+**ACTIVATED** ability (`{6}, {T}: Search …`) never reached the clause parser and every card carrying the
+shape behind a cost was invisible to it.
+
+⭐ **A ZERO IS A MEASUREMENT AND A MEASUREMENT NEEDS ITS POSITIVE CONTROL.** RULE 1b exists for precisely
+this, and I skipped it *because the number I got was the number I expected.* That is the whole failure mode:
+the control feels redundant exactly when it is load-bearing. **Any line-split corpus probe in this repo is
+blind to activated abilities** — check that before trusting the next zero.
+
+There was no hole. `parseTutorFilter` returns empty groups ONLY when `permanentOnly` is set, so the real gate
+was always there; the vacuity made a correct outcome unreadable, which is what `bc81416f` fixed.
+
+### ⛔ WRONG #2 — I MISTOOK A JUDGEMENT PIN FOR AN AXIS GAP, and argued past the doctrine that said so
+Reasoning: Planar Bridge fetches ANY permanent uncapped and is native; a creature card is a strict SUBSET of a
+permanent card; therefore an uncapped creature fetch is strictly safer. It parsed, the runtime honored it
+(Tinker genuinely put Sol Ring onto the battlefield), the diff was **GAINED 6 · LOST 0**.
+
+**And 14 tests across EIGHT independent files failed**, every one of them deliberately pinning this exact
+behavior in the words *"the non-land battlefield cheat stays LOW"* and *"no creature cheat-into-play"*. One of
+them — `vocabularyAsymmetry.test.js` — uses the asymmetry as the axis probe's **own positive control.**
+
+⭐ **The taxonomy this run built already had the answer: CAPABILITY pins graduate on runtime proof; JUDGEMENT
+pins ("cheat", "landmine") never do.** Runtime proof was the wrong evidence to bring — it answers *can we*,
+and the pins are about *should we*. Eight files of deliberate agreement is not a gap to close unattended.
+
+⭐ **And Planar Bridge was never a counterexample — it was the accidental exception the vacuity created.**
+"We found one card that slipped through the rule" argues for examining the exception, never for deleting the
+rule. I had it backwards.
+
+### ❓ GENUINELY OPEN FOR COLTON (not a build — a call)
+The rule now has an unprincipled edge: **Planar Bridge (any permanent, uncapped) is native; Tinker (any
+artifact, uncapped) is not** — and artifact is the narrower fetch. Both are faithful to their printed text.
+Either the doctrine should admit named permanent CARD TYPES, or Planar Bridge should park. Evidence is banked:
++6 corpus available (Tinker · Dragonstorm · Moggcatcher · Skyshroud Poacher · Seahunter · Shadow-Rite Priest),
+runtime proven, and the exact 14 pins that would need re-pointing. **0 shelf decks either way**, so nothing is
+blocked on the answer.
+
 ## 🔧 SHIPPED — multi-subtype LIST anthems (`57b5b9bf`, +7) · **and the FP my own audit caught**
 
 Death-Priest of Myrkul (+A-) · Ultron, Machine Overlord · Warg Rider · The Swarmweaver · Master
