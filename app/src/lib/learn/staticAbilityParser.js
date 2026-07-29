@@ -283,7 +283,54 @@ const NON_CREATURE_SUBTYPES = new Set([
   "vehicle", "food", "treasure", "equipment", "clue", "aura", "powerstone", "blood", "gold", "map", "junk",
   "incubator", "saga", "fortification", "contraption", "attraction", "role", "case", "class", "lesson",
   "background", "dungeon", "shard", "sticker", "plane", "phenomenon", "scheme", "conspiracy",
+  // ⚠️ LAND SUBTYPES, added 2026-07-29 — this set had covered only artifact/enchantment subtypes, and the
+  // hole was found by AUDITING A GAINED ROW rather than by reasoning: the multi-subtype list arm flipped
+  // Timber Protector ("Other Treefolk and Forests you control have indestructible") native, because "forest"
+  // passed every guard here. Under the Creature-restricted selector the Forests half selects nothing, so the
+  // card would have claimed native while granting indestructible to the Treefolk only — the same shape as the
+  // Aeronaut Admiral FP this set already existed to stop, one card type over. No creature subtype collides
+  // with any of these words, so excluding them can never park a real tribal grant.
+  "plains", "island", "swamp", "mountain", "forest", "wastes",
+  "cave", "desert", "gate", "lair", "locus", "mine", "tower", "sphere",
 ]);
+
+// ===== MULTI-SUBTYPE LIST SUBJECT ("Skeletons, Vampires, and Zombies you control get +1/+1") =====
+// ⭐ A MISSING PARSE ARM, NOT A MISSING MECHANIC. `selector.subtypes` has ALWAYS been an array and
+// matchesSelector has ALWAYS ORed it — its own comment there reads "OR semantics, same as a multi-subtype
+// list". The runtime was built for lists; nothing upstream ever PRODUCED one, so every printed list parked
+// while its one-word sibling ("Zombies you control get +1/+1") went native. The same axis shape as the last
+// four slices: the capability present on one arm of a function and absent on its neighbour.
+//
+// ⛔ EVERY ELEMENT MUST PASS OR THE WHOLE CLAUSE PARKS, and that all-or-nothing is the CREED, not caution. A
+// list containing a NON-creature subtype is the dangerous case: "Mounts and Vehicles you control get +1/+1"
+// (Cloudspire Captain) under the Creature-restricted selector would quietly grant to the Mounts only, flip the
+// card native, and under-deliver on the Vehicles half forever. That is exactly the Aeronaut Admiral FP the
+// one-word branch's NON_CREATURE_SUBTYPES guard exists to stop, so this reuses the identical trio of guards
+// rather than inventing a second, weaker standard for lists.
+//
+// ⚠️ IT DOES NOT VERIFY THAT A WORD IS A REAL SUBTYPE, deliberately — matching its one-word sibling, which
+// treats any unrecognized word as a subtype because a bogus one selects no creature (a safe FN, never a
+// fabricated grant). Curation would be the WRONG gate here, and that was MEASURED rather than assumed:
+// "Skeletons / Robots / Servos / Thopters / Orcs you control get +1/+1" all classify native TODAY with none
+// of those words in any allowlist, so requiring one would park cards that already work.
+//
+// Accepts the separators as actually printed: "A and B", "A, B, and C" (Oxford comma), and the comma-less
+// "A, B and C". Returns the normalized subtypes, or null when ANY element fails a guard.
+function parseSubtypeListSubject(phrase) {
+  const parts = String(phrase).split(/\s*,\s*and\s+|\s+and\s+|\s*,\s*/).map((w) => w.trim()).filter(Boolean);
+  if (parts.length < 2) return null;                        // a single word is the one-word branch's job
+  for (const word of parts) {
+    if (word === "creature" || word === "creatures") return null;
+    // De-pluralize against the SINGULAR exclusion sets exactly as the bare-plural one-word branch does.
+    const candidates = [word];
+    if (word.endsWith("ies")) candidates.push(word.slice(0, -3) + "y");
+    if (word.endsWith("ves")) candidates.push(word.slice(0, -3) + "f");
+    if (word.endsWith("s")) candidates.push(word.slice(0, -1));
+    if (candidates.some((w) => NON_SUBTYPE_ANTHEM_WORDS.has(w) || NON_CREATURE_SUBTYPES.has(w))) return null;
+    if (PERMANENT_TYPE_CARD_TYPES[word]) return null;
+  }
+  return parts.map(normalizeSubtype);
+}
 
 // STATIC-COST-REDUCTION (card-TYPE reducers): the card-type words that ARE real type-line tokens, so a
 // "<word> spells you cast cost {N} less to cast" reducer (Foundry Inspector → "Artifact"; Marauding Raptor
@@ -3158,8 +3205,23 @@ function parseCreatureSelector(c) {
     return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], withKeyword: withKwM[2], excludeSelf: withKwM[1] === "other" } };
   }
 
+  // Determiner anthem with a LIST subject: "(all|other|each) <A> and <B> [creatures] [you control] get…"
+  // (Warg Rider — "Other Orcs and Goblins you control have menace"). Sits before its one-word sibling for
+  // legibility only; the two cannot collide, because the sibling's `[a-z]+` is followed by "and" rather than
+  // by "creatures" / "you control" / the verb, so it already fails to match a list.
+  let m = c.match(/^(all|other|each)\s+([a-z]+(?:\s*,\s*[a-z]+)*(?:\s*,)?\s+and\s+[a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    const listSubs = parseSubtypeListSubject(m[2]);
+    if (listSubs) {
+      return {
+        mode: "dynamic",
+        selector: { controllerScope, cardTypes: ["Creature"], subtypes: listSubs, excludeSelf: m[1] === "other" },
+      };
+    }
+  }
+
   // Tribal / determiner anthem: "(all|other|each) <word> [creatures] [you control] get…"
-  let m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:gets?|gains?|has|have)\b/);
+  m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:gets?|gains?|has|have)\b/);
   if (m) {
     const determiner = m[1];
     const word = m[2];
@@ -3366,6 +3428,19 @@ function parseCreatureSelector(c) {
   // nobody). A genuinely-bogus subtype simply selects no creatures (a safe FN). No excludeSelf: a bare
   // (determiner-less) subtype includes the source if it shares the type ("Slivers you control" includes a
   // Sliver granter); the "Other <Subtype>" exclusion is the determiner form above.
+  // BARE-PLURAL LIST subject: "<A>, <B>, and <C> you control get|have …" (Death-Priest of Myrkul —
+  // "Skeletons, Vampires, and Zombies you control get +1/+1"; The Swarmweaver; Master Trinketeer; Ultron,
+  // Machine Overlord). Same guards as the one-word sibling below, applied to EVERY element — see
+  // parseSubtypeListSubject. No excludeSelf: a determiner-less subject includes the source when it shares a
+  // type, exactly as the one-word branch documents.
+  m = c.match(/^([a-z]+(?:\s*,\s*[a-z]+)*(?:\s*,)?\s+and\s+[a-z]+)\s+you control\s+(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    const listSubs = parseSubtypeListSubject(m[1]);
+    if (listSubs) {
+      return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], subtypes: listSubs } };
+    }
+  }
+
   m = c.match(/^([a-z]+)\s+you control\s+(?:gets?|gains?|has|have)\b/);
   if (m) {
     const word = m[1];
