@@ -265,7 +265,25 @@ the condition-true nor condition-false case, which looked like a dead gate. `eva
 that exact string **`true`** when asked directly — the fixture was incomplete, not the engine. *Isolate the
 predicate before concluding the mechanism is broken.*
 
-### 🎯 CONCRETE FOLLOW-UP — the 16 parked mana cards can be RESTORED properly
+### ✅ DONE (`a65dd03e`, +6) — condition-gated mana is now ENFORCED, not refused
+
+The follow-up below was built the same session it was written. The condition rides on the mana product and
+is evaluated LIVE at **`manaSources` — the ONE chokepoint**; gating at each consumer would guarantee one of
+them forgets. `!== true` so an unconfirmable condition blocks, matching `legalChoices`' comparison exactly.
+
+**Board-asserted:** a lone Mox Opal (metalcraft unmet) yields NO source, still none one artifact short, and
+exactly one at three artifacts.
+
+**⚠️ THE PIECE THAT KEEPS THE METRIC HONEST — `conditionIsExpressible`.** Tagging every gate and letting
+`manaSources` drop whatever is not `=== true` would be runtime-safe **and still wrong**: the card would be
+credited `native-mana` while its source could never be offered — a runtime-vacuous native, the same class as
+the vacuous subtype filter and the aura grants that never applied. **A gate the evaluator cannot DECIDE
+parks the card.** So the 16 split honestly: **6 back, 10 still parked.**
+
+**This was the THIRD time the same pattern paid this run** — a guard that existed at one entry point and not
+its sibling (`legalChoices` gated activated abilities; `manaSources` gated nothing).
+
+### 🎯 (original scoping, kept) — the 16 parked mana cards can be RESTORED properly
 
 `b84252af` routes condition-gated mana sources out entirely (a safe FN) "until conditions are real". **They
 are more real than that fix assumed:** `evaluateInterveningIf` already answers these gates —
