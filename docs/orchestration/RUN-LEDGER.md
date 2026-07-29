@@ -325,6 +325,27 @@ em-dash in the label alternation is what keeps it out; M26 loosens it to `.` and
 Michelangelo's Raid) — this removed one shared blocker, not all of them. **Those four effects are the next
 shelf target, and they are one deck's commanders.**
 
+### ✅ LEONARDO IS THE FIRST TURTLE HOME (`e1e1977c`, +1 — Halfshell 57% → 58%)
+
+His real blocker was **`"Do this only once each turn."`** on an ADD-COUNTER atom. The rider was modeled for
+`discover / draw / gain-life / create-token` and not for counters, because `ONCE_PER_TURN_HONORED` admits
+only ops whose RESOLVER reads the flag. **Latch first, admit second** — implementing the latch before
+touching the set is what kept this from crediting a card that fires on every token. Board-asserted: first
+token 3 → 4, second token places nothing.
+
+**⚠️ TWO FIXTURE TRAPS, both mine, both cost real time — they are in the test file so nobody repeats them:**
+1. **Token-ness is read off the CARD, not the permanent wrapper.** `token:true` on the permanent alone fires
+   NOTHING and looks exactly like a dead trigger.
+2. **A one-letter fixture name ("T") collided with self-reference detection** and turned *"Whenever a TOKEN
+   you control enters"* into an `etb/self` trigger. The real card was always fine.
+
+Both were caught the same way: **re-test against the REAL card before concluding anything about the engine.**
+That rule has now saved three wrong conclusions this session (this pair plus Weathered Wayfarer).
+
+**The remaining three turtles, in likely-cheapness order:** Michelangelo's `Raid (the Fridge) —` (an ability
+word with a FLAVOUR NAME in parens — the Raid parser will not be expecting that, and it may be a one-diff),
+then Raphael's filtered damage doubler, then Donatello's "those tokens plus a Mutagen token" replacement.
+
 ### ⭐⭐ THE RULE THAT MAKES THIS WHOLE SEAM TRACTABLE — DIRECTION, NOT PRESENCE
 
 Auditing the tail-injection probe's top five clusters (~110 of its 165 cards) found **exactly one** defect.
