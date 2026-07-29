@@ -367,7 +367,31 @@ export function applyEarthbend(state, atom, ctx) {
   next = updatePermanentSafe(next, land.id, (p) => ({ ...p, earthbendReturn: true }));
   const lethal = destroyLethalCreatures(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
+  // EARTHBEND REFERENT — stamp WHICH land was animated so a following "…, then untap that land" can act on
+  // it (Avatar Kyoshi, Earthbender). Same mid-resolution value-capture the corpus already uses for Yuriko's
+  // revealedCardMV and roll-d20's diceResult: the atom records, the NEXT atom reads. Stamped even when the
+  // land died to the SBA above — the follow-up resolver re-verifies the permanent is still on the
+  // battlefield, so a dead referent is a clean no-op rather than a stale write.
+  next = { ...next, earthbendLandId: land.id };
   return logEvent(next, { kind: "spell-effect", effect: "earthbend", count: n, targets: [land.id] });
+}
+
+/**
+ * UNTAP-THE-EARTHBENT-LAND — the "…, then untap that land" tail of an earthbend (Avatar Kyoshi,
+ * Earthbender: "At the beginning of combat on your turn, earthbend 8, then untap that land").
+ *
+ * "That land" is the land the PRECEDING earthbend animated, so this reads the `earthbendLandId` stamp rather
+ * than choosing one itself — picking a land here would untap the wrong permanent whenever the controller has
+ * more than one. Absent stamp, a stamp pointing at a permanent that has since left, or a referent that is no
+ * longer a land → a clean no-op. Never a fabricated untap (CREED).
+ */
+export function applyUntapEarthbentLand(state, atom, ctx) {
+  const id = state?.earthbendLandId;
+  if (!id) return state;
+  const perm = (state.players?.[ctx.controller]?.battlefield || []).find((p) => p.id === id);
+  if (!perm || !/\bland\b/i.test(typeLineStr(perm.card))) return state;
+  const next = updatePermanentSafe(state, id, (p) => ({ ...p, tapped: false }));
+  return logEvent(next, { kind: "spell-effect", effect: "untap", targets: [id] });
 }
 
 /**
@@ -1825,6 +1849,7 @@ export function applyUntapRemoveFromCombat(state, atom, ctx) {
 }
 
 export const combatResolvers = {
+  "untap-earthbent-land": applyUntapEarthbentLand, // the ", then untap that land" tail of an earthbend (Avatar Kyoshi) — reads the earthbendLandId stamp
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "prevent-next-damage": applyPreventNextDamage, // PV-1 (CR 615) — floating this-turn prevent-the-next-N shield
   "set-base-pt-team": applySetBasePtTeam, // SET-BASE-PT-TEAM (Biomass Mutation) — team layer-7b base-P/T set to X/X until end of turn

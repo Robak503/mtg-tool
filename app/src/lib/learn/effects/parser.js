@@ -1251,6 +1251,27 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
   }
 
+  // ===== EARTHBEND + UNTAP-THAT-LAND ===== "earthbend N, then untap that land" (Avatar Kyoshi, Earthbender).
+  // Matched as a COMPOUND rather than letting the splitter hand "untap that land" to a clause parser, and
+  // that is a CREED requirement, not a convenience: the corpus prints "untap that land" on FOUR cards and
+  // THREE of them mean a DIFFERENT land — Fabled Passage (the land it just fetched), Land Aid '04 (the
+  // searched land), Tiller Engine (the land that just entered). A bare clause arm would bind all of them to
+  // the earthbend stamp and untap the wrong permanent. Only the earthbend-adjacent form is admitted here.
+  {
+    const eb = oracle.match(/^earthbend (\d+|a|an|one|two|three|four|five),?\s*then untap that land\.?\s*$/i);
+    if (eb) {
+      const lead = parseEffectClauseImpl(`earthbend ${eb[1]}`, cardType, { hasX });
+      if (lead && programConfidence(lead) === "high" && lead.atoms.length === 1) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [lead.atoms[0], { op: "untap-earthbent-land", targetType: null }],
+          unparsedTail: null,
+        });
+      }
+      // Fall through (never return LOW) — same rule the conditional-replacement arm learned the hard way.
+    }
+  }
+
   // Multi-sentence templates whose effect SPANS sentences (so the clause splitter below would shatter
   // them into unmatchable fragments) are matched up front as ONE atom, then any RIDER sentences that
   // follow run through the normal clause pipeline. ALL-OR-NOTHING: HIGH only if every rider atom is
