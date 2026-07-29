@@ -485,6 +485,31 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   // than false — "can't confirm" is FN-safe and matches the EVOLVE-COMPARE precedent below. The noun is
   // restricted to permanent-type words: "this <type>" is always a self-reference (CR 109.2), and the list
   // keeps a stray phrase from riding a lookup that would answer about the wrong object.
+  // SELF POWER THRESHOLD (Level Up's granted "…if IT has power 10 or greater, draw a card"; Hog-Monkey
+  // Rampage). The board-wide form ("you control a creature with power N or greater") already exists above;
+  // this is the SELF referent, resolved through the same context.sourcePermanentId the tapped check below
+  // uses. "it" is accepted alongside "this creature" because a SELF-scope trigger's pronoun binds to the
+  // source (CR 608.2c) and the trigger layer only routes this shape self-scoped.
+  //
+  // ⭐ LAYER-AWARE by construction: creaturePower(perm, state) is the same live reader the powerAtLeast
+  // filter uses, so counters and pumps count — which is the entire point on a card that DOUBLES its counters
+  // and then asks whether it got big enough. A printed-power read would answer about the wrong creature.
+  //
+  // Missing referent or a source that has left the battlefield → null, not false: "can't confirm" is
+  // FN-safe (the effect is skipped), while false would be a confident wrong answer.
+  {
+    const powM = c.match(/^(?:this creature|it) has power (\d+) or (?:greater|more)$/);
+    if (powM) {
+      const sourceId = context?.sourcePermanentId;
+      if (!sourceId) return null;
+      for (const pid of Object.keys(state.players || {})) {
+        for (const p of state.players[pid]?.battlefield || []) {
+          if (p.id === sourceId) return creaturePower(p, state) >= parseInt(powM[1], 10);
+        }
+      }
+      return null;
+    }
+  }
   {
     const tapM = c.match(/^this (?:artifact|creature|enchantment|land|permanent|planeswalker|battle|token|equipment|vehicle) is (un)?tapped$/);
     if (tapM) {
