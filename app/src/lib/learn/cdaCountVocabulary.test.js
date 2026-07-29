@@ -259,13 +259,27 @@ describe("DERIVE RE-ENTRY guard (self-count CDAs read printed state, never deriv
 // CREED anti-FP — an unmodeled count, an excluded vocabulary, or an added rider all PARK the card
 // ══════════════════════════════════════════════════════════════════════════════════════════
 describe("CDA-COUNT-VOCABULARY CREED anti-FP (parks stay body-only)", () => {
-  it("an unmodeled count ('+1/+1 counters on lands you control' — Toph) stays body-only", () => {
+  it("⭐ '+1/+1 counters on lands you control' (Toph) is MODELED now — an exact evaluator exists", () => {
+    // ⚠️ UPDATED 2026-07-28. This lived in the anti-FP list as "an unmodeled count", which was correct while
+    // the allowlist's own rule — admit only what countForSpec computes EXACTLY — had nothing to point at.
+    // countSelfSpecOnBoard now sums the named counter kind over a word-bounded group, written BEFORE the
+    // phrase was admitted (a CDA sets the base P/T, so admitting first would have set a fabricated 0/0).
+    // Its earthbend half was already modeled, so the whole card is native-mixed. The genuinely unmodeled
+    // vocabularies below — the plural "<tribe>s on the battlefield", the opponent and mana-symbol counts —
+    // are untouched and still park.
     const toph = {
       name: "Toph, the Blind Bandit", type: "Legendary Creature — Human Warrior Ally", power: "*", toughness: "3",
       oracle: "When Toph enters, earthbend 2.\nToph's power is equal to the number of +1/+1 counters on lands you control.",
     };
-    expect(classifyCard(toph)).not.toBe("native-static");
-    expect(isNativeTier(classifyCard(toph))).toBe(false);
+    expect(isNativeTier(classifyCard(toph))).toBe(true);
+  });
+
+  it("CREED — a counter kind with no exact evaluator still parks", () => {
+    const t = {
+      name: "Fake Toph", type: "Legendary Creature — Human Warrior Ally", power: "*", toughness: "3",
+      oracle: "Fake Toph's power is equal to the number of loyalty counters on lands you control.",
+    };
+    expect(isNativeTier(classifyCard(t))).toBe(false);
   });
   it("a plural '<tribe>s on the battlefield' count (Soulless One — evaluator would count 0) stays body-only", () => {
     const soulless = {

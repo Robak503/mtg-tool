@@ -346,6 +346,12 @@ function parseSelfCountSource(phrase) {
   let m;
   if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
+  // COUNTERS ON A GROUP — "+1/+1 counters on lands you control" (Toph, the Blind Bandit). Only the +1/+1 kind
+  // and only the card-type groups above, because layers.countSelfSpecOnBoard sums EXACTLY that; any other
+  // counter kind or a qualified group has no evaluator → null → the card parks (safe FN).
+  if ((m = p.match(/^\+1\/\+1 counters on (creatures?|artifacts?|lands?|enchantments?) you control$/))) {
+    return { kind: "countersOnPermanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]], counterType: "+1/+1" };
+  }
   // EQUIP-DYNAMIC-PT: "color(s) among permanents you control" — the count of DISTINCT WUBRG colors among the
   // controller's battlefield (Conqueror's Flail "+1/+1 for each color among permanents you control",
   // CR — a colorless permanent contributes no color). layers.countSelfSpecOnBoard evaluates the Set size.
@@ -368,9 +374,15 @@ function parseSelfCountSource(phrase) {
 // EXACTLY (metric⇄runtime lockstep), so a phrase with no exact evaluator returns null → NO descriptor → the
 // card parks (Arbiter; a false-negative is safe). NOT admitted (each parks): the plural "…on the battlefield"
 // subtype sources (countSelfSpecOnBoard would test a PLURAL needle "Clerics"/"Zombies" against a SINGULAR
-// type line → count 0 → a fabricated 0/0, forbidden), and any qualified / opponent / counter / mana-symbol
-// count (Toph's "+1/+1 counters on lands", Adamaro's "opponent with the most cards", Umbra Stalker's "black
-// mana symbols") — no exact evaluator, so they stay body-only.
+// type line → count 0 → a fabricated 0/0, forbidden), and any qualified / opponent / mana-symbol count
+// (Adamaro's "opponent with the most cards", Umbra Stalker's "black mana symbols") — no exact evaluator, so
+// they stay body-only.
+//
+// ⭐ "+1/+1 counters on <group> you control" (Toph, the Blind Bandit) WAS in that excluded list, for exactly
+// the stated reason — "no exact evaluator". One now exists (countSelfSpecOnBoard's countersOnPermanentsYouControl
+// branch, written FIRST), so the reason no longer applies and the source is admitted below. The rule this
+// allowlist encodes is unchanged and is what made the order matter: admit only what an evaluator computes
+// exactly, because a CDA SETS the base P/T and a count that silently returned 0 is a fabricated 0/0.
 function parseCdaCountSource(phrase) {
   const p = phrase.toLowerCase().trim().replace(/\.\s*$/, "");
   let m;
@@ -378,6 +390,10 @@ function parseCdaCountSource(phrase) {
   // "creatures"→Creature; countForSpec → countSelfSpecOnBoard's word-bounded type-line scan, exact).
   if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
+  // COUNTERS ON A GROUP — admitted only because countSelfSpecOnBoard sums it EXACTLY (see the note above).
+  if ((m = p.match(/^\+1\/\+1 counters on (creatures?|artifacts?|lands?|enchantments?) you control$/))) {
+    return { kind: "countersOnPermanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]], counterType: "+1/+1" };
+  }
   // BOARD — distinct WUBRG colors among the controller's permanents (Opulent Clomper; countSelfSpecOnBoard
   // evaluates the Set size — exact, devoid-safe via colorsOf).
   if (/^colors? among permanents you control$/.test(p)) return { kind: "colorsAmongPermanents" };

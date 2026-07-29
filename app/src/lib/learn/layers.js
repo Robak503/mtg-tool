@@ -170,6 +170,25 @@ function countSelfSpecOnBoard(state, perm, spec) {
   // battlefield"). `excludeSelf` (the "other" form) drops the counting permanent if it carries the subtype,
   // so a board of N Slivers gives each Sliver a count of N-1. Word-bounded type-line match (so "Sliver"
   // hits "Creature — Sliver" but not a substring). All-players because the clause has no "you control".
+  // COUNTERS ON A GROUP YOU CONTROL — "the number of +1/+1 counters on lands you control" (Toph, the Blind
+  // Bandit). An EXACT board read: a word-bounded type-line match picks the group, then the named counter kind
+  // is summed off each permanent. Nothing is inferred and nothing defaults — a permanent with no counters
+  // contributes 0, so the total is the printed number and never a fabricated one.
+  //
+  // ⚠️ WRITTEN BEFORE the source was admitted to either count vocabulary. The CDA allowlist's own rule is
+  // "every branch maps to an evaluator countForSpec computes EXACTLY", and it named Toph as excluded for
+  // having none. Admitting the phrase first would have set a CDA base P/T from a count that returned 0 — a
+  // fabricated 0/0 on the battlefield, which is the exact failure that comment forbids.
+  if (spec.kind === "countersOnPermanentsYouControl") {
+    const needle = spec.cardType;
+    if (!needle || !spec.counterType) return 0;
+    const re = new RegExp(`\\b${needle}\\b`);
+    let n = 0;
+    for (const p of state?.players?.[perm.controller]?.battlefield || []) {
+      if (re.test(typeLineOf(p.card))) n += (p.counters?.[spec.counterType] || 0);
+    }
+    return n;
+  }
   if (spec.kind === "subtypeOnBattlefield") {
     const needle = spec.subtype;
     if (!needle) return 0;
