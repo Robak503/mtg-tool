@@ -2491,6 +2491,34 @@ generic-drain fix also live in, and that core is the one seam where "affordable 
 being corrected, so it was safe to ship unattended. This one is an over-delivery whose fix trades against a
 documented decision — different risk class, deliberately left for a waking decision.
 
+## ✅ SHIPPED — PAINLANDS tap for their colours and pay the life (`b15cdecd`)
+
+All 10 (`Shivan Reef`, `Adarkar Wastes`, `Karplusan Forest`, `Battlefield Forge`, `Llanowar Wastes`,
+`Caves of Koilos`, `Yavimaya Coast`, `Brushland`, `Underground River`, `Sulfurous Springs`) modelled as
+**COLORLESS ONLY** — premium fixing that could not cast a coloured spell.
+
+⛔ **The life cost is why this was not a one-line colour union.** Admitting {U}/{R} while ignoring
+"deals 1 damage to you" is a PAINLESS painland — strictly better than printed. Colours ride together with
+`painColors`/`painAmount`, charged only when the tap actually picks a painful colour; the {C} half stays
+free. **M58 over-charges the free half specifically**, because over-charging is just a different infidelity.
+
+**Mogg Hollows deliberately KEEPS its colourless read** — same two-line shape, but a "doesn't untap during
+your next untap step" rider. Dropping that drawback is the same over-delivery in a different costume.
+
+⭐ **Tier diff: GAINED 0 · LOST 0 — and that IS the point.** The fix is invisible to every number the project
+tracks, because lands are credited by TYPE. Third find of that blind spot this run.
+
+## 📌 STILL OPEN in the colorless-land family (~60 lands) — the RIDERS are the work, not the union
+
+- **FILTER LANDS** (Flooded Grove, Mystic Gate, Graven Cairns, Twilight Mire, Sunken Ruins, Wooded Bastion,
+  Fetid Heath, Rugged Prairie — **the biggest SHELF group here**): `{G/U}, {T}: Add {G}{G}, {G}{U}, or
+  {U}{U}.` Needs a MANA cost to activate → **blocked on the activation-cost fork banked above**, not on the
+  colour union. Do not start it before that decision.
+- **MOGG HOLLOWS-class**: needs the no-untap rider (`setDoesNotUntapNext` already exists) — the nearest
+  buildable one after painlands.
+- **Storage / counter lands** (Saltcrusted Steppe, Dreadship Reef, Fountain of Cho): remove-counter costs,
+  already covered by the consumable-cost refusal. Leave alone.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2642,6 +2670,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `b15cdecd` — painlands tap for colours + pay the life; 10 lands un-Wastes-ed (+0 tier, by nature). Slice 67.
 - `9eba4b2e` — mana refusals per-ABILITY; 23 dead lands revived (+16). Slice 65.
 - `a8279062` — NONCREATURE artifact/enchantment targets, layer-aware (+5). Slice 64.
 - `977b72e9` — first-tap-each-of-your-turns + GRANTED becomes-tapped fire site (+1). **Earth Bent 90%.** Slice 63.
