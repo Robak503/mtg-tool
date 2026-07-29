@@ -228,6 +228,34 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — "Its controller loses N life" rider (+16) · **and the hole under the hole**
+
+16 cards, GAINED 16 · LOST 0. Hideous End · Sip of Hemlock · Certain Death · Undermine · Countersquall · +11.
+
+⭐ **A MISSING MAP ENTRY.** Lead grammar, controller CAPTURE and apply seam were all already built for
+gain-life / token / draw / mill riders; `parseControllerRider` had no arm for the most common printed rider
+in its own family.
+
+### ⚠️ THE SECOND HOLE, AND HOW IT ANNOUNCED ITSELF
+Adding the entry flipped Despoil and Glissa's Scorn but NOT Sip of Hemlock or Hideous End — identical text
+differing only in target type. ⭐ **A uniform build producing non-uniform results is a second bug, not a rough
+edge.** Chasing it found that the fold's lead resolver owns destroy-LAND / destroy-ARTIFACT / exile-ANYTHING
+but **not destroy-CREATURE** (which lives in the main clause grammar with the regeneration riders). So the
+most common printing of this shape had **never** been reachable, on any rider, since the fold was written.
+
+Fixed by injection — spanMatchers can't import parser.js (cycle), so parser.js passes its clause parser down
+as a fallback lead resolver, reached only where the existing one returns null. **Third slice on that ordering
+rule, third LOST 0.**
+
+⛔ **THE DRAIN HALF GOES TO THE CASTER**, the only place in this family a rider touches anyone but the
+captured controller — so the natural wrong implementation has Certain Death healing the player it kills.
+Mutation-checked both ways (drain-to-victim fails; stripping the lead's restrictions fails, so a "nonblack
+creature" fold can't become destroy-anything).
+
+**8 CREED pins across 5 files** used this rider as their example of an unmodeled one — all RE-POINTED to a
+verified-unmodeled stand-in (discard), never weakened. Third stand-in-went-stale episode of the run; the
+lesson from the first one (grep the suite for your own counter-examples before widening) held.
+
 ## 🔧 SHIPPED — kicked MAGNITUDE replacement (`nonKickedOnly`, +7)
 
 Burst Lightning · Shivan Fire · Roil Eruption · Firebending Lesson · Might of Murasa · Explosive Growth ·
