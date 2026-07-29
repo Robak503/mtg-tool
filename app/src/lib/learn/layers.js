@@ -1244,24 +1244,56 @@ export function deriveCharacteristics(state, permanentId) {
   }
 
   const board = collectContinuousEffects(state);
-  const selfEffects = board.length ? board.filter(e => effectAffects(e, perm, state)) : [];
+  const selfEffectsAll = board.length ? board.filter(e => effectAffects(e, perm, state)) : [];
+
+  // ===== LAYER 1 — COPY (CR 613.1a / 707.9) =====================================================
+  // Layers 1–3 were no-op pass-throughs, so a permanent could never BECOME a copy of something
+  // else ("~ becomes a copy of target creature until end of turn" — Sarkhan, Soul Aflame; Scion of
+  // the Ur-Dragon; 34 corpus cards). The `copiableValues` field below has been reserved for this
+  // since the layer engine was written.
+  //
+  // A copy effect replaces the permanent's COPIABLE VALUES — what the printed card would be — and
+  // every later layer then applies ON TOP of the new base (CR 613.1a). So the whole implementation
+  // is: swap the card the printed-value readers see, then leave layers 4–7 completely untouched.
+  // That ordering is the rule; doing it any later would let an anthem or a counter be computed
+  // against the OLD body and then silently kept.
+  //
+  // ⛔ COUNTERS ARE NOT COPIABLE (CR 707.2) — and they must survive the copy, because they are on
+  // the PERMANENT, not the card. Substituting only `card` keeps `perm.counters` intact, so a
+  // creature with two +1/+1 counters that becomes a copy of a 1/1 is a 3/3. Rebuilding the
+  // permanent instead would have quietly dropped them.
+  //
+  // TIMESTAMP ORDER (CR 613.7b): the LATEST copy effect wins — two copy effects on one permanent
+  // resolve in timestamp order and the last one is what the object is.
+  // The `&& e.copiableCard` clause is BELT-AND-BRACES, not load-bearing — measured, not assumed: removing
+  // it leaves every assertion green, because a malformed record yields `copySource === undefined` and the
+  // `copySource ? …` checks below already fall through to the printed permanent. It is kept so the variable
+  // name means what it says (well-formed copy effects), and labelled so a later reader does not mistake it
+  // for the thing that makes the malformed case safe. That protection is downstream.
+  const copyEffects = selfEffectsAll.filter(e => e.layer === 1 && e.op === "copy" && e.copiableCard);
+  const copySource = copyEffects.length
+    ? copyEffects.reduce((a, b) => ((b.timestamp ?? 0) >= (a.timestamp ?? 0) ? b : a)).copiableCard
+    : null;
+  const permBase = copySource ? { ...perm, card: copySource } : perm;
+  // Layers 2+ still run; only the layer-1 records are consumed here.
+  const selfEffects = copyEffects.length ? selfEffectsAll.filter(e => !(e.layer === 1 && e.op === "copy")) : selfEffectsAll;
 
   let result;
-  if (selfEffects.length === 0) {
+  if (selfEffects.length === 0 && !copySource) {
     // Fast path — no continuous effects touch this permanent. Printed + counters.
     const delta = counterPtDelta(perm);
     result = {
       permanentId,
-      power: printedPower(perm) + delta,
-      toughness: printedToughness(perm) + delta,
-      basePower: printedPower(perm),
-      baseToughness: printedToughness(perm),
-      keywords: keywordSet(perm, []),
-      types: cardTypesOf(perm.card),
-      subtypes: subtypesOf(perm.card),
-      colors: colorsOf(perm.card),
+      power: printedPower(permBase) + delta,
+      toughness: printedToughness(permBase) + delta,
+      basePower: printedPower(permBase),
+      baseToughness: printedToughness(permBase),
+      keywords: keywordSet(permBase, []),
+      types: cardTypesOf(permBase.card),
+      subtypes: subtypesOf(permBase.card),
+      colors: colorsOf(permBase.card),
       appliedEffects: [],
-      copiableValues: null,
+      copiableValues: copySource || null,
     };
   } else {
     // Full path. Layers 1–3 (copy/control/text) are no-op pass-throughs.
@@ -1269,20 +1301,20 @@ export function deriveCharacteristics(state, permanentId) {
     const l6 = selfEffects.filter(e => e.layer === 6);
     const l5 = selfEffects.filter(e => e.layer === 5);
     const l4 = selfEffects.filter(e => e.layer === 4);
-    const pt = applyLayer7(state, perm, l7);
+    const pt = applyLayer7(state, permBase, l7);
     result = {
       permanentId,
       power: pt.power,
       toughness: pt.toughness,
       basePower: pt.basePower,
       baseToughness: pt.baseToughness,
-      keywords: keywordSet(perm, l6, state),
-      ...applyTypeColorLayers(perm, l4, l5, state),
+      keywords: keywordSet(permBase, l6, state),
+      ...applyTypeColorLayers(permBase, l4, l5, state),
       appliedEffects: selfEffects.map(e => ({
         id: e.id, layer: e.layer, sublayer: e.sublayer || null,
         op: e.op, sourceCardName: e.source?.cardName || null,
       })),
-      copiableValues: null,
+      copiableValues: copySource || null,
     };
   }
 
