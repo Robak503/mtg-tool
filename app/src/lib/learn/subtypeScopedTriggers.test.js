@@ -15,7 +15,8 @@
  *      credits EXACTLY the cards the runtime plays (lands fire it too: applyPlayLand → checkEnterTriggers, so
  *      Dread Presence "a Swamp you control enters" / Battlewand Oak "a Forest you control enters" resolve).
  *
- * CREED: every flip models the WHOLE card; a non-curated filter word ("Villain"/"Fractal"), a card-TYPE subject
+ * CREED: every flip models the WHOLE card; a non-curated filter word ("Scarecrow" — Villain and Fractal
+ * were the stand-ins until 2026-07-29, when both became curated subtypes), a card-TYPE subject
  * ("a permanent you control"), or a scope-inexpressible restriction stays body-only/Arbiter (anti-FP pins below).
  */
 
@@ -53,8 +54,13 @@ describe("FILTERED MASS-COUNTER — parser emits the scope-narrowing fields", ()
     expect(parse("put a +1/+1 counter on each artifact creature you control").atoms[0]).toMatchObject({ subtypeFilter: "Artifact" });
     expect(parse("put two +1/+1 counters on each Elf you control").atoms[0]).toMatchObject({ subtypeFilter: "Elf", amount: 2 });
   });
-  it("CREED — a non-curated filter word ('Villain') or a non-subtype adjective ('tapped') stays LOW (Arbiter)", () => {
-    expect(programConfidence(parse("put a +1/+1 counter on each Villain you control"))).toBe("low");
+  it("CREED — a non-curated filter word ('Scarecrow') or a non-subtype adjective ('tapped') stays LOW (Arbiter)", () => {
+    // ⚠️ RE-POINTED 2026-07-29. This used "Villain" as its stand-in for "a word not in the curated list",
+    // and Villain BECAME curated when the subtype allowlist was widened — so the pin was asserting the gate
+    // using a word that now passes it. The principle is the CURATION GATE, never Villain specifically, so it
+    // moves to a subtype that is still uncurated rather than being deleted. If Scarecrow is ever curated
+    // too, move it again; do not weaken the assertion.
+    expect(programConfidence(parse("put a +1/+1 counter on each Scarecrow you control"))).toBe("low");
     expect(programConfidence(parse("put a +1/+1 counter on each tapped creature you control"))).toBe("low");
   });
 });
@@ -96,8 +102,9 @@ describe("FILTERED MASS-COUNTER — classification", () => {
   it("the modeled cards classify native; an unmodeled-filter card stays body-only", () => {
     expect(classifyCard({ name: "Ridgescale Tusker", type: "Creature — Dinosaur", oracle: "When this creature enters, put a +1/+1 counter on each other creature you control." })).toBe("native-trigger");
     expect(classifyCard({ name: "Steel Overseer", type: "Artifact Creature — Construct", oracle: "{T}: Put a +1/+1 counter on each artifact creature you control." })).toBe("native-activated");
-    // CREED anti-FP: "each Villain you control" is not a curated subtype → the effect can't parse → body-only.
-    expect(classifyCard({ name: "Fake Villain Lord", type: "Creature — Human", oracle: "When this creature enters, put a +1/+1 counter on each Villain you control." })).toBe("body-only");
+    // CREED anti-FP: an UNCURATED subtype cannot parse → body-only. (Was "Villain" until 2026-07-29, when
+    // Villain became curated — see the re-pointing note above.)
+    expect(classifyCard({ name: "Fake Scarecrow Lord", type: "Creature — Human", oracle: "When this creature enters, put a +1/+1 counter on each Scarecrow you control." })).toBe("body-only");
   });
 });
 

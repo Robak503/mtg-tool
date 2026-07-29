@@ -224,8 +224,11 @@ describe("OMNATH BUILD C — SUBTYPE-MASS-COUNTER (Avenger of Zendikar)", () => 
     expect(s.players.user.battlefield.find((p) => p.id === "p-av").counters?.["+1/+1"] || 0).toBe(0); // Avenger — not a Plant
   });
 
-  it("CREED — a non-curated subtype mass-counter ('each Villain creature you control') stays low", () => {
-    expect(parseEffectClause("put a +1/+1 counter on each Villain creature you control.", "Creature").confidence).toBe("low");
+  it("CREED — a non-curated subtype mass-counter ('each Scarecrow creature you control') stays low", () => {
+    // ⚠️ RE-POINTED 2026-07-29: "Villain" was the stand-in for "not in the curated list" and became a
+    // curated subtype when the allowlist widened, so the pin would have been asserting the gate with a word
+    // that now passes it. The principle is the curation gate; the example moves, the assertion does not.
+    expect(parseEffectClause("put a +1/+1 counter on each Scarecrow creature you control.", "Creature").confidence).toBe("low");
   });
 });
 

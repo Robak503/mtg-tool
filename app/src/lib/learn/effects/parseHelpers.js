@@ -172,6 +172,16 @@ export const COUNT_SUBTYPE = {
   giant: "Giant", giants: "Giant", saproling: "Saproling", saprolings: "Saproling", insect: "Insect", insects: "Insect",
   boar: "Boar", boars: "Boar", sliver: "Sliver", slivers: "Sliver", mutant: "Mutant", mutants: "Mutant",
   plant: "Plant", plants: "Plant",
+  // Added 2026-07-29 from the "put a +1/+1 counter on each <Subtype> you control" family (15 corpus cards,
+  // 13 parked): the subtype ARM already worked — `each Vampire you control` parses with a subtypeFilter —
+  // and the only thing missing was curation. Each was corpus-verified against this list's own CREED
+  // criterion before being added: every type-line occurrence sits in the SUBTYPE position, zero left of the
+  // dash, so `<Subtype>` against a type line can never mis-match a card type.
+  //   Cleric 722 · Advisor 187 · Villain 212 · Ooze 74 · Leech 21 · Wraith 14 · Fractal 8 · Moogle 8
+  cleric: "Cleric", clerics: "Cleric", advisor: "Advisor", advisors: "Advisor",
+  villain: "Villain", villains: "Villain", ooze: "Ooze", oozes: "Ooze",
+  leech: "Leech", leeches: "Leech", wraith: "Wraith", wraiths: "Wraith",
+  fractal: "Fractal", fractals: "Fractal", moogle: "Moogle", moogles: "Moogle",
   // artifact subtypes (incl. the named tokens)
   treasure: "Treasure", treasures: "Treasure", clue: "Clue", clues: "Clue", food: "Food", foods: "Food",
   equipment: "Equipment", powerstone: "Powerstone", powerstones: "Powerstone", construct: "Construct", constructs: "Construct",
