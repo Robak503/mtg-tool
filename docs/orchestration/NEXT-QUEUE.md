@@ -73,7 +73,7 @@ Aura can leave (graveyard / exile / hand / library), hung off the single verifie
 chokepoint. 14 tests, 3 mutations killed, suite green. The queue's stated unknown ("requires a single
 chokepoint") turned out to already exist, with the soulbond teardown in that same function as a precedent.
 
-### B1b. CREDIT the control Auras in the classifier · ~27 cards · medium (FP-sensitive)
+### B1b. CREDIT the control Auras — ✅ **SHIPPED, +7 · B1 CLOSED**
 **GAINED 0 so far, by design.** The sim now plays these cards correctly, but `classifyCard` still returns
 body-only for Mind Control / Control Magic / Treachery / Corrupted Conscience. Crediting is where the
 false-positive risk lives — claiming native for a card whose runtime has a hole — so it was split out to

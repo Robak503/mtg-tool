@@ -228,6 +228,43 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🏆 SHIPPED — **B1 CLOSED: control Auras, runtime + credit** (`0c19d9c0` + `9e0…`, +7)
+
+`"You control enchanted creature."` — Mind Control · Control Magic · Treachery · Persuasion · Spirit Away ·
+Corrupted Conscience · Yavimaya's Embrace. **GAINED 7 · LOST 0 · RETIERED 0.** The queue's biggest remaining
+engine lever, and it landed in two halves on purpose.
+
+⛔ **THE FAILURE MODE SHAPED EVERYTHING: permanent control theft is a LEGAL-LOOKING BOARD.** Nothing
+crashes, no game wedges, no number moves — the sim just plays on with the wrong player holding the creature.
+So the revert hangs off ONE verified battlefield-exit chokepoint, and the test kills the Aura by every route
+(graveyard / exile / hand / library).
+
+### ⭐ THE TWO-HALF SPLIT PAID FOR ITSELF, IMMEDIATELY
+Runtime shipped first with **GAINED 0 by design**; crediting shipped second. That ordering caught a real
+problem: measuring the cast lane before crediting showed **Mind Control's cast action carried
+`targets: []`** — it would have cast into nothing, and crediting it would have claimed native for a card the
+engine could not play. The grant-aura cast lane is TIER-gated, so the fix was to credit through
+`isNativeAura` (which owns its own cast branch) rather than bolt on a new lane. After: `targets: [["E"]]`.
+**Had both halves shipped together, the tier would have moved and the card would still have been broken.**
+
+### ⭐ NAME-AUDITED, and the audit earned its keep
+Six of seven are control plus already-modeled text. The seventh, **Treachery**, carries an ETB rider
+(*"untap up to five lands"*) — verified rather than assumed: parses HIGH and resolves for real (3 tapped
+lands → 0). That check is the difference between +7 and +6-plus-a-half-credited-card.
+
+### ⭐ A PIN GRADUATED — capability, re-pointed not deleted
+`"a control-theft rider parks the whole card (Corrupted Conscience)"` sat with toxic and nonbasic landwalk
+under the same *"no enforcement path"* reason. It graduates now the line has a runtime — **but only after
+verifying the card's OTHER half (infect) is genuinely granted and enforced**, so the whole-card rule holds
+on both lines. Its principle is re-pointed onto a still-unmodeled rider: control + toxic **still parks**.
+Modelling control is not a licence to credit whatever else the card prints.
+
+⚠️ **Debt taken knowingly:** the control MOVE now exists twice (`controlAura.js` and `applyGainControl`).
+Deliberate — not destabilising a proven atom mid-build — but two copies of a mechanism drift. Unify next,
+with both test files as the net.
+
+Sweep after: 120/120, max 57 decisions in a single turn.
+
 ## 🔬 SHIPPED — **`probe-rules-fidelity.mjs`: the first RULES-FIDELITY instrument** (`efa84b3b`)
 
 ⭐ **A THIRD AXIS, and Omnath named it.** Coverage % measures what is modelled; the playability sweep
