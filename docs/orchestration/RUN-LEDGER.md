@@ -228,6 +228,30 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — kicked MAGNITUDE replacement (`nonKickedOnly`, +7)
+
+Burst Lightning · Shivan Fire · Roil Eruption · Firebending Lesson · Might of Murasa · Explosive Growth ·
+Gift of Growth. GAINED 7 · LOST 0. Predicted 5-6; both extras name-audited clean.
+
+⭐ **THE COMPLEMENT FLAG.** `kickedOnly` existed for the ADDITIVE payoff. A REPLACEMENT needs BOTH halves
+conditional, or a kicked Burst Lightning deals 2 damage **AND** 4. `nonKickedOnly` is the exact mirror; the
+pair is mutually exclusive, which is what "instead" means. **Sixth missing-arm-of-a-pair this run.**
+
+Another CAPABILITY pin that named its condition ("a conditional-replacement model we don't have") — re-pointed,
+not deleted. Field Research (same shape, unsupported op) still refuses and is kept as the boundary marker.
+
+⭐ **CLONE, DON'T RE-PARSE — and the audit proved it right.** The printed tail is elliptical ("it deals 4
+damage instead" names no target), so the kicked atom is the BASE with one field swapped: op/targetType/
+restrictions identical by construction. **Gift of Growth was an unpredicted gain whose base is a single pump
+atom with `untap: true` folded in** — the clone carried the untap through. An independent parse would have
+dropped it: a kicked mode that pumps but forgets to untap, on a card reading native.
+
+### ⚠️ A MUTATION CAUGHT MY OWN TEST BEING HOLLOW — the cleanest instance of the run
+Removing the `nonKickedOnly` skip from runProgram left **all 12,359 tests green.** Every assertion I had
+written read the PARSE shape; nothing resolved a kicked spell to see whether the base was suppressed.
+⭐ **A flag the runtime ignores is decoration, and a parse-shape test cannot tell the two apart.** The witness
+now resolves Burst Lightning both ways — 2 not kicked, 4 kicked; the mutation makes it 6.
+
 ## 🔧 SHIPPED — trailing "Exile <this>." disposition (`f57c497f`, +7)
 
 Temporal Trespass (shelf: Believe it!) · Time Reversal · Treasured Find · Flood of Recollection · Game Plan ·
