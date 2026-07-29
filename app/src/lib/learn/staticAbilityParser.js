@@ -1950,6 +1950,16 @@ function parseClause(clause, out, selfName, selfType) {
   // credits the information half only and never the permission half.
   if (/^play with the top card of your library revealed$/.test(c)
     || /^you may look at the top card of your library any time$/.test(c)) { out.push({ inertInfo: true }); return; }
+
+  // SELF CHOSEN-TYPE ADD (CR 205.1b / 613.1d, layer 4) — "This creature is the chosen type in addition to its
+  // other types." (Metallic Mimic #1055, Adaptive Automaton #1755, Roaming Throne #133). A MARKER, not a
+  // finished effect, because the subtype it adds is `permanent.chosenType` — per-PERMANENT state that does
+  // not exist at parse time. layers.staticEffectsOf turns it into the real layer-4 effect once it has the
+  // permanent in hand; until a type has been chosen it emits nothing (a clean no-op, never a guessed type).
+  if (/^this (?:creature|artifact|permanent) is the chosen type in addition to its other types$/.test(c)) {
+    out.push({ selfChosenTypeAdd: true });
+    return;
+  }
   if (/^you may play lands and cast spells from the top of your library$/.test(c)) {
     out.push({ playFromTop: { lands: true, spellFilter: "any" } });
     return;
@@ -3270,12 +3280,19 @@ function parseCreatureSelector(c) {
   // one did it would emit a WRONG all-creatures anthem with no chosen-type restriction (a CREED over-buff). An
   // unset chosenType on the source → matchesSelector returns false for everyone → a SAFE no-op (CLAUDE.md §1.2).
   {
-    const ctFlat = c.match(/^creatures?\s+(you control\s+)?of the chosen type\s+(?:gets?|gains?|has|have)\b/);
+    // ⭐ THE OPTIONAL LEADING "OTHER" is a MISSING CELL, not a missing mechanic: `excludeSelf` is already a
+    // modeled selector ("Other creatures you control get +1/+1" is native today) and `chosenTypeOfSource` is
+    // already a modeled selector — only their COMBINATION had no parse, which is what kept Adaptive Automaton
+    // #1755 parked. matchesSelector applies both predicates independently, so composing them needs no new
+    // runtime. It became correct to add only once the selector went LAYER-AWARE: before that, the source's own
+    // "is the chosen type" line did nothing, so an exclude-self chosen-type anthem was reasoning about a
+    // tribe the engine could not see.
+    const ctFlat = c.match(/^(other\s+)?creatures?\s+(you control\s+)?of the chosen type\s+(?:gets?|gains?|has|have)\b/);
     if (ctFlat) {
-      const controllerScope = ctFlat[1] ? "you" : "each";
+      const controllerScope = ctFlat[2] ? "you" : "each";
       return {
         mode: "dynamic",
-        selector: { controllerScope, cardTypes: ["Creature"], chosenTypeOfSource: true },
+        selector: { controllerScope, cardTypes: ["Creature"], chosenTypeOfSource: true, ...(ctFlat[1] ? { excludeSelf: true } : {}) },
       };
     }
   }

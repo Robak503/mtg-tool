@@ -123,14 +123,42 @@ function subtypesOf(card) {
 // every creature type). An unset/empty chosenType is false (a SAFE no-op — never an over-buff on an
 // unknown type, CLAUDE.md §1.2). Inlined here (mirroring triggers.permHasChosenType) so layers stays a
 // leaf — importing it from triggers.js would create a layers→triggers dependency.
-function permHasChosenTypeLayer(card, chosenType) {
+// Re-entry guard for the layer-aware branch below, mirroring _ptPredicateInProgress and the withKeyword
+// selector's discipline: a nested re-entry treats the candidate as UNSELECTED for that pass — an FN-safe
+// bail, never a stack overflow.
+const _chosenTypePredicateInProgress = new Set();
+
+/**
+ * Does this permanent count as the source's chosen type (CR 614.12)?
+ *
+ * ⚠️ THE PRINTED TYPE LINE IS NOT THE WHOLE ANSWER, and assuming it was is what kept the creature-side
+ * chosen-type cards parked. "This creature is the chosen type in addition to its other types" (Metallic
+ * Mimic #1055, Adaptive Automaton #1755, Roaming Throne #133) adds the subtype in LAYER 4 — so a card whose
+ * printed line says only "Shapeshifter" genuinely IS an Elf once a type has been chosen. Checking the
+ * printed line alone would have credited those cards native while their own printed self-type-add did
+ * nothing for any chosen-type selector: the vacuous-filter class in a third location.
+ *
+ * Order is deliberate. Changeling (CR 702.73a — every creature type) and the PRINTED subtypes are cheap and
+ * answer almost every call, so the layer-4 derivation runs only for the rare card that needs it. CR 613
+ * ordering makes that read correct rather than a shortcut: layer 4 resolves before the layer-7 anthems that
+ * carry this selector, so the derived subtypes are already final when the selector asks.
+ */
+function permHasChosenTypeLayer(card, chosenType, state = null, candidateId = null) {
   if (!chosenType || !card) return false;
   if (hasKeyword(card, "changeling")) return true;
+  const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const line = typeLineOf(card);
   const dash = line.indexOf("—");
-  const subtypes = dash === -1 ? "" : line.slice(dash + 1);
-  const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${esc}\\b`).test(subtypes);
+  if (dash !== -1 && new RegExp(`\\b${esc}\\b`).test(line.slice(dash + 1))) return true;
+  if (!state || !candidateId) return false;                       // no board context → printed answer stands
+  if (_chosenTypePredicateInProgress.has(candidateId)) return false;
+  _chosenTypePredicateInProgress.add(candidateId);
+  try {
+    const want = String(chosenType).toLowerCase();
+    return (permanentTypes(state, candidateId).subtypes || []).some((s) => String(s).toLowerCase() === want);
+  } finally {
+    _chosenTypePredicateInProgress.delete(candidateId);
+  }
 }
 
 // TRUNK-SELFBUFF: count the controller's permanents matching a self count spec
@@ -544,6 +572,19 @@ export function staticEffectsOf(state, permanent) {
     ...(STATIC_REGISTRY[card.name] || []),
     ...parseStaticAbilities(card),
   ];
+  // SELF CHOSEN-TYPE ADD (CR 205.1b, layer 4) — "This creature is the chosen type in addition to its other
+  // types." The parser can only leave a MARKER, because the subtype added is this permanent's own stored
+  // `chosenType` (set by the ETB auto-pick). Resolve it here, where the permanent is in hand. Emitted only
+  // once a type has actually been chosen: before that there is nothing to add, and guessing one would be a
+  // fabricated characteristic. The layer-4 applier already unions `op.subtypes`, so no new op kind is needed.
+  if (permanent.chosenType && partials.some((p) => p?.selfChosenTypeAdd)) {
+    partials.push({
+      layer: 4,
+      op: { subtypes: [permanent.chosenType] },
+      affects: { mode: "self" },
+      duration: { kind: "permanent" },
+    });
+  }
   // Attached-permanent bonus (CR 301.5 / 303.4): when this Equipment or Aura is ATTACHED
   // to a creature, its "Equipped/Enchanted creature gets +X/+Y / has [keyword]" effect
   // applies ONLY to that creature (affects fixed [attachedTo]). collectContinuousEffects
@@ -907,7 +948,7 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // chosen type …"). The candidate must carry the SOURCE permanent's stored chosenType (subtype OR
   // changeling). controllerScope:"you" above already restricted to the source's controller. An unset
   // chosenType (malformed source) yields false → the anthem touches nobody (a SAFE no-op).
-  if (selector.chosenTypeOfSource && !permHasChosenTypeLayer(candidate.card, sourcePerm?.chosenType)) return false;
+  if (selector.chosenTypeOfSource && !permHasChosenTypeLayer(candidate.card, sourcePerm?.chosenType, state, candidate.id)) return false;
   // WITH-KEYWORD gate (BLITZ WD-1 — Windstorm Drake / Empyrean Eagle / Spirit of the Spires: "Other
   // creatures you control WITH FLYING get +N/+M"): the candidate must HAVE the keyword right now,
   // LAYER-AWARE (permanentHasKeyword — printed ∪ keyword counter ∪ layer-6 grants), so an aura-granted

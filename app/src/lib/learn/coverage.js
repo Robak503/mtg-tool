@@ -3034,7 +3034,17 @@ registerCoverageClassifier((card) => classifyChosenTypeAnthem(card));
 // The anthem-clause anchor is ^…(determiner-less) — "creatures [you control] of the chosen type get/have …";
 // it deliberately does NOT include the leading "other/all/each" (those are NOT modeled here), so the residue
 // strip leaves an "Other …" clause intact → non-keyword residue → null.
-const CT_FLAT_ANTHEM_CLAUSE_RE = /^creatures?\s+(?:you control\s+)?of the chosen type (?:gets?|gains?|have|has)\b[^.]*\.?/i;
+// The optional leading "Other" is admitted now that the PARSER models it (selector excludeSelf +
+// chosenTypeOfSource composed). The old comment above says an "Other …" clause can never be credited off a
+// substring match — that guard is unchanged and still load-bearing: the descriptor gate at (2) is what
+// credits the card, and this regex only decides whether the printed line counts as EXPLAINED residue.
+const CT_FLAT_ANTHEM_CLAUSE_RE = /^(?:other\s+)?creatures?\s+(?:you control\s+)?of the chosen type (?:gets?|gains?|have|has)\b[^.]*\.?/i;
+// "This creature is the chosen type in addition to its other types." (CR 205.1b) — a REAL layer-4 subtype
+// add (staticAbilityParser emits the marker; layers.staticEffectsOf resolves it against the permanent's
+// stored chosenType, verified on a board). It is therefore explained text, not residue. Before the layer-4
+// effect existed this line HAD to count as residue, because crediting it would have been a claimed-native
+// no-op — the card would say it is the chosen type while no selector could see it.
+const CT_SELF_TYPE_ADD_LINE_RE = /^this (?:creature|artifact|permanent) is the chosen type in addition to its other types\.?$/i;
 function classifyChosenTypeFlatAnthem(card) {
   const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
   if (!oracle) return null;
@@ -3059,10 +3069,14 @@ function classifyChosenTypeFlatAnthem(card) {
       if (!t) return false;
       if (CHOSEN_TYPE_CHOOSER_RE.test(t)) return false;        // drop the ETB chooser line
       if (CT_FLAT_ANTHEM_CLAUSE_RE.test(t)) return false;       // drop the flat chosen-type anthem line
+      if (CT_SELF_TYPE_ADD_LINE_RE.test(t)) return false;       // drop the layer-4 self type-add (Adaptive Automaton)
       return true;                                              // anything else is residue
     })
     .join(" ")
-    .replace(/[\s.]+/g, " ").trim();
+    // ⚠️ PERIODS PRESERVED — see the sibling note below. Stripping them let a leading "Changeling" swallow
+    // Morophon's entire unmodeled {W}{U}{B}{R}{G} cost-reduction rider, crediting the card native-static
+    // while its signature ability did nothing.
+    .replace(/\s+/g, " ").trim();
   if (residue.length > 0 && !isKeywordOnly(residue, card?.name)) return null;
   return "native-static";
 }
@@ -3145,7 +3159,14 @@ function classifyChosenTypeCastDraw(card) {
     residue.push(line);
   }
   if (triggerLines !== 1) return null;                                // the one detected trigger, seen once
-  const rest = residue.join(" ").replace(/[\s.]+/g, " ").trim();
+  // ⚠️ PERIODS ARE PRESERVED. isKeywordOnly splits on SENTENCE boundaries to stop a leading keyword from
+  // swallowing a trailing unmodeled sentence — its own comment: "a trailing non-keyword sentence glued on by
+  // a strip ('flying  scry 1.') is swallowed whole by startsWith('flying ')". Stripping periods here removed
+  // exactly the boundary that guard depends on, so `isKeywordOnly` returned TRUE for
+  // "Changeling Spells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast …" and FALSE for the
+  // same text with its periods intact. Only the two residues that feed isKeywordOnly needed this; the
+  // siblings that merely test `length > 0` are unaffected either way.
+  const rest = residue.join(" ").replace(/\s+/g, " ").trim();
   if (rest.length > 0 && !isKeywordOnly(rest, card?.name)) return null;
   return "native-mixed";
 }
