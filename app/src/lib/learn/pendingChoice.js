@@ -91,7 +91,13 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
   // "top" (shuffle-then-place-on-top — Vampiric/Mystical/Worldly Tutor), or "hand" (the default P3.2 tutor).
   // A RAMP-SPLIT destSeq head is only ever battlefield/hand (Cultivate/Kodama), so "top" only arrives via the
   // plain `destination` param. Any unrecognized value falls back to "hand" (safe — the most conservative zone).
-  const coerce = (d) => (d === "battlefield" ? "battlefield" : d === "top" ? "top" : "hand");
+  // "graveyard" joins them for the reanimator family (Entomb / Buried Alive, CR 701.19a).
+  //
+  // ⚠️ THIS IS THE THIRD PLACE A DESTINATION MUST BE NAMED — the parser emits it, applyTutor whitelists it
+  // onto the choice, and this coerces it. Miss any one and the fetch silently lands in the HAND with every
+  // other part of the path looking correct. The fallback is deliberately the most conservative zone, so a
+  // miss under-delivers rather than fabricating a zone change; that is exactly why it fails quietly.
+  const coerce = (d) => (d === "battlefield" ? "battlefield" : d === "top" ? "top" : d === "graveyard" ? "graveyard" : "hand");
   const effDestination = destHead ? coerce(destHead.zone) : coerce(destination);
   const effTapped = destHead ? !!destHead.tapped : !!entersTapped;
   const next = logEvent(state, { kind: "tutor-search-pending", controller, count: candidates.length, sourceName, destination: effDestination });

@@ -276,7 +276,13 @@ export function resolveTutorChoice(state, cardId) {
   const inSource = cardId && (next.players?.[pc.controller]?.[sourceZone] || []).some((c) => c.id === cardId);
   // WAVE-2b FETCH-TO-TOP — three destinations: "battlefield" (ramp), "top" (Vampiric/Mystical Tutor —
   // shuffle FIRST, then place the chosen card on top, CR 701.19e, so it survives the shuffle), "hand" (default).
-  const destination = pc.destination === "battlefield" ? "battlefield" : pc.destination === "top" ? "top" : "hand";
+  // GRAVEYARD joins them (CR 701.19a — the search's destination is whatever the card says): Entomb, Buried
+  // Alive, Unmarked Grave, Vile Entomber and the reanimator family put the found card straight into the
+  // graveyard. It is the SAME moveCardToZone the hand branch uses with a different toZone, so the fetch,
+  // the CR 701.19e shuffle, the multi-pick chain and the find-nothing path are all unchanged.
+  const destination = pc.destination === "battlefield" ? "battlefield"
+    : pc.destination === "top" ? "top"
+      : pc.destination === "graveyard" ? "graveyard" : "hand";
   let topAlreadyShuffled = false;
   if (inSource) {
     if (destination === "battlefield") {
@@ -304,7 +310,8 @@ export function resolveTutorChoice(state, cardId) {
       };
       topAlreadyShuffled = true;
     } else {
-      next = moveCardToZone(next, { playerId: pc.controller, fromZone: sourceZone, toZone: "hand", cardId });
+      // hand (default) or graveyard — the same move, a different destination zone.
+      next = moveCardToZone(next, { playerId: pc.controller, fromZone: sourceZone, toZone: destination === "graveyard" ? "graveyard" : "hand", cardId });
     }
   }
   // RAMP-MULTI — "up to two": after a SUCCESSFUL fetch with fetches still remaining, re-suspend for the next

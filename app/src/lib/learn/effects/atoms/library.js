@@ -233,8 +233,16 @@ export function applyTutor(state, atom, ctx) {
     filter: effFilter || null,
     // RAMP-1 — destination "battlefield" (+ entersTapped) puts the fetched card onto the battlefield instead
     // of the hand (Rampant Growth / Farhaven Elf). WAVE-2b FETCH-TO-TOP adds "top" (shuffle-then-place-on-top
-    // — Vampiric/Mystical Tutor). Defaults to "hand" (the P3.2 tutor); setPendingTutorChoice coerces.
-    destination: atom.destination === "battlefield" ? "battlefield" : atom.destination === "top" ? "top" : "hand",
+    // — Vampiric/Mystical Tutor); the reanimator family adds "graveyard" (Entomb / Buried Alive).
+    // Defaults to "hand" (the P3.2 tutor); setPendingTutorChoice coerces.
+    //
+    // ⚠️ THIS TERNARY IS A WHITELIST, and an unlisted destination silently becomes "hand". The graveyard arm
+    // parsed correctly and the settler understood it, and the fetched card still landed in the HAND until
+    // this line named it — the same silently-dropped-field shape as the trigger descriptor whitelist. A new
+    // destination goes HERE as well as in the parser and the settler, or it does not exist.
+    destination: atom.destination === "battlefield" ? "battlefield"
+      : atom.destination === "top" ? "top"
+        : atom.destination === "graveyard" ? "graveyard" : "hand",
     entersTapped: !!atom.entersTapped,
     // RAMP-MULTI — "up to two": fetch up to `remaining` matching lands (resolveTutorChoice chains the rest).
     // RAMP-MULTI-X — `countFor` resolves the fetch cardinality (computed above as dynCount; a 0 short-circuits
@@ -1641,6 +1649,43 @@ export function tutorClauseParser(clause, ctx = {}) {
     const filter = mv ? { ...base, mv } : base;
     const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
     return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
+  }
+  // ===== tgm — fetch-to-GRAVEYARD, single card (CR 701.19a) =====================================
+  // Entomb #328, Unmarked Grave #1599, Vile Entomber #1887's ETB, Goblin Engineer's ETB, Oriq Loremage,
+  // Corpse Connoisseur — the reanimator setup family, 17 corpus cards and not one of them modelled before,
+  // purely because the tutor had hand / battlefield / top destinations and no graveyard.
+  //
+  // A DELIBERATE MIRROR of `tm` directly above, differing only in the destination phrase and the emitted
+  // `destination`. The settler runs the SAME moveCardToZone with a different toZone, so the CR 701.19e
+  // shuffle, the find-nothing path and the auto-pick filter are all the existing ones — nothing about the
+  // search changes, only where the card lands.
+  //
+  // ⛔ NOTE THE AUTO-PICK CONSEQUENCE, because it is the opposite of every other destination: the deterministic
+  // picker takes the HIGHEST mana value, which is right for a fetch-to-hand or -battlefield and is also right
+  // here — the reanimator wants the fattest body in the yard. That it coincides is luck, not design, so it is
+  // asserted in the tests rather than assumed.
+  const tgm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your graveyard(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (tgm) {
+    const phrase = tgm[1];
+    const mvCapture = tgm[2];
+    const mv = parseTutorMv(mvCapture);
+    if (mvCapture !== undefined && mv === null) return null;
+    if (phrase === undefined) {
+      const filter = mv ? { groups: [], mv } : null;
+      return { op: "tutor", filter, filterLabel: mv ? `card with mana value ${mvCapture}` : "card", destination: "graveyard", targetType: null };
+    }
+    const base = parseTutorFilter(phrase);
+    if (!base) return null; // an unmodelled filter phrase → low → Arbiter
+    return { op: "tutor", filter: mv ? { ...base, mv } : base, filterLabel: `${phrase} card`, destination: "graveyard", targetType: null };
+  }
+  // mfg — fetch-to-GRAVEYARD, up to N (Buried Alive #371 "up to three creature cards"). The multi-pick
+  // chain is the SAME `remaining` re-suspend loop the hand/battlefield multi-fetches already run.
+  const mfg = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,?(?: reveal (?:them|those cards),?)? put them into your graveyard(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (mfg) {
+    const phrase = mfg[2];
+    const base = parseTutorFilter(phrase);
+    if (!base) return null;
+    return { op: "tutor", filter: base, filterLabel: `${phrase} card`, destination: "graveyard", remaining: UP_TO_N_WORD[mfg[1]], targetType: null };
   }
   // ttm — fetch-to-TOP single card.
   const ttm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: (?:then|and))* shuffle(?: your library)? and put (?:it|that card|the card) on top\.?$/);
