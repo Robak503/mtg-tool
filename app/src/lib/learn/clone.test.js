@@ -222,7 +222,14 @@ describe("rider parser (parseCloneRider) — exact modeled atoms only", () => {
     // A granted quoted ability that ISN'T the modeled becomes-target self-sac stays unmodeled (CREED).
     expect(parseCloneRider('it has "When this creature dies, draw a card"')).toBeNull();
     expect(parseCloneRider('it has "sacrifice it unless you discard a land card"')).toBeNull();
-    expect(parseCloneRider("its name is ~")).toBeNull();                              // keep-name unmodeled
+  });
+  it("GRADUATED — the keep-name rider is modelled now (CR 707.9a)", () => {
+    // This sat in the rejection list above as "keep-name unmodeled", correctly, while there was no way to
+    // apply it. `~` is parseCloneSpec's elision of the card's OWN name, so the marker resolves against the
+    // copying card in snapshotCopiedCard — see cloneRiderVocabulary.test.js for the applier assertions.
+    // ⛔ It must NOT come back as a literal name: stamping the copy "~" is the failure this shape invites.
+    expect(parseCloneRider("its name is ~")).toEqual({ kind: "setName", selfName: true });
+    expect(parseCloneRider("its name is ~").name).toBeUndefined();
   });
   it("parses the granted becomes-target sac trigger (Phantasmal Image — CR 707.9a + 603.2)", () => {
     // 'it has "When this creature becomes the target of a spell or ability, sacrifice it."' → a grantTrigger atom

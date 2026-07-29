@@ -118,6 +118,39 @@ export function parseCloneRider(clause) {
   // no-op exactly.
   if (/^it (?:isn'?t|is not) legendary$|^it'?s not legendary$/.test(cl)) return { kind: "noop" };
 
+  // ===== PRONOUN GENERALITY (CR 707.9a) — a rider names the copy with whatever pronoun the card's flavour
+  // uses. "his name is Impossible Man", "he's 4/4", "he has flying" are the SAME riders as the "it" forms
+  // below; only the pronoun differs. Normalize before the arms rather than duplicating each one, so a future
+  // rider gets every pronoun for free. Measured: without this, Impossible Man and Hulkling parked on riders
+  // the vocabulary already understood.
+  cl = cl.replace(/^(?:he|she|they)'s\b/, "it's").replace(/^(?:he|she|they) (has|have)\b/, "it has")
+    .replace(/^(?:his|her|their) name is\b/, "its name is");
+
+  // ===== NAME RIDER (CR 707.9a) — "except its name is <X>". The copy keeps the ORIGINAL card's name
+  // (Sarkhan, Soul Aflame; Impossible Man; Hulkling, Young Avenger). This is NOT a no-op: names are read by
+  // name-matching effects and by the legend rule, so the copy must genuinely carry the stated name rather
+  // than the copied creature's. Applied in snapshotCopiedCard.
+  //
+  // ⛔ THE CANONICAL FORM IS THE ELIDED ONE, and a pin caught me assuming otherwise. parseCloneSpec replaces
+  // the card's own name with `~` before the riders are split, so the rider that actually reaches here from a
+  // printed card reads "its name is ~" — not the spelled-out name. Returning `~` as a literal would stamp
+  // the copy with the name "~". It maps to a marker the applier resolves against the COPYING CARD, which is
+  // exactly what `~` denotes. The spelled-out branch is kept for a caller that hands over un-elided text.
+  let nm = cl.match(/^its name is (.+)$/);
+  if (nm) {
+    const raw = nm[1].trim();
+    return raw === "~" ? { kind: "setName", selfName: true } : { kind: "setName", name: raw };
+  }
+
+  // ⛔ NOT ADDED: "it's legendary in addition to its other types" (Sarkhan, Soul Aflame). I briefly
+  // made this a no-op on the grounds that the engine does not enforce the legend rule (CR 704.5j) — and
+  // clone.test.js's existing pin caught it. The legend rule is not the point: LEGENDARY-MATTERS effects
+  // are real here (Bard Class taxes "Legendary spells"; anthems and ETB triggers scope on it), so a copy
+  // that should BE legendary and is not would be credited native with the modification silently dropped —
+  // the forbidden direction. Modelling it properly means PREPENDING the supertype to the copy's type line
+  // (the way addCardType does for artifact/enchantment, but further left); until then it stays null and
+  // the card parks. Consequence, recorded honestly: Sarkhan stays parked even after the copy wave lands.
+
   // "it has ~'s other abilities" (Sakashima of a Thousand Faces, CR 707.9) — the copy ALSO KEEPS the clone
   // card's OWN abilities (everything on the clone but the copy clause itself). A MARKER atom: parseCloneSpec
   // fills in `.oracle` / `.keywords` from the own-ability clauses it stripped off the tail (the name-elided
@@ -552,6 +585,25 @@ export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
       card = { ...card, keywords: [...(Array.isArray(card.keywords) ? card.keywords : []), ...add] };
     } else if (r.kind === "setPT") {
       card = { ...card, power: r.power, toughness: r.toughness };
+    } else if (r.kind === "setName") {
+      // NAME RIDER (CR 707.9a) — "except its name is <X>". The copy keeps the copying card's OWN name
+      // (Sarkhan, Soul Aflame; Impossible Man; Hulkling). NOT cosmetic: names are read by name-matching
+      // effects and the legend rule, and the "another creature named ~" self-exclusions that several
+      // clone-adjacent cards carry.
+      //
+      // ⚠️ CASING: parseCloneRider lowercases its input to match, so `r.name` is lowercase and
+      // title-casing it back is lossy ("Scion of the Ur-Dragon" → "Scion Of The Ur-Dragon"). The rider
+      // always restates the COPYING CARD'S OWN name, so prefer that card's real printed name — exact, not
+      // reconstructed. Fall back to the parsed text if the two ever disagree, rather than silently
+      // stamping a name the rider did not ask for.
+      // `selfName` (the elided `~` form, which is what a printed card actually produces) resolves against
+      // the COPYING CARD outright. A spelled-out name prefers that card too when the two agree, purely for
+      // its exact printed casing; otherwise the RIDER TEXT wins, so a disagreement never stamps a name the
+      // card did not ask for. With no cloneCard there is nothing to resolve `~` against, so the copied name
+      // stands rather than a literal "~".
+      const printed = cloneCard?.name;
+      if (r.selfName) { if (printed) card = { ...card, name: printed }; }
+      else card = { ...card, name: (printed && String(printed).toLowerCase() === r.name) ? printed : r.name };
     } else if (r.kind === "grantVanishing") {
       // Conditional: only grant when the copied creature doesn't ALREADY have vanishing (CR 702.63a /
       // 707.9a). Append "Vanishing N" to the oracle (keyword-position) so fading.js sees it both at ETB
