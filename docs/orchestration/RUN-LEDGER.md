@@ -2700,6 +2700,46 @@ Tier GAINED 0 · LOST 0, as expected — this whole family is invisible to the m
 **Read: the cheap land work is finished.** What remains is either a deliberate refusal, worth zero on the
 shelf, or blocked on the banked activation-cost decision.
 
+## 🔍 AUDIT — the `native-body` tier is HONEST (and one hollow test found) (`45b23547`)
+
+I swept `native-body` for the blind spot the lands had: **a tier credited by ABSENCE of parsed abilities
+rather than by parse.** If a vanilla-credited creature carries a real restriction the engine ignores, that is
+an over-delivery nobody would ever see.
+
+**Result: the tier is honest.** 1,844 native-body cards carry non-reminder text; almost all is keyword-only,
+and of the 102 distinct non-keyword SENTENCES the high-frequency ones are all genuinely implemented AND
+wired — `can't block` (39), `attacks each combat if able` (29), `can block only creatures with flying` (24),
+`can't attack unless defending player controls…` (10), `enters tapped` (15, verified behaviourally on both a
+creature and an artifact). **No FP found.** Recording that, because "we checked and it was clean" is worth
+exactly as much as a find the next time someone wonders.
+
+⚠️ **ONE PROBE OF MINE WAS WORTHLESS AND I ALMOST BELIEVED IT.** I grepped the engine source for each
+restriction sentence and got "55 of 62 unimplemented" — including `can't block`, which I had *already
+confirmed* is implemented. The engine stores these as REGEXES (`reCantBlock`), never as literal sentences, so
+fragment-matching source text can never distinguish implemented from missing. **Discarded the list; tested
+behaviourally instead.** A probe whose answer contradicts something you have already verified is wrong about
+everything else too.
+
+## ⭐ THE REAL FIND — a green test that never touched the shipped path
+
+`attackDefenderLandRequirement` / `defenderMeetsAttackLandRequirement` are exported and **tested**, with **no
+engine caller**: `legalChoices` enforces islandhome via the generalized `attackDefenderRequirementOf` +
+`defenderMeetsAttackRequirement`. So `islandhome.test.js`'s helper assertions were green while never
+exercising the live path — **and would have stayed green if the live path broke.** The file header even
+documented the dead function as the enforcement route.
+
+Fixed in the order that keeps the guarantee live at every step: (1) verify the live pair is behaviourally
+IDENTICAL on island / snow land / swamp; (2) repoint both test files and correct the header; (3) only then
+delete. The old comment claimed the pair was *"kept because tests and callers pin the land-string contract"*
+— true of the tests, false of the callers, which is precisely how it survived.
+
+**The integration half of that file (`legalActionsForPlayer`) was always real** and is untouched — it is the
+part that actually proved the restriction works, and it is why this was a bookkeeping hazard rather than a
+live bug.
+
+⭐ **RULE EARNED: "exported + tested" is not "wired."** Before trusting a green suite as evidence for a
+behaviour, check the function it calls has a NON-TEST caller. Cheap: `grep -rl <fn> src/ | grep -v test`.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2851,6 +2891,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `45b23547` — native-body audit (clean) + a green test that never touched the shipped path. Slice 72.
 - `aad5b36c` — painland cycle completed: 5 slow variants + 6 painless (FP). Slice 71.
 - `9b6441c0` — source-scoped atom conditions + sequenced "Then if" (+3). Slice 70.
 - `fb3bfa85` — SELF power threshold condition, layer-aware (+0; Level Up 3/4 pieces). Slice 69.
