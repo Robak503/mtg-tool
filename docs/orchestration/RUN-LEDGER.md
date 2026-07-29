@@ -228,6 +228,33 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — trailing "Exile <this>." disposition (`f57c497f`, +7)
+
+Temporal Trespass (shelf: Believe it!) · Time Reversal · Treasured Find · Flood of Recollection · Game Plan ·
+Rite of Renewal · Rise of the Eldrazi. GAINED 7 · LOST 0.
+
+⭐ **THE MIRROR THAT WAS NEVER WRITTEN, AND THE CODEBASE ALREADY NAMED IT.** The self-SHUFFLE strip's own
+comment calls the exile form *"the exact mechanical mirror of Finale of Revelation's 'Exile <this>.'
+selfExile"* — the disposition flag existed and GY-1 honored it, but nothing peeled the trailing EXILE
+sentence. **The file that names the pair implemented half of it.** Sixth axis instance of the run.
+
+⛔ **THE STAMP IS THE POINT, NOT THE STRIP.** These spells never reach the graveyard; peeling without
+stamping flips the card native while silently sending it to the yard, corrupting every graveyard count,
+recursion target and delve/escape cost. Mutation-checked — removing the stamp fails both runtime assertions.
+
+### ⚠️ I REGRESSED FINALE OF REVELATION, AND THE FIX WAS ORDERING RATHER THAN CLEVERNESS
+The first version stripped up front, beside the self-shuffle strip. Finale is already owned by a collapse
+matching its whole *"draw X … Exile <this>."* shape, so peeling the sentence first meant that collapse no
+longer recognised it: **native-spell → arbiter-spell. A working card broken to make a broken one work.**
+
+Fix: the normal parse runs FIRST and is returned untouched whenever HIGH; only a **LOW** program is retried
+with the sentence peeled. The pre-existing owner always goes first, so the handlers compose instead of compete.
+
+⭐ **SAME DISCIPLINE AS THE RESTRICTED-MANA SLICE AN HOUR EARLIER** (restricted production runs only where
+`manaProductionImpl` already returned null). Make the new path reachable ONLY where the old one already
+failed, and **"no regressions" stops being a hope you verify and becomes a property you cannot violate.**
+Two slices, two LOST 0s, one rule — this is now the default shape for widening anything in this engine.
+
 ## 🔧 SHIPPED — SPEND-RESTRICTED MANA enforced (`323791ab`, **+34**) · **the biggest slice of the run**
 
 Jeweled Lotus · Herd Heirloom · Dalakos · Ixalli's Lorekeeper · Vedalken Engineer · +29. GAINED 34 · LOST 0.
