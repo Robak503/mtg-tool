@@ -295,7 +295,31 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
-### ⭐ THE NEXT REAL BUILD: "IF \<condition\>, \<X\> INSTEAD" — 3 of Earth Bent's 7, and HALF OF IT EXISTS
+### ✅ BUILT (`6975eb40`, +5 — Scute Swarm #229, Entish Restoration #439). **Earth Bent 83% → 85%.**
+
+The scoping below was accurate, including the prescribed order. **Two bugs came out of it, and both are the
+kind that look exactly like success — record them, they will recur:**
+
+**1. ⚠️⚠️ FIELD-NAME COLLISION — the atom field is `branchOn`, NEVER `condition`.** `atom.condition` already
+means something else in `runProgram` (~163): a rider GATE, *"skip this atom unless the condition holds"*.
+Naming the branch field `condition` made the runner **skip the whole conditional whenever it was false** — so
+`ifTrue` worked perfectly and `ifFalse` silently never ran. **Every true-condition test passed.** Only a
+three-lands board showed it. *Before reusing a field name, grep what the runner already does with it.*
+
+**2. ⚠️ HIJACKING BY FALLING SHORT — a new arm must FALL THROUGH, not return LOW.** The grammar also matches
+*"…If that creature would die this turn, exile it instead"* — **23 cards** (Anger of the Gods, Pillar of
+Flame) already modeled elsewhere, whose alternative is a rider rather than a branch. Returning LOW on a match
+this arm could not fully model dragged all 23 from `native-spell` to `arbiter-spell`. **The tier diff caught
+it (LOST 23 → LOST 0).** Falling through leaves everything unclaimed byte-identical.
+
+**Decidability is checked at PARSE time, not just resolution**, so the metric and runtime agree — Scythecat
+Cub's *"second time this ability has resolved this turn"* parks by design rather than rejecting mid-resolve.
+
+**Three stale pins split, member by member** — Scapeshift (linked X) and Scythecat Cub keep their
+assertions; Entish Restoration, Life Goes On and Scute Swarm moved to positive pins. The conditional-spell
+RIDER family (the *additive* form) is a different shape and is untouched.
+
+### ⭐ (original scoping, kept — it was accurate) "IF \<condition\>, \<X\> INSTEAD"
 
 **This is the highest-leverage thing left on the shelf's nearest deck, and the expensive half is already
 built.** No general conditional-replacement wrapper exists today (only two anchored exile-if-dies riders),
