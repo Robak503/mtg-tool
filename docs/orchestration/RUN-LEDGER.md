@@ -228,6 +228,28 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — the AFTERMATH keyword line (+7) · **a finished mechanism delivering nothing**
+
+Claim // Fame · Farm // Market · Spring // Mind · Destined // Lead · Consign // Oblivion · Mouth // Feed ·
+Never // Return. GAINED 7 · LOST 0. Predicted 7, got 7.
+
+⚠️ **THE MECHANISM WAS ALREADY COMPLETE AND CORRECT.** A previous slice set `rightGraveyardOnly`, threaded it
+to `graveyardOnly`, and made the hand-cast lane skip that face so the engine could never make the illegal cast
+CR 702.127a forbids — reasoning the whole case out in its comment. **And every aftermath card was still
+arbiter-spell**, because the literal `Aftermath (…)` line stayed in the right half's oracle, so that half
+parsed LOW and the both-halves gate refused the card.
+
+⭐ **THE TRANSFERABLE LESSON IS WHERE TO LOOK.** A mechanism can be complete, correct, carefully argued, and
+still deliver **zero** because one redundant line of the text it describes was never removed. No coverage
+number, tier diff or existing test could point at that — the gap is invisible unless you ask *"which single
+printed keyword line, dropped, makes this card native."*
+
+### 📍 NEW INSTRUMENT QUESTION: the KEYWORD VEIN
+194 parked cards unblock by dropping ONE keyword line, across 122 distinct keywords. Largest clusters:
+cipher 8 · **aftermath 7 (built)** · ingest 6 · specialize 5 · double team 5 · sunburst 5 · phasing 4 ·
+outlast 4. ⚠️ Most are REAL mechanics needing real work — aftermath was the outlier precisely because its
+mechanism already existed. Treat the ranking as "look here", never as "these are all one-line fixes".
+
 ## 🔧 SHIPPED — PAY-LIFE mana costs (+10)
 
 Staff of Compleation · Standing Stones · Blood Celebrant · Myr Convert · Vesper Ghoul · +5. GAINED 10 · LOST 0.
