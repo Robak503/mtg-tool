@@ -230,9 +230,29 @@ name normalization and silently corrupts quoted-grant classification. Cost sever
 
 ## 📍 THE FRONTIER CHANGED CHARACTER — measured, and now sized (`shelf-gap-ledger.mjs`)
 
-⭐ **OF 260 BLOCKED CARDS ACROSS THE 10 SUB-90 DECKS, 225 ARE ONE-CARD BUILDS.** Only 35 share a blocker with
-any other corpus card. **The shelf is 87% bespoke.** That is the headline for whoever plans the next stretch —
-"the shelf needs ~150 cards" is not a plan; the ledger is.
+⚠️ **CORRECTED THE SAME DAY — my first numbers here were wrong.** The ledger initially reported "35 shared /
+225 one-card"; both figures came from a broken attribution. Verified attribution gives:
+
+⭐ **5 SHARED · 153 ONE-CARD · 102 COMPOSITE** (of 260 blocked cards across the 10 sub-90 decks).
+
+The bug: blockers were attributed to each card's first line that failed to parse STANDING ALONE. "Enchant
+creature" is not an ability, so it never parses alone — and every Aura on the shelf got filed under it,
+inventing a corpus×496 "cluster". Blockers are now attributed **BY REMOVAL**: the line whose deletion makes the
+whole card native.
+
+**The correction cuts both ways**, which is why it was worth rewriting rather than caveating:
+• **far FEWER shared blockers** — 5, not 35. Even less slice-shaped work than I claimed, and I would have gone
+hunting clusters that were artefacts of my own grouping.
+• **a category the first pass could not see** — **102 COMPOSITE** cards needing two or more fixes each. The most
+expensive cards on the shelf, previously filed under one invented blocker.
+
+The 5 real shared blockers: squad ×3 · Pact of Negation's upkeep-or-lose ×2 · ninjutsu cost reduction ×2 ·
+miracle ×2 · Pyrohemia's end-step sacrifice ×2.
+
+⭐ **THIRD INSTRUMENT CORRECTION OF THE RUN, AND THE SAME LESSON EACH TIME:** an instrument that GUESSES an
+attribution produces confident, plausible, wrong rankings that read exactly like findings. Attribute by the
+operation you actually care about — here "does removing it fix the card?" — never by a proxy that merely
+correlates with it.
 
 Every vein this run mined is now measured out, and the numbers are recorded so nobody re-mines them:
 | vein | state |
