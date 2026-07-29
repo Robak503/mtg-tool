@@ -2394,6 +2394,61 @@ arithmetic so nobody re-derives it:
 the probe measures WHERE a blocking sentence appears, never whether it is the card's ONLY blocker. That check
 is manual and it has now paid off twice in two sessions.
 
+## 🚨 SHIPPED — MANA REFUSALS ARE PER-ABILITY, NOT PER-CARD: 23 DEAD LANDS revived (+16) (`9eba4b2e`)
+
+An ability is a LINE (CR 113.3). Both standing mana refusals — the SPEND RESTRICTION and the CONDITION GATE
+— matched anywhere in the oracle and nulled the WHOLE CARD, so a restricted or gated SECOND ability silently
+killed an UNCONDITIONAL FIRST one.
+
+**Measured: 30 corpus LANDS produced NO MANA AT ALL.**
+- the entire **Verge cycle** — Bleachbone Verge prints a plain `{T}: Add {B}.` beside a gated
+  `{T}: Add {W}. Activate only if …`
+- the **Village cycle**, Tournament Grounds, **Castle Garenbrig**
+- **Madblind Mountain**, whose gated ability is a **SHUFFLE** and whose mana is the basic-land reminder
+  `({T}: Add {R}.)` — pure collateral
+
+23 are now live. The remaining 7 are genuinely restricted-only and still refuse.
+
+⭐ **AND NO METRIC COULD SEE IT — this is the THIRD find of this exact class this run.** Lands are credited
+native by BEING lands, so coverage was never off by a point while ~100 real fixing lands (painlands, filter
+lands, Verges) were **Wastes** in the sim. Identical blind spot to the karoo/signet bundle. **The rule is now
+earned, not theoretical: when a card class is credited by TYPE rather than by parse, the metric cannot see
+its runtime at all — audit those classes directly.**
+
+**The refusals are unchanged where they matter.** A card whose ONLY mana line is restricted or inexpressibly
+gated still returns null — Herd Heirloom, Jeweled Lotus, Springleaf Drum all stay refused (pinned). Keeping
+the UNRESTRICTED line is strictly what the card does with no strings attached, so the change can only
+under-deliver.
+
+**Two precision fixes on the gate stamp**, both under-delivering bugs the naive version would have added:
+an inexpressible gate must not be stamped onto mana parsed from a DIFFERENT line; and the gate is taken from
+the line actually PARSED. Fanatic of Rhonas is the case that proves the second — plain `{T}: Add {G}.` plus a
+Ferocious-gated bigger line, and the old any-match form gated the {G} on ferocious, switching the dork off
+until a 4-power creature was out. **Mox Opal keeps its live gate** (expressible, on its only mana line).
+
+Mutation-checked M55–M56. Tier: **GAINED 16 · LOST 0 · RETIERED 0**, every gain verified as crediting only
+freely-made mana (Delighted Halfling gets its {C}, never the legendary-restricted any-color). **The land
+fixes do not appear in the tier at all, which is the whole point.**
+
+## ⚠️ STILL OPEN IN THIS AREA — the colorless-only lands (73), NOT yet fixed
+
+Separate bug, same family, **left deliberately**: `parseAddClause` takes the FIRST `Add` clause and stops, so
+a land printing `{T}: Add {C}.` on line 1 and its colours on line 2 models as **colorless only**. That is the
+whole painland cycle (Shivan Reef, Adarkar Wastes, Karplusan Forest, Battlefield Forge…), the filter lands
+(Flooded Grove, Mystic Gate, Graven Cairns) and ~60 more. **22 SHELF land-slots across 18 cards.**
+
+⛔ **Do NOT just union the colours — the riders are the reason it is not a one-liner.** Each second ability
+carries a real cost the engine would otherwise ignore, which turns an under-delivery into an over-delivery:
+- **painlands** — `This land deals 1 damage to you.` Ignoring it = painless painlands, strictly better than
+  printed (the forbidden direction). Needs a life cost on the tap; `commitManaTap` already has the shape for
+  it (`sacrifices` does the same job).
+- **filter lands** — `{G/U}, {T}: Add {G}{G}, {G}{U}, or {U}{U}.` A hybrid mana COST to make a 2-mana
+  BUNDLE. The bundle half already exists (`fixed`, shipped this run); the mana-cost-to-tap half does not.
+- **Mogg Hollows** — `doesn't untap during your next untap step` (`setDoesNotUntapNext` exists).
+
+Sized honestly: the colour union is easy, the riders are the slice. Build the rider first, then the union —
+the same order law that has held all run.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2545,6 +2600,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `9eba4b2e` — mana refusals per-ABILITY; 23 dead lands revived (+16). Slice 65.
 - `a8279062` — NONCREATURE artifact/enchantment targets, layer-aware (+5). Slice 64.
 - `977b72e9` — first-tap-each-of-your-turns + GRANTED becomes-tapped fire site (+1). **Earth Bent 90%.** Slice 63.
 - `277f161b` — optional FIGHTER half of fight-pair; Earth Rumble (+1). Slice 62.
