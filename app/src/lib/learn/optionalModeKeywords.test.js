@@ -129,9 +129,15 @@ describe("UNLEASH — refused by THIS family, then admitted by ENFORCEMENT inste
     // That is the false-positive direction, and it is the exact line separating this family from the rest
     // of the census. The option has to be one you may decline WITH NO CONSEQUENCE to the rest of the card.
     //
-    // OUTLAST is the standing example of a keyword that fails that test and has NO enforcement either, so
-    // it is still parked — the state unleash was in before slice 50 built its runtime.
-    expect(classifyCard({ ...CREATURE, name: "Abzan Falconer", type: "Creature — Human Soldier", oracle: "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.)" })).not.toMatch(/^native/);
+    // ⭐⭐ RE-POINTED 2026-07-29 — OUTLAST was the standing example and it GRADUATED, by the other route.
+    // The membership test is untouched: outlast is NOT an untaken option, and must never be credited as one.
+    // What changed is that it is now credited by ENFORCEMENT instead — expanded into the ability CR 702.107a
+    // says it is, offered by legalChoices, and resolvable. The two routes are opposites, and conflating them
+    // is exactly what this assertion exists to prevent, so the example moves rather than the rule.
+    //
+    // RECONFIGURE is the replacement standing example: an activated ability (so it fails the untaken-option
+    // test) with no enforcement behind it (so it is not credited either). Verified body-only.
+    expect(classifyCard({ ...CREATURE, name: "Reconfigurer", type: "Artifact Creature — Equipment Construct", oracle: "Reconfigure {2} ({2}: Attach to target creature you control. Reconfigure only as a sorcery.)" })).not.toMatch(/^native/);
   });
 });
 
@@ -149,12 +155,14 @@ describe("CREED — crediting the keyword never force-flips the rest of the card
     expect(classifyCard({ ...SPELL, name: "E", oracle: "Exile cards from your graveyard to reduce this spell's cost. Glorbulate." })).not.toMatch(/^native/);
   });
 
-  it("OUTLAST is refused — an ACTIVATED ABILITY is not an untaken option", () => {
-    // The line that keeps this family honest. Outlast ({cost}, {T}: put a +1/+1 counter on this creature.
-    // Activate only as a sorcery) reads like another cost-shaped keyword, but it is a real ability the
-    // player USES, not an option declining costs nothing. Crediting it would claim a card plays natively
-    // while the engine never offers the ability at all. It stays parked until something models it.
-    expect(classifyCard({ ...CREATURE, name: "Abzan Battle Priest", type: "Creature — Human Cleric", oracle: "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.)" })).not.toMatch(/^native/);
+  it("⭐⭐ RE-POINTED — an ACTIVATED ABILITY is not an untaken option; it is credited only when ENFORCED", () => {
+    // The line that keeps this family honest, and its own words named the exit: outlast "stays parked UNTIL
+    // SOMETHING MODELS IT". Something does now — it is expanded into the ability CR 702.107a defines, and the
+    // engine genuinely offers it (asserted end-to-end in outlastKeyword.test.js, priority window and all).
+    // The refusal that mattered is intact: a cost-shaped keyword is NOT credited for being declinable, and
+    // the second assertion below is the live example of that.
+    expect(classifyCard({ ...CREATURE, name: "Abzan Battle Priest", type: "Creature — Human Cleric", oracle: "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.)" })).toMatch(/^native/);
+    expect(classifyCard({ ...CREATURE, name: "Championer", type: "Creature — Sliver", oracle: "Champion a Sliver (When this creature enters, sacrifice it unless you exile another Sliver you control.)" })).not.toMatch(/^native/);
   });
 
   // NOT A COUNTER-EXAMPLE, and worth writing down so nobody re-derives it: suspend on a SPELL is already

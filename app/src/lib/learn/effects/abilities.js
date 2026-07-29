@@ -677,6 +677,21 @@ export function foldModalBulletLines(oracle) {
   return lines;
 }
 
+/**
+ * OUTLAST (CR 702.107a) — rewrite each "Outlast [cost]" line into the ability it IS:
+ * "[cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+ *
+ * ⭐ EXPORTED SO THE COVERAGE MIRROR CANNOT DRIFT. coverage.js's `isActivatedAbilityLine` is documented as
+ * an exact mirror of this parser's detection, and it keys on a COLON — which a bare "Outlast {W}" line does
+ * not have. Expanding here and letting coverage duplicate the regex would put that mirror one edit away from
+ * lying; both sides call this instead, so the keyword is one sentence in one place.
+ */
+export function expandOutlastLines(oracle) {
+  return String(oracle || "").split("\n").map((ln) => {
+    const m = ln.trim().match(/^outlast\s*((?:\{[^}]+\})+)$/i);
+    return m ? `${m[1]}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.` : ln;
+  }).join("\n");
+}
 export function parseActivatedAbilities(card) {
   // ABILITY-WORD LABEL on an ACTIVATED line (CR 207.2c — "Sleight of Hand — {8}: Draw two cards.", the CLB
   // Invokers; "Come Fly With Me — {2}, Sacrifice a creature: …", Jason Bright): a TRUE ability word carries
@@ -692,7 +707,20 @@ export function parseActivatedAbilities(card) {
   const labelStripped = rawOracle.split("\n").map((ln) =>
     /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'\- ]{0,40}\s[—–]\s*(?=\{)/, "")
   ).join("\n");
-  const oracle = stripReminder(labelStripped);
+  // ===== OUTLAST (CR 702.107a) — expand the keyword into the ability it IS ==========================
+  // "Outlast [cost]" means "[cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+  // That expansion is ALREADY FULLY MODELED here: the counter atom, the {T}, and the sorcery-timing gate are
+  // each in use elsewhere, and writing the sentence out by hand classifies native-activated. So the keyword
+  // needed no new machinery — only to be said in words the parser already knows.
+  //
+  // ⭐ THE SAME SHAPE AS THE AFTERMATH SLICE: a finished mechanism delivering nothing because the printed
+  // keyword line was never turned into it. Rewriting the LINE rather than hand-building an ability object is
+  // deliberate — it routes through the identical cost/effect/timing path as a printed ability, so outlast
+  // cannot drift away from the sentence it is defined as.
+  //
+  // ⛔ The printed reminder says "Outlast only as a sorcery"; the expansion says "Activate only as a sorcery"
+  // because that is the phrasing the timing gate reads, and CR 702.107a defines them as the same restriction.
+  const oracle = expandOutlastLines(stripReminder(labelStripped));
   if (!oracle.trim()) return [];
   // LEVEL UP (BLITZ LV-1, CR 702.87 / 711): a LEVELER frame routes to the dedicated lane. Its band
   // striations otherwise leak into this loop as ALWAYS-ON activated abilities (Brimstone Mage's
