@@ -59,9 +59,17 @@ describe("LANDFALL — coverage flips (synthetic cards, real oracle text)", () =
     expect(classifyCard({ type: "Creature — Beast", name: "Rampaging Baloths", mana: "{4}{G}{G}", oracle: "Trample\nLandfall — Whenever a land you control enters, create a 4/4 green Beast creature token." })).toBe("native-trigger");
     expect(classifyCard({ type: "Creature — Plant", name: "Jaddi Offshoot", mana: "{G}", oracle: "Defender\nLandfall — Whenever a land you control enters, you gain 1 life." })).toBe("native-trigger");
   });
-  it("CREED — an unmodeled landfall payoff (mana / filtered subject) stays body-only", () => {
-    expect(classifyCard({ type: "Creature — Snake", name: "Lotus Cobra", mana: "{1}{G}", oracle: "Landfall — Whenever a land you control enters, add one mana of any color." })).toBe("body-only");
+  it("CREED — an unmodeled landfall payoff (a FILTERED subject) stays body-only", () => {
+    // ⚠️ Lotus Cobra was asserted here too, on "a fabricated mana is a forbidden FP" — correct when written,
+    // because the mana payoff genuinely was not modeled. It is now: exactly ONE mana, in a colour taken from
+    // the controller's commander identity (falling back to the source's own colours), board-verified. The
+    // amount is exact, so a suboptimal colour is a play-quality loss, never fabricated mana. It moves to the
+    // positive pin below. The FILTERED subject stays here — still genuinely unmodeled.
     expect(classifyCard({ type: "Creature — Elemental", name: "Filtered", mana: "{2}{G}", oracle: "Landfall — Whenever a basic land you control enters, you gain 1 life." })).toBe("body-only");
+  });
+
+  it("⭐ Lotus Cobra #323 — the landfall MANA payoff is modeled now", () => {
+    expect(classifyCard({ type: "Creature — Snake", name: "Lotus Cobra", mana: "{1}{G}", colors: ["G"], oracle: "Landfall — Whenever a land you control enters, add one mana of any color." })).toBe("native-trigger");
   });
 });
 
@@ -123,10 +131,11 @@ describe("LANDFALL-COMPOSITE — a modeled landfall trigger + another modeled ab
   });
 
   // ── CREED anti-FP pins: a landfall card whose PAYOFF (or a rider on it) is unmodeled stays body-only ──
-  it("CREED — Lotus Cobra (landfall MANA), Scute Swarm (6-land token-copy rider), Scythecat Cub (2nd-resolution doubler rider) stay body-only", () => {
-    // Lotus Cobra — "add one mana of any color" is a mana payoff the mana model owns; not modeled in the
-    // trigger→effect bridge → the landfall doesn't route → body-only (a fabricated mana is a forbidden FP).
-    expect(classifyCard({ id: "c-cobra", name: "Lotus Cobra", type: "Creature — Snake", power: 2, toughness: 1, mana: "{1}{G}", oracle: "Landfall — Whenever a land you control enters, add one mana of any color." })).toBe("body-only");
+  it("CREED — Scute Swarm (6-land token-copy rider) and Scythecat Cub (2nd-resolution doubler rider) stay body-only", () => {
+    // ⚠️ Lotus Cobra was the third card in this pin, on "a fabricated mana is a forbidden FP". That was true
+    // when written and is not now: the trigger→effect bridge models "add one mana of any color" as exactly
+    // ONE mana in a colour drawn from the controller's commander identity. The two riders below are still
+    // genuinely unmodeled, so the CREED half of this pin is intact — only the stale member left.
     // Scute Swarm — the "If you control six or more lands, create a token that's a copy of this creature
     // instead" conditional/token-copy rider is unmodeled → the payoff parses LOW → body-only.
     expect(classifyCard({ id: "c-scute", name: "Scute Swarm", type: "Creature — Insect", power: 1, toughness: 1, mana: "{2}{G}", oracle: "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of this creature instead." })).toBe("body-only");

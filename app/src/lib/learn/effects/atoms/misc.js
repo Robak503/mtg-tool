@@ -253,6 +253,19 @@ export function miscClauseParser(clause) {
     for (const sym of rit[1].match(/\{([wubrgc])\}/g)) mana[sym.replace(/[{}]/g, "").toUpperCase()]++;
     return { op: "add-mana", mana, targetType: null };
   }
+  // ANY-COLOUR MANA (CR 106.1b) — "add one mana of any color" (Lotus Cobra's landfall, Outcaster Trailblazer's
+  // ETB, Quirion Sentinel). The MANA-ABILITY side has understood this phrasing forever (Birds of Paradise is
+  // native-mana), but a tap source can DEFER the choice — manaSources hands the planner colors:[W,U,B,R,G] and
+  // the colour is settled at payment. A resolution-time add has no such luxury: addMana takes one colour and
+  // the pool has no wildcard slot, so the colour must be committed here (see applyAddMana).
+  //
+  // ⚠️ N=1 ONLY, deliberately. "add TWO mana of any ONE color" is a different promise (N of a single chosen
+  // colour) and "add two mana of any color" lets the two DIFFER — modelling either as one colour would
+  // silently narrow the player's options. At N=1 there is no ambiguity: the two templatings mean the same
+  // thing. The corpus prints "one mana of any color" 615 times against 35/23/29 for the multi forms, so the
+  // narrow arm is most of the value with none of the guessing; the rest stay LOW → Arbiter (safe FN).
+  const anyColorOne = t.match(/^add one mana of any (?:one )?color$/);
+  if (anyColorOne) return { op: "add-mana", anyColor: 1, targetType: null };
   // HELD-MANA (CR 500.4's printed exception) — the SAME add, plus the printed promise that it outlives the
   // step that made it: "Add {R}. This mana lasts until end of combat." (firebending, and every other carrier
   // of that sentence — all 30 in the corpus use end-of-combat, so the duration is matched literally rather
@@ -407,8 +420,53 @@ export function selfCastHalfXClauseParser(clause, ctx = {}) {
  * usable for a same-window cast (ramp). Only the BARE add-basic-mana form is modeled (the parser rejects
  * restricted-use riders / {X} / hybrid), so this never over-credits a "spend only on…" ritual.
  */
+const WUBRG = ["W", "U", "B", "R", "G"];
+
+/**
+ * Which colour does "one mana of any color" actually produce at resolution?
+ *
+ * CR 106.1b lets the player choose; the pool has no wildcard slot, so the sim must commit. The choice is
+ * made from the CONTROLLER'S COMMANDER COLOUR IDENTITY (CR 903.4) — the deck's usable colours, and the
+ * closest honest proxy for what a player would pick — falling back to the SOURCE permanent's own colours
+ * for a seat with a colourless commander.
+ *
+ * ⚠️ WHY NOT the source card's colours FIRST: a colourless artifact source ("When this enters, add one mana
+ * of any color") would answer nothing, and the deck identity is the better guide anyway. And why the command
+ * zone is read INLINE rather than through layers.commanderColorIdentity: that helper is module-local, and
+ * exporting it would add a manaModel-adjacent edge into layers — the edge class that crashed module init two
+ * slices ago while the suite stayed green. The codebase already prefers a local copy for exactly this reason
+ * (see OUTLAW_SUBTYPE_LIST's "kept local to avoid coupling"). It reads plain state, so there is nothing to
+ * drift.
+ *
+ * Returns null when NOTHING is determinable (no coloured commander AND a colourless source). The caller then
+ * adds nothing: an honest no-op on a degenerate board, never a fabricated colour.
+ */
+function anyColorChoice(state, ctx) {
+  const identity = new Set();
+  for (const c of state?.players?.[ctx.controller]?.command || []) {
+    for (const letter of (c?.colorIdentity ?? c?.color_identity ?? [])) identity.add(String(letter).toUpperCase());
+  }
+  let pick = WUBRG.find((c) => identity.has(c));
+  if (pick) return pick;
+  for (const p of state?.players?.[ctx.controller]?.battlefield || []) {
+    if (p.id !== ctx.sourceId) continue;
+    const cols = p.card?.colors ?? p.card?.colorIdentity ?? [];
+    pick = WUBRG.find((c) => cols.map((x) => String(x).toUpperCase()).includes(c));
+    break;
+  }
+  return pick || null;
+}
+
 export function applyAddMana(state, atom, ctx) {
   let next = state;
+  // ANY-COLOUR add — the amount is EXACT (one), only the colour is chosen, so a suboptimal pick can only
+  // ever be a play-QUALITY loss, never more mana than printed.
+  if (atom.anyColor) {
+    const color = anyColorChoice(state, ctx);
+    if (!color) return next;                       // nothing determinable → add nothing, never a guess
+    next = addMana(next, { playerId: ctx.controller, color, amount: atom.anyColor });
+    return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: { [color]: atom.anyColor } });
+  }
   for (const color of Object.keys(atom.mana || {})) {
     if (atom.mana[color] > 0) {
       next = addMana(next, { playerId: ctx.controller, color, amount: atom.mana[color] });
