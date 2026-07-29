@@ -2932,6 +2932,54 @@ native-body ✅; a passing test as evidence: ⭐1; parse-credited but applicatio
 transform parity: ⭐8). **The systematic-audit vein is worked out** — further finds will come from specific
 mechanics, not from another sweep of this kind.
 
+## 🔧 SHIPPED — the shelf "ONE LINE AWAY" probe, + its first target (+3) (`e549e411`)
+
+⭐ **THE PROBE IS THE BIGGER DELIVERABLE.** `probe-shelf-one-line-away.mjs` drops exactly ONE oracle line and
+asks whether the card goes native. If yes, **that line IS the whole blocker** — a sized build target, not a
+lead. **132 shelf cards qualify**, ranked by DECKS touched.
+
+**Why it was needed:** `probe-shelf-blockers` ranks blocking SENTENCES by spread and kept surfacing rows
+worth ~1 card — Teamwork ranked #1 (3 cards / 3 decks, worth one); the bite row ranked high and was worth
+ZERO on the shelf. Both times the sentence was not the card's *only* blocker. **That is precisely the
+question this probe asks instead**, and it is the shelf-gap list this run has needed all along.
+
+⚠️ Its header carries the three ways a row still misleads: "one line" measures the CLASSIFIER not the effort
+(Level Up tops the list and is a four-piece build); some rows are **deliberate refusals** (Hexing Squelcher's
+life-cost ward); and proving the line is the blocker does not prove it can be modelled CREED-safely.
+⭐ And the wrong-`MTG_APP_ROOT` trap that cost a run earlier is now a **guard** — pointed at the repo it
+REFUSES rather than printing a convincing empty table.
+
+### THE TOP OF THE LIST (for the next resume, cold)
+| decks | card | blocker |
+|---|---|---|
+| 3 | Level Up | the granted compound — **banked**, needs the per-sentence anchor decision |
+| 2 | Hexing Squelcher | ⛔ life-cost ward — **deliberate refusal, do not build** |
+| 2 | Rhythm of the Wild | group grant of **riot** — riot is an ENTRY REPLACEMENT, not a static keyword, so it cannot join `GRANTABLE_STATIC_KEYWORDS`; multi-piece for 3 cards |
+| 2 | Valley Floodcaller | multi-subtype batch pump on noncreature cast |
+| 1 | Acidic Slime | ✅ **done below** |
+
+## ✅ FIRST TARGET OFF IT — the three-way type union (+3)
+
+Every TWO-way union existed; no three-way one did, so `destroy target artifact, enchantment, or land` parked
+six corpus cards including **Acidic Slime** (staple, shelf card).
+
+⛔ **Mapped as a straight OR of the three printed types, NOT to "permanent"** — the lazy mapping offers
+creatures and planeswalkers the card cannot touch. M70 makes that substitution and the enumerator pin
+catches it.
+
+⚠️ **MY ENUMERATOR PIN PASSED VACUOUSLY AT FIRST.** A combo is `{targets:[…]}`, not a bare array, so my
+extractor produced `[undefined]` and *"the creature is not offered"* was trivially true. **The hollow-gate
+shape this whole run has been hunting, in my own test.** The fix is the non-empty assertion beside it —
+a negative assertion needs a positive one next to it or it proves nothing.
+
+## 🧭 WHERE THE SHELF STANDS
+
+Six decks at/above 90% (Slivers 100, Vihaan 96, Omnath 93, Zaxara 92, Mothman 90, Earth Bent 90). cdh 81%
+(capped ~82 — do not start). Next real target **Did you say Dragons? 77%**, needing ~13 cards across distinct
+mechanics. Recent slices moved Zaxara 91→92, cdh 80→81, Kinnan 72→73.
+
+**The cheap shelf work is genuinely done; the 132-row list is now the map for what remains.**
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -3083,6 +3131,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `e549e411` — shelf one-line-away probe + three-way type union (+3). Slice 77.
 - `f334d31b` — parity sweep extended to permanents; all clean. Slice 76.
 - `7fbd341d` — classifier/runtime oracle parity: 8 native spells were Arbiter-routed. Slice 75.
 - `368cb402` — clone with a cost-only keyword line never cloned (metric/runtime divergence). Slice 74.
