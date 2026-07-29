@@ -2305,42 +2305,44 @@ widens to a creature/planeswalker/battle union.
 **+1 corpus, +0 shelf.** Recorded so no future resume re-chases the row — this is the probe header's own
 "confirm against the real card before building" rule paying for itself a seventh time.
 
-## 🏁 EARTH BENT IS AT 90% — the first JOE-side deck across the 1.0 per-deck bar (, )
+## 🏁 EARTH BENT IS AT 90% — the first JOE-side deck across the 1.0 per-deck bar (`277f161b`, `977b72e9`)
 
-Verified, not asserted:  · . It was the closest deck on the
+Verified, not asserted: `90%  Earth Bent  (90/100)` · `below the bar: none`. It was the closest deck on the
 shelf at 88%, and it took exactly the two cards it needed.
 
 **Earth Rumble (+1)** — one arm. Earthbend, the CR 603.7 reflexive "when you do" seam and fight-pair ALL
-already existed; "up to one" was supported on the ENEMY side of the pair and never on the FIGHTER side. The
-missing-sibling shape again. It needed its OWN flag ():  binds to
-the PRIMARY, and a fight-pair's primary is the enemy — reusing it would have made the OPPONENT's creature
-declinable, a different card that reads as working. M50 puts the flag on the wrong half to pin exactly that.
+already existed; "up to one" was supported on the ENEMY side of the pair and never on the FIGHTER side — the
+missing-sibling shape again. It needed its OWN flag (`secondaryOptionalTarget`): `optionalTarget` binds to
+the PRIMARY, and a fight-pair's primary is the ENEMY, so reusing it would have made the OPPONENT's creature
+declinable — a different card, and one that reads as working until you check which half got declined. M50
+puts the flag on the wrong half to pin exactly that.
 
-**Tale of Katara and Toph (+1)** — ⚠️ **the detection arm was the small part, and it shipped a card that
-classified  while doing NOTHING.** Two false positives underneath, neither visible to the
-classifier:
-1. **The fire site.**  read the PRINTED card and never consulted GROUP-GRANTED abilities.
-   The recipient creatures' own text says nothing about tapping, so the granted trigger could never fire.
-   Routed through , which already collects grants and applies the gates that path skipped.
-   **Every granted becomes-tapped ability now works**, not just this card.
-2. **The dropped latch.** The descriptor build RECOMPUTES  from the printed sentence
+**Tale of Katara and Toph (+1)** — ⚠️ **the detection arm was the small part, and on its own it shipped a card
+that classified `native-static` while doing NOTHING at runtime.** Two false positives underneath, neither
+visible to the classifier:
+
+1. **THE FIRE SITE.** `checkTapTriggers` read the PRINTED card (`lk.permanent.card`) and never consulted
+   GROUP-GRANTED abilities. The recipient creatures' own text says nothing about tapping, so the granted
+   trigger could never fire. Routed through `triggersForEvent`, which already collects grants AND applies the
+   gates that path skipped entirely. **Every granted becomes-tapped ability now works**, not just this card.
+2. **THE DROPPED LATCH.** The descriptor build RECOMPUTES `oncePerTurnTrigger` from the printed sentence
    "This ability triggers only once each turn." and overwrote the flag the arm sets from the EVENT wording
-   ("for the first time"). Detection looked correct and the latch was gone — it would have fired on every
-   tap, an over-fire.
+   ("for the first time"). Detection looked correct and the latch was gone — it would have fired on EVERY tap
+   instead of the first: an over-fire, the forbidden direction.
 
 ⭐ **THE RULE THIS COST ME, stated plainly: assert on the BUILT DESCRIPTOR, not on the arm's return value.**
-The arm returned the right object; a later stage overwrote the field. Same class as the captured-but-unread
-trap, one layer further down the pipeline.
+The arm returned the right object and a later stage overwrote the field. Same class as the
+captured-but-unread trap, one layer further down the pipeline.
 
-⚠️ **PLACEMENT, banked so it isn't rediscovered:** classifyCondition has a blanket
- reject. The first draft of the arm sat BELOW it and was simply never reached
-(measured — the bare form detected, EVERY qualified form returned []). A specific enforceable qualifier
-belongs beside  ABOVE the reject, never as a weakening of it.
+⚠️ **PLACEMENT, banked so it is not rediscovered:** `classifyCondition` has a blanket
+`with|while|during|named` reject. The first draft of the arm sat BELOW it and was simply never reached
+(measured — the bare form detected, EVERY qualified form returned `[]`). A specific, enforceable qualifier
+belongs beside `castWithExempt` ABOVE the reject, never as a weakening of it.
 
-**Remaining Earth Bent gap (10 slots, at the bar so no longer blocking):** Scapeshift + The Earth King
+**Remaining Earth Bent gap (10 slots — at the bar now, so no longer blocking):** Scapeshift + The Earth King
 (linked X), Ashaya, Lumra, The Ozolith, Traveling Chocobo, Earthbender Ascension, The Legend of Kyoshi —
 plus the two DELIBERATE refusals, Scythecat Cub (inexpressible condition) and Herd Heirloom
-(spend-restricted mana). Do not re-chase the refusals.
+(spend-restricted mana). **Do not re-chase the refusals.**
 
 ## NEXT ACTIONS
 
