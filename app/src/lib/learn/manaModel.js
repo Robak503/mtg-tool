@@ -517,6 +517,21 @@ export function manaProduction(card) {
 function manaProductionImpl(card) {
   if (!card) return null;
 
+  // ⛔ SPEND-RESTRICTED MANA (CR 106.6) — "{T}: Add {U}. Spend this mana only to cast an artifact spell."
+  // The payment planner has NO restricted-mana concept, so modelling this source at all hands the engine
+  // GENERAL-PURPOSE mana from a restricted one: strictly better than the printed card, and the forbidden
+  // FP direction. Route the whole card out (null → Arbiter, a clean FN) until restrictions are real.
+  //
+  // ⚠️ THIS GUARD ALREADY EXISTED — for QUOTED/GRANTED abilities only (stripNonSelfQuotedGrants, "Battery
+  // Bearer"), with that same reasoning written out. A card's OWN printed mana line had no such check, so
+  // 59 non-land cards were credited native-mana with their restriction silently dropped (Troyan #5599,
+  // Fabrication Foundry #9980, Rootcoil Creeper #9861). Found by probe-lossy-clause-tails.mjs, which
+  // injects an unmodelable tail into each printed line and reports the lines whose tail changes nothing.
+  //
+  // LANDS are unaffected in the metric (they are credited playable by BEING lands) but are routed here too,
+  // so the runtime never mints unrestricted mana from a restricted land either.
+  if (/\b(?:spend this mana only|can't be spent to)\b/i.test(oracleOf(card))) return null;
+
   const name = String(card.name || "");
   const baseName = name.replace(/^Snow-Covered\s+/i, "").trim();
   if (BASIC_LAND_MANA[baseName]) {
