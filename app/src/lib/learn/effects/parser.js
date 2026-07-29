@@ -69,6 +69,7 @@ import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser, eart
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { gainControlClauseParser } from "./atoms/control.js"; // GAIN-CONTROL — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family
+import { becomeCopyClauseParser } from "./atoms/becomeCopy.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
@@ -2204,4 +2205,5 @@ registerClauseParser(freeCastClauseParser);
 // {kind:"subtype"} target restriction (enumerateTargets enforces it), and applyGainControl moves the permanent
 // to the new controller's battlefield summoning-sick. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(gainControlClauseParser);
+registerClauseParser(becomeCopyClauseParser); // BECOME-COPY (CR 613.1a/707.9) — riders reuse parseCloneRider; unmodelled rider -> null -> Arbiter
 registerClauseParser(grantUntilEotClauseParser); // UNTIL-EOT QUOTED GRANT (TG-1) — body-validated via the injected grant validators

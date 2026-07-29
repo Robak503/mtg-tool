@@ -39,6 +39,7 @@ import { iteratedEdictResolvers } from "./atoms/iteratedEdict.js";
 import { delayedTriggerResolvers } from "./atoms/delayedTrigger.js";
 import { controlResolvers } from "./atoms/control.js";
 import { grantUntilEotResolvers } from "./atoms/grantUntilEot.js";
+import { becomeCopyResolvers } from "./atoms/becomeCopy.js";
 import { conniveResolvers } from "./atoms/connive.js";
 import { suspectResolvers } from "./atoms/suspect.js";
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL REPLACEMENT — the SAME evaluator legalChoices and manaSources gate on; interveningIf imports only gameState, so this stays a one-way edge (checked before adding it)
@@ -80,6 +81,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...delayedTriggerResolvers, // schedule-delayed (CR 603.7) — queue an ability for a future step; gameEngine drains it into pendingTriggers at step entry
   conditional: applyConditional, // CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <cond>, <alt> instead." Defined below; recurses through resolveAtom, so it lives in the barrel.
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
+  ...becomeCopyResolvers, // become-copy (CR 613.1a / 707.9) — a permanent becomes a copy of a chosen target until end of turn
   ...grantUntilEotResolvers, // grant-until-eot (TG-1, CR 611.2c fixed set) — until-EOT quoted-ability grants (Feign Death / Showstopper family)
   ...conniveResolvers, // connive (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard (pause) → +1/+1 if a nonland was discarded
   ...suspectResolvers, // suspect / unsuspect-all (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block via the layer reads)
