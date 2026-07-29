@@ -95,12 +95,91 @@ exactly like `extraTurns`.
    Give each queue entry its OWN insertion point (`{ kind: "combat", after: "main" }`) and check it at the
    matching transition. Full Throttle additionally needs a COUNT ("two additional combat phases").
 
+   ⛔⛔ **DO NOT BUILD THIS AS A SECOND SPLICE POINT. I traced it and it is a bigger piece of machinery than
+   it looks — recorded here so the next session does not rediscover it by shipping a subtly wrong combat.**
+   CR 500.8 adds phases *directly after the specified phase*, so Aggravated Assault activated in the
+   precombat main owes:
+   ```
+   precombat main → EXTRA combat → EXTRA main → NORMAL combat → postcombat main
+   ```
+   The engine's actual forward sequence from a precombat main is:
+   ```
+   precombat-main/main → combat/beginning-of-combat → combat/declare-attackers
+                       → combat/end-of-combat → postcombat-main/main → ending/end → ending/cleanup
+   ```
+   **A jump at "leaving main" therefore produces the NORMAL combat and consumes the grant** — one combat
+   where the card promised two. The correct model needs a multi-phase spliced RUN with a cursor (combat,
+   then main, then resume the normal sequence), not a second jump. Half-right here risks a soft-lock, which
+   is the one failure mode this engine cannot ship. Budget it as its own wave.
+
 ⛔ **THE TRAP TO TEST FOR FIRST:** an extra combat that never terminates. `extraTurns` is popped exactly
 once per grant; the phase queue must be too, or a Relentless Assault loops the turn forever. **Assert the
 queue drains** — a combat count of exactly 2, and a third combat only from a second grant.
 
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
+
+## 🚨 SHIPPED — **THE RUN'S WORST BUG: a SOFT-LOCK, found by reading a descriptor** (`720ede1f`, +4)
+
+**Aurelia, the Warleader was native and looping the turn forever.** Her descriptor read
+`oncePerTurnTrigger: false` on a card whose text says *"attacks FOR THE FIRST TIME EACH TURN"*. The latch
+was stamped ONLY from the trailing sentence *"This ability triggers only once each turn."*; the same
+limiter baked into the EVENT WORDING was silently ignored. Fire-every-attack + her own extra-combat grant =
+attack, untap, queue a combat, attack again, queue another. Forever.
+
+⭐⭐ **THE LESSON IS WHERE IT HID.** The extra-combat mechanism has a dedicated non-termination test that
+proves ONE grant drains. The trigger detector has tests that prove the latch works. **Neither could see
+that the grant could be RE-ISSUED** — the loop lived in the join between them. That is the **third** time
+this run a bug survived in the seam between two individually-tested halves (stun matcher ↔ splitter; tutor
+destination ↔ whitelist; now trigger latch ↔ phase queue). **When two subsystems compose into a LOOP,
+the loop is a third thing and needs its own assertion.**
+
+The fix is vocabulary, not mechanism — the latch has existed since Mirelurk Queen. One match, one strip,
+then the existing `|| !!cls.oncePerTurnTrigger` carries it. GAINED **4** · LOST 0 — Vanguard Seraph ·
+**Raphael, Tag Team Tough** (needed BOTH this and the wording widen below) · Angelic Cub · Cleric of
+Life's Bond. Each read back descriptor-first before being counted.
+
+⛔ **SUBJECT GATE — the latch key is `otpt_<permanentId>_<event>`, so it can only express a window owned by
+the SOURCE or its CONTROLLER.** *"Whenever an opponent loses life for the first time each turn"* gives each
+opponent their own first time; one shared per-source latch would suppress the second opponent's — an
+under-fire. Those keep parking. Every corpus carrier of this wording is self- or you-subject (censused
+2026-07-29: 45 cards). **The 12-card Valiant cluster is the next axis** — it parks on its *narrower*
+`"a spell or ability YOU CONTROL"` event, not on the qualifier.
+
+### ⚠️⚠️ TOOLING LAW — **A SURVIVED MUTANT AND A NO-OP PATCH LOOK IDENTICAL**
+M123/M124 first reported SURVIVED. They had never applied. **`\\b` written through a Python heredoc
+collapses to `\b`, which Python reads as 0x08 BACKSPACE** — the search string contained a control character
+and `str.replace` silently no-opped. This is the same trap that cost time earlier in the run, in a new
+disguise. **Every mutation script must `assert old in s` before writing** (or use a raw `r'...'` literal, or
+the Edit tool). The header's existing `grep -c MUTANT` warning covers marker mutations; this covers
+substitutions.
+
+### ⭐ AND WHEN A MUTANT REALLY DOES SURVIVE, THE SURVIVOR IS THE FINDING
+M124 (drop the trailing `$`) survived legitimately at first. Reading *why* was the whole value: without the
+anchor the match becomes greedy-prefix and **TRUNCATES** *"for the first time during each of your turns"*
+to a bare condition, which detects as `{ whose:"any", oncePerTurnTrigger:false }` — an over-fire on **both**
+axes. The pin was asserting the wrong thing (an absent event rather than the full descriptor). It also
+exposed a redundant-guard smell: a test-then-replace pair is one anchor written twice, and a mutation
+dropping either half survives on the other. Collapsed to a single match with a capture.
+
+**A PIN GRADUATED AND WAS RE-POINTED, NOT DELETED.** `trigLifegain`'s *"does NOT detect a conditional
+'first time each turn'"* was a **CAPABILITY** pin — it graduates on a runtime proof. It now asserts
+detection **with the latch** (detection without it is the over-fire), and its opponent-subject half is
+pinned in its place. The three-kinds-of-pin taxonomy held.
+
+## 🔧 SHIPPED — attacking-only mass untap + the Raphael wording (`ef54c6a2`, +1)
+
+Third scope on the same untap resolver: `scope: "attacking"` filters by membership in the live
+`state.combat.attackers` set instead of a type line. Outside combat it untaps **nothing** — never a
+fallback to "all creatures", which would untap the whole board off a card that promised only the attackers.
+Plus a one-word widen: *"after this COMBAT phase"* is the same insertion point as *"after this phase"*
+(Raphael is the only printing), kept as a **separate alternative** so the after-MAIN form can never be
+reached by widening — M120 over-widens it and dies.
+
+GAINED **1** — Hellkite Charger #2125. ⚠️ **6 cards carry the clause; 5 hold a second blocker of their own.**
+Its whole clause rides an optional-mana-payment, so the **seam got its own block**: PAY taps seven lands,
+untaps the attacker, queues the combat; DECLINE spends nothing and queues nothing — the free-attack FP this
+would be if the cost were cosmetic.
 
 ## 🔧 SHIPPED — mass untap of your OWN creatures (`c5697dc8`, +8) · **a THIRD kind of pin**
 
@@ -3601,6 +3680,14 @@ mechanics. Recent slices moved Zaxara 91→92, cdh 80→81, Kinnan 72→73.
    guess at depth. Decide this one while sharp.
 3. **Upkeep-only activation** (11) — still needs the offer window WIDENED, not narrowed. Riskier than
    anything above; take it EARLY in a run.
+3b. ⭐ **THE VALIANT CLUSTER (12 cards, 0 native) — the cleanest next axis, named 2026-07-29.** All twelve
+   print *"Whenever this creature becomes the target of a spell or ability **you control** for the first
+   time each turn, …"* (Heartfire Hero, Veteran Guardmouse, Recruit Instructor, Brave Meadowguard, …), plus
+   4 more on the untargeted `"a spell or ability"` form (Shimmering/Jetting Glasskite). The
+   `becomesTarget` event EXISTS and now carries the once-per-turn latch — Angelic Cub proves the whole
+   chain end to end on the **untargeted** form. **The only thing missing is the `you control` narrowing on
+   the targeting spell's controller.** Do not widen it to any targeter: the whole point of Valiant is that
+   an opponent's removal spell does NOT grow the creature.
 4. Shelf grind: the leverage head (2+ decks), re-read 2026-07-28 after Bloom Tender closed:
    - ✅ **Bloom Tender ×3** — DONE (`003e29d1`).
    - ✅ **Chrome Mox ×3** — DONE (`7af34dc1`). The imprint STAMP is now shared infrastructure.
