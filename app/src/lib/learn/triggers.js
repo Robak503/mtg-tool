@@ -3068,7 +3068,51 @@ export function detectTriggers(card) {
       const inner = m[2].trim();
       const split = splitTriggerSentence(inner);
       if (!split) continue;
-      let cls = classifyCondition(split.condition, card.name, card.type || card.type_line);
+      // ===== "…FOR THE FIRST TIME EACH TURN" (CR 603.2) — the limiter baked into the EVENT WORDING =====
+      // The same once-per-turn latch the trailing sentence "This ability triggers only once each turn."
+      // stamps (see the descriptor build below), reached by the other printed spelling. Stripped HERE,
+      // before classification, for two reasons that are really one: the qualifier is not part of the event
+      // (an `attacks` trigger is an `attacks` trigger), and leaving it in makes every condition arm choose
+      // between ignoring it — which is what happened — or failing to match.
+      //
+      // ⛔ IGNORING IT WAS AN OVER-FIRE, THE FORBIDDEN DIRECTION. Aurelia, the Warleader was detected as a
+      // plain `attacks` trigger with the latch OFF, so she fired on EVERY attack — and her payoff grants an
+      // ADDITIONAL COMBAT PHASE, so she attacked again, fired again, and queued another. A turn that never
+      // ends. The extra-combat mechanism's own tests proved one grant drains; nothing proved the grant
+      // couldn't be re-issued, because that lived in the join. firstTimeEachTurnTrigger.test.js drives both
+      // attacks through flushTriggers and asserts the second one puts nothing on the stack.
+      //
+      // TRAILING-ANCHORED on the condition. "for the first time DURING EACH OF YOUR TURNS" (Tale of Katara
+      // and Toph) is a per-your-turn window, NOT this one, and does not match — it keeps its own handling.
+      // A non-trailing occurrence (no corpus case) leaves the condition untouched → unmatched → Arbiter.
+      // ⛔ SUBJECT GATE — THE LATCH IS KEYED PER SOURCE PERMANENT + EVENT, so it can only express a window
+      // that belongs to the SOURCE or to its CONTROLLER: "this creature attacks…", "~ deals combat damage…",
+      // "you gain life…", "you investigate…". A condition whose subject is some OTHER player ("whenever an
+      // opponent loses life for the first time each turn") gives each of them their own first time, and one
+      // shared per-source latch would suppress the second opponent's — an UNDER-fire. Those keep parking
+      // (Arbiter, a SAFE false-negative) until the latch can be keyed per player; lifeLossTrigger.test.js
+      // pins that case. Every corpus carrier of this wording is self- or you-subject (censused 2026-07-29:
+      // 45 cards, dominated by "this creature becomes the target of a spell or ability…").
+      let condText = split.condition;
+      let firstTimeEachTurn = false;
+      // ONE match, one strip — deliberately not a test-then-replace pair. Two copies of the same anchor are
+      // the same guard written twice, and a mutation dropping either one survives because the other still
+      // holds; the capture is what makes the anchor load-bearing exactly once.
+      const ftetM = String(split.condition).trim().match(/^(.*\S)\s+for the first time each turn$/i);
+      if (ftetM) {
+        const stripped = ftetM[1];
+        const subj = stripped.toLowerCase();
+        const nm = String(card.name || "").toLowerCase();
+        const shortNm = /legendary/i.test(String(card.type || card.type_line || "")) ? nm.split(",")[0].trim() : "";
+        const ownWindow = /^(?:this|you)\b/.test(subj)
+          || (nm.length >= 3 && subj.startsWith(nm))
+          || (shortNm.length >= 3 && subj.startsWith(`${shortNm} `));
+        if (ownWindow) {
+          condText = stripped;
+          firstTimeEachTurn = true;
+        }
+      }
+      let cls = classifyCondition(condText, card.name, card.type || card.type_line);
       // ADDITIVE registry seam (WAVE 0): a future slice registers a condition detector instead of
       // editing this dispatch body. The inline classifyCondition keeps priority — the registry runs
       // ONLY when it returns falsy, and the first detector to return a truthy descriptor wins. An
@@ -3080,11 +3124,17 @@ export function detectTriggers(card) {
           // condition AND the effect — e.g. SELF-LTB classifies "equipped creature dies" ONLY when the
           // effect is "return it to its owner's hand", so "equipped creature dies, draw a card" stays
           // unmatched (CREED). Pre-existing condition-only detectors simply ignore the extra arg.
-          const r = d(split.condition, card.name, card.type || card.type_line, split.effectClause);
+          // The STRIPPED condition, same as the inline classifier above — a registered detector must not
+          // have to know about a qualifier that isn't part of its event either.
+          const r = d(condText, card.name, card.type || card.type_line, split.effectClause);
           if (r) { cls = r; break; }
         }
       }
       if (!cls) continue;
+      // Stamp the latch onto the classified descriptor. Mutating `cls` is this dispatch's established idiom
+      // (see cls.functionsFromGraveyard below), and the descriptor build's `|| !!cls.oncePerTurnTrigger` —
+      // documented there as load-bearing — is what carries it through.
+      if (firstTimeEachTurn) cls.oncePerTurnTrigger = true;
       // Extend the effect with the trigger's remaining SAME-LINE sentences (reminder text stripped)
       // so the parser sees its WHOLE effect. A triggered ability's effect is one oracle line, so we
       // stop at the first newline — that avoids swallowing a separate ability on the next line. An

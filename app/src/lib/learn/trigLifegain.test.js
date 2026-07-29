@@ -34,9 +34,26 @@ describe("TRIG-LIFEGAIN — detection (classifyCondition)", () => {
     expect(trigs[0].effectClause).toBe("put a +1/+1 counter on this creature");
   });
 
-  it("does NOT detect a conditional 'first time each turn' (anchored → Arbiter, a SAFE false-negative)", () => {
+  it("⭐ GRADUATED — 'for the first time each turn' now detects, WITH the once-per-turn latch stamped", () => {
+    // This pin used to assert non-detection. It was a CAPABILITY pin ("we cannot read the qualifier"), not a
+    // judgement one, and it graduated when the qualifier became readable: the strip at the detectTriggers
+    // dispatch hands classifyCondition a bare "you gain life" and stamps descriptor.oncePerTurnTrigger, which
+    // gameEngine.flushTriggers enforces off the same per-source latch the printed-sentence limiter uses.
+    // Detecting WITHOUT the latch would have been the over-fire this file's CREED gate exists to prevent —
+    // so the latch assertion, not the detection, is what makes this safe. See firstTimeEachTurnTrigger.test.js.
     const c = creature("Conditional", 1, 1, "Whenever you gain life for the first time each turn, draw a card.");
-    expect(detectTriggers(c).some(t => t.event === "lifegain")).toBe(false);
+    const d = detectTriggers(c).find((t) => t.event === "lifegain");
+    expect(d).toBeTruthy();
+    expect(d.oncePerTurnTrigger).toBe(true);
+    expect(d.effectClause).toBe("draw a card");
+  });
+
+  it("⛔ but an OPPONENT-subject window still parks — one per-source latch can't hold two players' firsts", () => {
+    // The re-pointed half of the pin above. "Each opponent has their own first time each turn" needs a
+    // per-player latch key; the shared per-source one would suppress the second opponent's first gain, an
+    // under-fire. Until the key can express it, unmatched → Arbiter.
+    const c = creature("Opponent", 1, 1, "Whenever an opponent gains life for the first time each turn, draw a card.");
+    expect(detectTriggers(c).some((t) => t.event === "lifegain")).toBe(false);
   });
 
   it("does NOT detect a compound 'gain or lose life' (residue → Arbiter)", () => {
