@@ -461,10 +461,52 @@ export function parseTutorFilter(phrase) {
   // or Mountain" → 4 groups (RAMP-TYPED's typed-basic union, Farseek). The ", or " separator is tried
   // BEFORE a bare ", " so the final Oxford-comma item isn't left with a stray leading "or". Backward-
   // compatible: phrases with no comma ("basic land", "instant or sorcery") split exactly as before.
-  const groups = String(phrase).trim().split(/,\s*or\s+|,\s*|\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));
+  let rest = String(phrase).trim();
+
+  // ===== COLOR-QUALIFIED (Natural Order #1594, Summoner's Pact #3114, Magus of the Order) ==============
+  // "a GREEN creature card". The color gate (`filter.colors`) already exists in cardMatchesTutorFilter —
+  // only the parse was missing, so this is the graveyard-destination shape again: machinery present,
+  // vocabulary absent. Peeled BEFORE the union split, because "blue or black creature" would otherwise
+  // shatter into ["blue"] + ["black creature"] and validate as neither.
+  //
+  // ⛔ COLORS MUST NOT BECOME GROUP WORDS. A group word is matched by `\b<word>\b` CONTAINMENT AGAINST THE
+  // TYPE LINE, and no type line contains "green" — the tutor would classify native, find nothing, ever, and
+  // the tier would never show it. That is the vacuous-subtype-filter FP class the ledger keeps a probe for.
+  //
+  // ⛔ AND ONLY A SINGLE COLOR IS ADMITTED. `cardMatchesTutorFilter`'s color loop is an AND over the list,
+  // but printed text means OR ("blue or black creature" = a creature that is blue OR black). Emitting both
+  // would demand a card be BOTH — narrower than printed. Rather than silently under-deliver, a color UNION
+  // parks the whole tutor (Kaito Shizuki), which is the honest read until the gate learns OR.
+  let colors = null;
+  const cm = rest.match(/^((?:white|blue|black|red|green)(?:\s+or\s+(?:white|blue|black|red|green))+)\s+(.+)$/i);
+  if (cm) return null; // a color UNION — see above
+  const c1 = rest.match(/^(white|blue|black|red|green)\s+(.+)$/i);
+  if (c1) {
+    colors = [c1[1].toLowerCase()];
+    rest = c1[2].trim();
+  }
+
+  // ===== PERMANENT-CARD (CR 110.4a) — "a PERMANENT card", "a DRAGON permanent card" ====================
+  // Scion of the Ur-Dragon, Dragonstorm, Zirilan of the Claw, Planar Bridge, Tezzeret Artifice Master,
+  // Lin Sivvi. `filter.permanentOnly` already exists too (built for Wargate's MV-capped permanent fetch);
+  // it requires a POSITIVE permanent-type match on the front face, so an instant/sorcery can never sneak in.
+  // A qualifier in front ("dragon permanent") keeps its group word AND the permanent gate — both must hold.
+  let permanentOnly = false;
+  if (/\bpermanent$/i.test(rest)) {
+    permanentOnly = true;
+    rest = rest.replace(/\s*\bpermanent$/i, "").trim();
+  }
+
+  if (!rest) {
+    // A bare "permanent card" (optionally color-qualified) — no type groups to match, just the gates.
+    if (!permanentOnly) return null;
+    return { groups: [], permanentOnly, ...(colors ? { colors } : {}) };
+  }
+
+  const groups = rest.split(/,\s*or\s+|,\s*|\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));
   if (groups.length === 0 || groups.some((g) => g.length === 0)) return null;
   for (const g of groups) for (const w of g) if (!TUTOR_FILTER_WORDS.has(w)) return null;
-  return { groups };
+  return { groups, ...(permanentOnly ? { permanentOnly } : {}), ...(colors ? { colors } : {}) };
 }
 // WAVE-2b TUTOR — UP-TO-N word→number for the multi-fetch ramp tutors ("up to two/three/four/five").
 export const UP_TO_N_WORD = { two: 2, three: 3, four: 4, five: 5 };

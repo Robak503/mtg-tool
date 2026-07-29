@@ -140,8 +140,18 @@ describe("LK-1 FN guards — near-miss carriers STAY parked (false-negative SAFE
     expect(classifyCard(BLOSSOM_PRANCER)).toBe("body-only");   // ETB dig + "gain 4 life" rider
     expect(classifyCard(ADVENTURE_AWAITS)).toBe("arbiter-spell"); // sorcery dig + "draw a card" rider
   });
-  it("a 'permanent card' filter (outside the impulse-dig type allowlist) stays parked", () => {
-    expect(classifyCard(BEASTRIDER_VANGUARD)).toBe("body-only");
+  it("GRADUATED — a 'permanent card' filter is modelled now (CR 110.4a)", () => {
+    // This pinned an absent VOCABULARY, not a decision: parseTutorFilter had no "permanent" word, so the
+    // dig's filter was unparseable and the card correctly parked. The word landed with the tutor-filter
+    // slice, and the gate it produces (`permanentOnly`) was ALREADY implemented in cardMatchesTutorFilter
+    // — which is the very matcher this dig path calls.
+    //
+    // ⛔ VERIFIED NOT VACUOUS BEFORE GRADUATING. `permanentOnly` emits `groups: []`, and an empty group
+    // list matches every card — so if this path had ignored the flag, Beastrider Vanguard would classify
+    // native while offering ANY card, wider than printed. Resolved against a real library
+    // (Sol Ring / Lightning Bolt / Bear), the dig offers the artifact and the creature and NOT the instant.
+    // See tutorFilterVocabulary.test.js for the gate's own discrimination assertions.
+    expect(classifyCard(BEASTRIDER_VANGUARD)).toBe("native-activated");
   });
   it("an N=1 decline-to-graveyard form (Archghoul) stays parked (not this template)", () => {
     expect(classifyCard(ARCHGHOUL)).toBe("body-only");
