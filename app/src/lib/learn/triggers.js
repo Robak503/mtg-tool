@@ -41,7 +41,17 @@ function typeStr(card) {
 // list containing a card-TYPE word (creature/permanent/artifact/…) since those would match every permanent
 // (an over-fire); a real subtype list never includes them. Used so a multi-subtype tribal trigger (Spawning
 // Kraken — "a Kraken, Leviathan, Octopus, or Serpent you control deals combat damage") matches ANY member.
-const NON_SUBTYPE_FILTER_WORDS = new Set(["creature", "creatures", "permanent", "permanents", "artifact", "artifacts", "enchantment", "enchantments", "land", "lands", "token", "tokens", "spell", "spells", "player", "players", "card", "cards"]);
+// ⚠️ EVERY WORD HERE IS ONE THAT WOULD MINT A **VACUOUS FILTER** — a gate `subtypeFilterMatches` can never
+// satisfy, so the card classifies NATIVE and the trigger never fires. That is the forbidden FP class, and it
+// is invisible to the per-card tier diff (nothing MOVES — the card was already native and stays native).
+// `probe-vacuous-subtype-filters.mjs` is the instrument that finds them: it derives the real subtype
+// vocabulary from printed type lines and reports any minted filter absent from it. Run it after touching
+// any path that mints a subtypeFilter.
+//   • "commander" / "outlaw" are CR-defined qualities, NOT type-line words (CR 903.3 designation, CR 203.4c
+//     umbrella). Both were live FPs found by that probe: Norn's Choirmaster #3286 and Keleth #6637 classified
+//     native-trigger and fired ZERO on a board. Each now has a POSITIVE route below (commanderYouControl for
+//     the first, the five-subtype expansion for the second) — the denylist is the backstop, not the fix.
+const NON_SUBTYPE_FILTER_WORDS = new Set(["creature", "creatures", "permanent", "permanents", "artifact", "artifacts", "enchantment", "enchantments", "land", "lands", "token", "tokens", "spell", "spells", "player", "players", "card", "cards", "commander", "commanders", "outlaw", "outlaws"]);
 // FIRST-WORD SELF-REF stopwords (classifyCondition) — a legendary "<First> the <Epithet>" name self-refers by
 // its first word, but a name LEADING with one of these isn't using it as the self-name ("The Ur-Dragon" →
 // "the" self-refers by the full name, already matched). Articles only; a real first-word self-name (Smaug,
@@ -54,6 +64,40 @@ function parseSubtypeList(s) {
   const caps = parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
   return caps.length === 1 ? caps[0] : caps;
 }
+/**
+ * A plural (or already-singular) creature-type word → the REAL CR subtype, or null.
+ *
+ * ⚠️ WHY THIS EXISTS INSTEAD OF `word.replace(/s$/, "")`. That naive strip was the shipped behaviour and it
+ * is wrong for every irregular plural in the game: "Allies" → "Allie", "Elves" → "Elve", "Oxen" → "Oxen".
+ * None of those is a printed subtype, so the resulting filter is a gate NO CARD CAN SATISFY — the card
+ * classifies native and the trigger silently never fires. Invasion Tactics #13305 shipped exactly that way
+ * ("Allie"), found by `probe-vacuous-subtype-filters.mjs`.
+ *
+ * The fix is NOT a hand-written plural dictionary — that would just move the fabrication. Candidate
+ * singular forms are GENERATED and then VALIDATED against `CR_CREATURE_TYPES`, the closed 317-word
+ * vocabulary (ENGINE-SCAFFOLD §6: validate against a closed set, never a loose word). A word that resolves
+ * to nothing in that set returns null, and every caller treats null as "don't build a filter" → the trigger
+ * stays with the Arbiter (a SAFE false-negative). So an unrecognised or newly-printed type degrades to
+ * undetected rather than to a vacuous native.
+ *
+ * Order matters only in that the first hit wins; the candidates are disjoint in practice ("wolves" → "wolf"
+ * via -ves→-f, "knives" → "knife" via -ves→-fe, "allies" → "ally" via -ies→-y, "oxen" → "ox" via -en).
+ */
+function singularCreatureType(word) {
+  const w = String(word).toLowerCase();
+  if (CR_CREATURE_TYPES.has(w)) return w; // already singular ("merfolk", "dinosaur")
+  const candidates = [
+    w.replace(/ies$/, "y"),   // allies → ally
+    w.replace(/ves$/, "f"),   // elves → elf · wolves → wolf · dwarves → dwarf
+    w.replace(/ves$/, "fe"),  // knives → knife
+    w.replace(/en$/, ""),     // oxen → ox
+    w.replace(/es$/, ""),     // foxes → fox
+    w.replace(/s$/, ""),      // goblins → goblin (the regular case)
+  ];
+  for (const cand of candidates) if (cand !== w && CR_CREATURE_TYPES.has(cand)) return cand;
+  return null;
+}
+
 // Does a card's type line carry the subtype filter (single string OR any of a list)?
 function subtypeFilterMatches(card, filter) {
   if (!filter) return false;
@@ -100,6 +144,13 @@ function parseBatchSubjectFilter(subjectRaw) {
   if (nonSubM && CR_CREATURE_TYPES.has(nonSubM[1])) return { batchNotSubtype: nonSubM[1] };
   // OUTLAW meta-type (Olivia) — expand to the five constituent subtypes (OR semantics via subtypeFilterMatches).
   if (s === "outlaws" || s === "outlaw") return { subtypeFilter: OUTLAW_SUBTYPE_LIST };
+  // COMMANDER batch subject (CR 903.3) — a DESIGNATION, so it needs its own gate rather than a subtypeFilter:
+  // "Commander" appears in no type line, and minting it as a subtype produced a filter nothing could satisfy.
+  // batchDealerMatches reads the dealer's isCommander stamp, the same field the per-attacker
+  // commanderYouControl scope reads, so a CLONE of a commander correctly fails both (a copy is not a
+  // commander, CR 707.2). No printed card carries this subject today; it exists so the plural form degrades
+  // to a CORRECT batch rather than to a vacuous one, which is what it used to do.
+  if (s === "commanders" || s === "commander") return { batchCommander: true };
   // BARE creature SUBTYPE(S) — a single word ("goblins"/"dinosaur") or a comma/or list, de-pluralized. Reuses
   // parseSubtypeList (which rejects card-TYPE words like "creatures" so the bare-creatures form never reaches
   // here — it's matched by the dedicated regex above). Singularize a trailing 's' per word so "goblins" →
@@ -122,7 +173,7 @@ function parseBatchSubjectFilter(subjectRaw) {
     ? s.replace(/\s+creatures$/, "")
     : s;
   if (/^[a-z]+(?:s)?(?:(?:,| or | and )[a-z]+(?:s)?)*$/.test(listSubject)) {
-    const depluralized = listSubject.replace(/\b([a-z]{3,})s\b/g, "$1");
+    const depluralized = listSubject.replace(/\b([a-z]{3,})\b/g, (w) => singularCreatureType(w) || w);
     const filter = parseSubtypeList(depluralized);
     if (filter) return { subtypeFilter: filter };
   }
@@ -139,6 +190,7 @@ function batchDealerMatches(descriptor, dealerPerm, state = null) {
   if (descriptor.batchArtifact) return /Artifact/.test(typeStr(dealerPerm.card));
   if (descriptor.batchEnchantment) return /Enchantment/.test(typeStr(dealerPerm.card));
   if (descriptor.batchNontoken) return !dealerPerm.card.token;
+  if (descriptor.batchCommander) return !!dealerPerm.card.isCommander; // CR 903.3 designation, not a type line word
   // NEGATED-SUBTYPE batch (Keeper of Fables — "non-Human creatures") — layer-4-aware subtypes UNIONED with
   // the changeling gate (CR 702.73a: a changeling IS every creature type, so it IS a Human and "non-Human"
   // EXCLUDES it — the widest exclusion; missing it would be the FP direction). Without state (defensive) the
@@ -904,6 +956,14 @@ function classifyCondition(condRaw, cardName, cardType) {
     // single-word subtype passes; a card-TYPE word, a multi-word/restricted subject, or "another …" (handled
     // above) fails → UNDETECTED → Arbiter (CREED FN-safe). Checked AFTER another-subtype + before the bare
     // creatureSubjectScope (which doesn't recognize a subtype word).
+    // COMMANDER-SCOPED ETB (CR 903.3) — "Whenever a commander you control enters" (Norn's Choirmaster #3286).
+    // Commander-ness is a DESIGNATION stamped on the card, not a word in the type line, so it must NOT ride
+    // the subtype path: a subtypeFilter of "Commander" is a gate no printed card can satisfy (verified on a
+    // board — the card fired zero and still classified native-trigger). `commanderYouControl` is the scope
+    // that already enforces this correctly for combat damage (Kediss); this reuses it rather than adding a
+    // second commander gate. A PLANESWALKER commander entering does not fire it (scopeMatches requires a
+    // creature permanent) — an accepted FN, not an over-fire.
+    if (etbSubj === "a commander you control") return { event: "etb", scope: "commanderYouControl", whose: "any" };
     const etbSubM = etbSubj.match(/^an? ([a-z]{3,}) you control$/);
     if (etbSubM && !NON_SUBTYPE_FILTER_WORDS.has(etbSubM[1])) {
       return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: etbSubM[1].charAt(0).toUpperCase() + etbSubM[1].slice(1) };
@@ -971,6 +1031,12 @@ function classifyCondition(condRaw, cardName, cardType) {
     // parseSubtypeList the combat-damage subject uses (string for one word — byte-identical to the old
     // single form — or an array; subtypeFilterMatches checks ANY member). A non-subtype word anywhere in
     // the list → null → undetected → Arbiter (never an over-fire).
+    // OUTLAW dies (CR 203.4c) — "Whenever an outlaw you control dies" (Rakish Crew). "Outlaw" is an UMBRELLA
+    // term, not a type-line word, so it expands to its five constituent subtypes exactly as the batch
+    // combat-damage subject parser already does; subtypeFilterMatches accepts a list and matches ANY member.
+    // Without this it minted the literal "Outlaw" — a gate no type line satisfies (found by the vacuous-filter
+    // probe) — and NON_SUBTYPE_FILTER_WORDS now blocks that spelling outright.
+    if (/^an outlaw you control dies$/.test(c)) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: OUTLAW_SUBTYPE_LIST };
     const diesSub = c.match(/^an? ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) you control dies$/);
     if (diesSub) {
       const filter = parseSubtypeList(diesSub[1]);
@@ -1518,8 +1584,14 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (/^another creature you control attacks$/.test(c)) return { event: "attacks", scope: "otherCreatureYouControl", whose: "any" };
     // SUBTYPE attacks (tribal payoffs — Utvara Hellkite / Sanctum Seeker / Grolnok). Single-word subtype
     // filter reusing subtypeYouControl; checkAttackTriggers threads the attacker as triggeringPermanent.
+    // COMMANDER-SCOPED attacks (CR 903.3) — "Whenever a commander you control attacks" (Keleth #6637;
+    // Norn's Choirmaster's second half). Same reasoning as the ETB sibling above: a designation, not a
+    // type-line word, so it takes commanderYouControl instead of a subtypeFilter that can never match.
+    if (/^a commander you control attacks$/.test(c)) return { event: "attacks", scope: "commanderYouControl", whose: "any" };
+    // ⚠️ This matcher is otherwise UNVALIDATED — any 3+ letter word becomes a filter. NON_SUBTYPE_FILTER_WORDS
+    // is what keeps a card-type or CR-umbrella word from minting a gate no type line satisfies.
     const atkSub = c.match(/^a ([a-z]{3,}) you control attacks$/);
-    if (atkSub) return { event: "attacks", scope: "subtypeYouControl", whose: "any", subtypeFilter: atkSub[1].charAt(0).toUpperCase() + atkSub[1].slice(1) };
+    if (atkSub && !NON_SUBTYPE_FILTER_WORDS.has(atkSub[1])) return { event: "attacks", scope: "subtypeYouControl", whose: "any", subtypeFilter: atkSub[1].charAt(0).toUpperCase() + atkSub[1].slice(1) };
   }
   // ===== BLOCKS compound / restricted-block guard (CREED, CLAUDE.md §1.2) ===== The only modeled block
   // trigger is the BARE self-block ("Whenever this creature blocks, …"). A COMPOUND condition that also
@@ -2359,7 +2431,12 @@ const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+|that ma
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
 // otherCreatureYouControl (Railway Brawler — "Whenever ANOTHER creature you control enters, put X +1/+1
 // counters on IT") joins the set: its "it" is the triggering (entering) creature exactly like the others.
-const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl", "creatureYouControlKeyword", "otherCreatureYouControl"]);
+// `commanderYouControl` belongs here for the same reason every sibling does: the pronoun's referent is the
+// TRIGGERING permanent (CR 608.2c), and this scope threads one exactly as the others do. It was added when
+// commander-scoped etb/attacks stopped riding the (vacuous) subtype path — Keleth #6637's "put a +1/+1
+// counter on it" routes through this set, so omitting it would have swapped one silent failure for another:
+// the card would classify body-only rather than firing. The tier diff caught it as a LOST card.
+const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl", "creatureYouControlKeyword", "otherCreatureYouControl", "commanderYouControl"]);
 
 // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger whose payoff MAGNITUDE is "that creature's
 // power/toughness" — the ENTERING creature's stat (CR 608.2c — the object the ability triggered on): Terror of
@@ -3227,6 +3304,7 @@ export function detectTriggers(card) {
         batchEnchantment: cls.batchEnchantment, // SUBTYPE/PROPERTY BATCH combat-damage only — "enchantment creatures"
         batchNontoken: cls.batchNontoken,     // SUBTYPE/PROPERTY BATCH combat-damage only — "(other) nontoken creatures" (Rooftop Bypass)
         batchNotSubtype: cls.batchNotSubtype, // NEGATED-SUBTYPE BATCH combat-damage only — lowercase creature type NOT to match (Keeper of Fables "non-Human"); layer-aware + changeling-aware dealer gate
+        batchCommander: cls.batchCommander,   // COMMANDER BATCH combat-damage only (CR 903.3) — gated on the dealer's isCommander stamp, never a subtypeFilter ("Commander" is in no type line)
         batchKeyword: cls.batchKeyword,       // WITH-KEYWORD BATCH combat-damage only (Quartzwood — lowercase keyword; layer-aware dealer gate)
         perDefender: cls.perDefender,         // WITH-KEYWORD BATCH only — fires once per damaged player with that pair's damage total in ctx
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
