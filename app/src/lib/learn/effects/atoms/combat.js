@@ -1760,6 +1760,21 @@ export function fightClauseParser(clause) {
       secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
       ...(m[1] ? { optionalTarget: true } : {}),
     };
+    // (a2) THE MIRROR OF (a) — "UP TO ONE target creature YOU CONTROL fights target creature an opponent
+    // controls" (Earth Rumble's reflexive half). (a) already reads "up to one" on the ENEMY; the same
+    // qualifier on the FIGHTER had no arm, so the whole card fell to LOW. Another instance of the
+    // missing-sibling shape: a modifier supported on one side of a pair and never applied to the other.
+    //
+    // The optionality rides on the SECONDARY (fighter) half here, so it needs its own flag —
+    // `optionalTarget` is wired to the primary in targeting.js and reusing it would make the ENEMY
+    // declinable instead, which is a different card. applyFightPair already no-ops symmetrically on a
+    // missing fighter OR target, so a declined fighter needs nothing further.
+    m = t.match(new RegExp(`^up to one target creature you control fights ${ENEMY}$`));
+    if (m) return {
+      op: "fight-pair", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+      secondaryOptionalTarget: true,
+    };
     // (b) "target creature you control deals damage equal to its power to target creature you don't control" (one-way)
     m = t.match(new RegExp(`^target creature you control deals damage equal to its power to ${ENEMY}$`));
     if (m) return {

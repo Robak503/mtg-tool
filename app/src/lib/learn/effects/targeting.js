@@ -368,6 +368,16 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     // fighter "you control"). Both lists share atomIndex i; distinctness is enforced after the cartesian.
     const secondary = secondaryAtomTargets(state, controllerId, atom, i, sourceColors, ctx);
     if (secondary !== null) {
+      // SECONDARY-OPTIONAL ("UP TO ONE target creature you control fights …" — Earth Rumble). The mirror of
+      // the optionalTarget block above, on the fighter half: offer a DECLINE alongside the legal fighters, so
+      // the cast is legal with ZERO of them and the player may decline one they'd rather not risk. Real
+      // fighters come first, same ordering rule as the primary, so a chooser prefers an actual fight.
+      // applyFightPair no-ops on a missing fighter, so a declined pick resolves clean.
+      if (atom.secondaryOptionalTarget) {
+        perAtom.push([...secondary, DECLINE]);
+        pairAtomIdx.push(i);
+        continue;
+      }
       if (secondary.length === 0) return null; // the fighter half has no legal pick → uncastable
       perAtom.push(secondary);
       pairAtomIdx.push(i);
