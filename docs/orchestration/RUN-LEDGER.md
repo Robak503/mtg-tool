@@ -2344,6 +2344,50 @@ belongs beside `castWithExempt` ABOVE the reject, never as a weakening of it.
 plus the two DELIBERATE refusals, Scythecat Cub (inexpressible condition) and Herd Heirloom
 (spend-restricted mana). **Do not re-chase the refusals.**
 
+## ✅ SHIPPED — NONCREATURE artifact/enchantment targets (+5), a narrowing (`a8279062`)
+
+48 corpus cards use "noncreature artifact / enchantment" and NONE classified native. The qualifier EXCLUDES
+artifact and enchantment CREATURES, so approximating it as the bare type would let the engine destroy an
+artifact creature the printed card cannot touch. **These shapes were REFUSING correctly** — this slice is
+FP-closing, and the new arms are strictly narrower than the bare ones beside them.
+
+Two details worth keeping:
+- **Alternation order is load-bearing.** The qualified nouns are listed BEFORE the bare ones so the qualifier
+  is consumed whole; left-to-right matching would otherwise let "artifact" win and silently drop
+  "noncreature". M53 reproduces exactly that.
+- **⭐ The enumerator is LAYER-AWARE.** A permanent can be a creature only BY LAYERS. `addPermanents` now
+  passes the permanent as a second argument (every pre-existing predicate takes one parameter and ignores it,
+  so it is inert for them) and the new predicates consult `permanentIsCreature`.
+  **Proven on real machinery, not asserted:** an ARTIFACT LAND under a mass land-animation (Nature's Revolt)
+  is an Artifact whose live type line includes Creature — un-animated it is offered, animated it is not.
+
+⚠️ **MEASURED SCOPE LIMIT:** the engine models mass LAND animation but **not** mass ARTIFACT animation ("All
+artifacts are 2/2 creatures" does not animate; March of the Machines is not modelled as an animator). So the
+artifact-land case is the only scenario reaching the layer branch today. Recorded because the obvious test to
+reach for — March of the Machines — silently proves nothing.
+
+## ⛔ MEASURED AND CLOSED — TEAMWORK is a FALSE LEVER (the shelf probe's new #1 row)
+
+`Teamwork 2` ranks TOP of the shelf blockers at **3 cards across 3 decks** (We Say Thee Nay!, HULK SMASH!,
+Earth's Mightiest Heroes) — the best spread on the board. It is not worth building, and here is the
+arithmetic so nobody re-derives it:
+
+- Teamwork is an OPTIONAL additional cost, *"tap any number of creatures you control with total power N or
+  more"* — i.e. **exactly the banked "tap N creatures as a cost" design fork** (enumerate combinations =
+  correct but explosive, vs. auto-pick = legal but removes agency). It is a parked DECISION, not a slice.
+- ⭐ **And solving it would move at most ONE of the three cards**, because teamwork is not their only
+  blocker. Measured on the non-teamwork halves judged alone:
+  - We Say Thee Nay! — "counter target spell unless its controller pays {2}" → **HIGH** (only card teamwork
+    actually gates)
+  - HULK SMASH! — mode 1 "destroy target noncreature artifact" was LOW (**now fixed by this slice**), but the
+    modal wrapper + the "if cast using teamwork, choose both instead" conditional remain
+  - Earth's Mightiest Heroes — "reveal the top eight … put a creature card from among them onto the
+    battlefield" → **LOW**, unrelated to teamwork
+
+**Verdict: a top-ranked row by spread that is worth ~1 card.** Same shape as the bite row closed earlier —
+the probe measures WHERE a blocking sentence appears, never whether it is the card's ONLY blocker. That check
+is manual and it has now paid off twice in two sessions.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2495,6 +2539,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `a8279062` — NONCREATURE artifact/enchantment targets, layer-aware (+5). Slice 64.
 - `977b72e9` — first-tap-each-of-your-turns + GRANTED becomes-tapped fire site (+1). **Earth Bent 90%.** Slice 63.
 - `277f161b` — optional FIGHTER half of fight-pair; Earth Rumble (+1). Slice 62.
 - `405756b6` — High Score pinned at runtime; verified, no bug (+0, x3 slots confirmed). Slice 61.
