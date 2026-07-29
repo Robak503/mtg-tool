@@ -106,6 +106,8 @@ const MAX_STEPS = 6000;
 // consumed. A future turn-termination detector should be built on a number like this ONCE a reproducible
 // case exists to witness it.
 let maxTurnDecisions = 0;
+let controlObservations = 0;
+const controllerMismatches = [];
 
 /** Decision kinds that mean the run is in trouble rather than progressing. */
 const TROUBLE = new Set(["engine-stuck", "dispatch-error", "pending-choice-unhandled"]);
@@ -229,6 +231,24 @@ for (let g = 0; g < GAMES; g++) {
     const curTurn = session?.state?.turn ?? null;
     if (curTurn !== lastTurn) { lastTurn = curTurn; turnDecisions = 0; }
     turnDecisions++;
+    // CONTROLLER INVARIANT (CR 613.1b). A permanent's controller is stored TWICE: implicitly by which
+    // player's battlefield array holds it, and explicitly in its own `.controller` field. `findPermanent`
+    // reports the ARRAY; roughly 628 sites read the FIELD. They must never disagree — a split-brain there is
+    // a legal-looking board that no test and no completed game would notice, which is exactly how it went
+    // undetected: breaking the shared control mover so the field stopped updating left the whole 12,276-test
+    // suite green. Checked here because only a real game exercises enough control changes to matter.
+    // ⚠️ Reported WITH its exposure (`controlObservations`): with random decks control changes are rare, and
+    // 0 mismatches out of 0 observations is not a pass — it is a measurement that never ran.
+    { const stx = session?.state;
+      for (const pid of Object.keys(stx?.players || {})) {
+        for (const perm of stx.players[pid].battlefield || []) {
+          if (!perm) continue;
+          if (perm.controlStolenBy) controlObservations++;
+          if (perm.controller != null && perm.controller !== pid) {
+            if (controllerMismatches.length < 25) controllerMismatches.push(`${perm.card?.name || perm.id}: field=${perm.controller} array=${pid}`);
+          }
+        }
+      } }
     if (turnDecisions > maxTurnDecisions) maxTurnDecisions = turnDecisions;
 
     const kind = decision?.kind;
@@ -276,6 +296,8 @@ if (done.length) {
   const t = done.map(r => r.turn).sort((a, b) => a - b);
   console.log(`  finished on turn: min ${t[0]} / median ${t[Math.floor(t.length / 2)]} / max ${t[t.length - 1]}`);
   console.log(`  max decisions in a single TURN: ${maxTurnDecisions} — the EXPOSURE behind the wedge count (no cap asserted; see the note at TURN EXPOSURE)`);
+  console.log(`  controller field-vs-array mismatches: ${controllerMismatches.length} (over ${controlObservations} control-change observations — a 0 with 0 exposure is not a pass)`);
+  for (const m of controllerMismatches.slice(0, 10)) console.log(`    ⛔ ${m}`);
 }
 const bad = results.filter(r => r.outcome !== "COMPLETED");
 if (bad.length) {
