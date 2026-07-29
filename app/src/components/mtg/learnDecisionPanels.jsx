@@ -1050,6 +1050,140 @@ export function HandDiscardPanel({ decision, onChoose }) {
 }
 
 /**
+ * IMPRINT (CR 207.2c) — the ETB exile-from-hand picker (Chrome Mox, Semblance Anvil, Isochron Scepter,
+ * Soul Foundry, Spellbinder, Prototype Portal). The player picks one card from their OWN hand (already
+ * filtered to what the card allows) to exile and imprint; every imprint payoff then reads that card.
+ *
+ * Modeled on HandDiscardPanel with ONE substantive difference: imprint is "you MAY", so declining is a
+ * real line and gets its own button, and the submit guard admits a null pick.
+ */
+export function ImprintPanel({ decision, onChoose }) {
+  const [selected, setSelected] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const candidates = decision.candidates || [];
+
+  // Reset the selection whenever the offered hand changes (a second imprint reuses this panel).
+  const candidateKey = candidates.map((c) => c.id).join("|");
+  useEffect(() => {
+    setSelected(null);
+  }, [candidateKey]);
+
+  // NOTE the difference from HandDiscardPanel's submit: a NULL cardId is a legal decline here, so the
+  // guard must not treat it as "nothing to do" — that would swallow the decline and soft-lock the seat.
+  const submit = async (cardId) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(cardId);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+          ⬡ Imprint{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          Choose a card to exile from your hand
+          {decision.filterLabel ? ` (${decision.filterLabel})` : ""} — {candidates.length} eligible.
+          It stays exiled for as long as this permanent is on the battlefield.
+        </div>
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          alignContent: "start",
+        }}
+      >
+        {candidates.map((c) => {
+          const isSel = selected === c.id;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setSelected(c.id)}
+              title={c.name}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 4,
+                background: isSel ? "var(--ley-green-dim)" : "transparent",
+                border: `2px solid ${isSel ? "var(--ley-green)" : "var(--ley-line)"}`,
+                borderRadius: 8,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <img
+                src={`/api/card-image?name=${encodeURIComponent(c.name)}`}
+                alt={c.name}
+                loading="lazy"
+                style={{
+                  width: "100%",
+                  aspectRatio: "63 / 88",
+                  objectFit: "cover",
+                  borderRadius: 4,
+                  background: "var(--ley-surface-2)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 11,
+                  color: isSel ? "var(--ley-green)" : "var(--ley-text)",
+                  lineHeight: 1.25,
+                  fontWeight: isSel ? 700 : 400,
+                }}
+              >
+                {c.name}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Imprint is "you MAY" — declining is a legal, sometimes correct line (the card stays in hand),
+          so the decline is a first-class button, not a hidden escape. */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => submit(selected)}
+          disabled={!selected || submitting}
+          style={{ flex: 1 }}
+        >
+          {submitting ? "…" : "Exile & imprint"}
+        </button>
+        <button
+          className="btn btn-sm"
+          onClick={() => submit(null)}
+          disabled={submitting}
+        >
+          Decline
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/**
  * δ-2 — interactive impulse-dig (Strategic Planning / Anticipate). The player looks at the top N of
  * their OWN library (real art) and keeps ONE in hand; the rest go to the bottom of the library or the
  * graveyard (per the spell). Resumes the suspended spell via session.applyImpulseDigChoice. Same

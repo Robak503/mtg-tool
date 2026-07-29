@@ -66,6 +66,7 @@ import {
   resolveOptionalChoice,
   autoPickHandDiscardCandidate,
   resolveHandDiscardChoice,
+  resolveImprintChoice,
   resolveImpulseDigChoice,
   autoPickLookTopTake,
   resolveLookTopTakeChoice,
@@ -968,6 +969,17 @@ function settleHandDiscardChoice(state, cardId) {
 }
 
 /**
+ * IMPRINT (CR 207.2c) — settle an imprint pick: exile the chosen card and stamp it onto the imprinting
+ * permanent (resolveImprintChoice), then flush anything the resumed program woke, exactly like its siblings.
+ * A null `cardId` is a LEGAL DECLINE ("you may"), not a stale pick — the permanent simply stays
+ * un-imprinted, which is a real and common board state, not an error.
+ */
+function settleImprintChoice(state, cardId) {
+  const next = resolveImprintChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * Settle one CR 514.1 cleanup-discard pick (CR-remediation B3): gameEngine.settleCleanupDiscardChoice
  * discards the chosen card and either re-raises (still over the max) or runs the deferred 514.2 cleanup
  * tail. When the chain completes, finalizeStackResolution drains/flushes anything the discard(s) woke
@@ -1724,6 +1736,34 @@ export function advanceUntilDecision(
           },
         });
         current = { ...current, state: settleHandDiscardChoice(current.state, picked.candidateId) };
+        continue;
+      }
+      // IMPRINT (CR 207.2c) — "you may exile a <filtered> card from your hand" as an ETB (Chrome Mox,
+      // Semblance Anvil, Isochron Scepter). The controller picks from their OWN hand; the pick is EXILED and
+      // STAMPED onto the imprinting permanent, and every imprint payoff reads that stamp.
+      //
+      // OPTIONAL by rule, so a null pick is a legal DECLINE rather than a re-surface — unlike hand-discard
+      // directly above, which always strips one. AI/Expert seats auto-imprint their LOWEST-value legal card
+      // (autoPickDiscardCandidate — imprint costs you the card, so shed the least), which is also why
+      // declining is never auto-chosen: the payoff is strictly better than an unused card in hand.
+      if (pc.kind === "imprint-exile") {
+        if (pause) {
+          return { session: current, decision: { kind: "imprint-exile", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickDiscardCandidate(current.state, pc),
+          },
+        });
+        current = { ...current, state: settleImprintChoice(current.state, picked.candidateId) };
         continue;
       }
       // CR 514.1 (CR-remediation B3) — the cleanup-step hand-size discard: the ACTIVE player picks a card
@@ -3239,6 +3279,57 @@ export function applyHandDiscardChoice(session, choice, opts = {}) {
 }
 
 /**
+ * IMPRINT (CR 207.2c) — the player picked which card to exile from their own hand for an `imprint-exile`
+ * decision (Chrome Mox, Semblance Anvil, Isochron Scepter). Exiles it and STAMPS it onto the imprinting
+ * permanent, then re-derives the next decision.
+ *
+ * UNLIKE hand-discard, a NULL cardId is a legal DECLINE, not a re-surface: imprint is "you may", and an
+ * un-imprinted permanent is a normal board state. An id that isn't among the offered candidates is treated
+ * the same way (the resolver refuses it) rather than exiling something that was never offered.
+ */
+export function applyImprintChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "imprint-exile") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const raw = choice?.cardId ?? null;
+  const cardId = raw !== null && pc.candidates.some((c) => c.id === raw) ? raw : null;
+
+  let newState;
+  try {
+    newState = settleImprintChoice(session.state, cardId);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "imprint-choice" },
+    auto: false,
+    reasoning: cardId ? "user-chose-imprint" : "user-declined-imprint",
+  };
+
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
+}
+
+/**
  * The player picked which card to discard for the CR 514.1 cleanup hand-size discard (CR-remediation
  * B3). Validates the pick against the pending candidates (their own hand), discards it, and either the
  * settler re-raises (still over the max) or the deferred 514.2 cleanup tail runs. `choice.cardId` is the
@@ -3573,6 +3664,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "optional-effect") return applyOptionalChoice(session, choice, opts);
   if (kind === "commander-return") return applyCommanderReturnChoice(session, choice, opts);
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice, opts);
+  if (kind === "imprint-exile") return applyImprintChoice(session, choice, opts);
   if (kind === "cleanup-discard") return applyCleanupDiscardChoice(session, choice, opts);
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice, opts);
   if (kind === "look-top-take") return applyLookTopTakeChoice(session, choice, opts);

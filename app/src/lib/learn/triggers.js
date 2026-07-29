@@ -389,7 +389,13 @@ export function stripTriggerAbilityLabel(oracle) {
     // structure is unchanged: the strip only ever consumes label-then-dash, never rules text. Corpus-checked
     // before widening — exactly ONE card in the index prints this shape, so the risk of swallowing something
     // meaningful is not hypothetical-but-unknown, it is enumerated.
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
+    // "imprint" is in the SAME CR 207.2c ability-word list as landfall/enrage/raid/flurry/opus/lieutenant
+    // above — verified in knowledge/mtg-judge/data/cr/cr_current.json, which lists it by name in 207.2c.
+    // (It is NOT a keyword ability; I had it wrong as 702.61, which is Split Second.) Unstripped, the label
+    // sat between the line start and "When", so the boundary-anchored trigger regex never matched and ALL 29
+    // corpus imprint cards had their ETB invisible — measured: even "Imprint — When this artifact enters,
+    // draw a card." detected nothing. Same FN-safe + FP-closing basis as its siblings.
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 

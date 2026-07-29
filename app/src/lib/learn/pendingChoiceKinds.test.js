@@ -24,6 +24,7 @@ import {
   setPendingCloneChoice,
   setPendingScryChoice,
   setPendingHandDiscardChoice,
+  setPendingImprintChoice,
   setPendingImpulseDigChoice,
   setPendingLookTopTakeChoice,
   setPendingDigLandChoice,
@@ -82,6 +83,10 @@ const FIXTURES = {
     { controller: "user", zone: "graveyard", cardId: "user-cmdr", cardName: "Test Commander" },
   ),
   "hand-discard": (s) => setPendingHandDiscardChoice(s, { controller: "ai", victim: "user", candidates: [] }),
+  // IMPRINT (CR 207.2c) — an empty candidate list settles in one tick: the AI's auto-pick finds nothing, the
+  // settler stamps nothing (an un-imprinted permanent is a legal, common state — imprint is "you may"), and
+  // the choice clears. `sourceId: null` mirrors the gone-permanent case the resolver already tolerates.
+  "imprint-exile": (s) => setPendingImprintChoice(s, { controller: "ai", candidates: [], sourceId: null }),
   "impulse-dig": (s) => setPendingImpulseDigChoice(s, { controller: "ai", candidates: [], restTo: "graveyard" }),
   // BLITZ LK-2 — the AI auto-takes (autoPickLookTopTake returns the candidate id); the settler moves it library→hand
   // only if it's still the top card (an empty/mismatched library is the defensive no-op), then resumes (no resume →

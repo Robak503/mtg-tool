@@ -4,7 +4,7 @@
 
 import { handCardMatches } from "../../spellEffects.js";
 import { logEvent, opponentsOf, moveCardToZone, drawCards } from "../../gameState.js";
-import { setPendingHandDiscardChoice, setPendingDiscardChoice } from "../../pendingChoice.js";
+import { setPendingHandDiscardChoice, setPendingDiscardChoice, setPendingImprintChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount } from "./shared.js";
 import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the discard family
 import { nextRandomInt } from "../../seedMath.js"; // RD-1: THE canonical seeded uniform draw for random discard (leaf; no cycle)
@@ -37,6 +37,30 @@ export function applyDiscardChosen(state, atom, ctx) {
   }
   // Pause for the caster's pick (driver surfaces a picker / auto-picks). runProgram attaches the resume.
   return setPendingHandDiscardChoice(state, { controller: ctx.controller, victim: victim.id, candidates, sourceName: ctx.cardName });
+}
+
+/**
+ * IMPRINT (CR 207.2c) — "Imprint — When this artifact enters, you may exile a <filtered> card from your
+ * hand." (Chrome Mox, Semblance Anvil, Isochron Scepter, Soul Foundry, Spellbinder, Prototype Portal).
+ * Pauses for the CONTROLLER's pick from their OWN hand; resolveImprintChoice exiles it and STAMPS it onto
+ * the imprinting permanent, which is what every imprint payoff reads.
+ *
+ * `ctx.sourceId` is the imprinting permanent and is REQUIRED: with no source there is nothing to stamp, so
+ * pausing would strand the player on a choice that could not pay off. That case is a clean no-op.
+ *
+ * An empty/no-match hand is likewise a clean no-op — no picker, the program continues, and the permanent
+ * stays UN-imprinted. That is the correct end state, not a failure: an un-imprinted Chrome Mox produces
+ * nothing, and the mana source is gated on the stamp precisely so it can never fabricate a color.
+ */
+export function applyImprint(state, atom, ctx) {
+  const hf = atom.handFilter || {};
+  const noop = (reason) => logEvent(state, { kind: "spell-effect", effect: "imprint", controller: ctx.controller, sourceName: ctx.cardName, imprinted: null, reason });
+  if (!ctx.sourceId) return noop("no-source");
+  const candidates = (state.players?.[ctx.controller]?.hand || [])
+    .filter((c) => !c.token && handCardMatches(c, hf))
+    .map((c) => ({ id: c.id, name: c.name }));
+  if (candidates.length === 0) return noop("no-legal-card");
+  return setPendingImprintChoice(state, { controller: ctx.controller, candidates, sourceId: ctx.sourceId, sourceName: ctx.cardName, filterLabel: atom.filterLabel || null });
 }
 
 // ===== EACH-PLAYER ===== discard (EP-2)
@@ -313,6 +337,7 @@ export function applyDiscardHandDrawSame(state, atom, ctx) {
 
 export const handResolvers = {
   "discard-chosen": applyDiscardChosen,
+  "imprint": applyImprint, // IMPRINT (CR 207.2c) — the ETB exile-from-hand that STAMPS the permanent
   "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
   "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
 };

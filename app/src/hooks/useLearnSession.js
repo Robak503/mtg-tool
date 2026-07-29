@@ -701,6 +701,60 @@ export default function useLearnSession() {
   );
 
   /**
+   * Submit the player's pick from a `imprint-exile` decision (IMPRINT, CR 207.2c — Chrome Mox,
+   * Semblance Anvil, Isochron Scepter). `cardId` is the chosen card in the player's OWN hand to exile and
+   * stamp onto the imprinting permanent. Imprint is "you MAY", so passing null is a legal DECLINE — the
+   * permanent simply stays un-imprinted — unlike hand-discard, which always strips one.
+   */
+  const applyImprintChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
+
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "imprint-exile", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
+        return null;
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [state.sessionId],
+  );
+
+  /**
    * Shared submitter for the WI-7 pending-choice methods below (the seven kinds wired 2026-07-18).
    *
    * Every apply* method in this hook posts the same request and folds the same response fields; the
@@ -1336,6 +1390,7 @@ export default function useLearnSession() {
     applyScryChoice,
     applyOptionalChoice,
     applyHandDiscardChoice,
+    applyImprintChoice,
     applyCleanupDiscardChoice,
     // WI-7 — the seven kinds that previously had no client half (soft-locked a human seat).
     applyDigLandChoice,

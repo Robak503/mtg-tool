@@ -380,7 +380,10 @@ function pinnedRuleHintsFromText(text) {
     hints.add("704.5f");
   }
   if (/\bsuspend\b/.test(lower)) {
-    hints.add("702.61");
+    // 702.62, NOT 702.61 — that number is SPLIT SECOND. Verified against
+    // knowledge/mtg-judge/data/cr/cr_current.json, which is the only source these hints may cite: a
+    // suspend question was being handed the split-second rule.
+    hints.add("702.62");
   }
   if (/\bforetell\b/.test(lower)) {
     hints.add("702.143");

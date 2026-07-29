@@ -41,6 +41,7 @@ import {
   EdictModePanel,
   CleanupDiscardPanel,
   HandDiscardPanel,
+  ImprintPanel,
   ImpulseDigPanel,
   LookTopTakePanel,
   DivideDamagePanel,
@@ -720,6 +721,7 @@ export default function LearnView({
               onScryChoose={session.applyScryChoice}
               onOptionalChoose={session.applyOptionalChoice}
               onHandDiscardChoose={session.applyHandDiscardChoice}
+              onImprintChoose={session.applyImprintChoice}
               onCleanupDiscardChoose={session.applyCleanupDiscardChoice}
               onDigLandChoose={session.applyDigLandChoice}
               onDistributeCountersChoose={session.applyDistributeCountersChoice}
@@ -861,6 +863,13 @@ export default function LearnView({
       {session.board && decision?.kind === "hand-discard" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <HandDiscardPanel decision={decision} onChoose={session.applyHandDiscardChoice} />
+        </div>
+      )}
+      {/* IMPRINT (CR 207.2c) — Chrome Mox / Semblance Anvil / Isochron Scepter: exile one card from your
+          OWN hand to imprint it on the permanent. Declining is legal, so the panel offers it. */}
+      {session.board && decision?.kind === "imprint-exile" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <ImprintPanel decision={decision} onChoose={session.applyImprintChoice} />
         </div>
       )}
       {/* δ-2 — impulse-dig (Strategic Planning / Anticipate) → keep one of the looked-at top N cards;
@@ -1319,6 +1328,7 @@ function DecisionPrompt({
   onScryChoose,
   onOptionalChoose,
   onHandDiscardChoose,
+  onImprintChoose,
   onCleanupDiscardChoose,
   onDigLandChoose,
   onDistributeCountersChoose,
@@ -1383,6 +1393,10 @@ function DecisionPrompt({
   }
   if (decision.kind === "hand-discard") {
     return <HandDiscardPanel decision={decision} onChoose={onHandDiscardChoose} />;
+  }
+  // IMPRINT (CR 207.2c) — the exile-from-your-own-hand picker; declining is legal and the panel offers it.
+  if (decision.kind === "imprint-exile") {
+    return <ImprintPanel decision={decision} onChoose={onImprintChoose} />;
   }
   if (decision.kind === "impulse-dig") {
     return <ImpulseDigPanel decision={decision} onChoose={onImpulseDigChoose} />;

@@ -40,6 +40,45 @@ const HAND_FILTER_MAP = {
   "artifact or creature": { include: ["Artifact", "Creature"] },         // Divest
 };
 
+// IMPRINT (CR 207.2c) — the filter phrase between "exile a/an" and "card from your hand", mapped to the
+// SAME modeled handFilter spec the discard family uses (include / exclude / maxCmc). ALLOWLIST, deliberately:
+// only these exact phrases are modeled, and anything else returns null so the card routes to the Arbiter
+// rather than imprinting something the payoff will misread.
+const IMPRINT_FILTER_MAP = {
+  "nonartifact, nonland": { exclude: ["Artifact", "Land"] },  // Chrome Mox
+  "nonland": { exclude: ["Land"] },                           // Semblance Anvil
+  "creature": { include: ["Creature"] },                      // Soul Foundry
+  "artifact": { include: ["Artifact"] },                      // Prototype Portal
+  "instant": { include: ["Instant"] },                        // Spellbinder / Isochron Scepter (+ maxCmc)
+};
+
+/**
+ * IMPRINT (CR 207.2c) — match an imprint ETB's effect clause, "[you may] exile a <filter> card from your
+ * hand [with mana value N or less]". The "Imprint —" ability-word label is already gone
+ * (stripTriggerAbilityLabel), but the "you may" is NOT: α2's optional peel lives INSIDE parseEffectClause,
+ * and the up-front span matchers run before it. So the prefix is consumed here and re-stamped as
+ * `optional: true`, the same shape α2 produces ({op:"draw", optional:true}) — measured, not assumed: without
+ * this the clause reached the matcher with "you may" attached and fell to LOW.
+ *
+ * Every printed imprint is a "may", so the prefix is effectively mandatory in practice; it stays OPTIONAL in
+ * the regex rather than required so a hypothetical mandatory printing still parses rather than silently
+ * routing to the Arbiter.
+ *
+ * Whole-clause anchored: a rider past the exile (Summoner's Egg's "face down", Ugin's Labyrinth's tail)
+ * does NOT match and routes to the Arbiter — a safe FN. Returns `{ atom, rest }` like its siblings.
+ */
+export function matchImprint(oracle) {
+  const m = String(oracle).match(
+    /^(you may )?exile an? ?([a-z, ]*?) ?card from your hand(?: with mana value (\d+) or less)?\.?$/i,
+  );
+  if (!m) return null;
+  const phrase = m[2].trim().toLowerCase();
+  if (!(phrase in IMPRINT_FILTER_MAP)) return null;            // an unmodeled filter → low → Arbiter
+  const handFilter = { ...IMPRINT_FILTER_MAP[phrase] };
+  if (m[3]) handFilter.maxCmc = parseInt(m[3], 10);
+  return { atom: { op: "imprint", handFilter, filterLabel: phrase || null, ...(m[1] ? { optional: true } : {}) }, rest: "" };
+}
+
 /**
  * Match the leading "Target <opponent|player> reveals their hand. You choose a <filter> card from it
  * [with mana value N or less]. That player discards that card." template (δ-1). Returns

@@ -25,6 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
+import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
@@ -381,6 +382,45 @@ export function resolveHandDiscardChoice(state, cardId) {
   // and-braces — unreachable in normal play (the discard atom precedes any rider, so the caster is alive
   // at the pause, and pendingChoice is transient/non-persisted) — but it keeps the shared seam uniform.
   if (!next.players?.[pc.controller]) return next;
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * IMPRINT (CR 207.2c) — settle a pending imprint choice: EXILE the chosen card from the controller's hand and
+ * STAMP it onto the imprinting permanent as `imprinted`, then resume the suspended program.
+ *
+ * ⚠️ THE STAMP IS THE WHOLE POINT, and it is what every imprint payoff reads. Two refusals are load-bearing,
+ * both in the same direction:
+ *
+ *   • `cardId` null (the player DECLINES — imprint is "you MAY") → no exile, NO stamp. An un-imprinted
+ *     Chrome Mox must produce NOTHING. Modeling a bare Mox as "any color" would be a turn-one ritual out of a
+ *     card that should be dead — the forbidden false-positive direction, and the exact shape already refused
+ *     for condition-gated mana (Mox Opal) elsewhere in this engine.
+ *   • the imprinting permanent is GONE by settle time (it can be removed during the pause) → the card is
+ *     still exiled (the exile already happened as part of the ability, CR 207.2c) but there is nothing to
+ *     stamp. Stamping whatever occupies that slot instead would be a fabricated imprint.
+ *
+ * The card is exiled FACE UP and stays public — imprint's exile is not a hidden zone, so no hidden-info
+ * handling is needed beyond the controller reading their own hand.
+ */
+export function resolveImprintChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "imprint-exile") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → clean no-op
+  // Only a card the choice actually OFFERED can be picked; a stale/foreign id is a decline, never a
+  // free exile of some other card.
+  const chosen = (pc.candidates || []).some((c) => c.id === cardId)
+    ? (next.players[pc.controller].hand || []).find((c) => c.id === cardId) || null
+    : null;
+  if (chosen) {
+    next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "exile", cardId });
+    // The stamp records the CARD (not just its id) so a payoff can read its characteristics — colors for
+    // Chrome Mox, card types for Semblance Anvil — without a zone lookup that would break once the exile
+    // zone is filtered or the card moves again.
+    next = updatePermanentSafe(next, pc.sourceId, (p) => ({ ...p, imprinted: chosen }));
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "imprint", controller: pc.controller, sourceName: pc.sourceName, imprinted: chosen ? chosen.name : null });
   return resumeAfterChoice(next, pc);
 }
 

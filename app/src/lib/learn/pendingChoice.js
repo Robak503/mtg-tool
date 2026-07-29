@@ -32,6 +32,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-effect",
   "commander-return",
   "hand-discard",
+  "imprint-exile",
   "impulse-dig",
   "look-top-take",
   "dig-land-to-battlefield",
@@ -215,6 +216,37 @@ export function setPendingHandDiscardChoice(state, { controller, victim, candida
       victim,
       candidates,
       sourceName,
+    },
+  };
+}
+
+/**
+ * IMPRINT (CR 207.2c) — flag an imprint ETB awaiting the controller's pick of which card to exile from their
+ * OWN hand ("Imprint — When this artifact enters, you may exile a nonartifact, nonland card from your hand."
+ * — Chrome Mox). `candidates` is the already-FILTERED legal subset of the controller's hand as `{id, name}`;
+ * the filter belongs to the caller because each imprint card names a different one (nonartifact-nonland,
+ * instant with mana value ≤2, artifact, creature…), and `filterLabel` is what the seat is shown.
+ *
+ * `sourceId` is the IMPRINTING PERMANENT — the stamp's destination. It is carried on the choice rather than
+ * re-derived at settle time because the permanent can leave between the pause and the pick, and a stamp
+ * applied to whatever happens to be there instead would be a fabricated imprint.
+ *
+ * OPTIONAL by rule ("you MAY"): passing a null cardId at settle is a legal decline, and an imprint card with
+ * nothing exiled must go on producing NOTHING. Hidden-info safe — the controller is looking at their own hand.
+ */
+export function setPendingImprintChoice(state, { controller, candidates, sourceId, sourceName = null, filterLabel = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "imprint-pending", controller, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "imprint-exile",
+      controller,
+      candidates,
+      sourceId,
+      sourceName,
+      filterLabel,
+      optional: true,
     },
   };
 }

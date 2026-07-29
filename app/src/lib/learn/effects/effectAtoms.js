@@ -68,7 +68,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...counterResolvers, // add-counter, gain-experience, rad, proliferate
   ...tokenResolvers,   // create-token, create-named-token
   ...libraryResolvers, // tutor, shuffle, scry, surveil, impulse-dig, discover, mill
-  ...handResolvers,    // discard-chosen, discard
+  ...handResolvers,    // discard-chosen, discard, imprint
   ...manifestResolvers, // manifest-dread (MKM, CR 701.62) — top-2 → one face-down 2/2, other → graveyard
   ...amassResolvers,
   ...monarchResolvers, // MONARCH (CR 725) — "you become the monarch" crowns the program's controller   // amass (CR 701.47) — grow/mint the controller's Army (Orcish Bowmasters, Lazotep Sliver)
@@ -108,6 +108,7 @@ const PAUSING_OPS_LIST = [
   "impulse-dig", // library.js applyImpulseDigAtom → setPendingImpulseDigChoice
   "look-top-take", // library.js applyLookTopTakeAtom → setPendingLookTopTakeChoice (BLITZ LK-2 top-card take-or-leave-on-top)
   "discard-chosen", // hand.js applyDiscardChosen → setPendingHandDiscardChoice
+  "imprint", // hand.js applyImprint → setPendingImprintChoice (CR 207.2c)
   "discard", // hand.js applyDiscard → advanceDiscardChain → setPendingDiscardChoice
   "sacrifice", // removal.js applySacrifice → advanceSacrificeChain → setPendingSacrificeChoice
   "sacrifice-land", // sacLand.js applySacrificeLand → setPendingSacrificeChoice
