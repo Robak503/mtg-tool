@@ -228,6 +228,35 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — multi-subtype LIST anthems (`57b5b9bf`, +7) · **and the FP my own audit caught**
+
+Death-Priest of Myrkul (+A-) · Ultron, Machine Overlord · Warg Rider · The Swarmweaver · Master
+Trinketeer · Brightcap Badger. GAINED 7 · LOST 0. **0 shelf decks** — stated plainly; the shelf tail is
+391 shapes touching one deck each, so corpus-wide veins are now the better value per unit of work.
+
+⭐ **A MISSING PARSE ARM, NOT A MISSING MECHANIC — the fifth straight slice of that shape.** `selector.subtypes`
+was always an array and matchesSelector always ORed it; the comment at that match site reads *"OR semantics,
+same as a multi-subtype list."* The runtime was **built for lists and had never been handed one.**
+
+⭐ **CURATION WAS MEASURED AND REJECTED.** "Skeletons / Robots / Servos / Thopters / Orcs you control get
++1/+1" all classify native TODAY, uncurated — the static branch normalizes rather than curates. Requiring an
+allowlist would have parked cards that already work. I had a collision audit of 22 subtypes ready to add and
+**threw it away when the measurement said it was unnecessary.** No allowlist was touched.
+
+### ⚠️ I SHIPPED A FALSE POSITIVE AND THE NAME AUDIT IS THE ONLY REASON IT DIDN'T SURVIVE
+`Other Treefolk and **Forests** you control have indestructible` (Timber Protector) passed every guard I
+wrote, because `NON_CREATURE_SUBTYPES` covered artifact and enchantment subtypes and held **no land types at
+all.** Under the Creature-restricted selector the Forests half selects nothing — native claimed, half the
+printed text never delivered, green suite. Land subtypes added; it parks again; **LOST 0** proves nothing
+pre-existing leaned on the hole.
+
+⭐ **THE TRANSFERABLE PART: I predicted 6 flips and the diff said 8, and the two unforecast names are what
+exposed it.** An unpredicted GAIN is evidence about the build, not a bonus. Predict the count *before* the
+diff, and audit every row that beats the prediction — the surplus is where the FP hides.
+
+Mutation-checked both ways: first-word-only → 4 fail (both runtime assertions among them); guard dropped →
+the 2 CREED pins fail. Suite 967 files / 12,293 tests.
+
 ## 🔧 SHIPPED — 8 curated subtypes (`b030e27b`, +3) · **first per-card slice under the new ordering**
 
 Picked by the rule the last two resumes established — **order by DECK count, take what is genuinely one
