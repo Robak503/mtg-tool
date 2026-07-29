@@ -38,6 +38,45 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — colored-PIP cost reduction (`1ba87fc5`, +3 · **Dragons 78 → 79%**)
+
+Every reducer before this returned a **scalar** the cast site subtracts from `generic`. Four cards reduce
+**COLORED PIPS**, and Edgewalker's own reminder states the difference: a `{1}{W}` Cleric costs `{1}` — the
+generic is untouched and the `{W}` goes. Through the scalar channel that Cleric would cost `{W}`, and
+Morophon would take 5 off a `{4}{R}{R}` Dragon's generic (leaving `{R}{R}`) where the card leaves `{4}{R}`.
+**Cheaper than printed is the forbidden direction** — which is why the family was parked, not approximated.
+
+**⛔ A RUNTIME-VACUOUS NATIVE THIS SLICE NEARLY SHIPPED, AND AN OLD PIN IS WHAT CAUGHT IT.** A `chosenType`
+reduction resolves against the source's stored `chosenType` (CR 614.12), which exists only because the card
+prints the modelled *"choose a creature type"* ETB. I argued the classifier was structurally safe — *"a card
+with the reducer but no chooser still has the chooser line as residue"* — **which is circular: a card that
+never prints a chooser has no such line to park on.** `chosenTypeSelfAdd.test.js` had pinned that exact
+fixture as body-only and failed. `parseStaticAbilities` now drops a chooser-less `chosenType` descriptor.
+Closes the same latent hole on the older GENERIC chosen-type path for free.
+
+**⭐ A PIN THAT OUTLIVED ITS REASON AND EARNED A NEW ONE** — worth knowing this shape exists. That same
+assertion was written to prove the colored reduction wasn't quietly credited; when the reduction became
+real it failed, and **the failure was still correct, for a different reason than it was written for.**
+Read what a failing pin is telling you now, not what it was for.
+
+**⭐ AND ONE PIN WAS RE-POINTED, NOT FLIPPED.** The residue-swallow guard used Morophon's unmodelled rider
+as a canary. Flipping it to `native-static` would have left the guard with no end-to-end assertion at all,
+so it moves to **Vorthos, Steward of Myth** (an unmodellable filter that will stay unmodellable). *When a
+graduated pin was someone else's canary, find it a live bird.*
+
+**M79 SURVIVED → pinned, not deleted** (same call as storm, one commit earlier). Ungating the qualifier
+sentence left everything green because Vorthos and Head of the Class are held by their own unmatched
+clause. The case the gate defends is a GENERIC reducer printed with the colored-only qualifier — no such
+card exists yet, which is exactly the point.
+
+⚠️ **Two fabricated fixtures, exposed by the tier diff's SILENCE** (3 gained where I predicted 4):
+Ragemonger is `{1}{B}{R}`, not `{2}{B}`; **Nekrataal Avatar is a VANGUARD card** — no mana cost, no P/T,
+outside the playable corpus — and was in my test as an invented *"Creature — Zombie Avatar"*. *A diff that
+moves FEWER cards than predicted is as informative as one that moves more.*
+
+Mutation-checked: **M78** shave generic instead of pips → killed by 2 · **M79 SURVIVED** → pin → **M79b**
+killed · **M80** apply an unfiltered pip reducer to every spell → killed.
+
 ## 🔧 SHIPPED — STORM on a PERMANENT spell (`9a177075`, +2 · **Dragons 77 → 78%**)
 
 Every storm card the engine handled was an instant or a sorcery. A storm **CREATURE** resolves through
@@ -1237,7 +1276,7 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,289/34,245). Suite **941 files / 12,002 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,292/34,245). Suite **942 files / 12,017 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
@@ -1245,7 +1284,7 @@ That is the whole reason this target beats corpus %.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
   **SHELF:** six decks at/above 90% — Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 92 · Mothman 90 ·
-  Earth Bent 90. Next real target **Did you say Dragons? 78%**. cdh 81% (capped ~82 — do not start).
+  Earth Bent 90. Next real target **Did you say Dragons? 79%**. cdh 81% (capped ~82 — do not start).
 
   **⚠️ THE SHELF IS NOW WAVE-SHAPED, NOT SLICE-SHAPED — read this before hunting for another quick win.**
   Every deck below the bar needs 13+ cards across DISTINCT mechanics; the one-line-away list's repeated
@@ -1256,7 +1295,7 @@ That is the whole reason this target beats corpus %.
   Ancient Brass Dragon  d20 roll
   Klauth             TRIGGERED mana + spend-restricted — the over-claim class, likely a refusal
   Terror of the Peaks   a LIFE-cost tax on opponents' spells — Hexing Squelcher's class
-  Morophon           chosen-type cost reduction; chosenType + layer pairing already exist ← best next
+  Morophon           ✅ SHIPPED (colored-pip cost reduction)
   Tiamat · Sarkhan Soul Aflame · Betor · Call the Spirit Dragons · Scion of the Ur-Dragon · Lorehold  multi-piece
   ```
 
