@@ -228,6 +228,39 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — UNION list on ETB trigger subjects (`d0caded6`, +2) · **the SHELF moved**
+
+**April O'Neil, Live on the Scene — Halfshell heroes 63% → 64%**, the first shelf card since Biogenic Ooze.
+Plus Valley Mightcaller. GAINED 2 · LOST 0.
+
+⭐ **THE LIST WAS ALREADY SAYABLE ON THE `dies` SIBLING TWENTY LINES AWAY IN THE SAME FILE** — same
+`parseSubtypeList` helper, same `subtypeFilter` field, and `subtypeFilterMatches` has always matched ANY
+member of an array. Only the ETB arms still read a single word, so the identical printed sentence fired on
+death and was invisible on entry. **Fifth consecutive slice of this exact shape.** The axis is no longer a
+hypothesis about this codebase; it is its dominant defect class.
+
+⛔ **THE VACUOUS FILTER is why runtime witnessing was mandatory here** and not a nicety: a gate no printed
+card satisfies leaves the card NATIVE while the trigger fires ZERO times — **invisible to the tier diff,
+because nothing moves.** Two have shipped that way before (Norn's Choirmaster, Keleth). Every list member is
+fired on a real board; the vacuous-filter probe reports 383 filters minted, 0 vacuous.
+
+### ⚠️ MY HARNESS SAID "NOTHING FIRES" AND THE POSITIVE CONTROL IS THE ONLY REASON THAT ISN'T A FILED BUG
+`checkEnterTriggers` returns the next **STATE**, not a list of fired triggers. Reading it as an array made
+everything silent — and **all four negative assertions passed against that broken harness**, because nothing
+firing satisfies "should not fire" perfectly. Running the already-native single-subtype card through the same
+helper exposed it in one step. It is now a permanent fixture in the file, not a one-off check.
+
+⭐ Second time today RULE 1b was the difference between a finding and a fiction (the first: the hollow zero
+in the tutor detour). **A harness that produces no signal is indistinguishable from an engine that produces
+no signal.**
+
+### ⚠️ AND THE PREDICTION UNDERSHOT — 3 forecast, 1 delivered
+The measurement swapped every list for a single subtype and asked "does the card flip." That proves the list
+is the blocker; it does **not** prove which ARM the list lives in. Valley Mightcaller's was behind the
+"another" determiner (added, hence +2); Moria Marauder's is a combat-damage subject and is still parked.
+⭐ **Measure per CONSTRUCTION, not per shape** — and audit an UNDERSHOOT as hard as the overshoot that caught
+the Timber Protector FP this morning. Both directions are the model of the build being wrong.
+
 ## 🔧 SHIPPED — bounce noun vocabulary (`cc31834f`, +2) · **predicted 2, got 2**
 
 Stern Proctor · Quandrix Command. GAINED 2 · LOST 0. Small, and shipped anyway because it is the shape the
