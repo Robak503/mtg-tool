@@ -228,6 +228,38 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔬 SHIPPED — **`probe-limiter-fidelity.mjs`: the first RULES-FIDELITY instrument** (`efa84b3b`)
+
+⭐ **A THIRD AXIS, and Omnath named it.** Coverage % measures what is modelled; the playability sweep
+measures whether games finish. **Neither can see a card played wrongly but plausibly.** Aurelia is the proof:
+she granted more combats than she prints, and coverage said native-trigger, the sweep said complete, the
+suite said 12,000 green — **because nothing about the OUTCOME was wrong. Only the fidelity was.** She was
+caught by a human reading the card against the descriptor. This automates that reading for the part that is
+mechanically checkable: **a printed LIMITER must appear as a flag on the thing it limits.**
+
+⭐ **SHIPPED BECAUSE IT HAS A DETERMINISTIC WITNESS** — the thing the turn-termination detector never got, and
+why that one was withheld. Re-break the latch → **28 flagged, Aurelia at the top**. Restore → **1**. No board,
+no preconditions, nothing the operator supplies; the descriptor is the entire input.
+
+**RESULT: 28 checked · 1 flagged · that 1 is a VERIFIED false positive** (Mighty Servant of Leuk-o — the
+descriptor is the granted INNER trigger, the limiter wraps the OUTER crew trigger). Left visible rather than
+suppressed, so a real regression on that card can still surface.
+
+### ⚠️ THE GHOST TAXONOMY IS THE OTHER HALF OF THE DELIVERABLE
+The first draft reported 23 and **the first five I checked by hand were all false.** Three distinct ways a
+limiter looks unmodelled and is not:
+1. **The limited LINE is undetected while a DIFFERENT line is** (Tataru Taru ETB, Exemplar of Light lifegain,
+   Fear of Missing Out ETB). A coverage gap — an ability the engine never detected **cannot over-fire**.
+   Fixed by matching per-DESCRIPTOR on `sourceText` instead of card-wide.
+2. **The descriptor is a granted INNER ability** and the limiter wraps it.
+3. **The ability is parked anyway.** `"Activate only once each turn AND ONLY IF <cond>"` does defeat the
+   end-anchored limiter matcher on Skinshifter / Groundling Pouncer / Chronatog Totem — but all three offer
+   **ZERO** activations, so nothing over-fires. **A latent shape, not a live bug.**
+⭐ **The rule that falls out: an infidelity requires the ability to actually BE OFFERED.** Parse-level
+mismatch alone is not a defect.
+
+**Seventh ghost-class of the day — and the first caught entirely before it was reported.**
+
 ## 🧭 STATE OF THE INSTRUMENTS (swept 2026-07-29) — **the safe veins are DRY; stop hunting, go build**
 
 Four probes run back to back after the two soft-lock fixes. **All four now read clean**, which is the most
