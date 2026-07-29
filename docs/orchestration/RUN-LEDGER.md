@@ -119,6 +119,36 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🔧 SHIPPED — "other &lt;Subtype&gt;s you control get …" (`fc33087b`, +4) · **the purest axis of the run**
+
+```
+"other creatures you control get …"                     → HIGH   (excludeSource)
+"<Subtype>s you control OTHER THAN THIS CREATURE get …" → HIGH   (subtypeFilter + excludeSource)
+"other <Subtype>s you control get …"                    → was LOW
+```
+Both halves existed; only their **combination** was missing — and the missing one is **the word order every
+carrier actually prints**. Nothing in the corpus prints the trailing form with a subtype. The engine
+modelled the spelling no card uses and parked on the one all four use. GAINED **4**, which is every corpus
+card of this shape (Hamlet Captain · Belle of the Brawl · Perimeter Sergeant · Heron's Grace Champion).
+
+⚠️ **TWO SITES — the first fix looked complete and wasn't.** `splitClauses` keeps its own list of team-pump
+shapes whose internal `" and gain …"` is not a clause boundary; it named `other creatures` and `<Subtype>s`
+but not `other <Subtype>s`, so Heron's Grace Champion's sentence was TORN at the " and " while the identical
+clause parsed perfectly when handed to the parser directly. **Fifth whitelist of this run. When a form spans
+a splitter and a parser, teaching one of them is teaching neither.**
+
+### ⭐⭐ THE TRANSFERABLE LESSON — **PROBE WITH THE CARD TEXT, NOT A RECONSTRUCTION OF IT**
+I reached these 4 cards through **two wrong hypotheses**, each killed by measurement rather than argument:
+1. *"subtype UNIONS are the gap"* (Valley Floodcaller's "Birds, Frogs, Otters, and Rats"; April O'Neil's
+   "a Mutant, Ninja, or Turtle") — **wrong**: union ETB triggers are already native.
+2. *"the subtype mass-pump SUBJECT is the gap"* — **wrong**: `Humans/Knights/Goblins/Dinosaurs you control
+   get +N/+N` all parse today.
+
+Worse, the swap-test I used to SIZE it (rewrite the clause to the generic form, re-classify) reported **3**
+cards and named the right cards **for the wrong reason** — it proved only that *something* in that sentence
+blocked, not what. Reading the printed oracle showed the real blocker was word order, and that it was 4.
+**A synthesized probe string tests your model of the card; only the card tests the card.**
+
 ## 🎯 THE SHELF, MEASURED 2026-07-29 — **and the honest read on what is left**
 
 Corpus **36.1%** (12,354/34,245) · aggregate **81%** (1,286/1,597 across 16 decks) · **colton 92%** (461/499,
