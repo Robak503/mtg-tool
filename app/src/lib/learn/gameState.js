@@ -32,6 +32,7 @@ import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPowe
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
+import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -952,6 +953,14 @@ export function attachPermanent(state, { equipId, targetId }) {
   }
   next = updatePermanentSafe(next, equipId, p => ({ ...p, attachedTo: targetId }));
   next = updatePermanentSafe(next, targetId, p => ({ ...p, attachments: [...(p.attachments || []).filter(id => id !== equipId), equipId] }));
+  // CONTROL AURA (CR 613.1b) — "You control enchanted creature." (Mind Control / Control Magic / Treachery).
+  // Applied HERE because this is the only function that forms an attachment link, so every route by which a
+  // control Aura becomes attached passes through it. Gated on isControlAura, so Equipment and every other
+  // Aura are byte-identical to before. Re-read the Aura after the links are set so `attachedTo` is present.
+  {
+    const auraLk = findPermanent(next, equipId);
+    if (auraLk?.permanent) next = applyControlAuraAttach(next, auraLk.permanent, targetId);
+  }
   return next;
 }
 
@@ -1024,6 +1033,12 @@ export function detachPermanentFromAll(state, permanent, toGy = false, toZone = 
   if (permanent.soulbondPartner) {
     next = updatePermanentSafe(next, permanent.soulbondPartner, (p) => ({ ...p, soulbondPartner: null }));
   }
+  // CONTROL AURA revert (CR 613.1b) — the host goes home the moment this Aura stops being attached. Done
+  // BEFORE the link teardown below so `permanent.attachedTo` is still readable, and hung off THIS function
+  // because it is the single battlefield-exit chokepoint (verified: destroy / bounce / exile / sacrifice all
+  // arrive here). ⛔ If this revert is ever missed the creature is stolen PERMANENTLY, and a stolen-forever
+  // creature is a legal-looking board — no test and no completed game would notice.
+  next = revertControlAura(next, permanent);
   if (permanent.attachedTo) {
     next = updatePermanentSafe(next, permanent.attachedTo, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== permanent.id) }));
   }
