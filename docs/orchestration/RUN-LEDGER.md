@@ -38,6 +38,33 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — the STUN rider parses its COUNT (`596326fe`, +4) · probe families extended
+
+The probe's new **counter-placement** family found it. The runtime has had full stun support all along —
+`untapOrConsumeStun` implements CR 122.1c exactly, and `applyTapEffect` already passed
+`amount: atom.stunCounter` to `addCounter`. **Only the text said "a".** GAINED 4 — Freeze in Place ·
+Tranquilize · Impede Momentum · Collector's Case.
+
+**⚠️ THE COUNT LIVED IN TWO PLACES, AND WIDENING ONE DID NOTHING.** I widened the matcher first and **no
+card moved** — `splitClauses`' fold rule was *also* anchored on `"a stun counter"`, so the multi-count
+sentence had already been torn into `["Tap target creature…", "put three stun counters on it"]`, where the
+pronoun has nothing to bind to. **The matcher never saw the whole sentence.** Same shape as the tutor
+destination's three whitelists. **M108** (splitter anchor back to singular) is killed by **7 of 9** tests —
+it was the load-bearing half, not the matcher.
+
+### 📋 TWO LEADS RECORDED, NOT BUILT — and the distinction now has a test
+
+⭐ **"deals N damage to EACH PLAYER"** — 24 corpus cards, ALL non-native (Flame Rift #3920, Slagstorm #7292,
+Spear Spewer, Mana Clash). `each OPPONENT` parses and the compound `each creature and each player` parses;
+only the bare form fails. `symburn.test.js` pins it: *"each-player-only isn't modeled"*.
+**⭐ THAT IS CAPABILITY LANGUAGE ("cannot"), NOT REFUSAL LANGUAGE ("will not")** — so unlike the
+battlefield-fetch guard I reverted last stretch (*"cheat"*, *"landmine"*, nine pins), this one is a genuine
+graduate-able lead. **Read the pin's WORDS, not just its existence.**
+
+- named-counter placement is per-kind — shield has a bespoke two-string atom, stun rides the tap atom, and
+  `"put a stun counter on target creature"` (no tap) still parks. A general named-counter placement
+  vocabulary is its own slice.
+
 ## ⛔ ATTEMPTED AND REVERTED — the non-land fetch-to-battlefield. **NINE PINS SAY NO.**
 
 I built the 11-row probe lead (uncapped battlefield tutor accepts only lands; its MV-capped twin `bfn`
@@ -1609,7 +1636,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **36.0%** (12,325/34,245). Suite **951 files / 12,131 tests**,
+- **Nothing mid-edit.** Corpus **36.0%** (12,329/34,245). Suite **952 files / 12,140 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
@@ -1617,7 +1644,7 @@ ignore a real alarm. Reworded. **Never let that token appear outside a live sabo
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
   **SHELF:** six decks at/above 90% — Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 92 · Mothman 90 ·
-  Earth Bent 90. Next real target **Did you say Dragons? 80%**. cdh 81% (capped ~82 — do not start).
+  Earth Bent 90. Next real target **Did you say Dragons? 80%**. Aggregate **81%** (Colton's own 5 decks: **92%**). cdh 81% (capped ~82 — do not start).
 
   **⚠️ THE SHELF IS NOW WAVE-SHAPED, NOT SLICE-SHAPED — read this before hunting for another quick win.**
   Every deck below the bar needs 13+ cards across DISTINCT mechanics; the one-line-away list's repeated
