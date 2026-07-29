@@ -72,7 +72,7 @@ import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-E
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
-import { spellConditionParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
+import { spellConditionParseable, evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -107,6 +107,19 @@ const EXILE_IF_DIES_MASS_RE = /^if a creature dealt damage this way would die th
 // (`add-counter` joined for Leonardo, the Balance; the prose below saying "today just discover" was already
 // stale when this set held four ops — the SET is the source of truth, not the sentence.)
 const ONCE_PER_TURN_HONORED = new Set(["discover", "draw", "gain-life", "create-token", "add-counter"]);
+
+// A one-seat empty board — enough for evaluateInterveningIf to ANSWER a condition or admit it cannot.
+// Used only by conditionIsDecidable, never for a real verdict. (Same probe trick manaModel uses for
+// condition-gated mana; both exist so an UNDECIDABLE condition parks the card at PARSE time rather than
+// producing a program that would reject at resolution — the metric and the runtime must agree.)
+const _CONDITION_PROBE_STATE = { players: { probe: { battlefield: [], graveyard: [], hand: [], library: [], life: 40 } } };
+function conditionIsDecidable(condition) {
+  try {
+    return typeof evaluateInterveningIf(_CONDITION_PROBE_STATE, condition, "probe", { sourcePermanentId: "probe-src" }) === "boolean";
+  } catch {
+    return false;
+  }
+}
 
 /** Map a legacy effect descriptor to a single EffectProgram atom (or null). */
 function legacyToAtom(effect) {
@@ -1180,6 +1193,47 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
   // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
   oracle = stripCastKeywordLines(oracle);
+  // ===== CONDITIONAL REPLACEMENT (CR 608.2) ===== "<base>. If <condition>, <alternative> instead."
+  // Scute Swarm ("…create a token that's a copy of this creature instead") and Entish Restoration, which
+  // prints the other word order ("…, instead search your library for up to three basic land cards").
+  //
+  // Collapsed to ONE `conditional` atom carrying both branches, so the sentence splitter never shatters it
+  // into an unconditional base plus an orphan alternative — that split is the dropped-effect trap: it would
+  // run the base every time and silently ignore the replacement, which LOOKS like success.
+  //
+  // ⚠️ THE CONDITION MUST BE DECIDABLE, and that is checked HERE, not merely at resolution. Both branches
+  // must also parse HIGH and non-modal on their own. If any of the three fails the whole thing is LOW →
+  // Arbiter (a safe FN): Scythecat Cub's "if this is the second time this ability has resolved this turn"
+  // is inexpressible and parks by design. Verified before writing this arm — evaluateInterveningIf already
+  // answers "you control six or more lands" and "you control a creature with power 4 or greater".
+  {
+    const cond = oracle.match(/^(.+?)\.\s*If ([^,]+),\s*(?:instead\s+(.+?)|(.+?)\s+instead)\.?\s*$/is);
+    if (cond) {
+      const [, baseText, condition, altLeading, altTrailing] = cond;
+      const inner = parseEffectClauseImpl(baseText.trim(), cardType, { hasX });
+      const alt = parseEffectClauseImpl(String(altLeading || altTrailing).trim(), cardType, { hasX });
+      const ok = inner && alt
+        && programConfidence(inner) === "high" && programConfidence(alt) === "high"
+        && inner.structure !== "modal" && alt.structure !== "modal"
+        && inner.atoms.length > 0 && alt.atoms.length > 0
+        && conditionIsDecidable(condition.trim());
+      if (ok) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [{ op: "conditional", branchOn: condition.trim().toLowerCase(), ifTrue: alt.atoms, ifFalse: inner.atoms, targetType: null }],
+          unparsedTail: null,
+        });
+      }
+      // ⚠️ FALL THROUGH — never return LOW from here. This regex also matches shapes that OTHER, older
+      // machinery already models: every "deal N damage to target creature. If that creature would die this
+      // turn, exile it instead" rider (Anger of the Gods, Pillar of Flame, Incendiary Flow — 23 cards) has
+      // this exact grammar, and its alternative ("exile it") does not parse as a standalone branch. Returning
+      // LOW here hijacked all of them from native-spell to arbiter-spell. Falling through leaves the prior
+      // behaviour byte-identical for anything this arm cannot fully model — the cards it does not claim are
+      // exactly as they were.
+    }
+  }
+
   // ONCE-PER-TURN — "Do this only once each turn." is a FREQUENCY RESTRICTION enforced at resolution via
   // the `oncePerTurn` flag on the gated atom (state.onceTriggersFiredThisTurn, cleared each untap step).
   // CREED: ONLY atoms whose resolver actually HONORS the flag (ONCE_PER_TURN_HONORED — today just

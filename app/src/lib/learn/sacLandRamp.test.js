@@ -53,13 +53,18 @@ describe("SAC-LAND-RAMP — classification (CREED whole-card)", () => {
   });
 
   // ── CREED anti-FP pins: a sac-then-fetch with an UNMODELED half stays arbiter-spell ──
-  it("CREED — Scapeshift (variable 'any number'/'that many'), Entish Restoration ('instead … three' rider) stay arbiter-spell", () => {
+  it("CREED — Scapeshift (variable 'any number'/'that many') stays arbiter-spell", () => {
     // Scapeshift — "Sacrifice any number of lands. Search … up to THAT MANY land cards …" is a variable count on
-    // BOTH halves (unmodeled) → the whole program parses LOW → Arbiter.
+    // BOTH halves (unmodeled) → the whole program parses LOW → Arbiter. Still true: the linked X is a
+    // different problem from the conditional replacement below, and nothing in this slice touched it.
     expect(classifyCard({ name: "Scapeshift", type: "Sorcery", mana: "{2}{G}{G}", oracle: "Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle." })).toBe("arbiter-spell");
-    // Entish Restoration — the "If you control a creature with power 4 or greater, instead search … up to three …"
-    // conditional rider is an unmodeled sentence → LOW → Arbiter (a SAFE false-negative, never a partial flip).
-    expect(classifyCard({ name: "Entish Restoration", type: "Instant", mana: "{2}{G}", oracle: "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle." })).toBe("arbiter-spell");
+  });
+
+  it("⭐ Entish Restoration's 'instead … three' rider is MODELED now (conditional replacement, CR 608.2)", () => {
+    // ⚠️ This asserted arbiter-spell as "an unmodeled sentence", which was correct until the conditional
+    // branch node existed. Both branches parse HIGH on their own and the condition ("you control a creature
+    // with power 4 or greater") is decidable by evaluateInterveningIf, so the card is fully modeled.
+    expect(classifyCard({ name: "Entish Restoration", type: "Instant", mana: "{2}{G}", oracle: "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle." })).toBe("native-spell");
   });
 
   it("CREED — the controller self-sac 'Sacrifice two lands' / a counted each-player land edict never parses HIGH", () => {

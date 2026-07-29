@@ -41,6 +41,7 @@ import { controlResolvers } from "./atoms/control.js";
 import { grantUntilEotResolvers } from "./atoms/grantUntilEot.js";
 import { conniveResolvers } from "./atoms/connive.js";
 import { suspectResolvers } from "./atoms/suspect.js";
+import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL REPLACEMENT — the SAME evaluator legalChoices and manaSources gate on; interveningIf imports only gameState, so this stays a one-way edge (checked before adding it)
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
@@ -77,6 +78,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
   ...iteratedEdictResolvers, // iterated-edict (Torment of Hailfire, CR 118.9) — X × per-opponent (lose 3 / sac nonland / discard) pausing edict chain
   ...delayedTriggerResolvers, // schedule-delayed (CR 603.7) — queue an ability for a future step; gameEngine drains it into pendingTriggers at step entry
+  conditional: applyConditional, // CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <cond>, <alt> instead." Defined below; recurses through resolveAtom, so it lives in the barrel.
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 702.10c) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
   ...grantUntilEotResolvers, // grant-until-eot (TG-1, CR 611.2c fixed set) — until-EOT quoted-ability grants (Feign Death / Showstopper family)
   ...conniveResolvers, // connive (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard (pause) → +1/+1 if a nonland was discarded
@@ -138,4 +140,43 @@ export function resolveAtom(state, atom, ctx) {
   const fn = ATOM_RESOLVERS[atom?.op];
   if (!fn) return null;
   return fn(state, atom, ctx);
+}
+
+/**
+ * CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <condition>, <alternative> instead."
+ * Scute Swarm ("…create a token that's a copy of this creature instead"), Entish Restoration ("…instead
+ * search your library for up to three basic land cards").
+ *
+ * The condition is evaluated AT RESOLUTION through `evaluateInterveningIf` — the same evaluator legalChoices
+ * uses to gate activated abilities and manaSources uses to gate condition-gated mana. Reusing it is the whole
+ * reason this is a branch node and not a subsystem: the expensive half already existed and was verified to
+ * answer these exact phrases before any of this was written.
+ *
+ * ⚠️ A NON-BOOLEAN VERDICT REJECTS THE WHOLE PROGRAM. `evaluateInterveningIf` returns null when it cannot
+ * decide, and null here means "can't model" — the caller routes to the Arbiter rather than silently picking
+ * a branch. Picking the base branch on an unknown condition would run the printed-but-wrong half and look
+ * exactly like success, which is the dropped-effect class this build exists to avoid (Scythecat Cub's
+ * "second time this ability has resolved this turn" is inexpressible and parks here, by design).
+ *
+ * Lives in the BARREL rather than an atom module because it recurses through `resolveAtom`; putting it in
+ * atoms/*.js would make that module import the barrel that imports it.
+ *
+ * ⚠️⚠️ THE FIELD IS `branchOn`, NOT `condition`, AND THAT IS LOAD-BEARING. `atom.condition` already has a
+ * DIFFERENT established meaning in runProgram (~163): a rider GATE — "skip this atom unless the condition
+ * holds" (CONDITIONAL SPELL RIDER / BLITZ CD-1). Naming this field `condition` made the runner SKIP the
+ * whole conditional atom whenever the condition was false, so the ifFalse branch silently never ran while
+ * the ifTrue branch worked perfectly — a bug that looks like a working feature in every true-condition test.
+ * Verified by board: Scute Swarm made its copy at six lands and NOTHING at three. Do not rename it back.
+ */
+function applyConditional(state, atom, ctx) {
+  const verdict = evaluateInterveningIf(state, atom.branchOn, ctx.controller, { sourcePermanentId: ctx.sourceId });
+  if (typeof verdict !== "boolean") return null;
+  const branch = (verdict ? atom.ifTrue : atom.ifFalse) || [];
+  let next = state;
+  for (const inner of branch) {
+    const after = resolveAtom(next, inner, ctx);
+    if (after == null) return null;          // an unresolvable inner atom rejects the whole branch
+    next = after;
+  }
+  return next;
 }

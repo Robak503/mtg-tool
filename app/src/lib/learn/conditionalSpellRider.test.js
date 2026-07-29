@@ -126,8 +126,13 @@ describe("CONDITIONAL SPELL RIDER CREED anti-FP — deferred shapes stay arbiter
   it("a MULTI-INSTRUCTION gated effect stays arbiter-spell (Arterial Flow: '… loses 2 life and you gain 2 life')", () => {
     expect(classifyCard({ name: "Arterial Flow", type: "Sorcery", mana: "{2}{B}{B}", oracle: "Each opponent discards two cards. If you control a Vampire, each opponent loses 2 life and you gain 2 life." })).toBe("arbiter-spell");
   });
-  it("an 'instead' REPLACEMENT gated clause stays arbiter-spell (Life Goes On)", () => {
-    expect(classifyCard({ name: "Life Goes On", type: "Instant", mana: "{G}", oracle: "You gain 4 life. If a creature died this turn, you gain 8 life instead." })).toBe("arbiter-spell");
+  it("⭐ an 'instead' REPLACEMENT is MODELED now — Life Goes On (conditional replacement, CR 608.2)", () => {
+    // ⚠️ UPDATED. This pin belongs to the RIDER family ("<base>. If <cond>, <extra>." — an ADDITIVE clause
+    // gated on a condition), and it correctly deferred the REPLACEMENT shape, which is a different thing:
+    // the alternative REPLACES the base rather than adding to it. That shape now has its own branch atom
+    // (`conditional` with ifTrue/ifFalse), so this card is modeled — 4 life normally, 8 instead.
+    // The rider pins below are untouched; they still guard the additive form.
+    expect(classifyCard({ name: "Life Goes On", type: "Instant", mana: "{G}", oracle: "You gain 4 life. If a creature died this turn, you gain 8 life instead." })).toBe("native-spell");
   });
   it("an UNREADABLE condition ('modified creature', a 6-subtype OR) stays arbiter-spell", () => {
     expect(classifyCard({ name: "Ambitious Assault", type: "Instant", mana: "{2}{R}", oracle: "Creatures you control get +2/+0 until end of turn. If you control a modified creature, draw a card." })).toBe("arbiter-spell");

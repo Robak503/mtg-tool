@@ -131,14 +131,21 @@ describe("LANDFALL-COMPOSITE — a modeled landfall trigger + another modeled ab
   });
 
   // ── CREED anti-FP pins: a landfall card whose PAYOFF (or a rider on it) is unmodeled stays body-only ──
-  it("CREED — Scute Swarm (6-land token-copy rider) and Scythecat Cub (2nd-resolution doubler rider) stay body-only", () => {
+  it("⭐ Scute Swarm's six-land token-copy rider is MODELED now (conditional replacement, CR 608.2)", () => {
+    // ⚠️ Scute Swarm was the second card in the pin below, deferred as an unmodeled rider. It is a
+    // REPLACEMENT ("create a copy instead"), which now has a branch atom: both halves parse HIGH and
+    // "you control six or more lands" is decidable. Board-verified in conditionalReplacement.test.js —
+    // three lands makes the 1/1 Insect, six makes the copy.
+    expect(classifyCard({ id: "c-scute", name: "Scute Swarm", type: "Creature — Insect", power: 1, toughness: 1, mana: "{2}{G}", oracle: "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of this creature instead." })).toBe("native-trigger");
+  });
+
+  it("CREED — Scythecat Cub (2nd-resolution doubler rider) stays body-only", () => {
     // ⚠️ Lotus Cobra was the third card in this pin, on "a fabricated mana is a forbidden FP". That was true
     // when written and is not now: the trigger→effect bridge models "add one mana of any color" as exactly
     // ONE mana in a colour drawn from the controller's commander identity. The two riders below are still
     // genuinely unmodeled, so the CREED half of this pin is intact — only the stale member left.
-    // Scute Swarm — the "If you control six or more lands, create a token that's a copy of this creature
-    // instead" conditional/token-copy rider is unmodeled → the payoff parses LOW → body-only.
-    expect(classifyCard({ id: "c-scute", name: "Scute Swarm", type: "Creature — Insect", power: 1, toughness: 1, mana: "{2}{G}", oracle: "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of this creature instead." })).toBe("body-only");
+    // (Scute Swarm was the second member and has MOVED to its own positive pin above — its replacement is
+    // modeled now. Scythecat Cub stays: its condition is genuinely inexpressible.)
     // Scythecat Cub — the "If this is the second time this ability has resolved this turn, double … instead"
     // per-turn-resolution-count rider is unmodeled → the payoff parses LOW → body-only.
     expect(classifyCard({ id: "c-scythe", name: "Scythecat Cub", type: "Creature — Cat", power: 2, toughness: 2, mana: "{1}{G}", oracle: "Trample\nLandfall — Whenever a land you control enters, put a +1/+1 counter on target creature you control. If this is the second time this ability has resolved this turn, double the number of +1/+1 counters on that creature instead." })).toBe("body-only");
