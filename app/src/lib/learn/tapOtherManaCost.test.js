@@ -116,3 +116,47 @@ describe("⛔⭐ RUNTIME — the payer is genuinely tapped", () => {
     expect(after.players.user.battlefield.filter((p) => p.tapped).length).toBeLessThanOrEqual(3);
   });
 });
+
+describe("⭐ the TAPLESS form — a cost with no {T} of its own", () => {
+  const RANGERS = { id: "br", name: "Birchlore Rangers", type: "Creature — Elf Druid", oracle: "Tap two untapped Elves you control: Add one mana of any color." };
+  const rangersSource = (st) => manaSources(st, "user").find((x) => x.permanentId === "br");
+
+  it("⚠️⭐ the PLURAL payer noun parses — the greedy-regex bug that split this family in half", () => {
+    // `([a-z]+)s?` is GREEDY, so "two untapped Elves" captured "elves" and "two untapped creatures" captured
+    // "creatures" — neither in the allowlist. Every count>1 card silently kept its refusal while the count==1
+    // cards flipped: a PARTIAL FLIP across identical printed shapes, the same tell that uncovered the
+    // destroy-CREATURE lead hole. De-pluralized against the allowlist rather than widening it with plurals.
+    expect(manaProduction(RANGERS)).toMatchObject({ requiresTap: false, extraTap: { count: 2, filter: "elf" } });
+    expect(manaProduction({ name: "Supportive Parents", type: "Creature — Human", oracle: "Tap two untapped creatures you control: Add one mana of any color." }))
+      .toMatchObject({ extraTap: { count: 2, filter: "creature" } });
+  });
+
+  it("⭐⭐ the source IS a legal payer for its own tapless cost (it is an untapped Elf)", () => {
+    // ⛔ Excluding the source unconditionally would demand two OTHER Elves where the card asks for two Elves
+    // TOTAL — wrong in the restrictive direction. The exclusion applies only when the source is already
+    // tapping via its own {T} (Springleaf Drum).
+    const st = board([perm("br", null, RANGERS), perm("e1", "Creature — Elf")]);
+    expect(rangersSource(st).extraTaps.sort()).toEqual(["br", "e1"]);
+  });
+
+  it("⛔ but one Elf in total is still not two", () => {
+    expect(rangersSource(board([perm("br", null, RANGERS)]))).toBeUndefined();
+  });
+
+  it("⭐⭐ and it is usable the turn it lands — no {T} in its cost (CR 302.6)", () => {
+    // The source-side twin of the payer rule. A summoning-sick creature whose mana ability carries no {T} is
+    // legal immediately; gating it as though it tapped is the same mistake on the other side of the cost.
+    const st = board([perm("br", null, RANGERS, { summoningSick: true }), perm("e1", "Creature — Elf", null, { summoningSick: true })]);
+    expect(rangersSource(st)).toBeDefined();
+  });
+
+  it("⛔⚠️ but a LAND played this turn is still gated — undefined requiresTap means it DOES tap", () => {
+    // The regression this nearly shipped: `!prod.requiresTap` is true for lands (no such key), which made
+    // every mass-animated land usable the turn it was played. The check is `=== false`, and the CR 302.6 land
+    // test is what caught it.
+    const forest = perm("f", "Land — Forest", null, { summoningSick: true });
+    const st = board([forest]);
+    expect(manaSources(st, "user").some((x) => x.permanentId === "f")).toBe(true);   // lands are not creatures
+    expect(manaProduction({ name: "Forest", type: "Land — Forest", oracle: "" }).requiresTap).toBeUndefined();
+  });
+});

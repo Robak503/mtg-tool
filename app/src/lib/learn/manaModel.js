@@ -496,10 +496,20 @@ function parseTapOtherCost(oracle) {
   const m = cost.match(/\btap (an|a|two|three) untapped ([a-z]+)s? you control\b/i);
   if (!m) return null;
   const count = { a: 1, an: 1, two: 2, three: 3 }[m[1].toLowerCase()];
-  const filter = m[2].toLowerCase();
   if (!count) return null;
+  // ⚠️ THE PAYER NOUN IS PLURAL WHENEVER THE COUNT IS, and the first cut of this missed it entirely: `([a-z]+)s?`
+  // is GREEDY, so "two untapped Elves" captured "elves" and "two untapped creatures" captured "creatures" —
+  // neither in the allowlist, so every count>1 card silently kept its refusal while the count==1 cards flipped.
+  // A partial flip across identical printed shapes, which is the same tell that uncovered the destroy-CREATURE
+  // lead hole earlier today. De-pluralize against the allowlist rather than widening it with plural spellings,
+  // so the vocabulary stays one entry per real noun.
+  const raw = m[2].toLowerCase();
+  const candidates = [raw];
+  if (raw.endsWith("ves")) candidates.push(`${raw.slice(0, -3)}f`);   // elves → elf
+  if (raw.endsWith("s")) candidates.push(raw.slice(0, -1));            // creatures → creature
+  const filter = candidates.find((c) => TAP_OTHER_FILTERS.has(c));
   // The payer vocabulary the corpus prints for this shape. Anything else → null → the card keeps its refusal.
-  if (!TAP_OTHER_FILTERS.has(filter)) return null;
+  if (!filter) return null;
   // The REST of the cost must be modelable on its own terms — a {T} and/or mana symbols. A third consumable
   // (remove a counter, pay life) still refuses: this graduates ONE cost kind, not the compound guard entirely.
   const rest = cost.replace(m[0], " ").replace(/\{[^}]*\}/g, " ").replace(/[\s,]/g, "");
@@ -1253,7 +1263,17 @@ export function manaSources(state, playerId) {
     // NO {T} (an Eldrazi Spawn "Sacrifice this token: Add {C}", or a Treasure on a creature body) is
     // usable the turn the creature enters — so a freshly-created Spawn ramps immediately. All other
     // summoning-sick creatures (Haste-less {T} dorks) stay excluded exactly as before.
-    const usableWhileSick = prod.sacrifices && !prod.requiresTap;
+    // ⭐ GENERALISED (CR 302.6): sickness gates a {T}/{Q} ability, so ANY mana ability whose cost carries no
+    // {T} is usable the turn the creature enters — not just the sac-for-mana case this originally covered.
+    // The old `prod.sacrifices && !prod.requiresTap` was the same rule stated over one example: a Birchlore
+    // Rangers ("Tap two untapped Elves you control: Add …", no {T} of its own) is legal the turn it lands and
+    // was being gated as though it tapped. Same CR clause as the tap-OTHER payer rule directly below — the
+    // engine now applies it on both sides of that cost instead of one.
+    // ⚠️ `=== false`, NOT `!prod.requiresTap`. Lands, basics and the iconic rocks carry NO `requiresTap` key
+    // at all, and undefined means "DOES tap" — the loose form made every mass-animated land usable the turn
+    // it was played, which the CR 302.6 land test caught immediately. Only an ability the parser EXPLICITLY
+    // determined has no {T} in its cost qualifies.
+    const usableWhileSick = prod.requiresTap === false;
     // summoningSickNow (NV-1, CR 302.6): layer-aware — printed creatures read the stamped flag exactly
     // as before; a MASS-ANIMATED land played this turn is newly gated (its {T} mana ability is a sick
     // creature's); a Treasure/stolen non-creature keeps its old never-gated verdict.
@@ -1276,8 +1296,15 @@ export function manaSources(state, playerId) {
     // legal payer. Ordering prefers sick payers precisely because they are the ones with nothing else to do.
     let extraTaps = null;
     if (prod.extraTap) {
+      // ⛔ THE SOURCE EXCLUDES ITSELF ONLY WHEN IT IS ALREADY TAPPING ITSELF. Springleaf Drum pays {T} as
+      // part of the same cost, so it cannot also be the tapped creature — and it is an Artifact anyway.
+      // Birchlore Rangers has NO {T}: its cost is purely "Tap two untapped Elves you control", and the
+      // Rangers IS an untapped Elf, so it is a legal payer for its own ability. Excluding it unconditionally
+      // is wrong in the RESTRICTIVE direction — it would demand two OTHER Elves where the card asks for two
+      // Elves total. (When it does pay, it ends up tapped, so the ability cannot be reused — which falls out
+      // of the tapping rather than needing its own rule.)
       const payers = (player.battlefield || [])
-        .filter((p) => p.id !== perm.id && !p.tapped && matchesTapOtherFilter(p, prod.extraTap.filter))
+        .filter((p) => (prod.requiresTap ? p.id !== perm.id : true) && !p.tapped && matchesTapOtherFilter(p, prod.extraTap.filter))
         .sort((a, b) => Number(!!b.summoningSick) - Number(!!a.summoningSick));
       if (payers.length < prod.extraTap.count) continue;                 // cannot pay → not a source
       extraTaps = payers.slice(0, prod.extraTap.count).map((p) => p.id);

@@ -35,9 +35,21 @@ describe("cards the engine CANNOT tap are no longer tiered native-mana", () => {
     expect(classifyCard(card({ name: "Coldsteel Heart", type: "Artifact", mana: "{2}",
       oracle: "This artifact enters tapped.\nAs this artifact enters, choose a color.\n{T}: Add one mana of the chosen color." }))).not.toBe("native-mana");
   });
-  it("a cost the engine cannot pay (tap OTHER creatures)", () => {
+  it("⭐⭐ RE-POINTED — tap-OTHER is a cost the engine CAN pay now; the unpayable ones still refuse", () => {
+    // This file's subject is REACHABILITY: a card is credited native-mana only when the sim can actually pay
+    // the cost. Heritage Druid was the tap-OTHER example, and the guard it stood for said why — "the sim
+    // doesn't tap the other Elves". It does now: manaSources resolves real untapped payers off the board and
+    // refuses to offer the source without them, and commitManaTap taps them. So the card is reachable, and
+    // this assertion flips rather than weakens.
     expect(classifyCard(card({ name: "Heritage Druid", type: "Creature — Elf Druid", mana: "{G}", power: 1, toughness: 1,
-      oracle: "Tap three untapped Elves you control: Add {G}{G}{G}." }))).not.toBe("native-mana");
+      oracle: "Tap three untapped Elves you control: Add {G}{G}{G}." }))).toBe("native-mana");
+
+    // ⛔ AND THE FILE'S CLAIM IS UNCHANGED for every cost that is still unreachable. These are the stand-ins
+    // now: a FINITE counter pool the sim would treat as infinite, and a non-self sacrifice it never spends.
+    expect(classifyCard(card({ name: "Sphere-like", type: "Artifact", mana: "{2}",
+      oracle: "{T}, Remove a charge counter from this artifact: Add one mana of any color." }))).not.toBe("native-mana");
+    expect(classifyCard(card({ name: "Altar-like", type: "Artifact", mana: "{2}",
+      oracle: "Sacrifice a creature: Add {C}{C}." }))).not.toBe("native-mana");
   });
 });
 
