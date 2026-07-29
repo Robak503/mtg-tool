@@ -170,6 +170,50 @@ is LOW, the gap is a missing CROSS, not a missing mechanic. That single diff fou
 Full authority granted: cut releases freely, choose the work, no check-ins. Stop only for something that
 needs Colton's hands, touches secrets, or would ship a guess.
 
+## 🪶 THE TOP-2500 GAP IS A LONG TAIL — measured, not guessed (`probe-top2500-blockers.mjs`)
+
+**This is the most important strategic fact on the page, and it is unwelcome.** The probe asks what no earlier
+instrument in this run asked — *which SENTENCES block the cards that matter, and how many each* — with a card
+blocked by three lines counting toward all three, so a shape can rank high even when no single card flips from
+it alone. The answer:
+
+```
+1137 parked top-2500 cards  →  1626 distinct blocking shapes  →  1568 of them block exactly ONE card
+                                                                 the LARGEST cluster is 9
+```
+
+**There is no big lever left in the top 2500 by sentence shape.** This is the quantified form of the rate
+problem: ~438 cards to reach 70% against a tail where the median shape is worth one card. Any plan that
+assumes a hidden vein is wrong; the work is either (a) whole MECHANICS, or (b) accepting a low per-slice yield.
+
+**⚠️ THE PROBE WAS WRONG THREE TIMES BEFORE IT WAS RIGHT — all three corrections are baked in.** Every one was
+a line that cannot classify standing alone, scoring as a blocker for every card carrying it:
+```
+"//"                21 cards, looked like the biggest lever on the board — it is a FACE SEPARATOR.
+                    Multi-face cards in the top 2500 are 72.7% native (56/77), ABOVE the 54.2% baseline.
+"Enchant creature"  19 cards — CR 702.5 is a targeting restriction handled by the aura path, not an ability.
+"Choose one —" + 4  the modal WRAPPER and its bullets. VERIFIED DIRECTLY: "Choose one — • Destroy target
+ mode shapes        artifact. • Draw a card." classifies native-spell. Modes are now de-bulleted and judged
+                    as the whole spells they are, so a mode that ranks is a REAL gap.
+```
+**Two classes still over-report and are labelled in the file:** bare KEYWORDS (Spree, Ascend, Flashback), and
+EFFECT FRAGMENTS off a permanent ("Draw a card." as a whole Artifact; "Equipped creature gets +3/+2" without
+its Equip line). **The probe is trustworthy on instants and sorceries, where a printed line IS the spell.**
+
+**The genuinely actionable clusters it found — all whole MECHANICS, none a one-liner:**
+```
+  9x  "You may look at the top card of your library any time."   Bolas's Citadel #263 · Mystic Forge #414 · Realmwalker #607
+  8x  Spree                                                       Return the Favor #625 · Three Steps Ahead #1093
+  7x  "{2}{U}: Level 2"  (Class enchantments)                     Wizard Class #634 · Caretaker's Talent #648 · Innkeeper's Talent #678
+  5x  "As this creature enters, choose a creature type."          Roaming Throne #133 · Realmwalker #607 · Metallic Mimic #1055
+  5x  Ascend (CR 702.131, the city's blessing)                    Wayward Swordtooth #986 · Twilight Prophet #1095 · Ocelot Pride #1122
+  4x  Choose a Background · 4x Gift a card · 3x Station           Jaheira #876 · Dawn's Truce #359
+  4x  "each player draws an additional card" (symmetric draw)     Rites of Flourishing #1524 · Kami of the Crescent Moon #1817
+  3x  "If you would gain life, you gain twice that much instead"  Alhammarret's Archive #982 · Rhox Faithmender #1637
+```
+**Roaming Throne #133 and Realmwalker #607 each appear TWICE**, which is the probe's whole point — they are
+two mechanics from flipping, and no one-mode-away list would ever surface them.
+
 ## 📈 THE CEILING QUESTION — ANSWERED WITH EVIDENCE (Colton asked 2026-07-28: "can't we get top 2500 to 70%?")
 
 **There is NO structural cap. 70% is reachable; the constraint is RATE, not possibility.**

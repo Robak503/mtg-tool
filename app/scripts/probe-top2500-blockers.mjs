@@ -49,11 +49,30 @@ const stripReminders = (s) => s.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").
  *     card, which are parked for their actual text.
  *   • "Enchant <noun>" — CR 702.5 is a targeting restriction handled by the aura path, not an ability. It
  *     scored 19 by appearing on every parked Aura.
- * ⚠️ Keyword-only lines (Spree, Ascend, Convoke, Flashback {4}{W}) still over-report: a bare keyword does not
- * classify native standing alone even when the engine models it. Treat those rows as "look here", not as a
- * verdict, and confirm against a real card before building.
+ * ⚠️ TWO CLASSES STILL OVER-REPORT — treat their rows as "look here", never as a verdict, and confirm against
+ * a real card before building (the ledger's standing rule, which has now caught four false veins):
+ *   • KEYWORD-only lines (Spree, Ascend, Convoke, Flashback {4}{W}) — a bare keyword does not classify native
+ *     standing alone even when the engine models it fully.
+ *   • EFFECT FRAGMENTS off a PERMANENT — "Draw a card." tested as a whole Artifact is not an ability (no
+ *     trigger, no activation), so it scores as a blocker for Monument to Endurance while being modeled
+ *     everywhere it actually appears. Likewise "Equipped creature gets +3/+2" without its Equip line. The
+ *     probe is most trustworthy on INSTANTS and SORCERIES, where a printed line IS the whole spell.
  */
-const isStructuralLine = (s) => /^\/\/+$/.test(s.trim()) || /^Enchant\b/i.test(s.trim());
+const isStructuralLine = (s) => /^\/\/+$/.test(s.trim())
+  || /^Enchant\b/i.test(s.trim())
+  // The modal WRAPPER is not a blocker — it is built and works. Verified directly: "Choose one — • Destroy
+  // target artifact. • Draw a card." classifies native-spell. It ranked #1 at 11 cards only because the
+  // wrapper line cannot classify standing alone. What CAN block a modal card is an individual MODE, which is
+  // why modes are de-bulleted and tested as whole spells below instead of being dropped.
+  || /^Choose (one|two|three|up to)\b/i.test(s.trim());
+
+/**
+ * A MODE line ("• Destroy target artifact.") is a complete effect wearing a bullet. Tested with the bullet
+ * attached it is never native — that artifact put four separate mode shapes in the probe's first top-20.
+ * Stripped, it is judged exactly as the spell it is, so a mode that ranks here is a REAL gap and names the
+ * one piece of a modal staple that is missing.
+ */
+const deBullet = (s) => s.replace(/^[•·]\s*/, "").trim();
 
 /** Normalize a sentence into a SHAPE so near-identical lines group together. */
 function shapeOf(sentence) {
@@ -79,7 +98,9 @@ const shapes = new Map(); // shape -> { count, sample, cards:[{name,rank}] }
 let sentencesWalked = 0;
 
 for (const { card, rank } of parked) {
-  const lines = String(card.oracle || "").split(/\n+/).map(stripReminders).filter((l) => l && !isStructuralLine(l));
+  const lines = String(card.oracle || "").split(/\n+/)
+    .map((l) => deBullet(stripReminders(l)))
+    .filter((l) => l && !isStructuralLine(l));
   const seenHere = new Set();
   for (const line of lines) {
     // Each printed LINE is judged as its own card, carrying the source card's real type.
