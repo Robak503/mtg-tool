@@ -8,6 +8,39 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.13] — 2026-07-29
+
+### Added
+- **Mana sources whose cost is more than tapping now work.** Springleaf Drum, Jaspera Sentinel, Loam Dryad,
+  Heritage Druid, Birchlore Rangers and Baylen ask you to tap another creature; Staff of Compleation, Standing
+  Stones, Blood Celebrant and Vesper Ghoul ask you to pay life. The game used to refuse all of them rather than
+  hand out mana it hadn't paid for. It now pays the real cost — it taps the creature, or loses the life — and
+  won't offer the source at all when you can't afford it.
+- **Jeweled Lotus, Herd Heirloom and 32 other restricted-mana cards are playable.** Their mana is earmarked
+  ("spend this only to cast your commander"), and the game now honours that instead of setting the card aside.
+  It also refuses to launder the restriction — three commander-only mana can't be spent on a one-mana creature
+  to leave two general mana floating.
+- **Removal that drains now drains.** Hideous End, Sip of Hemlock, Certain Death, Despoil, Undermine,
+  Countersquall and nine others: the removal always worked, the "its controller loses 2 life" half was what
+  stopped the card.
+- **Kicked spells that get bigger.** Burst Lightning, Shivan Fire, Roil Eruption, Might of Murasa and Gift of
+  Growth now deal or pump the kicked amount *instead* of the printed one, rather than both.
+- **Aftermath split cards** (Claim // Fame, Farm // Market, Never // Return and four more), **outlast**
+  creatures (Abzan Falconer, Ainok Bond-Kin and six others), and **escalate** spells (the Borrowed cycle,
+  Collective Resistance).
+- **Spells that exile themselves** — Temporal Trespass, Time Reversal, Treasured Find, Game Plan and three
+  more. They go to exile now, not the graveyard, which matters for everything that counts your graveyard.
+- **Tribal lords that name several creature types at once** — Death-Priest of Myrkul, Ultron, The Swarmweaver,
+  Master Trinketeer — plus April O'Neil and Valley Mightcaller, whose triggers watch a list of types.
+- **Bounce spells can now target planeswalkers**, and Sever Soul / Divine Offering / Serene Offering pay you
+  the life they promise.
+
+### Fixed
+- **Squad creatures no longer stall the game with an ability they don't have.** Roadkill Rodney, Wasteland
+  Raider and Securitron Squadron were being read as though the explanatory text in brackets were real rules
+  text, so the game kept handing their arrival off to the rules engine for a token-copying ability that only
+  exists if you actually pay the squad cost.
+
 ## [0.149.12] — 2026-07-28
 
 ### Added
