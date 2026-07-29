@@ -261,6 +261,42 @@ export function advanceStep(state) {
   // floated mana here — bulk/forced advances can't skip it.
   const emptied = emptyManaPools(state);
 
+  // ===== EXTRA COMBAT PHASE (CR 500.8) ===================================================================
+  // "Some effects can add phases to a turn. They do this by adding the phases directly after the specified
+  // phase. If multiple extra phases are created after the same phase, the most recently created phase will
+  // occur first." — the SAME LIFO the extra-TURN pop below already implements for CR 500.7.
+  //
+  // ⛔ WHY A PER-STATE QUEUE AND NOT THE SEQUENCE: TURN_SEQUENCE is a MODULE-LEVEL constant, shared by every
+  // game, and findSequenceIndex searches it by (phase, step). A spliced phase cannot live there. So the
+  // insertion is a jump: leaving `end-of-combat` with a queued run, go back to `beginning-of-combat`
+  // instead of forward to `postcombat-main`.
+  //
+  // ⛔ CR 505.1a — "Only the FIRST main phase of the turn is a precombat main phase. All other main phases
+  // are postcombat main phases." The additional main these cards grant is therefore a POSTCOMBAT main,
+  // which is what the normal forward transition already lands on once the queue drains. Nothing extra to
+  // do — but it is the detail that would silently mis-fire every precombat-main trigger if modelled as a
+  // second "precombat-main", so it is stated rather than assumed.
+  //
+  // ⛔ THE NON-TERMINATION TRAP: the run is popped as it is taken (never re-queued), so N grants give
+  // exactly N extra combats. Without the pop, Relentless Assault loops the turn forever.
+  if (state.step === "end-of-combat") {
+    const queued = state.extraPhases || [];
+    if (queued.length > 0) {
+      const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
+      if (bocIdx !== -1) {
+        return {
+          ...emptied,
+          extraPhases: queued.slice(0, -1), // LIFO — most recently created occurs first (CR 500.8)
+          phase: TURN_SEQUENCE[bocIdx].phase,
+          step: TURN_SEQUENCE[bocIdx].step,
+          combat: null,                     // a NEW combat: last combat's attackers/blockers do not carry over
+          priorityHolder: null,
+          consecutivePasses: 0,
+        };
+      }
+    }
+  }
+
   if (index + 1 < TURN_SEQUENCE.length) {
     let next = TURN_SEQUENCE[index + 1];
     // CR 508.8 / 511.1 (CR-remediation B3) — a combat with NO declared attackers skips the
