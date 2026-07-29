@@ -475,6 +475,47 @@ function activatedManaCosts(oracle) {
 // "{2}: Add one mana of any color", Pili-Pala "{2}, {Q}: …"). These three are the only repeatable/standing
 // costs the mana subsystem models — everything else (a non-self sacrifice, pay-life, discard, remove-counter,
 // exile, tap-OTHER-permanents, return-to-hand) is a resource the sim doesn't spend.
+/**
+ * TAP-OTHER COST — parse "Tap N untapped <filter> you control" out of a mana ability's cost, or null.
+ *
+ * Returns `{ count, filter }` where filter is "creature" | a creature subtype (lowercased) | "token" |
+ * "food" — the vocabulary the corpus actually prints for this shape. A filter outside that set returns null
+ * and the card keeps its refusal (CREED: an un-enforced payer filter would let the sim tap something the
+ * card never allowed).
+ *
+ * ⛔ SUMMONING SICKNESS DOES NOT APPLY TO THE PAYERS (CR 302.6). Sickness restricts the {T} symbol in a
+ * creature's OWN cost; "Tap an untapped creature you control" is a cost of the SOURCE's ability, so a
+ * just-played creature is a legal payer. The naive implementation filters payers by `!summoningSick` and is
+ * wrong in the RESTRICTIVE direction — a safe FN, but a real fidelity loss on exactly the turn these cards
+ * are meant to matter. Pinned in the test rather than left to a future reader's memory.
+ */
+function parseTapOtherCost(oracle) {
+  const line = String(oracle || "").split(/\n+/).find((l) => /\btap (?:an|two|three|a)\b[^:]*:/i.test(l) && /\badd\b/i.test(l));
+  if (!line) return null;
+  const cost = line.split(":")[0] || "";
+  const m = cost.match(/\btap (an|a|two|three) untapped ([a-z]+)s? you control\b/i);
+  if (!m) return null;
+  const count = { a: 1, an: 1, two: 2, three: 3 }[m[1].toLowerCase()];
+  const filter = m[2].toLowerCase();
+  if (!count) return null;
+  // The payer vocabulary the corpus prints for this shape. Anything else → null → the card keeps its refusal.
+  if (!TAP_OTHER_FILTERS.has(filter)) return null;
+  // The REST of the cost must be modelable on its own terms — a {T} and/or mana symbols. A third consumable
+  // (remove a counter, pay life) still refuses: this graduates ONE cost kind, not the compound guard entirely.
+  const rest = cost.replace(m[0], " ").replace(/\{[^}]*\}/g, " ").replace(/[\s,]/g, "");
+  if (rest !== "") return null;
+  return { count, filter };
+}
+const TAP_OTHER_FILTERS = new Set(["creature", "elf", "token", "food", "artifact"]);
+
+/** Does a battlefield permanent match a printed tap-OTHER payer filter? Front-face type line only. */
+function matchesTapOtherFilter(perm, filter) {
+  const tl = String(perm?.card?.type || perm?.card?.type_line || "").toLowerCase();
+  const word = (w) => new RegExp(`\\b${w}\\b`).test(tl);
+  if (filter === "token") return !!perm?.card?.token || !!perm?.token;
+  return word(filter);   // card type (creature / artifact) or subtype (elf / food) — same word-bound test
+}
+
 function manaCostModelable(cost) {
   if (/\{t\}/i.test(cost)) {
     // COMPOUND-COST GUARD (SHELF S7 audit catch — Sphere of the Suns / Channeler Initiate / Spell Satchel /
@@ -947,6 +988,24 @@ function manaProductionImpl(card) {
       : { ...fromOracle, requiresTap };
   }
 
+  // ===== TAP-OTHER COST (CR 118.4 / 302.6) =====================================================
+  // "{T}, Tap an untapped creature you control: Add one mana of any color." (Springleaf Drum, Loam Dryad,
+  // Saruli Caretaker, Jaspera Sentinel, Dragonbroods' Relic) and the tapless "Tap two untapped Elves you
+  // control: Add …" (Birchlore Rangers, Supportive Parents, Baylen).
+  //
+  // ⭐ THIS GRADUATES THE COMPOUND-COST GUARD ABOVE, WHICH NAMED ITS OWN CONDITION: it refuses tap-OTHER
+  // costs because "the sim doesn't tap the other Elves". The sim taps them now — `extraTap` rides to
+  // manaSources (which refuses to offer the source unless enough untapped payers exist) and on to
+  // commitManaTap (which taps them), mirroring exactly how `sacrifices` carries the Treasure self-crack.
+  //
+  // ⛔ AND THE GATE IS THE PAYERS EXISTING, not the text parsing. A source offered without checking that N
+  // untapped payers are on the board is the PHANTOM MANA the guard was written for — the sim would "pay" a
+  // cost it never had. Availability is resolved against the live board in manaSources, never here.
+  const tapOther = parseTapOtherCost(oracleForAdd);
+  if (fromOracle && tapOther && !isLandCard) {
+    return { ...fromOracle, requiresTap: manaAbilityRequiresTap(oracleForAdd), extraTap: tapOther };
+  }
+
   // A land we couldn't otherwise parse still taps for something — assume colorless so it can at least pay
   // generic. Never invents a color.
   //
@@ -1206,6 +1265,23 @@ export function manaSources(state, playerId) {
     // excludeSelf metric ("greatest … among OTHER creatures") drops it. A repeatable tap source with
     // a resolved amount of 0 still appears (it's a legal-but-pointless tap); the action layer
     // (actionsTapForMana) skips offering a 0-mana tap.
+    // ⛔ TAP-OTHER AVAILABILITY GATE — resolve the PAYERS against the live board before this source is
+    // offered at all. This is the whole reason the compound-cost guard refused these cards: an offered
+    // source whose extra cost is never checked is PHANTOM MANA the sim "pays" for free, every turn.
+    // Payers are the controller's untapped permanents matching the printed filter, EXCLUDING the source
+    // itself (it is already tapping via its own {T}). Too few payers → no source, not a cheaper source.
+    //
+    // ⭐ SUMMONING SICKNESS IS DELIBERATELY NOT A FILTER (CR 302.6): sickness restricts the {T} symbol in a
+    // creature's OWN cost, and this is a cost of the SOURCE's ability — a creature played this turn is a
+    // legal payer. Ordering prefers sick payers precisely because they are the ones with nothing else to do.
+    let extraTaps = null;
+    if (prod.extraTap) {
+      const payers = (player.battlefield || [])
+        .filter((p) => p.id !== perm.id && !p.tapped && matchesTapOtherFilter(p, prod.extraTap.filter))
+        .sort((a, b) => Number(!!b.summoningSick) - Number(!!a.summoningSick));
+      if (payers.length < prod.extraTap.count) continue;                 // cannot pay → not a source
+      extraTaps = payers.slice(0, prod.extraTap.count).map((p) => p.id);
+    }
     const baseAmount = prod.amountSpec
       ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
       : prod.amount;
@@ -1258,10 +1334,10 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}) });
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}) });
       continue;
     }
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}) });
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}) });
   }
   return sources;
 }
@@ -1337,6 +1413,10 @@ export function planPayment(pool, sources, cost, spendContext = null) {
       // SPEND-RESTRICTED (CR 106.6): the permission this source's mana carries. Filtered out entirely below
       // unless the caller supplied a spend context that satisfies it — see the DEFAULT-DENY note.
       restriction: s.restriction || null,
+      // TAP-OTHER payers, resolved by manaSources against the live board. Carried verbatim so the plan the
+      // committer executes is the plan the planner priced — the same "affordable == actually paid" invariant
+      // the fixed-bundle and painland fields exist to hold.
+      extraTaps: Array.isArray(s.extraTaps) ? [...s.extraTaps] : null,
       // PAINLAND: the colours that cost life, and how much. Carried so tapSource can stamp the tap.
       painColors: Array.isArray(s.painColors) ? s.painColors : null,
       painAmount: s.painAmount || 0,
@@ -1416,7 +1496,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -1566,6 +1646,11 @@ export function commitManaTap(state, playerId, tap) {
   if (tap.painLife) {
     next = loseLife(next, { playerId, amount: tap.painLife });
   }
+  // ⛔ TAP-OTHER: pay the printed extra cost by actually tapping the payers manaSources reserved. Without
+  // this the source produces mana for free — the PHANTOM MANA the compound-cost guard refused these cards to
+  // prevent, reintroduced one layer down. Done BEFORE the source's own tap/sacrifice so a failure here
+  // cannot leave the source spent with the cost unpaid.
+  for (const id of tap.extraTaps || []) next = tapPermanent(next, id);
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });

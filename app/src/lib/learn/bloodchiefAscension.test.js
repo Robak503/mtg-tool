@@ -23,7 +23,7 @@ import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.j
 import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
 import { resolveOptionalChoice } from "./effects/runProgram.js";
 import { classifyCard } from "./coverage.js";
-import { manaProduction } from "./manaModel.js";
+import { manaProduction, manaSources } from "./manaModel.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -173,7 +173,25 @@ describe("engine — trigger 2 (the graveyard drain, CREED core)", () => {
 describe("counter-cost mana honesty (the phantom-mana class)", () => {
   it("a remove-counter-gated mana line is NOT a standing source (Sphere of the Suns class)", () => {
     expect(manaProduction({ name: "Sphere of the Suns", type: "Artifact", oracle: "{T}, Remove a charge counter from Sphere of the Suns: Add one mana of any color.\nSphere of the Suns enters the battlefield tapped and with three charge counters on it." })).toBe(null);
-    expect(manaProduction({ name: "Springleaf Drum", type: "Artifact", oracle: "{T}, Tap an untapped creature you control: Add one mana of any color." })).toBe(null);
+    // ⭐⭐ RE-POINTED 2026-07-29 — SPRINGLEAF DRUM GRADUATED, AND THIS TEST'S CLAIM IS UNCHANGED. The title
+    // says "NOT a STANDING source", and that is still exactly true: the tap-OTHER cost is modeled now, so
+    // the Drum is a source only WHEN AN UNTAPPED PAYER EXISTS, and manaSources refuses to offer it
+    // otherwise. Phantom-mana honesty is preserved by making the cost real, not by refusing the card —
+    // which is what the compound-cost guard asked for when it wrote "the sim doesn't tap the other Elves".
+    // The Sphere of the Suns half above is untouched: a remove-counter cost is a FINITE pool the sim still
+    // cannot spend, so it stays refused. Two different costs, two different verdicts, one principle.
+    const DRUM = { id: "drum", name: "Springleaf Drum", type: "Artifact", oracle: "{T}, Tap an untapped creature you control: Add one mana of any color." };
+    expect(manaProduction(DRUM)).toMatchObject({ extraTap: { count: 1, filter: "creature" } });
+    const withPayer = (perms) => {
+      const st = createGameState({ userDeck: [], aiDeck: [] });
+      return { ...st, players: { ...st.players, user: { ...st.players.user, battlefield: perms } } };
+    };
+    const drumPerm = createPermanent({ id: "drum", controller: "user", card: DRUM });
+    const bear = createPermanent({ id: "bear", controller: "user", card: { id: "bear", name: "Bear", type: "Creature — Bear" } });
+    // NO payer on the board → not offered at all (the phantom-mana case this file exists to prevent).
+    expect(manaSources(withPayer([drumPerm]), "user").some((x) => x.permanentId === "drum")).toBe(false);
+    // A payer present → offered, carrying the payer it will tap.
+    expect(manaSources(withPayer([drumPerm, bear]), "user").find((x) => x.permanentId === "drum").extraTaps).toEqual(["bear"]);
     expect(classifyCard({ name: "Sphere of the Suns", type: "Artifact", mana: "{2}", oracle: "{T}, Remove a charge counter from Sphere of the Suns: Add one mana of any color.\nSphere of the Suns enters the battlefield tapped and with three charge counters on it." })).toBe("body-only");
   });
   it("the Treasure compound and plain dorks/filters keep producing", () => {
