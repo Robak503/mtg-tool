@@ -1276,7 +1276,33 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,292/34,245). Suite **942 files / 12,017 tests**,
+### 🔨 STARTING — Esper Sentinel (rank **76**, 2 below-bar decks), scoped cold
+
+Tree is clean and committed at slice 80, so this is safe to abandon. Two INDEPENDENT blockers, isolated by
+feeding the parser incremental variants (each line here is measured, not guessed):
+```
+baseline "an opponent casts a spell … unless that player pays {1}"   native-trigger  ← Rhystic Study works
++ noncreature filter                                                 native-trigger  ← already fine
++ "their FIRST noncreature spell EACH TURN"                          body-only, triggers:[]  ⛔ BLOCKER A
++ "{X}, where X is this creature's power" on the pay                 body-only, triggers:[cast] ⛔ BLOCKER B
+```
+**BLOCKER A** — the generic cast matcher is `$`-anchored on `… spell`, so "spell each turn" fails to match at
+all. Per CR 603.2 the gate is **PER PLAYER, per turn** (three opponents → up to three fires a turn), not the
+source's once-per-turn. Corpus reach **10 cards**, filters measured: 5 unfiltered · 4 `noncreature` ·
+1 `multicolored`. ⭐ **The unfiltered five are FREE** — `recordSpellCast` increments before the trigger check
+(the storm site relies on this), so "first spell" ⟺ `spellsCastThisTurn === 1`. Only `noncreature` needs a
+new per-player counter, on the established pattern (increment at the cast chokepoint, zero in
+`resetTurnCounters`). `multicolored` → skip, safe FN, 1 card.
+
+**BLOCKER B** — `{X}` on an unless-pays amount, where X is a power metric. Reach **2 cards** (Esper Sentinel,
+Mausoleum Wanderer). The metric itself shipped this session as `selfPower` (slice 78) — this is wiring it
+into the tax amount.
+
+⚠️ **DETECTION IS NOT A FLIP.** Precedent `eb701643` shipped a batched-attack detection half and honestly
+scored **0**. Each of the 10 still needs its own effect modelled, so expect the tier diff to move far fewer
+than 10 — Esper Sentinel is the one being aimed at, and it needs BOTH halves.
+
+- **Nothing else mid-edit.** Corpus **35.9%** (12,292/34,245). Suite **942 files / 12,017 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
