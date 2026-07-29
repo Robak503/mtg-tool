@@ -38,6 +38,38 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — bare-REANIMATE filter vocabulary (`a061bc55`, **+13** — the biggest of the axis slices)
+
+**The asymmetry was INSIDE ONE FUNCTION, fifteen lines apart:**
+```
+"return target <X> card WITH MANA VALUE N OR LESS from your graveyard to the battlefield"
+      → any permanent-compatible filter, via parseGraveyardFilter + isPermanentReanimateFilter
+"return target <X> card from your graveyard to the battlefield"
+      → hardcoded CREATURE
+```
+Same clause family, same destination, same file. **~50 corpus cards parked on a filter the file could
+already parse one branch away.** GAINED **13** · LOST 0 — Sharuum · Refurbish · Obzedat's Aid · Trash for
+Treasure · Argivian Restoration · Profound Journey · Silent Sentinel · Ghen · Archon of Falling Stars ·
+Erinis · Quarry Beetle · Protomatter Powder · Harnessed Snubhorn.
+
+**⛔ `isPermanentReanimateFilter` IS WHAT MAKES THE WIDENING LEGAL** — a card entering the battlefield must
+BE a permanent, so an instant/sorcery filter, **or the unfiltered "any card" which INCLUDES instants**, must
+never reach the atom. A sorcery on the battlefield is not a legal state and nothing downstream would catch
+it. Pinned four ways.
+
+**⭐ VERIFIED ON A BOARD BEFORE GRADUATING THE PIN — second slice running, and it is now the habit.**
+`gyRecursion.test.js` pinned *"non-creature reanimation → Arbiter"*. Before flipping it I resolved the atom
+against a graveyard holding a **Sol Ring and a Lightning Bolt**: the Sol Ring lands, the Bolt stays. The
+runtime reanimator is genuinely type-agnostic, so the credit is honest.
+
+Deliberate safe FNs: subtype / negation / intersection filters ("Rebel permanent", "nonland permanent",
+"legendary creature") still park, and the `tapped` rider still parks on the `$` anchor — which is why the
+flip count is smaller than the raw corpus tally. The creature form keeps its **pinned string** `cardFilter`
+shape so existing consumers are untouched (mutation-checked).
+
+Mutation-checked: **M103** drop the permanent guard → killed by 2 · **M104** let creature lose its pinned
+shape → killed.
+
 ## 🔧 SHIPPED — tutor FILTER vocabulary (`ae1cfc49`, **+6**) · the SAME shape as the destination slice
 
 The graveyard slice ended on the pin *"a destination landing does not widen the search vocabulary."* This is
@@ -74,6 +106,11 @@ where **the machinery was already built and only the vocabulary was absent** —
 DESTINATION, then the permanent/color FILTERS. Both were found by sizing an *axis* of an existing system
 rather than a card. **Ask what dimensions a working subsystem already supports, and which of them nothing
 can currently say.**
+
+⭐ **THREE FOR THREE NOW** (destination → tutor filters → reanimate filters, +6/+6/+13). The sharpest
+variant: **the same capability present on one arm of a function and absent on its neighbour.** When a
+matcher has an MV-capped twin, a triggered twin, or an "up to N" twin, **diff their vocabularies** — that is
+where this keeps hiding.
 
 ## 🔧 SHIPPED — tutor-to-GRAVEYARD (`904d4304`, **+6** incl. **Entomb #328** and **Buried Alive #371**)
 
@@ -1502,7 +1539,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,312/34,245). Suite **949 files / 12,116 tests**,
+- **Nothing mid-edit.** Corpus **36.0%** (12,325/34,245). Suite **950 files / 12,127 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
