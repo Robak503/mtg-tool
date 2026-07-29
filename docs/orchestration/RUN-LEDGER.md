@@ -119,6 +119,57 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🎯 THE SHELF, MEASURED 2026-07-29 — **and the honest read on what is left**
+
+Corpus **36.1%** (12,354/34,245) · aggregate **81%** (1,286/1,597 across 16 decks) · **colton 92%** (461/499,
+5 decks) · joe 75% (825/1,098, 11 decks).
+
+```
+100% Slivers    96% Vihaan    93% Omnath    92% Zaxara    90% Mothman    90% Earth Bent
+ 81% cdh        80% Dragons   75% Jurassic  73% Believe   73% Kinnan     72% Kellan
+ 72% Wolverine  72% Hulk      68% Cap America           62% Halfshell heroes
+```
+
+⭐ **COLTON'S SHELF IS 4-OF-5 OVER THE BAR. The only deck under it is `cdh` (Rograkh/Thrasios) at 81%** — 19
+slots, and getting it to 90 means closing 9 of them.
+
+⛔⛔ **AND IT WILL NOT GET THERE ON VOCABULARY SLICES. I read all 19 and they are cEDH's hardest cards, each
+on a DIFFERENT subsystem** — no two share a blocker:
+```
+Pact of Negation   delayed "pay {3}{U}{U} or LOSE THE GAME"     Mindbreak Trap   conditional {0} alt-cost + "exile any number of target spells"
+Deflecting Swat    free-cast + RETARGETING a spell or ability   Chain of Vapor   opponent-choice sac + conditional spell COPY with new targets
+Veil of Summer     conditional draw + turn-scoped uncounterable + hexproof-from-COLOR
+Hidden Strings     CIPHER            Borne Upon a Wind  turn-scoped flash permission (see below)
+Vexing Shusher     activated "target spell can't be countered"  Hexing Squelcher  quoted-grant of WARD to other creatures
+Wan Shi Tong       half-X-rounded-down draw + opponent-SEARCHES-library event (no such event exists)
+Ragavan · Springheart Nantuko · Valley Floodcaller · The Cabbage Merchant · Biomancer's Familiar
+Gene Pollinator · Springleaf Drum · Invasion of Ikoria · Vibrance
+```
+**Treat cdh as a multi-session project, not a grind target.** The same is true at the bottom: **Halfshell
+heroes (62%) is an entire unmodeled SET** (38 slots, nearly all TMNT-set bespoke), not a soft tail.
+
+### ⚠️ SPRINGLEAF DRUM — a CAPABILITY pin in the MANA lane, and the one I deliberately did not take
+`{T}, Tap an untapped creature you control: Add one mana of any color` is body-only. **Earthcraft's
+identical cost is native-activated** — so the COST is modeled and it is the MANA lane that refuses it.
+`manaModel.js`'s `manaCostModelable` COMPOUND-COST GUARD names Springleaf Drum by name: riding the `{T}`
+half alone minted **phantom mana** every turn because the sim never spends the other creature's tap.
+
+That is a **capability** pin ("the sim doesn't spend it"), so it graduates — but only by teaching the mana
+PLANNER to tap another creature, and phantom mana silently dirties self-play training data. **It is also
+the same design call already banked as NEXT ACTIONS #2** ("decide this one while sharp"). Left for a waking
+session on purpose. Gene Pollinator ("tap an untapped PERMANENT") rides the same build.
+
+### 🔧 NEW TOOL — `app/scripts/deck-gap.mjs`
+```
+MTG_APP_ROOT=<root> node app/scripts/deck-gap.mjs <deck-name-substring>
+```
+Per-CARD gap list for a deck: tier + mechanism bucket, **sorted so same-blocker cards sit adjacent** (two
+cards on one clause is what makes a slice worth building). `measure-coverage` only ever gave a percentage
+plus three-card samples of the biggest global buckets, so every shelf session was re-deriving this by hand.
+Qty-weighted against the same denominator — verified to reproduce 92/81/62 exactly for Zaxara/cdh/Halfshell.
+⚠️ Its first draft counted distinct ROWS instead of slots and *still* printed the right numbers, because no
+unmodeled card in those decks is duplicated. Coincidence is not agreement; the check was to run all three.
+
 ## 🚨 SHIPPED — **THE RUN'S WORST BUG: a SOFT-LOCK, found by reading a descriptor** (`720ede1f`, +4)
 
 **Aurelia, the Warleader was native and looping the turn forever.** Her descriptor read
@@ -166,6 +217,28 @@ dropping either half survives on the other. Collapsed to a single match with a c
 'first time each turn'"* was a **CAPABILITY** pin — it graduates on a runtime proof. It now asserts
 detection **with the latch** (detection without it is the over-fire), and its opponent-subject half is
 pinned in its place. The three-kinds-of-pin taxonomy held.
+
+## 🔧 SHIPPED — VALIANT, the "…a spell or ability YOU CONTROL" narrowing (`45e91001`, +5)
+
+Predicted as the next axis one slice earlier and it held: the `becomesTarget` event was built, the
+once-per-turn latch had just landed, and **the only missing piece was the narrowing — which is the whole
+card.** Valiant exists so YOUR pump spell grows the mouse and an OPPONENT'S removal does not; firing on any
+targeter would hand all 13 carriers a trigger off every opposing Shock. The gate lives at the FIRING SITE
+(only the runtime knows who cast the spell) and DROPS the flagged trigger rather than skipping the scan, so
+unnarrowed watchers on the same permanent still fire — pinned by a control keeping Phantasmal Bear
+sacrificing itself to anyone's spell. Also strips `Valiant —` as a CR 207.2c label; without it the
+boundary-anchored regex never sees the "Whenever" and the card detects NOTHING.
+
+GAINED **5** of 13 (Mouse Trapper · Emberheart Challenger · Nettle Guard · Whiskerquill Scribe · Seedglaive
+Mentor); the rest hold a second unmodeled ability. Each gained payoff was read back to a real ATOM, not to
+a HIGH confidence.
+
+⚠️ **WHITELIST DRIFT — FOURTH OF THIS RUN, and the warning was written directly above the line I missed.**
+`detectTriggers`' descriptor build is an explicit allowlist whose own comment says an unlisted field is
+silently dropped and becomes an over-fire. It happened anyway: the arm returned `targeterIsController`, the
+descriptor did not carry it, every probe looked perfect. **Whenever a new descriptor field is introduced,
+grep that allowlist before testing anything.** (Running tally: trigger descriptor · tutor destination ×3 ·
+stun count ×2 · this one.)
 
 ## 🔧 SHIPPED — attacking-only mass untap + the Raphael wording (`ef54c6a2`, +1)
 
