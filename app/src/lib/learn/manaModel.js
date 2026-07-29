@@ -846,10 +846,40 @@ function manaProductionImpl(card) {
       : { ...fromOracle, requiresTap };
   }
 
-  // A land we couldn't otherwise parse still taps for something — assume
-  // colorless so it can at least pay generic. Never invents a color.
+  // A land we couldn't otherwise parse still taps for something — assume colorless so it can at least pay
+  // generic. Never invents a color.
+  //
+  // ⛔ BUT ONLY WHEN IT PLAUSIBLY HAS A MANA ABILITY AT ALL. The premise "every land taps for something" is
+  // simply FALSE for a large, heavily-played class, and this fallback was minting a repeatable, TAPLESS {C}
+  // for every one of them — 54 corpus lands, led by **every fetchland** (Polluted Delta #36, Evolving Wilds
+  // #18, Terramorphic Expanse #27, Fabled Passage #50, the whole Onslaught/Zendikar cycle) plus Maze of Ith,
+  // Glacial Chasm, Diamond Valley and Dark Depths. A fetchland has NO mana ability — it sacrifices itself to
+  // search. Measured live: a battlefield holding nothing but Maze of Ith could pay {1}. In a fetch-heavy
+  // deck that is a fistful of fabricated mana every turn, and it goes straight into self-play training data,
+  // which is the exact failure the phantom-mana gates elsewhere in this file exist to prevent.
+  //
+  // Two ways a land earns the fallback, and nothing else:
+  //   • a BASIC LAND TYPE — the intrinsic ability of CR 305.6, which is printed nowhere in the oracle. This
+  //     arm should be unreachable (the basic path returns its colored mana far above) and is kept anyway:
+  //     stripping production from a basic would be catastrophic, so it must not depend on ordering.
+  //   • the word "add" ANYWHERE in its oracle — it prints a mana ability this parser merely failed to read,
+  //     which is the case the fallback was actually written for.
+  //
+  // Everything else now produces NOTHING. That is an UNDER-count, the safe direction (CREED).
+  // ⚠️ KNOWN UNDER-COUNT, ACCEPTED: Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of Growth ("Each land is
+  // a Swamp/Forest in addition to its other land types") DO tap for mana in real Magic, via a basic type
+  // they grant themselves. They print no "add" and carry no basic subtype, so they now produce nothing.
+  // They were already WRONG here — credited {C} when they should make {B}/{G} — so this trades a wrong
+  // answer for a missing one, which is the direction the creed requires. Modelling the self-granted type is
+  // its own slice; pinned in manaLandNoAbility.test.js so it cannot be "fixed" by re-widening this.
   if (isLandCard) {
-    return { colors: ["C"], amount: 1 };
+    const tl = typeLineOf(card).toLowerCase();
+    // "basic" catches Wastes, whose type line is a bare "Basic Land" with NO subtype (the word Wastes is
+    // only its NAME — an easy and wrong thing to match on). The subtype list catches a nonbasic that carries
+    // basic types (Tundra, "Land — Plains Island").
+    const hasBasicType = /\bbasic\b/.test(tl) || [...BASIC_LAND_SUBTYPES].some((b) => new RegExp(`\\b${b}\\b`).test(tl));
+    if (hasBasicType || /\badd\b/i.test(oracleForAdd)) return { colors: ["C"], amount: 1 };
+    return null;
   }
   return null;
 }
