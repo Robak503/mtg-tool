@@ -74,10 +74,43 @@ const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|assist|affinity
  * otherwise-fully-modeled card isn't dragged to LOW/body-only by a cost-only keyword the runtime ignores
  * (it hard-casts at full cost). CREED-safe per the rationale above.
  */
+// PLOT (a cost-only keyword line, same family as convoke/affinity): "Plot {2}{U} (reminder…)".
+// ⛔ NOT STRIPPED when the card carries a "becomes plotted" TRIGGER — those cards (Longhorn Sharpshooter,
+// Aloe Alchemist) have real plot SEMANTICS beyond the cost keyword, and removing the line would hide an
+// unmodeled trigger. That text check reproduces coverage.js's `parsePlotCost` gate EXACTLY: measured across
+// all 34 corpus cards whose text matches this anchor, 34 agree / 0 disagree. It is done by text so this file
+// stays a leaf (importing abilities.js for parsePlotCost would risk a cycle).
+const PLOT_COST_LINE = /^plot\s+(?:\{[^}]+\})+.*$/i;
+
+// CASCADE — the keyword line belongs to the TRIGGER subsystem, not to the spell's own effect program.
+// coverage.js strips it before parsing the body (and only credits the card when the cascade TRIGGER itself
+// routes natively — verified: detectTriggers yields a cascade descriptor and triggerRoutesNatively is true).
+// The runtime did NOT strip it, so the leftover line dragged the body to LOW and six otherwise-native
+// cascade spells (Violent Outburst, Demonic Dread, Deny Reality, Captured Sunlight, Forceful Denial,
+// Natural Reclamation) routed to the Arbiter while the metric counted them native. The cascade EFFECT is
+// unaffected either way — it fires through the trigger, which is where it is modelled.
+// ⛔ THE BARE KEYWORD LINE ONLY — after removing reminder parentheses the line must be exactly "cascade".
+// coverage.js also matches the reminder sentence ("exile a nonland card that costs less"), but it does so
+// INSIDE a branch already gated on the card HAVING cascade. Reusing that matcher here, where the helper runs
+// on every card, stripped a real ability off cards that GRANT cascade — "Delirium — This spell has cascade
+// as long as …" (Bloodbraid Marauder), "The first spell you cast each turn has cascade" (Maelstrom Nexus) —
+// and credited 9 of them native with the granting ability silently gone. Caught by the tier diff: the fix
+// was supposed to move ZERO cards, and it moved nine in the forbidden direction.
+const CASCADE_LINE = (t) => t.replace(/\([^)]*\)/g, "").trim().toLowerCase() === "cascade";
+
 export function stripCostOnlyKeywordLines(oracle) {
-  const lines = String(oracle || "").split("\n");
-  const kept = lines.filter((ln) => !COST_ONLY_KEYWORD_LINE.test(ln.trim()));
-  return kept.length === lines.length ? String(oracle || "") : kept.join("\n").trim();
+  const raw = String(oracle || "");
+  // A becomes-plotted trigger means plot is not cost-only on this card — leave every line alone.
+  const plotIsCostOnly = !/becomes plotted/i.test(raw);
+  const lines = raw.split("\n");
+  const kept = lines.filter((ln) => {
+    const t = ln.trim();
+    if (COST_ONLY_KEYWORD_LINE.test(t)) return false;
+    if (plotIsCostOnly && PLOT_COST_LINE.test(t)) return false;
+    if (CASCADE_LINE(t)) return false;
+    return true;
+  });
+  return kept.length === lines.length ? raw : kept.join("\n").trim();
 }
 
 /** True iff the oracle carries at least one standalone CONVOKE / AFFINITY cost-keyword line. */
