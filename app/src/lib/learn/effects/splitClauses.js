@@ -446,7 +446,13 @@ export function splitClauses(oracle) {
     // " and " joins the stun rider to the SAME tap instruction ("it/them" = the just-tapped creature), NOT a
     // top-level boundary. combat.tapClauseParser folds stunCounter onto the tap atom; a split would strand the
     // unbindable "put a stun counter on it" → low. Anchored to the tap-and-stun forms (Gilded Scuttler family).
-    if (/^tap (?:up to (?:one|two|three|four|five) target creatures?|target creature(?: an opponent controls| you don't control| defending player controls)?) and put a stun counter on (?:it|them)$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⚠️ THE COUNT IS PART OF THE ANCHOR, and it must move together with the matcher's. This rule and
+    // combat.tapClauseParser's stun arm both used to hardcode "a stun counter": widening only the matcher
+    // changed nothing, because the splitter had already torn "put three stun counters on it" off into its
+    // own clause, where the pronoun has nothing to bind to and the card parks. Same two-places shape as the
+    // tutor destination's whitelists — a stun count added here without the matcher (or vice versa) is a
+    // silent no-op.
+    if (/^tap (?:up to (?:one|two|three|four|five) target creatures?|target creature(?: an opponent controls| you don't control| defending player controls)?) and put (?:a|one|two|three) stun counters? on (?:it|them)$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TOKEN-COPY-KEYWORD (Irenicus's Vile Duplication) — "create a token that's a copy of target creature you
     // control, except the token has flying and it isn't legendary": the " and " joins the granted-keyword rider
     // to the "it isn't legendary" no-op, INTERNAL to the one copy instruction, NOT a top-level effect boundary.

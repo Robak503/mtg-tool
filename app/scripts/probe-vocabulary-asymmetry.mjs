@@ -79,6 +79,35 @@ const FAMILIES = [
     },
   },
   {
+    name: "counter-placement",
+    note: "+1/+1 vs -1/-1 vs a named counter — the same recipient noun should be sayable to each",
+    vocab: ["creature", "creature you control", "creature an opponent controls", "permanent", "artifact", "land"],
+    variants: {
+      plusOne: (n) => `put a +1/+1 counter on target ${n}`,
+      minusOne: (n) => `put a -1/-1 counter on target ${n}`,
+      named: (n) => `put a stun counter on target ${n}`,
+    },
+  },
+  {
+    name: "damage-recipient",
+    note: "damage vs life-loss — the recipient vocabulary should match",
+    vocab: ["creature", "player", "opponent", "any target", "creature an opponent controls", "planeswalker"],
+    variants: {
+      damage: (n) => `~ deals 2 damage to target ${n}`,
+      damageEach: (n) => `~ deals 2 damage to each ${n}`,
+    },
+  },
+  {
+    name: "sacrifice-subject",
+    note: "who sacrifices — you vs each player vs an opponent, over the same noun",
+    vocab: ["a creature", "a land", "an artifact", "a permanent", "a creature or planeswalker"],
+    variants: {
+      you: (n) => `sacrifice ${n}`,
+      eachPlayer: (n) => `each player sacrifices ${n}`,
+      targetOpponent: (n) => `target opponent sacrifices ${n}`,
+    },
+  },
+  {
     name: "cardinality",
     note: "single vs up-to-N — a matcher often gains a filter on one and not the other",
     vocab: [...CARD_TYPES, ...UNIONS],

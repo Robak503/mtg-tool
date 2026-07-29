@@ -902,14 +902,23 @@ export function combatKeywordClauseParser(clause) {
   // sentences with " and "; "it/them" = the just-tapped creature(s), no cross-atom reference), so stunCounter:1
   // rides along — applyTapEffect adds a stun counter to each tapped target and untapAll enforces the tap-lock
   // (the creature skips its next untap, removing one stun counter, CR 122.1c). Whole-clause anchored ($).
-  const stunM = t.match(/^tap (?:up to (one|two|three|four|five) target creatures?|target creature(?:\s+(an opponent controls|you don't control|defending player controls))?) and put a stun counter on (?:it|them)$/);
+  // ⭐ THE COUNT IS PARSED, not fixed at one. "put THREE stun counters on it" (Freeze in Place, Dreamdew
+  // Entrancer, Kitnap, Out Cold) is the same clause with a different number, and applyTapEffect already
+  // passes `amount: atom.stunCounter` straight to addCounter — so the resolver has always been able to
+  // place N. Only this matcher said "a". Nine corpus cards carry a multi-count stun.
+  //
+  // N counters = N skipped untaps, which is exactly CR 122.1c: untapAll removes ONE per untap step
+  // (untapOrConsumeStun), so three counters keep the creature down for three of its controller's untap
+  // steps and then it untaps normally. No new runtime behaviour is being claimed here.
+  const stunM = t.match(/^tap (?:up to (one|two|three|four|five) target creatures?|target creature(?:\s+(an opponent controls|you don't control|defending player controls))?) and put (a|one|two|three) stun counters? on (?:it|them)$/);
   if (stunM) {
+    const stunCounter = SMALL_NUM[stunM[3]] ?? 1; // "a" → 1 via SMALL_NUM
     if (stunM[1]) { // "up to N" — up-to-one is a single optional target; up-to-≥2 is a multi-target subset
       const n = SMALL_NUM[stunM[1]];
-      if (n === 1) return { op: "tap", targetType: "creature", restrictions: [], optionalTarget: true, stunCounter: 1 };
-      if (n >= 2) return { op: "tap", targetType: "creature", restrictions: [], maxTargets: n, minTargets: 0, stunCounter: 1 };
+      if (n === 1) return { op: "tap", targetType: "creature", restrictions: [], optionalTarget: true, stunCounter };
+      if (n >= 2) return { op: "tap", targetType: "creature", restrictions: [], maxTargets: n, minTargets: 0, stunCounter };
     } else {
-      return { op: "tap", targetType: "creature", restrictions: stunM[2] ? [{ kind: "controller", who: "opponent" }] : [], stunCounter: 1 };
+      return { op: "tap", targetType: "creature", restrictions: stunM[2] ? [{ kind: "controller", who: "opponent" }] : [], stunCounter };
     }
   }
   const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
