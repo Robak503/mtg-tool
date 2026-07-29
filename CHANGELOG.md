@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.14] — 2026-07-29
+
+### Fixed
+- **Refreshing card data works again.** Scryfall changed how it publishes its card database — a new address,
+  and the file is now compressed with one card per line. The app's sync didn't understand the new format and
+  quietly downloaded *nothing* instead of saying so, which broke "Refresh data" in the app and stopped the
+  0.149.13 release from ever being built. Card, ruling and price refreshes all work again.
+- **A sync that downloads nothing is now an error, not a success.** That was the actual bug: the old code
+  skipped past files it couldn't find a download link for and reported everything as fine. It now stops
+  immediately and says which piece of Scryfall's data moved, so the next change upstream takes minutes to
+  diagnose instead of an afternoon.
+
+> v0.149.13 was tagged but never published — its build failed on the sync above. Everything listed under
+> 0.149.13 ships in this release.
+
 ## [0.149.13] — 2026-07-29
 
 ### Added

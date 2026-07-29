@@ -1,21 +1,17 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
+// ⛔ 2026-07-29: Scryfall replaced `download_uri` (a plain JSON array) with
+// `jsonl_download_uri` (gzipped JSONL), which broke this script and killed release
+// v0.149.13 via its sibling. All URL/format handling lives in ONE shared adapter so the two
+// sync scripts cannot drift apart the next time upstream moves.
+const { fetchBulkListing, fetchBulkRecords } = require("./scryfall-bulk-fetch.cjs");
+
 const APP_ROOT = path.resolve(__dirname, "..");
 const DATA_DIR = path.join(APP_ROOT, "data");
 const ORACLE_FILE = path.join(DATA_DIR, "scryfall.oracle.local.json");
 const RULINGS_FILE = path.join(DATA_DIR, "scryfall.rulings.local.json");
 const CARD_NAMES_FILE = path.join(APP_ROOT, "public", "card-names.json");
-
-async function fetchJson(url) {
-  const response = await fetch(url, {
-    headers: { "User-Agent": "mtg-tool-local-scryfall-sync/0.1" },
-  });
-  if (!response.ok) {
-    throw new Error(`Fetch failed ${response.status} ${response.statusText}: ${url}`);
-  }
-  return response.json();
-}
 
 function compactCard(card) {
   return {
@@ -79,15 +75,18 @@ function compactRuling(ruling) {
 async function main() {
   await fs.mkdir(DATA_DIR, { recursive: true });
 
-  const bulk = await fetchJson("https://api.scryfall.com/bulk-data");
-  const oracleBulk = bulk.data?.find(item => item.type === "oracle_cards");
-  const rulingsBulk = bulk.data?.find(item => item.type === "rulings");
+  const items = await fetchBulkListing();
+  const oracleBulk = items.find(item => item.type === "oracle_cards");
+  const rulingsBulk = items.find(item => item.type === "rulings");
 
-  if (!oracleBulk?.download_uri) throw new Error("Could not find Scryfall oracle_cards bulk data.");
-  if (!rulingsBulk?.download_uri) throw new Error("Could not find Scryfall rulings bulk data.");
+  // The URL-field check now lives in fetchBulkRecords, which throws with the full field list
+  // rather than a bare "could not find" — so a rename upstream names itself.
+  const present = () => items.map(item => item.type).join(", ") || "none";
+  if (!oracleBulk) throw new Error(`Could not find Scryfall oracle_cards bulk data. Types present: ${present()}`);
+  if (!rulingsBulk) throw new Error(`Could not find Scryfall rulings bulk data. Types present: ${present()}`);
 
   console.log(`Downloading Oracle cards updated ${oracleBulk.updated_at}`);
-  const oracleCards = await fetchJson(oracleBulk.download_uri);
+  const oracleCards = await fetchBulkRecords(oracleBulk);
   const compactCards = oracleCards
     .filter(card => card.lang === "en")
     .map(compactCard);
@@ -117,7 +116,7 @@ async function main() {
   );
 
   console.log(`Downloading rulings updated ${rulingsBulk.updated_at}`);
-  const rulings = await fetchJson(rulingsBulk.download_uri);
+  const rulings = await fetchBulkRecords(rulingsBulk);
   const compactRulings = rulings
     .filter(ruling => ruling.oracle_id && ruling.comment)
     .map(compactRuling);

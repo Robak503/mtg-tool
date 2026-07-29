@@ -212,6 +212,7 @@ if (STRICT && missingRequired.length) {
 console.log("Copying sync/build scripts...");
 const syncScripts = [
   "sync-scryfall-bulk.cjs",
+  "scryfall-bulk-fetch.cjs",   // shared require() of both scryfall syncs — omit it and the in-app sync dies with MODULE_NOT_FOUND
   "sync-spellbook.cjs",
   "sync-edhrec-salt.cjs",
   "sync-scryfall-oracle.cjs",
@@ -225,6 +226,10 @@ for (const name of syncScripts) {
   if (fs.existsSync(src)) {
     copyFile(src, path.join(RESOURCES, "scripts", name));
     console.log(`  + scripts/${name}`);
+  } else if (STRICT) {
+    // A missing sync script is a broken Refresh-all button in the shipped .exe. Warning about
+    // it and building anyway is how sync-cardkingdom-prices.cjs shipped absent once already.
+    throw new Error(`prepare-tauri-resources: STRICT build is missing scripts/${name} (required by /api/sync-data).`);
   } else {
     console.warn(`  - scripts/${name} (not found)`);
   }

@@ -38,6 +38,57 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🚨 SHIPPED 2026-07-29 — THE RELEASE PIPELINE WAS DEAD. v0.149.13 NEVER PUBLISHED.
+
+**Found by a QA/audit pass, not by a test.** The tag `v0.149.13` exists on the remote and master carries all
+its work, but `api.github.com/.../releases/tags/v0.149.13` → **404**; the newest published release was still
+v0.149.12. The GitHub Actions REST API is public read on a public repo, so the failing step is readable with
+no `gh` and no auth: run `30498926398`, step 12 **"Build slim oracle index" — failure in 0 seconds**.
+
+**Root cause, upstream + ours, and ours is the one that matters.** Scryfall replaced `download_uri` (plain
+JSON array) with **`jsonl_download_uri`** (gzipped JSONL); `size` is gone, only `compressed_size` survives.
+`sync-scryfall-bulk.cjs` looped the four wanted types and did `if (!item.download_uri) continue;` — so it
+downloaded **zero of four** files, wrote a manifest with `files: []`, and **exited 0**. CI step 11 went green
+in **one second** against a step that normally runs ten minutes. The release then died two steps later on a
+missing `oracle_cards.json` — a perfectly good error message for the wrong problem.
+
+**⭐ THIS IS THE HOLLOW-GATE LAW AS A BUILD OUTAGE.** A one-second green step is a *measurement* that nothing
+happened. Nothing in the pipeline asserted that a sync moved bytes, so absence read as success — the same
+shape as every hollow gate this run has caught in the engine, except this one silently stopped shipping.
+
+**The fix (`app/scripts/scryfall-bulk-fetch.cjs`, shared by both scryfall syncs so they can't drift):**
+- Accepts `jsonl_download_uri` **then** `download_uri`, so an upstream rollback needs no code change.
+- Streams gunzip → JSONL → a plain JSON array, so the format change is contained at the seam and every
+  downstream reader (`cardIndex.js`, `build-oracle-index.cjs`: `readFileSync` + `JSON.parse` +
+  `Array.isArray(parsed) ? parsed : parsed.cards`) is untouched.
+- **`StringDecoder`, not `chunk.toString()`** — a gzip chunk boundary lands mid-codepoint and would silently
+  corrupt `Æther Vial` / `Lim-Dûl's Vault` / `Jötun Grunt` with U+FFFD. No record count would ever notice.
+- **Three fail-loud guards**: no wanted types matched · any item missing a URL field (checked *before* any
+  download, so a rename fails in one second naming the fields it found) · files-written ≠ files-intended.
+  Plus per-file refusals: implausibly small, or zero decoded records, with the temp file cleaned up.
+- `prepare-tauri-resources.cjs`: the helper is staged into the bundle (a missing `require()` would be
+  MODULE_NOT_FOUND inside the `.exe`), and a missing sync script is now **fatal under STRICT** instead of a
+  warning — that warn-only path is how `sync-cardkingdom-prices.cjs` once shipped absent.
+
+**Verification — three layers, because the synthetic layer could not answer the real question.**
+- 21 new tests, **all three mutations seen to fail**: `StringDecoder`→`toString` (caught by the one-byte-chunk
+  test alone), the URL field reverted to `download_uri`-only (6 tests incl. the positive control), the size
+  refusal disabled (1). The empty-snapshot test *still passed* under mutation 3 — proof the two refusal guards
+  are independently live rather than one masking the other.
+- **Live probe against the real endpoint**, which the local server could not settle: `data.scryfall.io` sends
+  `content-type: application/gzip` with **`content-encoding: null`**, so `fetch` does *not* auto-decompress
+  and the explicit `createGunzip()` is required. Had that header been `gzip`, the fix would have shipped broken.
+- **CI steps 11–13 reproduced end-to-end** into a throwaway `MTG_APP_ROOT`: 4/4 synced (oracle 38,416 ·
+  unique_artwork 53,849 · default_cards 116,311 · rulings 77,998), then step 12 wrote the slim index
+  (36,173/38,416, 192.4MB→38.2MB) and step 13 the printings index (104,226/116,311). All exit 0.
+
+**Gate:** full suite **980 files / 12,477 green** (+21, one new file), lint 0, MUTANT sweep clean.
+**Shipped as v0.149.14** — v0.149.13 was *not* re-tagged; no force operations on a published tag.
+**⚠️ NEXT SESSION: confirm v0.149.14 actually published** — `api.github.com/repos/Robak503/mtg-tool/releases/latest`
+must report `v0.149.14` with 5 assets. A pushed tag is not a release; this run learned that the expensive way.
+
+---
+
 ## 🌊 SCOPED WAVE (start here cold) — EXTRA COMBAT PHASES, CR 500.8. **51 cards, ALL non-native.**
 
 Named by the mass-untap slice: every big card on that clause list was blocked by this rider, not by the
