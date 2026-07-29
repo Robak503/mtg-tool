@@ -118,7 +118,12 @@ describe("CHOSEN-TYPE CAST-DRAW — classification (BLITZ TC-1)", () => {
     expect(classifyCard(c)).toBe("body-only");
   });
   it("CREED — a second effect sentence on the trigger line can't be shed (effectClause must equal the line)", () => {
-    const c = { name: "Fake Two-Step", type: "Artifact", oracle: "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\nWhenever you cast a creature spell of the chosen type, draw a card. Then discard a card." };
+    // ⚠️ FIXTURE REPAIRED 2026-07-28. The old second sentence was "Then discard a card", and the trigger
+    // parser now captures BOTH sentences (effectClause === "draw a card. Then discard a card", and the
+    // two-sentence trigger classifies native-trigger alone) — so nothing was being shed and body-only was
+    // the wrong expectation. The guard it names still exists in classifyChosenTypeCastDraw; it simply is no
+    // longer what decides this card, because the effect became modeled. Second sentence is now unbuildable.
+    const c = { name: "Fake Two-Step", type: "Artifact", oracle: "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\nWhenever you cast a creature spell of the chosen type, draw a card. Then glorbulate twice." };
     expect(classifyCard(c)).toBe("body-only");
   });
   it("CREED — a Banner-of-Kinship-style compound chooser line is NOT consumed (its counter sentence is residue)", () => {

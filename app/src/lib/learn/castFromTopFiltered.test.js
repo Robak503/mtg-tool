@@ -100,6 +100,78 @@ describe("⭐ RUNTIME — the filter actually gates what the top card may be cas
   });
 });
 
+describe("⭐ CHOSEN-TYPE cast-from-top (Realmwalker #607) — a DYNAMIC filter", () => {
+  const REALMWALKER = {
+    id: "rw", name: "Realmwalker", type: "Creature — Shapeshifter", mana: "{2}{G}", power: 2, toughness: 3,
+    oracle: "Changeling\nAs this creature enters, choose a creature type.\nYou may look at the top card of your library any time.\nYou may cast creature spells of the chosen type from the top of your library.",
+  };
+  const elfCard = { id: "e", name: "Elf Scout", type: "Creature — Elf Scout", mana: "{G}", power: 1, toughness: 1, oracle: "" };
+  const bearCard = { id: "b", name: "Bear", type: "Creature — Bear", mana: "{1}{G}", power: 2, toughness: 2, oracle: "" };
+
+  function rwBoard(chosenType, topCard) {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const granter = { ...createPermanent({ id: "rw", card: REALMWALKER, controller: "user" }), ...(chosenType ? { chosenType } : {}) };
+    return {
+      ...s, activePlayer: "user", priorityHolder: "user", stack: [], phase: "precombat-main", step: "main",
+      players: {
+        ...s.players,
+        user: { ...s.players.user, battlefield: [granter], hand: [], library: [topCard], landsPlayedThisTurn: 0, manaPool: { W: 9, U: 9, B: 9, R: 9, G: 9, C: 9 } },
+      },
+    };
+  }
+  const libActions = (st) => legalActionsForPlayer(st, "user").filter((a) => a.fromZone === "library");
+
+  it("the filter cannot be a word list at parse time, so the parser leaves it dynamic", () => {
+    const d = parseStaticAbilities({ ...REALMWALKER, oracle: "You may cast creature spells of the chosen type from the top of your library." }).find((x) => x.playFromTop);
+    expect(d.playFromTop).toEqual({ lands: false, spellFilter: { chosenTypeOfSource: true } });
+  });
+
+  it("playFromTopPermission resolves it against the GRANTER'S stored chosenType", () => {
+    expect(playFromTopPermission(rwBoard("Elf", elfCard), "user").spellFilter).toEqual(["Elf"]);
+  });
+
+  it("Realmwalker #607 classifies native", () => {
+    expect(classifyCard(REALMWALKER)).toMatch(/^native/);
+  });
+
+  it("⭐ RUNTIME — having chosen Elf, an Elf on top IS castable", () => {
+    expect(libActions(rwBoard("Elf", elfCard)).length).toBeGreaterThan(0);
+  });
+
+  it("⭐ CREED — having chosen Elf, a BEAR on top is not", () => {
+    expect(libActions(rwBoard("Elf", bearCard))).toEqual([]);
+  });
+
+  it("⭐ CREED — with NO type chosen the granter permits NOTHING (never everything)", () => {
+    // The unsafe direction would be treating an unresolved dynamic filter as truthy, which is how the
+    // runtime's boolean gate used to read any non-null spellFilter.
+    expect(playFromTopPermission(rwBoard(null, elfCard), "user").spellFilter).toBe(null);
+    expect(libActions(rwBoard(null, elfCard))).toEqual([]);
+  });
+});
+
+describe("the ETB chosen-type CHOOSER is explained text, not residue", () => {
+  it("it parses to a marker (the engine really does implement it — resolvers.autoPickCreatureType)", () => {
+    expect(parseStaticAbilities({ name: "X", type: "Creature — Shapeshifter", oracle: "As this creature enters, choose a creature type." }))
+      .toEqual([{ chosenTypeChooser: true }]);
+  });
+
+  it("⭐ it no longer parks a card that sits outside the chosen-type COMPOSITE classifiers", () => {
+    // This is what kept Realmwalker parked: every composite drops the chooser by its own regex, but the
+    // general path had no account of it, so a card the composites don't own died on a line the engine runs.
+    const oracle = "You may look at the top card of your library any time.\nYou may cast creature spells from the top of your library.";
+    expect(classifyCard({ name: "X", type: "Creature — Shapeshifter", mana: "{2}{G}", power: 2, toughness: 2, oracle })).toMatch(/^native/);
+    expect(classifyCard({ name: "X", type: "Creature — Shapeshifter", mana: "{2}{G}", power: 2, toughness: 2, oracle: `As this creature enters, choose a creature type.\n${oracle}` })).toMatch(/^native/);
+  });
+
+  it("⭐ CREED — crediting the chooser does NOT credit an unmodeled payoff behind it", () => {
+    expect(classifyCard({
+      name: "X", type: "Creature — Shapeshifter", mana: "{2}{G}", power: 2, toughness: 2,
+      oracle: "As this creature enters, choose a creature type.\nWhenever a creature of the chosen type glorbulates, you win the game.",
+    })).not.toMatch(/^native/);
+  });
+});
+
 describe("filter semantics", () => {
   it("\"any\" permits everything; null permits nothing", () => {
     expect(castFromTopFilterAllows("any", { type: "Instant" })).toBe(true);

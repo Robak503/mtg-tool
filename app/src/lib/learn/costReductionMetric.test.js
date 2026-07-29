@@ -71,11 +71,15 @@ describe("SELF-METRIC — parser", () => {
 // B. CHOSEN-TYPE + C. COLOR parser markers
 // ════════════════════════════════════════════════════════════════════════════════
 describe("CHOSEN-TYPE — parser marker", () => {
+  // The ETB chooser line now emits its own marker ({ chosenTypeChooser: true }) — it is a real setup
+  // replacement the engine implements (resolvers.autoPickCreatureType), so it is explained text rather than
+  // an unaccounted line. These assertions name it explicitly instead of loosening to a `some` check, so a
+  // THIRD unexpected descriptor still fails the pin.
   it("Urza's Incubator → a chosenType/2 reducer ('you cast' omitted)", () => {
-    expect(parseStaticAbilities(URZAS_INCUBATOR())).toEqual([{ costReduction: { chosenType: true, amount: 2 } }]);
+    expect(parseStaticAbilities(URZAS_INCUBATOR())).toEqual([{ chosenTypeChooser: true }, { costReduction: { chosenType: true, amount: 2 } }]);
   });
   it("Herald's Horn → a chosenType/1 reducer ('you cast' present; the upkeep trigger adds no static descriptor)", () => {
-    expect(parseStaticAbilities(HERALDS_HORN())).toEqual([{ costReduction: { chosenType: true, amount: 1 } }]);
+    expect(parseStaticAbilities(HERALDS_HORN())).toEqual([{ chosenTypeChooser: true }, { costReduction: { chosenType: true, amount: 1 } }]);
   });
   it("Morophon ('cost {W}{U}{B}{R}{G} less' — colored) → NO chosen-type reducer (colored reduction is unmodeled — PARKED)", () => {
     // CREED: a colored-mana reduction is out of scope (we reduce only generic). Morophon's reducer clause

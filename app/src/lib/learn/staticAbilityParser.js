@@ -1951,6 +1951,20 @@ function parseClause(clause, out, selfName, selfType) {
   if (/^play with the top card of your library revealed$/.test(c)
     || /^you may look at the top card of your library any time$/.test(c)) { out.push({ inertInfo: true }); return; }
 
+  // ETB CHOSEN-TYPE CHOOSER (CR 614.12) — "As this <permanent> enters, choose a creature type." A genuine
+  // setup REPLACEMENT that the engine implements (resolvers.autoPickCreatureType stores perm.chosenType), so
+  // it is explained text, not residue. Every chosen-type COMPOSITE classifier already drops this line by its
+  // own regex; emitting a descriptor here lets the GENERAL path account for it too, which is what kept cards
+  // outside those composites parked on a line the engine actually runs (Realmwalker #607).
+  //
+  // ⚠️ It carries no layer/affects on purpose — it changes nothing continuous. Crediting it cannot become a
+  // claimed-native no-op, because the thing it sets up is consumed by SEPARATE lines that must each earn
+  // their own credit: an unmodeled "of the chosen type" payoff is still residue and still parks the card.
+  if (/^as (?:this [a-z]+|[a-z' ,]+) enters(?: the battlefield)?, choose a creature type$/.test(c)) {
+    out.push({ chosenTypeChooser: true });
+    return;
+  }
+
   // SELF CHOSEN-TYPE ADD (CR 205.1b / 613.1d, layer 4) — "This creature is the chosen type in addition to its
   // other types." (Metallic Mimic #1055, Adaptive Automaton #1755, Roaming Throne #133). A MARKER, not a
   // finished effect, because the subtype it adds is `permanent.chosenType` — per-PERMANENT state that does
@@ -1989,6 +2003,14 @@ function parseClause(clause, out, selfName, selfType) {
   // no tier could see it. It costs a real card to hold this line — Galea #12094's "aura and equipment
   // spells" parks, because Aura and Equipment are non-creature SUBTYPES outside both sets — and that is the
   // correct trade (a safe FN) rather than widening the vocabulary on a guess.
+  // CHOSEN-TYPE cast-from-top (Realmwalker #607) — the same permission whose filter is DYNAMIC: the type is
+  // whatever this permanent chose on entry, so it cannot be a word list at parse time. Marked here and
+  // resolved in playFromTopPermission, where the permanent is in hand — the same split the layer-4 self
+  // type-add uses. Until a type is chosen the granter permits nothing (never a guessed type).
+  if (/^you may cast creature spells of the chosen type from the top of your library$/.test(c)) {
+    out.push({ playFromTop: { lands: false, spellFilter: { chosenTypeOfSource: true } } });
+    return;
+  }
   {
     const ft = c.match(/^you may (play lands and )?cast ([a-z, ]+?) spells from the top of your library$/);
     if (ft) {
@@ -2897,7 +2919,21 @@ function parseClause(clause, out, selfName, selfType) {
     const power = signed(ptMatch[1]);
     const toughness = signed(ptMatch[2]);
     const affects = parseCreatureSelector(c);
+    // ⛔ LOSSY-TAIL GUARD — the missing twin of the have-tail guard above, and its absence was a live FP:
+    // "Creatures you control get +1/+1 and can't be blocked." emitted ONLY the pump and classified
+    // native-static, silently dropping the restriction. So did "…and glorbulate" — any tail at all.
+    // The have-tail path is validated by parseAnthemHaveTail; ANY OTHER trailing text means the clause says
+    // more than the descriptors carry, so the whole clause must drop (a clean FN → Arbiter) rather than
+    // credit a card for half its printed effect.
+    //
+    // ⚠️ HOW IT WAS FOUND, because the lesson generalizes: two CREED pins claimed to cover this and passed
+    // for the WRONG REASON — an unrelated unaccounted line (the ETB chosen-type chooser) was parking their
+    // fixtures, not the consumption check they named. The moment that line became explained, both pins went
+    // red and the pre-existing hole was visible. A pin that passes is not evidence it is testing what it says.
     if (affects) {
+      const tail = c.slice(c.indexOf(ptMatch[0]) + ptMatch[0].length)
+        .replace(/^\s*and\s+/, "").replace(/[.\s]+$/, "").trim();
+      if (tail && !(haveMatch && anthemGrant)) return;
       out.push({
         layer: 7,
         sublayer: "7c",
@@ -3853,9 +3889,15 @@ export function playFromTopPermission(state, playerId) {
     if (!perm?.card) continue;
     for (const d of parseStaticAbilities(perm.card)) {
       if (!d.playFromTop) continue;
+      // A DYNAMIC chosen-type filter resolves HERE, where the granting permanent is in hand: its word list is
+      // whatever that permanent chose on entry (Realmwalker #607). Unchosen → the granter permits no spells at
+      // all, rather than permitting everything — the safe direction, and never a guessed type.
+      const raw = d.playFromTop.spellFilter;
+      const resolved = raw?.chosenTypeOfSource ? (perm.chosenType ? [perm.chosenType] : null) : raw;
+      const grant = { lands: d.playFromTop.lands, spellFilter: resolved };
       merged = merged
-        ? { lands: merged.lands || d.playFromTop.lands, spellFilter: mergeSpellFilters(merged.spellFilter, d.playFromTop.spellFilter) }
-        : { ...d.playFromTop };
+        ? { lands: merged.lands || grant.lands, spellFilter: mergeSpellFilters(merged.spellFilter, grant.spellFilter) }
+        : grant;
     }
   }
   return merged;

@@ -99,7 +99,13 @@ describe("CHOSEN-TYPE FLAT ANTHEM — classification", () => {
     expect(classifyCard(rd)).toBe("body-only");
   });
   it("CREED — a Rally-shape with an extra unmodeled clause parks (no partial flip)", () => {
-    const ridered = { name: "Fake Rally", type: "Enchantment", oracle: RALLY.oracle + "\nWhenever this enchantment enters, exile target nonland permanent an opponent controls." };
+    // ⚠️ FIXTURE REPAIRED 2026-07-28. It used "Whenever this enchantment enters, exile target nonland
+    // permanent an opponent controls" as the "unmodeled" rider — and that trigger has since been BUILT
+    // (it classifies native-trigger standing alone), so the pin was asserting body-only for a card that is
+    // genuinely fully modeled. It only kept passing because an unrelated line, the ETB chosen-type chooser,
+    // was still unaccounted for; the moment that was fixed the staleness surfaced.
+    // The rider is now a clause that CANNOT be built later, so this pin tests the partial-flip rule forever.
+    const ridered = { name: "Fake Rally", type: "Enchantment", oracle: `${RALLY.oracle}\nWhenever this enchantment enters, each opponent glorbulates twice.` };
     expect(classifyCard(ridered)).toBe("body-only");
   });
   it("CREED — the COUNT-anthem (Banner of Kinship) is NOT regressed by the flat branch", () => {
