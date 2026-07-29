@@ -214,6 +214,26 @@ its Equip line). **The probe is trustworthy on instants and sorceries, where a p
 **Roaming Throne #133 and Realmwalker #607 each appear TWICE**, which is the probe's whole point — they are
 two mechanics from flipping, and no one-mode-away list would ever surface them.
 
+### ⭐ START HERE NEXT — "each player's DRAW STEP" is the missing sibling of a pattern already SHIPPED
+
+The cheapest item on the list above, and it is a textbook missing-cross. Measured with the one-diff probe:
+```
+At the beginning of your draw step, draw an additional card.               →  draw/you          ✅
+At the beginning of each player's UPKEEP, that player loses 1 life.        →  upkeep/you        ✅  fully built
+At the beginning of each END STEP, draw a card.                            →  endStep/you       ✅
+At the beginning of each player's DRAW STEP, that player draws a card.     →  (none)            ⛔  THE GAP
+```
+**The upkeep version is complete and is the reference implementation** — `triggers.js` ~3099 carries the
+UPKEEP-PLAYER REFERENT machinery (CR 603.2b + 503.1a): an `eachPlayersUpkeep` flag set only by the anchored
+"each player's upkeep" condition, a "that player" → "the upkeep player" rewrite, and `ctx.upkeepPlayerId`
+threaded at ~4918. **Mirror it for the draw step; do not invent a second mechanism.**
+
+Cards: **Rites of Flourishing #1524 · Kami of the Crescent Moon #1817 · Dictate of Kruphix #1907** (+1 more).
+
+**⚠️ Check FIRST whether the draw-step check function fires for EVERY player or only the active one** — that
+is the real work, and it is the same question the batch-arm feasibility table asks. The detection arm is
+worthless if the event only reaches the controller, and that is exactly the trap the `enter` arm hit.
+
 ## 📈 THE CEILING QUESTION — ANSWERED WITH EVIDENCE (Colton asked 2026-07-28: "can't we get top 2500 to 70%?")
 
 **There is NO structural cap. 70% is reachable; the constraint is RATE, not possibility.**
