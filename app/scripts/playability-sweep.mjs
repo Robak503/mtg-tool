@@ -171,13 +171,26 @@ function answer(session, decision) {
     || opts.find((o) => /^cast/.test(String(o.kind || "")))
     || opts.find((o) => o.kind !== "pass-priority" && !/activate/i.test(String(o.kind || "")))
     || opts[0];
+  // Remember WHAT we just chose. A dispatcher throw is reported by decision KIND, which for the priority
+  // family is always "ask" — useless for finding the card. The first dispatch-error this sweep caught cost a
+  // separate repro run purely to learn which spell it was.
+  LAST_PICK = pick;
   return applyChoice(session, pick);
 }
 
+let LAST_PICK = null;                    // the most recent action taken; named in a throw's detail
 const UNANSWERABLE = { reason: "" };
 const results = [];
 const kindCounts = {};
+// REPLAY a single game: `--only=26`. Each game seeds its own rng (mulberry32(9000 + g)) and its own session
+// (seed 1000 + g), so game N is reproducible in isolation — which is the whole point of reporting a wedge by
+// game number. Without this the only way to re-examine one wedge was to re-run the entire sweep.
+const ONLY = (() => {
+  const a = process.argv.find((x) => x.startsWith("--only="));
+  return a ? Number(a.slice("--only=".length)) : null;
+})();
 for (let g = 0; g < GAMES; g++) {
+  if (ONLY != null && g !== ONLY) continue;
   let session, decision;
   try {
     const rng = mulberry32(9000 + g);
@@ -199,11 +212,28 @@ for (let g = 0; g < GAMES; g++) {
     if (lastKinds.length > 6) lastKinds.shift();
 
     if (kind === "game-over") { outcome = "COMPLETED"; detail = decision.reason || ""; break; }
-    if (TROUBLE.has(kind)) { outcome = `WEDGE:${kind}`; detail = String(decision.reason || "").slice(0, 90); break; }
+    if (TROUBLE.has(kind)) {
+      outcome = `WEDGE:${kind}`;
+      detail = String(decision.reason || "").slice(0, 90);
+      // Under --only, dump the whole decision + the action that led here. A wedge reported by kind and a
+      // 90-char reason is enough to COUNT wedges and not enough to FIX one; this is the difference.
+      if (ONLY != null) {
+        console.log(`
+--- WEDGE DETAIL (game ${g}) ---`);
+        console.log("last action:", JSON.stringify(LAST_PICK, null, 1)?.slice(0, 1200));
+        console.log("decision:", JSON.stringify(decision, null, 1)?.slice(0, 2000));
+      }
+      break;
+    }
 
     let next;
     try { next = answer(session, decision); }
-    catch (e) { outcome = "WEDGE:throw"; detail = `${kind}: ${e.message}`.slice(0, 90); break; }
+    catch (e) {
+      outcome = "WEDGE:throw";
+      const who = LAST_PICK ? `${LAST_PICK.kind || "?"}:${LAST_PICK.cardName || LAST_PICK.name || LAST_PICK.card?.name || "?"}` : kind;
+      detail = `${who}: ${e.message}`.slice(0, 140);
+      break;
+    }
     if (!next) { outcome = "WEDGE:unanswerable"; detail = UNANSWERABLE.reason || `${kind} (no options/candidates)`; break; }
 
     session = next.session; decision = next.decision; steps++;

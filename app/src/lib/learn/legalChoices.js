@@ -995,7 +995,19 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // compound to LOW), so this precedes the X / modal / target branches and `continue`s after — additional
     // -cost spells are fully handled here, for every effect shape (expandCastChoices covers single/multi/modal).
     // Cost kinds: sacrifice (γ1b chosen victim) · payLife (no choice) · discard (N=1, chosen hand card).
-    const addCost = isHigh ? (program.additionalCosts || [])[0] : null;
+    // ⛔ NOT GATED ON `isHigh`, AND THAT GATE WAS A SOFT-LOCK. A COST is not an EFFECT: whether the parser can
+    // model what the spell DOES has nothing to do with whether its additional cost must be paid. While this
+    // read `isHigh ? … : null`, a LOW-confidence spell carrying an additional cost was emitted as a plain cast
+    // with NO victim frozen — and the dispatcher's additional-cost loop is unconditional, so it correctly
+    // refused to cast cost-free and threw ADDCOST_UNPAID. Every one of the 34 corpus instants/sorceries in
+    // that class (Eldritch Evolution, Neoform, Tinker, Final Strike, Tormented Thoughts, …) was a guaranteed
+    // wedge the moment a player tried to cast it. Found by the playability sweep, not by any test.
+    //
+    // Enumerating the cost for a LOW program is the faithful fix rather than suppressing the cast: the cost
+    // is paid exactly as printed and the unmodeled EFFECT still routes to the Arbiter, which is where a LOW
+    // program was always going. Suppressing instead would have traded a wedge for a dead card in hand —
+    // the failure mode the dead-card hunt exists to find.
+    const addCost = (program?.additionalCosts || [])[0] || null;
     if (addCost) {
       const combos = expandCastChoices(state, playerId, program, colorsOf(card));
       if (combos.length === 0) continue;                  // a required effect target has no legal pick
