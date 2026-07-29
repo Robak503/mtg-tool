@@ -2569,6 +2569,46 @@ same reason — this is the third rotation). Re-anchored on Writ of Passage, and
 offered and the test dies on a `TypeError` that reads exactly like a routing failure. Hit live while
 swapping.
 
+## ✅ SHIPPED — SELF power threshold in the condition vocabulary, layer-aware (`fb3bfa85`)
+
+`"if THIS CREATURE has power N or greater"` — the SELF referent beside the existing board-wide form,
+resolved through `context.sourcePermanentId`. **Layer-aware** (`creaturePower(perm, state)`), which is the
+entire point on a card that doubles its counters and then asks whether it got big enough. FN-safe: a missing
+or departed referent is `null` ("can't confirm"), never `false`.
+
+Reachable today through the **intervening-if** path, pinned end to end in both directions including the
+10-vs-9 boundary. Tier GAINED 0 — no corpus card uses that variant yet; the value is the vocabulary plus its
+pinned consumer.
+
+## 🚧 LEVEL UP — ONE BLOCKER LEFT, AND IT IS PARSER PLUMBING, NOT VOCABULARY
+
+Three of four pieces are done (`21c471a8` shipped two, the grant already worked, `fb3bfa85` the condition).
+The last one is precise:
+
+> Both parser arms that attach an atom-level `condition` — the LEADING `"If <cond>, <effect>"` and the
+> TRAILING `"<effect> if <cond>"` — gate on **`spellConditionParseable`**, which BY DESIGN probes with an
+> EMPTY context. A source-dependent condition can never pass it. **The parser cannot tell a TRIGGER clause
+> (which supplies `sourcePermanentId`) from a SPELL clause (which does not).**
+
+⭐ **The runtime half is already verified and is NOT the problem:** `triggers.js` threads `sourcePermanentId`
+into the trigger context and `runProgram` passes that context to `evaluateInterveningIf`, so a trigger CAN
+answer at resolution and a spell gets `null` and skips. **No runtime-vacuous native lurking here** — checked
+before building anything.
+
+**THE FIX (contained, but it touches shared plumbing — do it while sharp):** thread a `triggerScoped` flag
+through `parseEffectClause` options from `buildTriggerStack`, and let the two conditional arms accept
+source-dependent conditions only when it is set. Sized: one option, two call sites, two arms.
+
+**Then the compound:** `"A. Then if COND, B."` is already the LEADING form once `"Then"` is stripped — no new
+condition machinery needed. Measured: with the compound rewritten and a KNOWN condition, the whole clause
+parses HIGH, so the composition works.
+
+**What it is worth, measured, so the next resume can judge it cold:**
+- the "Then if" compound alone → **+4 corpus** (Shuri, Replicating Ring, Psychic Whorl, Hour of Promise);
+  118 cards carry the shape but it is rarely their only blocker
+- the self threshold alone → **2 cards** (Level Up, Hog-Monkey Rampage)
+- **together → Level Up, a ×3 SHELF card** — which is the actual reason to do it
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2720,6 +2760,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `fb3bfa85` — SELF power threshold condition, layer-aware (+0; Level Up 3/4 pieces). Slice 69.
 - `21c471a8` — enchanted counter referent + self doubling pronoun (+4); Level Up re-sized to 4 pieces. Slice 68.
 - `b15cdecd` — painlands tap for colours + pay the life; 10 lands un-Wastes-ed (+0 tier, by nature). Slice 67.
 - `9eba4b2e` — mana refusals per-ABILITY; 23 dead lands revived (+16). Slice 65.
