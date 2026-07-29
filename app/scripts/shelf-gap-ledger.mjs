@@ -18,9 +18,16 @@
  * and nine other corpus cards is a better slice than a blocker on two shelf cards and nothing else. Sizing on
  * the shelf alone is how a run ends up building single cards without noticing.
  *
- * The reason key is the card's first non-native ORACLE LINE, normalised (self-name, numbers, mana symbols) so
- * cards that differ only in those details group together. It is a grouping heuristic, not a diagnosis — read
- * the printed line before believing the bucket.
+ * The reason key is the card's blocker line ATTRIBUTED BY REMOVAL (see blockerOf), normalised (self-name,
+ * numbers, mana symbols) so cards differing only in those details group together. Still a grouping heuristic —
+ * read the printed line before believing the bucket — but the attribution itself is verified, not guessed.
+ *
+ * ⚠️ THE FIRST CUT OF THIS TOOL REPORTED "35 shared / 225 one-card" AND BOTH NUMBERS WERE WRONG, because it
+ * attributed each card to its first line that failed to parse ALONE. Verified attribution gives
+ * 5 shared / 153 one-card / 102 COMPOSITE. The correction matters in both directions: far FEWER shared
+ * blockers than claimed (5, not 35 — there is even less slice-shaped work than the first pass suggested), and
+ * a whole category the first pass could not see at all (COMPOSITE — cards where no single line accounts for
+ * the block, so they need two or more fixes each and are the most expensive kind of card on the shelf).
  *
  * Local-only dev tool (bundled corpus via MTG_APP_ROOT); not in CI.
  */
@@ -48,11 +55,28 @@ const normalise = (line, name) => {
     .toLowerCase().trim();
 };
 
-// The first line of a card that does not classify native on its own = its lead blocker.
+/**
+ * The blocker line, ATTRIBUTED BY REMOVAL rather than guessed: the line whose deletion makes the WHOLE card
+ * classify native. Returns "" when no single line does — the card has a COMPOSITE blocker.
+ *
+ * ⚠️ THE FIRST VERSION TOOK THE FIRST LINE THAT DID NOT CLASSIFY NATIVE ON ITS OWN, AND ITS TOP ROWS WERE
+ * FICTION. "Enchant creature" does not classify native standing alone — it is not an ability — so every Aura
+ * on the shelf was attributed to it and the tool reported a corpus×496 "cluster" that does not exist. Same for
+ * "Equipped creature gets +3/+2" (×84). ⭐ A line being unparseable ALONE says nothing about whether it blocks
+ * the card containing it.
+ *
+ * Removal-attribution costs one reclassify per line and cannot make that mistake: if deleting the line does
+ * not flip the card, the line was not the blocker.
+ */
 const blockerOf = (card) => {
   const lines = String(card.oracle || "").split(/\n+/).filter(Boolean);
-  for (const l of lines) if (!isNativeTier(classifyCard({ ...card, oracle: l }))) return l;
-  return lines[0] || "";
+  if (lines.length <= 1) return lines[0] || "";
+  for (const l of lines) {
+    const rest = lines.filter((x) => x !== l).join("\n");
+    if (!rest.trim()) continue;
+    if (isNativeTier(classifyCard({ ...card, oracle: rest }))) return l;
+  }
+  return "";   // composite — no single line accounts for it
 };
 
 // ── corpus-wide reason census, so each shelf blocker can be sized honestly.
@@ -89,7 +113,11 @@ for (const prof of fs.readdirSync(profilesDir)) {
       const tier = classifyCard(c);
       if (isNativeTier(tier) || tier === "land") { native += qty; continue; }
       const line = blockerOf(c);
-      blocked.push({ name: c.name, tier, line, shared: corpusReasons.get(normalise(line, c.name)) || 1 });
+      blocked.push({
+        name: c.name, tier,
+        line: line || "(composite — more than one line blocks it)",
+        shared: line ? (corpusReasons.get(normalise(line, c.name)) || 1) : 0,
+      });
     }
     const pct = slots ? Math.round((native / slots) * 100) : 0;
     if (pct >= 90) continue;
@@ -102,17 +130,17 @@ const out = [];
 const say = (s) => out.push(s);
 say(asMd ? "# Shelf gap ledger — sized, per deck, per card" : "=== SHELF GAP LEDGER (closest to the bar first) ===");
 say("");
-let oneCard = 0, shared = 0;
+let oneCard = 0, shared = 0, composite = 0;
 for (const d of decks) {
   say(asMd ? `## ${d.name} — ${d.pct}% (needs ${d.need})` : `--- ${d.name}  ${d.pct}%  needs ${d.need}`);
   for (const b of d.blocked.sort((x, y) => y.shared - x.shared)) {
-    if (b.shared > 1) shared++; else oneCard++;
-    const tag = b.shared > 1 ? `shared×${b.shared}` : "ONE-CARD";
+    if (b.shared > 1) shared++; else if (b.shared === 1) oneCard++; else composite++;
+    const tag = b.shared > 1 ? `shared×${b.shared}` : (b.shared === 1 ? "ONE-CARD" : "COMPOSITE");
     say(`  ${tag.padEnd(11)} ${b.name.padEnd(38)} ${b.line.slice(0, 84)}`);
   }
   say("");
 }
 say(asMd ? "---" : "");
-say(`${decks.length} decks below the bar · ${shared} blocked cards share a blocker with other corpus cards · ${oneCard} are one-card builds`);
+say(`${decks.length} decks below the bar · ${shared} share a blocker with other corpus cards · ${oneCard} are one-card builds · ${composite} are COMPOSITE (more than one line blocks them)`);
 say("A shared blocker is a SLICE. A one-card blocker is a one-card build — size it before starting it.");
 console.log(out.join("\n"));
