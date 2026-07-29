@@ -384,7 +384,12 @@ export function stripTriggerAbilityLabel(oracle) {
   // the boundary-anchored trigger regex see the bare "At the beginning" so YOU_CONTROL_YOUR_COMMANDER_RE
   // (interveningIf.js, added the same slice) can evaluate the condition.
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant)\s*[—–-]\s*/gim, "")
+    // The OPTIONAL PARENTHETICAL is a flavour name attached to the label itself — "Raid (the Fridge) —"
+    // (Michelangelo, the Heart). It is still CR 207.2c flavour with no rules meaning, and the lookahead
+    // structure is unchanged: the strip only ever consumes label-then-dash, never rules text. Corpus-checked
+    // before widening — exactly ONE card in the index prints this shape, so the risk of swallowing something
+    // meaningful is not hypothetical-but-unknown, it is enumerated.
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 

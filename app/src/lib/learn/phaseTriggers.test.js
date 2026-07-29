@@ -74,8 +74,15 @@ describe("detectPhaseTrigger (unit)", () => {
     // residue that reaches the detector (NOT a comma-split effect rider)
     expect(detectPhaseTrigger("the beginning of combat on each of your turns")).toBeNull();
     expect(detectPhaseTrigger("the beginning of your next upkeep")).toBeNull();       // delayed trigger — must not be swallowed
-    expect(detectPhaseTrigger("the beginning of your second main phase")).toBeNull(); // postcombat-main, unmodeled
     expect(detectPhaseTrigger("the beginning of each end step")).toBeNull();          // owned by the existing spine, not this detector
+  });
+
+  it("the SECOND main phase is detected (CR 505.1b) — both templatings", () => {
+    // ⚠️ UPDATED 2026-07-28. This line lived in the CREED list above as "postcombat-main, unmodeled". It is
+    // modeled now: gameEngine fires `secondMain` at the postcombat-main entry, gated on the PHASE because
+    // both mains share step "main". Leaving it asserting null would have re-parked Michelangelo, the Heart.
+    expect(detectPhaseTrigger("the beginning of your second main phase")).toEqual({ event: "secondMain", scope: "you", whose: "yours" });
+    expect(detectPhaseTrigger("the beginning of your postcombat main phase")).toEqual({ event: "secondMain", scope: "you", whose: "yours" });
   });
 });
 

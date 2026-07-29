@@ -590,6 +590,11 @@ export function runStepActions(state) {
   if (next.step === "beginning-of-combat") next = applyVihaanCombatAnimate(next);
   if (next.phase === "precombat-main" && next.step === "main")
     next = checkStepTriggers(next, "firstMain");
+  // secondMain (CR 505.1b) — the postcombat sibling. Gated on the PHASE for the same reason firstMain is:
+  // both main phases share step "main", so a step-only gate fires at both and the "second main" trigger
+  // would go off before combat as well. Michelangelo, the Heart is the shelf card behind it.
+  if (next.phase === "postcombat-main" && next.step === "main")
+    next = checkStepTriggers(next, "secondMain");
   if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
     // NOTE (subsystem 2): block / becomes-blocked / bushido / rampage triggers do NOT fire here — at the

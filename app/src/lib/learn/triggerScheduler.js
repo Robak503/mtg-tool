@@ -66,6 +66,16 @@ export function detectPhaseTrigger(condition /*, cardName, typeLine */) {
       || c === "beginning of your precombat main phase") {
     return { event: "firstMain", scope: "you", whose: "yours" };
   }
+  // The SECOND main phase (CR 505.1b) — the exact sibling of the arm above, and it was simply missing.
+  // "Second main phase" and "postcombat main phase" are the same phase under two templatings, the same
+  // equivalence firstMain already relies on (this engine has no extra-combat phases, so it is structural).
+  // gameState's phase order carries "postcombat-main" with step "main", and gameEngine fires this event at
+  // that entry — gated on the PHASE, because both mains share step "main" and a step-only gate would
+  // double-fire. Michelangelo, the Heart (Halfshell heroes) is the shelf card behind it.
+  if (c === "beginning of your second main phase"
+      || c === "beginning of your postcombat main phase") {
+    return { event: "secondMain", scope: "you", whose: "yours" };
+  }
   if (c === "beginning of each opponent's upkeep") {
     return { event: "upkeep", scope: "you", whose: "opponents" };
   }
