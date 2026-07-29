@@ -228,6 +228,27 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — two measured payer nouns (+2) · **cdh 82 → 83**
+
+Gene Pollinator (cdh) · Seton, Krosan Protector. GAINED 2 · LOST 0. Both earned by measurement — of the parked
+tap-OTHER mana cards, exactly these two were blocked ONLY by the payer noun.
+
+⛔ **"PERMANENT" MUST NOT USE THE WORD-BOUND TYPE-LINE TEST — third sighting of the VACUOUS-FILTER trap** in
+this engine (Norn's Choirmaster, Keleth were the others). The word never appears in a type line, so
+`permanent` is a gate no printed card satisfies: source built, never offered, card reads modeled while
+producing nothing. **Silent in every metric.** Everything on a battlefield IS a permanent (CR 110.1).
+
+### ⭐ ALLOWING "PERMANENT" EXPOSED A POLICY BUG IN MY OWN ORDERING — and then the FIX had one too
+With lands legal as payers, the sim would tap a Forest for one mana: legal, pointless, **net zero, every
+activation.** Non-mana payers now preferred. Then the first fix STILL picked the land — `createPermanent`
+stamps summoningSick on every fresh permanent, lands included, so the sick-first key ranked a just-played
+Forest above a ready creature. Key is now creature-scoped.
+
+⭐ **CAUGHT ONLY BECAUSE THE TEST ASSERTS *WHICH* PAYER WAS CHOSEN.** "A payer exists" passes through both
+bugs. When a build makes a CHOICE, assert the choice — not that a choice happened.
+
+⚠️ Backslash-through-heredoc trap, third time this run; `no-control-regex` caught it a third time.
+
 ## ✅ VERIFIED — the run's 126 flips do not break the HUMAN path · **+ two banked negatives**
 
 ### PLAYABILITY SWEEP (intermediate, commander, the human-decision path)
