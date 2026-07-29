@@ -305,7 +305,34 @@ Bent is nearest. Its gap, from `measure-coverage.mjs "earth bent"`:
 Named: Amulet of Vigor · Scute Swarm · **Lotus Cobra** · Scythecat Cub · Lumra · Toph · Ashaya · Scapeshift ·
 The Ozolith · Earth Rumble.
 
-### ⚠️ "ADD ONE MANA OF ANY COLOR" AS AN EFFECT — SCOPED, NOT BUILT. It is a DESIGN call, not a vocabulary cross.
+### ✅ BUILT (`25f9943d`, +4 — Lotus Cobra #323; Earth Bent 81% → **82%**)
+
+**The scoping below held up exactly, and its central claim is the reusable part: this had the SHAPE of a
+missing-sibling guard and was not one.** A tap source can DEFER the colour choice to the payment planner; a
+resolution-time add must commit, because the pool has no wildcard slot. The regex was the easy half.
+
+**THE RULE:** colour from the controller's **commander colour identity** (CR 903.4), falling back to the
+**source permanent's own colours**. Board-asserted — green cmdr → `{G}`, **blue cmdr → `{U}`** (the identity
+drives it, not the source), no cmdr → the source's `{G}`, nothing determinable → **adds nothing**.
+
+**⚠️ THE IMPORT EDGE WAS AVOIDED ON PURPOSE.** `layers.commanderColorIdentity` exists but is module-local;
+exporting it adds an edge into layers — *the class that crashed module init while the suite stayed green.*
+The command zone is plain state, so it is read inline (the codebase's own "kept local to avoid coupling"
+convention). **Module-graph check run.**
+
+**⭐ N=1 ONLY** — "two mana of any ONE color" is a different promise and "two mana of any color" lets them
+DIFFER. Corpus: **615** printings of the N=1 form vs 35/29/23 for the multi forms. The rest stay Arbiter.
+
+**⚠️ AND A FIXTURE LESSON, AGAIN:** the source-colour fallback looked DEAD until tested against the REAL
+card — a synthetic fixture without a `colors` field makes that branch unreachable and the whole effect look
+broken. **That is the fourth time this session a fixture, not the engine, was the bug.**
+
+Two stale CREED pins were **split, not rewritten**: both named Lotus Cobra on *"a fabricated mana is a
+forbidden FP"* (true when written). Their other members — the filtered basic-land subject, Scute Swarm's
+six-land rider, Scythecat Cub's second-resolution doubler — were **re-verified as still parking** and left
+untouched.
+
+### ⚠️ (original scoping, kept — it was accurate) "ADD ONE MANA OF ANY COLOR" IS A DESIGN CALL
 
 The parse gap is real and tiny: **`add {G}` parses HIGH, `add one mana of any color` parses LOW**, while the
 MANA-ABILITY side has understood that phrasing forever (Birds of Paradise is `native-mana`). Fifth
