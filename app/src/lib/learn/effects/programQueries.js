@@ -326,6 +326,23 @@ export function atomTargetIntent(atom) {
       // opponent). Every OTHER create-named-token form is non-targeted (targetType null → null above), so
       // this case is reached ONLY for the opponent-creates shape.
       return "enemy";
+    case "become-copy":
+      // BECOME-COPY (CR 613.1a / 707.9) — "~ becomes a copy of another target creature until end of turn".
+      // AMBIGUOUS ON PURPOSE, and stated here rather than left to the default so the decision is visible.
+      //
+      // The value of a copy is the QUALITY of the body, not whose it is: copying an opponent's fattest
+      // attacker is the classic line, and copying your own is equally common. There is no side the chooser
+      // can prove correct from the atom, so a TRIGGER routes to the Arbiter (a safe FN) exactly like the
+      // bare `suspect` form above. The cast/activated path is unaffected — Impossible Man's activated
+      // ability plays natively because its target is picked at activation, not by the flush chooser.
+      //
+      // ⛔ DO NOT "FIX" THIS BY DECLARING A SIDE. Tilonalli's Skinshifter looks own-side (during your own
+      // attack every attacker is yours), but that is a property of its ATTACKING restriction, which the
+      // atom does not carry — becomeCopy's noun map flattens "another target nonlegendary attacking
+      // creature" to "creature". Making it own-side here would mis-target every other member of the family.
+      // The honest route is a distinct attacking-creature targetType the enumerator supports, which is a
+      // real build for one rank-22835 card — not the one-liner an earlier ledger note called it.
+      return "ambiguous";
     default:
       return "ambiguous";
   }

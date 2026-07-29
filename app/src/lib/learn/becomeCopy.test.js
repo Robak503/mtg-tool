@@ -20,7 +20,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
-import { parseEffectClause } from "./effects/parser.js";
+import { parseEffectClause, atomTargetIntent } from "./effects/parser.js";
 import { resolveAtom } from "./effects/effectAtoms.js";
 import { deriveCharacteristics } from "./layers.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
@@ -130,5 +130,32 @@ describe("tier", () => {
     expect(classifyCard({ name: "Sarkhan, Soul Aflame", type: "Legendary Creature — Human Noble", mana: "{2}{R}", power: "3", toughness: "3",
       oracle: "Whenever a Dragon you control enters, you may have Sarkhan become a copy of it until end of turn, except its name is Sarkhan, Soul Aflame and it's legendary in addition to its other types." }))
       .toBe("body-only");
+  });
+});
+
+describe("⛔ TARGET INTENT — become-copy is AMBIGUOUS on purpose (CR 613.1a)", () => {
+  it("⭐ the intent is ambiguous, so a TRIGGER routes to the Arbiter rather than mis-targeting", () => {
+    // The value of a copy is the QUALITY of the body, not whose it is — copying an opponent's fattest
+    // attacker is the classic line, and copying your own is equally common. No side is provable from the
+    // atom, so this follows the bare `suspect` precedent: ambiguous → safe FN on the trigger path.
+    expect(atomTargetIntent(atomOf(CLAUSE))).toBe("ambiguous");
+  });
+
+  it("⛔ Tilonalli's Skinshifter therefore PARKS — correct, not a gap", () => {
+    // Its trigger IS detected and its effect clause parses HIGH; only the intent gate holds it. An earlier
+    // ledger note called this a one-line fix — it is not. Tilonalli's looks own-side only because of its
+    // ATTACKING restriction, which the atom does not carry (the noun map flattens it to "creature"), so
+    // declaring a side here would mis-target every other member of the family.
+    expect(classifyCard({ name: "Tilonalli's Skinshifter", type: "Creature — Human Shaman", mana: "{2}{R}", power: "1", toughness: "1",
+      oracle: "Whenever this creature attacks, it becomes a copy of another target nonlegendary attacking creature until end of turn." }))
+      .toBe("body-only");
+  });
+
+  it("CONTROL — an ACTIVATED ability is unaffected (its target is picked at activation)", () => {
+    // Impossible Man plays natively despite the same ambiguous intent, which is what makes the gate a
+    // trigger-path safety measure rather than a blanket refusal.
+    expect(classifyCard({ name: "Impossible Man", type: "Legendary Creature — Human Hero", mana: "{1}{U}", power: "2", toughness: "2",
+      oracle: "{2}{U}: Impossible Man becomes a copy of another target permanent until end of turn, except his name is Impossible Man." }))
+      .toBe("native-activated");
   });
 });
