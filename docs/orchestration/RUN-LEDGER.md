@@ -2449,6 +2449,48 @@ carries a real cost the engine would otherwise ignore, which turns an under-deli
 Sized honestly: the colour union is easy, the riders are the slice. Build the rider first, then the union —
 the same order law that has held all run.
 
+## 🚨 FOUND, MEASURED, NOT FIXED — MANA-ABILITY ACTIVATION COSTS ARE NEVER CHARGED (93 cards, FP direction)
+
+**A mana ability's own MANA cost is dropped.** `manaProduction` records what the ability produces and nothing
+records what it costs, so `planPayment` taps it for free.
+
+⭐ **Verified live, not inferred:** a lone **Prismite** (`{2}: Add one mana of any color.`) on an otherwise
+EMPTY board — no lands, empty pool — pays `{U}`. Mana fabricated from nothing. That is the forbidden
+direction and it needs no board state at all to trigger.
+
+**Precise split** (the modelled line's cost carries plain mana symbols; `{X}`/phyrexian/hybrid skipped as
+uncountable, variable output skipped):
+
+| class | count | reality vs engine | examples |
+|---|---|---|---|
+| **NET-ZERO or worse** | **51** | produce ≤ cost → real net is 0; engine gives free mana | Prismite, Prophetic Prism, Orochi Leafcaller, Golden Egg, Nomadic Elf (`{1}{G}` for ONE mana) |
+| **NET-POSITIVE** | **39** | real ramp, engine over-counts by exactly the cost | every Signet (`{1}, {T}` → 2 mana), Sungrass Prairie, Shadowblood Ridge |
+
+⛔ **I TRIED THE PARSE-LAYER FIX AND BACKED IT OUT — read this before trying it again.** Refusing net-zero
+abilities in `manaProduction` works and removes the fabrication, but it **breaks five existing pins that
+deliberately keep filters producing**, and `manaModel.test.js` states the design intent in its own words:
+
+> *"A mana FILTER (pure mana cost, no {T}) is **payable from the pool** — kept exactly as before."*
+
+That is a claim about the **PAYMENT layer**, and the payment layer is precisely where the gap is. The parse
+layer is the wrong place to fix it, and refusing there would also delete the cards' colour FIXING, which is
+most of why they are played. **The pins are not wrong; the runtime never implemented what they assume.**
+
+**THE FORK (Colton-grade or sharp-Cindy-grade, not a 3am call):**
+- **(A) Charge it in `planPayment`** — the architecturally right layer. Give the source an activation cost;
+  a costed source may only be tapped when the cost is coverable. Conservative first cut: require the cost
+  from ALREADY-FLOATING mana (never chain tap→filter→spend). Never fabricates; under-delivers on
+  land-then-filter lines, which is the safe direction.
+- **(B) Refuse net-zero at the parse layer** — smaller, but contradicts the shipped design intent above,
+  deletes colour fixing, and costs 51 cards of native-mana.
+
+**Recommendation: (A), and only while sharp** — it touches the payment core that the karoo bundle and the
+generic-drain fix also live in, and that core is the one seam where "affordable == actually paid" must hold.
+
+⚠️ **Note the asymmetry vs. the per-line refusal shipped in slice 65:** that one was a pure under-delivery
+being corrected, so it was safe to ship unattended. This one is an over-delivery whose fix trades against a
+documented decision — different risk class, deliberately left for a waking decision.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
