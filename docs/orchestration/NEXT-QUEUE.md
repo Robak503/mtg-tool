@@ -159,16 +159,19 @@ zero of them.
 MTG_APP_ROOT="/c/Users/colto/AppData/Roaming/com.colton.mtg-tool" node app/scripts/playability-sweep.mjs 200 beginner commander
 ```
 
-### D5. ⭐ TRIGGER-TIER PARITY PROBE — scoped 2026-07-29, not started · ~1h · low risk, high value
+### D5. ⭐ TRIGGER-TIER PARITY PROBE — ✅ **BUILT (`7013f236`)**, 324 measurable / 0 divergent
 `probe-classifier-runtime-parity` covers native-spell / activated / equipment and **skips native-trigger**,
 the largest tier and the one where both of this run's engine bugs lived. `triggerRoutesNatively` is a
 hand-written MIRROR of `buildTriggerStack`'s α1 allowlist (its own comment says so) — and this run hit five
 mirror/whitelist divergences, so drift here is likely rather than hypothetical. Build: drive each
 native-trigger descriptor through `buildTriggerStack` on a synthetic board and diff the verdict against the
 classifier's.
-**Failure mode:** calling `triggerRoutesNatively` inside the probe. That makes it circular and it reports a
-clean sweep it never earned — the hollow gate, in probe form.
-Full reasoning in the RUN-LEDGER "state of the instruments" block.
+The named failure mode (calling `triggerRoutesNatively` inside it) was avoided — it drives the public
+`flushTriggers` instead. **A DIFFERENT one bit anyway:** the first draft reported 6 divergences, all ghosts,
+because the runtime folds five different outcomes into one byte-identical `resolver:"manual"` return. It now
+measures only the subset where that return can only mean a routing refusal (targetless + no intervening-if),
+and reports the rest as `notSoundlyMeasurable`. Coverage witness: forcing the classifier to over-claim makes
+it report 68; restored, 0.
 
 ### D4. Census re-run when a vein feels dry
 `node app/scripts/build-residue-census.mjs` — 52s, and it re-ranks everything. The keyword vein is mined

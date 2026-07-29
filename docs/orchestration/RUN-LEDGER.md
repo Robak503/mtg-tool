@@ -199,6 +199,7 @@ useful thing this block says: a session that opens by hunting will spend itself 
 |---|---|---|
 | `playability-sweep` ×4 configs (430 games) | **100%, zero wedges** | beginner/intermediate × commander/standard + targeted. Paid once (`b903119f`), now clean. |
 | `probe-classifier-runtime-parity` | 0 divergent | covers native-spell / activated / equipment. ⚠️ **does NOT cover native-trigger.** |
+| **`probe-trigger-routing-parity`** (NEW, `7013f236`) | **324 measurable · 0 divergent** | closes that gap. Witness-proven: over-claiming the classifier makes it report 68. 84 targeted/conditional descriptors remain outside the sound subset. |
 | `probe-ignored-restrictions` (732 cards, 13 phrases) | worked out | the one real find was `activate only as a sorcery` (`24349d75`). Spot-checked the rest as ENFORCED: menace + the whole `can't be blocked except by` family (combatEvasion EV-2/EV-3 with explicit safe-FN refusals) · `can't attack unless` both forms (CR 508.1c) · echo + cumulative upkeep · the activation limiter + condition riders. |
 | **ghost-event check** (new, ad hoc) | **0 dead events** | every `event:` string a descriptor can carry has a runtime producer. No repeat of the ghost-registry incident. |
 | `clause-frontier --min 6` | **only 2 families left** | both are quoted grants: `enchanted creature has "…"` (16) and `commander creatures you own have "…"` (15). **Neither is one slice** — Agent of the Iron Throne proves the GRANT already works, so all 31 are blocked by 15 different INNER abilities. |
