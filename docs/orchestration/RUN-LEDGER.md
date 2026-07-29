@@ -295,6 +295,33 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
+### ✅ EARTH BENT **86%** — 4 from the bar (`dbb5f632` Avatar Kyoshi). What is LEFT is all subsystem work.
+
+**⭐ THE REFERENT LESSON, which generalizes:** *"untap that land"* is printed on FOUR cards and **THREE mean a
+DIFFERENT land** — Fabled Passage (fetched), Land Aid '04 (searched), Tiller Engine (entered), Avatar Kyoshi
+(earthbent). A bare clause parser would bind all four to the earthbend stamp. **Match the COMPOUND when a
+referent's meaning comes from the clause before it.** The stamp itself reuses the `revealedCardMV` /
+`diceResult` pattern.
+
+**⚠️ AND A MUTATION THAT PROVED NOTHING.** M35's first form loosened the regex prefix but left the rest
+requiring the earthbend count, so a bare clause still could not match and nothing failed. **A green from a
+mutation that never reaches the behaviour is not evidence** — re-run as M35b (add the actual unsafe arm),
+which fails correctly. Same family as the deletion-mutation and `git checkout` traps already in this file.
+
+**THE REMAINING 14, and none is a slice** (re-derived, not recalled):
+```
+LINKED X ("up to THAT MANY")   Scapeshift · The Earth King        ← the biggest shared mechanism left here
+multi-pick sacrifice           Planar Engineering                 applySacrificeLand pauses for ONE
+layer-4 GROUP type-add         Ashaya  ⚠️ its own P/T counts lands — a real feedback loop
+mass GY return                 Lumra ("return ALL land cards from your graveyard")
+new trigger EVENT              Amulet of Vigor ("enters tapped" is a play-path check today)
+two unmodeled triggers         The Ozolith
+REFUSED by our own guards      Scythecat Cub (inexpressible condition) · Herd Heirloom (spend-restricted mana)
+Saga/DFC · quoted grant · replacement-meta   Legend of Kyoshi · Tale of Katara · Traveling Chocobo
+```
+**`earthbend N, then earthbend N` already composes** (Cracked Earth Technique is native-spell) — only the
+untap referent was missing, which is why this was the last contained item in the deck.
+
 ### ✅ BUILT (`6975eb40`, +5 — Scute Swarm #229, Entish Restoration #439). **Earth Bent 83% → 85%.**
 
 The scoping below was accurate, including the prescribed order. **Two bugs came out of it, and both are the
