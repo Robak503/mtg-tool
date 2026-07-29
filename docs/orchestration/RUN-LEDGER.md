@@ -295,6 +295,28 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
+### 🪶🪶 THE SHELF GAP IS A PER-DECK TAIL TOO — measured (`probe-shelf-blockers.mjs`, `c1204aa2`)
+
+**Read this before planning any "push Joe to 90%" work.** The probe ranks blocking sentences by **how many
+DECKS** they touch, because the 1.0 bar is per-deck: six cards inside one deck move one deck; the same six
+spread across six decks move six.
+```
+16 decks · 340 parked card-slots · 468 distinct blocking shapes · 411 of them touch exactly ONE deck
+```
+**There is no shared lever left on the shelf.** Joe's ten sub-bar decks are **ten separate grinds of ~30
+slots each**, not a few mechanics. This is the same shape the top-2500 blocker probe found, arrived at
+independently — treat "a mechanic will unlock several decks" as disproven unless a probe says otherwise.
+
+**The widest shared blocker is `Teamwork` (3 decks) and it is a SUBSYSTEM, not a slice:** an optional
+additional cost (*tap any number of creatures you control with total power N or more*) **plus a cast-time
+flag every carrier reads back** (*"if this spell was cast using teamwork, choose both instead"*). Crediting
+the keyword alone drops the conditional half — the forbidden direction. 17 corpus cards.
+
+**⚠️ THE PROBE OVER-REPORTS IN THREE WAYS** (all documented in-file): bare KEYWORDS, EFFECT FRAGMENTS off a
+permanent, and — surfaced live by this run — **multi-face/Saga lines**, because each line is judged carrying
+the SOURCE CARD'S TYPE. That rule is load-bearing everywhere else; the noise is its price on transforming
+cards, and it is why a bare `Flying` appeared in the top rows.
+
 ### 🎯 THE SHELF IS THE TARGET — and Colton's side is effectively DONE
 
 ```
