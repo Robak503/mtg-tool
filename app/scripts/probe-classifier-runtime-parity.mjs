@@ -31,19 +31,61 @@ import "../src/lib/learn/coverage.js";
 import { classifyCard } from "../src/lib/learn/coverage.js";
 import { parseEffectProgram, programConfidence } from "../src/lib/learn/effects/parser.js";
 import { stripCostOnlyKeywordLines } from "../src/lib/learn/effects/parseHelpers.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, parseGraveyardSelfRecursion, parseGraveyardExileAbility } from "../src/lib/learn/effects/abilities.js";
 
-const offenders = [];
-let checked = 0;
-for (const c of allCards()) {
-  if (!/Instant|Sorcery/.test(c.type_line || "")) continue;
-  const card = { name: c.name, type: c.type_line, mana: c.mana_cost, oracle: c.oracle_text || "" };
-  if (classifyCard(card) !== "native-spell") continue;
-  checked++;
-  const conf = programConfidence(parseEffectProgram({ ...card, oracle: stripCostOnlyKeywordLines(card.oracle) }));
-  if (conf !== "high") offenders.push(`${c.name} (runtime: ${conf})`);
+const asCard = (c) => ({ name: c.name, type: c.type_line, mana: c.mana_cost, oracle: c.oracle_text || "" });
+const report = (label, checked, offenders) => {
+  console.log(`\n${label}: ${checked} checked · ${offenders.length} divergent`);
+  for (const o of offenders.slice(0, 20)) console.log("  ", o);
+  if (!offenders.length) console.log("   (parity holds)");
+};
+
+// ── SPELLS: does the program the runtime parses come back HIGH?
+{
+  const offenders = []; let checked = 0;
+  for (const c of allCards()) {
+    if (!/Instant|Sorcery/.test(c.type_line || "")) continue;
+    const card = asCard(c);
+    if (classifyCard(card) !== "native-spell") continue;
+    checked++;
+    const conf = programConfidence(parseEffectProgram({ ...card, oracle: stripCostOnlyKeywordLines(card.oracle) }));
+    if (conf !== "high") offenders.push(`${c.name} (runtime: ${conf})`);
+  }
+  report("native-spell", checked, offenders);
 }
 
-console.log(`native-spell cards checked: ${checked}`);
-console.log(`⚠️ classifier NATIVE but runtime program NOT high: ${offenders.length}`);
-for (const o of offenders) console.log("  ", o);
-if (!offenders.length) console.log("  (parity holds)");
+// ── ACTIVATED PERMANENTS: can ANY runtime entry point find an ability to offer?
+//
+// ⚠️ ALL THREE PATHS ARE REQUIRED, and leaving any out is a false alarm rather than a find. Checking only
+// the PRINTED abilities reported 71 "divergences" that were nothing of the sort:
+//   • GRANTED — an Aura's quoted ability lives on the HOST (Dragon Mantle, Hot Springs); legalChoices reads
+//     it via grantedActivatedQuotedFor, not off the Aura's own card;
+//   • GRAVEYARD — "{4}{B}: Return this card from your graveyard…" (Tunnel Rats, Stitchwing Skaab) is
+//     activated from the graveyard, which is a separate offer path entirely.
+{
+  const offenders = []; let checked = 0;
+  for (const c of allCards()) {
+    const card = asCard(c);
+    if (classifyCard(card) !== "native-activated") continue;
+    checked++;
+    const printed = parseActivatedAbilities(card).some((a) => a.modeled);
+    const granted = (parseGrantedActivatedAbilities?.(card) || []).length > 0;
+    const graveyard = !!(parseGraveyardSelfRecursion?.(card) || parseGraveyardExileAbility?.(card));
+    if (!printed && !granted && !graveyard) offenders.push(c.name);
+  }
+  report("native-activated", checked, offenders);
+}
+
+// ── EQUIPMENT: can the runtime find the Equip ability on the RAW card? (coverage strips trigger sentences
+// before its own check, so this is exactly the transform-divergence question.)
+{
+  const offenders = []; let checked = 0;
+  for (const c of allCards()) {
+    if (!/\bEquipment\b/i.test(c.type_line || "")) continue;
+    const card = asCard(c);
+    if (classifyCard(card) !== "native-equipment") continue;
+    checked++;
+    if (!parseActivatedAbilities(card).some((a) => a.isEquipAbility && a.modeled)) offenders.push(c.name);
+  }
+  report("native-equipment", checked, offenders);
+}
