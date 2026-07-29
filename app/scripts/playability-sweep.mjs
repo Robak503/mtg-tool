@@ -92,6 +92,20 @@ const DIFFICULTY = process.argv[3] || "beginner";
 const MODE = process.argv[4] || "standard";
 const TARGETED = (process.argv[5] || "") === "targeted";
 const MAX_STEPS = 6000;
+// TURN EXPOSURE (D6, reduced scope — and the reduction is the honest part). Game completion and TURN
+// termination are different properties and this sweep only measures the first, so the intent was a
+// non-terminating-turn DETECTOR. It is not shipped as one: I could not demonstrate a single case it catches.
+// Three attempts to reproduce the Aurelia turn-loop unrigged all failed — with her latch deliberately
+// re-broken and 20 copies in a payable deck, turns still ended (max 45 decisions), and the one "40 combats,
+// never terminates" result came from a harness where I re-injected the attacker each iteration rather than
+// letting the engine decide. A detector with no witness is exactly what the hollow-gate law forbids, and I
+// reverted a previous one for the same reason.
+//
+// What IS kept is the measurement, because a wedge count is meaningless without the exposure that produced
+// it (Omnath's point, and correct): every run reports the largest number of decisions any single turn
+// consumed. A future turn-termination detector should be built on a number like this ONCE a reproducible
+// case exists to witness it.
+let maxTurnDecisions = 0;
 
 /** Decision kinds that mean the run is in trouble rather than progressing. */
 const TROUBLE = new Set(["engine-stuck", "dispatch-error", "pending-choice-unhandled"]);
@@ -205,7 +219,18 @@ for (let g = 0; g < GAMES; g++) {
   }
 
   let steps = 0, outcome = null, detail = "", lastKinds = [];
+  // Game completion and TURN termination are DIFFERENT PROPERTIES, and this sweep only ever measured the
+  // first. A turn that never ends but kills the opponent is indistinguishable from a finished game:
+  // Aurelia with her once-per-turn latch removed grants 40+ combats in one turn and never leaves
+  // combat/declare-attackers, yet every game still reported COMPLETED, because 40 combats of a flying 3/4
+  // is lethal long before any step cap. So count decisions WITHIN a turn, not just overall.
+  let turnDecisions = 0, lastTurn = null;
   while (steps < MAX_STEPS) {
+    const curTurn = session?.state?.turn ?? null;
+    if (curTurn !== lastTurn) { lastTurn = curTurn; turnDecisions = 0; }
+    turnDecisions++;
+    if (turnDecisions > maxTurnDecisions) maxTurnDecisions = turnDecisions;
+
     const kind = decision?.kind;
     kindCounts[kind] = (kindCounts[kind] || 0) + 1;
     lastKinds.push(kind);
@@ -250,6 +275,7 @@ console.log(`COMPLETED: ${done.length}/${GAMES}  (${Math.round(done.length / GAM
 if (done.length) {
   const t = done.map(r => r.turn).sort((a, b) => a - b);
   console.log(`  finished on turn: min ${t[0]} / median ${t[Math.floor(t.length / 2)]} / max ${t[t.length - 1]}`);
+  console.log(`  max decisions in a single TURN: ${maxTurnDecisions} — the EXPOSURE behind the wedge count (no cap asserted; see the note at TURN EXPOSURE)`);
 }
 const bad = results.filter(r => r.outcome !== "COMPLETED");
 if (bad.length) {
