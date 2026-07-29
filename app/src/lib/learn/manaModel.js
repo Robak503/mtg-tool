@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife } from "./gameState.js";
 import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
@@ -291,6 +291,33 @@ function parseAddClause(oracle, card) {
   if (any) {
     const n = parseFixedQuantity(any[1]);
     return { colors: ["W", "U", "B", "R", "G"], amount: n == null ? 1 : n };
+  }
+  // ⭐ PAINLAND (Shivan Reef, Adarkar Wastes, Karplusan Forest, Battlefield Forge, Llanowar Wastes, Caves of
+  // Koilos, Yavimaya Coast, Brushland, Underground River, Sulfurous Springs — 10 corpus cards, all premium
+  // fixing). Two separate {T} abilities:
+  //     {T}: Add {C}.
+  //     {T}: Add {U} or {R}. This land deals 1 damage to you.
+  // parseAddClause reads the FIRST Add clause and stops, so every one of these modelled as COLORLESS ONLY —
+  // a functional Wastes. Lands are credited native by BEING lands, so no coverage number ever showed it
+  // (the third find of that blind spot this run).
+  //
+  // ⛔ THE LIFE COST IS WHY THIS IS NOT A ONE-LINE COLOUR UNION. Taking the coloured half and ignoring
+  // "deals 1 damage to you" would hand the engine a PAINLESS painland — strictly better than printed, the
+  // forbidden direction. The colours are admitted ONLY together with `painColors`/`painAmount`, which
+  // commitManaTap applies when the tap actually picks one of them. Tapping for {C} costs nothing, exactly as
+  // printed.
+  //
+  // Anchored to the whole two-line shape: any other rider (Mogg Hollows' "doesn't untap", the filter lands'
+  // mana-cost activation) does NOT match and keeps its existing colourless read — a safe FN, and those are
+  // scoped separately in the ledger.
+  {
+    const pain = String(oracle || "").trim().match(
+      /^\{T\}: Add \{C\}\.\n\{T\}: Add \{([WUBRG])\} or \{([WUBRG])\}\.[^\n]*? deals (\d+) damage to you\.$/i,
+    );
+    if (pain) {
+      const a = pain[1].toUpperCase(), b = pain[2].toUpperCase();
+      return { colors: ["C", a, b], amount: 1, painColors: [a, b], painAmount: parseInt(pain[3], 10) };
+    }
   }
   // The no-quantity form ("Add mana of any color") — keep the original FN-safe amount:1.
   if (/add\b[^.]*\bmana of any(?: one)? color/i.test(oracle)) {
@@ -1053,7 +1080,7 @@ export function manaSources(state, playerId) {
       sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
       continue;
     }
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
   }
   return sources;
 }
@@ -1116,6 +1143,9 @@ export function planPayment(pool, sources, cost) {
       // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
       bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
       snow: !!s.snow,   // SNOW (SN-1): a source produced by a snow permanent — the only kind that can pay a {S} pip
+      // PAINLAND: the colours that cost life, and how much. Carried so tapSource can stamp the tap.
+      painColors: Array.isArray(s.painColors) ? s.painColors : null,
+      painAmount: s.painAmount || 0,
       // MIXED FIXED BUNDLE (karoo / signet): a per-color tally this source produces SIMULTANEOUSLY. When
       // present it REPLACES the primary component's "pick one color × amount" — see tapSource.
       fixed: s.fixed && Object.keys(s.fixed).length > 1 ? { ...s.fixed } : null,
@@ -1172,7 +1202,10 @@ export function planPayment(pool, sources, cost) {
       if (comp.primary) primaryColor = color;
       else bonusPicks.push({ color, amount: comp.amount });
     }
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
+    // the free {C} half costs nothing, exactly as printed.
+    const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -1315,6 +1348,13 @@ export function commitManaTap(state, playerId, tap) {
     ? Object.entries(tap.fixed).reduce((st, [color, amount]) => addMana(st, { playerId, color, amount }), state)
     : addMana(state, { playerId, color: tap.color, amount: tap.amount ?? 1 });
   for (const b of tap.bonus || []) next = addMana(next, { playerId, color: b.color, amount: b.amount });
+  // PAINLAND (CR 118.4 — paying life / taking damage from your own land). The coloured half of a painland
+  // costs life, and admitting the colours WITHOUT this would be a painless painland: strictly better than
+  // printed, the forbidden direction. Stamped by the planner only when the tap actually chose a painful
+  // colour, so the free {C} half is unaffected.
+  if (tap.painLife) {
+    next = loseLife(next, { playerId, amount: tap.painLife });
+  }
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
