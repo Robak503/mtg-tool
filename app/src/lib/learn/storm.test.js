@@ -28,8 +28,10 @@
  * sacrifices an ATTACKING creature" isn't a modeled edict restriction) stays on the Arbiter (the HIGH-body
  * gate catches it BEFORE the target gate). (Brain Freeze held this pin until its targeted mill went native
  * in BLITZ TM-1.)
- * A creature storm spell with an unmodeled anthem (Stormscale Scion / Stormscale Wurm — the Ur-Dragon card) stays
- * body-only. A LOW-body storm spell (Crow Storm — a named token; Dragonstorm — a tutor-to-battlefield) stays
+ * BUILT — PERMANENT bodies (CR 707.10f, the last section of this file): a storm CREATURE's copies become TOKEN
+ * permanents. Stormscale Scion and Stormscale Wurm were parked here as "unmodeled anthem" cards; the anthem was
+ * never the blocker — the storm LINE was, and the copy path for a permanent spell did not exist.
+ * A LOW-body storm spell (Crow Storm — a named token; Dragonstorm — a tutor-to-battlefield) stays
  * Arbiter. Real oracle text (verified vs the bundled local index), verbatim.
  */
 import { describe, it, expect, beforeEach } from "vitest";
@@ -40,6 +42,8 @@ import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack, finalizeStackResolution } from "./gameEngine.js";
 import { autoPickTutorCandidate, resolveTutorChoice } from "./effects/runProgram.js";
+import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
+import { stackResolvers } from "./effects/atoms/stack.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -371,5 +375,86 @@ describe("STORM — RUNTIME: an OWN-side buff copy targets the controller's own 
     const copy = s.stack.find((o) => o.isCopy);
     expect(copy, "a storm copy was made").toBeTruthy();
     expect((copy.targets || []).map((t) => t.id)).toEqual(["mine"]); // own-side preference, NOT "theirs"
+  });
+});
+
+// ── STORM ON A PERMANENT SPELL (CR 707.10f) ─────────────────────────────────────────────────────────────
+// "Some effects copy a permanent spell. As that copy resolves, it ceases being a copy of a spell and becomes
+// a TOKEN permanent." Every storm card the engine handled was an instant or a sorcery; a storm CREATURE
+// resolves through PERMANENT_ETB (`params.card`) rather than an EFFECT_PROGRAM body, so applyCopySpell's
+// program-clone path produced nothing usable — N copies all sharing the ORIGINAL card's id, none flagged
+// `token`, each headed for a graveyard as a real card. The classifier parked them at body-only, which is why
+// the hole never showed as a false positive.
+//
+// ⭐ THE TIER DIFF CANNOT SEE THIS SLICE'S REAL RISK. Crediting the card native is one line (the shared
+// keyword strip); making the copies actually appear as distinct tokens is the other. The board assertions
+// below are the ones that matter — the ledger's standing law after the Aqueous Form revert.
+const STORMSCALE_SCION = {
+  name: "Stormscale Scion", type: "Creature — Dragon", mana: "{4}{R}{R}", power: "5", toughness: "5",
+  oracle: "Flying\nOther Dragons you control get +1/+1.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. Copies become tokens.)",
+};
+
+describe("STORM on a PERMANENT spell (CR 707.10f) — the copies become TOKEN permanents", () => {
+  it("⭐ tier — Stormscale Scion flips body-only → native (the storm line was its only residue)", () => {
+    expect(classifyCard(STORMSCALE_SCION)).toBe("native-static");
+  });
+
+  it("⭐ RUNTIME — cast as the 3rd spell: the original plus 2 token copies = 3 Dragons on the battlefield", () => {
+    const s = castStormAndResolveAll(STORMSCALE_SCION, { prior: 2 });
+    const dragons = s.players.user.battlefield.filter((p) => /Dragon/.test(String(p.card?.type || "")));
+    expect(dragons.length).toBe(3);
+    expect(dragons.filter((p) => p.card?.token).length).toBe(2); // CR 707.10f — the COPIES are tokens
+    expect(dragons.filter((p) => !p.card?.token).length).toBe(1); // the original is still a card
+  });
+
+  it("⛔ each copy is a DISTINCT object — two tokens must never share one id", () => {
+    // The bug the program-clone path would have shipped: `params.card` cloned verbatim, so every copy carried
+    // the original's id. Nothing else in this file would have caught it.
+    const s = castStormAndResolveAll(STORMSCALE_SCION, { prior: 3 });
+    const tokens = s.players.user.battlefield.filter((p) => p.card?.token);
+    expect(tokens.length).toBe(3);
+    expect(new Set(tokens.map((p) => p.card.id)).size).toBe(3);
+    expect(new Set(tokens.map((p) => p.id)).size).toBe(3);
+  });
+
+  it("CONTROL — with NO prior spells the storm count is 0 and exactly one Dragon lands", () => {
+    // Without this, a copy path that always made a fixed number would pass the assertions above.
+    const s = castStormAndResolveAll(STORMSCALE_SCION, { prior: 0 });
+    expect(s.players.user.battlefield.filter((p) => /Dragon/.test(String(p.card?.type || ""))).length).toBe(1);
+    expect(s.players.user.battlefield.filter((p) => p.card?.token).length).toBe(0);
+  });
+
+  it("⛔ the PROGRAM guard is load-bearing — a payload carrying BOTH keys takes the instant/sorcery path", () => {
+    // Removing `!params.program` from the permanent arm's condition left every test in this file green: no
+    // payload the dispatcher builds today carries both `card` and `program` (EFFECT_PROGRAM params carries
+    // `cardId`; `card` only ever appears nested under spellToGraveyard/adventureExile). So the guard was real
+    // protection with nothing exercising it — a survived mutant. Rather than delete it, this drives
+    // applyCopySpell directly with the ambiguous payload the guard exists for, so the discriminator is
+    // pinned: if a future EFFECT_PROGRAM payload ever gains a top-level `card`, this fails instead of
+    // silently routing instants down the token-permanent path.
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const program = { atoms: [{ op: "gain-life", amount: 1 }] };
+    const payload = { resolver: "EFFECT_PROGRAM", params: { program, controller: "user", targets: [], card: { id: "c1", name: "Ambiguous", type: "Instant" } } };
+    const out = stackResolvers["copy-spell"](s, { op: "copy-spell" }, {
+      controller: "user", stormCount: 1, stormSourcePayload: payload,
+      stormSourceCard: { name: "Ambiguous", type: "Instant" },
+    });
+    const copy = (out.stack || []).find((o) => o.isCopy);
+    expect(copy, "a copy was made").toBeTruthy();
+    // The program path clones the payload as-is; the permanent path would have REPLACED params.card with a
+    // fresh `tok-` snapshot. (Both paths flag the copy's source `token: true` — CR 707.10a — so that field
+    // does NOT discriminate; the card id is the only honest tell.)
+    expect(copy.payload.params.card.id).toBe("c1");
+    expect(copy.payload.params.card.id).not.toMatch(/^tok-/);
+  });
+
+  it("⛔ the five storm-GRANTING cards keep their granting line — the bare-line anchor is what protects them", () => {
+    // Prismari / the Ral emblem / Storm, Force of Nature / Crackling Spellslinger say "spells you cast HAVE
+    // storm". Matching the reminder sentence instead of the bare keyword line would strip that ability away
+    // and credit them native with the card's whole point silently gone (the cascade precedent, nine cards).
+    const granter = "Instant and sorcery spells you cast have storm. (Whenever you cast an instant or sorcery spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)";
+    expect(stripCostOnlyKeywordLines(granter)).toBe(granter);
+    // and the bare line IS stripped
+    expect(stripCostOnlyKeywordLines("Flying\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)")).toBe("Flying");
   });
 });

@@ -98,6 +98,21 @@ const PLOT_COST_LINE = /^plot\s+(?:\{[^}]+\})+.*$/i;
 // was supposed to move ZERO cards, and it moved nine in the forbidden direction.
 const CASCADE_LINE = (t) => t.replace(/\([^)]*\)/g, "").trim().toLowerCase() === "cascade";
 
+// STORM (CR 702.40a) — same argument as cascade, one step later. The keyword is a triggered ability
+// (detectTriggers synthesizes a `stormCopy` selfCast descriptor; applyCopySpell performs the copies), so it is
+// not part of the body. For an INSTANT/SORCERY coverage.js already stripped it inside its own storm branch; a
+// PERMANENT never reaches that branch, so the leftover "Storm (…)" line sat as residue and parked every storm
+// creature and Aura in the corpus at body-only.
+//
+// ⛔ THE BARE KEYWORD LINE ONLY — and here that anchor is not theoretical. FIVE corpus cards GRANT storm
+// rather than having it: Prismari, the Inspiration and the Ral, Crackling Wit emblem ("Instant and sorcery
+// spells you cast have storm"), Storm, Force of Nature and Crackling Spellslinger ("the next instant or
+// sorcery spell you cast this turn has storm"). Matching the reminder sentence instead would strip the real
+// granting ability off all five and credit them native with the ability silently gone — the exact nine-card
+// mistake the cascade note above records, waiting to be repeated. After removing reminder parentheses the
+// line must be exactly "storm"; none of the five have such a line.
+const STORM_LINE = (t) => t.replace(/\([^)]*\)/g, "").trim().toLowerCase() === "storm";
+
 export function stripCostOnlyKeywordLines(oracle) {
   const raw = String(oracle || "");
   // A becomes-plotted trigger means plot is not cost-only on this card — leave every line alone.
@@ -108,6 +123,7 @@ export function stripCostOnlyKeywordLines(oracle) {
     if (COST_ONLY_KEYWORD_LINE.test(t)) return false;
     if (plotIsCostOnly && PLOT_COST_LINE.test(t)) return false;
     if (CASCADE_LINE(t)) return false;
+    if (STORM_LINE(t)) return false;
     return true;
   });
   return kept.length === lines.length ? raw : kept.join("\n").trim();

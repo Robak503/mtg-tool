@@ -968,6 +968,48 @@ function applyCopySpell(state, atom, ctx) {
     const chosen = combos.find(sideOk) || combos[0];
     return chosen?.targets || [];
   };
+  // ===== STORM ON A PERMANENT SPELL (CR 707.10f) ===== "Some effects copy a permanent spell. As that copy
+  // resolves, it ceases being a copy of a spell and becomes a TOKEN permanent." Stormscale Scion, Aeve, and the
+  // storm Auras resolve through PERMANENT_ETB (`params.card`), not through an EFFECT_PROGRAM body, so the
+  // program-clone path below produces nothing usable for them: it would push N copies that all share the
+  // ORIGINAL card's id (two tokens with one id) and carry no `token` flag, so each would go to a graveyard as a
+  // real card when it died. That is why the classifier gated permanent-storm to body-only — the path was never
+  // built, not merely mis-tiered.
+  //
+  // The per-copy snapshot here is the SAME one applyCopyCreatureSpell (Double Major) already uses: copiable card
+  // (CR 707.2), `token: true` (CR 707.10f — never a card in any zone), and a FRESH id per copy so two tokens are
+  // never one object. The original spell's payload is cloned so the copy enters the same way (xValue/kicked ride
+  // along per CR 707.10b), then `params.card` is overwritten with this copy's own snapshot.
+  //
+  // A permanent spell takes no targets from its body, so the target machinery below is skipped entirely rather
+  // than being taught a second shape — an Aura's "enchant" target is a CAST choice the copy re-makes at
+  // resolution, not a body atom, so `pickCopyTargets` has nothing to say about it.
+  const permanentCard = sourcePayload?.params?.card;
+  if (permanentCard && !sourcePayload?.params?.program) {
+    let next = state;
+    let made = 0;
+    for (let i = 0; i < n; i++) {
+      const { id, state: s2 } = mintId(next, "stk");
+      next = s2;
+      const copyCard = { ...snapshotCopiedCard({ card: permanentCard }, undefined, []), token: true, id: `tok-${id}` };
+      const clonedPayload = JSON.parse(JSON.stringify(sourcePayload));
+      clonedPayload.params.card = copyCard;
+      clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
+      delete clonedPayload.params.spellToGraveyard;     // a copy ceases to exist; only the ORIGINAL has a disposition
+      const copyObj = createStackObject({
+        id, kind: "spell", source: { ...copyCard, token: true, isCopy: true },
+        controller: ctx.controller, targets: [], payload: clonedPayload,
+      });
+      next = { ...next, stack: [...next.stack, { ...copyObj, isCopy: true }] };
+      made++;
+      // Same chokepoint every copy-creation site funnels through. The copied object is a PERMANENT spell, so
+      // magecraft's instantSorcery filter excludes it — this is a no-op here by construction, wired for
+      // uniformity (identical to applyCopyCreatureSpell's note).
+      next = checkCopyTriggers(next, { copiedSpellCard: copyCard, controllerId: ctx.controller });
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: made, requested: n, controller: ctx.controller, cardName: sourceCard?.name });
+  }
+
   let next = state;
   let made = 0;
   for (let i = 0; i < n; i++) {
