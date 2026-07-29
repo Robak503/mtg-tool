@@ -581,8 +581,16 @@ function creatureSubjectScope(subj) {
     case "another creature": return "eachOtherCreature";
     case "a creature you control": return "creatureYouControl";
     case "another creature you control": return "otherCreatureYouControl";
+    // All four spell the SAME set: a creature controlled by any player who is your opponent. "your opponents
+    // control" is the plural templating of "an opponent controls" — in a game with N opponents a creature
+    // satisfies one phrasing exactly when it satisfies the other, so they share a scope rather than
+    // sprouting a second one. It was the only member of this family with no route at all (found by the
+    // one-diff probe: the singular sibling was modeled and this was not), which is what parked
+    // Spiteful Banditry #2356.
     case "a creature an opponent controls":
     case "another creature an opponent controls":
+    case "a creature your opponents control":
+    case "another creature your opponents control":
     case "a creature you don't control": return "creatureOpponentControls";
     default: return null;
   }
@@ -1136,10 +1144,23 @@ function classifyCondition(condRaw, cardName, cardType) {
   // rider or restricted subject ("…die during your turn", a subtype list) fails the `$` → undetected →
   // Arbiter (SAFE FN). Subtype/nontoken batch variants are deliberately left for a later pass.
   {
-    const batchDies = c.match(/^one or more (other )?creatures( you control| an opponent controls| you don't control)? die$/);
-    if (batchDies) {
-      const scope = creatureSubjectScope(`${batchDies[1] ? "another" : "a"} creature${batchDies[2] || ""}`);
-      if (scope) return { event: "diesBatch", scope, whose: "any" };
+    // ⭐ DELEGATED, like the batched-entry arm — the plural subject is singularized and handed back to
+    // classifyCondition, and only the EVENT is rewritten to `diesBatch`. So every subject the singular
+    // `dies` arm can enforce (nontoken — The Skullspore Nexus #1591; a subtype; the opponent-controlled
+    // scope — Spiteful Banditry #2356) comes along with its filters, and every subject it REFUSES is
+    // refused here too. The hand-rolled subject regex this replaces admitted only the three bare
+    // controller scopes and silently dropped the rest of the family.
+    //
+    // ⚠️ UNLIKE the entry arm, this needs NO once-per-turn rider, and the difference is the point:
+    // `diesBatch` is its OWN event with its own check function, which fires ONCE per call no matter how
+    // many members of the batch match. Deaths arrive as an array (the SBA batches them), so the batching
+    // is real rather than simulated, and the singular `dies` path is untouched BY CONSTRUCTION — a
+    // diesBatch descriptor has no route into the per-object fire loop at all.
+    const batchDies = c.match(/^one or more (.+) die$/);
+    const singularDies = batchDies ? singularizeBatchSubject(batchDies[1]) : null;
+    if (singularDies) {
+      const inner = classifyCondition(`${singularDies} dies`, cardName, cardType);
+      if (inner && inner.event === "dies" && inner.scope !== "self") return { ...inner, event: "diesBatch" };
     }
   }
   // ===== GY-EVENT conditions (Syr Konrad / Bloodchief Ascension — SHELF S7) ===== card-scoped graveyard
