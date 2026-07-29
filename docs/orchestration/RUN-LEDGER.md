@@ -228,6 +228,29 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔎 SHIPPED — the CONTROLLER INVARIANT check, and **the exposure rule it forced** (`8b594558`)
+
+Follow-through on the half-blind-test finding. Controller is stored TWICE — the battlefield ARRAY that holds
+the permanent, and the permanent's own `.controller` FIELD (~628 sites read the field). They must never
+disagree.
+
+**Measured with a positive control, because a bare zero here means nothing:**
+```
+random decks         →   0 mismatches over    0 control-change observations
+forced Mind Control  →   0 mismatches over  956 observations   ← the invariant HOLDS
+same, mover broken   →  25 mismatches over  956 observations   ← the check DETECTS
+```
+The middle line is the result. The third is the witness. **The first is the lesson:** my initial run was the
+random-deck one, and I nearly recorded "0 mismatches, invariant holds" — from a check that had never once
+been handed a control change to examine. Breaking the mover ALSO gave 0, which is what exposed it.
+
+⭐ **SO THE REPORT NOW PRINTS ITS OWN EXPOSURE:** `0 (over N control-change observations — a 0 with 0
+exposure is not a pass)`. Same discipline as the turn-decisions number. **A count without what produced it
+is not evidence**, and this is the second instrument this run to need that fix.
+
+Incidental but worth banking: **956 observations means the +7 control Auras are genuinely being cast and
+resolving in real games**, not merely classifying.
+
 ## 🏆 SHIPPED — **B1 CLOSED: control Auras, runtime + credit** (`0c19d9c0` + `9e0…`, +7)
 
 `"You control enchanted creature."` — Mind Control · Control Magic · Treachery · Persuasion · Spirit Away ·
