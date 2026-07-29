@@ -76,8 +76,15 @@ permanent's base characteristics with the copied card's copiable values BEFORE l
 anthems then apply on top of the new base (CR 613.1a).
 
 **Increment plan — each independently shippable:**
-1. `{ layer: 1, kind: "copy", targetId, copiableCard, duration }` + apply it first in the derive, filling
-   `copiableValues`. Verify with a board assertion, not the tier diff (the Aqueous Form law).
+1. ✅ **SHIPPED (`9e893b8a`)** — the layer exists and works. `{ layer: 1, op: "copy", copiableCard, affects,
+   duration }`; the derive substitutes the copied card ahead of the printed-value readers and layers 4–7 are
+   untouched. **Tier diff GAINED 0 — correct for infrastructure, and evidence the derive change is
+   behaviour-preserving on every board with no copy effect.** Counters survive (CR 707.2 — they are on the
+   PERMANENT, not the card); latest timestamp wins (CR 613.7b). **No card credited yet, deliberately.**
+   ⚠️ Two fixture traps found the hard way and worth knowing: `effectAffects` wants
+   `affects: { mode: "self", permanentId }` (not a `{kind,id}` shape), and **`createPermanent` DROPS
+   `counters` from its opts bag** — set it on the built permanent or the counters test passes for the wrong
+   reason.
 2. Parse `"becomes a copy of <X> until end of turn"` → the atom. `snapshotCopiedCard` (cloneCopy.js) already
    produces the copiable card — **reuse it, do not write a second snapshotter**, or the two drift.
 3. The two Dragons cards' own riders (Sarkhan: "except its name is Sarkhan… and it's still a Planeswalker";
@@ -1393,7 +1400,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,298/34,245). Suite **944 files / 12,053 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,298/34,245). Suite **945 files / 12,060 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
