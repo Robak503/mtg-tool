@@ -679,9 +679,28 @@ export function bounceClauseParser(clause) {
   // where the source id genuinely reaches target enumeration. The runtime pin in anotherTargetBounce.test.js
   // exercises the real ETB-trigger path for exactly that reason; a parse-only test would have proved nothing
   // about whether the mode has any targets at all.
-  const bp = t.match(/^return (another )?target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
+  //
+  // ⭐ THE NOUN LIST IS THE ONLY THING THAT WAS NARROW — "planeswalker" and the two UNIONS were sayable to
+  // `destroy` (which emits targetType planeswalker / creatureOrPlaneswalker / artifactOrEnchantment) and to
+  // the graveyard-recursion sibling ("return target artifact or enchantment CARD from your graveyard"), but
+  // not here. enumerateTargets has always understood all three, and `return target PERMANENT to its owner's
+  // hand` — already native — demonstrably bounces a planeswalker today, so there was never a runtime question
+  // about whether a planeswalker can be returned: only about whether the sentence could be said. Added on
+  // that evidence, with no new targetType invented.
+  const bp = t.match(/^return (another )?target (nonland permanent|permanent|artifact or enchantment|creature or planeswalker|artifact|enchantment|land|planeswalker)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
   if (bp) {
-    const TT = { "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact", "enchantment": "enchantment", "land": "land" };
+    const TT = {
+      "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact",
+      "enchantment": "enchantment", "land": "land", "planeswalker": "planeswalker",
+      // ⚠️ THE UNIONS ARE LISTED BEFORE THEIR OWN PREFIXES FOR READABILITY, NOT FOR CORRECTNESS — and that
+      // distinction was MEASURED, not assumed. I first wrote that the order was load-bearing (first-match
+      // alternation would match bare "artifact" and silently drop the enchantment half); mutating the order
+      // to prove it left all 13 tests GREEN. The whole-clause `$` anchor is what actually protects it: bare
+      // "artifact" leaves " or enchantment" before "to its owner's hand", the match fails, and the engine
+      // backtracks into the longer alternative. Keep the order anyway — it reads correctly and costs nothing
+      // — but do NOT rely on ordering here as though it were the guard.
+      "artifact or enchantment": "artifactOrEnchantment", "creature or planeswalker": "creatureOrPlaneswalker",
+    };
     const restrictions = bp[3] ? [{ kind: "controller", who: /^you control$/.test(bp[3]) ? "you" : "opponent" }] : [];
     if (bp[1]) restrictions.push({ kind: "notSource" });
     return { op: "bounce", targetType: TT[bp[2]], restrictions };
