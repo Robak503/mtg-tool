@@ -295,6 +295,34 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
+### ⭐ THE NEXT REAL BUILD: "IF \<condition\>, \<X\> INSTEAD" — 3 of Earth Bent's 7, and HALF OF IT EXISTS
+
+**This is the highest-leverage thing left on the shelf's nearest deck, and the expensive half is already
+built.** No general conditional-replacement wrapper exists today (only two anchored exile-if-dies riders),
+so all three cards park:
+```
+Scute Swarm       create a 1/1 Insect. IF you control six or more lands, create a COPY of this creature instead.
+Entish Restoration search for up to two basic lands. IF you control a creature with power 4+, up to THREE instead.
+Scythecat Cub     put a +1/+1 counter. IF this is the SECOND time this ability resolved this turn, DOUBLE instead.
+```
+**⭐ THE CONDITIONS WERE PRE-VERIFIED against `evaluateInterveningIf` — two of three already answer:**
+```
+"you control six or more lands"                              → true   ✅ expressible
+"you control a creature with power 4 or greater"             → false  ✅ expressible (correctly, on that board)
+"this is the second time this ability has resolved this turn" → null   ⛔ NOT expressible — Scythecat parks
+```
+So the work is **NOT** a conditional subsystem from scratch. It is: a **branch node in the effect program**
+(`{ condition, ifTrue:[…], ifFalse:[…] }`), evaluated at resolution through the evaluator that already
+exists. Narrow arms of this shape are precedent — `reveal-top-conditional` carries `thenRoute`/`elseRoute`,
+and `structure:"modal"` already means the program shape is not flat.
+
+**⚠️ REFUSING THE HALF-MODEL IS CORRECT TODAY, so do not "simplify" by dropping the instead-clause:** creating
+the 1/1 when the card says copy is under-delivery, but it is still a printed effect that does not happen —
+the dropped-effect class. Park until the branch is real.
+
+**Build order, from the pattern that has worked three times this run:** the evaluator half is done, so add
+the branch node and its resolution FIRST, then admit the parse arm — never the reverse.
+
 ### 🎯 EARTH BENT — 81% → **83%** (`25f9943d` Lotus Cobra, `74533daf` Toph). SEVEN cards to the bar.
 
 **⭐ A GUARD THAT EXPLAINS ITSELF IS AN INSTRUCTION, NOT A WALL — third time this run.** The CDA count
