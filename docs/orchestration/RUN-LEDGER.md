@@ -19,6 +19,13 @@
 > pre-mutation form before doing anything else — the tests will be lying until you do.
 >
 > **⚠️ AND WHEN YOU MUTATE: `grep -c MUTANT` proves a mutation APPLIED, not that it applied to YOUR line.**
+> **⚠️⚠️ A GREEN SUITE IS NOT EVIDENCE THE MODULE GRAPH STILL LOADS.** After touching imports anywhere in
+> `src/lib/learn/`, run `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"`. One added
+> import edge (a constant read only inside a function, per the existing convention) reordered module init
+> into `ReferenceError: Cannot access '_lifeLossWatcher' before initialization` while **914 test files stayed
+> green** — vitest resolves modules in a different order than node. Fixed by extracting the constant to a
+> leaf; the check is one command and it is now mandatory.
+>
 > **⚠️⚠️ AND A DELETION MUTATION IS INVISIBLE TO THE SWEEP.** `grep -rl MUTANT` only finds mutations that
 > left a MARKER. A mutation that DELETES a line leaves none — so when a revert fails (mine failed on a file
 > Windows had locked, and `cp` printed `Permission denied` in the middle of a long output block), the sweep
@@ -239,7 +246,44 @@ anchor silently failed to apply, and using `git checkout` to "restore" **discard
 The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
 mutation round is the standing check — the marker sweep cannot see this class either.
 
-### ⭐ START HERE NEXT — CAST-FROM-TOP-OF-LIBRARY, and half the seam already exists
+### ✅ CAST-FROM-TOP IS DONE (`9afbfb0d`, +7 — Elven Chorus #1376)
+
+**⚠️⚠️ THE FINDING THAT MATTERS MOST IN THIS SLICE HAS NOTHING TO DO WITH CARDS: I SHIPPED A CRASH THE
+SUITE COULD NOT SEE.** Adding one import edge — `CR_CREATURE_TYPES` into `staticAbilityParser`, read only
+inside a function, exactly as the existing convention prescribes — reordered module init so that a plain
+`import legalChoices.js` threw:
+```
+ReferenceError: Cannot access '_lifeLossWatcher' before initialization
+```
+**914 test files stayed green**, because vitest resolves modules in a different order than node. It surfaced
+only because an ad-hoc probe script imported the module directly. **Reading a constant lazily does NOT make
+an import edge safe — the EDGE is what reorders init.** Fixed by extracting the constant to the leaf
+`effects/creatureTypes.js` (targeting.js re-exports it, so no existing importer changed).
+
+**⭐ THE STANDING RULE THIS ADDS: after touching imports in `src/lib/learn/`, run
+`node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` — a green suite is not evidence
+that the module graph still loads.**
+
+Two other things worth keeping:
+- **A closed vocabulary, again.** Filter words are validated against card types + `CR_CREATURE_TYPES`; an
+  unlisted word parks the clause. Galea #12094 ("aura and equipment spells" — non-creature SUBTYPES) pays
+  for that line and parks. Correct trade, straight from the vacuous-filter class.
+- **The merge had to become a UNION.** `a || b` was fine while the only values were `"any"` and `null`;
+  with type filters it silently dropped the second permission (Eladamri + Mystic Forge → creature-only).
+
+**⛔ AND A DELIBERATE PIN WAS OVERTURNED — read this before re-parking it.** The parser declined to credit
+*"You may look at the top card of your library any time"* citing "an existing pin (topCardRouter's Iron Lad)
+deliberately keeps such cards body-only". **That was circular** — Iron Lad was parked ONLY by that line, and
+its activated ability classifies `native-activated` standing alone. The line is now credited INERT beside
+its already-credited and strictly MORE public sibling *"play with the top card revealed"*: looking changes
+no game state and this sim is perfect-information, so **no effect is being dropped**, which is exactly why
+crediting it cannot become a claimed-native no-op. It was the shared blocker on **6 of the 8** cards here.
+
+Still parked and why: **Bolas's Citadel #263** (life-cost cast rider), **Mystic Forge #414** ("artifact
+spells and COLORLESS spells" — colorless is not a type word), **Realmwalker #607** (needs the chosen-type
+mechanic), **Augur of Autumn #1124** (Coven), **The Reality Chip #1025** (attach-gated permission).
+
+### (original scoping, kept) — CAST-FROM-TOP-OF-LIBRARY, and half the seam already exists
 
 The 9-card cluster the blocker probe ranked #1. **Measured, so build against this and not a guess:**
 ```
