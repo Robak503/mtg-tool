@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * probe-limiter-fidelity.mjs — does the engine carry the LIMITER the card prints?
+ * probe-rules-fidelity.mjs — does the engine play the card AS PRINTED?
  *
  * ⭐ WHY THIS CLASS EXISTS, and why no other instrument covers it. Aurelia, the Warleader printed "attacks
  * FOR THE FIRST TIME EACH TURN" and her descriptor carried no once-per-turn latch, so she granted more
@@ -11,8 +11,12 @@
  * **Nothing about the OUTCOME was wrong. Only the rules-fidelity was**, and outcome-shaped instruments are
  * blind to that by construction. She was caught by a human reading the card against the descriptor.
  *
- * This automates exactly that reading, for the one thing that can be checked mechanically: a printed
- * LIMITER must appear as a flag on the thing it limits. It does not check semantics — only presence.
+ * This automates exactly that reading, for the parts that can be checked mechanically: a printed QUALIFIER
+ * must appear as a flag on the thing it qualifies. It does not check semantics — only presence.
+ *
+ * ⚠️ NAMED FOR THE AXIS, NOT THE FIRST LANE. It started as probe-limiter-fidelity and gained a second lane
+ * the same day; a tool named after its first check is the same trap as a stale docstring (one cost a slice
+ * this morning). Lanes so far: LIMITER (per-turn caps) and OPTIONALITY ("you may").
  *
  * ⭐ IT HAS A DETERMINISTIC WITNESS, which is why it is shippable where the turn-termination detector was
  * not. Re-break the latch (drop the `firstTimeEachTurn` stamp in triggers.js) and this probe must flag
@@ -47,6 +51,18 @@
  *      activationLimit is null. Measured: all three offer ZERO activations, so nothing over-fires. A real
  *      infidelity requires the ability to actually BE OFFERED — check that before believing this lane.
  *
+ * ⛔ FULL-CORPUS STATE (2026-07-29): limiter 28 checked / 1 flagged · activated 97 / 3 · optionality 1921 /
+ * 1. **Every flag is a VERIFIED false positive**, each for a different documented reason:
+ *   · Mighty Servant of Leuk-o — descriptor is the granted INNER trigger, the limiter wraps the OUTER crew one
+ *   · Skinshifter / Groundling Pouncer / Chronatog Totem — "only once each turn AND ONLY IF <cond>" defeats
+ *     the end-anchored matcher, but all three offer ZERO activations, so nothing over-fires
+ *   · Infesting Radroach — its "you may" is DELIBERATELY auto-taken (triggers.js: "returning your own card
+ *     is pure upside"). A documented policy, not an infidelity.
+ * All are left VISIBLE rather than suppressed: a special-case would also hide a real regression on that card.
+ *
+ * ⭐ OPTIONALITY WITNESS: forcing `optional: false` in triggers.js makes the optionality lane report 175/175
+ * on the top-3000 slice; restored, 0. Both lanes are therefore measured, not assumed.
+ *
  * Read-only / local-only (needs MTG_APP_ROOT). Not in CI.
  */
 import { allCards, publicCard } from "../src/lib/server/cardIndex.js";
@@ -59,8 +75,8 @@ const TRIGGER_LIMITER = /for the first time each turn|this ability triggers only
 const ACTIVATED_LIMITER = /activate (?:this ability )?only once each turn|activate (?:this ability )?no more than \w+ times each turn/i;
 
 const cs = await allCards();
-let trigChecked = 0, actChecked = 0;
-const infidelTrigger = [], infidelActivated = [], undetected = [];
+let trigChecked = 0, actChecked = 0, optChecked = 0;
+const infidelTrigger = [], infidelActivated = [], infidelOptional = [], undetected = [];
 
 for (const c of cs) {
   if (Number.isInteger(c.edhrec_rank) && c.edhrec_rank > LIMIT) continue;
@@ -91,6 +107,22 @@ for (const c of cs) {
     }
   }
 
+  // ── OPTIONALITY lane ──────────────────────────────────────────────────────
+  // A printed "you may" that reaches the engine as MANDATORY removes a choice the card grants. Same
+  // per-descriptor discipline as the limiter lane: judge the descriptor whose OWN sourceText says "you may",
+  // never the card as a whole.
+  // ⭐ WITNESS (2026-07-29): forcing `optional: false` in triggers.js makes this report 175/175; restored, 0.
+  // The clean result is measured, not assumed.
+  {
+    let ds;
+    try { ds = detectTriggers(pc) || []; } catch { ds = []; }
+    for (const d of ds) {
+      if (!/\byou may\b/i.test(String(d.sourceText || ""))) continue;
+      optChecked++;
+      if (!d.optional) infidelOptional.push([rank, pc.name, String(d.effectClause || "").slice(0, 52)]);
+    }
+  }
+
   // ── ACTIVATED lane ────────────────────────────────────────────────────────
   if (ACTIVATED_LIMITER.test(oracle)) {
     let abs;
@@ -107,9 +139,9 @@ for (const c of cs) {
 }
 
 const byRank = (a, b) => a[0] - b[0];
-infidelTrigger.sort(byRank); infidelActivated.sort(byRank); undetected.sort(byRank);
+infidelTrigger.sort(byRank); infidelActivated.sort(byRank); infidelOptional.sort(byRank); undetected.sort(byRank);
 
-console.log(`checked — trigger-limiter cards: ${trigChecked} · activated-limiter cards: ${actChecked}`);
+console.log(`checked — trigger-limiter: ${trigChecked} · activated-limiter: ${actChecked} · optionality: ${optChecked}`);
 console.log(`(not checked: ${undetected.length} cards whose limiter line was never detected at all — a COVERAGE gap, reported separately, never counted as infidelity)`);
 
 console.log(`\n⛔ TRIGGER LIMITER PRINTED BUT NO LATCH ON ANY DESCRIPTOR: ${infidelTrigger.length}`);
@@ -118,6 +150,10 @@ for (const [r, n, ev] of infidelTrigger.slice(0, 25)) console.log(String(r).padS
 console.log(`\n⛔ ACTIVATED LIMITER PRINTED BUT NO activationLimit: ${infidelActivated.length}`);
 for (const [r, n, cost] of infidelActivated.slice(0, 25)) console.log(String(r).padStart(6), n, "|", cost);
 
-if (!infidelTrigger.length && !infidelActivated.length) {
-  console.log("\n   (fidelity holds on both lanes — run the Aurelia witness before believing it)");
+console.log(`
+⛔ PRINTED "you may" BUT THE DESCRIPTOR IS MANDATORY: ${infidelOptional.length}`);
+for (const [r, n, eff] of infidelOptional.slice(0, 25)) console.log(String(r).padStart(6), n, "|", eff);
+
+if (!infidelTrigger.length && !infidelActivated.length && !infidelOptional.length) {
+  console.log("\n   (fidelity holds on all three lanes — both witnesses documented in the header above)");
 }

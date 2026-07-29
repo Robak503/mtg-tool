@@ -228,7 +228,7 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
-## 🔬 SHIPPED — **`probe-limiter-fidelity.mjs`: the first RULES-FIDELITY instrument** (`efa84b3b`)
+## 🔬 SHIPPED — **`probe-rules-fidelity.mjs`: the first RULES-FIDELITY instrument** (`efa84b3b`)
 
 ⭐ **A THIRD AXIS, and Omnath named it.** Coverage % measures what is modelled; the playability sweep
 measures whether games finish. **Neither can see a card played wrongly but plausibly.** Aurelia is the proof:
@@ -259,6 +259,14 @@ limiter looks unmodelled and is not:
 mismatch alone is not a defect.
 
 **Seventh ghost-class of the day — and the first caught entirely before it was reported.**
+
+### ➕ SECOND LANE, SAME DAY: OPTIONALITY (`"you may"` printed → descriptor mandatory)
+**1,921 descriptors checked corpus-wide · 1 flagged · that one is a VERIFIED false positive** (Infesting
+Radroach — its "may" is deliberately auto-taken; triggers.js says so, *"returning your own card is pure
+upside"*). **Witnessed:** forcing `optional: false` makes the lane report 175/175 on the top-3000 slice, 0
+restored. ⚠️ **Renamed `probe-limiter-fidelity` → `probe-rules-fidelity`** when the second lane landed —
+naming a tool after its first check is the same trap as the stale docstring that cost a slice this morning.
+
 
 ## 🧭 STATE OF THE INSTRUMENTS (swept 2026-07-29) — **the safe veins are DRY; stop hunting, go build**
 
