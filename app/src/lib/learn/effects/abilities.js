@@ -99,6 +99,24 @@ export function abilityIsSorcerySpeedOnly(clause) {
   return SORCERY_TIMING_RIDER.test(String(clause || ""));
 }
 
+// FABLED PASSAGE's trailing bonus (CR 701.19 fetch + a conditional untap) — "…, then shuffle. THEN IF YOU
+// CONTROL FOUR OR MORE LANDS, UNTAP THAT LAND." Without this the whole ability failed to parse and the card
+// was **completely dead**: no action offered at all, on a land ranked #50 that sits in three of the shelf's
+// decks. The coverage metric cannot see it — every land classifies `tier: "land"` regardless.
+//
+// ⛔ THIS IS A DELIBERATE UNDER-DELIVERY, NOT A MODEL OF THE RIDER. Dropped, the fetched land stays TAPPED
+// when it should sometimes untap — the player gets LESS than printed, which is the safe direction and the
+// same asymmetry probe-ignored-restrictions is built on: an ignored tail that ADDS under-delivers (FN,
+// safe); an ignored tail that RESTRICTS over-delivers (FP, forbidden). This one only ever adds.
+//
+// NARROW ON PURPOSE — anchored to the printed sentence, and this is a ONE-CARD shape (corpus-verified: the
+// only card printing it is Fabled Passage). It is NOT a general "drop a trailing sentence you cannot parse"
+// rule, which would eventually swallow a RESTRICTION and flip the direction to forbidden.
+const BONUS_UNTAP_RIDER = /\.?\s*Then if you control (?:two|three|four|five|\d+) or more lands, untap that land\.?\s*$/i;
+function stripBonusUntapRider(clause) {
+  return String(clause || "").replace(BONUS_UNTAP_RIDER, "").trim();
+}
+
 function stripEnforcedTimingRider(clause) {
   return String(clause || "")
     .replace(/\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i, "")
@@ -809,7 +827,7 @@ export function parseActivatedAbilities(card) {
     const beforeTimingStrip = activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim() : afterPrecombat;
     // Read the flag off the PRE-strip text — after the strip the phrase is gone by construction.
     const sorceryOnly = abilityIsSorcerySpeedOnly(beforeTimingStrip);
-    const effectClause = stripEnforcedTimingRider(beforeTimingStrip);
+    const effectClause = stripBonusUntapRider(stripEnforcedTimingRider(beforeTimingStrip));
     if (!costStr || !effectClause) continue;
 
     // CC-3 — thread the card so a SELF-NAME remove-counter cost item ("Remove a charge counter from
