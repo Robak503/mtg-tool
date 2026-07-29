@@ -420,6 +420,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     extraLandsThisTurn: 0,    // ONE-SHOT-EXTRA-LAND (CR 505.5b / 305.2): the per-turn land-play budget RAISED by a resolving "you may play [N] additional land[s] this turn" effect (Explore → +1, Summer Bloom → +3). landDropAllowance adds it; resetTurnCounters zeroes it each of the player's turns.
     cardsDrawnThisTurn: 0,
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
+    noncreatureSpellsCastThisTurn: 0, // FIRST-NONCREATURE-EACH-TURN (CR 603.2, Esper Sentinel): the noncreature subset of the count above — same chokepoint, same per-seat reset
     creaturesDiedThisTurn: 0, // DEATHS-THIS-TURN (CR 700.4): creatures that DIED (battlefield→graveyard) under this player's control this turn — incremented at the death chokepoint (checkDiesTriggers via recordCreatureDeaths), reset for all seats at untap. Read by "for each creature that died [under your control] this turn" (Mahadi sums all seats / Body Count reads the controller) + the "if a creature died this turn" intervening-if.
     attackedThisTurn: false, // RAID (CR 508.1): set true when this player declares an attacker (actionDispatcher.applyDeclareAttacker), reset for ALL seats at untap. Read by the "you attacked this turn" intervening-if.
     hasMulliganed: false,
@@ -1949,9 +1950,23 @@ export function resetCardsDrawnAllPlayers(state) {
  * turn" reads the running count and fires when it reaches 2. Each cast is one spell (CR 601 — spells are
  * cast one at a time), so the count passes through 2 exactly once per turn.
  */
-export function recordSpellCast(state, { playerId }) {
+export function recordSpellCast(state, { playerId, spellCard = null }) {
   assertPlayer(playerId);
-  return withPlayer(state, playerId, p => ({ ...p, spellsCastThisTurn: (p.spellsCastThisTurn || 0) + 1 }));
+  // FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2 — Esper Sentinel, Shadow in the Warp, The Queen of Dale):
+  // "whenever an opponent casts their FIRST NONCREATURE spell each turn" needs a per-player count of
+  // NONCREATURE casts, which the all-spells counter above cannot answer. Counted at this one chokepoint
+  // beside it, on the same terms (incremented BEFORE the trigger check, so "first" reads as `=== 1`), and
+  // zeroed for every seat by resetSpellsCastAllPlayers.
+  //
+  // A caller that does not thread `spellCard` leaves the noncreature counter alone rather than guessing.
+  // That makes an unthreaded path UNDER-fire the first-noncreature watchers, never over-fire — the same
+  // direction castNotFromHand takes for an unthreaded zone (CREED).
+  const isNoncreature = spellCard != null && !/\bcreature\b/i.test(String(spellCard?.type || spellCard?.type_line || "").split(" // ")[0]);
+  return withPlayer(state, playerId, p => ({
+    ...p,
+    spellsCastThisTurn: (p.spellsCastThisTurn || 0) + 1,
+    ...(isNoncreature ? { noncreatureSpellsCastThisTurn: (p.noncreatureSpellsCastThisTurn || 0) + 1 } : {}),
+  }));
 }
 
 /**
@@ -1963,7 +1978,7 @@ export function recordSpellCast(state, { playerId }) {
 export function resetSpellsCastAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
-    players[id] = { ...state.players[id], spellsCastThisTurn: 0 };
+    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0 };
   }
   return { ...state, players };
 }

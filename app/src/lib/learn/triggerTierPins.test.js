@@ -61,7 +61,14 @@ describe("MUST_STAY_HIGH — trigger residue chain credits the whole card", () =
       "ENTERING-PRONOUN PUMP TAIL: \"It gains haste until end of turn.\" directly follows the counter clause and is folded into the same trigger effect, not left as residue (native-mixed)"],
     ["Rhystic Study", "Enchantment",
       "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
-      "the tax-trigger family baseline — a FIXED {1} tax, unconditional frequency (see Esper Sentinel below for the near-twin that over-claims on both counts)"],
+      "the tax-trigger family baseline — a FIXED {1} tax, unconditional frequency"],
+    // GRADUATED from the MUST_NOT_OVER-CLAIM list below. Both of the things this pin named as unmodeled —
+    // the "first … each turn" FREQUENCY gate and a tax VARIABLE on the creature's own power — were built
+    // (firstSpellEachTurn.test.js, taxedPayment.test.js), so it moves here rather than being deleted: the
+    // card is now REQUIRED to flip, and the per-player gate + live tax amount are pinned in those files.
+    ["Esper Sentinel", "Artifact Creature — Human Soldier",
+      "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.",
+      "the tax-trigger family's HARD case — a per-player frequency gate plus a live power-scaled tax"],
   ];
 
   for (const [name, type, oracle, why] of CASES) {
@@ -78,9 +85,6 @@ describe("MUST_NOT_OVER-CLAIM — trigger-shaped text with real unmodeled residu
   // reports a native tier, the runtime is ignoring real unmodeled text while the metric counts it
   // fully modeled — the exact over-claim the whole gate exists to prevent.
   const CASES = [
-    ["Esper Sentinel", "Artifact Creature — Human Soldier",
-      "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.",
-      "near-twin of the Rhystic Study family: a FREQUENCY gate (\"first ... each turn\", not unconditional) plus a tax VARIABLE on the creature's own power — neither is modeled"],
     ["Ranger-Captain of Eos", "Creature — Human Soldier Ranger",
       "When this creature enters, you may search your library for a creature card with mana value 1 or less, reveal it, put it into your hand, then shuffle.\nSacrifice this creature: Your opponents can't cast noncreature spells this turn.",
       "near-twin of Farfinder's ETB search — but a second sacrifice-activated hoser ability is unmodeled residue, so CREED whole-card-or-nothing parks the ENTIRE card, ETB included"],

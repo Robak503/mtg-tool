@@ -600,7 +600,7 @@ function applyCastSpell(state, action) {
   // opponent casts a … spell" watchers trigger and go on the stack ABOVE it (flush here,
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
-  next = recordSpellCast(next, { playerId: action.playerId }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
+  next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
   next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId, castFromZone: action.fromZone || "hand" }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches); CAST-FROM-NONHAND (Vega, K1): the action's source zone gates the from-anywhere-but-hand watchers
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): if this spell targets one or more permanents

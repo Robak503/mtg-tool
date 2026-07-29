@@ -708,6 +708,22 @@ export function matchDiscardHandDrawSame(oracle) {
  */
 export function matchTaxedDraw(oracle) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  // ===== DYNAMIC TAX AMOUNT — "{X}, where X is this creature's power" (Esper Sentinel, rank 76) =====
+  // The fixed-pip arm below cannot express this: the tax is whatever the SOURCE's power is when the ability
+  // resolves, so a snapshot taken at parse time would be wrong the moment the creature grows (which is the
+  // card's whole plan — an Esper Sentinel wearing a +1/+1 counter taxes {2}, not {1}).
+  //
+  // The amount rides as a `genericSpec` the resolver evaluates live through countForSpec — the SAME
+  // `selfPower` metric the mana model uses, so the tax and the mana a power-scaled dork produces can never
+  // disagree about what "this creature's power" means. A source that has left the battlefield reads 0,
+  // which makes the tax free rather than fabricating a number (CREED).
+  //
+  // ⛔ SELF-REFERENCE ONLY, for the reason the metric itself is gated: "that creature's" / "the sacrificed
+  // creature's" name a DIFFERENT object, and taxing the payer by an unrelated permanent's power would be a
+  // number pulled from nowhere. Anchored on "this creature's" alone.
+  const dyn = s.match(/^(?:you may )?draw a card unless that player pays \{x\}, where x is this creature's power$/i);
+  if (dyn) return { atom: { op: "taxed-draw", cost: { kind: "mana", genericSpec: { kind: "selfPower" } }, targetType: null } };
+
   const m = s.match(/^(?:you may )?draw a card unless that player pays (\{[^}]+\}(?:\{[^}]+\})*)$/i);
   if (!m) return null;
   const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));

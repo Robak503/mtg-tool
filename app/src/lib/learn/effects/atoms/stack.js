@@ -749,10 +749,21 @@ function applyTaxedDraw(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time
   const payer = ctx.castingPlayerId;
   if (!payer || !state.players?.[payer] || payer === ctx.controller) return state;
+  // DYNAMIC TAX (Esper Sentinel) — "{X}, where X is this creature's power". Resolved HERE, as the ability
+  // resolves (CR 608.2), against the live source: a grown Sentinel taxes more, which is the card's plan. The
+  // same countForSpec `selfPower` metric the mana model reads, so the two can never drift on what "this
+  // creature's power" means. `source: perm` matches the mana path's ctx shape; a source no longer on the
+  // battlefield resolves to 0 — a free tax, never a fabricated number.
+  let cost = atom.cost;
+  if (cost?.genericSpec) {
+    const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+    const n = Math.max(0, countForSpec(state, { controller: ctx.controller, source: lk?.permanent, sourceId: ctx.sourceId }, cost.genericSpec));
+    cost = { kind: "mana", mana: { generic: n } };
+  }
   return setPendingTaxedPaymentChoice(state, {
     payer,
     beneficiary: ctx.controller,
-    cost: atom.cost,
+    cost,
     sourceName: ctx.cardName || null,
   });
 }

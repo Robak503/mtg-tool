@@ -2060,6 +2060,26 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you cast a spell from anywhere other than your hand$/.test(c)) {
     return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "any", castNotFromHand: true };
   }
+  // ===== FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2) ===== "Whenever an opponent casts their FIRST noncreature
+  // spell EACH TURN" — Esper Sentinel, Shadow in the Warp, The Queen of Dale, The Frightful Four, and the
+  // unfiltered five (Pain Distributor, Mind's Dilation, The Lord of Pain, Jace's emblem). The generic cast
+  // matcher below is `$`-anchored on "… spell", so "spell each turn" never matched it at all — these cards
+  // produced NO trigger descriptor whatsoever.
+  //
+  // ⛔ THE GATE IS PER PLAYER, NOT PER SOURCE. This is not the source's once-per-turn: with three opponents
+  // it fires up to three times a turn, once for each opponent's own first matching spell. So it rides on the
+  // CASTER's per-turn counters (checkCastTriggers), not on any per-permanent flag.
+  //
+  // Only the two filters the engine can count are admitted — bare (spellsCastThisTurn) and "noncreature"
+  // (noncreatureSpellsCastThisTurn). Zenith Chronicler's "first MULTICOLORED spell each turn" has no
+  // counter, so it falls through to the generic matcher, fails its `$` anchor, and stays parked: a safe
+  // false negative rather than a first-spell gate that silently ignores the word "multicolored".
+  const firstCastM = c.match(/^(you|an opponent|a player|each player) casts? (?:their|his or her|your) first (noncreature )?spell each turn$/);
+  if (firstCastM) {
+    const whose = /you/.test(firstCastM[1]) ? "you" : /opponent/.test(firstCastM[1]) ? "opponent" : "any";
+    return { event: "cast", scope: "castWatcher", whose, spellFilter: firstCastM[2] ? "noncreature" : "any", firstEachTurn: firstCastM[2] ? "noncreature" : "any" };
+  }
+
   const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z,\- ]*?)\s*spell$/);
   if (castM) {
     const whose = /you/.test(castM[1]) ? "you" : /opponent/.test(castM[1]) ? "opponent" : "any";
@@ -3504,6 +3524,7 @@ export function detectTriggers(card) {
         firesOnCopy: cls.firesOnCopy,         // MAGECRAFT COPY HALF (BLITZ MC-1): magecraft's "cast OR copy" descriptor alone carries this; checkCopyTriggers fires ONLY firesOnCopy watchers at a copy site (a plain "whenever you cast" never fires on a copy — CR 707.10)
         castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
+        firstEachTurn: cls.firstEachTurn,     // FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2, Esper Sentinel): "any"|"noncreature", gating checkCastTriggers on the CASTER's per-turn count. ⚠️ Unlisted here = dropped = the descriptor keeps only its spellFilter and fires on EVERY matching spell — an OVER-FIRE. That is exactly what happened on the first attempt at this slice, and the trigger looked correctly detected while it did.
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         enteredTapped: cls.enteredTapped,     // PERM-ENTERS "…enters TAPPED" (Amulet of Vigor) — scopeMatches gates on the entering permanent's live `tapped`. Unlisted here = dropped = fires on EVERY entry, an over-fire.
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF + SUBTYPE/outlaw BATCH combat-damage (e.g. "Dinosaur" for Pantlaza; outlaw list for Olivia)
@@ -6491,6 +6512,16 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
         // CAST-FROM-NONHAND (Vega, SHELF K1): fires ONLY when the cast's source zone is known and isn't
         // the hand. An unthreaded caller (castFromZone undefined) under-fires — never over-fires (CREED).
         if (d.castNotFromHand && (!castFromZone || castFromZone === "hand")) continue;
+        // FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2) — the gate is on the CASTER's own per-turn count, so each
+        // opponent gets their own first spell. recordSpellCast increments BEFORE this runs (the storm site
+        // depends on the same ordering), so the triggering spell is already counted and "first" reads as
+        // exactly 1. A later spell that turn reads 2+ and is skipped; the count is zeroed for every seat at
+        // untap, so an off-turn instant still counts against the right game-turn.
+        if (d.firstEachTurn) {
+          const caster = state.players[casterId];
+          const n = d.firstEachTurn === "noncreature" ? (caster?.noncreatureSpellsCastThisTurn || 0) : (caster?.spellsCastThisTurn || 0);
+          if (n !== 1) continue;
+        }
         // CHOSEN-TYPE cast filter (Door of Destinies / Chronicle of Victory) — the cast spell must carry the
         // WATCHER's stored chosenType (CR 614.12). spellMatchesFilter has no watcher, so it's resolved here
         // via permHasChosenType (subtype OR changeling); an unset chosenType yields false (a SAFE no-op).

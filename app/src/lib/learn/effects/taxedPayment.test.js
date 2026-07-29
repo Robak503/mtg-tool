@@ -103,3 +103,49 @@ describe("taxed-payment — autoPick (the payer's self-interested default)", () 
     expect(autoPickTaxedPayment(s, { payer: "ghost", cost: COST1 })).toBe(false); // gone
   });
 });
+
+// ── DYNAMIC TAX AMOUNT (Esper Sentinel, rank 76) ────────────────────────────────────────────────────────
+// "draw a card unless that player pays {X}, where X is this creature's power." matchTaxedDraw parsed FIXED
+// pips only and named this card as its deliberate safe-FN. A snapshot taken at parse time would be wrong the
+// moment the creature grows, which is the card's entire plan — so the amount rides as a `genericSpec` that
+// applyTaxedDraw evaluates at resolution (CR 608.2) through the SAME countForSpec `selfPower` metric the
+// mana model reads. The tax and a power-scaled dork's mana can therefore never disagree about what "this
+// creature's power" means.
+describe("⭐ DYNAMIC TAX — {X} = this creature's power, resolved live", () => {
+  const DYN = { op: "taxed-draw", cost: { kind: "mana", genericSpec: { kind: "selfPower" } }, targetType: null };
+  // The Sentinel sits on the beneficiary's battlefield; ctx.sourceId points at it, as the trigger path threads it.
+  const withSentinel = (power, counters = 0) => {
+    const perm = {
+      id: "es", controller: "user", tapped: false, summoningSick: false,
+      counters: counters ? { "+1/+1": counters } : {},
+      card: { id: "es", name: "Esper Sentinel", type: "Artifact Creature — Human Soldier", power: String(power), toughness: "1", oracle: "" },
+    };
+    return fourPlayer({ user: { battlefield: [perm] } });
+  };
+  const taxOf = (state) => resolveAtom(state, DYN, { controller: "user", castingPlayerId: "ai1", cardName: "Esper Sentinel", sourceId: "es", targets: [] })
+    .pendingChoice?.cost?.mana?.generic;
+
+  it("⭐ a printed 1/1 Sentinel taxes {1}", () => {
+    expect(taxOf(withSentinel(1))).toBe(1);
+  });
+
+  it("⭐ LAYER-AWARE — two +1/+1 counters make the tax {3}, not {1}", () => {
+    // The whole reason a parse-time snapshot is wrong. A fixed cost would still read 1 here.
+    expect(taxOf(withSentinel(1, 2))).toBe(3);
+  });
+
+  it("⛔ the source having LEFT the battlefield taxes 0 — never a fabricated number", () => {
+    expect(taxOf(fourPlayer())).toBe(0);
+  });
+
+  it("CONTROL — a FIXED cost is untouched by the dynamic branch", () => {
+    // Without this, a branch that always recomputed would silently override Rhystic Study's printed {1}.
+    expect(fire(fourPlayer({ ai1: { manaPool: mana({ U: 1 }) } }), "ai1").pendingChoice.cost).toEqual(COST1);
+  });
+
+  it("CONTROL — the payer binding is unchanged by the dynamic amount", () => {
+    const paused = resolveAtom(withSentinel(2), DYN, { controller: "user", castingPlayerId: "ai3", cardName: "Esper Sentinel", sourceId: "es", targets: [] });
+    expect(paused.pendingChoice.payer).toBe("ai3");
+    expect(paused.pendingChoice.beneficiary).toBe("user");
+  });
+});
