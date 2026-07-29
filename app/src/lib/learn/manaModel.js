@@ -532,6 +532,21 @@ function manaProductionImpl(card) {
   // so the runtime never mints unrestricted mana from a restricted land either.
   if (/\b(?:spend this mana only|can't be spent to)\b/i.test(oracleOf(card))) return null;
 
+  // ⛔ CONDITION-GATED MANA (CR 602.5) — "Metalcraft — {T}: Add one mana of any color. Activate only if you
+  // control three or more artifacts." (Mox Opal #241, Fanatic of Rhonas #418). manaSources has no concept of
+  // an activation CONDITION, so the source was offered unconditionally: verified on a board, a lone Mox Opal
+  // with metalcraft UNMET produced any colour. Turn-one ritual out of a card that should be dead.
+  //
+  // Same family as the spend restriction above and the same verdict — an ignored RESTRICTION makes the engine
+  // play a card strictly better than the printed one, which is the forbidden direction. Route the card out
+  // (null → Arbiter, a clean FN) until conditions are real.
+  //
+  // NARROW ON PURPOSE: only the "activate only if <condition>" board gate. "Activate only as a sorcery" is a
+  // TIMING rule handled elsewhere and is not swept up here, and neither is any additive rider — an ignored
+  // tail that ADDS an effect merely under-delivers (a safe FN), which is why this guard targets conditions
+  // rather than every unread word.
+  if (/\bactivate (?:this ability )?only if\b/i.test(oracleOf(card))) return null;
+
   const name = String(card.name || "");
   const baseName = name.replace(/^Snow-Covered\s+/i, "").trim();
   if (BASIC_LAND_MANA[baseName]) {
