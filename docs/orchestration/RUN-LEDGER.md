@@ -85,7 +85,25 @@ anthems then apply on top of the new base (CR 613.1a).
    `affects: { mode: "self", permanentId }` (not a `{kind,id}` shape), and **`createPermanent` DROPS
    `counters` from its opts bag** — set it on the built permanent or the counters test passes for the wrong
    reason.
-2. Parse `"becomes a copy of <X> until end of turn"` → the atom. `snapshotCopiedCard` (cloneCopy.js) already
+2a. ✅ **SHIPPED (`755bc0dd`)** — the SHARED rider vocabulary: pronoun generality (`his name is` / `he's 4/4`
+   / `he has flying` normalized once, ahead of every arm) + the **keep-name rider**. GAINED 1 (Chameleon,
+   Master of Disguise, rank 2189).
+   ⛔ **THE CANONICAL RIDER IS THE ELIDED ONE** — `parseCloneSpec` replaces the card's own name with `~`
+   BEFORE splitting riders, so printed text arrives as `"its name is ~"`. My first arm returned the literal
+   and would have stamped a copy with the name `"~"`. A pin caught it.
+   ⛔ **AND I REVERTED AN ARM THE PINS PROVED WRONG.** I made *"it's legendary in addition to its other
+   types"* a no-op because the engine does not enforce the legend rule (CR 704.5j). **`clone.test.js`
+   failed and it was right — the legend rule is not the point.** LEGENDARY-MATTERS effects are real here
+   (Bard Class taxes "Legendary spells"; anthems scope on the supertype), so a copy that should BE legendary
+   and is not would be credited native with a real modification dropped. Proper fix = prepend the supertype
+   to the copy's type line (as `addCardType` does, further left). **Consequence, recorded: Sarkhan, Soul
+   Aflame stays parked, so this wave is worth ONE Dragons shelf card (Scion), not two.**
+   ⚠️ **TOOLING: a Python heredoc turned `` into a real BACKSPACE (0x08) inside three regexes.**
+   `JSON.stringify` renders 0x08 as ``, so the file *looked* right and the regexes silently never
+   matched. Same class as the recorded `node -e` trap. **Use Edit for anything with regex escapes**, and
+   grep for stray control chars after any scripted write.
+
+2b. Parse `"becomes a copy of <X> until end of turn"` → the atom. `snapshotCopiedCard` (cloneCopy.js) already
    produces the copiable card — **reuse it, do not write a second snapshotter**, or the two drift.
 3. The two Dragons cards' own riders (Sarkhan: "except its name is Sarkhan… and it's still a Planeswalker";
    Scion: tutor-to-graveyard then copy that card).
@@ -1400,7 +1418,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,298/34,245). Suite **945 files / 12,060 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,299/34,245). Suite **946 files / 12,076 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
