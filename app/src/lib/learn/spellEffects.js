@@ -745,6 +745,19 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // is excluded and a non-land never matches. Symmetric with nonbasicLand above.
     basicLand: (tl) => /\bLand\b/.test(tl) && /\bBasic\b/.test(tl),
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
+    // NONCREATURE ARTIFACT / ENCHANTMENT (Crush, Overwhelming Surge, Haywire Mite, Joven, Guerrilla Gorilla)
+    // — the qualifier EXCLUDES artifact/enchantment CREATURES, so it is a genuine narrowing of the bare
+    // types above, not a synonym. Modeling it as the bare type would let the engine destroy an artifact
+    // creature the printed card cannot touch: an over-delivery, the forbidden direction. That is why these
+    // shapes correctly refused until now rather than being approximated.
+    //
+    // ⭐ LAYER-AWARE, and that is the whole point of the second argument. The printed type line alone misses
+    // a permanent that is a creature only BY LAYERS — an artifact animated by March of the Machines / Karn /
+    // Sydri is a CREATURE and must not be offered. (The older `noncreaturePermanent` above is printed-only;
+    // it is left as-is rather than silently widened here, but the same gap applies to it.)
+    noncreatureArtifact: (tl, perm) => /\bArtifact\b/.test(tl) && !/\bCreature\b/.test(tl) && !permanentIsCreature(state, perm.id),
+    noncreatureEnchantment: (tl, perm) => /\bEnchantment\b/.test(tl) && !/\bCreature\b/.test(tl) && !permanentIsCreature(state, perm.id),
+    noncreatureArtifactOrEnchantment: (tl, perm) => /\bArtifact\b|\bEnchantment\b/.test(tl) && !/\bCreature\b/.test(tl) && !permanentIsCreature(state, perm.id),
     creatureOrEnchantment: (tl) => /\bCreature\b|\bEnchantment\b/.test(tl), // β-2 type unions
     creatureOrLand: (tl) => /\bCreature\b|\bLand\b/.test(tl),
     creatureOrArtifact: (tl) => /\bCreature\b|\bArtifact\b/.test(tl),
@@ -768,7 +781,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // before. The power/toughness/combat/colorNeg/subtype kinds never reach here (only creature-target parsers
         // emit them), so this can't mis-handle a permanent. Without this, an MV restriction on a permanent target
         // would be silently ignored → an illegal (wrong-MV) target offered → a forbidden FP (CREED).
-        if (pred(tl) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        // `perm` is passed as a SECOND argument so a predicate can be layer-aware (the noncreature-artifact
+        // family needs the live creature-ness, not just the printed type line). Every pre-existing predicate
+        // takes one parameter and ignores it, so this is inert for them.
+        if (pred(tl, perm) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }

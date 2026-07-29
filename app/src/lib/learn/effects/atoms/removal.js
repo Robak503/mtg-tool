@@ -570,12 +570,19 @@ export function destroyExileClauseParser(clause) {
   // (permanentColors, after layer 5) — so a permanent turned blue IS a legal target and a printed-blue one
   // turned white is NOT. A restriction only ever REMOVES candidates from the pool, so this cannot widen an
   // existing target set: every noun that matched before matches identically with the group absent (CREED).
-  const rm = t.match(/^(destroy|exile) target (?:(white|blue|black|red|green|multicolored) )?(artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
+  // NONCREATURE ARTIFACT / ENCHANTMENT (Crush, Overwhelming Surge, Haywire Mite, Joven, Guerrilla Gorilla).
+  // Listed BEFORE the bare "artifact"/"enchantment" alternatives so the qualifier is consumed whole — a
+  // left-to-right alternation would otherwise let "artifact" match and silently drop the "noncreature",
+  // widening the target set to include artifact CREATURES: the forbidden over-delivery. The enumerator side
+  // (spellEffects' predicate table) is layer-aware, so an ANIMATED artifact is excluded too.
+  const rm = t.match(/^(destroy|exile) target (?:(white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
       "nonland permanent": "nonlandPermanent", "noncreature permanent": "noncreaturePermanent",
       "nonbasic land": "nonbasicLand", "artifact or enchantment": "artifactOrEnchantment",
+      "noncreature artifact": "noncreatureArtifact", "noncreature enchantment": "noncreatureEnchantment",
+      "noncreature artifact or noncreature enchantment": "noncreatureArtifactOrEnchantment",
       "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
       "creature or artifact": "creatureOrArtifact", "artifact or creature": "creatureOrArtifact", "artifact or land": "artifactOrLand",
       "enchantment or land": "enchantmentOrLand",
