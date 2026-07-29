@@ -2519,6 +2519,56 @@ tracks, because lands are credited by TYPE. Third find of that blind spot this r
 - **Storage / counter lands** (Saltcrusted Steppe, Dreadship Reef, Fountain of Cho): remove-counter costs,
   already covered by the consumable-cost refusal. Leave alone.
 
+## ✅ SHIPPED — enchanted-creature counter referent + the self doubling pronoun (+4) (`21c471a8`)
+
+Two pronoun gaps, each one word wide, found while chasing Level Up:
+- **`target:"enchanted"` on add-counter** (+4: Forced Adaptation, Sadistic Glee, Ephara's Enlightenment,
+  Predatory Hunger). The referent already existed for tap / untap / pump / regenerate — only the counter atom
+  lacked it, so the whole card parked. Runtime-verified: counter lands on the HOST; a DETACHED aura
+  fabricates nothing.
+- **`"double the number of +1/+1 counters on IT"`** — the parser already models the same clause written
+  "…on THIS CREATURE", so only the pronoun was missing. Joins `SELF_PUMP_IT` / `SELF_COUNTER_IT`, same
+  self-scope + whole-clause guards.
+
+## 📏 RE-SIZED HONESTLY — LEVEL UP IS A **FOUR**-PIECE CARD, NOT THREE (and still body-only)
+
+The ledger sized it at three. Measured, it is four, and one of the three was already done:
+
+| piece | state |
+|---|---|
+| the Aura's ETB "counter on enchanted creature" | ✅ **shipped above** |
+| the quoted attack-trigger GRANT to the host | ✅ **already worked** — verified with a control: an Aura's quoted trigger reaches its host and an unmodelled body routes to the Arbiter |
+| "double the number of +1/+1 counters on it" | ✅ **shipped above** (the bare clause) |
+| the COMPOUND + a SELF power-threshold ("Then if it has power 10 or greater, draw a card") | ❌ **unbuilt — the remaining blocker** |
+
+`"draw a card if THIS CREATURE has power 10 or greater"` is LOW while the board-condition form
+(`"…if you CONTROL a creature with power 4 or greater"`) is HIGH — so the gap is a SELF power threshold in
+the condition vocabulary, plus the "A. Then if <cond>, B." composition. **Level Up stays body-only until both
+land: a partial fire is the false positive.**
+
+⚠️ **The build-order law had nothing to enforce here** — the grant was already live, so there was no
+payoff-before-grant hazard. Worth recording: checking the fire site FIRST cost one probe and saved building a
+piece that already existed.
+
+## 🎓 TWO PARK PINS GRADUATED — and the pattern is now explicit
+
+`auraOwnTriggered.test.js` asserted Forced Adaptation parks **because the counter parser rejected
+`target:'enchanted'`** — a statement about a MISSING CAPABILITY, not a refusal to keep. That file already
+carried the precedent in its own words on the very next test: *"This pin asserted the opposite and fired the
+moment the detector arm landed, which is exactly its job."* So it graduated, and the park guarantee it
+protected kept a live fixture (Followed Footsteps).
+
+⭐ **DISTINGUISH THIS FROM THE FILTER-LAND PINS I REFUSED TO OVERRIDE LAST SLICE.** Those state a design
+INTENT ("payable from the pool") about a layer that was never implemented — overriding them would decide a
+banked question. These state a CAPABILITY GAP that has now closed. **Capability pins graduate; intent pins
+need a decision.** Read which kind you are looking at before touching it.
+
+⚠️ `aura.test.js`'s routing test had Forced Adaptation as its FIXTURE (itself a swap from Bequeathal for the
+same reason — this is the third rotation). Re-anchored on Writ of Passage, and it now asserts the fixture is
+**actually OFFERED** before reading it: the board's pool is colorless-only, so a coloured fixture is never
+offered and the test dies on a `TypeError` that reads exactly like a routing failure. Hit live while
+swapping.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2670,6 +2720,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `21c471a8` — enchanted counter referent + self doubling pronoun (+4); Level Up re-sized to 4 pieces. Slice 68.
 - `b15cdecd` — painlands tap for colours + pay the life; 10 lands un-Wastes-ed (+0 tier, by nature). Slice 67.
 - `9eba4b2e` — mana refusals per-ABILITY; 23 dead lands revived (+16). Slice 65.
 - `a8279062` — NONCREATURE artifact/enchantment targets, layer-aware (+5). Slice 64.
