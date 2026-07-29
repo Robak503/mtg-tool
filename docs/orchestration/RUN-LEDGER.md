@@ -2830,6 +2830,58 @@ where it broke, and it broke on the one card in the tier carrying an extra keywo
 before deciding, and does the runtime apply the SAME transform?* Every pre-strip, normalization or elision in
 `coverage.js` is a candidate. That is a concrete, finite list worth walking — this find was one entry in it.
 
+## 🚨 SHIPPED — CLASSIFIER/RUNTIME ORACLE PARITY: 8 native spells were routed to the Arbiter (`7fbd341d`)
+
+The question the last slice told me to ask, asked corpus-wide: **for every card classified `native-spell`,
+does the program the RUNTIME parses come back HIGH?** Eight said no — counted native by the metric, adjudicated
+by the Arbiter in play.
+
+- **PLOT** (Plan the Heist, Rise of the Varmints) — coverage stripped the `Plot {cost}` line before deciding;
+  the runtime did not, and the leftover line dragged the body LOW.
+- **CASCADE** (Violent Outburst, Demonic Dread, Deny Reality, Captured Sunlight, Forceful Denial, Natural
+  Reclamation) — the keyword line belongs to the TRIGGER subsystem, not the spell's effect program. Verified
+  the cascade trigger detects AND routes natively before stripping, so the effect still fires.
+
+⭐ **Both fixed in the SHARED helper** — third time this conclusion has come up (clone `368cb402`,
+triggerRouting `9b6441c0`). **When two readers must agree, make them read one source instead of promising to
+stay in step.**
+
+⛔ **The plot strip is GATED and the gate is real:** a `becomes plotted` TRIGGER card (Longhorn Sharpshooter,
+Aloe Alchemist) keeps its line, or an unmodeled trigger would be hidden. The text check reproduces coverage's
+`parsePlotCost` gate **34/34 across the corpus** — measured before relying on it, not assumed.
+
+## ⚠️ THE FIRST CASCADE FIX WAS TOO WIDE, AND THE TIER DIFF IS THE ONLY REASON I KNOW
+
+Reusing coverage's cascade matcher (which also matches the reminder sentence) stripped a **REAL ability** off
+cards that GRANT cascade — *"Delirium — This spell has cascade as long as…"* (Bloodbraid Marauder), *"The
+first spell you cast each turn has cascade"* (Maelstrom Nexus) — and credited **9** of them native with the
+granting ability silently gone. The forbidden direction.
+
+**Why the borrow was unsafe:** coverage can use that matcher because it runs INSIDE a branch already gated on
+the card HAVING cascade. A shared helper runs on EVERY card, so the same regex means something different.
+⭐ **RULE: a matcher lifted out of a gated branch must be re-narrowed for the ungated context.**
+
+⭐ **AND THE ACCEPTANCE TEST FOR A PARITY FIX IS "THE TIER MOVES ZERO."** Parity work aligns two readers; it
+should not reclassify anything. When the tier moved, the strip was wrong. That is now the stated check.
+
+## 🧪 THE SWEEP IS A PROBE, NOT A TEST — and that distinction bit me
+
+I first wrote the corpus invariant as a test assertion. It died with `Local Oracle repository missing`: it
+needs the bundled index the hermetic suite lacks, so it would have **failed CI for a reason unrelated to the
+thing under test**. Per-card regressions are pinned hermetically in `classifierRuntimeParity.test.js`; the
+sweep ships as `scripts/probe-classifier-runtime-parity.mjs`.
+
+**Convention, now explicit: corpus-wide checks are PROBES (local-only, need the oracle); per-card guarantees
+are TESTS (hermetic).** Mixing them makes the suite environment-dependent.
+
+## 🧭 AUDIT PROGRAMME — the transform list is now walked for spells
+
+`coverage.js` applies ~12 distinct oracle transforms (`stripReminder` ×25, `stripCostOnlyKeywordLines` ×4,
+`stripTriggerEffectTails`, `stripTriggerAbilityLabel`, `stripModeledSelfNoUntap`, `stripCounterCostManaLines`,
+`foldModalBulletLines`, `stripKickerText`, …). **The spell-cast path is now parity-clean (2282 cards, 0
+divergences) and guarded by a probe.** The same question is open for the PERMANENT paths — triggers, statics,
+activated abilities — where the runtime reads through different entry points. That is the next pass.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2981,6 +3033,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `7fbd341d` — classifier/runtime oracle parity: 8 native spells were Arbiter-routed. Slice 75.
 - `368cb402` — clone with a cost-only keyword line never cloned (metric/runtime divergence). Slice 74.
 - `c053e89b` — probe-dead-exports (self-controlled); 16 rows triaged benign. Slice 73.
 - `45b23547` — native-body audit (clean) + a green test that never touched the shipped path. Slice 72.
