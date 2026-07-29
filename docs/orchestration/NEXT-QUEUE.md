@@ -159,20 +159,21 @@ zero of them.
 MTG_APP_ROOT="/c/Users/colto/AppData/Roaming/com.colton.mtg-tool" node app/scripts/playability-sweep.mjs 200 beginner commander
 ```
 
-### D6. ⭐⭐ TEACH THE PLAYABILITY SWEEP TO ATTACK · ~1-2h · medium risk, HIGH value
-**The sweep never declares attackers.** Its driver is land → cast → non-activate → pass, with no attack
-handling at all, so the entire `attacks` event family — combat-damage triggers, attack-triggered loops,
-extra-combat grants — is unexercised on the user's side. Every "N games, zero wedges" figure this run cites
-therefore covers the NON-COMBAT human path only.
+### D6. ⭐⭐ BOUND THE PHASES-PER-TURN (turn termination ≠ game completion) · ~1h · low risk
+⚠️ **REWRITTEN 2026-07-29 — the first version of this item said "teach the sweep to attack" and was wrong.
+The sweep already attacks** (measured: 117 `declare-attacker` picks in 12 games). The real gap is subtler
+and more interesting.
 
-**Proven, not suspected:** a loop-risk deck preset aimed at the sweep's existing `WEDGE:step-cap`
-non-termination detector reported 40/40 clean *even with Aurelia's once-per-turn latch deliberately
-re-broken* — i.e. with the exact turn-loop recreated. The preset was reverted rather than shipped.
+**Aurelia with her once-per-turn latch removed grants 40+ extra combats in a single turn and the turn NEVER
+ENDS** — driven directly, the 200-step guard exhausts at `combat/declare-attackers`. Yet the sweep reports
+12/12 complete with her forced 20× into every deck, because **a non-terminating turn that kills the opponent
+looks exactly like a completed game.** Lethal arrives long before any step cap.
 
-**Failure mode of the build:** an attacking driver that always alpha-strikes will end games far faster and
-change every existing baseline; it needs to attack *plausibly* (and the harness must still terminate). Do
-this one while sharp — it is a driver change, not a preset, and it invalidates prior sweep baselines by
-design, so re-baseline after.
+**Build:** a per-turn phase counter with a hard bound (a real turn never needs more than a handful of
+combats), reported as its own wedge class distinct from `step-cap`. Game completion and turn termination are
+different properties; the sweep only measures the first.
+**Failure mode:** a bound tight enough to false-positive on legitimate multi-combat cards (Aggravated
+Assault chains are real Magic). Report the count, do not just assert a limit.
 
 ### D5. ⭐ TRIGGER-TIER PARITY PROBE — ✅ **BUILT (`7013f236`)**, 324 measurable / 0 divergent
 `probe-classifier-runtime-parity` covers native-spell / activated / equipment and **skips native-trigger**,

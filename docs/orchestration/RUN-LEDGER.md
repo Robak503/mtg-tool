@@ -119,34 +119,43 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
-## ⚠️⚠️ CORRECTION TO MY OWN EVIDENCE — **THE PLAYABILITY SWEEP NEVER ATTACKS**
+## ⚠️⚠️ A CORRECTION, AND THEN A CORRECTION TO THE CORRECTION — **read this one carefully**
 
-I have been citing *"430 games across four configurations, zero wedges"* as the measured no-soft-lock floor.
-**That claim is narrower than I stated it, and the qualification is load-bearing.**
+I published a claim here and to COMMS that **"the playability sweep never attacks."** ⛔ **THAT WAS FALSE.**
+Measured directly by counting option kinds through the driver, 12 games:
+```
+OFFERED  declare-attacker 421 · declare-blocker  51 · cast-spell 359 · play-land 285 · tap-for-mana 6536
+PICKED   declare-attacker 117 · declare-blocker  23 · cast-spell 109 · play-land 104
+```
+**It attacks constantly.** My two observations were each correct and the inference from them was not: the
+script never mentions `declare-attackers` by name (its generic third-choice clause picks any non-pass,
+non-activate option, so attacks are selected without ever being named), and the decision-kind census shows
+only `ask` (attacks are OPTIONS *inside* an ask decision, not a decision kind). **Absence of the word in the
+driver is not absence of the behaviour** — and I corrected a true statement into a false one on that basis.
 
-`playability-sweep.mjs`'s driver picks **land → cast → any non-activate → pass**. It has **no attack
-handling whatsoever** — grep the file: no `declare-attackers`, no attacker selection, and the exercised
-decision-kind census is `ask` / `unresolved` / `game-over` / a few choice kinds, with **no combat decisions
-at any point**. Games still finish (turn 24–86) because opponents attack and libraries run out. So the sweep
-measures **the non-combat human path only**. Any soft-lock that needs the user to ATTACK is outside its
-reach, by construction.
+### ⭐ THE REAL REASON THE LOOP DETECTOR WAS VACUOUS — and it is a better finding
+Re-run properly, with Aurelia forced 20× into every deck **and a payable mana base** (my first witness deck
+was 60 Forests against a `{2}{R}{R}{W}{W}` card — she was uncastable, so that run proved nothing):
+```
+latch INTACT     12/12 complete        latch RE-BROKEN  12/12 complete
+```
+Still clean. So I drove the turn structure directly instead, latch removed:
+```
+extra combats granted in ONE turn: 40 · ended at combat/declare-attackers · 200-step guard EXHAUSTED
+```
+⭐ **The turn genuinely never ends — my ORIGINAL Aurelia claim was right.** The sweep cannot see it because
+**a non-terminating turn that kills the opponent looks exactly like a completed game.** 40 combats of a
+flying 3/4 with an untap-all rider is lethal long before any step cap is reached. The game "finishes"; the
+turn never does.
 
-⭐ **PROVEN, NOT SUSPECTED — and it cost me a shipped instrument.** I built a "loop-risk" preset for the
-sweep (decks packed with extra-turn / extra-phase / mass-untap cards) to aim its existing `WEDGE:step-cap`
-non-termination detector at the Aurelia class. It reported 40/40 clean. Then the coverage witness: **I
-re-broke Aurelia's once-per-turn latch — recreating the exact turn-loop — and the preset STILL reported
-40/40 clean.** The instrument could not see the bug it was named for. **Reverted rather than shipped**: a
-detector that provably does not detect is worse than none, because the next session would trust it.
+⛔ **SO D6 AS I FIRST WROTE IT WAS WRONG.** The detector is not "teach the sweep to attack" — it already
+does. It is: **assert a BOUND on phases-within-a-turn**, because game completion and turn termination are
+different properties and only the second one catches this class. Requeued that way.
 
-**What a real detector needs, so nobody rebuilds the vacuous version:** the sweep driver must DECLARE
-ATTACKERS. Until it does, no attack-triggered anything — loops, combat-damage triggers, the whole
-`attacks` event family — is exercised on the user's side. That is a driver change, not a preset.
-
-⛔ **AND IT REFRAMES WHY AURELIA WAS FOUND BY READING A DESCRIPTOR.** Not luck, and not a gap the sweep
-happened to miss: **the sweep could never have caught it.** Omnath's C-gate note ("native coverage and
-playability are independent axes; no amount of coverage % finds the next Aurelia") is right, and this adds
-the sharper half — *the current playability instrument does not cover combat either*. Two axes, and one of
-them still has a hole.
+⚠️ **FOUR precondition failures in one day** (the dead-permanent audit's 4 ghosts, the trigger-parity
+probe's 6 ghosts, the all-Forest Aurelia deck, and this). Every one the same shape: **a harness that cannot
+satisfy a card's preconditions reports "cannot happen" indistinguishably from "did not happen here."**
+Before believing any negative result, prove the harness can produce the positive one.
 
 ## 🪦 SHIPPED — **THE LAND TIER HIDES DEAD CARDS** (`eb57c773`) · Fabled Passage #50, in 3 shelf decks
 
