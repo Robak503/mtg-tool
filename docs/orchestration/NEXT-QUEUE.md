@@ -66,7 +66,25 @@ it does not block the other half later.
 
 ## B — THE ENGINE BACKLOG (each is a real slice; sizes measured, traps named)
 
-### B1. Layer-2 control · 28 cards · **HIGH RISK — but MATERIALLY DE-RISKED, see the recon below**
+### B1. Layer-2 control — ✅ **RUNTIME SHIPPED (`0c19d9c0`)** · classifier credit still open
+
+**The runtime half is done and proven**: attach moves control, and the host goes home by every route the
+Aura can leave (graveyard / exile / hand / library), hung off the single verified battlefield-exit
+chokepoint. 14 tests, 3 mutations killed, suite green. The queue's stated unknown ("requires a single
+chokepoint") turned out to already exist, with the soulbond teardown in that same function as a precedent.
+
+### B1b. CREDIT the control Auras in the classifier · ~27 cards · medium (FP-sensitive)
+**GAINED 0 so far, by design.** The sim now plays these cards correctly, but `classifyCard` still returns
+body-only for Mind Control / Control Magic / Treachery / Corrupted Conscience. Crediting is where the
+false-positive risk lives — claiming native for a card whose runtime has a hole — so it was split out to
+start from a verified base.
+**Before crediting:** re-run `controlAura.test.js`, then take a tier diff and NAME-AUDIT every GAINED row
+(several of the 27 carry riders — an ETB, an untap clause, a "can't be regenerated" — that must still park).
+⚠️ Also open, from the same slice: the control MOVE is duplicated between `controlAura.js` and
+`effects/atoms/control.js`'s `applyGainControl`. Deliberate (not destabilising a proven atom mid-build), but
+two copies of a mechanism drift. Unify when B1b lands, with both test files as the net.
+
+### B1-original. Layer-2 control · 28 cards · original entry:
 
 > ⭐ **RECON DONE 2026-07-29 — the spec's load-bearing prerequisite is ALREADY SATISFIED, verified by
 > measurement rather than by reading the code.** The entry below says *"Requires a single chokepoint for
