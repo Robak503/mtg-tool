@@ -314,7 +314,16 @@ export function resolveTutorChoice(state, cardId) {
   // re-suspended choice (settleTutorChoice returns it; the AI auto-picks again, a human gets a second picker).
   const remaining = (pc.remaining || 1) - 1;
   if (inSource && remaining >= 1 && next.players?.[pc.controller]) {
-    const rest = (pc.candidates || []).filter((c) => c.id !== cardId);
+    // DISTINCT NAMES (Tiamat "up to five Dragon cards THAT EACH HAVE DIFFERENT NAMES") — a chained pick
+    // already drops the just-fetched CARD by id; this drops every remaining candidate sharing its NAME, so
+    // the constraint is enforced across the whole search rather than assumed away.
+    //
+    // ⛔ THE SINGLETON ARGUMENT IS NOT GOOD ENOUGH. In a Commander deck every library name is unique, so
+    // ignoring the rider would pass every realistic test and still be a search wider than the card allows
+    // the moment a non-singleton library exists. Enforced, not reasoned around.
+    const fetchedName = String((pc.candidates || []).find((c) => c.id === cardId)?.name || "").toLowerCase();
+    const rest = (pc.candidates || []).filter((c) => c.id !== cardId
+      && !(pc.filter?.distinctNames && fetchedName && String(c.name || "").toLowerCase() === fetchedName));
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
       filter: pc.filter, // WAVE-2b — carry the structured filter so chained picks keep the auto-pick gate

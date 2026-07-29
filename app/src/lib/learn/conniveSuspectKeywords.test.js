@@ -316,8 +316,13 @@ describe("EK-1 — CREED whole-card FN guards (parks with evidence)", () => {
     // INCUBATE — the Incubator token is a DFC whose back face transforms ({2}: Transform, CR 701.53b);
     // transform is unmodeled, so minting the front face alone would be a dishonest token → parked.
     expect(classifyCard(C("Phyrexian Awakening", "When this enchantment enters, incubate 4.", "Enchantment"))).not.toMatch(/^native/);
-    // DISCOVER residue — the atom landed earlier; the remaining forms are conditional trigger scopes
-    // ("if you cast it") whose intervening-if vocabulary is unmodeled → still parked.
-    expect(classifyCard(C("Geological Appraiser", "When Geological Appraiser enters, if you cast it, discover 3.", "Creature — Human Artificer"))).not.toMatch(/^native/);
+  });
+
+  it("GRADUATED — conditional discover now flips: the \"if you cast it\" vocabulary landed", () => {
+    // This sat in the PARKED list above, correctly, while the intervening-if was unanswerable. The
+    // cast-vs-put condition is modelled now (castVsPutEtb.test.js — enterPermanent stamps `wasCast` from
+    // the two CAST resolvers), so the pin MOVES rather than being deleted: the shape is required to flip,
+    // and the reanimation guard that makes it honest is pinned in that file.
+    expect(classifyCard(C("Geological Appraiser", "When Geological Appraiser enters, if you cast it, discover 3.", "Creature — Human Artificer"))).toMatch(/^native/);
   });
 });

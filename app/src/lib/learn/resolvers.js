@@ -247,6 +247,12 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // the resolution re-check (CR 603.4). The enters-with-+1/+1-counters kicked payoff still reads opts.kicked
     // directly below — this flag is the ADDITIONAL hook the trigger/spell pipelines need. A normal cast omits it.
     ...(opts.kicked ? { wasKicked: true } : {}),
+    // CAST-vs-PUT (CR 603.2) — stamp HOW this permanent arrived, for the "if you cast it" intervening-if
+    // (Tiamat, Zacama, Primal Calamity). Set ONLY by the two CAST resolvers (PERMANENT_ETB / AURA_ETB);
+    // every other entry route — reanimation, put-onto-the-battlefield, blink, a token copy — leaves it
+    // unset, so the condition reads false and the trigger correctly does not fire. Mirrors `wasKicked`
+    // exactly: a per-permanent fact about the cast, durable on the object, JSON-serializable.
+    ...(opts.wasCast ? { wasCast: true } : {}),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
@@ -750,7 +756,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked });
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true });
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

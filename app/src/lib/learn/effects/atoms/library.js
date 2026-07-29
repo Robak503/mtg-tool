@@ -88,6 +88,16 @@ function cardHasChosenType(card, chosenType) {
 }
 export function cardMatchesTutorFilter(card, filter) {
   if (!filter) return true;
+  // NAME EXCLUSION (Tiamat "up to five Dragon cards NOT NAMED Tiamat"; Burning-Rune Demon "not named
+  // Burning-Rune Demon"). Enforced here, in the SHARED matcher, so applyTutor's candidate pool and the
+  // auto-pick's defensive re-application agree — a filter honoured in only one of the two is the drift
+  // shape this file's own belt-and-braces comment exists to prevent.
+  //
+  // ⛔ NOT TREATED AS VACUOUS. In a singleton Commander deck the excluded card is usually the source
+  // itself and already off the library, so ignoring the rider would appear to work — but "appears to work
+  // in the common case" is not the same as correct, and a legal fetch of a second copy is a search wider
+  // than the card allows. Compared case-insensitively on the exact printed name.
+  if (filter.excludeName && String(card?.name || "").toLowerCase() === String(filter.excludeName).toLowerCase()) return false;
   // MV gate first (cheap, and applies even when there are no type groups). tutorManaValue reads the
   // card's cmc/mana_value/mana_cost — the same MV the discover/auto-pick paths use, so it's consistent.
   if (filter.mv) {
@@ -1711,12 +1721,24 @@ export function tutorClauseParser(clause, ctx = {}) {
   // no guaranteedLand gate is needed: any parseTutorFilter-recognized type (creature/planeswalker/
   // enchantment/land/basic-subtype/generic "card") is safe to fetch to hand. An unrecognized filter
   // phrase still falls through to null → low → Arbiter (FN-safe, CREED).
-  const mfh = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,?(?: reveal (?:them|those cards),?)? put them into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // TIAMAT's two RIDERS ride on this same clause: "search your library for up to five Dragon cards NOT
+  // NAMED TIAMAT THAT EACH HAVE DIFFERENT NAMES, reveal them, put them into your hand, then shuffle."
+  // Both narrow the search, so both are ENFORCED rather than dropped (a wider search than printed is the
+  // forbidden direction). `excludeName` rides in the filter and is honoured by the shared
+  // cardMatchesTutorFilter; `distinctNames` is honoured by resolveTutorChoice's chained-pick loop, which
+  // already drops the fetched card by id and now also drops its name.
+  //
+  // ⛔ NEITHER IS WAVED THROUGH AS "VACUOUS IN COMMANDER". Both are automatically satisfied by a singleton
+  // library — Tiamat is on the battlefield and every name is unique — so ignoring them would pass every
+  // realistic game and still be wrong. The riders are cheap to honour; the argument for skipping them was
+  // the expensive part.
+  const mfh = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards(?: not named ([a-z][a-z',\- ]*?))?( that each have different names)?,?(?: reveal (?:them|those cards),?)? put them into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (mfh) {
     const phrase = mfh[2];
     const count = UP_TO_N_WORD[mfh[1]];
-    const filter = parseTutorFilter(phrase);
-    if (!filter) return null; // an unmodeled filter phrase → low → Arbiter
+    const base = parseTutorFilter(phrase);
+    if (!base) return null; // an unmodeled filter phrase → low → Arbiter
+    const filter = { ...base, ...(mfh[3] ? { excludeName: mfh[3].trim() } : {}), ...(mfh[4] ? { distinctNames: true } : {}) };
     return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "hand", remaining: count, targetType: null };
   }
   // mfx — RAMP-MULTI-X up-to-X LANDS to battlefield, count from a board source (Traverse the Outlands "X =

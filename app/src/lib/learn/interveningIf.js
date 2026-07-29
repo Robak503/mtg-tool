@@ -638,6 +638,29 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return entering.wasKicked === true; // a normal (un-kicked) cast leaves wasKicked unset → false (CR 603.4 drop)
   }
 
+  // CAST-vs-PUT ETB (CR 603.2) — "if you cast it": the ETB fires ONLY when the permanent got here by being
+  // CAST, not put onto the battlefield by another effect (reanimation, a Show and Tell, a blink returning
+  // it, a token copy). 38 corpus cards carry this rider and none could be modelled without it; it is the
+  // SOLE blocker on five, Tiamat and Zacama, Primal Calamity among them.
+  //
+  // Read exactly like the kicked flag above and for the same reason: it is a per-PERMANENT fact about HOW
+  // this object arrived, so it belongs on the permanent (resolvers.enterPermanent stamps `wasCast` from the
+  // two CAST resolvers — PERMANENT_ETB and AURA_ETB) and is keyed on ctx.triggeringPermanentId so it reads
+  // identically at flush and at the CR 603.4 resolution re-check.
+  //
+  // ⛔ EVERY UNCERTAIN PATH RETURNS null OR false, NEVER true. A permanent put onto the battlefield by any
+  // other route simply never gets the stamp, so it reads false and the trigger correctly does not fire —
+  // the safe direction. Fail-open here would hand a free Tiamat tutor to every reanimation effect, which is
+  // precisely the abuse the printed rider exists to prevent.
+  if (/^you cast (?:it|this creature|this permanent)$/.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null;  // no entering permanent in context → can't confirm (FN-safe)
+    const board = controllerBoard(state, controllerId);
+    const entering = board.find((p) => p.id === triggeringId);
+    if (!entering) return null;      // already gone → can't confirm (FN-safe)
+    return entering.wasCast === true;
+  }
+
   // X-VALUE THRESHOLD (CR 608.2h) — "x is N or more": read the paid {X} threaded into THIS trigger's
   // context (ctx.xValue, stamped by checkEnterTriggers from enteredPerm.xValue). A definite number for the
   // life of the trigger, so it compares identically at flush AND resolution (CR 603.4 second check). An
