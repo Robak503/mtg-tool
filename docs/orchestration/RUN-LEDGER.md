@@ -38,6 +38,36 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔭 SHIPPED — `probe-vocabulary-asymmetry.mjs` (`55a64210`): the axis pattern is now an INSTRUMENT
+
+Three slices found the same way is a pattern; four would be a waste of a pattern. This diffs twin clause
+templates that differ in **one dimension** and reports any word one arm can say and its neighbour cannot.
+**Hermetic (parser only, no card index) — it runs anywhere, and its coverage witness lives in CI.**
+
+**FIRST RUN — 17 rows across four families. Reading them is the whole skill:**
+
+| rows | family | verdict |
+|---|---|---|
+| **11** | uncapped battlefield TUTOR accepts `land`/`basic land`/`permanent` but **not** `creature`/`artifact`/`enchantment` — its MV-capped twin accepts all | ⛔ **NOT BUILT.** `bfm`'s guaranteed-land guard is a **documented deliberate gate**. ~**63 cards** behind it (Birthing Pod #2008 · Whir of Invention #1308 · Tezzeret #1688 · Kuldotha Forgemaster #2694 · Academy Rector). **Do not override blind** — see the open question below. |
+| 3 | instant/sorcery → battlefield | ✅ **RULES-CORRECT** (CR 110.4a). The probe working as designed. |
+| 3 | bounce vs destroy/exile on planeswalker + 2 unions | Measured: worth **2 cards**. Not a slice. |
+| 0 | cardinality (single vs up-to-N) | clean |
+
+**❓ THE OPEN QUESTION, for a session with more room than 5am:** `bfn` (MV-capped) already puts ANY
+permanent type onto the battlefield, so the runtime demonstrably handles it. The guard's stated rationale —
+*"the fetch can never cheat an uncapped permanent into play"* — reads as a **power-level** argument rather
+than a correctness one, and a card's printed text is not a power-level question. **Resolve the rationale
+before touching it**; if it is genuinely power-level, the guard is wrong and 63 cards are waiting.
+
+**⛔ A CORRECTION I MADE MID-SIZING, worth more than the rows:** I read a corpus tally of 19 `"nonland
+permanent"` bounce cards as though it were one of the probe's rows. **It was not** — that noun parses fine
+for bounce, the probe never flagged it, and those cards are non-native for other reasons. *The probe's rows
+are the claim; a similar-looking count measured beside them is not.*
+
+**The witness ships with it.** The hollow-gate law: an instrument that reports zero is worthless unless
+proven able to report non-zero — a probe whose templates silently stopped parsing would print *"no
+asymmetry"* forever and read as good news. `vocabularyAsymmetry.test.js` pins **both** directions.
+
 ## 🔧 SHIPPED — bare-REANIMATE filter vocabulary (`a061bc55`, **+13** — the biggest of the axis slices)
 
 **The asymmetry was INSIDE ONE FUNCTION, fifteen lines apart:**
@@ -1539,7 +1569,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **36.0%** (12,325/34,245). Suite **950 files / 12,127 tests**,
+- **Nothing mid-edit.** Corpus **36.0%** (12,325/34,245). Suite **951 files / 12,131 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
