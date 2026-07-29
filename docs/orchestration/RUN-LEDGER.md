@@ -446,7 +446,39 @@ Qty-weighted against the same denominator — verified to reproduce 92/81/62 exa
 ⚠️ Its first draft counted distinct ROWS instead of slots and *still* printed the right numbers, because no
 unmodeled card in those decks is duplicated. Coincidence is not agreement; the check was to run all three.
 
-## 🚨 SHIPPED — **THE RUN'S WORST BUG: a SOFT-LOCK, found by reading a descriptor** (`720ede1f`, +4)
+## ⚠️⚠️ RETRACTION #2 ON AURELIA — **"soft-lock" IS NOT SUPPORTED. The OVER-FIRE is.**
+
+Read this before the section below, which is written in the framing I am now withdrawing.
+
+**WHAT IS VERIFIED, and it is still a real bug worth the fix:** Aurelia's descriptor carried no
+once-per-turn latch, so her trigger **re-fired on a second attack in the same turn** — more combats than the
+card prints. `firstTimeEachTurnTrigger.test.js` proves it seen-to-fail (revert the fix, 3 tests fail). The
+fix and its tier diff stand.
+
+⛔ **WHAT IS NOT VERIFIED: that it produced a non-terminating turn in play.** I asserted that repeatedly —
+"loops the turn forever", "the run's worst bug", "a soft-lock" — and **every attempt to demonstrate it
+unrigged failed**:
+```
+latch re-broken · 20 Aurelias · payable mana base   → 12/12 complete, max 45 decisions/turn
+decisions-per-turn cap of 600 (12× the measured 50) → never fired
+combats-per-turn counter                            → 0 observed (beginning-of-combat has no decision point)
+```
+And the one result that looked like proof — *"40 extra combats, 200-step guard exhausted"* — came from a
+harness **where I re-injected the attacker every iteration** instead of letting the engine choose. A rigged
+positive is not evidence. I built the claim on it anyway, and then built a queue item and a COMMS message on
+top of that.
+
+⭐ **THE HONEST STATEMENT: an over-fire, of unknown termination consequence.** Fixing it was right. Calling
+it the run's worst bug was an inference I never earned, and Omnath has filed it as C-gate evidence in
+[[project_1v0_scope_checklist]] specifically for the soft-lock framing — flagged to him for revision.
+
+⚠️ **FIVE harness artifacts in one day, and this is the one that cost most.** The others produced ghosts I
+caught; this produced a *positive* I believed. **A rigged harness is more dangerous than an insufficient one
+— an insufficient harness reports nothing and you go looking, a rigged one reports what you expected.**
+Standing rule for this seat, now twice-earned: *before believing a result, ask what the harness supplied that
+the engine should have decided.*
+
+## 🚨 SHIPPED — the Aurelia OVER-FIRE (`720ede1f`, +4) · framing retracted above
 
 **Aurelia, the Warleader was native and looping the turn forever.** Her descriptor read
 `oncePerTurnTrigger: false` on a card whose text says *"attacks FOR THE FIRST TIME EACH TURN"*. The latch
