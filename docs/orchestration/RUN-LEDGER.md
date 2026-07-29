@@ -214,7 +214,51 @@ its Equip line). **The probe is trustworthy on instants and sorceries, where a p
 **Roaming Throne #133 and Realmwalker #607 each appear TWICE**, which is the probe's whole point — they are
 two mechanics from flipping, and no one-mode-away list would ever surface them.
 
-### ⭐ START HERE NEXT — "each player's DRAW STEP" is the missing sibling of a pattern already SHIPPED
+### ✅ THE DRAW-STEP CROSS IS DONE (`2c102157`, +5 — Howling Mine #723 is top-1000)
+
+Shipped as scoped below. **Three findings worth more than the five cards:**
+
+1. **The trigger was never the blocker — the word "additional" was.** Once the draw-step arm landed,
+   *"that player loses 1 life"* on the draw step routed immediately while *"draws an additional card"* failed
+   **on the upkeep twin too**. Widened on the `upkeepPlayer` arm ONLY: the corpus prints *"that player draws N
+   additional cards"* 12 times and the each-player / target-player variants **zero** times. **Always isolate
+   which half is broken before building the half you assumed.**
+2. **⚠️ THE REFERENT IS A DOUBLE GATE** — `checkStepTriggers`' ctx threading AND `triggerRouting`'s event
+   check. Widen one without the other and you get the two failure modes this project cares about: thread
+   without routing → refused (safe FN); **route without threading → the referent is unset at resolution and
+   the clause silently NO-OPS while the card claims native** (the FP). Mutation M10 un-widens the threading
+   and four runtime pins fail.
+3. **A whole intervening-if family was missing: the SELF TAP-STATE** (CR 603.4 + 106.1). The machinery
+   understood only BOARD-COUNT conditions, so *"if this artifact is untapped"* parked everything carrying it —
+   **29 cards across five wordings, including Mana Vault #145.** Only 2 flipped (Howling Mine, Nim Abomination);
+   **the rest are parked for their own effects, so this seam is now open but nearly exhausted** — do not
+   re-mine it expecting the other 27.
+
+**⚠️ AND A PROCESS RULE, one step past the last one: `git checkout --` IS NOT A MUTATION REVERT.** M12's perl
+anchor silently failed to apply, and using `git checkout` to "restore" **discarded the real change instead**.
+The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
+mutation round is the standing check — the marker sweep cannot see this class either.
+
+### ⭐ START HERE NEXT — CAST-FROM-TOP-OF-LIBRARY, and half the seam already exists
+
+The 9-card cluster the blocker probe ranked #1. **Measured, so build against this and not a guess:**
+```
+"You may play lands from the top of your library."            → native-static   ✅ ALREADY MODELED
+"You may look at the top card of your library any time."      → body-only       ⛔
+"You may cast artifact spells from the top of your library."  → body-only       ⛔  ← the real machinery
+"You may play the top card of your library."                  → body-only       ⛔
+```
+**The land form is the reference implementation** — a play-from-top seam already exists and works; this is
+extending it to a TYPE-FILTERED cast and to the unfiltered form.
+
+Cards: **Bolas's Citadel #263 · Mystic Forge #414 · Realmwalker #607** (+6).
+
+**The look-at-top static is a separate, cheaper piece and is safe to model as a genuine no-op:** "look" changes
+no game state (it changes DECISIONS), so recognizing it costs nothing and unparks the cards that pair it with
+a cast-from-top they'd otherwise get credit for. **Do the cast machinery first** — crediting the look line
+alone would be the transformed-text trap in a new outfit.
+
+### (original scoping, kept — "each player's DRAW STEP" is the missing sibling of a pattern already SHIPPED)
 
 The cheapest item on the list above, and it is a textbook missing-cross. Measured with the one-diff probe:
 ```
