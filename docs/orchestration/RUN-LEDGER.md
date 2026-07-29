@@ -38,6 +38,38 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — mass untap of your OWN creatures (`c5697dc8`, +8) · **a THIRD kind of pin**
+
+The untap resolver always did a greedy mass untap with an `all`/up-to-N cap — scoped to LANDS by **one
+hardcoded type-line check**. The same resolver plays the creature form with `scope: "creature"`.
+GAINED **8** · LOST 0 — To Arms! · Vitalize · Mobilize · Roar of the Kha · Ready // Willing · Thoughtweft
+Gambit · Village Bell-Ringer · Veteran Beastrider.
+
+⚠️ **HONEST SCOPE NOTE, because the clause count flatters it:** 43 cards carry the clause and the big names
+— **Aggravated Assault #699 · Aurelia #820 · Moraug #995 · Great Train Heist #1118** — do **NOT** flip.
+Every one pairs the untap with an *"additional combat phase"* rider that is its own blocker. Aggravated
+Assault is pinned parked so the number cannot be misread later.
+
+⛔ **"Untap all creatures" WITHOUT "you control" is deliberately not this atom** — that untaps opponents'
+blockers, a real downside and a different card. M112 admits it and is killed.
+
+### ⭐ A THIRD KIND OF PIN — the MOVING BOUNDARY MARKER
+
+The capability/judgement split now has a third member, and it is the subtlest:
+```
+CAPABILITY  "isn't modeled"                    → graduate on a runtime proof
+JUDGEMENT   "cheat" · "landmine"               → do NOT graduate; the pins are the decision
+BOUNDARY    "an UNMODELED <x> stays Arbiter"   → RE-POINT it; the pin is about the BOUNDARY, not the x
+```
+`auraGrantedActivated.test.js` failed here, and **its own comment showed it had already been re-pointed
+once**: `"{5}: Untap this creature."` sat there until UT-1 modelled the self-untap, then the mass form
+replaced it — and I have now modelled that too. So it moves again rather than flipping.
+
+**⭐ AND ITS SUCCESSOR WAS CHOSEN TO BE STABLE:** the SYMMETRIC mass untap is unmodelled **by design**
+(it untaps opponents' blockers) rather than by omission — so it will not quietly graduate out from under
+that test the way the previous two examples did. *When you re-point a boundary marker, pick an example that
+is refused on purpose, not merely unbuilt yet.*
+
 ## 🔧 SHIPPED — SYMBURN-2, "damage to each player" (`8cafbc48`, +6) · **the pin-wording rule, applied**
 
 The lead I recorded rather than built last stretch — and **the pin's wording is exactly why it graduated.**
@@ -1665,7 +1697,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **36.0%** (12,335/34,245). Suite **953 files / 12,149 tests**,
+- **Nothing mid-edit.** Corpus **36.1%** (12,343/34,245). Suite **954 files / 12,158 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
