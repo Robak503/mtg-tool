@@ -160,34 +160,26 @@ Corpus **36.1%** (12,354/34,245) · aggregate **81%** (1,286/1,597 across 16 dec
  72% Wolverine  72% Hulk      68% Cap America           62% Halfshell heroes
 ```
 
-⭐ **COLTON'S SHELF IS 4-OF-5 OVER THE BAR. The only deck under it is `cdh` (Rograkh/Thrasios) at 81%** — 19
-slots, and getting it to 90 means closing 9 of them.
+⭐ **COLTON'S SHELF IS 4-OF-5 OVER THE BAR; `cdh` (Rograkh/Thrasios) at 81% is the only deck under it.**
 
-⛔⛔ **AND IT WILL NOT GET THERE ON VOCABULARY SLICES. I read all 19 and they are cEDH's hardest cards, each
-on a DIFFERENT subsystem** — no two share a blocker:
-```
-Pact of Negation   delayed "pay {3}{U}{U} or LOSE THE GAME"     Mindbreak Trap   conditional {0} alt-cost + "exile any number of target spells"
-Deflecting Swat    free-cast + RETARGETING a spell or ability   Chain of Vapor   opponent-choice sac + conditional spell COPY with new targets
-Veil of Summer     conditional draw + turn-scoped uncounterable + hexproof-from-COLOR
-Hidden Strings     CIPHER            Borne Upon a Wind  turn-scoped flash permission (see below)
-Vexing Shusher     activated "target spell can't be countered"  Hexing Squelcher  quoted-grant of WARD to other creatures
-Wan Shi Tong       half-X-rounded-down draw + opponent-SEARCHES-library event (no such event exists)
-Ragavan · Springheart Nantuko · Valley Floodcaller · The Cabbage Merchant · Biomancer's Familiar
-Gene Pollinator · Springleaf Drum · Invasion of Ikoria · Vibrance
-```
-**Treat cdh as a multi-session project, not a grind target.** The same is true at the bottom: **Halfshell
-heroes (62%) is an entire unmodeled SET** (38 slots, nearly all TMNT-set bespoke), not a soft tail.
+⛔ **THIS WAS ALREADY CHARACTERIZED — see "🎯 cdh IS THE WHOLE PLAYABILITY GAP" further down this file.**
+That section is the canonical one: it sweeps sole-blocker vs multi-blocker, and it records that cdh is
+**arithmetically capped near ~82%** — a stronger and more useful statement than the one I re-derived here.
+Read it instead of re-measuring. My independent pass reached the same conclusion by a different route (all
+19 remaining slots sit on different subsystems — pay-or-lose, cipher, retargeting, alt-costs, an
+opponent-searches-library event that does not exist), which is corroboration, not new information.
 
-### ⚠️ SPRINGLEAF DRUM — a CAPABILITY pin in the MANA lane, and the one I deliberately did not take
-`{T}, Tap an untapped creature you control: Add one mana of any color` is body-only. **Earthcraft's
-identical cost is native-activated** — so the COST is modeled and it is the MANA lane that refuses it.
-`manaModel.js`'s `manaCostModelable` COMPOUND-COST GUARD names Springleaf Drum by name: riding the `{T}`
-half alone minted **phantom mana** every turn because the sim never spends the other creature's tap.
+⚠️⚠️ **AND I GOT ONE THING WRONG BY NOT READING IT FIRST.** I wrote up Springleaf Drum / Gene Pollinator as
+a **CAPABILITY** pin that "graduates once the mana planner can tap another creature". **The canonical
+section already classifies them DELIBERATELY REFUSED — "Do not 'fix' these"** (phantom mana, the SHELF S7
+audit; `manaCostModelable` names Springleaf Drum outright). A refusal is not a capability gap, and the
+difference is the whole point of the three-kinds-of-pin taxonomy. **Treat them as REFUSED.** The resume
+prompt says to read the REFUSED list before touching anything, and this is exactly what that instruction
+is for — I asserted a graduation for a decision that had already been made. Corrected here rather than
+quietly deleted, because the misclassification is the instructive part.
 
-That is a **capability** pin ("the sim doesn't spend it"), so it graduates — but only by teaching the mana
-PLANNER to tap another creature, and phantom mana silently dirties self-play training data. **It is also
-the same design call already banked as NEXT ACTIONS #2** ("decide this one while sharp"). Left for a waking
-session on purpose. Gene Pollinator ("tap an untapped PERMANENT") rides the same build.
+The one genuinely additive detail from my pass: **Halfshell heroes (62%) is an entire unmodeled SET** — 38
+slots, nearly all TMNT-set bespoke — so the bottom of the shelf is not a soft tail either.
 
 ### ⭐ THE LEVERAGE HEAD, REGENERATED 2026-07-29 (unmodeled cards by DECK COUNT — start here)
 ```
