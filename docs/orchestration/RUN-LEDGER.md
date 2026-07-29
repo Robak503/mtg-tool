@@ -2366,6 +2366,12 @@ artifacts are 2/2 creatures" does not animate; March of the Machines is not mode
 artifact-land case is the only scenario reaching the layer branch today. Recorded because the obvious test to
 reach for — March of the Machines — silently proves nothing.
 
+⛔ **AND THE ADJACENT VERBS ARE NOT WORTH EXTENDING — measured, 0 would flip.** `exile` already shares
+the destroy arm, so it came free. `return` / `gain control of` / `tap` / `untap` + a noncreature target exist
+on 6 corpus cards (Salvaging Station, Ghirapur, Yuffie, Blinkmoth Well, The Fearsome Flock, Souvenir
+Snatcher) and EVERY ONE stays blocked with the qualifier stripped — the qualifier is not their blocker. The
+destroy/exile arm captured the whole vein.
+
 ## ⛔ MEASURED AND CLOSED — TEAMWORK is a FALSE LEVER (the shelf probe's new #1 row)
 
 `Teamwork 2` ranks TOP of the shelf blockers at **3 cards across 3 decks** (We Say Thee Nay!, HULK SMASH!,
