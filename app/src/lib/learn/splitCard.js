@@ -90,9 +90,23 @@ export function parseSplitCard(card) {
   // plays from hand exactly as printed. The classifier still requires BOTH halves to be modeled before the
   // card is credited at all, so nothing is swept under the rug by never offering one of them.
   const aftermath = /\bAftermath\b/i.test(type) || /\bAftermath\b/i.test(oracle);
+  // ⚠️ AND THE KEYWORD LINE ITSELF MUST COME OFF THE HALF'S ORACLE, which the original unpark missed — so
+  // every aftermath card stayed arbiter-spell despite the whole mechanism being in place. Measured on Claim //
+  // Fame: the left half parsed HIGH, the right half parsed LOW, and the only reason was the literal
+  // "Aftermath (Cast this spell only from your graveyard. Then exile it.)" line sitting in front of an
+  // otherwise fully-modeled effect. The classifier requires BOTH halves, so one unread keyword line parked
+  // the card the rest of the slice had already made safe.
+  //
+  // ⭐ Stripping it is exactly the design this block already states — "the shape carries the fact instead of
+  // hiding it". Once `rightGraveyardOnly` carries the cast-zone restriction, the line is REDUNDANT rather
+  // than unread, and its "Then exile it" rider applies ONLY to the graveyard cast the engine never offers
+  // (the flashback bargain, verbatim: that keyword is stripped on the same reasoning).
+  const rightOracle = aftermath
+    ? right.oracle.split("\n").filter((l) => !/^\s*aftermath\b/i.test(l)).join("\n").trim()
+    : right.oracle;
   return {
     left: { name: left.name, type: left.typeLine, oracle: left.oracle, mana: left.mana },
-    right: { name: right.name, type: right.typeLine, oracle: right.oracle, mana: right.mana },
+    right: { name: right.name, type: right.typeLine, oracle: rightOracle, mana: right.mana },
     ...(aftermath ? { rightGraveyardOnly: true } : {}),
   };
 }
