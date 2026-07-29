@@ -246,6 +246,37 @@ anchor silently failed to apply, and using `git checkout` to "restore" **discard
 The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
 mutation round is the standing check — the marker sweep cannot see this class either.
 
+### 🩸 SPEND-RESTRICTED MANA WAS GENERAL MANA — 60 cards, incl. JEWELED LOTUS (`9861e475`, −60)
+
+**Corpus went 12,288 → 12,228 and that is the honest direction.** `"{T}: Add {U}. Spend this mana only to
+cast an artifact spell."` (CR 106.6) was modeled as ordinary mana, because the payment planner has no
+restricted-mana concept. Jeweled Lotus's three **commander-only** mana were spendable on anything — the
+engine was playing a strictly better card than the one printed.
+
+**⚠️ THE GUARD ALREADY EXISTED — for QUOTED/GRANTED abilities only** (`stripNonSelfQuotedGrants`, Battery
+Bearer), with the reasoning spelled out in its own comment: *"the payment planner has no restricted-mana
+concept → route out (FN-safe)"*. **A card's OWN printed mana line had no such check.** That is the identical
+shape as the lossy anthem tail: **a guard written for one entry point and never applied to its sibling.**
+When you find a guard, check every other path that needs it — this run has now hit that pattern three times.
+
+Verified NARROW: all 60 LOST cards carry a spend restriction, **zero collateral**.
+
+### ⭐ THE INSTRUMENT — `probe-lossy-clause-tails.mjs` (find this class ON PURPOSE)
+
+Injects a clause that can never be modeled (`"and glorbulate"`) into each printed line of every native card
+and re-classifies. **A card that STAYS native proves its parser read a prefix and ignored the rest.** The
+previous instance of this FP class was found BY ACCIDENT; this one was found by looking.
+
+**⚠️ EXCLUDE `tier === "land"` — the probe's own first run was wrong.** A land is credited playable by BEING
+a land, so its tier cannot respond to an injected tail and every land reports as a finding: 4 of the top 5
+shapes and ~48% of flagged cards. Excluding lands cut 612 shapes/657 cards → **148/169** and left the real
+cluster visible. `native-mana` cards are KEPT — their tier does come from parsing.
+
+**The remaining 148 shapes are an unworked seam.** The mana cluster was the biggest and is now closed; the
+rest (`Storm`, `Flashback {2}{R}`, token/counter doublers, `Overload`, `Enchant creature`) are unaudited —
+some will be legitimately-dropped whole lines, some will be more of this. **Re-run it after the fix and work
+down the list.**
+
 ### ⛔⛔ A PIN THAT PASSES IS NOT EVIDENCE IT TESTS WHAT IT SAYS (`bd4973cd`) — the run's sharpest lesson
 
 Crediting the ETB chosen-type chooser (a real setup replacement the engine implements) turned **five green
