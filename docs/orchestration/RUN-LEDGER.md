@@ -119,6 +119,39 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🚨🚨 SHIPPED — **PHANTOM MANA: every fetchland was tapping for {C}** (`ac5c6595`) · 54 lands
+
+The single worst correctness bug found this run. manaModel's land fallback assumed *"a land we couldn't
+otherwise parse still taps for something"*. **False for 54 corpus lands** — every fetchland (Polluted Delta
+#36, Evolving Wilds #18, Terramorphic Expanse #27, Fabled Passage #50), Maze of Ith, Glacial Chasm, Diamond
+Valley, Dark Depths — each credited a **repeatable, TAPLESS {C}**. Measured: a board holding nothing but
+Maze of Ith could pay {1}. In a fetch-heavy deck that is fabricated mana every turn, straight into
+**self-play training data**.
+
+**The rule now:** a land makes mana only with a BASIC LAND TYPE (CR 305.6) or the word "add" in its oracle.
+Everything else → nothing (under-count, safe direction). Urborg/Yavimaya are an accepted, pinned
+under-count — they were already wrong ({C} for a colour they cannot make).
+
+### ⭐⭐ THE METHOD LESSON — **THE CONTROL WAS THE FINDING**
+I was measuring something else entirely (whether a quoted mana GRANT reached lands). The *with-granter*
+number looked right. **The control — the same board WITHOUT the granter — came back 1 instead of 0.** The
+grant was irrelevant; the blank land was a source on its own. **Second time this run** a without-the-thing
+control turned a green measurement into a bug (the first was the team-pump runtime block, where three ⛔
+assertions all passed on an empty result). **Write the control even when you are sure what the answer is —
+especially then.**
+
+### ⚠️ AND A STALE ORDER, CAUGHT BY VERIFYING FIRST
+I opened this session to build [[quoted-grant-statics-slice]] (35 cards, "the biggest single lever left").
+**The order is STALE** — dated 2026-07-18, and the mana-grant runtime it calls the hard part has since been
+built. Measured live: `Elves you control have "{T}: Add {G}"` delivers (with 1 / without 0) and the
+classifier already credits it. What is actually left there is small and mostly *correctly* parked. **Verify
+an order's premise before building to it**; this one would have been a day spent re-implementing something
+that works.
+
+⚠️ Also re-learned: **never name a synthetic probe card `"T"`** — it collides with the tap symbol under
+name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
+`"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
+
 ## 🧭 STATE OF THE INSTRUMENTS (swept 2026-07-29) — **the safe veins are DRY; stop hunting, go build**
 
 Four probes run back to back after the two soft-lock fixes. **All four now read clean**, which is the most
