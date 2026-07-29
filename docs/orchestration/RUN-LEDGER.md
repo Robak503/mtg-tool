@@ -108,6 +108,27 @@ validated singularizer built in `57011a09` precisely so "Elves" cannot become "E
 **⚠️ Caretaker's Talent needs care: "tokens" is ANY token, including Treasures.** A creature-scoped gate
 would under-fire while claiming native — the FP direction. It needs a token-permanent scope or it parks.
 
+### ✅ THE DELEGATION ARM IS BUILT (`ef8bfbfc`, +2: Elvish Archivist, Ingenious Smith)
+
+Shipped exactly as scoped above, and **the shape is the deliverable — the two cards are not.** Reuse it for
+every remaining batch verb rather than writing a second subject parser.
+
+**⭐ THE GATE WAS TOO NARROW ON THE FIRST CUT, and only measuring caught it.** The singular path splits
+"something entered" across **two** events — `etb` for creature-shaped subjects and **`permanentEnters`** for
+the card-type ones ("an artifact you control" → `artifactYouControl`, "a token you control" →
+`tokenYouControl`, each with its own check function `checkPermanentEntersTriggers`). Gating on `etb` alone
+silently dropped the artifact and token carriers, i.e. most of the family. **Before assuming a subject is
+unmodeled, check BOTH entry events.**
+
+**⚠️ AND ONE GUARD MEASURED INERT** — the subject-list early-out in `singularizeBatchSubject` changes nothing
+when mutated away, because the delegated clause is refused downstream anyway. Kept as intent, labelled as
+belt-and-suspenders in both source and pin. *Do not re-sell it as the guard.*
+
+Still parked and why: **Caretaker's Talent #648** (Class levels), **Losheel #1544** ("artifact creatures" is
+not modeled SINGULAR either — fix it there and the batch form follows for free), **Elvish Warmaster #1729**
+(detects correctly now; blocked by its `{5}{G}{G}` subtype pump), **Kambal #1145** ("tokens your opponents
+control" + a copy effect), **Merry #5398** / **Baron Bertram #4221** (effects).
+
 ## 🎯 THE OBJECTIVE — RETARGETED BY COLTON, 2026-07-28 (supersedes the shelf framing below)
 
 **The target is now the TOP 2500 MOST-PLAYED CARDS by `edhrec_rank`.** Colton, verbatim: *"lets focus now
