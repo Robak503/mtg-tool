@@ -79,9 +79,21 @@ exactly like `extraTurns`.
    Most of these cards read "an additional combat phase FOLLOWED BY an additional main phase", so the queue
    entry is a two-phase run, and getting the main's identity wrong would mis-fire every precombat-main
    trigger on the board.
-3. The parse arms: "After this main phase, there is an additional combat phase followed by an additional
-   main phase" (Aggravated Assault) · "untap all creatures you control. After this phase, …" (the untap is
-   ALREADY modelled as of `c5697dc8`, so these compose) · Aurelia/Moraug's attack-triggered form.
+2b. ✅ **SHIPPED (`df14047f`)** — the ATOM + both after-this-phase word orders (**27 of the 51**).
+   **GAINED 1 — Aurelia, the Warleader (#820)**, which composes with the mass untap from `c5697dc8`:
+   *"untap all creatures you control. After this phase, there is an additional combat phase."* is native
+   end to end. The **join** (atom → queue → real second combat) has its own assertion, because the stun
+   slice showed that testing two halves separately hides a dead seam.
+   ⛔ The `"followed by an additional main phase"` tail is accepted and modelled by **doing nothing** —
+   CR 505.1a makes every main after the first a postcombat main, which the forward transition already
+   reaches. Stated in code so nobody "fixes" it.
+
+3. ⛔ **THE REMAINING WORK IS THE SECOND INSERTION POINT** — "after this MAIN phase" (Aggravated Assault
+   #699, Relentless Assault #1543, Seize the Day, Full Throttle #1491). Those splice after a MAIN phase,
+   not after `end-of-combat`; firing the current queue for them would grant a combat at a moment the card
+   never promised. **M116 admits that form and is killed**, so the refusal is enforced, not just intended.
+   Give each queue entry its OWN insertion point (`{ kind: "combat", after: "main" }`) and check it at the
+   matching transition. Full Throttle additionally needs a COUNT ("two additional combat phases").
 
 ⛔ **THE TRAP TO TEST FOR FIRST:** an extra combat that never terminates. `extraTurns` is popped exactly
 once per grant; the phase queue must be too, or a Relentless Assault loops the turn forever. **Assert the
@@ -1749,7 +1761,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **36.1%** (12,343/34,245). Suite **955 files / 12,166 tests**,
+- **Nothing mid-edit.** Corpus **36.1%** (12,344/34,245). Suite **956 files / 12,176 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
