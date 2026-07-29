@@ -33,7 +33,7 @@ import { typeOf, isInstantOrSorcery, oracleOf, hasXCost, stripReminder, stripReg
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
-import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
+import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripSelfExileSentence, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
 import { matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchWindfallMaxDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
 // module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
@@ -784,6 +784,40 @@ function matchKickedSpellEffect(card, cardType, oracle) {
 }
 
 export function parseEffectProgram(card) {
+  if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
+  return parseEffectProgramWithSelfExileRetry(card) ?? null;
+}
+
+/**
+ * SELF-EXILE RETRY — the outer wrapper. ⭐ STRICTLY ADDITIVE BY CONSTRUCTION: the normal parse runs FIRST and
+ * its result is returned untouched whenever it is HIGH. Only a LOW program is retried with a trailing
+ * "Exile <this>." sentence peeled off, so no card that parses today can be changed by this path.
+ *
+ * ⚠️ THE FIRST VERSION STRIPPED UP FRONT, IN THE DISPOSITION CHAIN BESIDE THE SELF-SHUFFLE STRIP, AND THAT
+ * REGRESSED FINALE OF REVELATION FROM native-spell TO arbiter-spell. Finale is already handled by a
+ * collapse further down that matches its "draw X … Exile <this>." shape AS A WHOLE — removing the sentence
+ * first meant that collapse no longer recognised the card, and a working card broke to make a broken one
+ * work. Retrying only on LOW makes the two handlers compose instead of compete: whoever succeeds first wins,
+ * and the pre-existing owner is always first.
+ *
+ * ⛔ THE STAMP IS THE POINT, NOT THE STRIP. `selfExile` makes GY-1 exile the spell instead of putting it in
+ * the graveyard, and these cards genuinely never reach the yard. Peeling the sentence WITHOUT stamping would
+ * flip the card native while silently sending it to the graveyard — corrupting every graveyard count,
+ * recursion target and delve/escape cost downstream. So the retry returns the stripped program ONLY when it
+ * is HIGH (a LOW retry is discarded and the original LOW is returned) and always stamps it.
+ */
+function parseEffectProgramWithSelfExileRetry(card) {
+  const direct = parseEffectProgramInner(card);
+  if (direct && programConfidence(direct) === "high") return direct;
+  const { body, selfExile } = stripSelfExileSentence(card, oracleOf(card));
+  if (!selfExile) return direct;
+  const retried = parseEffectProgramInner({ ...card, oracle: body, oracle_text: body });
+  if (!retried || programConfidence(retried) !== "high") return direct;
+  retried.selfExile = true;
+  return retried;
+}
+
+function parseEffectProgramInner(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
   const rawOracle = stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(oracleOf(card))));
   // SELF-SHUFFLE DISPOSITION (Green Sun's Zenith + the Sun's Zenith / Beacon family) — peel a trailing "Shuffle

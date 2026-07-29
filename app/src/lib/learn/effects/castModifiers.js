@@ -264,6 +264,37 @@ export function stripSelfShuffleIntoLibrary(card, oracle) {
 }
 
 /**
+ * ===== SELF-EXILE DISPOSITION ===== — a spell whose LAST sentence is "Exile <this>." exiles ITSELF on
+ * resolution instead of going to the graveyard (CR 608.2m replaced). Temporal Mastery / Temporal Trespass /
+ * Part the Waterveil / Alrund's Epiphany / Time Reversal / Treasured Find / Flood of Recollection.
+ *
+ * ⭐ THE MIRROR THAT WAS NEVER WRITTEN, and the shuffle strip above names it: its own comment calls this "the
+ * exact mechanical mirror of Finale of Revelation's 'Exile <this>.' selfExile". The DISPOSITION existed
+ * (`selfExile` is a real program flag that runEffectProgram's GY-1 honors, threaded by rebound), and the
+ * SHUFFLE sentence had a strip — but no strip ever peeled the trailing EXILE sentence, so every card printing
+ * it parsed LOW on a body that was otherwise fully modeled. One arm of a pair, again.
+ *
+ * ⛔ THE FLAG IS NOT OPTIONAL WINDOW-DRESSING, and stripping without stamping would be the FP. These cards
+ * genuinely do not reach the graveyard — a stripped-but-unstamped Temporal Mastery would sit in the yard and
+ * change every graveyard count, every recursion target and every delve/escape cost in the game. The strip and
+ * the stamp ship together or neither ships.
+ *
+ * NAME-ANCHORED to this card's own name (or its pre-comma short name, which is how the corpus prints a
+ * legendary's self-reference), plus the explicit "this card"/"this spell" self-forms. Never a bare "it" or
+ * "that card" — those are other cards' body clauses, and matching one would exile the wrong object.
+ */
+export function stripSelfExileSentence(card, oracle) {
+  const nm = String(card?.name || "").trim();
+  if (!nm) return { body: oracle, selfExile: false };
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const short = nm.split(",")[0].trim();
+  const subject = `(?:${esc(nm)}|${esc(short)}|this card|this spell)`;
+  const re = new RegExp(`\\s*exile ${subject}\\.?\\s*$`, "i");
+  if (!re.test(oracle)) return { body: oracle, selfExile: false };
+  return { body: oracle.replace(re, "").trim(), selfExile: true };
+}
+
+/**
  * ===== REBOUND DISPOSITION ===== (CR 702.88) — a spell with keyword `Rebound` on its LAST line. Rebound is
  * NOT a vacuous cast-keyword (it is DELIBERATELY excluded from CAST_KEYWORD_LINE): it changes the spell's
  * resolution disposition — "If you cast this spell from your hand, EXILE it as it resolves" (CR 702.88a),
