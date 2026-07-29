@@ -101,6 +101,26 @@ describe("parse — the list reaches the descriptor as an ARRAY", () => {
     expect(descriptorOf(bad)).toBeUndefined();
     expect(isNativeTier(classifyCard(bad))).toBe(false);
   });
+
+  it("⭐⚠️ the COMBAT-DAMAGE subject accepted a comma list but not a bare two-element union", () => {
+    // The fourth construction, and the most instructive: list support here was REAL BUT HALF-SHAPED. The old
+    // anchor required a comma before it could reach the "or", so Spawning Kraken's four-element comma list
+    // matched while Moria Marauder's "a Goblin or Orc" did not — and the comment above it read "OR a
+    // multi-subtype LIST", true for the form that happened to be tested. ⭐ A half-shaped feature hides better
+    // than an absent one, because its documentation is honest about the case someone checked.
+    const two = { ...APRIL, type: "Creature — Goblin",
+      oracle: "Whenever a Goblin or Orc you control deals combat damage to a player, draw a card." };
+    expect(descriptorOf(two).subtypeFilter).toEqual(["Goblin", "Orc"]);
+    const comma = { ...APRIL, type: "Creature — Kraken",
+      oracle: "Whenever a Kraken, Leviathan, Octopus, or Serpent you control deals combat damage to a player, draw a card." };
+    expect(descriptorOf(comma).subtypeFilter).toEqual(["Kraken", "Leviathan", "Octopus", "Serpent"]);
+    const single = { ...APRIL, type: "Creature — Goblin",
+      oracle: "Whenever a Goblin you control deals combat damage to a player, draw a card." };
+    expect(descriptorOf(single).subtypeFilter).toBe("Goblin");
+    const bad = { ...APRIL, type: "Creature — Goblin",
+      oracle: "Whenever a Goblin or creature you control deals combat damage to a player, draw a card." };
+    expect(descriptorOf(bad)).toBeUndefined();
+  });
 });
 
 describe("⛔ RUNTIME — the trigger fires for EVERY member, not just the first", () => {

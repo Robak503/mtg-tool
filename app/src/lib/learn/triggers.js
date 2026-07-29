@@ -1922,7 +1922,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     // Single subtype (Curious Altisaur) OR a multi-subtype LIST (Spawning Kraken — "a Kraken, Leviathan,
     // Octopus, or Serpent you control deals combat damage to a player"). parseSubtypeList returns a string
     // for one word (unchanged) or an array for a list; the subtypeYouControl matcher checks ANY member.
-    const cdSub = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) you control deals combat damage to a player$/);
+    // ⚠️ THE OLD ANCHOR ONLY ACCEPTED A **COMMA**-SEPARATED LIST. `(?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}`
+    // requires a comma before ever reaching the "or", so Spawning Kraken ("a Kraken, Leviathan, Octopus, or
+    // Serpent …") matched while the bare TWO-element union ("a Goblin or Orc you control …" — Moria Marauder)
+    // did not. The list support was real but half-shaped, which is harder to spot than an absent feature: the
+    // comment above says "OR a multi-subtype LIST" and it was true for the form that happened to be tested.
+    // Now the same anchor the dies and both ETB arms use, so all four constructions read one grammar.
+    const cdSub = c.match(/^a ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) you control deals combat damage to a player$/);
     if (cdSub) {
       const filter = parseSubtypeList(cdSub[1]);
       if (filter) return { event: "combatDamageToPlayer", scope: "subtypeYouControl", whose: "any", subtypeFilter: filter };
