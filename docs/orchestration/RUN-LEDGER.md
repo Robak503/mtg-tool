@@ -228,6 +228,33 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## ✅ VERIFIED — the run's 126 flips do not break the HUMAN path · **+ two banked negatives**
+
+### PLAYABILITY SWEEP (intermediate, commander, the human-decision path)
+**COMPLETED 12/12 · no wedges.** Finished on turn min 31 / median 53 / max 67. Decision kinds genuinely
+exercised: ask 210 · cleanup-discard 6 · tutor-search 6 · taxed-payment 5 · scry-surveil 4 · optional-effect 4 ·
+soft-counter 2 · sacrifice-choice 1 · clone-search 1. ⭐ Read the COVERAGE WITNESS, not just the 12/12 — the
+kinds fired are the claims this run is entitled to make, and the sweep prints its own honest caveat on the
+controller check ("a 0 with 0 exposure is not a pass").
+
+⚠️ **SAMPLE SIZE IS 12 GAMES**, not a season. It says "sixteen slices of parser/mana/keyword work did not
+wedge the human path", which is the question that mattered after +126 cards. It does NOT say the new cards play
+*well*.
+
+### ⛔ NOT BUILT — the exile-top-of-library op (INGEST and friends)
+Ingest decomposed cleanly: the combat-damage trigger works, and the MILL twin already carries
+`who:"damagedPlayer"` — so ingest is mill's exile counterpart and `millOnePlayer` is an exact template.
+**Then the measurement killed it.** 336 corpus cards carry an exile-top clause, 44 already native, and swapping
+the clause for its modeled mill equivalent flips only **3** — none of them ingest cards. 289 have second
+blockers, because exile-top is almost always part of something larger (impulse draw, "you may play it").
+A new effect op + resolver + exile-zone semantics + tests, for 3 cards. Refused on yield, not on difficulty.
+
+### ⛔ NOT BUILT — the rest of the keyword vein
+Measured written-out, NEITHER ingest NOR sunburst classifies native, so neither is a keyword-expansion slice;
+they are real mechanisms. That is exactly the warning `probe-keyword-vein.mjs` now carries in its header, and
+it held on first contact. **The three keyword slices that paid (aftermath, outlast, escalate) were the only
+rows whose machinery already existed.**
+
 ## 🔧 SHIPPED — ESCALATE, option withheld (+4) · **+ the keyword probe is now a script**
 
 Borrowed Hostility · Borrowed Malevolence · Borrowed Grace · Collective Resistance. GAINED 4 · LOST 0.
