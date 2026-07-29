@@ -38,6 +38,43 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — tutor FILTER vocabulary (`ae1cfc49`, **+6**) · the SAME shape as the destination slice
+
+The graveyard slice ended on the pin *"a destination landing does not widen the search vocabulary."* This is
+that other axis — and it was the same shape twice over: **both gates already existed in
+`cardMatchesTutorFilter`; only the PARSE was missing.** `filter.permanentOnly` (built for Wargate),
+`filter.colors` (built for Green Sun's Zenith).
+
+GAINED **6** · LOST 0: Merchant Scroll · Bond of Flourishing · Planar Bridge · Beastrider Vanguard ·
+Trail of Crumbs · **Tezzeret, Artifice Master** (playable-pw → native-planeswalker).
+
+**⛔ WHY COLORS MUST NOT BECOME GROUP WORDS.** A group word is matched by `<word>` **containment against
+the TYPE LINE**. No type line contains "green" — admitting it to `TUTOR_FILTER_WORDS` would make the tutor
+classify native, **find nothing, ever**, and *the tier would never show it because the card was already
+counted*. The vacuous-subtype-filter FP class, exactly. Colors route to `filter.colors`.
+
+**⛔ A COLOR UNION PARKS.** The color loop is an **AND**; printed text means **OR**. Emitting both would
+demand a card be BOTH — narrower than printed. Kaito parks rather than silently under-delivering.
+
+**⭐ THE GRADUATED PIN WAS VERIFIED BEFORE FLIPPING, NOT AFTER — and this is the transferable bit.**
+`permanentOnly` emits `groups: []`, and **an empty group list matches EVERY card.** If the impulse-dig path
+had ignored the flag, Beastrider Vanguard would have gone native while offering *any* card — wider than
+printed, and invisible to the tier diff. Resolved against a real library (Sol Ring / Lightning Bolt / Bear),
+the dig offers the artifact and the creature and **not** the instant. *When a new filter can be satisfied
+vacuously, prove it discriminates on a board before you let a pin graduate.*
+
+Honest about reach: **Natural Order and Summoner's Pact do NOT flip** — additional-cost and pact riders are
+separate blockers. The filter lands; those cards do not, and a pin says so.
+
+Mutation-checked: **M100** union-as-AND → killed · **M101** parse the color but never apply it → killed by 3 ·
+**M102** consume "permanent" without setting the gate → killed by 5.
+
+⭐ **THE PATTERN THIS STRETCH ESTABLISHED, worth reusing:** two slices in a row landed by finding a subsystem
+where **the machinery was already built and only the vocabulary was absent** — first the graveyard
+DESTINATION, then the permanent/color FILTERS. Both were found by sizing an *axis* of an existing system
+rather than a card. **Ask what dimensions a working subsystem already supports, and which of them nothing
+can currently say.**
+
 ## 🔧 SHIPPED — tutor-to-GRAVEYARD (`904d4304`, **+6** incl. **Entomb #328** and **Buried Alive #371**)
 
 **17 corpus cards, not one modelled, for a single reason:** the tutor had hand / battlefield / top
@@ -1465,7 +1502,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,306/34,245). Suite **948 files / 12,104 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,312/34,245). Suite **949 files / 12,116 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
