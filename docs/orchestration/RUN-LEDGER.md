@@ -246,6 +246,42 @@ anchor silently failed to apply, and using `git checkout` to "restore" **discard
 The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
 mutation round is the standing check — the marker sweep cannot see this class either.
 
+### 🔬 CHOSEN-TYPE ON CREATURES — INVESTIGATED, NOT STARTED. It is a subsystem, and here is the exact reason.
+
+The blocker probe ranked this cluster high (*"As this creature enters, choose a creature type"* ×5 plus
+*"This creature is the chosen type in addition to its other types"* ×3), and it holds real cards:
+**Roaming Throne #133 · Metallic Mimic #1055 · Adaptive Automaton #1755 · Realmwalker #607**. I scoped it
+fully before writing any code. **Do not treat it as a vocabulary cross — it is not.**
+
+**What ALREADY exists (more than expected):**
+```
+perm.chosenType + resolvers.autoPickCreatureType     ✅  the ETB chooser is real state
+chosen-type ANTHEM statics (Vanquisher's Banner #361) ✅  native today
+chosen-type CAST trigger (Kindred Discovery #345)     ✅  native today
+layer-4 subtype ADDITION                              ✅  the applier already does `op.subtypes → subtypes.add()`
+```
+
+**The three things missing, in dependency order:**
+1. **No parser arm** for *"This creature is the chosen type in addition to its other types."* It needs to emit
+   a layer-4 effect whose subtype is read from `permanent.chosenType` at DERIVE time (the value does not
+   exist at parse time), so it must be emitted in `staticEffectsOf`, not baked into the card descriptor.
+2. **⚠️ THE TRAP, and it is the reason this is a subsystem: `permHasChosenTypeLayer` (layers.js ~126) reads
+   the PRINTED CARD'S TYPE LINE, not the layer-4 derived subtypes.** So even after (1) emits the effect
+   correctly, a Metallic Mimic that IS the chosen type still would not satisfy any chosen-type selector —
+   the card would classify native while its printed self-type-add did nothing. **That is the vacuous-filter
+   class again, in a third location.** Making the selector layer-aware is the real work, and its blast radius
+   covers every chosen-type consumer.
+3. **`classifyChosenTypeCastDraw` explicitly excludes creatures** (`coverage.js` ~3104:
+   `if (!/\b(?:artifact|enchantment)\b/.test(type) || /\bcreature\b/.test(type)) return null;`). That gate is
+   correct TODAY precisely because of (2) — lift it only after the selector is layer-aware.
+
+**Also one genuine one-diff waiting behind it:** `CT_CAST_ANTHEM_LINE_RE` matches *"Creatures you control of
+the chosen type get +N/+N"* but not **"OTHER creatures…"** (Adaptive Automaton). One word — but worthless
+until (2) lands, because that card carries the self-type-add line too.
+
+**Verdict: correct order is (2) → (1) → (3) → the "other" cross.** Anything else credits a card whose printed
+text does nothing.
+
 ### ✅ CAST-FROM-TOP IS DONE (`9afbfb0d`, +7 — Elven Chorus #1376)
 
 **⚠️⚠️ THE FINDING THAT MATTERS MOST IN THIS SLICE HAS NOTHING TO DO WITH CARDS: I SHIPPED A CRASH THE
