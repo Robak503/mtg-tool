@@ -2275,7 +2275,13 @@ now exists and is board-proven.
 4. Shelf grind: the leverage head (2+ decks), re-read 2026-07-28 after Bloom Tender closed:
    - ✅ **Bloom Tender ×3** — DONE (`003e29d1`).
    - ✅ **Chrome Mox ×3** — DONE (`7af34dc1`). The imprint STAMP is now shared infrastructure.
-   - **High Score ×3** — already `native-mixed`; verify at runtime rather than rebuild.
+   - ✅ **High Score ×3** — VERIFIED at runtime (`405756b6`), no bug. Both halves hold: the +1/+1
+     replacement really is N+1 (pinned at 3→4, since a DOUBLING bug reads 6 and passes a 1→2 test), and the
+     end-step draw really is gated in both directions. ⭐ The probe that "proved" the gate first was a
+     BROKEN HARNESS — wrong runEffectProgram signature, so nothing drew, which reads identically to
+     fail-closed. A plain unconditional draw through the same harness also returned 0; that is what exposed
+     it. **The control is now a test.** Third fixture-trap of this run, and the only one caught by a control
+     rather than by luck.
    - **Wan Shi Tong ×3** — ETB X-counters + "half X rounded down" draw, plus an
      opponent-SEARCHES-their-library trigger the engine has no event for.
    - **Level Up ×3** — an Aura granting a quoted attack trigger that DOUBLES counters, then a
@@ -2403,6 +2409,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `405756b6` — High Score pinned at runtime; verified, no bug (+0, x3 slots confirmed). Slice 61.
 - `7af34dc1` — IMPRINT piece 2: Chrome Mox's mana gated on the stamp (+1). Slice 60.
 - `5d24a81d` — IMPRINT piece 1: the stamp + its fire site; the CR-207.2c ability word (+0, by design). Slice 59.
 - `003e29d1` — mixed mana bundles one-of-each: a live runtime FP on 51 staples, + Vivid (+2). Slice 58.
