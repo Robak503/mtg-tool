@@ -651,7 +651,27 @@ const reTypecyclingCost = /^(?:plains|island|swamp|mountain|forest|land|basic la
 // to drop, so a permanent whose only residue is the bare "partner" line is fully played. EXACT-anchored so it
 // can never match "partner with <name>" (CR 702.124f — a LINKED partner-tutor ETB the engine does NOT model,
 // which must stay body-only), "friends forever", or "choose a background" (all carry extra unmodeled text).
-const rePartnerBare = /^partner$/;
+// ⭐ THE WHOLE COMMAND-ZONE PAIRING FAMILY, not just bare "partner" (CR 702.124 / 702.139–702.141). Corpus
+// reminder text, read rather than recalled, shows every one of these is a pure DECK-CONSTRUCTION rule:
+//     "Partner—Friends forever   (You can have two commanders if both have this ability.)"
+//     "Choose a Background       (You can have a Background as a second commander.)"
+//     "Doctor's companion        (You can have two commanders if the other is the Doctor.)"
+// None changes anything during a game, and the engine never parses them to decide seating: `commanderCards`
+// arrives from the DECK DEFINITION and createPlayerState seats whatever it is given. So they are inert here
+// for the same reason bare "partner" is — no clause is being dropped, which is why crediting them cannot
+// become a claimed-native no-op.
+//
+// ⛔ "PARTNER WITH <name>" IS DELIBERATELY EXCLUDED and must stay so. Its reminder is
+//     "(When this creature enters, target player may put <name> into their hand from their library…)"
+// — a REAL linked ETB tutor (CR 702.124f) the engine does not model. Crediting it would drop an effect.
+// The old comment here also lumped "friends forever" and "choose a background" in with it as "carrying extra
+// unmodeled text"; the corpus says otherwise, and that mistake parked 19 "Partner—" cards plus the whole
+// Background cycle — most of the Halfshell heroes deck's commanders among them.
+// The label alternation is corpus-derived, not guessed: every "Partner—X" line in the index carries the
+// IDENTICAL reminder "(You can have two commanders if both have this ability.)" across exactly four labels —
+// Friends forever, Character select, Survivors, and "Father & son". The `&` in that last one is why the
+// character class is not just [a-z' ]; leaving it out silently dropped two cards.
+const rePartnerBare = /^(?:partner|partner—[a-z'& ]+|friends forever|choose a background|doctor's companion)$/;
 
 // KW-CYCLING — credit a clause ONLY when it's "cycling {cost}" (the keyword + one or more brace mana
 // symbols), mirroring the engine's parseCyclingCost (effects/abilities.js) EXACTLY so the metric never

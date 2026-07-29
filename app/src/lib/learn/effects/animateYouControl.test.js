@@ -122,11 +122,22 @@ describe("KAMAHL-ANIMATE-YOUCONTROL — CREED routing (LOW → Arbiter)", () => 
 });
 
 describe("KAMAHL — KW-PARTNER keyword-only gating", () => {
-  it("bare 'Partner' is keyword-only; 'Partner with <name>' / 'Friends forever' / 'Choose a Background' are NOT", () => {
+  it("the whole INERT pairing family is keyword-only; 'Partner with <name>' alone is NOT", () => {
+    // ⚠️ UPDATED 2026-07-28. This asserted that "Friends forever" and "Choose a Background" were NOT
+    // keyword-only, on the old comment's claim that they "carry extra unmodeled text". The corpus says
+    // otherwise: all 47 pairing lines in the index carry ONLY a reminder ("You can have two commanders if
+    // both have this ability." / "You can have a Background as a second commander."), and reminders are
+    // stripped before this check. Nothing is being dropped — the engine never reads these to seat anyone,
+    // since `commanderCards` comes from the DECK DEFINITION. Keeping the old expectation parked 19
+    // "Partner—" cards plus the entire Background and Doctor's-companion cycles.
     expect(isKeywordOnly("Partner", "X")).toBe(true);
-    expect(isKeywordOnly("Partner with Bruse Tarl", "X")).toBe(false); // LINKED partner-tutor ETB — unmodeled → body-only
-    expect(isKeywordOnly("Friends forever", "X")).toBe(false);
-    expect(isKeywordOnly("Choose a Background", "X")).toBe(false);
+    expect(isKeywordOnly("Partner—Character select", "X")).toBe(true);
+    expect(isKeywordOnly("Friends forever", "X")).toBe(true);
+    expect(isKeywordOnly("Choose a Background", "X")).toBe(true);
+    // ⛔ THE ONE THAT STAYS REFUSED — a LINKED partner-tutor ETB (CR 702.124f) the engine does not model.
+    // Its reminder is a real effect: "When this creature enters, target player may put <name> into their
+    // hand from their library…". Crediting it would drop that.
+    expect(isKeywordOnly("Partner with Bruse Tarl", "X")).toBe(false);
   });
 });
 
