@@ -311,12 +311,42 @@ function parseAddClause(oracle, card) {
   // mana-cost activation) does NOT match and keeps its existing colourless read — a safe FN, and those are
   // scoped separately in the ledger.
   {
+    // The optional leading "This land enters tapped." is the SLOW painland half of the cycle (Skyshroud
+    // Forest, Scabland, Pine Barrens, Salt Flats, Caldera Lake) — the identical two abilities with an
+    // enters-tapped rider in front. The original anchor started at "{T}: Add {C}" and so silently missed
+    // FIVE of the fifteen. The rider itself needs no modelling here: entering tapped is handled on the
+    // play-land path, and it cannot make the land produce anything it otherwise wouldn't.
     const pain = String(oracle || "").trim().match(
-      /^\{T\}: Add \{C\}\.\n\{T\}: Add \{([WUBRG])\} or \{([WUBRG])\}\.[^\n]*? deals (\d+) damage to you\.$/i,
+      /^(?:This land enters tapped\.\n)?\{T\}: Add \{C\}\.\n\{T\}: Add \{([WUBRG])\} or \{([WUBRG])\}\.[^\n]*? deals (\d+) damage to you\.$/i,
     );
     if (pain) {
       const a = pain[1].toUpperCase(), b = pain[2].toUpperCase();
       return { colors: ["C", a, b], amount: 1, painColors: [a, b], painAmount: parseInt(pain[3], 10) };
+    }
+    // ⭐ SINGLE-ABILITY PAINLAND (the Odyssey threshold cycle — Cabal Pit, Barbarian Ring, Cephalid
+    // Coliseum, Centaur Garden, Nomad Stadium — plus Fogwell's Gym). ONE coloured ability that costs life:
+    //     "{T}: Add {B}. This land deals 1 damage to you."
+    // These were NOT colourless — their first Add clause IS coloured, so they parsed fine and the damage
+    // rider was simply DROPPED. That is a PAINLESS painland: strictly better than printed, and unlike the
+    // two-line cycle's under-delivery this one was already live in the FORBIDDEN direction.
+    //
+    // ⛔ UNCONDITIONAL DAMAGE ONLY. Tomb of Urami prints "deals 1 damage to you IF YOU DON'T CONTROL AN
+    // OGRE" — a condition nothing here models. Charging it always would over-charge, so it is excluded and
+    // stays exactly as it is (a known, recorded gap rather than a new wrong answer).
+    //
+    // The `\.` before the lookahead is what does that work: the conditional printing has no period there
+    // ("…damage to you IF you don't…"), so it simply never matches. A second `!/damage to you if/` guard was
+    // written here first and MUTATION-CHECKED AS REDUNDANT — removing it changed nothing, because this
+    // anchor already excluded the card. Dropped rather than kept: a guard that cannot be seen to fail
+    // implies protection it does not add.
+    //
+    // The `[^.\n]*?` covers the older printings that self-reference by name instead of "This land".
+    const pain1 = String(oracle || "").trim().match(
+      /^(?:This land enters tapped\.\n)?\{T\}: Add \{([WUBRG])\}\. [^.\n]*? deals (\d+) damage to you\.(?:\n|$)/i,
+    );
+    if (pain1) {
+      const col = pain1[1].toUpperCase();
+      return { colors: [col], amount: 1, painColors: [col], painAmount: parseInt(pain1[2], 10) };
     }
   }
   // The no-quantity form ("Add mana of any color") — keep the original FN-safe amount:1.

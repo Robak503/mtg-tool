@@ -37,6 +37,11 @@ describe("parsing", () => {
   it("⭐ the colours are read, with the life cost attached", () => {
     expect(manaProduction(SHIVAN)).toMatchObject({ colors: ["C", "U", "R"], amount: 1, painColors: ["U", "R"], painAmount: 1 });
     expect(manaProduction(BRUSHLAND)).toMatchObject({ colors: ["C", "G", "W"], painColors: ["G", "W"] });
+    // ⭐ The SLOW half of the cycle carries a leading "This land enters tapped." line. The original anchor
+    // started at "{T}: Add {C}" and silently missed FIVE of the fifteen — Skyshroud Forest, Scabland,
+    // Pine Barrens, Salt Flats, Caldera Lake.
+    expect(manaProduction({ name: "Skyshroud Forest", type: "Land", oracle: "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {G} or {U}. This land deals 1 damage to you." }))
+      .toMatchObject({ colors: ["C", "G", "U"], painColors: ["G", "U"] });
   });
 
   it("⛔ a DIFFERENT rider is not swept in — Mogg Hollows keeps its colourless read", () => {
@@ -44,6 +49,33 @@ describe("parsing", () => {
     // Scoped separately in the ledger; a safe FN until then.
     const p = manaProduction(MOGG);
     expect(p).toMatchObject({ colors: ["C"], amount: 1 });
+    expect(p.painColors).toBeUndefined();
+  });
+});
+
+describe("the SINGLE-ABILITY form — an FP that was already live", () => {
+  // One coloured ability that costs life: "{T}: Add {B}. This land deals 1 damage to you." These were NOT
+  // colourless — their first Add clause IS coloured, so they parsed fine and the damage rider was simply
+  // DROPPED. A PAINLESS painland is strictly better than printed: unlike the two-line cycle above (an
+  // under-delivery), this one was already live in the FORBIDDEN direction.
+  it("⭐ the Odyssey threshold cycle now carries its life cost", () => {
+    expect(manaProduction({ name: "Cabal Pit", type: "Land", oracle: "{T}: Add {B}. This land deals 1 damage to you.\nThreshold — {B}, {T}, Sacrifice this land: Target creature gets -2/-2 until end of turn. Activate only if seven or more cards are in your graveyard." }))
+      .toMatchObject({ colors: ["B"], amount: 1, painColors: ["B"], painAmount: 1 });
+    expect(manaProduction({ name: "Barbarian Ring", type: "Land", oracle: "{T}: Add {R}. This land deals 1 damage to you.\nThreshold — {R}, {T}, Sacrifice this land: It deals 2 damage to any target. Activate only if seven or more cards are in your graveyard." }))
+      .toMatchObject({ colors: ["R"], painColors: ["R"] });
+  });
+
+  it("⛔ CREED — CONDITIONAL damage is EXCLUDED (Tomb of Urami: \"if you don't control an Ogre\")", () => {
+    // Nothing here models that condition, so charging it always would over-charge. Left exactly as it was —
+    // a known, recorded gap rather than a new wrong answer.
+    const p = manaProduction({ name: "Tomb of Urami", type: "Legendary Land", oracle: "{T}: Add {B}. Tomb of Urami deals 1 damage to you if you don't control an Ogre." });
+    expect(p).toMatchObject({ colors: ["B"], amount: 1 });
+    expect(p.painColors).toBeUndefined();
+  });
+
+  it("a plain coloured land is untouched", () => {
+    const p = manaProduction({ name: "Forest", type: "Basic Land — Forest", oracle: "({T}: Add {G}.)" });
+    expect(p).toMatchObject({ colors: ["G"], amount: 1 });
     expect(p.painColors).toBeUndefined();
   });
 });
