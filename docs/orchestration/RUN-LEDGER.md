@@ -228,6 +228,29 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — SQUAD's reminder was a PHANTOM ETB TRIGGER (+3) · a runtime defect, not a metric quirk
+
+Roadkill Rodney · Wasteland Raider · Securitron Squadron. GAINED 3 · LOST 0.
+
+⛔ **REMINDER TEXT WAS BEING READ AS RULES TEXT (CR 207.2).** Squad's reminder ends *"…When this creature
+enters, create that many tokens that are copies of it.)"* — "When" at a sentence boundary INSIDE the paren, so
+the trigger anchor caught it. Every squad creature grew an ETB trigger it does not have, with the malformed
+effect clause `create that many tokens that are copies of it. )` — **stray paren included, which is the tell.**
+
+⚠️ **AND IT ROUTED UNNATIVELY**, so a squad creature sent its ETB **to the Arbiter for an ability it never
+had.** Not a scoring artefact — a wrong runtime behaviour that no coverage number would ever have surfaced.
+
+⭐ **FOUND BY CHASING A PATH ACCIDENT, WHICH IS THE TRANSFERABLE PART.** Squad was credited on the STATIC
+residue path and refused on the TRIGGER path — so an identical card flipped or parked purely on what its OTHER
+line happened to be. That asymmetry is *never* cosmetic: this engine has fixed the same shape before (the
+self-no-untap static, whose comment calls it "a pure path accident"). **When the same clause gets two verdicts
+depending on its neighbours, something upstream is wrong.** Third time this run that a partial/asymmetric
+result was the tell (destroy-CREATURE leads, the tapless tap-OTHER half, now this).
+
+The fix sits on the fading/vanishing reminder strip directly above it — same failure mode, different keyword.
+Mutation-checked: removing it fails 5 assertions, including "every detected trigger ROUTES", which is what
+catches the phantom's actual cost where a count would not.
+
 ## 📍 THE FRONTIER CHANGED CHARACTER — measured, and now sized (`shelf-gap-ledger.mjs`)
 
 ⚠️ **CORRECTED THE SAME DAY — my first numbers here were wrong.** The ledger initially reported "35 shared /
