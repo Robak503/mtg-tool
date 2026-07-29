@@ -228,6 +228,29 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — two-colour tokens in the rider grammar (+3)
+
+Reduce to Memory · Harsh Annotation · Resculpt. GAINED 3 · LOST 0.
+
+⭐ **THE BUILDER ALWAYS UNDERSTOOD IT** — `"and"` is an entry in TOKEN_COLOR_WORDS, so `tokenTypeLine`
+produces the SAME type line for "red and white spirit" as for "red spirit". The main create-token path took
+two colours as well. **Only the RIDER copy of the grammar was single-colour**, so the sentence parked as a
+rider and went native as a card's own effect. Sixth axis instance, and the first one entirely INSIDE a family
+whose other arms I had already widened this session.
+
+⛔ **Three colours stay out.** One more alternation would admit them and no corpus card prints one. Same rule
+as the caster-gain-life slice: **widen to what the CARDS print, never to what the grammar could swallow.**
+
+⚠️ **Fourth stand-in-went-stale episode** — two pins used the two-colour token as their unmodeled example.
+Re-pointed to a three-colour token. That is now a reliable rhythm: *widen a vocabulary → the suite's own
+counter-examples go stale → re-point them.* Worth expecting rather than rediscovering each time.
+
+### 📍 THE REMOVAL-RIDER FAMILY IS NOW MEASURED OUT
+A scoped probe (modeled removal/counter LEAD + exactly one unmodeled trailing sentence) reports **116 cards
+across 77 shapes**, largest cluster 5. Three slices took this family from "the biggest lever on the board" to
+fragmented. **Nothing left here is worth more than ~3 cards**; the next lever has to come from a different
+question.
+
 ## 🔧 SHIPPED — caster-subject gain-life rider (+5)
 
 Sever Soul · Divine Offering · Serene Offering · Terashi's Grasp · Exile. GAINED 5 · LOST 0.
