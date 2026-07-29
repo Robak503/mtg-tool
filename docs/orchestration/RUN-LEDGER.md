@@ -246,6 +246,38 @@ anchor silently failed to apply, and using `git checkout` to "restore" **discard
 The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
 mutation round is the standing check — the marker sweep cannot see this class either.
 
+### ⭐⭐ THE RULE THAT MAKES THIS WHOLE SEAM TRACTABLE — DIRECTION, NOT PRESENCE
+
+Auditing the tail-injection probe's top five clusters (~110 of its 165 cards) found **exactly one** defect.
+The clusters that were fine and the one that wasn't differ in one way, and it is the whole filter:
+```
+an ignored tail that ADDS an effect  →  the engine UNDER-delivers  →  FN, SAFE       (Talismans, Signets)
+an ignored tail that RESTRICTS       →  the engine OVER-delivers   →  FP, FORBIDDEN  (Mox Opal, Jeweled Lotus)
+```
+**Do not grind "is any text ignored" — grind "is a RESTRICTION ignored".** `probe-ignored-restrictions.mjs`
+does exactly that: restriction-shaped phrases on cards the metric already calls NATIVE. **22 cards across 7
+phrases in the top 2500** — small enough to audit by hand, and it found Mox Opal on its FIRST run.
+
+### 🩸 CONDITION-GATED MANA — Mox Opal #241 offered unconditionally (`b84252af`, −16)
+
+*"Metalcraft — {T}: Add one mana of any color. **Activate only if** you control three or more artifacts."*
+`manaSources` has no activation-condition concept. **Verified on a board: a LONE Mox Opal — its own
+metalcraft unmet, being the only artifact — came back as a live any-colour source.** A turn-one ritual out
+of a card that should be dead. Fanatic of Rhonas #418 handed over `{G}{G}{G}{G}` with no ferocious check.
+All 16 LOST cards carry the gate, **zero collateral**.
+
+**NARROW ON PURPOSE:** only the `activate only if <condition>` board gate. *"Activate only as a sorcery"* is
+a TIMING rule handled elsewhere and is deliberately excluded (pinned).
+
+**✅ AUDITED AND CLEARED — do not re-mine these:** the Talisman/Signet mana cluster (under-models: the
+coloured painful ability is not offered AT ALL, so the engine gets less than printed), **enters-tapped**
+(handled at the play path in `actionDispatcher`, not `createPermanent` — a low-level constructor check will
+mislead you), and the **token/counter doublers** (`tokenMultiplier`, Wave-3a).
+
+**Still unaudited on the restriction worklist:** `unless that player pays` (Rhystic Study #44, Mystic Remora
+#98 — a "may draw unless they pay" the AI must actually be offered), `activate only as a sorcery`,
+`can't be blocked except by`. **Rhystic Study is the highest-rank card on the list — start there.**
+
 ### 🩸 SPEND-RESTRICTED MANA WAS GENERAL MANA — 60 cards, incl. JEWELED LOTUS (`9861e475`, −60)
 
 **Corpus went 12,288 → 12,228 and that is the honest direction.** `"{T}: Add {U}. Spend this mana only to
