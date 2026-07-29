@@ -258,6 +258,14 @@ no signal.**
 The measurement swapped every list for a single subtype and asked "does the card flip." That proves the list
 is the blocker; it does **not** prove which ARM the list lives in. Valley Mightcaller's was behind the
 "another" determiner (added, hence +2); Moria Marauder's is a combat-damage subject and is still parked.
+**➕ ADDENDUM (`0fe608cc`, +1 — Moria Marauder).** Chasing the undershoot per-construction found the fourth
+arm, and it was the most instructive of the four: **list support there was REAL BUT HALF-SHAPED.** The anchor
+required a COMMA before it could reach the "or", so Spawning Kraken's four-element comma list matched and the
+bare two-element "a Goblin or Orc" did not — while the comment above it read *"OR a multi-subtype LIST"*,
+which was **true for the form somebody had tested.** ⭐ **A half-shaped feature ships with honest
+documentation of the case that was checked**, so reading the comment confirms it works; only running the other
+printed form finds the hole. All four constructions now read one grammar. The undershoot audit is +3 total.
+
 ⭐ **Measure per CONSTRUCTION, not per shape** — and audit an UNDERSHOOT as hard as the overshoot that caught
 the Timber Protector FP this morning. Both directions are the model of the build being wrong.
 
