@@ -295,7 +295,26 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
-### ✅ EARTH BENT **86%** — 4 from the bar (`dbb5f632` Avatar Kyoshi). What is LEFT is all subsystem work.
+### ✅ EARTH BENT **87%** — 3 from the bar (`8454dbe6` Planar Engineering). Shelf-wide it is still the closest.
+
+**⭐ "SUBSYSTEM" WAS TOO PESSIMISTIC ON ONE OF THEM — check the machinery before believing the label.** I had
+Planar Engineering filed as needing multi-pick sacrifice. It needed nothing new: `advanceSacrificeChain`
+already drives a QUEUE "one permanent apiece", and `setPendingSacrificeChoice` already accepted that queue.
+N sacrifices are N entries. **When a card is filed as a subsystem, re-read the machinery — the last three
+"subsystems" have each turned out to be one guard, one field, or one queue entry away.**
+
+**⚠️ A DOCUMENTED APPROXIMATION rides with it, and the reasoning is the reusable part.** The fetch half
+prints the MANDATORY *"Search your library for FOUR basic land cards"*; the engine models it on the "up to
+four" chain. The only divergence is whether the player MAY take fewer — **strictly worse for them, so it
+cannot make the engine play a better card than printed.** A choice-FIDELITY gap in the safe direction, which
+is categorically unlike a dropped effect. **No unread `mandatory` flag was stamped** — a field nothing
+enforces is the captured-but-unread trap in another costume.
+
+**⚠️ AND ANOTHER PIN PASSING FOR THE WRONG REASON.** M38 admits *"any number"* to the sacrifice arm and the
+Scapeshift refusal STILL passes — **the linked-X fetch is what holds it**, not the sacrifice count. Relabelled.
+That is the third pin this run found to be green for a reason other than the one it claimed.
+
+### ✅ EARTH BENT 86% (`dbb5f632` Avatar Kyoshi) — the referent lesson
 
 **⭐ THE REFERENT LESSON, which generalizes:** *"untap that land"* is printed on FOUR cards and **THREE mean a
 DIFFERENT land** — Fabled Passage (fetched), Land Aid '04 (searched), Tiller Engine (entered), Avatar Kyoshi
