@@ -189,6 +189,26 @@ function parseManaMetric(tail, card) {
   m = t.match(/^greatest power among (other )?creatures you control$/);
   if (m) return { kind: "greatestPowerYouControl", ...(m[1] ? { excludeSelf: true } : {}) };
 
+  // ⭐ SELF-POWER ("{T}: Add X mana of any one color, where X is this creature's power") — Heronblade Elite,
+  // Kami of Whispered Hopes, and the NAMED variants Doc Samson / Mona Lisa. Distinct from the greatest-power
+  // metric above: this reads the SOURCE, so a bigger creature elsewhere must not inflate it.
+  //
+  // ⛔ THE SELF-REFERENCE GATE IS THE SAFETY ARGUMENT. Printed text names the source three ways — "this
+  // creature", the full name, or the SHORT name (the pre-comma portion: "Helga" for "Helga, Skittish Seer").
+  // Every other "<something>'s power" on a real card is a REFERENT to a different object ("that creature's",
+  // "the sacrificed creature's", "the exiled card's"), and those must not land here: they'd read the source's
+  // power for a value that belongs to another permanent — a fabricated amount. So the name arm matches only
+  // against THIS card's own name and refuses everything else (an unmodelled metric → null → the card parks,
+  // the safe direction).
+  if (/^this creature's power$/.test(t)) return { kind: "selfPower" };
+  m = t.match(/^(.+)'s power$/);
+  if (m) {
+    const own = String(card?.name || "").toLowerCase();
+    const short = own.split(",")[0].trim();
+    if (own && (m[1] === own || (short && m[1] === short))) return { kind: "selfPower" };
+    return null;
+  }
+
   // "greatest toughness among (other) creatures you control" → max layer-resolved toughness.
   // (Only the "other" form exists on real cards — Bighorner's life clause / Arbor Adherent.)
   m = t.match(/^greatest toughness among (other )?creatures you control$/);

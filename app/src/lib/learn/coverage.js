@@ -750,10 +750,10 @@ export function hasManaAbility(oracle, typeLine) {
 // source produces ZERO mana natively (a genuine over-claim, not a false negative — exactly the trap the
 // FIX-MANA-OVERCLAIM note documents for triggered-mana). So instead of broadening the regex (which would
 // also catch the cards whose metric is unmodeled — Wirewood Channeler's "Elves on the battlefield",
-// Heronblade Elite's "this creature's power", Accomplished Alchemist's "life gained this turn"), we ask
+// Accomplished Alchemist's "life gained this turn"), we ask
 // the SAME manaProduction the runtime taps: it returns an `amountSpec` ONLY when the connector + metric
 // (parseManaMetric: "<type> you control" / devotion / greatest-power|toughness among creatures you
-// control) is in its vocabulary, and null otherwise. So this credits EXACTLY the variable-X sources the
+// control / the SOURCE's own power) is in its vocabulary, and null otherwise. So this credits EXACTLY the variable-X sources the
 // engine produces mana for — metric and runtime in lockstep, never an over-claim (an unmodeled-metric X
 // source stays body-only, a SAFE false-negative). Pure (manaProduction is filesystem-free). The bare
 // "add x mana" guard keeps a non-mana card with a coincidental "X" out (it never reaches manaProduction).

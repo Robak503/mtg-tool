@@ -742,6 +742,22 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "greatestPowerYouControl") {
     return greatestPtAmong(state, player, spec, ctx, creaturePower);
   }
+  // ===== MANA-VARIABLE ===== the SOURCE's own live power — "{T}: Add X mana of any one color, where X is
+  // <this creature>'s power" (Helga Skittish Seer, Redshift Rocketeer Chief, Heronblade Elite, Kami of
+  // Whispered Hopes, Doc Samson, Mona Lisa). Distinct from greatestPowerYouControl above: that one is a MAX
+  // across the board, this one is the source itself, so a bigger creature elsewhere must not inflate it.
+  //
+  // Layer-aware via creaturePower — counters and pumps count, which is the whole point on cards whose plan is
+  // to grow the source first. A source that has left the battlefield reads 0 rather than throwing: a mana
+  // ability whose source is gone produces nothing (never a fabricated amount, CREED). Negative power floors
+  // at 0 through the caller's Math.max, same as every other metric here.
+  if (spec.kind === "selfPower") {
+    // Same source resolution as isExcludedSelf — the mana path passes { source: perm }, other callers
+    // pass sourceId; reading only one of the two would silently return 0 for half the callers.
+    const sourceId = ctx?.sourceId ?? ctx?.source?.id ?? null;
+    const lk = sourceId == null ? null : findPermanent(state, sourceId);
+    return lk ? Math.max(0, creaturePower(lk.permanent, state)) : 0;
+  }
   // ===== MANA-VARIABLE / DRAW-METRIC ===== the single greatest layer-resolved TOUGHNESS among the controller's
   // creatures (Arbor Adherent mana "among OTHER creatures" → excludeSelf; DRAW-METRIC greatest-toughness draw).
   // Mirrors greatestPowerYouControl through the same exclude-aware helper.

@@ -74,13 +74,22 @@ describe("classifyCard — tiers", () => {
   it("MUST_FLIP: 'where X is the greatest power/toughness among creatures you control' is native-mana", () => {
     expect(classifyCard(C("Creature — Plant", "{T}: Add X mana of any one color, where X is the greatest toughness among other creatures you control.", { name: "Arbor Adherent" }))).toBe("native-mana");
   });
+  it("MUST_FLIP: 'where X is <this creature|its own name>'s power' is native-mana (selfPower — see selfPowerMana.test.js)", () => {
+    // GRADUATED CAPABILITY PIN. This case sat in MUST_STAY_BODY below while parseManaMetric had no SELF
+    // metric — a correct pin on an absent capability, not a decision. The capability landed, so the pin
+    // moves rather than being deleted: the shape is now REQUIRED to flip.
+    expect(classifyCard(C("Creature — Human Warrior", "{T}: Add X mana of any one color, where X is this creature's power.", { name: "Heronblade Elite" }))).toBe("native-mana");
+    expect(classifyCard(C("Legendary Creature — Elf Druid", "{T}: Add an amount of {G} equal to Marwyn's power.", { name: "Marwyn, the Nurturer" }))).toBe("native-mana");
+  });
   it("MUST_STAY_BODY: an UNMODELED metric (the runtime produces ZERO mana) is NOT native-mana — no over-claim", () => {
-    // "Elves on the battlefield" (a SUBTYPE on the whole battlefield, not "you control"), "this creature's
-    // power", "creature cards in your graveyard", "life gained this turn" — manaProduction returns null for
-    // each, so the source yields no native mana and must stay body-only (a SAFE false-negative).
+    // "Elves on the battlefield" (a SUBTYPE on the whole battlefield, not "you control"), "creature cards in
+    // your graveyard", "life gained this turn" — manaProduction returns null for each, so the source yields
+    // no native mana and must stay body-only (a SAFE false-negative).
     expect(classifyCard(C("Creature — Elf Druid", "{T}: Add X mana of any one color, where X is the number of Elves on the battlefield.", { name: "Wirewood Channeler" }))).not.toBe("native-mana");
-    expect(classifyCard(C("Creature — Bird Soldier", "{T}: Add X mana of any one color, where X is this creature's power.", { name: "Heronblade Elite" }))).not.toBe("native-mana");
     expect(classifyCard(C("Creature — Plant Druid", "{T}: Add X mana of any one color, where X is the number of creature cards in your graveyard.", { name: "Deathbloom Ritualist" }))).not.toBe("native-mana");
+    // ⛔ a REFERENT to ANOTHER object still parks — reading the source's power there would fabricate an
+    // amount belonging to a different permanent.
+    expect(classifyCard(C("Creature — Ooze", "{T}: Add X mana of any one color, where X is that creature's power.", { name: "Fake Dork" }))).not.toBe("native-mana");
   });
   it("DFC GUARD: a transform DFC whose mana ability is on the BACK face is NOT native-mana (Kyoshi // Avatar Kyoshi)", () => {
     // The card is cast as its Saga FRONT; the back-face "{T}: Add X mana …" is reachable only after an
