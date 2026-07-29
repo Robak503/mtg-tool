@@ -2886,7 +2886,7 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
 function detectSubtypeGlobalCombatDamage(condRaw, _cardName, _typeLine, effectRaw) {
   const c = String(condRaw || "").toLowerCase().trim();
   const eff = String(effectRaw || "").toLowerCase().trim();
-  const m = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) deals combat damage to a player$/);
+  const m = c.match(/^a ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) deals combat damage to a player$/);
   if (!m) return null;
   if (/\byou control\b/.test(c)) return null;          // the you-control form is handled inline (subtypeYouControl)
   if (!/^its controller\b/.test(eff)) return null;     // only the dealer-controller beneficiary shape (CREED gate)
@@ -2914,7 +2914,7 @@ function detectSubtypeGlobalCombatDamage(condRaw, _cardName, _typeLine, effectRa
 function detectSubtypeGlobalCombatDamageToCreature(condRaw, _cardName, _typeLine, effectRaw) {
   const c = String(condRaw || "").toLowerCase().trim();
   const eff = String(effectRaw || "").toLowerCase().trim();
-  const m = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) deals combat damage to a creature$/);
+  const m = c.match(/^a ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) deals combat damage to a creature$/);
   if (!m) return null;
   if (/\byou control\b/.test(c)) return null;          // the you-control form (Sosuke / Quest) is a different scope, not modeled here
   if (!/^destroy that creature\b/.test(eff)) return null; // only the destroy-that-creature effect shape (CREED gate)
@@ -2943,7 +2943,7 @@ function detectSubtypeGlobalCombatDamageToCreature(condRaw, _cardName, _typeLine
 function detectSubtypeGlobalDamageLifegain(condRaw, _cardName, _typeLine, effectRaw) {
   const c = String(condRaw || "").toLowerCase().trim();
   const eff = String(effectRaw || "").toLowerCase().trim();
-  const m = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) deals damage$/);
+  const m = c.match(/^a ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) deals damage$/);
   if (!m) return null;
   if (/\byou control\b/.test(c)) return null;          // a you-control form is a different scope, not modeled here
   if (!/^its controller gains that much life$/.test(eff)) return null; // only the dealer-controller amount-scaled lifegain (CREED gate)
