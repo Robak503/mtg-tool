@@ -45,17 +45,26 @@ describe("AURA-OWN-REGEN — recognition (classifyCard) on real oracle", () => {
     expect(classifyCard({ name: "Regeneration", type: "Enchantment — Aura", mana: "{1}{G}",
       oracle: "Enchant creature\n{G}: Regenerate enchanted creature." })).toBe("native-activated");
   });
-  it("static-grant + regen composites flip (EQ-2): The Brute / Gaea's Embrace / Serpent Skin / Dark Privilege", () => {
+  it("static-grant + regen composites flip — as native-AURA, with the bonus actually applying", () => {
+    // ⚠️ TIER CHANGED, AND THE OLD ONE WAS THE SYMPTOM OF A BUG. These read `native-activated` because
+    // they were credited by the EQ-2 composite, which strips the regen line and asks isNativeAura about
+    // the REMAINDER. At runtime nothing strips it: the regen line poisoned the all-or-nothing
+    // parseAuraBonus, so all four were credited native with their printed "+N/+N" NEVER REACHING THE
+    // BATTLEFIELD — host stayed 2/2 (scripts/probe-dropped-attached-grants.mjs).
+    //
+    // The aura-own-activated validator now admits a regenerate line, so the bonus survives, the plain
+    // aura tier owns these cards, and the grant applies for real. The runtime assertion below is the
+    // point of this test now — the tier alone never was evidence about the board.
     expect(classifyCard({ name: "The Brute", type: "Enchantment — Aura", mana: "{1}{R}",
-      oracle: "Enchant creature\nEnchanted creature gets +1/+0.\n{R}{R}{R}: Regenerate enchanted creature." })).toBe("native-activated");
+      oracle: "Enchant creature\nEnchanted creature gets +1/+0.\n{R}{R}{R}: Regenerate enchanted creature." })).toBe("native-aura");
     expect(classifyCard({ name: "Gaea's Embrace", type: "Enchantment — Aura", mana: "{2}{G}{G}",
-      oracle: "Enchant creature\nEnchanted creature gets +3/+3 and has trample.\n{G}: Regenerate enchanted creature." })).toBe("native-activated");
+      oracle: "Enchant creature\nEnchanted creature gets +3/+3 and has trample.\n{G}: Regenerate enchanted creature." })).toBe("native-aura");
     expect(classifyCard({ name: "Serpent Skin", type: "Enchantment — Aura", mana: "{2}{G}",
-      oracle: "Flash\nEnchant creature\nEnchanted creature gets +1/+1.\n{G}: Regenerate enchanted creature." })).toBe("native-activated");
+      oracle: "Flash\nEnchant creature\nEnchanted creature gets +1/+1.\n{G}: Regenerate enchanted creature." })).toBe("native-aura");
     // Dark Privilege's cost sacrifices a DIFFERENT creature (not the Aura) — the Aura stays attached, so the
     // regen still binds the host; GUARD-LEAVE (which only fires on a self-sac/self-exile cost) does not reject it.
     expect(classifyCard({ name: "Dark Privilege", type: "Enchantment — Aura", mana: "{1}{B}",
-      oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice a creature: Regenerate enchanted creature." })).toBe("native-activated");
+      oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice a creature: Regenerate enchanted creature." })).toBe("native-aura");
   });
 
   it("CREED (FN-safe): a SELF-SAC regen aura PARKS — the leaving cost detaches the host (GUARD-LEAVE)", () => {

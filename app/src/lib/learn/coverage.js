@@ -2720,9 +2720,22 @@ function isModeledAuraOwnActivatedLine(line) {
   if (abs.length !== 1) return false;
   const a = abs[0];
   if (!a.modeled || a.isManaEffect) return false;
+  // ⛔ GUARD-LEAVE, now needed HERE too. A cost that removes the AURA ITSELF (sacrifice/exile this Aura)
+  // DETACHES the host, so an effect referencing "enchanted creature" has nothing to resolve onto — the
+  // engine can't play it. nativeStaticGrantPlusActivated has always refused those; this validator did not
+  // have to care while its caller only ever handed it MANA-cost lines. The moment the pre-filter widened to
+  // any cost, Briar Shield / Thrull Retainer / Stamina / Carapace started skipping their self-sac line,
+  // keeping their static half, and going native — four false positives, caught by the two GUARD-LEAVE pins
+  // that already existed. The rule belongs on both paths, not one.
+  if (a.sacSelf || a.exileSelf) return false;
   const prog = a.program;
   return !!prog && Array.isArray(prog.atoms) && prog.atoms.length > 0 && prog.structure !== "modal"
-    && prog.atoms.every((at) => (at.op === "tap" || at.op === "untap" || at.op === "pump") && at.target === "enchanted");
+    // REGENERATE joins tap/untap/pump: identical shape (one atom, `target:"enchanted"`, resolved onto the
+    // host through the same referent), and leaving it out had a cost only a RUNTIME check exposed. An
+    // Aura's own regenerate line was NOT skipped by parseAttachedBonus, so it poisoned the all-or-nothing
+    // bonus parse and the card's printed "+N/+N" never reached the battlefield while the card still
+    // classified native. See scripts/probe-dropped-attached-grants.mjs.
+    && prog.atoms.every((at) => (at.op === "tap" || at.op === "untap" || at.op === "pump" || at.op === "regenerate") && at.target === "enchanted");
 }
 registerAuraOwnActivatedValidator(isModeledAuraOwnActivatedLine);
 

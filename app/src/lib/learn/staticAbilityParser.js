@@ -4124,7 +4124,12 @@ export function parseAttachedBonus(card, subjectOverride) {
     // AF-1: a validator-approved AURA-OWN ACTIVATED line ("{W}: Enchanted creature gets +0/+3 until end of
     // turn") is the runtime's (legalChoices enumerates it on the Aura; the pump resolves onto the host via
     // the enchanted referent) — skip it so the compound carrier keeps its static half.
-    if (subject === "enchanted" && /^[^:\n]*\{[^}]+\}[^:\n]*:/.test(c.trim())
+    // The pre-filter is "a line with a COST before a colon" — mana or otherwise. It used to demand a mana
+    // SYMBOL, which silently excluded Dark Privilege's "Sacrifice a creature: Regenerate enchanted
+    // creature." and so poisoned that card's bonus parse (credited native, +1/+1 never applied). The
+    // VALIDATOR does the real work — one fully modeled ability whose atoms all target the enchanted host;
+    // this only decides what gets handed to it.
+    if (subject === "enchanted" && /^[^:\n]+:/.test(c.trim())
       && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
     if (!touchesAttachedCreature(c, subject, noun)) continue;    // the card's own body — ignore
     // AP-1 (CR 615): a modeled prevention wall ("Prevent all [combat] damage that would be dealt to /
@@ -4564,7 +4569,7 @@ function auraTouchClausesAllModeled(card) {
     if (ATT_NO_UNTAP_CLAUSE_RE.test(c)) continue;             // PZ-1 tap-lock — enforced in untapAll
     if (isTotemArmorClause(c)) continue;                      // totem armor — enforced at destruction
     // AF-1: a validator-approved aura-own activated line — enumerated on the Aura, resolved on the host.
-    if (/^[^:\n]*\{[^}]+\}[^:\n]*:/.test(c)
+    if (/^[^:\n]+:/.test(c)      // any cost before the colon — the validator gates what it actually is
       && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
     const noun = attachedBodyNoun(card, "enchanted");          // AN-1 — the host noun this Aura's body uses
     if (!touchesAttachedCreature(c, "enchanted", noun)) continue; // non-touch residue → auraResidueClauses catches it
