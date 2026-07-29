@@ -37,15 +37,21 @@ describe("SAC-LAND-RAMP — classification (CREED whole-card)", () => {
   it("the sac-land + fetch program is exactly [sacrifice-land, tutor remaining:2 → battlefield tapped]", () => {
     const p = parseEffectProgram(ROILING);
     expect(p.atoms).toEqual([
-      { op: "sacrifice-land", targetType: null },
+      // `count: 1` is explicit rather than absent — the atom now always carries its sacrifice count, so a
+      // future arm that forgets to set one fails this exact-shape pin instead of silently defaulting.
+      { op: "sacrifice-land", count: 1, targetType: null },
       { op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: true, remaining: 2, targetType: null },
     ]);
   });
 
-  it("the clause parser is mechanism-keyed — matches the bare self-sac, rejects count / each-player / filtered", () => {
-    expect(sacrificeLandClauseParser("sacrifice a land")).toEqual({ op: "sacrifice-land", targetType: null });
-    expect(sacrificeLandClauseParser("sacrifice a land you control")).toEqual({ op: "sacrifice-land", targetType: null });
-    expect(sacrificeLandClauseParser("sacrifice two lands")).toBeNull();
+  it("the clause parser is mechanism-keyed — matches the self-sac (bare or COUNTED), rejects the rest", () => {
+    // ⚠️ UPDATED. A FIXED count is admitted now (Planar Engineering "Sacrifice two lands"): N sacrifices are
+    // N entries on the chain advanceSacrificeChain already drives one-apiece, so nothing had to be invented.
+    // Every other rejection below is unchanged and still genuine.
+    expect(sacrificeLandClauseParser("sacrifice a land")).toEqual({ op: "sacrifice-land", count: 1, targetType: null });
+    expect(sacrificeLandClauseParser("sacrifice a land you control")).toEqual({ op: "sacrifice-land", count: 1, targetType: null });
+    expect(sacrificeLandClauseParser("sacrifice two lands")).toEqual({ op: "sacrifice-land", count: 2, targetType: null });
+    // ⛔ still refused — a PLAYER-CHOSEN count that feeds a linked "up to that many" fetch (Scapeshift).
     expect(sacrificeLandClauseParser("sacrifice any number of lands")).toBeNull();
     expect(sacrificeLandClauseParser("each player sacrifices a land")).toBeNull();
     expect(sacrificeLandClauseParser("sacrifice a basic land")).toBeNull();
@@ -67,8 +73,11 @@ describe("SAC-LAND-RAMP — classification (CREED whole-card)", () => {
     expect(classifyCard({ name: "Entish Restoration", type: "Instant", mana: "{2}{G}", oracle: "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle." })).toBe("native-spell");
   });
 
-  it("CREED — the controller self-sac 'Sacrifice two lands' / a counted each-player land edict never parses HIGH", () => {
-    expect(isHigh("Sacrifice two lands. Draw a card.")).toBe(false);            // controller self-sac of a COUNT (unmodeled)
+  it("CREED — a counted EACH-PLAYER land edict still never parses HIGH", () => {
+    // ⚠️ UPDATED. "Sacrifice two lands. Draw a card." now parses HIGH — the CONTROLLER self-sac of a fixed
+    // count rides the existing sacrifice chain (Planar Engineering). The EACH-PLAYER counted edict is a
+    // different arm, was not touched, and still stays LOW — verified, not assumed.
+    expect(isHigh("Sacrifice two lands. Draw a card.")).toBe(true);
     expect(isHigh("Each player sacrifices two lands. Draw a card.")).toBe(false); // a COUNT on the each-player edict stays LOW
     // NOTE: "Each player sacrifices a land" (the bare TYPED-EDICT) is now NATIVE (each sacrificer chooses a land,
     // CR 701.16 — see edicts.test.js TYPED-EDICT); it is the each-player land EDICT, NOT the controller self-sac

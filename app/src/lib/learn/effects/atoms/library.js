@@ -1666,7 +1666,15 @@ export function tutorClauseParser(clause, ctx = {}) {
   // mf — RAMP-MULTI up-to-N LANDS (or PLAIN CREATURES) to battlefield. "put them" (the ramp forms) OR "put
   // those cards" (Defense of the Heart's compound-trigger multi-fetch) — the two printed anaphors for the
   // up-to-N pile; the multi-fetch chains identically for both (resolveTutorChoice re-suspends per remaining).
-  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put (?:them|those cards) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // ⚠️ THE "up to" IS OPTIONAL IN THE GRAMMAR, and that is a deliberate, documented APPROXIMATION — not an
+  // oversight. Planar Engineering prints the MANDATORY form ("Search your library for FOUR basic land
+  // cards"), which differs from "up to four" in exactly one way: whether the player MAY take fewer. The
+  // chain models the choice either way, so the divergence is that a player could fetch fewer than the card
+  // requires — strictly WORSE for them, so it can never make the engine play a better card than printed.
+  // That is the safe direction by this run's own rule (an under-delivery, never an over-delivery). It is a
+  // choice-FIDELITY gap, categorically unlike a dropped effect, and no unread "mandatory" flag is stamped —
+  // a field nothing enforces would just be the captured-but-unread trap in another costume.
+  const mf = t.match(/^search your library for (?:up to )?(two|three|four|five) ([a-z][a-z ,]*?) cards,? put (?:them|those cards) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (mf) {
     const phrase = mf[2];
     const count = UP_TO_N_WORD[mf[1]];

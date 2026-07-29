@@ -49,15 +49,21 @@ export function applySacrificeLand(state, atom, ctx) {
     // No land to sacrifice — a clean no-op (the following fetch still resolves; you sacrificed nothing).
     return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller, sacrificed: null, what: "land" });
   }
-  if (lands.length === 1) {
-    // Sole legal land → forced sacrifice, no pause (sacrificeCreatureEffect is permanent-safe; see header).
-    const only = lands[0].id;
-    return findPermanent(state, only)
-      ? sacrificeCreatureEffect(state, controller, only)
-      : logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller, sacrificed: null, what: "land" });
+  // COUNT (Planar Engineering — "Sacrifice TWO lands"). N sacrifices are N entries on the chain queue, which
+  // advanceSacrificeChain already drives "one permanent apiece" — no new machinery, and the pause/resume into
+  // the following tutor is the same path the single form has always used.
+  const n = Math.max(1, atom.count || 1);
+  if (lands.length <= n) {
+    // No more lands than must go → every one is sacrificed and there is nothing to choose. Covers the sole-land
+    // case the single form handled before, byte-identically.
+    let next = state;
+    for (const l of lands) if (findPermanent(next, l.id)) next = sacrificeCreatureEffect(next, controller, l.id);
+    return next;
   }
-  // ≥2 lands — a real choice. Pause (NO queue → a single settle, then the runner resumes into the tutor).
-  return setPendingSacrificeChoice(state, { controller, candidates: lands, sourceName: ctx.cardName });
+  // A real choice. `queue` carries the REMAINING sacrifices (n-1 of them); null for the single form keeps its
+  // "one settle, then resume into the tutor" behaviour exactly as it was.
+  const queue = Array.from({ length: n - 1 }, () => ({ playerId: controller, what: "land" }));
+  return setPendingSacrificeChoice(state, { controller, candidates: lands, queue: queue.length ? queue : null, sourceName: ctx.cardName });
 }
 
 /**
@@ -69,7 +75,11 @@ export function applySacrificeLand(state, atom, ctx) {
  */
 export function sacrificeLandClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
-  if (/^sacrifice a land(?: you control)?$/.test(t)) return { op: "sacrifice-land", targetType: null };
+  // A FIXED count is admitted (Planar Engineering "Sacrifice two lands"); the chain drives N picks. "ANY
+  // NUMBER of lands" (Scapeshift) is still refused — its count is player-chosen AND feeds a linked "up to
+  // that many" fetch, so crediting it would need a threaded count the tutor cannot yet read.
+  const m = t.match(/^sacrifice (a|one|two|three|four) lands?(?: you control)?$/);
+  if (m) return { op: "sacrifice-land", count: { a: 1, one: 1, two: 2, three: 3, four: 4 }[m[1]], targetType: null };
   return null;
 }
 
