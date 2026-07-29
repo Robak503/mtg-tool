@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureBasePower } from "../../gameState.js";
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureBasePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
@@ -99,6 +99,25 @@ export function applyControllerRider(state, rider, cap, ctx) {
     // An Offer You Can't Refuse — N named artifact tokens (Treasure/Clue/Food/Gold) under the captured controller.
     const tokenAtom = { op: "create-named-token", token: rider.token, count: rider.count, targetType: null };
     return applyCreateNamedToken(state, tokenAtom, { ...ctx, controller: cap.controller });
+  }
+  if (rider.kind === "loseLife") {
+    // ⭐ "Its controller loses N life." — scoped to the CAPTURED controller (the permanent's / spell's
+    // controller as of BEFORE the removal resolved, which is why `cap` is captured up front: after a destroy
+    // the permanent is gone and there is nobody left to ask).
+    let next = loseLife(state, { playerId: cap.controller, amount: Math.max(0, rider.amount || 0) });
+    next = logEvent(next, { kind: "spell-effect", effect: "rider-lose-life", controller: cap.controller, amount: Math.max(0, rider.amount || 0) });
+    // ⛔ THE DRAIN HALF GOES TO THE SPELL'S CONTROLLER, NOT THE CAPTURED ONE — the only place in this family
+    // where a rider touches a different player, and getting it backwards would hand the victim the life.
+    // `youGain` is read from the printed text separately from `amount` rather than mirrored from it.
+    if (rider.youGain) {
+      const caster = ctx?.controller;
+      if (caster && next.players?.[caster]) {
+        next = gainLife(next, { playerId: caster, amount: rider.youGain });
+        next = checkLifegainTriggers(next, caster, rider.youGain);
+        next = logEvent(next, { kind: "spell-effect", effect: "rider-gain-life", controller: caster, amount: rider.youGain });
+      }
+    }
+    return next;
   }
   if (rider.kind === "drawCards") {
     // CNT-DRAW-RIDER (Dream Fracture) — the COUNTERED spell's controller draws N (CR 121.2). Scoped to the

@@ -91,7 +91,7 @@ describe("CROSS-COUNTER native coverage — the clean cards flip native-spell, r
   });
   it("CREED — counters with an UNMODELED rider/filter in these families stay arbiter-spell", () => {
     expect(I("Counter target instant or sorcery spell.")).toBe("native-spell");               // Quash-class union — MODELED now (SHELF Phase 2)
-    expect(I("Counter target instant spell. Its controller loses 2 life.")).toBe("arbiter-spell"); // controller-rider unmodeled
+    expect(I("Counter target instant spell. Its controller discards a card.")).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider became MODELED, so this stand-in moved to a still-unmodeled one (discard). The principle pinned is the UNMODELED-RIDER refusal, never this particular rider.
     expect(I("Counter target blue spell. Its controller discards a card.")).toBe("arbiter-spell"); // controller-rider unmodeled (draw IS modeled — Dream Fracture)
     // NOTE: "Counter target spell with mana value 4 or greater. Draw a card." is correctly native-spell — BOTH
     // the counter and the draw are fully modeled (the multi-clause parser composes them). That is not an FP; it's

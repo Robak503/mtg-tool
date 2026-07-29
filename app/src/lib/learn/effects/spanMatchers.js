@@ -154,9 +154,42 @@ export function parseControllerRider(t) {
   // conditional form leaves the anchor unmatched → null → low → Arbiter.
   m = t.match(/^mills (a|two|three|four|five|six|seven|eight|\d+) cards?$/);
   if (m) return { kind: "mill", count: RIDER_COUNT[m[1]] ?? parseInt(m[1], 10) };
+  // ⭐ LOSE-LIFE RIDER — "Its controller loses N life." (Hideous End, Sip of Hemlock, Soul Reap, Bitter
+  // Downfall, Despoil, Spreading Rot, Glissa's Scorn, Launch Party, Inevitable Defeat …), and the drain
+  // twin "…loses N life and you gain N life." (Certain Death). THE MOST COMMON PRINTED RIDER IN THIS FAMILY
+  // and the one entry this vocabulary never had: the lead grammar, the controller CAPTURE and the apply seam
+  // were all already built for gain-life / tokens / draw / mill, so every one of these cards parked on a
+  // missing map entry rather than a missing mechanism.
+  //
+  // ⛔ THE DRAIN HALF IS THE CONTROLLER'S LOSS PLUS THE CASTER'S GAIN, and the two amounts are read
+  // SEPARATELY from the printed text rather than assumed equal. Every corpus printing happens to match, but
+  // binding the gain to the loss would be a fabrication the moment a card prints otherwise — and this is the
+  // ONE place a rider touches a player other than the captured controller, so it says so explicitly.
+  // Fixed amounts only: a scaled form ("loses life equal to its power") has no captured metric here and
+  // leaves the anchor unmatched → null → low → Arbiter.
+  m = t.match(/^loses (\d+) life(?: and you gain (\d+) life)?$/);
+  if (m) {
+    const rider = { kind: "loseLife", amount: parseInt(m[1], 10) };
+    if (m[2] !== undefined) rider.youGain = parseInt(m[2], 10);
+    return rider;
+  }
   return null; // an unmodeled controller rider → low → Arbiter
 }
-export function matchRemovalControllerRider(oracle) {
+/**
+ * @param parseLead  OPTIONAL fallback lead parser, injected by parser.js.
+ *
+ * ⭐ WHY AN INJECTED FALLBACK RATHER THAN A WIDER `destroyExileClauseParser`. That parser handles
+ * destroy-LAND, destroy-ARTIFACT, exile-anything — but NOT destroy-CREATURE, which lives in the main clause
+ * grammar with its regeneration / can't-be-regenerated riders. So this fold has always worked for
+ * "Destroy target land. Its controller …" and silently never for "Destroy target creature. Its controller …",
+ * which is the single most common printing of the shape (Hideous End, Sip of Hemlock, Certain Death …).
+ *
+ * spanMatchers cannot import parser.js (parser imports THIS file — a cycle), so parser.js passes its own
+ * `parseEffectClause` down. ⛔ The fallback runs ONLY when `destroyExileClauseParser` returns null, so no lead
+ * that resolves today can be re-resolved through a different path — the same ordering rule that kept the
+ * restricted-mana and self-exile slices at LOST 0.
+ */
+export function matchRemovalControllerRider(oracle, parseLead = null) {
   // A TRAILING sentence is handed back as `rest` rather than blocking the match. The rider itself is always
   // period-free (every shape parseControllerRider models is a single clause, and its anchors are ^…$ — a
   // rider containing a period could never have matched one), so `[^.]+` greedily takes exactly the rider and
@@ -169,7 +202,15 @@ export function matchRemovalControllerRider(oracle) {
   // The bare destroy/exile lead lives in atoms/removal.destroyExileClauseParser (seam batch 27), so resolve
   // the rider-stripped lead via that clause parser directly. (The old parseExtendedAtom() || fallback was
   // provably dead — a destroy/exile lead can never match the draw/rad sentinels — and went with the S2 drain.)
-  const lead = destroyExileClauseParser(m[1].trim());
+  let lead = destroyExileClauseParser(m[1].trim());
+  if (!lead && parseLead) {
+    // Creature-lead fallback. Accept ONLY a single-atom destroy/exile program: a multi-atom lead would mean
+    // the "lead" text carried more than the removal, and folding a rider onto the first of several atoms
+    // would attach it to the wrong effect. Any other shape → null → the card keeps its refusal.
+    const p = parseLead(m[1].trim());
+    const atoms = p?.atoms;
+    if (Array.isArray(atoms) && atoms.length === 1 && (atoms[0].op === "destroy" || atoms[0].op === "exile")) lead = atoms[0];
+  }
   if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null; // lead must be a modeled removal
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                   // unmodeled rider → low → Arbiter

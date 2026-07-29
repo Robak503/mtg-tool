@@ -47,7 +47,7 @@ describe("DESTROY-TOKEN-RIDER — parser", () => {
   });
 
   it("CREED — anything outside the exact shape → null (stays LOW → Arbiter)", () => {
-    expect(parseDestroyTokenRider("Destroy target creature. It can't be regenerated. Its controller loses 2 life.")).toBeNull(); // unmodeled rider
+    expect(parseDestroyTokenRider("Destroy target creature. It can't be regenerated. Its controller discards a card.")).toBeNull(); // RE-POINTED 2026-07-29: the lose-life rider became MODELED, so this stand-in moved to a still-unmodeled one (discard). The principle pinned is the UNMODELED-RIDER refusal, never this particular rider.
     expect(parseDestroyTokenRider("Destroy target permanent. Its controller creates a 3/3 green Ape creature token.")).toBeNull(); // not "creature" → the shared matcher owns permanent leads
     expect(parseDestroyTokenRider("Destroy target creature. It can't be regenerated. Its controller creates a 3/3 green Ape creature token. Draw a card.")).toBeNull(); // trailing rider
     expect(parseDestroyTokenRider("Destroy target creature. Its controller creates a 0/0 green Ape creature token.")).toBeNull(); // 0-toughness token dies to SBA → incomplete
@@ -99,6 +99,6 @@ describe("DESTROY-TOKEN-RIDER — coverage", () => {
     expect(classifyCard(C(RAPID, "Rapid Hybridization"))).toBe("native-spell");
   });
   it("CREED — an unmodeled rider on the same lead shape stays Arbiter", () => {
-    expect(classifyCard(C("Destroy target creature. It can't be regenerated. Its controller loses 2 life.", "X"))).toBe("arbiter-spell");
+    expect(classifyCard(C("Destroy target creature. It can't be regenerated. Its controller discards a card.", "X"))).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider became MODELED, so this stand-in moved to a still-unmodeled one (discard). The principle pinned is the UNMODELED-RIDER refusal, never this particular rider.
   });
 });

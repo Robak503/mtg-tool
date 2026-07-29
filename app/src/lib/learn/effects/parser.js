@@ -1889,7 +1889,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // RIDER-REMOVAL — "Exile/Destroy target X. Its controller <rider>." parses to ONE removal atom carrying
   // a `controllerRider` (resolved to the target's controller). The two sentences span the clause splitter,
   // so it's matched up front like the other collapsed templates.
-  const rcr = matchRemovalControllerRider(oracle);
+  // The second argument injects THIS module's clause parser as a fallback lead resolver, so a
+  // destroy-CREATURE lead (which destroyExileClauseParser does not own) can carry a controller rider. Guarded
+  // to a single destroy/exile atom inside the matcher, and only reached when the existing lead parser
+  // returned null — so no lead that resolves today changes path.
+  const rcr = matchRemovalControllerRider(oracle, (lead) => parseEffectClause(lead, cardType, { hasX: false }));
   if (rcr) return collapsed(rcr);
   // DESTROY-DAMAGE-RIDER — "Destroy target X. [If that land was nonbasic, ]<SELF> deals N damage to that X's
   // controller." → ONE destroy atom carrying a `damageRider` (resolved to the target's controller via the shared

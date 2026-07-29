@@ -41,7 +41,7 @@ describe("parser — removal + 'its controller' rider (RIDER-REMOVAL)", () => {
   });
 
   it("CREED: an UNMODELED rider keeps the whole card LOW → Arbiter (never fires the removal alone)", () => {
-    expect(isHigh("Destroy target creature. Its controller loses 2 life.")).toBe(false);                          // lose-life rider (Sip of Hemlock)
+    expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
     expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // discard rider (Assassin's Strike)
     expect(isHigh("Exile target creature with power 2 or less. Its controller gains 4 life.")).toBe(false);       // fixed gain-life (Last Breath) + MV filter
     expect(isHigh("Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.")).toBe(false); // MULTI-COLOR token (Reduce to Memory) — still unmodeled
@@ -132,7 +132,7 @@ describe("coverage — RIDER-REMOVAL staples flip native; the unmodeled riders b
   });
 
   it("CREED: unmodeled-rider removal stays Arbiter-routed", () => {
-    expect(classifyCard(C("Instant", "Destroy target creature. Its controller loses 2 life.", "Sip of Hemlock"))).toBe("arbiter-spell");
+    expect(classifyCard(C("Instant", "Destroy target creature. Its controller discards a card.", "Stand-In"))).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
     // Pongify / Rapid Hybridization (destroy creature + can't-be-regenerated + that controller makes a token)
     // are now NATIVE via DESTROY-TOKEN-RIDER (effects/atoms/destroyTokenRider.js) — the can't-be-regenerated
     // sentence is carried as cannotRegenerate (applyDestroyEffect honors it), so the flip is correct, not an FP.
