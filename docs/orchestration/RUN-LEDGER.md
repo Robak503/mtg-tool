@@ -107,11 +107,17 @@ anthems then apply on top of the new base (CR 613.1a).
    at resolution (CR 707.2), stores ONE layer-1 effect with an `endOfTurn` duration; riders reuse
    `parseCloneRider` and the snapshot reuses `snapshotCopiedCard`, so the two copy paths cannot drift.
    **GAINED 1** (Impossible Man). Board assertions, not tier assertions, are the substance.
-   **KNOWN NEXT, diagnosed:** Tilonalli's Skinshifter's trigger IS detected and its effect clause parses
-   HIGH — it parks on the **trigger-target intent gate** (`programTriggerTargetsResolvable`), which is
-   correct-by-design until `become-copy` declares an intent. One line, but it needs a real answer to "which
-   side should the chooser prefer when copying?" — an opponent's big attacker is usually the point, so the
-   enemy-side default other atoms use is probably WRONG here. Do not guess it.
+   ⛔ **CORRECTION (`8991361a`) — I called Tilonalli's "a one-line follow-up" and that was WRONG.**
+   `atomTargetIntent` already defaults to `ambiguous`, so become-copy on a TRIGGER was routing to the
+   Arbiter correctly all along: **a safe FN, not a gap.** The decision is now stated explicitly (following
+   the bare `suspect` precedent) and pinned. **Why ambiguous is right:** a copy's value is the QUALITY of
+   the body, not whose it is — copying an opponent's fattest attacker is the classic line and copying your
+   own is equally common, so no side is provable from the atom.
+   ⛔ **DO NOT declare a side to "fix" it.** Tilonalli's LOOKS own-side (during your own attack every
+   attacker is yours), but that is a property of its ATTACKING restriction, which the atom does not carry —
+   the noun map flattens it to `"creature"`. Own-side here would **mis-target every other member of the
+   family**. The honest route is a distinct attacking-creature targetType, a real build for one rank-22835
+   card. *A parked card is not automatically a gap; check whether the gate is doing its job first.*
 
 3. Remaining, all BINDING problems rather than copy problems: `snapshotCopiedCard` (cloneCopy.js) already
    produces the copiable card — **reuse it, do not write a second snapshotter**, or the two drift.
@@ -1428,7 +1434,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,300/34,245). Suite **947 files / 12,090 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,300/34,245). Suite **947 files / 12,093 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
