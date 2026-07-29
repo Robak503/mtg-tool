@@ -220,6 +220,21 @@ function parseManaMetric(tail, card) {
 function parseAddClause(oracle, card) {
   if (!/\badd\b/i.test(oracle)) return null;
 
+  // ⭐ IMPRINTED-CARD COLORS (Chrome Mox) — "Add one mana of any of the exiled card's colors." A CHOICE of
+  // one mana among the imprinted card's colors, so unlike the bundles below it needs no new product shape:
+  // `colors` (the existing choice set) resolved live from the permanent's stamp, amount 1.
+  //
+  // ⛔ THE WHOLE POINT IS THE GATE. `colorsFromImprint` is resolved in manaSources against `perm.imprinted`,
+  // and a permanent with NO stamp produces NOTHING — it never becomes a source at all. A bare Chrome Mox is
+  // a dead card, and modeling it as "any color" would be a turn-one ritual the printed card cannot cast:
+  // the forbidden false-positive direction, the same shape already refused for Mox Opal's metalcraft gate.
+  // An imprinted COLORLESS card (Chrome Mox can exile one) is likewise no colors and no mana — correct, and
+  // the reason the resolver checks the color list rather than merely the stamp's presence.
+  //
+  // Checked before the symbol-anchored arms below for the same reason as VIVID: the clause has no {SYM}.
+  if (/\badd one mana of any of the exiled card's colors\b/i.test(oracle)) {
+    return { colors: [], amount: 1, colorsFromImprint: true };
+  }
   // ⭐ VIVID / BOARD-DERIVED BUNDLE (Bloom Tender, Faeburrow Elder) — "For each color among permanents you
   // control, add one mana of THAT color." The same simultaneous one-of-each shape as the karoo family below,
   // except the color set is read off the LIVE board at tap time rather than printed, so it is modeled as
@@ -964,6 +979,17 @@ export function manaSources(state, playerId) {
     // resolves to no colors totals 0 and is dropped by the `amount > 0` filter in planPayment — the
     // produce-nothing case, never a fabricated mana.
     const bundleTotal = fixed ? Object.values(fixed).reduce((a, b) => a + b, 0) : amount;
+    // IMPRINT (CR 207.2c) — Chrome Mox's reachable colors ARE the imprinted card's colors, read live off the
+    // stamp resolveImprintChoice wrote. NO stamp (declined, or never offered) and NO colors (a colorless card
+    // was imprinted) both mean this permanent is not a mana source: `continue` rather than push an
+    // empty-colors source, so it is never offered, never tapped, and never fabricates a color. This is the
+    // gate the whole imprint build order existed to make possible.
+    if (prod.colorsFromImprint) {
+      const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
+      if (!imprintedColors.length) continue;
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
+      continue;
+    }
     sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
   }
   return sources;

@@ -20,6 +20,9 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { classifyCard } from "./coverage.js";
+import { manaSources, planPayment } from "./manaModel.js";
+import { createPermanent } from "./gameState.js";
 import { detectTriggers } from "./triggers.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { enterPermanent } from "./resolvers.js";
@@ -128,5 +131,50 @@ describe("⭐ RUNTIME — the stamp lands on a board", () => {
     const s = resolveOptionalChoice(playMox([]), true);
     expect(s.pendingChoice).toBeFalsy();
     expect(moxPerm(s).imprinted).toBeUndefined();
+  });
+});
+
+/**
+ * PIECE 2 — the first payoff. Chrome Mox's mana needs NO new product shape: it is a CHOICE of one mana
+ * among the imprinted card's colors, which the existing `colors` array already expresses. The entire build
+ * is the GATE.
+ */
+describe("⭐ the payoff — Chrome Mox's mana is GATED on the stamp", () => {
+  const MOX_FULL = {
+    name: "Chrome Mox", type: "Artifact", mana: "{0}",
+    oracle: `${MOX_LINE}\n{T}: Add one mana of any of the exiled card's colors.`,
+  };
+  const boardWith = (imprinted) => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const perm = { ...createPermanent({ id: "mox", card: MOX_FULL, controller: "user" }), ...(imprinted ? { imprinted } : {}) };
+    return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [perm] } } };
+  };
+  const moxSource = (imprinted) => manaSources(boardWith(imprinted), "user")[0] || null;
+
+  it("Chrome Mox classifies native-mana", () => {
+    expect(classifyCard(MOX_FULL)).toBe("native-mana");
+  });
+
+  it("⛔ CREED — an UN-IMPRINTED Mox is NOT a mana source at all", () => {
+    // The cardinal false positive this build order exists to prevent: a bare Mox as a turn-one ritual.
+    expect(moxSource(null)).toBeNull();
+  });
+
+  it("⛔ CREED — an imprinted COLORLESS card yields no source either", () => {
+    // Chrome Mox can legally exile a colorless nonartifact nonland card; it then taps for nothing.
+    expect(moxSource({ name: "Kozilek's Inquisition", colors: [] })).toBeNull();
+  });
+
+  it("⭐ an imprinted card makes exactly ITS colors, one mana", () => {
+    expect(moxSource({ name: "Lightning Bolt", colors: ["R"] })).toMatchObject({ colors: ["R"], amount: 1 });
+    // A gold card offers a CHOICE of one — not one of each (that is the karoo bundle, a different shape).
+    expect(moxSource({ name: "Dovin, Grand Arbiter", colors: ["W", "U"] })).toMatchObject({ colors: ["W", "U"], amount: 1 });
+  });
+
+  it("⭐ CREED — it pays the imprinted color and REFUSES any other", () => {
+    const sources = manaSources(boardWith({ name: "Lightning Bolt", colors: ["R"] }), "user");
+    expect(planPayment({}, sources, { R: 1 })).not.toBeNull();
+    expect(planPayment({}, sources, { G: 1 })).toBeNull();
+    expect(planPayment({}, sources, { R: 2 })).toBeNull(); // one mana, not two
   });
 });
