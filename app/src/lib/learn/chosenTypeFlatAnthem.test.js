@@ -77,9 +77,13 @@ describe("CHOSEN-TYPE FLAT ANTHEM — classification", () => {
     expect(classifyCard(INSTRUMENTS)).toBe("native-static");
   });
 
-  it("CREED — Morophon parks (a WUBRG cost-reduction rider + an 'Other …' anthem the flat branch can't model)", () => {
+  it("Morophon no longer parks — the COLORED-PIP cost reducer owns its flip, not this branch", () => {
+    // Same shape as the Vanquisher's Banner pin below: this FLAT branch still cannot model Morophon (an
+    // "Other …" anthem plus a cost-reduction rider), and that is what it is asked to keep proving. The
+    // card reaches native-static through the pip reducer instead (coloredPipCostReduction.test.js), which
+    // is why the tier moved while this branch's own verdict did not.
     const moro = { name: "Morophon, the Boundless", type: "Legendary Creature — Shapeshifter", oracle: "Changeling (This card is every creature type.)\nAs Morophon enters, choose a creature type.\nSpells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.\nOther creatures you control of the chosen type get +1/+1." };
-    expect(classifyCard(moro)).toBe("body-only");
+    expect(classifyCard(moro)).toBe("native-static");
   });
   it("Vanquisher's Banner no longer parks on the FLAT branch — the CAST-DRAW classifier (BLITZ TC-1) owns it", () => {
     // Still a CREED pin for THIS branch: the flat classifier itself must keep rejecting it (a trigger is

@@ -81,10 +81,14 @@ describe("CHOSEN-TYPE — parser marker", () => {
   it("Herald's Horn → a chosenType/1 reducer ('you cast' present; the upkeep trigger adds no static descriptor)", () => {
     expect(parseStaticAbilities(HERALDS_HORN())).toEqual([{ chosenTypeChooser: true }, { costReduction: { chosenType: true, amount: 1 } }]);
   });
-  it("Morophon ('cost {W}{U}{B}{R}{G} less' — colored) → NO chosen-type reducer (colored reduction is unmodeled — PARKED)", () => {
-    // CREED: a colored-mana reduction is out of scope (we reduce only generic). Morophon's reducer clause
-    // emits no marker, so it stays body-only (its anthem/chooser also don't flip it on their own here).
-    expect(parseStaticAbilities(MOROPHON()).some((d) => d.costReduction)).toBe(false);
+  it("Morophon ('cost {W}{U}{B}{R}{G} less' — colored) → a chosen-type PIP reducer", () => {
+    // GRADUATED CAPABILITY PIN. This asserted NO reducer while colored-mana reduction was out of scope —
+    // a correct pin on an absent capability. The pip channel (coloredPipCostReduction.test.js) added it,
+    // so the pin flips to naming the descriptor: `pips`, never an `amount`. Asserting the exact shape is
+    // what keeps a future regression from routing this back through the generic column, which would shave
+    // the wrong part of the cost.
+    expect(parseStaticAbilities(MOROPHON())).toContainEqual({ costReduction: { chosenType: true, pips: { W: 1, U: 1, B: 1, R: 1, G: 1 } } });
+    expect(parseStaticAbilities(MOROPHON()).some((d) => d.costReduction?.amount != null)).toBe(false);
   });
   it("a CARD-type chooser reducer ('Spells you cast of the chosen type …' — Cloud Key) → NO marker (no 'Creature spells' lead)", () => {
     expect(parseStaticAbilities({ type: "Artifact", oracle: "As this artifact enters, choose artifact, creature, enchantment, instant, or sorcery.\nSpells you cast of the chosen type cost {1} less to cast." }).some((d) => d.costReduction)).toBe(false);
@@ -172,8 +176,8 @@ describe("coverage — PARKED carriers (no flip; the runtime still reduces their
   it("Herald's Horn (upkeep look-trigger) stays non-native", () => {
     expect(classifyCard(HERALDS_HORN())).not.toBe("native-static");
   });
-  it("Morophon (colored reduction PARKED) stays non-native", () => {
-    expect(classifyCard(MOROPHON())).not.toBe("native-static");
+  it("Morophon flips native-static now that the colored reduction is modeled", () => {
+    expect(classifyCard(MOROPHON())).toBe("native-static");
   });
 });
 

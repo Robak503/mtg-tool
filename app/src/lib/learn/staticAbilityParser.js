@@ -1428,6 +1428,45 @@ function parseFlashCastFilter(filter) {
  * TYPE-CHANGE (Arixmethes) knows whether the source is a printed Creature (→ pair the
  * "it's a land" grant with the implied "not a creature" removal).
  */
+// COLORED-PIP COST-REDUCTION (CR 601.2f) — "{W}{B}" → { W: 1, B: 1 }. Repeats accumulate ("{R}{R}" → 2),
+// which no printed card does today but costs nothing to get right.
+function parseColorPips(str) {
+  const out = {};
+  for (const m of String(str || "").matchAll(/\{([wubrg])\}/gi)) { const col = m[1].toUpperCase(); out[col] = (out[col] || 0) + 1; }
+  return out;
+}
+
+/**
+ * The pip-shaped twin of costReductionForSpell. Returns a per-color map of pips to subtract from the
+ * spell's COLORED columns (never from generic — that is the whole distinction, CR 601.2f). `{}` when no
+ * pip reducer matches, so the cast site can skip the work entirely in the common case.
+ *
+ * Filter semantics are IDENTICAL to costReductionForSpell's — the same subtype word-bound type-line test
+ * and the same chosenType pairing — because the two run over the same reducer list and disagreeing about
+ * which spells match would be a drift bug that only shows up on one card.
+ */
+export function coloredPipReductionForSpell(reducers, spellCard) {
+  if (!reducers?.length || !spellCard) return {};
+  const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
+  const spellName = spellCard?.name;
+  const out = {};
+  for (const r of reducers) {
+    if (!r.pips) continue;
+    if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
+    if (r.subtype) {
+      if (!typeLine) continue;
+      const sub = String(r.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!sub || !new RegExp(`\\b${sub}\\b`).test(typeLine)) continue;
+    } else if (r.chosenType) {
+      if (!spellHasChosenType(spellCard, r.sourceChosenType)) continue;
+    } else {
+      continue; // an unfiltered pip reducer is not a shape any printed card has — never apply one blind
+    }
+    for (const [color, n] of Object.entries(r.pips)) out[color] = (out[color] || 0) + n;
+  }
+  return out;
+}
+
 function parseClause(clause, out, selfName, selfType) {
   // Strip flavor ability-word labels (CR 207.2c — they carry no rules meaning).
   // Metalcraft/Threshold/Delirium appear on STATIC clauses; the GY path re-strips
@@ -1590,6 +1629,42 @@ function parseClause(clause, out, selfName, selfType) {
   // "X and Y spells" reducers) stay body-only as a safe false-negative. "you cast" is optional (a rare
   // symmetric reducer under-applies to opponents — still safe). The subject before "spells" is always
   // singular, so normalizeSubtype just canonicalizes case ("dragon" → "Dragon").
+  // ── COLORED-PIP COST-REDUCTION (CR 601.2f) — Edgewalker "{W}{B}", Ragemonger "{B}{R}", Nekrataal Avatar
+  // "{B}", Morophon "{W}{U}{B}{R}{G}" ────────────────────────────────────────────────────────────────────
+  // These reduce COLORED pips, not generic: Edgewalker makes a {1}{W} Cleric cost {1}, NOT {W}. Every
+  // reducer above this point returns a scalar that the cast site subtracts from `generic`, which is why the
+  // whole family was left body-only — routing them through that channel would shave the WRONG part of the
+  // cost and usually make the spell far too cheap (Morophon at 5 generic off a {4}{R}{R} Dragon leaves
+  // {R}{R}; the printed card leaves {4}{R}). So the descriptor carries a per-color `pips` map and the cast
+  // site subtracts it from the coloured columns, flooring each at 0 (CR 601.2f); MV is untouched (CR 202.3).
+  //
+  // The SUBTYPE arm reuses the same word-vetting guard as the generic reducer directly below — an unvetted
+  // word would match no type line, so the card would classify native while never reducing.
+  const pipCrM = c.match(/^([a-z]+) spells (?:you cast )?cost ((?:\{[wubrg]\})+) less to cast$/i);
+  if (pipCrM) {
+    const word = pipCrM[1];
+    if (COST_REDUCTION_CARDTYPE_WORDS.has(word) ||
+        (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word))) {
+      out.push({ costReduction: { subtype: normalizeSubtype(word), pips: parseColorPips(pipCrM[2]) } });
+    }
+    return; // handled (or intentionally dropped to body-only, same terms as the generic arm)
+  }
+  // MOROPHON — "Spells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast." The generic
+  // chosen-type reducer further down requires a "Creature spells" lead so Cloud Key's CARD-type chooser
+  // can't match it; Morophon prints the bare "Spells" lead, and no other corpus card uses this wording
+  // (measured: 1 card here, 0 on the generic "Spells of the chosen type" form).
+  //
+  // ⛔ THE CHOOSER GUARD IS STRUCTURAL, NOT RESTATED HERE — deliberately. parseClause receives the card's
+  // TYPE LINE, not its oracle, so it cannot check for the chooser. It does not need to: the reduction only
+  // ever fires against a SOURCE permanent's stored `chosenType` (CR 614.12 — set by the modelled
+  // "choose a creature type" ETB, resolvers.autoPickCreatureType). A card carrying this reducer WITHOUT a
+  // modelled chooser still has that chooser line as unmatched residue, so it parks there instead — the
+  // classifier never credits it. Pinned in morophonPipCostReduction.test.js rather than argued.
+  const pipChosenM = c.match(/^spells of the chosen type you cast cost ((?:\{[wubrg]\})+) less to cast$/i);
+  if (pipChosenM) {
+    out.push({ costReduction: { chosenType: true, pips: parseColorPips(pipChosenM[1]) } });
+    return;
+  }
   const crM = c.match(/^([a-z]+) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
   if (crM) {
     const word = crM[1];
@@ -3460,6 +3535,21 @@ export function parseStaticAbilities(card) {
     for (const clause of abilityClauses(oracle)) {
       parseClause(clause, out, card?.name, card?.type || card?.type_line); // name → EMINENCE excludeSelf sourceName; type → ARIXMETHES type-change
     }
+    // ⛔ CHOSEN-TYPE WITHOUT A CHOOSER IS A RUNTIME-VACUOUS NATIVE. Every chosenType descriptor resolves
+    // against the SOURCE permanent's stored `chosenType` (CR 614.12), which only exists because the card
+    // carries the modelled "choose a creature type" ETB (resolvers.autoPickCreatureType). Strip the
+    // descriptor when that line is absent: the clause then counts as unmatched residue, so the card PARKS
+    // instead of classifying native while the reduction can never once apply.
+    //
+    // Found by a pin, not by reasoning. The colored-pip slice argued this was structurally impossible —
+    // "a card with the reducer but no chooser still has the chooser line as residue" — which is circular:
+    // a card that never prints the chooser has no such line to park on. A Morophon fixture stripped to its
+    // reduction sentence classified native-static with a reduction that could never fire. **The tier is not
+    // evidence about a board.** The generic chosen-type reducers (Urza's Incubator, Herald's Horn) both
+    // print the chooser, so this closes the same latent hole on that older path at zero cost.
+    if (out.some((d) => d?.costReduction?.chosenType) && !/choose a creature type/i.test(rawOracle)) {
+      out = out.filter((d) => !d?.costReduction?.chosenType);
+    }
   } else if (rawOracle) {
     // LEVEL UP (BLITZ LV-1, CR 711.2a/b): a WHOLLY-MODELED leveler's band symbols ARE static
     // abilities — "as long as this creature has at least N1 (at most N2) level counters on it, it
@@ -3945,9 +4035,26 @@ export function playLandFromGraveyardPermission(state, playerId) {
  * runtime exactly (the same parseClause the layer engine consumes).
  */
 export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
-  if (parseStaticAbilities(card).length === 0) return false; // none, or leveler-gated
+  const descriptors = parseStaticAbilities(card);
+  if (descriptors.length === 0) return false; // none, or leveler-gated
+  // COLORED-PIP QUALIFIER (CR 601.2f) — "This effect reduces only the amount of colored mana you pay." is a
+  // rules CLARIFICATION printed alongside every pip reducer (Morophon, Edgewalker, Ragemonger, Nekrataal
+  // Avatar). It is not an effect, and it states exactly what the `pips` descriptor already encodes, so it
+  // carries no information the model is missing.
+  //
+  // ⛔ SKIPPED ONLY WHEN A PIP REDUCER WAS ACTUALLY RECOGNIZED, and that check has to live HERE rather than
+  // in parseClause: the loop below hands parseClause a FRESH array per clause, so a gate written there
+  // could never see the reducer emitted by the previous sentence — it would be dead code that reads like a
+  // guard. Card-level context is what the decision needs, and this is where it exists.
+  //
+  // The gate is what keeps the two unmodellable members of the family parked: Vorthos, Steward of Myth
+  // ("with the chosen character in its name, flavor text, or art") and Head of the Class (a per-turn
+  // targeting filter) print the SAME qualifier, and swallowing it unconditionally would shed their only
+  // residue and classify them native with the reduction silently absent.
+  const hasPipReducer = descriptors.some((d) => d?.costReduction?.pips);
   const oracle = selfNormalizeOracle(String(card?.oracle || card?.oracle_text || ""), card?.name, card?.type || card?.type_line); // match the runtime's name-normalized parse
   for (const clause of abilityClauses(oracle)) {
+    if (hasPipReducer && /^this effect reduces only the amount of colored mana you pay$/i.test(clause.trim())) continue;
     const produced = [];
     parseClause(clause, produced, card?.name);
     if (produced.length > 0) continue;          // a modeled static clause

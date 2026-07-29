@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
@@ -792,6 +792,25 @@ function computeAltCastSpec(state, playerId, card) {
 // BYPASSES the sorcery-speed timing gate (the cast happens during resolution) + the mana affordability
 // gate (cost is waived), forces an X-spell's X to 0 (CR 601.2b), and stamps `freeCast` on every emitted
 // action (actionDispatcher then skips the mana payment). ADDITIONAL costs still apply (still enumerated
+// COLORED-PIP COST-REDUCTION (CR 601.2f) — Morophon "{W}{U}{B}{R}{G}", Edgewalker "{W}{B}", Ragemonger
+// "{B}{R}", Nekrataal Avatar "{B}". These reduce COLORED pips, never generic: Edgewalker makes a {1}{W}
+// Cleric cost {1}, not {W}. Routing them through the scalar `reduction` channel above would shave the
+// generic column instead and make the spell far cheaper than printed — the reason the whole family sat
+// body-only rather than being approximated.
+//
+// Applied AFTER the generic reduction so the two are independent (a card carrying both kinds — none today —
+// would get each on its own column). Each colour floors at 0; `generic` and the mana value are untouched
+// (CR 202.3). Returns the cost object unchanged when no pip reducer matches, which is every board without
+// one of the five cards, so this is a no-op in the common case.
+function applyColoredPipReduction(cost, costReducers, card) {
+  const pips = coloredPipReductionForSpell(costReducers, card);
+  const colors = Object.keys(pips);
+  if (!colors.length) return cost;
+  const next = { ...cost };
+  for (const color of colors) next[color] = Math.max(0, (next[color] || 0) - pips[color]);
+  return next;
+}
+
 // below). When false (every normal hand/command cast) behavior is byte-identical.
 function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false) {
   const player = state.players[playerId];
@@ -903,6 +922,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (staticTax) cost = { ...cost, generic: (cost.generic || 0) + staticTax };
       const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
       if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
+      cost = applyColoredPipReduction(cost, costReducers, card);
     }
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
@@ -1263,6 +1283,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
         const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
         if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
+        bestowCost = applyColoredPipReduction(bestowCost, costReducers, card);
       }
       const canAffordBestow = freeCast || canAfford(player.manaPool, manaSources(state, playerId), bestowCost);
       // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus

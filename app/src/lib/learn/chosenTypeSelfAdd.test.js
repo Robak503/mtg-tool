@@ -106,8 +106,24 @@ describe("⛔ THE RESIDUE BUG THIS SURFACED — a keyword line could swallow unm
     oracle: "Changeling\nAs Morophon enters, choose a creature type.\nSpells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.\nOther creatures you control of the chosen type get +1/+1.",
   };
 
-  it("⭐ THE LOAD-BEARING ONE — Morophon stays body-only; its cost reduction is NOT modeled", () => {
-    expect(classifyCard(MOROPHON)).toBe("body-only");
+  // ⭐ RE-POINTED, NOT FLIPPED. This assertion guards the RESIDUE-SWALLOW bug (a leading keyword line
+  // absorbing an unmodeled rider), and it used Morophon's colored cost reduction purely as the canary.
+  // That reduction is modeled now (coloredPipCostReduction.test.js), so Morophon can no longer prove
+  // anything here — but the guard still needs an end-to-end assertion, so it moves to a card whose rider
+  // is genuinely still unmodeled. Vorthos, Steward of Myth's "with the chosen character in its name,
+  // flavor text, or art" filter is not modellable and is not going to become so.
+  const KEYWORD_PLUS_UNMODELED_RIDER = {
+    id: "vo", name: "Vorthos, Steward of Myth", type: "Legendary Creature — Human Advisor", mana: "{4}{W}{U}", power: 3, toughness: 5,
+    oracle: "Vigilance\nEach spell you cast with the chosen character in its name, flavor text, or art costs {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.",
+  };
+
+  it("⭐ THE LOAD-BEARING ONE — a keyword lead does NOT swallow an unmodeled rider", () => {
+    expect(classifyCard(KEYWORD_PLUS_UNMODELED_RIDER)).toBe("body-only");
+  });
+
+  it("Morophon itself now flips (its colored reduction is modeled) — the graduation, recorded", () => {
+    // Kept so the change of state is explicit rather than silently absent from this file.
+    expect(classifyCard(MOROPHON)).toBe("native-static");
   });
 
   it("the mechanism: stripping periods makes isKeywordOnly swallow the whole rider", () => {
@@ -118,7 +134,12 @@ describe("⛔ THE RESIDUE BUG THIS SURFACED — a keyword line could swallow unm
     expect(isKeywordOnly(text.replace(/[\s.]+/g, " "), "Morophon, the Boundless")).toBe(true); // stripped — the bug
   });
 
-  it("the cost-reduction line alone is still unmodeled (nothing was quietly credited)", () => {
+  it("⛔ the reduction line WITHOUT the chooser still parks — and this pin is why", () => {
+    // This assertion outlived its original reason and then earned a new one. It was written to prove the
+    // colored reduction wasn't quietly credited; when that reduction was modeled, this failed — and the
+    // failure was correct. A card carrying the reducer but NO "choose a creature type" line has no stored
+    // chosenType to resolve against, so the reduction can never fire: crediting it would be a
+    // runtime-vacuous native. parseStaticAbilities now drops the chooser-less descriptor.
     expect(classifyCard({ ...MOROPHON, oracle: "Spells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay." })).toBe("body-only");
   });
 });
