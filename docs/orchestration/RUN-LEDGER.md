@@ -228,6 +228,36 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — bounce noun vocabulary (`cc31834f`, +2) · **predicted 2, got 2**
+
+Stern Proctor · Quandrix Command. GAINED 2 · LOST 0. Small, and shipped anyway because it is the shape the
+frontier is made of now — and because it is the clean CONTRAST to the tutor detour directly below.
+
+⭐ **THE DIFFERENCE BETWEEN A GAP AND A DECISION COSTS ONE GREP.** Both looked like the same axis. Before
+building this one I grepped the suite for pins on the missing nouns: **none.** The tutor axis, grepped after
+the fact, had **eight files** pinning it in the words "cheat" and "landmine". That grep is now the first step
+of any vocabulary widening — before the parse arm, before the measurement.
+
+Three pieces of evidence, all pre-build: `destroy` already says all three nouns and emits the very targetTypes
+reused here; the graveyard-recursion sibling already says the union; and `return target PERMANENT to its
+owner's hand` is native today and **demonstrably bounces a planeswalker** — so the runtime question was
+already answered and only the sentence was unsayable.
+
+### ⚠️ THE MUTATION CHECK CAUGHT MY REASONING, NOT MY CODE — a use for it I had not had before
+I documented the union-before-prefix regex ordering as **load-bearing**, with a confident mechanism:
+first-match alternation would match bare "artifact" and silently drop the enchantment half. Mutating the order
+to demonstrate it left **all 13 tests green.** The whole-clause `$` anchor forces a backtrack into the longer
+alternative; the ordering is cosmetic. Both comments now say so.
+
+⭐ **A CONFIDENT EXPLANATION IS A CLAIM, AND IT GETS MUTATED LIKE ANY OTHER.** Mutation testing is normally
+aimed at "can this test fail?" — here it answered "is my stated REASON true?", and it wasn't. A wrong
+rationale in a load-bearing comment survives longer than wrong code, because nothing ever runs it.
+
+Also caught, by insisting on a runtime witness rather than a parse-only test: **a planeswalker is identified by
+its loyalty COUNTERS**, not its type line, and `createPermanent` drops `counters` from its opts bag — so the
+board had no planeswalker at all and the assertions would have passed for the wrong reason. Same harness trap
+already recorded in controlAura.test.js; second sighting.
+
 ## ⛔ NOT SHIPPED — the uncapped battlefield tutor · **I was wrong twice in one investigation**
 
 Reverted in full. Suite back to 967 / 12,293. Only the legibility refactor (`bc81416f`, 0/0/0) survives.
