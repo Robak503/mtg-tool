@@ -1276,37 +1276,45 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-### 🔨 STARTING — Esper Sentinel (rank **76**, 2 below-bar decks), scoped cold
+### ✅ SHIPPED — Esper Sentinel (`a117f8a5`, rank **76** · Kellan 71→72% · Cap America 67→68%)
 
-Tree is clean and committed at slice 80, so this is safe to abandon. Two INDEPENDENT blockers, isolated by
-feeding the parser incremental variants (each line here is measured, not guessed):
-```
-baseline "an opponent casts a spell … unless that player pays {1}"   native-trigger  ← Rhystic Study works
-+ noncreature filter                                                 native-trigger  ← already fine
-+ "their FIRST noncreature spell EACH TURN"                          body-only, triggers:[]  ⛔ BLOCKER A
-+ "{X}, where X is this creature's power" on the pay                 body-only, triggers:[cast] ⛔ BLOCKER B
-```
-**BLOCKER A** — the generic cast matcher is `$`-anchored on `… spell`, so "spell each turn" fails to match at
-all. Per CR 603.2 the gate is **PER PLAYER, per turn** (three opponents → up to three fires a turn), not the
-source's once-per-turn. Corpus reach **10 cards**, filters measured: 5 unfiltered · 4 `noncreature` ·
-1 `multicolored`. ⭐ **The unfiltered five are FREE** — `recordSpellCast` increments before the trigger check
-(the storm site relies on this), so "first spell" ⟺ `spellsCastThisTurn === 1`. Only `noncreature` needs a
-new per-player counter, on the established pattern (increment at the cast chokepoint, zero in
-`resetTurnCounters`). `multicolored` → skip, safe FN, 1 card.
+Both halves landed. **A** the "first <kind> spell each turn" FREQUENCY gate (CR 603.2) — **per PLAYER**, not
+the source's once-per-turn, so three opponents means up to three fires a turn. The bare form was already
+handled by `castNth`; only the filtered form was missing, so this adds a noncreature counter beside
+`spellsCastThisTurn`. **B** the LIVE tax amount — `{X}` resolved at resolution through the SAME `selfPower`
+metric slice 78 built, so a grown Sentinel taxes more and the tax can never drift from the mana model.
 
-**BLOCKER B** — `{X}` on an unless-pays amount, where X is a power metric. Reach **2 cards** (Esper Sentinel,
-Mausoleum Wanderer). The metric itself shipped this session as `selfPower` (slice 78) — this is wiring it
-into the tax amount.
+**⚠️ THE FIRST ATTEMPT SHIPPED AN OVER-FIRE THAT LOOKED PERFECTLY HEALTHY.** `firstEachTurn` was not in
+`detectTriggers`' descriptor whitelist, so it was silently dropped — the built descriptor kept only its
+`spellFilter` and fired on **every** opponent noncreature spell. `detectTriggers(card)` showed an event and
+a filter and looked right. **The ledger already records this exact trap from batchCommander** ("new
+descriptor field → the whitelist, or it is silently dropped") and I walked into it anyway. *Read the BUILT
+descriptor, never the arm's return.*
 
-⚠️ **DETECTION IS NOT A FLIP.** Precedent `eb701643` shipped a batched-attack detection half and honestly
-scored **0**. Each of the 10 still needs its own effect modelled, so expect the tier diff to move far fewer
-than 10 — Esper Sentinel is the one being aimed at, and it needs BOTH halves.
+**⭐ A SURVIVED SABOTAGE CHECK THAT WAS A TEST GAP, NOT A REDUNDANT GUARD — the third this run, and the
+first of that kind.** Weakening the runtime gate from `n !== 1` to `n < 1` (fire on EVERY cast) left every
+descriptor and counter assertion green. Those covered the two halves; **nothing covered the join**, which is
+the only place the card's behaviour lives. Six end-to-end assertions now drive `checkCastTriggers` directly.
+*When a check survives, ask which of the three it is: redundant guard, untested guard, or untested SEAM
+between two tested halves. Storm and the pip qualifier were the second kind; this was the third.*
 
-- **Nothing else mid-edit.** Corpus **35.9%** (12,292/34,245). Suite **942 files / 12,017 tests**,
+**Tier diff GAINED 1 / LOST 0** — scored honestly per `eb701643`: the trigger half reaches **9** cards, each
+still needs its own payoff modelled, and only Esper Sentinel had both. Predicted and confirmed, not
+discovered.
+
+Mutation-checked: **M81** drop the whitelist entry → killed by 2 · **M82 SURVIVED** → end-to-end section →
+**M82b** killed · **M83** count creature spells as noncreature → killed by 2 · **M84** ignore the metric →
+killed by 2.
+
+⚠️ **A NOTE ON THE BOOT SWEEP:** my first draft of the new test wrote the literal marker word in a comment,
+which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
+ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
+
+- **Nothing mid-edit.** Corpus **35.9%** (12,293/34,245). Suite **943 files / 12,037 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **73.1%** 🎉 · top-2500 **55.0%** · top-5000 **43.5%** · top-10k **36.1%**.
+  **PLAY-WEIGHTED — the bar:** top-1000 **73.2%** 🎉 · top-2500 **55.0%** · top-5000 **43.5%** · top-10k **36.1%**.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
   **SHELF:** six decks at/above 90% — Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 92 · Mothman 90 ·
