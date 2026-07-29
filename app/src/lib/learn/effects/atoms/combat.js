@@ -130,7 +130,14 @@ export function applyUntapLands(state, atom, ctx) {
   for (const perm of player.battlefield || []) {
     if (ids.length >= cap) break;
     if (!perm.tapped) continue;
-    if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
+    // WHICH permanent type this untap is scoped to. Lands by default (every pre-existing caller);
+    // scope:"creature" is the mass-own-creatures form (Aggravated Assault, Aurelia, Moraug, Great Train
+    // Heist — 43 corpus cards). The LIVE type is re-verified either way (CREED — never untap the wrong
+    // permanent type), and creature-ness is read LAYER-AWARE so an animated land counts exactly as the
+    // board sees it, not as its printed line reads.
+    if (atom?.scope === "creature") {
+      if (!(/\bcreature\b/i.test(typeLineStr(perm.card)) || permanentIsCreature(state, perm.id))) continue;
+    } else if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
     ids.push(perm.id);
   }
   let next = state;
@@ -1079,6 +1086,16 @@ export function combatKeywordClauseParser(clause) {
   // hands this parser "you untap all lands you control". The subject is redundant (the resolver already
   // scopes to the controller — CR 701.20), so both forms route to the identical atom.
   if (/^(?:you )?untap all lands(?: you control)?$/.test(t)) return { op: "untap-lands", all: true, targetType: null };
+  // MASS-OWN-CREATURE UNTAP (CR 701.20) — "untap all/each creature(s) you control" (Aggravated Assault #699,
+  // Aurelia #820, Moraug #995, Great Train Heist #1118, Port Razer, Savage Beating, Anzrag). The SAME
+  // applyUntapLands resolver plays it with scope:"creature": a deterministic greedy untap of the
+  // CONTROLLER'S OWN tapped creatures, no chosen target, no cap. Untapping your own board is never a
+  // downside, so there is no decision to model and no CREED risk — an opponent's permanent is never reached
+  // (the loop only walks the controller's battlefield) and the live type check keeps a non-creature out.
+  //
+  // ⛔ "untap all creatures" WITHOUT "you control" is NOT this atom — that is a symmetric untap that also
+  // untaps opponents' blockers, which is a different effect and a real downside. It falls through to LOW.
+  if (/^(?:you )?untap (?:all|each) creatures? you control$/.test(t)) return { op: "untap-lands", all: true, scope: "creature", targetType: null };
   // CANT-BE-BLOCKED SELF (BLITZ SC-1 — Sword Coast Sailor's granted trigger effect: "this creature can't
   // be blocked this turn"): the SOURCE as the fixed referent (atomTargets target:"self" → ctx.sourceId);
   // the same layer-6 endOfTurn unblockable grant as the targeted form. Whole-clause anchored.

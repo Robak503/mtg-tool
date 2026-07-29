@@ -62,9 +62,16 @@ describe("GRANTED-ACTIVATED (1b) — recognition", () => {
     expect(classifyCard(aura("Grasp", 'Enchant creature\nEnchanted creature has "{T}: This creature deals 1 damage to any target."\n{1}{U}: Return this Aura to its owner\'s hand.'))).toBe("body-only");
   });
   it("an UNMODELED granted effect stays Arbiter (FN-safe boundary)", () => {
-    // ("{5}: Untap this creature." sat here until UT-1 modeled the self-untap — Singing Bell Strike
-    // is pinned native in auraTapLock.test.js; the boundary now uses a still-unmodeled mass form.)
-    expect(N("Untapper", "{5}: Untap all creatures you control.")).toBe("body-only"); // mass untap not a modeled effect
+    // ⭐ A MOVING BOUNDARY MARKER, re-pointed for the SECOND time — this test pins the FN-safe boundary
+    // itself, not any particular effect, so when its example gets modelled the example moves and the
+    // assertion stays. History: "{5}: Untap this creature." sat here until UT-1 modelled the self-untap
+    // (Singing Bell Strike is now pinned native in auraTapLock.test.js); "{5}: Untap all creatures you
+    // control." replaced it and has now been modelled too (massUntapOwnCreatures.test.js).
+    //
+    // The SYMMETRIC mass untap is the right successor because it is unmodelled BY DESIGN rather than by
+    // omission: it untaps opponents' blockers, a real downside the engine deliberately declines to model,
+    // so it will not quietly graduate out from under this test the way the last two did.
+    expect(N("Untapper", "{5}: Untap all creatures.")).toBe("body-only"); // symmetric mass untap — deliberately unmodeled
     expect(N("Variable", "{T}: This creature deals X damage to any target, where X is its power.")).toBe("body-only"); // X-effect
   });
 });
