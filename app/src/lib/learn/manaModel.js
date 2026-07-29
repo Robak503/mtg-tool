@@ -36,6 +36,29 @@ import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSick
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
+import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
+
+// A board with one seat and empty zones — enough for evaluateInterveningIf to ANSWER a condition or admit it
+// cannot. Used only by conditionIsExpressible, never for a real verdict.
+const _PROBE_STATE = { players: { probe: { battlefield: [], graveyard: [], hand: [], library: [], life: 40 } } };
+
+/**
+ * Can `evaluateInterveningIf` actually DECIDE this condition? It returns a boolean when it understands the
+ * phrase and `null` when it cannot confirm.
+ *
+ * ⚠️ THIS GUARD IS WHY THE METRIC STAYS HONEST. Tagging every gate onto the product and letting manaSources
+ * drop anything not `=== true` would be safe at RUNTIME but would credit the card native-mana while its
+ * source could never be offered — a runtime-vacuous native, the same class as the vacuous subtype filter and
+ * the aura grants that never applied. An inexpressible gate must PARK the card instead, which is what
+ * manaProductionImpl does with this answer.
+ */
+function conditionIsExpressible(condition) {
+  try {
+    return typeof evaluateInterveningIf(_PROBE_STATE, condition, "probe", { sourcePermanentId: "probe-src" }) === "boolean";
+  } catch {
+    return false;
+  }
+}
 
 // ─── Card → mana production ────────────────────────────────────────────────────
 
@@ -507,7 +530,12 @@ export function manaProduction(card) {
   if (!card) return null;
   if (typeof card === "object") {
     if (_prodMemo.has(card)) return _prodMemo.get(card);
-    const result = manaProductionImpl(card);
+    let result = manaProductionImpl(card);
+    // CONDITION-GATED source (CR 602.5): carry the gate ON the product so manaSources can evaluate it live
+    // against the board. manaProductionImpl has already refused any gate the evaluator cannot ANSWER, so a
+    // condition surviving to here is one interveningIf really decides — never a tag nothing reads.
+    const gate = result && oracleOf(card).match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
+    if (gate) result = { ...result, activationCondition: gate[1].trim() };
     _prodMemo.set(card, result);
     return result;
   }
@@ -545,7 +573,8 @@ function manaProductionImpl(card) {
   // TIMING rule handled elsewhere and is not swept up here, and neither is any additive rider — an ignored
   // tail that ADDS an effect merely under-delivers (a safe FN), which is why this guard targets conditions
   // rather than every unread word.
-  if (/\bactivate (?:this ability )?only if\b/i.test(oracleOf(card))) return null;
+  const gate = oracleOf(card).match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
+  if (gate && !conditionIsExpressible(gate[1])) return null;
 
   const name = String(card.name || "");
   const baseName = name.replace(/^Snow-Covered\s+/i, "").trim();
@@ -834,6 +863,13 @@ export function manaSources(state, playerId) {
       prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant
     }
     if (!prod) continue;
+    // ⛔ CONDITION-GATED SOURCE (CR 602.5) — "Activate only if you control three or more artifacts" (Mox Opal
+    // #241, Fanatic of Rhonas #418). Evaluated LIVE here, at the ONE chokepoint every consumer of the source
+    // list goes through; gating at each consumer instead would guarantee one of them forgets. `!== true` so a
+    // condition that cannot be confirmed blocks rather than passes — the FN-safe direction, and the same
+    // comparison legalChoices uses for activated abilities.
+    if (prod.activationCondition
+      && evaluateInterveningIf(state, prod.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
     const isCreature = /Creature/.test(typeLineOf(perm.card));
     // GRANTED Haste counts (read through the layer engine), not just printed — a mana dork
     // enchanted/anthemed with Haste can tap the turn it enters. Falls back to the printed
