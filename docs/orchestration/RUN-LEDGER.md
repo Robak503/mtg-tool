@@ -228,6 +228,25 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — the TAPLESS half of tap-OTHER (+5)
+
+Heritage Druid · Birchlore Rangers · Baylen · Supportive Parents · The Massive Zatcatl. GAINED 5 · LOST 0.
+
+⚠️ **A PARTIAL FLIP SENT ME LOOKING — SECOND TIME TODAY, AND IT PAID BOTH TIMES.** The previous slice flipped
+5 of 10; the rest were the tapless form. **Three** bugs were hiding behind that one split:
+1. **greedy regex** — `([a-z]+)s?` ate "elves"/"creatures" whole, so every count>1 card kept its refusal;
+2. **the source excluded itself unconditionally** — but Birchlore Rangers IS an untapped Elf and may pay its
+   own cost; excluding it demanded two OTHER Elves where the card asks for two total;
+3. ⭐ **summoning sickness gated it (CR 302.6)** — `usableWhileSick` was `sacrifices && !requiresTap`, the right
+   rule stated over one example. ANY mana ability without {T} is legal the turn the creature lands. The engine
+   now applies that clause on **both sides** of the cost instead of one.
+
+### ⚠️ AND GENERALISING IT NEARLY SHIPPED A REGRESSION
+`!prod.requiresTap` is TRUE for lands — they carry no such key, and **undefined means "does tap"** — so every
+mass-animated land became usable the turn it was played. **The existing CR 302.6 land test caught it inside
+one run.** The check is `=== false`. ⭐ The generalisation was right and the predicate was wrong; those fail
+identically in a diff and only the older test told them apart.
+
 ## 🔧 SHIPPED — TAP-OTHER mana costs (+5) · Springleaf Drum hits 2 shelf decks
 
 Springleaf Drum · Loam Dryad · Saruli Caretaker · Jaspera Sentinel · Dragonbroods' Relic. GAINED 5 · LOST 0.
