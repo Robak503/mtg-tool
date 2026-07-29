@@ -66,7 +66,29 @@ it does not block the other half later.
 
 ## B — THE ENGINE BACKLOG (each is a real slice; sizes measured, traps named)
 
-### B1. Layer-2 control · 28 cards · **HIGH RISK — do it EARLY or not at all**
+### B1. Layer-2 control · 28 cards · **HIGH RISK — but MATERIALLY DE-RISKED, see the recon below**
+
+> ⭐ **RECON DONE 2026-07-29 — the spec's load-bearing prerequisite is ALREADY SATISFIED, verified by
+> measurement rather than by reading the code.** The entry below says *"Requires a single chokepoint for
+> 'Aura left the battlefield'"*. **That chokepoint exists, is genuinely single, and fires on every route:**
+>
+> `gameState.detachPermanentFromAll` has **exactly one call site** (the battlefield-exit path in
+> `moveCardToZone`). Probed by removing an attached Aura to each zone and reading the host back:
+> ```
+> AURA -> graveyard | host.attachments = []      AURA -> hand    | host.attachments = []
+> AURA -> exile     | host.attachments = []      AURA -> library | host.attachments = []
+> HOST -> graveyard | aura falls off (CR 704.5n) ✓
+> ```
+> **And the exact shape B1 needs already has a working precedent sitting in that function:** the SOULBOND
+> teardown clears a partner's back-reference on exit, for the same reason and at the same point.
+>
+> So B1 is not "build a chokepoint, then 28 cards" — it is **"add a control-revert beside an existing
+> teardown at a proven single point."** Still high risk (628 sites read `.controller`, and the failure mode
+> is silent permanent control theft that a green suite cannot see), but the scary unknown is closed.
+> ⚠️ NOT verified: that the revert itself is correct — that IS the build. And note the routes above all run
+> through `moveCardToZone`; a control change made anywhere that does NOT go through it would bypass this.
+
+### B1. Layer-2 control · 28 cards · original entry:
 "You control enchanted creature" (7 sole + 21 co). Control is represented STRUCTURALLY here: the permanent
 MOVES between battlefield arrays, and 628 sites read `.controller`. So this is a move-and-revert, not a
 layer. **Failure mode: permanent control theft** — if the revert misses any path by which the Aura leaves,
