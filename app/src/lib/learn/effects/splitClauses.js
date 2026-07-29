@@ -287,7 +287,13 @@ export function splitClauses(oracle) {
     // you control other than this creature get +1/+1 and gain flying until end of turn" — Triceraton Commander).
     // The " and gain …" is INTERNAL to the one team-pump instruction (same as the unfiltered form above), NOT a
     // top-level boundary — keep the whole sentence so the clause parse binds the scoped pump + grant together.
-    if (/^(?:other creatures|[a-z]+s) you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⚠️ THE LEADING "other" HAS TO BE NAMED HERE TOO. The alternation used to read
+    // `(?:other creatures|[a-z]+s)`, which admits "other creatures" and "Humans" but NOT the printed
+    // "other Humans you control get … and gain …" (Heron's Grace Champion) — so that sentence was SPLIT at
+    // the " and ", the grant was severed from its pump, and the card parked no matter what the clause parser
+    // could do. The parser arm and this guard must recognize the SAME shapes; teaching only one of them is
+    // how a form ends up parsing perfectly in isolation and failing on the actual card.
+    if (/^(?:other )?[a-z]+s you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TYPE-NEGATED TEAM PUMP + KEYWORD GRANT — the "non-<Subtype> creatures you control get +P/+T and gain KW …"
     // variant (Return of the Wildspeaker's +3/+3 mode has no keyword, so it never reaches this " and " guard;
     // this only protects the keyword-grant sibling form). The " and gain …" is INTERNAL to the one team-pump

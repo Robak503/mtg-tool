@@ -1399,13 +1399,19 @@ export function pumpClauseParser(clause) {
     if (to[3] && !kws) return null;
     return { op: "pump", scope: "youControl", excludeSource: true, ptDelta: { p: parseInt(to[1], 10), t: parseInt(to[2], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
   }
-  let ts = t.match(/^([a-z]+) you control(?: (other than this creature))? get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  // The LEADING "other" is the SAME exclusion this arm already models as the trailing "other than this
+  // creature" — and it is the word order the corpus actually prints (Hamlet Captain, Belle of the Brawl,
+  // Perimeter Sergeant, Heron's Grace Champion all read "other <Subtype>s you control get …"; nothing in the
+  // corpus prints the trailing form with a subtype). Both halves already existed — the generic arm above
+  // takes a leading "other", this arm takes the subtype — and only their COMBINATION was missing, so every
+  // card printing it parked. Either spelling sets the same excludeSource flag; CR 113.7 draws no distinction.
+  let ts = t.match(/^(?:(other) )?([a-z]+) you control(?: (other than this creature))? get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
   if (ts) {
-    const subtype = COUNT_SUBTYPE[ts[1]];
+    const subtype = COUNT_SUBTYPE[ts[2]];
     if (!subtype) return null; // a non-curated word ("creatures" handled above; anything else → low/Arbiter)
-    const kws = ts[5] ? parseGrantedKeywords(ts[5]) : null;
-    if (ts[5] && !kws) return null;
-    return { op: "pump", scope: "youControl", subtypeFilter: subtype, ...(ts[2] ? { excludeSource: true } : {}), ptDelta: { p: parseInt(ts[3], 10), t: parseInt(ts[4], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+    const kws = ts[6] ? parseGrantedKeywords(ts[6]) : null;
+    if (ts[6] && !kws) return null;
+    return { op: "pump", scope: "youControl", subtypeFilter: subtype, ...(ts[1] || ts[3] ? { excludeSource: true } : {}), ptDelta: { p: parseInt(ts[4], 10), t: parseInt(ts[5], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
   }
   // COMBAT-TEAM-PUMP — "attacking|blocking creatures get +N/+N until end of turn" (Trumpet Blast, Hold the
   // Line). scope:attackingCreatures/blockingCreatures → applyPumpEffect over the current combatants (atomTargets);
