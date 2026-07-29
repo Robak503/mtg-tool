@@ -228,6 +228,38 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 📐 MEASURED — **THE SHELF IS PER-CARD FROM HERE. There is no clause family left to lever it.**
+
+Re-measured after B1 (+7) and the answer is strategy-shaping, so it is written down with the numbers.
+
+**1. B1's +7 moved the CORPUS and not one shelf deck.** Every per-deck figure is byte-identical to the
+pre-B1 measurement (aggregate 81% · colton 92% · joe 75% · Dragons 80% · cdh 81% …); corpus went
+12,354 → 12,370. **None of the seven control Auras is in any of the 16 decks.** I had been picking work by
+corpus leverage while the stated target is the shelf — worth naming rather than repeating.
+
+**2. The shelf has 126 cards ONE LINE from native — and ~118 DISTINCT blocking clauses.** Full distribution
+(all 126, not the default 25-row sample):
+```
+4×  "Whenever equipped creature deals combat damage to a player, …"
+3×  "Landfall — Whenever a land you control enters, …"
+2×  "Whenever this creature deals combat damage to …"     2×  "Whenever another nontoken creature you control …"
+1×  …every one of the remaining ~118
+```
+⛔ **And the biggest "cluster" is not one:** those 4 equipped-creature cards share a trigger the engine
+ALREADY models (scope `equippedCreature`) and differ entirely in EFFECT — draw-then-cast (Buster Sword),
+sacrifice-then-draw-N (Foot Chopper), exile-and-search (Sword of Hearth and Home), look-at-N (The Key to the
+Vault). Four separate builds wearing the same first six words.
+
+### ⭐ WHAT THIS MEANS FOR THE REMAINING RUN
+- **Clause-family work is exhausted for the shelf.** The corpus frontier said the same thing from the other
+  side (only 2 families ≥6, both quoted grants, neither one slice).
+- **Per-card grinding still works** — each of the 126 is a genuine small slice — **but it is unleveraged**:
+  roughly one card per slice, and the sub-90 decks need 10–38 slots each.
+- So the honest ordering for shelf movement is **by DECK COUNT, not corpus rank**: regenerate the leverage
+  head (`deck-gap.mjs` piped through a name-frequency count) and take the ×3s and ×2s first.
+- ⚠️ **The ≥90%-per-deck bar is a per-card project of that size**, not a few more mechanisms. That is a real
+  input to Colton's 1.0 call and it agrees with the cdh cap Omnath derived independently.
+
 ## 🔎 SHIPPED — the CONTROLLER INVARIANT check, and **the exposure rule it forced** (`8b594558`)
 
 Follow-through on the half-blind-test finding. Controller is stored TWICE — the battlefield ARRAY that holds
