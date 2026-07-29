@@ -259,9 +259,18 @@ verifying the card's OTHER half (infect) is genuinely granted and enforced**, so
 on both lines. Its principle is re-pointed onto a still-unmodeled rider: control + toxic **still parks**.
 Modelling control is not a licence to credit whatever else the card prints.
 
-⚠️ **Debt taken knowingly:** the control MOVE now exists twice (`controlAura.js` and `applyGainControl`).
-Deliberate — not destabilising a proven atom mid-build — but two copies of a mechanism drift. Unify next,
-with both test files as the net.
+✅ **Debt CLOSED** — one `controlMove.js` leaf now serves both callers. And the unification's witness found
+something bigger than the duplication:
+
+### ⚠️⚠️ `findPermanent().controller` IS THE ARRAY. `.permanent.controller` IS THE FIELD. ~628 SITES READ THE FIELD.
+Breaking the shared mover so it stopped assigning `controller` left **the entire 12,276-test suite green** —
+because `findPermanent` reports which battlefield ARRAY a permanent sits in, and every control test on BOTH
+sides was asserting only that. **My own control-Aura tests, written specifically to prove control moves, had
+the identical hole.** The two facts can silently disagree, which is exactly the legal-looking-board failure
+this slice exists to prevent. Both files now assert the field; the re-run witness fails on both sides.
+
+⭐ **The general lesson: when a fact is stored in two places, a test that reads one of them is half a test.**
+A green suite under a deliberate break is the only thing that would ever have shown it.
 
 Sweep after: 120/120, max 57 decisions in a single turn.
 
