@@ -38,6 +38,36 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — STORM on a PERMANENT spell (`9a177075`, +2 · **Dragons 77 → 78%**)
+
+Every storm card the engine handled was an instant or a sorcery. A storm **CREATURE** resolves through
+`PERMANENT_ETB` (`params.card`), not an EFFECT_PROGRAM body, so `applyCopySpell`'s program-clone path
+produced nothing usable: N copies **all sharing the original card's id**, none flagged `token`, each headed
+for a graveyard as a real card. The classifier parked them at body-only, so **the hole never surfaced as an
+FP — the path was simply never built.** CR **707.10f** is the rule; the per-copy snapshot is the one
+`applyCopyCreatureSpell` (Double Major) already used.
+
+**⛔ THE BARE-KEYWORD-LINE ANCHOR EARNED ITS KEEP IMMEDIATELY.** Five corpus cards **GRANT** storm rather
+than having it — Prismari, the Inspiration · the Ral, Crackling Wit emblem · Storm, Force of Nature ·
+Crackling Spellslinger. Matching the reminder sentence would strip the granting ability off all five and
+credit them native with the card's whole point gone — *the nine-card cascade mistake, waiting to be
+repeated one line below where it is written down.* **Read the note next to the code you are copying.**
+
+**⛔ The three storm AURAS are NOT credited** — their tier path reads oracle separately from the shared
+strip, and an Aura copy needs an attach target this arm does not model. Safe FN, left deliberately.
+
+**⭐ A SURVIVED MUTANT MADE A GUARD REAL INSTEAD OF DELETED.** Removing `!params.program` left all 33 tests
+green — no payload the dispatcher builds carries BOTH `card` and `program` (EFFECT_PROGRAM carries `cardId`;
+`card` only ever appears nested under `spellToGraveyard`/`adventureExile`). The M65 precedent says drop a
+redundant guard, but this one is real protection that merely had nothing exercising it. So the new test
+**drives `applyCopySpell` directly with the ambiguous payload the guard exists for** — re-mutated after, and
+killed. *A guard nothing can kill is not proven redundant; it is proven untested. Those are different, and
+the fix is usually a test, not a deletion.*
+
+Mutation-checked: **M74** no fresh per-copy id → killed · **M75** drop `token:true` → killed by 2 ·
+**M76 SURVIVED** → pin added → **M76b** killed · **M77** reminder-wide anchor → killed by the granting pin.
+**Reverts confirmed by `git diff`, not by the marker sweep.**
+
 ## 🔧 SHIPPED — the selfPower mana metric (`25f90a28`, +9 incl. **Marwyn, the Nurturer**)
 
 Nine mana dorks whose whole plan is *grow, then tap* produced **ZERO** mana at runtime: `parseManaMetric`
@@ -1207,7 +1237,7 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,287/34,245). Suite **941 files / 11,996 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,289/34,245). Suite **941 files / 12,002 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
@@ -1215,7 +1245,20 @@ That is the whole reason this target beats corpus %.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
   **SHELF:** six decks at/above 90% — Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 92 · Mothman 90 ·
-  Earth Bent 90. Next real target **Did you say Dragons? 77%**. cdh 81% (capped ~82 — do not start).
+  Earth Bent 90. Next real target **Did you say Dragons? 78%**. cdh 81% (capped ~82 — do not start).
+
+  **⚠️ THE SHELF IS NOW WAVE-SHAPED, NOT SLICE-SHAPED — read this before hunting for another quick win.**
+  Every deck below the bar needs 13+ cards across DISTINCT mechanics; the one-line-away list's repeated
+  shapes are worked out (equipment-combat-damage: non-lever · power-scaled mana: shipped). Dragons needs 12
+  and has 12 one-line-away rows, each its own build. Sized cold, so the next session does not re-derive it:
+  ```
+  Hellkite Courser   NO COMMAND ZONE in gameState — a whole zone, not a slice
+  Ancient Brass Dragon  d20 roll
+  Klauth             TRIGGERED mana + spend-restricted — the over-claim class, likely a refusal
+  Terror of the Peaks   a LIFE-cost tax on opponents' spells — Hexing Squelcher's class
+  Morophon           chosen-type cost reduction; chosenType + layer pairing already exist ← best next
+  Tiamat · Sarkhan Soul Aflame · Betor · Call the Spirit Dragons · Scion of the Ur-Dragon · Lorehold  multi-piece
+  ```
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
 
