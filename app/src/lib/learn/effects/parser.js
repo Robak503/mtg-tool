@@ -916,7 +916,24 @@ function parseEffectProgramInner(card) {
   // faithfully DECLINED, CR 702.88e). No rebound printing carries a self-shuffle sentence, so the two strips
   // never overlap (rebound is peeled AFTER shuffle so a hypothetical both-lines card keeps working). A card
   // without the line yields `oracle === shuffleBody` and `rebound === false` — byte-identical to prior behavior.
-  const { body: oracle, rebound } = stripReboundLine(shuffleBody);
+  const { body: reboundBody, rebound } = stripReboundLine(shuffleBody);
+  // ===== ESCALATE (CR 702.121a) =====================================================================
+  // "Escalate [cost]" means "For each mode you choose beyond the first, you must pay [cost] as an
+  // additional cost to cast this spell." Peel the keyword line so the modal body parses, and record it.
+  //
+  // ⛔ THIS IS NOT A FREE STRIP, AND THE MEASUREMENT SAID SO. "Choose one or both —" parses to
+  // chooseCount 2 / upTo true, so the cast path CAN pick both modes — and picking both without paying
+  // escalate casts the spell for less than its cost, a false positive. Escalate is therefore admitted only
+  // with the multi-mode option WITHHELD: the modal is clamped to a single mode below, which is a real,
+  // complete, legal cast at the printed price with no escalate cost ever due.
+  //
+  // ⭐ That is the AFTERMATH bargain, verbatim — unpark the card only once the lane withholds the option it
+  // cannot pay for — and the same one fuse / delve / myriad / replicate / squad are credited under.
+  const escalateLine = /^escalate\s*(?:\{[^}]+\})+\s*(?:\([^)]*\))?\s*$/i;   // the printed reminder paren is still attached here (stripReminder runs later)
+  const escalate = reboundBody.split("\n").some((ln) => escalateLine.test(ln.trim()));
+  const oracle = escalate
+    ? reboundBody.split("\n").filter((ln) => !escalateLine.test(ln.trim())).join("\n").trim()
+    : reboundBody;
   // Stamp `selfShuffle` / `selfExile` on the produced program WITHOUT reconstructing it (preserve every field —
   // additionalCosts / altCost / xSpell / modal — that later lines may have attached). Only a HIGH program is
   // flagged: a LOW body (unmodeled family member) routes to the Arbiter, which disposes the spell itself, so
@@ -925,6 +942,14 @@ function parseEffectProgramInner(card) {
   const stamp = (p) => {
     if (selfShuffle && p && programConfidence(p) === "high") p.selfShuffle = true;
     if (rebound && p && programConfidence(p) === "high") p.selfExile = true;
+    // ESCALATE CLAMP — withhold the multi-mode line the engine cannot price. One mode, no upTo, so
+    // expandCastChoices offers exactly the single-mode casts and the escalate cost never comes due.
+    // `escalateSingleMode` records WHY the modal is narrower than the printed card, so the next reader sees a
+    // deliberate under-offer rather than a parse bug.
+    if (escalate && p && programConfidence(p) === "high" && p.modal) {
+      p.modal = { ...p.modal, chooseCount: 1, upTo: false, atLeastOne: false };
+      p.escalateSingleMode = true;
+    }
     return p;
   };
   // KICKED-SPELL-EFFECT (CR 702.33e) — "<base>. If this spell was kicked, <extra>." The kicked atom(s) are
