@@ -38,6 +38,55 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🧭 LEAD SWEEP — EIGHT SIZED, EIGHT CLOSED. The cheap work is out in the TOP-1000 too, not just the shelf.
+
+This stretch shipped no slice, on purpose: I sized eight candidate levers and **none is slice-sized**. That
+is the finding. Recorded here so the next session does not re-derive any of them.
+
+| lead | reach | verdict |
+|---|---|---|
+| **reconfigure** (CR 702.151) | 20 corpus, ALL non-native | **SOLE blocker on 2**, neither on the shelf. The other 18 each carry their own equipment-grant blocker. Not a lever. |
+| the **33 remaining "if you cast it"** cards | 33 | Each is its own distinct effect (protection-from-everything, mass sac+reanimate, Aura tutor…). **No repeated second blocker.** The rider vein is worked out. |
+| **temporary clone** ("becomes a copy … until end of turn") | 34 corpus, **SOLE on 9** | ⭐ **THE BEST ONE — and it is a WAVE.** See the scoping below. |
+| **d20 roll** | 54 corpus | Randomness in a deterministic engine + a per-card outcome table each. Wave, and a design call. |
+| **ascend** (CR 702.131) | 32 corpus, 29 non-native | **SOLE on 1** (Radiant Destiny). A co-blocker, not a lever. |
+| **spree** | 21 corpus, all non-native | **SOLE on 0.** Pure co-blocker. |
+| total-toughness threshold | 2 | Betor (Dragons) + one. Nested triple-conditional; not worth its own machinery yet. |
+| miracle-grant-to-hand · life-cost spell tax | 2 · 1 | Lorehold; Terror of the Peaks (rank **517**, shelf) needs TWO new concepts — a life-denominated cost channel AND a target-dependent tax — for one card. |
+
+⚠️ **THE PROBE LESSON, CONFIRMED AGAIN.** `probe-top2500-blockers --maxRank=1000` ranked Spree 8× and Class
+levels 7× at the top. Both are **co-blocking lines counted once per card**, so the ranking overstates them —
+exactly what the ledger already records about sentence-spread probes. **The sole-blocker test is the only one
+that sizes a lever.** Run it before believing any spread ranking.
+
+## 🌊 SCOPED WAVE (start here cold) — LAYER-1 COPY, CR 707.9 temporary copies
+
+**Worth 9 cards where it is the SOLE blocker, and two of them are DRAGONS shelf cards** — Sarkhan, Soul
+Aflame (2053) and Scion of the Ur-Dragon (5861), so this alone is **Dragons 80% → 82%**. 32 non-native
+corpus cards carry the shape, so more follow as their other blockers clear.
+
+**MOST OF THE INFRASTRUCTURE ALREADY EXISTS — this is smaller than "a new layer" sounds:**
+```
+addContinuousEffect(state, descriptor)   layers.js ~1807 — mints ceff-<idSeq>, stamps CR 613.7b timestamp
+duration: { kind: ... }                  already on every effect record; cleanup drops expired (CR 514.2/500.4, ~1841)
+copiableValues: null                     layers.js 1112/1264/1285 — the field is ALREADY RESERVED "for CR 707"
+```
+**The actual gap is one thing: the derive pipeline never APPLIES a copy.** A layer-1 effect must replace the
+permanent's base characteristics with the copied card's copiable values BEFORE layers 2–7 run, so counters and
+anthems then apply on top of the new base (CR 613.1a).
+
+**Increment plan — each independently shippable:**
+1. `{ layer: 1, kind: "copy", targetId, copiableCard, duration }` + apply it first in the derive, filling
+   `copiableValues`. Verify with a board assertion, not the tier diff (the Aqueous Form law).
+2. Parse `"becomes a copy of <X> until end of turn"` → the atom. `snapshotCopiedCard` (cloneCopy.js) already
+   produces the copiable card — **reuse it, do not write a second snapshotter**, or the two drift.
+3. The two Dragons cards' own riders (Sarkhan: "except its name is Sarkhan… and it's still a Planeswalker";
+   Scion: tutor-to-graveyard then copy that card).
+
+⛔ **DO NOT tier-credit any of the 9 until the runtime assertion passes.** A copy effect that classifies
+native while the permanent's characteristics never change is precisely the ATTACHED-UNBLOCKABLE revert
+recorded in the BLOCKED list — GAINED 4 · LOST 0 and still wrong. **Ask the board, not the diff.**
+
 ## 🔧 SHIPPED — the "if you cast it" ETB rider (`6b92fe37`, +5 · **Dragons 79 → 80%**)
 
 **38 corpus cards** print `When ~ enters, IF YOU CAST IT, <effect>` and none could be modelled — yet
