@@ -295,6 +295,36 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
+### 🎯 THE SHELF IS THE TARGET — and Colton's side is effectively DONE
+
+```
+colton  92%  (457/499, 5 decks)   below the bar: cdh 79% ONLY — and cdh is arithmetically capped (~82%)
+joe     73%  (797/1098, 11 decks) below the bar: TEN decks. Halfshell heroes 57% is the worst on the shelf.
+```
+**So every remaining point of shelf work is JOE'S**, which matches the standing note that 1–2 Joe cards per
+subsystem is a big win. `node app/scripts/measure-coverage.mjs <deckname>` filters to one deck and prints its
+gap by mechanism — that is the fastest way in.
+
+### ✅ COMMAND-ZONE PAIRING KEYWORDS (`62c473c9`, +7) — found by walking the SHELF, not the corpus
+
+Halfshell heroes has **three of the four turtles** blocked on `Partner—Character select`. Bare `Partner` was
+already credited as inert; its siblings were not, on a comment claiming they *"carry extra unmodeled text"*.
+**Read against the corpus rather than recalled, that was wrong** — all 47 pairing lines carry ONLY a reminder,
+and the engine never reads them to seat anyone (`commanderCards` comes from the DECK DEFINITION).
+```
+Partner—Friends forever / Character select / Survivors / Father & son   ×18
+Choose a Background  ×31        Doctor's companion  ×27
+```
+**⛔ `Partner with <name>` STAYS REFUSED** — its reminder is a REAL linked ETB tutor (CR 702.124f). The
+em-dash in the label alternation is what keeps it out; M26 loosens it to `.` and three pins fail.
+
+**⚠️ The alternation is corpus-derived — I enumerated every distinct pairing line before writing it.
+`Partner—Father & son` is why the class is `[a-z'& ]`; omitting the ampersand silently dropped two cards.**
+
+**The turtles still park** (Donatello's token replacement, Raphael's damage doubler, Leonardo's token trigger,
+Michelangelo's Raid) — this removed one shared blocker, not all of them. **Those four effects are the next
+shelf target, and they are one deck's commanders.**
+
 ### ⭐⭐ THE RULE THAT MAKES THIS WHOLE SEAM TRACTABLE — DIRECTION, NOT PRESENCE
 
 Auditing the tail-injection probe's top five clusters (~110 of its 165 cards) found **exactly one** defect.
