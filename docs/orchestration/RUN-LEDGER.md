@@ -246,6 +246,30 @@ anchor silently failed to apply, and using `git checkout` to "restore" **discard
 The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
 mutation round is the standing check — the marker sweep cannot see this class either.
 
+### ⛔⛔ A PIN THAT PASSES IS NOT EVIDENCE IT TESTS WHAT IT SAYS (`bd4973cd`) — the run's sharpest lesson
+
+Crediting the ETB chosen-type chooser (a real setup replacement the engine implements) turned **five green
+tests red**. Every one was already broken; the chooser line was an unaccounted line propping them up.
+
+**The live FP it uncovered — the group-anthem parser had an all-or-nothing guard for a `have <tail>` and NONE
+for any other tail:**
+```
+"Creatures you control get +1/+1 and can't be blocked."   →  native-static, PUMP ONLY
+"Creatures you control get +1/+1 and glorbulate."         →  native-static, PUMP ONLY
+```
+**Half the printed effect, credited.** Two CREED pins claimed to cover exactly this and passed for the wrong
+reason. Fixed: any trailing text that is not a `parseAnthemHaveTail`-validated grant now drops the WHOLE
+clause. **Tier diff LOST 0** — no real card was leaning on it, so this was a loaded gun, not a wall.
+
+**⭐ AND FOUR STALE FIXTURES, each VERIFIED rather than re-baselined.** Two named a clause "unmodeled" that
+has since been BUILT — *"exile target nonland permanent an opponent controls"* classifies `native-trigger`
+standing alone, and *"draw a card. Then discard a card"* is captured WHOLE (nothing was being shed). Both
+now use clauses that **cannot be built later**, so the pins cannot go stale again. **When a CREED pin goes
+red, first ask whether its "unmodeled" fixture got modeled — do not flip the expectation.**
+
+**Realmwalker #607 (top-1000) also landed**: chosen-type cast-from-top, a DYNAMIC filter resolved in
+`playFromTopPermission` against the granter's stored `chosenType`. **Unchosen grants NOTHING, not everything.**
+
 ### ✅ CHOSEN-TYPE ON CREATURES — BUILT (`665e45fa`, +1) and the scoping below held up exactly
 
 Built in the order the scoping demanded: **selector layer-awareness FIRST**, then the self-type-add, then the
