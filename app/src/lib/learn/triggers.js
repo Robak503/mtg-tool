@@ -1059,9 +1059,18 @@ function classifyCondition(condRaw, cardName, cardType) {
     // scopeMatches), which is ALSO the load-bearing non-recurse guard for Miirym's token-copy (its own minted
     // token copy is token:true → the gate skips it → no infinite loop).
     const etbSubj = subjectBefore(c, "enters");
-    const anotherSubM = etbSubj.match(/^another (nontoken )?([a-z]+)(?: you control)?$/);
-    if (anotherSubM && !NON_SUBTYPE_ETB_WORDS.has(anotherSubM[2])) {
-      const sub = anotherSubM[2].charAt(0).toUpperCase() + anotherSubM[2].slice(1);
+    // The UNION list rides the "another" determiner too — "Whenever ANOTHER Frog, Rabbit, Raccoon, or Squirrel
+    // you control enters" (Valley Mightcaller). Same `parseSubtypeList` gate as the bare-subject arm below and
+    // the dies arm; a card-TYPE word anywhere in the list returns null → undetected → Arbiter.
+    // ⚠️ NON_SUBTYPE_ETB_WORDS is still checked on the SINGLE-word path: it is a DIFFERENT, ETB-specific
+    // denylist from the one parseSubtypeList consults, so dropping it here would widen the single form as a
+    // side effect of widening the list form. Both gates run.
+    const anotherSubM = etbSubj.match(/^another (nontoken )?([a-z]+(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?)(?: you control)?$/);
+    if (anotherSubM && (/(?:or|and)\s/.test(anotherSubM[2]) || !NON_SUBTYPE_ETB_WORDS.has(anotherSubM[2]))) {
+      const sub = /(?:or|and)\s/.test(anotherSubM[2])
+        ? parseSubtypeList(anotherSubM[2])
+        : anotherSubM[2].charAt(0).toUpperCase() + anotherSubM[2].slice(1);
+      if (!sub) return null;   // a list containing a card-TYPE word → never a fabricated grant
       const youControl = /you control$/.test(etbSubj.trim());
       const desc = { event: "etb", scope: youControl ? "otherSubtypeYouControl" : "otherSubtypeAnywhere", whose: "any", subtypeFilter: sub };
       if (anotherSubM[1]) desc.nontokenFilter = true; // "another nontoken <Subtype>" (Miirym)
@@ -1085,9 +1094,24 @@ function classifyCondition(condRaw, cardName, cardType) {
     // second commander gate. A PLANESWALKER commander entering does not fire it (scopeMatches requires a
     // creature permanent) — an accepted FN, not an over-fire.
     if (etbSubj === "a commander you control") return { event: "etb", scope: "commanderYouControl", whose: "any" };
-    const etbSubM = etbSubj.match(/^an? ([a-z]{3,}) you control$/);
-    if (etbSubM && !NON_SUBTYPE_FILTER_WORDS.has(etbSubM[1])) {
-      return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: etbSubM[1].charAt(0).toUpperCase() + etbSubM[1].slice(1) };
+    // UNION list — "a Mutant, Ninja, or Turtle you control enters" (April O'Neil, Live on the Scene, SHELF;
+    // Valley Mightcaller; Moria Marauder).
+    //
+    // ⭐ THE LIST WAS ALREADY SAYABLE ON THE **dies** SIBLING TWENTY LINES BELOW, through this same
+    // `parseSubtypeList` helper and into this same `subtypeFilter` descriptor field — `subtypeFilterMatches`
+    // has always accepted a string OR an array and matched ANY member. Only the ETB arm still read a single
+    // `[a-z]{3,}`, so the identical sentence fired on death and was invisible on entry. The regex below is the
+    // dies arm's, verbatim except for the trailing verb.
+    //
+    // ⛔ parseSubtypeList IS THE GATE, not a convenience: it returns null if ANY element is a card-TYPE word
+    // (creature/permanent/token/…), which would mint a filter matching every permanent — an over-fire — and
+    // null if any element fails the shape check. Null → undetected → Arbiter, a safe FN. That is also why the
+    // whole list must parse or none of it does: a partially-honored list would fire on some members and
+    // silently miss the rest while the card still read native.
+    const etbSubM = etbSubj.match(/^an? ([a-z]{3,}(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?) you control$/);
+    if (etbSubM) {
+      const filter = parseSubtypeList(etbSubM[1]);
+      if (filter) return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: filter };
     }
     const scope = creatureSubjectScope(subjectBefore(c, "enters"));
     if (scope) return { event: "etb", scope, whose: "any" };
