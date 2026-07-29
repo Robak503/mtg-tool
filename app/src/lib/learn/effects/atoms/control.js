@@ -35,6 +35,7 @@
 import { findPermanent, logEvent, updatePermanentSafe } from "../../gameState.js";
 import { atomTargets } from "./shared.js";
 import { TARGET_SUBTYPES } from "../parseHelpers.js"; // curated creature-subtype allowlist (leaf, cycle-free)
+import { moveControl } from "../../controlMove.js"; // the ONE control move, shared with controlAura.js (a zero-import leaf — no cycle)
 
 /**
  * ===== GAIN-CONTROL clause parser ===== "Gain control of target <Subtype>." / "Gain control of target
@@ -87,21 +88,16 @@ export function applyGainControl(state, atom, ctx) {
     const fromPlayer = next.players[from];
     const toPlayer = next.players[controller];
     if (!fromPlayer || !toPlayer) continue;    // a seat left the game → skip (CR 800.4a)
-    const idx = fromPlayer.battlefield.findIndex((p) => p.id === t.id);
-    if (idx === -1) continue;                  // defensive: findPermanent said `from`, so this is always found
-    const perm = fromPlayer.battlefield[idx];
-    // The permanent keeps its identity + every piece of state (tapped, counters, damageMarked, attachments,
-    // attachedTo) — only its controller flips, and it becomes summoning-sick under the new controller (CR
-    // 702.10c). Move it out of the old controller's battlefield and append to the new controller's.
-    const moved = { ...perm, controller, summoningSick: true };
-    next = {
-      ...next,
-      players: {
-        ...next.players,
-        [from]: { ...fromPlayer, battlefield: fromPlayer.battlefield.filter((p) => p.id !== t.id) },
-        [controller]: { ...toPlayer, battlefield: [...toPlayer.battlefield, moved] },
-      },
-    };
+    const perm = fromPlayer.battlefield.find((p) => p.id === t.id);
+    if (!perm) continue;                       // defensive: findPermanent said `from`, so this is always found
+    // ⭐ THE MOVE IS SHARED (controlMove.moveControl) with the while-attached control Auras. It used to be
+    // written out here and again in controlAura.js — a deliberate duplication taken to avoid destabilising
+    // this atom mid-build, and closed here. Semantics unchanged: an array splice rather than moveCardToZone,
+    // so the creature never LEAVES the battlefield (no dies/LTB, identity and attachedTo back-references
+    // survive), keeping tapped state / counters / damage / attachments, summoning-sick under its new
+    // controller (CR 702.10c). What stays LOCAL is what belongs to this atom: the event log and the soulbond
+    // teardown below.
+    next = moveControl(next, t.id, controller);
     next = logEvent(next, { kind: "spell-effect", effect: "gain-control", controller, from, permanentId: t.id, name: perm.card?.name || null });
     // SOULBOND teardown (BLITZ SL-1, CR 702.95e) — another player gaining control of a paired creature unpairs
     // it. Clear the moved creature's back-reference AND its (still-under-the-old-controller) partner's, so

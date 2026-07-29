@@ -103,6 +103,12 @@ describe("Sliver Overlord — gain-control runtime", () => {
     const next = resolveAtom(s, atom, { controller: "user", targets: [{ type: "creature", id: "aiSliver" }] });
     const lk = findPermanent(next, "aiSliver");
     expect(lk.controller).toBe("user");
+    // ⚠️ AND THE PERMANENT'S OWN FIELD, which is a DIFFERENT fact. findPermanent reports which battlefield
+    // ARRAY the permanent sits in; `.controller` is a field on the permanent, and ~628 sites in this engine
+    // read the field. They can silently disagree: breaking the shared mover so the field never flipped left
+    // the entire 12,276-test suite green, because nothing anywhere asserted it. Added when that witness
+    // exposed the gap (the control-Aura path had the identical hole).
+    expect(lk.permanent.controller).toBe("user");
     expect(next.players.user.battlefield.map((p) => p.id).sort()).toEqual(["aiSliver", "overlord"]);
     expect(next.players.ai.battlefield.map((p) => p.id)).toEqual([]);
   });

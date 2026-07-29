@@ -31,6 +31,8 @@
  * rather than to the other Aura's controller. Rare enough to defer, wrong enough to write down.
  */
 
+import { moveControl, controllerOfPermanent } from "./controlMove.js"; // the ONE control move, shared with the gain-control atom (controlMove.js imports nothing, so gameState -> controlAura -> controlMove stays acyclic)
+
 const CONTROL_LINE = /^you control enchanted creature\.$/im;
 
 /** Does this card grant control of its host while attached? Exact printed line only (CREED — a rider or a
@@ -41,30 +43,6 @@ export function isControlAura(card) {
   return CONTROL_LINE.test(String(card?.oracle || card?.oracle_text || ""));
 }
 
-/** Move `permId` to `toController`'s battlefield, preserving everything but the controller. Pure. */
-function movePermanent(state, permId, toController, extra = {}) {
-  const players = state?.players || {};
-  let from = null;
-  for (const pid of Object.keys(players)) {
-    if ((players[pid]?.battlefield || []).some((p) => p.id === permId)) { from = pid; break; }
-  }
-  if (from == null || from === toController) return state;
-  const fromPlayer = players[from];
-  const toPlayer = players[toController];
-  if (!fromPlayer || !toPlayer) return state;              // a seat left the game (CR 800.4a) — clean no-op
-  const perm = fromPlayer.battlefield.find((p) => p.id === permId);
-  if (!perm) return state;
-  const moved = { ...perm, controller: toController, summoningSick: true, ...extra };
-  return {
-    ...state,
-    players: {
-      ...players,
-      [from]: { ...fromPlayer, battlefield: fromPlayer.battlefield.filter((p) => p.id !== permId) },
-      [toController]: { ...toPlayer, battlefield: [...toPlayer.battlefield, moved] },
-    },
-  };
-}
-
 /**
  * ATTACH side — called after the link is formed. Moves the host under the Aura's controller and stamps the
  * two fields the revert needs. No-op unless `auraPerm` really is a control Aura and the host is elsewhere.
@@ -73,16 +51,14 @@ export function applyControlAuraAttach(state, auraPerm, hostId) {
   if (!auraPerm || !hostId || !isControlAura(auraPerm.card)) return state;
   const to = auraPerm.controller;
   if (!to) return state;
-  let host = null;
-  for (const pid of Object.keys(state?.players || {})) {
-    const f = (state.players[pid]?.battlefield || []).find((p) => p.id === hostId);
-    if (f) { host = { perm: f, controller: pid }; break; }
-  }
-  if (!host || host.controller === to) return state;
+  const hostController = controllerOfPermanent(state, hostId);
+  if (hostController == null || hostController === to) return state;
+  const hostPerm = state.players[hostController].battlefield.find((p) => p.id === hostId);
+  if (!hostPerm) return state;
   // Remember the ORIGINAL controller, not the current one: if a second control Aura ever attaches, home is
   // still home. Only stamp it once — see the known-simplification note in the header.
-  const original = host.perm.controlOriginal ?? host.controller;
-  return movePermanent(state, hostId, to, { controlOriginal: original, controlStolenBy: auraPerm.id });
+  const original = hostPerm.controlOriginal ?? hostController;
+  return moveControl(state, hostId, to, { controlOriginal: original, controlStolenBy: auraPerm.id });
 }
 
 /**
@@ -94,17 +70,14 @@ export function revertControlAura(state, auraPerm) {
   if (!auraPerm || !isControlAura(auraPerm.card)) return state;
   const hostId = auraPerm.attachedTo;
   if (!hostId) return state;
-  let host = null;
-  for (const pid of Object.keys(state?.players || {})) {
-    const f = (state.players[pid]?.battlefield || []).find((p) => p.id === hostId);
-    if (f) { host = f; break; }
-  }
+  const hostAt = controllerOfPermanent(state, hostId);
+  const host = hostAt == null ? null : state.players[hostAt].battlefield.find((p) => p.id === hostId);
   // ⛔ Only revert what THIS Aura took. Without the stolenBy check, an unrelated control Aura leaving would
   // send home a creature it never took — theft in the other direction.
   if (!host || host.controlStolenBy !== auraPerm.id || host.controlOriginal == null) return state;
   const home = host.controlOriginal;
   if (!state.players?.[home]) return state;                 // original controller left the game (CR 800.4a)
-  const next = movePermanent(state, hostId, home);
+  const next = moveControl(state, hostId, home);
   if (next === state) return state;
   // Clear the stash on the way home so a later re-steal starts clean.
   const bf = next.players[home].battlefield.map((p) =>

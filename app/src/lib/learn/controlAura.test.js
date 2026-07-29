@@ -72,6 +72,22 @@ describe("⭐ ATTACH — control moves", () => {
     expect(findPermanent(attached(MIND_CONTROL), "H").permanent.summoningSick).toBe(true);
   });
 
+  it("⛔ the permanent's OWN `.controller` field moves too — not just which array it sits in", () => {
+    // ⚠️ THIS ASSERTION EXISTS BECAUSE A WITNESS CAUGHT ITS ABSENCE. findPermanent reports the ARRAY the
+    // permanent is in, not its `.controller` field, so every control test here passed while reading only
+    // half the truth: breaking the shared mover so the field never flipped left the ENTIRE 12,276-test suite
+    // green. The two can silently disagree, and ~628 sites in this engine read the FIELD — a split-brain
+    // there is exactly the legal-looking-board failure this whole slice is built to avoid.
+    const st = attached(MIND_CONTROL);
+    expect(findPermanent(st, "H").controller).toBe("user");            // the array
+    expect(findPermanent(st, "H").permanent.controller).toBe("user");  // the field
+  });
+
+  it("⛔ and it moves BACK on revert, field included", () => {
+    const st = moveCardToZone(attached(MIND_CONTROL), { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "A" });
+    expect(findPermanent(st, "H").permanent.controller).toBe("ai");
+  });
+
   it("⛔ and it never LEFT the battlefield — tapped state and counters survive", () => {
     // The move is an array splice, not moveCardToZone. If it ever became a zone change, dies/LTB triggers
     // would fire on a creature that only changed hands.
