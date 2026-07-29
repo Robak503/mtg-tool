@@ -381,7 +381,7 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,278/34,245 — +230 this run). Suite **908 files / 11,658 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,278/34,245 — +230 this run). Suite **909 files / 11,667 tests**,
   lint 0, MUTANT sweep clean. FORTY-FIVE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
   the branch name is stale — it carries forty-five unrelated slices and wants a rename before any PR).
 
@@ -1376,18 +1376,20 @@ exposed it. **Post above the first `### ` header, and verify with `grep -n "^###
   games finish. With `unresolved` (the Arbiter escape hatch) and `soft-counter` handled: 24/24, zero
   wedges. Fixed. If it reports a catastrophe again, suspect the harness first.
 
-## ⛔ OPEN BUG — SIX Auras credited NATIVE whose printed grant never applies (found 2026-07-28)
+## ⛔ AURA GRANTS THAT NEVER APPLY — **4 of 7 FIXED** (`4096bfae`); three still open
 
-**Reproducer:** `MTG_APP_ROOT=… node app/scripts/probe-dropped-attached-grants.mjs`. Attach any of these
-to a 2/2 and the host stays 2/2:
+**Reproducer:** `MTG_APP_ROOT=… node app/scripts/probe-dropped-attached-grants.mjs` — attaches each to a
+2/2 and compares the host's LAYER-DERIVED P/T against the printed bonus.
 
-| card | tier | prints | want / got |
-|---|---|---|---|
-| Dark Privilege #11269 | native-activated | +1/+1 | 3/3 / **2/2** |
-| Elephant Guide | native-trigger | +3/+3 | 5/5 / **2/2** |
-| Most Wanted · A-Most Wanted | native-trigger | +2/+1, +2/+2 | — / **2/2** |
-| Serpent Skin · The Brute | native-activated | +1/+1, +1/+0 | — / **2/2** |
-| Gaea's Embrace | native-activated | +3/+3 and trample | 5/5 / **2/2** (missed by the probe's bare-`+N/+N` anchor) |
+| card | status |
+|---|---|
+| Dark Privilege #11269 · Serpent Skin · The Brute · Gaea's Embrace | ✅ **FIXED** — grants apply (3/3, 3/3, 3/2, 5/5); now `native-aura` |
+| Elephant Guide · Most Wanted · A-Most Wanted | ⛔ **STILL BROKEN** — `native-trigger`, host stays 2/2 |
+
+**The three that remain are a DIFFERENT PATH:** `isNativeOwnTriggeredAura`, aura-own DIES triggers.
+⚠️ Do not widen `isModeledAuraOwnTrigger` to admit them without first checking ON A BOARD that an
+aura-own dies trigger actually FIRES from an Aura source. **Detection is not firing** — assuming
+otherwise is what produced this whole bug class.
 
 **Root cause, diagnosed:** `parseAuraBonus` is all-or-nothing BY DESIGN — an Aura carrying a sibling the
 bonus parser doesn't own (a regenerate activated line, an unmodeled own-trigger) drops the WHOLE bonus
@@ -1396,14 +1398,22 @@ to `[]`. Correct. But two crediting paths reason about a **transformed card the 
 and `isNativeOwnTriggeredAura` (composes the halves, each checked in isolation). Each gate is right about
 its own half; neither checks that the UNTRANSFORMED card still produces the grant.
 
-**Attempted and reverted** (`d4a27f9f`): a guard in the composite lane closes 3 of 6; the other 3 come
-from the second path, and widening the aura-own-activated validator to admit `regenerate` did NOT
-restore the grant — something further down still drops it. The half-state parked four working-ish cards
-while leaving three FPs standing.
+**FIXED in `4096bfae`** — the aura-own-activated validator admits `regenerate`, and its caller's
+pre-filter stopped demanding a MANA symbol before the colon (Dark Privilege's cost is "Sacrifice a
+creature:", so its line was never even handed to the validator).
 
-⚠️ **`auraOwnRegenerate.test.js` currently PINS four of these false positives as correct** — written on
-the assumption the composite delivers the bonus. It doesn't. Fixing the runtime means correcting that
-test; check the P/T on a board before trusting it.
+⚠️ **That widening re-opened a DIFFERENT FP** — letting ANY cost-bearing line be skipped meant a
+SELF-SAC aura (Briar Shield, Thrull Retainer, Stamina, Carapace) kept its static half and went native.
+Sacrificing the AURA detaches the host as a COST, before the ability resolves. Caught by two GUARD-LEAVE
+pins that already existed; that rule now lives on both paths, not one.
+
+⚠️ **AND I REPORTED THE OPPOSITE ONE TURN EARLIER** — that widening the validator "did NOT restore the
+grant" — and reverted on that basis. I had checked only Gaea's Embrace, whose "+3/+3 AND HAS TRAMPLE"
+union failed for a different reason; three of the four were already fixed by that change. **Re-test per
+card. Never generalize a subsystem verdict from one sample.**
+
+`auraOwnRegenerate.test.js` pinned all four at `native-activated` — written on the assumption the
+composite delivers the bonus. Corrected, with the reason recorded in the test.
 
 ⭐ **THE STANDING RULE THIS LEAVES:** no static instrument can see this class — the tier says native, the
 residue walk is satisfied, and a per-card tier diff shows nothing because nothing MOVES. **Anything that
