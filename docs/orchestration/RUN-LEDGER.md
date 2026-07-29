@@ -228,6 +228,27 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 📍 THE FRONTIER CHANGED CHARACTER — measured, and now sized (`shelf-gap-ledger.mjs`)
+
+⭐ **OF 260 BLOCKED CARDS ACROSS THE 10 SUB-90 DECKS, 225 ARE ONE-CARD BUILDS.** Only 35 share a blocker with
+any other corpus card. **The shelf is 87% bespoke.** That is the headline for whoever plans the next stretch —
+"the shelf needs ~150 cards" is not a plan; the ledger is.
+
+Every vein this run mined is now measured out, and the numbers are recorded so nobody re-mines them:
+| vein | state |
+|---|---|
+| corpus trailing-sentence tail | 397 shapes, **246 single-card** |
+| removal-rider family | 116 cards / 77 shapes, largest cluster **5** |
+| mana-cost guard | every SPENDABLE kind graduated (tap-OTHER, tapless, pay-life); rest need a resource model |
+| keyword vein | 3 paid (their machinery already existed); the rest are real mechanisms |
+| per-spell uncounterability | **1 card** in 35,364 (the last cdh lead chased) |
+
+⛔ **AND THE LEDGER SIZES SHARED-NESS CORPUS-WIDE, NOT SHELF-WIDE** — a blocker on one shelf card plus nine
+other corpus cards beats one on two shelf cards and nothing else. Sizing on the shelf alone is how a run ends
+up building single cards without noticing, which is the drift this instrument exists to make visible.
+
+Build order is closest-to-the-bar first: **cdh 83% (needs 7)** · Dragons 80% (10) · Jurassic Ramp 77% (13).
+
 ## 🔧 SHIPPED — two measured payer nouns (+2) · **cdh 82 → 83**
 
 Gene Pollinator (cdh) · Seton, Krosan Protector. GAINED 2 · LOST 0. Both earned by measurement — of the parked
