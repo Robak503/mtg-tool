@@ -98,6 +98,24 @@ right on the nose. Two things the scoping note did not anticipate, both recorded
   `excludePermanentId`: the source is on the battlefield, so it tallied its own type and replaced Illusion
   with Illusion — a legal activation that did nothing. Only the empty-board assertion caught it.
 
+### B7. Quoted mana grant to an ATTACHED permanent · ~6 cards · medium (mana model)
+**Scoped and measured 2026-07-29, not started.** `Enchanted land has "{T}: Add one mana of any color."`
+(Find the Path, Discreet Retreat) and the `Enchanted creature` sibling (Utopia Vow).
+
+**Positive control already run — this is a BUILD, not a classifier gap:**
+```
+blank land + the Aura attached  → 0 mana sources
+blank land alone (control)      → 0 mana sources
+```
+The runtime delivers nothing, so the classifier is RIGHT to park these. Contrast with the GROUP form, which
+does deliver (`Elves you control have "{T}: Add {G}"` → with-granter 1 / without 0, and already
+native-static). The gap is the ATTACHED path specifically.
+
+⚠️ **This is the mana model — the phantom-mana subsystem.** `landAuraManaBonus` already handles the
+different "adds an ADDITIONAL {G} when tapped" shape (Wild Growth, native-mana-aura); do not confuse the
+two. Take it EARLY in a run, and re-run the fetchland phantom-mana test file after (`manaLandNoAbility`),
+because that fallback and this path both decide what a land produces.
+
 ### B6. The GY-1 cost vocabulary tail · ~7 · low
 Three carriers are blocked by unsafe timing riders — leave those. The rest are cost-shape additions to a
 lane that already works.
