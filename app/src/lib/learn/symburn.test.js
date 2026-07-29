@@ -28,7 +28,15 @@ describe("SYMBURN-1 — classification", () => {
   });
   it("MUST stay arbiter — a qualified variant or the each-player-only partial", () => {
     expect(classifyCard({ type: "Sorcery", name: "X", oracle: "X deals 2 damage to each creature and each player that doesn't control a Mountain." })).toBe("arbiter-spell");
-    expect(classifyCard({ type: "Sorcery", name: "Y", oracle: "Y deals 2 damage to each player." })).toBe("arbiter-spell"); // each-player-only isn't modeled
+  });
+  it("GRADUATED — the each-player-only form is modelled now (SYMBURN-2)", () => {
+    // This pinned SYMBURN-1's own SCOPE: "each-player-only isn't modeled". Capability language, not a
+    // refusal — and the capability was half-present the whole time, since eachCreatureAndPlayer already
+    // damaged every player INCLUDING the caster. SYMBURN-2 is that same seat loop minus the creatures.
+    // See symburnEachPlayer.test.js for the castability + no-creature-damage assertions.
+    expect(classifyCard({ type: "Sorcery", name: "Y", oracle: "Y deals 2 damage to each player." })).toBe("native-spell");
+    // ⛔ the QUALIFIED variant above still parks — widening the bare form did not loosen the anchor.
+    expect(classifyCard({ type: "Sorcery", name: "Z", oracle: "Z deals 2 damage to each player who controls a Mountain." })).toBe("arbiter-spell");
   });
   it("HARDENING — a leading effect joined by ' and ' is NOT swallowed (no dropped clause)", () => {
     // Tail-only anchoring would keep this whole and parse it to ONLY [deal-damage], silently dropping

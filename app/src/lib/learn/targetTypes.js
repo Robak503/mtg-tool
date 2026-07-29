@@ -42,6 +42,10 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   //                               EXCEPT the source (ctx.sourceId); non-chosen, so the trigger flush routes it
   //                               on confidence (no target pick) exactly like eachCreature.
   "eachCreatureAndPlayer",      // SYMBURN-1 — symmetric burn (every creature AND every player)
+  "eachPlayer",                 // SYMBURN-2 — the PLAYERS-ONLY half of the same symmetric burn (Flame Rift,
+  //                               Slagstorm's second mode, Mana Clash). "each player" is ALL players
+  //                               INCLUDING the caster — the same all-seat scope eachCreatureAndPlayer
+  //                               already applies, minus the creatures. Non-chosen: no target is picked.
   "eachCreatureYouControl",     // MASS-OWN-BOARD — "regenerate each creature you control" (Golgari Charm).
   //                               The mirror of eachOpponentCreature. A NON-wipe on purpose: it BUFFS the
   //                               caster's own board, so the AI must not hold it the way it holds a wipe.

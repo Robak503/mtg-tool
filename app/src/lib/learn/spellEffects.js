@@ -170,6 +170,12 @@ export function parseSpellEffect(card) {
     // INCLUDING the caster ("each player" ≠ "each opponent"). Bare form only — a qualifier ("…you
     // control", "and each planeswalker") doesn't match the exact anchor and falls to the each-bail below.
     if (/^each creature and each player$/.test(tgt)) return { kind: "damage", amount, targetType: "eachCreatureAndPlayer" };
+    // SYMBURN-2: the PLAYERS-ONLY half — "deals N damage to each player" (Flame Rift, Slagstorm's second
+    // mode, Spear Spewer, Mana Clash). SYMBURN-1 built the combined form and left this out of ITS SCOPE
+    // ("each-player-only isn't modeled" — capability language, not a refusal), and the all-seat player
+    // damage it needs is the SAME loop eachCreatureAndPlayer already runs, minus the creatures. Bare form
+    // only; a qualifier ("each player who…", "each opponent") falls to the each-bail below.
+    if (/^each player$/.test(tgt)) return { kind: "damage", amount, targetType: "eachPlayer" };
     // Any OTHER "each …" is mass damage to a subset we don't model — bail before the
     // single-target branches, so e.g. "each creature target opponent controls" can't
     // mis-match the "target opponent" → player-damage branch below.
@@ -1186,6 +1192,13 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         for (const perm of next.players[pid].battlefield) {
           if (perm.id !== source?.id && isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
         }
+      }
+    } else if (targetType === "eachPlayer") {
+      // SYMBURN-2 — every player INCLUDING the caster, and NO creatures. The same seat loop the combined
+      // form runs; the creature half is simply absent, which is what "each player" says. Self-damage is
+      // the point of these cards (Flame Rift), not an oversight.
+      for (const pid of Object.keys(next.players)) {
+        if (next.players[pid]) next = hitPlayer(next, pid);
       }
     } else if (targetType === "eachCreatureAndPlayer") {
       // SYMBURN-1 (Inferno / Fire Tempest / Evincar's Justice): symmetric burn hits EVERY creature on
