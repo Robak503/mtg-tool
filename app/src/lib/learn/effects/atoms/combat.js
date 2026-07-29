@@ -8,6 +8,7 @@ import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ra
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
+import { autoPickCreatureType } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) — the shared auto-choice policy; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
 import { NON_CHOSEN_TARGET_TYPES } from "../../targetTypes.js"; // MASS-TAP — targetTypes.js is a zero-import leaf (cycle-safe)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
@@ -161,6 +162,45 @@ export function applyUntapLands(state, atom, ctx) {
  * consumed at the next would-destroy (the lethal-damage SBA / the destroy effect), which clears damage + taps
  * the creature so it survives. No magnitude (one clause → one shield per target); atomTargets resolves "self"
  * to the source creature and "creature" to ctx.targets, exactly like the +1/+1-counter atom. */
+/**
+ * BECOME-CREATURE-TYPE (CR 205.1b + 613.1d + 614.12) — the source becomes a single chosen creature type
+ * until end of turn (the Mistform cycle). A layer-4 continuous effect with an endOfTurn duration, so every
+ * reader that already asks the layer engine for a type line — tribal anthems, subtype-scoped pumps, the
+ * chosen-type gates, changeling checks — sees the change without any of them knowing this atom exists.
+ *
+ * ⛔ REPLACES rather than ADDS. The op carries `replaces`: the source's PRINTED creature subtypes,
+ * snapshotted here at resolution, which the layer pass deletes before adding the chosen one. Snapshotting
+ * at resolution (not at derive time) is what keeps the effect a fixed, timestamped thing per CR 613.1d
+ * instead of something that re-reads a type line the effect itself is changing.
+ *
+ * The type is auto-picked by the SHARED policy (choicePolicy.autoPickCreatureType), the same function the
+ * ETB choosers use — one policy, so the engine cannot pick two different types on one board. Note the ETB
+ * callers pass a PRE-entry state while this one passes the live state, so the source counts ITSELF here;
+ * that is correct (it is on the battlefield) and is stated in the policy's caller contract.
+ */
+export function applyBecomeCreatureType(state, atom, ctx) {
+  const lk = ctx?.sourceId == null ? null : findPermanent(state, ctx.sourceId);
+  if (!lk?.permanent) return state;                       // source already gone (CR 608.2b) — clean no-op
+  // EXCLUDE THE SOURCE from the tally: it is precisely the permanent whose type is being replaced, so
+  // counting its own soon-to-be-gone subtype makes the pick self-defeating (a lone Mistform Dreamer would
+  // choose Illusion and replace Illusion with Illusion — a legal activation that does nothing).
+  const chosen = autoPickCreatureType(state, lk.permanent.controller, { excludePermanentId: lk.permanent.id });
+  if (!chosen) return state;
+  const printed = String(lk.permanent.card?.type || lk.permanent.card?.type_line || "");
+  const dash = printed.indexOf("—");
+  const replaces = /Creature/.test(printed) && dash !== -1
+    ? printed.slice(dash + 1).trim().split(/\s+/).filter(Boolean)
+    : [];
+  const next = addContinuousEffect(state, {
+    layer: 4,
+    op: { layerOp: "setCreatureSubtypes", subtypes: [chosen], replaces },
+    affects: { mode: "fixed", permanentIds: [lk.permanent.id] },
+    duration: { kind: "endOfTurn", turn: state.turn },
+    source: { kind: "resolution", permanentId: lk.permanent.id, cardName: ctx?.cardName || null },
+  }).state;
+  return logEvent(next, { kind: "spell-effect", effect: "become-creature-type", targets: [lk.permanent.id], chosenType: chosen });
+}
+
 export function applyRegenerate(state, atom, ctx) {
   let next = state;
   const targets = atomTargets(state, atom, ctx);
@@ -1487,6 +1527,17 @@ export function pumpClauseParser(clause) {
   // (Exponential Growth) all fail the anchor → null → low → Arbiter (FN-safe, CREED — never a wrong partial).
   if (/^double the power and toughness of each creature you control until end of turn$/.test(t))
     return { op: "pump", scope: "youControl", doublePt: "pt" };
+  // BECOME-CREATURE-TYPE (CR 205.1b + 614.12 — the Mistform cycle, 13 corpus carriers): "{1}: This creature
+  // becomes the creature type of your choice until end of turn." A layer-4 type change on the SOURCE, not a
+  // pump — it REPLACES the printed creature types (Mistform Sliver's "in addition to its other types" is a
+  // different sentence and is NOT this arm; it fails the anchor and stays on the Arbiter).
+  //
+  // The "of your choice" is auto-picked by the shared deterministic policy (choicePolicy.autoPickCreatureType
+  // — the same one the ETB choosers use, so the engine can never pick two different types on one board).
+  // Whole-clause anchored ($): an "in addition to" variant, an ENCHANTED-creature subject (Mistform Mask) or
+  // any rider fails → null → low → Arbiter (FN-safe).
+  if (/^this creature becomes the creature type of your choice until end of turn$/.test(t))
+    return { op: "become-creature-type", target: "self", targetType: null };
   if (/^double this creature's power and toughness until end of turn$/.test(t))
     return { op: "pump", target: "self", doublePt: "pt" };
   if (/^double this creature's power until end of turn$/.test(t))
@@ -1929,6 +1980,7 @@ export const combatResolvers = {
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
   "earthbend": applyEarthbend, // EARTHBEND N (Toph) — permanently animate a land you control + N +1/+1 counters
+  "become-creature-type": applyBecomeCreatureType, // BECOME-CREATURE-TYPE (CR 205.1b, the Mistform cycle) — layer-4 endOfTurn type REPLACE on the source, chosen by the shared auto-pick policy
   "regenerate": applyRegenerate, // REGEN (CR 701.19) — set a regeneration shield on self / target creature
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),

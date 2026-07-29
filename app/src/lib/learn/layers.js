@@ -1361,6 +1361,21 @@ function applyTypeColorLayers(perm, l4, l5, state) {
       types.delete(e.op.removeType);
       continue;
     }
+    // SET-CREATURE-SUBTYPES (CR 205.1b / 613.1d — the Mistform cycle): "becomes the creature type of your
+    // choice" REPLACES the permanent's creature types rather than adding to them, which is the whole
+    // difference between Mistform Dreamer and Mistform Sliver's "in addition to its other types".
+    //
+    // ⛔ ONLY THE CREATURE SUBTYPES ARE REPLACED. The op carries the printed creature subtypes it is
+    // superseding (`replaces`, snapshotted at resolution from the card's own type line) and deletes exactly
+    // those — never the whole `subtypes` set, which can also hold artifact/land/enchantment subtypes
+    // (Equipment, Vehicle, a Sliver's land half) that a creature-type change has no business touching.
+    // Anything a LATER-timestamped layer-4 effect added is left alone, so this cannot silently undo a
+    // subsequent change; the l4 list is already in application order.
+    if (e.op?.layerOp === "setCreatureSubtypes") {
+      for (const st of e.op.replaces || []) subtypes.delete(st);
+      for (const st of e.op.subtypes || []) subtypes.add(st);
+      continue;
+    }
     for (const t of e.op.types || []) types.add(t);
     for (const st of e.op.subtypes || []) subtypes.add(st);
   }

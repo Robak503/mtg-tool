@@ -30,6 +30,7 @@ import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopie
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
+import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
 import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) — "If this creature was kicked, it enters with N +1/+1 counters"; added only when opts.kicked
@@ -128,39 +129,6 @@ function entersWithChosenTypeCounter(card) {
   return m ? { counterType: m[1].toLowerCase() } : null;
 }
 
-/**
- * AUTO-PICK the creature type for a "choose a creature type as it enters" permanent (CR 614.12) in this
- * SELF-PLAY engine — there is NO interactive picker, the AI deterministically chooses. Heuristic: the
- * MOST-COMMON creature subtype among the controller's creatures, looked up in priority order:
- *   1. the controller's BATTLEFIELD creatures (the board the chooser is actually paying off),
- *   2. else the controller's LIBRARY/deck creatures (what the deck is built around — the right pick when the
- *      chooser lands before the tribe does),
- *   3. else a safe FALLBACK ("Human" — the single most-common creature type in Magic; a non-null type keeps
- *      the stored state well-formed so a future tribal entry can still match, never an over-fire by itself).
- * Ties break ALPHABETICALLY so the pick is deterministic + serialize-stable (no Map-iteration-order reliance).
- * `state` is the PRE-entry state (the chooser isn't on the battlefield yet), so an Enchantment chooser never
- * counts itself and a creature-form chooser doesn't double-count its own (not-yet-entered) subtype.
- */
-function autoPickCreatureType(state, controller) {
-  const player = state.players[controller];
-  const tally = new Map();
-  const add = (cards) => {
-    for (const c of cards || []) {
-      for (const sub of creatureSubtypesOf(c.card || c)) tally.set(sub, (tally.get(sub) || 0) + 1);
-    }
-  };
-  add(player?.battlefield);
-  if (tally.size === 0) add(player?.library);
-  if (tally.size === 0) return "Human";
-  // Highest count wins; alphabetical tiebreak for determinism.
-  let best = null;
-  let bestN = -1;
-  for (const sub of [...tally.keys()].sort()) {
-    const n = tally.get(sub);
-    if (n > bestN) { best = sub; bestN = n; }
-  }
-  return best;
-}
 
 // AUTO-PICK the color for a "choose a color as it enters" Aura (CR 614.12b — Utopia Sprawl) in this
 // SELF-PLAY engine (no interactive picker). Heuristic: the color the controller's remaining spells most
