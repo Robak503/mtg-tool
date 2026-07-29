@@ -2660,6 +2660,46 @@ unnoticed.
 from measuring the next layer rather than assuming it. The three shipped pieces are all independently useful;
 none of the work is stranded on the card that motivated it.
 
+## ✅ SHIPPED — painland cycle COMPLETED: 5 slow variants + 6 that were PAINLESS (`aad5b36c`)
+
+Two more shapes of the same family. The second was live in the **forbidden** direction:
+
+1. **THE SLOW HALF (+5).** Skyshroud Forest, Scabland, Pine Barrens, Salt Flats, Caldera Lake carry a leading
+   `"This land enters tapped."` line; my original anchor started at `{T}: Add {C}` and silently missed FIVE of
+   the fifteen. ⚠️ **I shipped that arm last slice believing it covered the cycle** — it covered two thirds.
+   Counting the family AFTER building, not before, is what caught it.
+2. ⭐ **THE SINGLE-ABILITY FORM — an FP that was already live.** The Odyssey threshold cycle (Cabal Pit,
+   Barbarian Ring, Cephalid Coliseum, Centaur Garden, Nomad Stadium) + Fogwell's Gym print ONE coloured
+   ability that costs life. These were **never colourless** — their first Add clause IS coloured, so they
+   parsed fine and the damage rider was simply DROPPED. Painless painlands: strictly better than printed.
+   Unlike the two-line cycle's under-delivery, this was an **over**-delivery.
+
+⛔ **Tomb of Urami stays excluded** — `"deals 1 damage to you IF you don't control an Ogre"` is a condition
+nothing models, so charging always would over-charge. Known, recorded gap; not a new wrong answer.
+
+⭐ **A REDUNDANT GUARD REMOVED BECAUSE ITS MUTATION SURVIVED.** I wrote a second `!/damage to you if/` test
+beside the regex. M65 removed it and nothing failed — the anchor's own `\.` already excludes the conditional
+printing, which has no period there. **Dropped rather than kept: a guard that cannot be seen to fail implies
+protection it does not add.** This is the hollow-gate law applied to my own belt-and-braces.
+
+Tier GAINED 0 · LOST 0, as expected — this whole family is invisible to the metric.
+
+## 🗺 THE COLOURLESS-LAND REMAINDER, grouped (so the next resume picks by shape, not by card)
+
+| shape | n | state |
+|---|---|---|
+| COUNTER cost (Saltcrusted Steppe, Dreadship Reef) | 15 | ⛔ covered by the consumable-cost refusal — leave |
+| CONDITION-gated (the Tainted cycle) | 10 | needs per-line conditions + colour union |
+| NO-UNTAP (Mogg Hollows cycle) | 10 | buildable (`setDoesNotUntapNext` exists) — **but 0 SHELF slots, 0 tier** |
+| "other" (Phyrexian Tower, Crypt of Agadeem) | 10 | mixed one-offs |
+| FILTER, hybrid cost (Mystic Gate, Flooded Grove) | 10 | ⛔ **blocked on the activation-cost fork** — biggest shelf group |
+| MANA-COST activation (Cabal Stronghold) | 8 | ⛔ same fork |
+| SPEND-restricted (Village cycle) | 6 | ⛔ deliberate refusal — leave |
+| PAINLAND | ✅ | **done, all 15** |
+
+**Read: the cheap land work is finished.** What remains is either a deliberate refusal, worth zero on the
+shelf, or blocked on the banked activation-cost decision.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2811,6 +2851,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `aad5b36c` — painland cycle completed: 5 slow variants + 6 painless (FP). Slice 71.
 - `9b6441c0` — source-scoped atom conditions + sequenced "Then if" (+3). Slice 70.
 - `fb3bfa85` — SELF power threshold condition, layer-aware (+0; Level Up 3/4 pieces). Slice 69.
 - `21c471a8` — enchanted counter referent + self doubling pronoun (+4); Level Up re-sized to 4 pieces. Slice 68.
