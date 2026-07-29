@@ -394,7 +394,29 @@ export function graveyardReturnClauseParser(clause) {
     const cardFilter = parseGraveyardFilter(gm[1]);
     if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
   }
-  if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
+  // ===== BARE REANIMATE — the filter vocabulary the MV-CAPPED arm below already has ====================
+  // "Return target ARTIFACT / PERMANENT / LAND / ENCHANTMENT card from your graveyard to the battlefield."
+  // This arm was hardcoded to "creature" while its own MV-capped twin (rmvM, ~15 lines down) already ran
+  // every other word through parseGraveyardFilter + isPermanentReanimateFilter. Same clause family, same
+  // destination, asymmetric vocabulary — so Sevinne's Reclamation #339, Titania #1135, Forge Anew #1263,
+  // Daretti #1920 and ~50 more parked on a filter the file could already parse one branch away.
+  //
+  // ⛔ isPermanentReanimateFilter IS THE LOAD-BEARING GUARD, and it is the reason this can be widened at all:
+  // a card entering the battlefield must BE a permanent, so an instant/sorcery filter or the unfiltered
+  // "any" must never reach here — that would put a sorcery onto the battlefield, which no rule allows.
+  // parseGraveyardFilter also returns null for a subtype / color / negation / intersection ("Rebel
+  // permanent", "nonland permanent", "Aura or Equipment"), so those still park — a safe FN, and the reason
+  // the phrase counts below are smaller than the raw corpus tally.
+  const rbM = /^return target (.*?)card from your graveyard to the battlefield$/.exec(t);
+  if (rbM) {
+    const word = rbM[1].trim();
+    if (word === "creature") return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
+    const typeFilter = parseGraveyardFilter(word);
+    if (typeFilter && typeFilter !== "any" && isPermanentReanimateFilter(typeFilter)) {
+      return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter } };
+    }
+    return null; // unmodeled / non-permanent filter → the whole clause parks (never a mis-reanimate)
+  }
   // REANIMATE-MV-FILTER (BLITZ PW-1 creature — Ajani, Adversary of Tyrants "−2: Return target creature card
   // with mana value 2 or less…"; BLITZ GY-2 non-creature types — Sun Titan, Shepherd of the Cosmos "return
   // target permanent card with mana value N or less…"): the plain own-graveyard reanimate (above) NARROWED by

@@ -69,7 +69,18 @@ describe("parser — graveyard recursion is HIGH for modeled type filters; subty
     // NOTE: "Return up to two target creature cards …" is now NATIVE (MULTI-COUNT slice A — real runtime via
     // targeting.expandAtoms subset enumeration). Pinned HIGH in effects/multiCountTarget.test.js.
     low("Return target creature card from your graveyard to the battlefield tapped.");        // β-3b reanimation RIDER → Arbiter
-    low("Return target artifact card from your graveyard to the battlefield.");               // non-creature reanimation → Arbiter
+  });
+  it("GRADUATED — non-creature reanimation is modelled now (CR 608)", () => {
+    // This pinned an absent VOCABULARY: the bare reanimate arm was hardcoded to "creature" while its own
+    // MV-capped twin already ran every word through parseGraveyardFilter. It is permanent-compatible
+    // filters only — see reanimateFilterVocabulary.test.js for the instant/sorcery refusals.
+    //
+    // ⛔ VERIFIED ON A BOARD BEFORE GRADUATING, not merely re-parsed: resolving the atom against a graveyard
+    // holding a Sol Ring and a Lightning Bolt puts the Sol Ring onto the battlefield and leaves the Bolt in
+    // the yard. The runtime reanimator is genuinely type-agnostic, so crediting this is honest.
+    const high = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("high");
+    high("Return target artifact card from your graveyard to the battlefield.");
+    high("Return target permanent card from your graveyard to the battlefield.");
   });
   it("composes in a multi-clause spell (recursion + draw)", () => {
     const p = parseEffectProgram({ type: SORCERY, oracle: "Return target creature card from your graveyard to your hand. Draw a card." });
