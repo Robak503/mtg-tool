@@ -98,23 +98,27 @@ right on the nose. Two things the scoping note did not anticipate, both recorded
   `excludePermanentId`: the source is on the battlefield, so it tallied its own type and replaced Illusion
   with Illusion — a legal activation that did nothing. Only the empty-board assertion caught it.
 
-### B7. Quoted mana grant to an ATTACHED permanent · ~6 cards · medium (mana model)
-**Scoped and measured 2026-07-29, not started.** `Enchanted land has "{T}: Add one mana of any color."`
-(Find the Path, Discreet Retreat) and the `Enchanted creature` sibling (Utopia Vow).
-
-**Positive control already run — this is a BUILD, not a classifier gap:**
+### B7. ~~Quoted mana grant to an ATTACHED permanent~~ ⛔ **RETRACTED — it already works**
+**I queued this on a broken probe. The attached mana grant is BUILT** (`auraManaGrant.test.js`, Multani's
+Harmony + Settlement + Sheltered Aerie, all `native-mana-aura`). My "positive control" wired the Aura's
+`attachedTo` but not the host's `attachments` back-link, so the grant could not resolve and I read 0/0 as
+"unbuilt". Re-measured with the two-way link the existing test uses:
 ```
-blank land + the Aura attached  → 0 mana sources
-blank land alone (control)      → 0 mana sources
+blank land host  → WITH aura 1 source · WITHOUT 0    ← the grant DELIVERS
+Forest host      → WITH aura 1 source · WITHOUT 1    ← DEDUPED onto the existing producer
 ```
-The runtime delivers nothing, so the classifier is RIGHT to park these. Contrast with the GROUP form, which
-does deliver (`Elves you control have "{T}: Add {G}"` → with-granter 1 / without 0, and already
-native-static). The gap is the ATTACHED path specifically.
+⚠️ Two traps fed this: the test file's own docstring still said "the LAND-host form stays non-native this
+slice" while the tests below it asserted the opposite (corrected in place), and rule 1b protects against a
+harness that cannot produce a positive — **not against one that is simply mis-wired**. A positive control
+proves the harness CAN show the effect; it does not prove the harness is correct.
 
-⚠️ **This is the mana model — the phantom-mana subsystem.** `landAuraManaBonus` already handles the
-different "adds an ADDITIONAL {G} when tapped" shape (Wild Growth, native-mana-aura); do not confuse the
-two. Take it EARLY in a run, and re-run the fetchland phantom-mana test file after (`manaLandNoAbility`),
-because that fallback and this path both decide what a land produces.
+### B7b. SUPPLEMENT an existing mana producer · ~4-6 cards · medium (mana model)
+The real remaining gap, and it is narrower: `manaSources` ADDS a granted source where there was none but
+cannot SUPPLEMENT one that exists. A Forest under Discreet Retreat should offer both its `{G}` and the
+granted any-colour; today it offers one.
+⭐ **The premise moved recently:** while every land was credited a phantom `{C}` (removed in `ac5c6595`),
+EVERY land host was the deduped case. Removing that fallback is what made blank-land hosts start working
+and shrank this item to hosts with real mana abilities.
 
 ### B6. The GY-1 cost vocabulary tail · ~7 · low
 Three carriers are blocked by unsafe timing riders — leave those. The rest are cost-shape additions to a

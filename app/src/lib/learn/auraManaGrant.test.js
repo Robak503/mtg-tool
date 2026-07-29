@@ -9,8 +9,18 @@
  * CREED boundaries proven here:
  *  - recognition is residue-gated all-or-nothing — a rider (can't-attack/block, ETB draw, spend-only,
  *    a cost rider on the granted ability) keeps the card non-native (→ Arbiter);
- *  - the LAND-host form (Settlement) stays non-native this slice (a land already produces mana, so the
- *    grant would be deduped → a no-op; deferred until manaSources can supplement an existing producer);
+ *  - ⚠️ STALE LINE CORRECTED 2026-07-29: this used to read "the LAND-host form (Settlement) stays non-native
+ *    this slice". It does NOT — the tests below assert `native-mana-aura` for Settlement and Sheltered
+ *    Aerie, so the land host was built after this header was written and the header was never updated. A
+ *    stale docstring is a trap: it cost a later session a queued slice built on the wrong premise.
+ *    The REAL remaining limitation, measured 2026-07-29 with the two-way attach link:
+ *        blank land host  → WITH aura 1 source · WITHOUT 0   (the grant delivers)
+ *        Forest host      → WITH aura 1 source · WITHOUT 1   (DEDUPED onto the existing producer)
+ *    So the open case is only a host that ALREADY produces mana — manaSources adds a source where there was
+ *    none, but cannot yet SUPPLEMENT one that exists (a Forest under Discreet Retreat should offer both its
+ *    {G} and the granted any-colour, and today offers one).
+ *    ⭐ Note the premise moved: while every land was credited a phantom {C} (fixed in ac5c6595), EVERY land
+ *    host was the deduped case. Removing that fallback is what made the blank-land host start working.
  *  - the granted {T} ability is summoning-sickness gated, and a host with its OWN mana ability is NOT
  *    double-counted (the grant only ever adds a source where there was none).
  */
