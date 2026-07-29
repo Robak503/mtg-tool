@@ -2148,12 +2148,52 @@ One stale pin updated (`subtypeScopedTriggers.test.js`): it asserted the permane
 UNDETECTED, true only while the subject was unmodeled. Its real guarantee — never mis-read as a SUBTYPE — is
 what it asserts now, the same way that file's token line was updated when the token slice landed.
 
+## 🚨 SHIPPED — MIXED MANA BUNDLES: a live FALSE POSITIVE on 51 staples, found by chasing a +2 (`003e29d1`)
+
+I went looking for Bloom Tender (NEXT ACTIONS #1, worth 2 cards / 3 deck slots) and found that **"Add {G}{W}"
+has never worked.** The planner's primary component picked ONE color and credited `amount` of it, so a
+Selesnya Signet was wrong in BOTH directions — measured on the real card before a line changed:
+
+```
+{G}{W}  → REFUSED   the only thing the card actually does   (false negative)
+{G}{G}  → PAID      which it cannot do                      (THE FORBIDDEN DIRECTION)
+```
+
+**51 corpus cards sit on this shape**: every karoo bounce land, every Signet, the Eggs, the filter duals.
+Core Commander mana, on Colton's shelf and Joe's.
+
+⭐ **WHY NOTHING CAUGHT IT — and this is the SECOND time this stretch:** all 51 were ALREADY `native-mana`.
+The tier was right; the BEHAVIOR was wrong. A per-card tier diff cannot see it, a census cannot see it, and
+the coverage % was never off by a point. Same lesson as the Amulet fire site one slice earlier, reached from
+the opposite direction: **the tier is not evidence about a board.** Two independent instances in one stretch
+means the runtime-assertion rule is not a nicety — a native card with no runtime pin is an unverified claim.
+
+**THE SHAPE:** a bundle is a per-color tally (`fixed`), not a bigger `amount`, threaded parser → manaSources
+→ planPayment → commitManaTap. Stamped ONLY when >1 distinct color, so every single-color source is
+byte-identical (Sol Ring pinned). The commit half is load-bearing: "affordable per planPayment" == "actually
+paid" is the invariant that seam exists to hold.
+
+**A companion bug the bundle exposed:** the generic loop drained only the tap's recorded primary color,
+stranding the rest — a Signet could not pay {2}. Generic is paid LAST, so anything left in `working` is
+legitimately spendable there.
+
+**VIVID (+2) rides the same shape** with a board-derived color set (Bloom Tender, Faeburrow Elder). It CANNOT
+ride the existing amountSpec path — that yields N mana freely spendable across its colors, which on a W/G
+board pays {G}{G}, reintroducing the exact FP above. That near-miss is the reason to distrust "just reuse the
+variable-amount path" for anything whose colors are simultaneous.
+
+Mutation-checked M43–M46, each seen to fail. Tier diff: **GAINED 2 · LOST 0 · RETIERED 0.**
+
+⚠️ **ONE PROCESS NOTE ON MYSELF:** my first probe of this used `planPayment(sources, cost)` — the real
+signature is `(pool, sources, cost)`. Every cost read as "nothing owed" and everything came back PAYABLE. I
+had written the words "51 staples over-deliver" before noticing. **A probe that reports what you expected is
+the one to re-check first.** The real seam then showed a worse bug than the imagined one.
+
 ## NEXT ACTIONS
 
-1. **Bloom Tender / Faeburrow Elder** — "For each color among permanents you control, add one mana of that
-   color." Only 2 corpus cards but **3 deck slots**, and Bloom Tender is a cEDH staple in Kinnan. The
-   `colorsAmongPermanents` primitive ALREADY EXISTS in layers.js; this needs the color SET, not the count,
-   plus a mana atom. Contained, no choice point. **This is the next build.**
+1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
+   fix above; the read was right that it needed the color SET rather than the count, and wrong that it was
+   contained — the shape it needed did not exist and 51 staples were broken for want of it.
 2. **BANKED WITH A DESIGN QUESTION — `Tap N untapped creatures you control` as a cost** (39 corpus / 32
    parked; plus 40/28 for the singular). The SINGULAR is already fully modeled (γ1f, Earthcraft):
    parser → legalChoices expands one action per legal creature → dispatcher taps it. **The plural is NOT a
@@ -2286,6 +2326,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `003e29d1` — mixed mana bundles one-of-each: a live runtime FP on 51 staples, + Vivid (+2). Slice 58.
 - `e0d15930` — Amulet of Vigor: permanent-wide enters-tapped trigger + the missing land fire site (+1). Slice 57.
 - `d7148fa3` — v0.149.5: graveyard-ability composition (+14). Slice 56.
 - v0.149.4 — devour/amplify, fuse unpark, aftermath unpark (+22). Slices 53–55.
