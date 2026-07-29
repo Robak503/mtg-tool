@@ -228,6 +228,40 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔬 MEASURED — **I went hunting for leverage where the structure PROMISED it. It was worth 1 card.**
+
+Follow-up on "the shelf is per-card from here", testing that conclusion against its most likely
+counterexample. Result: **it survives**, and the way it survived is the useful part.
+
+**The hunt.** Ordered by deck count, the top one-line-away shelf card is **Level Up (3 decks)**. Isolating
+its blocker by exact difference found **TWO independent ones, each sufficient**:
+```
+grant only, 1 sentence   → native-trigger      ETB only                → native-trigger
+ETB + grant              → body-only  ⛔       grant only, 2 sentences → body-only  ⛔
+```
+So *"one line from native"* ≠ *"one build away"* — the line holds two sentences and the card holds two gaps.
+
+**The composition gap is real and precisely located.** An Aura's own-ETB composes with a granted ACTIVATED
+ability but NOT with a granted TRIGGERED one:
+```
+NATIVE  Dragon Mantle · Karametra's Favor · Ringing Strike Mastery · Singing Bell Strike   (grant an ACTIVATED ability)
+PARKED  Sisay's Ingenuity · Nurturing Presence · Nerd Rage · Level Up · Bewitching Leechcraft  (grant a TRIGGERED one)
+```
+`coverage.js` widens the ETB rider per grant family — `isNativeManaGrantAuraWithEtb` is the mana one, the
+activated family has its own — and **the triggered family never got a widener**. A precedented ~15-line fix.
+
+⛔ **AND IT WOULD FLIP EXACTLY ONE CARD.** Simulated by stripping the ETB line and re-classifying: only
+**Nurturing Presence** (#15527, in no shelf deck) has a remainder that is already native. The other four —
+Level Up included — each carry a SECOND blocker of their own.
+
+⭐ **THAT IS THE CONFIRMATION.** The per-card conclusion was derived from clause counts; this tests it
+structurally, by chasing the one composition gap the corpus offered — and even there the leverage
+evaporates on contact, because each card carries its own additional gap. **Two independent routes, same
+answer: there is no lever left, only cards.**
+
+**Banked, not built** (1 corpus card / 0 shelf decks does not justify an FP-sensitive coverage-gate change):
+the triggered-grant ETB widener, mirroring `isNativeManaGrantAuraWithEtb` in `coverage.js`.
+
 ## 📐 MEASURED — **THE SHELF IS PER-CARD FROM HERE. There is no clause family left to lever it.**
 
 Re-measured after B1 (+7) and the answer is strategy-shaping, so it is written down with the numbers.
