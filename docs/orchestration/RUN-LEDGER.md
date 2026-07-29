@@ -119,6 +119,35 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🚨 SHIPPED — **SECOND SOFT-LOCK OF THE RUN: "a cost is not an effect"** (`b903119f`) · 34 spells
+
+```
+legalChoices:  const addCost = isHigh ? (program.additionalCosts || [])[0] : null;
+dispatcher:    for (const ac of program?.additionalCosts || [])        ← UNCONDITIONAL, and must be
+```
+A spell whose **EFFECT** the parser cannot model but whose **COST** it can was emitted as a plain cast with
+no victim frozen; the dispatcher then correctly refused to cast it cost-free and threw `ADDCOST_UNPAID`.
+**Every one of the 34 corpus instants/sorceries in that class was a guaranteed wedge** — Eldritch Evolution,
+Neoform, Tinker, Final Strike, Tormented Thoughts, Rite of Consumption, Scapegoat, Gaea's Balance …
+
+⛔ **ENUMERATE, DON'T SUPPRESS.** Killing the wedge by not offering the cast trades a soft-lock for a **DEAD
+CARD in hand** — the exact failure NEXT-QUEUE D2 exists to find, and worse than the coverage gap it hides
+behind. The cost is now paid as printed; the unmodeled effect still routes to the Arbiter.
+
+### ⚠️ THE SUITE STAYED GREEN THROUGH THE FIX — a hollow gate seen from the inside
+12,234 tests and **not one cast an Arbiter-bound spell that had a cost to pay.** Found by the playability
+sweep, not by a test. The new test pins the PREMISE too (Eldritch Evolution's effect does NOT parse, its
+cost DOES) so a future slice that models the search **re-points this test instead of silently voiding its
+coverage**. Seen to fail: restoring the `isHigh` gate fails 4 of 6.
+
+### 🔧 THE SWEEP IS NOW DEBUGGABLE, WHICH IT WASN'T
+A wedge reported by decision KIND plus a 90-char reason is enough to **count** wedges and not enough to
+**fix** one — identifying the card cost a separate run. Added: `--only=N` (each game already seeded its own
+rng + session, so game N was always reproducible in isolation; there was simply no way to ask for it), the
+offending ACTION named in a throw's detail, and a full decision dump under `--only`.
+
+**Playability sweep now 150/150, ZERO wedges.**
+
 ## 🔧 SHIPPED — the MISTFORM cycle, NEXT-QUEUE **B5 closed** (`d1e34e10`, +5)
 
 Sized in the queue as "5 sole · the cheapest of the engine items" and it landed **exactly 5**. A layer-4

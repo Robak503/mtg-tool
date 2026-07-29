@@ -136,6 +136,15 @@ point, and the coverage metric could not see it. The productive method is NOT a 
 probe — that flagged 18 cards and all 18 were board defects. The method that worked: take the shelf's
 blocking-shape list, and for each shape ask whether the RUNTIME agrees with the CLASSIFIER.
 
+### D3. Playability sweep at scale — ⭐ **RAN IT, AND IT PAID (2026-07-29)**
+150 games: **150/150 complete, zero wedges** — but only after the one it caught. 60 games surfaced a
+`dispatch-error` that turned out to be a whole CLASS: 34 instants/sorceries whose additional cost was never
+enumerated because legalChoices gated cost-reading on `isHigh` while the dispatcher enforces costs
+unconditionally (`b903119f`). **A cost is not an effect.** The full suite was green before, during, and
+after — this is only findable by playing games.
+**The sweep is now debuggable:** `--only=N` replays a single game, throws name the ACTION rather than the
+decision kind, and `--only` dumps the wedging decision. Use those before writing a repro by hand.
+
 ### D3. Playability sweep at scale
 Now that the harness is honest (it was scoring its own missing handlers as engine soft-locks), run it
 wide — hundreds of games — and mine any genuine wedge. Each wedge is a real soft-lock and the 1.0 bar is
