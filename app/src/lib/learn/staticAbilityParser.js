@@ -24,6 +24,17 @@
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
+import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
+
+// The closed vocabulary a "cast <X> spells from the top of your library" filter word must belong to. Card
+// types (CR 205.2a) plus every printed creature type; anything else parks the clause. Built LAZILY on first
+// use — CR_CREATURE_TYPES must never be read at module-init time or the import cycle bites.
+const CAST_FROM_TOP_CARD_TYPES = ["creature", "artifact", "enchantment", "instant", "sorcery", "land", "planeswalker", "battle"];
+let castFromTopVocab = null;
+function castFromTopTypeWords() {
+  if (!castFromTopVocab) castFromTopVocab = new Set([...CAST_FROM_TOP_CARD_TYPES, ...CR_CREATURE_TYPES]);
+  return castFromTopVocab;
+}
 
 // GROUP-ACTIVATED grant validator (injected — CR 113.7). Whether a quoted group-grant body ("All Slivers
 // have \"{2}: Regenerate this permanent.\"") is a FULLY-MODELED activated ability is decided by
@@ -1921,7 +1932,24 @@ function parseClause(clause, out, selfName, selfType) {
   // time" is left uncredited: it's also inert in the perfect-info sim, but an existing pin (topCardRouter's Iron
   // Lad) deliberately keeps such cards body-only, so crediting it is a conservative FN we decline. Future Sight
   // still flips on its play-from-top permission line below (the enforced one that actually matters).
-  if (/^play with the top card of your library revealed$/.test(c)) { out.push({ inertInfo: true }); return; }
+  // ⭐ BOTH top-card INFORMATION statics are credited inert. "Play with the top card of your library revealed"
+  // (public info) and "You may look at the top card of your library any time" (private info) are the same
+  // class: looking at a card changes NO game state, and this sim is perfect-information, so neither grants
+  // the engine anything it lacks. Crediting one and not the other was an inconsistency, not a principle.
+  //
+  // ⚠️ THIS OVERTURNS A DELIBERATE PIN, so the reasoning is recorded rather than assumed. The old comment
+  // declined the "look" line because "an existing pin (topCardRouter's Iron Lad) deliberately keeps such
+  // cards body-only" — which is circular: Iron Lad was parked ONLY by this line. Measured directly, its
+  // activated ability ("{T}: Reveal the top card… if it's an artifact card, draw a card") classifies
+  // native-activated on its own, and flying/vigilance are native body. Nothing else held it.
+  //
+  // This is NOT the transformed-text trap: no effect is being credited on rewritten text. The line is
+  // credited because it genuinely does nothing to the board, which is also why it can never be a
+  // claimed-native no-op — there is no effect being dropped. The PLAY/CAST permissions that usually
+  // accompany it are separate lines with their own markers and their own runtime enforcement, so this
+  // credits the information half only and never the permission half.
+  if (/^play with the top card of your library revealed$/.test(c)
+    || /^you may look at the top card of your library any time$/.test(c)) { out.push({ inertInfo: true }); return; }
   if (/^you may play lands and cast spells from the top of your library$/.test(c)) {
     out.push({ playFromTop: { lands: true, spellFilter: "any" } });
     return;
@@ -1934,6 +1962,33 @@ function parseClause(clause, out, selfName, selfType) {
   if (/^you may play lands from the top of your library$/.test(c)) {
     out.push({ playFromTop: { lands: true, spellFilter: null } });
     return;
+  }
+  // ⭐ TYPE-FILTERED CAST-FROM-TOP — the biggest wording in this family: "you may cast CREATURE spells from the
+  // top of your library" alone is 9 cards, every one parked (Augur of Autumn #1124, Elven Chorus #1376,
+  // Eladamri #2093), and the filtered forms together outnumber the two bare forms already modeled above.
+  // Both the lands-and-cast and cast-only shapes are matched, so the marker's `lands` half stays honest.
+  //
+  // The filter is a LIST OF TYPE WORDS matched word-boundary against the top card's type line — the same
+  // shape uncounterableCoversSpell already uses, so card types ("creature", "instant and sorcery") and
+  // creature subtypes ("dragon", "angel and human", "cleric, rogue, warrior, and wizard") all work through
+  // one path with no per-word special casing.
+  //
+  // ⚠️ EVERY WORD IS VALIDATED AGAINST A CLOSED SET — card types plus CR_CREATURE_TYPES — and an unlisted
+  // word parks the whole clause. That is the direct lesson of the vacuous-subtype-filter class: a filter no
+  // type line can satisfy would make the card claim native while the permission never offers anything, and
+  // no tier could see it. It costs a real card to hold this line — Galea #12094's "aura and equipment
+  // spells" parks, because Aura and Equipment are non-creature SUBTYPES outside both sets — and that is the
+  // correct trade (a safe FN) rather than widening the vocabulary on a guess.
+  {
+    const ft = c.match(/^you may (play lands and )?cast ([a-z, ]+?) spells from the top of your library$/);
+    if (ft) {
+      const words = ft[2].split(/,|\band\b|\bor\b/).map((w) => w.trim()).filter(Boolean);
+      const valid = words.length > 0 && words.every((w) => castFromTopTypeWords().has(w));
+      if (valid) {
+        out.push({ playFromTop: { lands: !!ft[1], spellFilter: words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)) } });
+        return;
+      }
+    }
   }
 
   // PLAY-LANDS-FROM-GRAVEYARD (Crucible of Worlds / Ramunap Excavator / Icetill Explorer — 9 carriers, census
@@ -3743,6 +3798,35 @@ export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLin
  * filtered/attach-gated variants aren't emitted by the parser). Consumed by legalChoices.actionsPlayFromTopOf-
  * Library to offer the top library card as a real cast/play action, so the credited static is genuinely enforced.
  */
+/**
+ * Merge two cast-from-top spell filters. `null` = no spell permission, `"any"` = unfiltered, an ARRAY = the
+ * type words a castable top card's type line must carry.
+ *
+ * ⚠️ The old merge was `a || b`, which was correct only while the two values were "any" and null. With type
+ * filters it silently DROPS the second permission: an Eladamri ("creature") plus a Mystic Forge ("artifact")
+ * on the same battlefield would grant creature-only, because the first truthy value won. Two permissions
+ * UNION — each independently permits its own spells (CR 118.6) — and "any" absorbs everything.
+ */
+function mergeSpellFilters(a, b) {
+  if (a === "any" || b === "any") return "any";
+  if (!a) return b || null;
+  if (!b) return a;
+  return [...new Set([...a, ...b])];
+}
+
+/**
+ * Does a card's type line satisfy a cast-from-top spell filter? `"any"` permits every spell; an ARRAY permits
+ * a card carrying ANY of its words (CR 118.6 grants each permission independently, so the words are a union,
+ * not an intersection — "angel spells and human spells" lets an Angel through even if it is not a Human).
+ * Word-boundary matched so "Elf" never matches "Elfball" and "Art" never matches "Artifact".
+ */
+export function castFromTopFilterAllows(spellFilter, card) {
+  if (!spellFilter) return false;
+  if (spellFilter === "any") return true;
+  const tl = `${card?.type || card?.type_line || ""}`;
+  return spellFilter.some((w) => new RegExp(`\\b${w}\\b`, "i").test(tl));
+}
+
 export function playFromTopPermission(state, playerId) {
   // MERGED across every granting permanent, not first-wins. Two permissions of DIFFERENT breadth can be on
   // the battlefield at once (Courser of Kruphix grants lands only, Future Sight grants lands and spells),
@@ -3753,7 +3837,7 @@ export function playFromTopPermission(state, playerId) {
     for (const d of parseStaticAbilities(perm.card)) {
       if (!d.playFromTop) continue;
       merged = merged
-        ? { lands: merged.lands || d.playFromTop.lands, spellFilter: merged.spellFilter || d.playFromTop.spellFilter }
+        ? { lands: merged.lands || d.playFromTop.lands, spellFilter: mergeSpellFilters(merged.spellFilter, d.playFromTop.spellFilter) }
         : { ...d.playFromTop };
     }
   }

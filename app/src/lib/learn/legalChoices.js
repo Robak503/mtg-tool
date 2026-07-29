@@ -76,7 +76,7 @@ registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 // with coverage.js's identical registration; see registerLevelerCardValidator in staticAbilityParser.js.
 registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, parseStaticAbilities } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
@@ -2500,7 +2500,11 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     // GATED ON THE SPELL HALF: a LANDS-ONLY permission (Oracle of Mul Daya, Courser of Kruphix) grants no
     // right to cast anything. Ungated, those two would cast spells off the library top — a much bigger card
     // than the printed one, on two top-2500 staples.
-    if (!perm.spellFilter) return actions;
+    // TYPE-FILTERED permissions (Eladamri "creature spells", Mystic Forge "artifact spells") gate on the top
+    // card's type line here. This check is the ENFORCEMENT half of the credited static — without it a
+    // filtered permission would offer ANY top card, which is a bigger card than the one printed and exactly
+    // the false positive the lands-only gate below already exists to prevent.
+    if (!castFromTopFilterAllows(perm.spellFilter, top)) return actions;
     actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false));
   } else if (perm.lands && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
     // LAND — play from the library top if the permission grants lands and a land drop is available.

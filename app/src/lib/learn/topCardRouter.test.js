@@ -58,10 +58,21 @@ describe("TOP-CARD ROUTER v2 — no-else / draw / OR-predicate / scry-compose", 
     expect(p.atoms[1]).toMatchObject({ predicates: ["creature", "land"], thenRoute: "draw", elseRoute: "leave" });
   });
 
-  it("classification: Llanowar Empath (scry-compose ETB) + Track Down (spell) flip; Iron Lad stays (Future-Sight static)", () => {
+  it("classification: Llanowar Empath (scry-compose ETB) + Track Down (spell) flip; Iron Lad now flips too", () => {
     expect(classifyCard({ name: "Llanowar Empath", type: "Creature — Elf Shaman", oracle: "When this creature enters, scry 2, then reveal the top card of your library. If it's a creature card, put it into your hand." })).toBe("native-trigger");
     expect(classifyCard({ name: "Track Down", type: "Sorcery", oracle: "Scry 3, then reveal the top card of your library. If it's a creature or land card, draw a card." })).toBe("native-spell");
-    expect(classifyCard({ name: "Iron Lad", type: "Legendary Creature — Human Hero", oracle: "Flying, vigilance\nYou may look at the top card of your library any time.\n{T}: Reveal the top card of your library. If it's an artifact card, draw a card." })).toBe("body-only");
+    // ⭐ UPDATED 2026-07-28. This asserted body-only, and the PARSER cited this very pin as its reason for
+    // declining to credit "You may look at the top card of your library any time" — which was circular:
+    // Iron Lad was parked ONLY by that line. Measured before changing anything: its activated ability
+    // classifies native-activated standing alone, and flying/vigilance are native body. Nothing else held it.
+    //
+    // The look-at-top static is now credited INERT alongside its already-credited and strictly MORE public
+    // sibling, "play with the top card of your library revealed". Looking changes no game state, and this
+    // sim is perfect-information, so neither grants the engine anything it lacks — there is no effect being
+    // dropped, which is precisely why crediting it cannot become a claimed-native no-op. The PLAY/CAST
+    // permissions that usually accompany it are separate lines carrying their own markers and their own
+    // runtime enforcement, so this credits the INFORMATION half only.
+    expect(classifyCard({ name: "Iron Lad", type: "Legendary Creature — Human Hero", oracle: "Flying, vigilance\nYou may look at the top card of your library any time.\n{T}: Reveal the top card of your library. If it's an artifact card, draw a card." })).toBe("native-mixed");
   });
 
   it("runtime: the no-else miss LEAVES the card on top (no zone change, no draw bump)", () => {
