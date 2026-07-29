@@ -246,6 +246,37 @@ anchor silently failed to apply, and using `git checkout` to "restore" **discard
 The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
 mutation round is the standing check — the marker sweep cannot see this class either.
 
+### ✅ THE RESTRICTION WORKLIST IS AUDITED AND CLEAN — no second Mox Opal. Do not re-mine it.
+
+Every remaining entry was checked against the engine, not assumed. **All modeled:**
+```
+Rhystic Study #44 · Mystic Remora #98   a dedicated `taxed-draw` atom (OPPONENT-PAYS-TO-DENY, CR 603.7c)
+                                        with a real payer choice in learnSession. NOT an unconditional draw.
+Torment of Hailfire #614                a dedicated `iterated-edict` atom whose resolver drives the
+                                        X × opponents pausing choice chain. Its own comment names the naive
+                                        split as "a forbidden partial" — the exact hazard, already handled.
+Weathered Wayfarer #1412                legalChoices ~1736 gates on `ab.condition` via evaluateInterveningIf,
+                                        and uses `!== true` so an UNPARSEABLE condition also blocks. Safe.
+can't-be-blocked-except-by              ignoring a blocking restriction makes the attacker EASIER to block —
+                                        weaker than printed, the safe direction. Deprioritized, not skipped.
+```
+**⚠️ And one fixture lesson, again:** my board test showed Weathered Wayfarer's ability offered in NEITHER
+the condition-true nor condition-false case, which looked like a dead gate. `evaluateInterveningIf` answers
+that exact string **`true`** when asked directly — the fixture was incomplete, not the engine. *Isolate the
+predicate before concluding the mechanism is broken.*
+
+### 🎯 CONCRETE FOLLOW-UP — the 16 parked mana cards can be RESTORED properly
+
+`b84252af` routes condition-gated mana sources out entirely (a safe FN) "until conditions are real". **They
+are more real than that fix assumed:** `evaluateInterveningIf` already answers these gates —
+`"you control three or more artifacts"` → `false` on an empty board, correctly. So the honest fix is to keep
+`manaProduction` and have **`manaSources` filter on the condition at runtime**, exactly as `legalChoices`
+~1736 already does for activated abilities. That restores Mox Opal #241 and 15 others as the cards they
+actually are, instead of leaving them parked.
+
+**Scope note before starting:** the source list is consumed by the payment planner in several places, so the
+condition must gate at `manaSources` (one chokepoint), never at each consumer.
+
 ### ⭐⭐ THE RULE THAT MAKES THIS WHOLE SEAM TRACTABLE — DIRECTION, NOT PRESENCE
 
 Auditing the tail-injection probe's top five clusters (~110 of its 165 cards) found **exactly one** defect.
